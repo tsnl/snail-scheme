@@ -10,13 +10,13 @@ each can return if a program needs it.
   checking with typeclasses, effect rows and monomorphization. Normalization
   by evaluation and implicit arguments would add type-level computation
   no program uses. Ownership has two grades, linear and omega, found from
-  a type's structure, a declaration's `Move` or `Drop`, and the
+  a type's structure, a `Drop` instance, and the
   `(Copy A)` a definition requires ([ownership](ownership.md)); there are
   no grade variables.
-- **Checked interfaces.** Separate compilation hashes each library's
-  interface to decide what to rebuild, but writes no interface file.
-  Development sessions retain checked code and module text in memory; a
-  cold process checks from source. Wire schemas come from the checked program.
+- **Incremental compiler state.** Every build expands, checks and emits its
+  complete dependency closure. There is no retained compiler Session,
+  interface hashing or checked-code/Wasm reuse. Wire schemas come from the
+  checked program.
 - **The WGSL backend.** The renderer's shaders are WGSL text that shares no
   structs with Snail Scheme code beyond fixed instance and material layouts. The
   runtime and graphics plan proposes shaders written as S-expressions.
@@ -29,8 +29,8 @@ each can return if a program needs it.
 - Local bodies are sequential: a local function may call itself but not a
   later local definition.
 - Named functions require an annotation on every parameter. Generic variables
-  and class obligations appear on the definition; unannotated values retain
-  the existing inference rules.
+  and class obligations appear on the definition. Direct lambda definitions
+  can infer their function types; local values also use inference.
 - Effect labels take no type parameters, and operations are monomorphic.
   [Parameterized effects](effects.md#proposed-parameterized-effects) are
   proposed with one fixed application per handler; operation-local
@@ -42,8 +42,10 @@ each can return if a program needs it.
 Snail Scheme deliberately omits R7RS compatibility, `call/cc`, `dynamic-wind`,
 a dynamic numeric tower, source borrows, callable classes, `dyn`, `impl`,
 `FnMut` and inline records. These are design decisions, not compatibility
-bugs waiting for implementation. Top-level statements are excluded, but
-value definitions lazily cache shared runtime values, including mutable objects.
+bugs waiting for implementation. Top-level definitions bind functions; there
+are no global values, lazy caches or top-level statement execution. Instance
+dispatch, named instance sets, plugins, code pointers, declaration metadata,
+implicit Any conversions and resizable vectors have also been removed.
 
 Mutually recursive local functions, class superclasses, literals at generic
 numeric types and overflow-checked arithmetic remain possible future work.

@@ -11,6 +11,8 @@ import {tmpdir} from 'node:os';
 import {basename, join} from 'node:path';
 import {delay, startDevelopment} from './development-service.mjs';
 
+const modules = output => JSON.parse(fs.readFileSync(join(output.directory, 'modules.json'), 'utf8')).modules.length;
+
 const root = process.argv[2], parent = fs.realpathSync(fs.mkdtempSync(join(tmpdir(), 'snail-project-attempts-')));
 const project = join(parent, 'project'), gate = join(parent, 'gate');
 const write = (name, text) => { const path = join(project, name); fs.mkdirSync(join(path, '..'), {recursive: true}); fs.writeFileSync(path, text); };
@@ -96,7 +98,7 @@ async function throughTheService() {
 
     assert.equal((await service.command('/api/build')).status, 202);
     const reused = await service.settled(repaired.id);
-    assert.ok(reused.published.targets.every(target => target.compiled === 0), 'manual builds reuse successful sessions');
+    assert.ok(reused.published.targets.every(target => target.compiled === modules(target)), 'manual builds recompile every module');
     write('data/store.sqlite', 'database data');
     write('store.sqlite-wal', 'journal');
     assert.equal((await service.get('/api/project')).status, 200); // A listing awaits a fresh reconciliation.
@@ -124,11 +126,11 @@ async function throughTheService() {
     write('slow.sld', `(generate-library (slow)
       (import (snail core base) (snail core io) (snail shell syntax))
       (library-syntax (list "slow") (list "message") (list (list "snail" "core" "base"))
-        (list (form "define" (list (SymbolSyntax "message")
+        (list (form "define" (list (form "message" (Nil))
           (form "→" (list (SymbolSyntax "String")))
           (StringSyntax (read-file "${gate}")))))))`);
     write('next-public/index.html', '<!doctype html><title>before</title>');
-    write('main.sld', '(import (snail core base) (snail core io) (slow)) (define (main) (→ Unit) (! output-port) (write-line message))');
+    write('main.sld', '(import (snail core base) (snail core io) (slow)) (define (main) (→ Unit) (! output-port) (write-line (message)))');
     write('project.datum', description('next-public'));
     writer = await fsp.open(gate, 'w'); // The producer has reached its blocking read.
     const blocked = await service.status();
@@ -180,4 +182,4 @@ try {
 } finally {
   fs.rmSync(parent, {recursive: true, force: true});
 }
-console.log('project attempts: fresh diagnostics, disk inputs, supersession, cache reuse and shutdown');
+console.log('project attempts: fresh diagnostics, disk inputs, supersession, complete rebuilds and shutdown');

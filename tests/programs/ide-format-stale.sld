@@ -63,7 +63,7 @@
     (let ((loaded (● (with-memory-dom (Nil)
                                       (lambda ()
                                         (finished
-                                         (run-reactor (begin-session initial)
+                                         (run-reactor (begin-session (initial))
                                                       (list (Open "main.sld"))
                                                       (lambda (model message)
                                                         (update-session model message))

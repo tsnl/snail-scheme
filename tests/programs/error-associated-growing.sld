@@ -3,12 +3,13 @@
 
 (typeclass (Grow A)
   (type Output)
-  (: grow (Fn A → Output)))
+  (declare (grow (value A)) (→ Output)))
 
 (instance (Grow A)
   (⊨ (Grow (List A)))
   (type Output (Grow.Output (List A)))
-  (define grow (lambda (value) (grow (list value)))))
+  (define (grow (value A)) (→ (Grow.Output (List A)))
+    (grow (list value))))
 
 (define main
   (lambda ()

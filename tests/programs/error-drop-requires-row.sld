@@ -7,6 +7,6 @@
   ((id I64)))
 
 (instance (Drop (! e) Handle)
-  (define drop
-    (lambda (handle) (match handle
-                       ((Handle _) (unit))))))
+  (define (drop (handle Handle)) (→ Unit) (! e)
+    (match handle
+      ((Handle _) (unit)))))

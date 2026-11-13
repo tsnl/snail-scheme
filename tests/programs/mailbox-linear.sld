@@ -24,10 +24,10 @@
     (call-once (mailbox-receive mailbox))
     (consume mailbox (- count 1))))
 
-(define main
-  (lambda ()
-    (let ((mailbox (make-mailbox)))
-      (dispatch-local (once (lambda () (consume mailbox 2))))
-      (dispatch-local (once (lambda () (produce mailbox))))
-      (write-line "main returns"))
-    (unit)))
+(define (main) (→ Unit) (! host mut output-port tasks)
+
+  (let ((mailbox (make-mailbox)))
+    (dispatch-local (once (lambda () (consume mailbox 2))))
+    (dispatch-local (once (lambda () (produce mailbox))))
+    (write-line "main returns"))
+  (unit))

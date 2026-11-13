@@ -28,9 +28,8 @@ Chez's host control facilities are implementation details of this adapter.
 They do not expose `call/cc`, `dynamic-wind`, a borrow checker or a numeric
 tower to Snail programs. The adapter need only execute the effects used by
 the compiler; arbitrary source handlers are compiled by the compiler itself.
-Top-level value initializers also become ordinary Wasm code, using the same
-Rust scalar services as any runtime expression. Chez needs no separate scalar
-evaluator bridge.
+All top-level definitions are functions. Runtime values are constructed by
+those functions; Chez needs no separate scalar evaluator bridge.
 
 The compiler must not depend on differences in host integer overflow,
 argument evaluation order or table iteration. Stateful sibling operations

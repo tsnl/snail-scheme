@@ -24,7 +24,7 @@
 
     ;; ---- Cells ----
 
-    (define map-size (→ I64) 80)
+    (define (map-size) (→ I64) 80)
 
     (struct Cell
       ((x I64)
@@ -35,16 +35,16 @@
       (and (= (● a x) (● b x)) (= (● a y) (● b y))))
 
     (define (cell-index (cell Cell)) (→ I64)
-      (+ (● cell x) (* map-size (● cell y))))
+      (+ (● cell x) (* (map-size) (● cell y))))
 
     (define (index-cell (index I64)) (→ Cell)
-      (Cell (remainder index map-size) (quotient index map-size)))
+      (Cell (remainder index (map-size)) (quotient index (map-size))))
 
     (define (in-bounds? (cell Cell)) (→ Bool)
       (and (<= 0 (● cell x))
-           (< (● cell x) map-size)
+           (< (● cell x) (map-size))
            (<= 0 (● cell y))
-           (< (● cell y) map-size)))
+           (< (● cell y) (map-size))))
 
     (define (distance-squared (a Cell) (b Cell)) (→ I64)
       (let ((dx (- (● a x) (● b x))) (dy (- (● a y) (● b y))))
@@ -107,7 +107,7 @@
     (define (crossing-path (open (Vector Bool)) (goals (List Cell)) (start Cell)) (→ (List Cell))
       (unsafe-total
        (lambda ()
-         (let ((from (make-vector (* map-size map-size) -1)))
+         (let ((from (make-vector (* (map-size) (map-size)) -1)))
            (for-each (lambda (goal) (vector-set! from (cell-index goal) (cell-index goal))) goals)
            (let round ((current goals) (next (Nil)))
              (match current
@@ -139,7 +139,7 @@
     (define (distance-field (open (Vector Bool)) (goals (List Cell))) (→ (Vector I64))
       (unsafe-total
        (lambda ()
-         (let ((distance (make-vector (* map-size map-size) -1)))
+         (let ((distance (make-vector (* (map-size) (map-size)) -1)))
            (for-each (lambda (goal) (vector-set! distance (cell-index goal) 0)) goals)
            (let loop ((frontier goals) (next (Nil)))
              (match frontier

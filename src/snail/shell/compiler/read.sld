@@ -22,12 +22,7 @@
    Syntax
    Atom
    Ident
-   Ident-name
-   Ident-mark
-   Ident-loc
    Form
-   Form-items
-   Form-loc
    Mark
    syntax-loc
    datum=?
@@ -221,7 +216,7 @@
     ;; diagnostic, and either hands it to its caller or goes on to the
     ;; pass's next item (`recovering`).
 
-    (define (compile-error (loc Loc) (message String)) (→ A) (! compile) (∀ A)
+    (define (compile-error (loc Loc) (message String)) (→ A) (! compile) (∀ (A))
       (absurd (fail (Diagnostics (SourceDiagnostic loc message) (Nil)))))
 
     ;; What a compile asks its caller for when it was not supplied it: the
@@ -248,7 +243,7 @@
       (Failed ((diagnostics Diagnostics)))
       (Requested ((request CompilerRequest))))
 
-    (define (compiling (work (Fn → T ! compile e))) (→ (Result T Stop)) (! e) (∀ T e)
+    (define (compiling (work (Fn → T ! compile e))) (→ (Result T Stop)) (! e) (∀ (T e))
       (handle compile
           ((fail (lambda (diagnostics) (Err (Failed diagnostics))))
            (need (lambda (request) (Err (Requested request)))))
@@ -262,7 +257,7 @@
     (define (recovering (work (Fn → T ! compile e)))
       (→ (Result T Diagnostics))
       (! compile e)
-      (∀ T e)
+      (∀ (T e))
       (handle compile
           ((fail (lambda (diagnostics) (Err diagnostics)))
            (need (lambda (request) (absurd (need request)))))
@@ -274,7 +269,7 @@
     (define (failures-of (check (Fn A → Unit ! compile e)) (items (List A)))
       (→ (List SourceDiagnostic))
       (! compile e)
-      (∀ A e)
+      (∀ (A e))
       (⊨ (Copy A) (Drop e A))
       (concatenate (map (lambda (item)
                           (match (recovering (lambda () (check item)))
@@ -524,11 +519,11 @@
       (let* ((chunk (read-byte-chunk source index loc))
              (bytes (● chunk first))
              (next (● chunk second)))
-        (if (< (vector-length bytes) byte-chunk)
+        (if (< (vector-length bytes) (byte-chunk))
             (Pair (Atom (DBytes (vector-concatenate (reverse (Cons bytes chunks)))) loc) next)
             (read-bytes source next loc (Cons bytes chunks)))))
 
-    (define byte-chunk 4096)
+    (define (byte-chunk) (→ I64) 4096)
 
     ;; Up to `byte-chunk` bytes, and the index after them: past the closing
     ;; parenthesis when fewer remain.
@@ -536,7 +531,7 @@
     (define (read-byte-chunk (source Source) (index I64) (loc Loc)) (→ (Pair Bytes I64)) (! compile)
       (let loop ((index index) (bytes (Nil)) (count 0))
         (let ((start (skip-atmosphere source index)))
-          (cond ((= count byte-chunk) (Pair (list->vector (reverse bytes)) start))
+          (cond ((= count (byte-chunk)) (Pair (list->vector (reverse bytes)) start))
                 ((at-end? source start) (compile-error loc "unclosed byte vector"))
                 ((char-is? source start #\)) (Pair (list->vector (reverse bytes)) (+ start 1)))
                 (else (let ((end (token-end source start)))
@@ -627,7 +622,7 @@
               ((and (<= 65 code) (<= code 70)) (Some (- code 55)))
               (else (None)))))
 
-    (define character-names (→ (List (Pair String Char)))
+    (define (character-names) (→ (List (Pair String Char)))
       (list (Pair "space" #\space)
             (Pair "newline" #\newline)
             (Pair "tab" #\tab)
@@ -648,7 +643,7 @@
               ((= (string-length name) 1) (string-ref name 0))
               ((char=? (string-ref name 0) #\x) (hex-char source (+ start 1) end loc))
               (else
-               (match (find (lambda (entry) (string=? (● entry first) name)) character-names)
+               (match (find (lambda (entry) (string=? (● entry first) name)) (character-names))
                  ((Some entry) (● entry second))
                  ((None) (compile-error loc (string-append "unknown character name " name))))))))
 
@@ -832,7 +827,7 @@
         ((FloatToken) (DFloat text))
         (_ (malformed loc (string-append "the number " text " does not read as one")))))
 
-    (define (malformed (loc Loc) (problem String)) (→ A) (! compile) (∀ A)
+    (define (malformed (loc Loc) (problem String)) (→ A) (! compile) (∀ (A))
       (compile-error loc (string-append "malformed generated syntax: " problem)))
 
     )

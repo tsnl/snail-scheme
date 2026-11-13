@@ -192,19 +192,19 @@
       (Hover ((action I32) (argument I32)))
       (Elapsed ((milliseconds I32))))
 
-    (define key-left (→ I32) 1)
+    (define (key-left) (→ I32) 1)
 
-    (define key-right (→ I32) 2)
+    (define (key-right) (→ I32) 2)
 
-    (define key-up (→ I32) 3)
+    (define (key-up) (→ I32) 3)
 
-    (define key-down (→ I32) 4)
+    (define (key-down) (→ I32) 4)
 
-    (define key-escape (→ I32) 27)
+    (define (key-escape) (→ I32) 27)
 
-    (define key-enter (→ I32) 13)
+    (define (key-enter) (→ I32) 13)
 
-    (define key-space (→ I32) 32)
+    (define (key-space) (→ I32) 32)
 
     ;; The kinds match the input encoding in host/browser/host.mjs.
 
@@ -257,7 +257,7 @@
     (struct Gestures
       ((contacts (List Contact))))
 
-    (define no-gestures (→ Gestures) (Gestures (Nil)))
+    (define (no-gestures) (→ Gestures) (Gestures (Nil)))
 
     ;; Reads one input, returning the pointers still pressed and what the
     ;; input meant. Inputs other than pointers mean nothing here.
@@ -281,8 +281,6 @@
         (match pressed
           ((Cons _ (Nil)) pressed)
           (_ (map (lambda (c) (Contact-mode-set c (Pinched))) pressed)))))
-
-
 
     (define (without-contact (contacts (List Contact)) (pointer I32)) (→ (List Contact))
       (filter (lambda (c) (not (= (● c pointer) pointer))) contacts))
@@ -462,7 +460,7 @@
        (roughness F32)))
 
     ;; Untextured and fully rough, as a matte dielectric.
-    (define plain (Material (None) 0.0 1.0))
+    (define (plain) (→ Material) (Material (None) 0.0 1.0))
 
     ;; A fixed item turns by its yaw alone; an upright one also turns about
     ;; the vertical axis to face the camera, as sprites do.
@@ -495,7 +493,7 @@
     ;; An unlit, plain item standing still.
 
     (define (item (mesh Mesh) (position Vec3) (scale Vec3) (yaw F32) (color I32)) (→ Item)
-      (Item mesh position scale yaw color 0.0 position plain (Fixed)))
+      (Item mesh position scale yaw color 0.0 position (plain) (Fixed)))
 
     ;; A texture on a quad `width` by `height` world units, its bottom center
     ;; at `position`, standing upright toward the camera: a sprite in a 2.5D
@@ -1021,12 +1019,12 @@
     ;; ---- Scene applications ----
 
     (typeclass (Scene S)
-      (: scene-initialize (Fn I32 I32 I32 → S))
-      (: scene-update (Fn S Input → S))
-      (: scene-view (Fn S → Frame))
-      (: scene-hud (Fn S → (List Panel)))
-      (: scene-save (Fn S → Bytes))
-      (: scene-restore (Fn Bytes → S)))
+      (declare (scene-initialize (seed I32) (width I32) (height I32)) (→ S))
+      (declare (scene-update (state S) (input Input)) (→ S))
+      (declare (scene-view (value S)) (→ Frame))
+      (declare (scene-hud (value S)) (→ (List Panel)))
+      (declare (scene-save (value S)) (→ Bytes))
+      (declare (scene-restore (bytes Bytes)) (→ S)))
 
     ;; This adapter supplies Application through ordinary instance evidence.
     ;; A project's selected type may be an alias for (SceneApplication Game).
@@ -1046,7 +1044,7 @@
     (define (initial-scene (entry (Entry (SceneApplication S))))
       (→ S)
       (! events)
-      (∀ S)
+      (∀ (S))
       (⊨ (Scene S))
       (scene-initialize (random-seed) (canvas-width) (canvas-height)))
 
@@ -1057,7 +1055,7 @@
     (define (scene-loop (save (Fn S → Unit ! events storage tasks)) (state S) (since-hud I32))
       (→ Unit)
       (! mut screen events storage tasks page)
-      (∀ S)
+      (∀ (S))
       (⊨ (Scene S) (PageState S) (Copy S) (Drop (!) S))
       (match (next-event)
         ((FrameEvent elapsed)

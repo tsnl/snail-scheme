@@ -59,7 +59,7 @@ assert.match(errors.join('\n'), /a deliberate boundary trap/);
 assert.equal(api.value(owned('state', checkpoint)), 42n, 'a trap preserves the opaque checkpoint');
 assert.equal(api.binary(), 4);
 assert.equal(api.empty(), 0);
-assert.equal(api.grown(), 2);
+assert.equal(api.updated(), 2);
 assert.deepEqual(seen, [['text', 1], ['bytes', 7, [0, 255, 128, 1]], ['bytes', 0, []], ['bytes', 9, [1, 2]]]);
 const result = owned('managed');
 assert.equal(api['result-number'](result), 42);

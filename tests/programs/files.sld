@@ -4,13 +4,13 @@
  (snail shell text))
 
 ;; Files through the host, with a path whose scalars are not all ASCII.
-(define path "build/tests/files-λ😀.txt")
+(define (path) (→ String) "build/tests/files-λ😀.txt")
 
 (define (main) (→ Unit) (! fs output-port)
-  (write-file path "first line\nsecond λ line\n")
-  (display (file-exists? path))
+  (write-file (path) "first line\nsecond λ line\n")
+  (display (file-exists? (path)))
   (newline)
-  (write-string (read-file path))
+  (write-string (read-file (path)))
   (write-line (string-foldcase "Straße ΣΑΣ"))
   ;; A handler receives each whole path, so it can decide by name alone, and
   ;; can list a directory from memory: three scalars with a NUL between two

@@ -90,12 +90,12 @@
                              (show (● model saved)))))
 
 (define (typed (text String)) (→ Cue)
-  (Fire "draft" "input" (Event-value-set no-event text)))
+  (Fire "draft" "input" (Event-value-set (no-event) text)))
 
 (define (clicked (target String)) (→ Cue)
-  (Fire target "click" no-event))
+  (Fire target "click" (no-event)))
 
-(define script (→ (List Cue))
+(define (script) (→ (List Cue))
   (list (typed "milk")
         (clicked "add")
         (typed "eggs")
@@ -110,7 +110,7 @@
   (dispatch-local
    (once (lambda ()
            (let ((result
-                  (with-memory-dom script
+                  (with-memory-dom (script)
                                    (lambda ()
                                      (run-ui (Model (Nil) "" 0 0)
                                              (Nil)

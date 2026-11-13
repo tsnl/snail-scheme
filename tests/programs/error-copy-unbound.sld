@@ -1,7 +1,7 @@
 (import
  (snail core base))
 
-(define (same (value A)) (→ A) (∀ A) (⊨ (Copy B)) value)
+(define (same (value A)) (→ A) (∀ (A)) (⊨ (Copy B)) value)
 
 (define main
   (lambda ()

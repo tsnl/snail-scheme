@@ -28,7 +28,7 @@
        (shared String)
        (heard (List String))))
 
-    (define no-server (→ Server) (Server "" "" (Nil)))
+    (define (no-server) (→ Server) (Server "" "" (Nil)))
 
     (struct Save
       ((notes (List Note))
@@ -53,7 +53,7 @@
       (Ended))
 
     (define (start (seed I32)) (→ Notes)
-      (Notes (Nil) "" 0 0 no-server))
+      (Notes (Nil) "" 0 0 (no-server)))
 
     (define (update (model Notes) (message Message)) (→ (Pair Notes (List (Command Message))))
       (match message
@@ -222,7 +222,7 @@
       (Save (● model notes) (● model next)))
 
     (define (restore (saved Save)) (→ Notes)
-      (Notes (● saved notes) "" (● saved next) 0 no-server))
+      (Notes (● saved notes) "" (● saved next) 0 (no-server)))
 
     (define (window (model Notes)) (→ (List (Attribute Message)))
       (list (On "keydown"
@@ -236,10 +236,18 @@
 
     (instance (Interface Notes)
       (type Message Message)
-      (define interface-initialize (lambda (seed) (start seed)))
-      (define interface-update (lambda (model message) (update model message)))
-      (define interface-view (lambda (model) (view model)))
-      (define interface-window (lambda (model) (window model)))
-      (define interface-messages (lambda (model) (list (Load))))
-      (define interface-save (lambda (model) (serialize (save model))))
-      (define interface-restore (lambda (bytes) (restore (deserialize bytes)))))))
+      (define (interface-initialize (seed I32)) (→ Notes)
+        (start seed))
+      (define (interface-update (model Notes) (message Message))
+        (→ (Pair Notes (List (Command Message))))
+        (update model message))
+      (define (interface-view (model Notes)) (→ (Html Message))
+        (view model))
+      (define (interface-window (model Notes)) (→ (List (Attribute Message)))
+        (window model))
+      (define (interface-messages (model Notes)) (→ (List Message))
+        (list (Load)))
+      (define (interface-save (model Notes)) (→ Bytes)
+        (serialize (save model)))
+      (define (interface-restore (bytes Bytes)) (→ Notes)
+        (restore (deserialize bytes))))))

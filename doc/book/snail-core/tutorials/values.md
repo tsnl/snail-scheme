@@ -4,8 +4,8 @@ A record is a heap object. Assigning it another name shares that object;
 all fields are mutable. The [field-path example](../types.md#data) shows
 nominal selection through nested records.
 
-Enum fields are mutable too. Their case-specific accessors and setters
-check that the value has the expected case:
+Select an enum case with `match`. Put mutable payload in a struct, then use
+`●`, `set!` and `replace!` to read or change its fields:
 
 ```scheme
 {{#include ../../../../tests/programs/enum-mutation.sld}}
@@ -16,10 +16,9 @@ check that the value has the expected case:
 ```
 
 The first three lines show two names observing one object. The last two
-show that top-level values obey the same sharing rule: `cycle` initializes
-once, and both reads see the mutation. Its link still points to itself.
-Initializers must be effect-free; ordinary effectful work belongs in `main`
-and other functions.
+show a cyclic object's internal alias and a separate call to its factory.
+Each call constructs a fresh graph; the second graph keeps its original value.
+Bind a factory result once and pass it to callers that should share state.
 
 A value with a linear member is linear itself. Use `Rc` when several owners
 must share a resource and its last release must run a finalizer; `WeakRc`

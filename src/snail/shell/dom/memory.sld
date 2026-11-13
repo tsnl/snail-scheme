@@ -76,11 +76,11 @@
        (next-listener I32)
        (lines (List String))))
 
-    (define empty-document (→ Document)
-      (Document (table-set (table-set empty-table "0" (new-entry "#root" ""))
+    (define (empty-document) (→ Document)
+      (Document (table-set (table-set (empty-table) "0" (new-entry "#root" ""))
                            "-1"
                            (new-entry "#window" ""))
-                empty-table
+                (empty-table)
                 1
                 1
                 (Nil)))
@@ -142,7 +142,7 @@
 
     (define (assigned (pairs (List (Pair String V))) (name String) (value (Option V)))
       (→ (List (Pair String V)))
-      (∀ V)
+      (∀ (V))
       (⊨ (Copy V) (Drop (!) V))
       (let ((others (filter (lambda (pair) (not (string=? (● pair first) name))) pairs)))
         (match value
@@ -458,7 +458,7 @@
                       (● found listeners))
            ((Some hearing)
             (Some (Fired (Listener (● hearing id))
-                         (Event-value-set no-event
+                         (Event-value-set (no-event)
                                           (match (property-of document node "value")
                                             ((Some (Text value)) value)
                                             (_ ""))))))
@@ -488,7 +488,7 @@
     (define (change! (state Memory) (operation (Fn Document → (Pair A Document))))
       (→ A)
       (! mut)
-      (∀ A)
+      (∀ (A))
       (⊨ (Copy A) (Drop (!) A))
       (let ((result (operation (● state document))))
         (set! (● state document) (● result second))
@@ -502,8 +502,8 @@
     (define (with-memory-dom (script (List Cue)) (work (FnOnce → T ! dom e)))
       (→ (Pair T Document))
       (! mut e)
-      (∀ T e)
-      (let ((state (Memory empty-document script #f (Nil))))
+      (∀ (T e))
+      (let ((state (Memory (empty-document) script #f (Nil))))
         (let ((value
                (handle dom
                    ((document-root (lambda () (Node 0)))

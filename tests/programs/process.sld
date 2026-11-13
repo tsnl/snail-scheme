@@ -1,11 +1,12 @@
 (import
  (snail core base)
+ (only (snail core forms) host)
  (snail core io)
  (only (snail shell task) tasks dispatch-local)
  (snail shell utf8)
  (snail shell process))
 
-(define (require (result (Result T ProcessError))) (→ T) (∀ T)
+(define (require (result (Result T ProcessError))) (→ T) (∀ (T))
   (match result
     ((Ok value) value)
     ((Err error) (panic (● error code)))))
@@ -30,71 +31,71 @@
 (define (report-error (result (Result T ProcessError)))
   (→ Unit)
   (! output-port)
-  (∀ T)
+  (∀ (T))
   (⊨ (Copy T) (Drop (!) T))
   (match result
     ((Err error) (write-line (● error code)))
     ((Ok _) (panic "the operation succeeded"))))
 
-(define main
-  (lambda ()
-    ;; A program waits on processes from a task, which the scheduler runs once
-    ;; main returns.
-    ;; Both output streams, and the exit status, with output read after exit.
-    (dispatch-local
-     (once (lambda ()
-             (let ((child (shell "echo out; echo err >&2; exit 3")))
-               (write-line (exit-text (require (wait-exit child))))
-               (write-string (read-all child (Stdout)))
-               (write-string (read-all child (Stderr)))
-               (write-line (if (> (● child id) 0) "has a process id" "has no process id"))
-               (require (close-process child)))
+(define (main) (→ Unit) (! host mut output-port process tasks)
 
-             ;; Input echoed back once it is closed.
-             (let ((child (shell "cat")))
-               (display (require (write-input child (string->utf8 "echoed back\n"))))
-               (newline)
-               (require (close-input child))
-               (write-string (read-all child (Stdout)))
-               (write-line (exit-text (require (wait-exit child))))
-               (report-error (write-input child #u8(1)))
-               (require (close-process child)))
+  ;; A program waits on processes from a task, which the scheduler runs once
+  ;; main returns.
+  ;; Both output streams, and the exit status, with output read after exit.
+  (dispatch-local
+   (once (lambda ()
+           (let ((child (shell "echo out; echo err >&2; exit 3")))
+             (write-line (exit-text (require (wait-exit child))))
+             (write-string (read-all child (Stdout)))
+             (write-string (read-all child (Stderr)))
+             (write-line (if (> (● child id) 0) "has a process id" "has no process id"))
+             (require (close-process child)))
 
-             ;; Signals end a sleep; one sent after it has exited reaches nothing.
-             (let ((terminated (shell "exec sleep 10"))
-                   (killed (shell "exec sleep 10")))
-               (require (send-signal terminated (Terminate)))
-               (require (send-signal killed (Kill)))
-               (write-line (exit-text (require (wait-exit terminated))))
-               (write-line (exit-text (require (wait-exit killed))))
-               (report-error (send-signal terminated (Interrupt)))
-               (require (close-process terminated))
-               (require (close-process killed)))
+           ;; Input echoed back once it is closed.
+           (let ((child (shell "cat")))
+             (display (require (write-input child (string->utf8 "echoed back\n"))))
+             (newline)
+             (require (close-input child))
+             (write-string (read-all child (Stdout)))
+             (write-line (exit-text (require (wait-exit child))))
+             (report-error (write-input child #u8(1)))
+             (require (close-process child)))
 
-             ;; A missing executable or directory is an error, not a process.
-             (report-error (spawn (Command "/nonexistent/program" (Nil) ".")))
-             (report-error (spawn (Command "/bin/sh" (list "-c" "true") "/nonexistent/directory")))
+           ;; Signals end a sleep; one sent after it has exited reaches nothing.
+           (let ((terminated (shell "exec sleep 10"))
+                 (killed (shell "exec sleep 10")))
+             (require (send-signal terminated (Terminate)))
+             (require (send-signal killed (Kill)))
+             (write-line (exit-text (require (wait-exit terminated))))
+             (write-line (exit-text (require (wait-exit killed))))
+             (report-error (send-signal terminated (Interrupt)))
+             (require (close-process terminated))
+             (require (close-process killed)))
 
-             ;; A program with no slash is found on PATH and runs as the name it
-             ;; was given, in its directory; one PATH lacks is missing too.
-             (let ((child (require (spawn (Command "sh" (list "-c" "echo $0; pwd") "/")))))
-               (write-string (read-all child (Stdout)))
-               (write-line (exit-text (require (wait-exit child))))
-               (require (close-process child)))
-             (report-error (spawn (Command "no-such-program-on-path" (Nil) ".")))
+           ;; A missing executable or directory is an error, not a process.
+           (report-error (spawn (Command "/nonexistent/program" (Nil) ".")))
+           (report-error (spawn (Command "/bin/sh" (list "-c" "true") "/nonexistent/directory")))
 
-             ;; Closing kills a running child and revokes its handle; closing again
-             ;; succeeds, and a token from another handler is no native handle.
-             (let ((child (shell "exec sleep 10")))
-               ;; A read takes 1 to 65,536 bytes.
-               (report-error (read-output child (Stdout) 0))
-               (require (close-process child))
-               (require (close-process child))
-               (report-error (read-output child (Stdout) 1))
-               (report-error (wait-exit child)))
-             (report-error (close-process (Process (type-convert (ann 1 I32) Any) 0)))
+           ;; A program with no slash is found on PATH and runs as the name it
+           ;; was given, in its directory; one PATH lacks is missing too.
+           (let ((child (require (spawn (Command "sh" (list "-c" "echo $0; pwd") "/")))))
+             (write-string (read-all child (Stdout)))
+             (write-line (exit-text (require (wait-exit child))))
+             (require (close-process child)))
+           (report-error (spawn (Command "no-such-program-on-path" (Nil) ".")))
 
-             ;; Ending the program must kill a child left running.
-             (shell "exec sleep 10")
-             (unit))))
-    (unit)))
+           ;; Closing kills a running child and revokes its handle; closing again
+           ;; succeeds, and a token from another handler is no native handle.
+           (let ((child (shell "exec sleep 10")))
+             ;; A read takes 1 to 65,536 bytes.
+             (report-error (read-output child (Stdout) 0))
+             (require (close-process child))
+             (require (close-process child))
+             (report-error (read-output child (Stdout) 1))
+             (report-error (wait-exit child)))
+           (report-error (close-process (Process (Any (ann 1 I32)) 0)))
+
+           ;; Ending the program must kill a child left running.
+           (shell "exec sleep 10")
+           (unit))))
+  (unit))

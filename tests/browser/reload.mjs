@@ -57,7 +57,7 @@ try {
 
   await edit(source, '"hello again"', '5');
   assert.match(await until(async () => (await notice()).match(/application\.sld:\d+:\d+: .*/)?.[0], 'the failure'), /application\.sld/);
-  await edit(source, '(define greeting (→ String) 5)', '(define greeting (→ String) "fixed")');
+  await edit(source, '(define (greeting) (→ String) 5)', '(define (greeting) (→ String) "fixed")');
   await until(async () => await text('greeting') === 'fixed', 'the fix');
   assert.equal(await text('count'), '2');
 
@@ -137,10 +137,10 @@ try {
   await writeFile(banner, 'linked');
   await writeFile(join(app, 'src/sample/banner.sld'), `(define-library (sample banner) (export print-banner)
     (import (snail core base) (snail core io) (only (snail shell task) tasks) (snail shell resource))
-    (begin (define banner (→ Resource) (link-file "banner.txt"))
+    (begin (define (banner) (→ Resource) (link-file "banner.txt"))
       (define (print-banner) (→ Unit) (! output-port resource tasks)
         (write-line (list->string (map (lambda (byte) (i32->char (u8->i32 byte)))
-                                      (vector->list (read-resource banner))))))))`);
+                                      (vector->list (read-resource (banner)))))))))`);
   // Startup belongs to the explicit Application entry. Relinking calls that
   // entry again; merely importing the library performs no source effects.
   await edit(source, '(snail shell wire))', `(snail shell wire)

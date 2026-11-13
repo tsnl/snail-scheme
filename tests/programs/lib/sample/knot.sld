@@ -10,5 +10,6 @@
                                   (list "knot")
                                   (list (list "snail" "core" "base"))
                                   (list (form "define"
-                                              (list (SymbolSyntax "knot")
-                                                    (IntegerSyntax helper))))))
+                                              (list (form "knot" (Nil))
+                                                    (form "→" (list (SymbolSyntax "I64")))
+                                                    (IntegerSyntax (helper)))))))

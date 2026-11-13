@@ -19,7 +19,7 @@
  (siegework siege)
  (siegework simulation))
 
-(define seeds (→ (List I64)) (list 1 2 3 4 5 6 7 8))
+(define (seeds) (→ (List I64)) (list 1 2 3 4 5 6 7 8))
 
 (define (run (world World) (ticks I64)) (→ World)
   (if (or (= ticks 0) (not (playing? world))) world (run (advance world) (- ticks 1))))
@@ -75,7 +75,7 @@
     (and (playing? world) (= (● world tick) 3000))))
 
 (define (check (claim String) (holds? (Fn I64 → Bool))) (→ Unit) (! output-port)
-  (let ((broken (filter (lambda (seed) (not (holds? seed))) seeds)))
+  (let ((broken (filter (lambda (seed) (not (holds? seed))) (seeds))))
     (write-line (string-append claim
                                ": "
                                (if (null? broken)
@@ -83,9 +83,9 @@
                                    (string-append "broken on seeds "
                                                   (string-join (map show broken) " ")))))))
 
-(define main
-  (lambda ()
-    (check "an extractor and a turret are ready before the first attack" ready-for-first-attack?)
-    (check "an undefended hub falls before tick 1000" undefended-falls?)
-    (check "a hub ringed with turrets holds through tick 3000" defended-holds?)
-    (unit)))
+(define (main) (→ Unit) (! output-port)
+
+  (check "an extractor and a turret are ready before the first attack" ready-for-first-attack?)
+  (check "an undefended hub falls before tick 1000" undefended-falls?)
+  (check "a hub ringed with turrets holds through tick 3000" defended-holds?)
+  (unit))

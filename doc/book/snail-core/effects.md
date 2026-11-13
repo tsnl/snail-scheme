@@ -237,7 +237,7 @@ Using the [built-in function types](types.md#functions):
 
 ```scheme
 (typeclass (Ask T)
-  (: ask (Fn → T)))
+  (declare (ask) (→ T)))
 
 
 (define (greet) (→ String) (! (Ask String))
@@ -261,7 +261,7 @@ A parameterized emitting capability has the same interface mechanism:
 
 ```scheme
 (typeclass (Emit T)
-  (: emit (Fn T → Unit)))
+  (declare (emit (value T)) (→ Unit)))
 
 
 (define (produce) (→ Unit) (! (Emit I64))
@@ -687,8 +687,8 @@ a function's name, and an operation has at most one.
 A control operation has no default. An effect declared with `(around-main)`
 says the runtime supplies a delimiter around the root entry. `tasks` uses
 this facility: `main` runs as a scheduled task and can yield or wait.
-Loading a library runs no source initializer. Its nonfunction top-level values
-have effect-free initializers, run once when first read at runtime.
+Loading a library runs no source initializer: top-level definitions bind
+functions. Each call performs only the effects in its signature.
 
 ## Control handlers
 
@@ -944,23 +944,6 @@ an export, so no unchecked path can call it twice either.
 
 Multi-shot continuations are out of scope: they would need every frame to
 be reachable twice, a cost paid by code that never captures one.
-
-### Conversion failure
-
-`(snail core base)` declares the ordinary control effect `dyn-cast`:
-
-```scheme
-(effect dyn-cast
-  ((ctl conversion-failed (Fn CastError → Never))))
-```
-
-Both explicit and inserted fallible Any conversions require this effect.
-A `handle dyn-cast` may recover with a fallback, return an error value, or
-rethrow to an outer handler; the operation is abortive and has no
-resumption. A general `exn` effect does not authorize it implicitly.
-`try-convert` instead returns a checked value or `CastError` without
-performing `dyn-cast`. The [dynamic values](types.md#explicit-dynamic-values)
-section gives the inference rules, structured errors and library boundaries.
 
 ### Where control cannot reach
 

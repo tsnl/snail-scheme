@@ -88,11 +88,11 @@ example(`(define (f x) (let* ((a (foo x)) (b (bar a)) (c (baz b))) (+ a b c)))
 `, 40);
 example(`(scheme-define (helper value)\n(body value))\n`,
   `(scheme-define (helper value)\n  (body value))\n`);
-example(`(define (sum (left I64) (right I64)) (→ I64) (! io) (∀ T) (⊨ Add T) (+ left right))
+example(`(define (sum (left I64) (right I64)) (→ I64) (! io) (∀ (T)) (⊨ Add T) (+ left right))
 `, `(define (sum (left I64) (right I64))
   (→ I64)
   (! io)
-  (∀ T)
+  (∀ (T))
   (⊨ Add T)
   (+ left right))
 `, 58);

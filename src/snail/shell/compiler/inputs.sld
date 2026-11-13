@@ -34,8 +34,7 @@
 
     ;; An immutable snapshot of a completed target's files: relative paths
     ;; with their bytes, in path order. The host loads the files before
-    ;; expansion starts, and uses retain these same vectors as exact cache
-    ;; evidence, without copying.
+    ;; expansion starts; every use reads that same snapshot.
     (type ArtifactFiles (List (Pair String Bytes)))
 
     ;; What a producer wrote, beside the text its key hashes. A lookup
@@ -51,7 +50,7 @@
       ((artifacts (Table ArtifactFiles))
        (generated (Table Generated))))
 
-    (define no-inputs (→ Inputs) (Inputs empty-table empty-table))
+    (define (no-inputs) (→ Inputs) (Inputs (empty-table) (empty-table)))
 
     (define (supply-artifact (inputs Inputs) (name String) (files ArtifactFiles)) (→ Inputs)
       (Inputs-artifacts-set inputs (table-set (● inputs artifacts) name files)))
@@ -91,7 +90,7 @@
     ;; after the call runs: the entry point's handler takes the request and
     ;; hands it to its caller.
 
-    (define (request-input (request CompilerRequest)) (→ A) (! compile) (∀ A)
+    (define (request-input (request CompilerRequest)) (→ A) (! compile) (∀ (A))
       (absurd (need request)))
 
     ;; A process caller finds a request as a datum in the compile's
@@ -287,7 +286,7 @@
                                           (program-text forms)))
                           (text (producer-text (list "/project/src" "/root/src") forms))
                           (output (list->vector (list (i32->u8 1) (i32->u8 2))))
-                          (inputs (supply-generated no-inputs text output)))
+                          (inputs (supply-generated (no-inputs) text output)))
                      (expect (producer-text (list "/project/src" "/root/src")
                                             (● (generating-stack (read-text printed "printed.sld"))
                                                second))
@@ -295,8 +294,8 @@
                      (expect (generated-output inputs text) (Some output))
                      (expect (generated-output inputs (producer-text (list "/root/src") forms))
                              (None))
-                     (expect (generated-output (Inputs empty-table
-                                                       (table-set empty-table
+                     (expect (generated-output (Inputs (empty-table)
+                                                       (table-set (empty-table)
                                                                   (producer-key text)
                                                                   (Generated "other" output)))
                                                text)

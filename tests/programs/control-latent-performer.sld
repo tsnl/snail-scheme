@@ -11,15 +11,15 @@
 (effect Io
   ((fetch (Fn I64 → I64 ! Async))))
 
-(define main
-  (lambda ()
-    (write-line
-     (show
-      (handle Async
-          ((await (lambda (ticket resume) (write-line "outer Async") (resume (+ ticket 1000)))))
-        (handle Io
-            ((fetch (lambda (ticket) (await ticket))))
-          (handle Async
-              ((await (lambda (ticket resume) (write-line "inner Async") (resume (+ ticket 1)))))
-            (fetch 10))))))
-    (unit)))
+(define (main) (→ Unit) (! output-port)
+
+  (write-line
+   (show
+    (handle Async
+        ((await (lambda (ticket resume) (write-line "outer Async") (resume (+ ticket 1000)))))
+      (handle Io
+          ((fetch (lambda (ticket) (await ticket))))
+        (handle Async
+            ((await (lambda (ticket resume) (write-line "inner Async") (resume (+ ticket 1)))))
+          (fetch 10))))))
+  (unit))

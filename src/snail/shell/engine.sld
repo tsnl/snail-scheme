@@ -68,10 +68,20 @@
       (fold-right (lambda (entry rest)
                     (match (Pair rest (Pair (json-member entry "name") (object-of (Some entry))))
                       ((Pair (Some rest) (Pair (Some (JsonString name)) (Some object)))
-                       (Some (Cons (Pair name object) rest)))
+                       (if (module-name-available? name rest)
+                           (Some (Cons (Pair name object) rest)) (None)))
                       (_ (None))))
                   (Some (Nil))
                   entries))
+
+    ;; The parsed tail is also the set of names already accepted. Library
+    ;; imports cannot shadow runtime services or ambiguously name a provider.
+    (define (module-name-available? (name String) (rest (List (Pair String Object)))) (→ Bool)
+      (and (not (string=? name ""))
+           (not (string=? name "snail.core.support"))
+           (not (and (>= (string-length name) 14)
+                     (string=? (substring name 0 14) "snail.runtime.")))
+           (not (any? (lambda (entry) (string=? name (● entry first))) rest))))
 
     ;; The objects among `entries`, each with a digest.
 
@@ -147,8 +157,8 @@
 
     ;; The host owns Engine. Work captures EngineState, which contains only
     ;; ordinary heap data and a weak scheduler reference. The loaded instances
-    ;; already belong to the host's module namespace; metadata need not keep
-    ;; another library registry.
+    ;; are held by host handles and by their importers; engine metadata need
+    ;; not keep another library registry.
     (struct Engine
       ((scheduler Scheduler)
        (state EngineState)))
@@ -178,8 +188,7 @@
     (define (link-manifest (state EngineState) (manifest Manifest))
       (→ Unit) (! mut host wasm tasks linked-content-store)
       (let ((runtime (link-object manifest "the runtime" (● manifest runtime) (None) (Nil))))
-        (unless (name-instance runtime "snail.core.support")
-          (panic "the host has a runtime for this program already"))
+        (bind-runtime runtime)
         (set! (● state runtime) (Some runtime))
         (set! (● state files)
               (list->vector (map (lambda (object) (object-file manifest (● object digest)))
@@ -205,8 +214,7 @@
       (● (● engine state) status))
 
     ;; Each library linked against the runtime and the libraries before it,
-    ;; in program order, and named in the program's namespace, where a
-    ;; module the program loads while it runs sees it.
+    ;; in program order. The local list supplies each import explicitly.
 
     (define (link-libraries (manifest Manifest)
                             (runtime Module)
@@ -217,11 +225,8 @@
       (match modules
         ((Nil) (reverse libraries))
         ((Cons (Pair name object) rest)
-         (let ((instance (if (string=? name "snail.core.control") loading-program
+         (let ((instance (if (string=? name "snail.core.control") (loading-program)
                              (link-object manifest name object (Some runtime) libraries))))
-           (unless (name-instance instance name)
-             (panic
-              (string-append "no library may be linked as " name ", which the host provides")))
            (link-libraries manifest runtime rest (Cons (Pair name instance) libraries))))))
 
     ;; An object compiled and linked, called `name` in a failure, against

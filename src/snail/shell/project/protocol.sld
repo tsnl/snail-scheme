@@ -120,7 +120,7 @@
 
     (define (field (json Json) (name String) (read (Fn Json → (Option T))))
       (→ (Option T))
-      (∀ T)
+      (∀ (T))
       (⊨ (Copy T) (Drop (!) T))
       (match (json-member json name)
         ((Some value) (read value))
@@ -128,7 +128,7 @@
 
     (define (optional (read (Fn Json → (Option T))) (json Json))
       (→ (Option (Option T)))
-      (∀ T)
+      (∀ (T))
       (⊨ (Copy T) (Drop (!) T))
       (match json
         ((JsonNull) (Some (None)))
@@ -136,7 +136,7 @@
 
     (define (items (read (Fn Json → (Option T))) (json Json))
       (→ (Option (List T)))
-      (∀ T)
+      (∀ (T))
       (⊨ (Copy T) (Drop (!) T))
       (match json
         ((JsonArray values) (read-items read values))
@@ -144,7 +144,7 @@
 
     (define (read-items (read (Fn Json → (Option T))) (values (List Json)))
       (→ (Option (List T)))
-      (∀ T)
+      (∀ (T))
       (⊨ (Copy T) (Drop (!) T))
       (match values
         ((Nil) (Some (Nil)))
@@ -177,7 +177,7 @@
 
     (define (maybe-json (write (Fn T → Json)) (value (Option T)))
       (→ Json)
-      (∀ T)
+      (∀ (T))
       (⊨ (Copy T) (Drop (!) T))
       (match value ((Some item) (write item)) ((None) (JsonNull))))
 
@@ -368,10 +368,10 @@
     ;; counter: clients list paths on change, not after every process-output byte.
     ;; No replay cursor is needed: reconnection starts from current state.
 
-    (define event-kind (→ String) "snapshot")
+    (define (event-kind) (→ String) "snapshot")
 
     (define (state->event (state ServerState)) (→ String)
-      (string-append "event: " event-kind "\ndata: " (json->string (state->json state)) "\n\n"))
+      (string-append "event: " (event-kind) "\ndata: " (json->string (state->json state)) "\n\n"))
 
     (define (read-event (text String)) (→ (Option ServerState))
       (match (string->json text)

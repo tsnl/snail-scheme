@@ -12,7 +12,7 @@
 ;; A top-level `define` names a value, and `:` declares its type. The
 ;; scalars are I32, I64, F32, F64, Bool, Char, String and Unit; an integer
 ;; literal is an I64 unless something says otherwise.
-(define answer (→ I64) 42)
+(define (answer) (→ I64) 42)
 
 ;; A function's type is an arrow from its arguments to its result.
 (define (square (n I64)) (→ I64)
@@ -37,7 +37,7 @@
 
 ;; A list holds values of one type and never changes. Functions are values,
 ;; and `lambda` makes one.
-(define numbers (→ (List I64)) (list 1 2 3 4 5))
+(define (numbers) (→ (List I64)) (list 1 2 3 4 5))
 
 ;; ---- Data ----
 
@@ -71,21 +71,21 @@
 
 ;; A typeclass names operations, and an instance gives them for one type.
 (typeclass (Describe T)
-  (: describe (Fn T → String)))
+  (declare (describe (value T)) (→ String)))
 
 (instance (Describe Point)
-  (define describe
-    (lambda (point)
-      (string-append "(" (i64->string (● point x)) ", " (i64->string (● point y)) ")"))))
+  (define (describe (point Point)) (→ String)
+
+    (string-append "(" (i64->string (● point x)) ", " (i64->string (● point y)) ")")))
 
 (instance (Describe Bool)
-  (define describe
-    (lambda (b) (if b "yes" "no"))))
+  (define (describe (b Bool)) (→ String)
+    (if b "yes" "no")))
 
 ;; `All` makes a definition generic, and `requires` asks for instances.
 ;; Each use is compiled for its own types, so generic code costs what a
 ;; hand-written copy would.
-(define (describe-all (items (List T))) (→ String) (∀ T) (⊨ (Describe T))
+(define (describe-all (items (List T))) (→ String) (∀ (T)) (⊨ (Describe T))
   (string-join (map describe items) " "))
 
 ;; ---- Mutation ----
@@ -134,48 +134,48 @@
                (set! (● a text) (● b text))
                (set! (● b text) temporary)))))
 
-(define main
-  (lambda ()
-    (write-line (string-append "seven squared is " (i64->string (square 7))))
-    ;; Nothing converts implicitly: an I64 becomes an F64 only when asked.
-    (write-line (f64->string (/ (i64->f64 answer) 8.0)))
-    (write-line (sign -3))
-    (display (sum-to 100))
-    (newline)
-    (write (map square (filter (lambda (n) (= (remainder n 2) 1)) numbers)))
-    (newline)
-    (display (fold-left + 0 numbers))
-    (newline)
-    (write (map area (list (Circle (Point 0 0) 2) (Rectangle (Point 1 1) 3 4))))
-    (newline)
-    (for-each (lambda (d)
-                (match (divide 10 d)
-                  ((Ok quotient) (write-line (i64->string quotient)))
-                  ((Err reason) (write-line reason))))
-              (list 2 0))
-    (write-line (describe-all (list (Point 1 2) (Point 3 4))))
-    (write-line (describe-all (list #t #f)))
-    (let ((clicks (Counter 0)))
-      (bump! clicks)
-      (bump! clicks)
-      (display (● clicks count))
-      (newline))
-    (write-line (handle Ask
-                    ((ask (lambda () "world")))
-                  (greet)))
-    (write (handle Emit
-               ((emit (lambda (value resume) (Cons value (resume (unit))))))
-             (count-down 3)
-             (Nil)))
-    (newline)
-    ;; ---- Ownership ----
+(define (main) (→ Unit) (! mut output-port)
 
-    ;; `once` makes work that runs at most once, and the checker proves an
-    ;; owned value is used exactly once: called, passed on or dropped.
-    (let ((job (once (lambda () (write-line "ran once")))))
-      (call-once job))
-    (let ((left (Label "left"))
-          (right (Label "right")))
-      (swap! left right)
-      (write-line (string-append (● left text) " " (● right text))))
-    (unit)))
+  (write-line (string-append "seven squared is " (i64->string (square 7))))
+  ;; Nothing converts implicitly: an I64 becomes an F64 only when asked.
+  (write-line (f64->string (/ (i64->f64 (answer)) 8.0)))
+  (write-line (sign -3))
+  (display (sum-to 100))
+  (newline)
+  (write (map square (filter (lambda (n) (= (remainder n 2) 1)) (numbers))))
+  (newline)
+  (display (fold-left + 0 (numbers)))
+  (newline)
+  (write (map area (list (Circle (Point 0 0) 2) (Rectangle (Point 1 1) 3 4))))
+  (newline)
+  (for-each (lambda (d)
+              (match (divide 10 d)
+                ((Ok quotient) (write-line (i64->string quotient)))
+                ((Err reason) (write-line reason))))
+            (list 2 0))
+  (write-line (describe-all (list (Point 1 2) (Point 3 4))))
+  (write-line (describe-all (list #t #f)))
+  (let ((clicks (Counter 0)))
+    (bump! clicks)
+    (bump! clicks)
+    (display (● clicks count))
+    (newline))
+  (write-line (handle Ask
+                  ((ask (lambda () "world")))
+                (greet)))
+  (write (handle Emit
+             ((emit (lambda (value resume) (Cons value (resume (unit))))))
+           (count-down 3)
+           (Nil)))
+  (newline)
+  ;; ---- Ownership ----
+
+  ;; `once` makes work that runs at most once, and the checker proves an
+  ;; owned value is used exactly once: called, passed on or dropped.
+  (let ((job (once (lambda () (write-line "ran once")))))
+    (call-once job))
+  (let ((left (Label "left"))
+        (right (Label "right")))
+    (swap! left right)
+    (write-line (string-append (● left text) " " (● right text))))
+  (unit))

@@ -12,10 +12,10 @@
   (string-append "released " name))
 
 (instance (Drop (! output-port) Resource)
-  (define drop
-    (lambda (resource) (match resource
-                         ((Resource name)
-                          (write-line (unsafe-total (lambda () (released-name name)))))))))
+  (define (drop (resource Resource)) (→ Unit) (! output-port)
+    (match resource
+      ((Resource name)
+       (write-line (unsafe-total (lambda () (released-name name))))))))
 
 ;; No ordinary call requests Resource's Drop method. Only lowering the
 ;; suspended ownership scope discovers it. Its restriction check must see

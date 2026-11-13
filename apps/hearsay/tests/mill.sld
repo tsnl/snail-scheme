@@ -65,8 +65,8 @@
                                                      (beliefs-text (person-beliefs mill person))
                                                      (if (quiet? mill person) " [quiet]" ""))))
                         (filter (lambda (person) (= (audience-of person) audience))
-                                (iota person-count))))
-            audiences)
+                                (iota (person-count)))))
+            (audiences))
   (for-each (lambda (text) (write-line (string-append "Liability: " text))) (liabilities mill))
   (for-each (lambda (goal)
               (write-line (string-append "Goal: "
@@ -106,37 +106,37 @@
   (show-board (fold-left run-step (new-mill scenario) steps))
   (write-line ""))
 
-(define wait (Act "wait" (Wait)))
+(define (wait) (→ Step) (Act "wait" (Wait)))
 
-(define main
-  (lambda ()
-    ;; People by number: Ana 0, Gus 6, Hana 7, Mo 12, Nia 13, Oda 14, Pim 15,
-    ;; Rhea 17, Tam 19.
-    (game (TwoFaces)
-          (list (Act "deliver mo" (Do (Deliver) 12))
-                wait
-                wait
-                (Act "threat pim" (Do (Threat) 15))
-                wait
-                (Act "pay nia" (Pay 13))
-                (Look "look ana" 0)
-                wait
-                wait
-                wait
-                wait
-                (Look "look gus" 6)))
-    (game (Smear) (list wait wait))
-    (game (Smear)
-          (list (Act "pay oda" (Pay 14))
-                (Act "deliver hana" (Do (Deliver) 7))
-                (Act "pay nia" (Pay 13))
-                (Look "look tam" 19)
-                wait wait wait wait wait wait wait))
-    (game (Sandbox)
-          (list (Act "lie harmless rhea" (Mislead (Harmless) 17))
-                (Act "rough nia" (Do (Rough) 13))
-                (Look "look rhea" 17)
-                wait))
-    (game (Sandbox)
-          (list (Act "rough ana" (Do (Rough) 0)) wait (Act "pay ana" (Pay 0)) (Look "look ana" 0)))
-    (unit)))
+(define (main) (→ Unit) (! output-port)
+
+  ;; People by number: Ana 0, Gus 6, Hana 7, Mo 12, Nia 13, Oda 14, Pim 15,
+  ;; Rhea 17, Tam 19.
+  (game (TwoFaces)
+        (list (Act "deliver mo" (Do (Deliver) 12))
+              (wait)
+              (wait)
+              (Act "threat pim" (Do (Threat) 15))
+              (wait)
+              (Act "pay nia" (Pay 13))
+              (Look "look ana" 0)
+              (wait)
+              (wait)
+              (wait)
+              (wait)
+              (Look "look gus" 6)))
+  (game (Smear) (list (wait) (wait)))
+  (game (Smear)
+        (list (Act "pay oda" (Pay 14))
+              (Act "deliver hana" (Do (Deliver) 7))
+              (Act "pay nia" (Pay 13))
+              (Look "look tam" 19)
+              (wait) (wait) (wait) (wait) (wait) (wait) (wait)))
+  (game (Sandbox)
+        (list (Act "lie harmless rhea" (Mislead (Harmless) 17))
+              (Act "rough nia" (Do (Rough) 13))
+              (Look "look rhea" 17)
+              (wait)))
+  (game (Sandbox)
+        (list (Act "rough ana" (Do (Rough) 0)) (wait) (Act "pay ana" (Pay 0)) (Look "look ana" 0)))
+  (unit))

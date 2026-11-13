@@ -11,13 +11,13 @@
  (snail shell resource)
  (sample linked))
 
-(define image (→ Resource) (link-file "data/./pixel.png"))
+(define (image) (→ Resource) (link-file "data/./pixel.png"))
 
 (define (main) (→ Unit) (! host mut output-port resource tasks)
   (dispatch-local
    (once (lambda ()
            (write-line (greeting-text))
-           (let ((bytes (read-resource image)))
+           (let ((bytes (read-resource (image))))
              (display (vector-length bytes))
              (newline)
              (display

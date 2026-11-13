@@ -1,4 +1,4 @@
 (import
  (snail core base))
 
-(define boxed (→ Any) (once (lambda () (unit))))
+(define (boxed) (→ Any) (once (lambda () (unit))))

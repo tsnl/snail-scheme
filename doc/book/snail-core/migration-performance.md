@@ -1,5 +1,10 @@
 # Migration measurements
 
+The historical sections below describe the APIs and benchmark harnesses at their
+measured revisions. Reproduce each comparison from the revision named in that
+section; harnesses for retired language features are no longer kept in the current
+tree. `scripts/benchmark-cuts.mjs` measures the current simplification against #758.
+
 The first comparison records the Java-style migration in #754. The
 [lazy runtime follow-up](#lazy-runtime-follow-up) below measures the subsequent
 replacement of compile-time evaluation with shared runtime caches.
@@ -252,8 +257,8 @@ to each median; GNU time resolves elapsed time in 10 ms increments.
 
 RSS is the compiler process's peak, not live managed heap. Runtime heap usage
 and whole-program startup are unmeasured. Cached aggregates and counted owners
-now live with their module instance; see [lazy runtime values](types.md#lazy-runtime-values)
-for sharing, finalization and relink lifetime rules.
+lived with their module instance in that revision. The current language has
+since removed global values; see [function-only definitions](types.md#functions-at-top-level).
 
 To reproduce, create checkouts at the two revisions named in this section:
 `BASE_ROOT` is `b3b591ae8`, and the follow-up checkout is `7b77a209e`.
@@ -584,3 +589,124 @@ suites**, Rust **32/32** and **28/28**, formatting, book/Pages and a clean Chez
 bootstrap with identical stage 1/2/3 WAT. The expanded ordering/reentrancy fixture
 also passed directly on both engines after the full Node/Wasmtime runs. No Chibi
 commands ran. Linked modules must rebuild together for the internal frame ABI.
+
+## Language cuts follow-up
+
+This comparison measures the function-only and static-surface cleanup at
+`b64f9f1d6` against #758 (`d10c07779`). The existing baseline compiler was built
+at `35c324eb1`; those two baseline commits have the identical source tree
+`ed9ff9c955100a81c9be3feaf5a006a610bdd3cf`. Both checkouts were clean before and
+after measurement, their commits stayed fixed, and their compiler and shared
+scalar-runtime hashes did not change. [Raw samples and artifact hashes](measurements/language-cuts-20261113.json)
+include the complete forward, reversed and identical-baseline runs.
+
+The cleanup removes implicit Any conversions and conversion effects, dynamic
+instance dispatch and named sets, plugins and implicit module loading, code
+pointers, declaration metadata, general Clone/Move glue, byte inclusion, global
+value initialization and caching, generated field getters and mutable setters,
+colon signatures, growable vectors, incremental compiler sessions, and the
+integer/rational shell libraries. It keeps explicit `(Any value)` and
+`(downcast T boxed)`, function definitions with typed headers, bodyless `declare`,
+grouped quantifiers, fixed-length mutable vectors, direct field paths, and full
+project rebuilds. The monorepo uses factories and explicit shared state.
+
+### Source and executable size
+
+These source counts include comments and embedded unit tests. Compiler source
+means `src/snail/shell/compiler.sld` and its `.sld` submodules. Library source
+means all `.sld` files under `src/`; benchmark data and documentation are excluded.
+
+| Measure | #758 | Cleanup | Change |
+| --- | ---: | ---: | ---: |
+| Compiler source lines | 23,372 | 19,924 | −3,448 (−14.8%) |
+| All source-library lines | 47,198 | 42,981 | −4,217 (−8.9%) |
+| Bootstrapped compiler Wasm | 2,592,046 bytes | 2,253,009 bytes | −13.1% |
+| Linked value workload | 183,375 bytes | 183,503 bytes | +0.07% |
+| Linked Siegework simulation | 394,179 bytes | 390,486 bytes | −0.94% |
+| Linked nested-lowering workload | 329,895 bytes | 327,326 bytes | −0.78% |
+| Linked continuation workload | 188,185 bytes | 188,444 bytes | +0.14% |
+
+This is a substantial reduction, but not one third of the compiler. Parsing,
+macros, nominal and generic typing, typeclasses, effect rows and handlers,
+linear checking, reference counting, specialization, and WasmGC emission remain.
+Their required behavior accounts for most of the remaining source. Typed
+function headers and forwarding functions also replace shorter value aliases
+throughout the libraries.
+
+### Runtime
+
+Measurements use Node 26.8.1 on Linux, pinned to CPU 2. Each case has 21
+alternating pairs after warm-up, except Siegework, which has eleven. Explicit
+garbage collection, instantiation and warm-up are outside the timed interval. Reversed runs create the modules in
+the opposite order in a fresh process. Controls create two instances of the
+same baseline binary. The table maps positional labels back to their actual
+revision: negative percentages mean the cleanup ran faster.
+
+| Workload | Forward medians, baseline → cleanup | Cleanup change, forward / reversed |
+| --- | ---: | ---: |
+| Scalar loop, 20 million iterations | 13.908 → 14.351 ms | +3.2% / −0.1% |
+| Nested records, 5 million updates | 16.507 → 16.715 ms | +1.3% / +8.3% |
+| Retained record list, 300,000 entries | 2.427 → 2.427 ms | +0.0% / +4.2% |
+| Fixed vector, 2 million entries | 2.794 → 2.673 ms | −4.3% / −18.0% |
+| Siegework, 32 deterministic colonies | 355.404 → 348.101 ms | −2.1% / −1.6% |
+| Nested ownership lowering, depth 32 × 10 | 0.166 → 0.175 ms | +5.2% / +6.1% |
+| Nested ownership lowering, depth 128 × 10 | 0.488 → 0.497 ms | +1.7% / +4.7% |
+| Nested ownership lowering, depth 512 × 10 | 1.555 → 1.677 ms | +7.9% / +6.5% |
+| Resume through 128 owned frames × 1,000 | 1.899 → 1.921 ms | +1.2% / +0.3% |
+| Cancel 128 owned frames × 1,000 | 1.545 → 1.549 ms | +0.2% / −0.7% |
+
+The depth-512 lowering slowdown repeats in both orders; its identical-binary
+control differs by about 0.5%. This measures each revision's complete workload:
+input construction, type/location/declaration factories, ownership lowering,
+and output-node counting. It does not isolate the lowering algorithm, and the
+cause of the slowdown has not been profiled. The checksum and number of output
+nodes match at every depth. Runtime continuation resumption/cancellation is a
+separate measurement, shown in the last two rows.
+
+The ordinary runtime results do not establish a general speedup or regression.
+For example, identical baseline binaries differ by 17.5% in the retained-list
+control and 18.4% in the depth-128 resume control. The record-update difference
+also depends strongly on module order. The vector and simulation medians favor
+the cleanup in both orders; those observations describe these workloads and
+this engine, not all applications.
+
+Fresh-process peak RSS medians are essentially unchanged: scalar 67,544 →
+67,548 KiB, records 69,400 → 69,272 KiB, retained lists 110,400 → 110,352 KiB,
+and vectors 83,616 → 83,632 KiB. Each has five observations per revision and
+includes engine compilation and warm-up. These are process peaks, not live
+WasmGC heap measurements.
+
+### Cold compilation and validation
+
+Nine alternating pairs include process startup, compiler instantiation and
+compilation to Wasm text, but exclude linking. GNU time resolves elapsed time
+in 10 ms increments, so the smallest differences are not precise throughput
+estimates.
+
+| Compile to Wasm text | #758 time / peak RSS | Cleanup time / peak RSS |
+| --- | ---: | ---: |
+| Value workload | 0.17 s / 102,528 KiB | 0.16 s / 101,848 KiB |
+| Siegework simulation | 0.69 s / 196,744 KiB | 0.69 s / 191,884 KiB |
+| Nested-lowering program and compiler-library closure | 5.77 s / 209,824 KiB | 4.94 s / 206,064 KiB |
+
+The compiler-library workload compiles about 14.4% faster. Both revisions use
+their own source libraries, including their own IR constructor shapes; this
+is an end-to-end revision comparison.
+
+Validation passed on Node **526/526**, Wasmtime **527/527**, and the compiler
+source on Chez **526/526**, plus all **15 Chromium suites**, Rust tests
+(**32** scalar-support and **28** native), formatting, and the release book/site
+build. A clean Chez bootstrap produced identical stage 1/2/3 Wasm text with
+SHA-256 `add63135930c641f56fa942d57bfb8382fd9ce805b44301c048a9000a3cf2724`.
+No Chibi tests or bootstrap ran.
+
+To reproduce from the measured cleanup revision with both existing compilers
+built, on a quiet machine:
+
+```sh
+BENCH_CPU=2 node --no-warnings scripts/benchmark-cuts.mjs \
+  BASE_ROOT BASE_ROOT/build/compiler/snailc.wasm build/compiler/snailc.wasm
+```
+
+The driver requires clean checkouts, Linux `taskset`, and GNU `time`, and writes
+`build/migration/cuts/results.json`. It verifies unchanged inputs at the end.

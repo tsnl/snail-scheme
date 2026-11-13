@@ -11,7 +11,7 @@
 ;; mutable storage; everything else is total, though some can trap.
 (define-library (snail core primitive)
   (export
-   unit panic unsafe-total unsafe-cast dynamic-cast any-type-id
+   unit panic unsafe-total unsafe-cast
    rc rc-get rc-downgrade weak-rc-upgrade
    once call-once inherit-handlers inherit-handlers-1
    i32-add i32-sub i32-mul i32-quotient i32-remainder i32-and i32-or i32-xor
@@ -45,14 +45,12 @@
    string-generate
    string->vector vector->string
    vector-length vector-ref vector-append subvector make-vector vector-set vector-generate
-   vector vector-set! vector-copy vector-copy! vector-push! vector-take-last!
+   vector vector-set! vector-copy vector-copy!
    set!
    replace!)
   (import
    (snail core forms))
   (begin
-
-    (primitive any-type-id (Fn Any → I64))
 
     ;; ---- Control ----
 
@@ -61,20 +59,11 @@
     ;; mutation stays in storage the function allocates. `unsafe-cast` makes
     ;; a function of whatever type is expected from a Funcref, a function
     ;; another module exports (`(snail shell wasm)`), checking only its Wasm
-    ;; type: a closure that calls it, or, at a fn, the code itself. `dynamic-cast` is its checked counterpart, for a function exposed
-    ;; with `dynamic`: it calls the importer's policy with the signature the
-    ;; expected type has, and makes the function only if the policy accepts
-    ;; it, as a vector of one; otherwise the vector is empty, since Option is
-    ;; declared later, in (snail core base). The function checks the TypeId
-    ;; of each value it receives.
+    ;; type. It constructs a closure that calls the exported code.
     (primitive unit (Fn → Unit))
     (primitive panic (∀ (A) (Fn String → A)))
     (primitive unsafe-total (∀ (A e) (Fn (Fn → A ! e) → A)))
     (primitive unsafe-cast (∀ (A) (Fn Funcref → A)))
-    (primitive dynamic-cast
-               (∀ (A)
-                  (⊨ (Copy A))
-                  (Fn Funcref (Fn (Vector I64) → Bool) → (Vector A))))
 
     ;; ---- Counted ownership ----
 
@@ -270,8 +259,6 @@
     (primitive vector-copy (∀ (A) (⊨ (Copy A)) (Fn (Vector A) → (Vector A))))
     (primitive vector-copy!
                (∀ (A) (⊨ (Copy A)) (Fn (Vector A) I64 (Vector A) I64 I64 → Unit ! mut)))
-    (primitive vector-push! (∀ (A) (⊨ (Copy A)) (Fn (Vector A) A → Unit ! mut)))
-    (primitive vector-take-last! (∀ (A) (⊨ (Copy A)) (Fn (Vector A) → A ! mut)))
 
     ;; `set!` writes a place and `replace!` swaps a value into one and
     ;; answers the old. A place is a declared field, `(● record count)`,

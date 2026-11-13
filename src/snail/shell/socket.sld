@@ -77,13 +77,13 @@
     ;; claimed, and a UDP socket `datagram-queue` datagrams no receive has
     ;; taken; the host refuses what arrives beyond them.
 
-    (define read-limit (→ I32) 65536)
+    (define (read-limit) (→ I32) 65536)
 
-    (define datagram-limit (→ I32) 65507)
+    (define (datagram-limit) (→ I32) 65507)
 
-    (define accept-backlog (→ I32) 64)
+    (define (accept-backlog) (→ I32) 64)
 
-    (define datagram-queue (→ I32) 32)
+    (define (datagram-queue) (→ I32) 32)
 
     ;; ---- Public values ----
 
@@ -123,7 +123,7 @@
                              (host-start-listen ticket
                                                 (address-number endpoint)
                                                 (Endpoint-port endpoint)
-                                                accept-backlog))
+                                                (accept-backlog)))
                            listening)))
          (connect (lambda (endpoint)
                     (native (lambda (ticket)
@@ -135,7 +135,7 @@
                    (native (lambda (ticket) (host-start-accept ticket (listener-handle listener)))
                            connected)))
          (read (lambda (connection maximum)
-                 (if (and (>= maximum 1) (<= maximum read-limit))
+                 (if (and (>= maximum 1) (<= maximum (read-limit)))
                      (native (lambda (ticket)
                                (host-start-read ticket (connection-handle connection) maximum))
                              held-read)
@@ -169,12 +169,12 @@
                            (host-start-bind ticket
                                             (address-number endpoint)
                                             (Endpoint-port endpoint)
-                                            datagram-queue))
+                                            (datagram-queue)))
                          bound)))
          ;; Port 0 names no peer, though a socket may bind to it.
          (send (lambda (socket peer bytes)
                  (cond ((= (Endpoint-port peer) 0) (Err (SocketError "EINVAL")))
-                       ((> (vector-length bytes) (i32->i64 datagram-limit))
+                       ((> (vector-length bytes) (i32->i64 (datagram-limit)))
                         (Err (SocketError "EMSGSIZE")))
                        (else (native (lambda (ticket)
                                        (host-start-send ticket
@@ -184,7 +184,7 @@
                                                         bytes))
                                      count)))))
          (receive (lambda (socket maximum)
-                    (if (and (>= maximum 0) (<= maximum datagram-limit))
+                    (if (and (>= maximum 0) (<= maximum (datagram-limit)))
                         (match (native (lambda (ticket)
                                          (host-start-receive ticket (udp-handle socket) maximum))
                                        held-datagram)
@@ -209,21 +209,21 @@
 
     (define (listener-handle (listener Listener)) (→ I32)
       (let ((token (● listener token)))
-        (match (try-convert token NativeListener)
-          ((Ok native) (● native handle))
-          ((Err _) 0))))
+        (match (downcast NativeListener token)
+          ((Some native) (● native handle))
+          ((None) 0))))
 
     (define (connection-handle (connection Connection)) (→ I32)
       (let ((token (● connection token)))
-        (match (try-convert token NativeConnection)
-          ((Ok native) (● native handle))
-          ((Err _) 0))))
+        (match (downcast NativeConnection token)
+          ((Some native) (● native handle))
+          ((None) 0))))
 
     (define (udp-handle (socket UdpSocket)) (→ I32)
       (let ((token (● socket token)))
-        (match (try-convert token NativeUdpSocket)
-          ((Ok native) (● native handle))
-          ((Err _) 0))))
+        (match (downcast NativeUdpSocket token)
+          ((Some native) (● native handle))
+          ((None) 0))))
 
     ;; An endpoint crosses to the host as two I32s, its port and its
     ;; address, whose octets the host reads as the I32's unsigned bits.
@@ -239,14 +239,14 @@
     (define (native (start (Fn I64 → Unit)) (success (Fn I32 → T)))
       (→ (Result T SocketError))
       (! tasks)
-      (∀ T)
+      (∀ (T))
       (through-host start (lambda (ticket) (answered (host-finish ticket) success))))
 
     ;; What the host holds for an answer is read before the next host call
     ;; ((snail runtime native socket) has the table); a failure holds its
     ;; code. A handle in an answer is the shell's from then on.
 
-    (define (answered (answer I32) (success (Fn I32 → T))) (→ (Result T SocketError)) (∀ T)
+    (define (answered (answer I32) (success (Fn I32 → T))) (→ (Result T SocketError)) (∀ (T))
       (if (< answer 0)
           (Err (SocketError (held-text 0)))
           (Ok (success answer))))
@@ -262,13 +262,13 @@
                        (lambda (index) (i32->char (host-held-byte position (i64->i32 index))))))
 
     (define (listening (handle I32)) (→ Listener)
-      (Listener (type-convert (NativeListener handle) Any) (host-held-number)))
+      (Listener (Any (NativeListener handle)) (host-held-number)))
 
     (define (connected (handle I32)) (→ Connection)
-      (Connection (type-convert (NativeConnection handle) Any)))
+      (Connection (Any (NativeConnection handle))))
 
     (define (bound (handle I32)) (→ UdpSocket)
-      (UdpSocket (type-convert (NativeUdpSocket handle) Any) (host-held-number)))
+      (UdpSocket (Any (NativeUdpSocket handle)) (host-held-number)))
 
     (define (held-read (answer I32)) (→ (Option Bytes))
       (if (= answer 0) (None) (Some (held-bytes 0))))

@@ -5,19 +5,19 @@
 (define (adder (n I64)) (→ (Fn I64 → I64))
   (lambda (x) (+ x n)))
 
-(define (compose (f (Fn B → C)) (g (Fn A → B))) (→ (Fn A → C)) (∀ A B C)
+(define (compose (f (Fn B → C)) (g (Fn A → B))) (→ (Fn A → C)) (∀ (A B C))
   (lambda (x) (f (g x))))
 
 (define (count-down (n I64)) (→ I64)
   (let loop ((i n) (total 0))
     (if (= i 0) total (loop (- i 1) (+ total i)))))
 
-(define add5 (adder 5))
+(define (add5) (→ (Fn I64 → I64)) (adder 5))
 
 (define (main) (→ Unit) (! output-port)
-  (display (add5 10))
+  (display ((add5) 10))
   (newline)
-  (display ((compose add5 (adder 100)) 1))
+  (display ((compose (add5) (adder 100)) 1))
   (newline)
   (display (count-down 1000000))
   (newline)

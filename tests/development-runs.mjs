@@ -10,6 +10,8 @@ import {join} from 'node:path';
 import {setTimeout as delay} from 'node:timers/promises';
 import {dead, startDevelopment} from './development-service.mjs';
 
+const modules = output => JSON.parse(fs.readFileSync(join(output.directory, 'modules.json'), 'utf8')).modules.length;
+
 const root = process.argv[2], directory = fs.realpathSync(fs.mkdtempSync(join(tmpdir(), 'snail-development-runs-')));
 const project = join(directory, 'project'), gate = join(directory, 'gate');
 fs.mkdirSync(project);
@@ -25,10 +27,10 @@ const program = message => `(import (snail core base) (snail core io) (snail she
 const slow = `(generate-library (slow)
     (import (snail core base) (snail core io) (snail shell syntax))
     (library-syntax (list "slow") (list "message") (list (list "snail" "core" "base"))
-      (list (form "define" (list (SymbolSyntax "message")
+      (list (form "define" (list (form "message" (Nil))
         (form "→" (list (SymbolSyntax "String")))
         (StringSyntax (read-file "${gate}")))))))`;
-const slowProgram = '(import (snail core base) (snail core io) (snail shell task) (slow)) (define (main) (→ Unit) (! output-port tasks) (write-line message) (for-each write-line (command-line)) (sleep 600000))';
+const slowProgram = '(import (snail core base) (snail core io) (snail shell task) (slow)) (define (main) (→ Unit) (! output-port tasks) (write-line (message)) (for-each write-line (command-line)) (sleep 600000))';
 function pipe() {
   fs.rmSync(gate, {force: true});
   assert.equal(spawnSync('mkfifo', [gate]).status, 0);
@@ -68,7 +70,7 @@ async function throughTheService() {
     assert.match((await run('app')).attempt.stdout, new RegExp(main(first).directory + '/modules.json'));
     assert.equal((await control('start', 'app')).status, 204); assert.equal((await service.command('/api/build')).status, 202);
     let accepted = await service.settled(first.id);
-    assert.ok(accepted.published.targets.every(target => target.compiled === 0));
+    assert.ok(accepted.published.targets.every(target => target.compiled === modules(target)));
     assert.equal(await pid('app'), firstPid); assert.equal(await pid('side'), firstSide);
     assert.equal((await run('app')).attempt.build, first.id, 'an unchanged child retains its actual accepted build');
     assert.equal((await control('restart', 'app')).status, 204);
@@ -110,15 +112,15 @@ async function throughTheService() {
     assert.equal((await control('start', 'app')).status, 204); await ready('app', 'stopped build\n');
     const beforeSuperseded = await pid('app');
 
-    // A discarded build warms the compiler cache. The following accepted build
-    // still replaces the older running output, even with zero compiled modules.
+    // A discarded build never launches a replacement. The next accepted build
+    // replaces the older running output after compiling all modules again.
     pipe(); assert.equal((await service.command('/api/build')).status, 202); writer = await fsp.open(gate, 'w');
     const superseded = (await service.status()).id;
     assert.equal((await service.command('/api/build')).status, 202);
     fs.renameSync(gate, join(directory, 'superseded-pipe')); fs.writeFileSync(gate, 'newest');
     await writer.writeFile('newest'); await writer.close(); writer = null;
     accepted = await service.settled(superseded); await ready('app', 'newest\n');
-    assert.equal(main(accepted).compiled, 0);
+    assert.equal(main(accepted).compiled, modules(main(accepted)));
     assert.notEqual(await pid('app'), beforeSuperseded); dead(beforeSuperseded);
     assert.ok(frames().some(state => state.build.id === superseded && state.build.phase === 'superseded'));
     assert.ok(!frames().some(state => state.runs.some(run => run.attempt?.build === superseded)));

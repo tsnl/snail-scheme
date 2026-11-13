@@ -9,15 +9,13 @@ Emission consumes that result without revisiting source semantics.
 text ──read───▶ located syntax
      ──expand─▶ resolved program   unique names, declarations, field paths
      ──check──▶ typed program      types, rows, instances, exact-once ownership
-     ──prepare▶ concrete code      initializers, control and cleanup explicit
+     ──prepare▶ concrete code      functions, control and cleanup explicit
      ──emit───▶ WasmGC text ──assemble/link──▶ executable module
 ```
 
 `Prepared` contains declarations, concrete function definitions, an optional
-root entry, exports and host exposures. Nonfunction definitions become
-zero-argument initializer bodies, lowered through the same ownership and
-control passes as functions. Emission puts each behind a lazy cache getter;
-there is no startup initializer list or top-level statement execution.
+root entry, exports and host exposures. Every definition is function code;
+there are no value getters, initializer functions or cached global values.
 
 The compiler is written in Snail Scheme under `src/snail/shell/compiler/`.
 Its host boundary consists of `(snail core base)`, `(snail core table)` and
@@ -44,10 +42,6 @@ It decodes generated-library syntax directly from bytes. The `compile`
 effect carries either diagnostics or a typed request for a missing input;
 `compiling` handles that boundary for each compiler entry.
 
-`annotations.sld` parses documentation metadata once. The expander attaches
-it to canonical declarations, fields and methods. It affects neither type
-identity nor object layout.
-
 `core.sld` defines `Type`, `Scheme`, class evidence, expressions, patterns,
 declarations and the program tables shared by the passes. `expr-children`
 is the common structural inventory; each analysis still decides which
@@ -58,9 +52,7 @@ runtime slot.
 `expand.sld` alone knows binding syntax. It loads libraries, resolves import
 sets, expands hygienic `syntax-rules`, assigns unique names and converts
 forms into expressions and declarations. Top-level names are discovered
-before their bodies, allowing recursive functions and references to later
-constants. Local bodies remain sequential. Typed define headers are parsed
-here; `Fn`, `FnOnce` and lowercase `fn` are type formers, not classes.
+before their bodies, allowing recursive and mutually recursive functions. Local bodies remain sequential. Typed `define` and bodyless `declare` share a header grammar here; `Fn` and `FnOnce` are built-in callable type formers.
 
 Struct field paths remain unresolved only while the receiver type is
 unknown. Once its nominal type is known, checking substitutes the record's
@@ -90,23 +82,17 @@ callback row too early or granting effects absent from its implementation.
 Finalizers contribute their effects at the scope or write that can release
 the last owner.
 
-`conversions.sld` resolves concrete `Any` boundaries. Packaging preserves a
-value's type identity; extraction checks it and performs `dyn-cast` on a
-mismatch. It does not promote numbers or reinterpret collections.
-`dynamic.sld` expands explicitly declared finite instance dispatch into
-ordinary type tests, conversions and calls. The old dynamic Scheme runtime
-and numeric-tower libraries are gone; typed code needs none of those adapters.
-
-A top-level nonfunction initializer must have an empty effect row. A handler
-can discharge an effect locally, and an intentional `unsafe-total` can hide
-private mutation. The resulting initializer is compiled as ordinary runtime code.
+Explicit `(Any value)` and `(downcast T boxed)` become `BoxAny` and
+`Downcast` terms. Packaging preserves type identity; extraction returns `Some`
+only for the requested type, and `None` on mismatch. Neither inserts conversions
+at unrelated boundaries or performs an effect.
+Expansion rejects top-level nonfunctions. Local expressions retain their
+ordinary inference and effect checking.
 
 ### Ownership and lifetimes
 
-`capabilities.sld` determines whether a type is linear and how it is dropped
-or cloned. Every stored field participates. A struct or enum with a linear
-member is linear, regardless of its mutability. Explicit `Move` or `Drop`
-instances can also make a type linear. A generic parameter is linear unless
+`capabilities.sld` determines whether a type is linear and how it is dropped. Every stored field participates. A struct or enum with a linear
+member is linear, regardless of its mutability. A `Drop` instance also makes a type linear. A generic parameter is linear unless
 its contract requires `Copy`.
 
 `Rc T` is the sole owning exception: it can share a linear `T` without
@@ -183,49 +169,15 @@ concrete callees under the appropriate context and rejects unsupported
 control escape. These checks use the original bodies, before lowering has
 hidden their structure.
 
-### Lazy value initialization
-
-Preparation keeps the original source classification: a function is callable
-code; a value may itself contain a callable closure. Only the emitted value
-body is wrapped as a zero-argument function. Contextual control analysis still
-sees the original body, so it distinguishes the initializer's effect row from
-the effects of invoking a returned procedure.
-
-`wasm.sld` emits one getter and two private globals per monomorphic value:
-its cached storage and a state of uninitialized, initializing or ready. A read
-calls the getter with ordinary evidence. The getter rejects initializing,
-sets that state before running the body, stores the result, marks ready, and
-returns an owned read. Reference storage starts nullable; ready proves it is
-non-null. Initializer emission is non-tail so publication cannot be skipped by
-a tail call. No scheduler, dependency graph or synchronization is needed.
-
-Publishing transfers the initializer's owner into the cache. Every returned
-counted value receives the usual retain, including the first read. The cache
-is a root for the module lifetime; collection does not run source finalizers.
-A fatal trap leaves the initializing state in place; there is no retry protocol.
-Importers call the defining instance's getter, sharing the same cache. New
-instances start empty; retained old closures may still call old getters.
-
-A value-global read can initialize or panic. Control preparation therefore
-preserves it before a later yielding operand. Tail-call lowering evaluates a
-cached procedure before its arguments and outgoing-owner releases, just like
-other computed callees. Ordinary named functions keep their direct call path.
-
-Quantified functions specialize normally. The checker permits only stateless
-literal/nullary enum templates as other quantified values; specialization
-expands those directly. Mutable generic cache instances would require a shared
-registry across separately compiled libraries, so they are deliberately absent.
-
 ### WasmGC emission
 
 `wasm.sld` selects one representation per concrete type. Numeric primitives
 and booleans are Wasm scalars. A struct is always a GC struct reference;
 its field is one scalar or reference slot. An enum has a tagged base and
-case subtypes. Every vector has a stable holder containing its logical length
-and replaceable backing array. The active prefix owns its scalar or reference
-elements; spare reference slots are null. Growth replaces the backing array,
-and pop clears its removed slot. Source code cannot name that storage or its
-capacity. There is no inline struct flattening or reconstruction on field writes.
+case subtypes. A vector is an exact-sized GC array. Only vectors with counted
+elements add a holder: an ownership header and an immutable reference to that
+array. Its length comes from the array; there is no capacity or replaceable
+storage. There is no inline struct flattening or reconstruction on field writes.
 
 Completed source references are non-null. Internal Wasm storage and signatures
 admit null so uninitialized slots and suspended results need no fabricated
@@ -307,7 +259,7 @@ The unit of compilation is a library (`source->modules` in
 
 - each monomorphic definition is exported under its global name, as in
   `snail.core.base:map`;
-- each generic definition and alias the library uses is copied in,
+- each generic function the library uses is copied in,
   specialized at the library's own types, as C++ instantiates a template in
   every translation unit that uses it;
 - each monomorphic definition of another library is imported from that
@@ -323,29 +275,12 @@ The checker settles each library's types before it checks the libraries
 that import it, so a definition's type comes from its own library and not
 from how an importer happens to use it.
 
-A **session** (`src/snail/shell/compiler/session.sld`) compiles a program again
-and again, as the development loop does, retaining checked code and Wasm:
-
-- Each build expands current sources, producer outputs and artifacts from
-  scratch. Expansion itself selects instance providers, so an old expansion
-  cannot safely stand in for the current declarations. No saved expansion,
-  scope or replay log survives into another build.
-- A library's **interface** fingerprints all its declarations and imported
-  interfaces, conservatively including monomorphic function bodies. This may
-  rebuild more importers than necessary. Derived instances also depend on their
-  implicit libraries. Artifact bytes, linked files, expanded declaration
-  identities and the final fresh-name counter complete the key. The counter
-  prevents cached local names from colliding after an earlier library changes.
-- Each library's checked items, type schemes and module text are kept
-  under that key and the final program's instance-provider interfaces.
-  Instances can come from a sibling outside a library's imports; named
-  policies participate too. A build checks, specializes and emits only
-  libraries whose combined key changed. A provider edit conservatively
-  invalidates every checked library; an ordinary body edit invalidates its
-  importers. Unchanged builds reuse checked code and module text.
-
-Sessions retain compilation evidence, not a build's providers or files. The
-[input boundary](#compiler-inputs) defines how current inputs validate reuse.
+Every invocation expands current sources, checks every library, specializes
+and emits every reachable function again. There is no compiler Session,
+interface fingerprint, invalidation graph or retained checked-code/Wasm cache.
+The development loop rebuilds all configured targets and runs their producers
+on each attempt. Content-addressed output files still let the browser decide
+which module instances must be relinked.
 
 ## Linking
 
@@ -363,13 +298,10 @@ identical group, and the engine's canonicalization makes them one type
 across modules. A case of an enum without fields declares no type of its
 own, since only the modules that build or match it would declare one.
 
-Snail Scheme types are checked at compile time, each library against the
-interfaces it imports. Nothing checks them at load time: every module of a
-link comes from one build of one session, which recompiles importers
-whenever an interface changes. The engine still checks the WebAssembly
-type of every import, and a value that crosses as `Any` keeps its own
-check at `type-convert`. A plugin comes from another build, so its
-functions are checked when they are looked up ([plugins](#plugins)).
+Snail Scheme types are checked at compile time, each library against its
+imports. Every rebuild checks and emits the complete dependency closure. The
+engine also checks the WebAssembly type of every import. A value crossing as
+`Any` keeps its nominal type identity for explicit `downcast` checks.
 
 Replacing a library's module means linking it and every module after it
 in program order again (`relinkProgram` in `load.mjs`); the modules before
@@ -378,162 +310,38 @@ costs the instantiation of a few modules, and keeps debug code free of the
 indirection that a table of mutable globals, like ELF's global offset
 table, would add to every call across libraries.
 
-### Loading modules at run time
-
-`(snail shell wasm)` is `dlopen` and `dlsym`. `load-module` loads a module
-from a file into the program's own namespace, linked against the runtime,
-the program's modules and the modules loaded before it, by name, and runs
-its `main`. A function the module exports comes out as a `Funcref`, and
-`unsafe-cast` makes it a function of the type the context expects:
-
-```scheme
-(match (load-module "cell" "build/cell.wasm")
-  ((Ok cell)
-   (match (module-export cell "cell:run")
-     ((Ok run) ((ann (unsafe-cast run) (Fn I64 → I64)) 41))
-     ((Err error) (panic (load-error-message error)))))
-  ((Err error) (panic (load-error-message error))))
-```
-
-`unsafe-cast` is a primitive. It wraps the reference in a closure whose
-code casts it to the WebAssembly type of a Snail Scheme function of the
-expected type, which takes the evidence first, and calls it with the
-handlers in scope where the closure is called. At an `Fn`, `(ann
-(unsafe-cast run) (fn I64 → I64))`, the cast is the whole value, with no
-closure around it. The cast is the only check: the engine traps when the
-WebAssembly types differ, and nothing compares Snail Scheme types, so the
-unsafe assumption is visible where it is made.
-
 ### Linking by hand
 
-`load-module` and `load-plugin` link by the host's rules: the runtime, the
-modules of the namespace by name, the host's services, and a stub for a
-host function the host lacks. A loader written in Snail Scheme, such as an
-engine linking a program from its manifest
-([#660](https://github.com/tsnl/snail-scheme/issues/660)), decides those
-rules itself with four operations, which the two hosts must answer alike
-(`tests/programs/wasm-linking.sld` runs on both). `compile-bytes` compiles
-a module; `module-imports` lists what it imports, each a module and field
-name with its kind, function, table, memory or global, which the host
-holds and Snail Scheme reads back a character at a time, as names go the
-other way; `link-module` links it against one `Provider` per import, in
-import order, an export of an instance, the host's own function of that
-name, a function answering a constant, as a linked file's handle is
-imported, or nothing, a function that fails if called, and answers the
-instance, initialized when it exports `_initialize`, or `LinkFailed` when
-a provider is missing or not of the import's type; `run-export` calls an
-export of no argument or one `I64`, such as `main` or a scheduler's
-`tasks:turn`, for its result. `loading-program` is the instance of the
-program that loads, whose exports a loaded module may import, and
-`name-instance` puts a linked instance in the program's namespace, where
-`load-module` sees it. Nothing but initialization runs when a module is
-linked this way: the loader runs its `main` when it chooses.
+The engine uses `(snail shell wasm)` to link a program from its manifest.
+`compile-bytes` compiles a module, `module-imports` lists its imports, and
+`link-module` accepts one explicit `Provider` per import in order. A provider
+is an instance's export, a host service, a constant function, or a function
+that fails if called. Missing or incompatible providers return `LinkFailed`.
+Linking runs `_initialize` when present; the engine starts `main` separately.
 
-### Plugins
+`module-export` returns an untyped `Funcref`. `unsafe-cast` wraps it in an `Fn`
+closure at the requested type, passing the caller's effect evidence. The Wasm
+cast checks representation, not Snail Scheme nominal identity: the caller
+must establish that contract. `run-export` calls a scalar export by name.
 
-A plugin is a program built apart from the one that loads it, compiled one
-library at a time and named by its `modules.json`. Types cannot be loaded:
-the plugin and the program share the types they pass by importing one
-declaration of them, and only functions cross. The plugin marks each
-function it offers:
+`loading-program` identifies the loader. `bind-runtime` selects the loaded
+program's runtime for staging bytes and reporting errors without changing the
+loader's identity. The engine carries library providers in a local list; no
+second host registry or plugin namespace participates in linking.
 
-```scheme
-
-(define (summarize (project Project)) (→ Report) ...)
-(expose summarize "summarize" dynamic)
-```
-
-and the program looks it up at the type it expects:
-
-```scheme
-(match (load-plugin "build/plugin/modules.json")
-  ((Ok plugin)
-   (match (ann (plugin-function plugin "summarize") (Result (Fn Project → Report) LoadError))
-     ((Ok summarize) (summarize project))
-     ((Err error) (panic (load-error-message error)))))
-  ((Err error) (panic (load-error-message error))))
-```
-
-The backend emits two exports for a dynamic function. `"summarize"` takes
-the evidence and an `Any` for each parameter, takes each argument out of
-its `Any`, which tests its TypeId, calls the definition and returns the
-result as an `Any`; every dynamic export of one arity has one WebAssembly
-type. `"summarize:signature"` returns the signature as a `(Vector I64)`:
-the arity, then the identity of each parameter's type and of the result's,
-in 64 bits (`wide-type-id`, FNV-1a over the same text as the 32-bit TypeId,
-kept in two halves so that both hosts compute it alike). The signature is
-compared once, when the function is looked up, so it is worth the wider
-hash; the TypeId an `Any` carries is tested on every call.
-
-The checker adds two rules to `expose`'s for a dynamic function. Its
-parameters and result are data, with no function, `Funcref` or `Any`
-inside: a function type's TypeId says only that it is a function, and an
-`Any`'s nothing of what it holds. And it is pure. Specialization erases every effect
-but the control effects before the backend runs, so neither side's backend
-knows the function's effects and the signature cannot carry them; a
-program that declared fewer effects than the plugin performs would go
-unchecked. Passing the importer's evidence is mechanical once effect
-identities, with their operations' types, reach the backend.
-
-`load-plugin` reads the manifest, makes a namespace and links the plugin's
-modules there in program order, each against those before it, then the
-runtime the program shares with it and the host's modules, as a
-child-first class loader resolves, and runs each module's `main`. The
-namespace is private: a library's module text depends on the program it
-was compiled for, its set of control effects among it, so a plugin has its
-own instances, and its own globals, even of a library the program imports
-too. So a plugin that imports `(snail shell task)` has its own scheduler,
-which no host drives: a task its top level dispatches never runs, and its
-dynamic functions, being pure, cannot dispatch one. The runtime its
-manifest names is not loaded.
-
-`plugin-function` finds `NAME` and `NAME:signature` in the plugin's own
-module, its program's, and calls the signature through `unsafe-cast`: that
-an export so named is a signature is the boundary's one unsafe assumption.
-Then the primitive `dynamic-cast` calls a policy with the signature of the
-type the context expects and, if the policy accepts it, holds the export
-in a closure of that type, which passes each argument as an `Any` and
-takes the result out of one. The policy is a Snail Scheme function,
-`same-signature?`, so loosening it is a library change: strict identity,
-under which a plugin built from another declaration of `Project` is
-refused with `SignatureMismatch` before anything is called. A versioned
-identity, as the JVM's binary compatibility allows, would need every type
-to be non-final, its history kept in source and an append-only checker,
-and an enum could never gain a case, since an old exhaustive `match` would
-reach `unreachable`.
-
-Values cross by reference, with no copy. Every module that declares a type
-declares the same recursion group, so the engine makes them one type across
-the namespaces, and the plugin's casts succeed on the program's values.
-Both checks are needed: WebAssembly's equality is only shape, so
-`Point {x, y}` and `Range {lo, hi}` are one WebAssembly type, while their
-TypeIds differ. `wire` is for where references cannot go: workers, Rust in
-linear memory, native code, disks and networks.
-
-A failure is a `LoadError` value: a file that cannot be read, a manifest
-or module that is not one, a name already linked, an import with no
-provider of its type, an export that is missing or not dynamic, and a
-signature that differs. There is no fault isolation: a trap inside a
-plugin, its `main` included, ends the program.
+`tests/programs/wasm-linking.sld` checks provider selection and failures.
+`wasm-instance-identity.sld` verifies that existing imports keep their original
+provider when a new link uses another instance, and that linking consumers
+does not initialize their providers again. Both run on Node and Wasmtime;
+the identity test also runs in Chromium.
 
 ### Hosts
 
-The host keeps the operations only it can do, as the `wasm` effect: it
-compiles a module from the Bytes the program read, makes a namespace,
-instantiates a module in one under a library name and runs its `main`, and
-finds the functions an instance exports (`wasmImports` in `load.mjs`).
-Namespace 0 is the program's own. Each answers a failure with a negative
-code rather than a throw. A `main` runs inside the host call, so it cannot
-wait for a task, and a plugin cannot yet read the files it links.
-
-The Node runner provides the `wasm` effect for both builds. A statically
-linked program exports nothing of its runtime, so what it loads can link
-only against the host, and it cannot load a plugin. Browser hosts do not
-provide it yet: loading is synchronous, and a page reads files
-asynchronously. `tests/dynamic/host.sld` loads a library's module from a
-plugin's build, and the plugin itself built twice, once from a stale
-declaration of the type it takes; `tests/programs/wasm.sld` loads modules
-it writes itself.
+The host compiles bytes, lists imports, binds explicit providers and finds
+exports. Node and Wasmtime install these operations for the engine. The browser
+adapter also implements them and is exercised by the Chromium fixture; normal
+browser applications still use the JavaScript manifest loader. Resource fetching
+and scheduling remain explicit responsibilities of the engine or browser host.
 
 Every import module a host provides is named for the runtime interface it
 implements, `snail.runtime.…` (#566): `snail.runtime.link` and
@@ -545,7 +353,7 @@ and `snail.runtime.browser.screen`, `.events`, `.storage`, `.dom` and
 `.fetch` on the page. A `(snail runtime …)` library declares one of these
 interfaces as externs, and nothing else, so it has no items and emits no
 module: each of its importers imports from the host itself
-(`emit-libraries` in `session.sld`).
+(`emit-libraries` in `(snail shell compiler)`).
 The Rust support module, built from `crates/snail-core-support`, is
 `snail.core.support`, and the compiler's control module
 `snail.core.control`. A module linked under a `(snail runtime …)` name, or
@@ -557,11 +365,9 @@ startup and when the program loads one (`hostProvided` in `load.mjs`,
 
 ## Compiler inputs
 
-The compiler entry points and `build-session` take the current generated-library
-provider, which receives each producer with the libraries loading when it was
-reached, and an `Inputs` value, what the build supplies to each of its
-compiles. `make-session` takes only library directories; a retained session
-owns evidence, never a provider closure:
+Each compiler invocation takes library directories, the current generated-library
+provider, and an `Inputs` value supplied by the build. The provider receives each
+producer with the libraries loading when it was reached:
 
 ```scheme
 (struct Generated ((text String) (bytes Bytes)))
@@ -572,8 +378,8 @@ owns evidence, never a provider closure:
 `(List (Pair String Bytes))`. The native builder establishes
 unique, canonical relative paths sorted by path, with bytes loaded from one
 completed immutable output. Artifact expansion performs only memory lookups;
-it has no filesystem capability. Inputs belong to the current invocation, not
-the retained session. `no-inputs` supplies nothing.
+it has no filesystem capability. Inputs belong to the current invocation.
+`(no-inputs)` constructs an empty input set.
 
 `generated` maps a producer's key to what it wrote. The key hashes the
 producer's text, `producer-text` in `(snail shell compiler inputs)`: the
@@ -590,8 +396,7 @@ key and requests it. The producer names its recipe after its imports,
 than the printed copy (`written-in` in `expand.sld`), so a recipe links files
 beside itself wherever its producer is printed. The recipe's path is part of
 the producer's text, and so of its key, since the files it links depend on
-it. The recipe's `include-bytes` were replaced when it was read, so their
-bytes are in the text already. The producer computes the recipe's
+it. The producer computes the recipe's
 expression in a task, as `(write-generated-library (lambda () EXPR))`, so
 the expression may read what the recipe links with `read-resource`. The project builder reads a printed producer back
 (`printed-producer-text`), checks that it has the key it was printed under,
@@ -606,13 +411,11 @@ compiles the plan has already supplied, never does.
 Each build expands current declarations and requests only their current inputs.
 Removing an artifact invocation therefore removes its dependency. Every input
 comes from the supplied snapshot; no lookup rereads a backing file. A missing
-input fails the build before cached checked code can be reused.
+input fails that build.
 
-Artifact fingerprints include target names, canonical file paths, byte lengths
-and content hashes. They enter the library's completed interface, so changed
-bytes invalidate both the library and its importers. These are deterministic
-content keys; restarting expansion's fresh-name counter cannot accidentally
-reuse an old artifact revision. Failed builds publish no replacement session.
+Artifact files carry canonical paths, byte lengths and content hashes. The
+build supplies their current bytes before compilation, and successful output
+records which resources it links. Failed builds publish no replacement generation.
 
 Generated syntax is obtained before expanding its library.
 The native project builder runs each producer once per build, as a phase of its
@@ -689,8 +492,8 @@ output (`supply-generated`) once the producer has run. Each reads the bytes
 once and returns new immutable inputs; the preceding inputs remain usable.
 
 One `Inputs` value serves every phase of a build, and is passed to each
-compile and to `refine-plan`. Successful Sessions retain only the per-library
-evidence already used for cache reuse. Applications embed the bytes and need
+compile and to `refine-plan`. It belongs to that build attempt. Applications
+embed the bytes and need
 no runtime file access.
 
 ### Linked files
@@ -698,10 +501,8 @@ no runtime file access.
 A linked file's bytes are an input of the compile, as their digest: the
 module imports its handle under that name. Each build binds the current linked
 files during expansion. A missing file fails with the library and path;
-changed bytes bind a new digest. Digests enter the library's interface and
-checked-code keys, so an edit recompiles the library and its importers, which
-may specialize a generic function that uses one of its handles. Every build
-places every linked file, including those of cached modules, as an
+changed bytes bind a new digest. Every build compiles all libraries and
+places every linked file as an
 object of the build's store, `store/sha256/DIGEST` beside a linked program
 or the store a project's development builds share, checking that the bytes
 it copies have the digest the compile read; a file edited during the build
@@ -715,32 +516,17 @@ loader keeps the bytes it has read, by digest, across relinks.
 ## The resident builder
 
 `snail dev` builds with `snail resident PROJECT`, the command line's Snail
-program in a child process, which keeps each target's compiler Session from
-one build to the next ("The resident builder" in `bootstrap/cli.sld`). The
+program in a child process ("The resident builder" in `bootstrap/cli.sld`). The
 service writes it one JSON request a line and reads one reply a line: a
 `build` answers the project's description, a candidate with how long the
 build took and each target's generation, digest, how many of its modules it
 compiled and the digest of each file but its modules, which the reload
 client compares, and any diagnostics; the resident holds the candidate until a `publish` or a
-`discard` names it. Sessions, Plans and inputs stay in the resident and never
-cross. A development build assembles each module the session compiled
-again with `(snail shell assembler)`, in the same process; a module the
-session reused keeps the bytes it was assembled into, and their digest,
-which names its object (`Retained`). The service, `(snail shell project service)`, writes the
-requests and reads the replies.
-
-A build's failures reach the service as `{severity, message, source}`;
-`source` is null or `{file, line, column}`. Lines and Unicode scalar columns start at one. IO and
-producer-input requests have no source record; internal no-location sentinels
-are unlocated. A failing dependency reports its own origin. Printed
-producer programs report their actual scratch source, while decoded generated
-syntax retains the recipe location already established by expansion. No source
-mapping is invented. The command-line driver prints each diagnostic as the
-compiler always has, `FILE:LINE:COLUMN: MESSAGE`, or `FILE: MESSAGE` for the
-file as a whole, a line each, and exits with status 1. A reply carries every
-diagnostic of the failed compile, which reports each failed body of the
-library that failed to expand, or each failed definition and statement of
-the library that failed to check. These operations are implemented and tested.
+`discard` names it. The resident holds only its current job and unpublished
+candidate; each attempt owns its plan and inputs. Every module is compiled
+and assembled anew. Publishing installs the completed candidate atomically;
+a failed or discarded attempt leaves the previously accepted generation
+available.
 
 ## Supporting modules
 

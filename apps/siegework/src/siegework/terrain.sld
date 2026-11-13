@@ -81,10 +81,10 @@
        (sites (List Site))
        (fronts (List Cell))))
 
-    (define reserve-per-rate (→ I64) 300)
+    (define (reserve-per-rate) (→ I64) 300)
 
     ;; The crystal beneath each nest, exposed when the nest is destroyed.
-    (define nest-rate (→ I64) 8)
+    (define (nest-rate) (→ I64) 8)
 
     (define (biome-name (biome Biome)) (→ String)
       (match biome
@@ -110,7 +110,7 @@
               (map (lambda (front) (Cell (front-x seed front) (front-y seed front))) (list 0 1 2)))
              (ground (passes hub
                              fronts
-                             (vector-generate (* map-size map-size)
+                             (vector-generate (* (map-size) (map-size))
                                               (lambda (index)
                                                 (first-ground biome seed (index-cell index))))))
              (starter (starter-cell seed hub)))
@@ -150,7 +150,7 @@
     ;; One of `items` chosen by the seed and a key, if there are any.
     (define (pick (seed I64) (key I64) (items (List A)))
       (→ (Option A))
-      (∀ A)
+      (∀ (A))
       (⊨ (Copy A) (Drop (!) A))
       (if (null? items)
           (None)
@@ -169,10 +169,10 @@
                                   horizontal)))))
 
     (define (spawn-x (seed I64)) (→ I64)
-      (+ (quotient map-size 2) (spawn-offset seed 0 #t)))
+      (+ (quotient (map-size) 2) (spawn-offset seed 0 #t)))
 
     (define (spawn-y (seed I64)) (→ I64)
-      (+ (quotient map-size 2) (spawn-offset seed 0 #f)))
+      (+ (quotient (map-size) 2) (spawn-offset seed 0 #f)))
 
     ;; The first front lies 20 to 25 cells out along a seeded axis.
     (define (nest-offset (seed I64) (horizontal Bool)) (→ I64)

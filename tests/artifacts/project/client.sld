@@ -1,7 +1,7 @@
 (import
  (snail core base))
 
-(define main
-  (lambda ()
-    (unit)
-    (unit)))
+(define (main) (→ Unit)
+
+  (unit)
+  (unit))

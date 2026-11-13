@@ -1,7 +1,7 @@
 ;; The typed source forms erased for the Chez bootstrap. This host executes
 ;; compiler code only; source programs are checked and compiled to WasmGC.
 (library (snail stage0 forms)
-  (export define : type ann type-convert struct enum match effect handle ● set! replace! test-forms)
+  (export define type ann struct enum match effect handle ● set! replace! test-forms)
   (import
    (rename (chezscheme) (define scheme-define) (set! scheme-set!)))
 
@@ -15,10 +15,7 @@
 
   (meta scheme-define (header-clause? form)
         (syntax-case form ()
-          [(name . rest)
-           (let ([name (syntax->datum #'name)] [rest (syntax->datum #'rest)])
-             (or (memq name '(→ ! ∀ ⊨))
-                 (and (eq? name 'annotations) (or (null? rest) (pair? (car rest))))))]
+          [(name . rest) (memq (syntax->datum #'name) '(→ ! ∀ ⊨))]
           [_ #f]))
 
   (meta scheme-define (definition-body forms)
@@ -41,9 +38,7 @@
         [(_ name . body)
          #`(scheme-define name #,@(definition-body (syntax-list #'body)))])))
 
-  (define-syntax : (syntax-rules () [(_ . rest) (begin)]))
   (define-syntax ann (syntax-rules () [(_ expression type) expression]))
-  (define-syntax type-convert (syntax-rules () [(_ expression type) expression]))
   (define-syntax type
     (lambda (form)
       (syntax-case form ()
@@ -75,41 +70,28 @@
                                                       suffix))))
   (meta scheme-define (field-name field)
         (syntax-case field () [(name . rest) #'name]))
-  (meta scheme-define (without-metadata forms)
-        (filter (lambda (form)
-                  (syntax-case form ()
-                    [(name . rest) (not (eq? (syntax->datum #'name) 'annotations))]
-                    [_ #t])) forms))
-
   (meta scheme-define (field-definitions name field index)
-        (with-syntax ([get (joined-name name field "")]
-                      [replace (joined-name name field "-set")]
-                      [write (joined-name name field "-set!")]
-                      [swap (joined-name name field "-replace!")]
+        (with-syntax ([replace (joined-name name field "-set")]
                       [index (datum->syntax name index)])
           (syntax-list
-           #'((scheme-define (get value) (vector-ref value index))
-              (scheme-define (replace value content)
-                (let ([copy (vector-copy value)]) (vector-set! copy index content) copy))
-              (scheme-define (write value content) (vector-set! value index content))
-              (scheme-define (swap value content)
-                (let ([old (vector-ref value index)]) (vector-set! value index content) old))))))
+           #'((scheme-define (replace value content)
+                (let ([copy (vector-copy value)]) (vector-set! copy index content) copy))))))
 
-  (meta scheme-define (record-definitions name fields)
+  (meta scheme-define (record-definitions name fields struct?)
         (let ([names (map field-name fields)])
           (append (list #`(scheme-define (#,name #,@names) (vector #,name #,@names))
                         #`(scheme-define #,(car (generate-temporaries '(registered)))
                             (register-fields! #,name '(#,@names))))
                   (let loop ([names names] [index 1])
                     (if (null? names) '()
-                        (append (field-definitions name (car names) index)
+                        (append (if struct? (field-definitions name (car names) index) '())
                                 (loop (cdr names) (+ index 1))))))))
 
   (define-syntax struct
     (lambda (form)
       (syntax-case form ()
         [(_ head (field ...) . rest)
-         #`(begin #,@(record-definitions (head-name #'head) (syntax-list #'(field ...))))])))
+         #`(begin #,@(record-definitions (head-name #'head) (syntax-list #'(field ...)) #t))])))
 
   (define-syntax enum
     (lambda (form)
@@ -120,16 +102,12 @@
                     #,@(apply append
                               (map (lambda (case)
                                      (syntax-case case ()
-                                       [(name . parts)
-                                        (let ([fields (without-metadata (syntax-list #'parts))])
-                                          (record-definitions #'name
-                                                              (if (null? fields)
-                                                                  '()
-                                                                  (syntax-list (car fields)))))]))
-                                   (filter (lambda (case)
-                                             (not (eq? (syntax->datum (car (syntax-list case)))
-                                                       'annotations)))
-                                           (syntax-list #'cases))))))])))
+                                       [(name) (record-definitions #'name '() #f)]
+                                       [(name (field ...))
+                                        (record-definitions #'name
+                                                            (syntax-list #'(field ...))
+                                                            #f)]))
+                                   (syntax-list #'cases)))))])))
 
   (define-syntax ●
     (syntax-rules ()
@@ -237,7 +215,7 @@
          #`(begin (scheme-define name (gensym))
                   #,@(map (lambda (operation)
                             (syntax-case operation (ctl)
-                              [(ctl method signature . annotations)
+                              [(ctl method signature)
                                (let* ([signature (syntax->datum #'signature)]
                                       [answer (memq '→ signature)])
                                  #`(scheme-define (method . arguments)
@@ -245,7 +223,7 @@
                                               #,(if (and answer (eq? (cadr answer) 'Never))
                                                     #'arguments
                                                     #'(append arguments (list cannot-resume))))))]
-                              [(method signature . annotations)
+                              [(method signature)
                                #'(scheme-define (method . arguments)
                                    (perform-returning name 'method arguments))]
                               [_ (syntax-error operation "expected an effect operation")]))
@@ -256,7 +234,7 @@
     ((label String)
      (value I64)))
   (enum Documented (Present ((value I64)))
-        (Absent (annotations (doc "No payload."))))
+        (Absent))
   (effect Stop ((ctl stop (Fn I64 → Never))))
   (effect Read ((read-value (Fn → I64))))
   (effect Observe ((observe-value (Fn → I64))))

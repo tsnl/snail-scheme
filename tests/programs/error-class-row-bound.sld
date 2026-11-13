@@ -5,17 +5,17 @@
 ;; A requirement that gives a closed row bounds what its type's instance
 ;; may perform: `peek` takes only stores whose reads are total.
 (typeclass (Store e S)
-  (: fetch-object (Fn S String → String ! e)))
+  (declare (fetch-object (left S) (right String)) (→ String) (! e)))
 
 (struct Directory
   ((root String)))
 
 (instance (Store (! output-port) Directory)
-  (define fetch-object
-    (lambda (directory name) (write-line name)
-            name)))
+  (define (fetch-object (directory Directory) (name String)) (→ String) (! output-port)
+    (write-line name)
+    name))
 
-(define (peek (store S) (name String)) (→ String) (∀ S) (⊨ (Store (!) S))
+(define (peek (store S) (name String)) (→ String) (∀ (S)) (⊨ (Store (!) S))
   (fetch-object store name))
 
 (define main

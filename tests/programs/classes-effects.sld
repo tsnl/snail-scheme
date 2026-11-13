@@ -13,7 +13,7 @@
 
 ;; ANCHOR: store
 (typeclass (Store e S)
-  (: fetch-object (Fn S String → String ! e)))
+  (declare (fetch-object (left S) (right String)) (→ String) (! e)))
 
 (struct Directory
   ((root String)))
@@ -22,20 +22,20 @@
   ((objects (List (Pair String String)))))
 
 (instance (Store (! output-port) Directory)
-  (define fetch-object
-    (lambda (directory name) (write-line (string-append "reading " (● directory root) "/" name))
-            (string-append "the bytes of " name))))
+  (define (fetch-object (directory Directory) (name String)) (→ String) (! output-port)
+    (write-line (string-append "reading " (● directory root) "/" name))
+    (string-append "the bytes of " name)))
 
 (instance (Store (!) Table)
-  (define fetch-object
-    (lambda (table name) (match (assoc-ref (● table objects) name)
-                           ((Some text) text)
-                           ((None) "missing")))))
+  (define (fetch-object (table Table) (name String)) (→ String)
+    (match (assoc-ref (● table objects) name)
+      ((Some text) text)
+      ((None) "missing"))))
 
 (define (fetch-twice (store S) (name String))
   (→ String)
   (! e)
-  (∀ e S)
+  (∀ (e S))
   (⊨ (Store e S) (Copy S) (Drop e S))
   (string-append (fetch-object store name) " / " (fetch-object store name)))
 
@@ -47,7 +47,7 @@
 
 ;; A requirement may bound the row instead: `peek` is total, and takes any
 ;; store whose reads are.
-(define (peek (store S) (name String)) (→ String) (∀ S) (⊨ (Store (!) S))
+(define (peek (store S) (name String)) (→ String) (∀ (S)) (⊨ (Store (!) S))
   (fetch-object store name))
 
 ;; The row a generic function performs holds its other arguments' effects
@@ -59,12 +59,12 @@
 (define (fetch-asked (store S) (choose (Fn String → String ! e)))
   (→ String)
   (! e)
-  (∀ e S)
+  (∀ (e S))
   (⊨ (Store e S) (Copy S) (Drop e S))
   (let ((name (choose "which?")))
     (string-append (fetch-object store name) " then " (fetch-object store (choose "again?")))))
 
-(define (answering (body (FnOnce → String ! Ask e))) (→ String) (! e) (∀ e)
+(define (answering (body (FnOnce → String ! Ask e))) (→ String) (! e) (∀ (e))
   (handle Ask ((ask (lambda (question resume) (resume (if (string=? question "which?") "a" "b")))))
     (body)))
 
@@ -74,27 +74,27 @@
 
 (instance (Store (! log e) (Logged S))
   (⊨ (Store e S))
-  (define fetch-object
-    (lambda (logged name) (say (string-append "fetching " name))
-            (match logged
-              ((Logged inner) (fetch-object inner name))))))
+  (define (fetch-object (logged (Logged S)) (name String)) (→ String) (! log e)
+    (say (string-append "fetching " name))
+    (match logged
+      ((Logged inner) (fetch-object inner name)))))
 
 ;; ANCHOR_END: logged
 
 ;; The log is printed here; what the inner store performs passes through.
-(define (logging (body (FnOnce → String ! log e))) (→ String) (! output-port e) (∀ e)
+(define (logging (body (FnOnce → String ! log e))) (→ String) (! output-port e) (∀ (e))
   (handle log
       ((say (lambda (line) (write-line (string-append "log: " line)))))
     (body)))
 
-(define main
-  (lambda ()
-    (write-line (fetch-twice (Directory "assets") "hero"))
-    (write-line (from-table (Table (list (Pair "hero" "held"))) "hero"))
-    (write-line (peek (Table (list (Pair "villain" "kept"))) "villain"))
-    (write-line
-     (answering (lambda () (fetch-asked (Table (list (Pair "a" "A") (Pair "b" "B"))) ask))))
-    (write-line (answering (lambda () (fetch-asked (Directory "d") ask))))
-    (write-line (logging (lambda () (fetch-twice (Logged (Table (list (Pair "a" "b")))) "a"))))
-    (write-line (logging (lambda () (fetch-object (Logged (Directory "pack")) "villain"))))
-    (unit)))
+(define (main) (→ Unit) (! output-port)
+
+  (write-line (fetch-twice (Directory "assets") "hero"))
+  (write-line (from-table (Table (list (Pair "hero" "held"))) "hero"))
+  (write-line (peek (Table (list (Pair "villain" "kept"))) "villain"))
+  (write-line
+   (answering (lambda () (fetch-asked (Table (list (Pair "a" "A") (Pair "b" "B"))) ask))))
+  (write-line (answering (lambda () (fetch-asked (Directory "d") ask))))
+  (write-line (logging (lambda () (fetch-twice (Logged (Table (list (Pair "a" "b")))) "a"))))
+  (write-line (logging (lambda () (fetch-object (Logged (Directory "pack")) "villain"))))
+  (unit))

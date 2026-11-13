@@ -1,4 +1,4 @@
-;; Prepared concrete code to WasmGC. Declarations and initializer bodies are
+;; Prepared concrete code to WasmGC. Declarations and function bodies are
 ;; fixed before emission; no source specialization or validation happens here.
 ;; This backend decides representations:
 ;; scalars are Wasm numbers, enums whose cases have no fields are i32 tags,
@@ -213,7 +213,7 @@
 
     ;; A location for code the backend writes itself.
 
-    (define no-loc (→ Loc) (Loc "" 0 0))
+    (define (no-loc) (→ Loc) (Loc "" 0 0))
 
     ;; ---- Names ----
 
@@ -353,9 +353,7 @@
            (("Funcref") (Scalar "funcref"))
            (("Vector") (Reference (sequence-type m (first-type args))))
            (("FnOnce") (rep m (first-type args)))
-           (("fn")
-            (let ((signature (function-signature m type)))
-              (Reference (funcref-type m (● signature first) (● signature second)))))
+
            (else (if (tag-enum? m name) (Scalar "i32") (Reference (data-type m type))))))
         ((TFun params result _)
          (Reference
@@ -594,7 +592,7 @@
     ;; Context replacements share this function's output builder while
     ;; changing only immutable control and evidence metadata.
     (define (new-fn (m Module)) (→ Fn)
-      (Fn m (FnState (Nil) empty-table empty-table 0)
+      (Fn m (FnState (Nil) (empty-table) (empty-table) 0)
           (None) (wat "local.get" (Word "$ev")) (None)))
 
     ;; Temporaries and labels are numbered within their function, so a name
@@ -658,7 +656,7 @@
 
     (define (emit-function! (m Module) (name String) (function Expr)) (→ Unit) (! mut)
       (match (● function term)
-        ((Lambda params body _)
+        ((Lambda params body )
          (let* ((fn (Fn-exit-set (new-fn m) (function-exit (● function type))))
                 (signature (function-signature m (● function type)))
                 (reps (● signature first)))
@@ -672,53 +670,6 @@
                                            code)))))
         (_ (panic "internal error: not a function"))))
 
-    ;; ---- Lazy values ----
-
-    ;; A defining module owns the cache for its lifetime. Initializers are
-    ;; ordinary compiled bodies, never startup work. WasmGC values here are
-    ;; not shared between threads: the guard detects reentry, not races.
-    ;; Cache publication consumes the initializer's result; every read returns
-    ;; its own credit. Discarding an instance does not run source finalizers.
-    (define (emit-lazy-value! (m Module) (name String) (function Expr)) (→ Unit) (! mut)
-      (match (● function term)
-        ((Lambda (Nil) body _)
-         (let* ((fn (Fn-exit-set (new-fn m) (function-exit (● function type))))
-                (type (● body type)) (result (rep m type))
-                (state (wasm-id (string-append "%lazy.state." name)))
-                (value (wasm-id (string-append "%lazy.value." name))))
-           (push! (● m globals) (wat "global" (id state) (wat "mut" (Word "i32"))
-                                     (wat "i32.const" (int 0))))
-           (push! (● m globals) (wat "global" (id value) (wat "mut" (rep->wat result))
-                                     (default-value result)))
-           (let ((code (lazy-body fn name body state value)))
-             (push-function! m (wasm-id name)
-                             (function-wat fn
-                                           (wasm-id name)
-                                           (list (evidence-param m))
-                                           result
-                                           code)))))
-        (_ (panic "internal error: a lazy initializer must take no arguments"))))
-
-    ;; State 1 is installed before entering user code. State 2 proves the
-    ;; cached reference is non-null. A fatal trap leaves state 1 in place;
-    ;; there is no retry contract. Non-tail emission must publish the result.
-    (define (lazy-body (fn Fn) (name String) (body Expr) (state String) (value String))
-      (→ (List Wat)) (! mut)
-      (let* ((m (● fn module)) (type (● body type)) (result (rep m type))
-             (read (wat "global.get" (id value)))
-             (code (emit fn body #f)))
-        (list
-         (wat "if" (wat "i32.eq" (wat "global.get" (id state)) (wat "i32.const" (int 1)))
-              (wat "then" (wat "call" (id (panic-helper m))
-                               (string-literal m (string-append "initialization cycle: " name)))))
-         (wat "if" (wat "i32.eqz" (wat "global.get" (id state)))
-              (wat "then"
-                   (wat "global.set" (id state) (wat "i32.const" (int 1)))
-                   (wat "global.set" (id value)
-                        (wat* "block" (Cons (wat "result" (rep->wat result)) code)))
-                   (wat "global.set" (id state) (wat "i32.const" (int 2)))))
-         (retain-value m type read))))
-
     ;; ---- Expressions ----
 
     ;; A list of instructions that leave one value on the stack.
@@ -728,7 +679,7 @@
         (match (● expr term)
           ((Lit value) (list (literal fn value type)))
           ((Var name _ _) (list (variable fn name type)))
-          ((Lambda _ _ _) (list (closure fn expr (None))))
+          ((Lambda _ _ ) (list (closure fn expr (None))))
           ((App callee args) (emit-call fn expr callee args tail?))
           ((If test then otherwise)
            (let* ((test-code (emit1 fn test))
@@ -745,10 +696,9 @@
              (Cons (wat "drop" first-code) (emit fn rest tail?))))
           ((Match scrutinee clauses) (emit-match fn expr scrutinee clauses tail?))
           ((Handle effect implementations body) (emit-handle fn expr effect implementations body))
-          ((Convert inner target) (emit-convert fn inner target (● expr loc)))
-          ((TryConvert _ _) (panic "internal error: an unlowered conversion"))
-          ((TypeTest inner target) (list (type-test fn inner target)))
-          ((ScopedInstances _ _) (panic "internal error: instance scope survived checking"))
+          ((BoxAny inner) (list (to-any (● fn module) (● inner type) (emit1 fn inner))))
+          ((Downcast inner target) (list (emit-downcast fn inner target (● expr type))))
+
           ((FieldRead _ _ _) (panic "internal error: field selection survived checking"))
           ((Ann inner _) (emit fn inner tail?)))))
 
@@ -868,8 +818,7 @@
 
     ;; ---- Variables ----
 
-    ;; A global function or operation used as a value becomes a closure, and
-    ;; a global function at type fn a reference to its code.
+    ;; A global function or operation used as a value becomes a closure.
 
     (define (variable (fn Fn) (name String) (type Type)) (→ Wat) (! mut)
       (let ((m (● fn module)))
@@ -877,12 +826,7 @@
           ((Some access) access)
           ((None)
            (match (definition-of m name)
-             ((Some definition)
-              (cond
-               ((and (● definition function?) (fn-type? type))
-                (code-of m (function-id m name)))
-               ((● definition function?) (function-value m name type))
-               (else (wat "call" (id (value-id m name type)) (● fn evidence)))))
+             ((Some _) (function-value m name type))
              ((None)
               (match (program-value (program-of m) name)
                 ((Some (Constructor case _))
@@ -914,13 +858,6 @@
              (wasm-id name)))
         ((None) (wasm-id name))))
 
-    ;; Every importer calls the defining instance's getter, sharing its cache.
-    (define (value-id (m Module) (name String) (type Type)) (→ String) (! mut)
-      (if (external-definition? m name)
-          (import! m (Import (name-owner name) name)
-                   (list (evidence-rep m)) (Some (rep m type)))
-          (wasm-id name)))
-
     ;; An immutable global closure whose code calls `name` with its arguments.
 
     (define (function-value (m Module) (name String) (type Type)) (→ Wat) (! mut)
@@ -931,38 +868,29 @@
                      (let* ((names
                              (map (lambda (index) (string-append "argument." (i64->string index)))
                                   (iota (length params))))
-                            (call (Expr (App (Expr (Var name (Nil) (Nil)) type no-loc)
+                            (call (Expr (App (Expr (Var name (Nil) (Nil)) type (no-loc))
                                              (map (lambda (pair)
                                                     (Expr (Var (● pair first) (Nil) (Nil))
                                                           (● pair second)
-                                                          no-loc))
+                                                          (no-loc)))
                                                   (zip names params)))
-                                        result no-loc)))
-                       (closure-value m (Expr (Lambda names call #f) type no-loc) (None))))
+                                        result (no-loc))))
+                       (closure-value m (Expr (Lambda names call ) type (no-loc)) (None))))
                     (_ (panic "internal error: a function value needs a function type"))))))
 
     ;; ---- Closures ----
 
     ;; A lambda becomes a function taking its closure first. Captured
     ;; variables are copied into the closure and loaded on entry; `self` names
-    ;; a recursive local function, which reads as the closure itself. A
-    ;; closure that may not capture has nothing to copy, which the checker
-    ;; established (`check-closed`), so it is always one global, and at type
-    ;; fn it is no closure but its code (`code-reference`).
+    ;; a recursive local function, which reads as the closure itself. Closures
+    ;; without captured locals are immutable globals.
 
     (define (closure (fn Fn) (function Expr) (self (Option String))) (→ Wat) (! mut)
       (let ((captured (filter (lambda (name) (and (not (self-name? self name)) (local? fn name)))
                               (expr-references function))))
-        (match (Pair captured (● function term))
-          ((Pair (Nil) _)
-           (if (fn-type? (● function type))
-               (code-reference (● fn module) function self)
-               (closure-value (● fn module) function self)))
-          ((Pair _ (Lambda _ _ captures?))
-           (unless captures?
-             (panic "internal error: a fn captures"))
-           (closure-with-captures fn function self captured))
-          (_ (panic "internal error: a closure is a lambda")))))
+        (if (null? captured)
+            (closure-value (● fn module) function self)
+            (closure-with-captures fn function self captured))))
 
     (define (self-name? (self (Option String)) (name String)) (→ Bool)
       (match self
@@ -1013,7 +941,7 @@
                             (map (lambda (entry) (retain-value m (● entry second)
                                                                (variable fn
                                                                          (● entry first)
-                                                                         unchecked)))
+                                                                         (unchecked))))
                                  (zip captured fields)))))))
 
     (define (capture-types (function Expr) (captured (List String))) (→ (List Type))
@@ -1146,7 +1074,7 @@
       (→ String)
       (! mut)
       (match (● function term)
-        ((Lambda params body _)
+        ((Lambda params body )
          (let* ((signature (function-signature m (● function type)))
                 (reps (● signature first))
                 (base (closure-type m reps (● signature second)))
@@ -1188,7 +1116,7 @@
     ;; still depend on the order of emission.
 
     (define (lambda-id (m Module) (prefix String) (draft Wat) (salt I64)) (→ String) (! mut)
-      (let* ((hash (i64->string (wat-hash fnv-offset draft)))
+      (let* ((hash (i64->string (wat-hash (fnv-offset) draft)))
              (name (wasm-id (string-append prefix
                                            "."
                                            hash
@@ -1235,60 +1163,9 @@
 
     ;; ---- Code references ----
 
-    ;; A fn is a reference to code that takes the evidence and then the
-    ;; arguments, as a top-level function's does, and no closure: the
-    ;; checker gives the type only to what has no environment. A top-level
-    ;; function is such code already. A `fn` becomes a function of that
-    ;; type, named by its hash as a lambda is; a recursive one reads its own
-    ;; name as its reference. A call passes the caller's evidence, so the
-    ;; code runs under the handlers in scope where it is called.
-
-    (define (fn-type? (type Type)) (→ Bool)
-      (match type
-        ((TCon "fn" _) #t)
-        (_ #f)))
-
     (define (code-of (m Module) (function-id String)) (→ Wat) (! mut)
       (push! (● m declared) function-id)
       (wat "ref.func" (id function-id)))
-
-    (define (code-reference (m Module) (function Expr) (self (Option String))) (→ Wat) (! mut)
-      (match (● function term)
-        ((Lambda params body _)
-         (let* ((signature (function-signature m (● function type)))
-                (reps (● signature first))
-                (own (funcref-type m reps (● signature second)))
-                (fn (Fn-exit-set (new-fn m) (function-exit (● function type)))))
-           (match self
-             ((Some name)
-              (bind-local! fn name (wat "ref.func" (Word "$lambda.self")) (Reference own)))
-             ((None) (unit)))
-           (bind-params! fn params reps)
-           (let* ((code (emit fn body #t))
-                  (draft (function-wat fn "$lambda.self"
-                                       (Cons (wat "type" (id own))
-                                             (Cons (evidence-param m) (param-wats params reps)))
-                                       (● signature second) code)))
-             (wat "ref.func" (id (lambda-id m "fn" draft 0))))))
-        (_ (panic "internal error: not a lambda"))))
-
-    ;; The callee is evaluated once, first, into a temporary unless it is
-    ;; already a variable read, as a closure is.
-
-    (define (code-call (fn Fn) (callee Expr) (args (List Expr)) (tail? Bool)) (→ (List Wat)) (! mut)
-      (let* ((m (● fn module))
-             (signature (function-signature m (● callee type)))
-             (own (funcref-type m (● signature first) (● signature second)))
-             (value (emit1 fn callee))
-             (call (lambda (read)
-                     (wat* (if tail? "return_call_ref" "call_ref")
-                           (Cons (id own)
-                                 (Cons (● fn evidence)
-                                       (append (emit-args fn args) (list read))))))))
-        (if (variable-read? value)
-            (list (call value))
-            (let ((temp (declare-temp! fn (rep->wat (Reference own)))))
-              (list (wat "local.set" (id temp) value) (call (wat "local.get" (id temp))))))))
 
     ;; ---- Calls ----
 
@@ -1353,11 +1230,9 @@
           (closure-call fn callee args tail?)
           (match (definition-of (● fn module) name)
             ((Some definition)
-             (if (● definition function?)
-                 (list (wat* (call-op tail?)
-                             (Cons (id (function-id (● fn module) name))
-                                   (Cons (● fn evidence) (emit-args fn args)))))
-                 (closure-call fn callee args tail?)))
+             (list (wat* (call-op tail?)
+                         (Cons (id (function-id (● fn module) name))
+                               (Cons (● fn evidence) (emit-args fn args))))))
             ((None) (builtin-call fn expr name args)))))
 
     (define (builtin-call (fn Fn) (expr Expr) (name String) (args (List Expr)))
@@ -1396,13 +1271,6 @@
     (define (closure-call (fn Fn) (callee Expr) (args (List Expr)) (tail? Bool))
       (→ (List Wat))
       (! mut)
-      (if (fn-type? (● callee type))
-          (code-call fn callee args tail?)
-          (value-call fn callee args tail?)))
-
-    (define (value-call (fn Fn) (callee Expr) (args (List Expr)) (tail? Bool))
-      (→ (List Wat))
-      (! mut)
       (let* ((m (● fn module))
              (signature (function-signature m (procedure-type (● callee type))))
              (base (closure-type m (● signature first) (● signature second)))
@@ -1433,8 +1301,6 @@
       (match code
         ((Node (Cons (Word head) _)) (or (string=? head "local.get") (string=? head "global.get")))
         (_ #f)))
-
-
 
     ;; The program value a callee names, when it is neither a local nor a
     ;; definition.
@@ -1716,11 +1582,10 @@
 
     ;; ---- Vectors ----
 
-    ;; Every vector has stable identity, a logical length and replaceable
-    ;; backing storage. Only the live prefix owns elements. Spare reference
-    ;; slots are null; pop clears its slot and growth transfers ownership.
-    ;; Counted elements add the ordinary owner header to the vector itself.
-    ;; Strings remain raw arrays and conversions copy their character data.
+    ;; A vector's array has its exact, permanent length. Uncounted elements
+    ;; need no wrapper; counted elements add an owner header and one fixed
+    ;; array reference. Each initialized slot owns its element credit.
+    ;; Strings remain separate values; conversions copy their character data.
     (define (sequence-element (type Type)) (→ Type)
       (match type
         ((TCon "String" _) (TCon "Char" (Nil)))
@@ -1730,69 +1595,39 @@
     (define (sequence-raw-type (m Module) (type Type)) (→ String) (! mut)
       (array-type m (element-rep m (sequence-element type))))
 
-    (define (vector-offset (m Module) (element Type)) (→ I64)
-      (if (shared-type? (program-of m) element) 2 0))
-
     (define (sequence-type (m Module) (element Type)) (→ String) (! mut)
-      (let ((key (string-append "vector." (type-key element))))
-        (match (known-type m key)
-          ((Some type) type)
-          ((None)
-           (let* ((name (wasm-id key)) (counted? (= (vector-offset m element) 2)))
-             (put! (● m type-ids) key name)
-             (when counted?
-               (owner-type m)
-               (put! (● m type-ids) (string-append "counted:" name) name))
-             (let ((body (wat* "struct"
-                               (append (if counted? (owner-fields) (Nil))
-                                       (list (wat "field" (wat "mut" (Word "i32")))
-                                             (wat "field" (wat "mut" (ref-wat (array-type m
-                                                                                          (element-rep
-                                                                                           m
-                                                                                           element))))))))))
-               (register-type! m key name
-                               (wat "type" (id name)
-                                    (if counted? (wat "sub" (Word "final") (id (owner-type m)) body)
-                                        body)))))))))
-
-    (define (vector-field (m Module) (element Type) (field I64) (value Wat)) (→ Wat) (! mut)
-      (wat "struct.get"
-           (id (sequence-type m element))
-           (int (+ (vector-offset m element) field))
-           value))
+      (let ((array (array-type m (element-rep m element)))
+            (key (string-append "vector." (type-key element))))
+        (if (not (shared-type? (program-of m) element)) array
+            (match (known-type m key)
+              ((Some type) type)
+              ((None)
+               (let ((name (wasm-id key)))
+                 (owner-type m)
+                 (put! (● m type-ids) (string-append "counted:" name) name)
+                 (register-type! m key name
+                                 (wat "type" (id name)
+                                      (wat "sub" (Word "final") (id (owner-type m))
+                                           (wat* "struct" (append (owner-fields)
+                                                                  (list (wat "field"
+                                                                             (ref-wat
+                                                                              array))))))))))))))
 
     (define (sequence-data (m Module) (type Type) (value Wat)) (→ Wat) (! mut)
-      (if (string=? (type-key type) "String") value
-          (vector-field m (sequence-element type) 1 value)))
+      (let ((element (sequence-element type)))
+        (if (shared-type? (program-of m) element)
+            (wat "struct.get" (id (sequence-type m element)) (int 2) value)
+            value)))
 
     (define (sequence-length (m Module) (type Type) (value Wat)) (→ Wat) (! mut)
-      (if (string=? (type-key type) "String") (wat "array.len" value)
-          (vector-field m (sequence-element type) 0 value)))
-
-    (define (vector-header (m Module) (element Type)) (→ (List Wat)) (! mut)
-      (if (= (vector-offset m element) 0) (Nil)
-          (list (wat "i64.const" (int 1))
-                (code-of m (sequence-destructor m element)))))
+      (wat "array.len" (sequence-data m type value)))
 
     (define (sequence-owned (m Module) (type Type) (data Wat)) (→ Wat) (! mut)
-      (if (string=? (type-key type) "String") data
-          (wat "call" (id (vector-wrap-helper m (sequence-element type))) data)))
-
-    (define (vector-wrap-helper (m Module) (element Type)) (→ String) (! mut)
-      (let ((holder (sequence-type m element)) (array (array-type m (element-rep m element))))
-        (helper! m "vector-wrap" (type-key element)
-                 (lambda (name)
-                   (wat "func"
-                        (id name)
-                        (wat "param" (Word "$data") (ref-wat array))
-                        (wat "result" (ref-wat holder))
-                        (wat* "struct.new" (Cons (id holder)
-                                                 (append (vector-header m element)
-                                                         (list (wat "array.len"
-                                                                    (wat "local.get"
-                                                                         (Word "$data")))
-                                                               (wat "local.get"
-                                                                    (Word "$data")))))))))))
+      (let ((element (sequence-element type)))
+        (if (shared-type? (program-of m) element)
+            (wat "struct.new" (id (sequence-type m element))
+                 (wat "i64.const" (int 1)) (code-of m (sequence-destructor m element)) data)
+            data)))
 
     (define (sequence-copied (m Module) (type Type) (data Wat)) (→ Wat) (! mut)
       (let ((element (sequence-element type)))
@@ -1800,7 +1635,7 @@
                         (if (shared-type? (program-of m) element)
                             (wat "call" (id (array-retain-helper m element)) data) data))))
 
-    ;; A live reference slot is non-null. Only backing capacity permits nulls.
+    ;; Every accessible slot is initialized, including reference elements.
     (define (array-read (m Module) (element Type) (data Wat) (index Wat)) (→ Wat) (! mut)
       (let ((array (array-type m (element-rep m element))))
         (wat (array-get array) (id array) data index)))
@@ -1822,11 +1657,11 @@
     (define (array-release-helper (m Module) (element Type)) (→ String) (! mut)
       (let ((array (array-type m (element-rep m element))))
         (template-helper! m "array-release" (type-key element)
-                          "(func {id} (param $array (ref null {array})) (param $length i32) (param $ev (ref null {evidence})) (result i32)
+                          "(func {id} (param $array (ref null {array})) (param $ev (ref null {evidence})) (result i32)
   (local $index i32)
   (block $done (loop $next
-    (br_if $done (i32.ge_u (local.get $index) (local.get $length)))
-    (if (i32.eq (i32.add (local.get $index) (i32.const 1)) (local.get $length))
+    (br_if $done (i32.ge_u (local.get $index) (array.len (local.get $array))))
+    (if (i32.eq (i32.add (local.get $index) (i32.const 1)) (array.len (local.get $array)))
       (then (return_call {release} (array.get {array} (local.get $array) (local.get $index)) (local.get $ev))))
     (drop (call {release} (array.get {array} (local.get $array) (local.get $index)) (local.get $ev)))
     (local.set $index (i32.add (local.get $index) (i32.const 1))) (br $next)))
@@ -1842,12 +1677,10 @@
                    (let ((value (wat "ref.cast" (ref-wat holder)
                                      (wat "local.get" (Word "$owner")))))
                      (wat "func" (id name) (wat "type" (Word "$owner.drop"))
-                          (wat "param"
-                               (Word "$owner")
-                               (ref-wat (owner-type m)))
+                          (wat "param" (Word "$owner") (ref-wat (owner-type m)))
                           (evidence-param m) (wat "result" (Word "i32"))
                           (wat "return_call" (id (array-release-helper m element))
-                               (vector-field m element 1 value) (vector-field m element 0 value)
+                               (wat "struct.get" (id holder) (int 2) value)
                                (wat "local.get" (Word "$ev")))))))))
 
     (define (array-write-helper (m Module) (element Type)) (→ String) (! mut)
@@ -1867,16 +1700,16 @@
     (define (array-replace-helper (m Module) (element Type)) (→ String) (! mut)
       (let ((array (array-type m (element-rep m element))))
         (template-helper! m "array-replace" (type-key element)
-                          "(func {id} (param $array (ref null {array})) (param $length i32) (param $index i64) (param $value {element}) (param $ev (ref null {evidence})) (result (ref null {array}))
+                          "(func {id} (param $array (ref null {array})) (param $index i64) (param $value {element}) (param $ev (ref null {evidence})) (result (ref null {array}))
   (local $result (ref null {array}))
-  (local.set $result (call {retain} (call {copy} (local.get $array) (i64.const 0) (i64.extend_i32_u (local.get $length)))))
+  (local.set $result (call {retain} (call {copy} (local.get $array))))
   (drop (call {write} (local.get $result) (i32.wrap_i64 (local.get $index)) (local.get $value) (local.get $ev)))
   (local.get $result))"
                           (list (Pair "array" array)
                                 (Pair "element" (wat->text (rep->wat (rep m element))))
                                 (Pair "evidence" (evidence-type m))
                                 (Pair "retain" (array-retain-helper m element))
-                                (Pair "copy" (slice-helper m array))
+                                (Pair "copy" (copy-helper m array))
                                 (Pair "write" (array-write-helper m element))))))
 
     ;; Snapshot both ranges before writing. Incoming owners are retained,
@@ -1891,13 +1724,13 @@
   (local.set $old (call {slice} (local.get $to) (local.get $at) (i64.add (local.get $at) (local.get $count))))
   (drop (call {retain} (local.get $incoming)))
   (array.copy {array} {array} (local.get $to) (i32.wrap_i64 (local.get $at)) (local.get $incoming) (i32.const 0) (i32.wrap_i64 (local.get $count)))
-  (return_call {release} (local.get $old) (array.len (local.get $old)) (local.get $ev)))"
+  (return_call {release} (local.get $old) (local.get $ev)))"
                           (list (Pair "array" array) (Pair "slice" (slice-helper m array))
                                 (Pair "evidence" (evidence-type m))
                                 (Pair "retain" (array-retain-helper m element))
                                 (Pair "release" (array-release-helper m element))))))
 
-    ;; Backing capacity is never a source length. Validate full-width indices
+    ;; Validate full-width indices
     ;; before narrowing to Wasm's i32 indices, including zero-length copies.
     (define (range-helper (m Module)) (→ String) (! mut)
       (template-helper! m "range" ""
@@ -1913,14 +1746,12 @@
   (i32.wrap_i64 (local.get $length)))" (Nil)))
 
     (define (vector-storage-bindings (m Module) (element Type))
-      (→ (List (Pair String String)))
-      (! mut)
+      (→ (List (Pair String String))) (! mut)
       (list (Pair "holder" (sequence-type m element))
             (Pair "array" (array-type m (element-rep m element)))
-            (Pair "length" (i64->string (vector-offset m element)))
-            (Pair "data" (i64->string (+ (vector-offset m element) 1)))
+            (Pair "data" (wat->text (sequence-data m (TCon "Vector" (list element))
+                                                   (wat "local.get" (Word "$vector")))))
             (Pair "element" (wat->text (rep->wat (rep m element))))
-            (Pair "zero" (wat->text (default-value (rep m element))))
             (Pair "read" (wat->text (array-read m element (wat "local.get" (Word "$data"))
                                                 (wat "local.get" (Word "$index")))))))
 
@@ -1928,8 +1759,8 @@
       (template-helper! m "vector-read" (type-key element)
                         "(func {id} (param $vector (ref null {holder})) (param $at i64) (result {element})
   (local $data (ref null {array})) (local $index i32)
-  (local.set $index (call {range} (struct.get {holder} {length} (local.get $vector)) (local.get $at) (i64.const 1)))
-  (local.set $data (struct.get {holder} {data} (local.get $vector)))
+  (local.set $data {data})
+  (local.set $index (call {range} (array.len (local.get $data)) (local.get $at) (i64.const 1)))
   {read})"
                         (Cons (Pair "range" (range-helper m)) (vector-storage-bindings m element))))
 
@@ -1942,48 +1773,12 @@
                           (string-append
                            "(func {id} (param $vector (ref null {holder})) (param $at i64) (param $value {element}) (param $ev (ref null {evidence})) (result i32)
   (local $data (ref null {array})) (local $index i32)
-  (local.set $index (call {range} (struct.get {holder} {length} (local.get $vector)) (local.get $at) (i64.const 1)))
-  (local.set $data (struct.get {holder} {data} (local.get $vector)))
+  (local.set $data {data})
+  (local.set $index (call {range} (array.len (local.get $data)) (local.get $at) (i64.const 1)))
   " write ")")
                           (append (list (Pair "range" (range-helper m))
                                         (Pair "evidence" (evidence-type m)))
                                   (vector-storage-bindings m element)))))
-
-    ;; Growth transfers the live prefix. It creates no extra element owners;
-    ;; no finalizer can run between replacing storage and publishing length.
-    (define (vector-push-helper (m Module) (element Type)) (→ String) (! mut)
-      (template-helper! m "vector-push" (type-key element)
-                        "(func {id} (param $vector (ref null {holder})) (param $value {element}) (result i32)
-  (local $data (ref null {array})) (local $larger (ref null {array})) (local $size i32) (local $capacity i32)
-  (local.set $data (struct.get {holder} {data} (local.get $vector)))
-  (local.set $size (struct.get {holder} {length} (local.get $vector)))
-  (if (i32.eq (local.get $size) (i32.const 2147483647)) (then unreachable))
-  (if (i32.eq (local.get $size) (array.len (local.get $data)))
-    (then
-      (local.set $capacity (if (result i32) (i32.lt_u (local.get $size) (i32.const 4))
-        (then (i32.const 4))
-        (else (if (result i32) (i32.gt_u (local.get $size) (i32.const 1073741823))
-          (then (i32.const 2147483647)) (else (i32.mul (local.get $size) (i32.const 2)))))))
-      (local.set $larger (array.new_default {array} (local.get $capacity)))
-      (array.copy {array} {array} (local.get $larger) (i32.const 0) (local.get $data) (i32.const 0) (local.get $size))
-      (struct.set {holder} {data} (local.get $vector) (local.get $larger))
-      (local.set $data (local.get $larger))))
-  (array.set {array} (local.get $data) (local.get $size) (local.get $value))
-  (struct.set {holder} {length} (local.get $vector) (i32.add (local.get $size) (i32.const 1)))
-  (i32.const 0))" (vector-storage-bindings m element)))
-
-    (define (vector-pop-helper (m Module) (element Type)) (→ String) (! mut)
-      (template-helper! m "vector-pop" (type-key element)
-                        "(func {id} (param $vector (ref null {holder})) (result {element})
-  (local $data (ref null {array})) (local $index i32) (local $value {element})
-  (local.set $index (struct.get {holder} {length} (local.get $vector)))
-  (if (i32.eqz (local.get $index)) (then unreachable))
-  (local.set $index (i32.sub (local.get $index) (i32.const 1)))
-  (local.set $data (struct.get {holder} {data} (local.get $vector)))
-  (local.set $value {read})
-  (struct.set {holder} {length} (local.get $vector) (local.get $index))
-  (array.set {array} (local.get $data) (local.get $index) {zero})
-  (local.get $value))" (vector-storage-bindings m element)))
 
     (define (sequence-slice-helper (m Module) (type Type)) (→ String) (! mut)
       (helper! m "sequence-slice" (type-key type)
@@ -2016,9 +1811,7 @@
                                          (wat "call"
                                               (id (append-helper m (sequence-raw-type m type)))
                                               (sequence-data m type left)
-                                              (sequence-length m type left)
-                                              (sequence-data m type right)
-                                              (sequence-length m type right))))))))
+                                              (sequence-data m type right))))))))
 
     (define (vector-copy-helper (m Module) (element Type)) (→ String) (! mut)
       (let* ((type (TCon "Vector" (list element))) (holder (sequence-type m element)))
@@ -2056,7 +1849,6 @@
                                                                                   array
                                                                                   (rep m element))))
                                                               (sequence-data m type value)
-                                                              (sequence-length m type value)
                                                               index
                                                               (wat "local.get" (Word "$value")))
                                                         (if counted?
@@ -2072,23 +1864,22 @@
                           (string-append
                            "(func {id} (param $to (ref null {holder})) (param $at i64) (param $from (ref null {holder})) (param $start i64) (param $count i64) (param $ev (ref null {evidence})) (result i32)
   (local $to-data (ref null {array})) (local $from-data (ref null {array}))
-  (drop (call {range} (struct.get {holder} {length} (local.get $to)) (local.get $at) (local.get $count)))
-  (drop (call {range} (struct.get {holder} {length} (local.get $from)) (local.get $start) (local.get $count)))
-  (local.set $to-data (struct.get {holder} {data} (local.get $to)))
-  (local.set $from-data (struct.get {holder} {data} (local.get $from)))
+  (local.set $to-data {to-data})
+  (local.set $from-data {from-data})
+  (drop (call {range} (array.len (local.get $to-data)) (local.get $at) (local.get $count)))
+  (drop (call {range} (array.len (local.get $from-data)) (local.get $start) (local.get $count)))
   " copy ")")
                           (append (list (Pair "range" (range-helper m))
-                                        (Pair "evidence" (evidence-type m)))
+                                        (Pair "evidence" (evidence-type m))
+                                        (Pair "to-data"
+                                              (wat->text
+                                               (sequence-data m (TCon "Vector" (list element))
+                                                              (wat "local.get" (Word "$to")))))
+                                        (Pair "from-data"
+                                              (wat->text
+                                               (sequence-data m (TCon "Vector" (list element))
+                                                              (wat "local.get" (Word "$from"))))))
                                   (vector-storage-bindings m element)))))
-
-    (define (vector-string-helper (m Module)) (→ String) (! mut)
-      (let ((element (TCon "Char" (Nil))))
-        (template-helper! m "vector-string" ""
-                          "(func {id} (param $vector (ref null {holder})) (result (ref null {array}))
-  (return_call {slice} (struct.get {holder} {data} (local.get $vector)) (i64.const 0)
-    (i64.extend_i32_u (struct.get {holder} {length} (local.get $vector)))))"
-                          (Cons (Pair "slice" (slice-helper m (array-type m (Scalar "i32"))))
-                                (vector-storage-bindings m element)))))
 
     ;; ---- Fields ----
 
@@ -2109,31 +1900,11 @@
       (let* ((m (● fn module)) (type (record-type (● record type))))
         (case-record m type case (record-value fn record))))
 
-    ;; Wasm types are structural: two cases with equal fields can share a
-    ;; subtype. The source tag establishes the nominal case before casting.
+    ;; Enum reads here are introduced by ownership lowering inside a
+    ;; matched clause. Its tag test already proved the nominal case, even
+    ;; when two case layouts share the same structural Wasm subtype.
     (define (case-record (m Module) (type Type) (case Case) (record Wat)) (→ Wat) (! mut)
-      (let ((holder (field-holder m type case)))
-        (if (● (data-type-of m (● case type)) enum?)
-            (wat "call" (id (case-check m type case)) record)
-            (wat "ref.cast" (ref-wat holder) record))))
-
-    (define (case-check (m Module) (type Type) (case Case)) (→ String) (! mut)
-      (let ((base (data-type m type)) (holder (field-holder m type case)))
-        (helper! m "case-check" holder
-                 (lambda (name)
-                   (wat "func" (id name)
-                        (wat "param" (Word "$record") (ref-wat base))
-                        (wat "result" (ref-wat holder))
-                        (wat "if"
-                             (wat "i32.ne"
-                                  (wat "struct.get" (id base) (int (data-offset m type))
-                                       (wat "local.get" (Word "$record")))
-                                  (wat "i32.const" (int (● case tag))))
-                             (wat "then"
-                                  (wat "call" (id (panic-helper m))
-                                       (string-literal m "wrong enum case"))))
-                        (wat "ref.cast" (ref-wat holder)
-                             (wat "local.get" (Word "$record"))))))))
+      (wat "ref.cast" (ref-wat (field-holder m type case)) record))
 
     ;; Wasm evaluates the receiver before the incoming value, each once.
     (define (set-field (fn Fn) (case Case) (index I64) (record Expr) (content Expr))
@@ -2612,27 +2383,24 @@
                                 (id (wasm-id key))
                                 (wat "struct" (wat "field" (rep->wat r)))))))))
 
-    ;; To Any boxes. After conversions.sld, every extraction is dominated
-    ;; by a successful TypeTest of this value and target, so it only reads
-    ;; the established representation. A downcast just upcast from the same
-    ;; type may be removed; Any -> T -> Any must keep its test. Keys
-    ;; and TypeIds leave rows out, which is exact only because the checker
-    ;; refuses a conversion whose types hold a function with effects.
+    ;; Any owns its payload credit. Downcast consumes one Any credit on
+    ;; either branch and retains the recovered payload into Some. The type
+    ;; test proves both nominal identity and representation before reading.
+    ;; TypeIds omit effects; the checker rejects payloads that could erase
+    ;; a function's effects or hide effectful disposal.
 
-    (define (emit-convert (fn Fn) (inner Expr) (target Type) (loc Loc)) (→ (List Wat)) (! mut)
-      (let ((source (● inner type)) (m (● fn module)))
-        (cond ((string=? (type-key source) (type-key target)) (emit fn inner #f))
-              ((match (● inner term)
-                 ((Convert original _)
-                  (and (not (any-type? target))
-                       (string=? (type-key (● original type)) (type-key target))))
-                 (_ #f))
-               (match (● inner term)
-                 ((Convert original _) (emit fn original #f))
-                 (_ (Nil))))
-              ((any-type? target) (list (to-any m source (emit1 fn inner))))
-              ((any-type? source) (list (from-any fn target (emit1 fn inner))))
-              (else (panic "internal error: a conversion neither to nor from Any")))))
+    (define (emit-downcast (fn Fn) (inner Expr) (target Type) (result Type)) (→ Wat) (! mut)
+      (let* ((m (● fn module)) (temp (declare-temp! fn (ref-wat (any-type m))))
+             (read (wat "local.get" (id temp))))
+        (wat "block" (wat "result" (rep->wat (rep m result)))
+             (wat "local.set" (id temp) (emit1 fn inner))
+             (wat "if" (wat "result" (rep->wat (rep m result)))
+                  (any-holds? fn read target)
+                  (wat "then" (construct-slots fn (option-case m #t) result
+                                               (list (from-any fn target read))))
+                  (wat "else"
+                       (wat "drop" (release-value m (● inner type) read (● fn evidence)))
+                       (construct-slots fn (option-case m #f) result (Nil)))))))
 
     (define (to-any (m Module) (type Type) (value Wat)) (→ Wat) (! mut)
       (let ((r (rep m type)) (shared? (shared-type? (program-of m) type)))
@@ -2678,18 +2446,12 @@
     ;; value has the type's representation, which `ref.test` checks without
     ;; trapping.
 
-    (define (type-test (fn Fn) (inner Expr) (type Type)) (→ Wat) (! mut)
-      (let* ((m (● fn module)) (any (declare-temp! fn (rep->wat (Reference (any-type m)))))
-             (field (lambda (index)
-                      (wat "struct.get" (Word "$any") (int index) (wat "local.get" (id any))))))
-        (wat "block" (wat "result" (Word "i32"))
-             (wat "local.set" (id any) (emit1 fn inner))
-             (wat "if"
-                  (wat "result" (Word "i32"))
-                  (wat "i32.eq" (field 2) (wat "i32.const" (int (any-type-id (program-of m) type))))
-                  (wat "then"
-                       (wat "ref.test" (wat "ref" (id (held-type m (fn-rep fn type)))) (field 3)))
-                  (wat "else" (wat "i32.const" (int 0)))))))
+    (define (any-holds? (fn Fn) (value Wat) (type Type)) (→ Wat) (! mut)
+      (let* ((m (● fn module))
+             (field (lambda (index) (wat "struct.get" (id (any-type m)) (int index) value))))
+        (wat "i32.and"
+             (wat "i32.eq" (field 2) (wat "i32.const" (int (any-type-id (program-of m) type))))
+             (wat "ref.test" (wat "ref" (id (held-type m (fn-rep fn type)))) (field 3)))))
 
     ;; What an Any holds for a value of representation `r`: the value, or a
     ;; box around a scalar.
@@ -2707,11 +2469,10 @@
     ;; and nothing compares Snail Scheme types, which is what makes the cast unsafe.
     ;; That type is a Snail Scheme function's, which takes the evidence first,
     ;; so the held function is one another module compiled from Snail Scheme.
-    ;; At a fn, which is such code, the cast alone makes the value.
 
     (define (funcref-closure (m Module) (type Type) (reference Wat)) (→ Wat) (! mut)
       (match type
-        ((TCon "fn" _) (wat "ref.cast" (nonnull (rep m type)) reference))
+
         ((TFun _ _ _)
          (let* ((signature (function-signature m type))
                 (base (closure-type m (● signature first) (● signature second)))
@@ -2787,205 +2548,6 @@
                                                      (lambda (param) (wat "param" (rep->wat param)))
                                                      params))
                                               (list (wat "result" (rep->wat result)))))))))))
-
-    ;; ---- Dynamic functions ----
-
-    ;; `(expose name "symbol" dynamic)` exports a function for programs that
-    ;; load it while they run, in two parts: "symbol", which takes the
-    ;; evidence and an Any for each parameter and returns an Any, and
-    ;; "symbol:signature", which returns the function's signature: its
-    ;; arity, then the 64-bit identity of each parameter's type and of the
-    ;; result's (`wide-type-id`). The checker has made sure each is data,
-    ;; which its identity names all of, and that the function is pure. A
-    ;; program that loads the function compares the signature once, when it
-    ;; looks it up, and `dynamic-cast` holds the export in a closure of the
-    ;; plain type. Values cross by reference: one declaration is one GC type
-    ;; in every module that declares it.
-
-    (define (signature-words (m Module) (type Type)) (→ (List I64))
-      (match (fn-arrow type)
-        ((TFun params result _)
-         (Cons (length params)
-               (map (lambda (t) (wide-type-id (program-of m) t)) (append params (list result)))))
-        (_ (panic "internal error: a dynamic function has a function type"))))
-
-    (define (signature-wat (m Module) (type Type)) (→ Wat) (! mut)
-      (let ((words (signature-words m type)))
-        (sequence-owned m (TCon "Vector" (list (TCon "I64" (Nil))))
-                        (wat* "array.new_fixed"
-                              (Cons (id (array-type m (Scalar "i64")))
-                                    (Cons (int (length words))
-                                          (map (lambda (word) (wat "i64.const" (int word)))
-                                               words)))))))
-
-    ;; The Wasm type of a dynamic export of `arity` parameters.
-
-    (define (dynamic-type (m Module) (arity I64)) (→ String) (! mut)
-      (let ((key (string-append "dynamic." (i64->string arity)))
-            (any (ref-wat (any-type m))))
-        (match (known-type m key)
-          ((Some type) type)
-          ((None)
-           (register-type! m key (wasm-id key)
-                           (wat "type" (id (wasm-id key))
-                                (wat* "func"
-                                      (append (Cons (wat "param" (evidence-ref m))
-                                                    (map (lambda (index) (wat "param" any))
-                                                         (iota arity)))
-                                              (list (wat "result" any))))))))))
-
-    ;; Both exports of `name`, whose definition has `type`.
-
-    (define (export-dynamic! (m Module) (name String) (symbol String) (type Type)) (→ Unit) (! mut)
-      (push! (● m exports)
-             (wat "export" (wat-string symbol) (wat "func" (id (dynamic-wrapper! m name type)))))
-      (push! (● m exports)
-             (wat "export"
-                  (wat-string (string-append symbol ":signature"))
-                  (wat "func" (id (signature-function! m name type))))))
-
-    ;; The wrapper takes each argument out of its Any, which checks its
-    ;; TypeId, and calls the definition with the empty evidence list, as an
-    ;; exposed function's does: the loading program's handlers are not
-    ;; passed on, and the checker has made the function pure.
-
-    (define (dynamic-wrapper! (m Module) (name String) (type Type)) (→ String) (! mut)
-      (match (fn-arrow type)
-        ((TFun params result _)
-         (let* ((fn (new-fn m)) (wrapper (wasm-id (string-append "dynamic-export." name)))
-                (names (map (lambda (index) (string-append "$any." (i64->string index)))
-                            (iota (length params))))
-                (args (map (lambda (pair)
-                             (from-any fn
-                                       (● pair first)
-                                       (wat "local.get" (id (● pair second)))))
-                           (zip params names)))
-                (value (to-any m
-                               result
-                               (wat* "call"
-                                     (Cons (id (function-id m name))
-                                           (Cons (evidence-none m) args))))))
-           (push-function! m wrapper
-                           (function-wat fn wrapper
-                                         (Cons (wat "type" (id (dynamic-type m (length params))))
-                                               (Cons (evidence-param m)
-                                                     (map (lambda (param)
-                                                            (wat "param"
-                                                                 (id param)
-                                                                 (ref-wat (any-type m))))
-                                                          names)))
-                                         (Reference (any-type m)) (list value)))
-           wrapper))
-        (_ (panic "internal error: a dynamic export is a function"))))
-
-    ;; The signature takes the evidence, as every Snail Scheme function does,
-    ;; so a program that loads it calls it as a function of no arguments.
-
-    (define (signature-function! (m Module) (name String) (type Type)) (→ String) (! mut)
-      (let ((function-id (wasm-id (string-append "dynamic-signature." name))))
-        (push-function! m function-id
-                        (wat "func"
-                             (id function-id)
-                             (evidence-param m)
-                             (wat "result"
-                                  (rep->wat (rep m (TCon "Vector" (list (TCon "I64" (Nil)))))))
-                             (signature-wat m type)))
-        function-id))
-
-    ;; `dynamic-cast` calls the policy with the signature of the function
-    ;; type the context expects and, if the policy accepts it, holds the
-    ;; Funcref in a closure of that type, in a vector of one; otherwise the
-    ;; vector is empty. Both operands are evaluated first, in order.
-
-    (define (dynamic-cast (fn Fn) (type Type) (policy-type Type) (reference Wat) (policy Wat))
-      (→ Wat) (! mut)
-      (let* ((m (● fn module)) (vector (sequence-raw-type m type))
-             (base (reference-type (fn-rep fn policy-type)))
-             (held (declare-temp! fn (Word "funcref")))
-             (accepts (declare-temp! fn (rep->wat (Reference base)))))
-        (wat "block" (wat "result" (rep->wat (rep m type)))
-             (wat "local.set" (id held) reference)
-             (wat "local.set" (id accepts) (retain-value m policy-type policy))
-             (sequence-owned m type
-                             (wat "if" (wat "result" (ref-wat vector))
-                                  (closure-call-wat m base (wat "local.get" (id accepts))
-                                                    (list (● fn evidence)
-                                                          (signature-wat m (vector-element type)))
-                                                    #f)
-                                  (wat "then" (wat "array.new_fixed" (id vector) (int 1)
-                                                   (dynamic-closure m
-                                                                    (vector-element type)
-                                                                    (wat "local.get" (id held)))))
-                                  (wat "else" (wat "array.new_fixed" (id vector) (int 0))))))))
-
-    (define (vector-element (type Type)) (→ Type)
-      (match type
-        ((TCon "Vector" (Cons element (Nil))) element)
-        (_ (panic "internal error: not a vector type"))))
-
-    ;; The expected type is a function of data, as a dynamic export's is, or
-    ;; no signature could be its.
-
-    (define (dynamic-closure (m Module) (type Type) (reference Wat)) (→ Wat) (! mut)
-      (match type
-        ((TFun params result _)
-         (unless (every? (lambda (t) (first-order-type? (program-of m) t)) (Cons result params))
-           (panic
-            (string-append "dynamic-cast makes a function of data, not a " (type->string type))))
-         (let* ((signature (function-signature m type))
-                (base (closure-type m (● signature first) (● signature second)))
-                (holder (funcref-holder-type m base)))
-           (wat "struct.new"
-                (id holder)
-                (wat "i64.const" (int -1)) (code-of m (owner-noop m))
-                (wat "ref.func" (id (dynamic-code m type base holder)))
-                (dropper-null)
-                reference)))
-        (_ (panic (string-append "dynamic-cast makes a function, not a " (type->string type))))))
-
-    ;; The code passes the closure's arguments as Any values, with its own
-    ;; evidence, to the export it holds, and takes the result out of the Any
-    ;; that returns, which checks its TypeId. TypeIds depend on the
-    ;; Snail Scheme types and not only on their representations, so the code
-    ;; is kept per type.
-
-    (define (dynamic-code (m Module) (type Type) (base String) (holder String)) (→ String) (! mut)
-      (helper! m "dynamic-call" (type-key type)
-               (lambda (function-id)
-                 (push! (● m declared) function-id)
-                 (let ((fn (new-fn m)) (signature (function-signature m type)))
-                   (function-wat fn function-id
-                                 (append (list (wat "type" (id (code-type m base)))
-                                               (wat "param" (ref-wat base))
-                                               (evidence-param m))
-                                         (map (lambda (param) (wat "param" (rep->wat param)))
-                                              (● signature first)))
-                                 (● signature second) (list (dynamic-call fn type holder)))))))
-
-    ;; The export takes the evidence, local 1, then an Any for each of the
-    ;; parameters that follow it.
-
-    (define (dynamic-call (fn Fn) (type Type) (holder String)) (→ Wat) (! mut)
-      (match type
-        ((TFun params result _)
-         (let* ((m (● fn module)) (export (dynamic-type m (length params)))
-                (held (wat "struct.get"
-                           (id holder)
-                           (int 4)
-                           (wat "ref.cast"
-                                (ref-wat holder)
-                                (wat "local.get" (int 0)))))
-                (anys (map-indexed
-                       (lambda (index param) (to-any m param (wat "local.get" (int (+ index 2)))))
-                       params)))
-           (from-any fn
-                     result
-                     (wat* "call_ref"
-                           (append (Cons (id export) (Cons (wat "local.get" (int 1)) anys))
-                                   (list (wat "ref.cast"
-                                              (ref-wat export)
-                                              held)))))))
-        (_ (panic "internal error: not a function type"))))
 
     ;; ---- Effect handlers ----
 
@@ -3154,8 +2716,6 @@
                               (Pair "copier" (evidence-copy-type m))
                               (Pair "retain" (retain-helper m)))))
 
-
-
     ;; Handled frames contain another owned continuation. Both entries read
     ;; that same object, so updating it establishes both execution and
     ;; cancellation contexts together. Source values in captures stay intact.
@@ -3226,7 +2786,6 @@
                               (Pair "retain" (retain-helper m))
                               (Pair "frames" (activate-continuation m))
                               (Pair "release" (release-activation m)))))
-
 
     (define (evidence-copy-type (m Module)) (→ String) (! mut)
       (match (known-type m "evidence.copy")
@@ -3334,7 +2893,8 @@
 
     (define (operation-type (m Module) (operation String)) (→ Type)
       (match (program-value (program-of m) operation)
-        ((Some (Operation _ (Scheme _ _ _ (TFun params result _)))) (TFun params result empty-row))
+        ((Some (Operation _ (Scheme _ _ _ (TFun params result _))))
+         (TFun params result (empty-row)))
         (_ (panic "internal error: not an operation"))))
 
     (define (operation-result (m Module) (operation String)) (→ Type)
@@ -3356,8 +2916,6 @@
                          (implementations (List (Pair String Expr))) (body Expr))
       (→ (List Wat)) (! mut)
       (emit-control-handle fn expr effect implementations body))
-
-
 
     ;; A new evidence node in a local: the local's name, and the instruction
     ;; that sets it to the node holding the handler.
@@ -3612,7 +3170,7 @@
 
     (define (emit-control-module (program Program)) (→ Wat) (! mut)
       (let ((m (new-module (Declarations (Program-items-set program (Nil))
-                                         (None) (control-effects program) empty-table))))
+                                         (None) (control-effects program) (empty-table)))))
         (yielding m)
         (module-wat m)))
 
@@ -3698,7 +3256,7 @@
              (saved (wat "local.get" (id temp)))
              (set (wat "local.set" (id temp) (frame fn name value cleanup body)))
              (test (yield-test fn saved))
-             (argument (box-value m (● value type) (variable fn name unchecked))))
+             (argument (box-value m (● value type) (variable fn name (unchecked)))))
         (Cons set (append test (list (wat "return_call" (id (frame-runner m)) saved argument))))))
 
     ;; A let's value that holds yield points of its own is a block they
@@ -3803,7 +3361,7 @@
               (append (list (id type) (wat "ref.func" (id join))
                             (wat "ref.func" (id (emit-cancel! m cleanup entries type)))
                             (retain-evidence m (● fn evidence)))
-                      (map (lambda (local) (variable fn local unchecked)) captured)))))
+                      (map (lambda (local) (variable fn local (unchecked))) captured)))))
 
     ;; A let's body as a function of its frame and its boxed value: it
     ;; loads the frame's locals and evidence and binds the value, runs the
@@ -4835,87 +4393,93 @@
 
     ;; Primitives with a single Wasm instruction.
 
-    (define instruction-primitives (→ (List (Pair String String)))
-      (list (Pair "i32-add" "i32.add")
-            (Pair "i32-sub" "i32.sub")
-            (Pair "i32-mul" "i32.mul")
-            (Pair "i32-quotient" "i32.div_s")
-            (Pair "i32-remainder" "i32.rem_s")
-            (Pair "i32-and" "i32.and")
-            (Pair "i32-or" "i32.or")
-            (Pair "i32-xor" "i32.xor")
-            (Pair "i32-shift-left" "i32.shl")
-            (Pair "i32-shift-right" "i32.shr_s")
-            (Pair "i32-shift-right/logical" "i32.shr_u")
-            (Pair "i32-eq" "i32.eq")
-            (Pair "i32-lt" "i32.lt_s")
-            (Pair "i32-le" "i32.le_s")
-            (Pair "i32-gt" "i32.gt_s")
-            (Pair "i32-ge" "i32.ge_s")
-            (Pair "i64-add" "i64.add")
-            (Pair "i64-sub" "i64.sub")
-            (Pair "i64-mul" "i64.mul")
-            (Pair "i64-quotient" "i64.div_s")
-            (Pair "i64-remainder" "i64.rem_s")
-            (Pair "i64-and" "i64.and")
-            (Pair "i64-or" "i64.or")
-            (Pair "i64-xor" "i64.xor")
-            (Pair "i64-shift-left" "i64.shl")
-            (Pair "i64-shift-right" "i64.shr_s")
-            (Pair "i64-shift-right/logical" "i64.shr_u")
-            (Pair "i64-eq" "i64.eq")
-            (Pair "i64-lt" "i64.lt_s")
-            (Pair "i64-le" "i64.le_s")
-            (Pair "i64-gt" "i64.gt_s")
-            (Pair "i64-ge" "i64.ge_s")
-            (Pair "f32-add" "f32.add")
-            (Pair "f32-sub" "f32.sub")
-            (Pair "f32-mul" "f32.mul")
-            (Pair "f32-div" "f32.div")
-            (Pair "f32-min" "f32.min")
-            (Pair "f32-max" "f32.max")
-            (Pair "f32-eq" "f32.eq")
-            (Pair "f32-lt" "f32.lt")
-            (Pair "f32-le" "f32.le")
-            (Pair "f32-gt" "f32.gt")
-            (Pair "f32-ge" "f32.ge")
-            (Pair "f32-sqrt" "f32.sqrt")
-            (Pair "f32-abs" "f32.abs")
-            (Pair "f32-negate" "f32.neg")
-            (Pair "f32-floor" "f32.floor")
-            (Pair "f32-ceiling" "f32.ceil")
-            (Pair "f32-truncate" "f32.trunc") (Pair "f32-round" "f32.nearest")
-            (Pair "f64-add" "f64.add")
-            (Pair "f64-sub" "f64.sub")
-            (Pair "f64-mul" "f64.mul")
-            (Pair "f64-div" "f64.div")
-            (Pair "f64-min" "f64.min")
-            (Pair "f64-max" "f64.max")
-            (Pair "f64-eq" "f64.eq")
-            (Pair "f64-lt" "f64.lt")
-            (Pair "f64-le" "f64.le")
-            (Pair "f64-gt" "f64.gt")
-            (Pair "f64-ge" "f64.ge")
-            (Pair "f64-sqrt" "f64.sqrt")
-            (Pair "f64-abs" "f64.abs")
-            (Pair "f64-negate" "f64.neg")
-            (Pair "f64-floor" "f64.floor")
-            (Pair "f64-ceiling" "f64.ceil")
-            (Pair "f64-truncate" "f64.trunc") (Pair "f64-round" "f64.nearest")
-            (Pair "i32->i64" "i64.extend_i32_s")
-            (Pair "i64->i32" "i32.wrap_i64")
-            (Pair "i64->f64" "f64.convert_i64_s")
-            (Pair "f64->i64" "i64.trunc_sat_f64_s")
-            (Pair "i32->f64" "f64.convert_i32_s")
-            (Pair "f64->i32" "i32.trunc_sat_f64_s")
-            (Pair "i32->f32" "f32.convert_i32_s")
-            (Pair "f32->i32" "i32.trunc_sat_f32_s")
-            (Pair "i64->f32" "f32.convert_i64_s")
-            (Pair "f32->i64" "i64.trunc_sat_f32_s")
-            (Pair "f32->f64" "f64.promote_f32")
-            (Pair "f64->f32" "f32.demote_f64")
-            (Pair "f32->bits" "i32.reinterpret_f32") (Pair "bits->f32" "f32.reinterpret_i32")
-            (Pair "f64->bits" "i64.reinterpret_f64") (Pair "bits->f64" "f64.reinterpret_i64")))
+    (define (primitive-instruction (operation String)) (→ (Option String))
+      (case operation
+        (("i32-add") (Some "i32.add"))
+        (("i32-sub") (Some "i32.sub"))
+        (("i32-mul") (Some "i32.mul"))
+        (("i32-quotient") (Some "i32.div_s"))
+        (("i32-remainder") (Some "i32.rem_s"))
+        (("i32-and") (Some "i32.and"))
+        (("i32-or") (Some "i32.or"))
+        (("i32-xor") (Some "i32.xor"))
+        (("i32-shift-left") (Some "i32.shl"))
+        (("i32-shift-right") (Some "i32.shr_s"))
+        (("i32-shift-right/logical") (Some "i32.shr_u"))
+        (("i32-eq") (Some "i32.eq"))
+        (("i32-lt") (Some "i32.lt_s"))
+        (("i32-le") (Some "i32.le_s"))
+        (("i32-gt") (Some "i32.gt_s"))
+        (("i32-ge") (Some "i32.ge_s"))
+        (("i64-add") (Some "i64.add"))
+        (("i64-sub") (Some "i64.sub"))
+        (("i64-mul") (Some "i64.mul"))
+        (("i64-quotient") (Some "i64.div_s"))
+        (("i64-remainder") (Some "i64.rem_s"))
+        (("i64-and") (Some "i64.and"))
+        (("i64-or") (Some "i64.or"))
+        (("i64-xor") (Some "i64.xor"))
+        (("i64-shift-left") (Some "i64.shl"))
+        (("i64-shift-right") (Some "i64.shr_s"))
+        (("i64-shift-right/logical") (Some "i64.shr_u"))
+        (("i64-eq") (Some "i64.eq"))
+        (("i64-lt") (Some "i64.lt_s"))
+        (("i64-le") (Some "i64.le_s"))
+        (("i64-gt") (Some "i64.gt_s"))
+        (("i64-ge") (Some "i64.ge_s"))
+        (("f32-add") (Some "f32.add"))
+        (("f32-sub") (Some "f32.sub"))
+        (("f32-mul") (Some "f32.mul"))
+        (("f32-div") (Some "f32.div"))
+        (("f32-min") (Some "f32.min"))
+        (("f32-max") (Some "f32.max"))
+        (("f32-eq") (Some "f32.eq"))
+        (("f32-lt") (Some "f32.lt"))
+        (("f32-le") (Some "f32.le"))
+        (("f32-gt") (Some "f32.gt"))
+        (("f32-ge") (Some "f32.ge"))
+        (("f32-sqrt") (Some "f32.sqrt"))
+        (("f32-abs") (Some "f32.abs"))
+        (("f32-negate") (Some "f32.neg"))
+        (("f32-floor") (Some "f32.floor"))
+        (("f32-ceiling") (Some "f32.ceil"))
+        (("f32-truncate") (Some "f32.trunc"))
+        (("f32-round") (Some "f32.nearest"))
+        (("f64-add") (Some "f64.add"))
+        (("f64-sub") (Some "f64.sub"))
+        (("f64-mul") (Some "f64.mul"))
+        (("f64-div") (Some "f64.div"))
+        (("f64-min") (Some "f64.min"))
+        (("f64-max") (Some "f64.max"))
+        (("f64-eq") (Some "f64.eq"))
+        (("f64-lt") (Some "f64.lt"))
+        (("f64-le") (Some "f64.le"))
+        (("f64-gt") (Some "f64.gt"))
+        (("f64-ge") (Some "f64.ge"))
+        (("f64-sqrt") (Some "f64.sqrt"))
+        (("f64-abs") (Some "f64.abs"))
+        (("f64-negate") (Some "f64.neg"))
+        (("f64-floor") (Some "f64.floor"))
+        (("f64-ceiling") (Some "f64.ceil"))
+        (("f64-truncate") (Some "f64.trunc"))
+        (("f64-round") (Some "f64.nearest"))
+        (("i32->i64") (Some "i64.extend_i32_s"))
+        (("i64->i32") (Some "i32.wrap_i64"))
+        (("i64->f64") (Some "f64.convert_i64_s"))
+        (("f64->i64") (Some "i64.trunc_sat_f64_s"))
+        (("i32->f64") (Some "f64.convert_i32_s"))
+        (("f64->i32") (Some "i32.trunc_sat_f64_s"))
+        (("i32->f32") (Some "f32.convert_i32_s"))
+        (("f32->i32") (Some "i32.trunc_sat_f32_s"))
+        (("i64->f32") (Some "f32.convert_i64_s"))
+        (("f32->i64") (Some "i64.trunc_sat_f32_s"))
+        (("f32->f64") (Some "f64.promote_f32"))
+        (("f64->f32") (Some "f32.demote_f64"))
+        (("f32->bits") (Some "i32.reinterpret_f32"))
+        (("bits->f32") (Some "f32.reinterpret_i32"))
+        (("f64->bits") (Some "i64.reinterpret_f64"))
+        (("bits->f64") (Some "f64.reinterpret_i64"))
+        (else (None))))
 
     (define (index (value Wat)) (→ Wat)
       (wat "i32.wrap_i64" value))
@@ -4924,7 +4488,7 @@
       (→ (List Wat))
       (! mut)
       (let ((operation (substring name 5 (string-length name))))
-        (match (assoc-ref instruction-primitives operation)
+        (match (primitive-instruction operation)
           ((Some instruction) (list (wat* instruction (emit-args fn args))))
           ((None)
            (special-primitive fn
@@ -4969,16 +4533,14 @@
           (("with-cleanup") (panic "internal error: cleanup marks only a let's value"))
           (("unsafe-total") (closure-call fn (first-arg args) (Nil) #f))
           (("unsafe-cast") (list (funcref-closure m type (arg 0))))
-          (("dynamic-cast") (list (dynamic-cast fn type (list-ref types 1) (arg 0) (arg 1))))
-          (("any-type-id")
-           (list (wat "i64.extend_i32_s" (wat "struct.get" (id (any-type m)) (int 2) (arg 0)))))
+
           (("panic") (list (wat* "call" (Cons (id (panic-helper m)) code)) (wat "unreachable")))
           (("bool->i32" "char->i32" "i32->char" "u8->i32") code)
           (("i32->u8") (list (wat "i32.and" (arg 0) (wat "i32.const" (int 255)))))
           (("i32->bool") (list (wat "i32.ne" (arg 0) (wat "i32.const" (int 0)))))
           (("string->vector")
            (list (sequence-owned m type (wat "call" (id (copy-helper m (sequence type))) (arg 0)))))
-          (("vector->string") (list (wat "call" (id (vector-string-helper m)) (arg 0))))
+          (("vector->string") (list (wat "call" (id (copy-helper m (sequence type))) (arg 0))))
           (("string-length" "vector-length")
            (list (wat "i64.extend_i32_u" (sequence-length m (first-type types) (arg 0)))))
           (("string-ref")
@@ -4995,14 +4557,6 @@
           (("vector-set!")
            (list (wat "call" (id (vector-write-helper m (sequence-element (first-type types))))
                       (arg 0) (arg 1) (arg 2) (● fn evidence))))
-          (("vector-push!")
-           (list (wat "call"
-                      (id (vector-push-helper m (sequence-element (first-type types))))
-                      (arg 0)
-                      (arg 1))))
-          (("vector-take-last!")
-           (list
-            (wat "call" (id (vector-pop-helper m (sequence-element (first-type types)))) (arg 0))))
           (("vector")
            (list (sequence-owned m type (wat "array.new_fixed" (id (sequence type)) (int 0)))))
           (("make-string" "make-vector")
@@ -5110,12 +4664,12 @@
 
     (define (append-helper (m Module) (array String)) (→ String) (! mut)
       (template-helper! m "append" array
-                        "(func {id} (param $a (ref null {array})) (param $a-size i32) (param $b (ref null {array})) (param $b-size i32) (result (ref null {array}))
+                        "(func {id} (param $a (ref null {array})) (param $b (ref null {array})) (result (ref null {array}))
   (local $result (ref null {array})) (local $size i32)
-  (local.set $size (call {size} (i64.add (i64.extend_i32_u (local.get $a-size)) (i64.extend_i32_u (local.get $b-size)))))
+  (local.set $size (call {size} (i64.add (i64.extend_i32_u (array.len (local.get $a))) (i64.extend_i32_u (array.len (local.get $b))))))
   (local.set $result (array.new_default {array} (local.get $size)))
-  (array.copy {array} {array} (local.get $result) (i32.const 0) (local.get $a) (i32.const 0) (local.get $a-size))
-  (array.copy {array} {array} (local.get $result) (local.get $a-size) (local.get $b) (i32.const 0) (local.get $b-size))
+  (array.copy {array} {array} (local.get $result) (i32.const 0) (local.get $a) (i32.const 0) (array.len (local.get $a)))
+  (array.copy {array} {array} (local.get $result) (array.len (local.get $a)) (local.get $b) (i32.const 0) (array.len (local.get $b)))
   (local.get $result))" (list (Pair "array" array) (Pair "size" (size-helper m)))))
 
     (define (slice-helper (m Module) (array String)) (→ String) (! mut)
@@ -5142,10 +4696,10 @@
 
     (define (set-helper (m Module) (array String) (element Rep)) (→ String) (! mut)
       (template-helper! m "set" array
-                        "(func {id} (param $a (ref null {array})) (param $length i32) (param $index i64) (param $value {element}) (result (ref null {array}))
+                        "(func {id} (param $a (ref null {array})) (param $index i64) (param $value {element}) (result (ref null {array}))
     (local $result (ref null {array}))
-    (local.set $result (array.new {array} (local.get $value) (local.get $length)))
-    (array.copy {array} {array} (local.get $result) (i32.const 0) (local.get $a) (i32.const 0) (local.get $length))
+    (local.set $result (array.new {array} (local.get $value) (array.len (local.get $a))))
+    (array.copy {array} {array} (local.get $result) (i32.const 0) (local.get $a) (i32.const 0) (array.len (local.get $a)))
     (array.set {array} (local.get $result) (i32.wrap_i64 (local.get $index)) (local.get $value))
     (local.get $result))"
                         (list (Pair "array" array)
@@ -5301,11 +4855,11 @@
     (define (type-groups (definitions (List Wat))) (→ (List Wat))
       (let* ((named (fold-left (lambda (table definition)
                                  (table-set table (type-definition-name definition) definition))
-                               empty-table definitions))
+                               (empty-table) definitions))
              (names (list->vector (list-sort string<? (map type-definition-name definitions))))
              (numbers
               (fold-left (lambda (table index) (table-set table (vector-ref names index) index))
-                         empty-table
+                         (empty-table)
                          (iota (vector-length names)))))
         (map (lambda (component)
                (group-wat named (map (lambda (index) (vector-ref names index)) component)))
@@ -5366,9 +4920,8 @@
 
     ;; ---- Modules ----
 
-    ;; The prepared input contains functions and initializer functions,
-    ;; explicit host exports and an optional program entry. Bindings preserve
-    ;; which functions initialize cached values rather than being source code.
+    ;; The prepared input contains concrete functions,
+    ;; explicit host exports and an optional program entry.
 
     (define (emit-module (prepared Prepared)) (→ Wat) (! mut)
       (let ((m (new-module (● prepared declarations))))
@@ -5377,8 +4930,7 @@
                       ((Define name value)
                        (match (definition-of m name)
                          ((Some binding)
-                          (if (● binding function?) (emit-function! m name value)
-                              (emit-lazy-value! m name value)))
+                          (emit-function! m name value))
                          ((None) (panic "internal error: an emitted definition has no binding"))))
                       (_ (panic "internal error: a prepared function must be a definition"))))
                   (● prepared definitions))
@@ -5389,9 +4941,9 @@
 
     (define (new-module (declarations Declarations)) (→ Module)
       (Module declarations
-              empty-table 65536 (Nil) (Nil) (Nil)
+              (empty-table) 65536 (Nil) (Nil) (Nil)
               (Nil) (Nil) (Nil) (Nil)
-              empty-table empty-table))
+              (empty-table) (empty-table)))
 
     (define (module-callees (m Module)) (→ (Option Callees))
       (if (null? (● (● m declarations) control))
@@ -5455,7 +5007,7 @@
     (define (sort-named (entries (List (Pair String A))))
       (→ (List (Pair String A)))
       (! e)
-      (∀ A e)
+      (∀ (A e))
       (⊨ (Copy A) (Drop e A))
       (list-sort (lambda (a b) (string<? (● a first) (● b first))) entries))
 
@@ -5463,18 +5015,13 @@
     ;; results transfer a credit with an explicit companion for its release.
     (define (emit-exposure! (m Module) (item Item)) (→ Unit) (! mut)
       (match item
-        ((Expose name symbol dynamic _)
+        ((Expose name symbol _)
          (match (definition-of m name)
            ((Some definition)
-            (unless (● definition function?)
-              (panic "internal error: an exposed function is not a lambda"))
-            (if dynamic
-                (export-dynamic! m name symbol (● definition type))
-                (begin
-                  (push! (● m exports)
-                         (wat "export" (wat-string symbol)
-                              (wat "func" (id (exposed-function m name (● definition type))))))
-                  (export-result-release! m name symbol (● definition type)))))
+            (push! (● m exports)
+                   (wat "export" (wat-string symbol)
+                        (wat "func" (id (exposed-function m name (● definition type))))))
+            (export-result-release! m name symbol (● definition type)))
            ((None) (panic "internal error: an exposed function has no definition"))))
         (_ (panic "internal error: expected a host exposure"))))
 

@@ -101,7 +101,7 @@
                        (items (List T))
                        (pieces (List String)))
       (→ (List String))
-      (∀ T)
+      (∀ (T))
       (match items
         ((Nil) pieces)
         ((Cons first rest)

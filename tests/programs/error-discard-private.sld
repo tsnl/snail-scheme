@@ -10,9 +10,9 @@
   ((name String)))
 
 (instance (Drop (! output-port) Handle)
-  (define drop
-    (lambda (handle) (match handle
-                       ((Handle name) (write-line (string-append "released " name)))))))
+  (define (drop (handle Handle)) (→ Unit) (! output-port)
+    (match handle
+      ((Handle name) (write-line (string-append "released " name))))))
 
 (define main
   (lambda ()

@@ -202,8 +202,8 @@
                              (table-set nodes
                                         (phase-key (● (vector-ref steps node) phase))
                                         node))
-                           empty-table (iota (vector-length steps)))
-                steps empty-table)))
+                           (empty-table) (iota (vector-length steps)))
+                steps (empty-table))))
 
     ;; Visits `phase` depth first and returns its node. A phase new to the
     ;; graph takes the next node, so nodes number in pre-order. A new phase,
@@ -440,7 +440,7 @@
                          (component (List I64)))
       (→ A)
       (! compile)
-      (∀ A)
+      (∀ (A))
       (match (first-declared targets steps component)
         ((Some start)
          (let ((path (cycle-path edges component start)))
@@ -572,12 +572,13 @@
 
       (define test-waves
         (lambda (targets scratch) (let* ((server (list-ref targets 2))
-                                         (cold (plan-build targets (list server) no-inputs scratch))
+                                         (cold
+                                          (plan-build targets (list server) (no-inputs) scratch))
                                          (wave (next-phases cold))
                                          (producer (wave-producer (● wave first)))
-                                         (output (generated-library-bytes assets-output))
+                                         (output (generated-library-bytes (assets-output)))
                                          (warm (refine-plan (● wave second)
-                                                            (supply-generated no-inputs
+                                                            (supply-generated (no-inputs)
                                                                               (printed-producer-text
                                                                                (● server
                                                                                   directories)
@@ -611,7 +612,7 @@
 
       (define test-roots
         (lambda (targets scratch)
-          (let ((plan (plan-build targets (take targets 3) no-inputs scratch)))
+          (let ((plan (plan-build targets (take targets 3) (no-inputs) scratch)))
             (expect (step-names plan)
                     (list "build client" "build admin" "build server" "produce generated.assets"))
             (expect (wave-names (● (next-phases plan) first))
@@ -645,7 +646,7 @@
 
       (define plan-error
         (lambda (targets roots scratch)
-          (or (compile-failure (lambda () (plan-build targets roots no-inputs scratch)))
+          (or (compile-failure (lambda () (plan-build targets roots (no-inputs) scratch)))
               "planned")))
 
       (define first-line
@@ -658,7 +659,7 @@
       (define embedding
         (lambda (name)
           (string-append
-           "(import (snail core base) (snail shell artifact))\n(define embedded (artifact-bundle \""
+           "(import (snail core base) (snail shell artifact))\n(define (embedded) (→ ArtifactBundle) (artifact-bundle \""
            name
            "\"))\n")))
 
@@ -695,10 +696,10 @@
                                (Pair "server" #f)
                                (Pair "knot" #f))))))
 
-      (define assets-output
+      (define (assets-output) (→ String)
         (string-append
          "(define-library (generated assets) (export admin-bundle) (import (snail core base) (snail shell artifact)) "
-         "(begin (: admin-bundle ArtifactBundle) (define admin-bundle (artifact-bundle \"admin\"))))"))
+         "(begin (define (admin-bundle) (→ ArtifactBundle) (artifact-bundle \"admin\"))))"))
 
       (define write-project
         (lambda (directory) (create-directory* (string-append directory "/lib/generated"))
@@ -710,24 +711,24 @@
                                       "(import (snail core base)) (define (main) (→ Unit) (unit))")
                                 (Pair "admin.sld"
                                       "(import (snail core base)) (define (main) (→ Unit) (unit))")
-                                (Pair "server.sld" server-source)
+                                (Pair "server.sld" (server-source))
                                 (Pair "knot.sld"
                                       "(import (snail core base) (sample knot)) (define (main) (→ Unit) (unit))")
-                                (Pair "lib/generated/assets.sld" assets-recipe)
+                                (Pair "lib/generated/assets.sld" (assets-recipe))
                                 (Pair "lib/sample/knot.sld"
                                       "(generate-library (sample knot) (import (snail core base) (sample knot-helper)) (unit))")
                                 (Pair "lib/sample/knot-helper.sld"
                                       "(define-library (sample knot-helper) (export) (import (sample knot)) (begin))")))))
 
-      (define assets-recipe
+      (define (assets-recipe) (→ String)
         (string-append
          "(generate-library (generated assets) (import (snail core base) (snail shell artifact) (snail shell syntax))\n"
          "  (let ((client (artifact-bundle \"client\"))) (StringSyntax \"unused\")))\n"))
 
-      (define server-source
+      (define (server-source) (→ String)
         (string-append
          "(import (snail core base) (rename (snail shell artifact) (artifact-bundle bundle)) (generated assets))\n"
          "(define-syntax client-snapshot (syntax-rules () ((_) (bundle \"client\"))))\n"
          "(define-syntax unused (syntax-rules () ((_) (bundle \"does-not-exist\"))))\n"
-         "(define snapshot (client-snapshot))\n"))))
+         "(define (snapshot) (→ ArtifactBundle) (client-snapshot))\n"))))
    (else)))

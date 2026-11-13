@@ -31,7 +31,7 @@
     (let ((keys (listen field
                         "keydown"
                         (list (Key) (Value))
-                        (Chords (list (Chord "Tab" 0) (Chord "s" control-key)))))
+                        (Chords (list (Chord "Tab" 0) (Chord "s" (control-key))))))
           (clicks (listen first "click" (Nil) (Always))))
       (unlisten clicks)
       (focus-node field)
@@ -43,25 +43,21 @@
                      "] "
                      (show (● keys id))))))
 
+(define (main) (→ Unit) (! mut output-port)
 
-
-
-
-(define main
-  (lambda ()
-    (define result (→ (Pair String Document)) (with-memory-dom (Nil) (once build)))
-    (define removed (→ Document)
-      (● (with-memory-dom (Nil) (lambda ()
-                                  (let ((outer (create-element "div"))
-                                        (inner (create-element "p")))
-                                    (insert-node (document-root) outer (None))
-                                    (insert-node outer inner (None))
-                                    (remove-node outer)
-                                    (insert-node (document-root)
-                                                 (create-text "after")
-                                                 (None))))) second))
-    (write-line (● result first))
-    (write-line (document->html (● result second)))
-    (for-each write-line (document-trace (● result second)))
-    (write-line (document->html removed))
-    (unit)))
+  (define result (→ (Pair String Document)) (with-memory-dom (Nil) (once build)))
+  (define removed (→ Document)
+    (● (with-memory-dom (Nil) (lambda ()
+                                (let ((outer (create-element "div"))
+                                      (inner (create-element "p")))
+                                  (insert-node (document-root) outer (None))
+                                  (insert-node outer inner (None))
+                                  (remove-node outer)
+                                  (insert-node (document-root)
+                                               (create-text "after")
+                                               (None))))) second))
+  (write-line (● result first))
+  (write-line (document->html (● result second)))
+  (for-each write-line (document-trace (● result second)))
+  (write-line (document->html removed))
+  (unit))

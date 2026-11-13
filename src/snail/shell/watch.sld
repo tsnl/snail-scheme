@@ -32,7 +32,7 @@
     (struct Inventory
       ((fingerprints (Table String))))
 
-    (define empty-inventory (→ Inventory) (Inventory empty-table))
+    (define (empty-inventory) (→ Inventory) (Inventory (empty-table)))
 
     ;; The paths under `roots`, the roots among them, leaving out each path
     ;; in `excluded` and what is under it. A path that vanishes while the
@@ -43,7 +43,7 @@
     (define (inventory (roots (List String)) (excluded (List String)))
       (→ (Result Inventory String))
       (! fs)
-      (match (take-paths empty-table roots excluded)
+      (match (take-paths (empty-table) roots excluded)
         ((Ok fingerprints) (Ok (Inventory fingerprints)))
         ((Err message) (Err message))))
 

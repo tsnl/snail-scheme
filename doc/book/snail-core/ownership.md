@@ -16,7 +16,7 @@ A struct or enum containing a linear field is itself linear, including when
 that field can be mutated. Substituting type arguments can therefore change a
 container's grade: `(List I64)` can be shared, while `(List (FnOnce → Unit))`
 is linear. An enum's grade describes all its variants, even when the current
-variant has no fields. A user `Drop` instance or `(deriving Move)` also makes
+variant has no fields. A user `Drop` instance also makes
 a nominal type linear.
 
 `Rc` is the only owning type that can hold linear content without becoming
@@ -29,10 +29,10 @@ Type variables are linear unless constrained by `(Copy T)`. This lets a generic
 body move an arbitrary `T`, while duplication requires an explicit proof:
 
 ```scheme
-(define (swap (pair (Pair A B))) (→ (Pair B A)) (∀ A B)
+(define (swap (pair (Pair A B))) (→ (Pair B A)) (∀ (A B))
   (match pair ((Pair left right) (Pair right left))))
 
-(define (twice (value T)) (→ (Pair T T)) (∀ T) (⊨ (Copy T))
+(define (twice (value T)) (→ (Pair T T)) (∀ (T)) (⊨ (Copy T))
   (Pair value value))
 ```
 
@@ -69,8 +69,8 @@ the old owner. Replacing an optional work item with `None` is a useful pattern.
 
 `Name-field-set` is a pure replacement operation. It returns another record;
 when its input is linear, it transfers that record's other fields to the result.
-`Name-field-set!` mutates a field, and `Name-field-replace!` also returns the
-previous value. The `!` distinguishes mutation from a pure replacement.
+Use `set!` or `replace!` on a `●` path for mutation. There are no generated
+mutable setters or swappers.
 
 ## Reference-counted ownership
 
@@ -120,7 +120,7 @@ scope when cleanup must finish before the next operation.
 
 ```scheme
 (typeclass (Drop e T)
-  (: drop (Fn T → Unit ! e)))
+  (declare (drop (value T)) (→ Unit) (! e)))
 ```
 
 The compiler derives cleanup from the concrete type, using a user instance when
@@ -185,19 +185,17 @@ Fatal panic, a terminal Wasm trap, and divergence are different from handled
 control flow. They do not promise source-level unwinding. Hosts close the
 failed run or instance; they do not continue an interrupted source activation.
 
-## Cloning
+## Sharing
 
-Sharing a `Copy` value preserves its identity. `clone` is a separate operation,
-selected by `(Clone e T)`, that produces the two owners specified by its class
-contract. For an unrestricted value it can share the value. A linear resource
-needs an explicit cloning implementation or derived cloning of its fields.
-There is no implicit deep clone when a record is assigned to another local.
+Sharing a `Copy` value preserves its identity. The compiler retains counted
+owners when a copy needs its own credit and releases that credit when it is no
+longer needed. There is no general `Clone` class or implicit deep copy. Construct
+a new record or copy a vector when independent mutable state is needed.
 
-Top-level lazy values follow the same sharing rule. Their initializer runs once,
-and every read observes its cached object graph. Copy a vector or construct a
-new record explicitly when a caller needs independent mutable state.
+Factories construct fresh values. Bind a result once and pass that owner to
+its users when they should share one object. There is no implicit global owner.
 
-## Closures without an environment
+## Closures
 
 `(Fn A → B ! e)` and `(FnOnce A → B ! e)` are built-in callable type formers.
 `Fn` is reusable and may capture only non-linear values. Wrapping a linear owner
@@ -206,30 +204,34 @@ one-shot callable and can move linear captures into it. Applying `once` to an
 existing reusable closure owns one reference to that closure; its other aliases
 remain usable.
 
-`(fn A → B ! e)` is noncapturing code. A `fn` expression cannot refer to an outer
-local, and named top-level functions have no capture environment. There are no
-callable classes, `FnMut`, `dyn`, or `impl` forms.
+A named top-level function has no capture environment. The backend represents
+any closure without captures as an immutable global. There is no separate code
+pointer type, callable class, `FnMut`, `dyn`, or `impl` form.
 
 ## Representation
 
 Every nominal aggregate is a WasmGC object. A field contains one scalar or one
 managed reference; nested structs are never flattened into their owners.
-Vectors have runtime lengths and may contain boxed aggregate elements. Their
-stable heap object owns the live prefix of its backing storage. Growth transfers
-that prefix without duplicating element ownership. Pop transfers the final slot
-to its result and clears the slot; spare capacity owns nothing. A vector of
-counted elements counts aliases of the vector itself and releases its live
-elements when the last alias leaves. Primitive vectors need no owner counter.
+Vectors have fixed runtime lengths and may contain boxed aggregate elements.
+A vector of counted elements counts aliases of the vector itself and releases
+all its elements when the last owner leaves. Uncounted vectors are raw GC arrays
+and need no owner counter. Elements must be `Copy`; use `Rc` to put a linear
+resource in a slot. Replacement installs the incoming owner before releasing
+the old element, and overlapping copies retain a snapshot before changing slots.
 
 The reference-counting pass makes ownership operations explicit after specialization.
 Reads of counted owners retain, calls transfer their owned operands, and scope
 exits release them. Control preparation then records exactly which owners a
-suspended frame must clean up. Ordinary functions and lazy initializers use
-that same cleanup evidence. A lazy cache owns its result for the module's
-lifetime, and each counted read retains a caller credit.
+suspended frame must clean up. All global definitions are functions; there
+are no hidden cache owners.
 
-The `Rc` control cell stores a strong count, payload and finalizer. A `WeakRc`
-uses the same cell without contributing to its count. Closures, dynamic boxes
-and aggregate containers receive counts only where their representations need
+The `Rc` control cell stores a strong count, a cleanup function, its payload
+and a finalizer. The count and cleanup fields are its ownership header, in
+the same GC object. A struct payload occupies a reference slot; structs are
+never inlined. `WeakRc` uses the same cell without contributing to the strong
+count. WasmGC keeps the cell alive while weak references exist, so no weak
+count is needed. The last strong release clears the payload slot before running
+its finalizer. Closures, dynamic boxes and aggregate containers receive counts
+only where their representations need
 to keep counted content alive. WasmGC traces their memory; explicit ownership
 controls external resource lifetimes.

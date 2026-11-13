@@ -13,18 +13,16 @@
  (snail stage0 process)
  (snail stage0 build)
  (only (snail stage0 forms) test-forms)
+ (only (snail core base) test-base)
  (only (snail shell compiler read) test-read)
- (only (snail shell compiler annotations) test-annotations)
  (only (snail shell compiler inputs) test-inputs)
  (only (snail shell compiler expand) test-expand)
  (only (snail shell compiler core) test-core)
  (only (snail shell compiler sha256) test-sha256)
  (only (snail shell compiler check) test-check)
- (only (snail shell compiler conversions) test-conversions)
  (only (snail shell compiler specialize) test-specialize)
  (only (snail shell compiler prepare) test-prepare)
  (only (snail shell compiler wasm) test-wasm)
- (only (snail shell compiler session) test-session)
  (only (snail shell project plan) test-plan)
  (only (snail shell project) test-project))
 
@@ -198,25 +196,6 @@
     (or (not (string=? day-night night-day))
         (report "type ids" "unchanged by reordering an enum's cases" day-night))))
 
-;; Fresh module instances start with empty caches, while escaped old code
-;; still sees its own cache after a relink.
-(define (check-lazy-instances root)
-  (let* ((output (path-join root "build/tests/lazy-instances"))
-         (source (path-join root "tests/lazy-instances/main.sld"))
-         (program (string-append output ".wasm")))
-    (link-wat root (program->wat root (standard-directories root) source) program)
-    (build-modules root (standard-directories root) source output)
-    (let ((results
-           (map (lambda (file)
-                  (let ((result (capture-process
-                                 (list "node" "--no-warnings"
-                                       (path-join root "tests/lazy-instances/check.mjs") file))))
-                    (or (zero? (caddr result))
-                        (report "lazy instances" "failed"
-                                (string-append (car result) (cadr result))))))
-                (list program (path-join output "modules.json")))))
-      (for-all values results))))
-
 ;; Counted owners crossing the host boundary survive repeated calls and release
 ;; once per returned credit, including aliases and nullable Any payloads.
 (define (check-owned-boundary root name)
@@ -284,7 +263,7 @@
                                        (write-string
                                         (string-append "(import (snail core base))\n(enum Phase "
                                                        cases
-                                                       ")\n(define (main) (→ Unit) (drop (type-convert (Day) Any)))\n")
+                                                       ")\n(define (main) (→ Unit) (drop (Any (Day))))\n")
                                         port)))
     (let* ((text (program->wat root (standard-directories root) source))
            (start (+ (text-index text marker 0) (string-length marker))))
@@ -349,8 +328,7 @@
         (run (tool-run root "run" "examples/fibonacci.sld"))
         (failed (tool-run root "run" "tests/tasks/failure.sld"))
         (panicked (tool-run root "run" "tests/programs/panic.sld"))
-        (trapped (tool-run root "run" "tests/programs/traps.sld"))
-        (enum-order (tool-run root "run" "tests/enum-field-order/main.sld")))
+        (trapped (tool-run root "run" "tests/programs/traps.sld")))
     (cond ((not (and (zero? (caddr wat)) (string-contains (car wat) "(func $main")))
            (report "compiler wat" "no module text" (cadr wat)))
           ((not (equal? (car run) "832040\n"))
@@ -363,13 +341,7 @@
            (report "compiler run" "a panic must exit with status 1" (cadr panicked)))
           ((not (= (caddr trapped) 512))
            (report "compiler run" "a trap must be status 2" (cadr trapped)))
-          ((not (and (= (caddr enum-order) 256) (equal? (car enum-order) "incoming\n")
-                     (equal? (cadr enum-order) "snail: wrong enum case\n")))
-           (report "compiler run" "enum writes must evaluate both operands before checking the case"
-                   (string-append (car enum-order) (cadr enum-order))))
           (else #t))))
-
-
 
 (define (tool-run root command program)
   (capture-process
@@ -636,18 +608,16 @@
     ("tests/programs" "closures")
     ("tests/programs" "classes-advanced")
     ("tests/programs" "data")
-    ("tests/programs" "dynamic")
+    ("tests/programs" "explicit-any")
     ("tests/programs" "wire")
     ("tests/programs" "deriving-libraries")
     ("tests/programs" "tables")
-    ("tests/programs" "implicit-any")
-    ("tests/programs" "dynamic-instance")
-    ("tests/programs" "dynamic-instance-effects")
     ("tests/programs" "libraries")
     ("tests/programs" "specialization-order")
     ("tests/programs" "specialization-drop")
     ("tests/programs" "generated") ("tests/programs" "wasm")
-    ("tests/programs" "wasm-replacement")
+    ("tests/programs" "wasm-instance-identity")
+
     ("tests/programs" "handler-captures")
     ("tests/programs" "tasks-main")
     ("tests/programs" "once")
@@ -663,11 +633,8 @@
     ("tests/programs" "control-early-exit")
     ("tests/programs" "control-per-library")
     ("tests/programs" "rc-per-library")
-    ("tests/programs" "lazy-per-library")
-    ("tests/programs" "lazy-values")
-    ("tests/programs" "lazy-read-order")
-    ("tests/programs" "lazy-function-order")
-    ("tests/programs" "lazy-owned-cache")
+    ("tests/programs" "function-values")
+    ("tests/programs" "factory-shared")
     ("tests/programs" "rc-model-parameters")
     ("tests/programs" "rc-model-fields")
     ("tests/programs" "rc-model-continuations")
@@ -716,7 +683,7 @@
                               (lambda () (run-linked-host-boundary root))
                               (lambda () (run-linked-socket-boundary root))
                               (lambda () (run-linked-async-files root))
-                              (lambda () (run-dynamic-loading root))))))
+                              ))))
     (if source-compiler?
         (map (lambda (check) (check)) checks)
         (run-checks checks))))
@@ -736,36 +703,6 @@
                    (path-join root "tests/host-boundary/main.sld")
                    output)
     (run-host-boundary root (path-join output "modules.json"))))
-
-;; ---- Loading while a program runs ----
-
-;; A host program, linked when it runs, loads what other builds hold
-;; through (snail shell wasm): the module of a library from a plugin's
-;; build, whose exported function it casts and calls, and the plugin
-;; itself, whose dynamic function it calls on values of a library both
-;; import. The plugin is built twice, the second time from a stale
-;; declaration of that library, whose function the host must refuse.
-(define (run-dynamic-loading root)
-  (guard (failure (#t (report "dynamic loading" "build failed" (error-text failure))))
-    (let* ((source (lambda (name) (path-join root "tests/dynamic" name)))
-           (output (lambda (name) (path-join root "build/tests/dynamic" name)))
-           (directories (cons (source "lib") (standard-directories root))))
-      (build-modules root directories (source "plugin.sld") (output "plugin"))
-      (build-modules root
-                     (cons (source "stale") directories)
-                     (source "plugin.sld")
-                     (output "stale"))
-      (build-modules root directories (source "host.sld") (output "host"))
-      (let ((printed (run-wasm root
-                               (path-join (output "host") "modules.json")
-                               (path-join (output "plugin") "cell.wasm")
-                               (path-join (output "plugin") "modules.json")
-                               (path-join (output "stale") "modules.json")))
-            (expected (read-file (source "host.out"))))
-        (or (equal? printed expected)
-            (report "dynamic loading"
-                    "wrong output"
-                    (string-append printed "\nexpected:\n" expected)))))))
 
 ;; ---- Checks in parallel ----
 
@@ -799,20 +736,18 @@
 
 (define (main root selected)
   (test-forms)
+  (test-base)
   (test-read)
-  (test-annotations)
   (test-inputs)
   (test-build root)
   (test-process root)
   (test-core)
   (test-sha256)
   (test-check)
-  (test-conversions)
   (test-specialize)
   (test-prepare)
   (test-wasm)
   (test-expand (path-join root "build/tests/expand") (path-join root "src"))
-  (test-session (path-join root "build/tests/session") (path-join root "src"))
   (test-plan (path-join root "build/tests/plan") (path-join root "src"))
   (test-project)
   (let* ((cases (append (run-suite root "examples" '("examples") selected)
@@ -848,7 +783,6 @@
                                   (lambda () (check-tcp root))
                                   (lambda () (check-udp root))
                                   (lambda () (check-type-ids root))
-                                  (lambda () (check-lazy-instances root))
                                   (lambda () (check-numeric-runtime root))
                                   (lambda ()
                                     (and (and (check-owned-boundary root "host-owners")

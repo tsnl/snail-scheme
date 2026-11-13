@@ -10,7 +10,6 @@
    TRow
    TVar
    TRigid
-   TVar-id
    empty-row
    fn-arrow
    callable-kind
@@ -24,11 +23,9 @@
    type->string
    type-key
    require-type-capacity
-   any-type?
    never-type?
    drop-class
-   clone-class
-   lifecycle-class?
+   drop-class?
    local-name
    string-type?
    bytes-type?
@@ -55,7 +52,6 @@
    Trivial
    Implemented
    Glue
-   Refused
    Expr
    Term
    Lit
@@ -68,11 +64,9 @@
    Seq
    Match
    Ann
-   ScopedInstances
    Handle
-   Convert
-   TryConvert
-   TypeTest
+   BoxAny
+   Downcast
    Clause
    Pattern
    PWild
@@ -103,6 +97,7 @@
    Defined
    Constructor
    Accessor
+   field-operation-name
    Replacer
    Setter
    Swapper
@@ -113,8 +108,6 @@
    value-scheme
    Item
    Define
-   Define-name
-   Define-value
    Entry
    Expose
    item-definitions
@@ -122,19 +115,12 @@
    Program-items-set
    empty-program
    primitive-global
-   primitive-delta
-   program-annotations
-   program-field-annotations
-   program-with-annotations
-   program-with-field-annotations
    program-value
    program-type
    program-class
    program-effect
    class-instances
-   visible-instances
    check-instance-overlap
-   check-active-instances
    selected-method-arguments
    program-with-value
    program-with-type
@@ -142,7 +128,6 @@
    program-with-instance
    program-with-effect
    program-with-library
-   program-delta
    table-union
    program-items
    library-items
@@ -152,15 +137,12 @@
    type-id
    case-type-id
    any-type-id
-   wide-hash
-   wide-type-id
    wire-schemas
    strong-components)
   (import
    (snail core base)
    (snail core table)
-   (snail shell compiler read)
-   (snail shell compiler annotations))
+   (snail shell compiler read))
   (begin
 
     ;; ---- Types ----
@@ -185,10 +167,9 @@
       (TRigid
        ((name String))))
 
-    (define empty-row (→ Type) (TRow (Nil) (None)))
+    (define (empty-row) (→ Type) (TRow (Nil) (None)))
 
-    ;; The signature a callable holds, including `(fn A → B ! e)` code; any
-    ;; other type is its own.
+    ;; The signature a callable holds; any other type is its own.
 
     (define (fn-arrow (type Type)) (→ Type)
       (match (callable-arrow type)
@@ -197,14 +178,14 @@
 
     ;; ---- Procedure types ----
 
-    ;; Fn is a reusable closure, FnOnce consumes its captures, and fn is
-    ;; capture-free code. Each contains the same argument/result/effect shape.
+    ;; Fn is a reusable closure; FnOnce consumes its captures. Both contain
+    ;; the same argument/result/effect shape.
 
     (define (callable-kind (type Type)) (→ (Option String))
       (match type
         ((TFun _ _ _) (Some "Fn"))
         ((TCon "FnOnce" _) (Some "FnOnce"))
-        ((TCon "fn" _) (Some "Fn"))
+
         (_ (None))))
 
     (define (callable-arrow (type Type)) (→ (Option Type))
@@ -216,12 +197,12 @@
 
     ;; Writing a field changes storage; reading it has no mutation effect.
 
-    (define mut-row (→ Type) (TRow (list "mut") (None)))
+    (define (mut-row) (→ Type) (TRow (list "mut") (None)))
 
     ;; The type of an expression the checker has not yet seen. The checker
     ;; rebuilds every expression, so no later pass meets it.
 
-    (define unchecked (→ Type) (TCon "unchecked" (Nil)))
+    (define (unchecked) (→ Type) (TCon "unchecked" (Nil)))
 
     (struct Constraint
       ((class String)
@@ -245,24 +226,21 @@
     ;; The names of the core forms, which the expander binds in
     ;; (snail core forms) and (snail shell highlight) colors as keywords.
 
-    (define core-keywords (→ (List String))
+    (define (core-keywords) (→ (List String))
       (list "define"
             "lambda"
-            "fn"
             "if"
             "begin"
             "let"
             "define-syntax"
             "syntax-rules"
             "quote"
-            ":"
+            "declare"
             "struct"
             "enum"
             "type"
             "typeclass"
             "instance"
-            "define-instance-set"
-            "with-instances"
             "match"
             "●"
             "ann"
@@ -272,12 +250,10 @@
             "handle"
             "expose"
             "case-id"
-            "type-convert"
-            "try-convert"
-            "type-test"
+            "downcast"
             "artifact-files" "link-handle"))
 
-    (define builtin-types (→ (List (Pair String I64)))
+    (define (builtin-types) (→ (List (Pair String I64)))
       (list (Pair "Any" 0)
             (Pair "Rc" 1)
             (Pair "WeakRc" 1)
@@ -294,7 +270,7 @@
             (Pair "Vector" 1)
             (Pair "FnOnce" 1)
             (Pair "Fn" 0)
-            (Pair "fn" 1)))
+            ))
 
     ;; Unique names look like `snail.core.base:map`; diagnostics show the source
     ;; name. Text is scanned as a vector of characters, which both hosts index
@@ -343,8 +319,7 @@
         ((TFun params result row) (arrow->string "Fn" params result row))
         ((TCon "FnOnce" (Cons (TFun params result row) (Nil)))
          (arrow->string "FnOnce" params result row))
-        ((TCon "fn" (Cons (TFun params result row) (Nil)))
-         (arrow->string "fn" params result row))
+
         ((TCon name (Nil)) (short-name name))
         ((TCon name args) (string-append "(" (short-name name) (types->string args) ")"))
         ((TRow _ _) (string-append "{" (row->string type) " }"))
@@ -375,15 +350,6 @@
         ((TRow more (None)) (Pair (label-union labels more) (None)))
         (_ (Pair labels (Some row)))))
 
-    ;; Types the backend gives a representation of their own: Any boxes a
-    ;; TypeId with its value, and a String or Bytes argument to a host
-    ;; function is staged into the runtime's buffer, so it can come only last.
-
-    (define (any-type? (type Type)) (→ Bool)
-      (match type
-        ((TCon "Any" (Nil)) #t)
-        (_ #f)))
-
     ;; (snail core base)'s type with no values. A control operation that
     ;; answers it never resumes, so its yield saves nothing.
 
@@ -392,18 +358,14 @@
         ((TCon "snail.core.base:Never" (Nil)) #t)
         (_ #f)))
 
-    ;; The lifecycle classes, whose methods release a value, `(Drop e T)`,
-    ;; and copy one, `(Clone e T)`, performing `e` for a T. What they run,
-    ;; and so their rows, is found from T's structure, glue for a type
-    ;; without an instance, rather than chosen by matching instances, so the
-    ;; checker and mono treat them apart from other classes over a row.
+    ;; `(Drop e T)` releases a T, performing e. Without a declared instance,
+    ;; its implementation and row come from T's fields. The checker and
+    ;; specialization derive this plan rather than matching ordinary instances.
 
-    (define drop-class (→ String) "snail.core.base:Drop")
+    (define (drop-class) (→ String) "snail.core.base:Drop")
 
-    (define clone-class (→ String) "snail.core.base:Clone")
-
-    (define (lifecycle-class? (class String)) (→ Bool)
-      (or (string=? class drop-class) (string=? class clone-class)))
+    (define (drop-class? (class String)) (→ Bool)
+      (string=? class (drop-class)))
 
     (define (string-type? (type Type)) (→ Bool)
       (match type
@@ -571,7 +533,7 @@
 
     ;; Evidence says which instance satisfies a constraint: an instance applied
     ;; to type arguments and the evidence for its requirements, or the
-    ;; enclosing definition's own requirement at `index`. A Drop or Clone
+    ;; enclosing definition's own requirement at `index`. A Drop
     ;; constraint's is derived: the checker records the plan it charged,
     ;; or None for a type variable, whose instantiation's plan its caller
     ;; charged, and mono finds the plan again from the ground type and
@@ -589,16 +551,13 @@
       (EvHole
        ((id I64))))
 
-    ;; What a drop or a clone of a type runs: nothing but a discard or a
-    ;; share, an instance's method, or glue, which takes the value apart, or
-    ;; why it cannot run (`lifecycle-plan` in capabilities.sld).
+    ;; What dropping a type runs: a discard, its instance's method, or
+    ;; glue that releases its fields (`drop-plan` in capabilities.sld).
     (enum Plan
       (Trivial)
       (Implemented
        ((instance Instance)))
-      (Glue)
-      (Refused
-       ((reason String))))
+      (Glue))
 
     ;; ---- Expressions ----
 
@@ -617,15 +576,10 @@
        ((name String)
         (types (List Type))
         (evidence (List Evidence))))
-      ;; A closure. `captures?` says whether it may read the locals around
-      ;; it: the surface `lambda` may, a `fn` may not, and neither may a
-      ;; top-level function, which has none around it. The checker refuses a
-      ;; closure that reads one it may not (`check-closed`), so a closure
-      ;; marked so has no environment wherever it is compiled.
       (Lambda
        ((params (List String))
         (body Expr)
-        (captures? Bool)))
+        ))
       (App
        ((callee Expr)
         (args (List Expr))))
@@ -649,9 +603,6 @@
       (Match
        ((scrutinee Expr)
         (clauses (List Clause))))
-      (ScopedInstances
-       ((sets (List String))
-        (body Expr)))
       (Ann
        ((expr Expr)
         (type Type)))
@@ -659,13 +610,8 @@
        ((effect String)
         (implementations (List (Pair String Expr)))
         (body Expr)))
-      (Convert
-       ((expr Expr)
-        (target Type)))
-      (TryConvert
-       ((expr Expr)
-        (target Type)))
-      (TypeTest
+      (BoxAny ((expr Expr)))
+      (Downcast
        ((expr Expr)
         (target Type))))
 
@@ -689,7 +635,7 @@
 
     (define (lambda-expr? (expr Expr)) (→ Bool)
       (match (● expr term)
-        ((Lambda _ _ _) #t)
+        ((Lambda _ _ ) #t)
         (_ #f)))
 
     ;; Immediate structural children, in source order, including lambda
@@ -699,18 +645,17 @@
       (match (● expr term)
         ((Lit _) (Nil))
         ((Var _ _ _) (Nil))
-        ((Lambda _ body _) (list body))
+        ((Lambda _ body ) (list body))
         ((App callee args) (Cons callee args))
         ((FieldRead record _ _) (list record))
         ((If test then otherwise) (list test then otherwise))
         ((Let _ value body) (list value body))
         ((Seq first rest) (list first rest))
         ((Match scrutinee clauses) (Cons scrutinee (map (lambda (record) (● record body)) clauses)))
-        ((ScopedInstances _ body) (list body))
+
         ((Ann inner _) (list inner))
-        ((Convert inner _) (list inner))
-        ((TryConvert inner _) (list inner))
-        ((TypeTest inner _) (list inner))
+        ((BoxAny inner) (list inner))
+        ((Downcast inner _) (list inner))
         ((Handle _ implementations body)
          (append (map (lambda (record) (● record second)) implementations) (list body)))))
 
@@ -718,7 +663,7 @@
     ;; occurrence. Locals are included, since names are unique.
 
     (define (expr-references (expr Expr)) (→ (List String))
-      (reverse (● (collect-references (Pair empty-table (Nil)) expr) second)))
+      (reverse (● (collect-references (Pair (empty-table) (Nil)) expr) second)))
 
     ;; Adds the names not yet seen to the found list, newest first, and to
     ;; the seen table.
@@ -737,7 +682,7 @@
     ;; Local names are unique after resolution. Closure layouts and control
     ;; ownership use the type carried by each resolved read.
     (define (expr-reference-types (expr Expr)) (→ (Table Type))
-      (collect-reference-types empty-table expr))
+      (collect-reference-types (empty-table) expr))
 
     (define (collect-reference-types (found (Table Type)) (expr Expr)) (→ (Table Type))
       (match (● expr term)
@@ -747,8 +692,7 @@
     ;; ---- Declared entities ----
 
     ;; A struct is a data type with one case named after it. An `owned?`
-    ;; type is linear by its declaration, whatever its fields: it says
-    ;; `(deriving Move)`, or has a Drop instance.
+    ;; type has a Drop instance and is linear regardless of its fields.
     (struct DataType
       ((name String)
        (params (List String))
@@ -856,8 +800,7 @@
        (types (List Type))
        (requires (List Constraint))
        (copy (List String))
-       (methods (List (Pair String String)))
-       (set (Option String))))
+       (methods (List (Pair String String)))))
 
     (struct Import
       ((module String)
@@ -884,20 +827,19 @@
 
     ;; What a unique value name denotes. A definition's scheme is its
     ;; signature's, or none until it is inferred, and `signature` is where
-    ;; that `(: name type)` was written; `function?` says its value is a
-    ;; lambda, which a top-level definition's has no environment around, so
-    ;; its name has type fn where one is expected. An instance method has
+    ;; its typed header was written. Every definition is a function. An instance method has
     ;; its class method's scheme and no signature of its own, and like a
-    ;; default no program names it. A field has four
-    ;; operations: an Accessor reads it, `(● record field)`; a Replacer copies an
-    ;; struct with it replaced, `Name-field-set`; a Setter writes it in place,
-    ;; `Name-field-set!`, as its Swapper
-    ;; does while answering the old content, `Name-field-replace!`.
+    ;; default no program names it. Internal field operations describe
+    ;; path reads, pure struct copies, writes and swaps. Only the pure
+    ;; replacement has a source function name; enum fields are read by match.
+    (define (field-operation-name (case Case) (index I64) (operation String)) (→ String)
+      (string-append "%" operation ":" (● case name) "-"
+                     (● (list-ref (● case fields) index) name)))
+
     (enum Value
       (Defined
         ((scheme (Option Scheme))
-         (signature (Option Loc))
-         (function? Bool)))
+         (signature (Option Loc))))
       (Constructor
        ((case Case)
         (scheme Scheme)))
@@ -934,7 +876,7 @@
 
     (define (value-scheme (value Value)) (→ (Option Scheme))
       (match value
-        ((Defined scheme _ _) scheme)
+        ((Defined scheme _ ) scheme)
         ((Constructor _ scheme) (Some scheme))
         ((Accessor _ _ scheme) (Some scheme))
         ((Replacer _ _ scheme) (Some scheme))
@@ -954,11 +896,9 @@
         ((TFun _ _ (TRow labels _)) (filter (lambda (label) (not (string=? label effect))) labels))
         (_ (Nil))))
 
-    ;; Definitions contain functions or lazy runtime values. Entry names the
+    ;; Definitions contain functions. Entry names the
     ;; root program's optional main; libraries have no startup phase. An
-    ;; exposed function is exported under `symbol`; a `dynamic` one is
-    ;; exported instead for programs that load it while they run, behind a
-    ;; wrapper that takes and returns Any values, beside its signature.
+    ;; exposed function is exported under `symbol` through a host adapter.
     (enum Item
       (Define
         ((name String)
@@ -969,7 +909,6 @@
       (Expose
        ((name String)
         (symbol String)
-        (dynamic Bool)
         (loc Loc))))
 
     ;; The value of each definition among `items`, by name.
@@ -979,17 +918,9 @@
                    (match item
                      ((Define name value) (table-set table name value))
                      (_ table)))
-                 empty-table items))
+                 (empty-table) items))
 
     ;; ---- Programs ----
-
-    ;; Metadata belongs to a canonical declaration. Fields belong to their
-    ;; canonical constructor and field name, not to the generated accessor
-    ;; functions. Accessor/Setter/Replacer already carry that origin as a
-    ;; Case and field index. Metadata never enters type identity or layout.
-    (struct Metadata
-      ((annotations (List Annotation))
-       (fields (Table (List Annotation)))))
 
     ;; A program is a value: the expander threads it through expansion,
     ;; handing each addition the newest, and the later passes only read it.
@@ -1004,54 +935,11 @@
        (classes (Table Class))
        (instances (Table (List Instance)))
        (effects (Table Effect))
-       (metadata (Table Metadata))
        (items (List Item))
        (libraries (List (Pair String I64)))))
 
-    (define empty-program (→ Program)
-      (Program empty-table empty-table empty-table empty-table empty-table empty-table (Nil) (Nil)))
-
-    (define (metadata-of (program Program) (name String)) (→ Metadata)
-      (match (table-ref (● program metadata) name)
-        ((Some metadata) metadata)
-        ((None) (Metadata (Nil) empty-table))))
-
-    (define (program-annotations (program Program) (name String)) (→ (List Annotation))
-      (● (metadata-of program name) annotations))
-
-    (define (program-field-annotations (program Program) (constructor String) (field String))
-      (→ (List Annotation))
-      (match (table-ref (● (metadata-of program constructor) fields) field)
-        ((Some annotations) annotations)
-        ((None) (Nil))))
-
-    (define (program-with-annotations (program Program)
-                                      (name String)
-                                      (annotations (List Annotation)))
-      (→ Program)
-      (let ((before (metadata-of program name)))
-        (if (null? annotations)
-            program
-            (Program-metadata-set program
-                                  (table-set (● program metadata) name
-                                             (Metadata
-                                              (append (● before annotations) annotations)
-                                              (● before fields)))))))
-
-    (define (program-with-field-annotations (program Program)
-                                            (constructor String)
-                                            (field String)
-                                            (annotations (List Annotation)))
-      (→ Program)
-      (let ((before (metadata-of program constructor)))
-        (if (null? annotations)
-            program
-            (Program-metadata-set program
-                                  (table-set (● program metadata) constructor
-                                             (Metadata (● before annotations)
-                                                       (table-set (● before fields)
-                                                                  field
-                                                                  annotations)))))))
+    (define (empty-program) (→ Program)
+      (Program (empty-table) (empty-table) (empty-table) (empty-table) (empty-table) (Nil) (Nil)))
 
     (define (program-value (program Program) (name String)) (→ (Option Value))
       (table-ref (● program values) name))
@@ -1078,27 +966,6 @@
       (match (table-ref (● program instances) class)
         ((Some instances) instances)
         ((None) (Nil))))
-
-    ;; Named instances are available only inside an explicit lexical scope.
-    ;; All instances remain in the program: selected evidence names them
-    ;; even when a later caller has a different active policy.
-
-    (define (visible-instances (program Program) (class String) (sets (List String)))
-      (→ (List Instance))
-      (filter (lambda (instance)
-                (match (● instance set)
-                  ((None) #t)
-                  ((Some name) (member? name sets))))
-              (class-instances program class)))
-
-    (define (check-active-instances (program Program) (sets (List String)) (loc Loc))
-      (→ Unit)
-      (! compile)
-      (for-each (lambda (class)
-                  (let ((visible (visible-instances program (● class name) sets)))
-                    (for-each (lambda (instance)
-                                (check-instance-overlap program instance visible loc)) visible)))
-                (table-values (● program classes))))
 
     (define (check-instance-overlap (program Program)
                                     (instance Instance)
@@ -1183,58 +1050,13 @@
       (Program-libraries-set (Program-items-set program (append items (● program items)))
                              (Cons (Pair name (length items)) (● program libraries))))
 
-    ;; What the newest library added: the globals named for it, and its run
-    ;; of items, which are the newest. Expansion fingerprints these identities
-    ;; before deciding whether checked code from a previous build still applies.
-
-    (define (program-delta (program Program) (owner String)) (→ Program)
-      (let ((count (match (● program libraries)
-                     ((Cons (Pair _ count) _) count)
-                     ((Nil) 0))))
-        (Program (owned (● program values) owner)
-                 (owned (● program types) owner)
-                 (owned (● program classes) owner)
-                 (owned-instances (● program instances) owner)
-                 (owned (● program effects) owner)
-                 (owned (● program metadata) owner)
-                 (take (● program items) count) (take (● program libraries) 1))))
-
-    (define (owned (table (Table V)) (owner String))
-      (→ (Table V))
-      (! e)
-      (∀ V e)
-      (⊨ (Copy V) (Drop e V))
-      (fold-left (lambda (result key)
-                   (match (table-ref table key)
-                     ((Some value)
-                      (if (string=? (name-owner key) owner)
-                          (table-set result key value)
-                          result))
-                     ((None) result)))
-                 empty-table (table-keys table)))
-
-    (define (owned-instances (table (Table (List Instance))) (owner String))
-      (→ (Table (List Instance)))
-      (fold-left (lambda (result class)
-                   (match (filter (lambda (instance)
-                                    (string=? (name-owner (● instance name)) owner))
-                                  (class-list table class))
-                     ((Nil) result)
-                     (instances (table-set result class instances))))
-                 empty-table (table-keys table)))
-
-    (define (class-list (table (Table (List Instance))) (class String)) (→ (List Instance))
-      (match (table-ref table class)
-        ((Some instances) instances)
-        ((None) (Nil))))
-
     ;; `table` with every entry of `additions`, which win where both have a
     ;; key.
 
     (define (table-union (table (Table V)) (additions (Table V)))
       (→ (Table V))
       (! e)
-      (∀ V e)
+      (∀ (V e))
       (⊨ (Copy V) (Drop e V))
       (fold-left (lambda (result key)
                    (match (table-ref additions key)
@@ -1259,7 +1081,7 @@
     ;; `fnv-step` mixes in each code, a code point or a byte, in turn. The
     ;; product stays below 2^56, so it never overflows I64.
 
-    (define fnv-offset (→ I64) 2166136261)
+    (define (fnv-offset) (→ I64) 2166136261)
 
     (define (fnv-step (hash I64) (code I64)) (→ I64)
       (i64-and (* (i64-xor hash code) 16777619) 4294967295))
@@ -1268,7 +1090,7 @@
 
     (define (fnv-1a (text String)) (→ I64)
       (vector-fold (lambda (hash c) (fnv-step hash (char->integer c)))
-                   fnv-offset
+                   (fnv-offset)
                    (string->vector text)))
 
     ;; A TypeId is a hash as a signed 32-bit value, which Wasm's i32 holds.
@@ -1293,37 +1115,8 @@
     (define (any-type-id (program Program) (type Type)) (→ I64)
       (type-id (type-identity program type)))
 
-    ;; The same identity in 64 bits, for a dynamic export's signature: it is
-    ;; compared once, when a program looks the function up, rather than
-    ;; carried by every value.
-
-    (define (wide-type-id (program Program) (type Type)) (→ I64)
-      (wide-hash (type-identity program type)))
-
     (define (type-identity (program Program) (type Type)) (→ String)
       (string-append (type-key type) "\n" (type-schema program type (Nil) (Nil))))
-
-    ;; FNV-1a in 64 bits over the code points, as a signed I64. The state is
-    ;; two unsigned 32-bit halves, high and low, so that every product stays
-    ;; below 2^42 and both hosts compute the same value; the prime is
-    ;; 2^40 + 435, whose 2^40 shifts the low half eight bits into the high.
-
-    (define (wide-hash (text String)) (→ I64)
-      (let ((state (vector-fold (lambda (state c) (wide-step state (char->integer c)))
-                                (Pair 3421674724 2216829733)
-                                (string->vector text))))
-        (+ (* (if (>= (● state first) 2147483648)
-                  (- (● state first) 4294967296)
-                  (● state first))
-              4294967296)
-           (● state second))))
-
-    (define (wide-step (state (Pair I64 I64)) (code I64)) (→ (Pair I64 I64))
-      (let* ((low (i64-xor (● state second) code)) (product (* low 435)))
-        (Pair (i64-and (+ (+ (* (● state first) 435) (quotient product 4294967296))
-                          (* (i64-and low 16777215) 256))
-                       4294967295)
-              (i64-and product 4294967295))))
 
     (define (case-schema (program Program) (case Case) (visiting (List String))) (→ String)
       (let* ((data (program-type program (● case type)))
@@ -1368,7 +1161,22 @@
                             (string-concatenate
                              (map (lambda (case) (case-schema program case visiting))
                                   (● (program-type program name) cases))))))
-        (_ "fn")))
+        ((TFun arguments result row)
+         (string-append "Fn("
+                        (string-join (map (lambda (argument)
+                                            (type-schema program argument params visiting))
+                                          arguments) ",")
+                        "→" (type-schema program result params visiting)
+                        (type-schema program row params visiting) ")"))
+        ((TRow _ _)
+         (let ((parts (row-parts type (Nil))))
+           (string-append "!(" (string-join (● parts first) ",")
+                          (match (● parts second)
+                            ((None) "")
+                            ((Some tail)
+                             (string-append "|" (type-schema program tail params visiting))))
+                          ")")))
+        (_ (panic "internal error: unresolved type in a schema"))))
 
     ;; ---- Wire schemas ----
 
@@ -1433,7 +1241,7 @@
     (define (strong-components (edges (Vector (List I64)))) (→ (List (List I64)))
       (let ((search (fold-left
                      (lambda (search node) (if (reached? search node) search (visit search node)))
-                     (Search edges empty-table empty-table empty-table (Nil) 0 (Nil))
+                     (Search edges (empty-table) (empty-table) (empty-table) (Nil) 0 (Nil))
                      (iota (vector-length edges)))))
         (reverse (● search components))))
 
@@ -1521,9 +1329,6 @@
     ;; It has no module, since the backend
     ;; implements everything it declares, so it records no run of items.
 
-    (define (primitive-delta (program Program)) (→ Program)
-      (Program-values-set empty-program (owned (● program values) "prim")))
-
     )
 
   ;; ---- Tests ----
@@ -1537,20 +1342,39 @@
       (define test-core
         (lambda () (expect (short-name "snail.core.base:map") "map")
                 (expect (label-union (list "b" "d") (list "c" "a" "b")) (list "a" "b" "c" "d"))
-                (expect (wide-hash "") -3750763034362895579)
-                (expect (wide-hash "a") -5808556873153909620)
-                (expect (wide-hash "foobar") -8821353812377114648)
+
+                (test-type-identities)
                 (test-hidden-effects)
                 (test-references)))
+
+      ;; A boxed closure may cross a relink. Its nominal parameter/result
+      ;; schemas and nested callback effects must change its identity even
+      ;; when all involved Wasm layouts remain identical.
+      (define (identity-fixture (label String) (field Type)) (→ Program)
+        (program-with-type (empty-program)
+                           (DataType "test:Payload" (Nil)
+                                     (list (Case "test:Payload" "test:Payload" 0
+                                                 (list (Field label field)))) #f #f)))
+
+      (define (test-type-identities) (→ Unit)
+        (let* ((i64 (TCon "I64" (Nil))) (payload (TCon "test:Payload" (Nil)))
+               (callback (TFun (list payload) payload (empty-row)))
+               (old (identity-fixture "before" i64))
+               (changed (identity-fixture "after" i64))
+               (pure (identity-fixture "call" (TFun (Nil) i64 (empty-row))))
+               (effectful
+                (identity-fixture "call" (TFun (Nil) i64 (TRow (list "test:Log") (None))))))
+          (expect (= (any-type-id old callback) (any-type-id changed callback)) #f)
+          (expect (= (any-type-id pure callback) (any-type-id effectful callback)) #f)))
 
       ;; Structural traversal enters latent lambda bodies and handler
       ;; implementations, preserving first occurrence while deduplicating.
       (define test-references
         (lambda () (let* ((at (Loc "references" 1 1))
-                          (wrap (lambda (term) (Expr term unchecked at)))
+                          (wrap (lambda (term) (Expr term (unchecked) at)))
                           (read (lambda (name) (wrap (Var name (Nil) (Nil)))))
                           (body (wrap (App (read "later") (list (read "first") (read "last")))))
-                          (handler (wrap (Lambda (list "unused") (read "first") #t)))
+                          (handler (wrap (Lambda (list "unused") (read "first") )))
                           (expr (wrap (Handle "effect" (list (Pair "operation" handler)) body))))
                      (expect (expr-references expr) (list "first" "later" "last")))))
 
@@ -1558,18 +1382,18 @@
       ;; depth of the type, and a type variable may be one.
       (define test-hidden-effects
         (lambda () (let* ((i64 (TCon "I64" (Nil)))
-                          (total (TFun (Nil) i64 empty-row))
+                          (total (TFun (Nil) i64 (empty-row)))
                           (logging (TFun (Nil) i64 (TRow (list "t:Log") (None))))
                           (open (TFun (Nil) i64 (TRow (Nil) (Some (TRigid "e"))))))
                      (expect (hidden-effects (TCon "List" (list total))) (None))
-                     (expect (hidden-effects (TFun (list total) i64 empty-row)) (None))
+                     (expect (hidden-effects (TFun (list total) i64 (empty-row))) (None))
                      (expect (hidden-effects logging) (Some logging))
                      (expect (hidden-effects open) (Some open))
                      (expect (hidden-effects (TCon "List" (list logging))) (Some logging))
-                     (expect (hidden-effects (TFun (list logging) i64 empty-row)) (Some logging))
+                     (expect (hidden-effects (TFun (list logging) i64 (empty-row))) (Some logging))
                      (expect (hidden-effects (TCon "Task" (list (TRow (list "t:Log") (None)))))
                              (Some (TRow (list "t:Log") (None))))
-                     (expect (hidden-effects (TCon "Task" (list empty-row))) (None))
+                     (expect (hidden-effects (TCon "Task" (list (empty-row)))) (None))
                      (expect (hidden-effects (TCon "Holder" (list (TRigid "A"))))
                              (Some (TRigid "A"))))))))
    (else)))

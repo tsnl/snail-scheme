@@ -7,14 +7,13 @@
  (snail shell page)
  (snail shell wire))
 
-;; A mismatch here is a broken test-host invariant. Guest conversions that
-;; are expected to fail use dyn-cast handlers in the dedicated fixtures.
+;; A mismatch here is a broken test-host invariant.
 (define-syntax fixture-convert
   (syntax-rules ()
     ((_ value target)
-     (match (try-convert value target)
-       ((Ok checked) checked)
-       ((Err _) (panic "fixture payload has the wrong type"))))))
+     (match (downcast target value)
+       ((Some checked) checked)
+       ((None) (panic "fixture payload has the wrong type"))))))
 
 ;; Each task retains the private handler across its waits on storage and
 ;; events. Its default, the host's, lets the runner detect a leaked handler
@@ -123,7 +122,7 @@
   (● (fixture-convert state Counter) resizes))
 
 (define (other-state) (→ Any)
-  (type-convert (ann 5 I64) Any))
+  (Any (ann 5 I64)))
 
 (define (read-marker) (→ I32) (! Marker)
   (marker))
@@ -136,25 +135,33 @@
 (define-page-state Counter)
 
 (instance (Scene Counter)
-  (define scene-initialize (lambda (seed width height) (initial seed width height)))
-  (define scene-update (lambda (state input) (step state input)))
-  (define scene-view (lambda (state) (draw state)))
-  (define scene-hud (lambda (state) (panels state)))
-  (define scene-save (lambda (state) (serialize (save-counter state))))
-  (define scene-restore (lambda (bytes) (restore-counter (deserialize bytes)))))
+  (define (scene-initialize (seed I32) (width I32) (height I32)) (→ Counter)
+    (initial seed width height))
+  (define (scene-update (state Counter) (input Input)) (→ Counter)
+    (step state input))
+  (define (scene-view (state Counter)) (→ Frame)
+    (draw state))
+  (define (scene-hud (state Counter)) (→ (List Panel))
+    (panels state))
+  (define (scene-save (state Counter)) (→ Bytes)
+    (serialize (save-counter state)))
+  (define (scene-restore (bytes Bytes)) (→ Counter)
+    (restore-counter (deserialize bytes))))
 
 (struct TestApplication
   ())
 
 (instance (Application (! mut host screen events storage tasks page) TestApplication)
-  (define start
-    (lambda (entry) (handle Marker
-                        ((marker (lambda () 17)))
-                      (dispatch-local (once (lambda ()
-                                              (yield)
-                                              (unless (= (marker) 17)
-                                                (panic "a child lost its inherited handler"))
-                                              (sleep 100000))))
-                      (start (ann (Entry) (Entry (SceneApplication Counter))))))))
+  (define (start (entry (Entry TestApplication)))
+    (→ Unit)
+    (! mut host screen events storage tasks page)
+    (handle Marker
+        ((marker (lambda () 17)))
+      (dispatch-local (once (lambda ()
+                              (yield)
+                              (unless (= (marker) 17)
+                                (panic "a child lost its inherited handler"))
+                              (sleep 100000))))
+      (start (ann (Entry) (Entry (SceneApplication Counter)))))))
 
 (define-page-entry TestApplication)

@@ -3,7 +3,10 @@
  (snail core io))
 
 (struct Resource
-  ((name String)) (deriving Move))
+  ((name String)) )
+(instance (Drop (!) Resource)
+  (define (drop (value Resource)) (→ Unit)
+    (match value ((Resource _) (unit)))))
 (enum Chain
   (End)
   (Link ((node (Rc Node)))))

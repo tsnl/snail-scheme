@@ -5,7 +5,7 @@
  (snail shell text))
 
 (define (main) (→ Unit) (! output-port)
-  (display (round (* 1000.0 (sin (/ pi 2.0)))))
+  (display (round (* 1000.0 (sin (/ (pi) 2.0)))))
   (newline)
   (write-line (string-upcase "Hello λ"))
   (display (char-unicode-alphabetic? #\λ))

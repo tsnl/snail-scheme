@@ -2,31 +2,41 @@
  (snail core base)
  (snail core io))
 
-(enum Shape
-  (Circle ((radius I64)))
-  (Empty))
+(struct Radius
+  ((value I64)))
+(enum Shape (Circle ((radius Radius))) (Empty))
+(struct LinkData
+  ((value I64)
+   (next (Option Chain))))
+(enum Chain (Link ((data LinkData))) (End))
 
-(enum Chain
-  (Link ((value I64) (next (Option Chain))))
-  (End))
-
-(define cycle (→ Chain)
-  (unsafe-total
-   (lambda ()
-     (let ((link (Link 3 (None))))
-       (Link-next-set! link (Some link))
-       link))))
+(define (cycle) (→ Chain)
+  (unsafe-total (lambda ()
+                  (let* ((data (LinkData 3 (None))) (link (Link data)))
+                    (set! (● data next) (Some link))
+                    link))))
 
 (define (main) (→ Unit) (! mut output-port)
-  (let* ((circle (Circle 4)) (alias circle))
-    (Circle-radius-set! alias 9)
-    (write-line (show (Circle-radius circle)))
-    (write-line (show (Circle-radius-replace! circle 12)))
-    (write-line (show (Circle-radius alias))))
-  (let ((first cycle) (second cycle))
-    (Link-value-set! first 21)
-    (match (Link-next first)
-      ((Some same) (write-line (show (Link-value same))))
-      ((None) (panic "missing cycle")))
-    (write-line (show (Link-value second))))
+  (let* ((circle (Circle (Radius 4))) (alias circle))
+    (match alias
+      ((Circle radius) (set! (● radius value) 9))
+      ((Empty) (panic "empty shape")))
+    (match circle
+      ((Circle radius)
+       (write-line (show (● radius value)))
+       (write-line (show (replace! (● radius value) 12))))
+      ((Empty) (panic "empty shape")))
+    (match alias
+      ((Circle radius) (write-line (show (● radius value))))
+      ((Empty) (panic "empty shape"))))
+  (match (cycle)
+    ((Link first)
+     (set! (● first value) 21)
+     (match (● first next)
+       ((Some (Link same)) (write-line (show (● same value))))
+       (_ (panic "missing cycle")))
+     (match (cycle)
+       ((Link second) (write-line (show (● second value))))
+       ((End) (panic "empty chain"))))
+    ((End) (panic "empty chain")))
   (unit))

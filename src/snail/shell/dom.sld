@@ -128,13 +128,13 @@
       ((key String)
        (modifiers I32)))
 
-    (define control-key (→ I32) 1)
+    (define (control-key) (→ I32) 1)
 
-    (define shift-key (→ I32) 2)
+    (define (shift-key) (→ I32) 2)
 
-    (define alt-key (→ I32) 4)
+    (define (alt-key) (→ I32) 4)
 
-    (define meta-key (→ I32) 8)
+    (define (meta-key) (→ I32) 8)
 
     ;; The captures as the host's bits, each kind's bit its position in
     ;; `Capture`.
@@ -169,7 +169,7 @@
        (selection-end I32)
        (checked Bool)))
 
-    (define no-event (→ Event) (Event "" "" 0 0.0 0.0 0 0.0 0.0 0 0 #f))
+    (define (no-event) (→ Event) (Event "" "" 0 0.0 0.0 0 0.0 0.0 0 0 #f))
 
     ;; What the next event is: a listener fired, carrying what it captured;
     ;; something performed `wake`; the page was hidden, so an interface

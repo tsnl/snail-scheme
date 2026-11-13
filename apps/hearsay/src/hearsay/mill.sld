@@ -73,16 +73,16 @@
 
     ;; ---- Town ----
 
-    (define person-count (→ I64) 24)
+    (define (person-count) (→ I64) 24)
 
     ;; The audiences in order. Person p belongs to audience p / 8.
-    (define market (→ I64) 0)
+    (define (market) (→ I64) 0)
 
-    (define docks (→ I64) 1)
+    (define (docks) (→ I64) 1)
 
-    (define tower (→ I64) 2)
+    (define (tower) (→ I64) 2)
 
-    (define audiences (→ (List I64)) (list market docks tower))
+    (define (audiences) (→ (List I64)) (list (market) (docks) (tower)))
 
     (define (audience-of (person I64)) (→ I64)
       (quotient person 8))
@@ -108,16 +108,16 @@
     (define (ring-next (person I64)) (→ I64)
       (+ (* 8 (audience-of person)) (remainder (+ person 1) 8)))
 
-    (define ties (→ (List (Pair I64 I64)))
-      (append (map (lambda (person) (Pair person (ring-next person))) (iota person-count))
+    (define (ties) (→ (List (Pair I64 I64)))
+      (append (map (lambda (person) (Pair person (ring-next person))) (iota (person-count)))
               (list (Pair 1 5) (Pair 9 13) (Pair 17 21)
                     (Pair 0 12) (Pair 7 19) (Pair 13 17))))
 
     (define (neighbors (person I64)) (→ (List I64))
       (append (map (lambda (record) (● record second))
-                   (filter (lambda (tie) (= (● tie first) person)) ties))
+                   (filter (lambda (tie) (= (● tie first) person)) (ties)))
               (map (lambda (record) (● record first))
-                   (filter (lambda (tie) (= (● tie second) person)) ties))))
+                   (filter (lambda (tie) (= (● tie second) person)) (ties)))))
 
     (define (first-name (person I64)) (→ String)
       (let ((name (person-name person)))
@@ -139,7 +139,7 @@
       (Unreliable)
       (deriving Serialize Deserialize))
 
-    (define traits (→ (List Trait))
+    (define (traits) (→ (List Trait))
       (list (Dangerous) (Harmless) (Reliable) (Unreliable)))
 
     (define (trait-index (trait Trait)) (→ I64)
@@ -357,7 +357,7 @@
                   (concatenate (map (lambda (copy) (offers-of-copy person copy))
                                     (filter (lambda (copy) (< (● copy heard) (● mill shift)))
                                             (copies-of mill person))))))
-            (iota person-count))))
+            (iota (person-count)))))
 
     (define (better-offer? (a Offer) (b Offer)) (→ Bool)
       (or (> (● a intensity) (● b intensity))
@@ -395,7 +395,7 @@
                                             current
                                             (arrivals mill all person)))
                                mill
-                               (iota person-count))))
+                               (iota (person-count)))))
         (Mill-shift-set heard (+ (● mill shift) 1))))
 
     ;; ---- Scenarios ----
@@ -406,7 +406,7 @@
       (Sandbox)
       (deriving Serialize Deserialize))
 
-    (define scenarios (→ (List Scenario))
+    (define (scenarios) (→ (List Scenario))
       (list (TwoFaces) (Smear) (Sandbox)))
 
     ;; What a scenario asks: its name and what the menu says of it, its last
@@ -449,8 +449,8 @@
                         1
                         10
                         (Nil)
-                        (make-vector person-count (Nil))
-                        (make-vector person-count 0)
+                        (make-vector (person-count) (Nil))
+                        (make-vector (person-count) 0)
                         (Nil)
                         (Playing))))
         (match scenario
@@ -468,7 +468,8 @@
         (Mill-shift-set (hear told 14 (Copy 0 2 0 (Nil))) 1)))
 
     (define (two-faces-outcome (mill Mill)) (→ Outcome)
-      (let ((reliable (level mill market (Reliable))) (dangerous (level mill tower (Dangerous))))
+      (let ((reliable (level mill (market) (Reliable)))
+            (dangerous (level mill (tower) (Dangerous))))
         (cond ((< reliable 3)
                (Lost
                 (string-append "The Market believes you reliable at only " (show reliable) ".")))
@@ -483,7 +484,7 @@
                           (match (● mill scenario)
                             ((TwoFaces) (if done (two-faces-outcome mill) (Playing)))
                             ((Smear)
-                             (cond ((> (level mill tower (Unreliable)) 0)
+                             (cond ((> (level mill (tower) (Unreliable)) 0)
                                     (Lost "The Tower believes you unreliable."))
                                    (done (Won "The Tower never believed the smear."))
                                    (else (Playing))))
@@ -510,7 +511,7 @@
       (Walk)
       (deriving Serialize Deserialize))
 
-    (define deeds (→ (List Deed))
+    (define (deeds) (→ (List Deed))
       (list (Rough) (Threat) (Deliver) (Keep) (Walk)))
 
     ;; The story a deed's witness hears: its trait, its intensity, and what
@@ -579,7 +580,7 @@
       (or (not (forced? mill))
           (match action
             ((Do deed person)
-             (and (same-trait? (deed-trait deed) (Dangerous)) (= (audience-of person) docks)))
+             (and (same-trait? (deed-trait deed) (Dangerous)) (= (audience-of person) (docks))))
             (_ #f))))
 
     ;; A payment empties the person's memory of you and keeps them quiet
@@ -645,7 +646,7 @@
     (define (newly-heard (before Mill) (after Mill)) (→ (List I64))
       (filter
        (lambda (person) (> (length (copies-of after person)) (length (copies-of before person))))
-       (iota person-count)))
+       (iota (person-count))))
 
     ;; How many people in each audience heard something new.
     (define (news (before Mill) (after Mill)) (→ String)
@@ -655,7 +656,7 @@
                                   (length
                                    (filter (lambda (person) (= (audience-of person) audience))
                                            fresh))))
-                          audiences))
+                          (audiences)))
              (reached (filter (lambda (count) (> (● count second) 0)) counts)))
         (string-append "End of shift " (show (● before shift)) ": "
                        (if (null? reached)
@@ -685,8 +686,8 @@
                                                  trait
                                                  (level before audience trait)
                                                  (level after audience trait)))
-                                       traits))
-                                audiences))))
+                                       (traits)))
+                                (audiences)))))
 
     (define (change-text (change Change)) (→ String)
       (let ((now (● change now)))
@@ -774,12 +775,12 @@
       (append (match (● mill scenario)
                 ((TwoFaces)
                  (list (Goal "The Market believes you reliable at 3"
-                             (holds (>= (level mill market (Reliable)) 3)))
+                             (holds (>= (level mill (market) (Reliable)) 3)))
                        (Goal "The Tower does not believe you dangerous"
-                             (holds (= (level mill tower (Dangerous)) 0)))))
+                             (holds (= (level mill (tower) (Dangerous)) 0)))))
                 ((Smear)
                  (list (Goal "The Tower never believes you unreliable"
-                             (holds (= (level mill tower (Unreliable)) 0)))))
+                             (holds (= (level mill (tower) (Unreliable)) 0)))))
                 ((Sandbox) (Nil)))
               (match (● (scenario-rules (● mill scenario)) forced-shift)
                 ((Some shift)
@@ -803,11 +804,11 @@
     ;; as levels.
     (define (audience-beliefs (mill Mill) (audience I64)) (→ (List (Pair Trait I64)))
       (filter (lambda (pair) (> (● pair second) 0))
-              (map (lambda (trait) (Pair trait (level mill audience trait))) traits)))
+              (map (lambda (trait) (Pair trait (level mill audience trait))) (traits))))
 
     (define (person-beliefs (mill Mill) (person I64)) (→ (List (Pair Trait I64)))
       (filter (lambda (pair) (> (● pair second) 0))
-              (map (lambda (trait) (Pair trait (belief mill person trait))) traits)))
+              (map (lambda (trait) (Pair trait (belief mill person trait))) (traits))))
 
     ;; ---- Liabilities ----
 

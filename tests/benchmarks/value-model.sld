@@ -42,20 +42,9 @@
       (if (= index count) total
           (sum (+ index 1) (+ total (vector-ref values index)))))))
 
-(define (grow (count I64)) (→ I64) (! mut)
-  (let ((values (vector)))
-    (let fill ((index 0))
-      (when (< index count)
-        (vector-push! values index)
-        (fill (+ index 1))))
-    (let sum ((index 0) (total 0))
-      (if (= index (vector-length values)) total
-          (sum (+ index 1) (+ total (vector-ref values index)))))))
-
 (expose scalar "scalar")
 (expose records "records")
 (expose record-list "record_list")
 (expose vectors "vectors")
-(expose grow "grow")
 
 (define (main) (→ Unit) (unit))

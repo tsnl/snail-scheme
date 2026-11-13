@@ -3,9 +3,9 @@
 ## Programs and libraries
 
 A program is a file of `import` forms followed by declarations and definitions.
-Its root `main` starts runtime work. Top-level values have effect-free
-initializers evaluated lazily at runtime, once per defining module instance.
-Reads share the cached result; importing a library runs no source initializer. A library uses `define-library` with `import`,
+Its root `main` starts runtime work. Top-level definitions bind functions;
+values live in function bodies and explicit state objects. Importing a library
+runs no source initializer. A library uses `define-library` with `import`,
 `export` and `begin` sections, stored at a path that matches its name:
 `(sample geometry)` lives in `sample/geometry.sld` under a search directory.
 Import sets may use `only`, `except`, `prefix` and `rename`.
@@ -47,40 +47,35 @@ as the bytes it holds. Construct syntax explicitly with `(snail shell syntax)`.
 Every generated form is located at the recipe.
 
 A recipe names the files it reads relative to itself, with the forms any
-library uses: `(include-bytes "data/table.txt")` puts a file's bytes in the
-recipe as a byte vector literal, and `(link-file "data/table.txt")` links the
-file for the producer to read with `read-resource`, since the producer
-computes the recipe's expression in a task. Both resolve against the
-recipe's file wherever the build prints and runs its producer, so a recipe in
-a library directory finds its data from any working directory.
-`tests/programs/lib/sample/blob.sld` uses both.
+library uses: `(link-file "data/table.txt")` declares a packaged resource,
+and `read-resource` reads its bytes when the producer runs. A producer can emit
+those bytes as a byte literal in its generated library.
+`tests/programs/lib/sample/blob.sld` demonstrates this flow.
 
 ## Forms
 
 | Form | Meaning |
 | --- | --- |
-| `(define name [header ...] value)`, `(define (name (param type) ...) (→ Result) [header ...] body ...)` | Value or typed function definition. Every named function parameter has a type and every named function declares its result; optional effect, generic, constraint and annotation clauses precede the body. |
+| `(define (name (param type) ...) (→ Result) [header ...] body ...)` | Typed function definition. Optional effect, generic and constraint clauses precede the body. A direct lambda definition can infer its type; ordinary value definitions are local only. |
 | `(lambda (param ...) body ...)` | Function with a fixed number of parameters. |
-| `(fn (param ...) body ...)` | Function without an environment: it reads no local of the code around it ([ownership](ownership.md#closures-without-an-environment)). |
 | `(if test then [else])` | `test` is `Bool`; without `else` the result is `Unit`. |
 | `(begin form ...)` | A body: definitions and expressions in order. |
 | `(let ((name value) ...) body ...)`, `(let loop ((name value) ...) body ...)` | Local bindings and loops. |
 | `(match value (pattern body ...) ...)` | Pattern matching, checked for exhaustiveness and unreachable clauses. |
-| `(: name type)` | Separate signature for a class or effect method, or a foreign declaration. Implementation signatures belong on their definitions. |
+| `(declare (name (param type) ...) (→ Result) [header ...])` | Bodyless method declaration in a typeclass, with the same header as a function definition. |
 | `(ann expression type)` | Static type annotation. |
-| `(type-convert expression type)` | Converts to or from `Any`; a downcast is checked at run time. |
-| `(type-test expression type)` | Whether an `Any` holds a value of `type`, without trapping. |
+| `(Any expression)` | Boxes an unrestricted value with its concrete type. |
+| `(downcast Type boxed)` | Returns `Some` of the payload if its type matches, or `None`. |
 | `(struct (Name param ...) ((field type) ...))` | Record type. |
 | `(enum (Name param ...) (Case [((field type) ...)]) ...)` | Tagged sum. |
 | `(type (Name param ...) type)` | Transparent alias. |
-| `(typeclass (Class param ...) (: method type) ...)` | Class of types with methods. |
+| `(typeclass (Class param ...) (declare (method ...) ...) ...)` | Class of types with methods. |
 | `(instance (Class type ...) [(⊨ constraint ...)] (define ...) ...)` | Instance. |
 | `(effect Name ((operation type) ...) [(default ((operation implementation) ...))])` | Effect with operations and optional Snail Scheme defaults, each a lambda or a function's or extern's name. `(ctl operation type)` declares a control operation, which has no default ([effects and handlers](effects.md)). |
 | `(handle Name ((operation implementation) ...) body ...)` | Handles an effect for the extent of `body`; a control operation's implementation also takes `resume`. |
 | `(extern name "module" "symbol" type)` | Wasm import, asserted total. |
 | `(primitive name type)` | An operation the backend implements, bound to the global `prim:name`. Accepted only in `(snail core primitive)`. |
 | `(expose name "symbol")` | Exports a monomorphic top-level function to the host; its arguments and result must be unrestricted. |
-| `(expose name "symbol" dynamic)` | Exports it instead for programs that load it as a plugin's (`plugin-function` in `(snail shell wasm)`): behind a wrapper of `Any` values, beside `"symbol:signature"`. Its arguments and result must be data, with no function or `Any` inside, and it must be pure ([plugins](compilers.md#plugins)). |
 | `(define-syntax name (syntax-rules (literal ...) (pattern template) ...))` | Hygienic macro. |
 
 `(snail core base)` adds `let*`, `letrec`, `cond`, `case`, `when`, `unless`, `and`,
@@ -264,10 +259,9 @@ remains proposed.
 | Artifact bundle | The complete output of a browser build target, resolved by name during compilation. |
 | Run target | A named command for running a program build with its arguments. |
 | Build attempt | One invocation of project building, with an ID, diagnostics and a success/failure result. |
-| Compiler session | Cached expansion, checking and emitted code retained between builds. |
 | Development session | A running `snail dev`: file watching, persistent compilation and the editor's services. Application control remains planned. |
 | Application process | An OS process running a program. A browser frontend is a client of a server process, not a run target. |
-| Runtime | The scheduler and effect bindings executing a program's tasks. It is distinct from both the compiler session and the OS process. |
+| Runtime | The scheduler and effect bindings executing a program's tasks. It is distinct from compilation and the OS process. |
 | Host | The platform environment, such as Node or a browser, providing APIs to the runtime. |
 | Worker | A separate execution agent used for CPU work, such as a Node worker thread; it is not a browser Service Worker or a Snail Scheme task. |
 | Working state | In-memory values used by the running application, including changes not yet saved. |
@@ -279,5 +273,5 @@ persisted data. **Hot reload** (also called live reload) replaces
 running code while preserving application data under a stated contract.
 Today's browser uses state handover; the proposal uses durable typed tables
 and disposable cached views, recomputed on demand after ordinary startup.
-Recompiling incrementally does not by itself preserve application state, and
+Recompiling does not by itself preserve application state, and
 moving execution into a worker does not supply a preservation contract.
