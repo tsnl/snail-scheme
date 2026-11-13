@@ -40,14 +40,15 @@ async function startCold(application) {
   const run = runtime.start(entry);
   try { await run.ready.promise; }
   catch (error) {
-    (await run.done).release();
-    if (application.strictRestore) throw error;
+    const stopped = await run.done;
+    if (application.strictRestore) { stopped.release(); throw error; }
     if (run.boot !== null || run.loaded == null) { reportApplicationError(error); return; }
+    stopped.release();
     console.warn('discarding an incompatible save:', error.message);
     application.reset();
     const retry = runtime.start(entry, null, {restore: null});
     try { await retry.ready.promise; }
-    catch (error) { (await retry.done).release(); reportApplicationError(error); }
+    catch (error) { await retry.done; reportApplicationError(error); }
   }
 }
 
@@ -114,7 +115,9 @@ async function relinkApplication(application, from, fresh, manifest) {
     if (candidate) (await candidate.done).release();
     application.reset();
     const rollback = runtime.start(applicationEntry(previous), state, {restore: saved});
-    try { await rollback.ready.promise; } catch { (await rollback.done).release(); }
+    // A failed rollback remains the current run. Keep its checkpoint for
+    // the next repair, just as after a cold first-frame failure.
+    try { await rollback.ready.promise; } catch { await rollback.done; }
     throw new Error(application.capture.join('\n') || error.message);
   } finally {
     handover.release();

@@ -87,7 +87,11 @@ try {
   await browser.navigate(base);
   await until(() => browser.evaluate('document.body.dataset.ready'), 'the stopped cold application');
   await until(async () => (await notice()).includes('application stopped'), 'the cold trap notice');
-  await edit(source, '  (panic "cold first view trap")\n', '');
+  // A rejected repair also traps when restarting the previous code. Its
+  // failed rollback must retain the same restored checkpoint for another fix.
+  await edit(source, 'cold first view trap', 'cold view still broken');
+  await until(async () => (await notice()).includes('cold view still broken'), 'the rejected cold repair');
+  await edit(source, '  (panic "cold view still broken")\n', '');
   await until(async () => await text('count') === '2' && (await notice()).startsWith('Reloaded'), 'the fixed cold application');
 
   // Hold the first IndexedDB open across a build. A corrupt save forces the
@@ -158,6 +162,18 @@ try {
   await until(() => printed('linked again'), 'the linked file read again');
   assert.equal(await browser.evaluate('globalThis.stayed'), true, 'the page relinked rather than loading again');
   assert.equal(await text('count'), '1', 'and kept its state');
+
+  // An incompatible save retries initialization. If that retry's first view
+  // traps, a repair takes its checkpoint, not the new initializer's default.
+  await edit(source, '(Counter 0 width height', '(Counter 7 width height',
+    '(define (draw (counter Counter)) (→ Frame)\n', '(define (draw (counter Counter)) (→ Frame)\n  (panic "retry view trap")\n');
+  await until(async () => (await notice()).includes('retry view trap'), 'the rejected retry view');
+  await browser.evaluate(`${pageModule('storage.mjs')}.then(({storeSave}) => storeSave('counter', new Uint8Array([0])))`);
+  await browser.navigate(base);
+  await until(() => browser.evaluate('document.body.dataset.ready'), 'the stopped retry application');
+  await until(async () => (await notice()).includes('application stopped'), 'the retry trap notice');
+  await edit(source, '(Counter 7 width height', '(Counter 9 width height', '  (panic "retry view trap")\n', '');
+  await until(async () => await text('count') === '7' && (await notice()).startsWith('Reloaded'), 'the repaired retry checkpoint');
   if (screenshot) await browser.screenshot(screenshot);
   console.log('reload: the page kept its state across modules');
 } catch (error) {
