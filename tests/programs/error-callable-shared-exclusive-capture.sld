@@ -5,7 +5,8 @@
   ((value I64)))
 
 (instance (Drop (!) Token)
-  (define drop (lambda (token) (match token ((Token _) (unit))))))
+  (define (drop (token Token)) (→ Unit)
+    (match token ((Token _) (unit)))))
 
 (define main
   (lambda ()

@@ -6,8 +6,8 @@
   ((label String)))
 
 (instance (Drop (! output-port) Token)
-  (define drop
-    (lambda (token) (match token ((Token label) (write-line label))))))
+  (define (drop (token Token)) (→ Unit) (! output-port)
+    (match token ((Token label) (write-line label)))))
 
 (define (append-resource (label String)) (→ (Fn String → String ! mut output-port))
   (let ((token (rc (Token label))))

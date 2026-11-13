@@ -25,22 +25,22 @@
     (string (string-ref digits (quotient value 16)) (string-ref digits (remainder value 16)))))
 
 (instance (ToHex PrimaryColor)
-  (define to-hex
-    (lambda (color) (match color
-                      ((Red) "#ff0000")
-                      ((Green) "#00ff00")
-                      ((Blue) "#0000ff")))))
+  (define (to-hex (color PrimaryColor)) (→ String)
+    (match color
+      ((Red) "#ff0000")
+      ((Green) "#00ff00")
+      ((Blue) "#0000ff"))))
 
 (instance (ToHex (Vec3 I64))
-  (define to-hex
-    (lambda (v)
-      (string-append "#" (channel-hex (● v x)) (channel-hex (● v y)) (channel-hex (● v z))))))
+  (define (to-hex (v (Vec3 I64))) (→ String)
+
+    (string-append "#" (channel-hex (● v x)) (channel-hex (● v y)) (channel-hex (● v z)))))
 
 (instance (ToHex Color)
-  (define to-hex
-    (lambda (color) (match color
-                      ((Primary value) (to-hex value))
-                      ((Rgb value) (to-hex value))))))
+  (define (to-hex (color Color)) (→ String)
+    (match color
+      ((Primary value) (to-hex value))
+      ((Rgb value) (to-hex value)))))
 
 (define (main) (→ Unit) (! output-port)
   (for-each (lambda (color) (write-line (to-hex color)))

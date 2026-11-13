@@ -5,10 +5,10 @@
 ;; Directories, renames, status and links through the runtime, in a scratch
 ;; directory of this program's own whose name is not all ASCII. Each line
 ;; is an operation and what it answered, failures included.
-(define root "build/tests/directories-λ")
+(define (root) (→ String) "build/tests/directories-λ")
 
 (define (at (name String)) (→ String)
-  (string-append root "/" name))
+  (string-append (root) "/" name))
 
 (define (answer (describe (Fn T → String)) (result (Result T FileError))) (→ String) (∀ (T))
   (match result
@@ -40,11 +40,11 @@
 
 (define (main) (→ Unit) (! clock fs output-port)
   ;; A run removes what an earlier one may have left.
-  (remove-tree root)
+  (remove-tree (root))
   ;; ---- Making directories ----
 
-  (report "make root with its parents" (answer done (make-directories root)))
-  (report "make root again" (answer done (make-directory root)))
+  (report "make root with its parents" (answer done (make-directories (root))))
+  (report "make root again" (answer done (make-directory (root))))
   (report "make without a parent" (answer done (make-directory (at "a/b"))))
   (report "make with parents" (answer done (make-directories (at "a/b/c"))))
   (report "make with parents again" (answer done (make-directories (at "a/b"))))
@@ -55,7 +55,7 @@
   (report "make with parents over a file" (answer done (make-directories (at "a/four.txt"))))
   ;; ---- Listing and status ----
 
-  (report "list root" (answer names (list-directory root)))
+  (report "list root" (answer names (list-directory (root))))
   (write-file (at "a/B.txt") "B")
   (report "list a" (answer names (list-directory (at "a"))))
   (report "list a missing directory" (answer names (list-directory (at "missing"))))
@@ -103,10 +103,10 @@
   ;; ---- Removing a tree ----
 
   (make-symbolic-link "a" (at "a/b/c/up"))
-  (report "list root before" (answer names (list-directory root)))
-  (report "remove the tree" (answer done (remove-tree root)))
-  (report "root exists" (show (file-exists? root)))
-  (report "remove the tree again" (answer done (remove-tree root)))
+  (report "list root before" (answer names (list-directory (root))))
+  (report "remove the tree" (answer done (remove-tree (root))))
+  (report "root exists" (show (file-exists? (root))))
+  (report "remove the tree again" (answer done (remove-tree (root))))
   ;; ---- Clock ----
 
   (let* ((first (monotonic-nanoseconds)) (second (monotonic-nanoseconds)))

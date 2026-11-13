@@ -3,9 +3,9 @@
 ## Programs and libraries
 
 A program is a file of `import` forms followed by declarations and definitions.
-Its root `main` starts runtime work. Top-level values have effect-free
-initializers evaluated lazily at runtime, once per defining module instance.
-Reads share the cached result; importing a library runs no source initializer. A library uses `define-library` with `import`,
+Its root `main` starts runtime work. Top-level definitions bind functions;
+values live in function bodies and explicit state objects. Importing a library
+runs no source initializer. A library uses `define-library` with `import`,
 `export` and `begin` sections, stored at a path that matches its name:
 `(sample geometry)` lives in `sample/geometry.sld` under a search directory.
 Import sets may use `only`, `except`, `prefix` and `rename`.
@@ -56,7 +56,7 @@ those bytes as a byte literal in its generated library.
 
 | Form | Meaning |
 | --- | --- |
-| `(define name [header ...] value)`, `(define (name (param type) ...) (→ Result) [header ...] body ...)` | Value or typed function definition. Every named function parameter has a type and every named function declares its result; optional effect, generic and constraint clauses precede the body. |
+| `(define (name (param type) ...) (→ Result) [header ...] body ...)` | Typed function definition. Optional effect, generic and constraint clauses precede the body. A direct lambda definition can infer its type; ordinary value definitions are local only. |
 | `(lambda (param ...) body ...)` | Function with a fixed number of parameters. |
 | `(if test then [else])` | `test` is `Bool`; without `else` the result is `Unit`. |
 | `(begin form ...)` | A body: definitions and expressions in order. |
@@ -259,10 +259,9 @@ remains proposed.
 | Artifact bundle | The complete output of a browser build target, resolved by name during compilation. |
 | Run target | A named command for running a program build with its arguments. |
 | Build attempt | One invocation of project building, with an ID, diagnostics and a success/failure result. |
-| Compiler session | Cached expansion, checking and emitted code retained between builds. |
 | Development session | A running `snail dev`: file watching, persistent compilation and the editor's services. Application control remains planned. |
 | Application process | An OS process running a program. A browser frontend is a client of a server process, not a run target. |
-| Runtime | The scheduler and effect bindings executing a program's tasks. It is distinct from both the compiler session and the OS process. |
+| Runtime | The scheduler and effect bindings executing a program's tasks. It is distinct from compilation and the OS process. |
 | Host | The platform environment, such as Node or a browser, providing APIs to the runtime. |
 | Worker | A separate execution agent used for CPU work, such as a Node worker thread; it is not a browser Service Worker or a Snail Scheme task. |
 | Working state | In-memory values used by the running application, including changes not yet saved. |
@@ -274,5 +273,5 @@ persisted data. **Hot reload** (also called live reload) replaces
 running code while preserving application data under a stated contract.
 Today's browser uses state handover; the proposal uses durable typed tables
 and disposable cached views, recomputed on demand after ordinary startup.
-Recompiling incrementally does not by itself preserve application state, and
+Recompiling does not by itself preserve application state, and
 moving execution into a worker does not supply a preservation contract.

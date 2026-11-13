@@ -69,52 +69,52 @@
 (define (build) (→ Segment) (! Ask)
   (Segment (Point (ask) 0) (Point 0 (ask)) "asked"))
 
-(define main
-  (lambda ()
-    ;; Nested construction, a chain of accessors, and a nested pattern.
-    (let ((segment (Segment (Point 1 2) (Point 3 4) "diagonal")))
-      (write-line (show-segment segment))
-      (write-line (show (● (● segment to) y)))
-      (match segment
-        ((Segment (Point x _) to label)
-         (write-line
-          (string-append label " starts at x " (show x) " and ends at " (show-point to))))))
-    ;; A pure replacement creates a new outer record and shares other fields.
-    (let* ((segment (Segment (Point 0 0) (Point 1 1) "unit"))
-           (moved (Segment-to-set segment (Point 5 5))))
-      (write-line (show-segment segment))
-      (write-line (show-segment moved)))
-    (match (flip (Job (Point 1 2) (once (lambda () (write-line "worked")))))
-      ((Job at work)
-       (write-line (show-point at))
-       (call-once work)))
-    ;; A generic struct also stores its object argument by reference.
-    (let ((pair (Pair (Point 7 8) "seven-eight")))
-      (write-line (string-append (● pair second) " " (show-point (● pair first)))))
-    (write-line (show-point (nearest (list (Point 3 1) (Point 2 9) (Point 5 5)))))
-    (for-each (lambda (shape) (write-line (describe shape)))
-              (list (Dot (Point 4 4)) (Line (Segment (Point 0 1) (Point 2 3) "l")) (Empty)))
-    (match (Dot (Point 6 0))
-      ((Dot at) (write-line (show (● at x))))
-      (_ (panic "expected dot")))
-    (let ((cursor (Cursor (Point 0 0) 0 (Point 1 1))))
-      (set! (● cursor clicks) (+ (● cursor clicks) 1))
-      (set! (● cursor last) (Point 2 2))
-      (write-line (string-append (show (● cursor clicks))
-                                 " "
-                                 (show-point (● cursor home))
-                                 " "
-                                 (show-point (● cursor last))))
-      (write-line (show-point (replace! (● cursor last) (Point 3 3))))
-      (write-line (show-point (● cursor last))))
-    ;; Accessors are functions too, and an Any holds a Point as itself.
-    (write-line
-     (string-join (map show (map (lambda (record) (● record x)) (list (Point 1 0) (Point 2 0))))
-                  " "))
-    (write-line (show-point (match (downcast Point (Any (Point 9 9)))
-                              ((Some value) value)
-                              ((None) (panic "point round trip failed")))))
-    (write-line (show-segment (handle Ask
-                                  ((ask (lambda (resume) (resume 1))))
-                                (build))))
-    (unit)))
+(define (main) (→ Unit) (! mut output-port)
+
+  ;; Nested construction, a chain of accessors, and a nested pattern.
+  (let ((segment (Segment (Point 1 2) (Point 3 4) "diagonal")))
+    (write-line (show-segment segment))
+    (write-line (show (● (● segment to) y)))
+    (match segment
+      ((Segment (Point x _) to label)
+       (write-line
+        (string-append label " starts at x " (show x) " and ends at " (show-point to))))))
+  ;; A pure replacement creates a new outer record and shares other fields.
+  (let* ((segment (Segment (Point 0 0) (Point 1 1) "unit"))
+         (moved (Segment-to-set segment (Point 5 5))))
+    (write-line (show-segment segment))
+    (write-line (show-segment moved)))
+  (match (flip (Job (Point 1 2) (once (lambda () (write-line "worked")))))
+    ((Job at work)
+     (write-line (show-point at))
+     (call-once work)))
+  ;; A generic struct also stores its object argument by reference.
+  (let ((pair (Pair (Point 7 8) "seven-eight")))
+    (write-line (string-append (● pair second) " " (show-point (● pair first)))))
+  (write-line (show-point (nearest (list (Point 3 1) (Point 2 9) (Point 5 5)))))
+  (for-each (lambda (shape) (write-line (describe shape)))
+            (list (Dot (Point 4 4)) (Line (Segment (Point 0 1) (Point 2 3) "l")) (Empty)))
+  (match (Dot (Point 6 0))
+    ((Dot at) (write-line (show (● at x))))
+    (_ (panic "expected dot")))
+  (let ((cursor (Cursor (Point 0 0) 0 (Point 1 1))))
+    (set! (● cursor clicks) (+ (● cursor clicks) 1))
+    (set! (● cursor last) (Point 2 2))
+    (write-line (string-append (show (● cursor clicks))
+                               " "
+                               (show-point (● cursor home))
+                               " "
+                               (show-point (● cursor last))))
+    (write-line (show-point (replace! (● cursor last) (Point 3 3))))
+    (write-line (show-point (● cursor last))))
+  ;; Accessors are functions too, and an Any holds a Point as itself.
+  (write-line
+   (string-join (map show (map (lambda (record) (● record x)) (list (Point 1 0) (Point 2 0))))
+                " "))
+  (write-line (show-point (match (downcast Point (Any (Point 9 9)))
+                            ((Some value) value)
+                            ((None) (panic "point round trip failed")))))
+  (write-line (show-segment (handle Ask
+                                ((ask (lambda (resume) (resume 1))))
+                              (build))))
+  (unit))

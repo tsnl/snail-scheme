@@ -5,13 +5,13 @@
  (snail core io)
  (snail shell wasm))
 
-(define provider-bytes (→ Bytes)
+(define (provider-bytes) (→ Bytes)
   #u8(0 97 115 109 1 0 0 0 1 8 2 96 0 0 96 0 1 127 3 4 3 0 1 1 6 6 1 127 1 65 0 11 7 40 4 7 99
         111 117 110 116 101 114 3 0 11 95 105 110 105 116 105 97 108 105 122 101 0 0 5 118 97
         108 117 101 0 1 4 116 105 99 107 0 2 10 28 3 9 0 35 0 65 1 106 36 0 11 4 0 35 0 11 11 0
         35 0 65 1 106 36 0 35 0 11 0 17 4 110 97 109 101 7 10 1 0 7 99 111 117 110 116 101 114))
 
-(define a-bytes (→ Bytes)
+(define (a-bytes) (→ Bytes)
   #u8(0 97 115 109 1 0 0 0 1 5 1 96 0 1 127 2 14 1 1 97 7 99 111 117 110 116 101 114 3 127 1 3
         2 1 0 7 9 1 5 118 97 108 117 101 0 0 10 6 1 4 0 35 0 11 0 15 4 110 97 109 101 7 8 1 0 5
         118 97 108 117 101))
@@ -40,9 +40,9 @@
     ((Err error) (panic (load-error-message error)))))
 
 (define (main) (→ Unit) (! wasm output-port)
-  (let* ((bytes (compiled provider-bytes))
+  (let* ((bytes (compiled (provider-bytes)))
          (old (provider bytes)) (new (provider bytes))
-         (reader (compiled a-bytes))
+         (reader (compiled (a-bytes)))
          (before (consumer reader old)) (after (consumer reader new)))
     (expect "initialized once" (= (answer old "tick") 2))
     (expect "existing import keeps provider" (= (answer before "value") 2))

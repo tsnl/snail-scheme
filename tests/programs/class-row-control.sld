@@ -14,15 +14,15 @@
   ((name String)))
 
 (instance (Store (! Gen) Loud)
-  (define fetch-object
-    (lambda (loud name) (next)
-            name)))
+  (define (fetch-object (loud Loud) (name String)) (→ String) (! Gen)
+    (next)
+    name))
 
-(define main
-  (lambda ()
-    (handle Gen
-        ((next (lambda (resume)
-                 (write-line "yielded")
-                 (resume (unit)))))
-      (write-line (fetch-object (Loud "loud") "answer")))
-    (unit)))
+(define (main) (→ Unit) (! output-port)
+
+  (handle Gen
+      ((next (lambda (resume)
+               (write-line "yielded")
+               (resume (unit)))))
+    (write-line (fetch-object (Loud "loud") "answer")))
+  (unit))

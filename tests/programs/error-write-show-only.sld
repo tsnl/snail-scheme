@@ -6,7 +6,8 @@
   ())
 
 (instance (Show (!) Presented)
-  (define show (lambda (value) "presentation")))
+  (define (show (value Presented)) (→ String)
+    "presentation"))
 
 (define main
   (lambda ()

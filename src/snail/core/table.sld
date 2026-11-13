@@ -30,7 +30,7 @@
         (zero (Table V))
         (one (Table V)))))
 
-    (define empty-table (→ (Table V)) (∀ (V)) (Empty))
+    (define (empty-table) (→ (Table V)) (∀ (V)) (Empty))
 
     ;; FNV-1a over the code points, wrapping in 64 bits.
 

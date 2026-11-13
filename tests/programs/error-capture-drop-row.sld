@@ -10,9 +10,9 @@
   ((name String)))
 
 (instance (Drop (! audit) Handle)
-  (define drop
-    (lambda (handle) (match handle
-                       ((Handle name) (note name))))))
+  (define (drop (handle Handle)) (→ Unit) (! audit)
+    (match handle
+      ((Handle name) (note name)))))
 
 (define (keep) (→ (FnOnce → Handle))
   (let ((handle (Handle "h")))

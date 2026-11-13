@@ -48,9 +48,11 @@
         ((HumanFemaleElderly) #t)
         (_ #f)))
 
-    (define human-skins (map Skin (list "light" "amber" "olive" "taupe" "bronze" "brown" "black")))
+    (define (human-skins)
+      (→ (List Skin))
+      (map Skin (list "light" "amber" "olive" "taupe" "bronze" "brown" "black")))
 
-    (define cuts
+    (define (cuts) (→ (List HairStyle))
       (map HairStyle
            (list "bob"
                  "buzzcut"
@@ -78,10 +80,10 @@
         ((Female) (list (Pants) (Skirt) (Leggings)))
         (_ (list (Pants)))))
 
-    (define footwear (list (Shoes) (Boots)))
+    (define (footwear) (→ (List Garment)) (list (Shoes) (Boots)))
 
     ;; Dark enough to tell from skin and floor at sprite size.
-    (define shoe-dyes (map Dye (list "black" "charcoal" "walnut")))
+    (define (shoe-dyes) (→ (List Dye)) (map Dye (list "black" "charcoal" "walnut")))
 
     ;; A garment in the dye dealt, if the catalog draws it in that for the
     ;; build, and otherwise in the first dye it does: male pants come only
@@ -110,7 +112,7 @@
       (let* ((r (make-random seed))
              (build (deal r (list (Male) (Female) (Teen))))
              (head (deal (● build second) (build-heads (● build first))))
-             (skin (deal (● head second) human-skins)) (cut (deal (● skin second) cuts))
+             (skin (deal (● head second) (human-skins))) (cut (deal (● skin second) (cuts)))
              (shade (deal (● cut second) (hair-shades (● head first)))))
         (outfitted (● build first)
                    (● head first)
@@ -129,8 +131,8 @@
       (let* ((top (deal r (tops build))) (top-dye (deal (● top second) palette))
              (bottom (deal (● top-dye second) (bottoms build)))
              (bottom-dye (deal (● bottom second) palette))
-             (shoe (deal (● bottom-dye second) footwear))
-             (shoe-dye (deal (● shoe second) shoe-dyes)))
+             (shoe (deal (● bottom-dye second) (footwear)))
+             (shoe-dye (deal (● shoe second) (shoe-dyes))))
         (dressed build head skin
                  (Outfit (Some hair) (Some (worn-in build (● top first) (● top-dye first)))
                          (Some (worn-in build (● bottom first) (● bottom-dye first)))
@@ -143,7 +145,7 @@
 
     ;; The favor ledger's rivals, by fixer: Vee, and otherwise Kit.
     (define (rival (who I64)) (→ Character)
-      (if (= who vee)
+      (if (= who (vee))
           (dressed (Female) (HumanFemale) (Skin "bronze")
                    (Outfit (Some (Hair (HairStyle "high_ponytail") (HairColor "raven")))
                            (Some (Worn (Tunic) (Dye "purple")))
@@ -156,8 +158,8 @@
                            (Some (Worn (Shoes) (Dye "black")))))))
 
     ;; Everyone drawn, for embedding their art.
-    (define everyone (→ (List Character))
-      (append (map resident (iota person-count)) (list (rival vee) (rival kit))))
+    (define (everyone) (→ (List Character))
+      (append (map resident (iota (person-count))) (list (rival (vee)) (rival (kit)))))
 
     ;; ---- Pictures ----
 

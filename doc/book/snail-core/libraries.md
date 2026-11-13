@@ -83,7 +83,7 @@ the runtime interfaces.
 
 | Library | Contents |
 | --- | --- |
-| `(snail shell compiler)`, `(snail shell compiler …)` | The compiler, written in Snail Scheme: its passes from a program's source to WebAssembly text or its wire schemas, and a session that rebuilds only what an edit changed ([compiler architecture](compilers.md)). |
+| `(snail shell compiler)`, `(snail shell compiler …)` | The compiler, written in Snail Scheme: its passes from a program's source to WebAssembly text or its wire schemas, with every build checking and emitting the complete dependency closure ([compiler architecture](compilers.md)). |
 | `(snail shell assembler)` | `assemble`, WebAssembly text to a binary module in-process, or the parser's message naming the line and column. Only a tool linked with the toolchain's runtime can use it: the plain runtime leaves the parser out, since a development build copies the runtime whole. |
 | `(snail shell artifact)` | `artifact-bundle`, the files of a named project build, embedded when the compiler expands it ([projects](projects.md)). |
 | `(snail shell format)` | The shared CLI and IDE formatter: conventional Scheme indentation, each import and field on its own line, and each line whose code runs past 100 columns broken, a call before its arguments and a binding form before each binding and body form. Names `let`, `let*`, `*-let` and `*-let*` use binding layout. It never joins lines. |

@@ -73,31 +73,31 @@
   (when (<= level (verbosity))
     (write-line message)))
 
-(define main
-  (lambda ()
-    ;; ANCHOR_END: declare
+(define (main) (→ Unit) (! Verbosity fs output-port)
 
-    ;; ANCHOR: handle
-    (write-line (show (handle Log
-                          ((log (lambda (message) (write-line message))))
-                        (total (list 3 4)))))
-    ;; ANCHOR_END: quietly
+  ;; ANCHOR_END: declare
 
-    (write-line (show (quiet-total (list 1 2 3))))
-    (handle Log
-        ((log (lambda (message) (write-line message))))
-      (log "order")
-      (indented (lambda ()
-                  (log (string-append "total " (show (total (list 3 4))))))))
-    ;; ANCHOR_END: files
+  ;; ANCHOR: handle
+  (write-line (show (handle Log
+                        ((log (lambda (message) (write-line message))))
+                      (total (list 3 4)))))
+  ;; ANCHOR_END: quietly
 
-    ;; ANCHOR: run-files
-    (write-file "build/greeting.txt" "bonjour")
-    (write-line (from-disk (lambda () (greeting "disk"))))
-    (write-line (from-memory (lambda () (greeting "memory"))))
-    (note 1 "shown by default")
-    (note 2 "hidden by default")
-    (handle Verbosity
-        ((verbosity (lambda () 2)))
-      (note 2 "shown when verbose"))
-    (unit)))
+  (write-line (show (quiet-total (list 1 2 3))))
+  (handle Log
+      ((log (lambda (message) (write-line message))))
+    (log "order")
+    (indented (lambda ()
+                (log (string-append "total " (show (total (list 3 4))))))))
+  ;; ANCHOR_END: files
+
+  ;; ANCHOR: run-files
+  (write-file "build/greeting.txt" "bonjour")
+  (write-line (from-disk (lambda () (greeting "disk"))))
+  (write-line (from-memory (lambda () (greeting "memory"))))
+  (note 1 "shown by default")
+  (note 2 "hidden by default")
+  (handle Verbosity
+      ((verbosity (lambda () 2)))
+    (note 2 "shown when verbose"))
+  (unit))

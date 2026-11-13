@@ -79,7 +79,7 @@
                                                                          (Pair "src" url)))
                                            "</script>"))))
 
-    (define default-link (→ String) (metadata-text (WebManifest "./manifest.webmanifest")))
+    (define (default-link) (→ String) (metadata-text (WebManifest "./manifest.webmanifest")))
 
     ;; Keep user HTML byte-for-byte around one parsed insertion boundary.
     ;; Existing head attributes stay on their element. Missing heads are
@@ -102,12 +102,12 @@
 
     (define (stable-web-app (text String) (mount String)) (→ String)
       (let ((start (● (head-boundary text) first)))
-        (if (text-at? text start default-link)
+        (if (text-at? text start (default-link))
             (string-append (substring text 0 start)
                            (metadata-text
                             (WebManifest (string-append mount "manifest.webmanifest")))
                            (substring text
-                                      (+ start (string-length default-link))
+                                      (+ start (string-length (default-link)))
                                       (string-length text)))
             text)))
 

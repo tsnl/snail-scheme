@@ -45,11 +45,11 @@
 
     ;; ---- Events ----
 
-    (define hidden-kind (→ I32) 12)
+    (define (hidden-kind) (→ I32) 12)
 
-    (define reload-kind (→ I32) 13)
+    (define (reload-kind) (→ I32) 13)
 
-    (define save-kind (→ I32) 16)
+    (define (save-kind) (→ I32) 16)
 
     ;; Waiting for an event, like loading and storing a save below, starts
     ;; on the host and waits by ticket ((snail shell task)'s `through-host`).
@@ -106,8 +106,6 @@
     ;; return, independently of readiness and the optional checkpoint below.
     ;; Suspension or failure never sets it.
 
-
-
     (struct PageRun
       ((completed Bool)
        (incoming (Option Any))
@@ -146,10 +144,6 @@
     ;; Only a completed presentation commits; boot keeps an initial recovery
     ;; point without declaring the page ready. The host checks root
     ;; ownership before a caller can replace the checkpoint.
-
-
-
-
 
     (define (commit-page (state S))
       (→ Unit)

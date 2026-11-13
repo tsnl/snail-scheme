@@ -225,7 +225,7 @@
       (match modules
         ((Nil) (reverse libraries))
         ((Cons (Pair name object) rest)
-         (let ((instance (if (string=? name "snail.core.control") loading-program
+         (let ((instance (if (string=? name "snail.core.control") (loading-program)
                              (link-object manifest name object (Some runtime) libraries))))
            (link-libraries manifest runtime rest (Cons (Pair name instance) libraries))))))
 

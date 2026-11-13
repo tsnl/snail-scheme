@@ -172,7 +172,7 @@
         ((Pylon) (case level ((1) 7) ((2) 10) (else 12)))
         ((Turret) 6)))
 
-    (define maximum-level (→ I64) 3)
+    (define (maximum-level) (→ I64) 3)
 
     ;; The energy and ticks of work that raise a `kind` from `level`.
     (define (raise-cost (kind Kind) (level I64)) (→ I64)
@@ -226,11 +226,11 @@
        (slots I64)
        (work (Option Work))))
 
-    (define hub-health (→ I64) 600)
+    (define (hub-health) (→ I64) 600)
 
-    (define hub-reach (→ I64) 9)
+    (define (hub-reach) (→ I64) 9)
 
-    (define maximum-slots (→ I64) 3)
+    (define (maximum-slots) (→ I64) 3)
 
     (define (slot-cost (slots I64)) (→ I64)
       (* 100 slots))
@@ -255,7 +255,7 @@
        (cell Cell)
        (health I64)))
 
-    (define nest-health (→ I64) 900)
+    (define (nest-health) (→ I64) 900)
 
     ;; ---- Enemies ----
 
@@ -289,7 +289,7 @@
       ((cell Cell)
        (remaining I64)))
 
-    (define rock-health (→ I64) 80)
+    (define (rock-health) (→ I64) 80)
 
     ;; A shot is drawn for a few ticks after a turret fires.
     (struct Shot
@@ -383,7 +383,7 @@
        (structure-version I64)
        (explored-version I64)))
 
-    (define starting-energy (→ I64) 160)
+    (define (starting-energy) (→ I64) 160)
 
     ;; Each crystal site holds its full reserve, the nests cover theirs, and
     ;; each front holds a nest. The colony starts with its hub alone, the
@@ -393,18 +393,18 @@
         (World-reveal-set world (Reveal-tick-set (● world reveal) -1000))))
 
     (define (first-world (seed I64)) (→ World)
-      (let ((land (new-land (land-seed seed))) (cells (* map-size map-size)))
+      (let ((land (new-land (land-seed seed))) (cells (* (map-size) (map-size))))
         (rewire (World seed
                        land
                        0
                        #f
                        (Playing)
-                       starting-energy
-                       (Hub (● land hub) hub-health 1 (None))
+                       (starting-energy)
+                       (Hub (● land hub) (hub-health) 1 (None))
                        (Nil)
                        (append (map site-crystal (● land sites))
                                (map nest-crystal (● land fronts)))
-                       (map-indexed (lambda (front cell) (Nest front cell nest-health))
+                       (map-indexed (lambda (front cell) (Nest front cell (nest-health)))
                                     (● land fronts))
                        (Nil)
                        (Nil)
@@ -423,10 +423,10 @@
                        0))))
 
     (define (site-crystal (site Site)) (→ Crystal)
-      (Crystal (● site cell) (● site rate) (* reserve-per-rate (● site rate))))
+      (Crystal (● site cell) (● site rate) (* (reserve-per-rate) (● site rate))))
 
     (define (nest-crystal (cell Cell)) (→ Crystal)
-      (Crystal cell nest-rate (* reserve-per-rate nest-rate)))
+      (Crystal cell (nest-rate) (* (reserve-per-rate) (nest-rate))))
 
     (define (playing? (world World)) (→ Bool)
       (match (● world outcome)
@@ -510,7 +510,7 @@
       (and (within? a b (max reach-a reach-b)) (clear-line? world a b)))
 
     (define (hub-node (world World)) (→ Node)
-      (Node 0 (● (● world hub) cell) hub-reach))
+      (Node 0 (● (● world hub) cell) (hub-reach)))
 
     (define (building-nodes (world World)) (→ (List Node))
       (map (lambda (b) (Node (● b id) (● b cell) (building-reach b)))
@@ -603,7 +603,7 @@
     (define (lit-cells (nodes (List Node))) (→ (Vector Bool))
       (unsafe-total
        (lambda ()
-         (let ((seen (make-vector (* map-size map-size) #f)))
+         (let ((seen (make-vector (* (map-size) (map-size)) #f)))
            (for-each (lambda (node) (light! seen (● node cell) (● node reach))) nodes)
            seen))))
 
@@ -670,7 +670,7 @@
     ;; A decided game shows the whole map for inspection, at once: the world
     ;; is still, so nothing could unveil.
     (define (uncover (world World)) (→ World)
-      (let ((everything (make-vector (* map-size map-size) #t)) (reveal (● world reveal)))
+      (let ((everything (make-vector (* (map-size) (map-size)) #t)) (reveal (● world reveal)))
         (structures-changed
          (World-explored-version-set (World-reveal-set (World-visible-set (World-explored-set world
                                                                                               everything)

@@ -76,25 +76,25 @@
     ;; The guide's buttons, actions 50 to 53, which no screen uses for its
     ;; own. A screen keeps its guide's open page, or None, and passes these
     ;; actions here.
-    (define guide-open (→ I32) 50)
+    (define (guide-open) (→ I32) 50)
 
-    (define guide-next (→ I32) 51)
+    (define (guide-next) (→ I32) 51)
 
-    (define guide-back (→ I32) 52)
+    (define (guide-back) (→ I32) 52)
 
-    (define guide-close (→ I32) 53)
+    (define (guide-close) (→ I32) 53)
 
     (define (guide-action? (action I32)) (→ Bool)
-      (and (>= action guide-open) (<= action guide-close)))
+      (and (>= action (guide-open)) (<= action (guide-close))))
 
     ;; The page open after pressing `action` in a guide of `pages`: Next
     ;; past the last page closes it, Back stops at the first.
     (define (turn-guide (page (Option I64)) (pages (List Page)) (action I32)) (→ (Option I64))
-      (cond ((= action guide-open) (Some 0))
-            ((= action guide-close) (None))
+      (cond ((= action (guide-open)) (Some 0))
+            ((= action (guide-close)) (None))
             (else (match page
                     ((Some index)
-                     (cond ((= action guide-next)
+                     (cond ((= action (guide-next))
                             (if (< (+ index 1) (length pages)) (Some (+ index 1)) (None)))
                            (else (Some (max 0 (- index 1))))))
                     ((None) (None))))))
@@ -110,7 +110,7 @@
 
     (define (guide-panel (name String) (pages (List Page)) (index I64)) (→ Panel)
       (let ((page (list-ref pages index)) (last? (= (+ index 1) (length pages))))
-        (Panel "guide" (Dialog guide-close)
+        (Panel "guide" (Dialog (guide-close))
                (concatenate
                 (list (Cons (label "guide-title" (● page title))
                             (line-labels "guide-text" (● page paragraphs)))
@@ -125,22 +125,24 @@
                             (Button (look "guide-back")
                                     "Back"
                                     ""
-                                    guide-back
+                                    (guide-back)
                                     0
                                     (if (= index 0) (Disabled) (Enabled))
                                     -1.0)
-                            (button "guide-next" (if last? "Start playing" "Next") guide-next)))))))
+                            (button "guide-next"
+                                    (if last? "Start playing" "Next")
+                                    (guide-next))))))))
 
     ;; ---- Scene ----
 
     ;; The color behind every screen.
-    (define backdrop (→ I32) (rgb 16 20 28))
+    (define (backdrop) (→ I32) (rgb 16 20 28))
 
     ;; A scene with nothing in it, carrying `pictures` for the HUD's images.
     (define (empty-frame (pictures (List Picture))) (→ Frame)
       (Frame (Camera (Vec3 0.0 10.0 10.0) (Vec3 0.0 0.0 0.0) (Perspective 0.8))
              (Light (Vec3 0.0 1.0 0.0) 0.0 1.0)
-             backdrop
+             (backdrop)
              1.0
              (Nil)
              pictures))

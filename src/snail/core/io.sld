@@ -270,7 +270,7 @@
     ;; time, and the chunks are joined at the end, so a file of millions of
     ;; characters or bytes costs a few bytes for each rather than a list
     ;; cell.
-    (define chunk-size 4096)
+    (define (chunk-size) (→ I64) 4096)
 
     (define (drain (next (Fn → (Option T) ! e)))
       (→ (Vector T))
@@ -279,7 +279,7 @@
       (⊨ (Copy T) (Drop e T))
       (let loop ((chunks (Nil)))
         (let ((chunk (next-chunk next)))
-          (if (< (vector-length chunk) chunk-size)
+          (if (< (vector-length chunk) (chunk-size))
               (vector-concatenate (reverse (Cons chunk chunks)))
               (loop (Cons chunk chunks))))))
 
@@ -291,7 +291,7 @@
       (∀ (T e))
       (⊨ (Copy T) (Drop e T))
       (let loop ((items (Nil)) (count 0))
-        (if (= count chunk-size)
+        (if (= count (chunk-size))
             (list->vector (reverse items))
             (match (next)
               ((Some item) (loop (Cons item items) (+ count 1)))
@@ -327,13 +327,13 @@
       (OtherError))
 
     (instance (Show (!) FileError)
-      (define show
-        (lambda (error) (match error
-                          ((NotFound) "no such file or directory")
-                          ((AlreadyExists) "it already exists")
-                          ((NotADirectory) "not a directory")
-                          ((PermissionDenied) "permission denied")
-                          ((OtherError) "the operation failed")))))
+      (define (show (error FileError)) (→ String)
+        (match error
+          ((NotFound) "no such file or directory")
+          ((AlreadyExists) "it already exists")
+          ((NotADirectory) "not a directory")
+          ((PermissionDenied) "permission denied")
+          ((OtherError) "the operation failed"))))
 
     (enum FileKind
       (RegularFile)
@@ -532,13 +532,13 @@
       (ChangedWhileRead))
 
     (instance (Show (!) TextError)
-      (define show
-        (lambda (error) (match error
-                          ((ReadFailed error) (show error))
-                          ((NotRegularFile) "not a regular file")
-                          ((TooLong) "the file is too long")
-                          ((NotText) "the file is not UTF-8 text")
-                          ((ChangedWhileRead) "the file changed while it was read")))))
+      (define (show (error TextError)) (→ String)
+        (match error
+          ((ReadFailed error) (show error))
+          ((NotRegularFile) "not a regular file")
+          ((TooLong) "the file is too long")
+          ((NotText) "the file is not UTF-8 text")
+          ((ChangedWhileRead) "the file changed while it was read"))))
 
     ;; The text of the regular file at `path`, if it holds at most `limit`
     ;; bytes of UTF-8. The path must name the file itself: a symbolic link

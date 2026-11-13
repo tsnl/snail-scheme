@@ -13,6 +13,6 @@ output shown. Run one with
 - [Colors](colors.md): structs, enums, typeclasses and pattern matching.
 - [Effects](effects.md): effect rows and handlers.
 - [Values and mutation](values.md): shared objects, mutable fields and fresh
-  lazy runtime values.
+  explicit factory functions and shared state.
 
 [Siegework](../../games/siegework.md) is the complete application.

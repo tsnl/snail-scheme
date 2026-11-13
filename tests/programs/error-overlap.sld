@@ -2,4 +2,5 @@
  (snail core base))
 
 (instance (Repr (List I64))
-  (define repr (lambda (items) "numbers")))
+  (define (repr (items (List I64))) (→ String)
+    "numbers"))

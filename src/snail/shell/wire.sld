@@ -112,92 +112,108 @@
     ;; ---- Scalars, text and collections ----
 
     (instance (Serialize I64)
-      (define encode (lambda (value encoder) (encode-signed encoder value))))
+      (define (encode (value I64) (encoder Encoder)) (→ Unit) (! mut)
+        (encode-signed encoder value)))
 
     (instance (Deserialize I64)
-      (define decode (lambda (decoder) (decode-signed decoder))))
+      (define (decode (decoder Decoder)) (→ I64) (! mut)
+        (decode-signed decoder)))
 
     (instance (Serialize I32)
-      (define encode (lambda (value encoder) (encode-signed encoder (i32->i64 value)))))
+      (define (encode (value I32) (encoder Encoder)) (→ Unit) (! mut)
+        (encode-signed encoder (i32->i64 value))))
 
     (instance (Deserialize I32)
-      (define decode (lambda (decoder) (i64->i32 (decode-signed decoder)))))
+      (define (decode (decoder Decoder)) (→ I32) (! mut)
+        (i64->i32 (decode-signed decoder))))
 
     (instance (Serialize U8)
-      (define encode (lambda (value encoder) (encode-byte encoder value))))
+      (define (encode (value U8) (encoder Encoder)) (→ Unit) (! mut)
+        (encode-byte encoder value)))
 
     (instance (Deserialize U8)
-      (define decode (lambda (decoder) (decode-byte decoder))))
+      (define (decode (decoder Decoder)) (→ U8) (! mut)
+        (decode-byte decoder)))
 
     (instance (Serialize Bool)
-      (define encode (lambda (value encoder) (encode-byte encoder (if value 1 0)))))
+      (define (encode (value Bool) (encoder Encoder)) (→ Unit) (! mut)
+        (encode-byte encoder (if value 1 0))))
 
     (instance (Deserialize Bool)
-      (define decode (lambda (decoder) (= (decode-byte decoder) 1))))
+      (define (decode (decoder Decoder)) (→ Bool) (! mut)
+        (= (decode-byte decoder) 1)))
 
     (instance (Serialize Char)
-      (define encode (lambda (value encoder) (encode-unsigned encoder (char->integer value)))))
+      (define (encode (value Char) (encoder Encoder)) (→ Unit) (! mut)
+        (encode-unsigned encoder (char->integer value))))
 
     (instance (Deserialize Char)
-      (define decode (lambda (decoder) (integer->char (decode-unsigned decoder)))))
+      (define (decode (decoder Decoder)) (→ Char) (! mut)
+        (integer->char (decode-unsigned decoder))))
 
     (instance (Serialize Unit)
-      (define encode (lambda (value encoder) (unit))))
+      (define (encode (value Unit) (encoder Encoder)) (→ Unit) (! mut)
+        (unit)))
 
     (instance (Deserialize Unit)
-      (define decode (lambda (decoder) (unit))))
+      (define (decode (decoder Decoder)) (→ Unit) (! mut)
+        (unit)))
 
     (instance (Serialize F64)
-      (define encode (lambda (value encoder) (encode-signed encoder (f64->bits value)))))
+      (define (encode (value F64) (encoder Encoder)) (→ Unit) (! mut)
+        (encode-signed encoder (f64->bits value))))
 
     (instance (Deserialize F64)
-      (define decode (lambda (decoder) (bits->f64 (decode-signed decoder)))))
+      (define (decode (decoder Decoder)) (→ F64) (! mut)
+        (bits->f64 (decode-signed decoder))))
 
     (instance (Serialize F32)
-      (define encode (lambda (value encoder) (encode-signed encoder (i32->i64 (f32->bits value))))))
+      (define (encode (value F32) (encoder Encoder)) (→ Unit) (! mut)
+        (encode-signed encoder (i32->i64 (f32->bits value)))))
 
     (instance (Deserialize F32)
-      (define decode (lambda (decoder) (bits->f32 (i64->i32 (decode-signed decoder))))))
+      (define (decode (decoder Decoder)) (→ F32) (! mut)
+        (bits->f32 (i64->i32 (decode-signed decoder)))))
 
     (instance (Serialize String)
-      (define encode
-        (lambda (value encoder) (encode-unsigned encoder (string-length value))
-                (let loop ((index 0))
-                  (when (< index (string-length value))
-                    (encode-unsigned encoder (char->integer (string-ref value index)))
-                    (loop (+ index 1)))))))
+      (define (encode (value String) (encoder Encoder)) (→ Unit) (! mut)
+        (encode-unsigned encoder (string-length value))
+        (let loop ((index 0))
+          (when (< index (string-length value))
+            (encode-unsigned encoder (char->integer (string-ref value index)))
+            (loop (+ index 1))))))
 
     (instance (Deserialize String)
-      (define decode
-        (lambda (decoder) (let ((count (decode-unsigned decoder)))
-                            (vector->string (decode-elements decoder
-                                                             count
-                                                             (lambda (decoder)
-                                                               (integer->char
-                                                                (decode-unsigned decoder)))))))))
+      (define (decode (decoder Decoder)) (→ String) (! mut)
+        (let ((count (decode-unsigned decoder)))
+          (vector->string (decode-elements decoder
+                                           count
+                                           (lambda (decoder)
+                                             (integer->char
+                                              (decode-unsigned decoder))))))))
 
     (instance (Serialize (Vector T))
       (⊨ (Serialize T) (Copy T) (Drop (!) T))
-      (define encode
-        (lambda (value encoder) (encode-unsigned encoder (vector-length value))
-                (vector-for-each (lambda (item) (encode item encoder)) value))))
+      (define (encode (value (Vector T)) (encoder Encoder)) (→ Unit) (! mut)
+        (encode-unsigned encoder (vector-length value))
+        (vector-for-each (lambda (item) (encode item encoder)) value)))
 
     (instance (Deserialize (Vector T))
       (⊨ (Deserialize T) (Copy T) (Drop (!) T))
-      (define decode
-        (lambda (decoder) (decode-elements decoder (decode-unsigned decoder) decode))))
+      (define (decode (decoder Decoder)) (→ (Vector T)) (! mut)
+        (decode-elements decoder (decode-unsigned decoder) decode)))
 
     (instance (Serialize (List T))
       (⊨ (Serialize T) (Copy T) (Drop (!) T))
-      (define encode
-        (lambda (value encoder) (encode-unsigned encoder (length value))
-                (for-each (lambda (item) (encode item encoder)) value))))
+      (define (encode (value (List T)) (encoder Encoder)) (→ Unit) (! mut)
+        (encode-unsigned encoder (length value))
+        (for-each (lambda (item) (encode item encoder)) value)))
 
     (instance (Deserialize (List T))
       (⊨ (Deserialize T) (Copy T) (Drop (!) T))
-      (define decode
-        (lambda (decoder)
-          (vector->list (decode-elements decoder (decode-unsigned decoder) decode)))))
+      (define (decode (decoder Decoder)) (→ (List T)) (! mut)
+
+        (vector->list (decode-elements decoder (decode-unsigned decoder) decode))))
 
     ;; The elements are decoded in index order, as `vector-generate` asks
     ;; for them; no array is needed, whose elements would have to be unboxed.
@@ -213,14 +229,14 @@
 
     (instance (Serialize (Option T))
       (⊨ (Serialize T))
-      (define encode
-        (lambda (value encoder) (match value
-                                  ((None) (encode-byte encoder 0))
-                                  ((Some item) (encode-byte encoder 1) (encode item encoder))))))
+      (define (encode (value (Option T)) (encoder Encoder)) (→ Unit) (! mut)
+        (match value
+          ((None) (encode-byte encoder 0))
+          ((Some item) (encode-byte encoder 1) (encode item encoder)))))
 
     (instance (Deserialize (Option T))
       (⊨ (Deserialize T))
-      (define decode
-        (lambda (decoder) (if (= (decode-byte decoder) 0) (None) (Some (decode decoder))))))
+      (define (decode (decoder Decoder)) (→ (Option T)) (! mut)
+        (if (= (decode-byte decoder) 0) (None) (Some (decode decoder)))))
 
     ))

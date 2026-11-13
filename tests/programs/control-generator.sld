@@ -16,7 +16,7 @@
     (value I64)
     (right Tree))))
 
-(define tree (→ Tree)
+(define (tree) (→ Tree)
   (Node (Node (Leaf) 3 (Node (Leaf) 8 (Leaf))) 5 (Node (Node (Leaf) 12 (Leaf)) 7 (Leaf))))
 
 ;; Every value the body yields, then the body's own result.
@@ -83,7 +83,7 @@
     (Nil)))
 
 (define (main) (→ Unit) (! output-port)
-  (show-all (collect (lambda () (walk tree 1))))
+  (show-all (collect (lambda () (walk (tree) 1))))
   (show-all (collect (lambda () (classify (list 1 -2 3 -4 -5)))))
   (show-all (collect (lambda () (add3 (f 1) (begin (yield 2) 200) (g 3)))))
   ;; A yield in the middle of a let's value, whose own frames end where the
@@ -105,5 +105,5 @@
                 (yield 1)
                 (after)
                 (list 2))))
-  (show-all (until-above 20 (lambda () (walk tree 1))))
+  (show-all (until-above 20 (lambda () (walk (tree) 1))))
   (unit))

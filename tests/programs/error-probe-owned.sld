@@ -5,7 +5,8 @@
   ((value I64)))
 
 (instance (Drop (!) Owned)
-  (define drop (lambda (value) (match value ((Owned _) (unit))))))
+  (define (drop (value Owned)) (→ Unit)
+    (match value ((Owned _) (unit)))))
 
 (define main
   (lambda ()

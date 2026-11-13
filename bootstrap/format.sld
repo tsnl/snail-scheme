@@ -24,7 +24,7 @@
        ((Some width)
         (if (> width 0) (Request width (input-of rest)) (bad-width)))
        ((None) (bad-width))))
-    (_ (Request format-width (input-of arguments)))))
+    (_ (Request (format-width) (input-of arguments)))))
 
 (define (bad-width) (→ Request)
   (panic "format-scheme: --width takes a positive number of columns"))

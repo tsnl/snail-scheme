@@ -41,8 +41,6 @@
     ;; ---- Prepared code ----
 
     ;; Fixed declarations and concrete function bodies consumed by emission.
-    ;; A value binding keeps function? false; its body is a zero-argument
-    ;; initializer lowered by the same passes as an ordinary function.
     (struct Prepared
       ((declarations Declarations)
        (definitions (List Item))
@@ -87,21 +85,11 @@
         (let* ((declarations (specialization-declarations state))
                (items
                 (map
-                 (lambda (item) (lower-reference-counting declarations (initializer-function item)))
+                 (lambda (item) (lower-reference-counting declarations item))
                  items))
                (lowered (fold-left (lambda (lowered item) (lower-item lowered callees item))
                                    (Lowered (Nil) state) items)))
           (Lowered-items-set lowered (reverse (● lowered items))))))
-
-    ;; Keep the original body in specialization's contextual analysis. A
-    ;; computed procedure's initializer is pure; calling its result may yield.
-    (define (initializer-function (item Item)) (→ Item)
-      (match item
-        ((Define name value)
-         (if (lambda-expr? value) item
-             (Define name (Expr (Lambda (Nil) value )
-                                (TFun (Nil) (● value type) empty-row) (● value loc)))))
-        (_ item)))
 
     (define (prepared (state State) (items (List Item)) (exported (List String))) (→ Prepared)
       (Prepared (specialization-declarations state)
@@ -125,11 +113,11 @@
 
     (define (specialization-callees (state State)) (→ Callees)
       (Callees (specialization-declarations state)
-               (if (null? (● state control)) empty-table (specialization-definitions state))
+               (if (null? (● state control)) (empty-table) (specialization-definitions state))
                (Nil) (None)))
 
     (define (declaration-callees (declarations Declarations)) (→ Callees)
-      (Callees declarations empty-table (Nil) (None)))
+      (Callees declarations (empty-table) (Nil) (None)))
 
     (define (callees-program (callees Callees)) (→ Program)
       (● (● callees declarations) program))
@@ -184,7 +172,7 @@
       (match (program-value (callees-program callees) name)
         ((Some (Operation effect scheme)) (operation-row callees effect scheme))
         ((Some (Primitive scheme))
-         (if (or (closed-row? (● scheme type)) (member? name closing-primitives))
+         (if (or (closed-row? (● scheme type)) (member? name (closing-primitives)))
              (Nil)
              (call-row type)))
         ((Some (Foreign _ _)) (Nil))
@@ -195,7 +183,9 @@
         ((Some (Swapper _ _ _)) (Nil))
         (_ (resume-row callees name type))))
 
-    (define closing-primitives (list "prim:inherit-handlers" "prim:inherit-handlers-1"))
+    (define (closing-primitives)
+      (→ (List String))
+      (list "prim:inherit-handlers" "prim:inherit-handlers-1"))
 
     ;; A `resume` of a handle of X runs the rest of its body under the same
     ;; handle again, which catches every yield to X there.
@@ -308,25 +298,27 @@
     ;; dispatch, which is where its work is written, rather than at the
     ;; closing inside (snail shell task).
 
-    (define restrictions (→ (List (Pair String Restriction)))
-      (list (Pair "prim:vector-generate" (Restriction 1 "a vector-generate callback" (Nil)))
-            (Pair "prim:string-generate" (Restriction 1 "a string-generate callback" (Nil)))
-            (Pair "prim:unsafe-total" (Restriction 0 "an unsafe-total thunk" (Nil)))
-            (Pair "prim:inherit-handlers"
-                  (Restriction 0 "a procedure given to inherit-handlers" (Nil)))
-            (Pair "prim:inherit-handlers-1"
-                  (Restriction 0 "a procedure given to inherit-handlers-1" (Nil)))
-            (Pair "snail.shell.task:dispatch-local"
-                  (Restriction 0 "work given to dispatch-local" (list "snail.shell.task:tasks")))
-            (Pair "snail.shell.task:dispatch-task"
-                  (Restriction 0 "work given to dispatch-task" (list "snail.shell.task:tasks")))
-            (Pair "snail.shell.async:dispatch"
-                  (Restriction 0 "work given to dispatch" (list "snail.shell.task:tasks")))))
+    (define (named-restriction (name String)) (→ (Option Restriction))
+      (case name
+        (("prim:vector-generate") (Some (Restriction 1 "a vector-generate callback" (Nil))))
+        (("prim:string-generate") (Some (Restriction 1 "a string-generate callback" (Nil))))
+        (("prim:unsafe-total") (Some (Restriction 0 "an unsafe-total thunk" (Nil))))
+        (("prim:inherit-handlers")
+         (Some (Restriction 0 "a procedure given to inherit-handlers" (Nil))))
+        (("prim:inherit-handlers-1")
+         (Some (Restriction 0 "a procedure given to inherit-handlers-1" (Nil))))
+        (("snail.shell.task:dispatch-local")
+         (Some (Restriction 0 "work given to dispatch-local" (list "snail.shell.task:tasks"))))
+        (("snail.shell.task:dispatch-task")
+         (Some (Restriction 0 "work given to dispatch-task" (list "snail.shell.task:tasks"))))
+        (("snail.shell.async:dispatch")
+         (Some (Restriction 0 "work given to dispatch" (list "snail.shell.task:tasks"))))
+        (else (None))))
 
     (define (restriction (callee Expr)) (→ (Option Restriction))
       (match (● callee term)
         ((Ann inner _) (restriction inner))
-        ((Var name _ _) (assoc-ref restrictions (generic-name name)))
+        ((Var name _ _) (named-restriction (generic-name name)))
         (_ (None))))
 
     ;; Specialization names a concrete implementation by its definition and the types it is
@@ -625,7 +617,7 @@
       (→ (Pair Bound I64))
       (match operands
         ((Cons operand rest)
-         (if (and (<= index final) (or (= index final) (not (inert? callees operand))))
+         (if (and (<= index final) (or (= index final) (not (inert? operand))))
              (let ((name (temporary-name count)) (next (+ count 1)))
                (naming next ((bound (bind-from callees final (+ index 1) rest)))
                        (Pair (Bound (Cons (Pair name operand) (● bound lets))
@@ -636,17 +628,11 @@
                            count))))
         ((Nil) (Pair (Bound (Nil) (Nil)) count))))
 
-    ;; A value global may initialize or panic. Preserve that read before a
-    ;; later yielding operand; ordinary locals and function references are inert.
-
-    (define (inert? (callees Callees) (expr Expr)) (→ Bool)
+    (define (inert? (expr Expr)) (→ Bool)
       (match (● expr term)
         ((Lit _) #t)
-        ((Var name _ _)
-         (match (table-ref (● (● callees declarations) bindings) name)
-           ((Some binding) (● binding function?))
-           ((None) #t)))
-        ((Lambda _ _ ) #t)
+        ((Var _ _ _) #t)
+        ((Lambda _ _) #t)
         (_ #f)))
 
     ;; ---- Lowering a batch ----
@@ -660,19 +646,6 @@
       (match (lower-droppers (● lowered state) callees (control-item callees item))
         ((Pair item state) (Lowered (Cons item (● lowered items)) state))))
 
-    (define (check-exposure (callees Callees) (item Item)) (→ Unit) (! compile)
-      (match item
-        ((Expose name _ loc) (check-entry-function callees name loc))
-        ((Entry name loc) (check-entry-function callees name loc))
-        (_ (unit))))
-
-    (define (check-entry-function (callees Callees) (name String) (loc Loc)) (→ Unit) (! compile)
-      (match (table-ref (● (● callees declarations) bindings) name)
-        ((Some binding)
-         (unless (● binding function?)
-           (compile-error loc "an entry must be defined as a function")))
-        ((None) (panic "internal error: an entry has no binding"))))
-
     ;; ---- Droppers ----
 
     ;; A frame owns the linear and counted locals assigned to its yield
@@ -684,14 +657,15 @@
     ;; Cleanup is built in one rewriting traversal, threading that registry
     ;; alongside lexical scopes.
 
-    (define unit-type (→ Type) (TCon "Unit" (Nil)))
+    (define (unit-type) (→ Type) (TCon "Unit" (Nil)))
 
     ;; The unit value, as a dropper ends.
 
     (define (unit-expr (loc Loc)) (→ Expr)
-      (Expr (App (Expr (Var "prim:unit" (Nil) (Nil)) (TFun (Nil) unit-type empty-row) loc) (Nil))
-            unit-type
-            loc))
+      (Expr
+       (App (Expr (Var "prim:unit" (Nil) (Nil)) (TFun (Nil) (unit-type) (empty-row)) loc) (Nil))
+       (unit-type)
+       loc))
 
     (define-syntax cleaning
       (syntax-rules ()
@@ -907,7 +881,7 @@
       (let ((captured (lambda-captures callees scope value)) (loc (● value loc)))
         (if (null? captured) (Pair value state)
             (let ((identity (Expr (Var "prim:once" (Nil) (Nil))
-                                  (TFun (list (● value type)) (● value type) empty-row) loc)))
+                                  (TFun (list (● value type)) (● value type) (empty-row)) loc)))
               (once-dropping state value identity value captured)))))
 
     ;; The owners in this scope, in cleanup order.
@@ -934,7 +908,7 @@
           (cleaning state ((cleanup (drop-body live (● value loc))))
                     (let ((type (● value type)) (loc (● value loc)))
                       (Pair (Expr (App (Expr (Var "prim:with-cleanup" (Nil) (Nil))
-                                             (TFun (list type unit-type) type empty-row) loc)
+                                             (TFun (list type (unit-type)) type (empty-row)) loc)
                                        (list value cleanup)) type loc) state)))))
 
     (define (once-dropping (state State) (expr Expr) (callee Expr)
@@ -945,7 +919,7 @@
             (cleaning state ((thunk (dropper captured loc)))
                       (Pair (Expr (App (Expr (Var "prim:once-dropping" (Nil) (Nil))
                                              (TFun (list (● procedure type) (● thunk type))
-                                                   type empty-row) loc)
+                                                   type (empty-row)) loc)
                                        (list procedure thunk)) type loc) state)))))
 
     ;; Reserve each required Drop before constructing its call. The registry
@@ -955,7 +929,7 @@
       (→ (Pair Expr State))
       (cleaning state ((body (drop-body live loc)))
                 (Pair (Expr (Lambda (Nil) body )
-                            (TFun (Nil) unit-type empty-row) loc) state)))
+                            (TFun (Nil) (unit-type) (empty-row)) loc) state)))
 
     (define (drop-body (state State) (live (List (Pair String Type))) (loc Loc))
       (→ (Pair Expr State))
@@ -964,8 +938,10 @@
          (cleaning state ((drop (request-drop (● local second) loc))
                           (rest (drop-body rest loc)))
                    (let ((call (Expr (App drop (list (Expr (Var (● local first) (Nil) (Nil))
-                                                           (● local second) loc))) unit-type loc)))
-                     (Pair (Expr (Seq call rest) unit-type loc) state))))
+                                                           (● local second) loc)))
+                                     (unit-type)
+                                     loc)))
+                     (Pair (Expr (Seq call rest) (unit-type) loc) state))))
         ((Nil) (Pair (unit-expr loc) state))))
 
     ;; Each function numbers its own temporaries from zero.
@@ -979,7 +955,6 @@
       (if (yield-free? callees expr) (Pair expr count) (normal count callees expr)))
 
     (define (check-item (callees Callees) (item Item)) (→ Unit) (! compile)
-      (check-exposure callees item)
       (unless (null? (callees-control callees))
         (match item
           ((Define _ value) (check-restrictions callees value))
@@ -997,319 +972,319 @@
      (snail stage0 testing))
     (begin
       (define test-prepare
-        (lambda () (test-yields)
-                (test-globals)
-                (test-operands)
-                (test-flow)
-                (test-unchanged)
-                (test-holds)
-                (test-restrictions)
-                (test-resuming)
-                (test-reading)
-                (test-latent)))
-
-      (define i64 (TCon "I64" (Nil)))
-      (define bool (TCon "Bool" (Nil)))
-      (define loc (Loc "control" 1 1))
-      (define abort-row (TRow (list "t:Abort") (None)))
-      (define local (lambda (name type) (Expr (Var name (Nil) (Nil)) type loc)))
-      (define number (lambda (n) (Expr (Lit (DInt n)) i64 loc)))
-      (define call
-        (lambda (callee args) (Expr (App callee args) (function-result (● callee type)) loc)))
-      (define function-result (lambda (type) (match type ((TFun _ result _) result) (_ i64))))
-      ;; `f` may yield to Abort; `g` cannot.
-      (define f (local "f" (TFun (list i64) i64 abort-row)))
-      (define g (local "g" (TFun (list i64) i64 empty-row)))
-      (define predicate (local "predicate" (TFun (list) bool abort-row)))
-      (define add (local "add" (TFun (list i64 i64) i64 empty-row)))
-
-      ;; Abort is a control effect; Log and Io are not, but Io's fetch names
-      ;; Abort in its type.
-      (define operation
-        (lambda (effect latent) (Operation effect
-                                           (Scheme (Nil)
-                                                   (Nil)
-                                                   (Nil)
-                                                   (TFun (list i64)
-                                                         i64
-                                                         (TRow (Cons effect latent) (None)))))))
-
-      (define program
-        (fold-left (lambda (program entry)
-                     (program-with-value program (● entry first) (● entry second)))
-                   (fold-left program-with-effect empty-program
-                              (list (Effect "t:Abort" (list "t:abort") (list "t:abort") (Nil) #f)
-                                    (Effect "t:Log" (list "t:log") (Nil) (Nil) #f)
-                                    (Effect "t:Io" (list "t:fetch") (Nil) (Nil) #f)))
-                   (list (Pair "t:abort" (operation "t:Abort" (Nil)))
-                         (Pair "t:log" (operation "t:Log" (Nil)))
-                         (Pair "t:fetch" (operation "t:Io" (list "t:Abort"))))))
-
-      (define test-callees
-        (lambda (definitions) (let* ((items (map (lambda (name)
-                                                   (Define name
-                                                     (match (table-ref definitions name)
-                                                       ((Some value) value))))
-                                                 (table-keys definitions)))
-                                     (schemes (fold-left (lambda (schemes item)
-                                                           (match item
-                                                             ((Define name value)
-                                                              (table-set schemes name
-                                                                         (Scheme (Nil)
-                                                                                 (Nil)
-                                                                                 (Nil)
-                                                                                 (● value type))))))
-                                                         empty-table items))
-                                     (state
-                                      (new-state
-                                       (prepare-specialization (Typed program items schemes))
-                                       (Some "t"))))
-                                (specialization-callees
-                                 (● (complete-specializations
-                                     (● (start-specialization state items) second)) second)))))
-
-      (define callees (test-callees empty-table))
-
-      (define normalized (lambda (expr) (shape (● (normal 0 callees expr) first))))
-
-      ;; A readable form of an expression's structure.
-      (define shape
-        (lambda (expr) (match (● expr term)
-                         ((Lit (DInt n)) (i64->string n))
-                         ((Var name _ _) name)
-                         ((Lambda params body ) (string-append "(lambda " (shape body) ")"))
-                         ((App callee args)
-                          (string-append "(" (string-join (map shape (Cons callee args)) " ") ")"))
-                         ((If test then otherwise)
-                          (string-append "(if "
-                                         (shape test)
-                                         " "
-                                         (shape then)
-                                         " "
-                                         (shape otherwise)
-                                         ")"))
-                         ((Let name value body)
-                          (string-append "(let " name " " (shape value) " " (shape body) ")"))
-                         ((Seq first rest)
-                          (string-append "(begin " (shape first) " " (shape rest) ")"))
-                         ((Handle effect _ body)
-                          (string-append "(handle " effect " " (shape body) ")"))
-                         (_ "?"))))
-
-      (define handle-abort
-        (lambda (body) (Expr (Handle "t:Abort"
-                                     (list (Pair "t:abort"
-                                                 (local "catch" (TFun (list i64) i64 empty-row))))
-                                     body)
-                             i64
-                             loc)))
-
-      ;; A call yields what its callee's row names, a lambda yields nothing
-      ;; until called, and a handle keeps what its body yields to other
-      ;; effects.
-      (define test-yields
-        (lambda () (expect (yields callees (call g (list (number 1)))) (Nil))
-                (expect (yields callees (call add (list (number 1) (call f (list (number 2))))))
-                        (list "t:Abort"))
-                (expect
-                 (yields callees
-                         (Expr (Lambda (list "x") (call f (list (number 1))) ) (● f type) loc))
-                 (Nil))
-                (expect (yields callees (handle-abort (call f (list (number 1))))) (Nil))))
-
-      ;; A global's definition says what calling it may yield to, not the
-      ;; row the checker opened to its context at the use.
-      (define test-globals
-        (lambda () (let* ((opened (local "t:pure" (TFun (list i64) i64 abort-row)))
-                          (pure
-                           (Expr (Lambda (list "x.1") (local "x.1" i64) )
-                                 (TFun (list i64) i64 empty-row)
-                                 loc))
-                          (defined (test-callees (table-set empty-table "t:pure" pure))))
-                     (expect (yields defined (call opened (list (number 1)))) (Nil))
-                     (expect (yields callees (call opened (list (number 1)))) (list "t:Abort")))))
-
-      ;; Operands that run before a call that may yield are named first, so
-      ;; they still run first; variables and literals stay where they are,
-      ;; and so do operands after it.
-      (define test-operands
         (lambda ()
-          (expect
-           (normalized (call add (list (call g (list (number 1))) (call f (list (number 2))))))
-           "(let %control.0% (g 1) (let %control.1% (f 2) (add %control.0% %control.1%)))")
-          (expect (normalized (call add (list (number 1) (call f (list (number 2))))))
-                  "(let %control.0% (f 2) (add 1 %control.0%))")
-          (expect
-           (normalized (call add (list (call f (list (number 1))) (call g (list (number 2))))))
-           "(let %control.0% (f 1) (add %control.0% (g 2)))")
-          (expect (normalized (call g (list (call f (list (call f (list (number 1))))))))
-                  "(let %control.1% (let %control.0% (f 1) (f %control.0%)) (g %control.1%))")))
+          (define i64 (TCon "I64" (Nil)))
 
-      ;; A call whose value flows out stays where it is: in tail position,
-      ;; in a branch, in a let's value. A test or a sequence's first part
-      ;; that may yield is named.
-      (define test-flow
-        (lambda () (expect (normalized (call f (list (call g (list (number 1)))))) "(f (g 1))")
-                (expect (normalized
-                         (Expr (If (call predicate (Nil)) (call f (list (number 1))) (number 2))
-                               i64
-                               loc))
-                        "(let %control.0% (predicate) (if %control.0% (f 1) 2))")
-                (expect (normalized (Expr (Seq (call f (list (number 1))) (number 2)) i64 loc))
-                        "(let %control.0% (f 1) 2)")
-                (expect
-                 (normalized
-                  (Expr (Let "x.1" (call f (list (number 1))) (call g (list (local "x.1" i64))))
-                        i64
-                        loc))
-                 "(let x.1 (f 1) (g x.1))")
-                (expect
-                 (normalized
-                  (Expr (Lambda (list "x.1") (call g (list (call f (list (number 1))))) )
-                        (● g type)
-                        loc))
-                 "(lambda (let %control.0% (f 1) (g %control.0%)))")))
+          (define bool (TCon "Bool" (Nil)))
 
-      ;; An item without a call that may yield is returned itself.
-      (define test-unchanged
-        (lambda ()
-          (let ((pure (call add (list (call g (list (number 1))) (call g (list (number 2)))))))
-            (expect (eq? (● (control-expr 0 callees pure) first) pure) #t))))
+          (define loc (Loc "control" 1 1))
 
-      ;; A value holds a yield point when a let inside it, outside its
-      ;; lambdas, binds a value that may yield; a call that may yield is not
-      ;; one, since the let it is the value of tests it.
-      (define test-holds
-        (lambda ()
-          (let ((inner
-                 (Expr (Let "x.1" (call f (list (number 1))) (call g (list (local "x.1" i64))))
-                       i64
-                       loc)))
-            (expect (holds-yield-point? callees inner) #t)
-            (expect
-             (holds-yield-point? callees (Expr (If (local "c.1" bool) inner (number 2)) i64 loc))
-             #t)
-            (expect (holds-yield-point? callees (call f (list (number 1)))) #f)
-            (expect
-             (holds-yield-point? callees (Expr (Lambda (list "y.1") inner ) (● g type) loc))
-             #f))))
+          (define abort-row (TRow (list "t:Abort") (None)))
 
-      ;; A thunk unsafe-total calls cannot yield, but a lambda whose row
-      ;; names Abort and whose body yields nothing can be called anywhere;
-      ;; an implementation of an operation without ctl cannot yield.
-      (define test-restrictions
-        (lambda () (let* ((thunk-type (TFun (list) i64 abort-row))
-                          (total (local "prim:unsafe-total" (TFun (list thunk-type) i64 empty-row)))
-                          (log (Expr (Lambda (list "m.1") (call f (list (number 1))) )
-                                     (TFun (list i64) i64 empty-row)
-                                     loc)))
-                     (expect (refused? (call total (list (local "thunk" thunk-type))))
-                             "an unsafe-total thunk cannot reach a control operation")
-                     (expect (refused? (call total
-                                             (list
-                                              (Expr (Lambda (Nil) (number 1) ) thunk-type loc))))
-                             #f)
-                     (expect (refused?
-                              (Expr (Handle "t:Log" (list (Pair "t:log" log)) (number 1)) i64 loc))
-                             "the implementation of log can yield only to the control effects its operation's type names"))))
+          (define local (lambda (name type) (Expr (Var name (Nil) (Nil)) type loc)))
 
-      ;; A `resume` closed over its handlers in its handle's implementation
-      ;; yields to the handle's effect only if an implementation does, as
-      ;; one that calls `f` does; outside a handle, it may.
-      (define test-resuming
-        (lambda () (let* ((resume-type (TFun (list i64) i64 abort-row))
-                          (inherit (local "prim:inherit-handlers-1"
-                                          (TFun (list resume-type) i64 empty-row)))
-                          (implementation-type (TFun (list i64 resume-type) i64 empty-row))
-                          (closing (Expr (Lambda (list "v.1" "resume.1")
-                                                 (call inherit
-                                                       (list (local "resume.1" resume-type)))
-                                                 )
-                                         implementation-type
-                                         loc))
-                          (forwarding
-                           (Expr (Lambda (list "v.2" "resume.2")
-                                         (call add
-                                               (list (call f (list (number 1)))
-                                                     (call inherit
-                                                           (list (local "resume.2" resume-type)))))
-                                         )
-                                 implementation-type
+          (define number (lambda (n) (Expr (Lit (DInt n)) i64 loc)))
+
+          (define call
+            (lambda (callee args) (Expr (App callee args) (function-result (● callee type)) loc)))
+
+          (define function-result (lambda (type) (match type ((TFun _ result _) result) (_ i64))))
+
+          (define f (local "f" (TFun (list i64) i64 abort-row)))
+
+          (define g (local "g" (TFun (list i64) i64 (empty-row))))
+
+          (define predicate (local "predicate" (TFun (list) bool abort-row)))
+
+          (define add (local "add" (TFun (list i64 i64) i64 (empty-row))))
+
+          (define operation
+            (lambda (effect latent) (Operation effect
+                                               (Scheme (Nil)
+                                                       (Nil)
+                                                       (Nil)
+                                                       (TFun (list i64)
+                                                             i64
+                                                             (TRow (Cons effect latent) (None)))))))
+
+          (define program
+            (fold-left (lambda (program entry)
+                         (program-with-value program (● entry first) (● entry second)))
+                       (fold-left program-with-effect (empty-program)
+                                  (list
+                                   (Effect "t:Abort" (list "t:abort") (list "t:abort") (Nil) #f)
+                                   (Effect "t:Log" (list "t:log") (Nil) (Nil) #f)
+                                   (Effect "t:Io" (list "t:fetch") (Nil) (Nil) #f)))
+                       (list (Pair "t:abort" (operation "t:Abort" (Nil)))
+                             (Pair "t:log" (operation "t:Log" (Nil)))
+                             (Pair "t:fetch" (operation "t:Io" (list "t:Abort"))))))
+
+          (define test-callees
+            (lambda (definitions) (let* ((items (map (lambda (name)
+                                                       (Define name
+                                                         (match (table-ref definitions name)
+                                                           ((Some value) value))))
+                                                     (table-keys definitions)))
+                                         (schemes (fold-left (lambda (schemes item)
+                                                               (match item
+                                                                 ((Define name value)
+                                                                  (table-set schemes name
+                                                                             (Scheme (Nil)
+                                                                                     (Nil)
+                                                                                     (Nil)
+                                                                                     (● value
+                                                                                        type))))))
+                                                             (empty-table) items))
+                                         (state
+                                          (new-state
+                                           (prepare-specialization (Typed program items schemes))
+                                           (Some "t"))))
+                                    (specialization-callees
+                                     (● (complete-specializations
+                                         (● (start-specialization state items) second)) second)))))
+
+          (define callees (test-callees (empty-table)))
+
+          (define normalized (lambda (expr) (shape (● (normal 0 callees expr) first))))
+
+          (define shape
+            (lambda (expr) (match (● expr term)
+                             ((Lit (DInt n)) (i64->string n))
+                             ((Var name _ _) name)
+                             ((Lambda params body ) (string-append "(lambda " (shape body) ")"))
+                             ((App callee args)
+                              (string-append "("
+                                             (string-join (map shape (Cons callee args)) " ")
+                                             ")"))
+                             ((If test then otherwise)
+                              (string-append "(if "
+                                             (shape test)
+                                             " "
+                                             (shape then)
+                                             " "
+                                             (shape otherwise)
+                                             ")"))
+                             ((Let name value body)
+                              (string-append "(let " name " " (shape value) " " (shape body) ")"))
+                             ((Seq first rest)
+                              (string-append "(begin " (shape first) " " (shape rest) ")"))
+                             ((Handle effect _ body)
+                              (string-append "(handle " effect " " (shape body) ")"))
+                             (_ "?"))))
+
+          (define handle-abort
+            (lambda (body) (Expr (Handle "t:Abort"
+                                         (list (Pair "t:abort"
+                                                     (local "catch"
+                                                            (TFun (list i64) i64 (empty-row)))))
+                                         body)
+                                 i64
                                  loc)))
-                     (expect
-                      (refused?
-                       (Expr (Handle "t:Abort" (list (Pair "t:abort" closing)) (number 1)) i64 loc))
-                      #f)
-                     (expect
-                      (refused?
-                       (Expr (Handle "t:Abort" (list (Pair "t:abort" forwarding)) (number 1))
-                             i64
-                             loc))
-                      "a procedure given to inherit-handlers-1 cannot reach a control operation")
-                     (expect (refused? (call inherit (list (local "resume.3" resume-type))))
-                             "a procedure given to inherit-handlers-1 cannot reach a control operation"))))
 
-      ;; A restriction check takes a global defined by a lambda at its body:
-      ;; the handle in `t:caught` catches the Abort its row names, so a thunk
-      ;; that calls it may be closed over its handlers, and one that calls
-      ;; `f` may not.
-      (define test-reading
-        (lambda () (let* ((caught-type (TFun (list i64) i64 abort-row))
-                          (caught
-                           (Expr (Lambda (list "x.2")
-                                         (handle-abort (call f (list (local "x.2" i64))))
-                                         )
-                                 caught-type
-                                 loc))
-                          (reading (test-callees (table-set empty-table "t:caught" caught)))
-                          (thunk-type (TFun (Nil) i64 abort-row))
-                          (inherit
-                           (local "prim:inherit-handlers" (TFun (list thunk-type) i64 empty-row)))
-                          (thunk (lambda (body) (Expr (Lambda (Nil) body ) thunk-type loc))))
-                     (expect (refused-in? reading
-                                          (call inherit
-                                                (list (thunk (call (local "t:caught" caught-type)
-                                                                   (list (number 1)))))))
-                             #f)
-                     (expect
-                      (refused-in? reading (call inherit (list (thunk (call f (list (number 1)))))))
-                      "a procedure given to inherit-handlers cannot reach a control operation"))))
+          (define test-yields
+            (lambda () (expect (yields callees (call g (list (number 1)))) (Nil))
+                    (expect (yields callees (call add (list (number 1) (call f (list (number 2))))))
+                            (list "t:Abort"))
+                    (expect
+                     (yields callees
+                             (Expr (Lambda (list "x") (call f (list (number 1))) ) (● f type) loc))
+                     (Nil))
+                    (expect (yields callees (handle-abort (call f (list (number 1))))) (Nil))))
 
-      ;; Calling an operation whose type names Abort may yield to Abort, and
-      ;; its implementation may.
-      (define test-latent
-        (lambda () (let ((fetch (local "t:fetch" (TFun (list i64) i64 empty-row)))
-                         (yielding (Expr (Lambda (list "n.1") (call f (list (number 1))) )
-                                         (TFun (list i64) i64 abort-row)
+          (define test-globals
+            (lambda () (let* ((opened (local "t:pure" (TFun (list i64) i64 abort-row)))
+                              (pure
+                               (Expr (Lambda (list "x.1") (local "x.1" i64) )
+                                     (TFun (list i64) i64 (empty-row))
+                                     loc))
+                              (defined (test-callees (table-set (empty-table) "t:pure" pure))))
+                         (expect (yields defined (call opened (list (number 1)))) (Nil))
+                         (expect (yields callees (call opened (list (number 1))))
+                                 (list "t:Abort")))))
+
+          (define test-operands
+            (lambda ()
+              (expect
+               (normalized (call add (list (call g (list (number 1))) (call f (list (number 2))))))
+               "(let %control.0% (g 1) (let %control.1% (f 2) (add %control.0% %control.1%)))")
+              (expect (normalized (call add (list (number 1) (call f (list (number 2))))))
+                      "(let %control.0% (f 2) (add 1 %control.0%))")
+              (expect
+               (normalized (call add (list (call f (list (number 1))) (call g (list (number 2))))))
+               "(let %control.0% (f 1) (add %control.0% (g 2)))")
+              (expect (normalized (call g (list (call f (list (call f (list (number 1))))))))
+                      "(let %control.1% (let %control.0% (f 1) (f %control.0%)) (g %control.1%))")))
+
+          (define test-flow
+            (lambda () (expect (normalized (call f (list (call g (list (number 1)))))) "(f (g 1))")
+                    (expect (normalized
+                             (Expr (If (call predicate (Nil)) (call f (list (number 1))) (number 2))
+                                   i64
+                                   loc))
+                            "(let %control.0% (predicate) (if %control.0% (f 1) 2))")
+                    (expect (normalized (Expr (Seq (call f (list (number 1))) (number 2)) i64 loc))
+                            "(let %control.0% (f 1) 2)")
+                    (expect
+                     (normalized
+                      (Expr (Let "x.1" (call f (list (number 1))) (call g (list (local "x.1" i64))))
+                            i64
+                            loc))
+                     "(let x.1 (f 1) (g x.1))")
+                    (expect
+                     (normalized
+                      (Expr (Lambda (list "x.1") (call g (list (call f (list (number 1))))) )
+                            (● g type)
+                            loc))
+                     "(lambda (let %control.0% (f 1) (g %control.0%)))")))
+
+          (define test-unchanged
+            (lambda ()
+              (let ((pure (call add (list (call g (list (number 1))) (call g (list (number 2)))))))
+                (expect (eq? (● (control-expr 0 callees pure) first) pure) #t))))
+
+          (define test-holds
+            (lambda ()
+              (let ((inner
+                     (Expr (Let "x.1" (call f (list (number 1))) (call g (list (local "x.1" i64))))
+                           i64
+                           loc)))
+                (expect (holds-yield-point? callees inner) #t)
+                (expect
+                 (holds-yield-point? callees
+                                     (Expr (If (local "c.1" bool) inner (number 2)) i64 loc))
+                 #t)
+                (expect (holds-yield-point? callees (call f (list (number 1)))) #f)
+                (expect
+                 (holds-yield-point? callees (Expr (Lambda (list "y.1") inner ) (● g type) loc))
+                 #f))))
+
+          (define test-restrictions
+            (lambda () (let* ((thunk-type (TFun (list) i64 abort-row))
+                              (total
+                               (local "prim:unsafe-total" (TFun (list thunk-type) i64 (empty-row))))
+                              (log (Expr (Lambda (list "m.1") (call f (list (number 1))) )
+                                         (TFun (list i64) i64 (empty-row))
                                          loc)))
-                     (expect (yields callees (call fetch (list (number 1)))) (list "t:Abort"))
-                     (expect
-                      (yields callees
-                              (call (local "t:log" (TFun (list i64) i64 empty-row))
-                                    (list (number 1))))
-                      (Nil))
-                     (expect
-                      (refused?
-                       (Expr (Handle "t:Io" (list (Pair "t:fetch" yielding)) (number 1)) i64 loc))
-                      #f))))
+                         (expect (refused? (call total (list (local "thunk" thunk-type))))
+                                 "an unsafe-total thunk cannot reach a control operation")
+                         (expect (refused? (call total
+                                                 (list
+                                                  (Expr (Lambda (Nil) (number 1) )
+                                                        thunk-type
+                                                        loc))))
+                                 #f)
+                         (expect (refused?
+                                  (Expr (Handle "t:Log" (list (Pair "t:log" log)) (number 1))
+                                        i64
+                                        loc))
+                                 "the implementation of log can yield only to the control effects its operation's type names"))))
 
-      ;; The start of the diagnostic `expr` is refused with, or #f.
-      (define refused?
-        (lambda (expr) (refused-in? callees expr)))
+          (define test-resuming
+            (lambda () (let* ((resume-type (TFun (list i64) i64 abort-row))
+                              (inherit (local "prim:inherit-handlers-1"
+                                              (TFun (list resume-type) i64 (empty-row))))
+                              (implementation-type (TFun (list i64 resume-type) i64 (empty-row)))
+                              (closing (Expr (Lambda (list "v.1" "resume.1")
+                                                     (call inherit
+                                                           (list (local "resume.1" resume-type)))
+                                                     )
+                                             implementation-type
+                                             loc))
+                              (forwarding
+                               (Expr (Lambda (list "v.2" "resume.2")
+                                             (call add
+                                                   (list (call f (list (number 1)))
+                                                         (call inherit
+                                                               (list
+                                                                (local "resume.2" resume-type)))))
+                                             )
+                                     implementation-type
+                                     loc)))
+                         (expect
+                          (refused?
+                           (Expr (Handle "t:Abort" (list (Pair "t:abort" closing)) (number 1))
+                                 i64
+                                 loc))
+                          #f)
+                         (expect
+                          (refused?
+                           (Expr (Handle "t:Abort" (list (Pair "t:abort" forwarding)) (number 1))
+                                 i64
+                                 loc))
+                          "a procedure given to inherit-handlers-1 cannot reach a control operation")
+                         (expect (refused? (call inherit (list (local "resume.3" resume-type))))
+                                 "a procedure given to inherit-handlers-1 cannot reach a control operation"))))
 
-      (define refused-in?
-        (lambda (callees expr)
-          (let ((message (compile-failure (lambda () (check-restrictions callees expr)))))
-            (and message
-                 (substring message
-                            (+ (string-index-of message ": ") 2)
-                            (string-index-of message ";"))))))
+          (define test-reading
+            (lambda () (let* ((caught-type (TFun (list i64) i64 abort-row))
+                              (caught
+                               (Expr (Lambda (list "x.2")
+                                             (handle-abort (call f (list (local "x.2" i64))))
+                                             )
+                                     caught-type
+                                     loc))
+                              (reading (test-callees (table-set (empty-table) "t:caught" caught)))
+                              (thunk-type (TFun (Nil) i64 abort-row))
+                              (inherit
+                               (local "prim:inherit-handlers"
+                                      (TFun (list thunk-type) i64 (empty-row))))
+                              (thunk (lambda (body) (Expr (Lambda (Nil) body ) thunk-type loc))))
+                         (expect (refused-in? reading
+                                              (call inherit
+                                                    (list
+                                                     (thunk (call (local "t:caught" caught-type)
+                                                                  (list (number 1)))))))
+                                 #f)
+                         (expect
+                          (refused-in? reading
+                                       (call inherit (list (thunk (call f (list (number 1)))))))
+                          "a procedure given to inherit-handlers cannot reach a control operation"))))
 
-      (define string-index-of
-        (lambda (text pattern) (let loop ((index 0))
-                                 (if
-                                  (string=? (substring text index (+ index (string-length pattern)))
-                                            pattern)
-                                  index
-                                  (loop (+ index 1))))))))
+          (define test-latent
+            (lambda () (let ((fetch (local "t:fetch" (TFun (list i64) i64 (empty-row))))
+                             (yielding (Expr (Lambda (list "n.1") (call f (list (number 1))) )
+                                             (TFun (list i64) i64 abort-row)
+                                             loc)))
+                         (expect (yields callees (call fetch (list (number 1)))) (list "t:Abort"))
+                         (expect
+                          (yields callees
+                                  (call (local "t:log" (TFun (list i64) i64 (empty-row)))
+                                        (list (number 1))))
+                          (Nil))
+                         (expect
+                          (refused?
+                           (Expr (Handle "t:Io" (list (Pair "t:fetch" yielding)) (number 1))
+                                 i64
+                                 loc))
+                          #f))))
+
+          (define refused?
+            (lambda (expr) (refused-in? callees expr)))
+
+          (define refused-in?
+            (lambda (callees expr)
+              (let ((message (compile-failure (lambda () (check-restrictions callees expr)))))
+                (and message
+                     (substring message
+                                (+ (string-index-of message ": ") 2)
+                                (string-index-of message ";"))))))
+
+          (define string-index-of
+            (lambda (text pattern) (let loop ((index 0))
+                                     (if
+                                      (string=?
+                                       (substring text index (+ index (string-length pattern)))
+                                       pattern)
+                                      index
+                                      (loop (+ index 1))))))
+          (test-yields)
+          (test-globals)
+          (test-operands)
+          (test-flow)
+          (test-unchanged)
+          (test-holds)
+          (test-restrictions)
+          (test-resuming)
+          (test-reading)
+          (test-latent)))))
    (else)))

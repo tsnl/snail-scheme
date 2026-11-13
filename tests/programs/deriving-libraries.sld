@@ -9,9 +9,9 @@
  (sample route)
  (snail shell wire))
 
-(define route (Route (list (Stop "dock" (Square 3)) (Stop "yard" (Rectangle 2 5))) 7))
+(define (route) (→ Route) (Route (list (Stop "dock" (Square 3)) (Stop "yard" (Rectangle 2 5))) 7))
 
-(define copy (ann (deserialize (serialize route)) Route))
+(define (copy) (→ Route) (ann (deserialize (serialize (route))) Route))
 
 (define (main) (→ Unit) (! output-port)
   (for-each (lambda (stop)
@@ -19,7 +19,7 @@
               (display " ")
               (display (shape-area (● stop shape)))
               (newline))
-            (● copy stops))
-  (display (● copy length))
+            (● (copy) stops))
+  (display (● (copy) length))
   (newline)
   (unit))

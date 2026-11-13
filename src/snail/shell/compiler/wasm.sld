@@ -1,4 +1,4 @@
-;; Prepared concrete code to WasmGC. Declarations and initializer bodies are
+;; Prepared concrete code to WasmGC. Declarations and function bodies are
 ;; fixed before emission; no source specialization or validation happens here.
 ;; This backend decides representations:
 ;; scalars are Wasm numbers, enums whose cases have no fields are i32 tags,
@@ -213,7 +213,7 @@
 
     ;; A location for code the backend writes itself.
 
-    (define no-loc (→ Loc) (Loc "" 0 0))
+    (define (no-loc) (→ Loc) (Loc "" 0 0))
 
     ;; ---- Names ----
 
@@ -592,7 +592,7 @@
     ;; Context replacements share this function's output builder while
     ;; changing only immutable control and evidence metadata.
     (define (new-fn (m Module)) (→ Fn)
-      (Fn m (FnState (Nil) empty-table empty-table 0)
+      (Fn m (FnState (Nil) (empty-table) (empty-table) 0)
           (None) (wat "local.get" (Word "$ev")) (None)))
 
     ;; Temporaries and labels are numbered within their function, so a name
@@ -669,53 +669,6 @@
                                            (● signature second)
                                            code)))))
         (_ (panic "internal error: not a function"))))
-
-    ;; ---- Lazy values ----
-
-    ;; A defining module owns the cache for its lifetime. Initializers are
-    ;; ordinary compiled bodies, never startup work. WasmGC values here are
-    ;; not shared between threads: the guard detects reentry, not races.
-    ;; Cache publication consumes the initializer's result; every read returns
-    ;; its own credit. Discarding an instance does not run source finalizers.
-    (define (emit-lazy-value! (m Module) (name String) (function Expr)) (→ Unit) (! mut)
-      (match (● function term)
-        ((Lambda (Nil) body )
-         (let* ((fn (Fn-exit-set (new-fn m) (function-exit (● function type))))
-                (type (● body type)) (result (rep m type))
-                (state (wasm-id (string-append "%lazy.state." name)))
-                (value (wasm-id (string-append "%lazy.value." name))))
-           (push! (● m globals) (wat "global" (id state) (wat "mut" (Word "i32"))
-                                     (wat "i32.const" (int 0))))
-           (push! (● m globals) (wat "global" (id value) (wat "mut" (rep->wat result))
-                                     (default-value result)))
-           (let ((code (lazy-body fn name body state value)))
-             (push-function! m (wasm-id name)
-                             (function-wat fn
-                                           (wasm-id name)
-                                           (list (evidence-param m))
-                                           result
-                                           code)))))
-        (_ (panic "internal error: a lazy initializer must take no arguments"))))
-
-    ;; State 1 is installed before entering user code. State 2 proves the
-    ;; cached reference is non-null. A fatal trap leaves state 1 in place;
-    ;; there is no retry contract. Non-tail emission must publish the result.
-    (define (lazy-body (fn Fn) (name String) (body Expr) (state String) (value String))
-      (→ (List Wat)) (! mut)
-      (let* ((m (● fn module)) (type (● body type)) (result (rep m type))
-             (read (wat "global.get" (id value)))
-             (code (emit fn body #f)))
-        (list
-         (wat "if" (wat "i32.eq" (wat "global.get" (id state)) (wat "i32.const" (int 1)))
-              (wat "then" (wat "call" (id (panic-helper m))
-                               (string-literal m (string-append "initialization cycle: " name)))))
-         (wat "if" (wat "i32.eqz" (wat "global.get" (id state)))
-              (wat "then"
-                   (wat "global.set" (id state) (wat "i32.const" (int 1)))
-                   (wat "global.set" (id value)
-                        (wat* "block" (Cons (wat "result" (rep->wat result)) code)))
-                   (wat "global.set" (id state) (wat "i32.const" (int 2)))))
-         (retain-value m type read))))
 
     ;; ---- Expressions ----
 
@@ -873,11 +826,7 @@
           ((Some access) access)
           ((None)
            (match (definition-of m name)
-             ((Some definition)
-              (cond
-
-               ((● definition function?) (function-value m name type))
-               (else (wat "call" (id (value-id m name type)) (● fn evidence)))))
+             ((Some _) (function-value m name type))
              ((None)
               (match (program-value (program-of m) name)
                 ((Some (Constructor case _))
@@ -909,13 +858,6 @@
              (wasm-id name)))
         ((None) (wasm-id name))))
 
-    ;; Every importer calls the defining instance's getter, sharing its cache.
-    (define (value-id (m Module) (name String) (type Type)) (→ String) (! mut)
-      (if (external-definition? m name)
-          (import! m (Import (name-owner name) name)
-                   (list (evidence-rep m)) (Some (rep m type)))
-          (wasm-id name)))
-
     ;; An immutable global closure whose code calls `name` with its arguments.
 
     (define (function-value (m Module) (name String) (type Type)) (→ Wat) (! mut)
@@ -926,14 +868,14 @@
                      (let* ((names
                              (map (lambda (index) (string-append "argument." (i64->string index)))
                                   (iota (length params))))
-                            (call (Expr (App (Expr (Var name (Nil) (Nil)) type no-loc)
+                            (call (Expr (App (Expr (Var name (Nil) (Nil)) type (no-loc))
                                              (map (lambda (pair)
                                                     (Expr (Var (● pair first) (Nil) (Nil))
                                                           (● pair second)
-                                                          no-loc))
+                                                          (no-loc)))
                                                   (zip names params)))
-                                        result no-loc)))
-                       (closure-value m (Expr (Lambda names call ) type no-loc) (None))))
+                                        result (no-loc))))
+                       (closure-value m (Expr (Lambda names call ) type (no-loc)) (None))))
                     (_ (panic "internal error: a function value needs a function type"))))))
 
     ;; ---- Closures ----
@@ -999,7 +941,7 @@
                             (map (lambda (entry) (retain-value m (● entry second)
                                                                (variable fn
                                                                          (● entry first)
-                                                                         unchecked)))
+                                                                         (unchecked))))
                                  (zip captured fields)))))))
 
     (define (capture-types (function Expr) (captured (List String))) (→ (List Type))
@@ -1174,7 +1116,7 @@
     ;; still depend on the order of emission.
 
     (define (lambda-id (m Module) (prefix String) (draft Wat) (salt I64)) (→ String) (! mut)
-      (let* ((hash (i64->string (wat-hash fnv-offset draft)))
+      (let* ((hash (i64->string (wat-hash (fnv-offset) draft)))
              (name (wasm-id (string-append prefix
                                            "."
                                            hash
@@ -1288,11 +1230,9 @@
           (closure-call fn callee args tail?)
           (match (definition-of (● fn module) name)
             ((Some definition)
-             (if (● definition function?)
-                 (list (wat* (call-op tail?)
-                             (Cons (id (function-id (● fn module) name))
-                                   (Cons (● fn evidence) (emit-args fn args)))))
-                 (closure-call fn callee args tail?)))
+             (list (wat* (call-op tail?)
+                         (Cons (id (function-id (● fn module) name))
+                               (Cons (● fn evidence) (emit-args fn args))))))
             ((None) (builtin-call fn expr name args)))))
 
     (define (builtin-call (fn Fn) (expr Expr) (name String) (args (List Expr)))
@@ -2953,7 +2893,8 @@
 
     (define (operation-type (m Module) (operation String)) (→ Type)
       (match (program-value (program-of m) operation)
-        ((Some (Operation _ (Scheme _ _ _ (TFun params result _)))) (TFun params result empty-row))
+        ((Some (Operation _ (Scheme _ _ _ (TFun params result _))))
+         (TFun params result (empty-row)))
         (_ (panic "internal error: not an operation"))))
 
     (define (operation-result (m Module) (operation String)) (→ Type)
@@ -3229,7 +3170,7 @@
 
     (define (emit-control-module (program Program)) (→ Wat) (! mut)
       (let ((m (new-module (Declarations (Program-items-set program (Nil))
-                                         (None) (control-effects program) empty-table))))
+                                         (None) (control-effects program) (empty-table)))))
         (yielding m)
         (module-wat m)))
 
@@ -3315,7 +3256,7 @@
              (saved (wat "local.get" (id temp)))
              (set (wat "local.set" (id temp) (frame fn name value cleanup body)))
              (test (yield-test fn saved))
-             (argument (box-value m (● value type) (variable fn name unchecked))))
+             (argument (box-value m (● value type) (variable fn name (unchecked)))))
         (Cons set (append test (list (wat "return_call" (id (frame-runner m)) saved argument))))))
 
     ;; A let's value that holds yield points of its own is a block they
@@ -3420,7 +3361,7 @@
               (append (list (id type) (wat "ref.func" (id join))
                             (wat "ref.func" (id (emit-cancel! m cleanup entries type)))
                             (retain-evidence m (● fn evidence)))
-                      (map (lambda (local) (variable fn local unchecked)) captured)))))
+                      (map (lambda (local) (variable fn local (unchecked))) captured)))))
 
     ;; A let's body as a function of its frame and its boxed value: it
     ;; loads the frame's locals and evidence and binds the value, runs the
@@ -4452,87 +4393,93 @@
 
     ;; Primitives with a single Wasm instruction.
 
-    (define instruction-primitives (→ (List (Pair String String)))
-      (list (Pair "i32-add" "i32.add")
-            (Pair "i32-sub" "i32.sub")
-            (Pair "i32-mul" "i32.mul")
-            (Pair "i32-quotient" "i32.div_s")
-            (Pair "i32-remainder" "i32.rem_s")
-            (Pair "i32-and" "i32.and")
-            (Pair "i32-or" "i32.or")
-            (Pair "i32-xor" "i32.xor")
-            (Pair "i32-shift-left" "i32.shl")
-            (Pair "i32-shift-right" "i32.shr_s")
-            (Pair "i32-shift-right/logical" "i32.shr_u")
-            (Pair "i32-eq" "i32.eq")
-            (Pair "i32-lt" "i32.lt_s")
-            (Pair "i32-le" "i32.le_s")
-            (Pair "i32-gt" "i32.gt_s")
-            (Pair "i32-ge" "i32.ge_s")
-            (Pair "i64-add" "i64.add")
-            (Pair "i64-sub" "i64.sub")
-            (Pair "i64-mul" "i64.mul")
-            (Pair "i64-quotient" "i64.div_s")
-            (Pair "i64-remainder" "i64.rem_s")
-            (Pair "i64-and" "i64.and")
-            (Pair "i64-or" "i64.or")
-            (Pair "i64-xor" "i64.xor")
-            (Pair "i64-shift-left" "i64.shl")
-            (Pair "i64-shift-right" "i64.shr_s")
-            (Pair "i64-shift-right/logical" "i64.shr_u")
-            (Pair "i64-eq" "i64.eq")
-            (Pair "i64-lt" "i64.lt_s")
-            (Pair "i64-le" "i64.le_s")
-            (Pair "i64-gt" "i64.gt_s")
-            (Pair "i64-ge" "i64.ge_s")
-            (Pair "f32-add" "f32.add")
-            (Pair "f32-sub" "f32.sub")
-            (Pair "f32-mul" "f32.mul")
-            (Pair "f32-div" "f32.div")
-            (Pair "f32-min" "f32.min")
-            (Pair "f32-max" "f32.max")
-            (Pair "f32-eq" "f32.eq")
-            (Pair "f32-lt" "f32.lt")
-            (Pair "f32-le" "f32.le")
-            (Pair "f32-gt" "f32.gt")
-            (Pair "f32-ge" "f32.ge")
-            (Pair "f32-sqrt" "f32.sqrt")
-            (Pair "f32-abs" "f32.abs")
-            (Pair "f32-negate" "f32.neg")
-            (Pair "f32-floor" "f32.floor")
-            (Pair "f32-ceiling" "f32.ceil")
-            (Pair "f32-truncate" "f32.trunc") (Pair "f32-round" "f32.nearest")
-            (Pair "f64-add" "f64.add")
-            (Pair "f64-sub" "f64.sub")
-            (Pair "f64-mul" "f64.mul")
-            (Pair "f64-div" "f64.div")
-            (Pair "f64-min" "f64.min")
-            (Pair "f64-max" "f64.max")
-            (Pair "f64-eq" "f64.eq")
-            (Pair "f64-lt" "f64.lt")
-            (Pair "f64-le" "f64.le")
-            (Pair "f64-gt" "f64.gt")
-            (Pair "f64-ge" "f64.ge")
-            (Pair "f64-sqrt" "f64.sqrt")
-            (Pair "f64-abs" "f64.abs")
-            (Pair "f64-negate" "f64.neg")
-            (Pair "f64-floor" "f64.floor")
-            (Pair "f64-ceiling" "f64.ceil")
-            (Pair "f64-truncate" "f64.trunc") (Pair "f64-round" "f64.nearest")
-            (Pair "i32->i64" "i64.extend_i32_s")
-            (Pair "i64->i32" "i32.wrap_i64")
-            (Pair "i64->f64" "f64.convert_i64_s")
-            (Pair "f64->i64" "i64.trunc_sat_f64_s")
-            (Pair "i32->f64" "f64.convert_i32_s")
-            (Pair "f64->i32" "i32.trunc_sat_f64_s")
-            (Pair "i32->f32" "f32.convert_i32_s")
-            (Pair "f32->i32" "i32.trunc_sat_f32_s")
-            (Pair "i64->f32" "f32.convert_i64_s")
-            (Pair "f32->i64" "i64.trunc_sat_f32_s")
-            (Pair "f32->f64" "f64.promote_f32")
-            (Pair "f64->f32" "f32.demote_f64")
-            (Pair "f32->bits" "i32.reinterpret_f32") (Pair "bits->f32" "f32.reinterpret_i32")
-            (Pair "f64->bits" "i64.reinterpret_f64") (Pair "bits->f64" "f64.reinterpret_i64")))
+    (define (primitive-instruction (operation String)) (→ (Option String))
+      (case operation
+        (("i32-add") (Some "i32.add"))
+        (("i32-sub") (Some "i32.sub"))
+        (("i32-mul") (Some "i32.mul"))
+        (("i32-quotient") (Some "i32.div_s"))
+        (("i32-remainder") (Some "i32.rem_s"))
+        (("i32-and") (Some "i32.and"))
+        (("i32-or") (Some "i32.or"))
+        (("i32-xor") (Some "i32.xor"))
+        (("i32-shift-left") (Some "i32.shl"))
+        (("i32-shift-right") (Some "i32.shr_s"))
+        (("i32-shift-right/logical") (Some "i32.shr_u"))
+        (("i32-eq") (Some "i32.eq"))
+        (("i32-lt") (Some "i32.lt_s"))
+        (("i32-le") (Some "i32.le_s"))
+        (("i32-gt") (Some "i32.gt_s"))
+        (("i32-ge") (Some "i32.ge_s"))
+        (("i64-add") (Some "i64.add"))
+        (("i64-sub") (Some "i64.sub"))
+        (("i64-mul") (Some "i64.mul"))
+        (("i64-quotient") (Some "i64.div_s"))
+        (("i64-remainder") (Some "i64.rem_s"))
+        (("i64-and") (Some "i64.and"))
+        (("i64-or") (Some "i64.or"))
+        (("i64-xor") (Some "i64.xor"))
+        (("i64-shift-left") (Some "i64.shl"))
+        (("i64-shift-right") (Some "i64.shr_s"))
+        (("i64-shift-right/logical") (Some "i64.shr_u"))
+        (("i64-eq") (Some "i64.eq"))
+        (("i64-lt") (Some "i64.lt_s"))
+        (("i64-le") (Some "i64.le_s"))
+        (("i64-gt") (Some "i64.gt_s"))
+        (("i64-ge") (Some "i64.ge_s"))
+        (("f32-add") (Some "f32.add"))
+        (("f32-sub") (Some "f32.sub"))
+        (("f32-mul") (Some "f32.mul"))
+        (("f32-div") (Some "f32.div"))
+        (("f32-min") (Some "f32.min"))
+        (("f32-max") (Some "f32.max"))
+        (("f32-eq") (Some "f32.eq"))
+        (("f32-lt") (Some "f32.lt"))
+        (("f32-le") (Some "f32.le"))
+        (("f32-gt") (Some "f32.gt"))
+        (("f32-ge") (Some "f32.ge"))
+        (("f32-sqrt") (Some "f32.sqrt"))
+        (("f32-abs") (Some "f32.abs"))
+        (("f32-negate") (Some "f32.neg"))
+        (("f32-floor") (Some "f32.floor"))
+        (("f32-ceiling") (Some "f32.ceil"))
+        (("f32-truncate") (Some "f32.trunc"))
+        (("f32-round") (Some "f32.nearest"))
+        (("f64-add") (Some "f64.add"))
+        (("f64-sub") (Some "f64.sub"))
+        (("f64-mul") (Some "f64.mul"))
+        (("f64-div") (Some "f64.div"))
+        (("f64-min") (Some "f64.min"))
+        (("f64-max") (Some "f64.max"))
+        (("f64-eq") (Some "f64.eq"))
+        (("f64-lt") (Some "f64.lt"))
+        (("f64-le") (Some "f64.le"))
+        (("f64-gt") (Some "f64.gt"))
+        (("f64-ge") (Some "f64.ge"))
+        (("f64-sqrt") (Some "f64.sqrt"))
+        (("f64-abs") (Some "f64.abs"))
+        (("f64-negate") (Some "f64.neg"))
+        (("f64-floor") (Some "f64.floor"))
+        (("f64-ceiling") (Some "f64.ceil"))
+        (("f64-truncate") (Some "f64.trunc"))
+        (("f64-round") (Some "f64.nearest"))
+        (("i32->i64") (Some "i64.extend_i32_s"))
+        (("i64->i32") (Some "i32.wrap_i64"))
+        (("i64->f64") (Some "f64.convert_i64_s"))
+        (("f64->i64") (Some "i64.trunc_sat_f64_s"))
+        (("i32->f64") (Some "f64.convert_i32_s"))
+        (("f64->i32") (Some "i32.trunc_sat_f64_s"))
+        (("i32->f32") (Some "f32.convert_i32_s"))
+        (("f32->i32") (Some "i32.trunc_sat_f32_s"))
+        (("i64->f32") (Some "f32.convert_i64_s"))
+        (("f32->i64") (Some "i64.trunc_sat_f32_s"))
+        (("f32->f64") (Some "f64.promote_f32"))
+        (("f64->f32") (Some "f32.demote_f64"))
+        (("f32->bits") (Some "i32.reinterpret_f32"))
+        (("bits->f32") (Some "f32.reinterpret_i32"))
+        (("f64->bits") (Some "i64.reinterpret_f64"))
+        (("bits->f64") (Some "f64.reinterpret_i64"))
+        (else (None))))
 
     (define (index (value Wat)) (→ Wat)
       (wat "i32.wrap_i64" value))
@@ -4541,7 +4488,7 @@
       (→ (List Wat))
       (! mut)
       (let ((operation (substring name 5 (string-length name))))
-        (match (assoc-ref instruction-primitives operation)
+        (match (primitive-instruction operation)
           ((Some instruction) (list (wat* instruction (emit-args fn args))))
           ((None)
            (special-primitive fn
@@ -4908,11 +4855,11 @@
     (define (type-groups (definitions (List Wat))) (→ (List Wat))
       (let* ((named (fold-left (lambda (table definition)
                                  (table-set table (type-definition-name definition) definition))
-                               empty-table definitions))
+                               (empty-table) definitions))
              (names (list->vector (list-sort string<? (map type-definition-name definitions))))
              (numbers
               (fold-left (lambda (table index) (table-set table (vector-ref names index) index))
-                         empty-table
+                         (empty-table)
                          (iota (vector-length names)))))
         (map (lambda (component)
                (group-wat named (map (lambda (index) (vector-ref names index)) component)))
@@ -4973,9 +4920,8 @@
 
     ;; ---- Modules ----
 
-    ;; The prepared input contains functions and initializer functions,
-    ;; explicit host exports and an optional program entry. Bindings preserve
-    ;; which functions initialize cached values rather than being source code.
+    ;; The prepared input contains concrete functions,
+    ;; explicit host exports and an optional program entry.
 
     (define (emit-module (prepared Prepared)) (→ Wat) (! mut)
       (let ((m (new-module (● prepared declarations))))
@@ -4984,8 +4930,7 @@
                       ((Define name value)
                        (match (definition-of m name)
                          ((Some binding)
-                          (if (● binding function?) (emit-function! m name value)
-                              (emit-lazy-value! m name value)))
+                          (emit-function! m name value))
                          ((None) (panic "internal error: an emitted definition has no binding"))))
                       (_ (panic "internal error: a prepared function must be a definition"))))
                   (● prepared definitions))
@@ -4996,9 +4941,9 @@
 
     (define (new-module (declarations Declarations)) (→ Module)
       (Module declarations
-              empty-table 65536 (Nil) (Nil) (Nil)
+              (empty-table) 65536 (Nil) (Nil) (Nil)
               (Nil) (Nil) (Nil) (Nil)
-              empty-table empty-table))
+              (empty-table) (empty-table)))
 
     (define (module-callees (m Module)) (→ (Option Callees))
       (if (null? (● (● m declarations) control))
@@ -5073,8 +5018,6 @@
         ((Expose name symbol _)
          (match (definition-of m name)
            ((Some definition)
-            (unless (● definition function?)
-              (panic "internal error: an exposed function is not a lambda"))
             (push! (● m exports)
                    (wat "export" (wat-string symbol)
                         (wat "func" (id (exposed-function m name (● definition type))))))

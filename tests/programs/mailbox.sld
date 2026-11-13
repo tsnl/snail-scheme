@@ -19,11 +19,11 @@
     (write-line (string-append "received " (mailbox-receive mailbox)))
     (consume mailbox (- count 1))))
 
-(define main
-  (lambda ()
-    (let ((mailbox (make-mailbox)))
-      (dispatch-local (once (lambda () (consume mailbox 4))))
-      (dispatch-local (once (lambda () (produce mailbox "first"))))
-      (dispatch-local (once (lambda () (produce mailbox "second"))))
-      (write-line "main returns"))
-    (unit)))
+(define (main) (→ Unit) (! host mut output-port tasks)
+
+  (let ((mailbox (make-mailbox)))
+    (dispatch-local (once (lambda () (consume mailbox 4))))
+    (dispatch-local (once (lambda () (produce mailbox "first"))))
+    (dispatch-local (once (lambda () (produce mailbox "second"))))
+    (write-line "main returns"))
+  (unit))

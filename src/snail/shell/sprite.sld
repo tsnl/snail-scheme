@@ -64,7 +64,7 @@
              (rx (f32->f64 (● right x)))
              (rz (f32->f64 (● right z)))
              (x (f32->f64 (● facing x))) (z (f32->f64 (● facing z)))
-             (step (/ (* 2.0 pi) (i64->f64 count))))
+             (step (/ (* 2.0 (pi)) (i64->f64 count))))
         (modulo (f64->i64 (round (/ (atan2 (+ (* x rx) (* z rz)) (- (* z rx) (* x rz))) step)))
                 count)))
 

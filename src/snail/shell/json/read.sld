@@ -144,7 +144,7 @@
              (read-string chars (+ index 1) (Cons (vector-ref chars index) text)))
             (else (None))))
 
-    (define short-escapes (→ (List (Pair Char Char)))
+    (define (short-escapes) (→ (List (Pair Char Char)))
       (list (Pair #\" #\")
             (Pair #\\ #\\)
             (Pair #\/ #\/)
@@ -158,7 +158,7 @@
       (if (at? chars index #\u)
           (read-unicode chars (+ index 1))
           (match (if (< index (vector-length chars))
-                     (assoc-ref short-escapes (vector-ref chars index))
+                     (assoc-ref (short-escapes) (vector-ref chars index))
                      (None))
             ((Some char) (Some (Pair char (+ index 1))))
             ((None) (None)))))

@@ -10,8 +10,8 @@
 
 (instance (Twice (Option A))
   (⊨ (Copy A))
-  (define twice
-    (lambda (value) (Pair value value))))
+  (define (twice (value (Option A))) (→ (Pair (Option A) (Option A)))
+    (Pair value value)))
 
 (define (run (option (Option (FnOnce → Unit ! output-port)))) (→ Unit) (! output-port)
   (match option

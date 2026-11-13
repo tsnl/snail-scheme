@@ -45,7 +45,7 @@
         ((TCon name args)
          (cond ((member? name (list "Vector"))
                 (any? (lambda (arg) (shared-content? program arg seen)) args))
-               ((any? (lambda (entry) (string=? name (● entry first))) builtin-types) #f)
+               ((any? (lambda (entry) (string=? name (● entry first))) (builtin-types)) #f)
                ((member? name seen)
                 (any? (lambda (arg) (shared-content? program arg seen)) args))
                (else (shared-fields? program type (Cons name seen)))))
@@ -112,7 +112,7 @@
       (let ((key (type-key (TCon name args))))
         (cond ((member? key (● progress keys)) progress)
               ((or (member? name (● progress names))
-                   (any? (lambda (entry) (string=? name (● entry first))) builtin-types))
+                   (any? (lambda (entry) (string=? name (● entry first))) (builtin-types)))
                (linear-any program copy args progress))
               (else
                (let* ((names (● progress names))
@@ -233,7 +233,7 @@
       (→ Plan)
       (match type
         ((TCon name _)
-         (if (any? (lambda (entry) (string=? name (● entry first))) builtin-types) (Trivial)
+         (if (any? (lambda (entry) (string=? name (● entry first))) (builtin-types)) (Trivial)
              (match (drop-instance program name)
                ((Some instance) (Implemented instance))
                ((None) (data-plan program copy type)))))
@@ -297,7 +297,7 @@
         ((TCon name _)
          (cond ((member? (type-key type) keys) #f)
                ((member? name names) #t)
-               ((any? (lambda (entry) (string=? name (● entry first))) builtin-types) #f)
+               ((any? (lambda (entry) (string=? name (● entry first))) (builtin-types)) #f)
                (else (match (drop-instance program name)
                        ((Some _) #t)
                        ((None) (fields-drop-run? program copy type keys names))))))
@@ -349,7 +349,7 @@
               (match (● instance types)
                 ((Cons _ (Cons (TCon head _) (Nil))) (string=? head name))
                 (_ #f)))
-            (class-instances program drop-class)))
+            (class-instances program (drop-class))))
 
     ;; The rows a drop of a value of `type` performs, or why it
     ;; cannot run, under the enclosing definition's Copy variables and
@@ -408,13 +408,13 @@
                            copy
                            givens
                            inner
-                           (Ok (RowSearch-rows-set found (Cons mut-row (● found rows))))))
+                           (Ok (RowSearch-rows-set found (Cons (mut-row) (● found rows))))))
         ((TCon name args)
          (cond ((member? name (list "Vector"))
                 (fold-left (lambda (progress arg)
                              (drop-rows-search program copy givens arg progress))
                            (Ok found) args))
-               ((any? (lambda (entry) (string=? name (● entry first))) builtin-types) (Ok found))
+               ((any? (lambda (entry) (string=? name (● entry first))) (builtin-types)) (Ok found))
                (else (match (drop-instance program name)
                        ((Some instance)
                         (instance-search program copy givens type instance found))
@@ -535,7 +535,7 @@
 
     (define (given-drop-row (givens (List Constraint)) (name String)) (→ (Option Type))
       (match (find (lambda (given)
-                     (and (string=? (● given class) drop-class)
+                     (and (string=? (● given class) (drop-class))
                           (match (● given types)
                             ((Cons _ (Cons (TRigid other) (Nil))) (string=? other name))
                             (_ #f))))
@@ -568,7 +568,7 @@
         ((TCon name args)
          (cond ((string=? name target) #t)
                ((or (member? name entered)
-                    (any? (lambda (entry) (string=? name (● entry first))) builtin-types))
+                    (any? (lambda (entry) (string=? name (● entry first))) (builtin-types)))
                 #f)
                (else (let ((data (program-type program name)))
                        (and (not (● data enum?))

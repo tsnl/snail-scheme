@@ -17,10 +17,10 @@
           (yield)
           (write-line (● model title)))))
 
-(define main
-  (lambda ()
-    (let* ((model (rc (Model "after the owner")))
-           (task (work model)))
-      (drop model)
-      (task))
-    (unit)))
+(define (main) (→ Unit) (! mut output-port tasks)
+
+  (let* ((model (rc (Model "after the owner")))
+         (task (work model)))
+    (drop model)
+    (task))
+  (unit))

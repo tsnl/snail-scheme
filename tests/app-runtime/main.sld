@@ -135,25 +135,33 @@
 (define-page-state Counter)
 
 (instance (Scene Counter)
-  (define scene-initialize (lambda (seed width height) (initial seed width height)))
-  (define scene-update (lambda (state input) (step state input)))
-  (define scene-view (lambda (state) (draw state)))
-  (define scene-hud (lambda (state) (panels state)))
-  (define scene-save (lambda (state) (serialize (save-counter state))))
-  (define scene-restore (lambda (bytes) (restore-counter (deserialize bytes)))))
+  (define (scene-initialize (seed I32) (width I32) (height I32)) (→ Counter)
+    (initial seed width height))
+  (define (scene-update (state Counter) (input Input)) (→ Counter)
+    (step state input))
+  (define (scene-view (state Counter)) (→ Frame)
+    (draw state))
+  (define (scene-hud (state Counter)) (→ (List Panel))
+    (panels state))
+  (define (scene-save (state Counter)) (→ Bytes)
+    (serialize (save-counter state)))
+  (define (scene-restore (bytes Bytes)) (→ Counter)
+    (restore-counter (deserialize bytes))))
 
 (struct TestApplication
   ())
 
 (instance (Application (! mut host screen events storage tasks page) TestApplication)
-  (define start
-    (lambda (entry) (handle Marker
-                        ((marker (lambda () 17)))
-                      (dispatch-local (once (lambda ()
-                                              (yield)
-                                              (unless (= (marker) 17)
-                                                (panic "a child lost its inherited handler"))
-                                              (sleep 100000))))
-                      (start (ann (Entry) (Entry (SceneApplication Counter))))))))
+  (define (start (entry (Entry TestApplication)))
+    (→ Unit)
+    (! mut host screen events storage tasks page)
+    (handle Marker
+        ((marker (lambda () 17)))
+      (dispatch-local (once (lambda ()
+                              (yield)
+                              (unless (= (marker) 17)
+                                (panic "a child lost its inherited handler"))
+                              (sleep 100000))))
+      (start (ann (Entry) (Entry (SceneApplication Counter)))))))
 
 (define-page-entry TestApplication)

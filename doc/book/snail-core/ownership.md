@@ -192,9 +192,8 @@ owners when a copy needs its own credit and releases that credit when it is no
 longer needed. There is no general `Clone` class or implicit deep copy. Construct
 a new record or copy a vector when independent mutable state is needed.
 
-Top-level lazy values follow the same sharing rule. Their initializer runs once,
-and every read observes its cached object graph. Copy a vector or construct a
-new record explicitly when a caller needs independent mutable state.
+Factories construct fresh values. Bind a result once and pass that owner to
+its users when they should share one object. There is no implicit global owner.
 
 ## Closures
 
@@ -223,12 +222,15 @@ the old element, and overlapping copies retain a snapshot before changing slots.
 The reference-counting pass makes ownership operations explicit after specialization.
 Reads of counted owners retain, calls transfer their owned operands, and scope
 exits release them. Control preparation then records exactly which owners a
-suspended frame must clean up. Ordinary functions and lazy initializers use
-that same cleanup evidence. A lazy cache owns its result for the module's
-lifetime, and each counted read retains a caller credit.
+suspended frame must clean up. All global definitions are functions; there
+are no hidden cache owners.
 
-The `Rc` control cell stores a strong count, payload and finalizer. A `WeakRc`
-uses the same cell without contributing to its count. Closures, dynamic boxes
+The `Rc` control cell stores a strong count, a cleanup function, its payload
+and a finalizer. The count and cleanup fields are its ownership header, in
+the same GC object. A struct payload occupies a reference slot; structs are
+never inlined. `WeakRc` uses the same cell without contributing to the strong
+count. WasmGC keeps the cell alive while weak references exist, so no weak
+count is needed. The last strong release finalizes and clears the payload. Closures, dynamic boxes
 and aggregate containers receive counts only where their representations need
 to keep counted content alive. WasmGC traces their memory; explicit ownership
 controls external resource lifetimes.

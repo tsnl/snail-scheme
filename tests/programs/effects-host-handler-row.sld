@@ -11,11 +11,11 @@
       ((monotonic-nanoseconds (lambda () (write-line "the clock was read") 21)))
     (body)))
 
-(define main
-  (lambda ()
-    (write-line
-     (show (logged-clock (lambda () (+ (monotonic-nanoseconds) (monotonic-nanoseconds))))))
-    (write-line (show (logged-clock (lambda ()
-                                      (write-line "the body writes")
-                                      (* 2 (monotonic-nanoseconds))))))
-    (unit)))
+(define (main) (→ Unit) (! output-port)
+
+  (write-line
+   (show (logged-clock (lambda () (+ (monotonic-nanoseconds) (monotonic-nanoseconds))))))
+  (write-line (show (logged-clock (lambda ()
+                                    (write-line "the body writes")
+                                    (* 2 (monotonic-nanoseconds))))))
+  (unit))

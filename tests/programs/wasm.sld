@@ -9,7 +9,7 @@
 ;; includes the owner header and the forwarding/copy links used by resumptions;
 ;; an older three-field evidence type is not interchangeable with this one.
 ;; The only function is (param evidence i64 i64) -> i64 and adds locals 1 and 2.
-(define adder (→ (List I32))
+(define (adder) (→ (List I32))
   (list 0
         97
         115
@@ -119,14 +119,14 @@
 
 ;; A module importing the runtime's memory as a function fails to link.
 ;;   (module (import "snail.core.support" "memory" (func)))
-(define mislinked (→ (List I32))
+(define (mislinked) (→ (List I32))
   (list 0 97 115 109 1 0 0 0
         1 4 1 96 0 0
         2 29 1 18 115 110 97 105 108 46 99 111 114 101 46 115 117 112 112 111 114 116
         6 109 101 109 111 114 121 0 0))
 
 (define (main) (→ Unit) (! output-port wasm)
-  (let ((adder (compiled adder)) (mislinked (compiled mislinked)))
+  (let ((adder (compiled (adder))) (mislinked (compiled (mislinked))))
     (match (link-module "adder" adder (Nil))
       ((Ok module)
        (use-adder module)
@@ -134,7 +134,7 @@
          ((Ok _) (write-line "subtract is exported"))
          ((Err error) (write-line (load-error-message error)))))
       ((Err error) (write-line (load-error-message error))))
-    (match (link-module "mislinked" mislinked (list (ExportOf loading-program "memory")))
+    (match (link-module "mislinked" mislinked (list (ExportOf (loading-program) "memory")))
       ((Ok _) (write-line "linked incompatible import"))
       ((Err error) (write-line (load-error-message error)))))
   (unit))

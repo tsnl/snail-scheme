@@ -49,7 +49,7 @@ async function producerCycles() {
     (import (snail core base) (snail core io) (snail shell syntax) ${imports})
     (begin (write-file "${join(directory, `${name.replace('/', '-')}.ran`)}" "ran")
       (library-syntax (list "${name.replace('/', '" "')}") (list "value") (list (list "snail" "core" "base") ${output})
-        (list (form "define" (list (SymbolSyntax "value")
+        (list (form "define" (list (form "value" (Nil))
               (form "→" (list (SymbolSyntax "String")))
               (StringSyntax "${name}")))))))`;
   try {

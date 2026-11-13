@@ -11,10 +11,10 @@
   ((name String)))
 
 (instance (Store (! output-port) Loud)
-  (define fetch-object
-    (lambda (loud name) (write-line name)
-            name)))
+  (define (fetch-object (loud Loud) (name String)) (→ String) (! output-port)
+    (write-line name)
+    name))
 
 (instance (Store (!) Loud)
-  (define fetch-object
-    (lambda (loud name) name)))
+  (define (fetch-object (loud Loud) (name String)) (→ String)
+    name))

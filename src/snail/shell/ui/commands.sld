@@ -21,7 +21,7 @@
       (→ (Result (Registry A) String))
       (! e) (∀ (A e))
       (⊨ (Copy A) (Drop e A))
-      (let loop ((index 0) (names (ann empty-table (Table Bool))))
+      (let loop ((index 0) (names (ann (empty-table) (Table Bool))))
         (if (= index (vector-length commands)) (Ok (Registry commands))
             (let ((name (● (vector-ref commands index) name)))
               (cond ((string=? name "") (Err "a command needs a name"))

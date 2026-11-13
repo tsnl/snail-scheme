@@ -23,20 +23,22 @@
     ((Leaf) 0)
     ((Node left value right) (+ (tree-sum left) (+ value (tree-sum right))))))
 
-(define tree (Node (Node (Leaf) 1 (Leaf)) 2 (Node (Leaf) 3 (Leaf))))
+(define (tree) (→ (Tree I64)) (Node (Node (Leaf) 1 (Leaf)) 2 (Node (Leaf) 3 (Leaf))))
 
-(define bytes (serialize tree))
+(define (bytes) (→ (Vector U8)) (serialize (tree)))
 
-(define shapes (list (Circle (Point 1 2) 0.5) (Polygon (list (Point 0 0) (Point 10 -4)))))
+(define (shapes)
+  (→ (List Shape))
+  (list (Circle (Point 1 2) 0.5) (Polygon (list (Point 0 0) (Point 10 -4)))))
 
-(define copy (ann (deserialize (serialize shapes)) (List Shape)))
+(define (copy) (→ (List Shape)) (ann (deserialize (serialize (shapes))) (List Shape)))
 
 (define (main) (→ Unit) (! output-port)
-  (display (vector-length bytes))
+  (display (vector-length (bytes)))
   (newline)
-  (display (tree-sum (ann (deserialize bytes) (Tree I64))))
+  (display (tree-sum (ann (deserialize (bytes)) (Tree I64))))
   (newline)
-  (match copy
+  (match (copy)
     ((Cons (Circle (Point x y) r) (Cons (Polygon (Cons _ (Cons (Point px py) _))) _))
      (write (list x y px py))
      (newline)

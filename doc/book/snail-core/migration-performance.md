@@ -1,5 +1,10 @@
 # Migration measurements
 
+The historical sections below describe the APIs and benchmark harnesses at their
+measured revisions. Reproduce each comparison from the revision named in that
+section; harnesses for retired language features are no longer kept in the current
+tree. `scripts/benchmark-cuts.mjs` measures the current simplification against #758.
+
 The first comparison records the Java-style migration in #754. The
 [lazy runtime follow-up](#lazy-runtime-follow-up) below measures the subsequent
 replacement of compile-time evaluation with shared runtime caches.
@@ -252,8 +257,8 @@ to each median; GNU time resolves elapsed time in 10 ms increments.
 
 RSS is the compiler process's peak, not live managed heap. Runtime heap usage
 and whole-program startup are unmeasured. Cached aggregates and counted owners
-now live with their module instance; see [lazy runtime values](types.md#lazy-runtime-values)
-for sharing, finalization and relink lifetime rules.
+lived with their module instance in that revision. The current language has
+since removed global values; see [function-only definitions](types.md#functions-at-top-level).
 
 To reproduce, create checkouts at the two revisions named in this section:
 `BASE_ROOT` is `b3b591ae8`, and the follow-up checkout is `7b77a209e`.

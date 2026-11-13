@@ -42,11 +42,11 @@
 
 ;; The commands, as host/browser/reload-client.mjs names them. A notice is
 ;; lasting, a failure, or brief.
-(define lasting (→ I32) 0)
+(define (lasting) (→ I32) 0)
 
-(define failure (→ I32) 1)
+(define (failure) (→ I32) 1)
 
-(define brief (→ I32) 2)
+(define (brief) (→ I32) 2)
 
 (define (notice! (text String) (kind I32)) (→ Unit) (! page)
   (page-command "notice" (list text) kind))
@@ -253,9 +253,9 @@
 
 (define (show! (state ReloadState) (event Event) (changed Bool)) (→ Unit) (! page)
   (match event
-    ((Building _) (notice! "Building..." lasting))
-    ((Built _ _) (if changed (notice! (reloaded state) brief) (hide!)))
-    ((Failed message _) (notice! message failure))))
+    ((Building _) (notice! "Building..." (lasting)))
+    ((Built _ _) (if changed (notice! (reloaded state) (brief)) (hide!)))
+    ((Failed message _) (notice! message (failure)))))
 
 (define (reloaded (state ReloadState)) (→ String)
   (string-append "Reloaded, built in " (● state last-time) " ms"))
@@ -271,7 +271,7 @@
          (begin
            (set! (● state loaded) target)
            (set! (● state refused) (None))
-           (notice! (reloaded state) brief))
+           (notice! (reloaded state) (brief)))
          (begin (set! (● state refused) (Some target))
                 (offer-fresh-start!
                  (string-append
@@ -305,7 +305,7 @@
                (string-append message
                               "\n\nThe application stopped. Fix it and save: the next build resumes from the state before the trap.")
                message)
-           failure))
+           (failure)))
 
 ;; ---- Entry points ----
 

@@ -9,8 +9,10 @@
 
 (define (gen) (→ I64) (! Gen) (+ 1 (yield 1)))
 
-(define boxed (→ Any) (Any (list gen)))
+(define (boxed) (→ Any) (Any (list gen)))
 
-(define hidden
+(define (hidden)
   (→ (List (Fn → I64)))
-  (match (downcast (List (Fn → I64)) boxed) ((Some value) value) ((None) (panic "type mismatch"))))
+  (match (downcast (List (Fn → I64)) (boxed))
+    ((Some value) value)
+    ((None) (panic "type mismatch"))))

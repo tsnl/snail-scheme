@@ -35,8 +35,8 @@ A reusable closure has type `(Fn Param ... → Result)`, with an optional
 `(FnOnce Param ... → Result)`. These are built-in type formers, with the same
 spellings in arguments, fields, collections and results; there is no `dyn`,
 `impl`, `FnMut` or callable-class hierarchy.
-A named function carries its type where it is defined. Every parameter has a
-mandatory `(name Type)` annotation, and every named function must state its result
+A typed function header carries its type where it is defined. Every parameter has a
+mandatory `(name Type)` annotation, and the header must state its result
 with `(→ Result)`. Optional effect, generic-variable and constraint clauses follow the parameter list at the start of the
 definition, before its body:
 
@@ -55,9 +55,9 @@ definition, before its body:
   (fold-left + zero values))
 ```
 
-Ordinary value definitions retain their initializer form and can put an
-explicit type, quantifiers or constraints in the same leading header position,
-for example `(define zero (→ I64) 0)`. Class methods use `declare` with the same typed function header and no
+Local value definitions can carry a type in the same header position,
+for example `(define zero (→ I64) 0)` inside a function body.
+Class methods use `declare` with the same typed function header and no
 body, for example `(declare (describe (value T)) (→ String))`. A colon
 signature is not a language form. Type-level callable signatures use the Unicode `→`;
 universal quantification and requirements use `∀` and `⊨`. These are the only
@@ -75,58 +75,36 @@ conversions. Crossing an `Any` boundary checks the payload's type; it
 does not change that type. Integer arithmetic wraps.
 
 Local bindings remain monomorphic. Put explicit quantifiers on reusable
-generic definitions. A library is checked before its importers, so a use in
-another library never determines an exported value's type: `(define key-left 1)`
-is `I64`; an `I32` constant needs `(define key-left (→ I32) 1)`.
+generic functions. A library is checked before its importers, so callers do
+not decide its exported definitions' types.
 
-## Lazy runtime values
+## Functions at top level
 
-A top-level form declares a function, type, macro, class, effect or value.
-Top-level statements such as `set!`, printing and scheduling work are errors;
-a program starts by calling its root `main`. Importing or linking a library
-runs no source initializer.
+Top-level definitions bind functions. Types, macros, classes, effects, imports
+and exports remain declarations. A program starts by calling its root `main`;
+importing or linking a library runs no source initializer.
 
-A value definition such as `(define size (→ I64) (+ 20 22))` must have an
-empty effect row. Its ordinary compiled initializer runs on the first read,
-independently of source order. The defining module instance caches the result
-and every later read returns that same value. Reentering an initializer before
-it finishes panics with the binding's name. An unused cycle never runs.
-Recursive function definitions remain ordinary code, outside this guard.
-
-Records, vectors and closure captures are shared across reads. For example,
-changing `origin` below changes the object observed by every later read:
+Use a function to construct a value:
 
 ```scheme
 (struct Point
   ((x I64)
    (y I64)))
-(define origin (→ Point) (Point 0 0))
+(define (origin) (→ Point) (Point 0 0))
+(define (empty) (→ (List A)) (∀ (A)) (Nil))
 ```
 
-Initializers may call pure functions and handle effects locally. Private
-mutation can be hidden inside a justified `unsafe-total`; that assertion does
-not make mutation of a shared global pure. Runtime work with an observable
-effect belongs in a function with its effect row declared. There is no separate
-interpreter, freezing step or constant-evaluation budget.
+Each call to `origin` makes a fresh point. To share one point, construct it
+once inside a function and pass that object to its users. Persistent application
+state belongs in an explicit state owner or Save. There are no global value
+initializers, lazy caches, initialization-cycle guards, or polymorphic value
+templates. A function returning a closure is an ordinary factory too.
 
-Linear globals are rejected. A cache may own an `Rc`, including one wrapping
-a linear resource. Each read retains its own credit; dropping that credit
-does not release the cache's owner. Replacing a counted field releases its
-previous value normally. Cache roots last for the module instance's lifetime.
-WasmGC collection and module replacement do not run source finalizers; host
-resource cleanup still runs at the owning run's teardown. An old closure kept
-across a relink may keep accessing its original cache. A new module instance
-starts with empty caches, so persistent application state belongs in Save.
-These WasmGC values are not shared between threads, so guards need no mutex.
-
-Polymorphic functions and their aliases remain supported. A quantified value
-may also be a scalar/string literal or a nullary enum template, such as
-`(define empty (→ (List A)) (∀ (A)) (Nil))`. These have no mutable state to share.
-Other polymorphic values are rejected: specializing an allocating value in
-each importer would give separate compilation different sharing semantics.
-Use a zero-argument generic function for fresh values, or concrete monomorphic
-value definitions for shared state. Byte vectors and empty growable vectors
-are mutable objects, not stateless templates.
+A direct lambda definition also defines function code and can infer its type.
+Generated application entries use this to derive their effects from their
+selected `Application` instance. A computed expression or an alias at top level
+is rejected, even if its result would be a function. Write a forwarding function
+for an alias. Recursive and mutually recursive functions remain ordinary code.
 
 ## Data
 
@@ -235,8 +213,7 @@ it has no instance. Cleanup must finish, so its row cannot contain control effec
 Arithmetic and comparison are the classes `Num`, `Ord`, `Integral` and
 `Fractional`; `Show` converts values to text. These classes all take a
 row followed by a value type, as in `(Num e T)`. Concrete numeric
-instances use `(!)`, so static arithmetic remains pure; a dynamic
-instance can instead declare `(! dyn-cast)`. `Drop` releases values
+instances use `(!)`, so arithmetic remains pure. `Drop` releases values
 ([ownership](ownership.md#releasing)).
 
 `Repr` is a pure class with one type parameter: `(Repr T)` supplies
@@ -402,11 +379,11 @@ package's data, and the library reads it when it needs it:
  (snail shell resource))
 
 
-(define hero (→ Resource) (link-file "art/hero.png"))
+(define (hero) (→ Resource) (link-file "art/hero.png"))
 
 
 (define (hero-bytes) (→ Bytes) (! resource tasks)
-  (read-resource hero))
+  (read-resource (hero)))
 ```
 
 - **Found beside the library.** The path is relative to the file the form is

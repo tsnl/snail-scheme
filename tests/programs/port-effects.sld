@@ -41,38 +41,38 @@
       (write "discarded")
       (read-char))))
 
-(define main
-  (lambda ()
-    (from-text "aλ😀\n\nlast"
-               (lambda ()
-                 (line (read-char))
-                 (line (read-line))
-                 (line (read-line))
-                 (line (read-line))
-                 (line (read-char))
-                 (line (read-char))))
-    ;; Input handlers restore the outer cursor and do not intercept output.
-    (from-text "ab"
-               (lambda ()
-                 (line (read-char))
-                 (from-text "inner" (lambda () (line (read-line))))
-                 (line (read-char))))
-    ;; Capturing output leaves the current input available to the computation.
-    (from-text "my string input\n"
-               (lambda () (write-line (capture (lambda () (write (read-line)))))))
-    ;; Nested output goes to its own destination, then the outer one is restored.
-    (write-line
-     (capture (lambda ()
-                (write-string "before:")
-                (let ((inner (capture (lambda () (write (Some "inner"))))))
-                  (write-string inner))
-                (write-char #\:)
-                (display "after"))))
-    ;; Calling the operation inside its implementation forwards to the outer port.
-    (write-line
-     (capture (lambda ()
-                (handle output-port
-                    ((write-string (lambda (text) (write-string (string-append "[" text "]")))))
-                  (write "forwarded")))))
-    (line (silent-eof))
-    (unit)))
+(define (main) (→ Unit) (! mut output-port)
+
+  (from-text "aλ😀\n\nlast"
+             (lambda ()
+               (line (read-char))
+               (line (read-line))
+               (line (read-line))
+               (line (read-line))
+               (line (read-char))
+               (line (read-char))))
+  ;; Input handlers restore the outer cursor and do not intercept output.
+  (from-text "ab"
+             (lambda ()
+               (line (read-char))
+               (from-text "inner" (lambda () (line (read-line))))
+               (line (read-char))))
+  ;; Capturing output leaves the current input available to the computation.
+  (from-text "my string input\n"
+             (lambda () (write-line (capture (lambda () (write (read-line)))))))
+  ;; Nested output goes to its own destination, then the outer one is restored.
+  (write-line
+   (capture (lambda ()
+              (write-string "before:")
+              (let ((inner (capture (lambda () (write (Some "inner"))))))
+                (write-string inner))
+              (write-char #\:)
+              (display "after"))))
+  ;; Calling the operation inside its implementation forwards to the outer port.
+  (write-line
+   (capture (lambda ()
+              (handle output-port
+                  ((write-string (lambda (text) (write-string (string-append "[" text "]")))))
+                (write "forwarded")))))
+  (line (silent-eof))
+  (unit))

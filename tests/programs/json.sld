@@ -11,7 +11,7 @@
 (define (chars (codes (List I64))) (→ String)
   (list->string (map integer->char codes)))
 
-(define controls (→ String) (chars (append (iota 32) (list 127))))
+(define (controls) (→ String) (chars (append (iota 32) (list 127))))
 
 ;; A mebibyte of text in lines, as a file's contents would be sent.
 (define (long-text) (→ String)
@@ -33,7 +33,7 @@
                   (JsonString "")
                   (JsonString "plain")
                   (JsonString "quote \" backslash \\ slash / tab\tend")
-                  (JsonString controls)
+                  (JsonString (controls))
                   (JsonString "λ € 😀 \x2028; \x2029; \xfeff;")
                   (JsonString (string-append "a" (chars (list 55296)) "b"))
                   (JsonString (chars (list 57343)))

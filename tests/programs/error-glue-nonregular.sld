@@ -8,15 +8,15 @@
   ((name String)))
 
 (instance (Drop (! output-port) Handle)
-  (define drop
-    (lambda (handle) (match handle
-                       ((Handle name) (write-line (string-append "released " name)))))))
+  (define (drop (handle Handle)) (→ Unit) (! output-port)
+    (match handle
+      ((Handle name) (write-line (string-append "released " name))))))
 
 (struct (Nest T)
   ((item T)
    (deeper (Option (Nest (Pair T T))))))
 
-(define main
-  (lambda ()
-    (drop (Nest (Handle "h") (None)))
-    (unit)))
+(define (main) (→ Unit) (! output-port)
+
+  (drop (Nest (Handle "h") (None)))
+  (unit))

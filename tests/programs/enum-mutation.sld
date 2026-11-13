@@ -10,7 +10,7 @@
    (next (Option Chain))))
 (enum Chain (Link ((data LinkData))) (End))
 
-(define cycle (→ Chain)
+(define (cycle) (→ Chain)
   (unsafe-total (lambda ()
                   (let* ((data (LinkData 3 (None))) (link (Link data)))
                     (set! (● data next) (Some link))
@@ -29,13 +29,13 @@
     (match alias
       ((Circle radius) (write-line (show (● radius value))))
       ((Empty) (panic "empty shape"))))
-  (match cycle
+  (match (cycle)
     ((Link first)
      (set! (● first value) 21)
      (match (● first next)
        ((Some (Link same)) (write-line (show (● same value))))
        (_ (panic "missing cycle")))
-     (match cycle
+     (match (cycle)
        ((Link second) (write-line (show (● second value))))
        ((End) (panic "empty chain"))))
     ((End) (panic "empty chain")))

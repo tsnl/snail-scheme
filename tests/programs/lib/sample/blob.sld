@@ -13,10 +13,12 @@
                    (list "pixel" "greeting-length")
                    (list (list "snail" "core" "base"))
                    (list (form "define"
-                               (list (SymbolSyntax "pixel")
+                               (list (form "pixel" (Nil))
+                                     (form "→" (list (SymbolSyntax "Bytes")))
                                      (BytesSyntax (read-resource (link-file "data/pixel.png")))))
                          (form "define"
-                               (list (SymbolSyntax "greeting-length")
+                               (list (form "greeting-length" (Nil))
+                                     (form "→" (list (SymbolSyntax "I64")))
                                      (IntegerSyntax
                                       (vector-length
                                        (read-resource (link-file "data/greeting.txt")))))))))

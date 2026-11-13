@@ -22,9 +22,11 @@
 (define-page-state Save)
 
 (instance (Application (! mut host completion events storage tasks page) IdeApplication)
-  (define start
-    (lambda (entry)
-      (run-page (lambda () (None)) encode (lambda (bytes) (Some (read-recovery bytes))) present))))
+  (define (start (entry (Entry IdeApplication)))
+    (→ Unit)
+    (! mut host completion events storage tasks page)
+
+    (run-page (lambda () (None)) encode (lambda (bytes) (Some (read-recovery bytes))) present)))
 
 ;; A replacement receives recovery data, never the old session's futures or
 ;; event connection. Reconnect and restore buffers under the new scheduler.
@@ -36,20 +38,21 @@
      (with-page-fetch
       (lambda ()
         (close-session!
-         (run-reactor (begin-session (match saved ((Some saved) (restored saved)) ((None) initial)))
-                      (list (Boot) (Connect))
-                      (lambda (model message) (update-session model message))
-                      (lambda (model) (session-view model))
-                      (lambda (model) (session-window model))
-                      (lambda (model) (snapshot model))
-                      (lambda (saved) (commit saved))
-                      (lambda (saved) (checkpoint saved)))))))))
+         (run-reactor
+          (begin-session (match saved ((Some saved) (restored saved)) ((None) (initial))))
+          (list (Boot) (Connect))
+          (lambda (model message) (update-session model message))
+          (lambda (model) (session-view model))
+          (lambda (model) (session-window model))
+          (lambda (model) (snapshot model))
+          (lambda (saved) (commit saved))
+          (lambda (saved) (checkpoint saved)))))))))
 
 (define (snapshot (session Session)) (→ Save) (! mut host)
   (Some (session-snapshot session)))
 
 (define (encode (saved Save)) (→ Bytes)
-  (serialize (match saved ((Some saved) saved) ((None) (kept initial)))))
+  (serialize (match saved ((Some saved) saved) ((None) (kept (initial))))))
 
 (define (commit (saved Save)) (→ Unit) (! mut events page)
   (commit-page saved)

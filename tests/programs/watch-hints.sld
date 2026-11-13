@@ -9,10 +9,10 @@
 ;; one inside it does not, and a closed watch answers a wait at once. The
 ;; writer prints before its write outside, 200 ms after the one inside, so
 ;; a hint for the write inside would print first.
-(define root "build/tests/watch-hints")
+(define (root) (→ String) "build/tests/watch-hints")
 
 (define (at (name String)) (→ String)
-  (string-append root "/" name))
+  (string-append (root) "/" name))
 
 (define (writer) (→ Unit) (! fs tasks output-port)
   (write-file (at "build/output") "out")
@@ -24,14 +24,14 @@
   (write-line (if (next-hint watch) "hinted" "closed"))
   (close-watch watch)
   (write-line (if (next-hint watch) "hinted" "closed"))
-  (remove-tree root)
+  (remove-tree (root))
   (unit))
 
 (define (main) (→ Unit) (! host mut fs output-port tasks hints)
-  (remove-tree root)
+  (remove-tree (root))
   (make-directories (at "build"))
   (make-directories (at "src"))
-  (match (watch-tree root (list (at "build")))
+  (match (watch-tree (root) (list (at "build")))
     ((Some watch)
      (dispatch-local (once (lambda () (writer))))
      (dispatch-local (once (lambda () (waiter watch)))))

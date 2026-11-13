@@ -264,12 +264,12 @@
       (match owner
         ((OfHub) (let ((slots (● (● world hub) slots)))
                    (cond ((not (null-option? (● (● world hub) work))) (Err (Busy)))
-                         ((>= slots maximum-slots) (Err (MaximumLevel)))
+                         ((>= slots (maximum-slots)) (Err (MaximumLevel)))
                          (else (Ok (new-work world (slot-cost slots) (slot-duration slots)))))))
         ((OfBuilding b) (let ((level (● b level)) (kind (● b kind)))
                           (cond ((not (built? b)) (Err (Unfinished)))
                                 ((not (null-option? (● b work))) (Err (Busy)))
-                                ((>= level maximum-level) (Err (MaximumLevel)))
+                                ((>= level (maximum-level)) (Err (MaximumLevel)))
                                 (else (Ok (new-work world
                                                     (raise-cost kind level)
                                                     (raise-duration kind level)))))))))
@@ -313,15 +313,15 @@
     ;; Repair restores the hub to full health, at one energy for each two
     ;; health it lacks.
     (define (repair (world World)) (→ (Result World Rejection))
-      (let* ((hub (● world hub)) (missing (- hub-health (● hub health))))
+      (let* ((hub (● world hub)) (missing (- (hub-health) (● hub health))))
         (if (= missing 0)
             (Err (FullHealth))
             (pay world
                  (repair-price hub)
-                 (lambda (world) (World-hub-set world (Hub-health-set hub hub-health)))))))
+                 (lambda (world) (World-hub-set world (Hub-health-set hub (hub-health))))))))
 
     (define (repair-price (hub Hub)) (→ I64)
-      (quotient (+ (- hub-health (● hub health)) 1) 2))
+      (quotient (+ (- (hub-health) (● hub health)) 1) 2))
 
     ;; ---- Work ----
 

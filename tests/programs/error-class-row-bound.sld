@@ -11,9 +11,9 @@
   ((root String)))
 
 (instance (Store (! output-port) Directory)
-  (define fetch-object
-    (lambda (directory name) (write-line name)
-            name)))
+  (define (fetch-object (directory Directory) (name String)) (→ String) (! output-port)
+    (write-line name)
+    name))
 
 (define (peek (store S) (name String)) (→ String) (∀ (S)) (⊨ (Store (!) S))
   (fetch-object store name))

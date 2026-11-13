@@ -11,19 +11,19 @@
   ((name String)))
 
 (instance (Drop (! log) Handle)
-  (define drop
-    (lambda (handle) (match handle
-                       ((Handle name) (say (string-append "released " name)))))))
+  (define (drop (handle Handle)) (→ Unit) (! log)
+    (match handle
+      ((Handle name) (say (string-append "released " name))))))
 
 (typeclass (Release T)
   (declare (release (value T)) (→ Unit) (! log)))
 
 (instance (Release (Option A))
   (⊨ (Drop (!) A))
-  (define release
-    (lambda (option) (match option
-                       ((Some item) (drop item))
-                       ((None) (unit))))))
+  (define (release (option (Option A))) (→ Unit) (! log)
+    (match option
+      ((Some item) (drop item))
+      ((None) (unit)))))
 
 (define (demo) (→ Unit) (! log)
   (release (Some (Handle "h"))))

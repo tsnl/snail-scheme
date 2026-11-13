@@ -110,7 +110,7 @@
     ;; whose file `art` lacks is left out.
     (define (walk-picture (art (Fn String → (Option Source))) (key I32) (who Character))
       (→ Picture)
-      (Picture key (fingerprint who) (● walk-region width) (● walk-region height)
+      (Picture key (fingerprint who) (● (walk-region) width) (● (walk-region) height)
                (lambda ()
                  (concatenate
                   (map (lambda (sheet)
@@ -123,6 +123,6 @@
     ;; The character in picture `key`, shoulders up, each texel `scale`
     ;; pixels wide.
     (define (portrait (look-key String) (key I32) (scale I32)) (→ Widget)
-      (Image (look look-key) key face-region scale))
+      (Image (look look-key) key (face-region) scale))
 
     ))

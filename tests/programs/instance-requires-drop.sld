@@ -13,19 +13,19 @@
   ((name String)))
 
 (instance (Drop (! log) Handle)
-  (define drop
-    (lambda (handle) (match handle
-                       ((Handle name) (say (string-append "released " name)))))))
+  (define (drop (handle Handle)) (→ Unit) (! log)
+    (match handle
+      ((Handle name) (say (string-append "released " name))))))
 
 (typeclass (Release T)
   (declare (release (value T)) (→ Unit) (! log)))
 
 (instance (Release (Option A))
   (⊨ (Drop (! log) A))
-  (define release
-    (lambda (option) (match option
-                       ((Some item) (drop item))
-                       ((None) (say "nothing to release"))))))
+  (define (release (option (Option A))) (→ Unit) (! log)
+    (match option
+      ((Some item) (drop item))
+      ((None) (say "nothing to release")))))
 
 ;; A definition that requires (Copy A) releases an A for nothing.
 (define (release-copy (value A)) (→ Unit) (! log) (∀ (A)) (⊨ (Copy A) (Drop (! log) A))
@@ -38,9 +38,9 @@
   (release-copy "text")
   (release (ann (None) (Option Handle))))
 
-(define main
-  (lambda ()
-    (handle log
-        ((say (lambda (text) (write-line text))))
-      (demo))
-    (unit)))
+(define (main) (→ Unit) (! output-port)
+
+  (handle log
+      ((say (lambda (text) (write-line text))))
+    (demo))
+  (unit))

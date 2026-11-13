@@ -6,10 +6,10 @@
 ;; program's own: a text written and read back, and each failure a value,
 ;; where read-file and write-file would fail the program. Each line is an
 ;; operation and what it answered.
-(define root "build/tests/text-files")
+(define (root) (→ String) "build/tests/text-files")
 
 (define (at (name String)) (→ String)
-  (string-append root "/" name))
+  (string-append (root) "/" name))
 
 (define (report (label String) (text String)) (→ Unit) (! output-port)
   (write-line (string-append label " -> " text)))
@@ -34,8 +34,8 @@
                   ((Err error) (string-append "error: " (show error))))))
 
 (define (main) (→ Unit) (! fs output-port)
-  (remove-tree root)
-  (make-directories root)
+  (remove-tree (root))
+  (make-directories (root))
   (write-report "write" "λ.txt" "one λ, two")
   (read-report "read" "λ.txt" 64 as-is)
   (read-report "read at its length" "λ.txt" 11 as-is)
@@ -52,5 +52,5 @@
   (read-report "read nothing" "missing" 64 as-is)
   (write-report "write into nothing" "missing/file" "text")
   (write-report "write a path with a NUL" (string-append "a" (make-string 1 #\null) "b") "text")
-  (remove-tree root)
+  (remove-tree (root))
   (unit))

@@ -10,9 +10,9 @@
   ((root String)))
 
 (instance (Store (! output-port) Directory)
-  (define fetch-object
-    (lambda (directory name) (write-line name)
-            name)))
+  (define (fetch-object (directory Directory) (name String)) (→ String) (! output-port)
+    (write-line name)
+    name))
 
 (define (quiet (directory Directory) (name String)) (→ String)
   (fetch-object directory name))

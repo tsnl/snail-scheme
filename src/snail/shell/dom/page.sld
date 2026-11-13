@@ -100,9 +100,9 @@
     ;; scroll offsets, and its texts, the target's value and the key, are
     ;; read beside it.
 
-    (define fired-kind (→ I32) 14)
+    (define (fired-kind) (→ I32) 14)
 
-    (define woken-kind (→ I32) 15)
+    (define (woken-kind) (→ I32) 15)
 
     ;; The next delivery, skipping the display frames and resizes an
     ;; interface has no use for.
@@ -110,11 +110,11 @@
     (define (page-delivery) (→ Delivery) (! events tasks)
       (let ((kind (poll-event)))
         (cond ((= kind 0) (wait-event) (page-delivery))
-              ((= kind fired-kind) (Fired (Listener (event-field 0)) (fired-event)))
-              ((= kind woken-kind) (Woken))
-              ((= kind hidden-kind) (Hidden))
-              ((= kind save-kind) (SaveRequested))
-              ((= kind reload-kind) (Closed))
+              ((= kind (fired-kind)) (Fired (Listener (event-field 0)) (fired-event)))
+              ((= kind (woken-kind)) (Woken))
+              ((= kind (hidden-kind)) (Hidden))
+              ((= kind (save-kind)) (SaveRequested))
+              ((= kind (reload-kind)) (Closed))
               (else (page-delivery)))))
 
     (define (fired-event) (→ Event) (! events)

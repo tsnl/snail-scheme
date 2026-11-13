@@ -36,7 +36,7 @@
       (type Message)
       (declare (interface-initialize (seed I32)) (→ Model))
       (declare (interface-update (model Model) (message Message))
-               (→ (Pair Model (List (Command Message)))))
+        (→ (Pair Model (List (Command Message)))))
       (declare (interface-view (value Model)) (→ (Html Message)))
       (declare (interface-window (value Model)) (→ (List (Attribute Message))))
       (declare (interface-messages (value Model)) (→ (List Message)))
@@ -49,10 +49,12 @@
     (instance (Application (! mut host events storage tasks page) (InterfaceApplication Model))
       (⊨ (Interface Model) (PageState Model) (Copy Model) (Drop (!) Model)
          (Drop (!) (Interface.Message Model)))
-      (define start
-        (lambda (entry)
-          (run-page (lambda () (initial-interface entry)) interface-save interface-restore
-                    present-interface))))
+      (define (start (entry (Entry (InterfaceApplication Model))))
+        (→ Unit)
+        (! mut host events storage tasks page)
+
+        (run-page (lambda () (initial-interface entry)) interface-save interface-restore
+                  present-interface)))
 
     (define (initial-interface (entry (Entry (InterfaceApplication Model))))
       (→ Model)

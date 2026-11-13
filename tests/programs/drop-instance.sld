@@ -13,9 +13,9 @@
   ((name String)))
 
 (instance (Drop (! log) Handle)
-  (define drop
-    (lambda (handle) (match handle
-                       ((Handle name) (say (string-append "released " name)))))))
+  (define (drop (handle Handle)) (→ Unit) (! log)
+    (match handle
+      ((Handle name) (say (string-append "released " name))))))
 
 ;; ANCHOR_END: handle
 

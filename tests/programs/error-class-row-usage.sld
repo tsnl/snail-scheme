@@ -11,5 +11,5 @@
   ((name String)))
 
 (instance (Store e Loud)
-  (define fetch-object
-    (lambda (loud name) name)))
+  (define (fetch-object (loud Loud) (name String)) (→ String) (! e)
+    name))

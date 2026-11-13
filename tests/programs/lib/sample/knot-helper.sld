@@ -8,6 +8,6 @@
    (sample knot))
   (begin
 
-    (define helper (→ I64) (+ knot 1))
+    (define (helper) (→ I64) (+ knot 1))
 
     ))

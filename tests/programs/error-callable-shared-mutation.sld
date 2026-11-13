@@ -5,7 +5,8 @@
   ((value I64)))
 
 (instance (Drop (!) Counter)
-  (define drop (lambda (counter) (match counter ((Counter _) (unit))))))
+  (define (drop (counter Counter)) (→ Unit)
+    (match counter ((Counter _) (unit)))))
 
 (define main
   (lambda ()

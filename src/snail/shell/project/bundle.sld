@@ -294,11 +294,11 @@
 
     (define (content-type (name String)) (→ String)
       (match (find (lambda (type) (ends-with? (string-downcase name) (● type first)))
-                   content-types)
+                   (content-types))
         ((Some type) (● type second))
         ((None) "application/octet-stream")))
 
-    (define content-types (→ (List (Pair String String)))
+    (define (content-types) (→ (List (Pair String String)))
       (list (Pair ".html" "text/html; charset=utf-8")
             (Pair ".mjs" "text/javascript")
             (Pair ".js" "text/javascript")

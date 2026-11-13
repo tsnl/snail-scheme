@@ -38,7 +38,7 @@
     (define (prepare-specialization (typed Typed)) (→ Specialization)
       (let ((instances (fold-left (lambda (table instance)
                                     (table-set table (● instance name) instance))
-                                  empty-table
+                                  (empty-table)
                                   (concatenate
                                    (table-values (● (● typed program) instances))))))
         (Specialization typed instances (item-definitions (● typed items)))))
@@ -53,7 +53,6 @@
 
     (struct Binding
       ((type Type)
-       (function? Bool)
        (external? Bool)))
 
     ;; Requests reserve names before visiting bodies, so recursive calls and
@@ -71,7 +70,6 @@
     ;; is a recipe, its completed instantiation, or an imported declaration.
     (struct Definition
       ((type Type)
-       (function? Bool)
        (body Body)))
 
     (enum Body
@@ -162,7 +160,7 @@
                     (reserve state spec
                              (Definition
                                (ground (instantiation state name types evidence) (● value type))
-                               (lambda-expr? value) (SourceRecipe name types evidence))))))))
+                               (SourceRecipe name types evidence))))))))
 
     ;; All executable work, including recursive glue, uses this reservation
     ;; rule and this queue. Merely looking up a binding never generates code.
@@ -244,9 +242,9 @@
                                  (let ((definition (binding-of state name)))
                                    (table-set bindings name
                                               (Binding (● definition type)
-                                                       (● definition function?)
+
                                                        (Definition-external? definition)))))
-                               empty-table (table-keys (● state bindings)))))
+                               (empty-table) (table-keys (● state bindings)))))
 
     ;; A read-only snapshot of original source instantiations. Generated
     ;; glue and imports keep their declared rows, as before. Missing local
@@ -259,7 +257,7 @@
                      ((GlueBody) bodies)
                      ((Imported) bodies)
                      (_ (panic "internal error: analysis requires completed definitions"))))
-                 empty-table (table-keys (● state bindings))))
+                 (empty-table) (table-keys (● state bindings))))
 
     ;; ---- Copying ----
 
@@ -345,7 +343,7 @@
         ((Pair (Var "prim:rc" _ _) (Cons value (Nil)))
          (specializing state ((finalizer (request-drop (● value type) (● value loc))))
                        (let* ((type (TFun (list (● value type) (● finalizer type))
-                                          (TCon "Rc" (list (● value type))) empty-row))
+                                          (TCon "Rc" (list (● value type))) (empty-row)))
                               (constructor
                                (Expr (Var "prim:rc-new" (Nil) (Nil)) type (● callee loc))))
                          (Pair (App constructor (list value finalizer)) state))))
@@ -435,7 +433,7 @@
                        (loc Loc))
       (→ (Pair Expr State))
       (match (program-value (specialization-program state) name)
-        ((Some (Defined _ _ _)) (definition-reference state name types evidence type loc))
+        ((Some (Defined _ _ )) (definition-reference state name types evidence type loc))
         ((Some (Method class _))
          (if (drop-class? class)
              (drop-reference state name (list-ref types 1) (charged-plan evidence) type loc)
@@ -447,7 +445,7 @@
                   ;; A struct's own field instance names the field's
                   ;; accessor, a builtin, which keeps its name.
                   (match (program-value (specialization-program state) target)
-                    ((Some (Defined _ _ _))
+                    ((Some (Defined _ _ ))
                      (definition-reference state
                        target
                        (append instance-types (list-drop types class-arity))
@@ -512,7 +510,7 @@
         (map (lambda (var)
                (match (assoc-ref bindings var)
                  ((Some type) type)
-                 ((None) empty-row)))
+                 ((None) (empty-row))))
              (● instance vars))))
 
     ;; Glue has one implementation per concrete type. Reserve its recipe
@@ -526,7 +524,7 @@
       (→ (Pair Expr State))
       (let ((name (string-append "glue:drop<" (spec-key subject) ">")))
         (Pair (Expr (Var name (Nil) (Nil)) type loc)
-              (reserve state name (Definition (glue-type type) #t (DropGlue method subject loc))))))
+              (reserve state name (Definition (glue-type type)  (DropGlue method subject loc))))))
 
     ;; A method use may have the enclosing control row. Generated glue
     ;; itself never yields, independently of which use first requested it.
@@ -534,7 +532,7 @@
 
     (define (glue-type (type Type)) (→ Type)
       (match type
-        ((TFun params result _) (TFun params result empty-row))
+        ((TFun params result _) (TFun params result (empty-row)))
         (_ (panic "internal error: glue has a function type"))))
 
     ;; Drop glue matches the value apart and drops each linear
@@ -549,8 +547,8 @@
                                             (● data cases))))
                       (Pair
                        (Expr
-                        (Lambda (list "glue%value") (Expr (Match value clauses) unit-type loc) )
-                        (TFun (list subject) unit-type empty-row) loc)
+                        (Lambda (list "glue%value") (Expr (Match value clauses) (unit-type) loc) )
+                        (TFun (list subject) (unit-type) (empty-row)) loc)
                        state))))
 
     ;; One case's clause binds each field glue drops to a local of its own
@@ -581,14 +579,14 @@
         (specializing state ((callee (drop-reference method
                                                      type
                                                      (None)
-                                                     (TFun (list type) unit-type empty-row)
+                                                     (TFun (list type) (unit-type) (empty-row))
                                                      loc)))
                       (Pair (Expr (App callee
                                        (list
                                         (Expr (Var (glue-local case (● field first)) (Nil) (Nil))
                                               type
                                               loc)))
-                                  unit-type
+                                  (unit-type)
                                   loc)
                             state))))
 
@@ -608,11 +606,11 @@
 
     (define (in-sequence (drops (List Expr)) (loc Loc)) (→ Expr)
       (match drops
-        ((Nil) (Expr (Lit (DUnit)) unit-type loc))
+        ((Nil) (Expr (Lit (DUnit)) (unit-type) loc))
         ((Cons last (Nil)) last)
-        ((Cons first rest) (Expr (Seq first (in-sequence rest loc)) unit-type loc))))
+        ((Cons first rest) (Expr (Seq first (in-sequence rest loc)) (unit-type) loc))))
 
-    (define unit-type (→ Type) (TCon "Unit" (Nil)))
+    (define (unit-type) (→ Type) (TCon "Unit" (Nil)))
 
     ;; Performing an operation runs its Snail Scheme default when no handler
     ;; is in scope, so a use of the operation reaches the default too, which
@@ -665,45 +663,18 @@
            ((None) (panic "internal error: missing instance method"))))
         ((None) (panic "internal error: unknown instance"))))
 
-    ;; A definition whose value is just another reference, such as
-    ;; `(define + i64-add)`, is replaced by its target. Another library's
-    ;; monomorphic definition stays a reference, which its module imports.
+    ;; Another library's monomorphic function stays an imported reference;
+    ;; a generic function reserves a concrete specialization in this module.
 
-    (define (definition-reference (state State)
-              (name String)
-              (types (List Type))
-              (evidence (List Evidence))
-              (type Type)
-              (loc Loc))
+    (define (definition-reference (state State) (name String)
+              (types (List Type)) (evidence (List Evidence))
+              (type Type) (loc Loc))
       (→ (Pair Expr State))
-      (let ((value (definition state name)))
-        (match (● value term)
-          ((Var _ _ _)
-           (if (alias-cycle? state name (Nil))
-               (specializing state ((spec (request name types evidence)))
-                             (Pair (Expr (Var spec (Nil) (Nil)) type loc) state))
-               (let ((scheme (scheme-of state name)))
-                 (copy-expr state
-                            (Instantiation (zip (● scheme vars) types)
-                                           evidence
-                                           (● state control))
-                            value))))
-          (_ (cond
-              ;; The checker permits only stateless templates here, such as
-              ;; empty-table. They need no cache with an importer-local identity.
-              ((and (not (lambda-expr? value)) (not (null? (● (scheme-of state name) vars))))
-               (copy-expr state (instantiation state name types evidence) value))
-              ((external? state name types)
-               (Pair (Expr (Var name (Nil) (Nil)) type loc)
-                     (import-definition state name value)))
-              (else (specializing state ((spec (request name types evidence)))
-                                  (Pair (Expr (Var spec (Nil) (Nil)) type loc) state))))))))
-
-    (define (alias-cycle? (state State) (name String) (seen (List String))) (→ Bool)
-      (or (member? name seen)
-          (match (table-ref (● (● state input) definitions) name)
-            ((Some (Expr (Var target _ _) _ _)) (alias-cycle? state target (Cons name seen)))
-            (_ #f))))
+      (if (external? state name types)
+          (Pair (Expr (Var name (Nil) (Nil)) type loc)
+                (import-definition state name (definition state name)))
+          (specializing state ((spec (request name types evidence)))
+                        (Pair (Expr (Var spec (Nil) (Nil)) type loc) state))))
 
     ;; Imports and emitted definitions share one identity table. In
     ;; particular, exposing an imported function must not enqueue a local
@@ -715,7 +686,7 @@
           (State-bindings-set state
                               (table-set (● state bindings) name
                                          (Definition (● value type)
-                                           (lambda-expr? value)
+
                                            (Imported))))))
 
     (define (external? (state State) (name String) (types (List Type))) (→ Bool)
@@ -729,7 +700,7 @@
     (define (new-state (input Specialization) (owner (Option String))) (→ State)
       (State input owner
              (control-effects (● (● input typed) program))
-             empty-table 65536 (Nil)))
+             (empty-table) 65536 (Nil)))
 
     ;; The effects with a control operation, in order of their names.
 
@@ -739,7 +710,7 @@
                       (filter (lambda (effect) (not (null? (● effect control))))
                               (table-values (● program effects))))))
 
-    ;; Library modules export monomorphic functions and lazy value getters.
+    ;; Library modules export monomorphic functions.
     ;; Whole programs keep only definitions reached from an entry or exposure.
     (define (start-specialization (state State) (items (List Item))) (→ (Pair (List String) State))
       (specializing state ((exports (each root-item items)))
@@ -764,11 +735,11 @@
                       (drop-method state)
                       type
                       (None)
-                      (TFun (list type) unit-type empty-row)
+                      (TFun (list type) (unit-type) (empty-row))
                       loc))
 
     (define (drop-method (state State)) (→ String)
-      (match (● (program-class (specialization-program state) drop-class) methods)
+      (match (● (program-class (specialization-program state) (drop-class)) methods)
         ((Cons method _) method)
         ((Nil) (panic "internal error: Drop has a method"))))
 
@@ -794,7 +765,7 @@
           (let ((row (TRow (list "mut" "gen") (Some (TRow (list "abort" "console") (None)))))
                 (control (list "abort" "gen")))
             (expect (erase-rows control row) (TRow (list "abort" "gen") (None)))
-            (expect (erase-rows (Nil) row) empty-row)
+            (expect (erase-rows (Nil) row) (empty-row))
             (expect (erase-rows control (TFun (list (TCon "I64" (Nil))) (TCon "Unit" (Nil)) row))
                     (TFun (list (TCon "I64" (Nil)))
                           (TCon "Unit" (Nil))
@@ -803,7 +774,7 @@
       ;; Without control effects a name is what `type-key` gives, so pure
       ;; code keeps its names; with one, the name says so.
       (define test-spec-keys
-        (lambda () (let ((pure (TFun (list (TCon "I64" (Nil))) (TCon "I64" (Nil)) empty-row))
+        (lambda () (let ((pure (TFun (list (TCon "I64" (Nil))) (TCon "I64" (Nil)) (empty-row)))
                          (control
                           (TFun (list (TCon "I64" (Nil)))
                                 (TCon "I64" (Nil))
@@ -812,4 +783,4 @@
                      (expect (spec-key (TCon "List" (list pure)))
                              (type-key (TCon "List" (list pure))))
                      (expect (spec-key control) "fn<I64->I64>!gen")
-                     (expect (spec-key empty-row) "row"))))))))
+                     (expect (spec-key (empty-row)) "row"))))))))

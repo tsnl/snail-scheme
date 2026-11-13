@@ -1,1 +1,1 @@
-a linear value cannot be a global
+top-level definitions must be functions; put values in a function or an explicit state object

@@ -4,13 +4,15 @@
 
 ;; Presentation is a deliberate choice; Repr remains available independently.
 (instance (Show (!) (Option String))
-  (define show (lambda (value)
-                 (match value
-                   ((Some text) text)
-                   ((None) "no input")))))
+  (define (show (value (Option String))) (→ String)
+
+    (match value
+      ((Some text) text)
+      ((None) "no input"))))
 
 (instance (Show (!) (List String))
-  (define show (lambda (items) (string-join items ", "))))
+  (define (show (items (List String))) (→ String)
+    (string-join items ", ")))
 
 (define (main) (→ Unit) (! output-port)
   (display (Some "my string input"))

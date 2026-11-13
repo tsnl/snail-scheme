@@ -9,7 +9,7 @@
 (define (Point-x (point Point)) (→ I64)
   (● point x))
 
-(define main
-  (lambda ()
-    (write-line (show (Point-x (Point 1))))
-    (unit)))
+(define (main) (→ Unit) (! output-port)
+
+  (write-line (show (Point-x (Point 1))))
+  (unit))

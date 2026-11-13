@@ -80,17 +80,18 @@
 
     (instance (Drop (! mut host completion d) (Promise T))
       (⊨ (Drop d T))
-      (define drop (lambda (promise)
-                     (match promise
-                       ((Sender channel)
-                        (match (replace! (● channel state) (Unobserved))
-                          ((Unresolved waker)
-                           (drop (replace! (● channel state) (Resolved (Abandoned))))
-                           (notify waker))
-                          ((Unobserved) (unit))
-                          ((Resolved result)
-                           (drop result)
-                           (panic "a consumed promise was dropped"))))))))
+      (define (drop (promise (Promise T))) (→ Unit) (! mut host completion d)
+
+        (match promise
+          ((Sender channel)
+           (match (replace! (● channel state) (Unobserved))
+             ((Unresolved waker)
+              (drop (replace! (● channel state) (Resolved (Abandoned))))
+              (notify waker))
+             ((Unobserved) (unit))
+             ((Resolved result)
+              (drop result)
+              (panic "a consumed promise was dropped")))))))
 
     ;; ---- Receiving ----
 
@@ -132,6 +133,7 @@
     ;; a second time, even if its cleanup calls another channel operation.
     (instance (Drop (! mut host d) (Future T))
       (⊨ (Drop d T))
-      (define drop (lambda (future)
-                     (match future
-                       ((Receiver channel) (drop (replace! (● channel state) (Unobserved))))))))))
+      (define (drop (future (Future T))) (→ Unit) (! mut host d)
+
+        (match future
+          ((Receiver channel) (drop (replace! (● channel state) (Unobserved)))))))))

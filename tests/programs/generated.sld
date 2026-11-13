@@ -7,15 +7,16 @@
  (sample table)
  (sample blob))
 
-(define main
-  (lambda ()
-    (write squares)
-    (newline)
-    (display (vector-length pixel))
-    (newline)
-    (display
-     (string-join (map (lambda (index) (show (u8->i32 (vector-ref pixel index)))) (iota 8)) " "))
-    (newline)
-    (display greeting-length)
-    (newline)
-    (unit)))
+(define (main) (→ Unit) (! output-port)
+  (define bytes (pixel))
+
+  (write (squares))
+  (newline)
+  (display (vector-length bytes))
+  (newline)
+  (display
+   (string-join (map (lambda (index) (show (u8->i32 (vector-ref bytes index)))) (iota 8)) " "))
+  (newline)
+  (display (greeting-length))
+  (newline)
+  (unit))

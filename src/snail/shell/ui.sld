@@ -311,7 +311,7 @@
                                   (if (string=? (shown-key shown) "")
                                       keyed
                                       (table-set keyed (shown-key shown) shown)))
-                                empty-table
+                                (empty-table)
                                 old)
                      (filter (lambda (shown) (string=? (shown-key shown) "")) old)
                      new)))
@@ -341,7 +341,7 @@
                    (match (● pair first)
                      ((Some shown) (table-set taken (node-name shown) #t))
                      ((None) taken)))
-                 empty-table
+                 (empty-table)
                  pairs))
 
     (define (shown-key (shown (Shown M))) (→ String) (∀ (M))
@@ -434,7 +434,7 @@
     (define (listener-table (trees (List (Shown M)))) (→ (Table (Fn Event → M))) (∀ (M))
       (fold-left (lambda (table pair)
                    (table-set table (show (● (● pair second) id)) (● pair first)))
-                 empty-table
+                 (empty-table)
                  (concatenate (map listener-functions trees))))
 
     (define (listener-functions (shown (Shown M)))

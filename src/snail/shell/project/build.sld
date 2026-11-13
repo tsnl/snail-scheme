@@ -289,7 +289,7 @@
       (match (attempt (lambda () (plan-roots builder names)))
         ((Err failure) (Err failure))
         ((Ok plan)
-         (outcome builder (run-waves builder plan (Progress no-inputs (Nil) (Nil) (None)))))))
+         (outcome builder (run-waves builder plan (Progress (no-inputs) (Nil) (Nil) (None)))))))
 
     (define (plan-roots (builder Builder) (names (List String))) (→ Plan) (! fs building)
       (let* ((targets (plan-targets builder))
@@ -297,7 +297,7 @@
              (roots (map (lambda (name) (root-target targets file name)) names))
              (printed (in-scratch builder "plan")))
         (expect-done (make-directories printed) (string-append "cannot make " printed))
-        (compiled (lambda () (plan-build targets roots no-inputs printed)))))
+        (compiled (lambda () (plan-build targets roots (no-inputs) printed)))))
 
     ;; A build that failed discards every generation it made.
 
@@ -679,7 +679,7 @@
     ;; What a manifest says of its store: the path, relative to the
     ;; manifest, with a trailing slash.
 
-    (define shared-store (→ String) "../.snail-store/")
+    (define (shared-store) (→ String) "../.snail-store/")
 
     ;; ---- Development builds ----
 
@@ -701,8 +701,6 @@
         (write-modules builder directory modules
                        (place-links (project-store builder) (base-name directory) links))
         (Program (length modules) (length modules) (map (lambda (file) (● file path)) links))))
-
-
 
     (define (assemble-module (module Built)) (→ Assembled) (! building)
       (let ((text (● module text)))
@@ -747,7 +745,7 @@
       (→ Json)
       (JsonObject
        (list (Pair "runtime" (object-json runtime))
-             (Pair "store" (JsonString shared-store))
+             (Pair "store" (JsonString (shared-store)))
              (Pair "modules"
                    (JsonArray (map (lambda (module)
                                      (JsonObject
@@ -845,7 +843,7 @@
 
     ;; ---- Browser packages ----
 
-    (define browser-files (→ (List String))
+    (define (browser-files) (→ (List String))
       (list "host.mjs"
             "application.mjs"
             "runtime.mjs"
@@ -863,8 +861,8 @@
     ;; tree may use none of them, so one that builds in one mode, or with
     ;; one set of linked files, builds in every other.
 
-    (define generated-names (→ (List String))
-      (append (list "program.wasm" "modules.json" "store" ".snail-target") browser-files))
+    (define (generated-names) (→ (List String))
+      (append (list "program.wasm" "modules.json" "store" ".snail-target") (browser-files)))
 
     ;; The browser host's files, then the target's public tree, if it has
     ;; one. The page is the project's own index.html; none is generated.
@@ -907,7 +905,7 @@
                    (string-append (● (● builder tools) root) "/host/browser/" file)
                    (string-append directory "/" file)
                    (string-append "cannot copy the browser host's " file)))
-                browser-files)
+                (browser-files))
       (match (find-target (● (● builder description) builds) name)
         ((Some (BrowserTarget browser))
          (match (● browser public)
@@ -940,7 +938,7 @@
     (define (copy-public (source String) (output String) (top? Bool)) (→ Unit) (! fs building)
       (for-each (lambda (name)
                   (let ((from (string-append source "/" name)) (to (string-append output "/" name)))
-                    (when (or (and top? (member? name generated-names))
+                    (when (or (and top? (member? name (generated-names)))
                               (exists? to)
                               (string=? name ".snail-publish"))
                       (fail-build

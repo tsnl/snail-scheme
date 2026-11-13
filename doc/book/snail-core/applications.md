@@ -335,13 +335,13 @@ records instead.
 
 `snail dev PROJECT` builds each browser target one library at a time, and
 builds it again whenever the project, the standard library or the browser
-host changes, compiling only the libraries the change reaches. Each page it
+host changes, compiling every configured target from current sources. Each page it
 serves ([below](#browser-targets-in-development)) relinks the modules that
 changed, and those after them, without reloading. Each invocation gets a fresh
 scheduler and page context; the application's explicit snapshot crosses to the
 new program:
 
-- as it is, when `type-test` finds its type unchanged;
+- as it is, when an explicit `(downcast Save saved)` returns `Some`;
 - through `save` and `restore` when its layout changed. That is the
   contract a page reload already relies on, so an application whose save
   is a journal, as Siegework's is, replays the journal under the new code;
@@ -433,10 +433,9 @@ The consumed failing event is dropped; unread input remains. A cold first-frame
 failure also retains its owner so a source fix can resume it.
 A closure kept in the state can retain old code; applications storing functions
 must reconstruct them through save/restore when changing their implementation.
-Replaced modules start with empty lazy value caches. Unchanged module instances
-keep their caches. Escaped old closures keep accessing their original module's
-values; retiring an instance does not run source finalizers. Keep state that
-must survive replacement in the application's Save.
+There are no global value caches to migrate. Keep state that must survive
+replacement in the application's Save; retiring a module does not run source
+finalizers.
 
 The reload client (`host/browser/reload.sld`, bound by `reload-client.mjs`) compares
 manifests and relinks from the first changed module. It serializes relinks and
@@ -491,9 +490,8 @@ intent immediately; a compilation already in flight cannot restore it.
 
 Acceptance compares the run's selected build target, literal arguments and complete
 output digest against its last issued launch. Changed wanted targets request a
-replacement; unchanged targets keep their child and actual build ID. A compiler
-cache hit is not this evidence: a discarded build may already have warmed the
-cache. Failed or superseded builds do not change accepted launch definitions or
+replacement; unchanged targets keep their child and actual build ID. Only an
+accepted generation supplies this evidence. Failed or superseded builds do not change accepted launch definitions or
 running children. Start remains usable against the last successful build while
 the current compilation fails.
 

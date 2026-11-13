@@ -9,13 +9,13 @@
 
 (define (noisy) (→ Unit) (! Log) (log "hi"))
 
-(define boxed (→ Any) (Any noisy))
+(define (boxed) (→ Any) (Any noisy))
 
-(define quiet
+(define (quiet)
   (→ (Fn → Unit))
-  (match (downcast (Fn → Unit) boxed) ((Some value) value) ((None) (panic "type mismatch"))))
+  (match (downcast (Fn → Unit) (boxed)) ((Some value) value) ((None) (panic "type mismatch"))))
 
 (define main
   (lambda ()
-    (quiet)
+    ((quiet))
     (unit)))

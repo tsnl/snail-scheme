@@ -981,7 +981,7 @@
       (! mut tasks fs hints host)
       (let* ((roots (watched setup))
              (watches (watch-roots (● roots first) (● roots second) requests)))
-        (let loop ((disk (rescan setup owner (Disk empty-inventory (None)) #f)) (stopping #f))
+        (let loop ((disk (rescan setup owner (Disk (empty-inventory) (None)) #f)) (stopping #f))
           (match (mailbox-receive requests)
             ((Stopping)
              (for-each close-watch watches)
@@ -1562,14 +1562,14 @@
            (loop (+ id 1)))
           ((Err _) (unit)))))
 
-    (define security-headers (→ (List Header))
+    (define (security-headers) (→ (List Header))
       (list (Header "Cache-Control" "no-store")
             (Header "X-Content-Type-Options" "nosniff")
             (Header "X-Frame-Options" "DENY")))
 
     (define (json-response (status I32) (body Json)) (→ Response)
       (Response status
-                (Cons (Header "Content-Type" "application/json") security-headers)
+                (Cons (Header "Content-Type" "application/json") (security-headers))
                 (if (= status 204) (empty-bytes) (string->utf8 (json->string body)))))
 
     (define (refused (status I32) (message String)) (→ Response)
@@ -1991,7 +1991,7 @@
 
     (define (application-index (applications (List Application))) (→ Response)
       (Response 200
-                (Cons (Header "Content-Type" "text/html; charset=utf-8") security-headers)
+                (Cons (Header "Content-Type" "text/html; charset=utf-8") (security-headers))
                 (string->utf8
                  (string-append
                   "<!doctype html>\n<meta charset=\"utf-8\">\n<title>Browser targets</title>\n"
@@ -2113,7 +2113,7 @@
 
     (define (editor-manifest) (→ Response)
       (Response 200
-                (Cons (Header "Content-Type" "application/manifest+json") security-headers)
+                (Cons (Header "Content-Type" "application/manifest+json") (security-headers))
                 (string->utf8 (json->string (web-app-manifest "Snail IDE")))))
 
     (define (editor-asset (setup Setup) (owner (Mailbox Message)) (path (List String)))
@@ -2140,7 +2140,7 @@
     (define (editor-page (setup Setup) (bundle EditorBundle)) (→ Response) (! fs)
       (let ((text (stable-web-app
                    (read-file (string-append (● bundle directory) "/index.html")) "/")))
-        (Response 200 (Cons (Header "Content-Type" "text/html; charset=utf-8") editor-headers)
+        (Response 200 (Cons (Header "Content-Type" "text/html; charset=utf-8") (editor-headers))
                   (string->utf8
                    (insert-metadata text (list (PageBase (editor-base bundle))
                                                (PageMeta "snail-workspace"
@@ -2149,12 +2149,12 @@
     (define (editor-file (bundle EditorBundle) (path (List String))) (→ Response) (! fs)
       (let ((response (bundle-file (● bundle directory) path)))
         (Response (● response status)
-                  (append (● response headers) editor-headers) (● response body))))
+                  (append (● response headers) (editor-headers)) (● response body))))
 
-    (define editor-headers (→ (List Header))
+    (define (editor-headers) (→ (List Header))
       (Cons (Header "Content-Security-Policy"
                     "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'self'; worker-src 'none'")
-            security-headers))
+            (security-headers)))
 
     ;; ---- Writing an event stream ----
 
@@ -2174,7 +2174,7 @@
           (if (= (● answer status) 200)
               (match (encode-stream-head 200
                                          (Cons (Header "Content-Type" "text/event-stream")
-                                               security-headers))
+                                               (security-headers)))
                 ((Ok head) (when (sent? connection head) (write-frames owner id connection frames)))
                 ((Err _) (unit)))
               (finish-exchange connection

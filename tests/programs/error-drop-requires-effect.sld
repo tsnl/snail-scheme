@@ -10,9 +10,9 @@
   ((name String)))
 
 (instance (Drop (! audit) Handle)
-  (define drop
-    (lambda (handle) (match handle
-                       ((Handle name) (note name))))))
+  (define (drop (handle Handle)) (→ Unit) (! audit)
+    (match handle
+      ((Handle name) (note name)))))
 
 (struct (Labelled A)
   ((label String)
@@ -20,9 +20,9 @@
 
 (instance (Drop (! e) (Labelled A))
   (⊨ (Drop e A))
-  (define drop
-    (lambda (labelled) (match labelled
-                         ((Labelled _ item) (drop item))))))
+  (define (drop (labelled (Labelled A))) (→ Unit) (! e)
+    (match labelled
+      ((Labelled _ item) (drop item)))))
 
 (define (release (labelled (Labelled Handle))) (→ Unit)
   (drop labelled))

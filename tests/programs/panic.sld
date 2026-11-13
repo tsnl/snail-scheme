@@ -7,8 +7,8 @@
     ((Cons item _) item)
     ((Nil) (panic "head of an empty list"))))
 
-(define main
-  (lambda ()
-    (write-line "start")
-    (display (head (ann (Nil) (List I64))))
-    (unit)))
+(define (main) (→ Unit) (! output-port)
+
+  (write-line "start")
+  (display (head (ann (Nil) (List I64))))
+  (unit))

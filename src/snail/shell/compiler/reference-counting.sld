@@ -50,12 +50,6 @@
       (or (table-contains? (● state globals) name)
           (match (program-value (● state program) name) ((Some _) #t) ((None) #f))))
 
-    ;; A value global is a getter, even when its result is a procedure.
-    (define (direct-function? (state Counting) (name String)) (→ Bool)
-      (match (table-ref (● state globals) name)
-        ((Some binding) (● binding function?))
-        ((None) (global? state name))))
-
     (define (fresh (state Counting) (type Type) (loc Loc)) (→ (Pair Expr Counting))
       (Pair (local (string-append "%counting." (i64->string (● state next))) type loc)
             (Counting-next-set state (+ (● state next) 1))))
@@ -70,9 +64,10 @@
       (Expr (Let (name-of name) value body) (● body type) (● value loc)))
 
     (define (intrinsic (name String) (args (List Expr)) (type Type) (loc Loc)) (→ Expr)
-      (Expr (App (local name (TFun (map (lambda (arg) (● arg type)) args) type empty-row) loc) args)
-            type
-            loc))
+      (Expr
+       (App (local name (TFun (map (lambda (arg) (● arg type)) args) type (empty-row)) loc) args)
+       type
+       loc))
 
     (define (retained (state Counting) (value Expr)) (→ Expr)
       (if (shared? state (● value type))
@@ -97,7 +92,7 @@
 
     (define (new-counting (declarations Declarations) (value Expr)) (→ Counting)
       (Counting (● declarations program) (● declarations bindings)
-                (known-types (● declarations program) empty-table value) 0))
+                (known-types (● declarations program) (empty-table) value) 0))
 
     ;; Pending releases follow result positions in the original tree. Operands
     ;; start with no pending releases; their surrounding expression owns the
@@ -238,7 +233,7 @@
                            (args (List Expr))
                            (owners (List Expr)))
       (→ (Pair Expr Counting))
-      (let ((direct? (match (● callee term) ((Var name _ _) (direct-function? state name)) (_ #f))))
+      (let ((direct? (match (● callee term) ((Var name _ _) (global? state name)) (_ #f))))
         (lowering state ((named (name-values (if direct? args (Cons callee args)))))
                   (let* ((values (● named reads))
                          (call (if direct?
@@ -306,7 +301,7 @@
                           (if swap? (Swapper case index scheme) (Setter case index scheme)))
                          (name (field-operation-name case index (if swap? "replace!" "set!")))
                          (callee (local name (TFun (list (● receiver type) (● incoming type))
-                                                   (● expr type) empty-row) (● expr loc))))
+                                                   (● expr type) (empty-row)) (● expr loc))))
                     (lowering state ((receiver (lower receiver)) (incoming (lower incoming)))
                               (lower-observation state
                                                  expr

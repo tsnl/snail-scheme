@@ -9,15 +9,13 @@ Emission consumes that result without revisiting source semantics.
 text ──read───▶ located syntax
      ──expand─▶ resolved program   unique names, declarations, field paths
      ──check──▶ typed program      types, rows, instances, exact-once ownership
-     ──prepare▶ concrete code      initializers, control and cleanup explicit
+     ──prepare▶ concrete code      functions, control and cleanup explicit
      ──emit───▶ WasmGC text ──assemble/link──▶ executable module
 ```
 
 `Prepared` contains declarations, concrete function definitions, an optional
-root entry, exports and host exposures. Nonfunction definitions become
-zero-argument initializer bodies, lowered through the same ownership and
-control passes as functions. Emission puts each behind a lazy cache getter;
-there is no startup initializer list or top-level statement execution.
+root entry, exports and host exposures. Every definition is function code;
+there are no value getters, initializer functions or cached global values.
 
 The compiler is written in Snail Scheme under `src/snail/shell/compiler/`.
 Its host boundary consists of `(snail core base)`, `(snail core table)` and
@@ -54,9 +52,7 @@ runtime slot.
 `expand.sld` alone knows binding syntax. It loads libraries, resolves import
 sets, expands hygienic `syntax-rules`, assigns unique names and converts
 forms into expressions and declarations. Top-level names are discovered
-before their bodies, allowing recursive functions and references to later
-constants. Local bodies remain sequential. Typed define headers are parsed
-here; `Fn` and `FnOnce` are built-in callable type formers.
+before their bodies, allowing recursive and mutually recursive functions. Local bodies remain sequential. Typed `define` and bodyless `declare` share a header grammar here; `Fn` and `FnOnce` are built-in callable type formers.
 
 Struct field paths remain unresolved only while the receiver type is
 unknown. Once its nominal type is known, checking substitutes the record's
@@ -90,9 +86,8 @@ Explicit `(Any value)` and `(downcast T boxed)` become `BoxAny` and
 `Downcast` terms. Packaging preserves type identity; extraction returns `Some`
 only for the requested type, and `None` on mismatch. Neither inserts conversions
 at unrelated boundaries or performs an effect.
-A top-level nonfunction initializer must have an empty effect row. A handler
-can discharge an effect locally, and an intentional `unsafe-total` can hide
-private mutation. The resulting initializer is compiled as ordinary runtime code.
+Expansion rejects top-level nonfunctions. Local expressions retain their
+ordinary inference and effect checking.
 
 ### Ownership and lifetimes
 
@@ -173,39 +168,6 @@ handlers whose delimiters may already have returned. Preparation inspects
 concrete callees under the appropriate context and rejects unsupported
 control escape. These checks use the original bodies, before lowering has
 hidden their structure.
-
-### Lazy value initialization
-
-Preparation keeps the original source classification: a function is callable
-code; a value may itself contain a callable closure. Only the emitted value
-body is wrapped as a zero-argument function. Contextual control analysis still
-sees the original body, so it distinguishes the initializer's effect row from
-the effects of invoking a returned procedure.
-
-`wasm.sld` emits one getter and two private globals per monomorphic value:
-its cached storage and a state of uninitialized, initializing or ready. A read
-calls the getter with ordinary evidence. The getter rejects initializing,
-sets that state before running the body, stores the result, marks ready, and
-returns an owned read. Reference storage starts nullable; ready proves it is
-non-null. Initializer emission is non-tail so publication cannot be skipped by
-a tail call. No scheduler, dependency graph or synchronization is needed.
-
-Publishing transfers the initializer's owner into the cache. Every returned
-counted value receives the usual retain, including the first read. The cache
-is a root for the module lifetime; collection does not run source finalizers.
-A fatal trap leaves the initializing state in place; there is no retry protocol.
-Importers call the defining instance's getter, sharing the same cache. New
-instances start empty; retained old closures may still call old getters.
-
-A value-global read can initialize or panic. Control preparation therefore
-preserves it before a later yielding operand. Tail-call lowering evaluates a
-cached procedure before its arguments and outgoing-owner releases, just like
-other computed callees. Ordinary named functions keep their direct call path.
-
-Quantified functions specialize normally. The checker permits only stateless
-literal/nullary enum templates as other quantified values; specialization
-expands those directly. Mutable generic cache instances would require a shared
-registry across separately compiled libraries, so they are deliberately absent.
 
 ### WasmGC emission
 
@@ -297,7 +259,7 @@ The unit of compilation is a library (`source->modules` in
 
 - each monomorphic definition is exported under its global name, as in
   `snail.core.base:map`;
-- each generic definition and alias the library uses is copied in,
+- each generic function the library uses is copied in,
   specialized at the library's own types, as C++ instantiates a template in
   every translation unit that uses it;
 - each monomorphic definition of another library is imported from that
@@ -313,29 +275,12 @@ The checker settles each library's types before it checks the libraries
 that import it, so a definition's type comes from its own library and not
 from how an importer happens to use it.
 
-A **session** (`src/snail/shell/compiler/session.sld`) compiles a program again
-and again, as the development loop does, retaining checked code and Wasm:
-
-- Each build expands current sources, producer outputs and artifacts from
-  scratch. Expansion itself selects instance providers, so an old expansion
-  cannot safely stand in for the current declarations. No saved expansion,
-  scope or replay log survives into another build.
-- A library's **interface** fingerprints all its declarations and imported
-  interfaces, conservatively including monomorphic function bodies. This may
-  rebuild more importers than necessary. Derived instances also depend on their
-  implicit libraries. Artifact bytes, linked files, expanded declaration
-  identities and the final fresh-name counter complete the key. The counter
-  prevents cached local names from colliding after an earlier library changes.
-- Each library's checked items, type schemes and module text are kept
-  under that key and the final program's instance-provider interfaces.
-  Instances can come from a sibling outside a library's imports; named
-  policies participate too. A build checks, specializes and emits only
-  libraries whose combined key changed. A provider edit conservatively
-  invalidates every checked library; an ordinary body edit invalidates its
-  importers. Unchanged builds reuse checked code and module text.
-
-Sessions retain compilation evidence, not a build's providers or files. The
-[input boundary](#compiler-inputs) defines how current inputs validate reuse.
+Every invocation expands current sources, checks every library, specializes
+and emits every reachable function again. There is no compiler Session,
+interface fingerprint, invalidation graph or retained checked-code/Wasm cache.
+The development loop rebuilds all configured targets and runs their producers
+on each attempt. Content-addressed output files still let the browser decide
+which module instances must be relinked.
 
 ## Linking
 
@@ -408,7 +353,7 @@ and `snail.runtime.browser.screen`, `.events`, `.storage`, `.dom` and
 `.fetch` on the page. A `(snail runtime …)` library declares one of these
 interfaces as externs, and nothing else, so it has no items and emits no
 module: each of its importers imports from the host itself
-(`emit-libraries` in `session.sld`).
+(`emit-libraries` in `(snail shell compiler)`).
 The Rust support module, built from `crates/snail-core-support`, is
 `snail.core.support`, and the compiler's control module
 `snail.core.control`. A module linked under a `(snail runtime …)` name, or
@@ -420,11 +365,9 @@ startup and when the program loads one (`hostProvided` in `load.mjs`,
 
 ## Compiler inputs
 
-The compiler entry points and `build-session` take the current generated-library
-provider, which receives each producer with the libraries loading when it was
-reached, and an `Inputs` value, what the build supplies to each of its
-compiles. `make-session` takes only library directories; a retained session
-owns evidence, never a provider closure:
+Each compiler invocation takes library directories, the current generated-library
+provider, and an `Inputs` value supplied by the build. The provider receives each
+producer with the libraries loading when it was reached:
 
 ```scheme
 (struct Generated ((text String) (bytes Bytes)))
@@ -435,8 +378,8 @@ owns evidence, never a provider closure:
 `(List (Pair String Bytes))`. The native builder establishes
 unique, canonical relative paths sorted by path, with bytes loaded from one
 completed immutable output. Artifact expansion performs only memory lookups;
-it has no filesystem capability. Inputs belong to the current invocation, not
-the retained session. `no-inputs` supplies nothing.
+it has no filesystem capability. Inputs belong to the current invocation.
+`(no-inputs)` constructs an empty input set.
 
 `generated` maps a producer's key to what it wrote. The key hashes the
 producer's text, `producer-text` in `(snail shell compiler inputs)`: the
@@ -468,13 +411,11 @@ compiles the plan has already supplied, never does.
 Each build expands current declarations and requests only their current inputs.
 Removing an artifact invocation therefore removes its dependency. Every input
 comes from the supplied snapshot; no lookup rereads a backing file. A missing
-input fails the build before cached checked code can be reused.
+input fails that build.
 
-Artifact fingerprints include target names, canonical file paths, byte lengths
-and content hashes. They enter the library's completed interface, so changed
-bytes invalidate both the library and its importers. These are deterministic
-content keys; restarting expansion's fresh-name counter cannot accidentally
-reuse an old artifact revision. Failed builds publish no replacement session.
+Artifact files carry canonical paths, byte lengths and content hashes. The
+build supplies their current bytes before compilation, and successful output
+records which resources it links. Failed builds publish no replacement generation.
 
 Generated syntax is obtained before expanding its library.
 The native project builder runs each producer once per build, as a phase of its
@@ -551,8 +492,8 @@ output (`supply-generated`) once the producer has run. Each reads the bytes
 once and returns new immutable inputs; the preceding inputs remain usable.
 
 One `Inputs` value serves every phase of a build, and is passed to each
-compile and to `refine-plan`. Successful Sessions retain only the per-library
-evidence already used for cache reuse. Applications embed the bytes and need
+compile and to `refine-plan`. It belongs to that build attempt. Applications
+embed the bytes and need
 no runtime file access.
 
 ### Linked files
@@ -560,10 +501,8 @@ no runtime file access.
 A linked file's bytes are an input of the compile, as their digest: the
 module imports its handle under that name. Each build binds the current linked
 files during expansion. A missing file fails with the library and path;
-changed bytes bind a new digest. Digests enter the library's interface and
-checked-code keys, so an edit recompiles the library and its importers, which
-may specialize a generic function that uses one of its handles. Every build
-places every linked file, including those of cached modules, as an
+changed bytes bind a new digest. Every build compiles all libraries and
+places every linked file as an
 object of the build's store, `store/sha256/DIGEST` beside a linked program
 or the store a project's development builds share, checking that the bytes
 it copies have the digest the compile read; a file edited during the build
@@ -577,32 +516,17 @@ loader keeps the bytes it has read, by digest, across relinks.
 ## The resident builder
 
 `snail dev` builds with `snail resident PROJECT`, the command line's Snail
-program in a child process, which keeps each target's compiler Session from
-one build to the next ("The resident builder" in `bootstrap/cli.sld`). The
+program in a child process ("The resident builder" in `bootstrap/cli.sld`). The
 service writes it one JSON request a line and reads one reply a line: a
 `build` answers the project's description, a candidate with how long the
 build took and each target's generation, digest, how many of its modules it
 compiled and the digest of each file but its modules, which the reload
 client compares, and any diagnostics; the resident holds the candidate until a `publish` or a
-`discard` names it. Sessions, Plans and inputs stay in the resident and never
-cross. A development build assembles each module the session compiled
-again with `(snail shell assembler)`, in the same process; a module the
-session reused keeps the bytes it was assembled into, and their digest,
-which names its object (`Retained`). The service, `(snail shell project service)`, writes the
-requests and reads the replies.
-
-A build's failures reach the service as `{severity, message, source}`;
-`source` is null or `{file, line, column}`. Lines and Unicode scalar columns start at one. IO and
-producer-input requests have no source record; internal no-location sentinels
-are unlocated. A failing dependency reports its own origin. Printed
-producer programs report their actual scratch source, while decoded generated
-syntax retains the recipe location already established by expansion. No source
-mapping is invented. The command-line driver prints each diagnostic as the
-compiler always has, `FILE:LINE:COLUMN: MESSAGE`, or `FILE: MESSAGE` for the
-file as a whole, a line each, and exits with status 1. A reply carries every
-diagnostic of the failed compile, which reports each failed body of the
-library that failed to expand, or each failed definition and statement of
-the library that failed to check. These operations are implemented and tested.
+`discard` names it. The resident holds only its current job and unpublished
+candidate; each attempt owns its plan and inputs. Every module is compiled
+and assembled anew. Publishing installs the completed candidate atomically;
+a failed or discarded attempt leaves the previously accepted generation
+available.
 
 ## Supporting modules
 

@@ -368,10 +368,10 @@
     ;; counter: clients list paths on change, not after every process-output byte.
     ;; No replay cursor is needed: reconnection starts from current state.
 
-    (define event-kind (→ String) "snapshot")
+    (define (event-kind) (→ String) "snapshot")
 
     (define (state->event (state ServerState)) (→ String)
-      (string-append "event: " event-kind "\ndata: " (json->string (state->json state)) "\n\n"))
+      (string-append "event: " (event-kind) "\ndata: " (json->string (state->json state)) "\n\n"))
 
     (define (read-event (text String)) (→ (Option ServerState))
       (match (string->json text)

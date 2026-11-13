@@ -13,7 +13,7 @@
  (prefix (snail shell syntax) generated:))
 
 (define (inputs (client Bytes)) (→ Inputs)
-  (supply-artifact (supply-artifact no-inputs "client" (list (Pair "client.dat" client)))
+  (supply-artifact (supply-artifact (no-inputs) "client" (list (Pair "client.dat" client)))
                    "admin" (list (Pair "admin.dat" #u8(99)))))
 
 (define (generate (loading (List String)) (forms (List reader:Syntax))) (→ Bytes)
@@ -22,13 +22,12 @@
     (list "generated" "assets")
     (list "generated-bundle")
     (list (list "snail" "core" "base") (list "snail" "shell" "artifact"))
-    (list (generated:form ":"
-                          (list (generated:SymbolSyntax "generated-bundle")
-                                (generated:SymbolSyntax "ArtifactBundle")))
-          (generated:form "define" (list (generated:SymbolSyntax "generated-bundle")
-                                         (generated:form "artifact-bundle"
-                                                         (list
-                                                          (generated:StringSyntax "client")))))))))
+    (list (generated:form "define"
+                          (list (generated:form "generated-bundle" (Nil))
+                                (generated:form "→"
+                                                (list (generated:SymbolSyntax "ArtifactBundle")))
+                                (generated:form "artifact-bundle"
+                                                (list (generated:StringSyntax "client")))))))))
 
 (define (write-module (path String) (text String)) (→ Unit) (! fs)
   (match (assemble text)
@@ -58,13 +57,13 @@
   (write-build (string-append output "/changed")
                (source->modules directories source generate (inputs #u8(90 0 255)))))
 
-(define main
-  (lambda ()
-    (match (command-line)
-      ((Cons _ (Cons source (Cons output directories)))
-       (match (reader:compiling (lambda () (compile-all source output directories)))
-         ((Ok _) (unit))
-         ((Err (reader:Failed diagnostics)) (panic (reader:diagnostics->string diagnostics)))
-         ((Err (reader:Requested _)) (panic "the compiles asked for an input they were supplied"))))
-      (_ (panic "usage: compiler SOURCE OUTPUT LIBRARY ...")))
-    (unit)))
+(define (main) (→ Unit) (! mut fs)
+
+  (match (command-line)
+    ((Cons _ (Cons source (Cons output directories)))
+     (match (reader:compiling (lambda () (compile-all source output directories)))
+       ((Ok _) (unit))
+       ((Err (reader:Failed diagnostics)) (panic (reader:diagnostics->string diagnostics)))
+       ((Err (reader:Requested _)) (panic "the compiles asked for an input they were supplied"))))
+    (_ (panic "usage: compiler SOURCE OUTPUT LIBRARY ...")))
+  (unit))

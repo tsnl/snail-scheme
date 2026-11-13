@@ -11,16 +11,16 @@
 
 (define (gen) (→ I64) (! Gen) (+ 1 (yield 1)))
 
-(define boxed (→ Any) (Any gen))
+(define (boxed) (→ Any) (Any gen))
 
-(define hidden
+(define (hidden)
   (→ (Fn → I64))
-  (match (downcast (Fn → I64) boxed) ((Some value) value) ((None) (panic "type mismatch"))))
+  (match (downcast (Fn → I64) (boxed)) ((Some value) value) ((None) (panic "type mismatch"))))
 
 (define main
   (lambda ()
     (display (handle Gen ((yield (lambda (v resume) (+ 1000 (resume (* v 10))))))
-               (let ((a (hidden)))
+               (let ((a ((hidden))))
                  (write-line (string-append "a = " (show a)))
                  (+ a 5))))
     (newline)

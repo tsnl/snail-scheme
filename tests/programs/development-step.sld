@@ -12,30 +12,30 @@
 
 ;; ---- A project ----
 
-(define root "/r")
+(define (root) (→ String) "/r")
 
-(define project "/r/apps/p")
+(define (project) (→ String) "/r/apps/p")
 
-(define description (→ Description)
+(define (description) (→ Description)
   (Description (list "main.sld")
                (list "public")
                (Nil)
                (list (RunDefinition "app" "server" (list "--port")))))
 
 (define (candidate (digest String)) (→ Candidate)
-  (Candidate description
+  (Candidate (description)
              (list
               (Generation "server" (string-append "/r/apps/p/build/s-" digest) digest (Nil) (Nil)))
              0))
 
 (define (succeeded (digest String)) (→ Reply)
-  (Reply (Some description) (Some (candidate digest)) (Nil)))
+  (Reply (Some (description)) (Some (candidate digest)) (Nil)))
 
 ;; A build into generation `name`, whose files have the digest given, as a
 ;; build of an unchanged program does into a new generation.
 (define (built-in (name String) (digest String)) (→ Reply)
-  (Reply (Some description)
-         (Some (Candidate description
+  (Reply (Some (description))
+         (Some (Candidate (description)
                           (list (Generation "server"
                                             (string-append "/r/apps/p/build/" name)
                                             digest
@@ -52,13 +52,13 @@
         (Reconciled (Ok (unit)))
         (PublishReplied epoch (None))))
 
-(define failed (→ Reply)
-  (Reply (Some description)
+(define (failed) (→ Reply)
+  (Reply (Some (description))
          (None)
          (list (Diagnostic "unbound identifier x" (Some (SourcePoint "/r/apps/p/main.sld" 1 2))))))
 
 ;; A publication whose description has no run targets.
-(define without-runs (→ Reply)
+(define (without-runs) (→ Reply)
   (let ((bare (Description (list "main.sld") (Nil) (Nil) (Nil))))
     (Reply (Some bare)
            (Some
@@ -67,8 +67,8 @@
 
 ;; A build whose program links the file at `path`.
 (define (linking (path String)) (→ Reply)
-  (Reply (Some description)
-         (Some (Candidate description
+  (Reply (Some (description))
+         (Some (Candidate (description)
                           (list (Generation "server" "/r/apps/p/build/s-l" "l" (Nil) (list path)))
                           0))
          (Nil)))
@@ -177,13 +177,13 @@
 
 (define (scenario (name String) (events (List Event))) (→ Service) (! output-port)
   (write-line name)
-  (drive (new-service root project) events))
+  (drive (new-service (root) (project)) events))
 
 ;; Starting up, and the first attempt replied to and published.
-(define started (list (ResidentStarted) (Reconciled (Ok (unit))) (TimerFired)))
+(define (started) (→ (List Event)) (list (ResidentStarted) (Reconciled (Ok (unit))) (TimerFired)))
 
-(define first-published
-  (append started
+(define (first-published) (→ (List Event))
+  (append (started)
           (list (BuildReplied 1 (succeeded "a"))
                 (Reconciled (Ok (unit)))
                 (PublishReplied 1 (None)))))
@@ -192,7 +192,7 @@
   ;; ---- Scenarios ----
 
   (scenario "edits coalesce into one attempt"
-            (append started
+            (append (started)
                     (list (BuildReplied 1 (succeeded "a"))
                           (Reconciled (Ok (unit)))
                           (PublishReplied 1 (None))
@@ -201,14 +201,14 @@
                           (TimerFired)
                           (TimerFired))))
   (scenario "an input edited while building supersedes the attempt"
-            (append started
+            (append (started)
                     (list (Touched (list "/r/apps/p/lib/util.sld"))
                           (BuildReplied 1 (succeeded "a"))
                           (Reconciled (Ok (unit)))
                           (DiscardReplied 1)
                           (TimerFired))))
   (scenario "a file the build does not read does not"
-            (append started
+            (append (started)
                     (list (Touched (list "/r/apps/p/notes.txt"))
                           (BuildReplied 1 (succeeded "a"))
                           (Reconciled (Ok (unit)))
@@ -222,7 +222,7 @@
                   (BuildReplied 1 (succeeded "a"))
                   (Reconciled (Ok (unit)))))
   (scenario "a linked file is an input once a published program links it"
-            (append started
+            (append (started)
                     (list (Touched (list "/r/apps/p/art.bin"))
                           (BuildReplied 1 (linking "/r/apps/p/art.bin"))
                           (Reconciled (Ok (unit)))
@@ -230,23 +230,23 @@
                           (Touched (list "/r/apps/p/art.bin"))
                           (TimerFired))))
   (scenario "a reply for another epoch is fatal"
-            (append first-published
+            (append (first-published)
                     (list (Touched (list "/r/apps/p/main.sld"))
                           (TimerFired)
-                          (BuildReplied 1 failed))))
+                          (BuildReplied 1 (failed)))))
   (scenario "a publication that fails releases the attempt and reports it"
-            (append started
+            (append (started)
                     (list (BuildReplied 1 (succeeded "a"))
                           (Reconciled (Ok (unit)))
                           (PublishReplied 1 (Some "cannot rename build/server")))))
   (scenario "a failed build reports its diagnostics and keeps what was published"
-            (append first-published
+            (append (first-published)
                     (list (Touched (list "/r/apps/p/main.sld"))
                           (TimerFired)
-                          (BuildReplied 2 failed)
+                          (BuildReplied 2 (failed))
                           (Reconciled (Ok (unit))))))
   (scenario "a disk that cannot be read discards the candidate until it can"
-            (append started
+            (append (started)
                     (list (BuildReplied 1 (succeeded "a"))
                           (Reconciled (Err "cannot reconcile /r/apps/p"))
                           (DiscardReplied 1)
@@ -261,13 +261,13 @@
                   (Uncertain (None))
                   (TimerFired)))
   (scenario "closing with an attempt in flight abandons it, and nothing after"
-            (append started
+            (append (started)
                     (list (Close) (BuildReplied 1 (succeeded "a")) (StartRun "app") (Close))))
   (scenario "closing while publishing releases"
-            (append started
+            (append (started)
                     (list (BuildReplied 1 (succeeded "a")) (Reconciled (Ok (unit))) (Close))))
   (scenario "the resident's exit is fatal"
-            (append started
+            (append (started)
                     (list (ResidentExited "status 1: snail: out of memory")
                           (ResidentExited "again"))))
   (scenario "the resident's exit before the first reconciliation stays what failed"
@@ -276,7 +276,7 @@
                   (Reconciled (Ok (unit)))
                   (TimerFired)))
   (scenario "run targets follow what is wanted and what is published"
-            (append first-published
+            (append (first-published)
                     (list (StartRun "app")
                           (StartRun "app")
                           (Touched (list "/r/apps/p/main.sld"))
@@ -295,14 +295,14 @@
                           (StartRun "app")
                           (Touched (list "/r/apps/p/project.datum"))
                           (TimerFired)
-                          (BuildReplied 4 without-runs)
+                          (BuildReplied 4 (without-runs))
                           (Reconciled (Ok (unit)))
                           (PublishReplied 4 (None))
                           (StartRun "app")
                           (StopRun "app"))))
   (scenario "generations stay while recent or while a run runs from one"
             (concatenate
-             (list started
+             (list (started)
                    (list (BuildReplied 1 (built-in "g1" "a"))
                          (Reconciled (Ok (unit)))
                          (PublishReplied 1 (None))

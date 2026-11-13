@@ -10,6 +10,6 @@
   ((name String)))
 
 (instance (Store (!) Loud)
-  (define fetch-object
-    (lambda (loud name) (write-line name)
-            name)))
+  (define (fetch-object (loud Loud) (name String)) (→ String)
+    (write-line name)
+    name))

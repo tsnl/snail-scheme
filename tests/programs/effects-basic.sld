@@ -22,8 +22,8 @@
 
 ;; ANCHOR: inferred
 ;; No signature: the row, output-port, is inferred from the body.
-(define report-square
-  (lambda (n) (report "squared" (square n))))
+(define (report-square (n I64)) (→ Unit) (! output-port)
+  (report "squared" (square n)))
 
 ;; ANCHOR_END: inferred
 
@@ -44,9 +44,9 @@
     (repeat count (lambda (i) (set! (● total value) (+ (● total value) (square i)))))
     (● total value)))
 
-(define main
-  (lambda ()
-    (report-square 7)
-    (repeat 3 report-square)
-    (report "sum" (sum-of-squares 3))
-    (unit)))
+(define (main) (→ Unit) (! mut output-port)
+
+  (report-square 7)
+  (repeat 3 report-square)
+  (report "sum" (sum-of-squares 3))
+  (unit))

@@ -39,7 +39,7 @@
               step
               invariant
               depth
-              (table-set empty-table (state-key initial) #t)))
+              (table-set (empty-table) (state-key initial) #t)))
 
     ;; Checks one frontier, then the states its moves reach for the first
     ;; time. `seen` holds every state reached so far.

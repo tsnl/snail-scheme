@@ -4,11 +4,11 @@
  (snail shell task)
  (snail shell resource))
 
-(define asset (→ Resource) (link-file "linked-resource.txt"))
+(define (asset) (→ Resource) (link-file "linked-resource.txt"))
 
 (define (main) (→ Unit) (! output-port resource tasks)
   (write-line "before")
-  (let ((bytes (read-resource asset)))
+  (let ((bytes (read-resource (asset))))
     (display (vector-length bytes)) (newline)
     (display (u8->i32 (vector-ref bytes 0))) (newline))
   (sleep 1)

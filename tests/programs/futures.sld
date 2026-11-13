@@ -8,9 +8,9 @@
   ((name String)))
 
 (instance (Drop (! output-port) Resource)
-  (define drop
-    (lambda (resource) (match resource
-                         ((Resource name) (write-line (string-append "released " name)))))))
+  (define (drop (resource Resource)) (→ Unit) (! output-port)
+    (match resource
+      ((Resource name) (write-line (string-append "released " name))))))
 
 (define (main) (→ Unit) (! host mut output-port completion)
   ;; Polling is immediate, and a pending poll keeps the receiver linear.

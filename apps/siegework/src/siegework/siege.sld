@@ -40,19 +40,19 @@
     ;; A ten-minute expedition gets forty-five seconds before waves every
     ;; thirty seconds. Strength rises every ninety seconds; raids replace
     ;; every other wave from 1:45, and bosses come every nine minutes.
-    (define wave-interval (→ I64) 300)
+    (define (wave-interval) (→ I64) 300)
 
-    (define first-wave (→ I64) 450)
+    (define (first-wave) (→ I64) 450)
 
-    (define difficulty-step (→ I64) 900)
+    (define (difficulty-step) (→ I64) 900)
 
-    (define first-raid (→ I64) 1050)
+    (define (first-raid) (→ I64) 1050)
 
-    (define raid-interval (→ I64) 600)
+    (define (raid-interval) (→ I64) 600)
 
-    (define boss-interval (→ I64) 5400)
+    (define (boss-interval) (→ I64) 5400)
 
-    (define maximum-enemies (→ I64) 128)
+    (define (maximum-enemies) (→ I64) 128)
 
     (enum AttackKind
       (Regular)
@@ -60,13 +60,13 @@
       (Heavy))
 
     (define (heavy? (tick I64)) (→ Bool)
-      (and (>= tick boss-interval) (= (remainder tick boss-interval) 0)))
+      (and (>= tick (boss-interval)) (= (remainder tick (boss-interval)) 0)))
 
     (define (raid? (tick I64)) (→ Bool)
-      (and (>= tick first-raid) (= (remainder (- tick first-raid) raid-interval) 0)))
+      (and (>= tick (first-raid)) (= (remainder (- tick (first-raid)) (raid-interval)) 0)))
 
     (define (regular? (tick I64)) (→ Bool)
-      (and (>= tick first-wave) (= (remainder (- tick first-wave) wave-interval) 0)))
+      (and (>= tick (first-wave)) (= (remainder (- tick (first-wave)) (wave-interval)) 0)))
 
     (define (attack-kind (tick I64)) (→ AttackKind)
       (cond ((heavy? tick) (Heavy))
@@ -76,24 +76,26 @@
     ;; How many enemies attack at `tick`; zero when no attack is due. Sizes
     ;; grow more slowly than strength.
     (define (attack-size (tick I64)) (→ I64)
-      (cond ((heavy? tick) (+ 12 (min 14 (quotient (- tick boss-interval) boss-interval))))
-            ((raid? tick) (+ 11 (min 15 (quotient (- tick first-raid) raid-interval))))
-            ((regular? tick) (+ 8 (min 18 (quotient (- tick first-wave) (* 3 difficulty-step)))))
+      (cond ((heavy? tick) (+ 12 (min 14 (quotient (- tick (boss-interval)) (boss-interval)))))
+            ((raid? tick) (+ 11 (min 15 (quotient (- tick (first-raid)) (raid-interval)))))
+            ((regular? tick)
+             (+ 8 (min 18 (quotient (- tick (first-wave)) (* 3 (difficulty-step))))))
             (else 0)))
 
     (define (next-attack-tick (tick I64)) (→ I64)
       (let loop ((candidate
-                  (* (quotient wave-interval 2) (+ 1 (quotient tick (quotient wave-interval 2))))))
+                  (* (quotient (wave-interval) 2)
+                     (+ 1 (quotient tick (quotient (wave-interval) 2))))))
         (if (> (attack-size candidate) 0)
             candidate
-            (loop (+ candidate (quotient wave-interval 2))))))
+            (loop (+ candidate (quotient (wave-interval) 2))))))
 
     ;; Attacks numbered from one; raids take regular slots and bosses fall
     ;; between them.
     (define (attack-number (tick I64)) (→ I64)
       (+ 1
-         (+ (if (< tick first-wave) 0 (+ 1 (quotient (- tick first-wave) wave-interval)))
-            (quotient tick boss-interval))))
+         (+ (if (< tick (first-wave)) 0 (+ 1 (quotient (- tick (first-wave)) (wave-interval))))
+            (quotient tick (boss-interval)))))
 
     ;; ---- Strength ----
 
@@ -101,11 +103,11 @@
     ;; nest takes back two tiers, after capping, so even a late clear helps.
     (define (threat-tick (world World)) (→ I64)
       (max 0
-           (- (min (● world tick) (* 40 difficulty-step))
-              (* (* 2 difficulty-step) (- 3 (length (living-nests world)))))))
+           (- (min (● world tick) (* 40 (difficulty-step)))
+              (* (* 2 (difficulty-step)) (- 3 (length (living-nests world)))))))
 
     (define (difficulty-tier (tick I64)) (→ I64)
-      (min 40 (quotient tick difficulty-step)))
+      (min 40 (quotient tick (difficulty-step))))
 
     (define (rank-health (rank I64)) (→ I64)
       (case rank ((0) 65) ((1) 90) ((2) 125) ((3) 180) ((4) 300) ((5) 500) (else 1800)))
@@ -162,7 +164,7 @@
         (match (find (lambda (nest) (= (● nest front) (remainder (+ index shift) 3)))
                      (● world nests))
           ((Some nest)
-           (if (or (= (● nest health) 0) (>= (length (● world enemies)) maximum-enemies))
+           (if (or (= (● nest health) 0) (>= (length (● world enemies)) (maximum-enemies)))
                world
                (add-enemy world
                           nest
@@ -278,7 +280,7 @@
             (list goal))))
 
     (define (passable (world World) (burrower Bool)) (→ (Vector Bool))
-      (vector-generate (* map-size map-size)
+      (vector-generate (* (map-size) (map-size))
                        (lambda (index)
                          (let ((cell (index-cell index)))
                            (match (ground-at (● world land) cell)
@@ -351,7 +353,7 @@
     (define (crowding (world World)) (→ (Vector I64))
       (unsafe-total
        (lambda ()
-         (let ((counts (make-vector (* map-size map-size) 0)))
+         (let ((counts (make-vector (* (map-size) (map-size)) 0)))
            (for-each (lambda (e)
                        (vector-set! counts
                                     (cell-index (● e cell))
@@ -428,7 +430,7 @@
     (define (chip (world World) (cell Cell) (amount I64)) (→ World)
       (let ((remaining (- (match (find (lambda (d) (cell=? (● d cell) cell)) (● world digs))
                             ((Some d) (● d remaining))
-                            ((None) rock-health))
+                            ((None) (rock-health)))
                           amount))
             (others (filter (lambda (d) (not (cell=? (● d cell) cell))) (● world digs))))
         (if (<= remaining 0)

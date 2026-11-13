@@ -68,12 +68,12 @@ async function pageOutput(directory) {
 
 try {
   await write('src/assets/sprites.sld', `(define-library (assets sprites) (export hero villain) (import (snail core base) (snail shell resource))
-    (begin (define hero (→ Resource) (link-file "art/hero.bin")) (define villain (→ Resource) (link-file "art/villain.bin"))))`);
+    (begin (define (hero) (→ Resource) (link-file "art/hero.bin")) (define (villain) (→ Resource) (link-file "art/villain.bin"))))`);
   await write('src/assets/art/hero.bin', hero);
   await write('src/assets/art/villain.bin', villain);
   await write('main.sld', `(import (snail core base) (snail core io) (only (snail shell task) tasks) (snail shell resource) (assets sprites))
 (define (main) (→ Unit) (! output-port resource tasks)
-  (write-line (string-join (map (lambda (byte) (show (u8->i32 byte))) (vector->list (read-resource hero))) ",")))\n`);
+  (write-line (string-join (map (lambda (byte) (show (u8->i32 byte))) (vector->list (read-resource (hero)))) ",")))\n`);
   await write('public/index.html', '<!doctype html><title>Resources</title>');
   await write('project.datum', `((build-target cli (program (entry "main.sld") (library-roots ("src"))))
  (build-target page (browser (entry "main.sld") (library-roots ("src")) (public "public"))))`);
@@ -105,7 +105,7 @@ try {
     assert.equal((await run(join(output.directory, 'modules.json'))).stdout, '1,2,3,255\n');
     await write('src/assets/art/hero.bin', edited);
     const next = (await service.rebuilt()).published.targets.find(target => target.name === 'cli');
-    assert.equal(next.compiled, 2, 'the library that links the file, and its importer, compile again');
+    assert.equal(next.compiled, manifest.modules.length, 'a resource edit recompiles every module');
     assert.deepEqual(await shared(next.directory, edited), edited, 'the store holds the new bytes');
     assert.deepEqual(await shared(next.directory, hero), hero, 'and still the old');
     assert.equal((await run(join(next.directory, 'modules.json'))).stdout, '9,8\n');

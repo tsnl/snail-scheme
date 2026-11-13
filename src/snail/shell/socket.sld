@@ -77,13 +77,13 @@
     ;; claimed, and a UDP socket `datagram-queue` datagrams no receive has
     ;; taken; the host refuses what arrives beyond them.
 
-    (define read-limit (→ I32) 65536)
+    (define (read-limit) (→ I32) 65536)
 
-    (define datagram-limit (→ I32) 65507)
+    (define (datagram-limit) (→ I32) 65507)
 
-    (define accept-backlog (→ I32) 64)
+    (define (accept-backlog) (→ I32) 64)
 
-    (define datagram-queue (→ I32) 32)
+    (define (datagram-queue) (→ I32) 32)
 
     ;; ---- Public values ----
 
@@ -123,7 +123,7 @@
                              (host-start-listen ticket
                                                 (address-number endpoint)
                                                 (Endpoint-port endpoint)
-                                                accept-backlog))
+                                                (accept-backlog)))
                            listening)))
          (connect (lambda (endpoint)
                     (native (lambda (ticket)
@@ -135,7 +135,7 @@
                    (native (lambda (ticket) (host-start-accept ticket (listener-handle listener)))
                            connected)))
          (read (lambda (connection maximum)
-                 (if (and (>= maximum 1) (<= maximum read-limit))
+                 (if (and (>= maximum 1) (<= maximum (read-limit)))
                      (native (lambda (ticket)
                                (host-start-read ticket (connection-handle connection) maximum))
                              held-read)
@@ -169,12 +169,12 @@
                            (host-start-bind ticket
                                             (address-number endpoint)
                                             (Endpoint-port endpoint)
-                                            datagram-queue))
+                                            (datagram-queue)))
                          bound)))
          ;; Port 0 names no peer, though a socket may bind to it.
          (send (lambda (socket peer bytes)
                  (cond ((= (Endpoint-port peer) 0) (Err (SocketError "EINVAL")))
-                       ((> (vector-length bytes) (i32->i64 datagram-limit))
+                       ((> (vector-length bytes) (i32->i64 (datagram-limit)))
                         (Err (SocketError "EMSGSIZE")))
                        (else (native (lambda (ticket)
                                        (host-start-send ticket
@@ -184,7 +184,7 @@
                                                         bytes))
                                      count)))))
          (receive (lambda (socket maximum)
-                    (if (and (>= maximum 0) (<= maximum datagram-limit))
+                    (if (and (>= maximum 0) (<= maximum (datagram-limit)))
                         (match (native (lambda (ticket)
                                          (host-start-receive ticket (udp-handle socket) maximum))
                                        held-datagram)
