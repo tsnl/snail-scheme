@@ -11,8 +11,17 @@ The comparison is between baseline
 [`a1790f347`](https://github.com/tsnl/snail-scheme/commit/a1790f3474a70b14c14196c2c46544265b99e3c8)
 and migration
 [`ea158b23d`](https://github.com/tsnl/snail-scheme/commit/ea158b23d6074ff9058975fe4a671afaf7664822),
-measured on 2026-11-12. [Raw samples and compiler hashes](measurements/java-style-20261112.json)
+measured on 2026-11-12 UTC, with Siegework repeated on 2026-11-13 UTC.
+[Raw samples, compiler hashes and workload artifact hashes](measurements/java-style-20261112.json)
 record every observation.
+
+The orchestration script was first committed with this report in
+[`b9c7ace25`](https://github.com/tsnl/snail-scheme/commit/b9c7ace250e779cf8742438e6ca4182d2125871c).
+Its compiler and workload sources are those from the measured implementation
+revision above. The final harness is
+[`bb1568398`](https://github.com/tsnl/snail-scheme/commit/bb1568398d0057387cb8d419314b2d1591235cc3),
+which balances the simulation warm-ups. Use those benchmark scripts when
+reproducing the experiment, rather than looking for the driver at `ea158b23d`.
 
 ## Runtime
 
@@ -29,12 +38,16 @@ medians from 21 alternating baseline/current repetitions, or 11 for Siegework.
 | Nested record updates, 5 million | 16.398 ms | 16.131 ms | 0.98× |
 | Build and fold a retained list of 300,000 records | 1.673 ms | 2.412 ms | 1.44× |
 | Allocate, fill and sum 2 million array elements | 2.409 ms | 2.065 ms | 0.86× |
-| Siegework, 32 deterministic colonies | 490.549 ms | 475.207 ms | 0.97× |
+| Siegework, 32 deterministic colonies | 491.016 ms | 476.997 ms | 0.97× |
 
 The array samples overlap: baseline 1.919–2.519 ms and migration
 1.982–2.646 ms. Treat that result as near parity rather than a reliable
-14% improvement. Record updates also overlap. The record-list regression is
-the clearest remaining allocation cost in these workloads.
+14% improvement. Record updates also overlap. The record-list workload has
+the largest measured regression among these value workloads.
+
+Siegework uses the same compiled artifacts in its repeated measurement, with
+checksum discovery included in the baseline's three warm-ups. The raw data
+retains the superseded samples, which had one extra baseline warm-up, separately.
 
 The microbenchmarks use identical source and verify checksums on every call.
 Siegework runs the corresponding revision's simulation libraries with identical
@@ -65,6 +78,10 @@ an entry. Each round builds cold, builds unchanged, then edits a helper body.
 The provider variant also declares a class instance. Medians below use 40
 rounds after ten warm-up rounds; file edits and printing are outside each
 measurement.
+
+Each variant runs its 50 rounds in one Node/Wasm process, creating a fresh
+compiler session each round. All baseline rounds precede all migration rounds;
+these measurements are not interleaved, so small differences may include drift.
 
 | Session operation | Baseline | Migration |
 | --- | ---: | ---: |
@@ -121,11 +138,15 @@ fixtures, tooling and the book. Most changed files are test migrations.
 These counts precede this report and its raw-data artifact. README work and
 effect-name capitalization remain separate roadmap items.
 
-Build the current compiler and native linker normally. Supply an existing
+In the repository's `nix-shell`, prepare the current compiler, native linker
+and scalar runtime by building the small benchmark once. Supply an existing
 self-hosted baseline compiler built at the baseline revision, then run on a
 quiet machine:
 
 ```sh
+make fetch
+./scripts/snail-tool compile -o build/benchmark-prerequisite.wasm \
+  tests/benchmarks/value-model.sld
 BENCH_CPU=2 node scripts/benchmark-migration.mjs \
   /path/to/baseline /path/to/baseline/compiler.wasm \
   build/compiler/snailc.wasm

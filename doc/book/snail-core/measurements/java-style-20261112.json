@@ -936,121 +936,124 @@
         "bytes": 387537
       }
     ],
-    "baseline_ms": 490.54921699999977,
-    "current_ms": 475.2072499999995,
-    "ratio": 0.9687249179729089,
+    "baseline_ms": 491.0155020000002,
+    "current_ms": 476.9966180000001,
+    "ratio": 0.9714492028400357,
     "samples": [
       {
         "variant": "baseline",
         "repeat": 0,
-        "milliseconds": 493.561111
+        "milliseconds": 494.11704999999984
       },
       {
         "variant": "current",
         "repeat": 0,
-        "milliseconds": 479.72673099999975
+        "milliseconds": 479.02062500000056
       },
       {
         "variant": "current",
         "repeat": 1,
-        "milliseconds": 478.1491839999999
+        "milliseconds": 478.7395969999998
       },
       {
         "variant": "baseline",
         "repeat": 1,
-        "milliseconds": 493.4356029999999
+        "milliseconds": 494.70170400000006
       },
       {
         "variant": "baseline",
         "repeat": 2,
-        "milliseconds": 492.3134829999999
+        "milliseconds": 491.06986400000005
       },
       {
         "variant": "current",
         "repeat": 2,
-        "milliseconds": 477.69364099999984
+        "milliseconds": 476.9966180000001
       },
       {
         "variant": "current",
         "repeat": 3,
-        "milliseconds": 474.16412200000013
+        "milliseconds": 475.243058
       },
       {
         "variant": "baseline",
         "repeat": 3,
-        "milliseconds": 494.1799380000002
+        "milliseconds": 490.47803099999965
       },
       {
         "variant": "baseline",
         "repeat": 4,
-        "milliseconds": 489.0366180000001
+        "milliseconds": 493.16083400000025
       },
       {
         "variant": "current",
         "repeat": 4,
-        "milliseconds": 474.42963299999974
+        "milliseconds": 477.9928799999998
       },
       {
         "variant": "current",
         "repeat": 5,
-        "milliseconds": 474.68457800000033
+        "milliseconds": 475.33630900000026
       },
       {
         "variant": "baseline",
         "repeat": 5,
-        "milliseconds": 489.59784000000036
+        "milliseconds": 490.3899970000002
       },
       {
         "variant": "baseline",
         "repeat": 6,
-        "milliseconds": 489.23607399999855
+        "milliseconds": 489.8567129999992
       },
       {
         "variant": "current",
         "repeat": 6,
-        "milliseconds": 476.4711120000011
+        "milliseconds": 477.1854579999999
       },
       {
         "variant": "current",
         "repeat": 7,
-        "milliseconds": 474.5204220000014
+        "milliseconds": 474.8252369999991
       },
       {
         "variant": "baseline",
         "repeat": 7,
-        "milliseconds": 490.49703899999986
+        "milliseconds": 490.083168000001
       },
       {
         "variant": "baseline",
         "repeat": 8,
-        "milliseconds": 490.54921699999977
+        "milliseconds": 491.78927399999884
       },
       {
         "variant": "current",
         "repeat": 8,
-        "milliseconds": 479.39108699999997
+        "milliseconds": 477.6748550000011
       },
       {
         "variant": "current",
         "repeat": 9,
-        "milliseconds": 473.80871599999955
+        "milliseconds": 475.67320800000016
       },
       {
         "variant": "baseline",
         "repeat": 9,
-        "milliseconds": 489.57454900000084
+        "milliseconds": 491.0155020000002
       },
       {
         "variant": "baseline",
         "repeat": 10,
-        "milliseconds": 490.8786349999991
+        "milliseconds": 489.57662700000037
       },
       {
         "variant": "current",
         "repeat": 10,
-        "milliseconds": 475.2072499999995
+        "milliseconds": 476.38400100000035
       }
-    ]
+    ],
+    "measured_at": "2026-11-13T00:20:11.685172+00:00",
+    "harness_commit": "bb1568398d0057387cb8d419314b2d1591235cc3",
+    "warmup_calls_per_variant": 3
   },
   "memory": [
     {
@@ -5166,6 +5169,170 @@
       "system_s": 0.02,
       "peak_rss_kib": 103780,
       "wat_bytes": 23628
+    }
+  ],
+  "initial_harness_commit": "b9c7ace250e779cf8742438e6ca4182d2125871c",
+  "superseded_siege": {
+    "reason": "Baseline checksum discovery added one extra baseline warmup; replaced by the balanced-warmup measurement.",
+    "node": "v26.8.1",
+    "colonies": "32",
+    "checksum": "26600000000",
+    "modules": [
+      {
+        "name": "baseline",
+        "bytes": 407742
+      },
+      {
+        "name": "current",
+        "bytes": 387537
+      }
+    ],
+    "baseline_ms": 490.54921699999977,
+    "current_ms": 475.2072499999995,
+    "ratio": 0.9687249179729089,
+    "samples": [
+      {
+        "variant": "baseline",
+        "repeat": 0,
+        "milliseconds": 493.561111
+      },
+      {
+        "variant": "current",
+        "repeat": 0,
+        "milliseconds": 479.72673099999975
+      },
+      {
+        "variant": "current",
+        "repeat": 1,
+        "milliseconds": 478.1491839999999
+      },
+      {
+        "variant": "baseline",
+        "repeat": 1,
+        "milliseconds": 493.4356029999999
+      },
+      {
+        "variant": "baseline",
+        "repeat": 2,
+        "milliseconds": 492.3134829999999
+      },
+      {
+        "variant": "current",
+        "repeat": 2,
+        "milliseconds": 477.69364099999984
+      },
+      {
+        "variant": "current",
+        "repeat": 3,
+        "milliseconds": 474.16412200000013
+      },
+      {
+        "variant": "baseline",
+        "repeat": 3,
+        "milliseconds": 494.1799380000002
+      },
+      {
+        "variant": "baseline",
+        "repeat": 4,
+        "milliseconds": 489.0366180000001
+      },
+      {
+        "variant": "current",
+        "repeat": 4,
+        "milliseconds": 474.42963299999974
+      },
+      {
+        "variant": "current",
+        "repeat": 5,
+        "milliseconds": 474.68457800000033
+      },
+      {
+        "variant": "baseline",
+        "repeat": 5,
+        "milliseconds": 489.59784000000036
+      },
+      {
+        "variant": "baseline",
+        "repeat": 6,
+        "milliseconds": 489.23607399999855
+      },
+      {
+        "variant": "current",
+        "repeat": 6,
+        "milliseconds": 476.4711120000011
+      },
+      {
+        "variant": "current",
+        "repeat": 7,
+        "milliseconds": 474.5204220000014
+      },
+      {
+        "variant": "baseline",
+        "repeat": 7,
+        "milliseconds": 490.49703899999986
+      },
+      {
+        "variant": "baseline",
+        "repeat": 8,
+        "milliseconds": 490.54921699999977
+      },
+      {
+        "variant": "current",
+        "repeat": 8,
+        "milliseconds": 479.39108699999997
+      },
+      {
+        "variant": "current",
+        "repeat": 9,
+        "milliseconds": 473.80871599999955
+      },
+      {
+        "variant": "baseline",
+        "repeat": 9,
+        "milliseconds": 489.57454900000084
+      },
+      {
+        "variant": "baseline",
+        "repeat": 10,
+        "milliseconds": 490.8786349999991
+      },
+      {
+        "variant": "current",
+        "repeat": 10,
+        "milliseconds": 475.2072499999995
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "name": "baseline-session.wasm",
+      "bytes": 2869024,
+      "sha256": "013149240ebf087b4d93b818a006801bf861ee20b1c93efa41f31e3dc578c96e"
+    },
+    {
+      "name": "baseline-siege.wasm",
+      "bytes": 407742,
+      "sha256": "e37a568867c59876ceac480a636ff08fc010307b043e6e4387b01b1bb69ff65b"
+    },
+    {
+      "name": "baseline-values.wasm",
+      "bytes": 190451,
+      "sha256": "39adddc0d5a17e5a5e0d7ecbac0cef1b02c2f8003b417855c65a6482a9bb054e"
+    },
+    {
+      "name": "current-session.wasm",
+      "bytes": 3252682,
+      "sha256": "6b5755de5f976d279b319dcf7a789c96d28f380772cf558cf48c0afd8da60a16"
+    },
+    {
+      "name": "current-siege.wasm",
+      "bytes": 387537,
+      "sha256": "6bdde24efaa8f3e44ee35f78b7cbf8d435c463131360f51da977c6b002397eb6"
+    },
+    {
+      "name": "current-values.wasm",
+      "bytes": 182991,
+      "sha256": "2ce274c1a58373bd3b53b7078ecde8509c9762658e0c1b8dfc87d26bff633022"
     }
   ]
 }
