@@ -1,7 +1,7 @@
 ;; Concrete definitions built from checked source. One registry reserves
 ;; source functions, imports and generated cleanup before visiting their
-;; bodies. Each body is instantiated once and retained for preparation's
-;; contextual checks; emission receives only fixed declaration metadata.
+;; bodies. Each body is instantiated once; source bodies are retained for
+;; preparation's contextual checks. Emission receives fixed declaration metadata.
 (define-library (snail shell compiler specialize)
   (export
    Specialization
@@ -15,7 +15,7 @@
    specialization-definitions
    start-specialization
    complete-specializations
-   request-drops
+   request-drop
    control-effects)
   (import
    (snail core base)
@@ -91,9 +91,8 @@
        ((subject Type)
         (loc Loc)))
       (SourceBody
-       ((origin String)
-        (value Expr)))
-      (GlueBody ((value Expr)))
+       ((value Expr)))
+      (GlueBody)
       (Imported))
 
     (define (Definition-external? (binding Definition)) (→ Bool)
@@ -222,8 +221,8 @@
     (define (complete-definition (state State) (name String) (definition Definition) (value Expr))
       (→ State)
       (let ((body (match (● definition body)
-                    ((SourceRecipe origin _ _) (SourceBody origin value))
-                    (_ (GlueBody value)))))
+                    ((SourceRecipe _ _ _) (SourceBody value))
+                    (_ (GlueBody)))))
         (State-bindings-set state
                             (table-set (● state bindings) name
                                        (Definition-body-set definition body)))))
@@ -263,8 +262,8 @@
     (define (specialization-definitions (state State)) (→ (Table Expr))
       (fold-left (lambda (bodies name)
                    (match (● (binding-of state name) body)
-                     ((SourceBody _ value) (table-set bodies name value))
-                     ((GlueBody value) bodies)
+                     ((SourceBody value) (table-set bodies name value))
+                     ((GlueBody) bodies)
                      ((Imported) bodies)
                      (_ (panic "internal error: analysis requires completed definitions"))))
                  empty-table (table-keys (● state bindings))))
@@ -345,18 +344,14 @@
           (term (specializing state ((copied (copy-term inst term)))
                               (Pair (Expr copied type loc) state))))))
 
-    (define (local-value (name String) (type Type) (loc Loc)) (→ Expr)
-      (Expr (Var name (Nil) (Nil)) type loc))
-
     ;; A counted owner keeps the finalizer selected for its concrete
     ;; payload. Requesting it here uses the same registry as explicit drop.
     (define (counted-construction (state State) (callee Expr) (args (List Expr)))
       (→ (Pair Term State))
       (match (Pair (● callee term) args)
         ((Pair (Var "prim:rc" _ _) (Cons value (Nil)))
-         (specializing state ((drop (drop-entry (● value type) (● value loc))))
-                       (let* ((finalizer (● drop second))
-                              (type (TFun (list (● value type) (● finalizer type))
+         (specializing state ((finalizer (request-drop (● value type) (● value loc))))
+                       (let* ((type (TFun (list (● value type) (● finalizer type))
                                           (TCon "Rc" (list (● value type))) empty-row))
                               (constructor
                                (Expr (Var "prim:rc-new" (Nil) (Nil)) type (● callee loc))))
@@ -955,32 +950,14 @@
     ;; Frame cleanup asks for ordinary definitions or derived glue. Those
     ;; requests join the very same queue as calls discovered in a body.
 
-    (define (request-drops (state State) (types (List Type)) (loc Loc))
-      (→ (Pair (Table Expr) State))
-      (specializing state ((drops (each (lambda (state type) (drop-entry state type loc)) types)))
-                    (Pair (fold-left (lambda (table entry)
-                                       (table-set table (● entry first) (● entry second)))
-                                     empty-table drops)
-                          state)))
-
-    (define (drop-entry (state State) (type Type) (loc Loc)) (→ (Pair (Pair String Expr) State))
-      (specializing state ((drop (lifecycle-reference drop-class
-                                                      (drop-method state)
-                                                      type
-                                                      (None)
-                                                      (TFun (list type) unit-type empty-row)
-                                                      loc)))
-                    (Pair (Pair (type-key type) drop) state)))
+    (define (request-drop (state State) (type Type) (loc Loc)) (→ (Pair Expr State))
+      (lifecycle-reference state drop-class (drop-method state) type (None)
+                           (TFun (list type) unit-type empty-row) loc))
 
     (define (drop-method (state State)) (→ String)
       (match (● (program-class (specialization-program state) drop-class) methods)
         ((Cons method _) method)
         ((Nil) (panic "internal error: Drop has a method"))))
-
-    (define (alias-expr? (expr Expr)) (→ Bool)
-      (match (● expr term)
-        ((Var _ _ _) #t)
-        (_ #f)))
 
     )
 

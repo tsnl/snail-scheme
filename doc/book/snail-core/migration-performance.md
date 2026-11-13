@@ -271,3 +271,84 @@ independent confirmation, run `scripts/benchmark-siege.mjs` and the driver's
 `--reads` mode under `taskset -c 2 node --no-warnings --expose-gc`, passing the
 current artifact before the baseline artifact. The raw file retains that
 argument order explicitly. No Chibi tests or bootstrap were used.
+
+## Backend simplification follow-up
+
+This follow-up compares merged #755 (`80c165d4f`, whose tree matches measured
+head `12b27ec47`) with `c32d352f1`. The [raw samples and artifact hashes](measurements/compiler-simplification-20261112.json)
+include the reversed-order confirmation. It preserves the language semantics and
+removes two backend mechanisms: fabricated heap results during control
+unwinding, and the preliminary traversal/type table used to prepare cancellation
+cleanup. It also discards unused specialization metadata and private helpers.
+The [compiler tour](compilers.md#wasmgc-emission) describes the nullable internal
+reference convention and its source-value and host-boundary invariants.
+
+| Footprint | #755 | Simplified backend | Change |
+| --- | ---: | ---: | ---: |
+| Compiler source, including comments and embedded tests | 23,474 lines | 23,307 lines | −167 |
+| Compiler source bytes | 1,178,867 | 1,168,415 | −10,452 |
+| Compiler Wasm | 2,899,936 bytes | 2,860,948 bytes | −1.34% |
+| Wasm code-section payload | 901,943 bytes | 891,179 bytes | −1.19% |
+
+The implementation changes ten files, **+623/−703 lines**, including the book
+and regression tests but excluding this report and its raw measurements.
+Relative to the pre-migration compiler at `a1790f347`, source remains **420 lines
+larger** (23,307 versus 22,887, about 1.8%). The cleanup reduces actual mechanisms
+and stored state; it does not make the whole ownership/effects compiler smaller
+than that earlier baseline. The exhaustive expression traversal remains together
+so evaluation and cleanup order can be read in one place.
+
+Measurements use the unchanged `scripts/benchmark-lazy-values.mjs` driver,
+Node 26.8.1/V8 14.6 on the same Intel Core Ultra 7 270K Plus, pinned to CPU 2.
+Runtime samples exclude instantiation and warm-up. Each case has 21 alternating
+pairs, except the Siegework driver's eleven pairs. Separate processes reverse
+module creation order for confirmation. All checksums pass. The workloads and
+source language are unchanged between these two revisions.
+
+| Runtime workload | #755 median | Simplified median |
+| --- | ---: | ---: |
+| Arithmetic, 20 million iterations | 13.931 ms | 14.000 ms |
+| Record updates, 5 million iterations | 16.503 ms | 16.531 ms |
+| Record list, 300,000 elements | 2.343 ms | 2.338 ms |
+| Pre-sized vector, 2 million elements | 2.686 ms | 2.754 ms |
+| Vector growth, 1 million elements | 6.114 ms | 6.255 ms |
+| Siegework, 32 colonies | 351.416 ms | 354.572 ms |
+| Scalar global reads, 20 million | 11.428 ms | 11.428 ms |
+| Shared aggregate reads, 100,000 | 0.132 ms | 0.134 ms |
+| First force, 20,000-element sum | 68.832 µs | 68.803 µs |
+
+Pre-sized-vector medians are **2.5% higher**, and **5.1% higher** in the reversed
+confirmation. Siegework medians are **0.9% and 1.3% higher**. Sample ranges overlap,
+and other small workloads vary with instance order; these observations establish
+neither a broad runtime speedup nor a definitive regression. Unlike the previous follow-up's identical-binary control, the current
+artifacts differ: the value workload is 184,415/184,414 bytes, Siegework
+394,611/394,508 bytes, and the lazy fixture 185,949/185,944 bytes (before/after).
+
+Nine alternating cold compilation pairs still place the small fixtures at
+170–180 ms, with roughly 101 MiB peak process RSS. GNU time's elapsed resolution
+is 10 ms; this is insufficient evidence of a small compilation-speed change.
+Runtime heap usage remains unmeasured.
+
+A larger compilation uses the same current compiler sources as input to both
+compiler binaries: `bootstrap/compile.sld` and the current `src/` libraries.
+Three alternating pinned pairs measure complete fresh-process compilation to
+WAT, excluding linking. Median time is **25.94 → 26.31 seconds** (+1.4%); ranges
+are 25.91–26.35 and 26.23–26.60 seconds. Median peak process RSS is
+**673,708 → 670,848 KiB**. Each variant reproduces its own WAT hash on all three
+runs. Removing a traversal has not established a compiler-throughput win in
+this measurement.
+
+To reproduce, build #755 and `c32d352f1` with Chez and use the same command from
+the latter checkout:
+
+```sh
+BENCH_CPU=2 node --no-warnings scripts/benchmark-lazy-values.mjs \
+  BASE_ROOT BASE_ROOT/build/compiler/snailc.wasm build/compiler/snailc.wasm \
+  build/migration/compiler-simplification
+```
+
+The separate confirmation uses the same three runtime drivers, pinned to CPU 2,
+with current artifacts before baseline artifacts; its positional label mapping
+is explicit in the raw file. For the larger compile, run each binary three
+times in alternating order with the raw file's `compiler_source.command`, using
+the current checkout for both inputs. No Chibi tests or bootstrap were used.
