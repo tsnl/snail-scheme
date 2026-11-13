@@ -5,10 +5,12 @@
   (import
    (chezscheme)
    (only (snail core base) vector-generate Some None))
+  (define loaded-libc (load-shared-object #f))
   (define isatty (foreign-procedure "isatty" (int) int))
   (define (error-terminal?) (= (isatty 2) 1))
   (define (environment-variable name)
-    (let ((value (getenv name))) (if value (Some value) (None))))
+    (let ((value (and (not (string=? name "SNAIL_CWD")) (getenv name))))
+      (if value (Some value) (None))))
   (define (write-error text)
     (put-string (current-error-port) text)
     (flush-output-port (current-error-port)))
