@@ -43,6 +43,8 @@ function compile(variant, fixture, source, directories = []) {
 
 const report = {date: new Date().toISOString(), node: process.version, v8: process.versions.v8,
   platform: process.platform, arch: process.arch, cpu: cpus()[Number(cpu)]?.model, affinity: cpu,
+  harness: {commit: run('git', ['rev-parse', 'HEAD']).trim(),
+    sha256: hash(fileURLToPath(import.meta.url))},
   variants: variants.map(v => ({name: v.name, commit: run('git', ['rev-parse', 'HEAD'], v.root).trim(),
     compiler_sha256: hash(v.compiler), compiler_bytes: statSync(v.compiler).size})),
   scalar_runtime_sha256: hash(join(root, 'build/wasm-snail-core-support/wasm32-wasip1/release/snail_core_support.wasm'))};
@@ -66,6 +68,10 @@ for (const variant of variants) {
     writeFileSync(session, readFileSync(join(root, 'tests/benchmarks/session.sld'), 'utf8') + '\n(main)\n');
   }
   variant.session = compile(variant, 'session', session);
+  report.variants.find(entry => entry.name === variant.name).artifacts =
+    Object.fromEntries(['values', 'siege', 'session'].map(name => [name,
+      {sha256: hash(variant[name]), bytes: statSync(variant[name]).size}]));
+  report.variants.find(entry => entry.name === variant.name).value_source_sha256 = hash(variant.valueSource);
   run('node', [join(root, 'tests/benchmarks/session-fixtures.mjs'), output, variant.name]);
 }
 
