@@ -32,7 +32,8 @@
    absolute
    read-file
    copy-file!
-   report-failure)
+   report-failure
+   compiler-error-format)
   (import
    (except (chezscheme) list->vector make-vector vector-set!)
    (snail stage0 system)
@@ -46,8 +47,15 @@
          GenerateInput
          ArtifactInput)
    (snail shell compiler inputs)
+   (only (snail shell diagnostic) TextErrors JsonErrors message->output)
+   (only (snail shell log) log-color?)
    (only (snail shell compiler sha256) sha256 bytes->hex))
   (begin
+
+    (define compiler-error-format (make-parameter "text"))
+    (define-condition-type &compiler-output &condition
+      make-compiler-output compiler-output?
+      (text compiler-output-text))
 
     ;; ---- Running programs ----
 
@@ -192,7 +200,10 @@
         (let loop ()
           (when (file-link-status request) (delete-file request))
           (let ((result (capture-process
-                         (append command (list mode source output generated) directories))))
+                         (append command
+                                 (if (string=? (compiler-error-format) "json")
+                                     '("--error-format=json") '())
+                                 (list mode source output generated) directories))))
             (cond ((zero? (caddr result))
                    (when (file-link-status request)
                      (error 'snail "compiler succeeded with a pending input request"))
@@ -203,7 +214,9 @@
                                    generated
                                    (published-request request))
                    (loop))
-                  (else (error 'snail (diagnostic (cadr result)))))))))
+                  (else (raise (condition (make-compiler-output (cadr result))
+                                          (make-message-condition
+                                           (diagnostic (cadr result)))))))))))
 
     ;; The request a compile published, read by the compiler's own grammar;
     ;; a malformed one is an error with its diagnostic.
@@ -224,14 +237,13 @@
                                       ": artifact-bundle requires a project build resolver: "
                                       name)))))
 
-    ;; The compiler's message without the host's prefix.
+    ;; The condition's message omits trailing newlines; the output condition
+    ;; carries the original bytes separately for the command-line boundary.
     (define (diagnostic text)
-      (let* ((cursor (string-contains text "snail: "))
-             (start (if cursor (+ cursor 6) 0)))
-        (let loop ((end (string-length text)))
-          (if (and (> end start) (char=? (string-ref text (- end 1)) #\newline))
-              (loop (- end 1))
-              (substring text start end)))))
+      (let loop ((end (string-length text)))
+        (if (and (> end 0) (char=? (string-ref text (- end 1)) #\newline))
+            (loop (- end 1))
+            (substring text 0 end))))
 
     ;; ---- Generated libraries ----
 
@@ -339,7 +351,8 @@
                                 "bootstrap/compile.sld"
                                 "src/snail/shell/compiler.sld"
                                 "src/snail/shell/compiler"
-                                "src/snail/shell/console.sld"
+                                "src/snail/shell/log.sld"
+                                "src/snail/shell/json.sld"
                                 "src/snail/shell/diagnostic.sld"
                                 "src/snail/core/base.sld"
                                 "src/snail/core/table.sld"
@@ -737,17 +750,19 @@
 
     ;; ---- Failures ----
 
-    ;; Prints a failure as one diagnostic after the command's name, without
-    ;; Chez's trace, and returns the status the command exits with.
-    (define (report-failure command failure)
+    ;; Compiler output is already rendered. Other contributor-tool failures
+    ;; use the same format, without Chez's trace or a wrapper around JSON.
+    (define (report-failure failure)
       (let ((port (current-error-port)))
-        (display command port)
-        (display ": " port)
-        (display (failure-message failure) port)
-        (newline port)
+        (if (compiler-output? failure)
+            (display (compiler-output-text failure) port)
+            (begin
+              (display (message->output (if (string=? (compiler-error-format) "json")
+                                            (JsonErrors) (TextErrors))
+                                        (error-text failure)
+                                        (log-color?)) port)
+              (newline port)))
         1))
-
-    (define (failure-message failure) (error-text failure))
 
     )
 
@@ -779,7 +794,7 @@
                                        bytes))))))
 
       (define (request-failure thunk)
-        (guard (failure (#t (failure-message failure))) (thunk) "accepted"))
+        (guard (failure (#t (error-text failure))) (thunk) "accepted"))
 
       (define (test-request root scenario prepare)
         (with-private-directory root
