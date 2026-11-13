@@ -77,8 +77,9 @@ sorting before order affects a result; storage iteration order is not an input
 to application behavior. A durable document referring to a paragraph must
 check existence and enforce deletion policy in the same write transaction.
 
-Rows are a deliberately limited data subset: scalars, text, immutable vectors,
-structs and enums composed of supported data. No procedures, mutable references,
+Rows are a deliberately limited data subset: scalars, text, vectors, structs and
+enums composed of supported data. Storage reads and writes must take independent
+snapshots rather than expose shared mutable state. No procedures, resource owners,
 opaque managed values or platform handles. Durable keys/rows additionally need
 codecs. `Serialize` serves its existing purpose; it alone is not a
 certificate for this complete storage contract. This does not add

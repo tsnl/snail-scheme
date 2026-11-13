@@ -345,7 +345,7 @@
            (("Any") (Reference (any-type m)))
            (("Rc" "WeakRc") (Reference (rc-type m (first-type args))))
            (("Funcref") (Scalar "funcref"))
-           (("Array" "Vector") (Reference (sequence-type m (first-type args))))
+           (("Vector") (Reference (sequence-type m (first-type args))))
            (("FnOnce") (rep m (first-type args)))
            (("fn")
             (let ((signature (function-signature m type)))
@@ -391,7 +391,7 @@
                            (wasm-id key)
                            (wat "type"
                                 (id (wasm-id key))
-                                (wat "array" (wat "mut" (rep->wat element)))))))))
+                                (wat "array" (wat "mut" (nullable element)))))))))
 
     ;; A closure is a struct whose first field is its code. Each lambda with
     ;; captured variables extends the base struct with their fields.
@@ -750,7 +750,7 @@
     ;; A byte literal is a passive data segment, one byte per byte, so large
     ;; data such as images costs no more than its size. `array.new_data` is
     ;; not a constant instruction, so each evaluation copies the segment into
-    ;; a fresh array; a top-level definition evaluates once.
+    ;; a fresh mutable vector on every evaluation.
 
     (define (bytes-literal (m Module) (bytes Bytes)) (→ Wat) (! mut)
       (let ((text (bytes-wat-string bytes)))
@@ -758,11 +758,12 @@
                   (lambda ()
                     (let ((segment (keyed-id "bytes" text)))
                       (push! (● m data) (wat "data" (id segment) (Word text)))
-                      (wat "array.new_data"
-                           (id (array-type m (Scalar "i8")))
-                           (id segment)
-                           (wat "i32.const" (int 0))
-                           (wat "i32.const" (int (vector-length bytes)))))))))
+                      (sequence-owned m (TCon "Vector" (list (TCon "U8" (Nil))))
+                                      (wat "array.new_data"
+                                           (id (array-type m (Scalar "i8")))
+                                           (id segment)
+                                           (wat "i32.const" (int 0))
+                                           (wat "i32.const" (int (vector-length bytes))))))))))
 
     ;; Every byte is a two-digit escape, so the text is three characters per
     ;; byte, generated in one pass: images make literals of millions of
@@ -1693,13 +1694,13 @@
 
 
 
-    (define (constant-array-shell (m Module) (type Type) (size Wat)) (→ Wat) (! mut)
+    (define (constant-vector-shell (m Module) (type Type) (size Wat)) (→ Wat) (! mut)
       (sequence-owned m type
                       (wat "array.new" (id (sequence-raw-type m type))
                            (placeholder m (sequence-element type) (Loc "constant" 0 0))
                            (index size))))
 
-    (define (constant-array-fill (m Module) (type Type) (values (List Wat)))
+    (define (constant-vector-fill (m Module) (type Type) (values (List Wat)))
       (→ (List Wat)) (! mut)
       (let ((array (sequence-raw-type m type)) (data (sequence-data m type (list-ref values 0))))
         (append (map-indexed (lambda (position value)
@@ -1712,11 +1713,13 @@
                 (list (wat "i32.const" (int 0))))))
 
 
-    ;; ---- Counted arrays ----
+    ;; ---- Vectors ----
 
-    ;; Primitive arrays stay bare GC arrays. An array of shared owners adds
-    ;; one header, owning each occupied slot once. Aliases count that header;
-    ;; element replacement never changes the obligations of those aliases.
+    ;; Every vector has stable identity, a logical length and replaceable
+    ;; backing storage. Only the live prefix owns elements. Spare reference
+    ;; slots are null; pop clears its slot and growth transfers ownership.
+    ;; Counted elements add the ordinary owner header to the vector itself.
+    ;; Strings remain raw arrays and conversions copy their character data.
     (define (sequence-element (type Type)) (→ Type)
       (match type
         ((TCon "String" _) (TCon "Char" (Nil)))
@@ -1726,44 +1729,80 @@
     (define (sequence-raw-type (m Module) (type Type)) (→ String) (! mut)
       (array-type m (element-rep m (sequence-element type))))
 
+    (define (vector-offset (m Module) (element Type)) (→ I64)
+      (if (shared-type? (program-of m) element) 2 0))
+
     (define (sequence-type (m Module) (element Type)) (→ String) (! mut)
-      (if (not (shared-type? (program-of m) element)) (array-type m (element-rep m element))
-          (let ((key (string-append "sequence." (type-key element))))
-            (match (known-type m key)
-              ((Some type) type)
-              ((None)
-               (let ((name (wasm-id key)))
-                 (owner-type m)
-                 (put! (● m type-ids) key name)
-                 (put! (● m type-ids) (string-append "counted:" name) name)
-                 (register-type! m key name
-                                 (wat "type" (id name) (wat "sub" (Word "final") (id (owner-type m))
-                                                            (wat* "struct" (append (owner-fields)
-                                                                                   (list
-                                                                                    (wat "field"
-                                                                                         (wat "ref"
-                                                                                              (id
-                                                                                               (array-type
-                                                                                                m
-                                                                                                (element-rep
-                                                                                                 m
-                                                                                                 element)))))))))))))))))
+      (let ((key (string-append "vector." (type-key element))))
+        (match (known-type m key)
+          ((Some type) type)
+          ((None)
+           (let* ((name (wasm-id key)) (counted? (= (vector-offset m element) 2)))
+             (put! (● m type-ids) key name)
+             (when counted?
+               (owner-type m)
+               (put! (● m type-ids) (string-append "counted:" name) name))
+             (let ((body (wat* "struct"
+                               (append (if counted? (owner-fields) (Nil))
+                                       (list (wat "field" (wat "mut" (Word "i32")))
+                                             (wat "field" (wat "mut" (wat "ref"
+                                                                          (id (array-type m
+                                                                                          (element-rep
+                                                                                           m
+                                                                                           element)))))))))))
+               (register-type! m key name
+                               (wat "type" (id name)
+                                    (if counted? (wat "sub" (Word "final") (id (owner-type m)) body)
+                                        body)))))))))
+
+    (define (vector-field (m Module) (element Type) (field I64) (value Wat)) (→ Wat) (! mut)
+      (wat "struct.get"
+           (id (sequence-type m element))
+           (int (+ (vector-offset m element) field))
+           value))
 
     (define (sequence-data (m Module) (type Type) (value Wat)) (→ Wat) (! mut)
-      (if (shared-type? (program-of m) (sequence-element type))
-          (wat "struct.get" (id (sequence-type m (sequence-element type))) (int 2) value) value))
+      (if (string=? (type-key type) "String") value
+          (vector-field m (sequence-element type) 1 value)))
+
+    (define (sequence-length (m Module) (type Type) (value Wat)) (→ Wat) (! mut)
+      (if (string=? (type-key type) "String") (wat "array.len" value)
+          (vector-field m (sequence-element type) 0 value)))
+
+    (define (vector-header (m Module) (element Type) (placeholder? Bool)) (→ (List Wat)) (! mut)
+      (if (= (vector-offset m element) 0) (Nil)
+          (list (wat "i64.const" (int (if placeholder? -1 1)))
+                (code-of m (if placeholder? (owner-noop m) (sequence-destructor m element))))))
 
     (define (sequence-owned (m Module) (type Type) (data Wat)) (→ Wat) (! mut)
-      (let ((element (sequence-element type)))
-        (if (shared-type? (program-of m) element)
-            (wat "struct.new" (id (sequence-type m element))
-                 (wat "i64.const" (int 1)) (code-of m (sequence-destructor m element)) data) data)))
+      (if (string=? (type-key type) "String") data
+          (wat "call" (id (vector-wrap-helper m (sequence-element type))) data)))
+
+    (define (vector-wrap-helper (m Module) (element Type)) (→ String) (! mut)
+      (let ((holder (sequence-type m element)) (array (array-type m (element-rep m element))))
+        (helper! m "vector-wrap" (type-key element)
+                 (lambda (name)
+                   (wat "func" (id name) (wat "param" (Word "$data") (wat "ref" (id array)))
+                        (wat "result" (wat "ref" (id holder)))
+                        (wat* "struct.new" (Cons (id holder)
+                                                 (append (vector-header m element #f)
+                                                         (list (wat "array.len"
+                                                                    (wat "local.get"
+                                                                         (Word "$data")))
+                                                               (wat "local.get"
+                                                                    (Word "$data")))))))))))
 
     (define (sequence-copied (m Module) (type Type) (data Wat)) (→ Wat) (! mut)
       (let ((element (sequence-element type)))
         (sequence-owned m type
                         (if (shared-type? (program-of m) element)
                             (wat "call" (id (array-retain-helper m element)) data) data))))
+
+    ;; A live reference slot is non-null. Only backing capacity permits nulls.
+    (define (array-read (m Module) (element Type) (data Wat) (index Wat)) (→ Wat) (! mut)
+      (let* ((array (array-type m (element-rep m element)))
+             (read (wat (array-get array) (id array) data index)))
+        (match (rep m element) ((Reference _) (wat "ref.as_non_null" read)) (_ read))))
 
     ;; These loops are typed by the element, not merely its Wasm layout:
     ;; WeakRc and Rc have the same representation but different ownership.
@@ -1774,7 +1813,7 @@
   (local $index i32)
   (block $done (loop $next
     (br_if $done (i32.ge_u (local.get $index) (array.len (local.get $array))))
-    (drop (call {retain} (array.get {array} (local.get $array) (local.get $index))))
+    (drop (call {retain} (ref.as_non_null (array.get {array} (local.get $array) (local.get $index)))))
     (local.set $index (i32.add (local.get $index) (i32.const 1))) (br $next)))
   (local.get $array))"
                           (list (Pair "array" array) (Pair "retain" (retain-helper m))))))
@@ -1782,13 +1821,13 @@
     (define (array-release-helper (m Module) (element Type)) (→ String) (! mut)
       (let ((array (array-type m (element-rep m element))))
         (template-helper! m "array-release" (type-key element)
-                          "(func {id} (param $array (ref {array})) (param $ev (ref {evidence})) (result i32)
+                          "(func {id} (param $array (ref {array})) (param $length i32) (param $ev (ref {evidence})) (result i32)
   (local $index i32)
   (block $done (loop $next
-    (br_if $done (i32.ge_u (local.get $index) (array.len (local.get $array))))
-    (if (i32.eq (i32.add (local.get $index) (i32.const 1)) (array.len (local.get $array)))
-      (then (return_call {release} (array.get {array} (local.get $array) (local.get $index)) (local.get $ev))))
-    (drop (call {release} (array.get {array} (local.get $array) (local.get $index)) (local.get $ev)))
+    (br_if $done (i32.ge_u (local.get $index) (local.get $length)))
+    (if (i32.eq (i32.add (local.get $index) (i32.const 1)) (local.get $length))
+      (then (return_call {release} (ref.as_non_null (array.get {array} (local.get $array) (local.get $index))) (local.get $ev))))
+    (drop (call {release} (ref.as_non_null (array.get {array} (local.get $array) (local.get $index))) (local.get $ev)))
     (local.set $index (i32.add (local.get $index) (i32.const 1))) (br $next)))
   (i32.const 0))"
                           (list (Pair "array" array)
@@ -1797,23 +1836,22 @@
 
     (define (sequence-destructor (m Module) (element Type)) (→ String) (! mut)
       (let ((holder (sequence-type m element)))
-        (helper! m "sequence-drop" (type-key element)
+        (helper! m "vector-drop" (type-key element)
                  (lambda (name)
-                   (wat "func" (id name) (wat "type" (Word "$owner.drop"))
-                        (wat "param" (Word "$owner") (wat "ref" (id (owner-type m))))
-                        (evidence-param m) (wat "result" (Word "i32"))
-                        (wat "return_call" (id (array-release-helper m element))
-                             (wat "struct.get" (id holder) (int 2)
-                                  (wat "ref.cast"
-                                       (wat "ref" (id holder))
-                                       (wat "local.get" (Word "$owner"))))
-                             (wat "local.get" (Word "$ev"))))))))
+                   (let ((value (wat "ref.cast" (wat "ref" (id holder))
+                                     (wat "local.get" (Word "$owner")))))
+                     (wat "func" (id name) (wat "type" (Word "$owner.drop"))
+                          (wat "param" (Word "$owner") (wat "ref" (id (owner-type m))))
+                          (evidence-param m) (wat "result" (Word "i32"))
+                          (wat "return_call" (id (array-release-helper m element))
+                               (vector-field m element 1 value) (vector-field m element 0 value)
+                               (wat "local.get" (Word "$ev")))))))))
 
     (define (array-write-helper (m Module) (element Type)) (→ String) (! mut)
       (template-helper! m "array-write" (type-key element)
                         "(func {id} (param $array (ref {array})) (param $index i32) (param $value {element}) (param $ev (ref {evidence})) (result i32)
   (local $old {element})
-  (local.set $old (array.get {array} (local.get $array) (local.get $index)))
+  (local.set $old (ref.as_non_null (array.get {array} (local.get $array) (local.get $index))))
   (array.set {array} (local.get $array) (local.get $index) (local.get $value))
   (return_call {release} (local.get $old) (local.get $ev)))"
                         (list (Pair "array" (array-type m (element-rep m element)))
@@ -1826,16 +1864,16 @@
     (define (array-replace-helper (m Module) (element Type)) (→ String) (! mut)
       (let ((array (array-type m (element-rep m element))))
         (template-helper! m "array-replace" (type-key element)
-                          "(func {id} (param $array (ref {array})) (param $index i64) (param $value {element}) (param $ev (ref {evidence})) (result (ref {array}))
+                          "(func {id} (param $array (ref {array})) (param $length i32) (param $index i64) (param $value {element}) (param $ev (ref {evidence})) (result (ref {array}))
   (local $result (ref {array}))
-  (local.set $result (call {retain} (call {copy} (local.get $array))))
+  (local.set $result (call {retain} (call {copy} (local.get $array) (i64.const 0) (i64.extend_i32_u (local.get $length)))))
   (drop (call {write} (local.get $result) (i32.wrap_i64 (local.get $index)) (local.get $value) (local.get $ev)))
   (local.get $result))"
                           (list (Pair "array" array)
                                 (Pair "element" (wat->text (rep->wat (rep m element))))
                                 (Pair "evidence" (evidence-type m))
                                 (Pair "retain" (array-retain-helper m element))
-                                (Pair "copy" (copy-helper m array))
+                                (Pair "copy" (slice-helper m array))
                                 (Pair "write" (array-write-helper m element))))))
 
     ;; Snapshot both ranges before writing. Incoming owners are retained,
@@ -1850,11 +1888,202 @@
   (local.set $old (call {slice} (local.get $to) (local.get $at) (i64.add (local.get $at) (local.get $count))))
   (drop (call {retain} (local.get $incoming)))
   (array.copy {array} {array} (local.get $to) (i32.wrap_i64 (local.get $at)) (local.get $incoming) (i32.const 0) (i32.wrap_i64 (local.get $count)))
-  (return_call {release} (local.get $old) (local.get $ev)))"
+  (return_call {release} (local.get $old) (array.len (local.get $old)) (local.get $ev)))"
                           (list (Pair "array" array) (Pair "slice" (slice-helper m array))
                                 (Pair "evidence" (evidence-type m))
                                 (Pair "retain" (array-retain-helper m element))
                                 (Pair "release" (array-release-helper m element))))))
+
+    ;; Backing capacity is never a source length. Validate full-width indices
+    ;; before narrowing to Wasm's i32 indices, including zero-length copies.
+    (define (range-helper (m Module)) (→ String) (! mut)
+      (template-helper! m "range" ""
+                        "(func {id} (param $length i32) (param $start i64) (param $count i64) (result i32)
+  (if (i64.gt_u (local.get $start) (i64.extend_i32_u (local.get $length))) (then unreachable))
+  (if (i64.gt_u (local.get $count) (i64.sub (i64.extend_i32_u (local.get $length)) (local.get $start))) (then unreachable))
+  (i32.wrap_i64 (local.get $start)))" (Nil)))
+
+    (define (size-helper (m Module)) (→ String) (! mut)
+      (template-helper! m "size" ""
+                        "(func {id} (param $length i64) (result i32)
+  (if (i64.gt_u (local.get $length) (i64.const 2147483647)) (then unreachable))
+  (i32.wrap_i64 (local.get $length)))" (Nil)))
+
+    (define (vector-storage-bindings (m Module) (element Type))
+      (→ (List (Pair String String)))
+      (! mut)
+      (list (Pair "holder" (sequence-type m element))
+            (Pair "array" (array-type m (element-rep m element)))
+            (Pair "length" (i64->string (vector-offset m element)))
+            (Pair "data" (i64->string (+ (vector-offset m element) 1)))
+            (Pair "element" (wat->text (rep->wat (rep m element))))
+            (Pair "zero" (wat->text (default-value (rep m element))))
+            (Pair "read" (wat->text (array-read m element (wat "local.get" (Word "$data"))
+                                                (wat "local.get" (Word "$index")))))))
+
+    (define (vector-read-helper (m Module) (element Type)) (→ String) (! mut)
+      (template-helper! m "vector-read" (type-key element)
+                        "(func {id} (param $vector (ref {holder})) (param $at i64) (result {element})
+  (local $data (ref {array})) (local $index i32)
+  (local.set $index (call {range} (struct.get {holder} {length} (local.get $vector)) (local.get $at) (i64.const 1)))
+  (local.set $data (struct.get {holder} {data} (local.get $vector)))
+  {read})"
+                        (Cons (Pair "range" (range-helper m)) (vector-storage-bindings m element))))
+
+    (define (vector-write-helper (m Module) (element Type)) (→ String) (! mut)
+      (let ((write (if (shared-type? (program-of m) element)
+                       (string-append "(return_call " (array-write-helper m element)
+                                      " (local.get $data) (local.get $index) (local.get $value) (local.get $ev))")
+                       "(array.set {array} (local.get $data) (local.get $index) (local.get $value)) (i32.const 0)")))
+        (template-helper! m "vector-write" (type-key element)
+                          (string-append
+                           "(func {id} (param $vector (ref {holder})) (param $at i64) (param $value {element}) (param $ev (ref {evidence})) (result i32)
+  (local $data (ref {array})) (local $index i32)
+  (local.set $index (call {range} (struct.get {holder} {length} (local.get $vector)) (local.get $at) (i64.const 1)))
+  (local.set $data (struct.get {holder} {data} (local.get $vector)))
+  " write ")")
+                          (append (list (Pair "range" (range-helper m))
+                                        (Pair "evidence" (evidence-type m)))
+                                  (vector-storage-bindings m element)))))
+
+    ;; Growth transfers the live prefix. It creates no extra element owners;
+    ;; no finalizer can run between replacing storage and publishing length.
+    (define (vector-push-helper (m Module) (element Type)) (→ String) (! mut)
+      (template-helper! m "vector-push" (type-key element)
+                        "(func {id} (param $vector (ref {holder})) (param $value {element}) (result i32)
+  (local $data (ref {array})) (local $larger (ref {array})) (local $size i32) (local $capacity i32)
+  (local.set $data (struct.get {holder} {data} (local.get $vector)))
+  (local.set $size (struct.get {holder} {length} (local.get $vector)))
+  (if (i32.eq (local.get $size) (i32.const 2147483647)) (then unreachable))
+  (if (i32.eq (local.get $size) (array.len (local.get $data)))
+    (then
+      (local.set $capacity (if (result i32) (i32.lt_u (local.get $size) (i32.const 4))
+        (then (i32.const 4))
+        (else (if (result i32) (i32.gt_u (local.get $size) (i32.const 1073741823))
+          (then (i32.const 2147483647)) (else (i32.mul (local.get $size) (i32.const 2)))))))
+      (local.set $larger (array.new_default {array} (local.get $capacity)))
+      (array.copy {array} {array} (local.get $larger) (i32.const 0) (local.get $data) (i32.const 0) (local.get $size))
+      (struct.set {holder} {data} (local.get $vector) (local.get $larger))
+      (local.set $data (local.get $larger))))
+  (array.set {array} (local.get $data) (local.get $size) (local.get $value))
+  (struct.set {holder} {length} (local.get $vector) (i32.add (local.get $size) (i32.const 1)))
+  (i32.const 0))" (vector-storage-bindings m element)))
+
+    (define (vector-pop-helper (m Module) (element Type)) (→ String) (! mut)
+      (template-helper! m "vector-pop" (type-key element)
+                        "(func {id} (param $vector (ref {holder})) (result {element})
+  (local $data (ref {array})) (local $index i32) (local $value {element})
+  (local.set $index (struct.get {holder} {length} (local.get $vector)))
+  (if (i32.eqz (local.get $index)) (then unreachable))
+  (local.set $index (i32.sub (local.get $index) (i32.const 1)))
+  (local.set $data (struct.get {holder} {data} (local.get $vector)))
+  (local.set $value {read})
+  (struct.set {holder} {length} (local.get $vector) (local.get $index))
+  (array.set {array} (local.get $data) (local.get $index) {zero})
+  (local.get $value))" (vector-storage-bindings m element)))
+
+    (define (sequence-slice-helper (m Module) (type Type)) (→ String) (! mut)
+      (helper! m "sequence-slice" (type-key type)
+               (lambda (name)
+                 (let ((value (wat "local.get" (Word "$value")))
+                       (start (wat "local.get" (Word "$start")))
+                       (end (wat "local.get" (Word "$end"))))
+                   (wat "func" (id name) (wat "param" (Word "$value") (rep->wat (rep m type)))
+                        (wat "param" (Word "$start") (Word "i64"))
+                        (wat "param" (Word "$end") (Word "i64"))
+                        (wat "result" (rep->wat (rep m type)))
+                        (wat "drop" (wat "call" (id (range-helper m)) (sequence-length m type value)
+                                         start (wat "i64.sub" end start)))
+                        (sequence-copied m
+                                         type
+                                         (wat "call"
+                                              (id (slice-helper m (sequence-raw-type m type)))
+                                              (sequence-data m type value) start end)))))))
+
+    (define (sequence-append-helper (m Module) (type Type)) (→ String) (! mut)
+      (helper! m "sequence-append" (type-key type)
+               (lambda (name)
+                 (let ((left (wat "local.get" (Word "$left")))
+                       (right (wat "local.get" (Word "$right"))))
+                   (wat "func" (id name) (wat "param" (Word "$left") (rep->wat (rep m type)))
+                        (wat "param" (Word "$right") (rep->wat (rep m type)))
+                        (wat "result" (rep->wat (rep m type)))
+                        (sequence-copied m
+                                         type
+                                         (wat "call"
+                                              (id (append-helper m (sequence-raw-type m type)))
+                                              (sequence-data m type left)
+                                              (sequence-length m type left)
+                                              (sequence-data m type right)
+                                              (sequence-length m type right))))))))
+
+    (define (vector-copy-helper (m Module) (element Type)) (→ String) (! mut)
+      (let* ((type (TCon "Vector" (list element))) (holder (sequence-type m element)))
+        (helper! m "vector-copy" (type-key element)
+                 (lambda (name)
+                   (let ((value (wat "local.get" (Word "$value"))))
+                     (wat "func" (id name) (wat "param" (Word "$value") (wat "ref" (id holder)))
+                          (wat "result" (wat "ref" (id holder)))
+                          (wat "return_call" (id (sequence-slice-helper m type)) value
+                               (wat "i64.const" (int 0))
+                               (wat "i64.extend_i32_u" (sequence-length m type value)))))))))
+
+    (define (vector-replace-helper (m Module) (element Type)) (→ String) (! mut)
+      (let* ((type (TCon "Vector" (list element))) (array (sequence-raw-type m type))
+             (counted? (shared-type? (program-of m) element)))
+        (helper! m "vector-replace" (type-key element)
+                 (lambda (name)
+                   (let ((value (wat "local.get" (Word "$vector")))
+                         (index (wat "local.get" (Word "$index"))))
+                     (wat "func" (id name) (wat "param" (Word "$vector") (rep->wat (rep m type)))
+                          (wat "param" (Word "$index") (Word "i64"))
+                          (wat "param" (Word "$value") (rep->wat (rep m element)))
+                          (evidence-param m) (wat "result" (rep->wat (rep m type)))
+                          (wat "drop"
+                               (wat "call" (id (range-helper m)) (sequence-length m type value)
+                                    index (wat "i64.const" (int 1))))
+                          (sequence-owned m type
+                                          (wat* "call"
+                                                (append (list (id (if counted?
+                                                                      (array-replace-helper m
+                                                                                            element)
+                                                                      (set-helper m
+                                                                                  array
+                                                                                  (rep m element))))
+                                                              (sequence-data m type value)
+                                                              (sequence-length m type value)
+                                                              index
+                                                              (wat "local.get" (Word "$value")))
+                                                        (if counted?
+                                                            (list (wat "local.get" (Word "$ev")))
+                                                            (Nil)))))))))))
+
+    (define (vector-copy-into-helper (m Module) (element Type)) (→ String) (! mut)
+      (let ((copy (if (shared-type? (program-of m) element)
+                      (string-append "(return_call " (array-copy-owners-helper m element)
+                                     " (local.get $to-data) (local.get $at) (local.get $from-data) (local.get $start) (local.get $count) (local.get $ev))")
+                      "(array.copy {array} {array} (local.get $to-data) (i32.wrap_i64 (local.get $at)) (local.get $from-data) (i32.wrap_i64 (local.get $start)) (i32.wrap_i64 (local.get $count))) (i32.const 0)")))
+        (template-helper! m "vector-copy-into" (type-key element)
+                          (string-append
+                           "(func {id} (param $to (ref {holder})) (param $at i64) (param $from (ref {holder})) (param $start i64) (param $count i64) (param $ev (ref {evidence})) (result i32)
+  (local $to-data (ref {array})) (local $from-data (ref {array}))
+  (drop (call {range} (struct.get {holder} {length} (local.get $to)) (local.get $at) (local.get $count)))
+  (drop (call {range} (struct.get {holder} {length} (local.get $from)) (local.get $start) (local.get $count)))
+  (local.set $to-data (struct.get {holder} {data} (local.get $to)))
+  (local.set $from-data (struct.get {holder} {data} (local.get $from)))
+  " copy ")")
+                          (append (list (Pair "range" (range-helper m))
+                                        (Pair "evidence" (evidence-type m)))
+                                  (vector-storage-bindings m element)))))
+
+    (define (vector-string-helper (m Module)) (→ String) (! mut)
+      (let ((element (TCon "Char" (Nil))))
+        (template-helper! m "vector-string" ""
+                          "(func {id} (param $vector (ref {holder})) (result (ref {array}))
+  (return_call {slice} (struct.get {holder} {data} (local.get $vector)) (i64.const 0)
+    (i64.extend_i32_u (struct.get {holder} {length} (local.get $vector)))))"
+                          (Cons (Pair "slice" (slice-helper m (array-type m (Scalar "i32"))))
+                                (vector-storage-bindings m element)))))
 
     ;; ---- Fields ----
 
@@ -2533,10 +2762,12 @@
 
     (define (signature-wat (m Module) (type Type)) (→ Wat) (! mut)
       (let ((words (signature-words m type)))
-        (wat* "array.new_fixed"
-              (Cons (id (array-type m (Scalar "i64")))
-                    (Cons (int (length words))
-                          (map (lambda (word) (wat "i64.const" (int word))) words))))))
+        (sequence-owned m (TCon "Vector" (list (TCon "I64" (Nil))))
+                        (wat* "array.new_fixed"
+                              (Cons (id (array-type m (Scalar "i64")))
+                                    (Cons (int (length words))
+                                          (map (lambda (word) (wat "i64.const" (int word)))
+                                               words)))))))
 
     ;; The Wasm type of a dynamic export of `arity` parameters.
 
@@ -2607,7 +2838,8 @@
                         (wat "func"
                              (id function-id)
                              (evidence-param m)
-                             (wat "result" (wat "ref" (id (array-type m (Scalar "i64")))))
+                             (wat "result"
+                                  (rep->wat (rep m (TCon "Vector" (list (TCon "I64" (Nil)))))))
                              (signature-wat m type)))
         function-id))
 
@@ -3638,7 +3870,7 @@
                  (wat "i32.const" (int -1))
                  (wat "ref.null" (Word "any"))))
            ((TCon name _)
-            (if (member? name (list "String" "Array" "Vector"))
+            (if (member? name (list "String" "Vector"))
                 (sequence-placeholder m type)
                 (data-placeholder m type seen loc)))
            (_ (wat "struct.new"
@@ -3664,10 +3896,10 @@
     (define (sequence-placeholder (m Module) (type Type)) (→ Wat) (! mut)
       (let* ((element (sequence-element type))
              (data (wat "array.new_fixed" (id (sequence-raw-type m type)) (int 0))))
-        (if (shared-type? (program-of m) element)
-            (wat "struct.new" (id (sequence-type m element))
-                 (wat "i64.const" (int -1)) (code-of m (owner-noop m)) data)
-            data)))
+        (if (string=? (type-key type) "String") data
+            (wat* "struct.new" (Cons (id (sequence-type m element))
+                                     (append (vector-header m element #t)
+                                             (list (wat "i32.const" (int 0)) data)))))))
 
     ;; A struct that contains itself has no placeholder.
 
@@ -4750,7 +4982,7 @@
                               (map (lambda (record) (● record type)) args)
                               type)))))
 
-    ;; Strings and character vectors share one representation.
+    ;; Primitive calls evaluate operands once, then operate on the stable holder.
 
     (define (special-primitive (fn Fn)
                                (operation String)
@@ -4767,10 +4999,10 @@
         (case operation
           (("constant-record") (list (constant-record m type (constant-case m (first-arg args)))))
 
-          (("constant-array-shell") (list (constant-array-shell m type (arg 0))))
-          (("constant-array-fill") (constant-array-fill m (first-type types) code))
+          (("constant-vector-shell") (list (constant-vector-shell m type (arg 0))))
+          (("constant-vector-fill") (constant-vector-fill m (first-type types) code))
           (("constant-dead-weak") (list (placeholder-value m type (Nil) (Loc "constant" 0 0))))
-          (("constant-array")
+          (("constant-vector")
            (list (sequence-owned m
                                  type
                                  (wat* "array.new_fixed"
@@ -4800,78 +5032,53 @@
           (("any-type-id")
            (list (wat "i64.extend_i32_s" (wat "struct.get" (id (any-type m)) (int 2) (arg 0)))))
           (("panic") (list (wat* "call" (Cons (id (panic-helper m)) code)) (wat "unreachable")))
-          (("bool->i32" "char->i32" "i32->char" "string->vector" "vector->string" "u8->i32") code)
+          (("bool->i32" "char->i32" "i32->char" "u8->i32") code)
           (("i32->u8") (list (wat "i32.and" (arg 0) (wat "i32.const" (int 255)))))
           (("i32->bool") (list (wat "i32.ne" (arg 0) (wat "i32.const" (int 0)))))
-          (("string-length" "vector-length" "array-length")
-           (list (wat "i64.extend_i32_u" (wat "array.len" (data 0)))))
-          (("string-ref" "vector-ref" "array-ref")
-           (let ((array (sequence (first-type types))))
-             (list (wat (array-get array) (id array) (data 0) (index (arg 1))))))
+          (("string->vector")
+           (list (sequence-owned m type (wat "call" (id (copy-helper m (sequence type))) (arg 0)))))
+          (("vector->string") (list (wat "call" (id (vector-string-helper m)) (arg 0))))
+          (("string-length" "vector-length")
+           (list (wat "i64.extend_i32_u" (sequence-length m (first-type types) (arg 0)))))
+          (("string-ref")
+           (list (wat "array.get" (id (sequence (first-type types))) (arg 0) (index (arg 1)))))
+          (("vector-ref")
+           (list (wat "call"
+                      (id (vector-read-helper m (sequence-element (first-type types))))
+                      (arg 0)
+                      (arg 1))))
           (("set!")
            (append (place-write fn (first-arg args) (list-ref args 1))
                    (list (wat "i32.const" (int 0)))))
           (("replace!") (list (place-swap fn (first-arg args) (list-ref args 1))))
-          (("array-set!")
-           (let ((element (sequence-element (first-type types))))
-             (if (shared-type? (program-of m) element)
-                 (list (wat "call"
-                            (id (array-write-helper m element))
-                            (data 0)
-                            (index (arg 1))
-                            (arg 2)
-                            (● fn evidence)))
-                 (list (wat "array.set"
-                            (id (sequence (first-type types)))
-                            (data 0)
-                            (index (arg 1))
-                            (arg 2))
-                       (wat "i32.const" (int 0))))))
-          (("make-string" "make-vector" "make-array")
-           (list (sequence-copied m
-                                  type
-                                  (wat "array.new" (id (sequence type)) (arg 1) (index (arg 0))))))
-          (("string-append" "vector-append")
-           (list (sequence-copied m
-                                  type
-                                  (wat "call"
-                                       (id (append-helper m (sequence type)))
-                                       (data 0)
-                                       (data 1)))))
-          (("substring" "subvector")
-           (list (sequence-copied m
-                                  type
-                                  (wat "call"
-                                       (id (slice-helper m (sequence type)))
-                                       (data 0)
-                                       (arg 1)
-                                       (arg 2)))))
-          (("vector-set")
-           (let ((element (sequence-element type)))
-             (list (sequence-owned m type
-                                   (if (shared-type? (program-of m) element)
-                                       (wat "call"
-                                            (id (array-replace-helper m element))
-                                            (data 0)
-                                            (arg 1)
-                                            (arg 2)
-                                            (● fn evidence))
-                                       (wat "call"
-                                            (id (set-helper m
-                                                            (sequence type)
-                                                            (fn-rep fn (list-ref types 2))))
-                                            (data 0) (arg 1) (arg 2)))))))
-          (("array->vector" "vector->array")
+          (("vector-set!")
+           (list (wat "call" (id (vector-write-helper m (sequence-element (first-type types))))
+                      (arg 0) (arg 1) (arg 2) (● fn evidence))))
+          (("vector-push!")
+           (list (wat "call"
+                      (id (vector-push-helper m (sequence-element (first-type types))))
+                      (arg 0)
+                      (arg 1))))
+          (("vector-take-last!")
            (list
-            (sequence-copied m type (wat "call" (id (copy-helper m (sequence type))) (data 0)))))
-          (("array-copy!" "vector-copy!")
-           (let ((element (sequence-element (first-type types)))
-                 (array (sequence (first-type types))))
-             (if (shared-type? (program-of m) element)
-                 (list (wat "call" (id (array-copy-owners-helper m element))
-                            (data 0) (arg 1) (data 2) (arg 3) (arg 4) (● fn evidence)))
-                 (list (wat "array.copy" (id array) (id array) (data 0) (index (arg 1)) (data 2)
-                            (index (arg 3)) (index (arg 4))) (wat "i32.const" (int 0))))))
+            (wat "call" (id (vector-pop-helper m (sequence-element (first-type types)))) (arg 0))))
+          (("vector")
+           (list (sequence-owned m type (wat "array.new_fixed" (id (sequence type)) (int 0)))))
+          (("make-string" "make-vector")
+           (list (sequence-copied m type (wat "array.new" (id (sequence type)) (arg 1)
+                                              (wat "call" (id (size-helper m)) (arg 0))))))
+          (("string-append" "vector-append")
+           (list (wat "call" (id (sequence-append-helper m type)) (arg 0) (arg 1))))
+          (("substring" "subvector")
+           (list (wat "call" (id (sequence-slice-helper m type)) (arg 0) (arg 1) (arg 2))))
+          (("vector-set")
+           (list (wat "call" (id (vector-replace-helper m (sequence-element type)))
+                      (arg 0) (arg 1) (arg 2) (● fn evidence))))
+          (("vector-copy")
+           (list (wat "call" (id (vector-copy-helper m (sequence-element type))) (arg 0))))
+          (("vector-copy!")
+           (list (wat "call" (id (vector-copy-into-helper m (sequence-element (first-type types))))
+                      (arg 0) (arg 1) (arg 2) (arg 3) (arg 4) (● fn evidence))))
           (("string=?") (list (wat* "call" (Cons (id (string-equal-helper m)) code))))
           (("string-compare") (list (wat* "call" (Cons (id (string-compare-helper m)) code))))
           (("vector-generate" "string-generate")
@@ -4962,19 +5169,13 @@
 
     (define (append-helper (m Module) (array String)) (→ String) (! mut)
       (template-helper! m "append" array
-                        "(func {id} (param $a (ref {array})) (param $b (ref {array})) (result (ref {array}))
-    (local $result (ref {array}))
-    (if (i32.eqz (array.len (local.get $a))) (then (return (call {copy} (local.get $b)))))
-    (if (i32.eqz (array.len (local.get $b))) (then (return (call {copy} (local.get $a)))))
-    (local.set $result (array.new {array} ({get} {array} (local.get $a) (i32.const 0))
-                                  (i32.add (array.len (local.get $a)) (array.len (local.get $b)))))
-    (array.copy {array} {array} (local.get $result) (array.len (local.get $a)) (local.get $b) (i32.const 0)
-                (array.len (local.get $b)))
-    (array.copy {array} {array} (local.get $result) (i32.const 0) (local.get $a) (i32.const 0) (array.len (local.get $a)))
-    (local.get $result))"
-                        (list (Pair "copy" (copy-helper m array))
-                              (Pair "array" array)
-                              (Pair "get" (array-get array)))))
+                        "(func {id} (param $a (ref {array})) (param $a-size i32) (param $b (ref {array})) (param $b-size i32) (result (ref {array}))
+  (local $result (ref {array})) (local $size i32)
+  (local.set $size (call {size} (i64.add (i64.extend_i32_u (local.get $a-size)) (i64.extend_i32_u (local.get $b-size)))))
+  (local.set $result (array.new_default {array} (local.get $size)))
+  (array.copy {array} {array} (local.get $result) (i32.const 0) (local.get $a) (i32.const 0) (local.get $a-size))
+  (array.copy {array} {array} (local.get $result) (local.get $a-size) (local.get $b) (i32.const 0) (local.get $b-size))
+  (local.get $result))" (list (Pair "array" array) (Pair "size" (size-helper m)))))
 
     (define (slice-helper (m Module) (array String)) (→ String) (! mut)
       (template-helper! m "slice" array
@@ -5000,10 +5201,10 @@
 
     (define (set-helper (m Module) (array String) (element Rep)) (→ String) (! mut)
       (template-helper! m "set" array
-                        "(func {id} (param $a (ref {array})) (param $index i64) (param $value {element}) (result (ref {array}))
+                        "(func {id} (param $a (ref {array})) (param $length i32) (param $index i64) (param $value {element}) (result (ref {array}))
     (local $result (ref {array}))
-    (local.set $result (array.new {array} (local.get $value) (array.len (local.get $a))))
-    (array.copy {array} {array} (local.get $result) (i32.const 0) (local.get $a) (i32.const 0) (array.len (local.get $a)))
+    (local.set $result (array.new {array} (local.get $value) (local.get $length)))
+    (array.copy {array} {array} (local.get $result) (i32.const 0) (local.get $a) (i32.const 0) (local.get $length))
     (array.set {array} (local.get $result) (i32.wrap_i64 (local.get $index)) (local.get $value))
     (local.get $result))"
                         (list (Pair "array" array)
@@ -5015,7 +5216,7 @@
         (template-helper! m "generate" (string-append array " " base)
                           "(func {id} (param $count i64) (param $f (ref {base})) (param $ev (ref {evidence})) (result (ref {array}))
     (local $result (ref {array})) (local $length i32) (local $index i32)
-    (local.set $length (i32.wrap_i64 (local.get $count)))
+    (local.set $length (call {size} (local.get $count)))
     (if (i32.eqz (local.get $length)) (then (return (array.new_fixed {array} 0))))
     (local.set $result (array.new {array} (call_ref {code} (ref.cast (ref {base}) (call {retain} (local.get $f))) (local.get $ev) (i64.const 0) (struct.get {base} 2 (local.get $f)))
                                   (local.get $length)))
@@ -5028,7 +5229,9 @@
         (local.set $index (i32.add (local.get $index) (i32.const 1)))
         (br $next)))
     (local.get $result))"
-                          (list (Pair "retain" (retain-helper m)) (Pair "array" array)
+                          (list (Pair "size" (size-helper m))
+                                (Pair "retain" (retain-helper m))
+                                (Pair "array" array)
                                 (Pair "base" base)
                                 (Pair "code" (code-type m base))
                                 (Pair "evidence" (evidence-type m))))))
@@ -5066,37 +5269,47 @@
     ;; stage reserves four bytes per slot: count+1 safely holds either layout.
 
     (define (stage-helper (m Module) (bytes? Bool)) (→ String) (! mut)
-      (let ((stage (import! m
+      (let ((type (if bytes? (TCon "Vector" (list (TCon "U8" (Nil)))) (TCon "String" (Nil))))
+            (stage (import! m
                             (Import "snail.core.support" "snail:io/stage")
                             (list (Scalar "i32"))
                             (Some (Scalar "i32")))))
         (template-helper! m (if bytes? "stage.bytes" "stage.text") ""
-                          "(func {id} (param $text (ref {array})) (result i32)
-    (local $address i32) (local $index i32)
+                          "(func {id} (param $value {type}) (result i32)
+    (local $address i32) (local $index i32) (local $text (ref {array})) (local $length i32)
+    (local.set $text {data})
+    (local.set $length {length})
     {guard}
     (local.set $address (call {stage} {capacity}))
     {header}
     (block $done
       (loop $next
-        (br_if $done (i32.ge_u (local.get $index) (array.len (local.get $text))))
+        (br_if $done (i32.ge_u (local.get $index) (local.get $length)))
         ({store} (i32.add (i32.add (local.get $address) (i32.const {offset})) (i32.shl (local.get $index) (i32.const {shift})))
                  ({get} {array} (local.get $text) (local.get $index)))
         (local.set $index (i32.add (local.get $index) (i32.const 1)))
         (br $next)))
     {result})"
-                          (list (Pair "array" (array-type m (Scalar (if bytes? "i8" "i32"))))
+                          (list (Pair "type" (wat->text (rep->wat (rep m type))))
+                                (Pair "data"
+                                      (wat->text
+                                       (sequence-data m type (wat "local.get" (Word "$value")))))
+                                (Pair "length"
+                                      (wat->text
+                                       (sequence-length m type (wat "local.get" (Word "$value")))))
+                                (Pair "array" (array-type m (Scalar (if bytes? "i8" "i32"))))
                                 (Pair "stage" stage)
                                 (Pair "guard"
                                       (if bytes?
-                                          "(if (i32.eq (array.len (local.get $text)) (i32.const -1)) (then (unreachable)))"
+                                          "(if (i32.eq (local.get $length) (i32.const -1)) (then (unreachable)))"
                                           ""))
                                 (Pair "capacity"
                                       (if bytes?
-                                          "(i32.add (array.len (local.get $text)) (i32.const 1))"
-                                          "(array.len (local.get $text))"))
+                                          "(i32.add (local.get $length) (i32.const 1))"
+                                          "(local.get $length)"))
                                 (Pair "header"
                                       (if bytes?
-                                          "(i32.store (local.get $address) (array.len (local.get $text)))"
+                                          "(i32.store (local.get $address) (local.get $length))"
                                           ""))
                                 (Pair "store" (if bytes? "i32.store8" "i32.store"))
                                 (Pair "get" (if bytes? "array.get_u" "array.get"))
@@ -5105,7 +5318,7 @@
                                 (Pair "result"
                                       (if bytes?
                                           "(local.get $address)"
-                                          "(array.len (local.get $text))"))))))
+                                          "(local.get $length)"))))))
 
     ;; Sends the message to the runtime one scalar at a time, then stops.
 

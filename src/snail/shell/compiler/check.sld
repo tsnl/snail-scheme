@@ -2231,8 +2231,7 @@
         (_ (unit)))
       (for-each (lambda (child) (check-places program child)) (expr-children expr)))
 
-    ;; Links are followed inward to the first mutable field, whose record is
-    ;; an ordinary expression.
+    ;; A place resolves to its declared field and ordinary receiver expression.
 
     (define (check-place-links (program Program) (place Expr)) (→ Unit) (! compile)
       (match (place-link program place)
@@ -2601,13 +2600,13 @@
       (match (Pair (● callee term) args)
         ((Pair (Var "prim:set!" _ _) (Cons place _))
          (charge-disposal ck (● place type) handled row loc #t #t))
-        ((Pair (Var "prim:array-copy!" _ _) (Cons destination _))
+        ((Pair (Var "prim:vector-copy!" _ _) (Cons destination _))
          (charge-disposal ck (● destination type) handled row loc #t #t))
         (_ (match (cleanup-operation ck callee)
              ((Some (Setter _ _ _))
               (charge-disposal ck (● (list-ref args 1) type) handled row loc #t #t))
              (_ (match (Pair (● callee term) args)
-                  ((Pair (Var "prim:array-set!" _ _) (Cons _ (Cons _ (Cons value _))))
+                  ((Pair (Var "prim:vector-set!" _ _) (Cons _ (Cons _ (Cons value _))))
                    (charge-disposal ck (● value type) handled row loc #t #t))
                   (_ ck)))))))
 

@@ -29,7 +29,9 @@
 
     (enum ObjectValue
       (RecordValue ((constructor String) (fields (List Known))))
-      (ArrayValue ((items (List Known))))
+      (VectorValue ((items (List Known))))
+      ;; Packed bytes keep embedded assets compact; identity still belongs to the heap.
+      (ByteVectorValue ((bytes Bytes)))
       (DynamicValue ((inner Known)))
       (ClosureValue ((recipe String) (environment (Table Known))))
       (CodeValue ((expression Expr) (environment (Table Known))))
@@ -923,7 +925,7 @@
       (→ (Pair Known Evaluation)) (! compile)
       (match (object-value ev value (Loc "constant" 0 0))
         ((RecordValue _ fields) (run-evaluation ev handlers frames (ReleaseValues fields next)))
-        ((ArrayValue items) (run-evaluation ev handlers frames (ReleaseValues items next)))
+        ((VectorValue items) (run-evaluation ev handlers frames (ReleaseValues items next)))
         ((DynamicValue inner)
          (run-evaluation ev handlers frames (ReleaseValues (list inner) next)))
         ((ClosureValue name env)
@@ -1078,20 +1080,20 @@
          (let ((size (integer-value (car-value args loc) loc)))
            (check-size size loc)
            (generate-element ev handlers frames (list-ref args 1) 0 size (Nil) type loc)))
-        (("prim:array-set!")
+        (("prim:vector-set!")
          (let* ((array (car-value args loc)) (index (integer-value (list-ref args 1) loc))
-                (items (array-values ev array loc)))
+                (items (sequence-values ev array loc)))
            (check-range index 1 (length items) loc)
-           (evaluating ev ((result (array-write array index (list-ref args 2) type loc)))
+           (evaluating ev ((result (write-vector-element array index (list-ref args 2) type loc)))
                        (run-evaluation ev
                                        handlers
                                        frames
                                        (ReleaseValues (list (list-ref items index))
                                                       (ReturnValue result))))))
-        (("prim:array-copy!" "prim:vector-copy!")
-         (copy-array-contents ev handlers frames args type loc))
+        (("prim:vector-copy!")
+         (copy-vector-contents ev handlers frames args type loc))
         (("prim:vector-set")
-         (let* ((items (array-values ev (car-value args loc) loc))
+         (let* ((items (sequence-values ev (car-value args loc) loc))
                 (index (integer-value (list-ref args 1) loc)))
            (check-range index 1 (length items) loc)
            (let ((ev (fold-left (lambda (ev pair)
@@ -1103,7 +1105,7 @@
               (sequence-value ev type (replace-at items index (list-ref args 2)) loc)
               handlers
               frames))))
-        (("prim:make-string" "prim:make-vector" "prim:make-array")
+        (("prim:make-string" "prim:make-vector")
          (let ((size (integer-value (car-value args loc) loc)) (value (list-ref args 1)))
            (check-size size loc)
            (let* ((items (map (lambda (index) value) (iota size)))
@@ -1113,23 +1115,34 @@
           "prim:string-append"
           "prim:subvector"
           "prim:substring"
-          "prim:array->vector"
-          "prim:vector->array")
+          "prim:vector-copy")
          (evaluating ev ((value (primitive-value name args type loc)))
-                     (run-evaluation (fold-left retain-known ev (array-values ev value loc))
+                     (run-evaluation (fold-left retain-known ev (sequence-values ev value loc))
                                      handlers
                                      frames
                                      (ReturnValue value))))
         (("prim:string->vector" "prim:vector->string")
-         (run-evaluation ev
-                         handlers
-                         frames
-                         (ReturnValue (Known type (● (car-value args loc) value)))))
+         (return-result (sequence-value ev type (sequence-values ev (car-value args loc) loc) loc)
+                        handlers frames))
+        (("prim:vector") (return-result (sequence-value ev type (Nil) loc) handlers frames))
+        (("prim:vector-push!")
+         (let* ((vector (car-value args loc)) (items (sequence-values ev vector loc)))
+           (check-size (+ (length items) 1) loc)
+           (return-result
+            (scalar (replace-vector-contents ev vector (append items (list (list-ref args 1))) loc)
+                    type (DUnit)) handlers frames)))
+        (("prim:vector-take-last!")
+         (let* ((vector (car-value args loc))
+                (items (sequence-values ev vector loc))
+                (size (length items)))
+           (check-range (- size 1) 1 size loc)
+           (run-evaluation (replace-vector-contents ev vector (take items (- size 1)) loc)
+                           handlers frames (ReturnValue (list-ref items (- size 1))))))
         (else (return-result (primitive-value ev name args type loc) handlers frames))))
 
     (define (check-size (size I64) (loc Loc)) (→ Unit) (! compile)
       (when (or (< size 0) (> size 1000000))
-        (compile-error loc "constant array length must be between 0 and 1000000")))
+        (compile-error loc "constant vector length must be between 0 and 1000000")))
 
     (define (generate-element (ev Evaluation) (handlers (List ConstantHandler))
                               (frames (List EvaluationFrame))
@@ -1163,20 +1176,20 @@
                                   (if live? "snail.core.base:Some" "snail.core.base:None")
                                   (if live? (list strong) (Nil)))) handlers frames)))
 
-    (define (copy-array-contents (ev Evaluation) (handlers (List ConstantHandler))
-                                 (frames (List EvaluationFrame))
-                                 (args (List Known))
-                                 (type Type)
-                                 (loc Loc))
+    (define (copy-vector-contents (ev Evaluation) (handlers (List ConstantHandler))
+                                  (frames (List EvaluationFrame))
+                                  (args (List Known))
+                                  (type Type)
+                                  (loc Loc))
       (→ (Pair Known Evaluation)) (! compile)
       (let* ((target (car-value args loc)) (at (integer-value (list-ref args 1) loc))
              (source (list-ref args 2)) (from (integer-value (list-ref args 3) loc))
              (count (integer-value (list-ref args 4) loc))
-             (old (array-values ev target loc)) (incoming (array-values ev source loc)))
+             (old (sequence-values ev target loc)) (incoming (sequence-values ev source loc)))
         (check-range at count (length old) loc)
         (check-range from count (length incoming) loc)
         (let ((ev (fold-left retain-known ev (take (list-drop incoming from) count))))
-          (evaluating ev ((result (array-copy target at source from count type loc)))
+          (evaluating ev ((result (copy-vector-elements target at source from count type loc)))
                       (run-evaluation ev
                                       handlers
                                       frames
@@ -1295,8 +1308,9 @@
       (match datum
         ((DChar char) (= (char->integer char) (integer-value value loc)))
         ((DString text)
-         (= (compare-characters (array-values ev (Known (TCon "String" (Nil)) (Scalar datum)) loc)
-                                (array-values ev value loc) loc) 0))
+         (=
+          (compare-characters (sequence-values ev (Known (TCon "String" (Nil)) (Scalar datum)) loc)
+                              (sequence-values ev value loc) loc) 0))
         (_ (match (● value value) ((Scalar actual) (datum=? datum actual)) (_ #f)))))
 
     (define (match-fields (ev Evaluation) (env (Option (Table Known)))
@@ -1437,9 +1451,10 @@
         ((RecordValue name fields)
          (match (copy-values copying fields)
            ((Pair fields copying) (Pair (RecordValue name fields) copying))))
-        ((ArrayValue items)
+        ((VectorValue items)
          (match (copy-values copying items)
-           ((Pair items copying) (Pair (ArrayValue items) copying))))
+           ((Pair items copying) (Pair (VectorValue items) copying))))
+        ((ByteVectorValue bytes) (Pair (ByteVectorValue bytes) copying))
         ((DynamicValue inner)
          (match (copy-known copying inner)
            ((Pair inner copying) (Pair (DynamicValue inner) copying))))
@@ -1483,6 +1498,7 @@
     (define (literal-value (ev Evaluation) (type Type) (datum Datum) (loc Loc))
       (→ (Pair Known Evaluation)) (! compile)
       (match datum
+        ((DBytes bytes) (allocate ev type (ByteVectorValue bytes)))
         ((DFloat text)
          (match (read-real text)
            ((Some value) (real-result ev type value))
@@ -1612,25 +1628,34 @@
             (map (lambda (value)
                    (let ((code (integer-value value loc)))
                      (integer->char (if (unicode-scalar? code) code 65533))))
-                 (array-values ev value loc))))))
+                 (sequence-values ev value loc))))))
 
     (define (unicode-scalar? (code I64)) (→ Bool)
       (and (>= code 0) (<= code 1114111) (or (< code 55296) (> code 57343))))
 
-    (define (array-values (ev Evaluation) (value Known) (loc Loc)) (→ (List Known)) (! compile)
+    (define (sequence-values (ev Evaluation) (value Known) (loc Loc)) (→ (List Known)) (! compile)
       (match (● value value)
         ((Scalar (DString text))
          (map (lambda (char) (Known (TCon "Char" (Nil)) (Scalar (DChar char))))
               (string->list text)))
-        ((Scalar (DBytes bytes))
-         (map (lambda (byte) (Known (TCon "U8" (Nil)) (Scalar (DInt (i32->i64 (u8->i32 byte))))))
-              (vector->list bytes)))
         (_ (match (object-value ev value loc)
-             ((ArrayValue items) items)
-             (_ (compile-error loc "constant evaluation expected an array"))))))
+             ((VectorValue items) items)
+             ((ByteVectorValue bytes) (byte-values bytes))
+             (_ (compile-error loc "constant evaluation expected a vector"))))))
 
     (define (scalar (ev Evaluation) (type Type) (datum Datum)) (→ (Pair Known Evaluation))
       (Pair (Known type (Scalar datum)) ev))
+
+    (define (byte-values (bytes Bytes)) (→ (List Known))
+      (map (lambda (byte) (Known (TCon "U8" (Nil)) (Scalar (DInt (i32->i64 (u8->i32 byte))))))
+           (vector->list bytes)))
+
+    (define (vector-object (type Type) (items (List Known)) (loc Loc)) (→ ObjectValue) (! compile)
+      (if (bytes-type? type)
+          (ByteVectorValue
+           (list->vector (map (lambda (value) (i32->u8 (i64->i32 (integer-value value loc))))
+                              items)))
+          (VectorValue items)))
 
     (define (sequence-value (ev Evaluation) (type Type) (items (List Known)) (loc Loc))
       (→ (Pair Known Evaluation)) (! compile)
@@ -1639,7 +1664,7 @@
           (scalar ev type (DString (list->string (map (lambda (value)
                                                         (integer->char (integer-value value loc)))
                                                       items))))
-          (allocate ev type (ArrayValue items))))
+          (allocate ev type (vector-object type items loc))))
 
     ;; Char is an i32 at the primitive boundary. Keep non-scalar code units
     ;; in arrays without asking the bootstrap host to construct a character.
@@ -1697,43 +1722,43 @@
              (let ((value (integer 0)))
                (scalar ev type (if (unicode-scalar? value) (DChar (integer->char value))
                                    (DInt value)))))
-            (("string-length" "array-length" "vector-length")
-             (scalar ev type (DInt (length (array-values ev (arg 0) loc)))))
-            (("string-ref" "array-ref" "vector-ref")
-             (let ((items (array-values ev (arg 0) loc)) (index (integer 1)))
+            (("string-length" "vector-length")
+             (scalar ev type (DInt (length (sequence-values ev (arg 0) loc)))))
+            (("string-ref" "vector-ref")
+             (let ((items (sequence-values ev (arg 0) loc)) (index (integer 1)))
                (check-range index 1 (length items) loc)
                (Pair (list-ref items index) ev)))
             (("string-append" "vector-append")
-             (sequence-value ev type (append (array-values ev (arg 0) loc)
-                                             (array-values ev (arg 1) loc)) loc))
+             (sequence-value ev type (append (sequence-values ev (arg 0) loc)
+                                             (sequence-values ev (arg 1) loc)) loc))
             (("substring" "subvector")
-             (let ((items (array-values ev (arg 0) loc)) (start (integer 1)) (end (integer 2)))
+             (let ((items (sequence-values ev (arg 0) loc)) (start (integer 1)) (end (integer 2)))
                (check-range start (- end start) (length items) loc)
                (sequence-value ev type (take (list-drop items start) (- end start)) loc)))
-            (("make-string" "make-vector" "make-array")
+            (("make-string" "make-vector")
              (when (< (integer 0) 0)
-               (compile-error loc "negative array length in a compile-time value"))
+               (compile-error loc "negative vector length in a compile-time value"))
              (sequence-value ev type (map (lambda (index) (arg 1)) (iota (integer 0))) loc))
-            (("string->vector" "vector->string" "array->vector" "vector->array")
-             (sequence-value ev type (array-values ev (arg 0) loc) loc))
+            (("string->vector" "vector->string" "vector-copy")
+             (sequence-value ev type (sequence-values ev (arg 0) loc) loc))
             (("vector-set")
-             (let ((items (array-values ev (arg 0) loc)))
+             (let ((items (sequence-values ev (arg 0) loc)))
                (check-range (integer 1) 1 (length items) loc)
                (sequence-value ev type (replace-at items (integer 1) (arg 2)) loc)))
 
             (("string=?")
-             (scalar ev type (DBool (= (compare-characters (array-values ev (arg 0) loc)
-                                                           (array-values ev (arg 1) loc) loc)
+             (scalar ev type (DBool (= (compare-characters (sequence-values ev (arg 0) loc)
+                                                           (sequence-values ev (arg 1) loc) loc)
                                        0))))
             (("string-compare")
-             (scalar ev type (DInt (compare-characters (array-values ev (arg 0) loc)
-                                                       (array-values ev (arg 1) loc) loc))))
+             (scalar ev type (DInt (compare-characters (sequence-values ev (arg 0) loc)
+                                                       (sequence-values ev (arg 1) loc) loc))))
             ;; Total wrappers may use private, newly allocated scratch. Its
             ;; writes stay inside this interpreter's heap, never a host heap.
 
-            (("array-set!") (array-write ev (arg 0) (integer 1) (arg 2) type loc))
-            (("array-copy!" "vector-copy!")
-             (array-copy ev (arg 0) (integer 1) (arg 2) (integer 3) (integer 4) type loc))
+            (("vector-set!") (write-vector-element ev (arg 0) (integer 1) (arg 2) type loc))
+            (("vector-copy!")
+             (copy-vector-elements ev (arg 0) (integer 1) (arg 2) (integer 3) (integer 4) type loc))
             (else (compile-error loc
                                  (string-append
                                   "primitive is not available during constant evaluation: "
@@ -1745,55 +1770,41 @@
 
     (define (check-range (start I64) (count I64) (size I64) (loc Loc)) (→ Unit) (! compile)
       (when (or (< start 0) (< count 0) (> start size) (> count (- size start)))
-        (compile-error loc "array index out of bounds during constant evaluation")))
+        (compile-error loc "vector index out of bounds during constant evaluation")))
 
 
 
-    (define (array-write (ev Evaluation)
-                         (array Known)
-                         (index I64)
-                         (value Known)
-                         (type Type)
-                         (loc Loc))
+    (define (replace-vector-contents (ev Evaluation) (vector Known) (items (List Known)) (loc Loc))
+      (→ Evaluation) (! compile)
+      (replace-object ev vector (vector-object (● vector type) items loc)))
+
+    (define (write-vector-element (ev Evaluation) (vector Known) (index I64) (value Known)
+                                  (type Type) (loc Loc)) (→ (Pair Known Evaluation)) (! compile)
+                                  (let ((items (sequence-values ev vector loc)))
+                                    (check-range index 1 (length items) loc)
+                                    (scalar (replace-vector-contents ev
+                                                                     vector
+                                                                     (replace-at items index value)
+                                                                     loc)
+                                            type
+                                            (DUnit))))
+
+    (define (copy-vector-elements (ev Evaluation)
+                                  (destination Known)
+                                  (at I64)
+                                  (source Known)
+                                  (from I64)
+                                  (count I64) (type Type) (loc Loc))
       (→ (Pair Known Evaluation)) (! compile)
-      (let ((items (array-values ev array loc)))
-        (check-range index 1 (length items) loc)
-        (match (● array value)
-          ((Object id)
-           (scalar (Evaluation-heap-set ev (table-set (● ev heap) id
-                                                      (ArrayValue
-                                                       (replace-at items index value))))
-                   type
-                   (DUnit)))
-          (_ (compile-error loc
-                            "a literal string or byte sequence is not mutable compiler scratch")))))
-
-    (define (array-copy (ev Evaluation) (destination Known) (at I64) (source Known) (from I64)
-                        (count I64) (type Type) (loc Loc))
-      (→ (Pair Known Evaluation)) (! compile)
-      (let ((target (array-values ev destination loc)) (source (array-values ev source loc)))
+      (let ((target (sequence-values ev destination loc)) (source (sequence-values ev source loc)))
         (check-range at count (length target) loc)
         (check-range from count (length source) loc)
-        (match (● destination value)
-          ((Object id)
-           (scalar (Evaluation-heap-set ev (table-set (● ev heap) id
-                                                      (ArrayValue (map-indexed (lambda (index old)
-                                                                                 (if
-                                                                                  (and
-                                                                                   (>= index at)
-                                                                                   (<
-                                                                                    (- index at)
-                                                                                    count))
-                                                                                  (list-ref source
-                                                                                            (+
-                                                                                             from
-                                                                                             (-
-                                                                                              index
-                                                                                              at)))
-                                                                                  old))
-                                                                               target))))
-                   type (DUnit)))
-          (_ (compile-error loc "constant copy destination must be an allocated array")))))
+        (scalar (replace-vector-contents ev destination
+                                         (append (take target at)
+                                                 (append (take (list-drop source from) count)
+                                                         (list-drop target (+ at count)))) loc)
+                type
+                (DUnit))))
 
     ;; Keep target integer semantics on both the unbounded Chez host and
     ;; Wasm. Intermediate host overflow is reduced to its low 64 bits.
@@ -1862,19 +1873,19 @@
        (active (List String))
        (bindings (List (Pair String Expr)))))
 
-    ;; Discover mutable nodes first. Their private shells break heap cycles;
-    ;; immutable nodes can then be constructed from those identities. Only
-    ;; after every node exists are the shells filled and the root published.
-    (define (mutable-node? (object ObjectValue)) (→ Bool)
+    ;; Reserve shells for nodes with outgoing edges to break heap cycles.
+    ;; Leaf nodes can be built directly. Fill shells only after every identity
+    ;; exists, then publish the root; mutability does not change this order.
+    (define (needs-shell? (object ObjectValue)) (→ Bool)
       (match object
-        ((ArrayValue _) #t)
+        ((VectorValue _) #t)
         ((RecordValue _ fields) (not (null? fields)))
         (_ #f)))
 
     (define (object-children (ev Evaluation) (object ObjectValue)) (→ (List Known))
       (match object
         ((RecordValue _ fields) fields)
-        ((ArrayValue items) items)
+        ((VectorValue items) items)
         ((DynamicValue inner) (list inner))
         ((ClosureValue _ env) (table-values env))
         ((RcValue payload finalizer)
@@ -1895,11 +1906,11 @@
          (constant-call "prim:constant-record"
                         (list (Expr (Lit (DString constructor)) (TCon "String" (Nil)) loc))
                         (● value type) loc))
-        ((ArrayValue items)
-         (constant-call "prim:constant-array-shell"
+        ((VectorValue items)
+         (constant-call "prim:constant-vector-shell"
                         (list (Expr (Lit (DInt (length items))) (TCon "I64" (Nil)) loc))
                         (● value type) loc))
-        (_ (panic "internal error: immutable constant shell"))))
+        (_ (panic "internal error: constant shell without fields"))))
 
     (define (reserve-shell (r Reifying) (value Known) (loc Loc)) (→ Reifying) (! compile)
       (match (● value value)
@@ -1944,9 +1955,9 @@
                 (list (list-ref args 0) value) (TCon "Unit" (Nil)) loc))
               (_ (panic "internal error: constant shell constructor"))))
           (list-drop args 1)))
-        ((ArrayValue _)
-         (list (constant-call "prim:constant-array-fill" args (TCon "Unit" (Nil)) loc)))
-        (_ (panic "internal error: only records and arrays have shells"))))
+        ((VectorValue _)
+         (list (constant-call "prim:constant-vector-fill" args (TCon "Unit" (Nil)) loc)))
+        (_ (panic "internal error: only records and vectors have shells"))))
 
 
 
@@ -2089,7 +2100,7 @@
       (let* ((graph (factory-graph ev value loc)) (objects (● graph values))
              (mutable (if (● graph cycle?)
                           (filter
-                           (lambda (value) (mutable-node? (object-value ev value loc)))
+                           (lambda (value) (needs-shell? (object-value ev value loc)))
                            objects) (Nil)))
              (r (fold-left (lambda (r value) (reserve-shell r value loc))
                            (Reifying ev (● graph owning) empty-table (Nil) (Nil)) mutable))
@@ -2149,9 +2160,10 @@
         ((RecordValue constructor fields)
          (match (reify-values r fields loc)
            ((Pair fields r) (Pair (constant-call constructor fields type loc) r))))
-        ((ArrayValue items)
+        ((VectorValue items)
          (match (reify-values r items loc)
-           ((Pair items r) (Pair (constant-call "prim:constant-array" items type loc) r))))
+           ((Pair items r) (Pair (constant-call "prim:constant-vector" items type loc) r))))
+        ((ByteVectorValue bytes) (Pair (Expr (Lit (DBytes bytes)) type loc) r))
         ((DynamicValue inner)
          (match (reify-value r inner loc)
            ((Pair inner r) (Pair (Expr (Convert inner type) type loc) r))))

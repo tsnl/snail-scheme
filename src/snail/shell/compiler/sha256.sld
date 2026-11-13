@@ -125,15 +125,15 @@
 
     (define (schedule (bytes Bytes) (start I64)) (→ (Vector I64))
       (unsafe-total (lambda ()
-                      (let ((words (make-array 64 (ann 0 I64))))
-                        (do ((t 0 (+ t 1))) ((= t 64) (array->vector words))
-                          (array-set! words t (if (< t 16)
-                                                  (block-word bytes start t)
-                                                  (wrap
-                                                   (+ (+ (small-sigma1 (array-ref words (- t 2)))
-                                                         (array-ref words (- t 7)))
-                                                      (+ (small-sigma0 (array-ref words (- t 15)))
-                                                         (array-ref words (- t 16))))))))))))
+                      (let ((words (make-vector 64 (ann 0 I64))))
+                        (do ((t 0 (+ t 1))) ((= t 64) words)
+                          (vector-set! words t (if (< t 16)
+                                                   (block-word bytes start t)
+                                                   (wrap
+                                                    (+ (+ (small-sigma1 (vector-ref words (- t 2)))
+                                                          (vector-ref words (- t 7)))
+                                                       (+ (small-sigma0 (vector-ref words (- t 15)))
+                                                          (vector-ref words (- t 16))))))))))))
 
     ;; §6.2.2 steps 2 to 4: 64 rounds over eight working words, which are
     ;; then added to the state.

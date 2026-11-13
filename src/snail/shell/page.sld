@@ -144,7 +144,7 @@
                ((Ok state) (Some state))
                ((Err _) (None))))))))
 
-    ;; The host retains these opaque immutable values across replacement.
+    ;; The host retains these opaque saved values across replacement.
     ;; Only a completed presentation commits; boot keeps an initial recovery
     ;; point without declaring the page ready. The host checks root
     ;; ownership before a caller can replace the checkpoint.

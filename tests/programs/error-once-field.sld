@@ -2,7 +2,7 @@
  (snail core base))
 
 (struct Bad
-  ((work (Array (FnOnce → Unit)))))
+  ((work (Vector (FnOnce → Unit)))))
 
 (define main
   (lambda ()

@@ -40,6 +40,13 @@
 (define (empty) (→ I32)
   (note-bytes 0 #u8()))
 
+(define (grown) (→ I32) (! mut)
+  (let ((bytes #u8(1)))
+    (vector-push! bytes (ann 2 U8))
+    (vector-push! bytes (ann 3 U8))
+    (match (vector-pop! bytes) ((Some byte) (unit)) ((None) (panic "missing byte")))
+    (note-bytes 9 bytes)))
+
 (define (discard (handover (Option Any))) (→ Unit)
   (unit))
 
@@ -51,6 +58,7 @@
 (expose value "value")
 (expose binary "binary")
 (expose empty "empty")
+(expose grown "grown")
 (expose discard "discard")
 (expose fail "fail")
 

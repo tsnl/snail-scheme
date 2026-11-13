@@ -46,9 +46,18 @@ const report = {date: new Date().toISOString(), node: process.version, v8: proce
   variants: variants.map(v => ({name: v.name, commit: run('git', ['rev-parse', 'HEAD'], v.root).trim(),
     compiler_sha256: hash(v.compiler), compiler_bytes: statSync(v.compiler).size})),
   scalar_runtime_sha256: hash(join(root, 'build/wasm-snail-core-support/wasm32-wasip1/release/snail_core_support.wasm'))};
+const valueSource = readFileSync(join(root, 'tests/benchmarks/value-model.sld'), 'utf8');
+const growthStart = valueSource.indexOf('(define (grow '), growthEnd = valueSource.indexOf('\n(expose scalar');
+assert(growthStart > 0 && growthEnd > growthStart);
+const legacyValues = valueSource.slice(0, growthStart)
+  .replaceAll('make-vector', 'make-array').replaceAll('vector-set!', 'array-set!').replaceAll('vector-ref', 'array-ref')
+  + valueSource.slice(growthStart, growthEnd).replaceAll('(vector)', '(mut-vector)').replaceAll('vector-', 'mut-vector-')
+  + valueSource.slice(growthEnd);
+writeFileSync(join(output, 'legacy-values.sld'), legacyValues);
 for (const variant of variants) {
   console.error(`Compiling ${variant.name} workloads`);
-  variant.values = compile(variant, 'values', join(root, 'tests/benchmarks/value-model.sld'));
+  variant.valueSource = variant.name === 'baseline' ? join(output, 'legacy-values.sld') : join(root, 'tests/benchmarks/value-model.sld');
+  variant.values = compile(variant, 'values', variant.valueSource);
   variant.siege = compile(variant, 'siege', join(root, 'tests/benchmarks/siege.sld'),
     [join(variant.root, 'apps/siegework/src')]);
   let session = join(root, 'tests/benchmarks/session.sld');
@@ -71,7 +80,7 @@ console.error('Measuring process memory');
 report.memory = [];
 for (let repeat = 0; repeat < 5; ++repeat) {
   for (const variant of repeat % 2 ? [...variants].reverse() : variants) {
-    for (const kind of ['scalar', 'records', 'record_list', 'arrays']) {
+    for (const kind of ['scalar', 'records', 'record_list', 'vectors', 'grow']) {
       const sample = JSON.parse(run('taskset', ['-c', cpu, 'node', '--no-warnings', '--expose-gc',
         join(root, 'scripts/benchmark-values.mjs'), '--memory', variant.values, kind]));
       report.memory.push({variant: variant.name, repeat, ...sample});
@@ -96,7 +105,7 @@ for (let repeat = 0; repeat < 7; ++repeat) {
   for (const variant of repeat % 2 ? [...variants].reverse() : variants) {
     const timing = join(output, 'time.txt'), target = join(output, `${variant.name}-timed.wat`);
     run('time', ['-f', '%e %U %S %M', '-o', timing, 'taskset', '-c', cpu, 'node',
-      ...compileArgs(variant, join(root, 'tests/benchmarks/value-model.sld'), target)], variant.root);
+      ...compileArgs(variant, variant.valueSource, target)], variant.root);
     const [elapsed_s, user_s, system_s, peak_rss_kib] = readFileSync(timing, 'utf8').trim().split(' ').map(Number);
     report.compilation.push({variant: variant.name, repeat, elapsed_s, user_s, system_s, peak_rss_kib,
       wat_bytes: statSync(target).size});

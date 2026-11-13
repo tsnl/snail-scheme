@@ -351,13 +351,13 @@
     (define (crowding (world World)) (→ (Vector I64))
       (unsafe-total
        (lambda ()
-         (let ((counts (make-array (* map-size map-size) 0)))
+         (let ((counts (make-vector (* map-size map-size) 0)))
            (for-each (lambda (e)
-                       (array-set! counts
-                                   (cell-index (● e cell))
-                                   (+ 1 (array-ref counts (cell-index (● e cell))))))
+                       (vector-set! counts
+                                    (cell-index (● e cell))
+                                    (+ 1 (vector-ref counts (cell-index (● e cell))))))
                      (● world enemies))
-           (array->vector counts)))))
+           counts))))
 
     ;; On its period an enemy that is not engaged steps toward its target,
     ;; unless the step is into rock still being dug.

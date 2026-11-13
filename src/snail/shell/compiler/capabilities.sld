@@ -89,7 +89,7 @@
         ((TCon "FnOnce" _) #f)
         ((TCon "fn" _) #f)
         ((TCon name args)
-         (cond ((member? name (list "Array" "Vector"))
+         (cond ((member? name (list "Vector"))
                 (any? (lambda (arg) (shared-content? program arg seen)) args))
                ((any? (lambda (entry) (string=? name (● entry first))) builtin-types) #f)
                ((member? name seen)
@@ -284,13 +284,10 @@
     ;;   a list of work items walks nothing.
     ;; - Implemented: a type with an instance of the class runs its method.
     ;; - Glue: other linear data is matched apart. A drop drops each linear
-    ;;   immutable field; a clone clones each, shares the others, and builds
-    ;;   the two values. A drop abandons a mutable field's content, as a
-    ;;   lost cell's is abandoned.
+    ;;   field; a clone clones each, shares the others, and builds two values.
     ;; - Refused: a FnOnce runs once, so it has no clone. Nor has, without a
     ;;   Clone instance, a type its library made linear with a Drop instance
-    ;;   or Move, whose library decides what a copy of one is, or linear data
-    ;;   with a mutable field, whose content a clone could only share.
+    ;;   or Move, whose library decides what a copy of one is.
     ;;
     ;; `Plan` is declared in core.sld, since a drop's evidence records it.
 
@@ -398,7 +395,7 @@
         (_ #f)))
 
     ;; The fields of `case` that glue drops or clones, by index, at the type
-    ;; `type` gives its declaration's parameters: the immutable linear ones.
+    ;; `type` gives its declaration's parameters: the linear ones.
 
     (define (glue-fields (program Program) (copy (List String)) (type Type) (case Case))
       (→ (List (Pair I64 Type)))
@@ -490,7 +487,7 @@
          (lifecycle-search program drop-class copy givens inner
                            (Ok (RowSearch-rows-set found (Cons mut-row (● found rows))))))
         ((TCon name args)
-         (cond ((member? name (list "Array" "Vector"))
+         (cond ((member? name (list "Vector"))
                 (fold-left (lambda (progress arg)
                              (lifecycle-search program drop-class copy givens arg progress))
                            (Ok found) args))

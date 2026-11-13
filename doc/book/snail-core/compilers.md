@@ -202,11 +202,13 @@ constructing or finalizing the inaccessible resource. Copying reserves all
 identities before connecting edges and assigns a credit for each owning edge.
 Acyclic graphs use direct
 constructors. An explicit enter/leave worklist discovers identities in
-dependency order. Cyclic graphs allocate private record/array shells, build
+dependency order. Cyclic graphs allocate private record/vector shells, build
 the other nodes, then fill the shells before exposing the result. Record
 fills use ordinary case-specific setters; their placeholders are immortal
 and inert, so replacing them cannot invoke user cleanup. Private allocation
-and array-fill primitives cannot be imported by user libraries.
+and vector-fill primitives cannot be imported by user libraries. Byte vectors
+retain heap identity during evaluation and emit compact passive data segments;
+each materialization copies its segment into fresh mutable storage.
 Before emission, a factory budget limits objects plus field/element edges to
 512. Evaluation may compute larger intermediate graphs, but expanding them
 into nested runtime construction code would exceed recursive downstream
@@ -223,9 +225,11 @@ runtime resources, schedulers and linear state.
 `wasm.sld` selects one representation per concrete type. Numeric primitives
 and booleans are Wasm scalars. A struct is always a GC struct reference;
 its field is one scalar or reference slot. An enum has a tagged base and
-case subtypes. Arrays have runtime lengths and contain scalar or reference
-elements without special restrictions on record layout. There is no inline
-struct flattening or reconstruction on field writes.
+case subtypes. Every vector has a stable holder containing its logical length
+and replaceable backing array. The active prefix owns its scalar or reference
+elements; spare reference slots are null. Growth replaces the backing array,
+and pop clears its removed slot. Source code cannot name that storage or its
+capacity. There is no inline struct flattening or reconstruction on field writes.
 
 A shared object that contains counted ownership has an owner header and a
 destructor. Copying its reference retains that owner; the final release
@@ -233,8 +237,10 @@ releases its fields. Linear objects have one statically checked owner. A
 pure replacement of a linear record may reuse it; a replacement of a shared
 record creates a shallow copy. A mutable update publishes the incoming
 field before releasing the old one, so a reentrant finalizer sees the new
-state. Array copies snapshot incoming owners before replacing destination
-slots, including overlapping ranges.
+state. Vector copies snapshot incoming owners before replacing destination
+slots, including overlapping ranges, then release displaced owners. Counted
+vector destructors visit only the live prefix. Strings remain character arrays;
+conversions copy storage, and host byte staging copies only a vector's live prefix.
 
 An `Rc` control cell owns its payload and selected finalizer. The last
 strong release makes the payload unavailable before running that finalizer.

@@ -9,7 +9,7 @@
 (define s "hello")
 
 (define (main) (→ Unit) (! mut output-port)
-  (define a (make-array 3 0))
+  (define a (make-vector 3 0))
 
   (display (vector-ref v 3))
   (newline)
@@ -21,8 +21,8 @@
   (newline)
   (write (vector->list (vector-append (subvector v 1 3) (list->vector (list 7 8)))))
   (newline)
-  (array-set! a 1 42)
-  (write (vector->list (array->vector a)))
+  (vector-set! a 1 42)
+  (write (vector->list (vector-copy a)))
   (newline)
   (write-line (string-append s (string-append ", " "world")))
   (display (string-length s))

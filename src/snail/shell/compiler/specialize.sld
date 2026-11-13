@@ -592,7 +592,7 @@
         ((TFun params result _) (TFun params result empty-row))
         (_ (panic "internal error: glue has a function type"))))
 
-    ;; Drop glue matches the value apart and drops each linear immutable
+    ;; Drop glue matches the value apart and drops each linear
     ;; field, skipping the rest.
 
     (define (drop-function (state State) (method String) (dropped Type) (loc Loc))
@@ -644,10 +644,9 @@
                             state))))
 
     ;; Clone glue matches the value apart, binding every field; clones each
-    ;; linear immutable field in field order, taking the pair apart into a
+    ;; linear field in field order, taking the pair apart into a
     ;; local for each half; and pairs two values of the case, built from
-    ;; the halves and the shared other fields. The plan has refused data
-    ;; with a mutable field, so every field is immutable here.
+    ;; the halves and the shared other fields.
 
     (define (clone-function (state State) (method String) (cloned Type) (loc Loc))
       (→ (Pair Expr State))

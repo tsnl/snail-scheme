@@ -291,7 +291,6 @@
             (Pair "Char" 0)
             (Pair "Unit" 0)
             (Pair "String" 0)
-            (Pair "Array" 1)
             (Pair "Vector" 1)
             (Pair "FnOnce" 1)
             (Pair "Fn" 0)
@@ -891,8 +890,8 @@
     ;; its class method's scheme and no signature of its own, and like a
     ;; default no program names it. A field has four
     ;; operations: an Accessor reads it, `(● record field)`; a Replacer copies an
-    ;; immutable struct with it replaced, `Name-field-set`; and a mutable
-    ;; field's Setter writes it in place, `Name-field-set!`, as its Swapper
+    ;; struct with it replaced, `Name-field-set`; a Setter writes it in place,
+    ;; `Name-field-set!`, as its Swapper
     ;; does while answering the old content, `Name-field-replace!`.
     (enum Value
       (Defined

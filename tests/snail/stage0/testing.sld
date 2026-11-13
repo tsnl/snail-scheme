@@ -4,7 +4,8 @@
    expect
    generated-library-bytes)
   (import
-   (chezscheme)
+   (except (chezscheme) list->vector)
+   (only (snail core base) list->vector)
    (snail stage0 system))
   (begin
 

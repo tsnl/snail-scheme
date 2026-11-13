@@ -5,9 +5,9 @@
 ;; A large evaluation result consumed before freezing does not expand code.
 (define total (→ I64) (fold-left + 0 (iota 20000)))
 (define small (→ (List I64)) (iota 170))
-(define array (→ (Array I64)) (vector->array (vector-generate 511 (lambda (index) index))))
+(define array (→ (Vector I64)) (vector-copy (vector-generate 511 (lambda (index) index))))
 
 (define (main) (→ Unit) (! output-port)
   (write-line (show total))
   (write-line (show (length small)))
-  (write-line (show (array-ref array 510))))
+  (write-line (show (vector-ref array 510))))

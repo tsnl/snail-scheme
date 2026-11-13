@@ -20,7 +20,7 @@ variant has no fields. A user `Drop` instance or `(deriving Move)` also makes
 a nominal type linear.
 
 `Rc` is the only owning type that can hold linear content without becoming
-linear itself. `WeakRc` does not own its content. Arrays and vectors require
+linear itself. `WeakRc` does not own its content. Vectors require
 `Copy` elements; they cannot hide a linear owner. An `Any` conversion cannot
 hide linear content or cleanup effects. A linear value cannot be a top-level
 constant or an exposed host value.
@@ -209,8 +209,12 @@ callable classes, `FnMut`, `dyn`, or `impl` forms.
 
 Every nominal aggregate is a WasmGC object. A field contains one scalar or one
 managed reference; nested structs are never flattened into their owners.
-Arrays have runtime lengths and may contain boxed aggregate elements.
-`MutVector` implements a growable sequence over those arrays.
+Vectors have runtime lengths and may contain boxed aggregate elements. Their
+stable heap object owns the live prefix of its backing storage. Growth transfers
+that prefix without duplicating element ownership. Pop transfers the final slot
+to its result and clears the slot; spare capacity owns nothing. A vector of
+counted elements counts aliases of the vector itself and releases its live
+elements when the last alias leaves. Primitive vectors need no owner counter.
 
 The lifetime pass makes ownership operations explicit after specialization.
 Reads of counted owners retain, calls transfer their owned operands, and scope

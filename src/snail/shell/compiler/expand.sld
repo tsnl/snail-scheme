@@ -4720,7 +4720,7 @@
                          (entry (program-type program "sample.docs:Entry")))
                     (expect
                      (annotation-documentation (program-annotations program "sample.docs:Entry"))
-                     (Some "A record.\nIts fields are immutable."))
+                     (Some "A record.\nIts fields are mutable."))
                     (expect (annotation-documentation
                              (program-field-annotations program "sample.docs:Entry" "value"))
                             (Some "original"))
@@ -4766,7 +4766,7 @@
                                  "(define-library (sample docs) (export Entry) (import (snail core base)) (begin\n"
                                  "(struct Entry ((value String (annotations (doc "
                                  (datum->string (DString documentation))
-                                 ")))) (annotations (doc \"A record.\") (doc \"Its fields are immutable.\")))\n"
+                                 ")))) (annotations (doc \"A record.\") (doc \"Its fields are mutable.\")))\n"
                                  "(struct Other ((value I64 (annotations (doc \"A different field.\")))))\n"
                                  "(enum Readiness (Waiting (annotations (doc \"No value yet.\"))))\n"
                                  "(define count (→ I64) (annotations (doc \"An inline definition.\")) 0)\n"
@@ -4923,8 +4923,8 @@
                   (expect (primitive-scheme program "vector-generate")
                           (list (list "A" "e")
                                 "(Fn I64 (Fn I64 → A ! e) → (Vector A) ! e)"))
-                  (expect (primitive-scheme program "array-ref")
-                          (list (list "A") "(Fn (Array A) I64 → A)"))
+                  (expect (primitive-scheme program "vector-ref")
+                          (list (list "A") "(Fn (Vector A) I64 → A)"))
                   (expect (primitive-scheme program "inherit-handlers")
                           (list (list "A" "e")
                                 "(Fn (FnOnce → A ! e) → (FnOnce → A ! host) ! e)"))

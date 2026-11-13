@@ -45,14 +45,7 @@
    string-generate
    string->vector vector->string
    vector-length vector-ref vector-append subvector make-vector vector-set vector-generate
-   make-array
-   array-length
-   array-ref
-   array-set!
-   array->vector
-   vector->array
-   array-copy!
-   vector-copy!
+   vector vector-set! vector-copy vector-copy! vector-push! vector-take-last!
    set!
    replace!)
   (import
@@ -93,10 +86,10 @@
     ;; Lifetime lowering inserts these operations after types are concrete.
     ;; They are deliberately absent from this library's exports.
     (primitive constant-record (∀ (T) (Fn String → T)))
-    (primitive constant-array-shell (∀ (T) (Fn I64 → (Vector T))))
-    (primitive constant-array-fill (∀ (T) (Fn (Vector T) → Unit)))
+    (primitive constant-vector-shell (∀ (T) (Fn I64 → (Vector T))))
+    (primitive constant-vector-fill (∀ (T) (Fn (Vector T) → Unit)))
     (primitive constant-dead-weak (∀ (T) (Fn → (WeakRc T))))
-    (primitive constant-array (∀ (T) (Fn → (Vector T))))
+    (primitive constant-vector (∀ (T) (Fn → (Vector T))))
     (primitive current-closure (∀ (T) (Fn → T)))
     (primitive pattern-retain (∀ (T) (Fn T → T)))
     (primitive retain (∀ (T) (Fn T → T)))
@@ -258,9 +251,9 @@
 
     ;; ---- Vectors ----
 
-    ;; Vectors and arrays will be linear, and may then hold linear values
-    ;; (#550); until then they hold only ω values, so each operation
-    ;; requires (Copy A).
+    ;; A vector shares its mutable slots. Elements must be duplicable; Rc
+    ;; lets a slot own a linear resource through a counted, duplicable handle.
+    (primitive vector (∀ (A) (⊨ (Copy A)) (Fn → (Vector A))))
     (primitive vector-length (∀ (A) (⊨ (Copy A)) (Fn (Vector A) → I64)))
     (primitive vector-ref (∀ (A) (⊨ (Copy A)) (Fn (Vector A) I64 → A)))
     (primitive vector-append
@@ -273,29 +266,16 @@
                   (⊨ (Copy A))
                   (Fn I64 (Fn I64 → A ! e) → (Vector A) ! e)))
 
-    ;; ---- Mutable storage ----
-
-    (primitive make-array (∀ (A) (⊨ (Copy A)) (Fn I64 A → (Array A))))
-    (primitive array-length (∀ (A) (⊨ (Copy A)) (Fn (Array A) → I64)))
-    (primitive array-ref (∀ (A) (⊨ (Copy A)) (Fn (Array A) I64 → A)))
-    (primitive array-set! (∀ (A) (⊨ (Copy A)) (Fn (Array A) I64 A → Unit ! mut)))
-    (primitive array->vector
-               (∀ (A) (⊨ (Copy A)) (Fn (Array A) → (Vector A))))
-    (primitive vector->array
-               (∀ (A) (⊨ (Copy A)) (Fn (Vector A) → (Array A))))
-    (primitive array-copy!
-               (∀ (A)
-                  (⊨ (Copy A))
-                  (Fn (Array A) I64 (Array A) I64 I64 → Unit ! mut)))
+    (primitive vector-set! (∀ (A) (⊨ (Copy A)) (Fn (Vector A) I64 A → Unit ! mut)))
+    (primitive vector-copy (∀ (A) (⊨ (Copy A)) (Fn (Vector A) → (Vector A))))
     (primitive vector-copy!
-               (∀ (A)
-                  (⊨ (Copy A))
-                  (Fn (Array A) I64 (Vector A) I64 I64 → Unit ! mut)))
+               (∀ (A) (⊨ (Copy A)) (Fn (Vector A) I64 (Vector A) I64 I64 → Unit ! mut)))
+    (primitive vector-push! (∀ (A) (⊨ (Copy A)) (Fn (Vector A) A → Unit ! mut)))
+    (primitive vector-take-last! (∀ (A) (⊨ (Copy A)) (Fn (Vector A) → A ! mut)))
 
     ;; `set!` writes a place and `replace!` swaps a value into one and
-    ;; answers the old: a cell's content, `(ref-get r)`, or a chain of struct
-    ;; fields read from one, `(● r count)`, which the checker
-    ;; verifies (check.sld, "Places"). Setting discards the old content, so
+    ;; answers the old. A place is a declared field, `(● record count)`,
+    ;; which the checker resolves directly. Setting discards the old content, so
     ;; it must be unrestricted; a swap moves it out.
     (primitive set! (∀ (A) (⊨ (Copy A)) (Fn A A → Unit ! mut)))
     (primitive replace! (∀ (A) (Fn A A → A ! mut)))))

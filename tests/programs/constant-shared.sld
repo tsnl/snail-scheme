@@ -34,7 +34,7 @@
 (struct Cycle
   ((owner (Rc Token))
    (values (Vector (Rc Token)))
-   (array (Array (Rc Token)))
+   (array (Vector (Rc Token)))
    (next (Option Cycle))))
 
 (define cyclic (→ Cycle)
@@ -42,7 +42,7 @@
    (lambda ()
      (let* ((owner (rc (Token 11)))
             (node
-             (Cycle owner (vector-generate 1 (lambda (index) owner)) (make-array 1 owner) (None))))
+             (Cycle owner (vector-generate 1 (lambda (index) owner)) (make-vector 1 owner) (None))))
        (set! (● node next) (Some node))
        node))))
 

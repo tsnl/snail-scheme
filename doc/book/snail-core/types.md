@@ -5,12 +5,26 @@
 Scalars are `U8`, `I32`, `I64`, `F32`, `F64`, `Bool`, `Char` and `Unit`.
 `Any` packages an eligible dynamic value, recovered through a checked
 conversion ([dynamic values](#dynamic-values)).
-`String` is a sequence of Unicode scalars. `(Vector T)` provides functional
-sequence operations; `(Array T)` provides indexed mutation, and `(MutVector T)`
-grows and shrinks over an array. Lengths are runtime values. Elements occupy
-one Wasm slot: primitives stay unboxed, while records, enum cases and nested
-arrays are references to heap objects. Arrays of records need no special
-layout or `Unboxed` constraint. `Bytes` is `(Vector U8)`, stored packed.
+`String` is a sequence of Unicode scalars. `(Vector T)` is a mutable, growable
+sequence. There is one vector type, with a runtime length: no `Array`,
+`MutVector`, fixed-length type parameters, dependent lengths or immutability
+checks. Primitives occupy unboxed slots; records, enum cases and nested vectors
+occupy reference slots. Records need no special layout or `Unboxed` constraint.
+`Bytes` is an alias for `(Vector U8)`, stored packed and mutable like any vector.
+
+`(vector)` constructs an empty vector; `make-vector` and `vector-generate`
+construct an initial sequence. `vector-ref` reads an element and `vector-set!`
+replaces it. `vector-push!` appends, and `vector-pop!` returns `Some` of the last
+element or `None` when empty. Every alias observes writes, growth and removal.
+Indices and copy ranges are checked against the current length, not spare capacity.
+
+`vector-copy`, `subvector` and `vector-append` create fresh mutable vectors and
+copy their elements shallowly. `vector-set` is the copying replacement operation;
+`vector-copy!` overwrites a destination range and supports overlap. None freezes
+its result. `vector-for-each` and `vector-fold` check the current length at each
+step, so callback mutation can change which elements are visited. `vector-map`
+uses the initial length. String/vector conversions copy character storage in both
+directions: changing the vector cannot change the string.
 
 A byte vector literal, `#u8(137 80 78 71)`, embeds exactly those bytes.
 `(include-bytes "pixel.png")` reads bytes relative to its source file during
@@ -84,7 +98,7 @@ recursion is not a constant-forcing cycle.
 
 Each read of an aggregate constant constructs a fresh object graph. Aliases
 and mutable cycles *inside* that graph are preserved. Two reads share no
-writable state, including through closure captures, arrays, `Rc` or `WeakRc`.
+writable state, including through closure captures, vectors, `Rc` or `WeakRc`.
 For example, mutating a record obtained from `origin` below does not change
 a later read of `origin`:
 
@@ -102,9 +116,10 @@ the compiler's deterministic scalar services, not arbitrary foreign calls or
 host I/O. It bounds evaluation at ten million steps and one million heap
 cells, reporting a compile error on exhaustion. Emitting a fresh runtime graph
 has a separate limit of 512 construction steps: one per object and one per
-field or element. Larger intermediate values can still be computed and reduced
-to a small result. Use an ordinary runtime function to construct a larger
-returned graph; runtime arrays have no fixed size. This emission limit protects
+field or element. Packed byte vectors emit as data segments, so their bytes do
+not count as individual construction steps. Larger intermediate values can still
+be computed and reduced to a small result. Use an ordinary runtime function to construct a larger
+returned graph; runtime vectors have no fixed size. This emission limit protects
 recursive compiler passes and is an implementation limit, not a type rule.
 Linear top-level values are
 rejected; a function can construct a fresh linear owner when called. An
@@ -438,15 +453,15 @@ Imports are leaves and must not call back into Snail Scheme while reading stagin
 An exposed function passes scalars directly and managed values as opaque engine
 references. JavaScript can retain those references and pass them to synchronous
 Wasm constructors/projectors, but cannot inspect their fields or substitute a
-JavaScript object, string or typed array. Exposed `String` and `Bytes` are managed
-arrays; the staging convention above applies to calls into foreign imports.
+JavaScript object, string or typed array. Exposed `String` and `Bytes` are opaque
+managed references; the staging convention above applies to calls into foreign imports.
 Affine values, including records that contain them, cannot cross this unrestricted
 boundary. Exposed signatures remain monomorphic and their effects need host bindings.
 A function export may infer its concrete signature. Its effect row stays available
 for instance solving rather than being generalized; ordinary value-type variables
 still generalize, so an unannotated generic identity function cannot be exposed.
 The host must respect the declared Snail Scheme types: Wasm representation checks do not
-prove nominal identity or permit treating immutable `Bytes` as a mutable `Array`.
+prove nominal identity or permit treating a `String` as a `Vector Char`.
 
 An exposed `(Option Any)` crosses as `null` for `None` or the opaque `Any`
 payload for `Some`. The wrapper converts at the boundary; internal Options

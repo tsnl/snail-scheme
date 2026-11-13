@@ -44,7 +44,7 @@
         ((Some (Primitive _))
          (match (● callee term)
            ((Var name _ _)
-            (if (member? name (list "prim:constant-array-fill"))
+            (if (member? name (list "prim:constant-vector-fill"))
                 (= index 0)
                 (and (not (member? name
                                    (list "prim:unsafe-total"
@@ -55,9 +55,10 @@
                                          "prim:drop-once"
                                          "prim:discard"
                                          "prim:rc" "prim:rc-new" "prim:set!" "prim:replace!"
-                                         "prim:constant-array" "prim:retain" "prim:release")))
+                                         "prim:constant-vector" "prim:retain" "prim:release")))
                      (not (and (= index 2)
-                               (member? name (list "prim:array-set!" "prim:vector-set")))))))
+                               (member? name (list "prim:vector-set!" "prim:vector-set"))))
+                     (not (and (= index 1) (string=? name "prim:vector-push!"))))))
            (_ #f)))
         ((Some (Foreign _ _)) #t)
         (_ #f)))
@@ -67,7 +68,7 @@
         ((Some (Accessor _ _ _)) #t)
         ((Some (Primitive _))
          (match (● callee term)
-           ((Var name _ _) (member? name (list "prim:rc-get" "prim:array-ref" "prim:vector-ref")))
+           ((Var name _ _) (member? name (list "prim:rc-get" "prim:vector-ref")))
            (_ #f)))
         (_ #f)))
 
@@ -148,11 +149,11 @@
       (match type
         ((TCon name args)
          (for-each (lambda (arg)
-                     (when (and (member? name (list "Array" "Vector"))
+                     (when (and (member? name (list "Vector"))
                                 (linear-type? program copy arg))
                        (compile-error loc
                                       (explain-type program copy arg
-                                                    "an Array or Vector element must be Copy; use Rc to share a linear value")))
+                                                    "a Vector element must be Copy; use Rc to share a linear value")))
                      (check-type program copy arg loc)) args))
         ((TFun params result _)
          (for-each (lambda (part) (check-type program copy part loc)) (Cons result params)))

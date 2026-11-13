@@ -603,17 +603,17 @@
     (define (lit-cells (nodes (List Node))) (→ (Vector Bool))
       (unsafe-total
        (lambda ()
-         (let ((seen (make-array (* map-size map-size) #f)))
+         (let ((seen (make-vector (* map-size map-size) #f)))
            (for-each (lambda (node) (light! seen (● node cell) (● node reach))) nodes)
-           (array->vector seen)))))
+           seen))))
 
-    (define (light! (seen (Array Bool)) (center Cell) (radius I64)) (→ Unit) (! mut)
+    (define (light! (seen (Vector Bool)) (center Cell) (radius I64)) (→ Unit) (! mut)
       (let ((offsets (map (lambda (i) (- i radius)) (iota (+ 1 (* 2 radius))))))
         (for-each (lambda (dy)
                     (for-each (lambda (dx)
                                 (let ((cell (Cell (+ (● center x) dx) (+ (● center y) dy))))
                                   (when (and (in-bounds? cell) (within? cell center radius))
-                                    (array-set! seen (cell-index cell) #t))))
+                                    (vector-set! seen (cell-index cell) #t))))
                               offsets))
                   offsets)))
 

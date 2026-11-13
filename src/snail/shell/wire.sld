@@ -18,16 +18,7 @@
    case-id=?)
   (import
    (snail core base)
-   (except (snail core primitive)
-           string-append
-           make-array
-           array-length
-           array-ref
-           array-set!
-           array->vector
-           vector->array
-           array-copy!
-           vector-copy!))
+   (except (snail core primitive) string-append))
   (begin
 
     ;; ---- Classes ----
@@ -40,23 +31,16 @@
 
     ;; ---- Byte streams ----
 
-    ;; The encoder doubles its array as it fills; the decoder reads forward.
+    ;; The encoder appends bytes; the decoder reads forward.
     (struct Encoder
-      ((bytes (Array U8))
-       (size I64)))
+      ((bytes Bytes)))
 
     (struct Decoder
       ((bytes Bytes)
        (position I64)))
 
     (define (encode-byte (encoder Encoder) (byte U8)) (→ Unit) (! mut)
-      (let ((bytes (● encoder bytes)) (size (● encoder size)))
-        (when (= size (array-length bytes))
-          (let ((larger (make-array (* 2 size) (ann 0 U8))))
-            (array-copy! larger 0 bytes 0 size)
-            (set! (● encoder bytes) larger)))
-        (array-set! (● encoder bytes) size byte)
-        (set! (● encoder size) (+ size 1))))
+      (vector-push! (● encoder bytes) byte))
 
     (define (decode-byte (decoder Decoder)) (→ U8) (! mut)
       (let ((position (● decoder position)))
@@ -70,11 +54,9 @@
     (define (serialize (value T)) (→ Bytes) (∀ T) (⊨ (Serialize T) (Copy T) (Drop (!) T))
       (unsafe-total
        (lambda ()
-         (let ((encoder (Encoder (make-array 64 (ann 0 U8)) 0)))
+         (let ((encoder (Encoder (vector))))
            (encode value encoder)
-           (subvector (array->vector (● encoder bytes))
-                      0
-                      (● encoder size))))))
+           (● encoder bytes)))))
 
     ;; Panics if the bytes were not written for this type. The decoder's
     ;; position is local to this call.

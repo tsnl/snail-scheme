@@ -62,11 +62,14 @@
    vector-concatenate
    subvector
    vector-map vector-for-each vector-fold vector->list list->vector
-   make-array array-length array-ref array-set! array->vector vector->array
+   vector vector-set! vector-copy vector-copy! vector-push! vector-pop!
    set! replace!
    )
   (import
-   (except (chezscheme) define set! case map fold-left fold-right find)
+   (except (chezscheme) define set! case map fold-left fold-right find
+           vector make-vector vector-length vector-ref vector-set! vector-copy vector-copy!
+           vector-append vector-map vector-for-each vector->list list->vector)
+   (prefix (only (chezscheme) make-vector vector-length vector-ref vector-set! vector-copy!) raw:)
    (snail stage0 forms))
 
 
@@ -227,44 +230,98 @@
             ((char=? (string-ref text index) char) (Some index))
             (else (loop (+ index 1))))))
 
-  ;; ---- Vectors and arrays ----
+  ;; ---- Vectors ----
+
+  ;; Native vectors are private storage. All source aliases share this holder.
+  (define-record-type (source-vector wrap-vector source-vector?)
+    (fields (mutable size vector-size vector-size-set!)
+            (mutable data vector-data vector-data-set!)))
+
+  (define (vector) (wrap-vector 0 (raw:make-vector 0)))
+  (define (make-vector size value) (wrap-vector size (raw:make-vector size value)))
+  (define (vector-length items) (vector-size items))
+
+  (define (vector-range items start count)
+    (unless (and (<= 0 start (vector-length items))
+                 (<= 0 count (- (vector-length items) start)))
+      (panic "vector: index out of range")))
+
+  (define (vector-ref items index)
+    (vector-range items index 1)
+    (raw:vector-ref (vector-data items) index))
+
+  (define (vector-set! items index value)
+    (vector-range items index 1)
+    (raw:vector-set! (vector-data items) index value))
+
+  (define (vector-push! items value)
+    (let* ((size (vector-length items)) (data (vector-data items)))
+      (when (= size (raw:vector-length data))
+        (let ((larger (raw:make-vector (max 4 (* size 2)) #f)))
+          (raw:vector-copy! data 0 larger 0 size)
+          (vector-data-set! items larger)))
+      (raw:vector-set! (vector-data items) size value)
+      (vector-size-set! items (+ size 1))))
+
+  (define (vector-pop! items)
+    (let ((size (vector-length items)))
+      (if (= size 0) (None)
+          (let ((value (vector-ref items (- size 1))))
+            (raw:vector-set! (vector-data items) (- size 1) #f)
+            (vector-size-set! items (- size 1))
+            (Some value)))))
 
   (define (vector-generate count f)
-    (let ((items (make-vector count)))
+    (let ((items (make-vector count #f)))
       (do ((index 0 (+ index 1))) ((= index count) items)
         (vector-set! items index (f index)))))
 
-  (define (vector-set items index value)
-    (let ((copy (vector-copy items)))
-      (vector-set! copy index value)
-      copy))
+  (define (vector-copy! to at from start count)
+    (vector-range to at count)
+    (vector-range from start count)
+    (raw:vector-copy! (vector-data from) start (vector-data to) at count))
 
   (define (subvector items start end)
-    (let ([out (make-vector (- end start))])
-      (vector-copy! items start out 0 (- end start)) out))
+    (vector-range items start (- end start))
+    (vector-generate (- end start) (lambda (index) (vector-ref items (+ start index)))))
 
-  ;; Without `apply`, as `string-concatenate`.
+  (define (vector-copy items) (subvector items 0 (vector-length items)))
+
+  (define (vector-set items index value)
+    (let ((copy (vector-copy items))) (vector-set! copy index value) copy))
+
+  (define (vector-append left right)
+    (let ((size (vector-length left)))
+      (vector-generate (+ size (vector-length right))
+                       (lambda (index) (if (< index size) (vector-ref left index)
+                                           (vector-ref right (- index size)))))))
+
   (define (vector-concatenate vectors)
     (let ((all (make-vector
-                (fold-left (lambda (total items) (+ total (vector-length items))) 0 vectors))))
-      (fold-left
-       (lambda (offset items)
-         (vector-copy! items 0 all offset (vector-length items))
-         (+ offset (vector-length items)))
-       0
-       vectors)
+                (fold-left (lambda (total items) (+ total (vector-length items))) 0 vectors) #f)))
+      (fold-left (lambda (offset items)
+                   (vector-copy! all offset items 0 (vector-length items))
+                   (+ offset (vector-length items))) 0 vectors)
       all))
 
+  (define (vector-map f items)
+    (vector-generate (vector-length items) (lambda (index) (f (vector-ref items index)))))
+
+  (define (vector-for-each f items)
+    (let loop ((index 0))
+      (when (< index (vector-length items)) (f (vector-ref items index)) (loop (+ index 1)))))
+
   (define (vector-fold f initial items)
-    (fold-left f initial (vector->list items)))
+    (let loop ((index 0) (result initial))
+      (if (< index (vector-length items))
+          (loop (+ index 1) (f result (vector-ref items index))) result)))
 
-  (define (make-array count value) (make-vector count value))
-  (define (array-length items) (vector-length items))
-  (define (array-ref items index) (vector-ref items index))
-  (define (array-set! items index value) (vector-set! items index value))
-  (define (array->vector items) (vector-copy items))
-  (define (vector->array items) (vector-copy items))
+  (define (vector->list items)
+    (let loop ((index (- (vector-length items) 1)) (result '()))
+      (if (< index 0) result (loop (- index 1) (cons (vector-ref items index) result)))))
 
+  (define (list->vector items)
+    (let ((result (vector))) (for-each (lambda (item) (vector-push! result item)) items) result))
 
   (define (string->vector text) (list->vector (string->list text)))
   (define (vector->string chars) (list->string (vector->list chars)))
@@ -274,5 +331,17 @@
     (if (or (= count 0) (null? items)) items (list-drop (cdr items) (- count 1))))
   (define (digit-value char)
     (if (and (char<=? #\0 char) (char<=? char #\9)) (- (char->integer char) 48) #f))
+
+  ;; Stage-zero assertions compare source values, never backing capacity.
+  (record-type-equal-procedure
+   (record-type-descriptor source-vector)
+   (lambda (left right same?)
+     (and (= (vector-size left) (vector-size right))
+          (let loop ((index 0))
+            (or (= index (vector-size left))
+                (and (same? (raw:vector-ref (vector-data left) index)
+                            (raw:vector-ref (vector-data right) index))
+                     (loop (+ index 1))))))))
+
 
   )

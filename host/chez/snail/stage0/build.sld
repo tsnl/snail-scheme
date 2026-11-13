@@ -34,10 +34,10 @@
    copy-file!
    report-failure)
   (import
-   (chezscheme)
+   (except (chezscheme) list->vector make-vector vector-set!)
    (snail stage0 system)
    (snail stage0 process)
-   (only (snail core base) match Ok Err)
+   (only (snail core base) match Ok Err list->vector make-vector vector-set!)
    (only (snail shell compiler read)
          loc->string
          diagnostics->string
@@ -763,7 +763,8 @@
       (define (test-object-store root size)
         (with-private-directory root
                                 (lambda (directory)
-                                  (let ((bytes (make-bytevector size)) (values (make-vector size)))
+                                  (let ((bytes (make-bytevector size))
+                                        (values (make-vector size 0)))
                                     (do ((i 0 (+ i 1))) ((= i size))
                                       (bytevector-u8-set! bytes i (modulo i 256))
                                       (vector-set! values i (modulo i 256)))

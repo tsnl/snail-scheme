@@ -1050,7 +1050,7 @@
       (⊨ (Scene S))
       (scene-initialize (random-seed) (canvas-width) (canvas-height)))
 
-    ;; Only successful events publish their immutable state. A frame owns
+    ;; Only successful events publish their resulting state. A frame owns
     ;; drawing and HUD throttling; an input owns its HUD. Save events share
     ;; the same queue, independently of display frames.
 

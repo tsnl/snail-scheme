@@ -1,1 +1,1 @@
-an Array or Vector element must be Copy; use Rc to share a linear value
+a Vector element must be Copy; use Rc to share a linear value

@@ -1,6 +1,5 @@
 ;; The standard prelude: core forms, derived syntax, numeric classes, text,
-;; the immutable collections, and cells. Reading and writing arrays and
-;; cells performs `mut`.
+;; collections and mutable heap objects. Writes perform `mut`; reads are pure.
 (define-library (snail core base)
   (export
    ●
@@ -18,7 +17,7 @@
    effect
    handle
    expose
-   Any U8 I32 I64 F32 F64 Bool Char Unit String Array Vector Bytes FnOnce Fn Rc WeakRc mut
+   Any U8 I32 I64 F32 F64 Bool Char Unit String Vector Bytes FnOnce Fn Rc WeakRc mut
    rc rc-get rc-downgrade weak-rc-upgrade
    u8->i32 i32->u8
    let* letrec cond case when unless and or do
@@ -74,19 +73,13 @@
    vector-concatenate
    subvector
    vector-map vector-for-each vector-fold vector->list list->vector
-   make-array array-length array-ref array-set! array->vector vector->array array-copy! vector-copy!
-   set! replace!
-   MutVector mut-vector mut-vector-length mut-vector-ref mut-vector-set! mut-vector-push!
-   mut-vector-pop! mut-vector->vector)
+   vector vector-set! vector-copy vector-copy! vector-push! vector-pop!
+   set! replace!)
   (import
    (snail core forms)
    (snail core primitive)
    (rename (only (snail core primitive) string-append) (string-append append-two-strings)))
   (begin
-
-    ;; ---- Lexical borrowing ----
-
-
 
     ;; ---- Derived syntax ----
 
@@ -645,7 +638,7 @@
       (let loop ((index (- count 1)) (items (Nil)))
         (if (< index 0) items (loop (- index 1) (Cons index items)))))
 
-    ;; ---- Vectors and arrays ----
+    ;; ---- Vectors ----
 
     (define (vector-map (f (Fn A → B ! e)) (items (Vector A)))
       (→ (Vector B))
@@ -736,91 +729,11 @@
                                               (panic "vector-concatenate: too few elements"))))))))
                          (Fn → (Vector T) ! mut e))))
 
-    ;; ---- Growable vectors ----
-
-    ;; The mutable record owns its length and backing array. Growth replaces
-    ;; the array, so every alias observes the accepted length and storage.
-    (struct (MutVector A)
-      ((length I64)
-       (items (Option (Array A)))))
-
-    (define (mut-vector) (→ (MutVector A)) (∀ A) (⊨ (Copy A))
-      (MutVector 0 (None)))
-
-    (define (mut-vector-length (vector (MutVector A)))
-      (→ I64)
-      (! e)
-      (∀ A e)
-      (⊨ (Copy A) (Drop e A))
-      (● vector length))
-
-    (define (mut-vector-ref (vector (MutVector A)) (index I64))
-      (→ A)
-      (! e)
-      (∀ A e)
-      (⊨ (Copy A) (Drop e A))
-      (array-ref (mut-vector-items vector index) index))
-
-    (define (mut-vector-set! (vector (MutVector A)) (index I64) (item A))
-      (→ Unit)
-      (! mut e)
-      (∀ A e)
-      (⊨ (Copy A) (Drop e A))
-      (array-set! (mut-vector-items vector index) index item))
-
-    (define (mut-vector-items (vector (MutVector A)) (index I64))
-      (→ (Array A))
-      (! e)
-      (∀ A e)
-      (⊨ (Copy A) (Drop e A))
-      (match (● vector items)
-        ((Some items)
-         (if (and (<= 0 index) (< index (● vector length))) items
-             (panic "mut-vector: index out of range")))
-        ((None) (panic "mut-vector: index out of range"))))
-
-    (define (mut-vector-push! (vector (MutVector A)) (item A))
-      (→ Unit)
-      (! mut e)
-      (∀ A e)
-      (⊨ (Copy A) (Drop e A))
-      (let* ((length (● vector length)) (items (room-for length (● vector items) item)))
-        (array-set! items length item)
-        (set! (● vector items) (Some items))
-        (set! (● vector length) (+ length 1))))
-
-    (define (room-for (length I64) (held (Option (Array A))) (item A))
-      (→ (Array A))
-      (! mut e)
-      (∀ A e)
-      (⊨ (Copy A) (Drop e A))
-      (match held
-        ((None) (make-array 4 item))
-        ((Some items)
-         (if (< length (array-length items)) items
-             (let ((longer (make-array (* 2 (array-length items)) item)))
-               (array-copy! longer 0 items 0 length)
-               longer)))))
-
-    (define (mut-vector-pop! (vector (MutVector A)))
-      (→ (Option A))
-      (! mut e)
-      (∀ A e)
-      (⊨ (Copy A) (Drop e A))
-      (let ((length (● vector length)))
-        (if (= length 0) (None)
-            (let ((item (mut-vector-ref vector (- length 1))))
-              (set! (● vector length) (- length 1))
-              (Some item)))))
-
-    (define (mut-vector->vector (vector (MutVector A)))
-      (→ (Vector A))
-      (! e)
-      (∀ A e)
-      (⊨ (Copy A) (Drop e A))
-      (match (● vector items)
-        ((Some items) (vector-generate (● vector length) (lambda (index) (array-ref items index))))
-        ((None) (vector-generate 0 (lambda (index) (panic "mut-vector->vector: empty"))))))
+    ;; Empty pop is ordinary control flow. The primitive moves the last slot
+    ;; out and clears it before returning, so the result owns that element.
+    (define (vector-pop! (items (Vector A)))
+      (→ (Option A)) (! mut e) (∀ A e) (⊨ (Copy A) (Drop e A))
+      (if (= (vector-length items) 0) (None) (Some (vector-take-last! items))))
 
     ;; ---- Characters and text ----
 
@@ -863,11 +776,11 @@
 
     (define (string-concatenate (texts (List String))) (→ String)
       (unsafe-total (lambda () (let ((chars
-                                      (make-array (fold-left (lambda (total text)
-                                                               (+ total (string-length text)))
-                                                             0
-                                                             texts)
-                                                  #\space)))
+                                      (make-vector (fold-left (lambda (total text)
+                                                                (+ total (string-length text)))
+                                                              0
+                                                              texts)
+                                                   #\space)))
                                  (fold-left (lambda (offset text)
                                               (vector-copy! chars
                                                             offset
@@ -876,7 +789,7 @@
                                                             (string-length text))
                                               (+ offset (string-length text)))
                                             0 texts)
-                                 (vector->string (array->vector chars))))))
+                                 (vector->string chars)))))
 
     (define (string-join (texts (List String)) (separator String)) (→ String)
       (match texts
