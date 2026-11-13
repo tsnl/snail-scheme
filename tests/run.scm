@@ -634,6 +634,7 @@
     ("tests/programs" "control-per-library")
     ("tests/programs" "rc-per-library")
     ("tests/programs" "function-values")
+    ("tests/programs" "function-cache")
     ("tests/programs" "factory-shared")
     ("tests/programs" "rc-model-parameters")
     ("tests/programs" "rc-model-fields")

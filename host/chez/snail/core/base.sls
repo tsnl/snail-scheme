@@ -28,7 +28,7 @@
    min
    max
    not
-   unit panic drop unsafe-total
+   unit panic drop unsafe-total cache lru-cache
    i64-and i64-or i64-xor i64-shift-left i64-shift-right/logical
    i64->string string->i64 u8->i32 i32->u8 i32->i64 i64->i32 digit-value
    Option Some None Result Ok Err Never absurd Pair
@@ -338,9 +338,111 @@
   (define (digit-value char)
     (if (and (char<=? #\0 char) (char<=? char #\9)) (- (char->integer char) 48) #f))
 
+  ;; ---- Memoized closures ----
+
+  ;; Keys are argument tuples. Strings compare by content, floats by bits,
+  ;; and other heap values by identity, as in the WasmGC implementation.
+  (define (cache-float-bits value)
+    (let ((bytes (make-bytevector 8)))
+      (bytevector-ieee-double-native-set! bytes 0 value)
+      (bytevector-u64-native-ref bytes 0)))
+
+  (define (cache-key=? a b)
+    (cond ((and (string? a) (string? b)) (string=? a b))
+          ((and (flonum? a) (flonum? b)) (= (cache-float-bits a) (cache-float-bits b)))
+          ((and (integer? a) (exact? a) (integer? b) (exact? b)) (= a b))
+          (else (eq? a b))))
+
+  (define (cache-arguments=? as bs)
+    (if (null? as) (null? bs)
+        (and (pair? bs) (cache-key=? (car as) (car bs))
+             (cache-arguments=? (cdr as) (cdr bs)))))
+
+  (define (cache-mix hash value)
+    (bitwise-and (* (bitwise-xor hash value) 1099511628211) #xffffffffffffffff))
+
+  (define (cache-key-hash value)
+    (cond ((string? value)
+           (fold-left (lambda (hash char) (cache-mix hash (char->integer char)))
+                      #xcbf29ce484222325 (string->list value)))
+          ((flonum? value) (cache-float-bits value))
+          ((and (integer? value) (exact? value)) value)
+          ((char? value) (char->integer value))
+          ((boolean? value) (if value 1 0))
+          (else 0)))
+
+  (define (cache-argument-hash arguments)
+    (fold-left (lambda (hash key) (cache-mix hash (cache-key-hash key)))
+               #xcbf29ce484222325 arguments))
+
+  ;; The map and recency list belong to this invocation of the factory.
+  ;; Entries hold argument keys, result, newer and older; no counted values.
+  (define (cache-wrapper capacity f)
+    (let ((entries (make-hashtable cache-argument-hash cache-arguments=?))
+          (head #f) (tail #f))
+      (define (touch entry)
+        (unless (or (= capacity 0) (eq? entry head))
+          (let ((newer (raw:vector-ref entry 2)) (older (raw:vector-ref entry 3)))
+            (when newer (raw:vector-set! newer 3 older))
+            (if older (raw:vector-set! older 2 newer) (set! tail newer))
+            (raw:vector-set! entry 2 #f)
+            (raw:vector-set! entry 3 head)
+            (when head (raw:vector-set! head 2 entry))
+            (set! head entry))))
+      (define (publish arguments value)
+        ;; User code can reenter: find again after it returns.
+        (let ((found (hashtable-ref entries arguments #f)))
+          (if found (begin (raw:vector-set! found 1 value) (touch found))
+              (let ((entry (raw:list->vector (list arguments value #f head))))
+                (hashtable-set! entries arguments entry)
+                (if head (raw:vector-set! head 2 entry) (set! tail entry))
+                (set! head entry)
+                (when (and (> capacity 0) (> (hashtable-size entries) capacity))
+                  (hashtable-delete! entries (raw:vector-ref tail 0))
+                  (set! tail (raw:vector-ref tail 2))
+                  (if tail (raw:vector-set! tail 3 #f) (set! head #f)))))))
+      (lambda arguments
+        (let ((entry (hashtable-ref entries arguments #f)))
+          (if entry (begin (touch entry) (raw:vector-ref entry 1))
+              (let ((value (apply f arguments))) (publish arguments value) value))))))
+
+  (define (cache f) (cache-wrapper 0 f))
+  (define (lru-cache capacity f)
+    (cond ((< capacity 0) (panic "lru-cache capacity must be nonnegative"))
+          ((= capacity 0) f)
+          (else (cache-wrapper capacity f))))
+
   ;; ---- Tests ----
 
+  (define (test-cache)
+    (let* ((calls 0)
+           (work (lambda args (set! calls (+ calls 1)) (raw:list->vector (list calls))))
+           (memo (cache work)) (alias memo) (other (cache work)))
+      (let ((first (memo 1 "a")))
+        (unless (eq? first (alias 1 (make-string 1 #\a))) (error 'cache "string key miss"))
+        (when (eq? first (other 1 "a")) (error 'cache "separate wrappers shared state")))
+      (let ((key (raw:make-vector 1 0)))
+        (let ((first (memo key)))
+          (raw:vector-set! key 0 1)
+          (unless (eq? first (memo key)) (error 'cache "identity key changed"))))
+      (unless (eq? (memo (None)) (memo (None))) (error 'cache "enum singleton mismatch"))
+      (when (eq? (memo 0.0) (memo -0.0)) (error 'cache "lost signed zero"))
+      (let ((lru (lru-cache 2 work)))
+        (let ((one (lru 1)) (two (lru 2)))
+          (unless (eq? one (lru 1)) (error 'lru-cache "lost entry"))
+          (lru 3)
+          (when (eq? two (lru 2)) (error 'lru-cache "wrong eviction order"))))
+      (let* ((zero (lru-cache 0 work)) (first (zero)))
+        (when (eq? first (zero)) (error 'lru-cache "capacity zero retained an entry"))))
+    (let ((memo #f) (entered? #f))
+      (set! memo (cache (lambda (key)
+                          (if entered? key
+                              (begin (set! entered? #t) (+ (memo key) 1))))))
+      (unless (= (memo 10) 11) (error 'cache "reentrant result"))
+      (unless (= (memo 10) 11) (error 'cache "last completion must win"))))
+
   (define (test-base)
+    (test-cache)
     (for-each
      (lambda (entry)
        (let ((actual (match (string->i64 (car entry)) ((Some value) value) ((None) #f))))

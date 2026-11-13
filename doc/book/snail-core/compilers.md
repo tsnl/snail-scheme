@@ -555,3 +555,11 @@ Backend changes need execution tests, not only successful compilation.
 `make check` checks formatting; `mdbook build` builds the book.
 The [getting-started guide](https://github.com/tsnl/snail-scheme/blob/main/doc/getting-started.md)
 lists pinned tools and the Rust/browser checks.
+
+The `cache` and `lru-cache` primitives preserve a callback's complete `Fn` type.
+Preparation checks concrete key and result types for trivial cleanup and rejects
+suspending callbacks. The Wasm backend builds an ordinary closure capturing its
+callback and a private typed hash table; no module globals or new ownership
+representation are involved. Its destructor releases the callback through the
+existing closure machinery. The Chez adapter implements the same wrapper and key
+semantics. See [cached functions](terms.md#cached-functions).
