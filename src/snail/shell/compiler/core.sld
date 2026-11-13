@@ -10,7 +10,6 @@
    TRow
    TVar
    TRigid
-   TVar-id
    empty-row
    fn-arrow
    callable-kind
@@ -103,6 +102,7 @@
    Defined
    Constructor
    Accessor
+   field-operation-name
    Replacer
    Setter
    Swapper
@@ -113,8 +113,6 @@
    value-scheme
    Item
    Define
-   Define-name
-   Define-value
    Entry
    Expose
    item-definitions
@@ -122,7 +120,6 @@
    Program-items-set
    empty-program
    primitive-global
-   primitive-delta
    program-annotations
    program-field-annotations
    program-with-annotations
@@ -142,7 +139,6 @@
    program-with-instance
    program-with-effect
    program-with-library
-   program-delta
    table-union
    program-items
    library-items
@@ -888,11 +884,13 @@
     ;; lambda, which a top-level definition's has no environment around, so
     ;; its name has type fn where one is expected. An instance method has
     ;; its class method's scheme and no signature of its own, and like a
-    ;; default no program names it. A field has four
-    ;; operations: an Accessor reads it, `(● record field)`; a Replacer copies an
-    ;; struct with it replaced, `Name-field-set`; a Setter writes it in place,
-    ;; `Name-field-set!`, as its Swapper
-    ;; does while answering the old content, `Name-field-replace!`.
+    ;; default no program names it. Internal field operations describe
+    ;; path reads, pure struct copies, writes and swaps. Only the pure
+    ;; replacement has a source function name; enum fields are read by match.
+    (define (field-operation-name (case Case) (index I64) (operation String)) (→ String)
+      (string-append "%" operation ":" (● case name) "-"
+                     (● (list-ref (● case fields) index) name)))
+
     (enum Value
       (Defined
         ((scheme (Option Scheme))
@@ -1183,50 +1181,15 @@
       (Program-libraries-set (Program-items-set program (append items (● program items)))
                              (Cons (Pair name (length items)) (● program libraries))))
 
-    ;; What the newest library added: the globals named for it, and its run
-    ;; of items, which are the newest. Expansion fingerprints these identities
-    ;; before deciding whether checked code from a previous build still applies.
 
-    (define (program-delta (program Program) (owner String)) (→ Program)
-      (let ((count (match (● program libraries)
-                     ((Cons (Pair _ count) _) count)
-                     ((Nil) 0))))
-        (Program (owned (● program values) owner)
-                 (owned (● program types) owner)
-                 (owned (● program classes) owner)
-                 (owned-instances (● program instances) owner)
-                 (owned (● program effects) owner)
-                 (owned (● program metadata) owner)
-                 (take (● program items) count) (take (● program libraries) 1))))
 
-    (define (owned (table (Table V)) (owner String))
-      (→ (Table V))
-      (! e)
-      (∀ V e)
-      (⊨ (Copy V) (Drop e V))
-      (fold-left (lambda (result key)
-                   (match (table-ref table key)
-                     ((Some value)
-                      (if (string=? (name-owner key) owner)
-                          (table-set result key value)
-                          result))
-                     ((None) result)))
-                 empty-table (table-keys table)))
 
-    (define (owned-instances (table (Table (List Instance))) (owner String))
-      (→ (Table (List Instance)))
-      (fold-left (lambda (result class)
-                   (match (filter (lambda (instance)
-                                    (string=? (name-owner (● instance name)) owner))
-                                  (class-list table class))
-                     ((Nil) result)
-                     (instances (table-set result class instances))))
-                 empty-table (table-keys table)))
 
-    (define (class-list (table (Table (List Instance))) (class String)) (→ (List Instance))
-      (match (table-ref table class)
-        ((Some instances) instances)
-        ((None) (Nil))))
+
+
+
+
+
 
     ;; `table` with every entry of `additions`, which win where both have a
     ;; key.
@@ -1234,7 +1197,7 @@
     (define (table-union (table (Table V)) (additions (Table V)))
       (→ (Table V))
       (! e)
-      (∀ V e)
+      (∀ (V e))
       (⊨ (Copy V) (Drop e V))
       (fold-left (lambda (result key)
                    (match (table-ref additions key)
@@ -1521,8 +1484,7 @@
     ;; It has no module, since the backend
     ;; implements everything it declares, so it records no run of items.
 
-    (define (primitive-delta (program Program)) (→ Program)
-      (Program-values-set empty-program (owned (● program values) "prim")))
+
 
     )
 

@@ -7,7 +7,7 @@
 (define identity (→ (Fn I64 → I64)) (lambda (value) value))
 (define (duplicate (function (Fn I64 → I64))) (→ (Pair (Fn I64 → I64) (Fn I64 → I64)))
   (Pair function function))
-(define (invoke (function (Fn → Unit ! e))) (→ Unit) (! e) (∀ e)
+(define (invoke (function (Fn → Unit ! e))) (→ Unit) (! e) (∀ (e))
   (function))
 
 (define (main) (→ Unit) (! output-port)

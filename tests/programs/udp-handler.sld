@@ -13,7 +13,7 @@
        ((Ok checked) checked)
        ((Err _) (panic "fixture payload has the wrong type"))))))
 
-(define (require (result (Result T SocketError))) (→ T) (∀ T)
+(define (require (result (Result T SocketError))) (→ T) (∀ (T))
   (match result
     ((Ok value) value)
     ((Err error) (panic (● error code)))))

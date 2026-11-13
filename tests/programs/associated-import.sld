@@ -5,7 +5,7 @@
 
 (define (forward (a A) (b B))
   (→ (p:Combine.Output A B))
-  (∀ A B)
+  (∀ (A B))
   (⊨ (p:Combine A B))
   (p:generic a b))
 

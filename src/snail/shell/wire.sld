@@ -51,7 +51,7 @@
 
     ;; The encoder and its buffer are local to this call.
 
-    (define (serialize (value T)) (→ Bytes) (∀ T) (⊨ (Serialize T) (Copy T) (Drop (!) T))
+    (define (serialize (value T)) (→ Bytes) (∀ (T)) (⊨ (Serialize T) (Copy T) (Drop (!) T))
       (unsafe-total
        (lambda ()
          (let ((encoder (Encoder (vector))))
@@ -61,7 +61,7 @@
     ;; Panics if the bytes were not written for this type. The decoder's
     ;; position is local to this call.
 
-    (define (deserialize (bytes Bytes)) (→ T) (∀ T) (⊨ (Deserialize T))
+    (define (deserialize (bytes Bytes)) (→ T) (∀ (T)) (⊨ (Deserialize T))
       (unsafe-total
        (lambda ()
          (let* ((decoder (Decoder bytes 0)) (value (decode decoder)))
@@ -207,7 +207,7 @@
                              (decode-one (Fn Decoder → T ! mut)))
       (→ (Vector T))
       (! mut)
-      (∀ T)
+      (∀ (T))
       (⊨ (Copy T) (Drop (!) T))
       (vector-generate count (lambda (index) (decode-one decoder))))
 

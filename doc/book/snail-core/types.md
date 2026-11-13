@@ -47,13 +47,13 @@ definition, before its body:
 (define (map-with (function (Fn A → B ! e)) (values (List A)))
   (→ (List B))
   (! e)
-  (∀ A B e)
+  (∀ (A B e))
   (⊨ (Copy A) (Copy B))
   (map function values))
 (define (sum (zero T) (values (List T)))
   (→ T)
   (! e)
-  (∀ T e)
+  (∀ (T e))
   (⊨ (Num e T))
   (fold-left + zero values))
 ```
@@ -124,7 +124,7 @@ These WasmGC values are not shared between threads, so guards need no mutex.
 
 Polymorphic functions and their aliases remain supported. A quantified value
 may also be a scalar/string literal or a nullary enum template, such as
-`(define empty (→ (List A)) (∀ A) (Nil))`. These have no mutable state to share.
+`(define empty (→ (List A)) (∀ (A)) (Nil))`. These have no mutable state to share.
 Other polymorphic values are rejected: specializing an allocating value in
 each importer would give separate compilation different sharing semantics.
 Use a zero-argument generic function for fresh values, or concrete monomorphic
@@ -315,7 +315,7 @@ A class can declare ordinary associated types. Each instance defines them:
 (define (sum (a A) (b B))
   (→ (Add.Output e A B))
   (! e)
-  (∀ A B e)
+  (∀ (A B e))
   (⊨ (Add e A B))
   (add a b))
 ```
@@ -339,7 +339,7 @@ A requirement can constrain an output with an equality:
 (define (twice (a A))
   (→ A)
   (! e)
-  (∀ A e)
+  (∀ (A e))
   (⊨ (Copy A) (Add e A A (type Output A)))
   (add a a))
 ```

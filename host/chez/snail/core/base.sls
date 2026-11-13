@@ -2,7 +2,7 @@
 ;; mutable reference semantics as compiled code; host pairs represent Lists.
 (library (snail core base)
   (export
-   ●
+   ● test-base
    define lambda if begin let let* letrec cond case when unless and or do
    define-syntax syntax-rules quote else => _ ...
    : type ann type-convert struct enum match effect handle
@@ -67,6 +67,7 @@
    )
   (import
    (except (chezscheme) define set! case map fold-left fold-right find
+           char-whitespace? char-numeric? char-alphabetic?
            vector make-vector vector-length vector-ref vector-set! vector-copy vector-copy!
            vector-append vector-map vector-for-each vector->list list->vector)
    (prefix (only (chezscheme) make-vector vector-length vector-ref vector-set! vector-copy!) raw:)
@@ -116,10 +117,31 @@
   (define (i64->i32 n)
     (let ((low (modulo n 4294967296))) (if (>= low 2147483648) (- low 4294967296) low)))
 
-  ;; None unless the whole text is an optionally signed decimal integer.
+  ;; The reader shares the compiled library's ASCII character classes.
+  (define (char-whitespace? char) (if (memv char '(#\space #\tab #\newline #\return)) #t #f))
+  (define (char-numeric? char) (and (char<=? #\0 char) (char<=? char #\9)))
+  (define (char-alphabetic? char)
+    (or (and (char<=? #\a char) (char<=? char #\z))
+        (and (char<=? #\A char) (char<=? char #\Z))))
+
+  ;; None unless every character belongs to a signed, 64-bit decimal integer.
+  ;; Bound the magnitude as it grows: Chez must not accept bignums or its
+  ;; wider Scheme number grammar at the compiler's input boundary.
   (define (string->i64 text)
-    (let ((n (and (> (string-length text) 0) (string->number text 10))))
-      (if (and (integer? n) (exact? n)) (Some n) (None))))
+    (if (= (string-length text) 0) (None)
+        (let* ((first (string-ref text 0)) (negative? (char=? first #\-))
+               (start (if (or negative? (char=? first #\+)) 1 0)))
+          (decimal-i64 text start negative?))))
+
+  (define (decimal-i64 text start negative?)
+    (let ((limit (if negative? 9223372036854775808 9223372036854775807)))
+      (let loop ((index start) (value 0))
+        (if (= index (string-length text))
+            (if (= index start) (None) (Some (if negative? (- value) value)))
+            (let ((digit (digit-value (string-ref text index))))
+              (if (not digit) (None)
+                  (let ((next (+ (* value 10) digit)))
+                    (if (> next limit) (None) (loop (+ index 1) next)))))))))
 
   (enum (Result T E)
     (Ok ((value T)))
@@ -332,6 +354,32 @@
   (define (digit-value char)
     (if (and (char<=? #\0 char) (char<=? char #\9)) (- (char->integer char) 48) #f))
 
+  ;; ---- Tests ----
+
+  (define (test-base)
+    (for-each
+     (lambda (entry)
+       (let ((actual (match (string->i64 (car entry)) ((Some value) value) ((None) #f))))
+         (unless (equal? actual (cadr entry))
+           (error 'string->i64 "host disagreement" entry actual))))
+     '(("0" 0) ("-0" 0) ("+7" 7) ("00042" 42)
+       ("9223372036854775807" 9223372036854775807)
+       ("-9223372036854775808" -9223372036854775808)
+       ("9223372036854775808" #f) ("-9223372036854775809" #f)
+       ("99999999999999999999999999999999" #f) ("" #f) ("+" #f) ("-" #f)
+       (" 1" #f) ("1 " #f) ("1/1" #f) ("#x10" #f) ("#e1" #f) ("1.0" #f)
+       ("1e2" #f) ("12x" #f) ("١" #f)))
+    (for-each
+     (lambda (entry)
+       (let* ((char (integer->char (car entry)))
+              (actual (list (char-whitespace? char) (char-numeric? char) (char-alphabetic? char))))
+         (unless (equal? actual (cdr entry))
+           (error 'character-classes "host disagreement" entry actual))))
+     '((9 #t #f #f) (10 #t #f #f) (13 #t #f #f) (32 #t #f #f)
+       (11 #f #f #f) (12 #f #f #f) (47 #f #f #f) (48 #f #t #f) (57 #f #t #f)
+       (58 #f #f #f) (64 #f #f #f) (65 #f #f #t) (90 #f #f #t) (91 #f #f #f)
+       (96 #f #f #f) (97 #f #f #t) (122 #f #f #t) (123 #f #f #f)
+       (160 #f #f #f) (233 #f #f #f) (1633 #f #f #f) (8195 #f #f #f))))
   ;; Stage-zero assertions compare source values, never backing capacity.
   (record-type-equal-procedure
    (record-type-descriptor source-vector)
@@ -342,6 +390,7 @@
                 (and (same? (raw:vector-ref (vector-data left) index)
                             (raw:vector-ref (vector-data right) index))
                      (loop (+ index 1))))))))
+
 
 
   )

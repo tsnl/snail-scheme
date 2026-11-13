@@ -250,10 +250,10 @@
     (define (native (start (Fn I64 → Unit)) (success (Fn I32 → T)))
       (→ (Result T ProcessError))
       (! tasks)
-      (∀ T)
+      (∀ (T))
       (through-host start (lambda (ticket) (answered (host-finish ticket) success))))
 
-    (define (answered (answer I32) (success (Fn I32 → T))) (→ (Result T ProcessError)) (∀ T)
+    (define (answered (answer I32) (success (Fn I32 → T))) (→ (Result T ProcessError)) (∀ (T))
       (if (< answer 0)
           (Err (ProcessError (held-text 0)))
           (Ok (success answer))))

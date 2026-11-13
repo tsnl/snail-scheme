@@ -29,10 +29,10 @@ Type variables are linear unless constrained by `(Copy T)`. This lets a generic
 body move an arbitrary `T`, while duplication requires an explicit proof:
 
 ```scheme
-(define (swap (pair (Pair A B))) (→ (Pair B A)) (∀ A B)
+(define (swap (pair (Pair A B))) (→ (Pair B A)) (∀ (A B))
   (match pair ((Pair left right) (Pair right left))))
 
-(define (twice (value T)) (→ (Pair T T)) (∀ T) (⊨ (Copy T))
+(define (twice (value T)) (→ (Pair T T)) (∀ (T)) (⊨ (Copy T))
   (Pair value value))
 ```
 

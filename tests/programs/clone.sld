@@ -45,7 +45,7 @@
                            (Pair (Tagged tag a) (Tagged (string-append tag "'") b)))))))))
 
 ;; A generic definition requires (Clone e A).
-(define (twin (value A)) (→ (Pair A A)) (! e) (∀ A e) (⊨ (Clone e A))
+(define (twin (value A)) (→ (Pair A A)) (! e) (∀ (A e)) (⊨ (Clone e A))
   (clone value))
 
 (define (demo) (→ Unit) (! log output-port)

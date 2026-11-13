@@ -859,7 +859,7 @@
     (define (first-frames (host Host)) (→ String) (! mut)
       (string-append "retry: 1000\n\n" (protocol-state->event (editor-state host))))
 
-    (define (option-some? (option (Option T))) (→ Bool) (! d) (∀ T d) (⊨ (Copy T) (Drop d T))
+    (define (option-some? (option (Option T))) (→ Bool) (! d) (∀ (T d)) (⊨ (Copy T) (Drop d T))
       (match option
         ((Some _) #t)
         ((None) #f)))
@@ -1004,7 +1004,7 @@
     (define (disk-result (disk Disk) (value T))
       (→ (Result T String))
       (! d)
-      (∀ T d)
+      (∀ (T d))
       (⊨ (Copy T) (Drop d T))
       (match (● disk failure)
         ((Some message) (Err message))

@@ -13,7 +13,7 @@
 
     ;; ---- Recovery ----
 
-    (define (try-dynamic (work (Fn → A ! dyn-cast e))) (→ (Result A CastError)) (! e) (∀ A e)
+    (define (try-dynamic (work (Fn → A ! dyn-cast e))) (→ (Result A CastError)) (! e) (∀ (A e))
       (handle dyn-cast
           ((conversion-failed (lambda (error) (Err error))))
         (Ok (work))))
@@ -37,7 +37,7 @@
     (define (run-dynamic (work (Fn → A ! dyn-cast e)))
       (→ (Result A CastError))
       (! output-port e)
-      (∀ A e)
+      (∀ (A e))
       (match (try-dynamic work)
         ((Ok value) (Ok value))
         ((Err error) (write-line (cast-error->string error)) (Err error))))))

@@ -82,7 +82,7 @@
 (define (run (state Stream) (handler (Fn Request → (Result Response String) ! e)))
   (→ (Result Unit (ExchangeError String)))
   (! tcp tasks e)
-  (∀ e)
+  (∀ (e))
   (serve-one (Connection (type-convert state Any)) 250 handler))
 
 (define (echo (request Request)) (→ (Result Response String)) (! tasks)

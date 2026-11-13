@@ -7,7 +7,7 @@
       ((value I64)))
     (define cell (→ Cell) (Cell 0))
     (define alias (→ Cell) cell)
-    (define empty (→ (List A)) (∀ A) (Nil))
+    (define empty (→ (List A)) (∀ (A)) (Nil))
     (define (bump) (→ I64) (! mut)
       (set! (● cell value) (+ 1 (● cell value)))
       (● cell value))

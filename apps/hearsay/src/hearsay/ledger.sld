@@ -225,7 +225,7 @@
 
     (define (replace-at (items (List T)) (index I64) (value T))
       (→ (List T))
-      (∀ T)
+      (∀ (T))
       (⊨ (Copy T) (Drop (!) T))
       (map-indexed (lambda (at item) (if (= at index) value item)) items))
 

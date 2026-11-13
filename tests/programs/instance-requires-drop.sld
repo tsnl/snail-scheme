@@ -28,7 +28,7 @@
                        ((None) (say "nothing to release"))))))
 
 ;; A definition that requires (Copy A) releases an A for nothing.
-(define (release-copy (value A)) (→ Unit) (! log) (∀ A) (⊨ (Copy A) (Drop (! log) A))
+(define (release-copy (value A)) (→ Unit) (! log) (∀ (A)) (⊨ (Copy A) (Drop (! log) A))
   (release (Some value)))
 
 (define (demo) (→ Unit) (! log)

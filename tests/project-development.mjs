@@ -84,7 +84,7 @@ async function throughTheService() {
     // Build again and hold the attempt in its producer: client's generation
     // exists, but build/client still names the first. Rewriting a source
     // unchanged supersedes the attempt, which removes what it made; the
-    // attempt after it reuses every session, with no path into those
+    // attempt after it rebuilds every target, with no path into those
     // generations, and only its generation paths differ from the first's.
     const beforeHold = outputs();
     fs.rmSync(gate);
@@ -111,7 +111,7 @@ async function throughTheService() {
     assert.equal(fs.realpathSync(join(project, 'build/server')), target(reused, 'server').directory);
     for (const output of reused.published.targets) {
       const earlier = target(first, output.name);
-      assert.equal(output.compiled, 0, 'unchanged compilation evidence is reused');
+      assert.equal(output.compiled, output.modules, 'every module is rebuilt');
       assert.match(output.digest, /^[0-9a-f]{64}$/);
       assert.equal(output.digest, earlier.digest, 'identity excludes generation paths');
       assert.notEqual(output.directory, earlier.directory);
@@ -120,7 +120,7 @@ async function throughTheService() {
     // A public file's path is packaged, not compiled.
     fs.renameSync(join(project, 'client-public/nested/notes.txt'), join(project, 'client-public/nested/renamed.txt'));
     const renamed = await service.rebuilt();
-    assert.equal(target(renamed, 'client').compiled, 0, 'public paths do not affect compilation');
+    assert.equal(target(renamed, 'client').compiled, target(renamed, 'client').modules, 'public changes rebuild every module');
     assert.notEqual(target(renamed, 'client').digest, target(first, 'client').digest, 'public paths affect output identity');
 
     // The consumer fails after client compiled. Nothing is published, and the
@@ -135,7 +135,7 @@ async function throughTheService() {
     assert.deepEqual(outputs(), beforeFailure, 'failed traversal removes every private generation');
     write('server.sld', source);
     const repaired = await service.rebuilt();
-    assert.equal(target(repaired, 'client').compiled, 0, 'a successful dependency session survives consumer failure');
+    assert.equal(target(repaired, 'client').compiled, target(repaired, 'client').modules, 'recovery rebuilds dependencies afresh');
     assert.notEqual(target(repaired, 'client').digest, target(first, 'client').digest, 'cached work can differ from accepted output');
     assert.match(execute(target(repaired, 'server').directory), /90,0,255,/);
     // The publication before the latest stays readable; older ones no run
@@ -145,7 +145,7 @@ async function throughTheService() {
       assert.equal(fs.existsSync(output.directory), false, `${basename(output.directory)} is reclaimed`);
     }
 
-    // Library-root changes recreate a target's Session. Public settings do not
+    // Library roots and public settings are reread for every build. They do not
     // participate in that decision; the compiler checks artifact bytes itself.
     const description = libraries => `((build-target server (program (entry "main.sld") (library-roots ("${libraries}")))))`;
     const library = value => `(define-library (sample message) (export message) (import (snail core base)) (begin (define message (→ String) "${value}")))`;

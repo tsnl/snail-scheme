@@ -17,7 +17,7 @@ This function adds output around an action while preserving the action's row:
 
 ```scheme
 
-(define (announce (action (Fn → A ! e))) (→ A) (! output-port e) (∀ A e)
+(define (announce (action (Fn → A ! e))) (→ A) (! output-port e) (∀ (A e))
   (write-line "calling")
   (action))
 ```

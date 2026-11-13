@@ -62,17 +62,10 @@ for (const variant of variants) {
   variant.values = compile(variant, 'values', variant.valueSource);
   variant.siege = compile(variant, 'siege', join(root, 'tests/benchmarks/siege.sld'),
     [join(variant.root, 'apps/siegework/src')]);
-  let session = join(root, 'tests/benchmarks/session.sld');
-  if (variant.name === 'baseline') {
-    session = join(output, 'legacy-session.sld');
-    writeFileSync(session, readFileSync(join(root, 'tests/benchmarks/session.sld'), 'utf8') + '\n(main)\n');
-  }
-  variant.session = compile(variant, 'session', session);
   report.variants.find(entry => entry.name === variant.name).artifacts =
-    Object.fromEntries(['values', 'siege', 'session'].map(name => [name,
+    Object.fromEntries(['values', 'siege'].map(name => [name,
       {sha256: hash(variant[name]), bytes: statSync(variant[name]).size}]));
   report.variants.find(entry => entry.name === variant.name).value_source_sha256 = hash(variant.valueSource);
-  run('node', [join(root, 'tests/benchmarks/session-fixtures.mjs'), output, variant.name]);
 }
 
 console.error('Measuring warmed runtime and simulation');
@@ -91,18 +84,6 @@ for (let repeat = 0; repeat < 5; ++repeat) {
         join(root, 'scripts/benchmark-values.mjs'), '--memory', variant.values, kind]));
       report.memory.push({variant: variant.name, repeat, ...sample});
     }
-  }
-}
-console.error('Measuring retained compiler sessions');
-report.sessions = [];
-for (const kind of ['ordinary', 'provider']) {
-  for (const variant of variants) {
-    const samples = run('taskset', ['-c', cpu, 'node', ...nodeArgs, variant.session,
-      join(output, `${kind}-${variant.name}`), join(variant.root, 'src'), '50']);
-    report.sessions.push({case: kind, variant: variant.name, samples: samples.trim().split('\n').map(line => {
-      const [round, operation, nanoseconds, compiled] = line.split(' ');
-      return {round: Number(round), operation, nanoseconds: Number(nanoseconds), compiled: Number(compiled)};
-    })});
   }
 }
 console.error('Measuring cold compilation');

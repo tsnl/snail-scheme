@@ -27,7 +27,7 @@
                                 (iota (- (● range end) (● range start))))))))
 
 ;; A generic function whose requirements pass evidence on.
-(define (describe-all (collection C)) (→ (List String)) (∀ C) (⊨ (Collection C))
+(define (describe-all (collection C)) (→ (List String)) (∀ (C)) (⊨ (Collection C))
   (collect collection (lambda (n) (ann (convert n) String))))
 
 (define (main) (→ Unit) (! output-port)

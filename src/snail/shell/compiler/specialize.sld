@@ -132,7 +132,7 @@
     (define (each (state State) (step (Fn State A → (Pair B State))) (items (List A)))
       (→ (Pair (List B) State))
       (! e)
-      (∀ A B e)
+      (∀ (A B e))
       (⊨ (Copy B) (Drop e B))
       (let ((done (fold-left (lambda (done item)
                                (match (step (● done second) item)

@@ -82,34 +82,27 @@
                     [_ #t])) forms))
 
   (meta scheme-define (field-definitions name field index)
-        (with-syntax ([get (joined-name name field "")]
-                      [replace (joined-name name field "-set")]
-                      [write (joined-name name field "-set!")]
-                      [swap (joined-name name field "-replace!")]
+        (with-syntax ([replace (joined-name name field "-set")]
                       [index (datum->syntax name index)])
           (syntax-list
-           #'((scheme-define (get value) (vector-ref value index))
-              (scheme-define (replace value content)
-                (let ([copy (vector-copy value)]) (vector-set! copy index content) copy))
-              (scheme-define (write value content) (vector-set! value index content))
-              (scheme-define (swap value content)
-                (let ([old (vector-ref value index)]) (vector-set! value index content) old))))))
+           #'((scheme-define (replace value content)
+                (let ([copy (vector-copy value)]) (vector-set! copy index content) copy))))))
 
-  (meta scheme-define (record-definitions name fields)
+  (meta scheme-define (record-definitions name fields struct?)
         (let ([names (map field-name fields)])
           (append (list #`(scheme-define (#,name #,@names) (vector #,name #,@names))
                         #`(scheme-define #,(car (generate-temporaries '(registered)))
                             (register-fields! #,name '(#,@names))))
                   (let loop ([names names] [index 1])
                     (if (null? names) '()
-                        (append (field-definitions name (car names) index)
+                        (append (if struct? (field-definitions name (car names) index) '())
                                 (loop (cdr names) (+ index 1))))))))
 
   (define-syntax struct
     (lambda (form)
       (syntax-case form ()
         [(_ head (field ...) . rest)
-         #`(begin #,@(record-definitions (head-name #'head) (syntax-list #'(field ...))))])))
+         #`(begin #,@(record-definitions (head-name #'head) (syntax-list #'(field ...)) #t))])))
 
   (define-syntax enum
     (lambda (form)
@@ -125,7 +118,8 @@
                                           (record-definitions #'name
                                                               (if (null? fields)
                                                                   '()
-                                                                  (syntax-list (car fields)))))]))
+                                                                  (syntax-list (car fields)))
+                                                              #f))]))
                                    (filter (lambda (case)
                                              (not (eq? (syntax->datum (car (syntax-list case)))
                                                        'annotations)))

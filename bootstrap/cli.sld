@@ -113,14 +113,13 @@
 (define (build-and-publish (job Job) (description Project) (target String))
   (→ String)
   (! mut fs clock process)
-  (match (● (build-project (● job tools)
-                           (● job project)
-                           description
-                           (list target)
-                           (● job mode)
-                           (scratch job)
-                           ".snail-"
-                           (Nil)) first)
+  (match (build-project (● job tools)
+                        (● job project)
+                        description
+                        (list target)
+                        (● job mode)
+                        (scratch job)
+                        ".snail-")
     ((Err failure) (panic (failure->string failure)))
     ((Ok candidate)
      (match (publish-project candidate)
@@ -179,12 +178,11 @@
 ;;   {"kind":"discard","epoch":N}
 ;;     removes its generations, and replies {"epoch":N}.
 ;;
-;; Each target's compiler session goes from one build to the next, so a
-;; build compiles only the libraries an edit reaches. The resident exits
-;; when its input ends.
+;; Each request rebuilds every configured target. Only an unpublished
+;; candidate survives between requests; no compiler cache does. The
+;; resident exits when its input ends.
 (struct Resident
   ((job Job)
-   (retained (List Retained))
    (held (Option (Pair I64 Candidate)))))
 
 (enum Request
@@ -233,19 +231,18 @@
                                     (map build-name (● description builds))
                                     (Development)
                                     (scratch job)
-                                    prefix
-                                    (● resident retained)))
+                                    prefix))
               (milliseconds (quotient (- (monotonic-nanoseconds) began) 1000000)))
-         (match (● built first)
-           ((Ok candidate)
-            (reply (list (Pair "epoch" (JsonInteger epoch))
-                         (Pair "description" (description->json description))
-                         (Pair "candidate" (candidate->json candidate description milliseconds))
-                         (Pair "diagnostics" (JsonArray (Nil)))))
-            (Resident job (● built second) (Some (Pair epoch candidate))))
-           ((Err failure)
-            (reply (build-reply epoch (description->json description) (JsonNull) failure))
-            (Resident job (● built second) (None)))))))))
+         (match built)
+         ((Ok candidate)
+          (reply (list (Pair "epoch" (JsonInteger epoch))
+                       (Pair "description" (description->json description))
+                       (Pair "candidate" (candidate->json candidate description milliseconds))
+                       (Pair "diagnostics" (JsonArray (Nil)))))
+          (Resident job (Some (Pair epoch candidate))))
+         ((Err failure)
+          (reply (build-reply epoch (description->json description) (JsonNull) failure))
+          (Resident job (None)))))))))
 
 (define (build-reply (epoch I64) (description Json) (candidate Json) (failure Failure))
   (→ (List (Pair String Json)))
@@ -431,7 +428,7 @@
 
 (define (invoke (job Job)) (→ Unit) (! mut fs clock process input-port output-port)
   (match (● job mode)
-    ((Development) (serve (Resident job (Nil) (None))))
+    ((Development) (serve (Resident job (None))))
     (_
      (match (read-project (● job project))
        ((Err failure) (panic (failure->string failure)))

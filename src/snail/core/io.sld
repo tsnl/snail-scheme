@@ -106,10 +106,10 @@
     (define (write-line (text String)) (→ Unit) (! output-port)
       (write-string (string-append text "\n")))
 
-    (define (display (value T)) (→ Unit) (! output-port e) (∀ T e) (⊨ (Show e T))
+    (define (display (value T)) (→ Unit) (! output-port e) (∀ (T e)) (⊨ (Show e T))
       (write-string (show value)))
 
-    (define (write (value T)) (→ Unit) (! output-port) (∀ T) (⊨ (Repr T))
+    (define (write (value T)) (→ Unit) (! output-port) (∀ (T)) (⊨ (Repr T))
       (write-string (repr value)))
 
     ;; ---- Files ----
@@ -275,7 +275,7 @@
     (define (drain (next (Fn → (Option T) ! e)))
       (→ (Vector T))
       (! e)
-      (∀ T e)
+      (∀ (T e))
       (⊨ (Copy T) (Drop e T))
       (let loop ((chunks (Nil)))
         (let ((chunk (next-chunk next)))
@@ -288,7 +288,7 @@
     (define (next-chunk (next (Fn → (Option T) ! e)))
       (→ (Vector T))
       (! e)
-      (∀ T e)
+      (∀ (T e))
       (⊨ (Copy T) (Drop e T))
       (let loop ((items (Nil)) (count 0))
         (if (= count chunk-size)

@@ -91,7 +91,7 @@
     ;; after the call runs: the entry point's handler takes the request and
     ;; hands it to its caller.
 
-    (define (request-input (request CompilerRequest)) (→ A) (! compile) (∀ A)
+    (define (request-input (request CompilerRequest)) (→ A) (! compile) (∀ (A))
       (absurd (need request)))
 
     ;; A process caller finds a request as a datum in the compile's

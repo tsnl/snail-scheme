@@ -41,7 +41,7 @@
        (headings I64)
        (strip (Fn M I64 → Strip))))
 
-    (define (strip-texture (book (Spritebook M)) (strip Strip)) (→ Texture) (∀ M) (⊨ (Copy M))
+    (define (strip-texture (book (Spritebook M)) (strip Strip)) (→ Texture) (∀ (M)) (⊨ (Copy M))
       (let ((width (● book cell-width)) (height (● book cell-height)))
         (Texture (● book picture)
                  (Rect (* width (● strip column)) (* height (● strip row)) width height)
@@ -81,7 +81,7 @@
                   (height F32)
                   (camera Camera))
       (→ Item)
-      (∀ M)
+      (∀ (M))
       (⊨ (Copy M) (Drop (!) M))
       (sprite (posed-texture book motion facing camera)
               position
@@ -98,7 +98,7 @@
                        (height F32)
                        (camera Camera))
       (→ Item)
-      (∀ M)
+      (∀ (M))
       (⊨ (Copy M) (Drop (!) M))
       (flat-sprite (posed-texture book motion facing camera)
                    position
@@ -107,7 +107,7 @@
 
     (define (posed-texture (book (Spritebook M)) (motion M) (facing Vec3) (camera Camera))
       (→ Texture)
-      (∀ M)
+      (∀ (M))
       (⊨ (Copy M) (Drop (!) M))
       (strip-texture book
                      ((● book strip)
@@ -116,7 +116,7 @@
 
     ;; The width that keeps a cell's proportions at `height`.
 
-    (define (cell-width-for (book (Spritebook M)) (height F32)) (→ F32) (∀ M) (⊨ (Copy M))
+    (define (cell-width-for (book (Spritebook M)) (height F32)) (→ F32) (∀ (M)) (⊨ (Copy M))
       (/ (* height (i32->f32 (● book cell-width)))
          (i32->f32 (● book cell-height))))
 

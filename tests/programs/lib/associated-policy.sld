@@ -22,7 +22,11 @@
         (type Output String)
         (define combine (lambda (a b) (string-append (show a) ":" (show b))))))
 
-    (define (generic (a A) (b B)) (→ (Combine.Output A B)) (∀ A B) (⊨ (Combine A B)) (combine a b))
+    (define (generic (a A) (b B))
+      (→ (Combine.Output A B))
+      (∀ (A B))
+      (⊨ (Combine A B))
+      (combine a b))
 
     (with-instances (addition)
                     (define (make-adder (a I64))

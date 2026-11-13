@@ -36,7 +36,7 @@
 ;; ANCHOR_END: labelled
 
 ;; A generic drop of a labelled box performs `log` and its item's row.
-(define (release (labelled (Labelled A))) (→ Unit) (! log e) (∀ A e) (⊨ (Drop e A))
+(define (release (labelled (Labelled A))) (→ Unit) (! log e) (∀ (A e)) (⊨ (Drop e A))
   (drop labelled))
 
 (define (demo) (→ Unit) (! log audit)

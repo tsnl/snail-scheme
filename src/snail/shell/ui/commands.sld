@@ -19,7 +19,7 @@
 
     (define (register (commands (Vector (Command A))))
       (→ (Result (Registry A) String))
-      (! e) (∀ A e)
+      (! e) (∀ (A e))
       (⊨ (Copy A) (Drop e A))
       (let loop ((index 0) (names (ann empty-table (Table Bool))))
         (if (= index (vector-length commands)) (Ok (Registry commands))
@@ -33,7 +33,7 @@
     (define (named (registry (Registry A)) (name String))
       (→ (Option A))
       (! e)
-      (∀ A e)
+      (∀ (A e))
       (⊨ (Copy A) (Drop e A))
       (let ((commands (● registry commands)))
         (let loop ((index 0))

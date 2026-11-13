@@ -311,7 +311,7 @@
                  ((Some (Accessor case index scheme))
                   (let* ((operation
                           (if swap? (Swapper case index scheme) (Setter case index scheme)))
-                         (name (string-append name (if swap? "-replace!" "-set!")))
+                         (name (field-operation-name case index (if swap? "replace!" "set!")))
                          (callee (local name (TFun (list (● receiver type) (● incoming type))
                                                    (● expr type) empty-row) (● expr loc))))
                     (lowering state ((receiver (lower receiver)) (incoming (lower incoming)))
@@ -419,7 +419,7 @@
                  (map-indexed
                   (lambda (index child)
                     (let* ((field (list-ref (● case fields) index))
-                           (name (string-append (● case name) "-" (● field name)))
+                           (name (field-operation-name case index "get"))
                            (access (intrinsic name (list read) (pattern-type child) (● read loc))))
                       (pattern-release state child access))) args)))
                (_ (panic "internal error: pattern has no constructor"))))

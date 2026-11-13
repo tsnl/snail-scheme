@@ -1046,7 +1046,7 @@
     (define (initial-scene (entry (Entry (SceneApplication S))))
       (→ S)
       (! events)
-      (∀ S)
+      (∀ (S))
       (⊨ (Scene S))
       (scene-initialize (random-seed) (canvas-width) (canvas-height)))
 
@@ -1057,7 +1057,7 @@
     (define (scene-loop (save (Fn S → Unit ! events storage tasks)) (state S) (since-hud I32))
       (→ Unit)
       (! mut screen events storage tasks page)
-      (∀ S)
+      (∀ (S))
       (⊨ (Scene S) (PageState S) (Copy S) (Drop (!) S))
       (match (next-event)
         ((FrameEvent elapsed)

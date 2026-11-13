@@ -46,14 +46,14 @@
     ;; one, so both carry T's disposal bound, including operations that
     ;; normally transfer T without dropping it. No state provenance is hidden
     ;; in a convention about which endpoint happens to be released first.
-    (define (make-promise) (→ (Pair (Promise T) (Future T))) (∀ T d) (⊨ (Drop d T))
+    (define (make-promise) (→ (Pair (Promise T) (Future T))) (∀ (T d)) (⊨ (Drop d T))
       (let ((channel (rc (Channel (Unresolved (None))))))
         (Pair (Sender channel) (Receiver channel))))
 
     ;; ---- Sending ----
 
     (define (fulfill (promise (Promise T)) (value T))
-      (→ (Result Unit T)) (! mut host completion d) (∀ T d) (⊨ (Drop d T))
+      (→ (Result Unit T)) (! mut host completion d) (∀ (T d)) (⊨ (Drop d T))
       (match promise
         ((Sender channel)
          (match (replace! (● channel state) (Unobserved))
@@ -68,7 +68,7 @@
 
     ;; This tail call releases the sender's local channel owner before a
     ;; waker can reenter. The state already owns the published result.
-    (define (sent (waker (Option Waker))) (→ (Result Unit T)) (! host completion) (∀ T)
+    (define (sent (waker (Option Waker))) (→ (Result Unit T)) (! host completion) (∀ (T))
       (notify waker)
       (Ok (unit)))
 
@@ -95,7 +95,7 @@
     ;; ---- Receiving ----
 
     (define (poll (future (Future T)))
-      (→ (Poll T)) (! mut host d) (∀ T d) (⊨ (Drop d T))
+      (→ (Poll T)) (! mut host d) (∀ (T d)) (⊨ (Drop d T))
       (match future
         ((Receiver channel)
          (match (replace! (● channel state) (Unobserved))
@@ -110,11 +110,11 @@
     ;; after publication. Replacing a registration drops its previous callback
     ;; only after the new callback is installed.
     (define (on-ready (future (Future T)) (wake (FnOnce → Unit ! d)))
-      (→ (Future T)) (! mut host d) (∀ T d) (⊨ (Drop d T))
+      (→ (Future T)) (! mut host d) (∀ (T d)) (⊨ (Drop d T))
       (register future (inherit-handlers wake)))
 
     (define (register (future (Future T)) (wake Waker))
-      (→ (Future T)) (! mut host d) (∀ T d) (⊨ (Drop d T))
+      (→ (Future T)) (! mut host d) (∀ (T d)) (⊨ (Drop d T))
       (match future
         ((Receiver channel)
          (match (replace! (● channel state) (Unobserved))

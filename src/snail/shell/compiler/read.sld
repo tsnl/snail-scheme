@@ -22,12 +22,7 @@
    Syntax
    Atom
    Ident
-   Ident-name
-   Ident-mark
-   Ident-loc
    Form
-   Form-items
-   Form-loc
    Mark
    syntax-loc
    datum=?
@@ -221,7 +216,7 @@
     ;; diagnostic, and either hands it to its caller or goes on to the
     ;; pass's next item (`recovering`).
 
-    (define (compile-error (loc Loc) (message String)) (→ A) (! compile) (∀ A)
+    (define (compile-error (loc Loc) (message String)) (→ A) (! compile) (∀ (A))
       (absurd (fail (Diagnostics (SourceDiagnostic loc message) (Nil)))))
 
     ;; What a compile asks its caller for when it was not supplied it: the
@@ -248,7 +243,7 @@
       (Failed ((diagnostics Diagnostics)))
       (Requested ((request CompilerRequest))))
 
-    (define (compiling (work (Fn → T ! compile e))) (→ (Result T Stop)) (! e) (∀ T e)
+    (define (compiling (work (Fn → T ! compile e))) (→ (Result T Stop)) (! e) (∀ (T e))
       (handle compile
           ((fail (lambda (diagnostics) (Err (Failed diagnostics))))
            (need (lambda (request) (Err (Requested request)))))
@@ -262,7 +257,7 @@
     (define (recovering (work (Fn → T ! compile e)))
       (→ (Result T Diagnostics))
       (! compile e)
-      (∀ T e)
+      (∀ (T e))
       (handle compile
           ((fail (lambda (diagnostics) (Err diagnostics)))
            (need (lambda (request) (absurd (need request)))))
@@ -274,7 +269,7 @@
     (define (failures-of (check (Fn A → Unit ! compile e)) (items (List A)))
       (→ (List SourceDiagnostic))
       (! compile e)
-      (∀ A e)
+      (∀ (A e))
       (⊨ (Copy A) (Drop e A))
       (concatenate (map (lambda (item)
                           (match (recovering (lambda () (check item)))
@@ -832,7 +827,7 @@
         ((FloatToken) (DFloat text))
         (_ (malformed loc (string-append "the number " text " does not read as one")))))
 
-    (define (malformed (loc Loc) (problem String)) (→ A) (! compile) (∀ A)
+    (define (malformed (loc Loc) (problem String)) (→ A) (! compile) (∀ (A))
       (compile-error loc (string-append "malformed generated syntax: " problem)))
 
     )

@@ -15,7 +15,7 @@
     (lambda (directory name) (write-line name)
             name)))
 
-(define (peek (store S) (name String)) (→ String) (∀ S) (⊨ (Store (!) S))
+(define (peek (store S) (name String)) (→ String) (∀ (S)) (⊨ (Store (!) S))
   (fetch-object store name))
 
 (define main

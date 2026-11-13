@@ -29,7 +29,7 @@
 
 ;; ANCHOR: polymorphic
 ;; Calls `action` on 1 to `count`, performing whatever `action` performs.
-(define (repeat (count I64) (action (Fn I64 → Unit ! e))) (→ Unit) (! e) (∀ e)
+(define (repeat (count I64) (action (Fn I64 → Unit ! e))) (→ Unit) (! e) (∀ (e))
   (let loop ((i 1))
     (when (<= i count)
       (action i)

@@ -56,7 +56,7 @@
     (define (initial-interface (entry (Entry (InterfaceApplication Model))))
       (→ Model)
       (! events)
-      (∀ Model)
+      (∀ (Model))
       (⊨ (Interface Model))
       (interface-initialize (random-seed)))
 
@@ -65,20 +65,20 @@
 
     (define (widen-commands (commands (List (Command M))))
       (→ (List (FnOnce → M ! mut host page events storage tasks dom fetch)))
-      (∀ M)
+      (∀ (M))
       (match commands
         ((Cons command rest) (Cons (once (lambda () (command))) (widen-commands rest)))
         ((Nil) (Nil))))
 
     (define (interface-save-callback (save (Fn S → Unit ! events storage tasks)))
       (→ (Fn S → Unit ! mut host page events storage tasks dom fetch))
-      (∀ S)
+      (∀ (S))
       (lambda (model) (save model)))
 
     (define (present-interface (model Model) (save (Fn Model → Unit ! events storage tasks)))
       (→ Unit)
       (! mut host events storage tasks page)
-      (∀ Model)
+      (∀ (Model))
       (⊨ (Interface Model) (PageState Model) (Copy Model) (Drop (!) Model)
          (Drop (!) (Interface.Message Model)))
       (with-page-dom

@@ -486,7 +486,7 @@
     (define (plugin-function (plugin Plugin) (name String))
       (→ (Result A LoadError))
       (! wasm)
-      (∀ A)
+      (∀ (A))
       (⊨ (Copy A) (Drop (!) A))
       (let ((program (● plugin program)))
         (match (Pair (module-export program name)
@@ -506,7 +506,7 @@
 
     (define (checked-function (name String) (function Funcref) (signature (Vector I64)))
       (→ (Result A LoadError))
-      (∀ A)
+      (∀ (A))
       (⊨ (Copy A) (Drop (!) A))
       (match (vector->list
               (dynamic-cast function (lambda (expected) (same-signature? signature expected))))

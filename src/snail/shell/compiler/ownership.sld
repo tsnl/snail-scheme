@@ -762,10 +762,9 @@
        (swapper-name case index)))
 
     (define (swapper-name (case Case) (index I64)) (→ String)
-      (string-append (short-name (● case name))
-                     "-"
+      (string-append "(replace! (● owner "
                      (● (list-ref (● case fields) index) name)
-                     "-replace!"))
+                     ") replacement)"))
 
     ;; A field operation used as a value is checked as a call to it is, and
     ;; it consumes the record it is later applied to: on a linear record

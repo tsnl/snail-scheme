@@ -33,14 +33,14 @@
       ((front (List T))
        (back (List T))))
 
-    (define (empty-queue) (→ (Queue T)) (∀ T)
+    (define (empty-queue) (→ (Queue T)) (∀ (T))
       (Queue (Nil) (Nil)))
 
-    (define (enqueue (queue (Queue T)) (item T)) (→ (Queue T)) (∀ T)
+    (define (enqueue (queue (Queue T)) (item T)) (→ (Queue T)) (∀ (T))
       (match queue
         ((Queue front back) (Queue front (Cons item back)))))
 
-    (define (dequeue (queue (Queue T))) (→ (Option (Pair T (Queue T)))) (∀ T)
+    (define (dequeue (queue (Queue T))) (→ (Option (Pair T (Queue T)))) (∀ (T))
       (match queue
         ((Queue (Cons item rest) back) (Some (Pair item (Queue rest back))))
         ((Queue (Nil) (Nil)) (None))
@@ -129,7 +129,7 @@
     ;; operation upgrades only while it changes the scheduler, never across
     ;; a suspension. Inherited handlers keep the dispatcher's other effects.
     (define (start-task (scheduler WeakScheduler) (work (FnOnce → Unit ! tasks e)))
-      (→ Step) (! mut host e) (∀ e)
+      (→ Step) (! mut host e) (∀ (e))
       (handle tasks
           ((yield (lambda (resume)
                     (Yielded (inherit-handlers (once (lambda () (resume (unit))))))))
@@ -153,18 +153,18 @@
         ticket))
 
     (define (dispatch-local (work (FnOnce → Unit ! tasks e)))
-      (→ Unit) (! tasks mut host e) (∀ e)
+      (→ Unit) (! tasks mut host e) (∀ (e))
       (dispatch-task work)
       (unit))
 
     (define (dispatch-task (work (FnOnce → Unit ! tasks e)))
-      (→ I64) (! tasks mut host e) (∀ e)
+      (→ I64) (! tasks mut host e) (∀ (e))
       (dispatch-in (scheduler-owner (current-scheduler)) work))
 
     ;; Startup already owns the scheduler. Downgrade it before constructing
     ;; the saved closure, so its environment cannot retain the strong owner.
     (define (dispatch-in (scheduler Scheduler) (work (FnOnce → Unit ! tasks e)))
-      (→ I64) (! mut host e) (∀ e)
+      (→ I64) (! mut host e) (∀ (e))
       (if (● scheduler closed)
           (begin (drop work) (panic "cannot dispatch to a closed scheduler"))
           (let ((id (+ (● scheduler last-task) 1)) (weak (rc-downgrade scheduler)))
@@ -318,7 +318,7 @@
     (define (through-host (start (Fn I64 → Unit)) (finish (Fn I64 → A)))
       (→ A)
       (! tasks)
-      (∀ A)
+      (∀ (A))
       (let ((id (ticket)))
         (start id)
         (await id)
@@ -342,11 +342,11 @@
        (ticket I64)
        (delivery (Rc (Delivery T)))))
 
-    (define (make-mailbox) (→ (Mailbox T)) (∀ T d) (⊨ (Drop d T))
+    (define (make-mailbox) (→ (Mailbox T)) (∀ (T d)) (⊨ (Drop d T))
       (rc (MailboxState (empty-queue) (empty-queue))))
 
     (define (mailbox-post (mailbox (Mailbox T)) (message T))
-      (→ Unit) (! mut host d) (∀ T d) (⊨ (Drop d T))
+      (→ Unit) (! mut host d) (∀ (T d)) (⊨ (Drop d T))
       (match (dequeue (replace! (● mailbox receivers) (empty-queue)))
         ((None)
          (drop (replace! (● mailbox messages)
@@ -361,13 +361,13 @@
     ;; sender can suspend, so the receiver never observes an empty delivery.
     ;; A stale receiver is removed and the message tries the next receiver.
     (define (mailbox-receive (mailbox (Mailbox T)))
-      (→ T) (! mut tasks d) (∀ T d) (⊨ (Drop d T))
+      (→ T) (! mut tasks d) (∀ (T d)) (⊨ (Drop d T))
       (match (mailbox-try-receive mailbox)
         ((Some message) message)
         ((None) (wait-in-line mailbox))))
 
     (define (mailbox-try-receive (mailbox (Mailbox T)))
-      (→ (Option T)) (! mut d) (∀ T d) (⊨ (Drop d T))
+      (→ (Option T)) (! mut d) (∀ (T d)) (⊨ (Drop d T))
       (match (dequeue (replace! (● mailbox messages) (empty-queue)))
         ((None) (None))
         ((Some (Pair message rest))
@@ -375,7 +375,7 @@
          (Some message))))
 
     (define (wait-in-line (mailbox (Mailbox T)))
-      (→ T) (! mut tasks d) (∀ T d) (⊨ (Drop d T))
+      (→ T) (! mut tasks d) (∀ (T d)) (⊨ (Drop d T))
       (let* ((delivery (rc (Delivery (None))))
              (id (ticket))
              (receiver (Receiver (current-scheduler) id delivery)))

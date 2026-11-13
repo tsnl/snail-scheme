@@ -6,7 +6,7 @@
 (struct Output
   ((text String)))
 
-(define (line (value T)) (→ Unit) (! output-port) (∀ T) (⊨ (Repr T) (Drop (!) T))
+(define (line (value T)) (→ Unit) (! output-port) (∀ (T)) (⊨ (Repr T) (Drop (!) T))
   (write value)
   (newline))
 

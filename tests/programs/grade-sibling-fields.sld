@@ -8,7 +8,7 @@
   ((count I64)
    (current (Option T))))
 
-(define (share (shared (Rc (Shared T)))) (→ (Pair (Rc (Shared T)) (Rc (Shared T)))) (∀ T)
+(define (share (shared (Rc (Shared T)))) (→ (Pair (Rc (Shared T)) (Rc (Shared T)))) (∀ (T))
   (Pair shared shared))
 
 (define (run-current (shared (Rc (Shared String)))) (→ Unit) (! output-port mut)

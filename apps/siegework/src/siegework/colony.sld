@@ -175,7 +175,7 @@
             ((Some nest) (> (● nest health) 0))
             ((None) #f))))
 
-    (define (null-option? (option (Option T))) (→ Bool) (∀ T) (⊨ (Copy T) (Drop (!) T))
+    (define (null-option? (option (Option T))) (→ Bool) (∀ (T)) (⊨ (Copy T) (Drop (!) T))
       (match option
         ((Some _) #f)
         ((None) #t)))
@@ -423,7 +423,7 @@
 
     ;; ---- Lists ----
 
-    (define (filter-map (f (Fn A → (Option B))) (items (List A))) (→ (List B)) (∀ A B)
+    (define (filter-map (f (Fn A → (Option B))) (items (List A))) (→ (List B)) (∀ (A B))
       (fold-right
        (lambda (item kept) (match (f item) ((Some value) (Cons value kept)) ((None) kept)))
        (Nil)
@@ -432,13 +432,13 @@
     ;; Stable, for the handful of queued works.
     (define (insertion-sort (before? (Fn T T → Bool)) (items (List T)))
       (→ (List T))
-      (∀ T)
+      (∀ (T))
       (⊨ (Copy T) (Drop (!) T))
       (fold-left (lambda (sorted item) (insert before? item sorted)) (Nil) items))
 
     (define (insert (before? (Fn T T → Bool)) (item T) (sorted (List T)))
       (→ (List T))
-      (∀ T)
+      (∀ (T))
       (⊨ (Copy T) (Drop (!) T))
       (match sorted
         ((Nil) (list item))

@@ -17,7 +17,7 @@
     (lambda (handle) (match handle
                        ((Handle name) (note name))))))
 
-(define (hold (value A) (action (Fn → Unit ! e))) (→ A) (! e) (∀ A e)
+(define (hold (value A) (action (Fn → Unit ! e))) (→ A) (! e) (∀ (A e))
   (action)
   value)
 

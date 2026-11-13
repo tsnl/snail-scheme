@@ -6,12 +6,12 @@
   ((value (Fn → I64))))
 
 ;; The callback uses e, while its caller also has console permission.
-(define (announce (action (Fn → A ! e))) (→ A) (! output-port e) (∀ A e)
+(define (announce (action (Fn → A ! e))) (→ A) (! output-port e) (∀ (A e))
   (write-line "calling")
   (action))
 
 ;; The shared rigid tail is also preserved when both rows have known labels.
-(define (with-value (action (Fn → I64 ! Value e))) (→ I64) (! output-port Value e) (∀ e)
+(define (with-value (action (Fn → I64 ! Value e))) (→ I64) (! output-port Value e) (∀ (e))
   (write-line "calling")
   (action))
 

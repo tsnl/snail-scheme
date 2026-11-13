@@ -239,14 +239,14 @@
     (define (native (start (Fn I64 → Unit)) (success (Fn I32 → T)))
       (→ (Result T SocketError))
       (! tasks)
-      (∀ T)
+      (∀ (T))
       (through-host start (lambda (ticket) (answered (host-finish ticket) success))))
 
     ;; What the host holds for an answer is read before the next host call
     ;; ((snail runtime native socket) has the table); a failure holds its
     ;; code. A handle in an answer is the shell's from then on.
 
-    (define (answered (answer I32) (success (Fn I32 → T))) (→ (Result T SocketError)) (∀ T)
+    (define (answered (answer I32) (success (Fn I32 → T))) (→ (Result T SocketError)) (∀ (T))
       (if (< answer 0)
           (Err (SocketError (held-text 0)))
           (Ok (success answer))))

@@ -5,7 +5,7 @@
 (define (adder (n I64)) (→ (Fn I64 → I64))
   (lambda (x) (+ x n)))
 
-(define (compose (f (Fn B → C)) (g (Fn A → B))) (→ (Fn A → C)) (∀ A B C)
+(define (compose (f (Fn B → C)) (g (Fn A → B))) (→ (Fn A → C)) (∀ (A B C))
   (lambda (x) (f (g x))))
 
 (define (count-down (n I64)) (→ I64)

@@ -13,7 +13,7 @@
 (define (child-name (child (Rc Child))) (→ String) (! mut)
   (● child name))
 
-(define (copy-value (value (Rc T))) (→ T) (! mut e) (∀ T e) (⊨ (Copy T) (Drop e T))
+(define (copy-value (value (Rc T))) (→ T) (! mut e) (∀ (T e)) (⊨ (Copy T) (Drop e T))
   (rc-get value))
 
 (define (main) (→ Unit) (! mut output-port)

@@ -152,7 +152,7 @@
     (define (duplicate (kind String) (name String) (here Loc) (previous Loc))
       (→ A)
       (! compile)
-      (∀ A)
+      (∀ (A))
       (compile-error here
                      (string-append "duplicate "
                                     kind
@@ -164,7 +164,7 @@
     (define (unique-field (name String) (loc Loc) (previous (Option T)) (value T))
       (→ (Option T))
       (! compile)
-      (∀ T)
+      (∀ (T))
       (⊨ (Copy T) (Drop (!) T))
       (match previous
         ((Some _) (compile-error loc (string-append "duplicate option " name)))

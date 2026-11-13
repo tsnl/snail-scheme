@@ -67,7 +67,7 @@
     ;; A component keeps its own message type. Only its event listeners need
     ;; wrapping when its tree is embedded in a larger application.
 
-    (define (map-html (wrap (Fn A → B)) (html (Html A))) (→ (Html B)) (∀ A B)
+    (define (map-html (wrap (Fn A → B)) (html (Html A))) (→ (Html B)) (∀ (A B))
       (match html
         ((Text text) (Text text))
         ((Element tag attributes children)
@@ -76,7 +76,7 @@
 
     (define (map-attribute (wrap (Fn A → B)) (attribute (Attribute A)))
       (→ (Attribute B))
-      (∀ A B)
+      (∀ (A B))
       (match attribute
         ((Attr name value) (Attr name value))
         ((StringProperty name value) (StringProperty name value))
@@ -98,17 +98,17 @@
                      (children (List (Shown M)))))
       (ShownText ((node Node) (text String))))
 
-    (define (shown-node (shown (Shown M))) (→ Node) (∀ M)
+    (define (shown-node (shown (Shown M))) (→ Node) (∀ (M))
       (match shown
         ((ShownElement node _ _ _ _) node)
         ((ShownText node _) node)))
 
     ;; A shown node's handle as a table's key.
 
-    (define (node-name (shown (Shown M))) (→ String) (∀ M)
+    (define (node-name (shown (Shown M))) (→ String) (∀ (M))
       (show (● (shown-node shown) handle)))
 
-    (define (key-of (attributes (List (Attribute M)))) (→ String) (∀ M)
+    (define (key-of (attributes (List (Attribute M)))) (→ String) (∀ (M))
       (match attributes
         ((Cons (Keyed key) _) key)
         ((Cons _ rest) (key-of rest))
@@ -116,7 +116,7 @@
 
     ;; ---- Creating ----
 
-    (define (create (html (Html M))) (→ (Shown M)) (! dom) (∀ M)
+    (define (create (html (Html M))) (→ (Shown M)) (! dom) (∀ (M))
       (match html
         ((Text text) (ShownText (create-text text) text))
         ((Element tag attributes children)
@@ -126,7 +126,7 @@
              (for-each (lambda (child) (insert-node node (shown-node child) (None))) shown)
              (ShownElement node tag attributes (listen-all node attributes) shown))))))
 
-    (define (apply-attribute (node Node) (attribute (Attribute M))) (→ Unit) (! dom) (∀ M)
+    (define (apply-attribute (node Node) (attribute (Attribute M))) (→ Unit) (! dom) (∀ (M))
       (match attribute
         ((Attr name value) (set-attribute node name value))
         ((StringProperty name value) (set-string-property node name value))
@@ -137,7 +137,7 @@
     (define (listen-all (node Node) (attributes (List (Attribute M))))
       (→ (List (Pair String Listener)))
       (! dom)
-      (∀ M)
+      (∀ (M))
       (match attributes
         ((Cons (On event captures prevent _) rest)
          (Cons (Pair event (listen node event captures prevent)) (listen-all node rest)))
@@ -150,7 +150,7 @@
     ;; and tags and keys agree, and otherwise by a new subtree; the caller
     ;; places a new one and removes the old.
 
-    (define (patch (shown (Shown M)) (html (Html M))) (→ (Shown M)) (! dom) (∀ M)
+    (define (patch (shown (Shown M)) (html (Html M))) (→ (Shown M)) (! dom) (∀ (M))
       (if (matches? shown html)
           (match (Pair shown html)
             ((Pair (ShownText node text) (Text new))
@@ -167,7 +167,7 @@
             (_ (panic "internal error: a match of different kinds")))
           (create html)))
 
-    (define (matches? (shown (Shown M)) (html (Html M))) (→ Bool) (∀ M)
+    (define (matches? (shown (Shown M)) (html (Html M))) (→ Bool) (∀ (M))
       (match (Pair shown html)
         ((Pair (ShownText _ _) (Text _)) #t)
         ((Pair (ShownElement _ tag attributes _ _) (Element new-tag new-attributes _))
@@ -180,7 +180,7 @@
     (define (patch-attributes (node Node) (old (List (Attribute M))) (new (List (Attribute M))))
       (→ Unit)
       (! dom)
-      (∀ M)
+      (∀ (M))
       (for-each (lambda (attribute)
                   (unless (any? (lambda (before) (same-value? before attribute)) old)
                     (apply-attribute node attribute)))
@@ -190,7 +190,7 @@
                     (clear-attribute node attribute)))
                 old))
 
-    (define (same-name? (a (Attribute M)) (b (Attribute M))) (→ Bool) (∀ M)
+    (define (same-name? (a (Attribute M)) (b (Attribute M))) (→ Bool) (∀ (M))
       (match (Pair a b)
         ((Pair (Attr x _) (Attr y _)) (string=? x y))
         ((Pair (StringProperty x _) (StringProperty y _)) (string=? x y))
@@ -198,7 +198,7 @@
         ((Pair (FlagProperty x _) (FlagProperty y _)) (string=? x y))
         (_ #f)))
 
-    (define (same-value? (a (Attribute M)) (b (Attribute M))) (→ Bool) (∀ M)
+    (define (same-value? (a (Attribute M)) (b (Attribute M))) (→ Bool) (∀ (M))
       (and (same-name? a b)
            (match (Pair a b)
              ((Pair (Attr _ x) (Attr _ y)) (string=? x y))
@@ -207,7 +207,7 @@
              ((Pair (FlagProperty _ x) (FlagProperty _ y)) (= x y))
              (_ #f))))
 
-    (define (clear-attribute (node Node) (attribute (Attribute M))) (→ Unit) (! dom) (∀ M)
+    (define (clear-attribute (node Node) (attribute (Attribute M))) (→ Unit) (! dom) (∀ (M))
       (match attribute
         ((Attr name _) (set-attribute node name ""))
         ((StringProperty name _) (set-string-property node name ""))
@@ -224,7 +224,7 @@
                              (new (List (Attribute M))))
       (→ (List (Pair String Listener)))
       (! dom)
-      (∀ M)
+      (∀ (M))
       (for-each (lambda (pair)
                   (unless (kept-listener? (● pair first) old new) (unlisten (● pair second))))
                 listeners)
@@ -238,7 +238,7 @@
 
     (define (kept-listener? (event String) (old (List (Attribute M))) (new (List (Attribute M))))
       (→ Bool)
-      (∀ M)
+      (∀ (M))
       (match (Pair (listening event old) (listening event new))
         ((Pair (Some (On _ captures prevent _)) (Some (On _ new-captures new-prevent _)))
          (and (= (capture-bits captures) (capture-bits new-captures))
@@ -247,7 +247,7 @@
 
     (define (listening (event String) (attributes (List (Attribute M))))
       (→ (Option (Attribute M)))
-      (∀ M)
+      (∀ (M))
       (find (lambda (attribute)
               (match attribute
                 ((On name _ _ _) (string=? name event))
@@ -278,7 +278,7 @@
     (define (patch-children (parent Node) (old (List (Shown M))) (new (List (Html M))))
       (→ (List (Shown M)))
       (! dom)
-      (∀ M)
+      (∀ (M))
       (let* ((pairs (taking old new))
              (taken (taken-names pairs))
              (children (map (lambda (pair)
@@ -303,7 +303,7 @@
 
     (define (taking (old (List (Shown M))) (new (List (Html M))))
       (→ (List (Pair (Option (Shown M)) (Html M))))
-      (∀ M)
+      (∀ (M))
       (let ((keys (filter (lambda (key) (not (string=? key ""))) (map html-key new))))
         (unless (= (length keys) (length (delete-duplicates string=? keys)))
           (panic "two children have the same key"))
@@ -318,7 +318,7 @@
 
     (define (taking-from (keyed (Table (Shown M))) (unkeyed (List (Shown M))) (new (List (Html M))))
       (→ (List (Pair (Option (Shown M)) (Html M))))
-      (∀ M)
+      (∀ (M))
       (match new
         ((Cons html rest)
          (if (string=? (html-key html) "")
@@ -333,10 +333,10 @@
                    (taking-from keyed unkeyed rest))))
         ((Nil) (Nil))))
 
-    (define (matching (shown (Shown M)) (html (Html M))) (→ (Option (Shown M))) (∀ M)
+    (define (matching (shown (Shown M)) (html (Html M))) (→ (Option (Shown M))) (∀ (M))
       (if (matches? shown html) (Some shown) (None)))
 
-    (define (taken-names (pairs (List (Pair (Option (Shown M)) (Html M))))) (→ (Table Bool)) (∀ M)
+    (define (taken-names (pairs (List (Pair (Option (Shown M)) (Html M))))) (→ (Table Bool)) (∀ (M))
       (fold-left (lambda (taken pair)
                    (match (● pair first)
                      ((Some shown) (table-set taken (node-name shown) #t))
@@ -344,17 +344,17 @@
                  empty-table
                  pairs))
 
-    (define (shown-key (shown (Shown M))) (→ String) (∀ M)
+    (define (shown-key (shown (Shown M))) (→ String) (∀ (M))
       (match shown
         ((ShownElement _ _ attributes _ _) (key-of attributes))
         ((ShownText _ _) "")))
 
-    (define (html-key (html (Html M))) (→ String) (∀ M)
+    (define (html-key (html (Html M))) (→ String) (∀ (M))
       (match html
         ((Element _ attributes _) (key-of attributes))
         ((Text _) "")))
 
-    (define (same-node? (a (Shown M)) (b (Shown M))) (→ Bool) (∀ M)
+    (define (same-node? (a (Shown M)) (b (Shown M))) (→ Bool) (∀ (M))
       (= (● (shown-node a) handle) (● (shown-node b) handle)))
 
     ;; From the last child to the first, each goes before the one after it
@@ -369,7 +369,7 @@
                    (next (Option Node)))
       (→ Unit)
       (! dom)
-      (∀ M)
+      (∀ (M))
       (match children
         ((Cons child rest)
          (order parent
@@ -389,7 +389,7 @@
                     (next (Option Node)))
       (→ (List (Shown M)))
       (! dom)
-      (∀ M)
+      (∀ (M))
       (match unplaced
         ((Cons last others)
          (if (same-node? last child) others (moved parent child unplaced taken next)))
@@ -402,7 +402,7 @@
                    (next (Option Node)))
       (→ (List (Shown M)))
       (! dom)
-      (∀ M)
+      (∀ (M))
       (insert-node parent (shown-node child) next)
       (if (table-contains? taken (node-name child))
           (filter (lambda (shown) (not (same-node? shown child))) unplaced)
@@ -414,14 +414,14 @@
     ;; only the listeners given it are patched, so any other attribute is
     ;; ignored.
 
-    (define (window-shown (attributes (List (Attribute M)))) (→ (Shown M)) (! dom) (∀ M)
+    (define (window-shown (attributes (List (Attribute M)))) (→ (Shown M)) (! dom) (∀ (M))
       (let ((node (window-node)))
         (ShownElement node "#window" attributes (listen-all node attributes) (Nil))))
 
     (define (patch-window (shown (Shown M)) (attributes (List (Attribute M))))
       (→ (Shown M))
       (! dom)
-      (∀ M)
+      (∀ (M))
       (match shown
         ((ShownElement node tag old listeners _)
          (ShownElement node tag attributes (patch-listeners node old listeners attributes) (Nil)))
@@ -431,7 +431,7 @@
 
     ;; Each listener's function in the trees, by the listener's id.
 
-    (define (listener-table (trees (List (Shown M)))) (→ (Table (Fn Event → M))) (∀ M)
+    (define (listener-table (trees (List (Shown M)))) (→ (Table (Fn Event → M))) (∀ (M))
       (fold-left (lambda (table pair)
                    (table-set table (show (● (● pair second) id)) (● pair first)))
                  empty-table
@@ -439,7 +439,7 @@
 
     (define (listener-functions (shown (Shown M)))
       (→ (List (Pair (Fn Event → M) Listener)))
-      (∀ M)
+      (∀ (M))
       (match shown
         ((ShownText _ _) (Nil))
         ((ShownElement _ _ attributes listeners children)
@@ -464,7 +464,7 @@
 
     (define (showing (model Model) (shown (Shown M)) (window (Shown M)))
       (→ (Running Model M))
-      (∀ Model M)
+      (∀ (Model M))
       (Running model shown window (listener-table (list window shown))))
 
     ;; Shows the view of `model` in the document's root, with the listeners
@@ -486,7 +486,7 @@
                     (checkpoint (Fn Model → Unit ! tasks e)))
       (→ Model)
       (! mut host dom tasks e)
-      (∀ Model M e)
+      (∀ (Model M e))
       (⊨ (Copy Model) (Drop e Model) (Drop e M))
       (let ((box (make-mailbox)) (shown (create (view model))))
         (insert-node (document-root) (shown-node shown) (None))
@@ -509,7 +509,7 @@
                    (running (Running Model M)))
       (→ Model)
       (! mut host dom tasks e)
-      (∀ Model M e)
+      (∀ (Model M e))
       (⊨ (Copy Model) (Drop e Model) (Drop e M))
       (commit (● running model))
       (match (next-event)
@@ -551,7 +551,7 @@
                       (running (Running Model M)))
       (→ (Running Model M))
       (! mut host dom tasks e)
-      (∀ Model M e)
+      (∀ (Model M e))
       (⊨ (Copy Model) (Drop e Model) (Drop e M))
       (match (mailbox-try-receive box)
         ((Some message)
@@ -571,7 +571,7 @@
                      (message M))
       (→ (Running Model M))
       (! mut host dom tasks e)
-      (∀ Model M e)
+      (∀ (Model M e))
       (⊨ (Copy Model) (Drop e Model) (Drop e M))
       (match (update (● running model) message)
         ((Pair model commands)
@@ -583,7 +583,7 @@
     (define (start-commands (box (Mailbox M)) (commands (List (FnOnce → M ! tasks e))))
       (→ Unit)
       (! mut host dom tasks e)
-      (∀ M e) (⊨ (Drop e M))
+      (∀ (M e)) (⊨ (Drop e M))
       (match commands
         ((Cons command rest)
          (dispatch-local (once (lambda () (answer box command))))
@@ -593,7 +593,7 @@
     (define (answer (box (Mailbox M)) (command (FnOnce → M ! tasks e)))
       (→ Unit)
       (! mut host dom tasks e)
-      (∀ M e) (⊨ (Drop e M))
+      (∀ (M e)) (⊨ (Drop e M))
       (mailbox-post box (command))
       (wake))
 
@@ -614,7 +614,7 @@
                          (checkpoint (Fn S → Unit ! mut tasks e)))
       (→ Model)
       (! mut host completion dom tasks e)
-      (∀ Model M S e)
+      (∀ (Model M S e))
       (⊨ (Copy Model) (Drop (! mut host e) Model) (Drop (! mut host e) M))
       (handle completion ((completed wake))
         (mount-reactor model start update view window snapshot commit checkpoint)))
@@ -629,7 +629,7 @@
                            (checkpoint (Fn S → Unit ! mut tasks e)))
       (→ Model)
       (! mut host completion dom tasks e)
-      (∀ Model M S e)
+      (∀ (Model M S e))
       (⊨ (Copy Model) (Drop (! mut host e) Model) (Drop (! mut host e) M))
       (let ((shown (create (view model)))
             (window-shown (window-shown (window model))))
@@ -649,7 +649,7 @@
                            (running (Running Model M)))
       (→ Model)
       (! mut host completion dom tasks e)
-      (∀ Model M S e)
+      (∀ (Model M S e))
       (⊨ (Copy Model) (Drop (! mut host e) Model) (Drop (! mut host e) M))
       (match running
         ((Running model shown window-shown listeners)
@@ -685,7 +685,7 @@
                           (message (Option M)))
       (→ (Running Model M))
       (! mut host completion dom tasks e)
-      (∀ Model M e)
+      (∀ (Model M e))
       (⊨ (Copy Model) (Drop (! mut host e) Model) (Drop (! mut host e) M))
       (match running
         ((Running model shown window-shown _)
@@ -701,7 +701,7 @@
                             (window-shown (Shown M)))
       (→ (Running Model M))
       (! mut host dom e)
-      (∀ Model M e)
+      (∀ (Model M e))
       (⊨ (Copy Model) (Drop (! mut host e) Model))
       (let ((shown (patch-root shown (view model)))
             (window-shown (patch-window window-shown (window model))))
@@ -709,7 +709,7 @@
 
     ;; The root's one child, patched, or replaced by a new one.
 
-    (define (patch-root (shown (Shown M)) (html (Html M))) (→ (Shown M)) (! dom) (∀ M)
+    (define (patch-root (shown (Shown M)) (html (Html M))) (→ (Shown M)) (! dom) (∀ (M))
       (let ((next (patch shown html)))
         (unless (same-node? next shown)
           (insert-node (document-root) (shown-node next) (None))

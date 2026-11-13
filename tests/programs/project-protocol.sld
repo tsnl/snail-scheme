@@ -7,7 +7,7 @@
  (snail shell json read)
  (snail shell project protocol))
 
-(define (accepted? (value (Option T))) (→ Bool) (∀ T) (⊨ (Copy T) (Drop (!) T))
+(define (accepted? (value (Option T))) (→ Bool) (∀ (T)) (⊨ (Copy T) (Drop (!) T))
   (match value ((Some _) #t) ((None) #f)))
 
 (define (parse (text String)) (→ Json)

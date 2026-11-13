@@ -9,7 +9,7 @@
   ((reversed (List String))))
 
 (define (from-text (text String) (action (FnOnce → A ! input-port e)))
-  (→ A) (! mut e) (∀ A e)
+  (→ A) (! mut e) (∀ (A e))
   (let ((position (Cursor 0)))
     (handle input-port
         ((read-char (lambda ()
@@ -21,14 +21,14 @@
       (action))))
 
 (define (capture (action (FnOnce → Unit ! output-port e)))
-  (→ String) (! mut e) (∀ e)
+  (→ String) (! mut e) (∀ (e))
   (let ((chunks (Output (Nil))))
     (handle output-port
         ((write-string (lambda (text) (set! (● chunks reversed) (Cons text (● chunks reversed))))))
       (action))
     (string-concatenate (reverse (● chunks reversed)))))
 
-(define (line (value T)) (→ Unit) (! output-port) (∀ T) (⊨ (Repr T) (Drop (!) T))
+(define (line (value T)) (→ Unit) (! output-port) (∀ (T)) (⊨ (Repr T) (Drop (!) T))
   (write value)
   (newline))
 

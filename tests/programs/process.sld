@@ -5,7 +5,7 @@
  (snail shell utf8)
  (snail shell process))
 
-(define (require (result (Result T ProcessError))) (→ T) (∀ T)
+(define (require (result (Result T ProcessError))) (→ T) (∀ (T))
   (match result
     ((Ok value) value)
     ((Err error) (panic (● error code)))))
@@ -30,7 +30,7 @@
 (define (report-error (result (Result T ProcessError)))
   (→ Unit)
   (! output-port)
-  (∀ T)
+  (∀ (T))
   (⊨ (Copy T) (Drop (!) T))
   (match result
     ((Err error) (write-line (● error code)))

@@ -30,7 +30,7 @@
         (zero (Table V))
         (one (Table V)))))
 
-    (define empty-table (→ (Table V)) (∀ V) (Empty))
+    (define empty-table (→ (Table V)) (∀ (V)) (Empty))
 
     ;; FNV-1a over the code points, wrapping in 64 bits.
 
@@ -47,7 +47,7 @@
     (define (table-ref (table (Table V)) (key String))
       (→ (Option V))
       (! e)
-      (∀ V e)
+      (∀ (V e))
       (⊨ (Copy V) (Drop e V))
       (let ((hash (string-hash key)))
         (let loop ((table table))
@@ -59,7 +59,7 @@
     (define (table-contains? (table (Table V)) (key String))
       (→ Bool)
       (! e)
-      (∀ V e)
+      (∀ (V e))
       (⊨ (Copy V) (Drop e V))
       (match (table-ref table key)
         ((Some _) #t)
@@ -68,7 +68,7 @@
     (define (table-set (table (Table V)) (key String) (value V))
       (→ (Table V))
       (! e)
-      (∀ V e)
+      (∀ (V e))
       (⊨ (Copy V) (Drop e V))
       (let ((hash (string-hash key)))
         (let insert ((table table))
@@ -90,7 +90,7 @@
     ;; A branch over two tries whose hashes, `a` and `b`, differ. It splits
     ;; on their lowest differing bit.
 
-    (define (join (a I64) (a-table (Table V)) (b I64) (b-table (Table V))) (→ (Table V)) (∀ V)
+    (define (join (a I64) (a-table (Table V)) (b I64) (b-table (Table V))) (→ (Table V)) (∀ (V))
       (let* ((difference (i64-xor a b)) (bit (i64-and difference (negate difference))))
         (if (= (i64-and a bit) 0)
             (Branch (below a bit) bit a-table b-table)
@@ -101,7 +101,7 @@
     (define (table-fold (f (Fn A (Pair String V) → A ! e)) (initial A) (table (Table V)))
       (→ A)
       (! e)
-      (∀ V A e)
+      (∀ (V A e))
       (match table
         ((Empty) initial)
         ((Leaf _ entries) (fold-left f initial entries))
@@ -110,21 +110,21 @@
     (define (table-count (table (Table V)))
       (→ I64)
       (! e)
-      (∀ V e)
+      (∀ (V e))
       (⊨ (Copy V) (Drop e V))
       (table-fold (lambda (count entry) (+ count 1)) 0 table))
 
     (define (table-keys (table (Table V)))
       (→ (List String))
       (! e)
-      (∀ V e)
+      (∀ (V e))
       (⊨ (Copy V) (Drop e V))
       (reverse (table-fold (lambda (keys entry) (Cons (● entry first) keys)) (Nil) table)))
 
     (define (table-values (table (Table V)))
       (→ (List V))
       (! e)
-      (∀ V e)
+      (∀ (V e))
       (⊨ (Copy V) (Drop e V))
       (reverse (table-fold (lambda (values entry) (Cons (● entry second) values)) (Nil) table)))
 

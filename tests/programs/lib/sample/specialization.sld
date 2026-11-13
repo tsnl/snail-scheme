@@ -11,17 +11,17 @@
 
     ;; Stateless templates expand at each type; allocating generic values
     ;; are ordinary constructor functions, including across libraries.
-    (define empty-values (→ (List A)) (∀ A) (⊨ (Copy A)) (Nil))
-    (define (nested-values) (→ (List (List A))) (∀ A) (⊨ (Copy A)) (Cons empty-values (Nil)))
+    (define empty-values (→ (List A)) (∀ (A)) (⊨ (Copy A)) (Nil))
+    (define (nested-values) (→ (List (List A))) (∀ (A)) (⊨ (Copy A)) (Cons empty-values (Nil)))
 
     ;; Both specializations reserve their names before discovering the
     ;; back-edge. Repeated references reuse the reserved implementation.
-    (define (outbound (value A) (count I64)) (→ A) (∀ A)
+    (define (outbound (value A) (count I64)) (→ A) (∀ (A))
       (if (= count 0) value (inbound value (- count 1))))
 
-    (define (inbound (value A) (count I64)) (→ A) (∀ A)
+    (define (inbound (value A) (count I64)) (→ A) (∀ (A))
       (if (= count 0) value (outbound value (- count 1))))
 
     (define (fixed (value I64)) (→ I64) (+ value 1))
 
-    (define round-trip (→ (Fn A I64 → A)) (∀ A) outbound)))
+    (define round-trip (→ (Fn A I64 → A)) (∀ (A)) outbound)))

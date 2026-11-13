@@ -440,7 +440,7 @@
                          (component (List I64)))
       (→ A)
       (! compile)
-      (∀ A)
+      (∀ (A))
       (match (first-declared targets steps component)
         ((Some start)
          (let ((path (cycle-path edges component start)))

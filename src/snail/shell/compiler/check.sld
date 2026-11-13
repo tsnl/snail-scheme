@@ -179,11 +179,13 @@
       (linear-type? (program-of ck) (● ck copy) (resolve-type (solution ck) type)))
 
     (define (bind-solved (ck Checker) (meta Type) (type Type)) (→ Checker)
-      (Checker-solution-set ck
-                            (Solution-types-set (solution ck)
-                                                (table-set (● (solution ck) types)
-                                                           (identity-key (TVar-id meta))
-                                                           type))))
+      (match meta
+        ((TVar id) (Checker-solution-set ck
+                                         (Solution-types-set (solution ck)
+                                                             (table-set (● (solution ck) types)
+                                                                        (identity-key id)
+                                                                        type))))
+        (_ (panic "internal error: expected TVar"))))
 
     (define (fresh-identity (ck Checker)) (→ (Pair I64 Checker))
       (let ((id (+ (● ck counter) 1)))
@@ -386,7 +388,7 @@
                           (propagate-inclusion ck latent row loc))
                 (effect-refusal ck latent loc)))))
 
-    (define (effect-refusal (ck Checker) (latent Type) (loc Loc)) (→ T) (! compile) (∀ T)
+    (define (effect-refusal (ck Checker) (latent Type) (loc Loc)) (→ T) (! compile) (∀ (T))
       (let ((flat (flatten-row (solution ck) latent)))
         (compile-error loc
                        (string-append "this performs effects its context does not allow:"
@@ -516,7 +518,7 @@
     (define (each (ck Checker) (step (Fn Checker A → (Pair B Checker) ! e)) (items (List A)))
       (→ (Pair (List B) Checker))
       (! e)
-      (∀ A B e)
+      (∀ (A B e))
       (⊨ (Copy B) (Drop e B))
       (let ((done (fold-left (lambda (done item)
                                (match (step (● done second) item)
@@ -675,7 +677,7 @@
     (define (within (ck Checker) (inner Checker) (check (Fn Checker → (Pair A Checker) ! e)))
       (→ (Pair A Checker))
       (! e)
-      (∀ A e)
+      (∀ (A e))
       (match (check inner)
         ((Pair value done) (Pair value (resumed ck done)))))
 
@@ -1526,7 +1528,7 @@
       (→ (Option (Pair Expr Type))) 
       (let* ((field (list-ref (● case fields) index))
              (result (substitute (zip (● data params) args) (● field type)))
-             (callee (Expr (Var (string-append (● case name) "-" (● field name)) args (Nil))
+             (callee (Expr (Var (field-operation-name case index "get") args (Nil))
                            (TFun (list (● record type)) result empty-row) loc)))
         (Some (Pair (Expr (App callee (list record)) result loc) empty-row))))
 
@@ -2209,12 +2211,8 @@
 
     ;; ---- Places ----
 
-    ;; `set!` and `replace!` write a place: a cell's content, `(ref-get r)`,
-    ;; or a chain of struct-field reads from one, which the backend stores
-    ;; into the slots of the cell. Each link must be a struct's own field,
-    ;; read by its resolved accessor. An enum's case has no stable slot to
-    ;; write. Items are checked once their types and projections are final.
-
+    ;; A written place selects a struct field. Enum fields are destructured
+    ;; by match; mutable payloads can themselves be structs.
     (define (check-places-item (program Program) (item Item)) (→ Unit) (! compile)
       (match item
         ((Define _ value) (check-places program value))
@@ -2251,18 +2249,13 @@
         (_ (Err not-a-place))))
 
     (define not-a-place (→ String)
-      "a place must select a mutable struct field")
+      "a place must select a field")
 
     (define (link-field (program Program) (name String))
       (→ (Result Field String))
       (match (program-value program name)
-        ((Some (Accessor case index _)) (struct-field program case index))
+        ((Some (Accessor case index _)) (Ok (list-ref (● case fields) index)))
         (_ (Err not-a-place))))
-
-    (define (struct-field (program Program) (case Case) (index I64)) (→ (Result Field String))
-      (if (● (program-type program (● case type)) enum?)
-          (Err "cannot write through an enum's case; replace the whole enum")
-          (Ok (list-ref (● case fields) index))))
 
     ;; ---- Closed functions ----
 
@@ -2756,11 +2749,20 @@
                       (then (host-effects results))
                       (then (generalize-group definitions before exposed)))
                   (Pair (map (lambda (pair)
-                               (Define (Define-name (● pair first))
+                               (Define (match (● pair first)
+                                         ((Define definition-name _) definition-name)
+                                         (_ (panic "internal error: expected Define")))
                                  (● (● pair second) first)))
                              (zip definitions results))
                         (Checker-open-set ck
-                                          (append (map Define-name definitions)
+                                          (append (map (lambda (definition)
+                                                         (match definition
+                                                           ((Define definition-name
+                                                              definition-value)
+                                                            definition-name)
+                                                           (_ (panic
+                                                               "internal error: expected Define"))))
+                                                       definitions)
                                                   (● ck open)))))))
 
     ;; Each definition in the group starts with a monomorphic metavariable, so
@@ -2768,9 +2770,12 @@
 
     (define (provisional-schemes (ck Checker) (definitions (List Item))) (→ Checker)
       (fold-left (lambda (ck definition)
-                   (learning ck ((type (local-placeholder (Define-name definition)
-                                                          (Define-value definition))))
-                             (set-scheme ck (Define-name definition) (mono-scheme type))))
+                   (match definition
+                     ((Define definition-name definition-value)
+                      (learning ck ((type (local-placeholder definition-name
+                                                             definition-value)))
+                                (set-scheme ck definition-name (mono-scheme type))))
+                     (_ (panic "internal error: expected Define"))))
                  ck definitions))
 
     (define (host-effects (ck Checker) (results (List (Pair Expr Type)))) (→ Checker) (! compile)
@@ -2789,7 +2794,11 @@
                               (before I64)
                               (exposed (List String)))
       (→ Checker)
-      (if (every? (lambda (definition) (lambda-expr? (Define-value definition))) definitions)
+      (if (every? (lambda (definition) (match definition
+                                         ((Define definition-name definition-value)
+                                          (lambda-expr? definition-value))
+                                         (_ (panic "internal error: expected Define"))))
+                  definitions)
           (generalize ck
                       definitions
                       (take (● ck pending) (- (● ck pending-count) before))
@@ -2801,17 +2810,26 @@
     (define (infer-definition (ck Checker) (definition Item))
       (→ (Pair (Pair Expr Type) Checker))
       (! compile)
-      (learning ck ((row (fresh-meta))
-                    (value (infer-definition-value (Define-value definition)
-                                                   (scheme-type ck (Define-name definition)) row))
-                    (then (infer-cleanup (Nil) (Nil) value row))
-                    (then (unify (scheme-type ck (Define-name definition))
-                                 (● value type)
-                                 (● value loc))))
-                (unless (total? (solution ck) row)
-                  (compile-error (● value loc)
-                                 "a top-level value must be effect-free; put runtime work in a function"))
-                (Pair (Pair value row) ck)))
+      (match definition
+        ((Define definition-name definition-value) (learning ck ((row (fresh-meta))
+                                                                 (value (infer-definition-value
+                                                                         definition-value
+                                                                         (scheme-type ck
+                                                                                      definition-name)
+                                                                         row))
+                                                                 (then (infer-cleanup (Nil)
+                                                                                      (Nil)
+                                                                                      value
+                                                                                      row))
+                                                                 (then (unify (scheme-type ck
+                                                                                           definition-name)
+                                                                              (● value type)
+                                                                              (● value loc))))
+                                                             (unless (total? (solution ck) row)
+                                                               (compile-error (● value loc)
+                                                                              "a top-level value must be effect-free; put runtime work in a function"))
+                                                             (Pair (Pair value row) ck)))
+        (_ (panic "internal error: expected Define"))))
 
     (define (infer-definition-value (ck Checker) (value Expr) (type Type) (row Type))
       (→ (Pair Expr Checker))
@@ -2846,9 +2864,15 @@
              (metas (filter (lambda (meta) (not (member? (meta-id meta) fixed)))
                             (delete-duplicates same-meta?
                                                (concatenate (map (lambda (d)
-                                                                   (free-metas (solution ck)
-                                                                               (scheme-type ck
-                                                                                            (Define-name d))))
+                                                                   (match d
+                                                                     ((Define definition-name
+                                                                        definition-value)
+                                                                      (free-metas (solution ck)
+                                                                                  (scheme-type ck
+                                                                                               definition-name)))
+                                                                     (_
+                                                                      (panic
+                                                                       "internal error: expected Define"))))
                                                                  definitions)))))
              (names (map (lambda (index) (string-append "t" (i64->string (+ index 1))))
                          (iota (length metas))))
@@ -2858,13 +2882,20 @@
                                  (bind-solved ck (● pair first) (TRigid (● pair second))))
                                ck (zip metas names))))
         (fold-left (lambda (ck definition)
-                     (let ((name (Define-name definition)))
-                       (set-scheme ck
-                                   name
-                                   (Scheme names
-                                           (Nil)
-                                           (Nil)
-                                           (resolve-type (solution ck) (scheme-type ck name))))))
+                     (match definition
+                       ((Define definition-name definition-value) (let ((name definition-name))
+                                                                    (set-scheme ck
+                                                                                name
+                                                                                (Scheme names
+                                                                                        (Nil)
+                                                                                        (Nil)
+                                                                                        (resolve-type
+                                                                                         (solution
+                                                                                          ck)
+                                                                                         (scheme-type
+                                                                                          ck
+                                                                                          name))))))
+                       (_ (panic "internal error: expected Define"))))
                    bound definitions)))
 
     ;; A foreign caller supplies no row argument. Keep an inferred export's
@@ -2875,12 +2906,17 @@
       (→ (List Type))
       (concatenate
        (map (lambda (definition)
-              (if (member? (Define-name definition) exposed)
-                  (match (fn-arrow
-                          (resolve-type (solution ck) (scheme-type ck (Define-name definition))))
-                    ((TFun _ _ row) (free-metas (solution ck) row))
-                    (_ (Nil)))
-                  (Nil))) definitions)))
+              (match definition
+                ((Define definition-name definition-value) (if (member? definition-name exposed)
+                                                               (match (fn-arrow
+                                                                       (resolve-type (solution ck)
+                                                                                     (scheme-type ck
+                                                                                                  definition-name)))
+                                                                 ((TFun _ _ row)
+                                                                  (free-metas (solution ck) row))
+                                                                 (_ (Nil)))
+                                                               (Nil)))
+                (_ (panic "internal error: expected Define")))) definitions)))
 
     (define (meta-id (meta Type)) (→ I64)
       (match meta
@@ -2942,15 +2978,18 @@
     (define (check-annotated (ck Checker) (definition Item) (scheme Scheme))
       (→ (Pair Item Checker))
       (! compile)
-      (check-associated-givens (program-of ck) (● scheme constraints)
-                               (● (Define-value definition) loc))
-      (within ck
-              (Checker-copy-set (Checker-givens-set ck
-                                                    (if (null? (● scheme vars))
-                                                        (Nil)
-                                                        (● scheme constraints)))
-                                (● scheme copy))
-              (lambda (inner) (check-annotated-value inner definition scheme))))
+      (match definition
+        ((Define definition-name definition-value)
+         (check-associated-givens (program-of ck) (● scheme constraints)
+                                  (● definition-value loc))
+         (within ck
+                 (Checker-copy-set (Checker-givens-set ck
+                                                       (if (null? (● scheme vars))
+                                                           (Nil)
+                                                           (● scheme constraints)))
+                                   (● scheme copy))
+                 (lambda (inner) (check-annotated-value inner definition scheme))))
+        (_ (panic "internal error: expected Define"))))
 
     ;; A projection has one witness. Distinct rows or output equalities
     ;; cannot disambiguate two requirements with the same selecting inputs.
@@ -2973,17 +3012,20 @@
       (! compile)
       ;; Monomorphic roots run without evidence parameters. Their closed
       ;; requirements must be proved, not assumed by their initializer.
-      (learning ck ((then (want-closed-requirements scheme (● (Define-value definition) loc)))
-                    (row (fresh-meta))
-                    (value (check-value (Define-value definition) (● scheme type) row))
-                    (value (fit (● scheme type) value row (● value loc)))
-                    (then (infer-cleanup (Nil) (Nil) value row))
-                    (then (check-host-effects row (● value loc))))
-                (unless (total? (solution ck) row)
-                  (compile-error (● value loc)
-                                 "a top-level value must be effect-free; put runtime work in a function"))
-                (Pair (Define (Define-name definition) value)
-                      (want-performed ck definition scheme))))
+      (match definition
+        ((Define definition-name definition-value)
+         (learning ck ((then (want-closed-requirements scheme (● definition-value loc)))
+                       (row (fresh-meta))
+                       (value (check-value definition-value (● scheme type) row))
+                       (value (fit (● scheme type) value row (● value loc)))
+                       (then (infer-cleanup (Nil) (Nil) value row))
+                       (then (check-host-effects row (● value loc))))
+                   (unless (total? (solution ck) row)
+                     (compile-error (● value loc)
+                                    "a top-level value must be effect-free; put runtime work in a function"))
+                   (Pair (Define definition-name value)
+                         (want-performed ck definition scheme))))
+        (_ (panic "internal error: expected Define"))))
 
     ;; A signature's row says what calling the function may do, so it may
     ;; not name an effect the body never performs. A lambda was checked by
@@ -2994,12 +3036,15 @@
     ;; signature (expand.sld's `snail-defaults`).
 
     (define (want-performed (ck Checker) (definition Item) (scheme Scheme)) (→ Checker)
-      (match (Pair (signature-loc (program-of ck) (Define-name definition))
-                   (fn-arrow (● scheme type)))
-        ((Pair (Some loc) (TFun _ _ row))
-         (if (lambda-expr? (Define-value definition))
-             (want ck (WantPerformed (Define-name definition) row (● ck performed) loc)) ck))
-        (_ ck)))
+      (match definition
+        ((Define definition-name definition-value)
+         (match (Pair (signature-loc (program-of ck) definition-name)
+                      (fn-arrow (● scheme type)))
+           ((Pair (Some loc) (TFun _ _ row))
+            (if (lambda-expr? definition-value)
+                (want ck (WantPerformed definition-name row (● ck performed) loc)) ck))
+           (_ ck)))
+        (_ (panic "internal error: expected Define"))))
 
     (define (check-performed (ck Checker) (want Wanted)) (→ Unit) (! compile)
       (match want
@@ -3253,11 +3298,20 @@
                                         items)))
              (groups (each-recovered (Recovered ck (Nil) (Nil) (Nil))
                                      group-references
-                                     (lambda (group) (map Define-name group))
+                                     (lambda (group)
+                                       (map (lambda (definition)
+                                              (match definition
+                                                ((Define definition-name definition-value)
+                                                 definition-name)
+                                                (_ (panic "internal error: expected Define"))))
+                                            group))
                                      (lambda (ck group) (check-group ck group exposed))
                                      (unannotated-groups ck items)))
              (results (fold-left
-                       (lambda (results result) (table-set results (Define-name result) result))
+                       (lambda (results result) (match result
+                                                  ((Define definition-name definition-value)
+                                                   (table-set results definition-name result))
+                                                  (_ (panic "internal error: expected Define"))))
                        empty-table (concatenate (● groups values))))
              (checked (each-recovered (Recovered (● groups checker)
                                                  (Nil)
@@ -3271,7 +3325,10 @@
         (Pair (● checked values) (● checked checker))))
 
     (define (group-references (definitions (List Item))) (→ (List String))
-      (concatenate (map (lambda (definition) (expr-references (Define-value definition)))
+      (concatenate (map (lambda (definition) (match definition
+                                               ((Define definition-name definition-value)
+                                                (expr-references definition-value))
+                                               (_ (panic "internal error: expected Define"))))
                         definitions)))
 
     ;; A definition refers to itself too, so one whose group failed is
@@ -3374,7 +3431,7 @@
                             (items (List A)))
       (→ (Recovered B))
       (! compile e)
-      (∀ A B e)
+      (∀ (A B e))
       (⊨ (Copy A) (Copy B) (Drop e B) (Drop e A))
       (let ((done (fold-left (lambda (done item) (recover done references names step item))
                              start
@@ -3388,7 +3445,7 @@
                      (item A))
       (→ (Recovered B))
       (! compile e)
-      (∀ A B e)
+      (∀ (A B e))
       (⊨ (Copy A) (Copy B) (Drop e B) (Drop e A))
       (let ((failed (● done failed)))
         (if (any? (lambda (name) (member? name failed)) (references item))
@@ -3409,7 +3466,11 @@
     (define (definition-groups (definitions (List Item))) (→ (List (List Item)))
       (let* ((nodes (list->vector definitions))
              (numbers (fold-left (lambda (table index)
-                                   (table-set table (Define-name (vector-ref nodes index)) index))
+                                   (table-set table
+                                              (match (vector-ref nodes index)
+                                                ((Define definition-name _) definition-name)
+                                                (_ (panic "internal error: expected Define")))
+                                              index))
                                  empty-table (iota (vector-length nodes)))))
         (map (lambda (component) (map (lambda (index) (vector-ref nodes index)) component))
              (strong-components

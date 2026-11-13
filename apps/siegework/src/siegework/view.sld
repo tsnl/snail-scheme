@@ -912,7 +912,7 @@
                                   (list (preview-batch game))))
                (Nil))))
 
-    (define (filter-map (f (Fn A → (Option B))) (items (List A))) (→ (List B)) (∀ A B)
+    (define (filter-map (f (Fn A → (Option B))) (items (List A))) (→ (List B)) (∀ (A B))
       (fold-right
        (lambda (item kept) (match (f item) ((Some value) (Cons value kept)) ((None) kept)))
        (Nil)

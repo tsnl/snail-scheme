@@ -17,7 +17,7 @@
   (unsafe-total
    (lambda ()
      (let* ((cell (Cell 3)) (previous (replace! (● cell value) 7)))
-       (Cell-value-set! cell 9)
+       (set! (● cell value) 9)
        (Shared cell cell previous)))))
 
 (define folded (→ String) (string-foldcase "Straße Σςİ ﬃ"))

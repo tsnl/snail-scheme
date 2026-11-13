@@ -8,7 +8,7 @@
 (effect Log
   ((log (Fn String → Unit))))
 
-(define (box (value A)) (→ Any) (∀ A) (type-convert value Any))
+(define (box (value A)) (→ Any) (∀ (A)) (type-convert value Any))
 
 (define (noisy) (→ Unit) (! Log) (log "hi"))
 

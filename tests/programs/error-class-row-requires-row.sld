@@ -6,5 +6,5 @@
 (typeclass (Store e S)
   (: fetch-object (Fn S String → String ! e)))
 
-(define (fetch-twice (store S) (name String)) (→ String) (∀ S) (⊨ (Store I64 S))
+(define (fetch-twice (store S) (name String)) (→ String) (∀ (S)) (⊨ (Store I64 S))
   (fetch-object store name))

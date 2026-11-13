@@ -150,7 +150,7 @@
     ;; One of `items` chosen by the seed and a key, if there are any.
     (define (pick (seed I64) (key I64) (items (List A)))
       (→ (Option A))
-      (∀ A)
+      (∀ (A))
       (⊨ (Copy A) (Drop (!) A))
       (if (null? items)
           (None)

@@ -13,6 +13,7 @@
  (snail stage0 process)
  (snail stage0 build)
  (only (snail stage0 forms) test-forms)
+ (only (snail core base) test-base)
  (only (snail shell compiler read) test-read)
  (only (snail shell compiler annotations) test-annotations)
  (only (snail shell compiler inputs) test-inputs)
@@ -24,7 +25,6 @@
  (only (snail shell compiler specialize) test-specialize)
  (only (snail shell compiler prepare) test-prepare)
  (only (snail shell compiler wasm) test-wasm)
- (only (snail shell compiler session) test-session)
  (only (snail shell project plan) test-plan)
  (only (snail shell project) test-project))
 
@@ -349,8 +349,7 @@
         (run (tool-run root "run" "examples/fibonacci.sld"))
         (failed (tool-run root "run" "tests/tasks/failure.sld"))
         (panicked (tool-run root "run" "tests/programs/panic.sld"))
-        (trapped (tool-run root "run" "tests/programs/traps.sld"))
-        (enum-order (tool-run root "run" "tests/enum-field-order/main.sld")))
+        (trapped (tool-run root "run" "tests/programs/traps.sld")))
     (cond ((not (and (zero? (caddr wat)) (string-contains (car wat) "(func $main")))
            (report "compiler wat" "no module text" (cadr wat)))
           ((not (equal? (car run) "832040\n"))
@@ -363,10 +362,6 @@
            (report "compiler run" "a panic must exit with status 1" (cadr panicked)))
           ((not (= (caddr trapped) 512))
            (report "compiler run" "a trap must be status 2" (cadr trapped)))
-          ((not (and (= (caddr enum-order) 256) (equal? (car enum-order) "incoming\n")
-                     (equal? (cadr enum-order) "snail: wrong enum case\n")))
-           (report "compiler run" "enum writes must evaluate both operands before checking the case"
-                   (string-append (car enum-order) (cadr enum-order))))
           (else #t))))
 
 
@@ -641,8 +636,6 @@
     ("tests/programs" "deriving-libraries")
     ("tests/programs" "tables")
     ("tests/programs" "implicit-any")
-    ("tests/programs" "dynamic-instance")
-    ("tests/programs" "dynamic-instance-effects")
     ("tests/programs" "libraries")
     ("tests/programs" "specialization-order")
     ("tests/programs" "specialization-drop")
@@ -799,6 +792,7 @@
 
 (define (main root selected)
   (test-forms)
+  (test-base)
   (test-read)
   (test-annotations)
   (test-inputs)
@@ -812,7 +806,6 @@
   (test-prepare)
   (test-wasm)
   (test-expand (path-join root "build/tests/expand") (path-join root "src"))
-  (test-session (path-join root "build/tests/session") (path-join root "src"))
   (test-plan (path-join root "build/tests/plan") (path-join root "src"))
   (test-project)
   (let* ((cases (append (run-suite root "examples" '("examples") selected)

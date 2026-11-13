@@ -87,6 +87,6 @@
 ;; export signature. Application scaffolding relies on the same ordinary rule.
 (define inferred-entry
   (lambda (checkpoint value)
-    (Checkpoint-value-set! checkpoint (type-convert (ann value I64) Any))
+    (set! (● checkpoint value) (type-convert (ann value I64) Any))
     (state checkpoint)))
 (expose inferred-entry "inferred")

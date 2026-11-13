@@ -30,7 +30,7 @@
   ((item A)
    (label String)))
 
-(define (relabel (labelled (Labelled A))) (→ (Labelled A)) (∀ A)
+(define (relabel (labelled (Labelled A))) (→ (Labelled A)) (∀ (A))
   (Labelled-label-set labelled "relabelled"))
 
 ;; A replacement is a function too, and consumes the record it is given.

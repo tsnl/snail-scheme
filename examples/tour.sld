@@ -85,7 +85,7 @@
 ;; `All` makes a definition generic, and `requires` asks for instances.
 ;; Each use is compiled for its own types, so generic code costs what a
 ;; hand-written copy would.
-(define (describe-all (items (List T))) (→ String) (∀ T) (⊨ (Describe T))
+(define (describe-all (items (List T))) (→ String) (∀ (T)) (⊨ (Describe T))
   (string-join (map describe items) " "))
 
 ;; ---- Mutation ----

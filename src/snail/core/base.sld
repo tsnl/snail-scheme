@@ -304,21 +304,21 @@
     (define (abs (x T))
       (→ T)
       (! e)
-      (∀ T e)
+      (∀ (T e))
       (⊨ (Num e T) (Ord e T) (Copy T) (Drop e T))
       (if (< x (- x x)) (negate x) x))
 
     (define (min (a T) (b T))
       (→ T)
       (! e)
-      (∀ T e)
+      (∀ (T e))
       (⊨ (Ord e T) (Copy T) (Drop e T))
       (if (< b a) b a))
 
     (define (max (a T) (b T))
       (→ T)
       (! e)
-      (∀ T e)
+      (∀ (T e))
       (⊨ (Ord e T) (Copy T) (Drop e T))
       (if (< a b) b a))
 
@@ -345,7 +345,7 @@
     ;; value of a type with no cases needs no clauses.
     (enum Never)
 
-    (define (absurd (never Never)) (→ A) (∀ A)
+    (define (absurd (never Never)) (→ A) (∀ (A))
       (match never))
 
     ;; ---- Dynamic conversions ----
@@ -403,7 +403,7 @@
     (define (null? (items (List T)))
       (→ Bool)
       (! e)
-      (∀ T e)
+      (∀ (T e))
       (⊨ (Copy T) (Drop e T))
       (match items
         ((Nil) #t)
@@ -412,29 +412,29 @@
     (define (length (items (List T)))
       (→ I64)
       (! e)
-      (∀ T e)
+      (∀ (T e))
       (⊨ (Copy T) (Drop e T))
       (fold-left (lambda (count item) (+ count 1)) 0 items))
 
-    (define (reverse (items (List T))) (→ (List T)) (∀ T)
+    (define (reverse (items (List T))) (→ (List T)) (∀ (T))
       (fold-left (lambda (reversed item) (Cons item reversed)) (Nil) items))
 
-    (define (append (front (List T)) (back (List T))) (→ (List T)) (∀ T)
+    (define (append (front (List T)) (back (List T))) (→ (List T)) (∀ (T))
       (fold-right Cons back front))
 
-    (define (concatenate (lists (List (List T)))) (→ (List T)) (∀ T)
+    (define (concatenate (lists (List (List T)))) (→ (List T)) (∀ (T))
       (fold-right append (Nil) lists))
 
     (define (map (f (Fn A → B ! e)) (items (List A)))
       (→ (List B))
       (! e)
-      (∀ A B e)
+      (∀ (A B e))
       (reverse (fold-left (lambda (mapped item) (Cons (f item) mapped)) (Nil) items)))
 
     (define (map-indexed (f (Fn I64 A → B ! e)) (items (List A)))
       (→ (List B))
       (! e)
-      (∀ A B e)
+      (∀ (A B e))
       (let loop ((items items) (index 0) (mapped (Nil)))
         (match items
           ((Nil) (reverse mapped))
@@ -443,7 +443,7 @@
     (define (for-each (f (Fn A → Unit ! e)) (items (List A)))
       (→ Unit)
       (! e)
-      (∀ A e)
+      (∀ (A e))
       (match items
         ((Nil) (unit))
         ((Cons item rest) (f item) (for-each f rest))))
@@ -451,7 +451,7 @@
     (define (filter (keep? (Fn A → Bool ! e)) (items (List A)))
       (→ (List A))
       (! e)
-      (∀ A e)
+      (∀ (A e))
       (⊨ (Copy A) (Drop e A))
       (reverse
        (fold-left (lambda (kept item) (if (keep? item) (Cons item kept) kept)) (Nil) items)))
@@ -459,7 +459,7 @@
     (define (fold-left (f (Fn B A → B ! e)) (initial B) (items (List A)))
       (→ B)
       (! e)
-      (∀ A B e)
+      (∀ (A B e))
       (match items
         ((Nil) initial)
         ((Cons item rest) (fold-left f (f initial item) rest))))
@@ -467,13 +467,13 @@
     (define (fold-right (f (Fn A B → B ! e)) (initial B) (items (List A)))
       (→ B)
       (! e)
-      (∀ A B e)
+      (∀ (A B e))
       (fold-left (lambda (result item) (f item result)) initial (reverse items)))
 
     (define (list-tail (items (List T)) (index I64))
       (→ (List T))
       (! e)
-      (∀ T e)
+      (∀ (T e))
       (⊨ (Copy T) (Drop e T))
       (if (= index 0)
           items
@@ -484,7 +484,7 @@
     (define (list-ref (items (List T)) (index I64))
       (→ T)
       (! e)
-      (∀ T e)
+      (∀ (T e))
       (⊨ (Copy T) (Drop e T))
       (match (list-tail items index)
         ((Cons item _) item)
@@ -493,7 +493,7 @@
     (define (any? (test (Fn A → Bool ! e)) (items (List A)))
       (→ Bool)
       (! e)
-      (∀ A e)
+      (∀ (A e))
       (⊨ (Copy A) (Drop e A))
       (match items
         ((Nil) #f)
@@ -502,7 +502,7 @@
     (define (every? (test (Fn A → Bool ! e)) (items (List A)))
       (→ Bool)
       (! e)
-      (∀ A e)
+      (∀ (A e))
       (⊨ (Copy A) (Drop e A))
       (match items
         ((Nil) #t)
@@ -511,7 +511,7 @@
     (define (find (test (Fn A → Bool ! e)) (items (List A)))
       (→ (Option A))
       (! e)
-      (∀ A e)
+      (∀ (A e))
       (⊨ (Copy A) (Drop e A))
       (match items
         ((Nil) (None))
@@ -520,7 +520,7 @@
     (define (member? (value A) (items (List A)))
       (→ Bool)
       (! e)
-      (∀ A e)
+      (∀ (A e))
       (⊨ (Ord e A) (Copy A) (Drop e A))
       (any? (lambda (item) (= item value)) items))
 
@@ -529,7 +529,7 @@
     (define (delete-duplicates (same? (Fn A A → Bool ! e)) (items (List A)))
       (→ (List A))
       (! e)
-      (∀ A e)
+      (∀ (A e))
       (⊨ (Copy A) (Drop e A))
       (reverse (fold-left (lambda (kept item)
                             (if (any? (lambda (other) (same? other item)) kept)
@@ -540,7 +540,7 @@
     (define (take (items (List T)) (count I64))
       (→ (List T))
       (! e)
-      (∀ T e)
+      (∀ (T e))
       (⊨ (Copy T) (Drop e T))
       (let loop ((items items) (count count) (taken (Nil)))
         (match items
@@ -551,7 +551,7 @@
     (define (list-drop (items (List T)) (count I64))
       (→ (List T))
       (! e)
-      (∀ T e)
+      (∀ (T e))
       (⊨ (Copy T) (Drop e T))
       (if (= count 0)
           items
@@ -566,7 +566,7 @@
     (define (list-sort (before? (Fn T T → Bool ! e)) (items (List T)))
       (→ (List T))
       (! e)
-      (∀ T e)
+      (∀ (T e))
       (⊨ (Copy T) (Drop e T))
       (let ((half (quotient (length items) 2)))
         (if (= half 0)
@@ -576,7 +576,7 @@
                           (list-sort before? (list-drop items half))))))
 
     (define (merge-sorted (before? (Fn T T → Bool ! e)) (left (List T)) (right (List T)))
-      (→ (List T)) (! e) (∀ T e) (⊨ (Copy T) (Drop e T))
+      (→ (List T)) (! e) (∀ (T e)) (⊨ (Copy T) (Drop e T))
       ;; The merge is linear in the list length, but uses constant stack.
       ;; Equal elements come from the left run first, preserving stability.
       (let loop ((left left) (right right) (reversed (Nil)))
@@ -590,7 +590,7 @@
     (define (last (items (List T)))
       (→ (Option T))
       (! e)
-      (∀ T e)
+      (∀ (T e))
       (⊨ (Copy T) (Drop e T))
       (match items
         ((Nil) (None))
@@ -600,7 +600,7 @@
     (define (list-index (test (Fn A → Bool ! e)) (items (List A)))
       (→ (Option I64))
       (! e)
-      (∀ A e)
+      (∀ (A e))
       (⊨ (Copy A) (Drop e A))
       (let loop ((items items) (index 0))
         (match items
@@ -612,7 +612,7 @@
     (define (assoc-ref (entries (List (Pair K V))) (key K))
       (→ (Option V))
       (! e)
-      (∀ K V e)
+      (∀ (K V e))
       (⊨ (Ord e K) (Copy K) (Copy V) (Drop e K) (Drop e V))
       (match entries
         ((Nil) (None))
@@ -624,7 +624,7 @@
     (define (zip (as (List A)) (bs (List B)))
       (→ (List (Pair A B)))
       (! e)
-      (∀ A B e)
+      (∀ (A B e))
       (⊨ (Copy A) (Copy B) (Drop e A) (Drop e B))
       (let loop ((as as) (bs bs) (pairs (Nil)))
         (match as
@@ -643,14 +643,14 @@
     (define (vector-map (f (Fn A → B ! e)) (items (Vector A)))
       (→ (Vector B))
       (! e)
-      (∀ A B e)
+      (∀ (A B e))
       (⊨ (Copy A) (Copy B) (Drop e A))
       (vector-generate (vector-length items) (lambda (index) (f (vector-ref items index)))))
 
     (define (vector-for-each (f (Fn A → Unit ! e)) (items (Vector A)))
       (→ Unit)
       (! e)
-      (∀ A e)
+      (∀ (A e))
       (⊨ (Copy A) (Drop e A))
       (let loop ((index 0))
         (when (< index (vector-length items))
@@ -660,7 +660,7 @@
     (define (vector-fold (f (Fn B A → B ! e)) (initial B) (items (Vector A)))
       (→ B)
       (! e)
-      (∀ A B e)
+      (∀ (A B e))
       (⊨ (Copy A) (Drop e A))
       (let loop ((index 0) (result initial))
         (if (< index (vector-length items))
@@ -670,7 +670,7 @@
     (define (vector->list (items (Vector T)))
       (→ (List T))
       (! e)
-      (∀ T e)
+      (∀ (T e))
       (⊨ (Copy T) (Drop e T))
       (let loop ((index (- (vector-length items) 1)) (result (Nil)))
         (if (< index 0) result (loop (- index 1) (Cons (vector-ref items index) result)))))
@@ -683,7 +683,7 @@
     (define (list->vector (items (List T)))
       (→ (Vector T))
       (! e)
-      (∀ T e)
+      (∀ (T e))
       (⊨ (Copy T) (Drop e T))
       (unsafe-total (ann (lambda () (let ((cursor (ListCursor items)))
                                       (vector-generate (length items)
@@ -704,7 +704,7 @@
     (define (vector-concatenate (vectors (List (Vector T))))
       (→ (Vector T))
       (! e)
-      (∀ T e)
+      (∀ (T e))
       (⊨ (Copy T) (Drop e T))
       (unsafe-total (ann (lambda () (let ((cursor (VectorCursor vectors 0)))
                                       (vector-generate
@@ -732,7 +732,7 @@
     ;; Empty pop is ordinary control flow. The primitive moves the last slot
     ;; out and clears it before returning, so the result owns that element.
     (define (vector-pop! (items (Vector A)))
-      (→ (Option A)) (! mut e) (∀ A e) (⊨ (Copy A) (Drop e A))
+      (→ (Option A)) (! mut e) (∀ (A e)) (⊨ (Copy A) (Drop e A))
       (if (= (vector-length items) 0) (None) (Some (vector-take-last! items))))
 
     ;; ---- Characters and text ----

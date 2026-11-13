@@ -8,7 +8,7 @@
   ((value I64)))
 
 ;; Copy elements may be shared by multiple array slots.
-(define (fill-twice (item A)) (→ (Vector A)) (! e) (∀ A e) (⊨ (Copy A) (Drop e A))
+(define (fill-twice (item A)) (→ (Vector A)) (! e) (∀ (A e)) (⊨ (Copy A) (Drop e A))
   (make-vector 2 item))
 
 ;; An empty vector's element type comes from its signature.

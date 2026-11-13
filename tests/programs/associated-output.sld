@@ -14,12 +14,12 @@
   (type Output I64)
   (define add (lambda (a b) (+ a b))))
 
-(define (sum (a A) (b B)) (→ (Add.Output e A B)) (! e) (∀ A B e) (⊨ (Add e A B)) (add a b))
+(define (sum (a A) (b B)) (→ (Add.Output e A B)) (! e) (∀ (A B e)) (⊨ (Add e A B)) (add a b))
 
 (define (twice (a A))
   (→ A)
   (! e)
-  (∀ A e)
+  (∀ (A e))
   (⊨ (Copy A) (Drop e A) (Add e A A (type Output A)))
   (add a a))
 

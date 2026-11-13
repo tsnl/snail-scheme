@@ -17,7 +17,7 @@
 (define next (lambda (n) (+ n 1)))
 
 ;; A quantified tail is performed by calling the function that carries it.
-(define (twice (action (Fn → Unit ! e))) (→ Unit) (! e) (∀ e)
+(define (twice (action (Fn → Unit ! e))) (→ Unit) (! e) (∀ (e))
   (action)
   (action))
 

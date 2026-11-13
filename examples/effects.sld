@@ -14,7 +14,7 @@
              0 prices))
 
 ;; The same function, quiet or verbose, depending only on its handler.
-(define (quietly (action (FnOnce → A ! Log e))) (→ A) (! e) (∀ A e)
+(define (quietly (action (FnOnce → A ! Log e))) (→ A) (! e) (∀ (A e))
   (handle Log
       ((log (lambda (message) (unit))))
     (action)))

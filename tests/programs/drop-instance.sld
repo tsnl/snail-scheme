@@ -25,7 +25,7 @@
   (deriving Move))
 
 ;; A generic drop needs the row of what it drops.
-(define (release-all (items (List A))) (→ Unit) (! e) (∀ A e) (⊨ (Drop e A))
+(define (release-all (items (List A))) (→ Unit) (! e) (∀ (A e)) (⊨ (Drop e A))
   (drop items))
 
 (define (demo) (→ Unit) (! log)

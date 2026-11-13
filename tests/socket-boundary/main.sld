@@ -65,7 +65,7 @@
 
 ;; ---- Operations ----
 
-(define (require (result (Result T SocketError))) (→ T) (∀ T)
+(define (require (result (Result T SocketError))) (→ T) (∀ (T))
   (match result
     ((Ok value) value)
     ((Err error) (panic (● error code)))))

@@ -7,14 +7,14 @@
 (define (twice (value T))
   (→ T)
   (! E)
-  (∀ T E)
+  (∀ (T E))
   (⊨ (Num E T) (Copy T) (Drop E T))
   (annotations (doc "Add a value to itself."))
   (+ (ann value T) value))
 
 (define empty
   (→ (List T))
-  (∀ T)
+  (∀ (T))
   (Nil))
 
 (define (apply-one (action (FnOnce I64 → I64)) (value I64))

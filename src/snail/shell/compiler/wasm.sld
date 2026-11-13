@@ -2109,31 +2109,11 @@
       (let* ((m (● fn module)) (type (record-type (● record type))))
         (case-record m type case (record-value fn record))))
 
-    ;; Wasm types are structural: two cases with equal fields can share a
-    ;; subtype. The source tag establishes the nominal case before casting.
+    ;; Enum reads here are introduced by ownership lowering inside a
+    ;; matched clause. Its tag test already proved the nominal case, even
+    ;; when two case layouts share the same structural Wasm subtype.
     (define (case-record (m Module) (type Type) (case Case) (record Wat)) (→ Wat) (! mut)
-      (let ((holder (field-holder m type case)))
-        (if (● (data-type-of m (● case type)) enum?)
-            (wat "call" (id (case-check m type case)) record)
-            (wat "ref.cast" (ref-wat holder) record))))
-
-    (define (case-check (m Module) (type Type) (case Case)) (→ String) (! mut)
-      (let ((base (data-type m type)) (holder (field-holder m type case)))
-        (helper! m "case-check" holder
-                 (lambda (name)
-                   (wat "func" (id name)
-                        (wat "param" (Word "$record") (ref-wat base))
-                        (wat "result" (ref-wat holder))
-                        (wat "if"
-                             (wat "i32.ne"
-                                  (wat "struct.get" (id base) (int (data-offset m type))
-                                       (wat "local.get" (Word "$record")))
-                                  (wat "i32.const" (int (● case tag))))
-                             (wat "then"
-                                  (wat "call" (id (panic-helper m))
-                                       (string-literal m "wrong enum case"))))
-                        (wat "ref.cast" (ref-wat holder)
-                             (wat "local.get" (Word "$record"))))))))
+      (wat "ref.cast" (ref-wat (field-holder m type case)) record))
 
     ;; Wasm evaluates the receiver before the incoming value, each once.
     (define (set-field (fn Fn) (case Case) (index I64) (record Expr) (content Expr))
@@ -5455,7 +5435,7 @@
     (define (sort-named (entries (List (Pair String A))))
       (→ (List (Pair String A)))
       (! e)
-      (∀ A e)
+      (∀ (A e))
       (⊨ (Copy A) (Drop e A))
       (list-sort (lambda (a b) (string<? (● a first) (● b first))) entries))
 
