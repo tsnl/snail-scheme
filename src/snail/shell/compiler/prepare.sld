@@ -35,7 +35,7 @@
    (only (snail shell compiler check) Typed)
    (only (snail shell compiler ownership) consumed-references)
    (snail shell compiler specialize)
-   (snail shell compiler lifetimes))
+   (snail shell compiler reference-counting))
   (begin
 
     ;; ---- Prepared code ----
@@ -86,8 +86,9 @@
         (for-each (lambda (item) (check-item callees item)) items)
         (let* ((declarations (specialization-declarations state))
                (items
-                (map (lambda (item) (lower-lifetimes declarations (initializer-function item)))
-                     items))
+                (map
+                 (lambda (item) (lower-reference-counting declarations (initializer-function item)))
+                 items))
                (lowered (fold-left (lambda (lowered item) (lower-item lowered callees item))
                                    (Lowered (Nil) state) items)))
           (Lowered-items-set lowered (reverse (● lowered items))))))

@@ -352,3 +352,117 @@ with current artifacts before baseline artifacts; its positional label mapping
 is explicit in the raw file. For the larger compile, run each binary three
 times in alternating order with the raw file's `compiler_source.command`, using
 the current checkout for both inputs. No Chibi tests or bootstrap were used.
+
+## Reference-count insertion follow-up
+
+This comparison uses merged #756 (`e3cccd37d`, the same tree as measured head
+`a69aca61b`) and implementation `3a6438395`. The [raw observations](measurements/reference-counting-20261113.json)
+include artifact hashes, input hashes, both application runs and identical-binary
+controls. Compiler-managed counts and non-linear `Rc`/`WeakRc` remain unchanged.
+
+The former `lifetimes.sld`, now `reference-counting.sld`, carries pending releases
+through result positions during lowering. It removes the recursive `finish-tail`
+and `finish-clauses` suffix reconstruction. Nested bindings no longer revisit the
+already-lowered remainder once for every enclosing owner; their exits share a
+result binding. Tail calls still evaluate outgoing operands, release caller
+owners, then transfer. Handler, observation, pattern and closure cleanup retain
+their established order. The [compiler tour](compilers.md#ownership-and-lifetimes) explains
+the pass; it is reference-count insertion, not a source lifetime or borrow checker.
+
+| Footprint | #756 | Exit-context lowering | Change |
+| --- | ---: | ---: | ---: |
+| Compiler source | 23,307 lines | 23,283 lines | −24 |
+| Compiler source bytes | 1,168,415 | 1,167,312 | −1,103 |
+| Compiler Wasm | 2,860,948 bytes | 2,854,162 bytes | −0.24% |
+| Wasm code-section payload | 891,179 bytes | 888,378 bytes | −0.31% |
+
+Source counts cover `src/snail/shell/compiler/*.sld`, including comments and
+embedded tests. The implementation commit changes seven files, **+335/−131**,
+including its regression fixture, benchmark driver/fixture and compiler tour;
+this report and raw data are additional. The compiler remains **396 lines larger**
+than the pre-migration 22,887-line baseline. This is a modest source reduction
+and an algorithmic simplification, not a one-third reduction.
+
+### Targeted nested-scope workload
+
+`scripts/benchmark-reference-counting.mjs` compiles both pass implementations
+with the **same current compiler**. It verifies that their common library sources
+are identical. Each measured call constructs one input tree and lowers it ten
+times, counting the output nodes each time; parsing, checking, specialization,
+linking and instantiation are outside the timed region. Thus timings include
+input construction and output traversal, not just the lowering function.
+
+The input is a function with an `Rc I64` parameter, nested bindings copying that
+parameter, and a scalar result. For depth `n`, checked output sizes are `10n + 8`
+nodes before and `8n + 8` after. The host checks these results on every call.
+Nine alternating sample pairs follow ten warm-up batches at depth 512 and three
+at each measured depth. GC runs outside each timed sample. Node 26.8.1/V8 14.6
+runs pinned to CPU 2 on the same Intel Core Ultra 7 270K Plus as the other reports.
+
+| Nested bindings | #756 median, ten lowerings | Current median | Ratio, before/after |
+| --- | ---: | ---: | ---: |
+| 32 | 0.301 ms | 0.118 ms | 2.6× |
+| 128 | 4.872 ms | 0.385 ms | 12.6× |
+| 512 | 72.204 ms | 1.367 ms | 52.8× |
+
+At depth 512 the output shrinks from 5,128 to 4,104 nodes. Observed timing ranges
+are 71.458–72.445 ms before and 1.334–2.732 ms after. This deliberately deep
+workload exposes the repeated traversal; its gains do not describe general
+compiler throughput.
+
+### Whole compilation and applications
+
+Three alternating fresh-process pairs compile the same current compiler sources
+to WAT using each compiler binary, pinned to CPU 2. Median elapsed time is
+**26.32 → 26.15 seconds**; ranges **26.08–26.35** and **26.12–26.18 seconds**
+overlap. Median peak process RSS is **669,924 → 667,856 KiB**. Each variant
+reproduces its own WAT hash. Small fixture compilations remain around 170–180 ms;
+GNU time's 10 ms resolution does not resolve a small difference there. These
+observations do not establish a general compilation-speed improvement.
+
+The unchanged application driver uses 21 alternating pairs, with eleven for
+Siegework. All checksums pass.
+
+| Runtime workload | #756 median | Current median |
+| --- | ---: | ---: |
+| Arithmetic, 20 million iterations | 13.927 ms | 14.042 ms |
+| Record updates, 5 million iterations | 16.545 ms | 16.544 ms |
+| Record list, 300,000 elements | 2.311 ms | 2.430 ms |
+| Pre-sized vector, 2 million elements | 3.147 ms | 3.165 ms |
+| Vector growth, 1 million elements | 6.324 ms | 6.233 ms |
+| Siegework, 32 colonies | 354.724 ms | 355.192 ms |
+| Scalar global reads, 20 million | 11.427 ms | 10.944 ms |
+| Shared aggregate reads, 100,000 | 0.135 ms | 0.133 ms |
+| First force, 20,000-element sum | 68.559 µs | 68.576 µs |
+
+Reversing module creation order reduces the record-list difference from +5.1%
+to +0.3%, and changes scalar-global reads from −4.2% to +4.6%. The vector median
+changes from +0.6% to +15.2%, but samples cluster around 2.7 and 3.2 ms: across
+both runs the baseline has 21 of 42 samples above 3 ms and current has 22.
+One observation moves the median between clusters. Two instances of the
+**identical baseline binary** also differ by 8.8% in their vector medians.
+
+The emitted vector loops have the same operations, with generated function names
+and ordering changed; this does not guarantee identical engine-generated code.
+The source of the timing clusters remains unproven. These measurements establish
+neither a general application speedup nor a reproducible vector regression.
+Runtime heap usage remains unmeasured.
+
+To reproduce the targeted comparison from the current checkout, build both
+revisions with Chez, then run:
+
+```sh
+BENCH_CPU=2 node --no-warnings scripts/benchmark-reference-counting.mjs \
+  BASE_ROOT build/compiler/snailc.wasm build/migration/reference-counting/pass
+BENCH_CPU=2 node --no-warnings scripts/benchmark-lazy-values.mjs \
+  BASE_ROOT BASE_ROOT/build/compiler/snailc.wasm build/compiler/snailc.wasm \
+  build/migration/reference-counting/runtime
+```
+
+The raw file records the larger compile command, reversed positional labels and
+identical-binary controls. Validation passed on Node **598/598**, Wasmtime
+**599/599**, Chez source **598/598**, all **15 Chromium suites**, Rust tests and
+formatting, book/Pages, and a clean Chez bootstrap with identical stage 1/2/3 WAT.
+No Chibi tests or bootstrap ran. Generic ownership checking and cancellation
+preparation remain separate: combining their distinct contracts would introduce
+an ownership-summary representation without eliminating enough machinery.

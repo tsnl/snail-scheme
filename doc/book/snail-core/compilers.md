@@ -127,13 +127,22 @@ captures into either execution or cancellation. A saved resumption is a
 `FnOnce` and may be stored in a linear aggregate or owned through `Rc`.
 Calling a reusable closure does not grant permission to consume its captures.
 
-`lifetimes.sld` then makes shared ownership explicit in concrete code. Reads
+`reference-counting.sld` then makes shared ownership explicit in concrete code. Reads
 that create counted owners retain them; scope exit, overwritten slots and
 abandoned branches release them. The pass distinguishes an observed receiver
 from a transferred argument. It keeps a local's owner until its lexical
 scope ends, so replacing one alias does not prematurely finalize another.
 The Wasm collector manages memory reachability; these operations determine
 resource lifetime and finalizer order.
+
+The pass carries pending releases through the result positions of the original
+expression tree. A nested binding prepends its owner; branches inherit the same
+pending releases, and pattern bindings add theirs. Each result is secured before
+these owners are released. An ordinary tail call evaluates its callee and arguments
+first, releases the caller's owners, then transfers. Operands and nested functions
+start their own release contexts; a handler keeps its caller's cleanup outside its
+evidence scope. There is no separate walk over a lowered suffix for every enclosing
+binding, and no source-level lifetime or borrow analysis.
 
 ### Specialization and preparation
 
