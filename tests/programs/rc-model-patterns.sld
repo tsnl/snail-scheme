@@ -2,14 +2,14 @@
  (snail core base)
  (snail core io))
 
-(struct Child
+(record Child
   ((name String))
   )
 (instance (Drop (!) Child)
   (define (drop (value Child)) (→ Unit)
     (match value ((Child _) (unit)))))
 
-(struct Model
+(record Model
   ((title String)
    (count I64)
    (pending (Option (Rc Child)))
@@ -27,11 +27,19 @@
   ((replace! (● model work) (once (lambda () (unit))))))
 
 (define (main) (→ Unit) (! mut output-port)
-  (let ((model (rc (Model "ready" 2 (Some (rc (Child "nested"))) (once (lambda () (unit)))))))
+  (let ((model (rc (new Model
+                     (title "ready")
+                     (count 2)
+                     (pending (Some (rc (new Child (name "nested")))))
+                     (work (once (lambda () (unit))))))))
     (write-line (describe model))
     (write-line (describe model))
     (finish model))
-  (let ((model (rc (Model "idle" 0 (None) (once (lambda () (unit)))))))
+  (let ((model (rc (new Model
+                     (title "idle")
+                     (count 0)
+                     (pending (None))
+                     (work (once (lambda () (unit))))))))
     (write-line (describe model))
     (finish model))
   (unit))

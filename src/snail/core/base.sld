@@ -3,7 +3,7 @@
 (define-library (snail core base)
   (export
    ●
-   define lambda if begin let define-syntax syntax-rules quote declare struct enum type
+   define lambda if begin let define-syntax syntax-rules quote declare record new enum type
    typeclass
    instance
    match
@@ -406,7 +406,7 @@
       (Ok ((value T)))
       (Err ((error E))))
 
-    (struct (Pair A B)
+    (record (Pair A B)
       ((first A)
        (second B)))
 
@@ -619,7 +619,7 @@
       ;; The merge is linear in the list length, but uses constant stack.
       ;; Equal elements come from the left run first, preserving stability.
       (let loop ((left left) (right right) (reversed (Nil)))
-        (match (Pair left right)
+        (match (new Pair (first left) (second right))
           ((Pair (Nil) _) (fold-left (lambda (rest item) (Cons item rest)) right reversed))
           ((Pair _ (Nil)) (fold-left (lambda (rest item) (Cons item rest)) left reversed))
           ((Pair (Cons a rest-a) (Cons b rest-b))
@@ -671,7 +671,8 @@
           ((Cons a more-as)
            (match bs
              ((Nil) (reverse pairs))
-             ((Cons b more-bs) (loop more-as more-bs (Cons (Pair a b) pairs))))))))
+             ((Cons b more-bs)
+              (loop more-as more-bs (Cons (new Pair (first a) (second b)) pairs))))))))
 
     (define (iota (count I64)) (→ (List I64))
       (let loop ((index (- count 1)) (items (Nil)))
@@ -716,7 +717,7 @@
 
     ;; Local cursors give generation a sequential input without exposing
     ;; mutable storage outside these total conversions.
-    (struct (ListCursor A)
+    (record (ListCursor A)
       ((remaining (List A))))
 
     (define (list->vector (items (List T)))
@@ -724,7 +725,7 @@
       (! e)
       (∀ (T e))
       (⊨ (Copy T) (Drop e T))
-      (unsafe-total (ann (lambda () (let ((cursor (ListCursor items)))
+      (unsafe-total (ann (lambda () (let ((cursor (new ListCursor (remaining items))))
                                       (vector-generate (length items)
                                                        (lambda (index)
                                                          (match (● cursor remaining)
@@ -736,7 +737,7 @@
                                                              "list->vector: too few items")))))))
                          (Fn → (Vector T) ! mut e))))
 
-    (struct (VectorCursor A)
+    (record (VectorCursor A)
       ((vectors (List (Vector A)))
        (offset I64)))
 
@@ -745,7 +746,7 @@
       (! e)
       (∀ (T e))
       (⊨ (Copy T) (Drop e T))
-      (unsafe-total (ann (lambda () (let ((cursor (VectorCursor vectors 0)))
+      (unsafe-total (ann (lambda () (let ((cursor (new VectorCursor (vectors vectors) (offset 0))))
                                       (vector-generate
                                        (fold-left
                                         (lambda (total items) (+ total (vector-length items)))
@@ -1016,6 +1017,6 @@
 
         (match value
           ((Pair first second)
-           (string-append "(Pair " (repr first) " " (repr second) ")")))))
+           (string-append "(new Pair (first " (repr first) ") (second " (repr second) "))")))))
 
     ))

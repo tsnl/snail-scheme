@@ -7,7 +7,7 @@
 (typeclass (Store e S)
   (declare (fetch-object (left S) (right String)) (→ String) (! e)))
 
-(struct Directory
+(record Directory
   ((root String)))
 
 (instance (Store (! output-port) Directory)
@@ -20,5 +20,5 @@
 
 (define main
   (lambda ()
-    (write-line (peek (Directory "assets") "hero"))
+    (write-line (peek (new Directory (root "assets")) "hero"))
     (unit)))

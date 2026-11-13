@@ -20,22 +20,22 @@
 
     ;; ---- Requests ----
 
-    (struct Header
+    (record Header
       ((name String)
        (value String)))
 
     ;; A server's reply, whatever its status, and its body as text.
-    (struct Reply
+    (record Reply
       ((status I32)
        (body String)))
 
     ;; The events a server sends at one URL, as the host receives them.
-    (struct Stream
+    (record Stream
       ((id I32)))
 
     ;; An event a stream heard: its kind, the name the server gave it, or
     ;; "message" when it gave none, and its data.
-    (struct StreamEvent
+    (record StreamEvent
       ((kind String)
        (data String)))
 

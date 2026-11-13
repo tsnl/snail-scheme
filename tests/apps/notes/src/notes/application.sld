@@ -9,12 +9,12 @@
    (snail shell ui page)
    (snail shell wire))
   (begin
-    (struct Note
+    (record Note
       ((id I64)
        (text String))
       (deriving Serialize Deserialize))
 
-    (struct Notes
+    (record Notes
       ((notes (List Note))
        (draft String)
        (next I64)
@@ -23,14 +23,14 @@
 
     ;; What the server said: its greeting, its answer to the shared notes, and
     ;; the events heard from it.
-    (struct Server
+    (record Server
       ((greeting String)
        (shared String)
        (heard (List String))))
 
-    (define (no-server) (→ Server) (Server "" "" (Nil)))
+    (define (no-server) (→ Server) (new Server (greeting "") (shared "") (heard (Nil))))
 
-    (struct Save
+    (record Save
       ((notes (List Note))
        (next I64))
       (deriving Serialize Deserialize))
@@ -53,44 +53,53 @@
       (Ended))
 
     (define (start (seed I32)) (→ Notes)
-      (Notes (Nil) "" 0 0 (no-server)))
+      (new Notes (notes (Nil)) (draft "") (next 0) (added 0) (server (no-server))))
 
     (define (update (model Notes) (message Message)) (→ (Pair Notes (List (Command Message))))
       (match message
-        ((Typed text) (Pair (Notes-draft-set model text) (Nil)))
+        ((Typed text) (new Pair (first (Notes-draft-set model text)) (second (Nil))))
         ((Pressed key at) (pressed model key at))
         ((Add) (added model))
-        ((Bullet) (Pair model (list (once bullet))))
-        ((Clear) (Pair model (list (once clear))))
-        ((Cleared) (Pair (Notes-notes-set model (Nil)) (Nil)))
-        ((Added count) (Pair (Notes-added-set model count) (Nil)))
+        ((Bullet) (new Pair (first model) (second (list (once bullet)))))
+        ((Clear) (new Pair (first model) (second (list (once clear)))))
+        ((Cleared) (new Pair (first (Notes-notes-set model (Nil))) (second (Nil))))
+        ((Added count) (new Pair (first (Notes-added-set model count)) (second (Nil))))
         ((Remove id)
-         (Pair (Notes-notes-set model
-                                (filter (lambda (note) (not (= (● note id) id)))
-                                        (● model notes)))
-               (Nil)))
-        ((Load) (Pair model (list (once load))))
+         (new Pair (first (Notes-notes-set model
+                                           (filter (lambda (note) (not (= (● note id) id)))
+                                                   (● model notes))))
+              (second (Nil))))
+        ((Load) (new Pair (first model) (second (list (once load)))))
         ((Loaded text)
-         (Pair (Notes-server-set model (Server-greeting-set (● model server) text)) (Nil)))
+         (new Pair
+           (first (Notes-server-set model (Server-greeting-set (● model server) text)))
+           (second (Nil))))
         ((Share)
-         (Pair model (list (once (lambda () (share (● model notes) (● model next)))))))
+         (new Pair
+           (first model)
+           (second (list (once (lambda () (share (● model notes) (● model next))))))))
         ((Shared text)
-         (Pair (Notes-server-set model (Server-shared-set (● model server) text)) (Nil)))
+         (new Pair
+           (first (Notes-server-set model (Server-shared-set (● model server) text)))
+           (second (Nil))))
         ((Listen)
-         (Pair model
-               (list
-                (once (lambda () (hear (stream-open "/api/events" (list "message" "note"))))))))
-        ((Heard stream text) (Pair (heard model text) (list (once (lambda () (hear stream))))))
-        ((Ended) (Pair (heard model "ended") (Nil)))))
+         (new Pair (first model)
+              (second (list
+                       (once
+                        (lambda () (hear (stream-open "/api/events" (list "message" "note")))))))))
+        ((Heard stream text)
+         (new Pair (first (heard model text)) (second (list (once (lambda () (hear stream)))))))
+        ((Ended) (new Pair (first (heard model "ended")) (second (Nil))))))
 
     (define (pressed (model Notes) (key String) (at I32)) (→ (Pair Notes (List (Command Message))))
       (cond ((string=? key "Enter") (update model (Add)))
             ((string=? key "Tab")
-             (Pair model
-                   (list (once (lambda ()
-                                 (with-draft (lambda (node) (insert-text node at at "  ") (unit)))
-                                 (Pressed "" 0))))))
-            (else (Pair model (Nil)))))
+             (new Pair (first model)
+                  (second (list (once (lambda ()
+                                        (with-draft
+                                         (lambda (node) (insert-text node at at "  ") (unit)))
+                                        (Pressed "" 0)))))))
+            (else (new Pair (first model) (second (Nil))))))
 
     (define (clear) (→ Message) (! dom)
       (if (confirm "Remove every note?") (Cleared) (Pressed "" 0)))
@@ -109,8 +118,8 @@
     (define (share (notes (List Note)) (next I64)) (→ Message) (! fetch tasks)
       (Shared (replied (request "POST"
                                 "/api/notes"
-                                (list (Header "Content-Type" "text/plain")
-                                      (Header "If-Match" (show next)))
+                                (list (new Header (name "Content-Type") (value "text/plain"))
+                                      (new Header (name "If-Match") (value (show next))))
                                 (string-join (map (lambda (record) (● record text)) notes)
                                              (make-string 1 #\newline))))))
 
@@ -130,19 +139,20 @@
     ;; it once it has yielded.
     (define (added (model Notes)) (→ (Pair Notes (List (Command Message))))
       (if (string=? (● model draft) "")
-          (Pair model (Nil))
+          (new Pair (first model) (second (Nil)))
           (let ((count (+ (● model added) 1)))
-            (Pair
-             (Notes
-              (append (● model notes) (list (Note (● model next) (● model draft))))
-              ""
-              (+ (● model next) 1)
-              (● model added)
-              (● model server))
-             (list (once (lambda ()
-                           (yield)
-                           (with-draft focus-node)
-                           (Added count))))))))
+            (new Pair
+              (first (new Notes
+                       (notes (append (● model notes)
+                                      (list (new Note (id (● model next)) (text (● model draft))))))
+                       (draft "")
+                       (next (+ (● model next) 1))
+                       (added (● model added))
+                       (server (● model server))))
+              (second (list (once (lambda ()
+                                    (yield)
+                                    (with-draft focus-node)
+                                    (Added count)))))))))
 
     ;; Does `act` to the draft field, if the view still shows it.
     (define (with-draft (act (Fn Node → Unit ! dom))) (→ Unit) (! dom)
@@ -169,7 +179,8 @@
                                         (lambda (event) (Typed (● event value))))
                                     (On "keydown"
                                         (list (Key) (Selection))
-                                        (Chords (list (Chord "Enter" 0) (Chord "Tab" 0)))
+                                        (Chords (list (new Chord (key "Enter") (modifiers 0))
+                                                      (new Chord (key "Tab") (modifiers 0))))
                                         (lambda (event)
                                           (Pressed (● event key)
                                                    (● event selection-start)))))
@@ -219,15 +230,20 @@
                               (list (Text "Remove"))))))
 
     (define (save (model Notes)) (→ Save)
-      (Save (● model notes) (● model next)))
+      (new Save (notes (● model notes)) (next (● model next))))
 
     (define (restore (saved Save)) (→ Notes)
-      (Notes (● saved notes) "" (● saved next) 0 (no-server)))
+      (new Notes
+        (notes (● saved notes))
+        (draft "")
+        (next (● saved next))
+        (added 0)
+        (server (no-server))))
 
     (define (window (model Notes)) (→ (List (Attribute Message)))
       (list (On "keydown"
                 (Nil)
-                (Chords (list (Chord "Escape" 0)))
+                (Chords (list (new Chord (key "Escape") (modifiers 0))))
                 (lambda (event) (Typed "")))))
 
     (type NotesApplication (InterfaceApplication Notes))

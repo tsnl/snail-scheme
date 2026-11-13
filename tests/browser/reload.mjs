@@ -29,10 +29,10 @@ async function edit(path, ...replacements) {
 
 // Adds an I64 field, which every construction sets to 0, to the counter's
 // state, so its layout changes.
-const addStateField = (source, field) => edit(source, /\(height I32\)((?:\s+\(\w+ I64\))*)\)\)/, `(height I32)$1\n       (${field} I64)))`,
-  /\(Counter 0 width height((?: 0)*)\)/, '(Counter 0 width height$1 0)',
-  /\(Counter \(● counter count\) width height((?: 0)*)\)/, '(Counter (● counter count) width height$1 0)',
-  /\(Counter \(● saved count\) 0 0((?: 0)*)\)/, '(Counter (● saved count) 0 0$1 0)');
+const addStateField = (source, field) => edit(source,
+  /\(height I32\)((?:\s+\(\w+ I64\))*)\)\)/, `(height I32)$1\n       (${field} I64)))`,
+  /(\(new Counter\s+\(count (?:0|\(● (?:counter|saved) count\))\)\s+\(width (?:width|0)\)\s+\(height (?:height|0)\))((?:\s+\(\w+ 0\))*)\)/g,
+  `$1$2 (${field} 0))`);
 
 const directory = await realpath(await mkdtemp(join(tmpdir(), 'snail-reload-')));
 const app = join(directory, 'counter'), source = join(app, 'src/counter/application.sld');
@@ -66,7 +66,7 @@ try {
   assert.equal(await text('count'), '2', 'the save carries the count to a state of another shape');
 
   await addStateField(source, 'more');
-  await edit(source, /\(\(count I64\)\)\s+\(deriving/, '((count I64)\n       (extra I64))\n      (deriving', '(Save (● counter count))', '(Save (● counter count) 0)');
+  await edit(source, /\(\(count I64\)\)\s+\(deriving/, '((count I64)\n       (extra I64))\n      (deriving', '(new Save (count (● counter count)))', '(new Save (count (● counter count)) (extra 0))');
   await until(async () => (await notice()).includes('could not take over'), 'the refused state');
   assert.equal(await text('count'), '2', 'the old program keeps running');
   await browser.evaluate(`[...document.querySelectorAll('[role="status"] button')].find(b => b.textContent.startsWith('Start over')).click()`);
@@ -150,12 +150,12 @@ try {
    (only (snail shell resource) resource)
    (prefix (snail shell application) application:)
    (sample banner))`,
-    '(type CounterApplication (SceneApplication Counter))', `(struct CounterApplication ())
+    '(type CounterApplication (SceneApplication Counter))', `(record CounterApplication ())
     (instance (application:Application (! mut screen events storage tasks page resource output-port) CounterApplication)
       (define (start (entry (application:Entry CounterApplication)))
         (→ Unit) (! mut screen events storage tasks page resource output-port)
         (print-banner)
-        (application:start (ann (application:Entry) (application:Entry (SceneApplication Counter))))))`);
+        (application:start (ann (new application:Entry) (application:Entry (SceneApplication Counter))))))`);
   await until(() => printed('linked'), 'the linked file read by the explicit application entry');
   await browser.evaluate('globalThis.stayed = true');
   await writeFile(banner, 'linked again');
@@ -165,14 +165,14 @@ try {
 
   // An incompatible save retries initialization. If that retry's first view
   // traps, a repair takes its checkpoint, not the new initializer's default.
-  await edit(source, '(Counter 0 width height', '(Counter 7 width height',
+  await edit(source, '(new Counter (count 0)', '(new Counter (count 7)',
     '(define (draw (counter Counter)) (→ Frame)\n', '(define (draw (counter Counter)) (→ Frame)\n  (panic "retry view trap")\n');
   await until(async () => (await notice()).includes('retry view trap'), 'the rejected retry view');
   await browser.evaluate(`${pageModule('storage.mjs')}.then(({storeSave}) => storeSave('counter', new Uint8Array([0])))`);
   await browser.navigate(base);
   await until(() => browser.evaluate('document.body.dataset.ready'), 'the stopped retry application');
   await until(async () => (await notice()).includes('application stopped'), 'the retry trap notice');
-  await edit(source, '(Counter 7 width height', '(Counter 9 width height', '  (panic "retry view trap")\n', '');
+  await edit(source, '(new Counter (count 7)', '(new Counter (count 9)', '  (panic "retry view trap")\n', '');
   await until(async () => await text('count') === '7' && (await notice()).startsWith('Reloaded'), 'the repaired retry checkpoint');
   if (screenshot) await browser.screenshot(screenshot);
   console.log('reload: the page kept its state across modules');

@@ -10,7 +10,7 @@
 (effect Ask
   ((ctl ask (Fn → I64))))
 
-(struct Handle
+(record Handle
   ((name String)))
 
 (instance (Drop (! audit) Handle)
@@ -19,6 +19,6 @@
       ((Handle name) (note name)))))
 
 (define (keep) (→ Handle) (! Ask)
-  (let ((handle (Handle "h")))
+  (let ((handle (new Handle (name "h"))))
     (let ((answer (ask)))
       handle)))

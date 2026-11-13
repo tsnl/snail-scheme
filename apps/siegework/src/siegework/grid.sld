@@ -26,7 +26,7 @@
 
     (define (map-size) (→ I64) 80)
 
-    (struct Cell
+    (record Cell
       ((x I64)
        (y I64))
       (deriving Serialize Deserialize))
@@ -38,7 +38,7 @@
       (+ (● cell x) (* (map-size) (● cell y))))
 
     (define (index-cell (index I64)) (→ Cell)
-      (Cell (remainder index (map-size)) (quotient index (map-size))))
+      (new Cell (x (remainder index (map-size))) (y (quotient index (map-size)))))
 
     (define (in-bounds? (cell Cell)) (→ Bool)
       (and (<= 0 (● cell x))
@@ -70,7 +70,10 @@
     (define (neighbors (cell Cell)) (→ (List Cell))
       (let ((x (● cell x)) (y (● cell y)))
         (filter in-bounds?
-                (list (Cell (+ x 1) y) (Cell (- x 1) y) (Cell x (+ y 1)) (Cell x (- y 1))))))
+                (list (new Cell (x (+ x 1)) (y y))
+                      (new Cell (x (- x 1)) (y y))
+                      (new Cell (x x) (y (+ y 1)))
+                      (new Cell (x x) (y (- y 1)))))))
 
     ;; ---- Straight lines ----
 
@@ -85,7 +88,7 @@
       (let ((dx (abs (- (● b x) (● a x)))) (dy (abs (- (● b y) (● a y))))
             (sx (if (< (● a x) (● b x)) 1 -1)) (sy (if (< (● a y) (● b y)) 1 -1)))
         (let walk ((x (● a x)) (y (● a y)) (nx 1) (ny 1) (cells (Nil)))
-          (let ((cells (Cons (Cell x y) cells)) (order (- (* ny dx) (* nx dy))))
+          (let ((cells (Cons (new Cell (x x) (y y)) cells)) (order (- (* ny dx) (* nx dy))))
             (cond ((and (= x (● b x)) (= y (● b y))) (reverse cells))
                   ((< order 0) (walk x (+ y sy) nx (+ ny 2) cells))
                   ((> order 0) (walk (+ x sx) y (+ nx 2) ny cells))
@@ -93,7 +96,8 @@
                               (+ y sy)
                               (+ nx 2)
                               (+ ny 2)
-                              (Cons (Cell x (+ y sy)) (Cons (Cell (+ x sx) y) cells)))))))))
+                              (Cons (new Cell (x x) (y (+ y sy)))
+                                    (Cons (new Cell (x (+ x sx)) (y y)) cells)))))))))
 
     ;; ---- Passes ----
 

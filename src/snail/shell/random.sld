@@ -14,13 +14,13 @@
   (begin
 
     ;; `value` is the latest output; advancing returns a new generator.
-    (struct Random
+    (record Random
       ((state I64)
        (value I64))
       (deriving Serialize Deserialize))
 
     (define (make-random (seed I64)) (→ Random)
-      (random-next (Random seed 0)))
+      (random-next (new Random (state seed) (value 0))))
 
     (define (random-next (random Random)) (→ Random)
       (let* ((state (+ (● random state) -7046029254386353131))
@@ -28,7 +28,7 @@
              (z (* z -4658895280553007687))
              (z (i64-xor z (i64-shift-right/logical z 27)))
              (z (* z -7723592293110705685)))
-        (Random state (i64-xor z (i64-shift-right/logical z 31)))))
+        (new Random (state state) (value (i64-xor z (i64-shift-right/logical z 31))))))
 
     (define (random-value (random Random)) (→ I64)
       (● random value))

@@ -2,7 +2,7 @@
  (snail core base)
  (snail core io))
 
-(struct Resource
+(record Resource
   ((name String)) )
 (instance (Drop (!) Resource)
   (define (drop (value Resource)) (→ Unit)
@@ -10,7 +10,7 @@
 (enum Chain
   (End)
   (Link ((node (Rc Node)))))
-(struct Node
+(record Node
   ((current (Option Resource))
    (next Chain)))
 
@@ -24,8 +24,10 @@
      (run-chain (● node next)))))
 
 (define (main) (→ Unit) (! mut output-port)
-  (let* ((chain (Link (rc (Node (Some (Resource "one"))
-                                (Link (rc (Node (Some (Resource "two")) (End))))))))
+  (let* ((chain (Link (rc (new Node (current (Some (new Resource (name "one"))))
+                               (next (Link (rc (new Node
+                                                 (current (Some (new Resource (name "two"))))
+                                                 (next (End))))))))))
          (again chain))
     (run-chain chain)
     (run-chain again))

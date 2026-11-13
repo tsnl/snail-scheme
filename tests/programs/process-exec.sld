@@ -7,11 +7,21 @@
   ;; `exec` replaces the program with a command. One that cannot start leaves
   ;; the program running, with why; one that can takes over its process and
   ;; its output, and nothing after it runs.
-  (write-line (● (exec (Command "/nonexistent/program" (Nil) ".")) code))
   (write-line
-   (● (exec (Command "/bin/sh" (list "-c" "true") "/nonexistent/directory")) code))
-  (write-line (● (exec (Command "no-such-program-on-path" (Nil) ".")) code))
+   (● (exec (new Command (program "/nonexistent/program") (arguments (Nil)) (directory "."))) code))
+  (write-line
+   (● (exec (new Command
+              (program "/bin/sh")
+              (arguments (list "-c" "true"))
+              (directory "/nonexistent/directory")))
+      code))
+  (write-line
+   (● (exec (new Command (program "no-such-program-on-path") (arguments (Nil)) (directory ".")))
+      code))
   (write-line "replacing the program")
-  (exec (Command "sh" (list "-c" "echo $0; pwd; echo replaced") "/"))
+  (exec (new Command
+          (program "sh")
+          (arguments (list "-c" "echo $0; pwd; echo replaced"))
+          (directory "/")))
   (write-line "not reached")
   (unit))

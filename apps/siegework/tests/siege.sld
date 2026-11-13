@@ -56,7 +56,7 @@
 
 (define (offset (world World) (dx I64) (dy I64)) (→ Cell)
   (let ((hub (● (● world hub) cell)))
-    (Cell (+ (● hub x) dx) (+ (● hub y) dy))))
+    (new Cell (x (+ (● hub x) dx)) (y (+ (● hub y) dy)))))
 
 (define (started (world World)) (→ World)
   (try world (Build (Extractor) (● (● world land) starter) #f)))
@@ -65,14 +65,14 @@
   (try (fold-left (lambda (world d)
                     (try world (Build (Turret) (offset world (● d first) (● d second)) #f)))
                   world
-                  (list (Pair -2 0)
-                        (Pair 0 2)
-                        (Pair 2 0)
-                        (Pair 0 -2)
-                        (Pair -2 2)
-                        (Pair 2 -2)
-                        (Pair 2 2)
-                        (Pair -2 -2)))
+                  (list (new Pair (first -2) (second 0))
+                        (new Pair (first 0) (second 2))
+                        (new Pair (first 2) (second 0))
+                        (new Pair (first 0) (second -2))
+                        (new Pair (first -2) (second 2))
+                        (new Pair (first 2) (second -2))
+                        (new Pair (first 2) (second 2))
+                        (new Pair (first -2) (second -2))))
        (Upgrade (offset world 0 0))))
 
 (define (defend (world World) (ticks I64)) (→ World)
@@ -92,16 +92,16 @@
                          (Build (Turret) (offset world 3 0) #f))
                     100)))
     (World-enemies-set world
-                       (list (Enemy 999
-                                    (Minion)
-                                    0
-                                    #f
-                                    (offset world 0 4)
-                                    (offset world 0 4)
-                                    2000
-                                    2000
-                                    (None)
-                                    (None))))))
+                       (list (new Enemy (id 999)
+                                  (behavior (Minion))
+                                  (rank 0)
+                                  (burrower #f)
+                                  (cell (offset world 0 4))
+                                  (previous (offset world 0 4))
+                                  (health 2000)
+                                  (maximum 2000)
+                                  (raid (None))
+                                  (aggro (None)))))))
 
 (define (aggro-text (world World)) (→ String)
   (match (find (lambda (e) (= (● e id) 999)) (● world enemies))

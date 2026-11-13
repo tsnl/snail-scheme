@@ -2,7 +2,7 @@
  (snail core base)
  (snail core io))
 
-(struct Resource
+(record Resource
   ((value I64)))
 
 (instance (Drop (! output-port) Resource)
@@ -13,7 +13,8 @@
 
 (define (main) (→ Unit) (! mut output-port)
   (handle ReadValue
-      ((read-value (let ((resource (rc (Resource 12)))) (lambda () (● resource value)))))
+      ((read-value
+        (let ((resource (rc (new Resource (value 12))))) (lambda () (● resource value)))))
     (display (read-value)) (newline)
     (display (read-value)) (newline))
   (display 13)

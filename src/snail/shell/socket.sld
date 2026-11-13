@@ -26,7 +26,7 @@
 
     ;; An IPv4 address, its four octets in one number from 0 to 2^32 - 1,
     ;; most significant first, and a port from 0 to 65535.
-    (struct Ipv4Endpoint
+    (record Ipv4Endpoint
       ((address I64)
        (port I32)))
 
@@ -39,9 +39,9 @@
       (match (ipv4-address address)
         ((Some octets)
          (if (and (>= port 0) (<= port 65535))
-             (Ok (Ipv4Endpoint octets port))
-             (Err (SocketError "EINVAL"))))
-        ((None) (Err (SocketError "EINVAL")))))
+             (Ok (new Ipv4Endpoint (address octets) (port port)))
+             (Err (new SocketError (code "EINVAL")))))
+        ((None) (Err (new SocketError (code "EINVAL"))))))
 
     ;; Four decimal octets from 0 to 255 between dots, none with a leading
     ;; zero, as Node's isIPv4 reads an address.
@@ -90,22 +90,22 @@
     ;; Tokens belong to the effect handler that created them. Any keeps a
     ;; native endpoint opaque, and lets tests use their own tokens.
     ;; Closing a native endpoint revokes every alias; it does not consume one.
-    (struct Listener
+    (record Listener
       ((token Any)
        (port I32)))
 
-    (struct Connection
+    (record Connection
       ((token Any)))
 
-    (struct UdpSocket
+    (record UdpSocket
       ((token Any)
        (port I32)))
 
-    (struct Datagram
+    (record Datagram
       ((peer Endpoint)
        (bytes Bytes)))
 
-    (struct SocketError
+    (record SocketError
       ((code String)))
 
     (effect tcp
@@ -139,7 +139,7 @@
                      (native (lambda (ticket)
                                (host-start-read ticket (connection-handle connection) maximum))
                              held-read)
-                     (Err (SocketError "EINVAL")))))
+                     (Err (new SocketError (code "EINVAL"))))))
          (write (lambda (connection bytes)
                   (native (lambda (ticket)
                             (host-start-write ticket (connection-handle connection) bytes))
@@ -152,7 +152,7 @@
                                                         (connection-handle connection)
                                                         grace))
                         done)
-                (Err (SocketError "EINVAL")))))
+                (Err (new SocketError (code "EINVAL"))))))
          (close-listener (lambda (listener)
                            (answered (host-close-tcp (listener-handle listener)) done)))
          (close-connection (lambda (connection)
@@ -173,9 +173,9 @@
                          bound)))
          ;; Port 0 names no peer, though a socket may bind to it.
          (send (lambda (socket peer bytes)
-                 (cond ((= (Endpoint-port peer) 0) (Err (SocketError "EINVAL")))
+                 (cond ((= (Endpoint-port peer) 0) (Err (new SocketError (code "EINVAL"))))
                        ((> (vector-length bytes) (i32->i64 (datagram-limit)))
-                        (Err (SocketError "EMSGSIZE")))
+                        (Err (new SocketError (code "EMSGSIZE"))))
                        (else (native (lambda (ticket)
                                        (host-start-send ticket
                                                         (udp-handle socket)
@@ -190,7 +190,7 @@
                                        held-datagram)
                           ((Ok datagram) datagram)
                           ((Err error) (Err error)))
-                        (Err (SocketError "EINVAL")))))
+                        (Err (new SocketError (code "EINVAL"))))))
          (close-udp (lambda (socket)
                       (answered (host-close-udp (udp-handle socket)) done))))))
 
@@ -198,13 +198,13 @@
 
     ;; These types are private to the native binding. A mock token reaching
     ;; that binding crosses as handle 0, which the host refuses with EBADF.
-    (struct NativeListener
+    (record NativeListener
       ((handle I32)))
 
-    (struct NativeConnection
+    (record NativeConnection
       ((handle I32)))
 
-    (struct NativeUdpSocket
+    (record NativeUdpSocket
       ((handle I32)))
 
     (define (listener-handle (listener Listener)) (→ I32)
@@ -248,7 +248,7 @@
 
     (define (answered (answer I32) (success (Fn I32 → T))) (→ (Result T SocketError)) (∀ (T))
       (if (< answer 0)
-          (Err (SocketError (held-text 0)))
+          (Err (new SocketError (code (held-text 0))))
           (Ok (success answer))))
 
     (define (held-bytes (position I32)) (→ Bytes)
@@ -262,13 +262,13 @@
                        (lambda (index) (i32->char (host-held-byte position (i64->i32 index))))))
 
     (define (listening (handle I32)) (→ Listener)
-      (Listener (Any (NativeListener handle)) (host-held-number)))
+      (new Listener (token (Any (new NativeListener (handle handle)))) (port (host-held-number))))
 
     (define (connected (handle I32)) (→ Connection)
-      (Connection (Any (NativeConnection handle))))
+      (new Connection (token (Any (new NativeConnection (handle handle))))))
 
     (define (bound (handle I32)) (→ UdpSocket)
-      (UdpSocket (Any (NativeUdpSocket handle)) (host-held-number)))
+      (new UdpSocket (token (Any (new NativeUdpSocket (handle handle)))) (port (host-held-number))))
 
     (define (held-read (answer I32)) (→ (Option Bytes))
       (if (= answer 0) (None) (Some (held-bytes 0))))
@@ -278,7 +278,7 @@
 
     (define (held-datagram (_ I32)) (→ (Result Datagram SocketError))
       (match (endpoint (held-text 0) (host-held-number))
-        ((Ok peer) (Ok (Datagram peer (held-bytes 1))))
+        ((Ok peer) (Ok (new Datagram (peer peer) (bytes (held-bytes 1)))))
         ((Err error) (Err error))))
 
     (define (count (written I32)) (→ I32) written)

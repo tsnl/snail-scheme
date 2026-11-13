@@ -1,1 +1,1 @@
-field x requires a known struct type, found R
+field x requires a known record type, found R

@@ -3,10 +3,10 @@
  (snail core io)
  (snail shell text))
 
-(struct Cell
+(record Cell
   ((value I64)))
 
-(struct Shared
+(record Shared
   ((left Cell)
    (right Cell)
    (previous I64)))
@@ -16,9 +16,9 @@
 (define (prepared) (→ Shared)
   (unsafe-total
    (lambda ()
-     (let* ((cell (Cell 3)) (previous (replace! (● cell value) 7)))
+     (let* ((cell (new Cell (value 3))) (previous (replace! (● cell value) 7)))
        (set! (● cell value) 9)
-       (Shared cell cell previous)))))
+       (new Shared (left cell) (right cell) (previous previous))))))
 
 (define (folded) (→ String) (string-foldcase "Straße Σςİ ﬃ"))
 (define (upper) (→ String) (string-upcase "λß"))

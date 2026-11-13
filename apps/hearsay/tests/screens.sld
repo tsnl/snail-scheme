@@ -93,19 +93,25 @@
   ;; does the i-th job, and 5 ends the round.
   (let* ((shell (new-shell 5 1280 800))
          (shell (step shell "menu" (Nil)))
-         (shell (step shell "two faces with its guide open" (list (Pair 9000 0))))
+         (shell
+          (step shell "two faces with its guide open" (list (new Pair (first 9000) (second 0)))))
          (shell (step shell "two faces after delivering a job for Mo"
-                      (list (Pair (guide-close) 0) (Pair 112 0) (Pair 3 0) (Pair 9 0))))
+                      (list (new Pair (first (guide-close)) (second 0))
+                            (new Pair (first 112) (second 0))
+                            (new Pair (first 3) (second 0))
+                            (new Pair (first 9) (second 0)))))
          (shell (step shell
                       "ledger with its guide on the last page"
-                      (list (Pair 9999 0)
-                            (Pair 9100 0)
-                            (Pair (guide-next) 0)
-                            (Pair (guide-next) 0)
-                            (Pair (guide-next) 0)
-                            (Pair (guide-next) 0))))
+                      (list (new Pair (first 9999) (second 0))
+                            (new Pair (first 9100) (second 0))
+                            (new Pair (first (guide-next)) (second 0))
+                            (new Pair (first (guide-next)) (second 0))
+                            (new Pair (first (guide-next)) (second 0))
+                            (new Pair (first (guide-next)) (second 0)))))
          (shell (step shell
                       "ledger after doing job 2 and ending the round"
-                      (list (Pair (guide-next) 0) (Pair 3 1) (Pair 5 0)))))
+                      (list (new Pair (first (guide-next)) (second 0))
+                            (new Pair (first 3) (second 1))
+                            (new Pair (first 5) (second 0))))))
     (unit))
   (unit))

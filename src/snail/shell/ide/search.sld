@@ -14,7 +14,7 @@
 
     ;; ---- Sources and results ----
 
-    (struct Draft
+    (record Draft
       ((path String)
        (text String)))
 
@@ -36,7 +36,7 @@
 
     (define (run (source Source) (text String)) (→ (Result Results Failure)) (! tasks fetch)
       (match (parse-query text)
-        ((Err message) (Err (Failure 400 message)))
+        ((Err message) (Err (new Failure (status 400) (message message))))
         ((Ok query)
          (match source
            ((SavedProject)

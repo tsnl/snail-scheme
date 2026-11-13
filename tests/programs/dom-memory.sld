@@ -31,7 +31,8 @@
     (let ((keys (listen field
                         "keydown"
                         (list (Key) (Value))
-                        (Chords (list (Chord "Tab" 0) (Chord "s" (control-key))))))
+                        (Chords (list (new Chord (key "Tab") (modifiers 0))
+                                      (new Chord (key "s") (modifiers (control-key)))))))
           (clicks (listen first "click" (Nil) (Always))))
       (unlisten clicks)
       (focus-node field)

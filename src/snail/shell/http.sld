@@ -23,28 +23,28 @@
 
     ;; ---- Public values ----
 
-    (struct Header
+    (record Header
       ((name String)
        (value String)))
 
-    (struct RequestHead
+    (record RequestHead
       ((method String)
        (target String)
        (headers (List Header))
        (body-length I64)))
 
-    (struct ParsedHead
+    (record ParsedHead
       ((request RequestHead)
        (end I64)))
 
-    (struct ResponseParts
+    (record ResponseParts
       ((head Bytes)
        (body Bytes)))
 
     ;; A decoded origin-form target. The path is its segments after the
     ;; first `/`, each percent-decoded, so `/` is ("") and `/a%2Fb/` is
     ;; ("a/b" ""); the query is its name and value pairs in order.
-    (struct Target
+    (record Target
       ((path (List String))
        (query (List (Pair String String)))))
 
@@ -180,7 +180,7 @@
             ((or (string=? method "CONNECT") (not (= (string-ref target 0) #\/)))
              (Err (Unsupported "request target form")))
             ((not (target? target)) (Err (Malformed "request target")))
-            (else (Ok (Pair method target)))))
+            (else (Ok (new Pair (first method) (second target))))))
 
     (define (request-headers (lines (List String))) (→ (Result (List Header) HttpError))
       (let loop ((lines lines) (headers (Nil)))
@@ -193,7 +193,7 @@
               (let ((name (substring line 0 colon))
                     (value (trim-ows (substring line (+ colon 1) (string-length line)))))
                 (if (token? name)
-                    (loop rest (Cons (Header (lower-ascii name) value) headers))
+                    (loop rest (Cons (new Header (name (lower-ascii name)) (value value)) headers))
                     (Err (Malformed "header name"))))))))))
 
     ;; ---- Request framing ----
@@ -262,7 +262,11 @@
                          ((Err error) (Err error))
                          ((Ok count)
                           (Ok
-                           (RequestHead (● line first) (● line second) headers count))))))))
+                           (new RequestHead
+                             (method (● line first))
+                             (target (● line second))
+                             (headers headers)
+                             (body-length count)))))))))
         ((Nil) (Err (Malformed "missing Host")))))
 
     (define (complete-head (lines (List String))) (→ (Result RequestHead HttpError))
@@ -282,7 +286,8 @@
                     ((None) (Ok (None)))
                     ((Some end) (match (complete-head (head-lines bytes end))
                                   ((Err error) (Err error))
-                                  ((Ok request) (Ok (Some (ParsedHead request end))))))))))
+                                  ((Ok request)
+                                   (Ok (Some (new ParsedHead (request request) (end end)))))))))))
 
     ;; ---- Request targets ----
 
@@ -360,7 +365,7 @@
           ((Err error) (Err error))
           ((Ok name) (match (percent-decode (substring piece (min (+ equals 1) length) length) #t)
                        ((Err error) (Err error))
-                       ((Ok value) (Ok (Pair name value))))))))
+                       ((Ok value) (Ok (new Pair (first name) (second value)))))))))
 
     ;; The URL standard's form decoding, which URLSearchParams applies: `&`
     ;; separates pairs, and empty pieces are skipped.
@@ -387,7 +392,7 @@
               ((Err error) (Err error))
               ((Ok path) (match (query-pairs (substring text (min (+ end 1) length) length))
                            ((Err error) (Err error))
-                           ((Ok query) (Ok (Target path query)))))))))
+                           ((Ok query) (Ok (new Target (path path) (query query))))))))))
 
     ;; ---- Response encoding ----
 
@@ -449,7 +454,8 @@
             (else
              (match (head-bytes (response-prefix status (vector-length bytes)) headers)
                ((Err error) (Err error))
-               ((Ok head) (Ok (ResponseParts head (response-body method status bytes))))))))
+               ((Ok head)
+                (Ok (new ResponseParts (head head) (body (response-body method status bytes)))))))))
 
     ;; ---- Streaming responses ----
 

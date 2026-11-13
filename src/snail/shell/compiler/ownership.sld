@@ -29,7 +29,7 @@
    (snail shell compiler capabilities))
   (begin
 
-    (define (no-loc) (→ Loc) (Loc "ownership" 0 0))
+    (define (no-loc) (→ Loc) (new Loc (file "ownership") (line 0) (column 0)))
 
     ;; ---- Shared call ownership ----
 
@@ -236,7 +236,7 @@
     ;; reaches a panic or a value of type Never cannot return, so it never
     ;; reaches the end of a scope. Control lowering drops what an abort
     ;; leaves live; fatal panic retains its separate fatal contract.
-    (struct Path
+    (record Path
       ((program Program)
        (copy (List String))
        (constraints (List Constraint))
@@ -246,7 +246,7 @@
 
     ;; A live linear name, with the type that makes it linear, which a
     ;; diagnostic about it explains.
-    (struct Owner
+    (record Owner
       ((name String)
        (type Type)))
 
@@ -264,7 +264,9 @@
     ;; Only linear owners enter the live set; counted copies are reusable.
 
     (define (bind (path Path) (name String) (type Type)) (→ Path)
-      (if (linear? path type) (Path-live-set path (Cons (Owner name type) (● path live))) path))
+      (if (linear? path type)
+          (Path-live-set path (Cons (new Owner (name name) (type type)) (● path live)))
+          path))
 
     (define (consume (path Path) (owner Owner) (loc Loc)) (→ Path) (! compile)
       (require-live path owner loc)
@@ -356,6 +358,7 @@
                                (● path returns))))
 
           ((FieldRead _ _ _) (panic "internal error: field selection survived checking"))
+          ((New _ _) (panic "internal error: named construction survived checking"))
           ((Ann inner _)
            (check path inner))
           ((BoxAny inner) (check-boxing path expr inner (● inner type)))
@@ -379,14 +382,14 @@
            ((Some value) (check-instantiation path expr value) path)
            ((None)
             (if (linear? path (● expr type))
-                (consume path (Owner name (● expr type)) (● expr loc))
+                (consume path (new Owner (name name) (type (● expr type))) (● expr loc))
                 path))))))
 
     ;; `once` may move a lambda's linear captures into it. A panic never
     ;; returns. A field operation acts on its record in place.
 
     (define (check-call (path Path) (callee Expr) (args (List Expr))) (→ Path) (! compile)
-      (match (Pair (● callee term) args)
+      (match (new Pair (first (● callee term)) (second args))
         ((Pair (Var "prim:rc" _ _) (Cons value (Nil)))
          (match (drop-rows (● path program) (● path copy) (● path constraints) (● value type))
            ((Err problem) (compile-error (● value loc) problem))
@@ -395,9 +398,9 @@
         ((Pair (Var "prim:once" _ _) (Cons value (Nil)))
          (if (lambda-expr? value)
              (check-lambda path
-                           (Expr (● value term)
-                                 (TCon "FnOnce" (list (● value type)))
-                                 (● value loc)))
+                           (new Expr (term (● value term))
+                                (type (TCon "FnOnce" (list (● value type))))
+                                (loc (● value loc))))
              (check path value)))
         ((Pair (Var "prim:panic" _ _) _) (Path-returns-set (check-all path args) #f))
         ((Pair (Var "prim:set!" _ _) (Cons place (Cons value (Nil))))
@@ -450,7 +453,14 @@
          (consumed-references program value))
 
         ((App callee (Cons record rest))
-         (match (field-operation (Path program (Nil) (Nil) (Nil) #t (None)) callee)
+         (match (field-operation (new Path
+                                   (program program)
+                                   (copy (Nil))
+                                   (constraints (Nil))
+                                   (live (Nil))
+                                   (returns #t)
+                                   (row (None)))
+                                 callee)
            ((Some (Replacer _ _ _)) (consumed-children program expr))
            ((Some _) (concatenate (map (lambda (arg) (consumed-references program arg)) rest)))
            ((None) (consumed-children program expr))))
@@ -502,7 +512,7 @@
     ;; and its tail, which must be allowed's own.
 
     (define (row-within? (performed Type) (allowed Type)) (→ Bool)
-      (match (Pair (row-parts performed) (row-parts allowed))
+      (match (new Pair (first (row-parts performed)) (second (row-parts allowed)))
         ((Pair (Pair labels tail) (Pair allowed-labels allowed-tail))
          (and (every? (lambda (label) (member? label allowed-labels)) labels)
               (match tail
@@ -514,13 +524,13 @@
 
     (define (row-parts (row Type)) (→ (Pair (List String) (Option String)))
       (match row
-        ((TRow labels (Some (TRigid name))) (Pair labels (Some name)))
+        ((TRow labels (Some (TRigid name))) (new Pair (first labels) (second (Some name))))
         ((TRow labels (Some tail))
          (match (row-parts tail)
-           ((Pair more name) (Pair (append labels more) name))))
-        ((TRow labels (None)) (Pair labels (None)))
-        ((TRigid name) (Pair (Nil) (Some name)))
-        (_ (Pair (Nil) (None)))))
+           ((Pair more name) (new Pair (first (append labels more)) (second name)))))
+        ((TRow labels (None)) (new Pair (first labels) (second (None))))
+        ((TRigid name) (new Pair (first (Nil)) (second (Some name))))
+        (_ (new Pair (first (Nil)) (second (None))))))
 
     ;; A type without type variables, whose drop the checker can find.
 
@@ -625,7 +635,7 @@
     ;; holds nothing.
 
     (define (check-instantiation (path Path) (expr Expr) (value Value)) (→ Unit) (! compile)
-      (match (Pair (● expr term) (arrow-row (● expr type)))
+      (match (new Pair (first (● expr term)) (second (arrow-row (● expr type))))
         ((Pair (Var name types _) (Some row))
          (for-each (lambda (type)
                      (check-type (● path program) (● path copy) type (● expr loc))) types)
@@ -716,7 +726,7 @@
     (define (check-field-grades (path Path) (operation Value) (type Type) (loc Loc))
       (→ Unit)
       (! compile)
-      (match (Pair operation type)
+      (match (new Pair (first operation) (second type))
         ((Pair (Accessor case index _) (TFun _ result _))
          (when (linear? path result)
            (compile-error loc (explain path result (linear-read-advice case index)))))
@@ -753,7 +763,7 @@
 
     (define (check-field-value (path Path) (operation Value) (expr Expr)) (→ Unit) (! compile)
       (check-field-grades path operation (● expr type) (● expr loc))
-      (match (Pair operation (● expr type))
+      (match (new Pair (first operation) (second (● expr type)))
         ((Pair (Replacer _ _ _) _) (unit))
         ((Pair _ (TFun (Cons record _) _ _))
          (when (linear? path record)
@@ -814,7 +824,7 @@
            ((Ann inner _) (require-place-live path inner))
            ((Var name _ _)
             (when (linear? path (● record type))
-              (require-live path (Owner name (● record type)) (● record loc))))
+              (require-live path (new Owner (name name) (type (● record type))) (● record loc))))
            (_ (unit))))))
 
     ;; The place rule: a field operation reads or writes its record where it
@@ -827,7 +837,7 @@
         (if (linear? path type)
             (match (● record term)
               ((Var name _ _)
-               (require-live path (Owner name type) (● record loc))
+               (require-live path (new Owner (name name) (type type)) (● record loc))
                path)
               (_ (compile-error (● record loc)
                                 (explain path
@@ -848,7 +858,7 @@
                         (filter (lambda (owner) (member? (● owner name) references))
                                 (● path live))))
             (loc (● expr loc)))
-        (match (Pair once? captured)
+        (match (new Pair (first once?) (second captured))
           ((Pair #f (Cons owner _))
            (compile-error loc
                           (explain path (● owner type)
@@ -864,10 +874,16 @@
     (define (check-closure-body (path Path) (expr Expr) (captured (List Owner)) (once? Bool))
       (→ Unit)
       (! compile)
-      (match (Pair (● expr term) (fn-arrow (● expr type)))
+      (match (new Pair (first (● expr term)) (second (fn-arrow (● expr type))))
         ((Pair (Lambda params body ) (TFun types _ row))
          (let* ((empty
-                 (Path (● path program) (● path copy) (● path constraints) (Nil) #t (Some row)))
+                 (new Path
+                   (program (● path program))
+                   (copy (● path copy))
+                   (constraints (● path constraints))
+                   (live (Nil))
+                   (returns #t)
+                   (row (Some row))))
                 (start
                  (fold-left
                   (lambda (inner pair) (bind inner (● pair first) (● pair second)))
@@ -939,12 +955,12 @@
       (! compile)
       (check-owned-types program schemes item)
       (check-item
-       (Path program
-             (item-copy schemes item)
-             (item-constraints schemes item)
-             (Nil)
-             #t
-             (item-row schemes item))
+       (new Path (program program)
+            (copy (item-copy schemes item))
+            (constraints (item-constraints schemes item))
+            (live (Nil))
+            (returns #t)
+            (row (item-row schemes item)))
        item))
 
     ;; A definition's row bounds the drops its frames may run; a statement's

@@ -14,13 +14,13 @@
  (siegework simulation))
 
 ;; A game in progress: the world and its journal, newest entry first.
-(struct Played
+(record Played
   ((world World)
    (journal (List Entry))))
 
 (define (give (played Played) (action Action)) (→ Played)
   (match (command (● played world) action)
-    ((Ok (Pair world entry)) (Played world (Cons entry (● played journal))))
+    ((Ok (Pair world entry)) (new Played (world world) (journal (Cons entry (● played journal)))))
     ((Err _) played)))
 
 (define (run (played Played) (ticks I64)) (→ Played)
@@ -30,7 +30,7 @@
 
 (define (offset (world World) (dx I64) (dy I64)) (→ Cell)
   (let ((hub (● (● world hub) cell)))
-    (Cell (+ (● hub x) dx) (+ (● hub y) dy))))
+    (new Cell (x (+ (● hub x) dx)) (y (+ (● hub y) dy)))))
 
 (define (reinforce (played Played)) (→ Played)
   (let ((world (● played world)))
@@ -38,7 +38,12 @@
                        (give played
                              (Build (Turret) (offset world (● d first) (● d second)) #f)))
                      played
-                     (list (Pair -2 0) (Pair 0 2) (Pair 2 0) (Pair 0 -2) (Pair -2 2) (Pair 2 -2)))
+                     (list (new Pair (first -2) (second 0))
+                           (new Pair (first 0) (second 2))
+                           (new Pair (first 2) (second 0))
+                           (new Pair (first 0) (second -2))
+                           (new Pair (first -2) (second 2))
+                           (new Pair (first 2) (second -2))))
           (Upgrade (offset world 0 0)))))
 
 (define (play (played Played) (rounds I64)) (→ Played)
@@ -86,7 +91,7 @@
 (define (main) (→ Unit) (! output-port)
 
   (let ()
-    (define start (Played (new-world 3) (Nil)))
+    (define start (new Played (world (new-world 3)) (journal (Nil))))
     (define start
       (give start (Build (Extractor) (● (● (● start world) land) starter) #f)))
     (define played (play start 20))
@@ -105,7 +110,8 @@
                                (show (string=?
                                       (fingerprint (● (replay 3 journal (● world tick)) first))
                                       (fingerprint world)))))
-    (define stray (Cons (Entry 0 (Build (Turret) (offset world 1 1) #f)) journal))
+    (define stray
+      (Cons (new Entry (tick 0) (action (Build (Turret) (offset world 1 1) #f))) journal))
     (write-line (string-append "replay skipping a rejected order matches: "
                                (show (string=?
                                       (fingerprint (● (replay 3 stray (● world tick)) first))

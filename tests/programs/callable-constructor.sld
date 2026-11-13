@@ -2,7 +2,7 @@
  (snail core base)
  (snail core io))
 
-(struct Token
+(record Token
   ((label String)))
 
 (instance (Drop (! output-port) Token)
@@ -10,11 +10,11 @@
     (match token ((Token label) (write-line label)))))
 
 (define (append-resource (label String)) (→ (Fn String → String ! mut output-port))
-  (let ((token (rc (Token label))))
+  (let ((token (rc (new Token (label label)))))
     (lambda (value) (string-append (● token label) value))))
 
 (define (read-resource (label String)) (→ (Fn → String ! mut output-port))
-  (let ((token (rc (Token label))))
+  (let ((token (rc (new Token (label label)))))
     (lambda () (● token label))))
 
 (define (main) (→ Unit) (! mut output-port)

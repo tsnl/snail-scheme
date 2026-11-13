@@ -14,11 +14,28 @@
   (match (string->json text) ((Some json) json) ((None) (panic "invalid test JSON"))))
 
 (define (state) (→ ServerState)
-  (ServerState "server-λ" 9
-               (Build "failed" 3 (list (Report "error" "unknown λ" (Some (Point "/p/a.sld" 2 4)))))
-               (list (Run "main" (Some 2)
-                          (Some (Attempt 2 (Some 501) "running" (None) "" "" "hello λ\n" ""))
-                          #t #t)) "read-only-generation/" ""))
+  (new ServerState (instance "server-λ") (files 9)
+       (build (new Build
+                (phase "failed")
+                (id 3)
+                (diagnostics (list (new Report
+                                     (severity "error")
+                                     (message "unknown λ")
+                                     (source
+                                      (Some (new Point (file "/p/a.sld") (line 2) (column 4)))))))))
+       (runs (list (new Run (target "main") (desired (Some 2))
+                        (attempt (Some (new Attempt
+                                         (build 2)
+                                         (pid (Some 501))
+                                         (phase "running")
+                                         (code (None))
+                                         (signal "")
+                                         (error "")
+                                         (stdout "hello λ\n")
+                                         (stderr ""))))
+                        (wanted #t) (available #t))))
+       (editor "read-only-generation/")
+       (editor-problem "")))
 
 (define (main) (→ Unit) (! output-port)
 

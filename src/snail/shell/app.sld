@@ -244,7 +244,7 @@
       (Pinched))
 
     ;; A pressed pointer: where it went down, and where it was last.
-    (struct Contact
+    (record Contact
       ((pointer I32)
        (button I32)
        (start-x I32)
@@ -254,10 +254,10 @@
        (mode Mode)))
 
     ;; The pressed pointers, in the order they went down.
-    (struct Gestures
+    (record Gestures
       ((contacts (List Contact))))
 
-    (define (no-gestures) (→ Gestures) (Gestures (Nil)))
+    (define (no-gestures) (→ Gestures) (new Gestures (contacts (Nil))))
 
     ;; Reads one input, returning the pointers still pressed and what the
     ;; input meant. Inputs other than pointers mean nothing here.
@@ -266,12 +266,25 @@
       (let ((contacts (● gestures contacts)))
         (match input
           ((PointerDown pointer x y button)
-           (Pair (Gestures (press-contact contacts (Contact pointer button x y x y (Holding))))
-                 (Nil)))
+           (new Pair
+             (first (new Gestures
+                      (contacts (press-contact contacts
+                                               (new Contact
+                                                 (pointer pointer)
+                                                 (button button)
+                                                 (start-x x)
+                                                 (start-y y)
+                                                 (x x)
+                                                 (y y)
+                                                 (mode (Holding)))))))
+             (second (Nil))))
           ((PointerMove pointer x y) (move-contact contacts pointer x y))
           ((PointerUp pointer x y) (release-contact contacts pointer x y))
-          ((PointerCancel pointer) (Pair (Gestures (without-contact contacts pointer)) (Nil)))
-          (_ (Pair gestures (Nil))))))
+          ((PointerCancel pointer)
+           (new Pair
+             (first (new Gestures (contacts (without-contact contacts pointer))))
+             (second (Nil))))
+          (_ (new Pair (first gestures) (second (Nil)))))))
 
     ;; A pointer that goes down again replaces its old press, which also
     ;; recovers from a release that never arrived.
@@ -298,8 +311,10 @@
                                                     (Contact-y-set (Contact-x-set c x) y)
                                                     c))
                                               contacts)))
-                              (Pair (Gestures moved) (pinch contacts moved)))))
-        ((None) (Pair (Gestures contacts) (list (Point x y))))))
+                              (new Pair
+                                (first (new Gestures (contacts moved)))
+                                (second (pinch contacts moved))))))
+        ((None) (new Pair (first (new Gestures (contacts contacts))) (second (list (Point x y)))))))
 
     ;; A held pointer drags once it is eight pixels from where it went down,
     ;; and its first drag covers the whole way from there.
@@ -308,22 +323,26 @@
       (let ((moved (Contact-y-set (Contact-x-set contact x) y)))
         (match (● contact mode)
           ((Dragging)
-           (Pair (Gestures (list moved))
-                 (list (Drag (- x (● contact x)) (- y (● contact y))))))
+           (new Pair (first (new Gestures (contacts (list moved))))
+                (second (list (Drag (- x (● contact x)) (- y (● contact y)))))))
           ((Holding) (if (far? contact x y)
-                         (Pair (Gestures (list (Contact-mode-set moved (Dragging))))
-                               (list (Drag (- x (● contact start-x))
-                                           (- y (● contact start-y)))))
-                         (Pair (Gestures (list moved)) (Nil))))
-          ((Pinched) (Pair (Gestures (list moved)) (Nil))))))
+                         (new Pair
+                           (first
+                            (new Gestures (contacts (list (Contact-mode-set moved (Dragging))))))
+                           (second (list (Drag (- x (● contact start-x))
+                                               (- y (● contact start-y))))))
+                         (new Pair (first (new Gestures (contacts (list moved)))) (second (Nil)))))
+          ((Pinched) (new Pair (first (new Gestures (contacts (list moved)))) (second (Nil)))))))
 
     (define (far? (contact Contact) (x I32) (y I32)) (→ Bool)
       (let ((dx (- x (● contact start-x))) (dy (- y (● contact start-y))))
         (> (+ (* dx dx) (* dy dy)) 64)))
 
     (define (pinch (before (List Contact)) (after (List Contact))) (→ (List Gesture))
-      (let ((old (spread before)) (new (spread after)))
-        (if (and (> old 0.0) (> new 0.0) (not (= old new))) (list (Pinch (/ old new))) (Nil))))
+      (let ((old (spread before)) (updated (spread after)))
+        (if (and (> old 0.0) (> updated 0.0) (not (= old updated)))
+            (list (Pinch (/ old updated)))
+            (Nil))))
 
     ;; The distance between the first two pointers.
 
@@ -340,14 +359,15 @@
     (define (release-contact (contacts (List Contact)) (pointer I32) (x I32) (y I32))
       (→ (Pair Gestures (List Gesture)))
       (match (find (lambda (c) (= (● c pointer) pointer)) contacts)
-        ((Some contact) (Pair (Gestures (without-contact contacts pointer))
-                              (match (● contact mode)
-                                ((Holding)
-                                 (if (far? contact x y)
-                                     (Nil)
-                                     (list (Tap x y (● contact button)))))
-                                (_ (Nil)))))
-        ((None) (Pair (Gestures contacts) (Nil)))))
+        ((Some contact)
+         (new Pair (first (new Gestures (contacts (without-contact contacts pointer))))
+              (second (match (● contact mode)
+                        ((Holding)
+                         (if (far? contact x y)
+                             (Nil)
+                             (list (Tap x y (● contact button)))))
+                        (_ (Nil))))))
+        ((None) (new Pair (first (new Gestures (contacts contacts))) (second (Nil))))))
 
     ;; ---- Frames ----
 
@@ -355,7 +375,7 @@
     ;; how far from 0 to 1 every item has moved from where it was toward
     ;; where it is, the batches of items, and the pictures the batches and
     ;; the HUD may use as textures.
-    (struct Frame
+    (record Frame
       ((camera Camera)
        (light Light)
        (background I32)
@@ -363,7 +383,7 @@
        (batches (List Batch))
        (pictures (List Picture))))
 
-    (struct Vec3
+    (record Vec3
       ((x F32)
        (y F32)
        (z F32))
@@ -377,14 +397,14 @@
       (Orthographic ((height F32))))
 
     ;; Up is +y.
-    (struct Camera
+    (record Camera
       ((eye Vec3)
        (target Vec3)
        (projection Projection)))
 
     ;; Sunlight shining from `direction` with strength `sun`, and the light
     ;; every surface receives whichever way it faces.
-    (struct Light
+    (record Light
       ((direction Vec3)
        (sun F32)
        (ambient F32)))
@@ -405,7 +425,7 @@
     ;; ---- Pictures ----
 
     ;; A rectangle of pixels: its left and top edges, then its size.
-    (struct Rect
+    (record Rect
       ((x I32)
        (y I32)
        (width I32)
@@ -414,7 +434,7 @@
 
     ;; An encoded image file, PNG or anything else the browser decodes. The
     ;; host decodes each key once, so `bytes` runs only when it has not.
-    (struct Source
+    (record Source
       ((key I32)
        (bytes (Fn → Bytes))))
 
@@ -422,7 +442,7 @@
     ;; (x, y) of the picture. Each swap replaces the 0xRRGGBB color first in
     ;; the pair with the second, keeping alpha: art drawn in one palette can
     ;; be recolored, as LPC skin ramps are.
-    (struct Layer
+    (record Layer
       ((source Source)
        (from Rect)
        (x I32)
@@ -432,7 +452,7 @@
     ;; A texture the host composes from layers, drawn in order over
     ;; transparency. Like a batch, it is kept until its version changes, so
     ;; `layers` runs only when the host lacks this version.
-    (struct Picture
+    (record Picture
       ((key I32)
        (version I32)
        (width I32)
@@ -442,25 +462,25 @@
     ;; A region of a picture. With more than one frame it is a strip: the
     ;; host shows `frames` regions side by side, starting at `region` and
     ;; stepping right by its width, each for `period` milliseconds.
-    (struct Texture
+    (record Texture
       ((picture I32)
        (region Rect)
        (frames I32)
        (period I32)))
 
     (define (still (picture I32) (region Rect)) (→ Texture)
-      (Texture picture region 1 1))
+      (new Texture (picture picture) (region region) (frames 1) (period 1)))
 
     ;; How a surface reflects light, in the metallic-roughness model. The
     ;; texture times the item's color is the albedo of a dielectric, or the
     ;; specular color of a metal. Transparent texels are not drawn.
-    (struct Material
+    (record Material
       ((texture (Option Texture))
        (metalness F32)
        (roughness F32)))
 
     ;; Untextured and fully rough, as a matte dielectric.
-    (define (plain) (→ Material) (Material (None) 0.0 1.0))
+    (define (plain) (→ Material) (new Material (texture (None)) (metalness 0.0) (roughness 1.0)))
 
     ;; A fixed item turns by its yaw alone; an upright one also turns about
     ;; the vertical axis to face the camera, as sprites do.
@@ -474,7 +494,7 @@
     ;; 0xRRGGBB color, and a glow from 0, lit by the light, to 1, its own
     ;; color. It moves from `from` to `position` as the frame's motion goes
     ;; from 0 to 1, so the host animates it without asking for new items.
-    (struct Item
+    (record Item
       ((mesh Mesh)
        (position Vec3)
        (scale Vec3)
@@ -493,22 +513,31 @@
     ;; An unlit, plain item standing still.
 
     (define (item (mesh Mesh) (position Vec3) (scale Vec3) (yaw F32) (color I32)) (→ Item)
-      (Item mesh position scale yaw color 0.0 position (plain) (Fixed)))
+      (new Item
+        (mesh mesh)
+        (position position)
+        (scale scale)
+        (yaw yaw)
+        (color color)
+        (glow 0.0)
+        (from position)
+        (material (plain))
+        (facing (Fixed))))
 
     ;; A texture on a quad `width` by `height` world units, its bottom center
     ;; at `position`, standing upright toward the camera: a sprite in a 2.5D
     ;; scene.
 
     (define (sprite (texture Texture) (position Vec3) (width F32) (height F32)) (→ Item)
-      (Item (Quad)
-            position
-            (Vec3 width height 1.0)
-            0.0
-            (rgb 255 255 255)
-            0.0
-            position
-            (Material (Some texture) 0.0 1.0)
-            (Upright)))
+      (new Item (mesh (Quad))
+           (position position)
+           (scale (new Vec3 (x width) (y height) (z 1.0)))
+           (yaw 0.0)
+           (color (rgb 255 255 255))
+           (glow 0.0)
+           (from position)
+           (material (new Material (texture (Some texture)) (metalness 0.0) (roughness 1.0)))
+           (facing (Upright))))
 
     ;; A texture lying on the ground, `width` by `height` world units, its
     ;; top toward -z and the middle of its bottom edge at `position`: a sprite
@@ -517,16 +546,19 @@
 
     (define (flat-sprite (texture Texture) (position Vec3) (width F32) (height F32)) (→ Item)
       (let ((center
-             (Vec3 (● position x) (● position y) (- (● position z) (/ height 2.0)))))
-        (Item (Tile)
-              center
-              (Vec3 width 1.0 height)
-              0.0
-              (rgb 255 255 255)
-              1.0
-              center
-              (Material (Some texture) 0.0 1.0)
-              (Fixed))))
+             (new Vec3
+               (x (● position x))
+               (y (● position y))
+               (z (- (● position z) (/ height 2.0))))))
+        (new Item (mesh (Tile))
+             (position center)
+             (scale (new Vec3 (x width) (y 1.0) (z height)))
+             (yaw 0.0)
+             (color (rgb 255 255 255))
+             (glow 1.0)
+             (from center)
+             (material (new Material (texture (Some texture)) (metalness 0.0) (roughness 1.0)))
+             (facing (Fixed)))))
 
     ;; Solid batches hide what is behind them. Translucent ones are drawn
     ;; after, over them. A revealed batch shows only within `radius` of a
@@ -538,7 +570,7 @@
 
     ;; The host keeps each batch's instances until its version changes, so
     ;; `items` runs only when the host does not already have them.
-    (struct Batch
+    (record Batch
       ((key I32)
        (version I32)
        (style Style)
@@ -564,7 +596,7 @@
     ;; and names it for the page's style, `icon` names a symbol the style
     ;; draws, `help` is its tooltip and accessible description, and `badge`
     ;; marks a corner of it.
-    (struct Look
+    (record Look
       ((key String)
        (icon String)
        (help String)
@@ -572,7 +604,7 @@
        (badge String)))
 
     (define (look (key String)) (→ Look)
-      (Look key "" "" (Plain) ""))
+      (new Look (key key) (icon "") (help "") (tone (Plain)) (badge "")))
 
     ;; A button reports its action and argument through `Press`, with a
     ;; caption beneath its text and a ring around it filled to a fraction,
@@ -624,7 +656,7 @@
       (Dialog ((dismiss I32)))
       (Banner))
 
-    (struct Panel
+    (record Panel
       ((key String)
        (place Place)
        (widgets (List Widget))))
@@ -926,7 +958,7 @@
     ;; ---- Picking ----
 
     ;; A ray from `origin` along the unit vector `direction`.
-    (struct Ray
+    (record Ray
       ((origin Vec3)
        (direction Vec3)))
 
@@ -943,14 +975,15 @@
         (match (● view projection)
           ((Perspective fov)
            (let ((half (f64->f32 (tan (/ (f32->f64 fov) 2.0)))))
-             (Ray eye
-                  (normalize (add forward
-                                  (add (scale right (* px (* half aspect)))
-                                       (scale up (* py half))))))))
+             (new Ray (origin eye)
+                  (direction (normalize (add forward
+                                             (add (scale right (* px (* half aspect)))
+                                                  (scale up (* py half)))))))))
           ((Orthographic height)
            (let ((half (/ height 2.0)))
-             (Ray (add eye (add (scale right (* px (* half aspect))) (scale up (* py half))))
-                  forward))))))
+             (new Ray
+               (origin (add eye (add (scale right (* px (* half aspect))) (scale up (* py half)))))
+               (direction forward)))))))
 
     ;; The directions of the screen's right and up in the world. A camera
     ;; looking straight down has up toward -z, so it shows the ground as a
@@ -959,9 +992,11 @@
 
     (define (screen-axes (view Camera)) (→ (Pair Vec3 Vec3))
       (let* ((forward (normalize (subtract (● view target) (● view eye))))
-             (sky (if (> (abs (● forward y)) 0.999) (Vec3 0.0 0.0 -1.0) (Vec3 0.0 1.0 0.0)))
+             (sky (if (> (abs (● forward y)) 0.999)
+                      (new Vec3 (x 0.0) (y 0.0) (z -1.0))
+                      (new Vec3 (x 0.0) (y 1.0) (z 0.0))))
              (right (normalize (cross forward sky))))
-        (Pair right (cross right forward))))
+        (new Pair (first right) (second (cross right forward)))))
 
     ;; Where the ray through pixel (x, y) meets the ground plane y = 0.
 
@@ -974,18 +1009,18 @@
             (Some (add origin (scale direction (/ (negate (● origin y)) (● direction y))))))))
 
     (define (add (a Vec3) (b Vec3)) (→ Vec3)
-      (Vec3 (+ (● a x) (● b x)) (+ (● a y) (● b y)) (+ (● a z) (● b z))))
+      (new Vec3 (x (+ (● a x) (● b x))) (y (+ (● a y) (● b y))) (z (+ (● a z) (● b z)))))
 
     (define (subtract (a Vec3) (b Vec3)) (→ Vec3)
-      (Vec3 (- (● a x) (● b x)) (- (● a y) (● b y)) (- (● a z) (● b z))))
+      (new Vec3 (x (- (● a x) (● b x))) (y (- (● a y) (● b y))) (z (- (● a z) (● b z)))))
 
     (define (scale (v Vec3) (k F32)) (→ Vec3)
-      (Vec3 (* (● v x) k) (* (● v y) k) (* (● v z) k)))
+      (new Vec3 (x (* (● v x) k)) (y (* (● v y) k)) (z (* (● v z) k))))
 
     (define (cross (a Vec3) (b Vec3)) (→ Vec3)
-      (Vec3 (- (* (● a y) (● b z)) (* (● a z) (● b y)))
-            (- (* (● a z) (● b x)) (* (● a x) (● b z)))
-            (- (* (● a x) (● b y)) (* (● a y) (● b x)))))
+      (new Vec3 (x (- (* (● a y) (● b z)) (* (● a z) (● b y))))
+           (y (- (* (● a z) (● b x)) (* (● a x) (● b z))))
+           (z (- (* (● a x) (● b y)) (* (● a y) (● b x))))))
 
     (define (normalize (v Vec3)) (→ Vec3)
       (scale v
@@ -1028,7 +1063,7 @@
 
     ;; This adapter supplies Application through ordinary instance evidence.
     ;; A project's selected type may be an alias for (SceneApplication Game).
-    (struct (SceneApplication S)
+    (record (SceneApplication S)
       ())
 
     (class-instance (Application (! mut screen events storage tasks page) (SceneApplication S))

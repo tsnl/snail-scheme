@@ -32,15 +32,15 @@
     (yield first)
     (count-from name (+ first 1) (- count 1))))
 
-(struct Pair-of-steps
+(record Pair-of-steps
   ((left Step)
    (right Step)))
 
 ;; Both generators take their first step under one log.
 (define (begin-both) (→ Pair-of-steps) (! output-port)
   (handle Log ((log (lambda (line) (write-line (string-append "first log: " line)))))
-    (Pair-of-steps (start (lambda () (count-from "a" 1 3)))
-                   (start (lambda () (count-from "b" 10 2))))))
+    (new Pair-of-steps (left (start (lambda () (count-from "a" 1 3))))
+         (right (start (lambda () (count-from "b" 10 2)))))))
 
 ;; The rest alternates between them, long after their handlers returned,
 ;; under another log: each resumed step logs to the handler in scope here.

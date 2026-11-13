@@ -1,7 +1,7 @@
 # Ownership
 
 Snail Scheme distinguishes values that can be shared from values that must be
-used exactly once. This is a property of the type. Structs always have heap
+used exactly once. This is a property of the type. Records always have heap
 identity; primitives remain unboxed. There is no borrow type, borrow checker,
 or exclusive access mode.
 
@@ -12,7 +12,7 @@ passing it to `drop` consumes that value. A normally returning path must consume
 each linear local exactly once. Both branches of an `if`, and all alternatives
 of a `match`, must consume the same linear owners.
 
-A struct or enum containing a linear field is itself linear, including when
+A record or enum containing a linear field is itself linear, including when
 that field can be mutated. Substituting type arguments can therefore change a
 container's grade: `(List I64)` can be shared, while `(List (FnOnce → Unit))`
 is linear. An enum's grade describes all its variants, even when the current
@@ -30,10 +30,10 @@ body move an arbitrary `T`, while duplication requires an explicit proof:
 
 ```scheme
 (define (swap (pair (Pair A B))) (→ (Pair B A)) (∀ (A B))
-  (match pair ((Pair left right) (Pair right left))))
+  (match pair ((Pair left right) (new Pair (first right) (second left)))))
 
 (define (twice (value T)) (→ (Pair T T)) (∀ (T)) (⊨ (Copy T))
-  (Pair value value))
+  (new Pair (first value) (second value)))
 ```
 
 `Copy` permits sharing and omission of a value. It does not promise that
@@ -43,13 +43,13 @@ allow `e`. This matters for an `Rc` or a closure that owns counted resources.
 
 ## Mutable records
 
-Struct fields are mutable by default. A field declaration is `(name Type)`;
+Record fields are mutable by default. A field declaration is `(name Type)`;
 there is no per-field `mut` annotation and no separate `Ref` cell type. Local
 bindings themselves are not reassigned. Aliases of a record observe writes to
 that record, including writes through another enclosing record.
 
 ```scheme
-(struct Counter
+(record Counter
   ((value I64)))
 
 (define (increment (counter Counter)) (→ Unit) (! mut)
@@ -86,7 +86,7 @@ whole payload. `rc-get` is available only when the payload is `Copy`; it cannot
 extract a second owner of a linear payload.
 
 ```scheme
-(struct Work
+(record Work
   ((pending (Option (FnOnce → Unit ! output-port)))))
 
 (define (run-pending (work (Rc Work))) (→ Unit) (! mut output-port)
@@ -211,7 +211,7 @@ pointer type, callable class, `FnMut`, `dyn`, or `impl` form.
 ## Representation
 
 Every nominal aggregate is a WasmGC object. A field contains one scalar or one
-managed reference; nested structs are never flattened into their owners.
+managed reference; nested records are never flattened into their owners.
 Vectors have fixed runtime lengths and may contain boxed aggregate elements.
 A vector of counted elements counts aliases of the vector itself and releases
 all its elements when the last owner leaves. Uncounted vectors are raw GC arrays
@@ -227,7 +227,7 @@ are no hidden cache owners.
 
 The `Rc` control cell stores a strong count, a cleanup function, its payload
 and a finalizer. The count and cleanup fields are its ownership header, in
-the same GC object. A struct payload occupies a reference slot; structs are
+the same GC object. A record payload occupies a reference slot; records are
 never inlined. `WeakRc` uses the same cell without contributing to the strong
 count. WasmGC keeps the cell alive while weak references exist, so no weak
 count is needed. The last strong release clears the payload slot before running

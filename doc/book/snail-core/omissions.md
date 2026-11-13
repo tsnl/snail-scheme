@@ -18,7 +18,7 @@ each can return if a program needs it.
   interface hashing or checked-code/Wasm reuse. Wire schemas come from the
   checked program.
 - **The WGSL backend.** The renderer's shaders are WGSL text that shares no
-  structs with Snail Scheme code beyond fixed instance and material layouts. The
+  records with Snail Scheme code beyond fixed instance and material layouts. The
   runtime and graphics plan proposes shaders written as S-expressions.
 - **Actor destinations.** Tasks schedule one-shot closures and share
   `Mailbox` queues, which are values, not addresses of tasks. Request/reply
@@ -36,7 +36,7 @@ each can return if a program needs it.
   proposed with one fixed application per handler; operation-local
   polymorphism remains outside that design.
 - Classes have no superclasses and no higher-kinded parameters.
-- Wire TypeIds are 32 bits, and every struct and enum value carries its
+- Wire TypeIds are 32 bits, and every record and enum value carries its
   case's TypeId.
 
 Snail Scheme deliberately omits R7RS compatibility, `call/cc`, `dynamic-wind`,

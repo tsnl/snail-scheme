@@ -4,7 +4,7 @@
  (snail core io)
  (snail shell future))
 
-(struct Resource
+(record Resource
   ((name String)))
 
 (instance (Drop (! output-port) Resource)
@@ -19,7 +19,7 @@
      (match (poll future)
        ((Pending future)
         (write-line "pending")
-        (match (fulfill promise (Resource "taken"))
+        (match (fulfill promise (new Resource (name "taken")))
           ((Ok _) (unit))
           ((Err resource) (drop resource)))
         (match (poll future)
@@ -31,13 +31,13 @@
   (match (ann (make-promise) (Pair (Promise Resource) (Future Resource)))
     ((Pair promise future)
      (drop future)
-     (match (fulfill promise (Resource "unsent"))
+     (match (fulfill promise (new Resource (name "unsent")))
        ((Ok _) (unit))
        ((Err resource) (drop resource)))))
   ;; A fulfilled but unpolled result is still released exactly once.
   (match (ann (make-promise) (Pair (Promise Resource) (Future Resource)))
     ((Pair promise future)
-     (match (fulfill promise (Resource "buffered"))
+     (match (fulfill promise (new Resource (name "buffered")))
        ((Ok _) (unit))
        ((Err resource) (drop resource)))
      (drop future)))

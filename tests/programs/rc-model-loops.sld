@@ -2,7 +2,7 @@
  (snail core base)
  (snail core io))
 
-(struct Model
+(record Model
   ((title String)
    (work (FnOnce → Unit))))
 
@@ -15,7 +15,7 @@
   (● model title))
 
 (define (main) (→ Unit) (! mut output-port)
-  (let ((model (rc (Model "abcd" (once (lambda () (unit)))))))
+  (let ((model (rc (new Model (title "abcd") (work (once (lambda () (unit))))))))
     (write-line (show (count-to model 3)))
     (write-line (read model)))
   (unit))

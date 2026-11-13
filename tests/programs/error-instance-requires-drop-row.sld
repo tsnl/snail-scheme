@@ -7,7 +7,7 @@
 (effect log
   ((say (Fn String → Unit))))
 
-(struct Handle
+(record Handle
   ((name String)))
 
 (instance (Drop (! log) Handle)
@@ -26,7 +26,7 @@
       ((None) (unit)))))
 
 (define (demo) (→ Unit) (! log)
-  (release (Some (Handle "h"))))
+  (release (Some (new Handle (name "h")))))
 
 (define main
   (lambda ()

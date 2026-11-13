@@ -15,10 +15,10 @@
 (typeclass (Store e S)
   (declare (fetch-object (left S) (right String)) (→ String) (! e)))
 
-(struct Directory
+(record Directory
   ((root String)))
 
-(struct Table
+(record Table
   ((objects (List (Pair String String)))))
 
 (instance (Store (! output-port) Directory)
@@ -69,7 +69,7 @@
     (body)))
 
 ;; ANCHOR: logged
-(struct (Logged S)
+(record (Logged S)
   ((inner S)))
 
 (instance (Store (! log e) (Logged S))
@@ -89,12 +89,25 @@
 
 (define (main) (→ Unit) (! output-port)
 
-  (write-line (fetch-twice (Directory "assets") "hero"))
-  (write-line (from-table (Table (list (Pair "hero" "held"))) "hero"))
-  (write-line (peek (Table (list (Pair "villain" "kept"))) "villain"))
+  (write-line (fetch-twice (new Directory (root "assets")) "hero"))
   (write-line
-   (answering (lambda () (fetch-asked (Table (list (Pair "a" "A") (Pair "b" "B"))) ask))))
-  (write-line (answering (lambda () (fetch-asked (Directory "d") ask))))
-  (write-line (logging (lambda () (fetch-twice (Logged (Table (list (Pair "a" "b")))) "a"))))
-  (write-line (logging (lambda () (fetch-object (Logged (Directory "pack")) "villain"))))
+   (from-table (new Table (objects (list (new Pair (first "hero") (second "held"))))) "hero"))
+  (write-line
+   (peek (new Table (objects (list (new Pair (first "villain") (second "kept"))))) "villain"))
+  (write-line
+   (answering (lambda ()
+                (fetch-asked (new Table
+                               (objects (list (new Pair (first "a") (second "A"))
+                                              (new Pair (first "b") (second "B")))))
+                             ask))))
+  (write-line (answering (lambda () (fetch-asked (new Directory (root "d")) ask))))
+  (write-line (logging (lambda ()
+                         (fetch-twice (new Logged
+                                        (inner (new Table
+                                                 (objects
+                                                  (list (new Pair (first "a") (second "b")))))))
+                                      "a"))))
+  (write-line (logging (lambda ()
+                         (fetch-object (new Logged (inner (new Directory (root "pack"))))
+                                       "villain"))))
   (unit))

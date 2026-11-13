@@ -83,7 +83,7 @@
 
     ;; ---- Locations and syntax ----
 
-    (struct Loc
+    (record Loc
       ((file String)
        (line I64)
        (column I64)))
@@ -106,7 +106,7 @@
       (Ident ((name String) (mark (Option Mark)) (loc Loc)))
       (Form ((items (List Syntax)) (loc Loc))))
 
-    (struct Mark
+    (record Mark
       ((key String)
        (original Syntax)
        (scope I64)))
@@ -186,7 +186,7 @@
 
     ;; ---- Source failures ----
 
-    (struct SourceDiagnostic
+    (record SourceDiagnostic
       ((loc Loc)
        (message String)))
 
@@ -199,7 +199,7 @@
 
     ;; What a failed compile found wrong, which is never nothing: the first
     ;; diagnostic, then the rest in order.
-    (struct Diagnostics
+    (record Diagnostics
       ((first SourceDiagnostic)
        (more (List SourceDiagnostic))))
 
@@ -217,7 +217,9 @@
     ;; pass's next item (`recovering`).
 
     (define (compile-error (loc Loc) (message String)) (→ A) (! compile) (∀ (A))
-      (absurd (fail (Diagnostics (SourceDiagnostic loc message) (Nil)))))
+      (absurd (fail (new Diagnostics
+                      (first (new SourceDiagnostic (loc loc) (message message)))
+                      (more (Nil))))))
 
     ;; What a compile asks its caller for when it was not supplied it: the
     ;; output of the producer printed under `key`, or a project target's
@@ -282,7 +284,7 @@
     (define (fail-if-found (found (List SourceDiagnostic))) (→ Unit) (! compile)
       (match found
         ((Nil) (unit))
-        ((Cons first more) (absurd (fail (Diagnostics first more))))))
+        ((Cons first more) (absurd (fail (new Diagnostics (first first) (more more)))))))
 
     ;; The diagnostics by file, then line, then column, the order a reader
     ;; meets them; ones at the same place keep their order.
@@ -308,7 +310,7 @@
 
     ;; ---- Line table ----
 
-    (struct Source
+    (record Source
       ((file String)
        (chars (Vector Char))
        (line-starts (Vector I64))))
@@ -317,7 +319,8 @@
       (let ((chars (string->vector text)))
         (let loop ((index 0) (starts (list 0)))
           (cond
-           ((= index (vector-length chars)) (Source file chars (list->vector (reverse starts))))
+           ((= index (vector-length chars))
+            (new Source (file file) (chars chars) (line-starts (list->vector (reverse starts)))))
            ((char=? (vector-ref chars index) #\newline)
             (loop (+ index 1) (Cons (+ index 1) starts)))
            (else (loop (+ index 1) starts))))))
@@ -331,7 +334,10 @@
       (let ((starts (● source line-starts)))
         (let search ((low 0) (high (- (vector-length starts) 1)))
           (if (= low high)
-              (Loc (● source file) (+ low 1) (+ (- index (vector-ref starts low)) 1))
+              (new Loc
+                (file (● source file))
+                (line (+ low 1))
+                (column (+ (- index (vector-ref starts low)) 1)))
               (let ((middle (quotient (+ (+ low high) 1) 2)))
                 (if (<= (vector-ref starts middle) index)
                     (search middle high)
@@ -397,12 +403,14 @@
     (define (atmosphere-at (source Source) (index I64)) (→ (Option (Pair Atmosphere I64)))
       (let ((c (peek source index)))
         (cond ((at-end? source index) (None))
-              ((char-whitespace? c) (Some (Pair (Whitespace) (whitespace-end source index))))
-              ((char=? c #\;) (Some (Pair (LineComment) (line-end source index))))
+              ((char-whitespace? c)
+               (Some (new Pair (first (Whitespace)) (second (whitespace-end source index)))))
+              ((char=? c #\;)
+               (Some (new Pair (first (LineComment)) (second (line-end source index)))))
               ((and (char=? c #\#) (char-is? source (+ index 1) #\|))
                (Some (block-comment source (+ index 2) 1)))
               ((and (char=? c #\#) (char-is? source (+ index 1) #\;))
-               (Some (Pair (DatumComment) (+ index 2))))
+               (Some (new Pair (first (DatumComment)) (second (+ index 2)))))
               (else (None)))))
 
     (define (whitespace-end (source Source) (index I64)) (→ I64)
@@ -420,8 +428,8 @@
     ;; Block comments nest.
 
     (define (block-comment (source Source) (index I64) (depth I64)) (→ (Pair Atmosphere I64))
-      (cond ((= depth 0) (Pair (BlockComment #t) index))
-            ((at-end? source index) (Pair (BlockComment #f) index))
+      (cond ((= depth 0) (new Pair (first (BlockComment #t)) (second index)))
+            ((at-end? source index) (new Pair (first (BlockComment #f)) (second index)))
             ((and (char-is? source index #\|) (char-is? source (+ index 1) #\#))
              (block-comment source (+ index 2) (- depth 1)))
             ((and (char-is? source index #\#) (char-is? source (+ index 1) #\|))
@@ -433,22 +441,22 @@
 
     (define (lexeme-at (source Source) (index I64)) (→ (Pair Lexeme I64))
       (let ((c (peek source index)) (next (+ index 1)))
-        (cond ((at-end? source index) (Pair (EndOfText) index))
-              ((char=? c #\() (Pair (ListOpen #\)) next))
-              ((char=? c #\[) (Pair (ListOpen #\]) next))
-              ((or (char=? c #\)) (char=? c #\])) (Pair (ListClose c) next))
+        (cond ((at-end? source index) (new Pair (first (EndOfText)) (second index)))
+              ((char=? c #\() (new Pair (first (ListOpen #\))) (second next)))
+              ((char=? c #\[) (new Pair (first (ListOpen #\])) (second next)))
+              ((or (char=? c #\)) (char=? c #\])) (new Pair (first (ListClose c)) (second next)))
               ((char=? c #\") (string-lexeme source next))
-              ((char=? c #\') (Pair (QuoteMark) next))
+              ((char=? c #\') (new Pair (first (QuoteMark)) (second next)))
               ((and (char=? c #\#) (char-is? source next #\\))
-               (Pair (CharacterLexeme) (character-end source (+ index 2))))
-              ((bytes-opening? source index) (Pair (BytesOpen) (+ index 4)))
-              (else (Pair (TokenLexeme) (token-end source index))))))
+               (new Pair (first (CharacterLexeme)) (second (character-end source (+ index 2)))))
+              ((bytes-opening? source index) (new Pair (first (BytesOpen)) (second (+ index 4))))
+              (else (new Pair (first (TokenLexeme)) (second (token-end source index)))))))
 
     ;; A string runs to the first quote that a backslash does not escape.
 
     (define (string-lexeme (source Source) (index I64)) (→ (Pair Lexeme I64))
-      (cond ((at-end? source index) (Pair (StringLexeme #f) index))
-            ((char-is? source index #\") (Pair (StringLexeme #t) (+ index 1)))
+      (cond ((at-end? source index) (new Pair (first (StringLexeme #f)) (second index)))
+            ((char-is? source index #\") (new Pair (first (StringLexeme #t)) (second (+ index 1))))
             ((char-is? source index #\\)
              (string-lexeme source (min (+ index 2) (vector-length (● source chars)))))
             (else (string-lexeme source (+ index 1)))))
@@ -501,13 +509,18 @@
           ((ListClose _) (compile-error loc "unexpected closing parenthesis"))
           ((StringLexeme closed)
            (if closed
-               (Pair (Atom (DString (string-value source (+ start 1) (- end 1) loc)) loc) end)
+               (new Pair
+                 (first (Atom (DString (string-value source (+ start 1) (- end 1) loc)) loc))
+                 (second end))
                (compile-error loc "unterminated string")))
           ((QuoteMark) (read-quote source end loc))
           ((CharacterLexeme)
-           (Pair (Atom (DChar (character-value source (+ start 2) end loc)) loc) end))
+           (new Pair
+             (first (Atom (DChar (character-value source (+ start 2) end loc)) loc))
+             (second end)))
           ((BytesOpen) (read-bytes source end loc (Nil)))
-          ((TokenLexeme) (Pair (token-syntax (source-text source start end) loc) end)))))
+          ((TokenLexeme)
+           (new Pair (first (token-syntax (source-text source start end) loc)) (second end))))))
 
     ;; The bytes of `#u8(...)`, each an integer from 0 to 255. Images make
     ;; literals of millions of bytes, so they gather a chunk at a time into
@@ -520,7 +533,9 @@
              (bytes (● chunk first))
              (next (● chunk second)))
         (if (< (vector-length bytes) (byte-chunk))
-            (Pair (Atom (DBytes (vector-concatenate (reverse (Cons bytes chunks)))) loc) next)
+            (new Pair
+              (first (Atom (DBytes (vector-concatenate (reverse (Cons bytes chunks)))) loc))
+              (second next))
             (read-bytes source next loc (Cons bytes chunks)))))
 
     (define (byte-chunk) (→ I64) 4096)
@@ -531,11 +546,13 @@
     (define (read-byte-chunk (source Source) (index I64) (loc Loc)) (→ (Pair Bytes I64)) (! compile)
       (let loop ((index index) (bytes (Nil)) (count 0))
         (let ((start (skip-atmosphere source index)))
-          (cond ((= count (byte-chunk)) (Pair (list->vector (reverse bytes)) start))
-                ((at-end? source start) (compile-error loc "unclosed byte vector"))
-                ((char-is? source start #\)) (Pair (list->vector (reverse bytes)) (+ start 1)))
-                (else (let ((end (token-end source start)))
-                        (loop end (Cons (byte-token source start end) bytes) (+ count 1))))))))
+          (cond
+           ((= count (byte-chunk)) (new Pair (first (list->vector (reverse bytes))) (second start)))
+           ((at-end? source start) (compile-error loc "unclosed byte vector"))
+           ((char-is? source start #\))
+            (new Pair (first (list->vector (reverse bytes))) (second (+ start 1))))
+           (else (let ((end (token-end source start)))
+                   (loop end (Cons (byte-token source start end) bytes) (+ count 1))))))))
 
     (define (byte-token (source Source) (start I64) (end I64)) (→ U8) (! compile)
       (let loop ((index start) (value 0))
@@ -550,8 +567,8 @@
 
     (define (read-quote (source Source) (index I64) (loc Loc)) (→ (Pair Syntax I64)) (! compile)
       (let ((quoted (read-datum source index)))
-        (Pair (Form (list (Ident "quote" (None) loc) (● quoted first)) loc)
-              (● quoted second))))
+        (new Pair (first (Form (list (Ident "quote" (None) loc) (● quoted first)) loc))
+             (second (● quoted second)))))
 
     (define (read-list (source Source) (index I64) (close Char) (loc Loc) (items (List Syntax)))
       (→ (Pair Syntax I64))
@@ -561,7 +578,7 @@
           ((EndOfText) (compile-error loc "unclosed list"))
           ((ListClose c)
            (if (char=? c close)
-               (Pair (Form (reverse items) loc) (● lexeme second))
+               (new Pair (first (Form (reverse items) loc)) (second (● lexeme second)))
                (compile-error (source-loc source start) "mismatched closing parenthesis")))
           (_ (let ((item (read-lexeme source start lexeme)))
                (read-list source (● item second) close loc (Cons (● item first) items)))))))
@@ -584,12 +601,13 @@
       (→ (Pair Char I64))
       (! compile)
       (let ((c (peek source index)))
-        (cond ((char=? c #\n) (Pair #\newline (+ index 1)))
-              ((char=? c #\t) (Pair #\tab (+ index 1)))
-              ((char=? c #\r) (Pair (integer->char 13) (+ index 1)))
-              ((char=? c #\0) (Pair (integer->char 0) (+ index 1)))
+        (cond ((char=? c #\n) (new Pair (first #\newline) (second (+ index 1))))
+              ((char=? c #\t) (new Pair (first #\tab) (second (+ index 1))))
+              ((char=? c #\r) (new Pair (first (integer->char 13)) (second (+ index 1))))
+              ((char=? c #\0) (new Pair (first (integer->char 0)) (second (+ index 1))))
               ((char=? c #\x) (hex-escape source (+ index 1) close loc))
-              ((or (char=? c #\\) (char=? c #\") (char=? c #\|)) (Pair c (+ index 1)))
+              ((or (char=? c #\\) (char=? c #\") (char=? c #\|))
+               (new Pair (first c) (second (+ index 1))))
               (else (compile-error loc "unknown string escape")))))
 
     ;; `\x41;`: hexadecimal digits and a semicolon, inside the string.
@@ -600,7 +618,7 @@
       (let ((end (scan-until source index close #\;)))
         (if (= end close)
             (compile-error loc "invalid hexadecimal escape")
-            (Pair (hex-char source index end loc) (+ end 1)))))
+            (new Pair (first (hex-char source index end loc)) (second (+ end 1))))))
 
     (define (scan-until (source Source) (index I64) (end I64) (stop Char)) (→ I64)
       (if (or (= index end) (char-is? source index stop))
@@ -623,16 +641,16 @@
               (else (None)))))
 
     (define (character-names) (→ (List (Pair String Char)))
-      (list (Pair "space" #\space)
-            (Pair "newline" #\newline)
-            (Pair "tab" #\tab)
-            (Pair "nul" (integer->char 0))
-            (Pair "null" (integer->char 0))
-            (Pair "return" (integer->char 13))
-            (Pair "alarm" (integer->char 7))
-            (Pair "backspace" (integer->char 8))
-            (Pair "delete" (integer->char 127))
-            (Pair "escape" (integer->char 27))))
+      (list (new Pair (first "space") (second #\space))
+            (new Pair (first "newline") (second #\newline))
+            (new Pair (first "tab") (second #\tab))
+            (new Pair (first "nul") (second (integer->char 0)))
+            (new Pair (first "null") (second (integer->char 0)))
+            (new Pair (first "return") (second (integer->char 13)))
+            (new Pair (first "alarm") (second (integer->char 7)))
+            (new Pair (first "backspace") (second (integer->char 8)))
+            (new Pair (first "delete") (second (integer->char 127)))
+            (new Pair (first "escape") (second (integer->char 27)))))
 
     ;; The character `#\` names from `start` to `end`: one character, `x` and
     ;; hexadecimal digits, or a name.
@@ -705,8 +723,10 @@
     (define (split-exponent (text String)) (→ (Pair String (Option String)))
       (match (list-index (lambda (c) (or (char=? c #\e) (char=? c #\E))) (string->list text))
         ((Some index)
-         (Pair (substring text 0 index) (Some (substring text (+ index 1) (string-length text)))))
-        ((None) (Pair text (None)))))
+         (new Pair
+           (first (substring text 0 index))
+           (second (Some (substring text (+ index 1) (string-length text))))))
+        ((None) (new Pair (first text) (second (None))))))
 
     ;; Digits with at most one point, and at least one digit.
 
@@ -756,12 +776,14 @@
           ((0) (decode-list bytes next loc))
           ((1 2 3)
            (let ((text (decode-text bytes next loc)))
-             (Pair (text-syntax tag (● text first) loc) (● text second))))
+             (new Pair (first (text-syntax tag (● text first) loc)) (second (● text second)))))
           ((4)
            (let ((code (decode-count bytes next loc)))
-             (Pair (Atom (DChar (scalar (● code first) loc)) loc) (● code second))))
-          ((5) (Pair (Atom (DBool #f) loc) next))
-          ((6) (Pair (Atom (DBool #t) loc) next))
+             (new Pair
+               (first (Atom (DChar (scalar (● code first) loc)) loc))
+               (second (● code second)))))
+          ((5) (new Pair (first (Atom (DBool #f) loc)) (second next)))
+          ((6) (new Pair (first (Atom (DBool #t) loc)) (second next)))
           ((7) (decode-bytes bytes next loc))
           (else (malformed loc "an unknown tag")))))
 
@@ -769,7 +791,7 @@
       (let ((count (decode-count bytes index loc)))
         (let loop ((left (● count first)) (index (● count second)) (items (Nil)))
           (if (= left 0)
-              (Pair (Form (reverse items) loc) index)
+              (new Pair (first (Form (reverse items) loc)) (second index))
               (let ((item (decode-form bytes index loc)))
                 (loop (- left 1) (● item second) (Cons (● item first) items)))))))
 
@@ -779,7 +801,7 @@
       (let ((count (decode-count bytes index loc)))
         (let loop ((left (● count first)) (index (● count second)) (chars (Nil)))
           (if (= left 0)
-              (Pair (list->string (reverse chars)) index)
+              (new Pair (first (list->string (reverse chars))) (second index))
               (let ((code (decode-count bytes index loc)))
                 (loop (- left 1)
                       (● code second)
@@ -798,7 +820,7 @@
              (start (● count second))
              (end (+ start (● count first))))
         (if (<= end (vector-length bytes))
-            (Pair (Atom (DBytes (subvector bytes start end)) loc) end)
+            (new Pair (first (Atom (DBytes (subvector bytes start end)) loc)) (second end))
             (malformed loc "it ends early"))))
 
     ;; Seven bits to a byte, low bits first. Five bytes bound a count well
@@ -807,7 +829,7 @@
     (define (decode-count (bytes Bytes) (index I64) (loc Loc)) (→ (Pair I64 I64)) (! compile)
       (let loop ((index index) (value 0) (scale 1))
         (let ((byte (byte-at bytes index loc)))
-          (cond ((< byte 128) (Pair (+ value (* byte scale)) (+ index 1)))
+          (cond ((< byte 128) (new Pair (first (+ value (* byte scale))) (second (+ index 1))))
                 ((= scale 268435456) (malformed loc "a count is too large"))
                 (else (loop (+ index 1) (+ value (* (- byte 128) scale)) (* scale 128)))))))
 
@@ -893,9 +915,12 @@
       ;; counts Unicode scalars; one that completes stops with nothing.
       (define test-source-diagnostic
         (lambda () (expect (compiling (lambda () (read-text "😀 )" "λ😀.sld")))
-                           (Err (Failed (Diagnostics (SourceDiagnostic (Loc "λ😀.sld" 1 3)
-                                                                       "unexpected closing parenthesis")
-                                                     (Nil)))))
+                           (Err (Failed (new Diagnostics
+                                          (first (new SourceDiagnostic
+                                                   (loc
+                                                    (new Loc (file "λ😀.sld") (line 1) (column 3)))
+                                                   (message "unexpected closing parenthesis")))
+                                          (more (Nil))))))
                 (expect (compile-failure (lambda () (read-text "()" "recovered.sld"))) #f)
                 (test-recovering)))
 
@@ -903,16 +928,18 @@
       ;; it goes on; a need passes through it to the compile's handler.
       (define test-recovering
         (lambda () (expect (compiling (lambda () (recovering (lambda () (read-text ")" "t.sld")))))
-                           (Ok (Err (Diagnostics (SourceDiagnostic (Loc "t.sld" 1 1)
-                                                                   "unexpected closing parenthesis")
-                                                 (Nil)))))
+                           (Ok (Err (new Diagnostics
+                                      (first (new SourceDiagnostic
+                                               (loc (new Loc (file "t.sld") (line 1) (column 1)))
+                                               (message "unexpected closing parenthesis")))
+                                      (more (Nil))))))
                 (expect (compiling
                          (lambda () (recovering (lambda () (absurd (need (GenerateInput "k")))))))
                         (Err (Requested (GenerateInput "k"))))))
 
       ;; (f "λ" -7 1.5 #\a #t #u8(0 200)), with a two-byte count for λ.
       (define test-decode-syntax
-        (lambda () (let ((loc (Loc "recipe.sld" 3 4))
+        (lambda () (let ((loc (new Loc (file "recipe.sld") (line 3) (column 4)))
                          (bytes
                           (list->vector
                            (list 0 7 1 1 102 3 1 187 7 2 2 45 55 2 3 49 46 53 4 97 6 7 2 0 200))))

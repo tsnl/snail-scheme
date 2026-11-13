@@ -1,10 +1,10 @@
 (import
  (snail core base))
 
-(struct Job
+(record Job
   ((work (FnOnce → Unit))))
 
 (define main
   (lambda ()
-    (let ((job (Job (once (lambda () (unit)))))) (call-once (● job work)))
+    (let ((job (new Job (work (once (lambda () (unit))))))) (call-once (● job work)))
     (unit)))

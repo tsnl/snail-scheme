@@ -2,7 +2,7 @@
  (snail core base)
  (snail core io))
 
-(struct Resource
+(record Resource
   ((value I64)))
 
 (instance (Drop (! output-port) Resource)
@@ -10,11 +10,11 @@
     (match resource ((Resource value) (display value) (newline)))))
 
 (define (main) (→ Unit) (! mut output-port)
-  (let* ((items (vector-generate 5 (lambda (index) (rc (Resource (+ index 1))))))
+  (let* ((items (vector-generate 5 (lambda (index) (rc (new Resource (value (+ index 1)))))))
          (alias items))
     (write (vector-length alias)) (newline)
     (let ((weak (rc-downgrade (vector-ref items 4))))
-      (vector-set! alias 4 (rc (Resource 6)))
+      (vector-set! alias 4 (rc (new Resource (value 6))))
       (match (weak-rc-upgrade weak)
         ((None) (write-line "replaced resource finalized"))
         ((Some item) (panic "replaced slot retained an owner"))))

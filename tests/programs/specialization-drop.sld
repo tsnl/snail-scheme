@@ -5,7 +5,7 @@
 (effect Pause
   ((ctl pause (Fn → Unit))))
 
-(struct Resource
+(record Resource
   ((name String)))
 
 (define (released-name (name String)) (→ String)
@@ -21,7 +21,7 @@
 ;; suspended ownership scope discovers it. Its restriction check must see
 ;; released-name's concrete body, discovered in that same cleanup batch.
 (define (work (name String)) (→ Unit) (! Pause output-port)
-  (let ((resource (Resource name)))
+  (let ((resource (new Resource (name name))))
     (pause)
     (match resource
       ((Resource name) (write-line (string-append "used " name))))))

@@ -3,11 +3,11 @@
 
 ;; A field operation on a linear record works in place, and a temporary has
 ;; no place to stay in: its work item would be left with no owner.
-(struct Task
+(record Task
   ((work (FnOnce → Unit))
    (tries I64)))
 
 (define main
   (lambda ()
-    (● (Task (once (lambda () (unit))) 0) tries)
+    (● (new Task (work (once (lambda () (unit)))) (tries 0)) tries)
     (unit)))

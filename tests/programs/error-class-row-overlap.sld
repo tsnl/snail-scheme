@@ -7,7 +7,7 @@
 (typeclass (Store e S)
   (declare (fetch-object (left S) (right String)) (→ String) (! e)))
 
-(struct Loud
+(record Loud
   ((name String)))
 
 (instance (Store (! output-port) Loud)

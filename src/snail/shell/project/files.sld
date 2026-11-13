@@ -36,7 +36,7 @@
     ;; A file's text and its revision: the lowercase hex SHA-256 digest of
     ;; its bytes. Two versions with the same bytes are one revision, since
     ;; saving over either loses nothing.
-    (struct ProjectText
+    (record ProjectText
       ((text String)
        (revision String)))
 
@@ -69,7 +69,7 @@
     ;; nor under the build output at the project's root. A backslash or
     ;; NUL is refused, so the path
     ;; means the same on every host. Constructing one is the check.
-    (struct ProjectPath
+    (record ProjectPath
       ((path String)
        (parts (List String))))
 
@@ -84,7 +84,7 @@
                  (not (under-build? parts))
                  (not (contains? path #\null))
                  (not (contains? path #\\)))
-            (Some (ProjectPath path parts))
+            (Some (new ProjectPath (path path) (parts parts)))
             (None))))
 
     (define (ordinary-part? (part String)) (→ Bool)
@@ -258,7 +258,7 @@
         ((Ok text)
          (if (contains? text #\null)
              (Err (NotServed "text files cannot contain NUL bytes"))
-             (Ok (ProjectText text (revision text)))))
+             (Ok (new ProjectText (text text) (revision (revision text))))))
         ((Err error) (Err (text-refusal error)))))
 
     (define (text-refusal (error TextError)) (→ FileRefusal)
@@ -280,7 +280,7 @@
     (define (save-project-text (root String) (path String) (expected String) (text String))
       (→ (Result ProjectText FileRefusal))
       (! fs modes)
-      (match (Pair (served-path path) (text-problem text))
+      (match (new Pair (first (served-path path)) (second (text-problem text)))
         ((Pair _ (Some message)) (Err (NotServed message)))
         ((Pair (Some file) (None)) (save-checked root file expected text))
         ((Pair (None) (None)) (Err (NotServed "invalid project text path")))))
@@ -340,7 +340,7 @@
         ((Some mode)
          (if (set-file-mode staged mode)
              (match (rename-file staged path)
-               ((Ok _) (Ok (ProjectText text (revision text))))
+               ((Ok _) (Ok (new ProjectText (text text) (revision (revision text)))))
                ((Err error) (Err (DiskFailed error))))
              (Err (DiskFailed (OtherError)))))
         ((None) (Err (DiskFailed (OtherError))))))

@@ -20,12 +20,16 @@
                                                                   (● state first)
                                                                   input)
                                                             ((Pair gestures meanings)
-                                                             (Pair gestures
-                                                                   (append
-                                                                    (● state second)
-                                                                    (map gesture-text
-                                                                         meanings))))))
-                                                        (Pair (no-gestures) (Nil)) inputs) second)
+                                                             (new Pair (first gestures)
+                                                                  (second (append
+                                                                           (● state second)
+                                                                           (map gesture-text
+                                                                                meanings)))))))
+                                                        (new Pair
+                                                          (first (no-gestures))
+                                                          (second (Nil)))
+                                                        inputs)
+                                             second)
                                           "; "))))
 
 (define (main) (→ Unit) (! output-port)

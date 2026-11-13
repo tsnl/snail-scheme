@@ -22,7 +22,7 @@
     ;; The project prefix comes from Git, so symlinked project roots work too.
     ;; Callers ask about project-relative paths. A snapshot describes disk
     ;; at the time of the query; it does not predict ignores for new files.
-    (struct IgnoreSnapshot
+    (record IgnoreSnapshot
       ((prefix String)
        (paths (Table Unit))))
 
@@ -118,7 +118,7 @@
     (define (parse-paths (prefix String) (text String)) (→ (Result (Option IgnoreSnapshot) String))
       (let loop ((start 0) (at 0) (paths (empty-table)))
         (cond ((= at (string-length text))
-               (if (= start at) (Ok (Some (IgnoreSnapshot prefix paths)))
+               (if (= start at) (Ok (Some (new IgnoreSnapshot (prefix prefix) (paths paths))))
                    (Err "gitignore: truncated path record")))
               ((char=? (string-ref text at) #\null)
                (loop (+ at 1) (+ at 1)
@@ -144,7 +144,7 @@
     (define (git-output (directory String) (arguments (List String)))
       (→ (Result (Option Captured) String))
       (! mut host tasks process)
-      (match (spawn (Command "git" arguments directory))
+      (match (spawn (new Command (program "git") (arguments arguments) (directory directory)))
         ((Err error)
          (if (string=? (● error code) "ENOENT") (Ok (None))
              (Err (string-append "gitignore: " (● error code)))))
@@ -162,12 +162,12 @@
                (error (mailbox-receive errors))
                (exit (wait-exit child)))
           (close-process child)
-          (match (Pair output error)
+          (match (new Pair (first output) (second error))
             ((Pair (Err message) _) (Err message))
             ((Pair _ (Err message)) (Err message))
             ((Pair (Ok stdout) (Ok stderr))
              (match exit
-               ((Ok ended) (Ok (Some (Captured ended stdout stderr))))
+               ((Ok ended) (Ok (Some (new Captured (exit ended) (stdout stdout) (stderr stderr)))))
                ((Err error) (Err (string-append "gitignore: " (● error code))))))))))
 
     ;; Close on any read failure so the other reader wakes too. Bounds are

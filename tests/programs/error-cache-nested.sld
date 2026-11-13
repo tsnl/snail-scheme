@@ -1,7 +1,7 @@
 (import
  (snail core base))
 
-(struct Box
+(record Box
   ((value (Option (Rc I64)))))
 (define (main) (→ Unit) (! mut)
-  (let ((memo (cache (lambda () (Box (None)))))) (memo) (unit)))
+  (let ((memo (cache (lambda () (new Box (value (None))))))) (memo) (unit)))

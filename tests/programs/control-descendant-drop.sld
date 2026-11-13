@@ -5,7 +5,7 @@
  (only (snail core primitive) inherit-handlers-1))
 
 (effect Reading ((read-number (Fn → I64))))
-(struct Resource
+(record Resource
   ((value I64)))
 (instance (Drop (! Reading output-port) Resource)
   (define (drop (resource Resource)) (→ Unit) (! Reading output-port)
@@ -22,7 +22,7 @@
 (define (start) (→ Step) (! output-port)
   (handle Pause ((pause (lambda (discard resume) (More discard resume))))
     (handle Reading ((read-number (lambda () 7)))
-      (let ((resource (Resource 10)))
+      (let ((resource (new Resource (value 10))))
         (pause (inherit-handlers-1 (once (lambda (next) (drop next)))))
         (drop resource)
         (Done)))))

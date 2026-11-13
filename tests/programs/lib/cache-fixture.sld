@@ -13,16 +13,16 @@
   (import
    (snail core base))
   (begin
-    (struct Cell
+    (record Cell
       ((value I64)))
-    (struct (Slot T)
+    (record (Slot T)
       ((value (Option T))))
     (define (external-none) (→ (Option I64)) (None))
     (define (external-nil) (→ (List I64)) (Nil))
-    (define (one) (→ Cell) (Cell 1))
-    (define (bounded (key I64)) (→ Cell) (Cell key))
-    (define (pair-cell (key I64) (text String)) (→ Cell) (Cell key))
-    (define (snapshot (key Cell)) (→ Cell) (Cell (● key value)))
-    (define (float-cell (key F64)) (→ Cell) (Cell (f64->bits key)))
-    (define (slot) (→ (Slot T)) (∀ (T)) (Slot (None)))
+    (define (one) (→ Cell) (new Cell (value 1)))
+    (define (bounded (key I64)) (→ Cell) (new Cell (value key)))
+    (define (pair-cell (key I64) (text String)) (→ Cell) (new Cell (value key)))
+    (define (snapshot (key Cell)) (→ Cell) (new Cell (value (● key value))))
+    (define (float-cell (key F64)) (→ Cell) (new Cell (value (f64->bits key))))
+    (define (slot) (→ (Slot T)) (∀ (T)) (new Slot (value (None))))
     (define (memo-slot) (→ (Fn → (Slot I64))) (cache slot))))

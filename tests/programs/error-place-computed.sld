@@ -1,12 +1,12 @@
 (import
  (snail core base))
 
-(struct Circle
+(record Circle
   ((radius I64)))
 
 (define main
   (lambda ()
     ;; No stored x slot exists to write.
-    (let ((cell (Circle 1)))
+    (let ((cell (new Circle (radius 1))))
       (set! (● cell x) 4))
     (unit)))

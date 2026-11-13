@@ -40,17 +40,17 @@
     ;; What a producer wrote, beside the text its key hashes. A lookup
     ;; compares that text, so producers whose keys collide are never
     ;; confused.
-    (struct Generated
+    (record Generated
       ((text String)
        (bytes Bytes)))
 
     ;; Everything one build supplies to the compiles it runs: each completed
     ;; target's files by target name, and each producer's output by its key.
-    (struct Inputs
+    (record Inputs
       ((artifacts (Table ArtifactFiles))
        (generated (Table Generated))))
 
-    (define (no-inputs) (→ Inputs) (Inputs (empty-table) (empty-table)))
+    (define (no-inputs) (→ Inputs) (new Inputs (artifacts (empty-table)) (generated (empty-table))))
 
     (define (supply-artifact (inputs Inputs) (name String) (files ArtifactFiles)) (→ Inputs)
       (Inputs-artifacts-set inputs (table-set (● inputs artifacts) name files)))
@@ -59,7 +59,7 @@
       (Inputs-generated-set inputs
                             (table-set (● inputs generated)
                                        (producer-key text)
-                                       (Generated text bytes))))
+                                       (new Generated (text text) (bytes bytes)))))
 
     ;; A producer as a build tells it apart: the library directories its
     ;; imports resolve in, then its program. One table serves every target
@@ -124,8 +124,8 @@
                (Nil))
          (unless (and (> line 0) (> column 0))
            (compile-error loc "artifact source positions start at one"))
-         (ArtifactInput name (Loc file line column)))
-        (_ (compile-error (Loc filename 1 1)
+         (ArtifactInput name (new Loc (file file) (line line) (column column))))
+        (_ (compile-error (new Loc (file filename) (line 1) (column 1))
                           "expected exactly one generate or artifact compiler request"))))
 
     (define (generated-key? (key String)) (→ Bool)
@@ -194,7 +194,7 @@
     (define (read-source-file (path String)) (→ (List Syntax)) (! fs compile)
       (if (file-exists? path)
           (read-text (read-file path) path)
-          (compile-error (Loc path 0 0) "no such file or directory")))
+          (compile-error (new Loc (file path) (line 0) (column 0)) "no such file or directory")))
 
     ;; The libraries a program's first form says were loading when it was
     ;; printed, and the forms after it. A program that does not begin with
@@ -205,8 +205,8 @@
       (! compile)
       (match forms
         ((Cons (Form (Cons (Ident "generating" _ _) keys) _) rest)
-         (Pair (map loading-key keys) rest))
-        (_ (Pair (Nil) forms))))
+         (new Pair (first (map loading-key keys)) (second rest)))
+        (_ (new Pair (first (Nil)) (second forms)))))
 
     (define (loading-key (key Syntax)) (→ String) (! compile)
       (match key
@@ -230,26 +230,28 @@
           (or (compile-failure (lambda () (parse-request text "input.datum"))) "accepted")))
 
       (define test-inputs
-        (lambda () (let ((request (ArtifactInput "client\"\n" (Loc "source\\name.sld" 12 7))))
-                     (expect (parse-request (request->string request) "request.datum") request)
-                     (expect (parse-request "(generate \"123456\")" "request.datum")
-                             (GenerateInput "123456")))
-                (for-each (lambda (text)
-                            (expect
-                             (if (string-contains (input-error text) "input.datum:")
-                                 "rejected"
-                                 "accepted")
-                             "rejected"))
-                          '(""
-                            "(generate \"\")"
-                            "(generate \"../x\")"
-                            "(generate \"-1\")"
-                            "(generate 123)"
-                            "(generate \"123\") ()" "(generate \"123\" extra)" "(artifact \"x\")"
-                            "(artifact \"x\" \"file\" 0 1)" "(artifact \"x\" \"file\" 1 -1)"))
-                (test-generating-stack)
-                (test-generated-inputs)
-                (test-missing-source)))
+        (lambda ()
+          (let ((request (ArtifactInput "client\"\n"
+                                        (new Loc (file "source\\name.sld") (line 12) (column 7)))))
+            (expect (parse-request (request->string request) "request.datum") request)
+            (expect (parse-request "(generate \"123456\")" "request.datum")
+                    (GenerateInput "123456")))
+          (for-each (lambda (text)
+                      (expect
+                       (if (string-contains (input-error text) "input.datum:")
+                           "rejected"
+                           "accepted")
+                       "rejected"))
+                    '(""
+                      "(generate \"\")"
+                      "(generate \"../x\")"
+                      "(generate \"-1\")"
+                      "(generate 123)"
+                      "(generate \"123\") ()" "(generate \"123\" extra)" "(artifact \"x\")"
+                      "(artifact \"x\" \"file\" 0 1)" "(artifact \"x\" \"file\" 1 -1)"))
+          (test-generating-stack)
+          (test-generated-inputs)
+          (test-missing-source)))
 
       ;; The printed stack reads back as the same keys, ahead of the
       ;; producer's own forms; a program without one has nothing loading.
@@ -294,10 +296,12 @@
                      (expect (generated-output inputs text) (Some output))
                      (expect (generated-output inputs (producer-text (list "/root/src") forms))
                              (None))
-                     (expect (generated-output (Inputs (empty-table)
-                                                       (table-set (empty-table)
-                                                                  (producer-key text)
-                                                                  (Generated "other" output)))
+                     (expect (generated-output (new Inputs (artifacts (empty-table))
+                                                    (generated (table-set (empty-table)
+                                                                          (producer-key text)
+                                                                          (new Generated
+                                                                            (text "other")
+                                                                            (bytes output)))))
                                                text)
                              (None)))))))
    (else)))

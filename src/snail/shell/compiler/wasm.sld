@@ -3,7 +3,7 @@
 ;; This backend decides representations:
 ;; scalars are Wasm numbers, enums whose cases have no fields are i32 tags,
 ;; other data are GC structs (enum cases are subtypes of a tagged base), a
-;; field holding a struct keeps a reference to that object,
+;; field holding a record keeps a reference to that object,
 ;; sequences are GC arrays, and functions are closures holding a typed
 ;; function reference. Calls in tail position become `return_call`. A whole
 ;; program becomes one module; one library becomes a module that imports
@@ -153,7 +153,7 @@
     ;; string literals; `helpers` caches imports and helper functions by key.
     ;; `declarations` is fixed metadata: it holds no source bodies, recipes
     ;; or pending work. Only the Wasm output builders change during emission.
-    (struct Module
+    (record Module
       ((declarations Declarations)
        (type-ids (Table String))
        (remaining-data-types I64)
@@ -182,7 +182,7 @@
     ;; made every collection copy them.
 
     (define (push-function! (m Module) (name String) (function Wat)) (→ Unit) (! mut)
-      (push! (● m functions) (Pair name (field->string function))))
+      (push! (● m functions) (new Pair (first name) (second (field->string function)))))
 
     (define (memoize! (m Module) (key String) (make (Fn → Wat ! mut))) (→ Wat) (! mut)
       (match (table-ref (● m memo) key)
@@ -213,7 +213,7 @@
 
     ;; A location for code the backend writes itself.
 
-    (define (no-loc) (→ Loc) (Loc "" 0 0))
+    (define (no-loc) (→ Loc) (new Loc (file "") (line 0) (column 0)))
 
     ;; ---- Names ----
 
@@ -260,7 +260,7 @@
         ((Node items) (fold-left wat-hash (fnv-step hash 40) items))))
 
     (define (wat=? (a Wat) (b Wat)) (→ Bool)
-      (match (Pair a b)
+      (match (new Pair (first a) (second b))
         ((Pair (Word x) (Word y)) (string=? x y))
         ((Pair (Node xs) (Node ys))
          (and (= (length xs) (length ys))
@@ -456,7 +456,8 @@
 
     (define (function-signature (m Module) (type Type)) (→ (Pair (List Rep) Rep)) (! mut)
       (match (fn-arrow type)
-        ((TFun params result _) (Pair (map (lambda (param) (rep m param)) params) (rep m result)))
+        ((TFun params result _)
+         (new Pair (first (map (lambda (param) (rep m param)) params)) (second (rep m result))))
         (_ (panic "internal error: not a function type"))))
 
     (define (data-type-of (m Module) (name String)) (→ DataType)
@@ -480,7 +481,7 @@
       (map (lambda (type) (wat "field" (wat "mut" (rep->wat (rep m type)))))
            (case-field-types m type case)))
 
-    ;; A linear struct leaves only by being taken apart, dropped or
+    ;; A linear record leaves only by being taken apart, dropped or
     ;; replaced, so its reference has one owner, and a replacement, which
     ;; consumes the record, may write the field where it is: no other
     ;; reference could see it change. That holds of a ground type that is
@@ -499,7 +500,7 @@
         ((TCon name _) name)
         (_ (panic "internal error: not a named type"))))
 
-    ;; A struct is one GC struct. An enum is a base struct holding the tag,
+    ;; A record is one GC struct. An enum is a base struct holding the tag,
     ;; with a final subtype for each case that has fields; a field-less case
     ;; is the base struct itself. The base is registered first because a
     ;; supertype must precede its subtypes.
@@ -530,7 +531,7 @@
                                                                   (wat "field" (Word "i32"))))))))))
                    (for-each (lambda (case) (case-type m type case) (unit))
                              (filter (lambda (case) (not (null? (● case fields)))) (● data cases))))
-                 (let* ((case (struct-case m type))
+                 (let* ((case (record-case m type))
                         (body (wat* "struct" (append header (case-fields m type case)))))
                    (push! (● m types) (wat "type" (id type-id)
                                            (if (null? header)
@@ -558,11 +559,11 @@
                                                                                        type
                                                                                        case))))))))))))
 
-    ;; A struct has one case, whose declared fields are its complete layout.
-    (define (struct-case (m Module) (type Type)) (→ Case)
+    ;; A record has one case, whose declared fields are its complete layout.
+    (define (record-case (m Module) (type Type)) (→ Case)
       (match (● (data-type-of m (type-name type)) cases)
         ((Cons case _) case)
-        ((Nil) (panic "internal error: a struct has one case"))))
+        ((Nil) (panic "internal error: a record has one case"))))
 
     ;; ---- Functions ----
 
@@ -571,20 +572,20 @@
     ;; aliases of the incoming closure, its code and its ownership layout.
     ;; Fresh function and control-frame contexts inherit none of those facts.
     ;; `exit` is where a yield leaves the code being emitted (see Control).
-    (struct FnState
+    (record FnState
       ((locals (List Wat))
        (access (Table Wat))
        (reps (Table Rep))
        (names I64)))
 
-    (struct Fn
+    (record Fn
       ((module Module)
        (state FnState)
        (self (Option Self))
        (evidence Wat)
        (exit (Option Exit))))
 
-    (struct Self
+    (record Self
       ((names (List String))
        (code String)
        (counted? Bool)))
@@ -592,8 +593,10 @@
     ;; Context replacements share this function's output builder while
     ;; changing only immutable control and evidence metadata.
     (define (new-fn (m Module)) (→ Fn)
-      (Fn m (FnState (Nil) (empty-table) (empty-table) 0)
-          (None) (wat "local.get" (Word "$ev")) (None)))
+      (new Fn
+        (module m)
+        (state (new FnState (locals (Nil)) (access (empty-table)) (reps (empty-table)) (names 0)))
+        (self (None)) (evidence (wat "local.get" (Word "$ev"))) (exit (None))))
 
     ;; Temporaries and labels are numbered within their function, so a name
     ;; depends on nothing outside the body it appears in.
@@ -700,6 +703,7 @@
           ((Downcast inner target) (list (emit-downcast fn inner target (● expr type))))
 
           ((FieldRead _ _ _) (panic "internal error: field selection survived checking"))
+          ((New _ _) (panic "internal error: named construction survived checking"))
           ((Ann inner _) (emit fn inner tail?)))))
 
     ;; One instruction, wrapping a sequence in a block when needed.
@@ -812,9 +816,9 @@
       (match (● marked term)
         ((App callee (Cons value (Cons cleanup (Nil))))
          (match (● callee term)
-           ((Var "prim:with-cleanup" _ _) (Pair value (Some cleanup)))
-           (_ (Pair marked (None)))))
-        (_ (Pair marked (None)))))
+           ((Var "prim:with-cleanup" _ _) (new Pair (first value) (second (Some cleanup))))
+           (_ (new Pair (first marked) (second (None))))))
+        (_ (new Pair (first marked) (second (None))))))
 
     ;; ---- Variables ----
 
@@ -852,7 +856,7 @@
         ((Some binding)
          (if (● binding external?)
              (let ((signature (function-signature m (● binding type))))
-               (import! m (Import (name-owner name) name)
+               (import! m (new Import (module (name-owner name)) (symbol name))
                         (Cons (evidence-rep m) (● signature first))
                         (Some (● signature second))))
              (wasm-id name)))
@@ -868,14 +872,24 @@
                      (let* ((names
                              (map (lambda (index) (string-append "argument." (i64->string index)))
                                   (iota (length params))))
-                            (call (Expr (App (Expr (Var name (Nil) (Nil)) type (no-loc))
-                                             (map (lambda (pair)
-                                                    (Expr (Var (● pair first) (Nil) (Nil))
-                                                          (● pair second)
-                                                          (no-loc)))
-                                                  (zip names params)))
-                                        result (no-loc))))
-                       (closure-value m (Expr (Lambda names call ) type (no-loc)) (None))))
+                            (call (new Expr
+                                    (term (App (new Expr
+                                                 (term (Var name (Nil) (Nil)))
+                                                 (type type)
+                                                 (loc (no-loc)))
+                                               (map (lambda (pair)
+                                                      (new Expr
+                                                        (term (Var (● pair first) (Nil) (Nil)))
+                                                        (type (● pair second))
+                                                        (loc (no-loc))))
+                                                    (zip names params))))
+                                    (type result) (loc (no-loc)))))
+                       (closure-value m
+                                      (new Expr
+                                        (term (Lambda names call ))
+                                        (type type)
+                                        (loc (no-loc)))
+                                      (None))))
                     (_ (panic "internal error: a function value needs a function type"))))))
 
     ;; ---- Closures ----
@@ -1056,10 +1070,10 @@
   (if (i32.eqz (ref.is_null (local.get $dropper)))
     (then (drop (call {release} (local.get $dropper) (local.get $ev)))))
   (i32.const 0))"
-                        (list (Pair "holder" holder)
-                              (Pair "evidence" (evidence-type m))
-                              (Pair "dropper" (dropper-type m))
-                              (Pair "release" (release-helper m)))))
+                        (list (new Pair (first "holder") (second holder))
+                              (new Pair (first "evidence") (second (evidence-type m)))
+                              (new Pair (first "dropper") (second (dropper-type m)))
+                              (new Pair (first "release") (second (release-helper m))))))
 
     (define (capture-rep (fn Fn) (name String)) (→ Rep)
       (match (table-ref (● (● fn state) reps) name)
@@ -1139,7 +1153,9 @@
       (→ Fn)
       (! mut)
       (let* ((names (match self ((Some name) (list name)) ((None) (Nil))))
-             (fn (Fn-self-set (new-fn m) (Some (Self names function-id counted?)))))
+             (fn (Fn-self-set (new-fn m)
+                              (Some
+                               (new Self (names names) (code function-id) (counted? counted?))))))
         (match self
           ((Some name) (bind-local! fn name (wat "local.get" (Word "$closure")) (Reference base)))
           ((None) (unit)))
@@ -1194,7 +1210,7 @@
     ;; The alias belongs only to this let's body. Fresh function and control
     ;; frame contexts start with no inherited proof about their caller.
     (define (bind-self (fn Fn) (name String) (value Expr)) (→ Fn)
-      (match (Pair (● fn self) (self-target fn value))
+      (match (new Pair (first (● fn self)) (second (self-target fn value)))
         ((Pair (Some self) (Some _))
          (Fn-self-set fn (Some (Self-names-set self (Cons name (● self names))))))
         (_ fn)))
@@ -1202,7 +1218,7 @@
     ;; Only exact aliases qualify, not other closures with the same code.
     ;; The layout cannot acquire a cancellation dropper without linear captures.
     (define (uncounted-self? (fn Fn) (value Expr)) (→ Bool)
-      (match (Pair (● fn self) (self-target fn value))
+      (match (new Pair (first (● fn self)) (second (self-target fn value)))
         ((Pair (Some self) (Some _)) (not (● self counted?)))
         (_ #f)))
 
@@ -1469,7 +1485,7 @@
       (if (i64.eqz (local.get $count))
         (then (return_call_ref $owner.drop (local.get $owner) (local.get $ev)
                 (struct.get $owner 1 (local.get $owner)))))))
-  (i32.const 0))" (list (Pair "evidence" (evidence-type m)))))
+  (i32.const 0))" (list (new Pair (first "evidence") (second (evidence-type m))))))
 
     ;; Rc and WeakRc share a GC control cell. A weak reference contributes
     ;; no strong count. Clearing the payload makes a dead weak cell harmless
@@ -1652,7 +1668,8 @@
     (drop (call {retain} (array.get {array} (local.get $array) (local.get $index))))
     (local.set $index (i32.add (local.get $index) (i32.const 1))) (br $next)))
   (local.get $array))"
-                          (list (Pair "array" array) (Pair "retain" (retain-helper m))))))
+                          (list (new Pair (first "array") (second array))
+                                (new Pair (first "retain") (second (retain-helper m)))))))
 
     (define (array-release-helper (m Module) (element Type)) (→ String) (! mut)
       (let ((array (array-type m (element-rep m element))))
@@ -1666,9 +1683,9 @@
     (drop (call {release} (array.get {array} (local.get $array) (local.get $index)) (local.get $ev)))
     (local.set $index (i32.add (local.get $index) (i32.const 1))) (br $next)))
   (i32.const 0))"
-                          (list (Pair "array" array)
-                                (Pair "evidence" (evidence-type m))
-                                (Pair "release" (release-helper m))))))
+                          (list (new Pair (first "array") (second array))
+                                (new Pair (first "evidence") (second (evidence-type m)))
+                                (new Pair (first "release") (second (release-helper m)))))))
 
     (define (sequence-destructor (m Module) (element Type)) (→ String) (! mut)
       (let ((holder (sequence-type m element)))
@@ -1690,10 +1707,13 @@
   (local.set $old (array.get {array} (local.get $array) (local.get $index)))
   (array.set {array} (local.get $array) (local.get $index) (local.get $value))
   (return_call {release} (local.get $old) (local.get $ev)))"
-                        (list (Pair "array" (array-type m (element-rep m element)))
-                              (Pair "element" (wat->text (rep->wat (rep m element))))
-                              (Pair "evidence" (evidence-type m))
-                              (Pair "release" (release-helper m)))))
+                        (list
+                         (new Pair (first "array") (second (array-type m (element-rep m element))))
+                         (new Pair
+                           (first "element")
+                           (second (wat->text (rep->wat (rep m element)))))
+                         (new Pair (first "evidence") (second (evidence-type m)))
+                         (new Pair (first "release") (second (release-helper m))))))
 
     ;; Copying owns all unchanged elements; the replacement argument moves
     ;; into its selected slot. The original array remains an independent owner.
@@ -1705,12 +1725,16 @@
   (local.set $result (call {retain} (call {copy} (local.get $array))))
   (drop (call {write} (local.get $result) (i32.wrap_i64 (local.get $index)) (local.get $value) (local.get $ev)))
   (local.get $result))"
-                          (list (Pair "array" array)
-                                (Pair "element" (wat->text (rep->wat (rep m element))))
-                                (Pair "evidence" (evidence-type m))
-                                (Pair "retain" (array-retain-helper m element))
-                                (Pair "copy" (copy-helper m array))
-                                (Pair "write" (array-write-helper m element))))))
+                          (list (new Pair (first "array") (second array))
+                                (new Pair
+                                  (first "element")
+                                  (second (wat->text (rep->wat (rep m element)))))
+                                (new Pair (first "evidence") (second (evidence-type m)))
+                                (new Pair (first "retain") (second (array-retain-helper m element)))
+                                (new Pair (first "copy") (second (copy-helper m array)))
+                                (new Pair
+                                  (first "write")
+                                  (second (array-write-helper m element)))))))
 
     ;; Snapshot both ranges before writing. Incoming owners are retained,
     ;; the entire destination is installed, and only then do old elements
@@ -1725,10 +1749,13 @@
   (drop (call {retain} (local.get $incoming)))
   (array.copy {array} {array} (local.get $to) (i32.wrap_i64 (local.get $at)) (local.get $incoming) (i32.const 0) (i32.wrap_i64 (local.get $count)))
   (return_call {release} (local.get $old) (local.get $ev)))"
-                          (list (Pair "array" array) (Pair "slice" (slice-helper m array))
-                                (Pair "evidence" (evidence-type m))
-                                (Pair "retain" (array-retain-helper m element))
-                                (Pair "release" (array-release-helper m element))))))
+                          (list (new Pair (first "array") (second array))
+                                (new Pair (first "slice") (second (slice-helper m array)))
+                                (new Pair (first "evidence") (second (evidence-type m)))
+                                (new Pair (first "retain") (second (array-retain-helper m element)))
+                                (new Pair
+                                  (first "release")
+                                  (second (array-release-helper m element)))))))
 
     ;; Validate full-width indices
     ;; before narrowing to Wasm's i32 indices, including zero-length copies.
@@ -1747,13 +1774,17 @@
 
     (define (vector-storage-bindings (m Module) (element Type))
       (→ (List (Pair String String))) (! mut)
-      (list (Pair "holder" (sequence-type m element))
-            (Pair "array" (array-type m (element-rep m element)))
-            (Pair "data" (wat->text (sequence-data m (TCon "Vector" (list element))
-                                                   (wat "local.get" (Word "$vector")))))
-            (Pair "element" (wat->text (rep->wat (rep m element))))
-            (Pair "read" (wat->text (array-read m element (wat "local.get" (Word "$data"))
-                                                (wat "local.get" (Word "$index")))))))
+      (list (new Pair (first "holder") (second (sequence-type m element)))
+            (new Pair (first "array") (second (array-type m (element-rep m element))))
+            (new Pair
+              (first "data")
+              (second (wat->text (sequence-data m (TCon "Vector" (list element))
+                                                (wat "local.get" (Word "$vector"))))))
+            (new Pair (first "element") (second (wat->text (rep->wat (rep m element)))))
+            (new Pair
+              (first "read")
+              (second (wat->text (array-read m element (wat "local.get" (Word "$data"))
+                                             (wat "local.get" (Word "$index"))))))))
 
     (define (vector-read-helper (m Module) (element Type)) (→ String) (! mut)
       (template-helper! m "vector-read" (type-key element)
@@ -1762,7 +1793,8 @@
   (local.set $data {data})
   (local.set $index (call {range} (array.len (local.get $data)) (local.get $at) (i64.const 1)))
   {read})"
-                        (Cons (Pair "range" (range-helper m)) (vector-storage-bindings m element))))
+                        (Cons (new Pair (first "range") (second (range-helper m)))
+                              (vector-storage-bindings m element))))
 
     (define (vector-write-helper (m Module) (element Type)) (→ String) (! mut)
       (let ((write (if (shared-type? (program-of m) element)
@@ -1776,8 +1808,8 @@
   (local.set $data {data})
   (local.set $index (call {range} (array.len (local.get $data)) (local.get $at) (i64.const 1)))
   " write ")")
-                          (append (list (Pair "range" (range-helper m))
-                                        (Pair "evidence" (evidence-type m)))
+                          (append (list (new Pair (first "range") (second (range-helper m)))
+                                        (new Pair (first "evidence") (second (evidence-type m))))
                                   (vector-storage-bindings m element)))))
 
     (define (sequence-slice-helper (m Module) (type Type)) (→ String) (! mut)
@@ -1869,16 +1901,20 @@
   (drop (call {range} (array.len (local.get $to-data)) (local.get $at) (local.get $count)))
   (drop (call {range} (array.len (local.get $from-data)) (local.get $start) (local.get $count)))
   " copy ")")
-                          (append (list (Pair "range" (range-helper m))
-                                        (Pair "evidence" (evidence-type m))
-                                        (Pair "to-data"
-                                              (wat->text
-                                               (sequence-data m (TCon "Vector" (list element))
-                                                              (wat "local.get" (Word "$to")))))
-                                        (Pair "from-data"
-                                              (wat->text
-                                               (sequence-data m (TCon "Vector" (list element))
-                                                              (wat "local.get" (Word "$from"))))))
+                          (append (list (new Pair (first "range") (second (range-helper m)))
+                                        (new Pair (first "evidence") (second (evidence-type m)))
+                                        (new Pair (first "to-data")
+                                             (second (wat->text
+                                                      (sequence-data m
+                                                                     (TCon "Vector" (list element))
+                                                                     (wat "local.get"
+                                                                          (Word "$to"))))))
+                                        (new Pair (first "from-data")
+                                             (second (wat->text
+                                                      (sequence-data m
+                                                                     (TCon "Vector" (list element))
+                                                                     (wat "local.get"
+                                                                          (Word "$from")))))))
                                   (vector-storage-bindings m element)))))
 
     ;; ---- Fields ----
@@ -1922,7 +1958,7 @@
 
     ;; Checking has resolved a place to an actual mutable field. The target
     ;; expression may itself follow any number of ordinary object references.
-    (struct FieldTarget
+    (record FieldTarget
       ((case Case)
        (index I64)
        (record Expr)))
@@ -1932,7 +1968,8 @@
         ((Ann inner _) (place-field fn inner))
         ((App callee (Cons record (Nil)))
          (match (builtin-of fn callee)
-           ((Some (Accessor case index _)) (FieldTarget case index record))
+           ((Some (Accessor case index _))
+            (new FieldTarget (case case) (index index) (record record)))
            (_ (panic "internal error: a place reads a field"))))
         (_ (panic "internal error: a place reads a field"))))
 
@@ -2712,9 +2749,9 @@
       (ref.cast (ref null {evidence}) (call {retain} (local.get $node))) (local.get $fresh)
       (struct.get $activation 0 (local.get $state))))
   (local.get $fresh))"
-                        (list (Pair "evidence" (evidence-type m))
-                              (Pair "copier" (evidence-copy-type m))
-                              (Pair "retain" (retain-helper m)))))
+                        (list (new Pair (first "evidence") (second (evidence-type m)))
+                              (new Pair (first "copier") (second (evidence-copy-type m)))
+                              (new Pair (first "retain") (second (retain-helper m))))))
 
     ;; Handled frames contain another owned continuation. Both entries read
     ;; that same object, so updating it establishes both execution and
@@ -2742,12 +2779,14 @@
         (call {renew} (local.get $state) (local.get $old)))))
     (drop (call {release} (local.get $old) (struct.get {continuation} 1 (local.get $continuation))))
     (local.set $frames (struct.get {frames} 1 (local.get $frames))) (br $next))))"
-                        (list (Pair "evidence" (evidence-type m))
-                              (Pair "continuation" (continuation-type m))
-                              (Pair "frames" (frames-type m)) (Pair "frame" (frame-type m))
-                              (Pair "handled" (handled-type m)) (Pair "retain" (retain-helper m))
-                              (Pair "renew" (activation-node m))
-                              (Pair "release" (release-helper m)))))
+                        (list (new Pair (first "evidence") (second (evidence-type m)))
+                              (new Pair (first "continuation") (second (continuation-type m)))
+                              (new Pair (first "frames") (second (frames-type m)))
+                              (new Pair (first "frame") (second (frame-type m)))
+                              (new Pair (first "handled") (second (handled-type m)))
+                              (new Pair (first "retain") (second (retain-helper m)))
+                              (new Pair (first "renew") (second (activation-node m)))
+                              (new Pair (first "release") (second (release-helper m))))))
 
     (define (release-activation (m Module)) (→ String) (! mut)
       (activation-type m)
@@ -2760,8 +2799,8 @@
     (drop (call {release} (struct.get $activation.map 0 (local.get $entry)) (local.get $ev)))
     (drop (call {release} (struct.get $activation.map 1 (local.get $entry)) (local.get $ev)))
     (local.set $entry (struct.get $activation.map 2 (local.get $entry))) (br $new))))"
-                        (list (Pair "evidence" (evidence-type m))
-                              (Pair "release" (release-helper m)))))
+                        (list (new Pair (first "evidence") (second (evidence-type m)))
+                              (new Pair (first "release") (second (release-helper m))))))
 
     ;; Public resumptions originate at actual handler catches, so this
     ;; delimiter is ordinary, with no forwarding origin. Nested forwarding
@@ -2780,12 +2819,12 @@
       (local.get $fresh) (ref.null $activation.map))))
   (call {frames} (local.get $state) (local.get $continuation))
   (call {release} (local.get $state) (local.get $ev)))"
-                        (list (Pair "evidence" (evidence-type m))
-                              (Pair "continuation" (continuation-type m))
-                              (Pair "copier" (evidence-copy-type m))
-                              (Pair "retain" (retain-helper m))
-                              (Pair "frames" (activate-continuation m))
-                              (Pair "release" (release-activation m)))))
+                        (list (new Pair (first "evidence") (second (evidence-type m)))
+                              (new Pair (first "continuation") (second (continuation-type m)))
+                              (new Pair (first "copier") (second (evidence-copy-type m)))
+                              (new Pair (first "retain") (second (retain-helper m)))
+                              (new Pair (first "frames") (second (activate-continuation m)))
+                              (new Pair (first "release") (second (release-activation m))))))
 
     (define (evidence-copy-type (m Module)) (→ String) (! mut)
       (match (known-type m "evidence.copy")
@@ -2931,9 +2970,10 @@
                                                     (● (program-effect (program-of m) effect)
                                                        operations))))))
         (push! (● (● fn state) locals) (wat "local" (id node) (evidence-ref m)))
-        (Pair node (wat "local.set" (id node)
-                        (new-evidence m effect handler (● fn evidence) #f
-                                      (wat "ref.null" (id (evidence-type m))))))))
+        (new Pair (first node) (second (wat "local.set" (id node)
+                                            (new-evidence m effect handler (● fn evidence) #f
+                                                          (wat "ref.null"
+                                                               (id (evidence-type m)))))))))
 
     (define (handler-implementation (implementations (List (Pair String Expr))) (operation String))
       (→ Expr)
@@ -3169,8 +3209,10 @@
     ;; text never changes.
 
     (define (emit-control-module (program Program)) (→ Wat) (! mut)
-      (let ((m (new-module (Declarations (Program-items-set program (Nil))
-                                         (None) (control-effects program) (empty-table)))))
+      (let ((m (new-module (new Declarations (program (Program-items-set program (Nil)))
+                                (owner (None))
+                                (control (control-effects program))
+                                (bindings (empty-table))))))
         (yielding m)
         (module-wat m)))
 
@@ -3303,9 +3345,10 @@
   (local.set $value (call_ref {code} (local.get $frame) (local.get $value) (struct.get {frame} 0 (local.get $frame))))
   (drop (call {release} (local.get $ev) (local.get $ev)))
   (local.get $value))"
-                        (list (Pair "frame" (frame-type m)) (Pair "evidence" (evidence-type m))
-                              (Pair "code" (code-type m (frame-type m)))
-                              (Pair "release" (release-helper m)))))
+                        (list (new Pair (first "frame") (second (frame-type m)))
+                              (new Pair (first "evidence") (second (evidence-type m)))
+                              (new Pair (first "code") (second (code-type m (frame-type m))))
+                              (new Pair (first "release") (second (release-helper m))))))
 
     (define (frame-type (m Module)) (→ String) (! mut)
       (match (known-type m "frame")
@@ -3352,7 +3395,8 @@
                                                           (match cleanup
                                                             ((Some code) (expr-references code))
                                                             ((None) (Nil)))))))
-             (entries (map (lambda (local) (Pair local (capture-rep fn local))) captured))
+             (entries (map (lambda (local) (new Pair (first local) (second (capture-rep fn local))))
+                           captured))
              (type
               (capture-type m (frame-type m) (map (lambda (record) (● record second)) entries)))
              (join
@@ -3449,10 +3493,10 @@
   (local $record (ref null {yield}))
   (local.set $record (global.get {yielding}))
   (struct.set {yield} 3 (local.get $record) (struct.new {frames} (local.get $frame) (struct.get {yield} 3 (local.get $record)))))"
-                        (list (Pair "frame" (frame-type m))
-                              (Pair "yield" (yield-type m))
-                              (Pair "yielding" (yielding m))
-                              (Pair "frames" (frames-type m)))))
+                        (list (new Pair (first "frame") (second (frame-type m)))
+                              (new Pair (first "yield") (second (yield-type m)))
+                              (new Pair (first "yielding") (second (yielding m)))
+                              (new Pair (first "frames") (second (frames-type m))))))
 
     ;; ---- Performing and catching ----
 
@@ -3765,12 +3809,12 @@
       (drop (call {release} (struct.get {frame} 2 (local.get $frame)) (local.get $ev)))
       (br $next)))
   (return_call {release} (struct.get {continuation} 1 (local.get $continuation)) (local.get $ev)))"
-                        (list (Pair "release" (release-helper m))
-                              (Pair "code" (code-type m (frame-type m)))
-                              (Pair "evidence" (evidence-type m))
-                              (Pair "continuation" (continuation-type m))
-                              (Pair "frames" (frames-type m))
-                              (Pair "frame" (frame-type m)))))
+                        (list (new Pair (first "release") (second (release-helper m)))
+                              (new Pair (first "code") (second (code-type m (frame-type m))))
+                              (new Pair (first "evidence") (second (evidence-type m)))
+                              (new Pair (first "continuation") (second (continuation-type m)))
+                              (new Pair (first "frames") (second (frames-type m)))
+                              (new Pair (first "frame") (second (frame-type m))))))
 
     (define (resume-dropper-code (m Module)) (→ String) (! mut)
       (helper! m "drop" "resume"
@@ -3782,12 +3826,16 @@
   (local.set $continuation (struct.get {holder} 4 (ref.cast (ref null {holder}) (local.get $closure))))
   (call {activate} (local.get $continuation) (local.get $ev))
   (return_call {cancel} (local.get $continuation) (local.get $ev)))"
-                        (list (Pair "id" name) (Pair "code" (code-type m (dropper-type m)))
-                              (Pair "base" (dropper-type m)) (Pair "evidence" (evidence-type m))
-                              (Pair "continuation" (continuation-type m))
-                              (Pair "holder" (resume-dropper-type m))
-                              (Pair "activate" (activate-helper m))
-                              (Pair "cancel" (cancel-continuation-helper m))))))))
+                        (list (new Pair (first "id") (second name))
+                              (new Pair (first "code") (second (code-type m (dropper-type m))))
+                              (new Pair (first "base") (second (dropper-type m)))
+                              (new Pair (first "evidence") (second (evidence-type m)))
+                              (new Pair (first "continuation") (second (continuation-type m)))
+                              (new Pair (first "holder") (second (resume-dropper-type m)))
+                              (new Pair (first "activate") (second (activate-helper m)))
+                              (new Pair
+                                (first "cancel")
+                                (second (cancel-continuation-helper m)))))))))
 
     ;; The code of an operation's `resume`: the handle again, run on the
     ;; boxed answer under the caller's evidence.
@@ -3808,22 +3856,27 @@
   (drop (call {release} (local.get $closure) (local.get $ev)))
   (call {activate} (local.get $continuation) (local.get $ev))
   (return_call {rehandle} (local.get $continuation) (local.get $ev) {boxed}))"
-                     (list (Pair "continuation" (continuation-type m))
-                           (Pair "disarm" (disarm-helper m base))
-                           (Pair "release" (release-helper m)) (Pair "id" function-id)
-                           (Pair "code" (code-type m base))
-                           (Pair "base" base)
-                           (Pair "evidence" (evidence-type m))
-                           (Pair "answer"
-                                 (wat->text (rep->wat (rep m (operation-result m operation)))))
-                           (Pair "result" (wat->text (rep->wat (rep m type))))
-                           (Pair "activate" (activate-helper m))
-                           (Pair "rehandle" (rehandler m (Handling info loc) type))
-                           (Pair "resume" resume)
-                           (Pair "boxed"
-                                 (wat->text (box-value m
-                                                       (operation-result m operation)
-                                                       (wat "local.get" (Word "$answer"))))))))))))
+                     (list (new Pair (first "continuation") (second (continuation-type m)))
+                           (new Pair (first "disarm") (second (disarm-helper m base)))
+                           (new Pair (first "release") (second (release-helper m)))
+                           (new Pair (first "id") (second function-id))
+                           (new Pair (first "code") (second (code-type m base)))
+                           (new Pair (first "base") (second base))
+                           (new Pair (first "evidence") (second (evidence-type m)))
+                           (new Pair (first "answer")
+                                (second
+                                 (wat->text (rep->wat (rep m (operation-result m operation))))))
+                           (new Pair (first "result") (second (wat->text (rep->wat (rep m type)))))
+                           (new Pair (first "activate") (second (activate-helper m)))
+                           (new Pair
+                             (first "rehandle")
+                             (second (rehandler m (Handling info loc) type)))
+                           (new Pair (first "resume") (second resume))
+                           (new Pair (first "boxed")
+                                (second (wat->text (box-value m
+                                                              (operation-result m operation)
+                                                              (wat "local.get"
+                                                                   (Word "$answer")))))))))))))
 
     ;; Where a handle's saved frames end when a yield reaches them: at an
     ;; effect's handler, which catches the yields aimed at its node, or at
@@ -3864,16 +3917,19 @@
   (if {yielding} (then (return_call {catch} (struct.get {continuation} 1 (local.get $continuation)))))
   (drop (call {release} (struct.get {continuation} 1 (local.get $continuation)) (local.get $ev)))
   {unboxed})"
-                   (list (Pair "release" (release-helper m)) (Pair "id" function-id)
-                         (Pair "continuation" (continuation-type m))
-                         (Pair "evidence" (evidence-type m))
-                         (Pair "result" (wat->text (rep->wat (rep m type))))
-                         (Pair "continue" (continue-helper m))
-                         (Pair "yielding" (wat->text (yielding? m)))
-                         (Pair "catch" (catch-helper m catch type))
-                         (Pair "unboxed"
-                               (wat->text
-                                (unbox-value m type (wat "local.get" (Word "$value")))))))))))
+                   (list (new Pair (first "release") (second (release-helper m)))
+                         (new Pair (first "id") (second function-id))
+                         (new Pair (first "continuation") (second (continuation-type m)))
+                         (new Pair (first "evidence") (second (evidence-type m)))
+                         (new Pair (first "result") (second (wat->text (rep->wat (rep m type)))))
+                         (new Pair (first "continue") (second (continue-helper m)))
+                         (new Pair (first "yielding") (second (wat->text (yielding? m))))
+                         (new Pair (first "catch") (second (catch-helper m catch type)))
+                         (new Pair (first "unboxed")
+                              (second (wat->text
+                                       (unbox-value m
+                                                    type
+                                                    (wat "local.get" (Word "$value"))))))))))))
 
     ;; A handle that a yield leaves, saved as a frame: the frames saved
     ;; inside its body, as a continuation for its node. Run, it is the
@@ -3895,28 +3951,29 @@
   (local $continuation (ref null {continuation}))
   (local.set $continuation (struct.get {handled} 3 (ref.cast (ref null {handled}) (local.get $frame))))
   {boxed})"
-                     (list (Pair "id" function-id)
-                           (Pair "code" (code-type m frame))
-                           (Pair "frame" frame)
-                           (Pair "continuation" continuation)
-                           (Pair "handled" (handled-type m))
-                           (Pair "boxed"
-                                 (wat->text (box-value m
-                                                       type
-                                                       (wat "call"
-                                                            (id (rehandler m catch type))
-                                                            (wat "local.get" (Word "$continuation"))
-                                                            (wat "struct.get"
-                                                                 (id (evidence-type m))
-                                                                 (int 4)
-                                                                 (wat "struct.get"
-                                                                      (id continuation)
-                                                                      (int 1)
-                                                                      (wat "local.get"
-                                                                           (Word
-                                                                            "$continuation"))))
-                                                            (wat "local.get"
-                                                                 (Word "$value")))))))))))))
+                     (list (new Pair (first "id") (second function-id))
+                           (new Pair (first "code") (second (code-type m frame)))
+                           (new Pair (first "frame") (second frame))
+                           (new Pair (first "continuation") (second continuation))
+                           (new Pair (first "handled") (second (handled-type m)))
+                           (new Pair (first "boxed")
+                                (second (wat->text (box-value m
+                                                              type
+                                                              (wat "call"
+                                                                   (id (rehandler m catch type))
+                                                                   (wat "local.get"
+                                                                        (Word "$continuation"))
+                                                                   (wat "struct.get"
+                                                                        (id (evidence-type m))
+                                                                        (int 4)
+                                                                        (wat "struct.get"
+                                                                             (id continuation)
+                                                                             (int 1)
+                                                                             (wat "local.get"
+                                                                                  (Word
+                                                                                   "$continuation"))))
+                                                                   (wat "local.get"
+                                                                        (Word "$value"))))))))))))))
 
     ;; A handled frame owns the installed node, not its outside context.
     ;; Enter its cancellation path just as `handled-code` enters its code:
@@ -3940,12 +3997,15 @@
   (drop (call {cancel} (local.get $continuation) (local.get $outside)))
   (drop (call {release} (local.get $outside) (local.get $ev)))
   (ref.null any))"
-                   (list (Pair "id" function-id) (Pair "code" (code-type m (frame-type m)))
-                         (Pair "frame" (frame-type m)) (Pair "evidence" (evidence-type m))
-                         (Pair "continuation" (continuation-type m))
-                         (Pair "handled" (handled-type m))
-                         (Pair "retain" (retain-helper m)) (Pair "release" (release-helper m))
-                         (Pair "cancel" (cancel-continuation-helper m))))))))
+                   (list (new Pair (first "id") (second function-id))
+                         (new Pair (first "code") (second (code-type m (frame-type m))))
+                         (new Pair (first "frame") (second (frame-type m)))
+                         (new Pair (first "evidence") (second (evidence-type m)))
+                         (new Pair (first "continuation") (second (continuation-type m)))
+                         (new Pair (first "handled") (second (handled-type m)))
+                         (new Pair (first "retain") (second (retain-helper m)))
+                         (new Pair (first "release") (second (release-helper m)))
+                         (new Pair (first "cancel") (second (cancel-continuation-helper m)))))))))
 
     ;; Saves the handle at `node`, which a yield is leaving, as one frame
     ;; in place of the frames saved inside its body.
@@ -3965,16 +4025,16 @@
       (struct.new {handled} (local.get $code) (ref.func {cancel})
         (ref.cast (ref null {evidence}) (call {retain} (local.get $node))) (local.get $continuation))
       (ref.null {frames}))))"
-                        (list (Pair "retain" (retain-helper m))
-                              (Pair "evidence" (evidence-type m))
-                              (Pair "code" (code-type m (frame-type m)))
-                              (Pair "yield" (yield-type m))
-                              (Pair "yielding" (yielding m))
-                              (Pair "frames" (frames-type m))
-                              (Pair "handled" (handled-type m))
-                              (Pair "continuation" (continuation-type m))
-                              (Pair "reverse" (reverse-helper m))
-                              (Pair "cancel" (handled-cancel-code m)))))
+                        (list (new Pair (first "retain") (second (retain-helper m)))
+                              (new Pair (first "evidence") (second (evidence-type m)))
+                              (new Pair (first "code") (second (code-type m (frame-type m))))
+                              (new Pair (first "yield") (second (yield-type m)))
+                              (new Pair (first "yielding") (second (yielding m)))
+                              (new Pair (first "frames") (second (frames-type m)))
+                              (new Pair (first "handled") (second (handled-type m)))
+                              (new Pair (first "continuation") (second (continuation-type m)))
+                              (new Pair (first "reverse") (second (reverse-helper m)))
+                              (new Pair (first "cancel") (second (handled-cancel-code m))))))
 
     ;; Runs an activated continuation and takes the frames out, so that neither the continuation nor
     ;; `resume` holds them while they run. Then each frame runs in turn,
@@ -4002,14 +4062,14 @@
       (else (call {push} (local.get $frame))))
     (br $next))
   (unreachable))"
-                          (list (Pair "run" (frame-runner m))
-                                (Pair "continuation" (continuation-type m))
-                                (Pair "evidence" (evidence-type m))
-                                (Pair "frames" (frames-type m))
-                                (Pair "frame" frame)
-                                (Pair "code" (code-type m frame))
-                                (Pair "yielding" (yielding m))
-                                (Pair "push" (push-helper m))))))
+                          (list (new Pair (first "run") (second (frame-runner m)))
+                                (new Pair (first "continuation") (second (continuation-type m)))
+                                (new Pair (first "evidence") (second (evidence-type m)))
+                                (new Pair (first "frames") (second (frames-type m)))
+                                (new Pair (first "frame") (second frame))
+                                (new Pair (first "code") (second (code-type m frame)))
+                                (new Pair (first "yielding") (second (yielding m)))
+                                (new Pair (first "push") (second (push-helper m)))))))
 
     (define (reverse-helper (m Module)) (→ String) (! mut)
       (template-helper! m "control" "reverse"
@@ -4022,7 +4082,7 @@
       (local.set $frames (struct.get {frames} 1 (local.get $frames)))
       (br $next)))
   (local.get $reversed))"
-                        (list (Pair "frames" (frames-type m)))))
+                        (list (new Pair (first "frames") (second (frames-type m))))))
 
     ;; ---- Latent effects ----
 
@@ -4253,19 +4313,23 @@
             (return)))
     (local.set $target (struct.get {evidence} 4 (local.get $target)))
     (br $walk)))"
-                        (list (Pair "evidence" (evidence-type m))
-                              (Pair "yield" (yield-type m))
-                              (Pair "yielding" (yielding m))
-                              (Pair "handler" (handler-type m (● info name)))
-                              (Pair "index"
-                                    (i64->string (operation-index info (first-control info))))
-                              (Pair "panic" (panic-helper m))
-                              (Pair "message"
-                                    (wat->text (string-literal m
-                                                               (string-append "unhandled effect "
-                                                                              (short-name
-                                                                               (● info name))))))
-                              (Pair "label" (wat->text (effect-label (● info name)))))))
+                        (list (new Pair (first "evidence") (second (evidence-type m)))
+                              (new Pair (first "yield") (second (yield-type m)))
+                              (new Pair (first "yielding") (second (yielding m)))
+                              (new Pair (first "handler") (second (handler-type m (● info name))))
+                              (new Pair (first "index")
+                                   (second
+                                    (i64->string (operation-index info (first-control info)))))
+                              (new Pair (first "panic") (second (panic-helper m)))
+                              (new Pair (first "message")
+                                   (second (wat->text (string-literal m
+                                                                      (string-append
+                                                                       "unhandled effect "
+                                                                       (short-name
+                                                                        (● info name)))))))
+                              (new Pair
+                                (first "label")
+                                (second (wat->text (effect-label (● info name))))))))
 
     (define (first-control (info Effect)) (→ String)
       (match (● info control)
@@ -4371,7 +4435,7 @@
     (define (inherited-dropper-code (m Module) (base String) (holder String)) (→ String) (! mut)
       (helper! m "inherit-drop" holder
                (lambda (name)
-                 (code-function m name (Pair (Nil) (Scalar "i32"))
+                 (code-function m name (new Pair (first (Nil)) (second (Scalar "i32")))
                                 (list (wat "return_call" (id (drop-once-helper m base))
                                            (held-capture holder 2) (held-capture holder 1)))))))
 
@@ -4384,10 +4448,11 @@
   (if (i32.eqz (ref.is_null (local.get $dropper)))
     (then (drop (call {invoke} (local.get $dropper) (local.get $ev)))))
   (return_call {release} (local.get $closure) (local.get $ev)))"
-                        (list (Pair "base" base) (Pair "evidence" (evidence-type m))
-                              (Pair "dropper" (dropper-type m))
-                              (Pair "invoke" (dropper-call-helper m))
-                              (Pair "release" (release-helper m)))))
+                        (list (new Pair (first "base") (second base))
+                              (new Pair (first "evidence") (second (evidence-type m)))
+                              (new Pair (first "dropper") (second (dropper-type m)))
+                              (new Pair (first "invoke") (second (dropper-call-helper m)))
+                              (new Pair (first "release") (second (release-helper m))))))
 
     ;; ---- Primitives ----
 
@@ -4593,9 +4658,9 @@
         (template-helper! m "call-once" ""
                           "(func {id} (param $closure (ref null {closure})) (param $ev (ref null {evidence})) (result i32)
   (return_call_ref {code} (local.get $closure) (local.get $ev) (struct.get {closure} 2 (local.get $closure))))"
-                          (list (Pair "closure" closure)
-                                (Pair "code" (code-type m closure))
-                                (Pair "evidence" (evidence-type m))))))
+                          (list (new Pair (first "closure") (second closure))
+                                (new Pair (first "code") (second (code-type m closure)))
+                                (new Pair (first "evidence") (second (evidence-type m)))))))
 
     ;; ---- Droppers ----
 
@@ -4617,9 +4682,10 @@
                           "(func {id} (param $dropper (ref null {base})) (param $ev (ref null {evidence})) (result i32)
   (drop (call_ref {code} (local.get $dropper) (local.get $ev) (struct.get {base} 2 (local.get $dropper))))
   (return_call {release} (local.get $dropper) (local.get $ev)))"
-                          (list (Pair "base" base) (Pair "code" (code-type m base))
-                                (Pair "evidence" (evidence-type m))
-                                (Pair "release" (release-helper m))))))
+                          (list (new Pair (first "base") (second base))
+                                (new Pair (first "code") (second (code-type m base)))
+                                (new Pair (first "evidence") (second (evidence-type m)))
+                                (new Pair (first "release") (second (release-helper m)))))))
 
     ;; `once` of a lambda with linear captures: the closure, with the
     ;; dropper of its captures stored beside its code.
@@ -4638,7 +4704,7 @@
     ;; A wrapper owns its callback; entries contain only plain GC values.
     ;; State fields: buckets, entry count, capacity (0 = unbounded), MRU, LRU.
     ;; Entry fields: hash, bucket successor, newer, older, result, argument keys.
-    (struct CacheLayout
+    (record CacheLayout
       ((signature Type)
        (base String)
        (holder String)
@@ -4673,14 +4739,15 @@
                                        (wat "field" (wat "mut" (ref-wat entry)))
                                        (wat "field" (wat "mut" (ref-wat entry))))))
              (unit))
-           (CacheLayout type base
-                        (capture-type m base (list (Reference base) (Reference state)))
-                        entry buckets state)))
+           (new CacheLayout (signature type) (base base)
+                (holder (capture-type m base (list (Reference base) (Reference state))))
+                (entry entry) (buckets buckets) (state state))))
         (_ (panic "internal error: cache requires a function"))))
 
     (define (cache-bindings (layout CacheLayout)) (→ (List (Pair String String)))
-      (list (Pair "entry" (● layout entry)) (Pair "state" (● layout state))
-            (Pair "buckets" (● layout buckets))))
+      (list (new Pair (first "entry") (second (● layout entry)))
+            (new Pair (first "state") (second (● layout state)))
+            (new Pair (first "buckets") (second (● layout buckets)))))
 
     (define (cache-keys (params (List Type))) (→ (List String))
       (map (lambda (index) (string-append "key." (i64->string index))) (iota (length params))))
@@ -4925,8 +4992,8 @@
                  (i64.extend_i32_u (array.len (local.get $buckets))))
     (then (call {grow} (local.get $state)))))"
                         (append (cache-bindings layout)
-                                (list (Pair "evict" (cache-evict m layout))
-                                      (Pair "grow" (cache-grow m layout))))))
+                                (list (new Pair (first "evict") (second (cache-evict m layout)))
+                                      (new Pair (first "grow") (second (cache-grow m layout)))))))
 
     ;; A lookup never stays live across user code: a reentrant call may
     ;; resize or evict. Publish after success, checking again; the last
@@ -4986,37 +5053,55 @@
   (local.get $result))"
                           (append (cache-bindings layout)
                                   (list
-                                   (Pair "base" base) (Pair "holder" holder)
-                                   (Pair "code" (code-type m base))
-                                   (Pair "evidence" (evidence-type m))
-                                   (Pair "params" (string-join (map wat->text
-                                                                    (param-wats (cache-keys params)
-                                                                                (map (lambda (t)
-                                                                                       (rep m t))
-                                                                                     params)))
-                                                               " "))
-                                   (Pair "result" (wat->text (rep->wat (rep m result))))
-                                   (Pair "hash"
+                                   (new Pair (first "base") (second base))
+                                   (new Pair (first "holder") (second holder))
+                                   (new Pair (first "code") (second (code-type m base)))
+                                   (new Pair (first "evidence") (second (evidence-type m)))
+                                   (new Pair (first "params") (second (string-join (map wat->text
+                                                                                        (param-wats
+                                                                                         (cache-keys
+                                                                                          params)
+                                                                                         (map
+                                                                                          (lambda (t)
+                                                                                            (rep m
+                                                                                                 t))
+                                                                                          params)))
+                                                                                   " ")))
+                                   (new Pair
+                                     (first "result")
+                                     (second (wat->text (rep->wat (rep m result)))))
+                                   (new Pair (first "hash")
+                                        (second
                                          (wat->text (if (null? params) (wat "i64.const" (int 0))
-                                                        (cache-hash m params))))
-                                   (Pair "find" (wat->text (cache-find-call m layout params)))
-                                   (Pair "retain" (wat->text (retain-value m (● layout signature)
-                                                                           (wat "struct.get"
-                                                                                (id holder)
-                                                                                (int 4)
-                                                                                (wat "local.get"
-                                                                                     (Word
-                                                                                      "$self"))))))
-                                   (Pair "release" (wat->text (release-value m (● layout signature)
-                                                                             (wat "local.get"
-                                                                                  (Word "$closure"))
-                                                                             evidence)))
-                                   (Pair "call" (wat->text (closure-call-wat m base callback
-                                                                             (Cons evidence
-                                                                                   (cache-key-reads
-                                                                                    params))
-                                                                             #f)))
-                                   (Pair "publish" (wat->text (cache-publish m layout params))))))))
+                                                        (cache-hash m params)))))
+                                   (new Pair
+                                     (first "find")
+                                     (second (wat->text (cache-find-call m layout params))))
+                                   (new Pair
+                                     (first "retain")
+                                     (second (wat->text (retain-value m (● layout signature)
+                                                                      (wat "struct.get"
+                                                                           (id holder)
+                                                                           (int 4)
+                                                                           (wat "local.get"
+                                                                                (Word
+                                                                                 "$self")))))))
+                                   (new Pair
+                                     (first "release")
+                                     (second (wat->text (release-value m (● layout signature)
+                                                                       (wat "local.get"
+                                                                            (Word "$closure"))
+                                                                       evidence))))
+                                   (new Pair
+                                     (first "call")
+                                     (second (wat->text (closure-call-wat m base callback
+                                                                          (Cons evidence
+                                                                                (cache-key-reads
+                                                                                 params))
+                                                                          #f))))
+                                   (new Pair
+                                     (first "publish")
+                                     (second (wat->text (cache-publish m layout params)))))))))
 
     ;; The map is a captured local, never a module global. The closure's
     ;; existing destructor releases its one callback credit; plain entries
@@ -5044,20 +5129,20 @@
   (result (ref null {base}))
   {capacity-check}
   {new})"
-                                          (list (Pair "base" base)
-                                                (Pair "new"
-                                                      (wat->text
-                                                       (cache-new m layout params result)))
-                                                (Pair "capacity-check"
-                                                      (if bounded?
-                                                          (string-append
-                                                           "(if (i64.lt_s (local.get $capacity) (i64.const 0)) (then "
-                                                           (wat->text
-                                                            (wat "call" (id (panic-helper m))
-                                                                 (string-literal m
-                                                                                 "lru-cache capacity must be nonnegative")))
-                                                           " unreachable))\n(if (i64.eqz (local.get $capacity)) (then (return (local.get $callback))))")
-                                                          ""))))))
+                                          (list (new Pair (first "base") (second base))
+                                                (new Pair (first "new")
+                                                     (second (wat->text
+                                                              (cache-new m layout params result))))
+                                                (new Pair (first "capacity-check")
+                                                     (second (if bounded?
+                                                                 (string-append
+                                                                  "(if (i64.lt_s (local.get $capacity) (i64.const 0)) (then "
+                                                                  (wat->text
+                                                                   (wat "call" (id (panic-helper m))
+                                                                        (string-literal m
+                                                                                        "lru-cache capacity must be nonnegative")))
+                                                                  " unreachable))\n(if (i64.eqz (local.get $capacity)) (then (return (local.get $callback))))")
+                                                                 "")))))))
            (wat "call" (id helper) capacity callback)))
         (_ (panic "internal error: cache requires Fn"))))
 
@@ -5090,7 +5175,8 @@
                prefix
                key
                (lambda (function-id)
-                 (Word (fill template (Cons (Pair "id" function-id) bindings))))))
+                 (Word
+                  (fill template (Cons (new Pair (first "id") (second function-id)) bindings))))))
 
     (define (append-helper (m Module) (array String)) (→ String) (! mut)
       (template-helper! m "append" array
@@ -5100,7 +5186,7 @@
   (local.set $result (array.new_default {array} (local.get $size)))
   (array.copy {array} {array} (local.get $result) (i32.const 0) (local.get $a) (i32.const 0) (array.len (local.get $a)))
   (array.copy {array} {array} (local.get $result) (array.len (local.get $a)) (local.get $b) (i32.const 0) (array.len (local.get $b)))
-  (local.get $result))" (list (Pair "array" array) (Pair "size" (size-helper m)))))
+  (local.get $result))" (list (new Pair (first "array") (second array)) (new Pair (first "size") (second (size-helper m))))))
 
     (define (slice-helper (m Module) (array String)) (→ String) (! mut)
       (template-helper! m "slice" array
@@ -5112,7 +5198,8 @@
     (array.copy {array} {array} (local.get $result) (i32.const 0) (local.get $a) (i32.wrap_i64 (local.get $start))
                 (local.get $length))
     (local.get $result))"
-                        (list (Pair "array" array) (Pair "get" (array-get array)))))
+                        (list (new Pair (first "array") (second array))
+                              (new Pair (first "get") (second (array-get array))))))
 
     (define (copy-helper (m Module) (array String)) (→ String) (! mut)
       (template-helper! m "copy" array
@@ -5122,7 +5209,8 @@
     (local.set $result (array.new {array} ({get} {array} (local.get $a) (i32.const 0)) (array.len (local.get $a))))
     (array.copy {array} {array} (local.get $result) (i32.const 0) (local.get $a) (i32.const 0) (array.len (local.get $a)))
     (local.get $result))"
-                        (list (Pair "array" array) (Pair "get" (array-get array)))))
+                        (list (new Pair (first "array") (second array))
+                              (new Pair (first "get") (second (array-get array))))))
 
     (define (set-helper (m Module) (array String) (element Rep)) (→ String) (! mut)
       (template-helper! m "set" array
@@ -5132,8 +5220,10 @@
     (array.copy {array} {array} (local.get $result) (i32.const 0) (local.get $a) (i32.const 0) (array.len (local.get $a)))
     (array.set {array} (local.get $result) (i32.wrap_i64 (local.get $index)) (local.get $value))
     (local.get $result))"
-                        (list (Pair "array" array)
-                              (Pair "element" (wat->text (rep->wat element))))))
+                        (list (new Pair (first "array") (second array))
+                              (new Pair
+                                (first "element")
+                                (second (wat->text (rep->wat element)))))))
 
     (define (generate-helper (m Module) (array String) (function-type Type)) (→ String) (! mut)
       (let* ((signature (function-signature m function-type))
@@ -5154,19 +5244,20 @@
         (local.set $index (i32.add (local.get $index) (i32.const 1)))
         (br $next)))
     (local.get $result))"
-                          (list (Pair "size" (size-helper m))
-                                (Pair "retain" (retain-helper m))
-                                (Pair "array" array)
-                                (Pair "base" base)
-                                (Pair "code" (code-type m base))
-                                (Pair "evidence" (evidence-type m))))))
+                          (list (new Pair (first "size") (second (size-helper m)))
+                                (new Pair (first "retain") (second (retain-helper m)))
+                                (new Pair (first "array") (second array))
+                                (new Pair (first "base") (second base))
+                                (new Pair (first "code") (second (code-type m base)))
+                                (new Pair (first "evidence") (second (evidence-type m)))))))
 
     (define (string-equal-helper (m Module)) (→ String) (! mut)
       (let* ((array (array-type m (Scalar "i32"))) (compare (string-compare-helper m)))
         (template-helper! m "string-equal" ""
                           "(func {id} (param $a (ref null {array})) (param $b (ref null {array})) (result i32)
     (i32.eqz (call {compare} (local.get $a) (local.get $b))))"
-                          (list (Pair "array" array) (Pair "compare" compare)))))
+                          (list (new Pair (first "array") (second array))
+                                (new Pair (first "compare") (second compare))))))
 
     ;; Lexicographic comparison by Unicode scalar: -1, 0 or 1.
 
@@ -5186,7 +5277,7 @@
         (br $next)))
     (i32.sub (i32.gt_u (array.len (local.get $a)) (array.len (local.get $b)))
              (i32.lt_u (array.len (local.get $a)) (array.len (local.get $b)))))"
-                        (list (Pair "array" (array-type m (Scalar "i32"))))))
+                        (list (new Pair (first "array") (second (array-type m (Scalar "i32")))))))
 
     ;; Strings transfer UTF32 scalars and return their count. Bytes transfer
     ;; a little-endian u32 length followed by packed bytes and return its
@@ -5196,7 +5287,7 @@
     (define (stage-helper (m Module) (bytes? Bool)) (→ String) (! mut)
       (let ((type (if bytes? (TCon "Vector" (list (TCon "U8" (Nil)))) (TCon "String" (Nil))))
             (stage (import! m
-                            (Import "snail.core.support" "snail:io/stage")
+                            (new Import (module "snail.core.support") (symbol "snail:io/stage"))
                             (list (Scalar "i32"))
                             (Some (Scalar "i32")))))
         (template-helper! m (if bytes? "stage.bytes" "stage.text") ""
@@ -5215,44 +5306,54 @@
         (local.set $index (i32.add (local.get $index) (i32.const 1)))
         (br $next)))
     {result})"
-                          (list (Pair "type" (wat->text (rep->wat (rep m type))))
-                                (Pair "data"
-                                      (wat->text
-                                       (sequence-data m type (wat "local.get" (Word "$value")))))
-                                (Pair "length"
-                                      (wat->text
-                                       (sequence-length m type (wat "local.get" (Word "$value")))))
-                                (Pair "array" (array-type m (Scalar (if bytes? "i8" "i32"))))
-                                (Pair "stage" stage)
-                                (Pair "guard"
-                                      (if bytes?
-                                          "(if (i32.eq (local.get $length) (i32.const -1)) (then (unreachable)))"
-                                          ""))
-                                (Pair "capacity"
-                                      (if bytes?
-                                          "(i32.add (local.get $length) (i32.const 1))"
-                                          "(local.get $length)"))
-                                (Pair "header"
-                                      (if bytes?
-                                          "(i32.store (local.get $address) (local.get $length))"
-                                          ""))
-                                (Pair "store" (if bytes? "i32.store8" "i32.store"))
-                                (Pair "get" (if bytes? "array.get_u" "array.get"))
-                                (Pair "offset" (if bytes? "4" "0"))
-                                (Pair "shift" (if bytes? "0" "2"))
-                                (Pair "result"
-                                      (if bytes?
-                                          "(local.get $address)"
-                                          "(local.get $length)"))))))
+                          (list
+                           (new Pair (first "type") (second (wat->text (rep->wat (rep m type)))))
+                           (new Pair (first "data")
+                                (second (wat->text
+                                         (sequence-data m type (wat "local.get" (Word "$value"))))))
+                           (new Pair (first "length")
+                                (second (wat->text
+                                         (sequence-length m
+                                                          type
+                                                          (wat "local.get" (Word "$value"))))))
+                           (new Pair
+                             (first "array")
+                             (second (array-type m (Scalar (if bytes? "i8" "i32")))))
+                           (new Pair (first "stage") (second stage))
+                           (new Pair (first "guard")
+                                (second (if bytes?
+                                            "(if (i32.eq (local.get $length) (i32.const -1)) (then (unreachable)))"
+                                            "")))
+                           (new Pair (first "capacity")
+                                (second (if bytes?
+                                            "(i32.add (local.get $length) (i32.const 1))"
+                                            "(local.get $length)")))
+                           (new Pair (first "header")
+                                (second (if bytes?
+                                            "(i32.store (local.get $address) (local.get $length))"
+                                            "")))
+                           (new Pair (first "store") (second (if bytes? "i32.store8" "i32.store")))
+                           (new Pair (first "get") (second (if bytes? "array.get_u" "array.get")))
+                           (new Pair (first "offset") (second (if bytes? "4" "0")))
+                           (new Pair (first "shift") (second (if bytes? "0" "2")))
+                           (new Pair (first "result")
+                                (second (if bytes?
+                                            "(local.get $address)"
+                                            "(local.get $length)")))))))
 
     ;; Sends the message to the runtime one scalar at a time, then stops.
 
     (define (panic-helper (m Module)) (→ String) (! mut)
       (let ((character (import! m
-                                (Import "snail.core.support" "snail:panic/character")
+                                (new Import
+                                  (module "snail.core.support")
+                                  (symbol "snail:panic/character"))
                                 (list (Scalar "i32"))
                                 (None)))
-            (raise (import! m (Import "snail.core.support" "snail:panic/raise") (Nil) (None))))
+            (raise (import! m
+                            (new Import (module "snail.core.support") (symbol "snail:panic/raise"))
+                            (Nil)
+                            (None))))
         (template-helper! m "panic" ""
                           "(func {id} (param $message (ref null {array}))
     (local $index i32)
@@ -5264,9 +5365,9 @@
         (br $next)))
     (call {raise})
     (unreachable))"
-                          (list (Pair "array" (array-type m (Scalar "i32")))
-                                (Pair "character" character)
-                                (Pair "raise" raise)))))
+                          (list (new Pair (first "array") (second (array-type m (Scalar "i32"))))
+                                (new Pair (first "character") (second character))
+                                (new Pair (first "raise") (second raise))))))
 
     (define (wat->text (wat Wat)) (→ String)
       (string-concatenate (reverse (write-wat wat (Nil)))))
@@ -5370,10 +5471,14 @@
         (module-wat m)))
 
     (define (new-module (declarations Declarations)) (→ Module)
-      (Module declarations
-              (empty-table) 65536 (Nil) (Nil) (Nil)
-              (Nil) (Nil) (Nil) (Nil)
-              (empty-table) (empty-table)))
+      (new Module (declarations declarations)
+           (type-ids (empty-table))
+           (remaining-data-types 65536)
+           (types (Nil))
+           (imports (Nil))
+           (globals (Nil))
+           (functions (Nil)) (declared (Nil)) (exports (Nil)) (data (Nil))
+           (memo (empty-table)) (helpers (empty-table))))
 
     (define (module-callees (m Module)) (→ (Option Callees))
       (if (null? (● (● m declarations) control))
@@ -5431,7 +5536,8 @@
 
     (define (sorted-declarations (declarations (List Wat))) (→ (List Wat))
       (map (lambda (entry) (● entry second))
-           (sort-named (map (lambda (declaration) (Pair (declaration-id declaration) declaration))
+           (sort-named (map (lambda (declaration)
+                              (new Pair (first (declaration-id declaration)) (second declaration)))
                             declarations))))
 
     (define (sort-named (entries (List (Pair String A))))
@@ -5467,7 +5573,10 @@
     (begin
       (define test-wasm
         (lambda () (expect (mangle "a b,c(d)") "a_b~c<d>")
-                (expect (fill "(call {f} {x})" (list (Pair "f" "$g") (Pair "x" "1"))) "(call $g 1)")
+                (expect (fill "(call {f} {x})"
+                              (list (new Pair (first "f") (second "$g"))
+                                    (new Pair (first "x") (second "1"))))
+                        "(call $g 1)")
                 (expect (wat->string (wat "module"
                                           (wat "func"
                                                (Word "$f")

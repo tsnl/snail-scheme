@@ -1,5 +1,5 @@
 (import
  (snail core base))
-(struct Resource
+(record Resource
   ((value I64)))
 (define (forget (resource (Rc Resource))) (→ Unit) (unit))

@@ -26,7 +26,7 @@
     ;; not be done. The choices are worked out after every command rather
     ;; than every frame, because judging one means trying it. `guide` is the
     ;; guide's open page, if any.
-    (struct LedgerScreen
+    (record LedgerScreen
       ((seed I64)
        (ledger Ledger)
        (message (List String))
@@ -39,7 +39,16 @@
       (deriving Serialize Deserialize))
 
     (define (new-ledger-screen (seed I64)) (→ LedgerScreen)
-      (refresh (LedgerScreen seed (new-ledger seed) (Nil) (Nil) (Nil) (Nil) (Nil) (Nil) (None))))
+      (refresh (new LedgerScreen
+                 (seed seed)
+                 (ledger (new-ledger seed))
+                 (message (Nil))
+                 (vee-offers (Nil))
+                 (kit-offers (Nil))
+                 (contacts (Nil))
+                 (jobs (Nil))
+                 (promises (Nil))
+                 (guide (None)))))
 
     (define (refresh (screen LedgerScreen)) (→ LedgerScreen)
       (let* ((ledger (● screen ledger))
@@ -125,34 +134,36 @@
     ;; Your coins, standing, record and markers. The dial fills as rounds
     ;; end.
     (define (standings-panel (ledger Ledger)) (→ Panel)
-      (Panel "standings" (At (TopLeft) 0)
-             (list (label "title" "Favor ledger")
-                   (Dial (look "round")
-                         (ledger-header ledger)
-                         (/ (i64->f32 (- (● ledger round) 1)) (i64->f32 (round-count))))
-                   (section-heading "you" "You") (label "you-stats" (fixer-stats ledger (you)))
-                   (label "you-markers" (string-join (fixer-holdings ledger (you)) "\n")))))
+      (new Panel (key "standings") (place (At (TopLeft) 0))
+           (widgets (list (label "title" "Favor ledger")
+                          (Dial (look "round")
+                                (ledger-header ledger)
+                                (/ (i64->f32 (- (● ledger round) 1)) (i64->f32 (round-count))))
+                          (section-heading "you" "You")
+                          (label "you-stats" (fixer-stats ledger (you)))
+                          (label "you-markers" (string-join (fixer-holdings ledger (you)) "\n"))))))
 
     ;; A rival beside their portrait: their coins, standing, record, markers
     ;; and the job they are after, then their offers while the game is on.
     ;; Vee's column is left of Kit's.
     (define (rival-panel (screen LedgerScreen) (who I64)) (→ Panel)
       (let ((ledger (● screen ledger)) (vee? (= who (vee))))
-        (Panel (if vee? "vee" "kit") (At (TopRight) (if vee? 1 0))
-               (append (list (portrait "portrait" (rival-picture who) 2)
-                             (section-heading "name" (fixer-name who))
-                             (label "stats" (fixer-stats ledger who))
-                             (label "markers" (string-join (fixer-holdings ledger who) "\n")))
-                       (if (ledger-over? ledger)
-                           (Nil)
-                           (section "offers" "Offers" "Nothing this round."
-                                    (if vee?
-                                        (choice-buttons (● screen vee-offers)
-                                                        (action-vee-offers)
-                                                        "offer")
-                                        (choice-buttons (● screen kit-offers)
-                                                        (action-kit-offers)
-                                                        "offer"))))))))
+        (new Panel (key (if vee? "vee" "kit")) (place (At (TopRight) (if vee? 1 0)))
+             (widgets (append (list (portrait "portrait" (rival-picture who) 2)
+                                    (section-heading "name" (fixer-name who))
+                                    (label "stats" (fixer-stats ledger who))
+                                    (label "markers"
+                                           (string-join (fixer-holdings ledger who) "\n")))
+                              (if (ledger-over? ledger)
+                                  (Nil)
+                                  (section "offers" "Offers" "Nothing this round."
+                                           (if vee?
+                                               (choice-buttons (● screen vee-offers)
+                                                               (action-vee-offers)
+                                                               "offer")
+                                               (choice-buttons (● screen kit-offers)
+                                                               (action-kit-offers)
+                                                               "offer")))))))))
 
     ;; What needs doing now: the result once the game is over, a promise
     ;; falling due, a job you can do, or else how to work toward one.
@@ -182,76 +193,81 @@
     (define (playing-panels (screen LedgerScreen)) (→ (List Panel))
       (let ((ledger (● screen ledger)))
         (list (standings-panel ledger)
-              (Panel "hint" (At (TopLeft) 0) (list (hint screen)))
-              (Panel "jobs" (At (TopLeft) 0)
-                     (section "jobs"
-                              "Jobs: one marker per ability"
-                              "No jobs open."
-                              (choice-buttons (● screen jobs) (action-jobs) "job")))
-              (Panel "promises" (At (TopLeft) 0)
-                     (section "promises" "Promises" "None yet."
-                              (append (choice-buttons (● screen promises)
-                                                      (action-promises)
-                                                      "promise")
-                                      (line-labels "owed" (owed-lines ledger)))))
-              (Panel "contacts" (At (TopLeft) 1)
-                     (append
-                      (section "contacts" "Contacts: meet a want, get a marker" "No contacts."
-                               (choice-buttons (● screen contacts)
-                                               (action-contacts)
-                                               "contact"))
-                      (list (button "end" "End the round" (action-end))
-                            (button "new" "New game" (action-new)))))
+              (new Panel (key "hint") (place (At (TopLeft) 0)) (widgets (list (hint screen))))
+              (new Panel (key "jobs") (place (At (TopLeft) 0))
+                   (widgets (section "jobs"
+                                     "Jobs: one marker per ability"
+                                     "No jobs open."
+                                     (choice-buttons (● screen jobs) (action-jobs) "job"))))
+              (new Panel (key "promises") (place (At (TopLeft) 0))
+                   (widgets (section "promises" "Promises" "None yet."
+                                     (append (choice-buttons (● screen promises)
+                                                             (action-promises)
+                                                             "promise")
+                                             (line-labels "owed" (owed-lines ledger))))))
+              (new Panel (key "contacts") (place (At (TopLeft) 1))
+                   (widgets (append
+                             (section "contacts"
+                                      "Contacts: meet a want, get a marker"
+                                      "No contacts."
+                                      (choice-buttons (● screen contacts)
+                                                      (action-contacts)
+                                                      "contact"))
+                             (list (button "end" "End the round" (action-end))
+                                   (button "new" "New game" (action-new))))))
               (news-panel screen) (rival-panel screen (vee)) (rival-panel screen (kit)))))
 
     ;; What the last command said, and what the last end of round did.
     (define (news-panel (screen LedgerScreen)) (→ Panel)
-      (Panel "news" (At (TopLeft) 1)
-             (append (line-labels "message" (● screen message))
-                     (section "last-round"
-                              "Last end of round"
-                              "Nothing yet."
-                              (line-labels "last-round"
-                                           (● (● screen ledger) last-round))))))
+      (new Panel (key "news") (place (At (TopLeft) 1))
+           (widgets (append (line-labels "message" (● screen message))
+                            (section "last-round"
+                                     "Last end of round"
+                                     "Nothing yet."
+                                     (line-labels "last-round"
+                                                  (● (● screen ledger) last-round)))))))
 
     (define (final-panels (screen LedgerScreen)) (→ (List Panel))
       (list (standings-panel (● screen ledger))
-            (Panel "hint" (At (TopLeft) 0) (list (hint screen)))
-            (Panel "contacts" (At (TopLeft) 1) (list (button "new" "New game" (action-new))))
+            (new Panel (key "hint") (place (At (TopLeft) 0)) (widgets (list (hint screen))))
+            (new Panel
+              (key "contacts")
+              (place (At (TopLeft) 1))
+              (widgets (list (button "new" "New game" (action-new)))))
             (news-panel screen)
             (rival-panel screen (vee)) (rival-panel screen (kit))))
 
     ;; ---- Guide ----
 
     (define (guide-pages) (→ (List Page))
-      (list (Page "What this experiment tests"
-                  (list
-                   "The favor ledger asks one question: does an economy of favors produce interesting trades, or collapse into hoarding?"
-                   "While you play, notice: do you broker, buying a marker from one rival to sell to the other? Do you accept promises, and does refusing one change what Vee and Kit offer you? Does lapsing keep markers moving, or does hoarding still win?")
-                  (Nil))
-            (Page "Markers"
-                  (list
-                   "A marker is a favor a contact owes you. It lends you that contact's ability once: doors, muscle, medicine, fencing, paperwork or eyes."
-                   "A marker can be spent, given or traded, but never copied, and it lapses at the end of the second round after it was granted. Yours are listed under You at the top left.")
-                  (Nil))
-            (Page "Jobs"
-                  (list
-                   "The most standing after eight rounds wins, and coins break ties. Jobs pay standing: a job takes one marker for each ability it lists."
-                   "A job needing two abilities pays 4 coins and 1 standing; one needing three pays 6 coins and 2. Vee and Kit chase jobs too, and each shows the job it is after.")
-                  (list (portrait "guide-vee" (rival-picture (vee)) 2)
-                        (portrait "guide-kit" (rival-picture (kit)) 2)))
-            (Page "Getting markers"
-                  (list
-                   "Each contact wants one thing: coins, or a marker with another ability. Meet the want and they grant you one of their markers, once a round."
-                   "Vee and Kit, on the right, offer to buy and sell markers, and to trade promises for coins. Each offer can be taken once a round."
-                   "A greyed-out button says why when you point at it.")
-                  (Nil))
-            (Page "Promises and the end of a round"
-                  (list
-                   "A promise is a debt of one marker with an ability, due at the end of a round. Honor yours under Promises in time: one still owed when it falls due is refused, and refusing costs 1 standing."
-                   "Once you refuse, Vee and Kit pay less, charge more, and stop asking for your promises. Vee keeps every promise she can; Kit keeps one only if he can spare the marker."
-                   "When you are done, end the round: rivals do their jobs and gain a marker, markers lapse, and promises fall due.")
-                  (Nil))))
+      (list (new Page (title "What this experiment tests")
+                 (paragraphs (list
+                              "The favor ledger asks one question: does an economy of favors produce interesting trades, or collapse into hoarding?"
+                              "While you play, notice: do you broker, buying a marker from one rival to sell to the other? Do you accept promises, and does refusing one change what Vee and Kit offer you? Does lapsing keep markers moving, or does hoarding still win?"))
+                 (extras (Nil)))
+            (new Page (title "Markers")
+                 (paragraphs (list
+                              "A marker is a favor a contact owes you. It lends you that contact's ability once: doors, muscle, medicine, fencing, paperwork or eyes."
+                              "A marker can be spent, given or traded, but never copied, and it lapses at the end of the second round after it was granted. Yours are listed under You at the top left."))
+                 (extras (Nil)))
+            (new Page (title "Jobs")
+                 (paragraphs (list
+                              "The most standing after eight rounds wins, and coins break ties. Jobs pay standing: a job takes one marker for each ability it lists."
+                              "A job needing two abilities pays 4 coins and 1 standing; one needing three pays 6 coins and 2. Vee and Kit chase jobs too, and each shows the job it is after."))
+                 (extras (list (portrait "guide-vee" (rival-picture (vee)) 2)
+                               (portrait "guide-kit" (rival-picture (kit)) 2))))
+            (new Page (title "Getting markers")
+                 (paragraphs (list
+                              "Each contact wants one thing: coins, or a marker with another ability. Meet the want and they grant you one of their markers, once a round."
+                              "Vee and Kit, on the right, offer to buy and sell markers, and to trade promises for coins. Each offer can be taken once a round."
+                              "A greyed-out button says why when you point at it."))
+                 (extras (Nil)))
+            (new Page (title "Promises and the end of a round")
+                 (paragraphs (list
+                              "A promise is a debt of one marker with an ability, due at the end of a round. Honor yours under Promises in time: one still owed when it falls due is refused, and refusing costs 1 standing."
+                              "Once you refuse, Vee and Kit pay less, charge more, and stop asking for your promises. Vee keeps every promise she can; Kit keeps one only if he can spare the marker."
+                              "When you are done, end the round: rivals do their jobs and gain a marker, markers lapse, and promises fall due."))
+                 (extras (Nil)))))
 
     ;; `first` are panels to show before the screen's own.
     (define (ledger-screen-hud (screen LedgerScreen) (first (List Panel))) (→ (List Panel))

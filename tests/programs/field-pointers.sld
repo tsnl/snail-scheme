@@ -2,15 +2,15 @@
  (snail core base)
  (snail core io))
 
-(struct Point
+(record Point
   ((x I64)
    (y I64)))
 
-(struct Scene
+(record Scene
   ((position Point)
    (target Point)))
 
-(struct Calls
+(record Calls
   ((count I64)))
 
 ;; Receiver evaluation happens once for the entire path.
@@ -26,17 +26,18 @@
 (define (main) (→ Unit) (! mut output-port)
 
   ;; Both child fields refer to independently mutable objects.
-  (let ((scene (Scene (Point 1 2) (Point 3 4))))
+  (let ((scene (new Scene (position (new Point (x 1) (y 2))) (target (new Point (x 3) (y 4))))))
     (write-line (show (● scene position x)))
     (write-line (show (● scene target y)))
-    (set! (● scene target) (Point 5 6))
+    (set! (● scene target) (new Point (x 5) (y 6)))
     (set! (● scene position x) 7)
     (write-line (show (replace! (● scene target y) 8)))
     (write-line (show (● scene position x)))
     (write-line (show (● scene target y))))
-  (write-line (show (● (Point 9 10) x)))
-  (let ((calls (Calls 0)) (scene (Scene (Point 13 14) (Point 15 16))))
+  (write-line (show (● (new Point (x 9) (y 10)) x)))
+  (let ((calls (new Calls (count 0)))
+        (scene (new Scene (position (new Point (x 13) (y 14))) (target (new Point (x 15) (y 16))))))
     (write-line (show (● (visit calls scene) target x)))
     (write-line (show (● calls count))))
-  (write-line (show (read-x (Point 17 18))))
+  (write-line (show (read-x (new Point (x 17) (y 18)))))
   (unit))

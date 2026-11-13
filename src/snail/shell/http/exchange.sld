@@ -19,11 +19,11 @@
 
     ;; ---- Exchange values ----
 
-    (struct Request
+    (record Request
       ((head RequestHead)
        (body Bytes)))
 
-    (struct Response
+    (record Response
       ((status I32)
        (headers (List Header))
        (body Bytes)))
@@ -39,7 +39,7 @@
 
     ;; The codec has established framing; prefix contains only bytes after
     ;; the head. They can include the body and surplus pipelined input.
-    (struct RequestPrefix
+    (record RequestPrefix
       ((head RequestHead)
        (prefix Bytes)))
 
@@ -58,7 +58,7 @@
         ((Ok (Some bytes))
          (if (and (> (vector-length bytes) 0) (<= (vector-length bytes) maximum))
              (Ok (Some bytes))
-             (Err (TransportFailure (SocketError "EIO")))))))
+             (Err (TransportFailure (new SocketError (code "EIO"))))))))
 
     ;; Only locate CRLFCRLF here. The codec owns all HTTP syntax validation.
     ;; State is the number of matching delimiter bytes, from zero through four.
@@ -72,7 +72,7 @@
     (define (scan-head (bytes Bytes) (state I32)) (→ (Pair I64 I32))
       (let loop ((index 0) (state state))
         (if (or (= state 4) (= index (vector-length bytes)))
-            (Pair index state)
+            (new Pair (first index) (second state))
             (loop (+ index 1) (delimiter-step state (vector-ref bytes index))))))
 
     (define (parsed-prefix (reversed (List Bytes)) (prefix Bytes))
@@ -82,7 +82,7 @@
         ((Err error) (Err (ProtocolFailure error)))
         ((Ok value)
          (match value
-           ((Some parsed) (Ok (RequestPrefix (● parsed request) prefix)))
+           ((Some parsed) (Ok (new RequestPrefix (head (● parsed request)) (prefix prefix))))
            ((None) (panic "HTTP delimiter did not complete the head"))))))
 
     (define (read-head (connection Connection))
@@ -112,7 +112,7 @@
              (initial (● prefix prefix)) (count (min expected (vector-length initial))))
         (let loop ((chunks (list (subvector initial 0 count))) (received count))
           (if (= received expected)
-              (Ok (Request head (vector-concatenate (reverse chunks))))
+              (Ok (new Request (head head) (body (vector-concatenate (reverse chunks)))))
               (match (read-chunk connection (min 65536 (- expected received)))
                 ((Err error) (Err error))
                 ((Ok (None)) (Err (TruncatedBody expected received)))
@@ -144,7 +144,7 @@
                 ((Ok written)
                  (let ((count (i32->i64 written)))
                    (if (or (<= count 0) (> count (- end offset)))
-                       (Err (TransportFailure (SocketError "EIO")))
+                       (Err (TransportFailure (new SocketError (code "EIO"))))
                        (loop (+ offset count) (min 65536 (* 2 count)))))))))))
 
     (define (write-response (connection Connection) (grace I32) (parts ResponseParts))

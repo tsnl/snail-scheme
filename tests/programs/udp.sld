@@ -21,7 +21,7 @@
                   (peer (require (endpoint "127.0.0.1" (● second port))))
                   (listener (require (listen (require (endpoint "127.0.0.1" 0))))))
              ;; Owner-local handle numbers can coincide. Their token types cannot.
-             (match (close-udp (UdpSocket (● listener token) 0))
+             (match (close-udp (new UdpSocket (token (● listener token)) (port 0)))
                ((Err error) (write-line (● error code)))
                ((Ok _) (panic "TCP token used as UDP")))
              (require (close-listener listener))

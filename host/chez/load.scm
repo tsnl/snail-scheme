@@ -62,7 +62,7 @@
   (apply append
          (map (lambda (form)
                 (case (car form)
-                  [(define define-syntax struct type)
+                  [(define define-syntax record type)
                    (list (if (pair? (cadr form)) (caadr form) (cadr form)))]
                   [(enum) (cons (if (pair? (cadr form)) (caadr form) (cadr form))
                                 (map car (cddr form)))]

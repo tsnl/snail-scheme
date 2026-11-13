@@ -4,7 +4,7 @@
 (effect Pause
   ((ctl pause (Fn → Unit))))
 
-(struct Token
+(record Token
   ((number I64)))
 
 (instance (Drop (!) Token)
@@ -13,7 +13,7 @@
 
 (define main
   (lambda ()
-    (let* ((token (Token 10))
+    (let* ((token (new Token (number 10)))
            (function (ann (lambda () (● token number) (pause))
                           (Fn → Unit ! Pause))))
       (drop function))

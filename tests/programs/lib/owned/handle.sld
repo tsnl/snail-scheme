@@ -7,7 +7,7 @@
     (effect log
       ((say (Fn String → Unit))))
 
-    (struct Handle
+    (record Handle
       ((name String)))
 
     (instance (Drop (! log) Handle)

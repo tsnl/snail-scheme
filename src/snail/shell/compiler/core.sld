@@ -58,6 +58,8 @@
    Var
    Lambda
    App
+   New
+   Initializer
    FieldRead
    If
    Let
@@ -204,7 +206,7 @@
 
     (define (unchecked) (→ Type) (TCon "unchecked" (Nil)))
 
-    (struct Constraint
+    (record Constraint
       ((class String)
        (types (List Type))))
 
@@ -214,14 +216,14 @@
     ;; no evidence: a constraint's evidence is its position among the
     ;; constraints. The others will be linear (#550); until then every
     ;; variable ranges over ω types.
-    (struct Scheme
+    (record Scheme
       ((vars (List String))
        (constraints (List Constraint))
        (copy (List String))
        (type Type)))
 
     (define (mono-scheme (type Type)) (→ Scheme)
-      (Scheme (Nil) (Nil) (Nil) type))
+      (new Scheme (vars (Nil)) (constraints (Nil)) (copy (Nil)) (type type)))
 
     ;; The names of the core forms, which the expander binds in
     ;; (snail core forms) and (snail shell highlight) colors as keywords.
@@ -236,7 +238,8 @@
             "syntax-rules"
             "quote"
             "declare"
-            "struct"
+            "record"
+            "new"
             "enum"
             "type"
             "typeclass"
@@ -254,22 +257,22 @@
             "artifact-files" "link-handle"))
 
     (define (builtin-types) (→ (List (Pair String I64)))
-      (list (Pair "Any" 0)
-            (Pair "Rc" 1)
-            (Pair "WeakRc" 1)
-            (Pair "Funcref" 0)
-            (Pair "U8" 0)
-            (Pair "I32" 0)
-            (Pair "I64" 0)
-            (Pair "F32" 0)
-            (Pair "F64" 0)
-            (Pair "Bool" 0)
-            (Pair "Char" 0)
-            (Pair "Unit" 0)
-            (Pair "String" 0)
-            (Pair "Vector" 1)
-            (Pair "FnOnce" 1)
-            (Pair "Fn" 0)
+      (list (new Pair (first "Any") (second 0))
+            (new Pair (first "Rc") (second 1))
+            (new Pair (first "WeakRc") (second 1))
+            (new Pair (first "Funcref") (second 0))
+            (new Pair (first "U8") (second 0))
+            (new Pair (first "I32") (second 0))
+            (new Pair (first "I64") (second 0))
+            (new Pair (first "F32") (second 0))
+            (new Pair (first "F64") (second 0))
+            (new Pair (first "Bool") (second 0))
+            (new Pair (first "Char") (second 0))
+            (new Pair (first "Unit") (second 0))
+            (new Pair (first "String") (second 0))
+            (new Pair (first "Vector") (second 1))
+            (new Pair (first "FnOnce") (second 1))
+            (new Pair (first "Fn") (second 0))
             ))
 
     ;; Unique names look like `snail.core.base:map`; diagnostics show the source
@@ -347,8 +350,8 @@
     (define (row-parts (row Type) (labels (List String))) (→ (Pair (List String) (Option Type)))
       (match row
         ((TRow more (Some tail)) (row-parts tail (label-union labels more)))
-        ((TRow more (None)) (Pair (label-union labels more) (None)))
-        (_ (Pair labels (Some row)))))
+        ((TRow more (None)) (new Pair (first (label-union labels more)) (second (None))))
+        (_ (new Pair (first labels) (second (Some row))))))
 
     ;; (snail core base)'s type with no values. A control operation that
     ;; answers it never resumes, so its yield saves nothing.
@@ -525,9 +528,9 @@
 
     (define (substitute-constraint (substitution Substitution) (constraint Constraint))
       (→ Constraint)
-      (Constraint (● constraint class)
-                  (map (lambda (type) (substitute substitution type))
-                       (● constraint types))))
+      (new Constraint (class (● constraint class))
+           (types (map (lambda (type) (substitute substitution type))
+                       (● constraint types)))))
 
     ;; ---- Class evidence ----
 
@@ -562,7 +565,7 @@
     ;; ---- Expressions ----
 
     ;; Every expression has a type, `unchecked` until checked, and a location.
-    (struct Expr
+    (record Expr
       ((term Term)
        (type Type)
        (loc Loc)))
@@ -583,6 +586,11 @@
       (App
        ((callee Expr)
         (args (List Expr))))
+      ;; Only resolution and checking see named construction. Initializers
+      ;; are in written order; their slots form a complete permutation.
+      (New
+       ((callee Expr)
+        (fields (List Initializer))))
       ;; A nominal field selection. Checking records its resolved accessor
       ;; expression in the solution; zonking removes this surface operation.
       (FieldRead
@@ -615,7 +623,12 @@
        ((expr Expr)
         (target Type))))
 
-    (struct Clause
+    (record Initializer
+      ((slot I64)
+       (name String)
+       (value Expr)))
+
+    (record Clause
       ((pattern Pattern)
        (body Expr)))
 
@@ -647,6 +660,7 @@
         ((Var _ _ _) (Nil))
         ((Lambda _ body ) (list body))
         ((App callee args) (Cons callee args))
+        ((New callee fields) (Cons callee (map (lambda (field) (● field value)) fields)))
         ((FieldRead record _ _) (list record))
         ((If test then otherwise) (list test then otherwise))
         ((Let _ value body) (list value body))
@@ -663,7 +677,8 @@
     ;; occurrence. Locals are included, since names are unique.
 
     (define (expr-references (expr Expr)) (→ (List String))
-      (reverse (● (collect-references (Pair (empty-table) (Nil)) expr) second)))
+      (reverse
+       (● (collect-references (new Pair (first (empty-table)) (second (Nil))) expr) second)))
 
     ;; Adds the names not yet seen to the found list, newest first, and to
     ;; the seen table.
@@ -676,7 +691,7 @@
            ((Pair seen names)
             (if (table-contains? seen name)
                 found
-                (Pair (table-set seen name #t) (Cons name names))))))
+                (new Pair (first (table-set seen name #t)) (second (Cons name names)))))))
         (_ (fold-left collect-references found (expr-children expr)))))
 
     ;; Local names are unique after resolution. Closure layouts and control
@@ -691,24 +706,24 @@
 
     ;; ---- Declared entities ----
 
-    ;; A struct is a data type with one case named after it. An `owned?`
+    ;; A record is a data type with one case named after it. An `owned?`
     ;; type has a Drop instance and is linear regardless of its fields.
-    (struct DataType
+    (record DataType
       ((name String)
        (params (List String))
        (cases (List Case))
        (enum? Bool)
        (owned? Bool)))
 
-    (struct Case
+    (record Case
       ((name String)
        (type String)
        (tag I64)
        (fields (List Field))))
 
-    ;; A mutable field is a place: it is read and written in the struct
-    ;; that holds it, so a struct with one has identity.
-    (struct Field
+    ;; A mutable field is a place: it is read and written in the record
+    ;; that holds it, so a record with one has identity.
+    (record Field
       ((name String)
        (type Type)))
 
@@ -718,7 +733,7 @@
     ;; as a row in its head. `outputs` are hidden trailing associated type
     ;; arguments. The remaining input parameters choose the evidence that
     ;; establishes outputs and the rows a method use performs.
-    (struct Class
+    (record Class
       ((name String)
        (params (List String))
        (rows (List String))
@@ -768,7 +783,7 @@
         ((TRigid name)
          (if (member? name vars)
              (match (assoc-ref bindings name)
-               ((None) (Some (Cons (Pair name type) bindings)))
+               ((None) (Some (Cons (new Pair (first name) (second type)) bindings)))
                ((Some bound) (if (type=? bound type) (Some bindings) (None))))
              (if (type=? pattern type) (Some bindings) (None))))
         ((TCon name args)
@@ -793,7 +808,7 @@
     ;; Each method maps to the top-level definition that implements it.
     ;; `copy` names the instance variables its requirements declare ω, as a
     ;; scheme's does.
-    (struct Instance
+    (record Instance
       ((name String)
        (class String)
        (vars (List String))
@@ -802,7 +817,7 @@
        (copy (List String))
        (methods (List (Pair String String)))))
 
-    (struct Import
+    (record Import
       ((module String)
        (symbol String)))
 
@@ -818,7 +833,7 @@
     ;; handles it around a program's body, as `tasks` is handled, since a
     ;; program's statements run as its first task, so the body may perform
     ;; it although no default could.
-    (struct Effect
+    (record Effect
       ((name String)
        (operations (List String))
        (control (List String))
@@ -830,7 +845,7 @@
     ;; its typed header was written. Every definition is a function. An instance method has
     ;; its class method's scheme and no signature of its own, and like a
     ;; default no program names it. Internal field operations describe
-    ;; path reads, pure struct copies, writes and swaps. Only the pure
+    ;; path reads, pure record copies, writes and swaps. Only the pure
     ;; replacement has a source function name; enum fields are read by match.
     (define (field-operation-name (case Case) (index I64) (operation String)) (→ String)
       (string-append "%" operation ":" (● case name) "-"
@@ -929,7 +944,7 @@
     ;; counts as a library named `main`. A library's items join the program
     ;; as one run, after those of every library loaded before it, so the
     ;; program's items divide into one run per library.
-    (struct Program
+    (record Program
       ((values (Table Value))
        (types (Table DataType))
        (classes (Table Class))
@@ -939,7 +954,14 @@
        (libraries (List (Pair String I64)))))
 
     (define (empty-program) (→ Program)
-      (Program (empty-table) (empty-table) (empty-table) (empty-table) (empty-table) (Nil) (Nil)))
+      (new Program
+        (values (empty-table))
+        (types (empty-table))
+        (classes (empty-table))
+        (instances (empty-table))
+        (effects (empty-table))
+        (items (Nil))
+        (libraries (Nil))))
 
     (define (program-value (program Program) (name String)) (→ (Option Value))
       (table-ref (● program values) name))
@@ -1048,7 +1070,8 @@
 
     (define (program-with-library (program Program) (name String) (items (List Item))) (→ Program)
       (Program-libraries-set (Program-items-set program (append items (● program items)))
-                             (Cons (Pair name (length items)) (● program libraries))))
+                             (Cons (new Pair (first name) (second (length items)))
+                                   (● program libraries))))
 
     ;; `table` with every entry of `additions`, which win where both have a
     ;; key.
@@ -1072,7 +1095,9 @@
       (let loop ((libraries (reverse (● program libraries))) (items items) (out (Nil)))
         (match libraries
           ((Cons (Pair name count) rest)
-           (loop rest (list-tail items count) (Cons (Pair name (take items count)) out)))
+           (loop rest
+                 (list-tail items count)
+                 (Cons (new Pair (first name) (second (take items count))) out)))
           ((Nil) (reverse out)))))
 
     ;; ---- Wire identities ----
@@ -1229,7 +1254,7 @@
     ;; search reaches them and has no entry until then, `low` is the least
     ;; number a node leads back to, and `open` holds the nodes on the stack.
     ;; Nodes are dense small integers, so a key is just the decimal text.
-    (struct Search
+    (record Search
       ((edges (Vector (List I64)))
        (index (Table I64))
        (low (Table I64))
@@ -1241,7 +1266,14 @@
     (define (strong-components (edges (Vector (List I64)))) (→ (List (List I64)))
       (let ((search (fold-left
                      (lambda (search node) (if (reached? search node) search (visit search node)))
-                     (Search edges (empty-table) (empty-table) (empty-table) (Nil) 0 (Nil))
+                     (new Search
+                       (edges edges)
+                       (index (empty-table))
+                       (low (empty-table))
+                       (open (empty-table))
+                       (stack (Nil))
+                       (count 0)
+                       (components (Nil)))
                      (iota (vector-length edges)))))
         (reverse (● search components))))
 
@@ -1273,13 +1305,13 @@
 
     (define (visit (search Search) (node I64)) (→ Search)
       (let* ((number (● search count))
-             (entered (Search (● search edges)
-                              (table-set (● search index) (node-key node) number)
-                              (table-set (● search low) (node-key node) number)
-                              (table-set (● search open) (node-key node) #t)
-                              (Cons node (● search stack))
-                              (+ number 1)
-                              (● search components)))
+             (entered (new Search (edges (● search edges))
+                           (index (table-set (● search index) (node-key node) number))
+                           (low (table-set (● search low) (node-key node) number))
+                           (open (table-set (● search open) (node-key node) #t))
+                           (stack (Cons node (● search stack)))
+                           (count (+ number 1))
+                           (components (● search components))))
              (followed (fold-left (lambda (search next) (follow search node next))
                                   entered (vector-ref (● search edges) node))))
         (if (= (node-low followed node) number) (pop-component followed node) followed)))
@@ -1352,9 +1384,12 @@
       ;; when all involved Wasm layouts remain identical.
       (define (identity-fixture (label String) (field Type)) (→ Program)
         (program-with-type (empty-program)
-                           (DataType "test:Payload" (Nil)
-                                     (list (Case "test:Payload" "test:Payload" 0
-                                                 (list (Field label field)))) #f #f)))
+                           (new DataType (name "test:Payload") (params (Nil))
+                                (cases
+                                 (list (new Case (name "test:Payload") (type "test:Payload") (tag 0)
+                                            (fields (list (new Field (name label) (type field)))))))
+                                (enum? #f)
+                                (owned? #f))))
 
       (define (test-type-identities) (→ Unit)
         (let* ((i64 (TCon "I64" (Nil))) (payload (TCon "test:Payload" (Nil)))
@@ -1370,12 +1405,14 @@
       ;; Structural traversal enters latent lambda bodies and handler
       ;; implementations, preserving first occurrence while deduplicating.
       (define test-references
-        (lambda () (let* ((at (Loc "references" 1 1))
-                          (wrap (lambda (term) (Expr term (unchecked) at)))
+        (lambda () (let* ((at (new Loc (file "references") (line 1) (column 1)))
+                          (wrap (lambda (term) (new Expr (term term) (type (unchecked)) (loc at))))
                           (read (lambda (name) (wrap (Var name (Nil) (Nil)))))
                           (body (wrap (App (read "later") (list (read "first") (read "last")))))
                           (handler (wrap (Lambda (list "unused") (read "first") )))
-                          (expr (wrap (Handle "effect" (list (Pair "operation" handler)) body))))
+                          (expr (wrap (Handle "effect"
+                                              (list (new Pair (first "operation") (second handler)))
+                                              body))))
                      (expect (expr-references expr) (list "first" "later" "last")))))
 
       ;; A total function hides nothing; an effectful one is found at any

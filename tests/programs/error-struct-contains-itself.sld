@@ -3,5 +3,5 @@
 
 ;; Every Node would hold another Node, through a field, so no
 ;; program can build one. An empty type is an enum with no cases instead.
-(struct Node
+(record Node
   ((next Node)))
