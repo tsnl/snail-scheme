@@ -19,6 +19,8 @@
 
 ;; Two aliases own separate credits for one resource. Each suspension moves
 ;; those credits into a frame; resume and cancellation must consume them once.
+;; Cancellation must finalize 2 before dropping 1. The old backup closure
+;; delayed 2 until its own captures were released, incorrectly printing 1 first.
 (define (work) (→ Unit) (! Pause Audit mut)
   (let* ((linear (Resource 1))
          (shared (rc (Resource 2)))
@@ -54,6 +56,54 @@
     ((Done) (unit))
     ((More next) (finish (next (unit))))))
 
+(struct Observer
+  ((weak (WeakRc Resource))))
+
+(instance (Drop (! Audit mut) Observer)
+  (define (drop (observer Observer)) (→ Unit) (! Audit mut)
+    (match observer
+      ((Observer weak)
+       (match (weak-rc-upgrade weak)
+         ((Some alive) (note 9))
+         ((None) (note 0)))))))
+
+;; Parameter owners are released in reverse order. The newer shared owner
+;; must be dead before the older observer runs, on cancel or direct abort.
+(define (observed (observer Observer) (shared (Rc Resource)) (abort Bool))
+  (→ Unit) (! Pause Abort Audit mut)
+  (if abort (absurd (stop)) (pause))
+  (drop observer)
+  (drop shared))
+
+(define (start-observed (abort Bool)) (→ Step) (! Audit mut)
+  (handle Pause ((pause (lambda (resume) (More resume))))
+    (handle Abort ((stop (lambda () (Done))))
+      (new-observed abort)
+      (Done))))
+
+;; Tail transfer releases this constructing scope before observed starts;
+;; no outer counted alias may mask the cancellation order being tested.
+(define (new-observed (abort Bool)) (→ Unit) (! Pause Abort Audit mut)
+  (let ((shared (rc (Resource 5))))
+    (observed (Observer (rc-downgrade shared)) shared abort)))
+
+(struct Finish
+  ((step Step)))
+
+(instance (Drop (! Audit mut) Finish)
+  (define (drop (resource Finish)) (→ Unit) (! Audit mut)
+    (match resource
+      ((Finish step) (note 6) (finish step) (note 7)))))
+
+;; Cancellation may run a finalizer that resumes an independent saved
+;; computation. The cancelling continuation must already own no frames.
+(define (start-finish) (→ Step) (! Audit mut)
+  (handle Pause ((pause (lambda (resume) (More resume))))
+    (let ((resource (rc (Finish (start)))))
+      (pause)
+      (drop resource))
+    (Done)))
+
 (define (main) (→ Unit) (! output-port mut)
   (handle Audit ((note (lambda (number) (write-line (show number)))))
     (drop (start))
@@ -64,5 +114,8 @@
     (drop (start-abandon))
     (match (start-abandon)
       ((Stopped) (unit))
-      ((Waiting next) (drop (next (unit))))))
+      ((Waiting next) (drop (next (unit)))))
+    (drop (start-observed #f))
+    (drop (start-observed #t))
+    (drop (start-finish)))
   (unit))
