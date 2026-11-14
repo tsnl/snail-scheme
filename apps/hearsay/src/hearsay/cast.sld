@@ -24,10 +24,12 @@
     ;; One item of a list, and the generator after the draw.
     (define (deal (random Random) (items (List T)))
       (→ (Pair T Random)) (∀ (T)) (⊨ (Copy T) (Drop (!) T))
-      (Pair (list-ref items (random-below random (length items))) (random-next random)))
+      (new Pair
+        (first (list-ref items (random-below random (length items))))
+        (second (random-next random))))
 
     (define (names->dyes (names (List String))) (→ (List Dye))
-      (map Dye names))
+      (map (lambda (%field0) (new Dye (name %field0))) names))
 
     ;; ---- Wardrobe ----
 
@@ -50,10 +52,11 @@
 
     (define (human-skins)
       (→ (List Skin))
-      (map Skin (list "light" "amber" "olive" "taupe" "bronze" "brown" "black")))
+      (map (lambda (%field0) (new Skin (name %field0)))
+           (list "light" "amber" "olive" "taupe" "bronze" "brown" "black")))
 
     (define (cuts) (→ (List HairStyle))
-      (map HairStyle
+      (map (lambda (%field0) (new HairStyle (name %field0)))
            (list "bob"
                  "buzzcut"
                  "curly_short"
@@ -64,7 +67,7 @@
                  "bangs_bun")))
 
     (define (hair-shades (head Head)) (→ (List HairColor))
-      (map HairColor
+      (map (lambda (%field0) (new HairColor (name %field0)))
            (if (elderly? head)
                (list "gray" "white")
                (list "black" "dark_brown" "chestnut" "blonde" "ginger"))))
@@ -83,19 +86,21 @@
     (define (footwear) (→ (List Garment)) (list (Shoes) (Boots)))
 
     ;; Dark enough to tell from skin and floor at sprite size.
-    (define (shoe-dyes) (→ (List Dye)) (map Dye (list "black" "charcoal" "walnut")))
+    (define (shoe-dyes)
+      (→ (List Dye))
+      (map (lambda (%field0) (new Dye (name %field0))) (list "black" "charcoal" "walnut")))
 
     ;; A garment in the dye dealt, if the catalog draws it in that for the
     ;; build, and otherwise in the first dye it does: male pants come only
     ;; in green.
     (define (worn-in (build Build) (garment Garment) (dye Dye)) (→ Worn)
       (let ((drawn (garment-dyes build garment)))
-        (Worn garment
-              (if (any? (lambda (other) (string=? (● other name) (● dye name))) drawn)
-                  dye
-                  (match drawn
-                    ((Cons first _) first)
-                    ((Nil) dye))))))
+        (new Worn (garment garment)
+             (dye (if (any? (lambda (other) (string=? (● other name) (● dye name))) drawn)
+                      dye
+                      (match drawn
+                        ((Cons first _) first)
+                        ((Nil) dye)))))))
 
     ;; Every look dealt here is one the catalog draws, so dressing never
     ;; fails. Were the tables to drift from the catalog, building (hearsay
@@ -117,7 +122,7 @@
         (outfitted (● build first)
                    (● head first)
                    (● skin first)
-                   (Hair (● cut first) (● shade first))
+                   (new Hair (style (● cut first)) (color (● shade first)))
                    palette
                    (● shade second))))
 
@@ -134,9 +139,11 @@
              (shoe (deal (● bottom-dye second) (footwear)))
              (shoe-dye (deal (● shoe second) (shoe-dyes))))
         (dressed build head skin
-                 (Outfit (Some hair) (Some (worn-in build (● top first) (● top-dye first)))
-                         (Some (worn-in build (● bottom first) (● bottom-dye first)))
-                         (Some (worn-in build (● shoe first) (● shoe-dye first)))))))
+                 (new Outfit
+                   (hair (Some hair))
+                   (torso (Some (worn-in build (● top first) (● top-dye first))))
+                   (legs (Some (worn-in build (● bottom first) (● bottom-dye first))))
+                   (feet (Some (worn-in build (● shoe first) (● shoe-dye first))))))))
 
     ;; Resident `person` of the rumor mill, dressed in their audience's
     ;; colors.
@@ -146,16 +153,22 @@
     ;; The favor ledger's rivals, by fixer: Vee, and otherwise Kit.
     (define (rival (who I64)) (→ Character)
       (if (= who (vee))
-          (dressed (Female) (HumanFemale) (Skin "bronze")
-                   (Outfit (Some (Hair (HairStyle "high_ponytail") (HairColor "raven")))
-                           (Some (Worn (Tunic) (Dye "purple")))
-                           (Some (Worn (Leggings) (Dye "black")))
-                           (Some (Worn (Boots) (Dye "black")))))
-          (dressed (Male) (HumanMale) (Skin "light")
-                   (Outfit (Some (Hair (HairStyle "spiked") (HairColor "carrot")))
-                           (Some (Worn (Tabard) (Dye "red")))
-                           (Some (Worn (Pants) (Dye "green")))
-                           (Some (Worn (Shoes) (Dye "black")))))))
+          (dressed (Female) (HumanFemale) (new Skin (name "bronze"))
+                   (new Outfit
+                     (hair (Some (new Hair
+                                   (style (new HairStyle (name "high_ponytail")))
+                                   (color (new HairColor (name "raven"))))))
+                     (torso (Some (new Worn (garment (Tunic)) (dye (new Dye (name "purple"))))))
+                     (legs (Some (new Worn (garment (Leggings)) (dye (new Dye (name "black"))))))
+                     (feet (Some (new Worn (garment (Boots)) (dye (new Dye (name "black"))))))))
+          (dressed (Male) (HumanMale) (new Skin (name "light"))
+                   (new Outfit
+                     (hair (Some (new Hair
+                                   (style (new HairStyle (name "spiked")))
+                                   (color (new HairColor (name "carrot"))))))
+                     (torso (Some (new Worn (garment (Tabard)) (dye (new Dye (name "red"))))))
+                     (legs (Some (new Worn (garment (Pants)) (dye (new Dye (name "green"))))))
+                     (feet (Some (new Worn (garment (Shoes)) (dye (new Dye (name "black"))))))))))
 
     ;; Everyone drawn, for embedding their art.
     (define (everyone) (→ (List Character))

@@ -6,7 +6,7 @@
 (typeclass (Store e S)
   (declare (fetch-object (left S) (right String)) (→ String) (! e)))
 
-(struct Directory
+(record Directory
   ((root String)))
 
 (instance (Store (! output-port) Directory)

@@ -9,7 +9,12 @@
  (sample route)
  (snail shell wire))
 
-(define (route) (→ Route) (Route (list (Stop "dock" (Square 3)) (Stop "yard" (Rectangle 2 5))) 7))
+(define (route)
+  (→ Route)
+  (new Route
+    (stops (list (new Stop (label "dock") (shape (Square 3)))
+                 (new Stop (label "yard") (shape (Rectangle 2 5)))))
+    (length 7)))
 
 (define (copy) (→ Route) (ann (deserialize (serialize (route))) Route))
 

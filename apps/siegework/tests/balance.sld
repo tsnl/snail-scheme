@@ -31,7 +31,7 @@
 
 (define (offset (world World) (dx I64) (dy I64)) (→ Cell)
   (let ((hub (● (● world hub) cell)))
-    (Cell (+ (● hub x) dx) (+ (● hub y) dy))))
+    (new Cell (x (+ (● hub x) dx)) (y (+ (● hub y) dy)))))
 
 (define (started (seed I64)) (→ World)
   (let ((world (new-world seed)))
@@ -41,14 +41,14 @@
   (try (fold-left (lambda (world d)
                     (try world (Build (Turret) (offset world (● d first) (● d second)) #f)))
                   world
-                  (list (Pair -2 0)
-                        (Pair 0 2)
-                        (Pair 2 0)
-                        (Pair 0 -2)
-                        (Pair -2 2)
-                        (Pair 2 -2)
-                        (Pair 2 2)
-                        (Pair -2 -2)))
+                  (list (new Pair (first -2) (second 0))
+                        (new Pair (first 0) (second 2))
+                        (new Pair (first 2) (second 0))
+                        (new Pair (first 0) (second -2))
+                        (new Pair (first -2) (second 2))
+                        (new Pair (first 2) (second -2))
+                        (new Pair (first 2) (second 2))
+                        (new Pair (first -2) (second -2))))
        (Upgrade (offset world 0 0))))
 
 (define (defend (world World) (ticks I64)) (→ World)

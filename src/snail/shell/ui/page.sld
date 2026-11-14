@@ -43,7 +43,7 @@
       (declare (interface-save (value Model)) (→ Bytes))
       (declare (interface-restore (bytes Bytes)) (→ Model)))
 
-    (struct (InterfaceApplication Model)
+    (record (InterfaceApplication Model)
       ())
 
     (instance (Application (! mut host events storage tasks page) (InterfaceApplication Model))
@@ -91,7 +91,8 @@
             (run-ui model (interface-messages model)
                     (lambda (model message)
                       (match (interface-update model message)
-                        ((Pair next commands) (Pair next (widen-commands commands)))))
+                        ((Pair next commands)
+                         (new Pair (first next) (second (widen-commands commands))))))
                     interface-view interface-window
                     (lambda (model) (commit-page model) (report-ready))
                     (interface-save-callback save))

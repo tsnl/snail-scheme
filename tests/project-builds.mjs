@@ -95,7 +95,7 @@ try {
     (export Printer Missing Generic)
     (import (snail core base) (snail core io) (snail shell application) (snail shell task))
     (begin
-      (struct Printer ()) (struct Missing ()) (struct (Generic A) ())
+      (record Printer ()) (record Missing ()) (record (Generic A) ())
       (instance (Application (! output-port tasks) Printer)
         (define (start (entry (Entry Printer))) (→ Unit) (! output-port tasks) (yield) (write-line "typed entry")))))`);
   const selected = type => `((build-target selected

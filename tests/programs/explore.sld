@@ -6,7 +6,7 @@
  (snail shell wire)
  (snail shell explore))
 
-(struct Jugs
+(record Jugs
   ((small I64)
    (large I64))
   (deriving Serialize Deserialize))
@@ -22,14 +22,16 @@
 (define (pour (jugs Jugs) (move Pour)) (→ Jugs)
   (let ((small (● jugs small)) (large (● jugs large)))
     (match move
-      ((FillSmall) (Jugs 3 large))
-      ((FillLarge) (Jugs small 5))
-      ((EmptySmall) (Jugs 0 large))
-      ((EmptyLarge) (Jugs small 0))
+      ((FillSmall) (new Jugs (small 3) (large large)))
+      ((FillLarge) (new Jugs (small small) (large 5)))
+      ((EmptySmall) (new Jugs (small 0) (large large)))
+      ((EmptyLarge) (new Jugs (small small) (large 0)))
       ((SmallToLarge)
-       (let ((amount (min small (- 5 large)))) (Jugs (- small amount) (+ large amount))))
+       (let ((amount (min small (- 5 large))))
+         (new Jugs (small (- small amount)) (large (+ large amount)))))
       ((LargeToSmall)
-       (let ((amount (min large (- 3 small)))) (Jugs (+ small amount) (- large amount)))))))
+       (let ((amount (min large (- 3 small))))
+         (new Jugs (small (+ small amount)) (large (- large amount))))))))
 
 (define (describe (move Pour)) (→ String)
   (match move
@@ -42,7 +44,7 @@
 
 (define (main) (→ Unit) (! output-port)
 
-  (match (explore (Jugs 0 0)
+  (match (explore (new Jugs (small 0) (large 0))
                   (lambda (jugs)
                     (list (FillSmall)
                           (FillLarge)

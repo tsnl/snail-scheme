@@ -6,7 +6,7 @@
 (effect audit
   ((note (Fn String → Unit))))
 
-(struct Handle
+(record Handle
   ((name String)))
 
 (instance (Drop (! audit) Handle)
@@ -15,5 +15,5 @@
       ((Handle name) (note name)))))
 
 (define (keep) (→ (FnOnce → Handle))
-  (let ((handle (Handle "h")))
+  (let ((handle (new Handle (name "h"))))
     (once (lambda () handle))))

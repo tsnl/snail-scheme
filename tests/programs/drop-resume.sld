@@ -12,7 +12,7 @@
 (effect Ask
   ((ctl ask (Fn → I64))))
 
-(struct Handle
+(record Handle
   ((name String)))
 
 (instance (Drop (! audit) Handle)
@@ -25,7 +25,7 @@
 ;; drop performs `audit`, which this function's row allows, so a handler
 ;; that drops the resumption drops the handle.
 (define (use-after-ask) (→ I64) (! Ask audit)
-  (let ((handle (Handle "h")))
+  (let ((handle (new Handle (name "h"))))
     (let ((answer (ask)))
       (drop handle)
       answer)))
@@ -43,7 +43,7 @@
 ;; A once lambda whose row allows `audit` may capture the handle; dropping
 ;; the lambda unrun drops the handle.
 (define (unrun) (→ Unit) (! audit)
-  (let ((handle (Handle "w")))
+  (let ((handle (new Handle (name "w"))))
     (let ((work (once (lambda () (drop handle)))))
       (drop work))))
 

@@ -14,7 +14,7 @@
 
 (define (t) (→ Bool) #t)
 
-(struct Counter
+(record Counter
   ((count I64)))
 
 (define (f (x I64)) (→ I64)
@@ -24,7 +24,7 @@
 
 (define (main) (→ Unit) (! mut output-port)
 
-  (let ((counter (Counter 0)))
+  (let ((counter (new Counter (count 0))))
     (display (my-or #f (t)))
     (newline)
     (while (< (● counter count) 5) (set! (● counter count) (+ (● counter count) 1)))

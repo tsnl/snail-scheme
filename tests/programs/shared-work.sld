@@ -4,7 +4,7 @@
 
 (type Work (FnOnce → Unit ! output-port))
 
-(struct Queue
+(record Queue
   ((work (List Work))))
 
 (define (enqueue! (queue (Rc Queue)) (work Work)) (→ Unit) (! mut output-port)
@@ -19,7 +19,7 @@
      (run-all! queue))))
 
 (define (main) (→ Unit) (! mut output-port)
-  (let ((queue (rc (Queue (Nil)))))
+  (let ((queue (rc (new Queue (work (Nil))))))
     (enqueue! queue (once (lambda () (write-line "one"))))
     (enqueue! queue (once (lambda () (write-line "two"))))
     (run-all! queue)

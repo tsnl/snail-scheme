@@ -18,7 +18,7 @@
 (typeclass (Collection C)
   (declare (collect (left C) (right (Fn I64 → A))) (→ (List A)) (∀ (A))))
 
-(struct Range
+(record Range
   ((start I64)
    (end I64)))
 
@@ -36,8 +36,8 @@
   (write-line (ann (convert 5) String))
   (display (* 2.0 (ann (convert 5) F64)))
   (newline)
-  (write (collect (Range 3 6) (lambda (n) (* n n))))
+  (write (collect (new Range (start 3) (end 6)) (lambda (n) (* n n))))
   (newline)
-  (write (describe-all (Range 1 4)))
+  (write (describe-all (new Range (start 1) (end 4))))
   (newline)
   (unit))

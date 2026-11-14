@@ -11,7 +11,7 @@
  (snail shell wire)
  (snail shell ide application))
 
-(struct Requests
+(record Requests
   ((events Bool)
    (requests (List String))))
 
@@ -34,26 +34,26 @@
 (define (main) (→ Unit) (! host mut output-port completion tasks)
   (dispatch-local
    (once (lambda ()
-           (let ((state (Requests #f (Nil))))
+           (let ((state (new Requests (events #f) (requests (Nil)))))
              (let ((result
                     (handle fetch
                         ((request (lambda (method url headers body)
                                     (set! (● state requests) (append (● state requests) (list url)))
-                                    (Ok (Reply 200
-                                               (cond ((string=? url "/api/project")
-                                                      "{\"name\":\"test\",\"directory\":\"/test\",\"files\":[\"main.sld\",\"lib/notes.txt\"],\"directories\":[\"lib\"]}")
-                                                     ((string=? url "/api/file?path=main.sld")
-                                                      "{\"text\":\"main\",\"revision\":\"main\"}")
-                                                     ((string=? url
-                                                                "/api/file?path=lib%2Fnotes.txt")
-                                                      "{\"text\":\"notes\",\"revision\":\"notes\"}")
-                                                     (else (panic url)))))))
-                         (stream-open (lambda (url kinds) (Stream 1)))
+                                    (Ok (new Reply (status 200)
+                                             (body (cond ((string=? url "/api/project")
+                                                          "{\"name\":\"test\",\"directory\":\"/test\",\"files\":[\"main.sld\",\"lib/notes.txt\"],\"directories\":[\"lib\"]}")
+                                                         ((string=? url "/api/file?path=main.sld")
+                                                          "{\"text\":\"main\",\"revision\":\"main\"}")
+                                                         ((string=? url
+                                                                    "/api/file?path=lib%2Fnotes.txt")
+                                                          "{\"text\":\"notes\",\"revision\":\"notes\"}")
+                                                         (else (panic url))))))))
+                         (stream-open (lambda (url kinds) (new Stream (id 1))))
                          (stream-next (lambda (stream)
                                         (if (● state events) (None)
                                             (begin
                                               (set! (● state events) #t)
-                                              (Some (StreamEvent "open" ""))))))
+                                              (Some (new StreamEvent (kind "open") (data "")))))))
                          (stream-close (lambda (stream) (unit))))
                       (with-memory-dom
                        (list (FireWindow "keydown"

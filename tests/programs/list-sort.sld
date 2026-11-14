@@ -4,7 +4,11 @@
 
 ;; Equal keys keep the payloads' input order; sorting leaves the input intact.
 (define (entries) (→ (List (Pair I64 String)))
-  (list (Pair 2 "a") (Pair 1 "b") (Pair 2 "c") (Pair 1 "d") (Pair 2 "e")))
+  (list (new Pair (first 2) (second "a"))
+        (new Pair (first 1) (second "b"))
+        (new Pair (first 2) (second "c"))
+        (new Pair (first 1) (second "d"))
+        (new Pair (first 2) (second "e"))))
 
 ;; A permutation exercises the halves and merges beyond a few elements.
 

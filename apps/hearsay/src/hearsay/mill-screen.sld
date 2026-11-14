@@ -32,7 +32,7 @@
     ;; per shift rather than every frame. `version` changes with every
     ;; shift, so the host redraws the town only then. `guide` is the guide's
     ;; open page, if any.
-    (struct MillScreen
+    (record MillScreen
       ((mill Mill)
        (forecast (List String))
        (selected (Option I64))
@@ -49,7 +49,17 @@
     (define (new-mill-screen (scenario Scenario) (version I64) (width I32) (height I32))
       (→ MillScreen)
       (let ((mill (new-mill scenario)))
-        (MillScreen mill (forecast mill) (None) (None) (Nil) (Nil) version (None) width height)))
+        (new MillScreen
+          (mill mill)
+          (forecast (forecast mill))
+          (selected (None))
+          (hover (None))
+          (message (Nil))
+          (fresh (Nil))
+          (version version)
+          (guide (None))
+          (width width)
+          (height height))))
 
     ;; ---- Layout ----
 
@@ -76,9 +86,14 @@
              (pixels-per-unit
               (min (/ across (- (town-right) (town-left))) (/ down (- (town-bottom) (town-top)))))
              (x (/ (+ (town-left) (town-right)) 2.0)) (z (/ (+ (town-top) (town-bottom)) 2.0)))
-        (Camera (Vec3 x 40.0 z) (Vec3 x 0.0 z) (Orthographic (/ height pixels-per-unit)))))
+        (new Camera
+          (eye (new Vec3 (x x) (y 40.0) (z z)))
+          (target (new Vec3 (x x) (y 0.0) (z z)))
+          (projection (Orthographic (/ height pixels-per-unit))))))
 
-    (define (sunlight) (→ Light) (Light (Vec3 0.0 1.0 0.0) 0.0 1.0))
+    (define (sunlight)
+      (→ Light)
+      (new Light (direction (new Vec3 (x 0.0) (y 1.0) (z 0.0))) (sun 0.0) (ambient 1.0)))
 
     ;; Audiences sit on a triangle, each person on a ring of radius 2.8.
     (define (person-point (person I64)) (→ Vec3)
@@ -86,7 +101,10 @@
              (cx (list-ref (list -6.3 6.3 0.0) audience))
              (cz (list-ref (list 2.4 2.4 -6.2) audience))
              (angle (* (i64->f64 (remainder person 8)) (/ (pi) 4.0))))
-        (Vec3 (f64->f32 (+ cx (* 2.8 (cos angle)))) 0.0 (f64->f32 (+ cz (* 2.8 (sin angle)))))))
+        (new Vec3
+          (x (f64->f32 (+ cx (* 2.8 (cos angle)))))
+          (y 0.0)
+          (z (f64->f32 (+ cz (* 2.8 (sin angle))))))))
 
     ;; A figure's cell is `figure-size` units square. Its feet stand at the
     ;; middle of its base, a little above the cell's bottom edge, and its
@@ -95,7 +113,7 @@
     (define (feet-offset) (→ F32) 0.35)
 
     ;; Everyone faces the viewer, down the map.
-    (define (toward-viewer) (→ Vec3) (Vec3 0.0 0.0 1.0))
+    (define (toward-viewer) (→ Vec3) (new Vec3 (x 0.0) (y 0.0) (z 1.0)))
 
     ;; The person whose figure or base is under the pointer, the one nearest
     ;; the bottom of the map when figures overlap.
@@ -204,8 +222,9 @@
     (define (segment (a Vec3) (b Vec3)) (→ Item)
       (let* ((dx (- (● b x) (● a x))) (dz (- (● b z) (● a z))))
         (flat
-         (item (Box) (Vec3 (* 0.5 (+ (● a x) (● b x))) 0.0 (* 0.5 (+ (● a z) (● b z))))
-               (Vec3 (sqrt (+ (* dx dx) (* dz dz))) 0.01 0.08)
+         (item (Box)
+               (new Vec3 (x (* 0.5 (+ (● a x) (● b x)))) (y 0.0) (z (* 0.5 (+ (● a z) (● b z)))))
+               (new Vec3 (x (sqrt (+ (* dx dx) (* dz dz)))) (y 0.01) (z 0.08))
                (f64->f32 (atan2 (f32->f64 (negate dz)) (f32->f64 dx)))
                (dark)))))
 
@@ -223,7 +242,7 @@
     ;; A flat hexagon around a person's feet, `size` across, its top at
     ;; `height`.
     (define (hexagon (person I64) (size F32) (height F32) (color I32)) (→ Item)
-      (flat (item (Prism) (person-point person) (Vec3 size height size) 0.0 color)))
+      (flat (item (Prism) (person-point person) (new Vec3 (x size) (y height) (z size)) 0.0 color)))
 
     ;; Pips over a person's head for what they believe on one pair of
     ;; traits, one pip per point of intensity, colored by trait: the danger
@@ -242,10 +261,11 @@
              (color (if (> a 0) first-color second-color)))
         (map (lambda (index)
                (flat (item (Tile)
-                           (Vec3 (+ (● at x) (* direction (+ 0.24 (* 0.36 (i64->f32 index)))))
-                                 0.6
-                                 (- (● at z) 1.55))
-                           (Vec3 0.3 1.0 0.3) 0.0 color)))
+                           (new Vec3
+                             (x (+ (● at x) (* direction (+ 0.24 (* 0.36 (i64->f32 index))))))
+                             (y 0.6)
+                             (z (- (● at z) 1.55)))
+                           (new Vec3 (x 0.3) (y 1.0) (z 0.3)) 0.0 color)))
              (iota (max a b)))))
 
     ;; A person is their figure on their audience's base. Those who heard
@@ -260,7 +280,7 @@
         (concatenate
          (list (list (hexagon person size 0.03 (audience-color (audience-of person)))
                      (pose-flat (walk-book (person-picture person)) (if fresh? (Stroll) (Stand))
-                                (Vec3 (● at x) layer (+ (● at z) (feet-offset)))
+                                (new Vec3 (x (● at x)) (y layer) (z (+ (● at z) (feet-offset))))
                                 (toward-viewer)
                                 (figure-size)
                                 (camera-of screen)))
@@ -290,38 +310,48 @@
     ;; `art` gives the bytes of each sheet the cast wears.
     (define (view-mill-screen (screen MillScreen) (art (Fn String → (Option Source))))
       (→ Frame)
-      (Frame (camera-of screen) (sunlight) (backdrop) 1.0
-             (list (Batch 0 0 (Solid) tie-items)
-                   (Batch 1 (i64->i32 (● screen version)) (Solid)
-                          (lambda ()
-                            (concatenate (map (lambda (person) (person-items screen person))
-                                              (iota (person-count))))))
-                   (Batch 2 (marker-version screen) (Solid) (lambda () (marker-items screen))))
-             (map (lambda (person) (walk-picture art (person-picture person) (resident person)))
-                  (iota (person-count)))))
+      (new Frame (camera (camera-of screen)) (light (sunlight)) (background (backdrop)) (motion 1.0)
+           (batches (list (new Batch (key 0) (version 0) (style (Solid)) (items tie-items))
+                          (new Batch (key 1) (version (i64->i32 (● screen version))) (style (Solid))
+                               (items (lambda ()
+                                        (concatenate
+                                         (map (lambda (person) (person-items screen person))
+                                              (iota (person-count)))))))
+                          (new Batch
+                            (key 2)
+                            (version (marker-version screen))
+                            (style (Solid))
+                            (items (lambda () (marker-items screen))))))
+           (pictures
+            (map (lambda (person) (walk-picture art (person-picture person) (resident person)))
+                 (iota (person-count))))))
 
     ;; ---- Status ----
 
     ;; The scenario, with the shift and coins as dials.
     (define (status-panel (screen MillScreen)) (→ Panel)
       (let* ((mill (● screen mill)) (shift (● mill shift)) (last (last-shift mill)))
-        (Panel "status" (At (TopLeft) 0)
-               (list (label "title" (● (scenario-rules (● mill scenario)) name))
-                     (Dial (look "shift")
-                           (string-append "Shift " (show (min shift last)) " of " (show last))
-                           (/ (i64->f32 (- shift 1)) (i64->f32 last)))
-                     (Dial (look "coins")
-                           (string-append (show (● mill coins)) " coins")
-                           (/ (i64->f32 (● mill coins)) 10.0))))))
+        (new Panel (key "status") (place (At (TopLeft) 0))
+             (widgets (list (label "title" (● (scenario-rules (● mill scenario)) name))
+                            (Dial (look "shift")
+                                  (string-append "Shift "
+                                                 (show (min shift last))
+                                                 " of "
+                                                 (show last))
+                                  (/ (i64->f32 (- shift 1)) (i64->f32 last)))
+                            (Dial (look "coins")
+                                  (string-append (show (● mill coins)) " coins")
+                                  (/ (i64->f32 (● mill coins)) 10.0)))))))
 
     ;; The goal as a checklist, and when it is judged.
     (define (goal-panel (mill Mill)) (→ Panel)
-      (Panel "goal" (At (TopLeft) 0)
-             (Cons (section-heading "goal" "Goal")
-                   (append (map-indexed goal-label (mill-goals mill))
-                           (list (toned "deadline"
-                                        (Muted)
-                                        (● (scenario-rules (● mill scenario)) deadline)))))))
+      (new Panel (key "goal") (place (At (TopLeft) 0))
+           (widgets (Cons (section-heading "goal" "Goal")
+                          (append (map-indexed goal-label (mill-goals mill))
+                                  (list (toned "deadline"
+                                               (Muted)
+                                               (● (scenario-rules (● mill scenario))
+                                                  deadline))))))))
 
     (define (goal-label (index I64) (goal Goal)) (→ Widget)
       (let ((key (string-append "goal-" (show index))) (text (● goal text)))
@@ -368,10 +398,11 @@
 
     ;; What the last shift did, under the moves that made it.
     (define (last-panel (screen MillScreen)) (→ Panel)
-      (Panel "last" (At (TopLeft) 0)
-             (match (● screen message)
-               ((Nil) (list (toned "last-none" (Muted) "Nothing has happened yet.")))
-               (texts (Cons (section-heading "last" "Last shift") (line-labels "last" texts))))))
+      (new Panel (key "last") (place (At (TopLeft) 0))
+           (widgets (match (● screen message)
+                      ((Nil) (list (toned "last-none" (Muted) "Nothing has happened yet.")))
+                      (texts
+                       (Cons (section-heading "last" "Last shift") (line-labels "last" texts)))))))
 
     ;; ---- Moves ----
 
@@ -453,25 +484,25 @@
                                  (Some (Wait))))))
 
     (define (action-panel (screen MillScreen)) (→ Panel)
-      (Panel "actions" (At (TopLeft) 0)
-             (append (Cons (section-heading "moves" "Your move: one per shift")
-                           (if (mill-over? (● screen mill)) (Nil) (move-buttons screen)))
-                     (list (button "restart" "Restart" (action-restart))))))
+      (new Panel (key "actions") (place (At (TopLeft) 0))
+           (widgets (append (Cons (section-heading "moves" "Your move: one per shift")
+                                  (if (mill-over? (● screen mill)) (Nil) (move-buttons screen)))
+                            (list (button "restart" "Restart" (action-restart)))))))
 
     ;; ---- People ----
 
     ;; The person under the pointer, or else the chosen one: portrait, name,
     ;; audience, beliefs as chips, the stories they hold, and their ties.
     (define (person-panel (screen MillScreen)) (→ Panel)
-      (Panel "person" (At (TopRight) 0)
-             (match (match (● screen hover)
-                      ((Some person) (Some person))
-                      ((None) (● screen selected)))
-               ((Some person) (person-widgets (● screen mill) person))
-               ((None)
-                (list (toned "person-none"
-                             (Muted)
-                             "Point at a person to see who they are, what they believe and where they heard it."))))))
+      (new Panel (key "person") (place (At (TopRight) 0))
+           (widgets (match (match (● screen hover)
+                             ((Some person) (Some person))
+                             ((None) (● screen selected)))
+                      ((Some person) (person-widgets (● screen mill) person))
+                      ((None)
+                       (list (toned "person-none"
+                                    (Muted)
+                                    "Point at a person to see who they are, what they believe and where they heard it.")))))))
 
     (define (person-widgets (mill Mill) (person I64)) (→ (List Widget))
       (concatenate
@@ -507,75 +538,76 @@
 
     ;; What each audience believes, beside its color.
     (define (audience-panel (screen MillScreen)) (→ Panel)
-      (Panel "audiences" (At (TopRight) 0)
-             (Cons (section-heading "audiences" "What each audience believes")
-                   (map (lambda (audience)
-                          (label (string-append "audience-" (show audience))
-                                 (string-append (audience-name audience) ": "
-                                                (match (audience-beliefs (● screen mill)
-                                                                         audience)
-                                                  ((Nil) "nothing yet")
-                                                  (beliefs
-                                                   (string-join (map belief-text beliefs) ", "))))))
-                        (audiences)))))
+      (new Panel (key "audiences") (place (At (TopRight) 0))
+           (widgets (Cons (section-heading "audiences" "What each audience believes")
+                          (map (lambda (audience)
+                                 (label (string-append "audience-" (show audience))
+                                        (string-append (audience-name audience) ": "
+                                                       (match (audience-beliefs (● screen mill)
+                                                                                audience)
+                                                         ((Nil) "nothing yet")
+                                                         (beliefs
+                                                          (string-join (map belief-text beliefs)
+                                                                       ", "))))))
+                               (audiences))))))
 
     ;; What would change if you lay low, and what could come back to bite.
     (define (outlook-panel (screen MillScreen)) (→ Panel)
       (let ((mill (● screen mill)))
-        (Panel "outlook" (At (TopRight) 0)
-               (append (if (mill-over? mill)
-                           (Nil)
-                           (section "forecast"
-                                    "If you lie low"
-                                    "Nothing changes."
-                                    (line-labels "forecast" (● screen forecast))))
-                       (section "liabilities"
-                                "Liabilities"
-                                "None yet."
-                                (line-labels "liability" (liabilities mill)))))))
+        (new Panel (key "outlook") (place (At (TopRight) 0))
+             (widgets (append (if (mill-over? mill)
+                                  (Nil)
+                                  (section "forecast"
+                                           "If you lie low"
+                                           "Nothing changes."
+                                           (line-labels "forecast" (● screen forecast))))
+                              (section "liabilities"
+                                       "Liabilities"
+                                       "None yet."
+                                       (line-labels "liability" (liabilities mill))))))))
 
     ;; The colors of the pips and rings on the map.
     (define (key-panel) (→ Panel)
-      (Panel "key" (At (TopRight) 0)
-             (list (label "chip-dangerous" "dangerous")
-                   (label "chip-harmless" "harmless")
-                   (label "chip-reliable" "reliable")
-                   (label "chip-unreliable" "unreliable")
-                   (label "ring-heard" "just heard")
-                   (label "ring-quiet" "quiet"))))
+      (new Panel (key "key") (place (At (TopRight) 0))
+           (widgets (list (label "chip-dangerous" "dangerous")
+                          (label "chip-harmless" "harmless")
+                          (label "chip-reliable" "reliable")
+                          (label "chip-unreliable" "unreliable")
+                          (label "ring-heard" "just heard")
+                          (label "ring-quiet" "quiet")))))
 
     ;; ---- Guide ----
 
     (define (guide-pages) (→ (List Page))
-      (list (Page "What this experiment tests"
-                  (list
-                   "The rumor mill asks one question: is steering what people believe fun, and can you predict it? If it is not, nothing else in Hearsay will save it."
-                   "While you play, notice: do you plan several shifts ahead, or one at a time? Does the forecast help you think, or play the game for you? Do your payments and lies come back to bite?")
-                  (Nil))
-            (Page "The town"
-                  (list
-                   "Each figure is a person. Their base is their audience: amber for the Market, teal for the Docks, violet for the Tower."
-                   "Lines are ties: people pass stories only to those they are tied to. Big bases are hubs, who pass a story two steps at once.")
-                  (list (portrait "guide-portrait" (person-picture 13) 2)
-                        (label "guide-caption" "Nia, the dock foreman, is a hub.")))
-            (Page "Stories"
-                  (list
-                   "Everything you do becomes a story about you: a trait and a strength from 1 to 3."
-                   "The witness keeps it to themselves for a shift, then tells their ties at the end of the next one. A story grows by 1 each time it crosses into another audience."
-                   "Point at anyone to see the stories they hold and the path each took to reach them.")
-                  (Nil))
-            (Page "Beliefs"
-                  (list
-                   "Each person believes the strongest story they hold on each pair: dangerous against harmless, reliable against unreliable. On a tie, first impressions stick."
-                   "Pips over a head show those beliefs, one per point: red dangerous, blue harmless, green reliable, orange unreliable."
-                   "An audience believes a trait at level N when four of its eight people believe it at N or more. The top right shows each audience's levels, and further down, what will change if you lie low.")
-                  (Nil))
-            (Page "Your move"
-                  (list
-                   "Each shift you make one move. Choose a person on the map, then do something they witness, pay them 2 coins to forget and keep quiet for four shifts, or lie to them. Or lie low."
-                   "Payments and lies are liabilities. A lie is exposed while its listener holds a true story of the opposite trait, and each exposed lie makes their audience believe you more unreliable."
-                   "The goal at the top left shows how you stand, and the line under it says what to do next. A greyed-out move says why when you point at it.")
-                  (Nil))))
+      (list (new Page (title "What this experiment tests")
+                 (paragraphs (list
+                              "The rumor mill asks one question: is steering what people believe fun, and can you predict it? If it is not, nothing else in Hearsay will save it."
+                              "While you play, notice: do you plan several shifts ahead, or one at a time? Does the forecast help you think, or play the game for you? Do your payments and lies come back to bite?"))
+                 (extras (Nil)))
+            (new Page (title "The town")
+                 (paragraphs (list
+                              "Each figure is a person. Their base is their audience: amber for the Market, teal for the Docks, violet for the Tower."
+                              "Lines are ties: people pass stories only to those they are tied to. Big bases are hubs, who pass a story two steps at once."))
+                 (extras (list (portrait "guide-portrait" (person-picture 13) 2)
+                               (label "guide-caption" "Nia, the dock foreman, is a hub."))))
+            (new Page (title "Stories")
+                 (paragraphs (list
+                              "Everything you do becomes a story about you: a trait and a strength from 1 to 3."
+                              "The witness keeps it to themselves for a shift, then tells their ties at the end of the next one. A story grows by 1 each time it crosses into another audience."
+                              "Point at anyone to see the stories they hold and the path each took to reach them."))
+                 (extras (Nil)))
+            (new Page (title "Beliefs")
+                 (paragraphs (list
+                              "Each person believes the strongest story they hold on each pair: dangerous against harmless, reliable against unreliable. On a tie, first impressions stick."
+                              "Pips over a head show those beliefs, one per point: red dangerous, blue harmless, green reliable, orange unreliable."
+                              "An audience believes a trait at level N when four of its eight people believe it at N or more. The top right shows each audience's levels, and further down, what will change if you lie low."))
+                 (extras (Nil)))
+            (new Page (title "Your move")
+                 (paragraphs (list
+                              "Each shift you make one move. Choose a person on the map, then do something they witness, pay them 2 coins to forget and keep quiet for four shifts, or lie to them. Or lie low."
+                              "Payments and lies are liabilities. A lie is exposed while its listener holds a true story of the opposite trait, and each exposed lie makes their audience believe you more unreliable."
+                              "The goal at the top left shows how you stand, and the line under it says what to do next. A greyed-out move says why when you point at it."))
+                 (extras (Nil)))))
 
     ;; `first` are panels to show before the screen's own.
     (define (mill-screen-hud (screen MillScreen) (first (List Panel))) (→ (List Panel))
@@ -583,7 +615,7 @@
        (list first
              (list (status-panel screen)
                    (goal-panel (● screen mill))
-                   (Panel "hint" (At (TopLeft) 0) (list (hint screen)))
+                   (new Panel (key "hint") (place (At (TopLeft) 0)) (widgets (list (hint screen))))
                    (action-panel screen)
                    (last-panel screen)
                    (audience-panel screen)

@@ -1,9 +1,9 @@
 (import
  (snail core base)
  (snail core io))
-(struct Cell
+(record Cell
   ((value I64)))
-(define (make-cell) (→ Cell) (Cell 0))
+(define (make-cell) (→ Cell) (new Cell (value 0)))
 (define (bump (cell Cell)) (→ I64) (! mut)
   (set! (● cell value) (+ (● cell value) 1))
   (● cell value))

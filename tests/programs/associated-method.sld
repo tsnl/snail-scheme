@@ -2,7 +2,7 @@
  (snail core base)
  (snail core io))
 
-(struct (Box A)
+(record (Box A)
   ((value A)))
 
 (typeclass (Extract A) (type Output) (declare (extract (value A)) (→ Output)))
@@ -29,9 +29,9 @@
     (→ (Pair (Extract.Output A) (Extract.Output B)))
     (∀ (B))
     (⊨ (Extract B))
-    (match a ((Box value) (Pair (extract value) (extract b))))))
+    (match a ((Box value) (new Pair (first (extract value)) (second (extract b)))))))
 
 (define (main) (→ Unit) (! output-port)
-  (match (combine (Box (ann 1 I64)) #t)
+  (match (combine (new Box (value (ann 1 I64))) #t)
     ((Pair a b) (display a) (newline) (write-line b)))
   (unit))

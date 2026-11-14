@@ -17,7 +17,8 @@ project parser/planner fixtures.
 | Snail Scheme source | Chez execution |
 | --- | --- |
 | Typed `define` headers | Parameter names and function bodies, with type/effect clauses erased. |
-| `struct` and `enum` | Distinct constructor identities with mutable fields; pure replacement copies the outer object. |
+| `record` and `enum` | Distinct constructor identities with mutable fields; pure replacement copies the outer object. |
+| `(new Name (field expression) ...)` | Compile-time field selection and sequential initializer bindings, followed by the private constructor. |
 | `(● object field ...)`, `set!`, `replace!` | Registered field slots, with ordinary object aliasing. |
 | `match` | Case tests and field bindings. |
 | Types, quantifiers and constraints | Erased after the host adapter has recognized their syntax. |

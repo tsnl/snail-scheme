@@ -3,7 +3,7 @@
  (snail core io))
 
 ;; Former generated field names can be ordinary user functions.
-(struct Point
+(record Point
   ((x I64)))
 
 (define (Point-x (point Point)) (→ I64)
@@ -11,5 +11,5 @@
 
 (define (main) (→ Unit) (! output-port)
 
-  (write-line (show (Point-x (Point 1))))
+  (write-line (show (Point-x (new Point (x 1)))))
   (unit))

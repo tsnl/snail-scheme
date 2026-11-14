@@ -2,7 +2,7 @@
  (snail core base)
  (snail core io))
 
-(struct Resource
+(record Resource
   ((value I64)))
 
 (instance (Drop (! output-port) Resource)
@@ -10,7 +10,7 @@
     (match resource ((Resource value) (display value) (newline)))))
 
 (define (main) (→ Unit) (! mut output-port)
-  (let ((resource (rc (Resource 1))))
+  (let ((resource (rc (new Resource (value 1)))))
     (let ((alias resource))
       (set! (● alias value) 2)
       (display (● resource value))

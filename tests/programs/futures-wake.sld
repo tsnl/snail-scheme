@@ -4,11 +4,11 @@
  (snail core io)
  (snail shell future))
 
-(struct Counter
+(record Counter
   ((value I64)))
 
 (define (main) (→ Unit) (! host mut output-port)
-  (let ((wakes (Counter 0)) (notifications (Counter 0)))
+  (let ((wakes (new Counter (value 0))) (notifications (new Counter (value 0))))
     (handle completion
         ((completed (lambda () (set! (● notifications value) (+ 1 (● notifications value))))))
       (match (ann (make-promise) (Pair (Promise I64) (Future I64)))

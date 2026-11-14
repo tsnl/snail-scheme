@@ -5,7 +5,7 @@
    ● test-base
    define lambda if begin let let* letrec cond case when unless and or do
    define-syntax syntax-rules quote else => _ ...
-   type ann struct enum match effect handle
+   type ann record new enum match effect handle
    +
    -
    *
@@ -160,7 +160,7 @@
     (Some ((value T)))
     (None))
 
-  (struct (Pair A B)
+  (record (Pair A B)
     ((first A)
      (second B)))
 
@@ -178,7 +178,7 @@
     (let loop ((as as) (bs bs) (out '()))
       (if (or (null? as) (null? bs))
           (reverse out)
-          (loop (cdr as) (cdr bs) (cons (Pair (car as) (car bs)) out)))))
+          (loop (cdr as) (cdr bs) (cons (new Pair (first (car as)) (second (car bs))) out)))))
 
   (define (map-indexed f items)
     (let loop ((items items) (index 0) (out '()))

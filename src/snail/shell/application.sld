@@ -10,7 +10,7 @@
    (snail core base))
   (begin
 
-    (struct (Entry A)
+    (record (Entry A)
       ())
 
     (typeclass (Application e A)

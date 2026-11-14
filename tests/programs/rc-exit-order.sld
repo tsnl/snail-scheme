@@ -2,7 +2,7 @@
  (snail core base)
  (snail core io))
 
-(struct Resource
+(record Resource
   ((number I64)))
 
 (instance (Drop (! output-port) Resource)
@@ -24,30 +24,30 @@
 ;; Outgoing operands run before any lexical release. Both alternatives
 ;; release their inner scopes before the parameter and then tail-transfer.
 (define (transfer (outer (Rc Resource)) (choose Bool)) (→ Unit) (! mut output-port)
-  (let ((inner (rc (Resource 20))))
+  (let ((inner (rc (new Resource (number 20)))))
     (if choose
         ((callee) (argument))
-        (match (Some (rc (Resource 30)))
+        (match (Some (rc (new Resource (number 30))))
           ((Some matched) (accept (● matched number)))
           ((None) (accept 0))))))
 
 ;; Observation must read the result before the receiver's last release.
 (define (observe) (→ I64) (! mut output-port)
-  (let ((outer (rc (Resource 40))))
-    (let ((inner (rc (Resource 50))))
+  (let ((outer (rc (new Resource (number 40)))))
+    (let ((inner (rc (new Resource (number 50)))))
       (if #t (● inner number) (● outer number)))))
 
 ;; An activation's closure owner follows its locals. No enclosing binding
 ;; keeps this closure alive after the immediate invocation.
 (define (make-call) (→ (Fn → Unit ! mut output-port))
-  (let ((captured (rc (Resource 60))))
+  (let ((captured (rc (new Resource (number 60)))))
     (lambda ()
-      (let ((inner (rc (Resource 70))))
+      (let ((inner (rc (new Resource (number 70)))))
         (accept (● captured number))))))
 
 (define (main) (→ Unit) (! mut output-port)
-  (transfer (rc (Resource 10)) #t)
-  (transfer (rc (Resource 10)) #f)
+  (transfer (rc (new Resource (number 10))) #t)
+  (transfer (rc (new Resource (number 10))) #f)
   (accept (observe))
   ((make-call))
   (unit))

@@ -40,12 +40,12 @@
 
     ;; A program compiled to one module: its text, and the files it links,
     ;; which ship beside it.
-    (struct Built
+    (record Built
       ((name String)
        (text String)
        (links (List LinkedFile))))
 
-    (struct WholeProgram
+    (record WholeProgram
       ((text String)
        (links (List LinkedFile))))
 
@@ -58,7 +58,7 @@
       (let* ((expanded (source->expanded directories source generate inputs))
              (typed (check-program (● expanded program)))
              (module (emit-module (prepare-program typed))))
-        (WholeProgram (wat->string module) (program-links expanded))))
+        (new WholeProgram (text (wat->string module)) (links (program-links expanded)))))
 
     ;; One module of text per library, and one for the program, in program
     ;; order: each comes after the modules it imports from, with the files
@@ -74,13 +74,14 @@
              (typed (check-program (● expanded program)))
              (input (prepare-specialization typed)))
         (append (if (null? (control-effects (● typed program))) (Nil)
-                    (list (Built "snail.core.control"
-                                 (wat->string (emit-control-module (● typed program))) (Nil))))
+                    (list (new Built (name "snail.core.control")
+                               (text (wat->string (emit-control-module (● typed program))))
+                               (links (Nil)))))
                 (map (lambda (library)
-                       (Built (● library first)
-                              (wat->string (emit-module (prepare-library input (● library first)
-                                                                         (● library second))))
-                              (library-links expanded (● library first))))
+                       (new Built (name (● library first))
+                            (text (wat->string (emit-module (prepare-library input (● library first)
+                                                                             (● library second)))))
+                            (links (library-links expanded (● library first)))))
                      (filter (lambda (library) (not (null? (● library second))))
                              (library-items (● typed program) (● typed items)))))))
 

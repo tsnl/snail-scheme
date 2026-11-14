@@ -68,7 +68,8 @@ those bytes as a byte literal in its generated library.
 | `(lru-cache capacity function)` | The same wrapper with a least-recently-used entry limit. |
 | `(Any expression)` | Boxes an unrestricted value with its concrete type. |
 | `(downcast Type boxed)` | Returns `Some` of the payload if its type matches, or `None`. |
-| `(struct (Name param ...) ((field type) ...))` | Record type. |
+| `(record (Name param ...) ((field type) ...))` | Mutable heap record type. |
+| `(new Name (field expression) ...)` | Construct a record; every field exactly once, evaluated in written order. |
 | `(enum (Name param ...) (Case [((field type) ...)]) ...)` | Tagged sum. |
 | `(type (Name param ...) type)` | Transparent alias. |
 | `(typeclass (Class param ...) (declare (method ...) ...) ...)` | Class of types with methods. |
@@ -133,7 +134,7 @@ components. There is no hidden identity field added to user objects.
 Raw `Funcref` host handles cannot be keys. Keys and results must have no
 deterministic cleanup, including through their
 fields. Linear values, `Rc`, `Any`, functions, and aggregates containing them are
-rejected. Plain mutable structs and vectors are allowed. The callback may itself
+rejected. Plain mutable records and vectors are allowed. The callback may itself
 capture counted resources: its usual closure ownership keeps them alive and
 releases them when the last wrapper owner leaves. `FnOnce` callbacks and callbacks
 that can perform control operations are rejected.
@@ -203,7 +204,7 @@ The implemented [function types](types.md#function-types) are `Fn` and
 functions use typed parameter pairs and inline result, effect, generic and
 constraint clauses. Definitions continue to use `define`.
 
-Direct field selection is `(● receiver label ...)`: each nominal struct type
+Direct field selection is `(● receiver label ...)`: each nominal record type
 supplies its stored fields, and paths follow heap references, including `Rc`
 payloads. Use a projection in `set!` or `replace!` to write its final field.
 Every field is mutable. Computed getters are ordinary functions.

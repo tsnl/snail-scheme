@@ -7,5 +7,5 @@
 
 (define main
   (lambda ()
-    (first (Pair 1 2))
+    (first (new Pair (first 1) (second 2)))
     (unit)))

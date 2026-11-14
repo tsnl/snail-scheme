@@ -14,7 +14,9 @@
  (prefix (snail shell ide palette) palette-))
 
 (define (context) (→ palette-Context)
-  (palette-Context (list (palette-Entry "save-buffer" "Ctrl+S")) (list "main.sld")))
+  (new palette-Context
+    (commands (list (new palette-Entry (name "save-buffer") (keys "Ctrl+S"))))
+    (paths (list "main.sld"))))
 
 (define (state (step palette-Step)) (→ palette-State) (! dom fetch)
   (match step ((palette-Step next _ commands) (drop commands) next)))
@@ -40,7 +42,13 @@
     ((palette-Step _ outcome commands) (drop commands) (match outcome ((None) #t) (_ #f)))))
 
 (define (result (path String)) (→ (Result search-Results Failure))
-  (Ok (search-SavedResults (SearchResults (list (Hit (Point path 2 3) "revision" "text")) 0 #f))))
+  (Ok (search-SavedResults (new SearchResults
+                             (hits (list (new Hit
+                                           (point (new Point (file path) (line 2) (column 3)))
+                                           (revision "revision")
+                                           (snippet "text"))))
+                             (skipped 0)
+                             (limited #f)))))
 
 (define (click (html (Html palette-Message))) (→ (List palette-Message))
   (match html
@@ -52,11 +60,20 @@
                                    (_ (Nil)))) attributes))
              (concatenate (map click children))))))
 
-(define (draft) (→ search-Draft) (search-Draft "main.sld" "before"))
+(define (draft) (→ search-Draft) (new search-Draft (path "main.sld") (text "before")))
 
 (define (reply (path String)) (→ Reply)
-  (Reply 200 (json->string
-              (search->json (SearchResults (list (Hit (Point path 2 3) "revision" "text")) 0 #f)))))
+  (new Reply (status 200) (body (json->string
+                                 (search->json (new SearchResults
+                                                 (hits (list (new Hit
+                                                               (point (new Point
+                                                                        (file path)
+                                                                        (line 2)
+                                                                        (column 3)))
+                                                               (revision "revision")
+                                                               (snippet "text"))))
+                                                 (skipped 0)
+                                                 (limited #f)))))))
 
 ;; Execute the real returned command, but choose when to apply its result.
 ;; A logical timer advances immediately; HTTP responses are fixed values.
@@ -77,7 +94,7 @@
             (stream-open (lambda (url kinds) (panic "stream")))
             (stream-next (lambda (stream) (panic "stream")))
             (stream-close (lambda (stream) (unit))))
-         (Pair state (command)))))
+         (new Pair (first state) (second (command))))))
     (other (drop other) (panic "expected one command"))))
 
 (define (accept (before palette-State) (result palette-CommandResult))
@@ -88,17 +105,17 @@
 (define (run) (→ Unit) (! dom fetch output-port)
   (let* ((start (state (palette-open (palette-initial)
                                      (palette-Searching
-                                      (palette-Search (search-SavedProject)
-                                                      (palette-Debouncing))))))
+                                      (new palette-Search (source (search-SavedProject))
+                                           (phase (palette-Debouncing)))))))
          (a1 (execute (palette-update start (context) (palette-Query "a")) (reply "unused")))
          (b (execute (palette-update (● a1 first) (context) (palette-Query "b")) (reply "unused")))
          (a2 (execute (palette-update (● b first) (context) (palette-Query "a")) (reply "unused")))
          (old (execute ((● a1 second) (● a1 first)) (reply "old.sld")))
          (failed (execute ((● b second) (● b first))
-                          (Reply 500 "{\"message\":\"obsolete failure\"}")))
-         (new (execute ((● a2 second) (● a2 first)) (reply "new.sld")))
-         (pending (● new first))
-         (ready (accept pending (● new second)))
+                          (new Reply (status 500) (body "{\"message\":\"obsolete failure\"}"))))
+         (updated (execute ((● a2 second) (● a2 first)) (reply "new.sld")))
+         (pending (● updated first))
+         (ready (accept pending (● updated second)))
          (stale (accept (accept ready (● old second)) (● failed second)))
          (clicks (concatenate (map click (palette-view ready (context)))))
          (closed (palette-cancel pending))
@@ -107,16 +124,22 @@
           (execute (palette-update
                     (state (palette-open (palette-initial)
                                          (palette-Searching
-                                          (palette-Search (search-CurrentDraft (draft))
-                                                          (palette-Debouncing)))))
+                                          (new palette-Search (source (search-CurrentDraft (draft)))
+                                               (phase (palette-Debouncing))))))
                     (context) (palette-Query "before")) (reply "unused")))
          (draft-panel (● draft-work first))
-         (replaced (state (palette-reconcile draft-panel (Some (search-Draft "main.sld" "after")))))
+         (replaced (state (palette-reconcile draft-panel
+                                             (Some (new search-Draft
+                                                     (path "main.sld")
+                                                     (text "after"))))))
          (creation (send (state (palette-open (palette-initial)
-                                              (palette-Creating (palette-Creation #f #f ""))))
+                                              (palette-Creating (new palette-Creation
+                                                                  (directory #f)
+                                                                  (pending #f)
+                                                                  (problem "")))))
                          (palette-Query "new.sld")))
          (write (execute (palette-update creation (context) (palette-KeyPressed "Enter" 0))
-                         (Reply 200 "{}")))
+                         (new Reply (status 200) (body "{}"))))
          (writing (● write first)))
     (check (not (requested? ((● a1 second) (● a2 first)))) "old debounce is ignored")
     (check (not (requested? ((● a2 second) pending))) "one request per generation")
@@ -137,10 +160,11 @@
                                            message))
                           "old rendered choice is ignored"))
                   (_ (unit)))) clicks)
-    (check (and (no-outcome? ((● new second) closed))
-                (not (palette-visible? (accept closed (● new second)))))
+    (check (and (no-outcome? ((● updated second) closed))
+                (not (palette-visible? (accept closed (● updated second)))))
            "completion after closing stays closed")
-    (check (no-outcome? ((● new second) reopened)) "completion cannot replace a reopened picker")
+    (check (no-outcome? ((● updated second) reopened))
+           "completion cannot replace a reopened picker")
     (check (> (● replaced generation) (● draft-panel generation))
            "draft replacement starts a new search")
     (check (not (requested? ((● draft-work second) replaced))) "old draft debounce is ignored")

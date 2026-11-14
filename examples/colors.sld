@@ -3,7 +3,7 @@
  (snail core base)
  (snail core io))
 
-(struct (Vec3 T)
+(record (Vec3 T)
   ((x T)
    (y T)
    (z T)))
@@ -44,5 +44,5 @@
 
 (define (main) (→ Unit) (! output-port)
   (for-each (lambda (color) (write-line (to-hex color)))
-            (list (Primary (Red)) (Rgb (Vec3 255 160 0)) (Primary (Blue))))
+            (list (Primary (Red)) (Rgb (new Vec3 (x 255) (y 160) (z 0))) (Primary (Blue))))
   (unit))

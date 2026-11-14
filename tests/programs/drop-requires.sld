@@ -12,7 +12,7 @@
 (effect audit
   ((note (Fn String → Unit))))
 
-(struct Handle
+(record Handle
   ((name String)))
 
 (instance (Drop (! audit) Handle)
@@ -21,7 +21,7 @@
       ((Handle name) (note (string-append "closed " name))))))
 
 ;; ANCHOR: labelled
-(struct (Labelled A)
+(record (Labelled A)
   ((label String)
    (item A)))
 
@@ -40,13 +40,17 @@
   (drop labelled))
 
 (define (demo) (→ Unit) (! log audit)
-  (drop (Labelled "one" (Handle "a")))
-  (drop (Labelled "outer" (Labelled "inner" (Handle "b"))))
+  (drop (new Labelled (label "one") (item (new Handle (name "a")))))
+  (drop (new Labelled
+          (label "outer")
+          (item (new Labelled (label "inner") (item (new Handle (name "b")))))))
   ;; An unrestricted item drops at no cost, and performs nothing.
-  (drop (Labelled "number" 7))
+  (drop (new Labelled (label "number") (item 7)))
   ;; Glue reaches the instance through a pair.
-  (drop (Pair (Labelled "left" (Handle "c")) (Handle "d")))
-  (release (Labelled "generic" (Handle "e")))
+  (drop (new Pair
+          (first (new Labelled (label "left") (item (new Handle (name "c")))))
+          (second (new Handle (name "d")))))
+  (release (new Labelled (label "generic") (item (new Handle (name "e")))))
   (say "done"))
 
 (define (main) (→ Unit) (! output-port)

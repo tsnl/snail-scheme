@@ -54,7 +54,7 @@
     ;; resident runs as; Node, which runs them; the editor's published bundle; the
     ;; reload client's program, which browser targets' pages load; the
     ;; project, absolute; and the port to listen on, 0 for any.
-    (struct Setup
+    (record Setup
       ((root String)
        (cli String)
        (runtime String)
@@ -108,7 +108,7 @@
       (Disconnected ((id I64))))
 
     ;; The owner's answer to a handler, as the response it sends.
-    (struct Answer
+    (record Answer
       ((status I32)
        (body Json)))
 
@@ -142,21 +142,21 @@
 
     ;; A browser target as the applications' origin serves it: its name and
     ;; the builds of it retained, newest first.
-    (struct Application
+    (record Application
       ((name String)
        (builds (List BuildDirectory))))
 
     ;; An event stream, by its connection's number: the browser target a
     ;; page's stream hears of builds of, or none for an editor's; and how
     ;; many bytes the owner sent it that its writer has not written yet.
-    (struct Client
+    (record Client
       ((id I64)
        (watching (Option String))
        (connection Connection)
        (frames (Mailbox (Option Bytes)))
        (pending I64)))
 
-    (struct Supervised
+    (record Supervised
       ((name String)
        (inbox (Mailbox Supervision))
        (status protocol-Run)))
@@ -171,7 +171,7 @@
     ;; `stopping` holds the commands after Shutdown, run once `waiting`, the
     ;; resident, the supervisors and the handlers still running, reaches
     ;; zero.
-    (struct Host
+    (record Host
       ((setup Setup)
        (owner (Mailbox Message))
        (disk (Mailbox Scan))
@@ -263,7 +263,7 @@
 
     (define (applications-listening (port I32)) (→ Listener) (! tasks tcp)
       (match (if (= port 0)
-                 (Err (SocketError "unasked"))
+                 (Err (new SocketError (code "unasked")))
                  (listen-locally (+ port 1)))
         ((Ok listener) listener)
         ((Err _)
@@ -295,35 +295,40 @@
                       (applications Listener))
       (→ Host)
       (! clock fs)
-      (Host setup
-            owner
-            disk
-            requests
-            resident
-            #t
-            listener
-            applications
-            (new-service (● setup root) (● setup project))
-            (Snapshot (Starting) 0 (Nil) (Nil) (Nil))
-            0
-            (None)
-            (None)
-            (JsonNull)
-            (Nil)
-            (Nil)
-            (Nil)
-            (Nil)
-            ""
-            (string-append (show (● resident id)) ":" (show (monotonic-nanoseconds)))
-            0
-            (list (match (editor-bundle setup)
-                    ((Ok bundle) bundle) ((Err message) (panic message))))
-            (None)
-            #f
-            ""
-            (None)
-            0
-            #f))
+      (new Host (setup setup)
+           (owner owner)
+           (disk disk)
+           (requests requests)
+           (resident resident)
+           (resident-alive #t)
+           (listener listener)
+           (applications applications)
+           (service (new-service (● setup root) (● setup project)))
+           (snapshot (new Snapshot
+                       (phase (Starting))
+                       (id 0)
+                       (diagnostics (Nil))
+                       (publications (Nil))
+                       (runs (Nil))))
+           (serial 0)
+           (reservation (None))
+           (targets (None))
+           (published (JsonNull))
+           (runs (Nil))
+           (clients (Nil))
+           (told (Nil))
+           (connections (Nil))
+           (frames "")
+           (instance (string-append (show (● resident id)) ":" (show (monotonic-nanoseconds))))
+           (files 0)
+           (editors (list (match (editor-bundle setup)
+                            ((Ok bundle) bundle) ((Err message) (panic message)))))
+           (editor-process (None))
+           (editor-again #f)
+           (editor-problem "")
+           (stopping (None))
+           (waiting 0)
+           (done #f)))
 
     ;; ---- The owner ----
 
@@ -347,13 +352,16 @@
       (match message
         ((Step event) (stepped (touched-editor (touched-files host event) event) event))
         ((Ask event reply) (asked host event reply))
-        ((Status reply) (mailbox-post reply (Answer 200 (status->json host))) host)
+        ((Status reply)
+         (mailbox-post reply (new Answer (status 200) (body (status->json host))))
+         host)
         ((EditorAssets reply) (mailbox-post reply (● host editors)) host)
         ((EditorBuilt result) (editor-built host result))
         ((Applications reply) (mailbox-post reply (served-applications host)) host)
         ((Fired serial) (if (= serial (● host serial)) (stepped host (TimerFired)) host))
         ((Built epoch reply targets)
-         (stepped (Host-targets-set host (Some (Pair epoch targets))) (BuildReplied epoch reply)))
+         (stepped (Host-targets-set host (Some (new Pair (first epoch) (second targets))))
+                  (BuildReplied epoch reply)))
         ((ResidentGone message) (resident-gone host message))
         ((Overdue) (overdue host))
         ((RunChanged name status) (broadcast-changes (run-changed host name status)))
@@ -389,13 +397,18 @@
     (define (answer-for (host Host) (event Event) (refusal (Option Refusal))) (→ Answer) (! mut)
       (match refusal
         ((Some (UnknownRunTarget name))
-         (Answer 404 (protocol-message->json (string-append "unknown accepted run target: " name))))
+         (new Answer
+           (status 404)
+           (body (protocol-message->json (string-append "unknown accepted run target: " name)))))
         ((Some (ServiceClosed))
-         (Answer 503 (protocol-message->json "project development is closing")))
+         (new Answer (status 503) (body (protocol-message->json "project development is closing"))))
         ((None)
          (match event
-           ((RequestBuild) (Answer 202 (protocol-build->json (editor-status (● host snapshot)))))
-           (_ (Answer 204 (JsonNull)))))))
+           ((RequestBuild)
+            (new Answer
+              (status 202)
+              (body (protocol-build->json (editor-status (● host snapshot))))))
+           (_ (new Answer (status 204) (body (JsonNull))))))))
 
     ;; ---- Carrying out commands ----
 
@@ -436,8 +449,10 @@
       host)
 
     (define (epoch-request (kind String) (epoch I64) (rest (List (Pair String Json)))) (→ String)
-      (json->string (JsonObject (append (list (Pair "kind" (JsonString kind))
-                                              (Pair "epoch" (JsonInteger epoch)))
+      (json->string (JsonObject (append (list (new Pair (first "kind") (second (JsonString kind)))
+                                              (new Pair
+                                                (first "epoch")
+                                                (second (JsonInteger epoch))))
                                         rest))))
 
     ;; An attempt's build directory, reserved under build/ before the
@@ -446,12 +461,13 @@
     (define (build (host Host) (epoch I64)) (→ Host) (! mut fs host)
       (match (reserve (string-append (● (● host setup) project) "/build") 0)
         ((Ok directory)
-         (request (Host-reservation-set host (Some (Pair epoch directory)))
+         (request (Host-reservation-set host (Some (new Pair (first epoch) (second directory))))
                   (epoch-request "build"
                                  epoch
-                                 (list (Pair "prefix"
-                                             (JsonString
-                                              (string-append (base-name directory) "-")))))))
+                                 (list (new Pair (first "prefix")
+                                            (second (JsonString
+                                                     (string-append (base-name directory)
+                                                                    "-"))))))))
         ((Err message)
          (mailbox-post (● host owner) (Step (ResidentExited message)))
          host)))
@@ -547,7 +563,10 @@
            (mailbox-post inbox (Want wanted))
            (Host-runs-set host
                           (append (● host runs)
-                                  (list (Supervised name inbox (idle-run name)))))))))
+                                  (list (new Supervised
+                                          (name name)
+                                          (inbox inbox)
+                                          (status (idle-run name))))))))))
 
     (define (run-changed (host Host) (name String) (status protocol-Run)) (→ Host) (! mut)
       (Host-runs-set host
@@ -574,13 +593,14 @@
     ;; served at.
 
     (define (published (host Host) (snapshot Snapshot)) (→ Host) (! mut)
-      (match (Pair (● snapshot publications) (● host targets))
+      (match (new Pair (first (● snapshot publications)) (second (● host targets)))
         ((Pair (Cons build _) (Some (Pair epoch targets)))
          (if (= (● build id) epoch)
              (Host-published-set host
-                                 (JsonObject (list (Pair "id" (JsonInteger epoch))
-                                                   (Pair "targets"
-                                                         (with-urls host build targets)))))
+                                 (JsonObject
+                                  (list (new Pair (first "id") (second (JsonInteger epoch)))
+                                        (new Pair (first "targets")
+                                             (second (with-urls host build targets))))))
              host))
         (_ host)))
 
@@ -597,7 +617,10 @@
           ((JsonObject members)
            (if (member? name browsers)
                (JsonObject
-                (append members (list (Pair "url" (JsonString (application-url host name))))))
+                (append members
+                        (list (new Pair
+                                (first "url")
+                                (second (JsonString (application-url host name)))))))
                target))
           (other other))))
 
@@ -612,31 +635,31 @@
       (let ((publications (● (● host snapshot) publications)))
         (match publications
           ((Cons latest _)
-           (map (lambda (name) (Application name (builds-of publications name)))
+           (map (lambda (name) (new Application (name name) (builds (builds-of publications name))))
                 (● (● (● latest candidate) description) browsers)))
           ((Nil) (Nil)))))
 
     (define (builds-of (publications (List Published)) (name String)) (→ (List BuildDirectory))
       (concatenate (map (lambda (published)
                           (map (lambda (generation)
-                                 (BuildDirectory (● published id)
-                                                 (● generation directory)
-                                                 (● generation files)
-                                                 (● (● published candidate) milliseconds)))
+                                 (new BuildDirectory (epoch (● published id))
+                                      (directory (● generation directory))
+                                      (files (● generation files))
+                                      (milliseconds (● (● published candidate) milliseconds))))
                                (filter
                                 (lambda (generation) (string=? (● generation name) name))
                                 (● (● published candidate) generations))))
                         publications)))
 
     (define (editor-status (snapshot Snapshot)) (→ protocol-Build)
-      (protocol-Build (phase-name (● snapshot phase)) (● snapshot id)
-                      (map diagnostic-report (● snapshot diagnostics))))
+      (new protocol-Build (phase (phase-name (● snapshot phase))) (id (● snapshot id))
+           (diagnostics (map diagnostic-report (● snapshot diagnostics)))))
 
     (define (editor-state (host Host)) (→ protocol-ServerState) (! mut)
-      (protocol-ServerState (● host instance) (● host files)
-                            (editor-status (● host snapshot)) (run-states host)
-                            (editor-base (list-ref (● host editors) 0))
-                            (● host editor-problem)))
+      (new protocol-ServerState (instance (● host instance)) (files (● host files))
+           (build (editor-status (● host snapshot))) (runs (run-states host))
+           (editor (editor-base (list-ref (● host editors) 0)))
+           (editor-problem (● host editor-problem))))
 
     ;; All a client can observe in one snapshot: the attempt, the published
     ;; targets, the resident's process and the run targets.
@@ -645,15 +668,17 @@
       (match (protocol-build->json (editor-status (● host snapshot)))
         ((JsonObject members)
          (JsonObject (append members
-                             (list (Pair "published" (● host published))
-                                   (Pair "compiler"
-                                         (if (● host resident-alive)
-                                             (JsonObject (list (Pair "worker"
-                                                                     (JsonInteger
-                                                                      (i32->i64
-                                                                       (● (● host resident) id))))))
-                                             (JsonNull)))
-                                   (Pair "runs" (runs->json host))))))
+                             (list (new Pair (first "published") (second (● host published)))
+                                   (new Pair (first "compiler")
+                                        (second (if (● host resident-alive)
+                                                    (JsonObject (list (new Pair (first "worker")
+                                                                           (second (JsonInteger
+                                                                                    (i32->i64
+                                                                                     (● (● host
+                                                                                           resident)
+                                                                                        id)))))))
+                                                    (JsonNull))))
+                                   (new Pair (first "runs") (second (runs->json host)))))))
         (other other)))
 
     (define (phase-name (phase Phase)) (→ String)
@@ -666,12 +691,12 @@
         ((Fatal) "fatal")))
 
     (define (diagnostic-report (diagnostic Diagnostic)) (→ protocol-Report)
-      (protocol-Report "error" (● diagnostic message)
-                       (match (● diagnostic source)
-                         ((Some point) (Some (protocol-Point (● point file)
-                                                             (● point line)
-                                                             (● point column))))
-                         ((None) (None)))))
+      (new protocol-Report (severity "error") (message (● diagnostic message))
+           (source (match (● diagnostic source)
+                     ((Some point) (Some (new protocol-Point (file (● point file))
+                                              (line (● point line))
+                                              (column (● point column)))))
+                     ((None) (None))))))
 
     (define (runs->json (host Host)) (→ Json) (! mut)
       (JsonArray (map protocol-run->json (run-states host))))
@@ -693,7 +718,7 @@
         ((None) (idle-run name))))
 
     (define (idle-run (name String)) (→ protocol-Run)
-      (protocol-Run name (None) (None) #f #f))
+      (new protocol-Run (target name) (desired (None)) (attempt (None)) (wanted #f) (available #f)))
 
     ;; ---- Event streams ----
 
@@ -760,15 +785,25 @@
       (! mut tcp fs host)
       (cond ((option-some? (● host stopping))
              (mailbox-post reply
-                           (Answer 503 (protocol-message->json "project development is closing")))
+                           (new Answer
+                             (status 503)
+                             (body (protocol-message->json "project development is closing"))))
              host)
             ((>= (length (● host clients)) 64)
-             (mailbox-post reply (Answer 429 (protocol-message->json "too many event connections")))
+             (mailbox-post reply
+                           (new Answer
+                             (status 429)
+                             (body (protocol-message->json "too many event connections"))))
              host)
             (else
-             (mailbox-post reply (Answer 200 (JsonNull)))
+             (mailbox-post reply (new Answer (status 200) (body (JsonNull))))
              (Host-clients-set host
-                               (append (sent-to (list (Client id watching connection frames 0))
+                               (append (sent-to (list (new Client
+                                                        (id id)
+                                                        (watching watching)
+                                                        (connection connection)
+                                                        (frames frames)
+                                                        (pending 0)))
                                                 (lambda (client) #t)
                                                 (string->utf8 (match watching
                                                                 ((Some name)
@@ -824,10 +859,10 @@
       (let ((snapshot (● host snapshot)))
         (string-append "retry: 1000\n\n"
                        (page-frame (page-event snapshot
-                                               (Application name
-                                                            (builds-of
+                                               (new Application (name name)
+                                                    (builds (builds-of
                                                              (● snapshot publications)
-                                                             name)))))))
+                                                             name))))))))
 
     ;; Each browser target's pages hear its event when it changes.
 
@@ -846,7 +881,7 @@
     (define (told-page (host Host) (name String) (event String)) (→ Host) (! mut tcp host)
       (Host-clients-set
        (Host-told-set host
-                      (Cons (Pair name event)
+                      (Cons (new Pair (first name) (second event))
                             (filter (lambda (told) (not (string=? (● told first) name)))
                                     (● host told))))
        (sent-to (● host clients)
@@ -908,7 +943,10 @@
         ((Some _)
          (close-connection connection)
          (Host-waiting-set host (+ (● host waiting) 1)))
-        ((None) (Host-connections-set host (Cons (Pair id connection) (● host connections))))))
+        ((None)
+         (Host-connections-set host
+                               (Cons (new Pair (first id) (second connection))
+                                     (● host connections))))))
 
     ;; A finished handler's connection, and its event stream if it had one.
 
@@ -955,18 +993,19 @@
 
     (define (watched (setup Setup)) (→ (Pair (List String) (List String)))
       (let ((root (● setup root)) (project (● setup project)))
-        (Pair (list project (string-append root "/src") (string-append root "/host/browser")
-                    (string-append root "/host/ide"))
-              (list (string-append project "/build")
-                    (string-append project "/.git")
-                    (string-append root "/build") (string-append root "/host/ide/build")))))
+        (new Pair
+          (first (list project (string-append root "/src") (string-append root "/host/browser")
+                       (string-append root "/host/ide")))
+          (second (list (string-append project "/build")
+                        (string-append project "/.git")
+                        (string-append root "/build") (string-append root "/host/ide/build"))))))
 
     (define (take-inventory (setup Setup)) (→ (Result Inventory String)) (! fs)
       (let ((roots (watched setup)))
         (inventory (● roots first) (● roots second))))
 
     ;; The last complete inventory, and why the latest failed, if it did.
-    (struct Disk
+    (record Disk
       ((taken Inventory)
        (failure (Option String))))
 
@@ -981,7 +1020,9 @@
       (! mut tasks fs hints host)
       (let* ((roots (watched setup))
              (watches (watch-roots (● roots first) (● roots second) requests)))
-        (let loop ((disk (rescan setup owner (Disk (empty-inventory) (None)) #f)) (stopping #f))
+        (let loop ((disk
+                    (rescan setup owner (new Disk (taken (empty-inventory)) (failure (None))) #f))
+                   (stopping #f))
           (match (mailbox-receive requests)
             ((Stopping)
              (for-each close-watch watches)
@@ -1045,7 +1086,7 @@
              (mailbox-post owner (Step (Touched changes))))
            (when (option-some? (● disk failure))
              (mailbox-post owner (Step (Uncertain (None)))))
-           (Disk next (None))))
+           (new Disk (taken next) (failure (None)))))
         ((Err message)
          (unless (option-some? (● disk failure))
            (mailbox-post owner (Step (Uncertain (Some message)))))
@@ -1063,15 +1104,15 @@
     ;; ---- The resident ----
 
     (define (resident-process (setup Setup)) (→ Process) (! tasks process)
-      (match (spawn (ProcessCommand (● setup node)
-                                    (list "--no-warnings"
+      (match (spawn (new ProcessCommand (program (● setup node))
+                         (arguments (list "--no-warnings"
                                           (runner setup)
                                           (● setup cli)
                                           (● setup root)
                                           (● setup runtime)
                                           "resident"
-                                          (● setup project))
-                                    "."))
+                                          (● setup project)))
+                         (directory ".")))
         ((Ok process) process)
         ((Err error)
          (panic (string-append "cannot start the resident builder: "
@@ -1194,50 +1235,56 @@
     ;; ---- The resident's replies ----
 
     (define (json->reply (json Json)) (→ Reply)
-      (Reply (match (json-object json "description")
-               ((Some description) (Some (json->description description)))
-               ((None) (None)))
-             (match (json-object json "candidate")
-               ((Some candidate) (Some (json->candidate candidate)))
-               ((None) (None)))
-             (map json->diagnostic (json-items json "diagnostics"))))
+      (new Reply (description (match (json-object json "description")
+                                ((Some description) (Some (json->description description)))
+                                ((None) (None))))
+           (candidate (match (json-object json "candidate")
+                        ((Some candidate) (Some (json->candidate candidate)))
+                        ((None) (None))))
+           (diagnostics (map json->diagnostic (json-items json "diagnostics")))))
 
     (define (json->description (json Json)) (→ Description)
       (let ((builds (json-items json "builds")))
-        (Description (map (lambda (build) (json-text build "entry")) builds)
-                     (fold-right (lambda (build publics)
-                                   (match (json-member build "public")
-                                     ((Some (JsonString path)) (Cons path publics))
-                                     (_ publics)))
-                                 (Nil)
-                                 builds)
-                     (map (lambda (build) (json-text build "name"))
-                          (filter (lambda (build) (string=? (json-text build "kind") "browser"))
+        (new Description (entries (map (lambda (build) (json-text build "entry")) builds))
+             (publics (fold-right (lambda (build publics)
+                                    (match (json-member build "public")
+                                      ((Some (JsonString path)) (Cons path publics))
+                                      (_ publics)))
+                                  (Nil)
                                   builds))
-                     (map (lambda (run)
-                            (RunDefinition (json-text run "name")
-                                           (json-text run "build")
-                                           (map json-string-value (json-items run "args"))))
-                          (json-items json "runs")))))
+             (browsers (map (lambda (build) (json-text build "name"))
+                            (filter (lambda (build) (string=? (json-text build "kind") "browser"))
+                                    builds)))
+             (runs (map (lambda (run)
+                          (new RunDefinition (name (json-text run "name"))
+                               (build (json-text run "build"))
+                               (arguments (map json-string-value (json-items run "args")))))
+                        (json-items json "runs"))))))
 
     (define (json->candidate (json Json)) (→ Candidate)
-      (Candidate (match (json-member json "description")
-                   ((Some description) (json->description description))
-                   ((None) (Description (Nil) (Nil) (Nil) (Nil))))
-                 (map (lambda (target)
-                        (Generation (json-text target "name")
-                                    (json-text target "directory")
-                                    (json-text target "digest")
-                                    (match (json-member target "files")
-                                      ((Some (JsonObject members))
-                                       (map (lambda (member)
-                                              (Pair (● member first)
-                                                    (json-string-value (● member second))))
-                                            members))
-                                      (_ (Nil)))
-                                    (map json-string-value (json-items target "linked"))))
-                      (json-items json "targets"))
-                 (json-integer json "milliseconds")))
+      (new Candidate (description (match (json-member json "description")
+                                    ((Some description) (json->description description))
+                                    ((None)
+                                     (new Description
+                                       (entries (Nil))
+                                       (publics (Nil))
+                                       (browsers (Nil))
+                                       (runs (Nil))))))
+           (generations (map (lambda (target)
+                               (new Generation (name (json-text target "name"))
+                                    (directory (json-text target "directory"))
+                                    (digest (json-text target "digest"))
+                                    (files (match (json-member target "files")
+                                             ((Some (JsonObject members))
+                                              (map (lambda (member)
+                                                     (new Pair (first (● member first))
+                                                          (second
+                                                           (json-string-value (● member second)))))
+                                                   members))
+                                             (_ (Nil))))
+                                    (linked (map json-string-value (json-items target "linked")))))
+                             (json-items json "targets")))
+           (milliseconds (json-integer json "milliseconds"))))
 
     ;; The candidate's targets as the status shows them.
 
@@ -1248,7 +1295,8 @@
                            (JsonObject (fold-right (lambda (name kept)
                                                      (match (json-member target name)
                                                        ((Some value)
-                                                        (Cons (Pair name value) kept))
+                                                        (Cons (new Pair (first name) (second value))
+                                                              kept))
                                                        ((None) kept)))
                                                    (Nil)
                                                    (list "name"
@@ -1259,13 +1307,13 @@
         ((None) (JsonArray (Nil)))))
 
     (define (json->diagnostic (json Json)) (→ Diagnostic)
-      (Diagnostic (json-text json "message")
-                  (match (json-object json "source")
-                    ((Some source)
-                     (Some (SourcePoint (json-text source "file")
-                                        (json-integer source "line")
-                                        (json-integer source "column"))))
-                    ((None) (None)))))
+      (new Diagnostic (message (json-text json "message"))
+           (source (match (json-object json "source")
+                     ((Some source)
+                      (Some (new SourcePoint (file (json-text source "file"))
+                                 (line (json-integer source "line"))
+                                 (column (json-integer source "column")))))
+                     ((None) (None))))))
 
     ;; A member that is an object, as a null one is not.
 
@@ -1299,7 +1347,7 @@
     ;; One run target, its latest request and the process it owns. Each
     ;; request has a serial, so a request repeated is run again, and output
     ;; or an exit for an earlier process is ignored.
-    (struct Child
+    (record Child
       ((serial I64)
        (request RunRequest)
        (process (Option Process))
@@ -1308,7 +1356,7 @@
        (stdout Bytes)
        (stderr Bytes)))
 
-    (struct Supervisor
+    (record Supervisor
       ((setup Setup)
        (owner (Mailbox Message))
        (inbox (Mailbox Supervision))
@@ -1323,7 +1371,15 @@
                             (inbox (Mailbox Supervision))
                             (name String))
       (→ Supervisor)
-      (Supervisor setup owner inbox name (None) 0 (None) #f))
+      (new Supervisor
+        (setup setup)
+        (owner owner)
+        (inbox inbox)
+        (name name)
+        (desired (None))
+        (serial 0)
+        (child (None))
+        (finishing #f)))
 
     ;; Receives, runs what is wanted, and reports. A finishing supervisor
     ;; ends once its process has.
@@ -1347,7 +1403,9 @@
            (Supervisor-serial-set (Supervisor-desired-set supervisor
                                                           (match wanted
                                                             ((Some request)
-                                                             (Some (Pair serial request)))
+                                                             (Some (new Pair
+                                                                     (first serial)
+                                                                     (second request))))
                                                             ((None) (None))))
                                   serial)))
         ((Output serial stream bytes) (child-output supervisor serial stream bytes))
@@ -1364,7 +1422,7 @@
     ;; the one wanted is launched, unless it already ran and ended.
 
     (define (reconcile-run (supervisor Supervisor)) (→ Supervisor) (! mut tasks process host)
-      (match (Pair (● supervisor child) (● supervisor desired))
+      (match (new Pair (first (● supervisor child)) (second (● supervisor desired)))
         ((Pair (Some child) wanted)
          (cond ((option-some? (● child exit))
                 (match wanted
@@ -1413,13 +1471,13 @@
       (→ Supervisor)
       (! mut tasks process host)
       (let ((setup (● supervisor setup)) (inbox (● supervisor inbox)))
-        (match (spawn (ProcessCommand (● setup node)
-                                      (append
+        (match (spawn (new ProcessCommand (program (● setup node))
+                           (arguments (append
                                        (list "--no-warnings"
                                              (runner setup)
                                              (● request entry))
-                                       (● request arguments))
-                                      "."))
+                                       (● request arguments)))
+                           (directory ".")))
           ((Ok process)
            (close-input process)
            (dispatch-local (once (lambda () (forward-output process inbox serial (Stdout)))))
@@ -1427,22 +1485,22 @@
            (dispatch-local
             (once (lambda () (mailbox-post inbox (Ended serial (wait-exit process))))))
            (Supervisor-child-set supervisor
-                                 (Some (Child serial
-                                              request
-                                              (Some process)
-                                              #f
-                                              (None)
-                                              (empty-bytes)
-                                              (empty-bytes)))))
+                                 (Some (new Child (serial serial)
+                                            (request request)
+                                            (process (Some process))
+                                            (stopping #f)
+                                            (exit (None))
+                                            (stdout (empty-bytes))
+                                            (stderr (empty-bytes))))))
           ((Err error)
            (Supervisor-child-set supervisor
-                                 (Some (Child serial
-                                              request
-                                              (None)
-                                              #f
-                                              (Some (Err error))
-                                              (empty-bytes)
-                                              (empty-bytes))))))))
+                                 (Some (new Child (serial serial)
+                                            (request request)
+                                            (process (None))
+                                            (stopping #f)
+                                            (exit (Some (Err error)))
+                                            (stdout (empty-bytes))
+                                            (stderr (empty-bytes)))))))))
 
     (define (empty-bytes) (→ Bytes)
       (make-vector 0 (i32->u8 0)))
@@ -1500,26 +1558,26 @@
     ;; The target's status: what is wanted, and the process it owns.
 
     (define (supervisor-state (supervisor Supervisor)) (→ protocol-Run) (! mut)
-      (protocol-Run (● supervisor name)
-                    (match (● supervisor desired)
+      (new protocol-Run (target (● supervisor name))
+           (desired (match (● supervisor desired)
                       ((Some (Pair _ request)) (Some (● request build)))
-                      ((None) (None)))
-                    (match (● supervisor child)
+                      ((None) (None))))
+           (attempt (match (● supervisor child)
                       ((Some child) (Some (child-state child)))
-                      ((None) (None)))
-                    #f #f))
+                      ((None) (None))))
+           (wanted #f) (available #f)))
 
     (define (child-state (child Child)) (→ protocol-Attempt)
-      (protocol-Attempt
-       (● (● child request) build)
-       (match (● child process)
-         ((Some process) (Some (i32->i64 (● process id)))) ((None) (None)))
-       (child-phase child)
-       (match (● child exit)
-         ((Some (Ok (Exited code))) (Some (i32->i64 code))) (_ (None)))
-       (match (● child exit) ((Some (Ok (Signaled name))) name) (_ ""))
-       (match (● child exit) ((Some (Err error)) (● error code)) (_ ""))
-       (lossy-text (● child stdout)) (lossy-text (● child stderr))))
+      (new protocol-Attempt
+        (build (● (● child request) build))
+        (pid (match (● child process)
+               ((Some process) (Some (i32->i64 (● process id)))) ((None) (None))))
+        (phase (child-phase child))
+        (code (match (● child exit)
+                ((Some (Ok (Exited code))) (Some (i32->i64 code))) (_ (None))))
+        (signal (match (● child exit) ((Some (Ok (Signaled name))) name) (_ "")))
+        (error (match (● child exit) ((Some (Err error)) (● error code)) (_ "")))
+        (stdout (lossy-text (● child stdout))) (stderr (lossy-text (● child stderr)))))
 
     (define (child-phase (child Child)) (→ String)
       (match (● child exit)
@@ -1563,14 +1621,15 @@
           ((Err _) (unit)))))
 
     (define (security-headers) (→ (List Header))
-      (list (Header "Cache-Control" "no-store")
-            (Header "X-Content-Type-Options" "nosniff")
-            (Header "X-Frame-Options" "DENY")))
+      (list (new Header (name "Cache-Control") (value "no-store"))
+            (new Header (name "X-Content-Type-Options") (value "nosniff"))
+            (new Header (name "X-Frame-Options") (value "DENY"))))
 
     (define (json-response (status I32) (body Json)) (→ Response)
-      (Response status
-                (Cons (Header "Content-Type" "application/json") (security-headers))
-                (if (= status 204) (empty-bytes) (string->utf8 (json->string body)))))
+      (new Response (status status)
+           (headers
+            (Cons (new Header (name "Content-Type") (value "application/json")) (security-headers)))
+           (body (if (= status 204) (empty-bytes) (string->utf8 (json->string body))))))
 
     (define (refused (status I32) (message String)) (→ Response)
       (json-response status (protocol-message->json message)))
@@ -1658,7 +1717,7 @@
                  (query (List (Pair String String))))
       (→ Response)
       (! mut tasks fs modes process host)
-      (match (Pair method path)
+      (match (new Pair (first method) (second path))
         ((Pair "GET" (Cons "api" (Cons "project" (Nil)))) (project-listing setup disk))
         ((Pair "GET" (Cons "api" (Cons "search" (Nil))))
          (project-search setup disk (query-value query "q")))
@@ -1708,7 +1767,7 @@
         (let ((answer (mailbox-receive reply)))
           (json-response (● answer status) (● answer body)))))
 
-    (struct ProjectEntries
+    (record ProjectEntries
       ((files (List String))
        (directories (List String))))
 
@@ -1727,9 +1786,11 @@
            (match (project-text-paths (● setup project) (inventory-files taken))
              ((Ok files)
               (visible-entries (● setup project)
-                               (ProjectEntries files (project-directory-paths (● setup project)
-                                                                              (inventory-directories
-                                                                               taken)))))
+                               (new ProjectEntries
+                                 (files files)
+                                 (directories (project-directory-paths (● setup project)
+                                                                       (inventory-directories
+                                                                        taken))))))
              ((Err refusal) (Err (file-refusal refusal))))))))
 
     (define (visible-entries (directory String) (entries ProjectEntries))
@@ -1740,8 +1801,8 @@
         ((Ok (None)) (Ok entries))
         ((Ok (Some snapshot))
          (let ((visible? (lambda (path) (not (ignore-ignored? snapshot path)))))
-           (Ok (ProjectEntries (filter visible? (● entries files))
-                               (filter visible? (● entries directories))))))))
+           (Ok (new ProjectEntries (files (filter visible? (● entries files)))
+                    (directories (filter visible? (● entries directories)))))))))
 
     (define (project-listing (setup Setup) (disk (Mailbox Scan)))
       (→ Response)
@@ -1752,9 +1813,9 @@
          (let ((project (● setup project)))
            (json-response 200
                           (protocol-project->json
-                           (protocol-Project (base-name project) project
-                                             (● files files)
-                                             (● files directories))))))))
+                           (new protocol-Project (name (base-name project)) (directory project)
+                                (files (● files files))
+                                (directories (● files directories)))))))))
 
     (define (project-search (setup Setup) (disk (Mailbox Scan)) (text String))
       (→ Response)
@@ -1773,19 +1834,20 @@
 
     (define (search-json (results search-Results)) (→ Json)
       (protocol-search->json
-       (protocol-SearchResults
-        (map (lambda (hit)
-               (protocol-Hit (protocol-Point (● hit path) (● hit line)
-                                             (● hit column))
-                             (● hit revision) (● hit snippet)))
-             (● results hits))
-        (● results skipped) (● results limited))))
+       (new protocol-SearchResults
+         (hits (map (lambda (hit)
+                      (new protocol-Hit
+                        (point (new protocol-Point (file (● hit path)) (line (● hit line))
+                                    (column (● hit column))))
+                        (revision (● hit revision)) (snippet (● hit snippet))))
+                    (● results hits)))
+         (skipped (● results skipped)) (limited (● results limited)))))
 
     (define (file-response (result (Result ProjectText FileRefusal))) (→ Response)
       (match result
         ((Ok text)
-         (json-response 200 (protocol-file->json (protocol-Snapshot (● text text)
-                                                                    (● text revision)))))
+         (json-response 200 (protocol-file->json (new protocol-Snapshot (text (● text text))
+                                                      (revision (● text revision))))))
         ((Err refusal) (file-refusal refusal))))
 
     (define (file-refusal (refusal FileRefusal)) (→ Response)
@@ -1812,7 +1874,9 @@
             ((Err refusal) (file-refusal refusal))
             ((Ok _)
              (mailbox-post disk (Prompted))
-             (json-response 201 (JsonObject (list (Pair "path" (JsonString path)))))))))
+             (json-response 201
+                            (JsonObject
+                             (list (new Pair (first "path") (second (JsonString path))))))))))
 
     ;; A save names one quoted revision and sends UTF-8 text/plain. Once it
     ;; is on disk, the disk task scans, so the build sees it within the
@@ -1983,25 +2047,27 @@
                           applications)
                ((Some application)
                 (bundle-response (string-append "/" name "/")
-                                 (Reloading (string-append (● setup root) "/host/browser")
-                                            (● setup client))
+                                 (new Reloading
+                                   (host (string-append (● setup root) "/host/browser"))
+                                   (program (● setup client)))
                                  (● application builds)
                                  rest))
                ((None) (refused 404 (string-append "no browser target " name)))))))))
 
     (define (application-index (applications (List Application))) (→ Response)
-      (Response 200
-                (Cons (Header "Content-Type" "text/html; charset=utf-8") (security-headers))
-                (string->utf8
-                 (string-append
-                  "<!doctype html>\n<meta charset=\"utf-8\">\n<title>Browser targets</title>\n"
-                  (if (null? applications)
-                      "<p>No browser target is built yet.</p>\n"
-                      (string-concatenate
-                       (map (lambda (application)
-                              (let ((name (html-text (● application name))))
-                                (string-append "<p><a href=\"/" name "/\">" name "</a></p>\n")))
-                            applications)))))))
+      (new Response (status 200)
+           (headers (Cons (new Header (name "Content-Type") (value "text/html; charset=utf-8"))
+                          (security-headers)))
+           (body (string->utf8
+                  (string-append
+                   "<!doctype html>\n<meta charset=\"utf-8\">\n<title>Browser targets</title>\n"
+                   (if (null? applications)
+                       "<p>No browser target is built yet.</p>\n"
+                       (string-concatenate
+                        (map (lambda (application)
+                               (let ((name (html-text (● application name))))
+                                 (string-append "<p><a href=\"/" name "/\">" name "</a></p>\n")))
+                             applications))))))))
 
     (define (html-text (text String)) (→ String)
       (string-concatenate
@@ -2017,14 +2083,16 @@
 
     ;; The IDE is a normal browser target. Keep complete successful generations
     ;; for this service's lifetime; no client leases or partially updated assets.
-    (struct EditorBundle
+    (record EditorBundle
       ((id String)
        (directory String)))
 
     (define (editor-bundle (setup Setup)) (→ (Result EditorBundle String)) (! fs)
       (match (read-symbolic-link (● setup editor))
         ((Ok name)
-         (Ok (EditorBundle name (string-append (● setup root) "/host/ide/build/" name))))
+         (Ok (new EditorBundle
+               (id name)
+               (directory (string-append (● setup root) "/host/ide/build/" name)))))
         ((Err error) (Err (string-append "cannot locate IDE build: " (show error))))))
 
     (define (editor-base (bundle EditorBundle)) (→ String)
@@ -2051,12 +2119,12 @@
 
     (define (start-editor (host Host)) (→ Host) (! mut tasks process fs tcp host)
       (let ((setup (● host setup)))
-        (match (spawn (ProcessCommand (● setup node)
-                                      (list "--no-warnings" (runner setup) (● setup cli)
+        (match (spawn (new ProcessCommand (program (● setup node))
+                           (arguments (list "--no-warnings" (runner setup) (● setup cli)
                                             (● setup root) (● setup runtime)
                                             "build" "--release"
-                                            (string-append (● setup root) "/host/ide") "ide")
-                                      (● setup root)))
+                                            (string-append (● setup root) "/host/ide") "ide"))
+                           (directory (● setup root))))
           ((Err error) (broadcast-changes
                         (Host-editor-problem-set host (● error code))))
           ((Ok child)
@@ -2112,9 +2180,10 @@
     ;; manifest remains at the stable root, and recovery is keyed by project.
 
     (define (editor-manifest) (→ Response)
-      (Response 200
-                (Cons (Header "Content-Type" "application/manifest+json") (security-headers))
-                (string->utf8 (json->string (web-app-manifest "Snail IDE")))))
+      (new Response (status 200)
+           (headers (Cons (new Header (name "Content-Type") (value "application/manifest+json"))
+                          (security-headers)))
+           (body (string->utf8 (json->string (web-app-manifest "Snail IDE"))))))
 
     (define (editor-asset (setup Setup) (owner (Mailbox Message)) (path (List String)))
       (→ Response)
@@ -2140,20 +2209,24 @@
     (define (editor-page (setup Setup) (bundle EditorBundle)) (→ Response) (! fs)
       (let ((text (stable-web-app
                    (read-file (string-append (● bundle directory) "/index.html")) "/")))
-        (Response 200 (Cons (Header "Content-Type" "text/html; charset=utf-8") (editor-headers))
-                  (string->utf8
-                   (insert-metadata text (list (PageBase (editor-base bundle))
-                                               (PageMeta "snail-workspace"
-                                                         (● setup project))))))))
+        (new Response
+          (status 200)
+          (headers (Cons (new Header (name "Content-Type") (value "text/html; charset=utf-8"))
+                         (editor-headers)))
+          (body (string->utf8
+                 (insert-metadata text (list (PageBase (editor-base bundle))
+                                             (PageMeta "snail-workspace"
+                                                       (● setup project)))))))))
 
     (define (editor-file (bundle EditorBundle) (path (List String))) (→ Response) (! fs)
       (let ((response (bundle-file (● bundle directory) path)))
-        (Response (● response status)
-                  (append (● response headers) (editor-headers)) (● response body))))
+        (new Response (status (● response status))
+             (headers (append (● response headers) (editor-headers))) (body (● response body)))))
 
     (define (editor-headers) (→ (List Header))
-      (Cons (Header "Content-Security-Policy"
-                    "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'self'; worker-src 'none'")
+      (Cons (new Header (name "Content-Security-Policy")
+                 (value
+                  "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'self'; worker-src 'none'"))
             (security-headers)))
 
     ;; ---- Writing an event stream ----
@@ -2173,7 +2246,9 @@
         (let ((answer (mailbox-receive reply)))
           (if (= (● answer status) 200)
               (match (encode-stream-head 200
-                                         (Cons (Header "Content-Type" "text/event-stream")
+                                         (Cons (new Header
+                                                 (name "Content-Type")
+                                                 (value "text/event-stream"))
                                                (security-headers)))
                 ((Ok head) (when (sent? connection head) (write-frames owner id connection frames)))
                 ((Err _) (unit)))

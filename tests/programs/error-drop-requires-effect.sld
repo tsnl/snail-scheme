@@ -6,7 +6,7 @@
 (effect audit
   ((note (Fn String → Unit))))
 
-(struct Handle
+(record Handle
   ((name String)))
 
 (instance (Drop (! audit) Handle)
@@ -14,7 +14,7 @@
     (match handle
       ((Handle name) (note name)))))
 
-(struct (Labelled A)
+(record (Labelled A)
   ((label String)
    (item A)))
 

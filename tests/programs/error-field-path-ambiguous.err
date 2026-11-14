@@ -1,1 +1,1 @@
-field x requires a known struct type; annotate the receiver
+field x requires a known record type; annotate the receiver

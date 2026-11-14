@@ -71,7 +71,7 @@ together. A higher-level operation such as drawing a sphere is a helper that
 prepares the buffers a pipeline expects, not a call into a renderer.
 
 **The ABI is not stable, on purpose.** A pipeline's interface is a Snail Scheme
-struct deriving `Pod`, and it changes when the pipeline does. Nothing is hidden
+record deriving `Pod`, and it changes when the pipeline does. Nothing is hidden
 behind a renderer object: every pass, buffer and layout is a value the
 application can read, replace or extend.
 
@@ -79,7 +79,7 @@ Each row is `(snail shell graphics NAME)`:
 
 | Library | Provides |
 | --- | --- |
-| `pod` | `(deriving Pod)` on a struct gives its WGSL layout and alignment, a packer from a list to `Bytes`, and its WGSL declaration, one source of truth for each shader interface. |
+| `pod` | `(deriving Pod)` on a record gives its WGSL layout and alignment, a packer from a list to `Bytes`, and its WGSL declaration, one source of truth for each shader interface. |
 | `wgsl` | Shaders as S-expressions: one-to-one with WGSL, read from source files by build-time recipes and printed to WGSL text, with struct declarations from `Pod`. |
 | `mesh` | The flat glTF-shaped model as records and packers: geometry, material, instance, transform and indirect-draw tables, and lights. |
 | `atlas` | Texture-array pages with padded slots, slot tables, mips, and texture encoders, uncompressed first. |

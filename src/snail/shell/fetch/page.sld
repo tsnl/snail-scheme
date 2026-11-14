@@ -20,9 +20,10 @@
       (handle fetch
           ((request page-request)
            (stream-open (lambda (url kinds)
-                          (Stream (host-stream-open (string->utf8 (string-join (Cons url kinds)
-                                                                               (make-string 1
-                                                                                            #\null)))))))
+                          (new Stream
+                            (id (host-stream-open (string->utf8 (string-join (Cons url kinds)
+                                                                             (make-string 1
+                                                                                          #\null))))))))
            (stream-next page-stream-next)
            (stream-close (lambda (stream) (host-stream-close (● stream id)))))
         (work)))
@@ -46,7 +47,7 @@
                 headers)
       (host-request-body (string->utf8 body))
       (let ((status (through-host host-start-request host-finish-request)))
-        (if (< status 0) (Err (host-reply)) (Ok (Reply status (host-reply))))))
+        (if (< status 0) (Err (host-reply)) (Ok (new Reply (status status) (body (host-reply)))))))
 
     ;; A stream opens with its URL and the kinds it hears as one string, a
     ;; NUL between each. The wait answers -1 once the stream is closed, and
@@ -60,7 +61,9 @@
     (define (stream-event (text String)) (→ StreamEvent)
       (match (string-index text #\null)
         ((Some end)
-         (StreamEvent (substring text 0 end) (substring text (+ end 1) (string-length text))))
+         (new StreamEvent
+           (kind (substring text 0 end))
+           (data (substring text (+ end 1) (string-length text)))))
         ((None) (panic "internal error: a stream's event has no kind"))))
 
     ;; ---- The browser host ----

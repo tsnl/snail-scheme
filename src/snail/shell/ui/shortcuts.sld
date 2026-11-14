@@ -13,11 +13,11 @@
    (only (snail shell dom) Chord))
   (begin
 
-    (struct Binding
+    (record Binding
       ((chord Chord)
        (name String)))
 
-    (struct Shortcuts
+    (record Shortcuts
       ((bindings (Vector Binding))))
 
     (define (same-chord? (first Chord) (second Chord)) (→ Bool)
@@ -27,7 +27,7 @@
     (define (register (names (Vector String)) (bindings (Vector Binding)))
       (→ (Result Shortcuts String))
       (let loop ((index 0))
-        (if (= index (vector-length bindings)) (Ok (Shortcuts bindings))
+        (if (= index (vector-length bindings)) (Ok (new Shortcuts (bindings bindings)))
             (let ((binding (vector-ref bindings index)))
               (cond ((string=? (● binding name) "") (Err "a shortcut needs a command name"))
                     ((not (vector-fold

@@ -24,15 +24,15 @@
       (Waiting)
       (deriving Serialize Deserialize))
 
-    (struct PendingWork
+    (record PendingWork
       ((future (Option (Future (Result String String))))))
 
-    (struct Model
+    (record Model
       ((display Display)
        (clicks I64)
        (pending (Rc PendingWork))))
 
-    (struct Save
+    (record Save
       ((display Display)
        (clicks I64))
       (deriving Serialize Deserialize))
@@ -103,15 +103,15 @@
       (Nil))
 
     (define (save (model Model)) (→ Save) (! mut host)
-      (Save (● model display) (● model clicks)))
+      (new Save (display (● model display)) (clicks (● model clicks))))
 
     (define (restore (saved Save)) (→ Model)
-      (Model (match (● saved display)
-               ((Waiting) (Showing "interrupted"))
-               (display display))
-             (● saved clicks) (rc (PendingWork (None)))))
+      (new Model (display (match (● saved display)
+                            ((Waiting) (Showing "interrupted"))
+                            (display display)))
+           (clicks (● saved clicks)) (pending (rc (new PendingWork (future (None)))))))
 
-    (struct FuturesApplication
+    (record FuturesApplication
       ())
 
     (define-page-state Save)
@@ -121,7 +121,10 @@
         (→ Unit)
         (! mut host completion events storage tasks page)
 
-        (run-page (lambda () (Save (Showing "idle") 0)) serialize deserialize present)))
+        (run-page (lambda () (new Save (display (Showing "idle")) (clicks 0)))
+                  serialize
+                  deserialize
+                  present)))
 
     ;; Save is detached recovery data. The model shares an explicit pending
     ;; owner; returning from the loop cancels it even if another alias remains.

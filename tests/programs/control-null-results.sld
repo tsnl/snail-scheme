@@ -4,13 +4,13 @@
 
 ;; Recursive aggregate results cross suspension without fabricating an object.
 ;; Cancellation must never construct or release the incomplete source value.
-(struct Knot
+(record Knot
   ((children (Vector Knot))))
 
 (effect Ask
   ((ctl ask (Fn I64 → I64))))
 
-(struct Resource
+(record Resource
   ((value I64)))
 
 (instance (Drop (! output-port) Resource)
@@ -19,16 +19,16 @@
 
 (define (knot) (→ Knot) (! Ask)
   (ask 7)
-  (Knot (vector)))
+  (new Knot (children (vector))))
 
 (define (counted) (→ (Rc Resource)) (! Ask)
-  (rc (Resource (ask 8))))
+  (rc (new Resource (value (ask 8)))))
 
 (define (weak) (→ (WeakRc I64)) (! Ask mut)
   (rc-downgrade (rc (ask 9))))
 
 (define (values) (→ (Vector (Rc Resource))) (! Ask mut output-port)
-  (let ((first (rc (Resource 40))))
+  (let ((first (rc (new Resource (value 40)))))
     (list->vector (list first (counted)))))
 
 (define (main) (→ Unit) (! mut output-port)

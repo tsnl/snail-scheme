@@ -2,12 +2,12 @@
  (snail core base))
 
 ;; Entry points return checksums; the host times repeated calls after warm-up.
-;; The migration driver translates vector spellings for the old compiler.
-(struct Point
+;; Each compared revision supplies its own source spelling.
+(record Point
   ((x I64)
    (y I64)))
 
-(struct Particle
+(record Particle
   ((position Point)
    (velocity Point)))
 
@@ -17,12 +17,14 @@
         (loop (- left 1) (+ value (modulo left 97))))))
 
 (define (advance (value Particle)) (→ Particle)
-  (Particle (Point (+ (● value position x) (● value velocity x))
-                   (+ (● value position y) (● value velocity y)))
-            (● value velocity)))
+  (new Particle (position (new Point (x (+ (● value position x) (● value velocity x)))
+                               (y (+ (● value position y) (● value velocity y)))))
+       (velocity (● value velocity))))
 
 (define (records (count I64)) (→ I64)
-  (let loop ((left count) (value (Particle (Point 0 0) (Point 1 2))))
+  (let loop ((left count)
+             (value
+              (new Particle (position (new Point (x 0) (y 0))) (velocity (new Point (x 1) (y 2))))))
     (if (= left 0) (+ (● value position x) (● value position y))
         (loop (- left 1) (advance value)))))
 
@@ -30,7 +32,7 @@
   (let build ((left count) (items (Nil)))
     (if (= left 0)
         (fold-left (lambda (total point) (+ total (+ (● point x) (● point y)))) 0 items)
-        (build (- left 1) (Cons (Point left left) items)))))
+        (build (- left 1) (Cons (new Point (x left) (y left)) items)))))
 
 (define (vectors (count I64)) (→ I64) (! mut)
   (let ((values (make-vector count 0)))

@@ -4,7 +4,7 @@
 contract:
 
 ```scheme
-(struct (Entry A) ())
+(record (Entry A) ())
 (typeclass (Application e A)
   (declare (start (entry (Entry A))) (→ Unit) (! e)))
 ```

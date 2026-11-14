@@ -27,23 +27,23 @@
     ;; ---- Palette ----
 
     ;; A color, and how much it glows instead of taking the light.
-    (struct Paint
+    (record Paint
       ((color I32)
        (glow F32)))
 
-    (define (steel) (→ Paint) (Paint (rgb 28 62 91) 0.0))
-    (define (cream) (→ Paint) (Paint (rgb 255 244 203) 0.0))
-    (define (brass) (→ Paint) (Paint (rgb 255 185 49) 0.05))
-    (define (cyan) (→ Paint) (Paint (rgb 35 242 195) 0.25))
-    (define (blue) (→ Paint) (Paint (rgb 54 126 238) 0.1))
-    (define (rust) (→ Paint) (Paint (rgb 245 99 66) 0.05))
-    (define (warning) (→ Paint) (Paint (rgb 255 78 96) 0.35))
-    (define (violet) (→ Paint) (Paint (rgb 187 109 244) 0.1))
-    (define (gemstone) (→ Paint) (Paint (rgb 119 59 229) 0.35))
-    (define (gem-light) (→ Paint) (Paint (rgb 188 139 255) 0.3))
-    (define (indigo) (→ Paint) (Paint (rgb 68 49 178) 0.25))
-    (define (lamp) (→ Paint) (Paint (rgb 255 244 142) 0.9))
-    (define (shadow) (→ Paint) (Paint (rgb 70 78 92) 0.0))
+    (define (steel) (→ Paint) (new Paint (color (rgb 28 62 91)) (glow 0.0)))
+    (define (cream) (→ Paint) (new Paint (color (rgb 255 244 203)) (glow 0.0)))
+    (define (brass) (→ Paint) (new Paint (color (rgb 255 185 49)) (glow 0.05)))
+    (define (cyan) (→ Paint) (new Paint (color (rgb 35 242 195)) (glow 0.25)))
+    (define (blue) (→ Paint) (new Paint (color (rgb 54 126 238)) (glow 0.1)))
+    (define (rust) (→ Paint) (new Paint (color (rgb 245 99 66)) (glow 0.05)))
+    (define (warning) (→ Paint) (new Paint (color (rgb 255 78 96)) (glow 0.35)))
+    (define (violet) (→ Paint) (new Paint (color (rgb 187 109 244)) (glow 0.1)))
+    (define (gemstone) (→ Paint) (new Paint (color (rgb 119 59 229)) (glow 0.35)))
+    (define (gem-light) (→ Paint) (new Paint (color (rgb 188 139 255)) (glow 0.3)))
+    (define (indigo) (→ Paint) (new Paint (color (rgb 68 49 178)) (glow 0.25)))
+    (define (lamp) (→ Paint) (new Paint (color (rgb 255 244 142)) (glow 0.9)))
+    (define (shadow) (→ Paint) (new Paint (color (rgb 70 78 92)) (glow 0.0)))
 
     (define (sky) (→ I32) (rgb 28 151 223))
 
@@ -54,7 +54,11 @@
     (define (part (mesh Mesh) (paint Paint) (x F32) (y F32) (z F32) (w F32) (d F32) (h F32))
       (→ Item)
       (Item-glow-set
-       (item mesh (Vec3 x (- z (/ h 2.0)) (negate y)) (Vec3 w h d) 0.0 (● paint color))
+       (item mesh
+             (new Vec3 (x x) (y (- z (/ h 2.0))) (z (negate y)))
+             (new Vec3 (x w) (y h) (z d))
+             0.0
+             (● paint color))
        (● paint glow)))
 
     (define (block (paint Paint) (x F32) (y F32) (z F32) (w F32) (d F32) (h F32)) (→ Item)
@@ -62,7 +66,11 @@
 
     ;; A flat w by d square at height z.
     (define (flat (paint Paint) (x F32) (y F32) (z F32) (w F32) (d F32)) (→ Item)
-      (Item-glow-set (item (Tile) (Vec3 x z (negate y)) (Vec3 w 1.0 d) 0.0 (● paint color))
+      (Item-glow-set (item (Tile)
+                           (new Vec3 (x x) (y z) (z (negate y)))
+                           (new Vec3 (x w) (y 1.0) (z d))
+                           0.0
+                           (● paint color))
                      (● paint glow)))
 
     ;; Scales the positions and sizes of standing parts.
@@ -70,11 +78,11 @@
       (map (lambda (it)
              (let* ((p (● it position))
                     (s (● it scale))
-                    (moved (Vec3 (* kx (● p x)) (* ky (● p y)) (* kz (● p z)))))
+                    (moved (new Vec3 (x (* kx (● p x))) (y (* ky (● p y))) (z (* kz (● p z))))))
                (Item-from-set (Item-scale-set (Item-position-set it moved)
-                                              (Vec3 (* kx (● s x))
-                                                    (* ky (● s y))
-                                                    (* kz (● s z))))
+                                              (new Vec3 (x (* kx (● s x)))
+                                                   (y (* ky (● s y)))
+                                                   (z (* kz (● s z)))))
                               moved)))
            parts))
 
@@ -89,9 +97,9 @@
 
     (define (turned (p Vec3) (origin Vec3) (yaw F32)) (→ Vec3)
       (let ((c (f64->f32 (cos (f32->f64 yaw)))) (s (f64->f32 (sin (f32->f64 yaw)))))
-        (Vec3 (+ (● origin x) (+ (* c (● p x)) (* s (● p z))))
-              (+ (● origin y) (● p y))
-              (+ (● origin z) (- (* c (● p z)) (* s (● p x)))))))
+        (new Vec3 (x (+ (● origin x) (+ (* c (● p x)) (* s (● p z)))))
+             (y (+ (● origin y) (● p y)))
+             (z (+ (● origin z) (- (* c (● p z)) (* s (● p x))))))))
 
     ;; Parts that move from one place to another over the coming tick.
     (define (travel (parts (List Item)) (from Vec3) (to Vec3) (yaw F32)) (→ (List Item))
@@ -99,15 +107,15 @@
            (zip (place parts from yaw) (place parts to yaw))))
 
     (define (cell-point (cell Cell) (height F32)) (→ Vec3)
-      (Vec3 (i64->f32 (● cell x)) height (i64->f32 (● cell y))))
+      (new Vec3 (x (i64->f32 (● cell x))) (y height) (z (i64->f32 (● cell y)))))
 
     (define (at-cell (cell Cell) (parts (List Item))) (→ (List Item))
       (place parts (cell-point cell 0.0) 0.0))
 
     (define (between (a Vec3) (b Vec3) (t F32)) (→ Vec3)
-      (Vec3 (+ (● a x) (* t (- (● b x) (● a x))))
-            (+ (● a y) (* t (- (● b y) (● a y))))
-            (+ (● a z) (* t (- (● b z) (● a z))))))
+      (new Vec3 (x (+ (● a x) (* t (- (● b x) (● a x)))))
+           (y (+ (● a y) (* t (- (● b y) (● a y)))))
+           (z (+ (● a z) (* t (- (● b z) (● a z)))))))
 
     (define (atan2-f32 (y F32) (x F32)) (→ F32)
       (f64->f32 (atan2 (f32->f64 y) (f32->f64 x))))
@@ -117,7 +125,7 @@
     ;; A biome's ground colors: open ground in three sunny tones where
     ;; powered buildings see and a fourth where they no longer do, sand for
     ;; shores where the biome has them, then water, ice, dug rock and rock.
-    (struct Tileset
+    (record Tileset
       ((light I32)
        (middle I32)
        (deep I32)
@@ -130,32 +138,61 @@
 
     (define (tileset (biome Biome)) (→ Tileset)
       (match biome
-        ((Meadow) (Tileset (rgb 154 224 74) (rgb 121 211 78) (rgb 95 190 70) (rgb 67 144 113) (None)
-                           (rgb 54 126 238) (rgb 190 232 246) (rgb 174 139 95) (rgb 196 204 179)))
+        ((Meadow)
+         (new Tileset
+           (light (rgb 154 224 74))
+           (middle (rgb 121 211 78))
+           (deep (rgb 95 190 70))
+           (unseen (rgb 67 144 113))
+           (shore (None))
+           (water (rgb 54 126 238))
+           (ice (rgb 190 232 246))
+           (dug (rgb 174 139 95))
+           (rock (rgb 196 204 179))))
         ((Desert)
-         (Tileset (rgb 250 222 160) (rgb 241 206 136) (rgb 230 190 116) (rgb 168 150 110) (None)
-                  (rgb 54 126 238) (rgb 190 232 246) (rgb 196 150 104) (rgb 212 120 78)))
+         (new Tileset
+           (light (rgb 250 222 160))
+           (middle (rgb 241 206 136))
+           (deep (rgb 230 190 116))
+           (unseen (rgb 168 150 110))
+           (shore (None))
+           (water (rgb 54 126 238))
+           (ice (rgb 190 232 246))
+           (dug (rgb 196 150 104))
+           (rock (rgb 212 120 78))))
         ((Tundra)
-         (Tileset (rgb 250 252 255) (rgb 234 242 248) (rgb 220 232 242) (rgb 138 168 186) (None)
-                  (rgb 54 126 238) (rgb 160 220 242) (rgb 150 142 134) (rgb 122 136 154)))
+         (new Tileset
+           (light (rgb 250 252 255))
+           (middle (rgb 234 242 248))
+           (deep (rgb 220 232 242))
+           (unseen (rgb 138 168 186))
+           (shore (None))
+           (water (rgb 54 126 238))
+           (ice (rgb 160 220 242))
+           (dug (rgb 150 142 134))
+           (rock (rgb 122 136 154))))
         ((Archipelago)
-         (Tileset (rgb 142 224 98)
-                  (rgb 114 208 92)
-                  (rgb 90 188 86)
-                  (rgb 67 144 113)
-                  (Some (rgb 244 222 158))
-                  (rgb 36 128 214) (rgb 190 232 246) (rgb 174 139 95) (rgb 116 110 112)))))
+         (new Tileset (light (rgb 142 224 98))
+              (middle (rgb 114 208 92))
+              (deep (rgb 90 188 86))
+              (unseen (rgb 67 144 113))
+              (shore (Some (rgb 244 222 158)))
+              (water (rgb 36 128 214))
+              (ice (rgb 190 232 246))
+              (dug (rgb 174 139 95))
+              (rock (rgb 116 110 112))))))
 
     ;; Open ground out of sight is faded. In sight it is a shore beside
     ;; explored water where the biome has shores, and otherwise shaded in a
     ;; fixed pattern.
     (define (open-paint (world World) (tiles Tileset) (cell Cell)) (→ Paint)
-      (Paint (if (visible? world cell)
-                 (match (● tiles shore)
-                   ((Some shore) (if (beside-water? world cell) shore (open-tone tiles cell)))
-                   ((None) (open-tone tiles cell)))
-                 (● tiles unseen))
-             0.0))
+      (new Paint (color (if (visible? world cell)
+                            (match (● tiles shore)
+                              ((Some shore)
+                               (if (beside-water? world cell) shore (open-tone tiles cell)))
+                              ((None) (open-tone tiles cell)))
+                            (● tiles unseen)))
+           (glow 0.0)))
 
     (define (open-tone (tiles Tileset) (cell Cell)) (→ I32)
       (let ((x (● cell x)) (y (● cell y)))
@@ -178,25 +215,39 @@
              (floor (flat (open-paint world tiles cell) 0.0 0.0 0.0 0.99 0.99)))
         (match (ground-at (● world land) cell)
           ((Open) (list floor))
-          ((Water) (list (flat (Paint (● tiles water) 0.1) 0.0 0.0 0.012 0.99 0.99)))
-          ((Ice) (list (flat (Paint (● tiles ice) 0.2) 0.0 0.0 0.008 0.99 0.99)))
+          ((Water)
+           (list (flat (new Paint (color (● tiles water)) (glow 0.1)) 0.0 0.0 0.012 0.99 0.99)))
+          ((Ice) (list (flat (new Paint (color (● tiles ice)) (glow 0.2)) 0.0 0.0 0.008 0.99 0.99)))
           ((Rock) (if (opened? world cell)
-                      (list (flat (Paint (● tiles dug) 0.0) 0.0 0.0 0.0 0.99 0.99))
-                      (Cons floor (rock-parts biome (Paint (● tiles rock) 0.0))))))))
+                      (list
+                       (flat (new Paint (color (● tiles dug)) (glow 0.0)) 0.0 0.0 0.0 0.99 0.99))
+                      (Cons floor
+                            (rock-parts biome (new Paint (color (● tiles rock)) (glow 0.0)))))))))
 
     (define (rock-parts (biome Biome) (paint Paint)) (→ (List Item))
       (match biome
         ((Desert) (list (block paint 0.0 0.0 0.3 0.98 0.98 0.6)))
         ((Tundra)
          (list (part (Pyramid) paint 0.0 0.0 0.425 1.0 0.94 0.85)
-               (part (Pyramid) (Paint (rgb 250 252 255) 0.1) 0.0 0.0 0.7 0.42 0.4 0.3)))
+               (part (Pyramid)
+                     (new Paint (color (rgb 250 252 255)) (glow 0.1))
+                     0.0
+                     0.0
+                     0.7
+                     0.42
+                     0.4
+                     0.3)))
         (_ (list (part (Pyramid) paint 0.0 0.0 0.425 1.0 0.94 0.85)))))
 
     ;; The world's base beneath the map, with a cream rim.
     (define (base-items) (→ (List Item))
       (let* ((size (i64->f32 (map-size))) (middle (- (/ size 2.0) 0.5)))
         (list (Item-glow-set
-               (item (Box) (Vec3 middle -0.7 middle) (Vec3 size 0.69 size) 0.0 (rgb 31 96 119))
+               (item (Box)
+                     (new Vec3 (x middle) (y -0.7) (z middle))
+                     (new Vec3 (x size) (y 0.69) (z size))
+                     0.0
+                     (rgb 31 96 119))
                0.7)
               (block (cream) -0.5 (negate middle) 0.02 0.12 size 0.06)
               (block (cream) (- size 0.5) (negate middle) 0.02 0.12 size 0.06)
@@ -280,7 +331,8 @@
                                                (block (steel) 0.0 0.75 0.09 0.15 0.42 0.15)
                                                (block (brass) 0.0 0.97 0.09 0.27 0.12 0.27))
                                          1.0 0.55 1.0)
-                                 (Vec3 0.0 (+ 0.3 (* 0.22 (i64->f32 index))) 0.0) 0.0))
+                                 (new Vec3 (x 0.0) (y (+ 0.3 (* 0.22 (i64->f32 index)))) (z 0.0))
+                                 0.0))
                         (iota level))))
 
     (define (construction-parts) (→ (List Item))
@@ -316,7 +368,14 @@
 
     (define (shimmer-parts) (→ (List Item))
       (list (flat (gemstone) 0.0 0.0 0.025 1.1 1.1)
-            (part (Octahedron) (Paint (rgb 232 208 255) 0.9) -0.16 -0.04 0.58 0.08 0.08 0.2)
+            (part (Octahedron)
+                  (new Paint (color (rgb 232 208 255)) (glow 0.9))
+                  -0.16
+                  -0.04
+                  0.58
+                  0.08
+                  0.08
+                  0.2)
             (part (Octahedron) (gem-light) 0.23 0.16 0.48 0.06 0.06 0.14)))
 
     ;; Crystals in explored ground with energy left, not under a building or
@@ -354,7 +413,10 @@
              (dx (- (● b x) (● a x))) (dz (- (● b z) (● a z))))
         (Item-glow-set (item (Box)
                              (between a b 0.5)
-                             (Vec3 (sqrt (+ (* dx dx) (* dz dz))) thickness thickness)
+                             (new Vec3
+                               (x (sqrt (+ (* dx dx) (* dz dz))))
+                               (y thickness)
+                               (z thickness))
                              (atan2-f32 (negate dz) dx)
                              (● paint color))
                        (● paint glow))))
@@ -365,8 +427,8 @@
       (map (lambda (wire)
              (beam (● (● wire from) cell) (● (● wire to) cell) 0.07
                    (if (powered? world (● (● wire from) id))
-                       (Paint (rgb 35 242 195) 0.7)
-                       (Paint (rgb 120 128 140) 0.2))))
+                       (new Paint (color (rgb 35 242 195)) (glow 0.7))
+                       (new Paint (color (rgb 120 128 140)) (glow 0.2)))))
            (● (● world network) wires)))
 
     ;; Thin strokes along the edges of a set of cells, shifted by `lane` so
@@ -380,7 +442,10 @@
       (→ (List Item))
       (filter-map
        (lambda (side) (edge-stroke cells cell (● side first) (● side second) paint lane))
-       (list (Pair 1 0) (Pair -1 0) (Pair 0 1) (Pair 0 -1))))
+       (list (new Pair (first 1) (second 0))
+             (new Pair (first -1) (second 0))
+             (new Pair (first 0) (second 1))
+             (new Pair (first 0) (second -1)))))
 
     (define (edge-stroke (cells (Vector Bool))
                          (cell Cell)
@@ -389,16 +454,21 @@
                          (paint Paint)
                          (lane F32))
       (→ (Option Item))
-      (let ((other (Cell (+ (● cell x) dx) (+ (● cell y) dy))))
+      (let ((other (new Cell (x (+ (● cell x) dx)) (y (+ (● cell y) dy)))))
         (if (and (in-bounds? other) (vector-ref cells (cell-index other)))
             (None)
             (Some (Item-glow-set (item (Tile)
-                                       (Vec3 (+ (i64->f32 (● cell x))
-                                                (+ (* 0.5 (i64->f32 dx)) (if (= dx 0) 0.0 lane)))
-                                             0.075
-                                             (+ (i64->f32 (● cell y))
-                                                (+ (* 0.5 (i64->f32 dy)) (if (= dy 0) 0.0 lane))))
-                                       (Vec3 (if (= dx 0) 1.06 0.06) 1.0 (if (= dy 0) 1.06 0.06))
+                                       (new Vec3 (x (+ (i64->f32 (● cell x))
+                                                       (+ (* 0.5 (i64->f32 dx))
+                                                          (if (= dx 0) 0.0 lane))))
+                                            (y 0.075)
+                                            (z (+ (i64->f32 (● cell y))
+                                                  (+ (* 0.5 (i64->f32 dy))
+                                                     (if (= dy 0) 0.0 lane)))))
+                                       (new Vec3
+                                         (x (if (= dx 0) 1.06 0.06))
+                                         (y 1.0)
+                                         (z (if (= dy 0) 1.06 0.06)))
                                        0.0
                                        (● paint color))
                                  0.8)))))
@@ -450,7 +520,7 @@
 
     (define (route-home (world World) (node Node)) (→ (List (Pair Node Node)))
       (match (parent world node)
-        ((Some up) (Cons (Pair node up) (route-home world up)))
+        ((Some up) (Cons (new Pair (first node) (second up)) (route-home world up)))
         ((None) (Nil))))
 
     (define (working-extractor? (world World) (node Node)) (→ Bool)
@@ -480,7 +550,7 @@
                      (next (pulse-fraction (+ tick 1) index length)))
                  (Item-from-set (Item-glow-set (item (Octahedron)
                                                      (between a b next)
-                                                     (Vec3 0.16 0.16 0.16)
+                                                     (new Vec3 (x 0.16) (y 0.16) (z 0.16))
                                                      0.0
                                                      (rgb 210 255 244))
                                                1.0)
@@ -528,7 +598,9 @@
              (phase (i64->f32 (remainder (+ (● world tick) (● enemy id))
                                          (enemy-period (● enemy behavior)))))
              (a (cell-point (● enemy previous) 0.0)) (b (cell-point (● enemy cell) 0.0)))
-        (Pair (between a b (/ phase period)) (between a b (/ (+ phase 1.0) period)))))
+        (new Pair
+          (first (between a b (/ phase period)))
+          (second (between a b (/ (+ phase 1.0) period))))))
 
     (define (enemy-items (world World) (enemy Enemy)) (→ (List Item))
       (let ((span (enemy-span world enemy)))
@@ -547,9 +619,9 @@
 
     ;; ---- Bars ----
 
-    (define (health-paint) (→ Paint) (Paint (rgb 118 249 143) 1.0))
-    (define (reserve-paint) (→ Paint) (Paint (rgb 214 151 255) 1.0))
-    (define (progress-paint) (→ Paint) (Paint (rgb 120 210 255) 1.0))
+    (define (health-paint) (→ Paint) (new Paint (color (rgb 118 249 143)) (glow 1.0)))
+    (define (reserve-paint) (→ Paint) (new Paint (color (rgb 214 151 255)) (glow 1.0)))
+    (define (progress-paint) (→ Paint) (new Paint (color (rgb 120 210 255)) (glow 1.0)))
 
     ;; How a bar turns to face a camera at `angle`: its long side along the
     ;; screen, as an angle within one turn.
@@ -570,9 +642,10 @@
                        (paint Paint))
       (→ (List Item))
       (let ((fill (* (* 0.9 width) (/ (i64->f32 (max 0 amount)) (i64->f32 (max 1 capacity))))))
-        (travel (list (block (Paint (rgb 13 20 32) 1.0) 0.0 0.0 height width 0.03 0.18)
-                      (block paint (- (/ fill 2.0) (* 0.45 width)) -0.02 height fill 0.03 0.1))
-                from to yaw)))
+        (travel
+         (list (block (new Paint (color (rgb 13 20 32)) (glow 1.0)) 0.0 0.0 height width 0.03 0.18)
+               (block paint (- (/ fill 2.0) (* 0.45 width)) -0.02 height fill 0.03 0.1))
+         from to yaw)))
 
     (define (still-bar (yaw F32)
                        (cell Cell)
@@ -744,8 +817,8 @@
                          ((None) (Nil))))))
         (append
          (glowing (if (same-cell? (● game hover) (● game selected)) (None) (● game hover))
-                  (Paint (rgb 214 250 190) 0.55))
-         (glowing (● game selected) (Paint (rgb 255 236 140) 0.85)))))
+                  (new Paint (color (rgb 214 250 190)) (glow 0.55)))
+         (glowing (● game selected) (new Paint (color (rgb 255 236 140)) (glow 0.85))))))
 
     ;; The selection's glow covers the hover's on the same cell, rather than
     ;; fighting it at the same height.
@@ -788,23 +861,24 @@
     ;; lit alike: from the left, above and behind the viewer.
     (define (camera-light (view Camera)) (→ Light)
       (let* ((eye (● view eye)) (target (● view target))
-             (forward (unit (Vec3 (- (● target x) (● eye x))
-                                  (- (● target y) (● eye y))
-                                  (- (● target z) (● eye z)))))
-             (right (unit (Vec3 (negate (● forward z)) 0.0 (● forward x))))
-             (up (Vec3 (- (* (● right y) (● forward z)) (* (● right z) (● forward y)))
-                       (- (* (● right z) (● forward x)) (* (● right x) (● forward z)))
-                       (- (* (● right x) (● forward y))
-                          (* (● right y) (● forward x))))))
-        (Light (Vec3 (- (+ (* -0.5 (● right x)) (* 0.6 (● up x))) (● forward x))
-                     (- (+ (* -0.5 (● right y)) (* 0.6 (● up y))) (● forward y))
-                     (- (+ (* -0.5 (● right z)) (* 0.6 (● up z))) (● forward z)))
-               0.65 0.5)))
+             (forward (unit (new Vec3 (x (- (● target x) (● eye x)))
+                                 (y (- (● target y) (● eye y)))
+                                 (z (- (● target z) (● eye z))))))
+             (right (unit (new Vec3 (x (negate (● forward z))) (y 0.0) (z (● forward x)))))
+             (up (new Vec3 (x (- (* (● right y) (● forward z)) (* (● right z) (● forward y))))
+                      (y (- (* (● right z) (● forward x)) (* (● right x) (● forward z))))
+                      (z (- (* (● right x) (● forward y))
+                            (* (● right y) (● forward x)))))))
+        (new Light
+          (direction (new Vec3 (x (- (+ (* -0.5 (● right x)) (* 0.6 (● up x))) (● forward x)))
+                          (y (- (+ (* -0.5 (● right y)) (* 0.6 (● up y))) (● forward y)))
+                          (z (- (+ (* -0.5 (● right z)) (* 0.6 (● up z))) (● forward z)))))
+          (sun 0.65) (ambient 0.5))))
 
     (define (unit (v Vec3)) (→ Vec3)
       (let ((length (sqrt (+ (* (● v x) (● v x))
                              (+ (* (● v y) (● v y)) (* (● v z) (● v z)))))))
-        (Vec3 (/ (● v x) length) (/ (● v y) length) (/ (● v z) length))))
+        (new Vec3 (x (/ (● v x) length)) (y (/ (● v y) length)) (z (/ (● v z) length)))))
 
     ;; ---- Frames ----
 
@@ -828,46 +902,54 @@
                                   (world-motion game))
                                30.0))))
         (Cons
-         (Batch 1 (stamp game (+ (* 2 (● world structure-version)) (if unveiling 0 1))) (Solid)
-                (lambda ()
-                  (terrain-items world
-                                 (lambda (index) (or (not unveiling) (not (fresh? world index)))))))
+         (new Batch
+           (key 1)
+           (version (stamp game (+ (* 2 (● world structure-version)) (if unveiling 0 1))))
+           (style (Solid))
+           (items (lambda ()
+                    (terrain-items world
+                                   (lambda (index)
+                                     (or (not unveiling) (not (fresh? world index))))))))
          (if unveiling
-             (list (Batch 2 (stamp game (● world explored-version))
-                          (Revealed (cell-point (● reveal center) 0.0)
-                                    (* (i64->f32 (● reveal radius))
-                                       (* progress (- 2.0 progress))))
-                          (lambda () (terrain-items world (lambda (index) (fresh? world index))))))
+             (list (new Batch (key 2) (version (stamp game (● world explored-version)))
+                        (style (Revealed (cell-point (● reveal center) 0.0)
+                                         (* (i64->f32 (● reveal radius))
+                                            (* progress (- 2.0 progress)))))
+                        (items
+                         (lambda () (terrain-items world (lambda (index) (fresh? world index)))))))
              (Nil)))))
 
     ;; Crystals shimmer, pulsing in strength.
     (define (shimmer-batch (game Game)) (→ Batch)
       (let* ((world (● game world)) (time (/ (i64->f32 (● game shown)) 1000.0)))
-        (Batch 4 (stamp game (● world structure-version))
-               (Translucent (+ 0.45 (* 0.25 (f64->f32 (sin (f32->f64 (* 2.5 time)))))))
-               (lambda ()
-                 (concatenate (map (lambda (c) (at-cell (● c cell) (shimmer-parts)))
-                                   (open-crystals world)))))))
+        (new Batch (key 4) (version (stamp game (● world structure-version)))
+             (style (Translucent (+ 0.45 (* 0.25 (f64->f32 (sin (f32->f64 (* 2.5 time))))))))
+             (items (lambda ()
+                      (concatenate (map (lambda (c) (at-cell (● c cell) (shimmer-parts)))
+                                        (open-crystals world))))))))
 
     ;; During the opening, the crystals in sight pulse white to show where
     ;; the first extractor goes.
     (define (beacon-batches (game Game)) (→ (List Batch))
       (let* ((world (● game world)) (time (/ (i64->f32 (● game shown)) 1000.0)))
         (if (opening? world)
-            (list (Batch 10
-                         (stamp game
-                                (+ (● world structure-version) (● world explored-version)))
-                         (Translucent (+ 0.5 (* 0.3 (f64->f32 (sin (f32->f64 (* 5.0 time)))))))
-                         (lambda ()
-                           (concatenate (map (lambda (c)
-                                               (at-cell (● c cell)
-                                                        (list (flat (Paint (rgb 255 255 255) 1.0)
-                                                                    0.0
-                                                                    0.0
-                                                                    0.02
-                                                                    0.99
-                                                                    0.99))))
-                                             (open-crystals world))))))
+            (list (new Batch (key 10)
+                       (version (stamp game
+                                       (+ (● world structure-version) (● world explored-version))))
+                       (style (Translucent
+                               (+ 0.5 (* 0.3 (f64->f32 (sin (f32->f64 (* 5.0 time))))))))
+                       (items (lambda ()
+                                (concatenate (map (lambda (c)
+                                                    (at-cell (● c cell)
+                                                             (list (flat (new Paint
+                                                                           (color (rgb 255 255 255))
+                                                                           (glow 1.0))
+                                                                         0.0
+                                                                         0.0
+                                                                         0.02
+                                                                         0.99
+                                                                         0.99))))
+                                                  (open-crystals world)))))))
             (Nil))))
 
     ;; Bars follow the camera through every turn: their batch changes with
@@ -878,44 +960,52 @@
       (let* ((world (● game world))
              (yaw (bar-yaw (heading-angle game)))
              (step (f32->i64 (round (* yaw 256.0)))))
-        (Batch 8
-               (stamp game (+ (* 2048 (+ (● world tick) (● world explored-version))) step))
-               (Solid)
-               (lambda () (bar-batch-items world yaw)))))
+        (new Batch (key 8)
+             (version (stamp game (+ (* 2048 (+ (● world tick) (● world explored-version))) step)))
+             (style (Solid))
+             (items (lambda () (bar-batch-items world yaw))))))
 
     (define (link-batch (game Game)) (→ Batch)
-      (Batch 9
-             (stamp game (● (● game world) structure-version))
-             (Translucent 0.8)
-             (lambda () (link-items (● game world)))))
+      (new Batch (key 9)
+           (version (stamp game (● (● game world) structure-version)))
+           (style (Translucent 0.8))
+           (items (lambda () (link-items (● game world))))))
 
     (define (cursor-batch (game Game)) (→ Batch)
-      (Batch 6 (stamp game (cursor-version game)) (Solid) (lambda () (cursor-items game))))
+      (new Batch
+        (key 6)
+        (version (stamp game (cursor-version game)))
+        (style (Solid))
+        (items (lambda () (cursor-items game)))))
 
     (define (preview-batch (game Game)) (→ Batch)
       (let ((time (/ (i64->f32 (● game clock)) 1000.0)))
-        (Batch 7
-               (stamp game (preview-version game))
-               (Translucent (+ 0.45 (* 0.15 (f64->f32 (sin (f32->f64 (* 4.0 time)))))))
-               (lambda () (preview-items game)))))
+        (new Batch (key 7)
+             (version (stamp game (preview-version game)))
+             (style (Translucent (+ 0.45 (* 0.15 (f64->f32 (sin (f32->f64 (* 4.0 time))))))))
+             (items (lambda () (preview-items game))))))
 
     (define (view-game (game Game)) (→ Frame)
       (let* ((world (● game world)) (camera (game-camera game)))
-        (Frame camera (camera-light camera) (sky) (world-motion game)
-               (concatenate (list (terrain-batches game)
-                                  (list (Batch 3
-                                               (stamp game (● world structure-version))
-                                               (Solid)
-                                               (lambda () (structure-items world)))
-                                        (Batch 5
-                                               (stamp game (● world tick))
-                                               (Solid)
-                                               (lambda () (moving-items world)))
-                                        (bar-batch game) (link-batch game)
-                                        (cursor-batch game) (shimmer-batch game))
-                                  (beacon-batches game)
-                                  (list (preview-batch game))))
-               (Nil))))
+        (new Frame
+          (camera camera)
+          (light (camera-light camera))
+          (background (sky))
+          (motion (world-motion game))
+          (batches (concatenate (list (terrain-batches game)
+                                      (list (new Batch (key 3)
+                                                 (version (stamp game (● world structure-version)))
+                                                 (style (Solid))
+                                                 (items (lambda () (structure-items world))))
+                                            (new Batch (key 5)
+                                                 (version (stamp game (● world tick)))
+                                                 (style (Solid))
+                                                 (items (lambda () (moving-items world))))
+                                            (bar-batch game) (link-batch game)
+                                            (cursor-batch game) (shimmer-batch game))
+                                      (beacon-batches game)
+                                      (list (preview-batch game)))))
+          (pictures (Nil)))))
 
     (define (filter-map (f (Fn A → (Option B))) (items (List A))) (→ (List B)) (∀ (A B))
       (fold-right

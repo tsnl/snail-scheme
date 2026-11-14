@@ -11,13 +11,13 @@
  (snail shell ide application)
  (prefix (snail shell ide palette) palette-))
 
-(struct Requests
+(record Requests
   ((reads I64)
    (completed I64)
    (events Bool)
    (hides I64)))
 
-(struct Request
+(record Request
   ((issued I64)))
 
 (enum Delivery
@@ -27,7 +27,7 @@
 
 ;; This race driver controls when a command runs, using the IDE's actual
 ;; pure transitions. The other IDE tests run the owned-future reactor.
-(struct Model
+(record Model
   ((ide Ide)
    (answers I64)))
 
@@ -51,7 +51,7 @@
 (define (observed (work (FnOnce → CommandResult ! tasks dom fetch)) (state Requests))
   (→ Delivery)
   (! mut tasks dom fetch)
-  (let ((issued (Request 0)))
+  (let ((issued (new Request (issued 0))))
     (let ((result
            (handle fetch
                ((request (lambda (method url headers body)
@@ -77,13 +77,16 @@
     ((Input message)
      (match (update (● model ide) message)
        ((Pair next commands)
-        (Pair (Model next (● model answers)) (jobs #f gate state commands)))))
+        (new Pair
+          (first (new Model (ide next) (answers (● model answers))))
+          (second (jobs #f gate state commands))))))
     ((Produced read (CommandResult accept))
      (let ((transition (accept)))
        (match (transition (● model ide))
          ((Pair next commands)
-          (Pair (Model next (+ (● model answers) (if (> read 0) 1 0)))
-                (jobs (and (not delayed-read) (= read 2)) gate state commands))))))))
+          (new Pair
+            (first (new Model (ide next) (answers (+ (● model answers) (if (> read 0) 1 0)))))
+            (second (jobs (and (not delayed-read) (= read 2)) gate state commands)))))))))
 
 (define (shown (model Model)) (→ (Html Delivery))
   (map-html Input (view (● model ide))))
@@ -109,15 +112,17 @@
       ((None) (panic "no focus")))))
 
 (define (run (delayed-read Bool)) (→ Unit) (! mut host output-port tasks)
-  (let ((state (Requests 0 0 #f 0)) (gate (make-mailbox)))
+  (let ((state (new Requests (reads 0) (completed 0) (events #f) (hides 0))) (gate (make-mailbox)))
     (handle fetch
         ((request (lambda (method url headers body)
                     (cond ((string=? url "/api/project")
-                           (Ok (Reply 200
-                                      "{\"name\":\"test\",\"directory\":\"/test\",\"files\":[\"notes.txt\"],\"directories\":[]}")))
+                           (Ok (new Reply (status 200)
+                                    (body
+                                     "{\"name\":\"test\",\"directory\":\"/test\",\"files\":[\"notes.txt\"],\"directories\":[]}"))))
                           ((string=? url "/api/search?q=needle")
-                           (Ok (Reply 200
-                                      "{\"hits\":[{\"path\":\"notes.txt\",\"revision\":\"r\",\"line\":2,\"column\":1,\"snippet\":\"needle\"}],\"skipped\":0,\"limited\":false}")))
+                           (Ok (new Reply (status 200)
+                                    (body
+                                     "{\"hits\":[{\"path\":\"notes.txt\",\"revision\":\"r\",\"line\":2,\"column\":1,\"snippet\":\"needle\"}],\"skipped\":0,\"limited\":false}"))))
                           (else
                            (set! (● state reads) (+ 1 (● state reads)))
                            (if (and delayed-read (= 2 (● state reads)))
@@ -125,11 +130,15 @@
                                       (set! (● state completed) (+ 1 (● state completed)))
                                       (Err "obsolete failed read"))
                                (Ok
-                                (Reply 200 "{\"text\":\"line\\nneedle\",\"revision\":\"r\"}")))))))
-         (stream-open (lambda (url kinds) (Stream 1)))
+                                (new Reply
+                                  (status 200)
+                                  (body "{\"text\":\"line\\nneedle\",\"revision\":\"r\"}"))))))))
+         (stream-open (lambda (url kinds) (new Stream (id 1))))
          (stream-next (lambda (stream)
                         (if (● state events) (None)
-                            (begin (set! (● state events) #t) (Some (StreamEvent "open" ""))))))
+                            (begin
+                              (set! (● state events) #t)
+                              (Some (new StreamEvent (kind "open") (data "")))))))
          (stream-close (lambda (stream) (unit))))
       (verify-focus (with-memory-dom
                      (list (FireWindow "keydown" (Event-key-set (no-event) "F1"))
@@ -140,7 +149,8 @@
                                                                 (control-key))))
                            (Hide))
                      (lambda ()
-                       (let ((final (run-ui (Model (initial) 0) (list (Input (Open "notes.txt")))
+                       (let ((final (run-ui (new Model (ide (initial)) (answers 0))
+                                            (list (Input (Open "notes.txt")))
                                             (lambda (model message)
                                               (update-test delayed-read
                                                            gate

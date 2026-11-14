@@ -8,7 +8,7 @@
 
 ;; ANCHOR: rows
 ;; Total: no row, so a call can only compute its result.
-(struct Total
+(record Total
   ((value I64)))
 
 (define (square (n I64)) (→ I64)
@@ -40,7 +40,7 @@
 ;; ANCHOR: local
 ;; Mutation is explicit even when the scratch never leaves this function.
 (define (sum-of-squares (count I64)) (→ I64) (! mut)
-  (let ((total (Total 0)))
+  (let ((total (new Total (value 0))))
     (repeat count (lambda (i) (set! (● total value) (+ (● total value) (square i)))))
     (● total value)))
 

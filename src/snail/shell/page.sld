@@ -106,7 +106,7 @@
     ;; return, independently of readiness and the optional checkpoint below.
     ;; Suspension or failure never sets it.
 
-    (struct PageRun
+    (record PageRun
       ((completed Bool)
        (incoming (Option Any))
        (current (Option Any))))
@@ -118,7 +118,7 @@
       ((current-page (Fn → PageRun))))
 
     (define (make-page (handover (Option Any))) (→ PageRun)
-      (PageRun #f handover (None)))
+      (new PageRun (completed #f) (incoming handover) (current (None))))
 
     (define (page-done (context PageRun)) (→ I32)
       (if (● context completed) 1 0))
@@ -161,8 +161,8 @@
       (∀ (S))
       (⊨ (PageState S) (Copy S) (Drop (!) S))
       (match (load-save)
-        ((Some bytes) (Some (Pair (decode bytes) 1)))
-        ((None) (if cold? (Some (Pair (initialize) 2)) (None)))))
+        ((Some bytes) (Some (new Pair (first (decode bytes)) (second 1))))
+        ((None) (if cold? (Some (new Pair (first (initialize)) (second 2))) (None)))))
 
     (define (boot-page (context PageRun) (initialize (Fn → S ! events)) (decode (Fn Bytes → S)))
       (→ (Option (Pair S I32)))
@@ -172,7 +172,7 @@
       (match (● context incoming)
         ((Some previous)
          (match (unpack-state previous)
-           ((Some state) (Some (Pair state 0)))
+           ((Some state) (Some (new Pair (first state) (second 0))))
            ((None) (restore-page #f initialize decode))))
         ((None) (restore-page #t initialize decode))))
 
@@ -229,7 +229,7 @@
            (define page-main
              (lambda (scheduler page)
                (start-page (ann page PageRun) (ann scheduler Scheduler)
-                           (once (lambda () (start (ann (Entry) (Entry App))))))))
+                           (once (lambda () (start (ann (new Entry) (Entry App))))))))
            (expose page-main "app_main")))))
 
     (expose make-page "app_create")

@@ -61,7 +61,7 @@
   (background-boot 99))
 
 (define (child-commit) (→ Unit) (! mut events page)
-  (commit-page (Counter 999 0)))
+  (commit-page (new Counter (count 999) (resizes 0))))
 
 (define (spawn-child (scheduler Scheduler) (context PageRun) (which I32))
   (→ Unit) (! mut host storage events)
@@ -78,16 +78,16 @@
   (unit))
 (expose spawn-child "spawn_child")
 
-(struct Counter
+(record Counter
   ((count I64)
    (resizes I32)))
 
-(struct Save
+(record Save
   ((count I64))
   (deriving Serialize Deserialize))
 
 (define (initial (seed I32) (width I32) (height I32)) (→ Counter)
-  (Counter 0 0))
+  (new Counter (count 0) (resizes 0)))
 
 (define (step (counter Counter) (input Input)) (→ Counter)
   (match input
@@ -98,22 +98,26 @@
     (_ counter)))
 
 (define (draw (counter Counter)) (→ Frame)
-  (Frame (Camera (Vec3 4.0 4.0 4.0) (Vec3 0.0 0.0 0.0) (Perspective 0.8))
-         (Light (Vec3 0.3 1.0 0.5) 0.8 0.3)
-         (rgb 16 20 28)
-         1.0
-         (Nil)
-         (Nil)))
+  (new Frame
+    (camera (new Camera
+              (eye (new Vec3 (x 4.0) (y 4.0) (z 4.0)))
+              (target (new Vec3 (x 0.0) (y 0.0) (z 0.0)))
+              (projection (Perspective 0.8))))
+    (light (new Light (direction (new Vec3 (x 0.3) (y 1.0) (z 0.5))) (sun 0.8) (ambient 0.3)))
+    (background (rgb 16 20 28))
+    (motion 1.0)
+    (batches (Nil))
+    (pictures (Nil))))
 
 (define (panels (counter Counter)) (→ (List Panel))
-  (list (Panel "counter" (At (TopLeft) 0)
-               (list (label "count" (i64->string (● counter count)))))))
+  (list (new Panel (key "counter") (place (At (TopLeft) 0))
+             (widgets (list (label "count" (i64->string (● counter count))))))))
 
 (define (save-counter (counter Counter)) (→ Save)
-  (Save (● counter count)))
+  (new Save (count (● counter count))))
 
 (define (restore-counter (saved Save)) (→ Counter)
-  (Counter (● saved count) 0))
+  (new Counter (count (● saved count)) (resizes 0)))
 
 (define (inspect-count (state Any)) (→ I64)
   (● (fixture-convert state Counter) count))
@@ -148,7 +152,7 @@
   (define (scene-restore (bytes Bytes)) (→ Counter)
     (restore-counter (deserialize bytes))))
 
-(struct TestApplication
+(record TestApplication
   ())
 
 (instance (Application (! mut host screen events storage tasks page) TestApplication)
@@ -162,6 +166,6 @@
                               (unless (= (marker) 17)
                                 (panic "a child lost its inherited handler"))
                               (sleep 100000))))
-      (start (ann (Entry) (Entry (SceneApplication Counter)))))))
+      (start (ann (new Entry) (Entry (SceneApplication Counter)))))))
 
 (define-page-entry TestApplication)

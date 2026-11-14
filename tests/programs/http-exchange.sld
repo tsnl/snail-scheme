@@ -27,7 +27,7 @@
   (string-generate (vector-length bytes)
                    (lambda (index) (i32->char (u8->i32 (vector-ref bytes index))))))
 
-(struct Stream
+(record Stream
   ((input Bytes)
    (cursor I64)
    (output (List Bytes))
@@ -38,7 +38,15 @@
    (fault String)))
 
 (define (stream (input Bytes) (read-size I64) (write-size I64) (fault String)) (→ Stream)
-  (Stream input 0 (Nil) 0 0 read-size write-size fault))
+  (new Stream
+    (input input)
+    (cursor 0)
+    (output (Nil))
+    (offered 0)
+    (ended 0)
+    (read-size read-size)
+    (write-size write-size)
+    (fault fault)))
 
 (define (token (connection Connection)) (→ Stream) (fixture-convert (● connection token) Stream))
 
@@ -48,7 +56,7 @@
   (let* ((state (token connection)) (start (● state cursor))
          (end (min (vector-length (● state input))
                    (+ start (min (i32->i64 maximum) (● state read-size))))))
-    (cond ((string=? (● state fault) "read") (Err (SocketError "TEST_READ")))
+    (cond ((string=? (● state fault) "read") (Err (new SocketError (code "TEST_READ"))))
           ((string=? (● state fault) "oversize-read")
            (Ok (Some (make-vector (+ (i32->i64 maximum) 1) (i32->u8 0)))))
           ((= start (vector-length (● state input))) (Ok (None)))
@@ -57,7 +65,7 @@
 
 (define (write-stream (connection Connection) (bytes Bytes)) (→ (Result I32 SocketError)) (! mut)
   (let* ((state (token connection)) (count (min (vector-length bytes) (● state write-size))))
-    (cond ((string=? (● state fault) "write") (Err (SocketError "TEST_WRITE")))
+    (cond ((string=? (● state fault) "write") (Err (new SocketError (code "TEST_WRITE"))))
           ((string=? (● state fault) "oversize-write")
            (Ok (i64->i32 (+ (vector-length bytes) 1))))
           ((string=? (● state fault) "negative-write") (Ok -1))
@@ -72,22 +80,22 @@
   (let ((state (token connection)))
     (assert (= grace 250))
     (if (string=? (● state fault) "finish")
-        (Err (SocketError "TEST_FINISH"))
+        (Err (new SocketError (code "TEST_FINISH")))
         (begin (set! (● state ended) 1) (Ok (unit))))))
 
 (define (close-stream (connection Connection)) (→ (Result Unit SocketError)) (! mut)
   (set! (● (token connection) ended) 2)
-  (Err (SocketError "TEST_CLOSE")))
+  (Err (new SocketError (code "TEST_CLOSE"))))
 
 (define (run (state Stream) (handler (Fn Request → (Result Response String) ! e)))
   (→ (Result Unit (ExchangeError String)))
   (! tcp tasks e)
   (∀ (e))
-  (serve-one (Connection (Any state)) 250 handler))
+  (serve-one (new Connection (token (Any state))) 250 handler))
 
 (define (echo (request Request)) (→ (Result Response String)) (! tasks)
   (sleep 1)
-  (Ok (Response 200 (Nil) (● request body))))
+  (Ok (new Response (status 200) (headers (Nil)) (body (● request body)))))
 
 (define (output (state Stream))
   (→ String)
@@ -129,7 +137,7 @@
              ;; serve-one's halves, with a decision between them: the request is read
              ;; before the server chooses how to answer it.
              (let* ((state (stream (request) 7 5 ""))
-                    (connection (Connection (Any state))))
+                    (connection (new Connection (token (Any state)))))
                (match (ann (read-request connection) (Result Request (ExchangeError String)))
                  ((Err _) (panic "read-request failed"))
                  ((Ok received)
@@ -138,28 +146,32 @@
                   (assert (success? (respond connection
                                              250
                                              (Some (● (● received head) method))
-                                             (Response 201
-                                                       (list (Header "X-Body" "4"))
-                                                       (● received body)))))
+                                             (new Response (status 201)
+                                                  (headers
+                                                   (list (new Header (name "X-Body") (value "4"))))
+                                                  (body (● received body))))))
                   (assert (= (● state ended) 1))
                   (assert (string=? (output state)
                                     "HTTP/1.1 201 \r\nConnection: close\r\nContent-Length: 4\r\nx-body: 4\r\n\r\nbody")))))
              ;; A failure from either half leaves the connection to the caller.
              (let ((state (stream (ascii "GET / HTTP/1.1\r\n") 100 100 "")))
-               (assert (match (ann (read-request (Connection (Any state)))
+               (assert (match (ann (read-request (new Connection (token (Any state))))
                                    (Result Request (ExchangeError String)))
                          ((Err (TruncatedHead)) #t)
                          (_ #f)))
                (assert (= (● state ended) 0)))
              (let* ((state (stream (request) 100 100 ""))
-                    (connection (Connection (Any state))))
+                    (connection (new Connection (token (Any state)))))
                (match (ann (read-request connection) (Result Request (ExchangeError String)))
                  ((Err _) (panic "read-request failed"))
                  ((Ok received)
                   (assert (match (ann (respond connection
                                                250
                                                (Some (● (● received head) method))
-                                               (Response 99 (Nil) #u8()))
+                                               (new Response
+                                                 (status 99)
+                                                 (headers (Nil))
+                                                 (body #u8())))
                                       (Result Unit (ExchangeError String)))
                             ((Err (ProtocolFailure _)) #t)
                             (_ #f)))
@@ -167,18 +179,29 @@
                   (assert (string=? (output state) "")))))
              ;; A request that could not be read can still be answered.
              (let* ((state (stream (ascii "GET / HTTP/1.1\r\nHost: test\r\r\n\r\n") 100 100 ""))
-                    (connection (Connection (Any state))))
+                    (connection (new Connection (token (Any state)))))
                (assert
                 (match (ann (read-request connection) (Result Request (ExchangeError String)))
                   ((Err (ProtocolFailure _)) #t)
                   (_ #f)))
                (assert
-                (success? (respond connection 250 (None) (Response 400 (Nil) (ascii "bad")))))
+                (success? (respond connection
+                                   250
+                                   (None)
+                                   (new Response
+                                     (status 400)
+                                     (headers (Nil))
+                                     (body (ascii "bad"))))))
                (assert (string=? (output state)
                                  "HTTP/1.1 400 \r\nConnection: close\r\nContent-Length: 3\r\n\r\nbad")))
              (write-line "read-request and respond")
              (let ((state (stream (ascii "HEAD / HTTP/1.1\r\nHost: test\r\n\r\n") 100 100 "")))
-               (assert (success? (run state (lambda (_) (Ok (Response 200 (Nil) #u8(1 2 3)))))))
+               (assert (success? (run state
+                                      (lambda (_)
+                                        (Ok (new Response
+                                              (status 200)
+                                              (headers (Nil))
+                                              (body #u8(1 2 3))))))))
                (assert
                 (string=? (output state)
                           "HTTP/1.1 200 \r\nConnection: close\r\nContent-Length: 3\r\n\r\n")))
@@ -225,7 +248,11 @@
                (assert
                 (success?
                  (run state
-                      (lambda (_) (Ok (Response 200 (Nil) (make-vector 10000 (i32->u8 7))))))))
+                      (lambda (_)
+                        (Ok (new Response
+                              (status 200)
+                              (headers (Nil))
+                              (body (make-vector 10000 (i32->u8 7)))))))))
                (assert (<= (● state offered) (+ 131072 (* 2 10100)))))
              (write-line "tiny writes keep copying linear")
              (let ((state (stream (ascii "GET / HTTP/1.1\r\n") 100 100 "")))
@@ -252,7 +279,11 @@
                (assert
                 (match (run state
                             (lambda (_)
-                              (Ok (Response 200 (list (Header "Content-Length" "5")) #u8()))))
+                              (Ok (new Response
+                                    (status 200)
+                                    (headers
+                                     (list (new Header (name "Content-Length") (value "5"))))
+                                    (body #u8())))))
                   ((Err (ProtocolFailure _)) #t) (_ #f)))
                (assert (= (● state ended) 2))
                (assert (string=? (output state) "")))
@@ -270,6 +301,6 @@
                             ((Err (TransportFailure error)) (string=? (● error code) "EIO"))
                             (_ #f)))
                   (assert (= (● state ended) 2))))
-              (list (Pair 0 100) (Pair 100 0)))
+              (list (new Pair (first 0) (second 100)) (new Pair (first 100) (second 0))))
              (write-line "transport failures and no progress close")))))
   (unit))

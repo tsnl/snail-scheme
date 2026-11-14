@@ -63,7 +63,7 @@
 
     ;; A crystal site yields `rate` energy per second for each extractor
     ;; level until its reserve of `reserve-per-rate` times `rate` runs out.
-    (struct Site
+    (record Site
       ((cell Cell)
        (rate I64)))
 
@@ -71,7 +71,7 @@
     ;; first site. `mainland` marks the cells joined to the hub without
     ;; crossing water, the only ones enemies, who start at the fronts, can
     ;; ever reach.
-    (struct Land
+    (record Land
       ((seed I64)
        (biome Biome)
        (hub Cell)
@@ -105,22 +105,25 @@
 
     (define (new-land (seed I64)) (→ Land)
       (let* ((biome (biome-of seed))
-             (hub (Cell (spawn-x seed) (spawn-y seed)))
+             (hub (new Cell (x (spawn-x seed)) (y (spawn-y seed))))
              (fronts
-              (map (lambda (front) (Cell (front-x seed front) (front-y seed front))) (list 0 1 2)))
+              (map (lambda (front) (new Cell (x (front-x seed front)) (y (front-y seed front))))
+                   (list 0 1 2)))
              (ground (passes hub
                              fronts
                              (vector-generate (* (map-size) (map-size))
                                               (lambda (index)
                                                 (first-ground biome seed (index-cell index))))))
              (starter (starter-cell seed hub)))
-        (Land seed
-              biome
-              hub
-              starter
-              ground
-              (joined ground hub (lambda (g) (match g ((Water) #f) (_ #t))))
-              (Cons (Site starter 2) (crystal-sites seed hub fronts ground)) fronts)))
+        (new Land (seed seed)
+             (biome biome)
+             (hub hub)
+             (starter starter)
+             (ground ground)
+             (mainland (joined ground hub (lambda (g) (match g ((Water) #f) (_ #t)))))
+             (sites
+              (Cons (new Site (cell starter) (rate 2)) (crystal-sites seed hub fronts ground)))
+             (fronts fronts))))
 
     ;; The cells joined to the hub through ground that `crosses?` accepts.
     (define (joined (ground (Vector Ground)) (hub Cell) (crosses? (Fn Ground → Bool)))
@@ -271,8 +274,9 @@
       (if (cleared? seed cell) (Open) (wild-ground biome seed cell)))
 
     (define (cleared? (seed I64) (cell Cell)) (→ Bool)
-      (or (within? cell (Cell (spawn-x seed) (spawn-y seed)) 4)
-          (any? (lambda (front) (within? cell (Cell (front-x seed front) (front-y seed front)) 5))
+      (or (within? cell (new Cell (x (spawn-x seed)) (y (spawn-y seed))) 4)
+          (any? (lambda (front)
+                  (within? cell (new Cell (x (front-x seed front)) (y (front-y seed front))) 5))
                 (list 0 1 2))))
 
     ;; ---- Passes ----
@@ -336,7 +340,7 @@
 
     (define (site (cell (Option Cell)) (rate I64)) (→ (List Site))
       (match cell
-        ((Some cell) (list (Site cell rate)))
+        ((Some cell) (list (new Site (cell cell) (rate rate))))
         ((None) (Nil))))
 
     (define (apart? (cell Cell) (other (Option Cell))) (→ Bool)
@@ -353,8 +357,8 @@
                        (within? cell center outer)
                        (not (within? cell center inner))))
                 (map (lambda (i)
-                       (Cell (+ (● center x) (- (remainder i side) outer))
-                             (+ (● center y) (- (quotient i side) outer))))
+                       (new Cell (x (+ (● center x) (- (remainder i side) outer)))
+                            (y (+ (● center y) (- (quotient i side) outer)))))
                      (iota (* side side))))))
 
     ;; Two regions in five of the 16-cell regions hold a site yielding 2 to
@@ -374,7 +378,8 @@
                         (iota 25))))
 
     (define (region-cells (rx I64) (ry I64)) (→ (List Cell))
-      (map (lambda (i) (Cell (+ rx (remainder i 16)) (+ ry (quotient i 16)))) (iota 256)))
+      (map (lambda (i) (new Cell (x (+ rx (remainder i 16))) (y (+ ry (quotient i 16)))))
+           (iota 256)))
 
     ;; Three fronts in four have a site yielding 4, 6 to 9 cells out.
     (define (front-sites (seed I64) (fronts (List Cell)) (site? (Fn Cell → Bool)))

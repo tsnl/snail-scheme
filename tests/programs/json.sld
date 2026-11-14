@@ -43,26 +43,31 @@
                   (JsonArray (list (JsonInteger 1)
                                    (JsonArray (list (JsonInteger 2) (JsonArray (Nil))))
                                    (JsonObject (Nil))))
-                  (JsonObject (list (Pair "b" (JsonInteger 1))
-                                    (Pair "a" (JsonArray (list (JsonBool #t) (JsonNull))))))
+                  (JsonObject (list (new Pair (first "b") (second (JsonInteger 1)))
+                                    (new Pair
+                                      (first "a")
+                                      (second (JsonArray (list (JsonBool #t) (JsonNull)))))))
                   (JsonObject
-                   (list (Pair "k\"\n" (JsonString "v")) (Pair "" (JsonString "empty name"))))
-                  (JsonObject (list (Pair "phase" (JsonString "failed"))
-                                    (Pair "id" (JsonInteger 3))
-                                    (Pair "diagnostics"
-                                          (JsonArray (list (JsonObject (list (Pair "message"
-                                                                                   (JsonString
-                                                                                    "unbound name: x"))
-                                                                             (Pair "line"
-                                                                                   (JsonInteger
-                                                                                    12)))))))
-                                    (Pair "published" (JsonNull))
-                                    (Pair "runs" (JsonArray (Nil)))))))
+                   (list (new Pair (first "k\"\n") (second (JsonString "v")))
+                         (new Pair (first "") (second (JsonString "empty name")))))
+                  (JsonObject (list (new Pair (first "phase") (second (JsonString "failed")))
+                                    (new Pair (first "id") (second (JsonInteger 3)))
+                                    (new Pair (first "diagnostics")
+                                         (second (JsonArray (list (JsonObject
+                                                                   (list (new Pair (first "message")
+                                                                              (second (JsonString
+                                                                                       "unbound name: x")))
+                                                                         (new Pair (first "line")
+                                                                              (second (JsonInteger
+                                                                                       12)))))))))
+                                    (new Pair (first "published") (second (JsonNull)))
+                                    (new Pair (first "runs") (second (JsonArray (Nil))))))))
   (let ((text (json->string (JsonString (long-text)))))
     (write-line (show (string-length text)))
     (write-line (substring text 0 70)))
   (write-line
-   (json->string (JsonObject (list (Pair "a" (JsonInteger 1)) (Pair "a" (JsonInteger 2))))))
+   (json->string (JsonObject (list (new Pair (first "a") (second (JsonInteger 1)))
+                                   (new Pair (first "a") (second (JsonInteger 2)))))))
   (write-line (json->string (JsonInteger 9223372036854775807)))
   (write-line (json->string (JsonInteger -9223372036854775808)))
   (unit))

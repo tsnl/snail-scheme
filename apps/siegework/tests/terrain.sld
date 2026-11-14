@@ -52,7 +52,7 @@
 ;; Each row of the map: . open, # rock, ~ water, = ice, H the hub, N a
 ;; nest, * a crystal.
 (define (map-row (land Land) (y I64)) (→ String)
-  (list->string (map (lambda (x) (cell-char land (Cell x y))) (iota (map-size)))))
+  (list->string (map (lambda (x) (cell-char land (new Cell (x x) (y y)))) (iota (map-size)))))
 
 (define (cell-char (land Land) (cell Cell)) (→ Char)
   (cond ((cell=? cell (● land hub)) #\H)
@@ -121,9 +121,13 @@
   (for-each (lambda (biome) (show-map (first-of biome 1)))
             (list (Meadow) (Desert) (Tundra) (Archipelago)))
   (write-line (string-append "line (0,0)-(3,1): "
-                             (string-join (map cell-text (line-cells (Cell 0 0) (Cell 3 1)))
+                             (string-join (map cell-text
+                                               (line-cells (new Cell (x 0) (y 0))
+                                                           (new Cell (x 3) (y 1))))
                                           " ")))
   (write-line (string-append "line (0,0)-(2,2): "
-                             (string-join (map cell-text (line-cells (Cell 0 0) (Cell 2 2)))
+                             (string-join (map cell-text
+                                               (line-cells (new Cell (x 0) (y 0))
+                                                           (new Cell (x 2) (y 2))))
                                           " ")))
   (unit))

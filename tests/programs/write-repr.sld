@@ -3,7 +3,7 @@
  (snail core io)
  (sample representation))
 
-(struct Output
+(record Output
   ((text String)))
 
 (define (line (value T)) (→ Unit) (! output-port) (∀ (T)) (⊨ (Repr T) (Drop (!) T))
@@ -31,10 +31,10 @@
          (right (Tree T))))
   (deriving Repr))
 
-(struct Secret
+(record Secret
   ((text String)))
 
-(struct (Batch T)
+(record (Batch T)
   ((items (Vector T)))
   (deriving Repr))
 
@@ -66,18 +66,18 @@
   (line (list (Some "hello") (None)))
   (line (ann (Ok "success") (Result String I64)))
   (line (ann (Err "failure") (Result I64 String)))
-  (line (Pair "key" (Some "value")))
+  (line (new Pair (first "key") (second (Some "value"))))
   (line (list->vector (list "a" "b\tc")))
   (line (list->vector (ann (Nil) (List String))))
   (line (Rock))
   (display (Rock))
   (newline)
   (line (Node (ann (Leaf) (Tree String)) "root" (Node (Leaf) "child" (Leaf))))
-  (line (Envelope "parcel" (list "a" "b")))
-  (line (Batch (list->vector (list "one" "two"))))
-  (line (Secret "private"))
+  (line (new Envelope (name "parcel") (contents (list "a" "b"))))
+  (line (new Batch (items (list->vector (list "one" "two")))))
+  (line (new Secret (text "private")))
   (write-line (represented))
-  (let ((output (Output "")))
+  (let ((output (new Output (text ""))))
     (handle output-port
         ((write-string (lambda (text)
                          (set! (● output text) (string-append (● output text) text)))))

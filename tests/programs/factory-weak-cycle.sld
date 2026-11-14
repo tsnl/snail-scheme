@@ -4,25 +4,25 @@
 
 (effect Finalized ((finalized (Fn I64 → Unit))))
 
-(struct Counter
+(record Counter
   ((value I64)))
 
-(struct Resource
+(record Resource
   ((value I64)))
 
 (instance (Drop (! Finalized) Resource)
   (define (drop (resource Resource)) (→ Unit) (! Finalized)
     (match resource ((Resource value) (finalized value)))))
 
-(struct Ring
+(record Ring
   ((next (Option Ring))
    (owner (Rc Resource))))
 
 (define (make-weak) (→ (WeakRc Resource))
   (unsafe-total
    (lambda ()
-     (let* ((owner (rc (Resource 7)))
-            (ring (Ring (None) owner)))
+     (let* ((owner (rc (new Resource (value 7))))
+            (ring (new Ring (next (None)) (owner owner))))
        (set! (● ring next) (Some ring))
        (rc-downgrade owner)))))
 
@@ -31,7 +31,7 @@
 (define (read-weak) (→ I64)
   (unsafe-total
    (lambda ()
-     (let ((counter (Counter 0)))
+     (let ((counter (new Counter (value 0))))
        (handle Finalized
            ((finalized (lambda (value) (set! (● counter value) value))))
          (match (weak-rc-upgrade (weak))

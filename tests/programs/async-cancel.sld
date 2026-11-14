@@ -6,7 +6,7 @@
  (snail shell future)
  (snail shell async))
 
-(struct Resource
+(record Resource
   ((name String)))
 (instance (Drop (! output-port) Resource)
   (define (drop (resource Resource)) (→ Unit) (! output-port)
@@ -18,7 +18,7 @@
   (let ((scheduler (make-scheduler)))
     (dispatch-in scheduler
                  (once (lambda ()
-                         (let* ((held (Resource "suspended"))
+                         (let* ((held (new Resource (name "suspended")))
                                 (future (dispatch (once (lambda () (sleep 100000) held)))))
                            (dispatch-local (once (lambda () (drop (await-future future)))))
                            (unit)))))
@@ -32,7 +32,7 @@
   (let ((scheduler (make-scheduler)))
     (match (ann (make-promise) (Pair (Promise I64) (Future I64)))
       ((Pair promise future)
-       (let* ((held (Resource "during close"))
+       (let* ((held (new Resource (name "during close")))
               (future (on-ready future (once (lambda () (drop held))))))
          (dispatch-in scheduler (once (lambda () (drop (fulfill promise 7)))))
          (tasks-close! scheduler)

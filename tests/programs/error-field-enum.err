@@ -1,1 +1,1 @@
-field selection requires a struct; match an enum's cases
+field selection requires a record; match an enum's cases

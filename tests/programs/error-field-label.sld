@@ -3,5 +3,5 @@
 
 (define main
   (lambda ()
-    (● (Pair 1 2) "first")
+    (● (new Pair (first 1) (second 2)) "first")
     (unit)))

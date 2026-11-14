@@ -14,14 +14,14 @@
 
     ;; ---- Queries and results ----
 
-    (struct Hit
+    (record Hit
       ((path String)
        (revision String)
        (line I64)
        (column I64)
        (snippet String)))
 
-    (struct Results
+    (record Results
       ((hits (List Hit))
        (skipped I64)
        (limited Bool)))
@@ -34,26 +34,28 @@
       (→ Results)
       (! fs tasks)
       (let loop ((paths paths) (hits (ann (Nil) (List Hit))) (skipped 0) (budget 4000000))
-        (cond ((> (length hits) 200) (Results (take hits 200) skipped #t))
-              ((and (<= budget 0) (not (null? paths))) (Results hits skipped #t))
-              (else
-               (match paths
-                 ((Nil) (Results hits skipped #f))
-                 ((Cons path rest)
-                  (yield)
-                  (match (read-project-text root path)
-                    ((Err _) (loop rest hits (+ skipped 1) budget))
-                    ((Ok snapshot)
-                     (let* ((text (● snapshot text))
-                            (end (min budget (string-length text)))
-                            (found (map (lambda (at)
-                                          (Hit path (● snapshot revision)
-                                               (● at line) (● at column)
-                                               (● at snippet)))
-                                        (scan query text end (- 201 (length hits)))))
-                            (all (append hits found)))
-                       (if (< end (string-length text))
-                           (Results (take all 200) skipped #t)
-                           (loop rest all skipped (- budget end))))))))))))
+        (cond
+         ((> (length hits) 200) (new Results (hits (take hits 200)) (skipped skipped) (limited #t)))
+         ((and (<= budget 0) (not (null? paths)))
+          (new Results (hits hits) (skipped skipped) (limited #t)))
+         (else
+          (match paths
+            ((Nil) (new Results (hits hits) (skipped skipped) (limited #f)))
+            ((Cons path rest)
+             (yield)
+             (match (read-project-text root path)
+               ((Err _) (loop rest hits (+ skipped 1) budget))
+               ((Ok snapshot)
+                (let* ((text (● snapshot text))
+                       (end (min budget (string-length text)))
+                       (found (map (lambda (at)
+                                     (new Hit (path path) (revision (● snapshot revision))
+                                          (line (● at line)) (column (● at column))
+                                          (snippet (● at snippet))))
+                                   (scan query text end (- 201 (length hits)))))
+                       (all (append hits found)))
+                  (if (< end (string-length text))
+                      (new Results (hits (take all 200)) (skipped skipped) (limited #t))
+                      (loop rest all skipped (- budget end))))))))))))
 
     ))

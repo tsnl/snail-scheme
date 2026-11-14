@@ -343,7 +343,7 @@
 
     ;; What is at a path: its kind, its size in bytes, and when its
     ;; contents last changed, in nanoseconds since the Unix epoch.
-    (struct FileStatus
+    (record FileStatus
       ((kind FileKind)
        (size I64)
        (modified I64)))
@@ -493,7 +493,11 @@
 
     (define (status-result (code I32)) (→ (Result FileStatus FileError)) (! fs)
       (match (path-result code)
-        ((Ok kind) (Ok (FileStatus (file-kind kind) (status-size) (status-modified))))
+        ((Ok kind)
+         (Ok (new FileStatus
+               (kind (file-kind kind))
+               (size (status-size))
+               (modified (status-modified)))))
         ((Err error) (Err error))))
 
     (define (file-kind (code I32)) (→ FileKind)

@@ -2,7 +2,7 @@
  (snail core base)
  (snail core io))
 
-(struct Model
+(record Model
   ((count I64)
    (work (FnOnce → Unit))))
 
@@ -10,7 +10,7 @@
   (set! (● model count) (+ 1 (● model count))))
 
 (define (main) (→ Unit) (! mut output-port)
-  (let ((model (rc (Model 0 (once (lambda () (unit)))))))
+  (let ((model (rc (new Model (count 0) (work (once (lambda () (unit))))))))
     (bump model)
     (bump model)
     ((replace! (● model work) (once (lambda () (unit)))))

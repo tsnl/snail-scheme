@@ -13,7 +13,7 @@
   (CheckFiles ((paths (List String))))
   (WriteFiles ((paths (List String)))))
 
-(struct Request
+(record Request
   ((width I64)
    (input Input)))
 
@@ -22,9 +22,9 @@
     ((Cons "--width" (Cons columns rest))
      (match (string->i64 columns)
        ((Some width)
-        (if (> width 0) (Request width (input-of rest)) (bad-width)))
+        (if (> width 0) (new Request (width width) (input (input-of rest))) (bad-width)))
        ((None) (bad-width))))
-    (_ (Request (format-width) (input-of arguments)))))
+    (_ (new Request (width (format-width)) (input (input-of arguments))))))
 
 (define (bad-width) (→ Request)
   (panic "format-scheme: --width takes a positive number of columns"))

@@ -8,7 +8,7 @@
  (snail core base)
  (snail core io)
  (only (snail core table) empty-table))
-(struct Point
+(record Point
   ((x F64)
    (y F64)) (deriving Show))
 (match value

@@ -3,13 +3,13 @@
  (only (snail core forms) host)
  (snail shell task))
 (extern released "test.owners" "released" (Fn I64 → Unit ! host))
-(struct Resource
+(record Resource
   ((value I64)))
 (instance (Drop (! host) Resource)
   (define (drop (resource Resource)) (→ Unit) (! host)
     (match resource ((Resource value) (released value)))))
 (define (seed (scheduler Scheduler) (value I64)) (→ I64) (! mut host)
-  (let ((resource (Resource value)))
+  (let ((resource (new Resource (value value))))
     (dispatch-in scheduler (once (lambda () (yield) (drop resource))))))
 (define (watch (scheduler Scheduler)) (→ WeakScheduler) (! mut host)
   (rc-downgrade scheduler))

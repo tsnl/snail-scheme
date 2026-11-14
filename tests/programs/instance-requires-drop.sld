@@ -9,7 +9,7 @@
 (effect log
   ((say (Fn String → Unit))))
 
-(struct Handle
+(record Handle
   ((name String)))
 
 (instance (Drop (! log) Handle)
@@ -32,8 +32,8 @@
   (release (Some value)))
 
 (define (demo) (→ Unit) (! log)
-  (release (Some (Handle "h")))
-  (release (Some (Pair (Handle "p") (Handle "q"))))
+  (release (Some (new Handle (name "h"))))
+  (release (Some (new Pair (first (new Handle (name "p"))) (second (new Handle (name "q"))))))
   (release (Some 3))
   (release-copy "text")
   (release (ann (None) (Option Handle))))

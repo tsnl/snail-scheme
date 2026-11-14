@@ -3,7 +3,7 @@
  (snail core io)
  (snail shell task))
 
-(struct Model
+(record Model
   ((title String))
   )
 (instance (Drop (!) Model)
@@ -19,7 +19,7 @@
 
 (define (main) (→ Unit) (! mut output-port tasks)
 
-  (let* ((model (rc (Model "after the owner")))
+  (let* ((model (rc (new Model (title "after the owner"))))
          (task (work model)))
     (drop model)
     (task))

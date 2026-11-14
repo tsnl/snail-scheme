@@ -13,8 +13,9 @@
  (prefix (snail shell syntax) generated:))
 
 (define (inputs (client Bytes)) (→ Inputs)
-  (supply-artifact (supply-artifact (no-inputs) "client" (list (Pair "client.dat" client)))
-                   "admin" (list (Pair "admin.dat" #u8(99)))))
+  (supply-artifact
+   (supply-artifact (no-inputs) "client" (list (new Pair (first "client.dat") (second client))))
+   "admin" (list (new Pair (first "admin.dat") (second #u8(99))))))
 
 (define (generate (loading (List String)) (forms (List reader:Syntax))) (→ Bytes)
   (generated:syntax->bytes

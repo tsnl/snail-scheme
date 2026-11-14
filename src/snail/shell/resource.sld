@@ -25,7 +25,7 @@
 
     ;; The closure resolves this instance's linker symbol when the resource
     ;; is read. Constructing it does not fetch the file.
-    (struct LinkedResource
+    (record LinkedResource
       ((handle (Fn → I32))))
 
     (type Resource LinkedResource)
@@ -34,7 +34,7 @@
     ;; constructs a Resource where the user cannot name its constructor.
     (define-syntax link-file
       (syntax-rules ()
-        ((_ path) (LinkedResource (lambda () (link-handle path))))))
+        ((_ path) (new LinkedResource (handle (lambda () (link-handle path)))))))
 
     ;; ---- Reading ----
 

@@ -10,11 +10,11 @@
 
     ;; ---- Registration ----
 
-    (struct (Command A)
+    (record (Command A)
       ((name String)
        (action A)))
 
-    (struct (Registry A)
+    (record (Registry A)
       ((commands (Vector (Command A)))))
 
     (define (register (commands (Vector (Command A))))
@@ -22,7 +22,7 @@
       (! e) (∀ (A e))
       (⊨ (Copy A) (Drop e A))
       (let loop ((index 0) (names (ann (empty-table) (Table Bool))))
-        (if (= index (vector-length commands)) (Ok (Registry commands))
+        (if (= index (vector-length commands)) (Ok (new Registry (commands commands)))
             (let ((name (● (vector-ref commands index) name)))
               (cond ((string=? name "") (Err "a command needs a name"))
                     ((table-contains? names name) (Err (string-append "duplicate command: " name)))

@@ -6,10 +6,10 @@
 
 (effect Log ((record-drop (Fn I64 → Unit))))
 
-(struct Counter
+(record Counter
   ((value I64)))
 
-(struct Resource
+(record Resource
   ((value I64)))
 
 (instance (Drop (! Log) Resource)
@@ -19,10 +19,10 @@
 (define (make-work) (→ (Pair Counter (Rc (FnOnce → Unit ! host))))
   (unsafe-total
    (lambda ()
-     (let ((counter (Counter 0)) (resource (Resource 41)))
-       (Pair counter
-             (handle Log ((record-drop (lambda (value) (set! (● counter value) value))))
-               (rc (inherit-handlers (once (lambda () (drop resource)))))))))))
+     (let ((counter (new Counter (value 0))) (resource (new Resource (value 41))))
+       (new Pair (first counter)
+            (second (handle Log ((record-drop (lambda (value) (set! (● counter value) value))))
+                      (rc (inherit-handlers (once (lambda () (drop resource))))))))))))
 
 (define (frozen) (→ (Pair Counter (Rc (FnOnce → Unit ! host)))) (make-work))
 

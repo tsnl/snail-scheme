@@ -3,7 +3,7 @@
  (snail core io)
  (snail shell wire))
 
-(struct Point
+(record Point
   ((x I64)
    (y I64))
   (deriving Serialize Deserialize))
@@ -29,7 +29,8 @@
 
 (define (shapes)
   (→ (List Shape))
-  (list (Circle (Point 1 2) 0.5) (Polygon (list (Point 0 0) (Point 10 -4)))))
+  (list (Circle (new Point (x 1) (y 2)) 0.5)
+        (Polygon (list (new Point (x 0) (y 0)) (new Point (x 10) (y -4))))))
 
 (define (copy) (→ (List Shape)) (ann (deserialize (serialize (shapes))) (List Shape)))
 

@@ -1,7 +1,7 @@
 (import
  (snail core base))
 
-(struct Owned
+(record Owned
   ((value I64)))
 
 (instance (Drop (!) Owned)

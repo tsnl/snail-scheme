@@ -92,10 +92,10 @@
     ;; A node of the document. The root is the page's container, which the
     ;; interface owns entirely; removing a node frees its handle and those
     ;; of the nodes under it.
-    (struct Node
+    (record Node
       ((handle I32)))
 
-    (struct Listener
+    (record Listener
       ((id I32)))
 
     ;; ---- Listeners ----
@@ -124,7 +124,7 @@
 
     ;; A key as an event names it, such as "Tab" or "s", and the modifiers
     ;; held with it, the sum of the modifier keys' bits below.
-    (struct Chord
+    (record Chord
       ((key String)
        (modifiers I32)))
 
@@ -156,7 +156,7 @@
     ;; What an event carried when it fired: each field its listener
     ;; captured, and the rest as `no-event` has them. A selection's offsets
     ;; count scalars, as a String's indices do.
-    (struct Event
+    (record Event
       ((value String)
        (key String)
        (modifiers I32)
@@ -169,7 +169,20 @@
        (selection-end I32)
        (checked Bool)))
 
-    (define (no-event) (→ Event) (Event "" "" 0 0.0 0.0 0 0.0 0.0 0 0 #f))
+    (define (no-event)
+      (→ Event)
+      (new Event
+        (value "")
+        (key "")
+        (modifiers 0)
+        (x 0.0)
+        (y 0.0)
+        (buttons 0)
+        (scroll-top 0.0)
+        (scroll-left 0.0)
+        (selection-start 0)
+        (selection-end 0)
+        (checked #f)))
 
     ;; What the next event is: a listener fired, carrying what it captured;
     ;; something performed `wake`; the page was hidden, so an interface
@@ -187,7 +200,7 @@
     ;; Where a node's box lies in the page's viewport and how big it is, the
     ;; size of what it shows inside its borders and scroll bars, and the
     ;; height of its lines, in CSS pixels.
-    (struct Measure
+    (record Measure
       ((left F64)
        (top F64)
        (width F64)

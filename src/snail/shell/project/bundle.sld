@@ -44,7 +44,7 @@
     ;; A build of the application, by its epoch: the directory of its
     ;; generation, the digests of its files but its modules and linked
     ;; files, by relative name, and how long it took.
-    (struct BuildDirectory
+    (record BuildDirectory
       ((epoch I64)
        (directory String)
        (files (List (Pair String String)))
@@ -52,7 +52,7 @@
 
     ;; The reload client's files: the browser host's directory, which holds
     ;; reload.mjs and the modules it imports, and the client's program.
-    (struct Reloading
+    (record Reloading
       ((host String)
        (program String)))
 
@@ -68,7 +68,7 @@
                              (path (List String)))
       (→ Response)
       (! fs)
-      (match (Pair builds path)
+      (match (new Pair (first builds) (second path))
         ((Pair _ (Cons ".snail" (Cons file (Nil)))) (client-file reloading file))
         ((Pair (Nil) _) (refusal 503 "the application has not been built yet"))
         ((Pair (Cons latest _) path)
@@ -186,7 +186,10 @@
           ((Some manifest)
            (match (json-member manifest "modules")
              ((Some (JsonArray modules))
-              (map (lambda (module) (Pair (json-text module "name") (json-text module "digest")))
+              (map (lambda (module)
+                     (new Pair
+                       (first (json-text module "name"))
+                       (second (json-text module "digest"))))
                    modules))
              (_ (Nil))))
           ((None) (Nil)))))
@@ -286,11 +289,11 @@
       (response status "text/plain; charset=utf-8" "no-store" (string->utf8 message)))
 
     (define (response (status I32) (type String) (caching String) (body Bytes)) (→ Response)
-      (Response status
-                (list (Header "Content-Type" type)
-                      (Header "Cache-Control" caching)
-                      (Header "X-Content-Type-Options" "nosniff"))
-                body))
+      (new Response (status status)
+           (headers (list (new Header (name "Content-Type") (value type))
+                          (new Header (name "Cache-Control") (value caching))
+                          (new Header (name "X-Content-Type-Options") (value "nosniff"))))
+           (body body)))
 
     (define (content-type (name String)) (→ String)
       (match (find (lambda (type) (ends-with? (string-downcase name) (● type first)))
@@ -299,19 +302,19 @@
         ((None) "application/octet-stream")))
 
     (define (content-types) (→ (List (Pair String String)))
-      (list (Pair ".html" "text/html; charset=utf-8")
-            (Pair ".mjs" "text/javascript")
-            (Pair ".js" "text/javascript")
-            (Pair ".css" "text/css")
-            (Pair ".wasm" "application/wasm")
-            (Pair ".json" "application/json")
-            (Pair ".webmanifest" "application/manifest+json")
-            (Pair ".svg" "image/svg+xml")
-            (Pair ".png" "image/png")
-            (Pair ".jpg" "image/jpeg")
-            (Pair ".woff2" "font/woff2")
-            (Pair ".ico" "image/x-icon")
-            (Pair ".txt" "text/plain; charset=utf-8")))
+      (list (new Pair (first ".html") (second "text/html; charset=utf-8"))
+            (new Pair (first ".mjs") (second "text/javascript"))
+            (new Pair (first ".js") (second "text/javascript"))
+            (new Pair (first ".css") (second "text/css"))
+            (new Pair (first ".wasm") (second "application/wasm"))
+            (new Pair (first ".json") (second "application/json"))
+            (new Pair (first ".webmanifest") (second "application/manifest+json"))
+            (new Pair (first ".svg") (second "image/svg+xml"))
+            (new Pair (first ".png") (second "image/png"))
+            (new Pair (first ".jpg") (second "image/jpeg"))
+            (new Pair (first ".woff2") (second "font/woff2"))
+            (new Pair (first ".ico") (second "image/x-icon"))
+            (new Pair (first ".txt") (second "text/plain; charset=utf-8"))))
 
     (define (ends-with? (text String) (suffix String)) (→ Bool)
       (let ((length (string-length text)) (size (string-length suffix)))

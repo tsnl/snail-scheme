@@ -6,7 +6,7 @@
 ;; `discard` is what a drop becomes when releasing a value runs nothing,
 ;; so the primitive library keeps it: called on a handle, it would lose
 ;; the handle without releasing it.
-(struct Handle
+(record Handle
   ((name String)))
 
 (instance (Drop (! output-port) Handle)
@@ -16,5 +16,5 @@
 
 (define main
   (lambda ()
-    (discard (Handle "h"))
+    (discard (new Handle (name "h")))
     (unit)))

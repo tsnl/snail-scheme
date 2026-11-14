@@ -7,7 +7,7 @@
   (define count (lambda (n) (if (= n 0) 0 (+ 1 (count (- n 1))))))
   count)
 
-(struct Point
+(record Point
   ((x I64)
    (y I64)))
 
@@ -33,8 +33,8 @@
   (match statement
     ((Evaluate expr) (evaluate expr))))
 
-;; A struct whose field is an effectful function, with the row as a parameter.
-(struct (Task e)
+;; A record whose field is an effectful function, with the row as a parameter.
+(record (Task e)
   ((step (Fn I64 → I64 ! e))))
 
 (effect Note
@@ -49,7 +49,8 @@
    (length (map (lambda (c) (match c ((Red) "r") ((Green) "g"))) (list (Red) (Green) (Red)))))
   (newline)
   (write (map (lambda (record) (● record x))
-              (map (lambda (p) (Point-x-set p 9)) (list (Point 1 2) (Point 3 4)))))
+              (map (lambda (p) (Point-x-set p 9))
+                   (list (new Point (x 1) (y 2)) (new Point (x 3) (y 4))))))
   (newline)
   (display (vector-fold * 1 (list->vector (list 1 2 3 4 5))))
   (newline)
@@ -59,7 +60,7 @@
   (handle Note
       ((note (lambda (text) (write-line (string-append "note: " text)))))
     (for-each note (list "one" "two"))
-    (display ((● (Task (lambda (n) (note "stepping") (* n 2))) step) 21))
+    (display ((● (new Task (step (lambda (n) (note "stepping") (* n 2)))) step) 21))
     (newline))
   (write (ann (None) (Option I64)))
   (newline)

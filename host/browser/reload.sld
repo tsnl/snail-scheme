@@ -77,7 +77,7 @@
 ;; What a build serves: the base its files are served under, each file with
 ;; a digest, and each module, in program order, with the digest of its
 ;; bytes.
-(struct Manifest
+(record Manifest
   ((base String)
    (files (List (Pair String String)))
    (modules (List (Pair String String)))))
@@ -91,7 +91,10 @@
 (define (parse-manifest (data (List Syntax))) (→ Manifest)
   (match data
     ((Cons base (Cons files (Cons modules (Nil))))
-     (Manifest (base-of base) (string-pairs "files" files) (string-pairs "modules" modules)))
+     (new Manifest
+       (base (base-of base))
+       (files (string-pairs "files" files))
+       (modules (string-pairs "modules" modules))))
     (_ (panic "reload: a manifest is (base ...) (files ...) (modules ...)"))))
 
 (define (base-of (syntax Syntax)) (→ String)
@@ -109,7 +112,7 @@
 (define (string-pair (syntax Syntax)) (→ (Pair String String))
   (match syntax
     ((Form (Cons (Atom (DString name) _) (Cons (Atom (DString value) _) (Nil))) _)
-     (Pair name value))
+     (new Pair (first name) (second value)))
     (_ (panic "reload: expected string NAME and VALUE"))))
 
 ;; `(building MANIFEST)`, `(built MILLISECONDS MANIFEST)` or
@@ -122,7 +125,7 @@
 
 (define (event-body (name String) (rest (List Syntax))) (→ Event)
   (if (string=? name "building") (Building (parse-manifest rest))
-      (match (Pair name rest)
+      (match (new Pair (first name) (second rest))
         ((Pair "built" (Cons (Atom (DInt milliseconds) _) manifest))
          (Built (show milliseconds) (parse-manifest manifest)))
         ((Pair "failed" (Cons (Atom (DString message) _) manifest))
@@ -158,10 +161,10 @@
 ;; ---- Changes ----
 
 ;; The files whose digests differ, including files only one side has.
-(define (changed-files (old Manifest) (new Manifest)) (→ (List String))
+(define (changed-files (old Manifest) (updated Manifest)) (→ (List String))
   (delete-duplicates string=?
-                     (append (differing (● old files) (● new files))
-                             (differing (● new files) (● old files)))))
+                     (append (differing (● old files) (● updated files))
+                             (differing (● updated files) (● old files)))))
 
 (define (differing (these (List (Pair String String))) (those (List (Pair String String))))
   (→ (List String))
@@ -176,9 +179,9 @@
 ;; before it cannot import from it, so they stay linked. A module's bytes
 ;; name the digest of each file it links, so editing a linked file changes
 ;; the module that links it.
-(define (first-changed-module (old Manifest) (new Manifest)) (→ (Option String))
-  (let loop ((old (● old modules)) (new (● new modules)))
-    (match new
+(define (first-changed-module (old Manifest) (updated Manifest)) (→ (Option String))
+  (let loop ((old (● old modules)) (updated (● updated modules)))
+    (match updated
       ((Cons (Pair name digest) rest)
        (match old
          ((Cons (Pair old-name old-digest) old-rest)
@@ -203,7 +206,7 @@
 ;; target whose program could not take over the state, so it is not tried
 ;; again until the developer starts over.
 
-(struct ReloadState
+(record ReloadState
   ((loaded Manifest)
    (relinking (Option Manifest))
    (pending (Option Event))
@@ -211,7 +214,13 @@
    (last-time String)
    (input (List Char))))
 (define (make-reload-state) (→ ReloadState)
-  (ReloadState (Manifest "" (Nil) (Nil)) (None) (None) (None) "" (Nil)))
+  (new ReloadState
+    (loaded (new Manifest (base "") (files (Nil)) (modules (Nil))))
+    (relinking (None))
+    (pending (None))
+    (refused (None))
+    (last-time "")
+    (input (Nil))))
 
 (expose make-reload-state "reload_create")
 
@@ -287,7 +296,7 @@
 
 ;; Relinks the refused program from its first module with a fresh state.
 (define (start-over! (state ReloadState)) (→ Unit) (! mut page)
-  (match (Pair (● state refused) (● state relinking))
+  (match (new Pair (first (● state refused)) (second (● state relinking)))
     ((Pair (Some target) (None))
      (match (● target modules)
        ((Cons (Pair first _) _)

@@ -4,7 +4,7 @@
 
 ;; Vector elements occupy one Wasm slot: primitives stay unboxed and
 ;; aggregates are heap references. A Vector has a fixed runtime length.
-(struct Meters
+(record Meters
   ((value I64)))
 
 ;; Copy elements may be shared by multiple array slots.
@@ -15,8 +15,8 @@
 (define (empty) (→ (Vector I64)) (vector))
 
 (define (main) (→ Unit) (! mut output-port)
-  (let ((lengths (make-vector 3 (Meters 1))))
-    (vector-set! lengths 2 (Meters 7))
+  (let ((lengths (make-vector 3 (new Meters (value 1)))))
+    (vector-set! lengths 2 (new Meters (value 7)))
     (write-line (show (+ (● (vector-ref lengths 0) value) (● (vector-ref lengths 2) value)))))
   (let ((flags (make-vector 2 #f)) (names (make-vector 2 "a")) (maybe (make-vector 2 (None))))
     (vector-set! flags 1 #t)

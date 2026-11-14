@@ -4,7 +4,7 @@
 
 ;; A type that holds itself at other arguments would need glue at every
 ;; depth, so dropping one needs an instance.
-(struct Handle
+(record Handle
   ((name String)))
 
 (instance (Drop (! output-port) Handle)
@@ -12,11 +12,11 @@
     (match handle
       ((Handle name) (write-line (string-append "released " name))))))
 
-(struct (Nest T)
+(record (Nest T)
   ((item T)
    (deeper (Option (Nest (Pair T T))))))
 
 (define (main) (→ Unit) (! output-port)
 
-  (drop (Nest (Handle "h") (None)))
+  (drop (new Nest (item (new Handle (name "h"))) (deeper (None))))
   (unit))

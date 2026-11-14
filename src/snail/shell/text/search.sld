@@ -7,7 +7,7 @@
    (snail shell text)
    (snail shell task))
   (begin
-    (struct Query
+    (record Query
       ((text String)))
 
     (define (parse-query (text String)) (→ (Result Query String))
@@ -15,10 +15,10 @@
                (not (any? (lambda (char) (or (char=? char #\newline) (char=? char #\return)
                                              (char=? char #\null)))
                           (string->list text))))
-          (Ok (Query (string-downcase text)))
+          (Ok (new Query (text (string-downcase text))))
           (Err "search needs 1–128 characters on one line")))
 
-    (struct Occurrence
+    (record Occurrence
       ((line I64)
        (column I64)
        (snippet String)))
@@ -42,7 +42,10 @@
                         (step (if (and (char=? char #\return) (< (+ at 1) end)
                                        (char=? (string-ref text (+ at 1)) #\newline)) 2 1))
                         (next (if found
-                                  (Cons (Occurrence line (+ 1 (- at start)) (snippet text start at))
+                                  (Cons (new Occurrence
+                                          (line line)
+                                          (column (+ 1 (- at start)))
+                                          (snippet (snippet text start at)))
                                         hits) hits)))
                    (loop (+ at step) (if newline (+ line 1) line) (if newline (+ at step) start)
                          next (if found (- room 1) room)

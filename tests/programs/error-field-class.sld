@@ -1,6 +1,6 @@
 (import
  (snail core base))
-(struct Record
+(record Record
   ((value I64)))
 ;; Labels no longer introduce classes, including in instance position.
 (instance (::value Record I64)

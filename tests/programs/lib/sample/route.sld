@@ -9,12 +9,12 @@
    (sample shape))
   (begin
 
-    (struct (Stop T)
+    (record (Stop T)
       ((label T)
        (shape Shape))
       (deriving Serialize Deserialize))
 
-    (struct Route
+    (record Route
       ((stops (List (Stop String)))
        (length I64))
       (deriving Serialize Deserialize))))

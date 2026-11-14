@@ -5,22 +5,22 @@
 
 (define (through-function (f (Fn → Cell))) (→ I64) (● (f) value))
 
-(struct Resource
+(record Resource
   ((id I64)))
 (instance (Drop (! output-port) Resource)
   (define (drop (resource Resource)) (→ Unit) (! output-port)
     (match resource ((Resource id) (write-line (string-append "drop " (show id)))))))
 
 (define (owned-callback) (→ (Fn I64 → I64 ! mut output-port))
-  (let ((resource (rc (Resource 90))))
+  (let ((resource (rc (new Resource (id 90)))))
     (cache (lambda (key) (+ key (● resource id))))))
 
-(struct Reentry
+(record Reentry
   ((callback (Option (WeakRc (Fn I64 → I64 ! mut))))
    (entered Bool)))
 
 (define (reentrant-test) (→ Unit) (! mut output-port)
-  (let* ((state (Reentry (None) #f))
+  (let* ((state (new Reentry (callback (None)) (entered #f)))
          (memo (rc (lru-cache 2
                               (lambda (key)
                                 (if (● state entered) key
@@ -42,11 +42,11 @@
 
 (define (extra-tests) (→ Unit) (! mut output-port)
   ;; Growing and colliding buckets preserve every cached object.
-  (let ((memo (cache (lambda (key) (Cell key)))))
+  (let ((memo (cache (lambda (key) (new Cell (value key))))))
     (for-each (lambda (index) (set! (● (memo (* index 8)) value) (+ index 100))) (iota 128))
     (write-line (show (fold-left (lambda (sum index) (+ sum (● (memo (* index 8)) value)))
                                  0 (iota 128)))))
-  (let* ((calls (Cell 0))
+  (let* ((calls (new Cell (value 0)))
          (factory (lambda ()
                     (set! (● calls value) (+ (● calls value) 1))
                     (lambda (key) (+ key (● calls value)))))
@@ -54,21 +54,21 @@
     (write-line (show (memo 10)))
     (write-line (show (memo 20)))
     (write-line (show (● calls value))))
-  (let* ((calls (Cell 0))
+  (let* ((calls (new Cell (value 0)))
          (memo (lru-cache 0 (lambda ()
                               (set! (● calls value) (+ (● calls value) 1))
                               (● calls value)))))
     (write-line (show (memo)))
     (write-line (show (memo))))
   ;; Nullary enum cases are equal across independently linked modules.
-  (let ((memo (cache (lambda (key) (ann (Cell 0) Cell)))))
+  (let ((memo (cache (lambda (key) (ann (new Cell (value 0)) Cell)))))
     (set! (● (memo (external-none)) value) 17)
     (write-line (show (● (memo (ann (None) (Option I64))) value))))
-  (let ((memo (cache (lambda (key) (Cell 0)))))
+  (let ((memo (cache (lambda (key) (new Cell (value 0))))))
     (set! (● (memo (external-nil)) value) 18)
     (write-line (show (● (memo (ann (Nil) (List I64))) value))))
   ;; The builtin itself can be passed as a monomorphic function value.
-  (let* ((wrap cache) (memo (wrap (lambda (key) (Cell key)))))
+  (let* ((wrap cache) (memo (wrap (lambda (key) (new Cell (value key))))))
     (set! (● (memo 8) value) 80)
     (write-line (show (● (memo 8) value))))
   (let ((memo (owned-callback)))
@@ -76,7 +76,7 @@
     (write-line (show (memo 1)))
     (write-line (show (memo 2))))
   (write-line "released")
-  (let* ((weak (let ((resource (rc (Resource 91)))) (rc-downgrade resource)))
+  (let* ((weak (let ((resource (rc (new Resource (id 91))))) (rc-downgrade resource)))
          (memo (cache (lambda () weak))))
     (match (weak-rc-upgrade (memo))
       ((None) (write-line "weak cache stays dead"))
@@ -100,11 +100,11 @@
       (set! (● first value) 44)
       (write-line (show (● (pair-cell 4 (make-string 1 #\a)) value)))
       (write-line (show (● (pair-cell 4 "b") value))))
-    (let ((key (Cell 5)))
+    (let ((key (new Cell (value 5))))
       (write-line (show (● (snapshot key) value)))
       (set! (● key value) 6)
       (write-line (show (● (snapshot key) value)))
-      (write-line (show (● (snapshot (Cell 6)) value))))
+      (write-line (show (● (snapshot (new Cell (value 6))) value))))
     (let ((positive (float-cell (bits->f64 0)))
           (nan (float-cell (bits->f64 9221120237041090561))))
       (set! (● positive value) 71)
@@ -118,7 +118,7 @@
     (write-line (show (match (● (first) value) ((Some value) value) ((None) 0))))
     (write-line (show (match (● (second) value) ((Some value) value) ((None) 0)))))
   ;; Effects happen only on a miss, without changing the function's row.
-  (let* ((calls (Cell 0))
+  (let* ((calls (new Cell (value 0)))
          (memo (cache (lambda (key)
                         (set! (● calls value) (+ (● calls value) 1))
                         (+ key (● calls value)))))

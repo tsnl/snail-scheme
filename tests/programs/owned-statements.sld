@@ -4,15 +4,15 @@
 
 ;; A Holder is linear: it has a FnOnce field. Matching it moves the field
 ;; out, and the clause must use it once: here it drops it uncalled.
-(struct Holder
+(record Holder
   ((work (FnOnce → Unit ! output-port))))
 
 (define (main) (→ Unit) (! output-port)
-  (match (Holder (once (lambda () (write-line "a"))))
+  (match (new Holder (work (once (lambda () (write-line "a")))))
     ((Holder work)
      (drop work)
      (write-line "first")))
-  (match (Holder (once (lambda () (write-line "b"))))
+  (match (new Holder (work (once (lambda () (write-line "b")))))
     ((Holder work)
      (drop work)
      (write-line "second")))

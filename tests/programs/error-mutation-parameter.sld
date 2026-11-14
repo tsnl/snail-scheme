@@ -1,7 +1,7 @@
 (import
  (snail core base))
 
-(struct Counter
+(record Counter
   ((value I64)))
 
 ;; Every write requires mut, including an ordinary field on a shared object.

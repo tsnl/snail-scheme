@@ -1,18 +1,18 @@
 (import
  (snail core base))
 
-(struct Token
+(record Token
   ((id I64)) )
 (instance (Drop (!) Token)
   (define (drop (value Token)) (→ Unit)
     (match value ((Token _) (unit)))))
 
-(struct Owner
+(record Owner
   ((token Token)))
 
 (define main
   (lambda ()
-    (let ((owner (Owner (Token 1))))
+    (let ((owner (new Owner (token (new Token (id 1))))))
       (set! (● owner token id) 2)
       (drop owner))
     (unit)))

@@ -2,7 +2,7 @@
  (snail core base)
  (snail core io))
 
-(struct Presented
+(record Presented
   ())
 
 (instance (Show (!) Presented)
@@ -11,5 +11,5 @@
 
 (define main
   (lambda ()
-    (write (Presented))
+    (write (new Presented))
     (unit)))

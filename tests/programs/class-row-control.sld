@@ -10,7 +10,7 @@
 (typeclass (Store e S)
   (declare (fetch-object (left S) (right String)) (→ String) (! e)))
 
-(struct Loud
+(record Loud
   ((name String)))
 
 (instance (Store (! Gen) Loud)
@@ -24,5 +24,5 @@
       ((next (lambda (resume)
                (write-line "yielded")
                (resume (unit)))))
-    (write-line (fetch-object (Loud "loud") "answer")))
+    (write-line (fetch-object (new Loud (name "loud")) "answer")))
   (unit))

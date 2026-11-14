@@ -2,7 +2,7 @@
  (snail core base)
  (snail core io))
 
-(struct Box
+(record Box
   ((value I64)))
 
 (define (main) (→ Unit) (! mut output-port)
@@ -17,7 +17,7 @@
     (vector-copy! alias 2 alias 0 3)
     (write (vector->list items)) (newline))
   ;; Copying slots preserves the identity of the objects stored in them.
-  (let* ((items (make-vector 1 (Box 3))) (copy (vector-copy items)))
+  (let* ((items (make-vector 1 (new Box (value 3)))) (copy (vector-copy items)))
     (set! (● (vector-ref copy 0) value) 4)
     (write (● (vector-ref items 0) value)) (newline))
   ;; String conversions copy: vector mutation cannot change a String.

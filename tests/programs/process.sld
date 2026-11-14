@@ -12,7 +12,8 @@
     ((Err error) (panic (● error code)))))
 
 (define (shell (script String)) (→ Process) (! process tasks)
-  (require (spawn (Command "/bin/sh" (list "-c" script) "."))))
+  (require
+   (spawn (new Command (program "/bin/sh") (arguments (list "-c" script)) (directory ".")))))
 
 ;; A stream's bytes up to its end, as text.
 (define (read-all (child Process) (stream Stream)) (→ String) (! process tasks)
@@ -73,16 +74,28 @@
              (require (close-process killed)))
 
            ;; A missing executable or directory is an error, not a process.
-           (report-error (spawn (Command "/nonexistent/program" (Nil) ".")))
-           (report-error (spawn (Command "/bin/sh" (list "-c" "true") "/nonexistent/directory")))
+           (report-error (spawn (new Command
+                                  (program "/nonexistent/program")
+                                  (arguments (Nil))
+                                  (directory "."))))
+           (report-error (spawn (new Command
+                                  (program "/bin/sh")
+                                  (arguments (list "-c" "true"))
+                                  (directory "/nonexistent/directory"))))
 
            ;; A program with no slash is found on PATH and runs as the name it
            ;; was given, in its directory; one PATH lacks is missing too.
-           (let ((child (require (spawn (Command "sh" (list "-c" "echo $0; pwd") "/")))))
+           (let ((child (require (spawn (new Command
+                                          (program "sh")
+                                          (arguments (list "-c" "echo $0; pwd"))
+                                          (directory "/"))))))
              (write-string (read-all child (Stdout)))
              (write-line (exit-text (require (wait-exit child))))
              (require (close-process child)))
-           (report-error (spawn (Command "no-such-program-on-path" (Nil) ".")))
+           (report-error (spawn (new Command
+                                  (program "no-such-program-on-path")
+                                  (arguments (Nil))
+                                  (directory "."))))
 
            ;; Closing kills a running child and revokes its handle; closing again
            ;; succeeds, and a token from another handler is no native handle.
@@ -93,7 +106,7 @@
              (require (close-process child))
              (report-error (read-output child (Stdout) 1))
              (report-error (wait-exit child)))
-           (report-error (close-process (Process (Any (ann 1 I32)) 0)))
+           (report-error (close-process (new Process (token (Any (ann 1 I32))) (id 0))))
 
            ;; Ending the program must kill a child left running.
            (shell "exec sleep 10")

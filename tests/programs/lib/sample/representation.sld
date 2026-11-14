@@ -3,9 +3,9 @@
   (export
    Envelope)
   (import
-   (only (snail core base) struct String List))
+   (only (snail core base) record String List))
   (begin
-    (struct Envelope
+    (record Envelope
       ((name String)
        (contents (List String)))
       (deriving Repr))))

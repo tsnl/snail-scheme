@@ -2,22 +2,22 @@
  (snail core base)
  (snail core io))
 
-(struct Radius
+(record Radius
   ((value I64)))
 (enum Shape (Circle ((radius Radius))) (Empty))
-(struct LinkData
+(record LinkData
   ((value I64)
    (next (Option Chain))))
 (enum Chain (Link ((data LinkData))) (End))
 
 (define (cycle) (→ Chain)
   (unsafe-total (lambda ()
-                  (let* ((data (LinkData 3 (None))) (link (Link data)))
+                  (let* ((data (new LinkData (value 3) (next (None)))) (link (Link data)))
                     (set! (● data next) (Some link))
                     link))))
 
 (define (main) (→ Unit) (! mut output-port)
-  (let* ((circle (Circle (Radius 4))) (alias circle))
+  (let* ((circle (Circle (new Radius (value 4)))) (alias circle))
     (match alias
       ((Circle radius) (set! (● radius value) 9))
       ((Empty) (panic "empty shape")))

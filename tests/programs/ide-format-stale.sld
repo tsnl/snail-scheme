@@ -10,7 +10,7 @@
  (snail shell ui)
  (snail shell ide application))
 
-(struct Race
+(record Race
   ((injected Bool)))
 
 ;; A DOM edit can precede its input message. Change the live field after
@@ -24,7 +24,7 @@
   (● session ide))
 
 (define (replace-field (changed-path Bool)) (→ Unit) (! dom)
-  (match (Pair (element-by-id "text-0") (element-by-id "editor-0"))
+  (match (new Pair (first (element-by-id "text-0")) (second (element-by-id "editor-0")))
     ((Pair (Some field) (Some scroller))
      (set-string-property field (if changed-path "snailPath" "value")
                           (if changed-path "other.sld" "newer"))
@@ -47,7 +47,7 @@
     next))
 
 (define (report-editor) (→ Unit) (! dom output-port)
-  (match (Pair (element-by-id "text-0") (element-by-id "editor-0"))
+  (match (new Pair (first (element-by-id "text-0")) (second (element-by-id "editor-0")))
     ((Pair (Some field) (Some scroller))
      (write-line (string-property field "value"))
      (write-line (show (number-property scroller "scrollTop"))))
@@ -56,7 +56,9 @@
 (define (run (changed-path Bool)) (→ Unit) (! mut host completion output-port tasks)
   (handle fetch
       ((request (lambda (method url headers body)
-                  (Ok (Reply 200 "{\"text\":\"(a   b)\",\"revision\":\"first\"}"))))
+                  (Ok (new Reply
+                        (status 200)
+                        (body "{\"text\":\"(a   b)\",\"revision\":\"first\"}")))))
        (stream-open (lambda (url kinds) (panic "stream")))
        (stream-next (lambda (stream) (panic "stream")))
        (stream-close (lambda (stream) (panic "stream"))))
@@ -72,7 +74,7 @@
                                                       (lambda (model) (snapshot model))
                                                       (lambda (model) (unit))
                                                       (lambda (model) (unit)))))) first))
-          (race (Race #f)))
+          (race (new Race (injected #f))))
       (with-memory-dom (Nil)
                        (lambda ()
                          (close-session! (run-reactor (begin-session loaded)

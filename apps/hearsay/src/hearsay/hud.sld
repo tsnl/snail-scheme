@@ -66,7 +66,7 @@
 
     ;; A title and its paragraphs, with any widgets to show beneath them,
     ;; such as a portrait.
-    (struct Page
+    (record Page
       ((title String)
        (paragraphs (List String))
        (extras (List Widget))))
@@ -110,28 +110,28 @@
 
     (define (guide-panel (name String) (pages (List Page)) (index I64)) (→ Panel)
       (let ((page (list-ref pages index)) (last? (= (+ index 1) (length pages))))
-        (Panel "guide" (Dialog (guide-close))
-               (concatenate
-                (list (Cons (label "guide-title" (● page title))
-                            (line-labels "guide-text" (● page paragraphs)))
-                      (● page extras)
-                      (list (toned "guide-page"
-                                   (Muted)
-                                   (string-append name
-                                                  " guide, "
-                                                  (show (+ index 1))
-                                                  " of "
-                                                  (show (length pages))))
-                            (Button (look "guide-back")
-                                    "Back"
-                                    ""
-                                    (guide-back)
-                                    0
-                                    (if (= index 0) (Disabled) (Enabled))
-                                    -1.0)
-                            (button "guide-next"
-                                    (if last? "Start playing" "Next")
-                                    (guide-next))))))))
+        (new Panel (key "guide") (place (Dialog (guide-close)))
+             (widgets (concatenate
+                       (list (Cons (label "guide-title" (● page title))
+                                   (line-labels "guide-text" (● page paragraphs)))
+                             (● page extras)
+                             (list (toned "guide-page"
+                                          (Muted)
+                                          (string-append name
+                                                         " guide, "
+                                                         (show (+ index 1))
+                                                         " of "
+                                                         (show (length pages))))
+                                   (Button (look "guide-back")
+                                           "Back"
+                                           ""
+                                           (guide-back)
+                                           0
+                                           (if (= index 0) (Disabled) (Enabled))
+                                           -1.0)
+                                   (button "guide-next"
+                                           (if last? "Start playing" "Next")
+                                           (guide-next)))))))))
 
     ;; ---- Scene ----
 
@@ -140,11 +140,15 @@
 
     ;; A scene with nothing in it, carrying `pictures` for the HUD's images.
     (define (empty-frame (pictures (List Picture))) (→ Frame)
-      (Frame (Camera (Vec3 0.0 10.0 10.0) (Vec3 0.0 0.0 0.0) (Perspective 0.8))
-             (Light (Vec3 0.0 1.0 0.0) 0.0 1.0)
-             (backdrop)
-             1.0
-             (Nil)
-             pictures))
+      (new Frame
+        (camera (new Camera
+                  (eye (new Vec3 (x 0.0) (y 10.0) (z 10.0)))
+                  (target (new Vec3 (x 0.0) (y 0.0) (z 0.0)))
+                  (projection (Perspective 0.8))))
+        (light (new Light (direction (new Vec3 (x 0.0) (y 1.0) (z 0.0))) (sun 0.0) (ambient 1.0)))
+        (background (backdrop))
+        (motion 1.0)
+        (batches (Nil))
+        (pictures pictures)))
 
     ))

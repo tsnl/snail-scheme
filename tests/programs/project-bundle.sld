@@ -23,13 +23,17 @@
   (write-file (at name) text))
 
 (define (builds) (→ (List BuildDirectory))
-  (list (BuildDirectory 4
-                        (at "g4")
-                        (list (Pair "index.html" "i4")
-                              (Pair "modules.json" "m4")
-                              (Pair "style.css" "s4"))
-                        120)
-        (BuildDirectory 3 (at "g3") (list (Pair "index.html" "i3")) 90)))
+  (list (new BuildDirectory (epoch 4)
+             (directory (at "g4"))
+             (files (list (new Pair (first "index.html") (second "i4"))
+                          (new Pair (first "modules.json") (second "m4"))
+                          (new Pair (first "style.css") (second "s4"))))
+             (milliseconds 120))
+        (new BuildDirectory
+          (epoch 3)
+          (directory (at "g3"))
+          (files (list (new Pair (first "index.html") (second "i3"))))
+          (milliseconds 90))))
 
 (define (latest) (→ BuildDirectory)
   (match (builds)
@@ -37,7 +41,7 @@
     ((Nil) (panic "no build"))))
 
 (define (reloading) (→ Reloading)
-  (Reloading (at "host") (at "reload.wasm")))
+  (new Reloading (host (at "host")) (program (at "reload.wasm"))))
 
 (define (show-response (label String) (response Response)) (→ Unit) (! output-port)
   (write-line (string-append label

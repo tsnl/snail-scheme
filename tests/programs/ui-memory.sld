@@ -15,11 +15,11 @@
 ;; their nodes instead of rewriting them, and the trace shows each change
 ;; the reconciler made.
 
-(struct Item
+(record Item
   ((id I64)
    (text String)))
 
-(struct Model
+(record Model
   ((items (List Item))
    (draft String)
    (next I64)
@@ -35,21 +35,23 @@
 (define (update (model Model) (message Msg))
   (→ (Pair Model (List (FnOnce → Msg ! output-port tasks))))
   (match message
-    ((Typed text) (Pair (Model-draft-set model text) (Nil)))
+    ((Typed text) (new Pair (first (Model-draft-set model text)) (second (Nil))))
     ((Add)
      (let ((items
-            (append (● model items) (list (Item (● model next) (● model draft))))))
-       (Pair (Model items "" (+ (● model next) 1) (● model saved))
-             (list (once (lambda ()
-                           (yield)
-                           (Saved (length items))))))))
-    ((Reverse) (Pair (Model-items-set model (reverse (● model items))) (Nil)))
+            (append (● model items) (list (new Item (id (● model next)) (text (● model draft)))))))
+       (new Pair
+         (first
+          (new Model (items items) (draft "") (next (+ (● model next) 1)) (saved (● model saved))))
+         (second (list (once (lambda ()
+                               (yield)
+                               (Saved (length items)))))))))
+    ((Reverse) (new Pair (first (Model-items-set model (reverse (● model items)))) (second (Nil))))
     ((Remove id)
-     (Pair (Model-items-set model
-                            (filter (lambda (item) (not (= (● item id) id)))
-                                    (● model items)))
-           (Nil)))
-    ((Saved count) (Pair (Model-saved-set model count) (Nil)))))
+     (new Pair (first (Model-items-set model
+                                       (filter (lambda (item) (not (= (● item id) id)))
+                                               (● model items))))
+          (second (Nil))))
+    ((Saved count) (new Pair (first (Model-saved-set model count)) (second (Nil))))))
 
 (define (view (model Model)) (→ (Html Msg))
   (Element "main"
@@ -112,7 +114,7 @@
            (let ((result
                   (with-memory-dom (script)
                                    (lambda ()
-                                     (run-ui (Model (Nil) "" 0 0)
+                                     (run-ui (new Model (items (Nil)) (draft "") (next 0) (saved 0))
                                              (Nil)
                                              (lambda (model message) (update model message))
                                              view

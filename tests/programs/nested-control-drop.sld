@@ -6,7 +6,7 @@
 (effect Pause ((ctl pause (Fn → Unit))))
 (effect Inner ((ctl inner (Fn → Unit))))
 
-(struct Resource
+(record Resource
   ((name String)))
 
 (instance (Drop (! Audit) Resource)
@@ -17,7 +17,7 @@
 ;; that frame keeps the inner handler, with the outer drop-site context.
 (define (work) (→ Unit) (! Pause Audit output-port)
   (handle Inner ((inner (lambda (resume) (resume (unit)))))
-    (let ((resource (Resource "nested")))
+    (let ((resource (new Resource (name "nested"))))
       (pause)
       (inner)
       (drop resource))))

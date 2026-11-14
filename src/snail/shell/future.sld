@@ -29,7 +29,7 @@
       (Resolved ((result (Completion T))))
       (Unobserved))
 
-    (struct (Channel T)
+    (record (Channel T)
       ((state (State T))))
 
     (enum (Promise T)
@@ -47,8 +47,8 @@
     ;; normally transfer T without dropping it. No state provenance is hidden
     ;; in a convention about which endpoint happens to be released first.
     (define (make-promise) (→ (Pair (Promise T) (Future T))) (∀ (T d)) (⊨ (Drop d T))
-      (let ((channel (rc (Channel (Unresolved (None))))))
-        (Pair (Sender channel) (Receiver channel))))
+      (let ((channel (rc (new Channel (state (Unresolved (None)))))))
+        (new Pair (first (Sender channel)) (second (Receiver channel)))))
 
     ;; ---- Sending ----
 

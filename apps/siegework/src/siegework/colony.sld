@@ -193,29 +193,30 @@
 
     ;; New work joins the end of the queue.
     (define (new-work (world World) (cost I64) (duration I64)) (→ Work)
-      (Work (● world next-order) cost duration 0))
+      (new Work (order (● world next-order)) (cost cost) (duration duration) (progress 0)))
 
     (define (place-site (world World) (kind Kind) (cell Cell) (work Work) (ready Bool)) (→ World)
       (match (fresh-id world)
         ((Pair id world)
          (if ready
              (rewire (World-started-set (add-building world
-                                                      (Building id
-                                                                kind
-                                                                cell
-                                                                1
-                                                                (kind-health kind)
-                                                                (None)
-                                                                (None)))
+                                                      (new Building (id id)
+                                                           (kind kind)
+                                                           (cell cell)
+                                                           (level 1)
+                                                           (health (kind-health kind))
+                                                           (work (None))
+                                                           (aim (None))))
                                         #t))
              (structures-changed (World-next-order-set (add-building world
-                                                                     (Building id
-                                                                               kind
-                                                                               cell
-                                                                               0
-                                                                               (kind-health kind)
-                                                                               (Some work)
-                                                                               (None)))
+                                                                     (new Building (id id)
+                                                                          (kind kind)
+                                                                          (cell cell)
+                                                                          (level 0)
+                                                                          (health
+                                                                           (kind-health kind))
+                                                                          (work (Some work))
+                                                                          (aim (None))))
                                                        (+ (● world next-order) 1)))))))
 
     (define (add-building (world World) (building Building)) (→ World)
@@ -327,7 +328,7 @@
 
     ;; Each queued work with its owner, whether the owner is powered, and
     ;; whether the work holds a slot.
-    (struct Task
+    (record Task
       ((owner Owner)
        (work Work)
        (supplied Bool)
@@ -346,16 +347,19 @@
            (let* ((supplied (supplied? world owner)) (active (and (> free 0) supplied)))
              (loop rest
                    (if active (- free 1) free)
-                   (Cons (Task owner work supplied active) listed)))))))
+                   (Cons (new Task (owner owner) (work work) (supplied supplied) (active active))
+                         listed)))))))
 
     (define (queued (world World)) (→ (List (Pair Owner Work)))
       (insertion-sort (lambda (a b) (< (● (● a second) order) (● (● b second) order)))
                       (append (match (● (● world hub) work)
-                                ((Some work) (list (Pair (OfHub) work)))
+                                ((Some work) (list (new Pair (first (OfHub)) (second work))))
                                 ((None) (Nil)))
                               (filter-map (lambda (b)
                                             (match (● b work)
-                                              ((Some work) (Some (Pair (OfBuilding b) work)))
+                                              ((Some work)
+                                               (Some
+                                                (new Pair (first (OfBuilding b)) (second work))))
                                               ((None) (None))))
                                           (● world buildings)))))
 

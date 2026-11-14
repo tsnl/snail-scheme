@@ -29,22 +29,23 @@
     ;; ---- Queues ----
 
     ;; Destructuring transfers each item exactly once, including linear work.
-    (struct (Queue T)
+    (record (Queue T)
       ((front (List T))
        (back (List T))))
 
     (define (empty-queue) (→ (Queue T)) (∀ (T))
-      (Queue (Nil) (Nil)))
+      (new Queue (front (Nil)) (back (Nil))))
 
     (define (enqueue (queue (Queue T)) (item T)) (→ (Queue T)) (∀ (T))
       (match queue
-        ((Queue front back) (Queue front (Cons item back)))))
+        ((Queue front back) (new Queue (front front) (back (Cons item back))))))
 
     (define (dequeue (queue (Queue T))) (→ (Option (Pair T (Queue T)))) (∀ (T))
       (match queue
-        ((Queue (Cons item rest) back) (Some (Pair item (Queue rest back))))
+        ((Queue (Cons item rest) back)
+         (Some (new Pair (first item) (second (new Queue (front rest) (back back))))))
         ((Queue (Nil) (Nil)) (None))
-        ((Queue (Nil) back) (dequeue (Queue (reverse back) (Nil))))))
+        ((Queue (Nil) back) (dequeue (new Queue (front (reverse back)) (back (Nil)))))))
 
     ;; ---- Steps ----
 
@@ -62,13 +63,13 @@
     (type Run (FnOnce → Step ! host))
 
     ;; A task that is ready, under its id.
-    (struct Runnable
+    (record Runnable
       ((id I64)
        (next Run)))
 
     ;; A task waiting to be woken, by its deadline among the timers or by
     ;; its ticket among the waiters.
-    (struct Pending
+    (record Pending
       ((key I64)
        (id I64)
        (next Run)))
@@ -82,7 +83,7 @@
     ;; empty one before processing it; no task or callback runs while moved
     ;; work is being installed. The counters bound each turn to its initial
     ;; ready work and let the host detect an idle or completed scheduler.
-    (struct SchedulerState
+    (record SchedulerState
       ((ready (Queue Runnable))
        (timers (List Pending))
        (waiters (List Pending))
@@ -95,7 +96,17 @@
        (closed Bool)))
 
     (define (make-scheduler) (→ Scheduler)
-      (rc (SchedulerState (empty-queue) (Nil) (Nil) 0 0 0 0 0 0 #f)))
+      (rc (new SchedulerState
+            (ready (empty-queue))
+            (timers (Nil))
+            (waiters (Nil))
+            (ready-count 0)
+            (live 0)
+            (running 0)
+            (last-task 0)
+            (now 0)
+            (last-ticket 0)
+            (closed #f))))
 
     (define (take-ready! (scheduler Scheduler)) (→ (Queue Runnable)) (! mut host)
       (replace! (● scheduler ready) (empty-queue)))
@@ -171,7 +182,9 @@
             (set! (● scheduler last-task) id)
             (add-live! scheduler 1)
             (push-ready! scheduler
-                         (Runnable id (inherit-handlers (once (lambda () (start-task weak work))))))
+                         (new Runnable
+                           (id id)
+                           (next (inherit-handlers (once (lambda () (start-task weak work)))))))
             id)))
 
     ;; ---- Turns ----
@@ -208,15 +221,18 @@
             ((Finished) (unit))
             ((Yielded next)
              (add-live! scheduler 1)
-             (push-ready! scheduler (Runnable id next)))
+             (push-ready! scheduler (new Runnable (id id) (next next))))
             ((Sleeping delay next)
              (add-live! scheduler 1)
              (put-timers! scheduler
-                          (insert-timer (Pending (+ (● scheduler now) delay) id next)
-                                        (take-timers! scheduler))))
+                          (insert-timer
+                           (new Pending (key (+ (● scheduler now) delay)) (id id) (next next))
+                           (take-timers! scheduler))))
             ((Waiting ticket next)
              (add-live! scheduler 1)
-             (put-waiters! scheduler (Cons (Pending ticket id next) (take-waiters! scheduler)))))))
+             (put-waiters! scheduler
+                           (Cons (new Pending (key ticket) (id id) (next next))
+                                 (take-waiters! scheduler)))))))
 
     (define (insert-timer (timer Pending) (timers (List Pending))) (→ (List Pending))
       (match timers
@@ -234,7 +250,7 @@
          (if (<= (● first key) now)
              (match first
                ((Pending _ id next)
-                (push-ready! scheduler (Runnable id next))
+                (push-ready! scheduler (new Runnable (id id) (next next)))
                 (wake-due! scheduler now rest)))
              (Cons first rest)))))
 
@@ -268,13 +284,14 @@
     (define (without (ticket I64) (waiters (List Pending)))
       (→ (Pair (Option Runnable) (List Pending)))
       (match waiters
-        ((Nil) (Pair (None) (Nil)))
+        ((Nil) (new Pair (first (None)) (second (Nil))))
         ((Cons first rest)
          (if (= (● first key) ticket)
              (match first
-               ((Pending _ id next) (Pair (Some (Runnable id next)) rest)))
+               ((Pending _ id next)
+                (new Pair (first (Some (new Runnable (id id) (next next)))) (second rest))))
              (match (without ticket rest)
-               ((Pair found others) (Pair found (Cons first others))))))))
+               ((Pair found others) (new Pair (first found) (second (Cons first others)))))))))
 
     ;; Closing is idempotent. Publish closed and detach every queue before
     ;; disposal can call a waker or user cleanup. A late wake sees closed;
@@ -330,20 +347,20 @@
     ;; delivery cell and identifies the scheduler on which it awaits. There
     ;; is no suspension while moving a queue or installing a delivery.
     (type (Mailbox T) (Rc (MailboxState T)))
-    (struct (MailboxState T)
+    (record (MailboxState T)
       ((messages (Queue T))
        (receivers (Queue (Receiver T)))))
 
-    (struct (Delivery T)
+    (record (Delivery T)
       ((message (Option T))))
 
-    (struct (Receiver T)
+    (record (Receiver T)
       ((scheduler WeakScheduler)
        (ticket I64)
        (delivery (Rc (Delivery T)))))
 
     (define (make-mailbox) (→ (Mailbox T)) (∀ (T d)) (⊨ (Drop d T))
-      (rc (MailboxState (empty-queue) (empty-queue))))
+      (rc (new MailboxState (messages (empty-queue)) (receivers (empty-queue)))))
 
     (define (mailbox-post (mailbox (Mailbox T)) (message T))
       (→ Unit) (! mut host d) (∀ (T d)) (⊨ (Drop d T))
@@ -376,9 +393,10 @@
 
     (define (wait-in-line (mailbox (Mailbox T)))
       (→ T) (! mut tasks d) (∀ (T d)) (⊨ (Drop d T))
-      (let* ((delivery (rc (Delivery (None))))
+      (let* ((delivery (rc (new Delivery (message (None)))))
              (id (ticket))
-             (receiver (Receiver (current-scheduler) id delivery)))
+             (receiver
+              (new Receiver (scheduler (current-scheduler)) (ticket id) (delivery delivery))))
         (drop (replace! (● mailbox receivers)
                         (enqueue (replace! (● mailbox receivers) (empty-queue)) receiver)))
         (await id)

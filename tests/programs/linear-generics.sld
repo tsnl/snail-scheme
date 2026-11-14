@@ -6,17 +6,17 @@
 ;; generic function that moves its arguments takes linear ones.
 (define (swap (pair (Pair A B))) (→ (Pair B A)) (∀ (A B))
   (match pair
-    ((Pair a b) (Pair b a))))
+    ((Pair a b) (new Pair (first b) (second a)))))
 
 (define (say (text String)) (→ (FnOnce → Unit ! output-port))
   (once (lambda () (write-line text))))
 
 ;; A function that duplicates requires Copy, and is used at copyable types.
 (define (twice (value A)) (→ (Pair A A)) (∀ (A)) (⊨ (Copy A))
-  (Pair value value))
+  (new Pair (first value) (second value)))
 
 (define (main) (→ Unit) (! output-port)
-  (match (swap (Pair (say "first") (say "second")))
+  (match (swap (new Pair (first (say "first")) (second (say "second"))))
     ((Pair a b) (call-once a) (call-once b)))
   ;; A list of linear values is linear itself, and map and for-each move
   ;; each element once.

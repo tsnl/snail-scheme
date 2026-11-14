@@ -18,7 +18,7 @@
     ((Ok value) value)
     ((Err error) (panic (● error code)))))
 
-(struct PendingPacket
+(record PendingPacket
   ((packet Datagram)))
 
 (define (main) (→ Unit) (! host mut output-port tasks)
@@ -30,12 +30,14 @@
            (handle udp
                ((bind (lambda (endpoint)
                         (Ok
-                         (UdpSocket (Any (PendingPacket (Datagram endpoint #u8())))
-                                    (Endpoint-port endpoint)))))
+                         (new UdpSocket
+                           (token (Any (new PendingPacket
+                                         (packet (new Datagram (peer endpoint) (bytes #u8()))))))
+                           (port (Endpoint-port endpoint))))))
                 (send (lambda (socket peer bytes)
                         (sleep 1)
                         (set! (● (fixture-convert (● socket token) PendingPacket) packet)
-                              (Datagram peer bytes))
+                              (new Datagram (peer peer) (bytes bytes)))
                         (Ok (i64->i32 (vector-length bytes)))))
                 (receive (lambda (socket _)
                            (Ok (● (fixture-convert (● socket token) PendingPacket) packet))))

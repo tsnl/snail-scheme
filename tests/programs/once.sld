@@ -3,7 +3,7 @@
  (snail core io)
  (owned work))
 
-(struct Job
+(record Job
   ((work (FnOnce → Unit ! output-port))))
 
 (enum Bundle
@@ -42,18 +42,19 @@
   (let ((unused (message "must not run")))
     (drop unused)
     (write-line "dropped"))
-  (match (Full (Job (message "matched")) 2)
+  (match (Full (new Job (work (message "matched"))) 2)
     ((Full (Job work) 1) (call-once work))
     ((Full (Job work) _) (call-once work))
     ((Empty) (unit)))
-  (match (Full (Job (message "must not run")) 2)
+  (match (Full (new Job (work (message "must not run"))) 2)
     ((Full (Job work) 1) (call-once work))
     ((Full (Job work) _)
      (drop work)
      (write-line "wildcard"))
     ((Empty) (unit)))
   (drain (Link (message "first") (Link (message "last") (End))))
-  (let ((unused (Job (handle Probe ((ping (lambda () (unit)))) (message "must not run")))))
+  (let ((unused
+         (new Job (work (handle Probe ((ping (lambda () (unit)))) (message "must not run"))))))
     (match unused
       ((Job work) (drop work)))
     (write-line "handled drop"))

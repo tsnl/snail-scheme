@@ -17,14 +17,14 @@
 ((Some "hello") (None))
 (Ok "success")
 (Err "failure")
-(Pair "key" (Some "value"))
+(new Pair (first "key") (second (Some "value")))
 #("a" "b\tc")
 #()
 (Rock)
 rock
 (Node (Leaf) "root" (Node (Leaf) "child" (Leaf)))
-(Envelope "parcel" ("a" "b"))
-(Batch #("one" "two"))
+(new Envelope (name "parcel") (contents ("a" "b")))
+(new Batch (items #("one" "two")))
 #<secret>
 (Some "pure")
 (Some "captured")

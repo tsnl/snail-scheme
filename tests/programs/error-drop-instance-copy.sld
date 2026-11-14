@@ -8,7 +8,7 @@
 (effect log
   ((say (Fn String → Unit))))
 
-(struct Handle
+(record Handle
   ((name String)))
 
 (instance (Drop (! log) Handle)
@@ -16,17 +16,17 @@
     (match handle
       ((Handle name) (say (string-append "released " name))))))
 
-(struct (Wrapper A)
+(record (Wrapper A)
   ((item A)))
 
 (instance (Drop (! log) (Wrapper A))
   (⊨ (Copy A))
   (define (drop (wrapper (Wrapper A))) (→ Unit) (! log)
     (match wrapper
-      ((Wrapper item) (drop (Pair item item))))))
+      ((Wrapper item) (drop (new Pair (first item) (second item)))))))
 
 (define (demo) (→ Unit) (! log)
-  (drop (Wrapper (Handle "h"))))
+  (drop (new Wrapper (item (new Handle (name "h"))))))
 
 (define main
   (lambda ()

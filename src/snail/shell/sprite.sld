@@ -20,7 +20,7 @@
 
     ;; A row of `frames` cells from (column, row) rightward, each shown for
     ;; `period` milliseconds. A single frame is a still.
-    (struct Strip
+    (record Strip
       ((column I32)
        (row I32)
        (frames I32)
@@ -34,7 +34,7 @@
     ;; each next one turns a step toward the viewer's right. Being a
     ;; function of every motion, a book cannot lack one; a sheet without some
     ;; motion maps it to another.
-    (struct (Spritebook M)
+    (record (Spritebook M)
       ((picture I32)
        (cell-width I32)
        (cell-height I32)
@@ -43,9 +43,13 @@
 
     (define (strip-texture (book (Spritebook M)) (strip Strip)) (→ Texture) (∀ (M)) (⊨ (Copy M))
       (let ((width (● book cell-width)) (height (● book cell-height)))
-        (Texture (● book picture)
-                 (Rect (* width (● strip column)) (* height (● strip row)) width height)
-                 (● strip frames) (● strip period))))
+        (new Texture (picture (● book picture))
+             (region (new Rect
+                       (x (* width (● strip column)))
+                       (y (* height (● strip row)))
+                       (width width)
+                       (height height)))
+             (frames (● strip frames)) (period (● strip period)))))
 
     ;; ---- Headings ----
 

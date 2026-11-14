@@ -43,7 +43,7 @@
 
 ;; A struct has named fields; an enum has cases, each with its own fields.
 ;; A type's name builds it, and `(● point x)` reads a stored field.
-(struct Point
+(record Point
   ((x I64)
    (y I64)))
 
@@ -93,7 +93,7 @@
 ;; Structs are heap objects with mutable fields. Aliases see the same
 ;; writes, and set! performs mut. Reads are pure; a type without ! mut
 ;; promises that the function does not change its inputs.
-(struct Counter
+(record Counter
   ((count I64)))
 
 (define (bump! (counter Counter)) (→ Unit) (! mut)
@@ -125,7 +125,7 @@
 
 ;; Macros are Scheme's `syntax-rules`, and hygienic: `swap!`'s own
 ;; `temporary` cannot capture the caller's.
-(struct Label
+(record Label
   ((text String)))
 
 (define-syntax swap!
@@ -146,16 +146,17 @@
   (newline)
   (display (fold-left + 0 (numbers)))
   (newline)
-  (write (map area (list (Circle (Point 0 0) 2) (Rectangle (Point 1 1) 3 4))))
+  (write
+   (map area (list (Circle (new Point (x 0) (y 0)) 2) (Rectangle (new Point (x 1) (y 1)) 3 4))))
   (newline)
   (for-each (lambda (d)
               (match (divide 10 d)
                 ((Ok quotient) (write-line (i64->string quotient)))
                 ((Err reason) (write-line reason))))
             (list 2 0))
-  (write-line (describe-all (list (Point 1 2) (Point 3 4))))
+  (write-line (describe-all (list (new Point (x 1) (y 2)) (new Point (x 3) (y 4)))))
   (write-line (describe-all (list #t #f)))
-  (let ((clicks (Counter 0)))
+  (let ((clicks (new Counter (count 0))))
     (bump! clicks)
     (bump! clicks)
     (display (● clicks count))
@@ -174,8 +175,8 @@
   ;; owned value is used exactly once: called, passed on or dropped.
   (let ((job (once (lambda () (write-line "ran once")))))
     (call-once job))
-  (let ((left (Label "left"))
-        (right (Label "right")))
+  (let ((left (new Label (text "left")))
+        (right (new Label (text "right"))))
     (swap! left right)
     (write-line (string-append (● left text) " " (● right text))))
   (unit))

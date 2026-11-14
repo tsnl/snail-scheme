@@ -6,7 +6,7 @@
  (snail shell future)
  (snail shell async))
 
-(struct Resource
+(record Resource
   ((name String)))
 
 (instance (Drop (! output-port) Resource)
@@ -20,7 +20,7 @@
   (let ((future (dispatch (once (lambda ()
                                   (write-line "work starts")
                                   (yield)
-                                  (Resource "received"))))))
+                                  (new Resource (name "received")))))))
     (write-line "dispatch returned")
     (match (poll future)
       ((Pending future)
@@ -37,5 +37,5 @@
   ;; A timer wakes a parked task. An unobserved result still gets dropped.
   (drop (await-future (after 1)))
   (write-line "timer")
-  (drop (dispatch (once (lambda () (yield) (Resource "unobserved")))))
+  (drop (dispatch (once (lambda () (yield) (new Resource (name "unobserved"))))))
   (unit))

@@ -32,7 +32,7 @@
     ;; it, and so does the first version of a rumor mill's town, so the host
     ;; never mistakes a new town for one it has already drawn. Each guide
     ;; opens by itself until its prototype has been opened once.
-    (struct Shell
+    (record Shell
       ((screen Screen)
        (seed I64)
        (opened I64)
@@ -43,7 +43,14 @@
       (deriving Serialize Deserialize))
 
     (define (new-shell (seed I32) (width I32) (height I32)) (→ Shell)
-      (Shell (Menu) (i32->i64 seed) 0 #f #f width height))
+      (new Shell
+        (screen (Menu))
+        (seed (i32->i64 seed))
+        (opened 0)
+        (mill-guided #f)
+        (ledger-guided #f)
+        (width width)
+        (height height)))
 
     ;; The whole shell is the save; the host reports the screen's size after
     ;; restoring.
@@ -111,37 +118,39 @@
         ((Favors screen) (view-ledger-screen screen art))))
 
     (define (menu-panels) (→ (List Panel))
-      (list (Panel "menu" (At (TopLeft) 0)
-                   (concatenate
-                    (list (list (label "title" "Hearsay prototypes")
-                                (label "subtitle"
-                                       "Each prototype asks one question about whether a piece of the design is fun. Each opens with a short guide to its rules and to what to watch for while you play.")
-                                (label "heading-rumors" "The rumor mill: is steering belief fun?"))
-                          (map-indexed (lambda (index scenario)
-                                         (let ((rules (scenario-rules scenario)))
-                                           (Button (look (string-append "scenario-" (show index)))
+      (list (new Panel (key "menu") (place (At (TopLeft) 0))
+                 (widgets (concatenate
+                           (list (list (label "title" "Hearsay prototypes")
+                                       (label "subtitle"
+                                              "Each prototype asks one question about whether a piece of the design is fun. Each opens with a short guide to its rules and to what to watch for while you play.")
+                                       (label "heading-rumors"
+                                              "The rumor mill: is steering belief fun?"))
+                                 (map-indexed (lambda (index scenario)
+                                                (let ((rules (scenario-rules scenario)))
+                                                  (Button
+                                                   (look (string-append "scenario-" (show index)))
                                                    (● rules name)
                                                    (● rules pitch)
                                                    (action-scenario)
                                                    (i64->i32 index)
                                                    (Enabled)
                                                    -1.0)))
-                                       (scenarios))
-                          (list (label "heading-favors"
-                                       "The favor ledger: do favors trade, or get hoarded?")
-                                (Button (look "ledger")
-                                        "Favor ledger"
-                                        "Trade markers and promises with two rival fixers."
-                                        (action-ledger)
-                                        0
-                                        (Enabled) -1.0)))))))
+                                              (scenarios))
+                                 (list (label "heading-favors"
+                                              "The favor ledger: do favors trade, or get hoarded?")
+                                       (Button (look "ledger")
+                                               "Favor ledger"
+                                               "Trade markers and promises with two rival fixers."
+                                               (action-ledger)
+                                               0
+                                               (Enabled) -1.0))))))))
 
     ;; Each prototype puts the Menu and Guide buttons first in the top-right
     ;; corner.
     (define (menu-button) (→ (List Panel))
-      (list (Panel "back" (At (TopRight) 0)
-                   (list (button "back" "Menu" (action-menu))
-                         (button "open-guide" "Guide" (guide-open))))))
+      (list (new Panel (key "back") (place (At (TopRight) 0))
+                 (widgets (list (button "back" "Menu" (action-menu))
+                                (button "open-guide" "Guide" (guide-open)))))))
 
     (define (shell-hud (shell Shell)) (→ (List Panel))
       (match (● shell screen)

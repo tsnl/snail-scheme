@@ -4,7 +4,7 @@
    (snail core base))
   (begin
 
-    (struct Payload
+    (record Payload
       ((number I32)
        (bytes Bytes)))
 
@@ -17,7 +17,7 @@
     (define (finish (number I32) (bytes (Vector U8))) (→ (Result Payload String))
       (if (< number 0)
           (Err "rejected")
-          (Ok (Payload number (vector-copy bytes)))))
+          (Ok (new Payload (number number) (bytes (vector-copy bytes))))))
 
     (expose buffer "payload-buffer")
     (expose put! "payload-put")

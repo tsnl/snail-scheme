@@ -22,17 +22,26 @@
 
     (define (web-app-manifest (name String)) (→ Json)
       (JsonObject
-       (append (map (lambda (field) (Pair (● field first) (JsonString (● field second))))
-                    (list (Pair "name" name) (Pair "short_name" name)
-                          (Pair "start_url" "./") (Pair "scope" "./") (Pair "display" "standalone")
-                          (Pair "background_color" "#24282f") (Pair "theme_color" "#24282f")))
-               (list (Pair "icons" (JsonArray (map icon (list 192 512))))))))
+       (append (map (lambda (field)
+                      (new Pair (first (● field first)) (second (JsonString (● field second)))))
+                    (list (new Pair (first "name") (second name))
+                          (new Pair (first "short_name") (second name))
+                          (new Pair (first "start_url") (second "./"))
+                          (new Pair (first "scope") (second "./"))
+                          (new Pair (first "display") (second "standalone"))
+                          (new Pair (first "background_color") (second "#24282f"))
+                          (new Pair (first "theme_color") (second "#24282f"))))
+               (list (new Pair (first "icons") (second (JsonArray (map icon (list 192 512)))))))))
 
     (define (icon (size I64)) (→ Json)
       (JsonObject
-       (list (Pair "src" (JsonString (string-append "./snail-icon-" (show size) ".png")))
-             (Pair "sizes" (JsonString (string-append (show size) "x" (show size))))
-             (Pair "type" (JsonString "image/png")))))
+       (list (new Pair
+               (first "src")
+               (second (JsonString (string-append "./snail-icon-" (show size) ".png"))))
+             (new Pair
+               (first "sizes")
+               (second (JsonString (string-append (show size) "x" (show size)))))
+             (new Pair (first "type") (second (JsonString "image/png"))))))
 
     ;; ---- Page metadata ----
 
@@ -66,18 +75,27 @@
 
     (define (metadata-text (item PageMetadata)) (→ String)
       (match item
-        ((PageBase url) (element-start "base" (list (Pair "href" url))))
+        ((PageBase url) (element-start "base" (list (new Pair (first "href") (second url)))))
         ((PageMeta name content)
-         (element-start "meta" (list (Pair "name" name) (Pair "content" content))))
-        ((WebManifest url) (element-start "link" (list (Pair "id" "snail-web-app")
-                                                       (Pair "rel" "manifest") (Pair "href" url))))
+         (element-start "meta"
+                        (list (new Pair (first "name") (second name))
+                              (new Pair (first "content") (second content)))))
+        ((WebManifest url)
+         (element-start "link" (list (new Pair (first "id") (second "snail-web-app"))
+                                     (new Pair (first "rel") (second "manifest"))
+                                     (new Pair (first "href") (second url)))))
         ((ModuleMap url)
-         (element-start "meta" (list (Pair "name" "snail-modules") (Pair "content" url))))
+         (element-start "meta"
+                        (list (new Pair (first "name") (second "snail-modules"))
+                              (new Pair (first "content") (second url)))))
         ((ReloadData text)
-         (element-start "meta" (list (Pair "id" "snail-manifest") (Pair "content" text))))
-        ((ModuleScript url) (string-append (element-start "script" (list (Pair "type" "module")
-                                                                         (Pair "src" url)))
-                                           "</script>"))))
+         (element-start "meta"
+                        (list (new Pair (first "id") (second "snail-manifest"))
+                              (new Pair (first "content") (second text)))))
+        ((ModuleScript url)
+         (string-append (element-start "script" (list (new Pair (first "type") (second "module"))
+                                                      (new Pair (first "src") (second url))))
+                        "</script>"))))
 
     (define (default-link) (→ String) (metadata-text (WebManifest "./manifest.webmanifest")))
 
@@ -121,8 +139,8 @@
              (html (tag-after text before "html"))
              (at (preamble-end text (match html ((Some end) end) ((None) before)))))
         (match (tag-after text at "head")
-          ((Some end) (Pair end #t))
-          ((None) (Pair at #f)))))
+          ((Some end) (new Pair (first end) (second #t)))
+          ((None) (new Pair (first at) (second #f))))))
 
     (define (tag-after (text String) (at I64) (name String)) (→ (Option I64))
       (let ((end (+ (+ at 1) (string-length name))))

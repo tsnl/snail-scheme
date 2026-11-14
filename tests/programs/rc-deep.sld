@@ -2,7 +2,7 @@
  (snail core base)
  (snail core io))
 
-(struct Resource
+(record Resource
   ((value I64)))
 
 (instance (Drop (! output-port) Resource)
@@ -19,11 +19,11 @@
   (if (= count 0) next (chain (- count 1) (lambda () (next)))))
 
 (define (leaf) (→ (Fn → Unit ! mut output-port))
-  (let ((resource (rc (Resource 2))))
+  (let ((resource (rc (new Resource (value 2)))))
     (lambda () (display (● resource value)))))
 
 (define (main) (→ Unit) (! mut output-port)
-  (let ((resource (rc (Resource 1))))
+  (let ((resource (rc (new Resource (value 1)))))
     (drop (copies 100000 resource (Nil)))
     (unit))
   (drop (chain 100000 (leaf)))

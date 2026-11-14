@@ -8,10 +8,10 @@
 (effect Stopping ((ctl stop-text (Fn String → Never))))
 (effect Finalized ((finalized (Fn I64 → Unit))))
 
-(struct Counter
+(record Counter
   ((value I64)))
 
-(struct Resource
+(record Resource
   ((value I64)))
 
 (instance (Drop (! Finalized) Resource)
@@ -33,7 +33,7 @@
 (define (current-heap) (→ I64)
   (unsafe-total
    (lambda ()
-     (let ((counter (Counter 0)))
+     (let ((counter (new Counter (value 0))))
        (handle Pausing
            ((pause-number (lambda (number resume)
                             (set! (● counter value) 7)
@@ -41,14 +41,14 @@
          (+ (pause-number 2) (● counter value)))))))
 
 (define (counted-scope) (→ Unit) (! mut Finalized)
-  (let ((owner (rc (Resource 5))))
+  (let ((owner (rc (new Resource (value 5)))))
     (let ((alias owner))
       (drop alias))))
 
 (define (finalized-value) (→ I64)
   (unsafe-total
    (lambda ()
-     (let ((counter (Counter 0)))
+     (let ((counter (new Counter (value 0))))
        (handle Finalized ((finalized (lambda (value) (set! (● counter value) value))))
          (counted-scope))
        (● counter value)))))
@@ -56,12 +56,12 @@
 (define (cancelled) (→ I64)
   (unsafe-total
    (lambda ()
-     (let ((counter (Counter 0)))
+     (let ((counter (new Counter (value 0))))
        (handle Finalized ((finalized (lambda (value) (set! (● counter value) value))))
          (handle Pausing ((pause-number (lambda (number resume)
                                           (drop resume)
                                           number)))
-           (let ((resource (Resource 8)))
+           (let ((resource (new Resource (value 8))))
              (pause-number 2)
              (drop resource)
              0)))
@@ -116,11 +116,11 @@
 (define (capture-order) (→ I64)
   (unsafe-total
    (lambda ()
-     (let ((counter (Counter 0)))
+     (let ((counter (new Counter (value 0))))
        (handle Finalized
            ((finalized
              (lambda (value) (set! (● counter value) (+ (* 10 (● counter value)) value)))))
-         (let ((f (let ((alpha (rc (Resource 1))) (omega (rc (Resource 2))))
+         (let ((f (let ((alpha (rc (new Resource (value 1)))) (omega (rc (new Resource (value 2)))))
                     (lambda () (+ (● alpha value) (● omega value))))))
            (drop f)))
        (● counter value)))))
@@ -128,15 +128,15 @@
 (define (linear-capture-order) (→ I64)
   (unsafe-total
    (lambda ()
-     (let ((counter (Counter 0)))
+     (let ((counter (new Counter (value 0))))
        (handle Finalized
            ((finalized
              (lambda (value) (set! (● counter value) (+ (* 10 (● counter value)) value)))))
-         (let ((alpha (Resource 1)) (omega (Resource 2)))
+         (let ((alpha (new Resource (value 1))) (omega (new Resource (value 2))))
            (drop (once (lambda () (drop alpha) (drop omega))))))
        (● counter value)))))
 
-(struct Work
+(record Work
   ((action (FnOnce → Unit))
    (owner (Rc Resource))
    (attempts I64)))
@@ -144,9 +144,12 @@
 (define (linear-replacement) (→ I64)
   (unsafe-total
    (lambda ()
-     (let ((counter (Counter 0)))
+     (let ((counter (new Counter (value 0))))
        (handle Finalized ((finalized (lambda (value) (set! (● counter value) value))))
-         (let* ((work (Work (once (lambda () (unit))) (rc (Resource 13)) 0))
+         (let* ((work (new Work
+                        (action (once (lambda () (unit))))
+                        (owner (rc (new Resource (value 13))))
+                        (attempts 0)))
                 (work (Work-attempts-set work 1)))
            (drop work)))
        (● counter value)))))

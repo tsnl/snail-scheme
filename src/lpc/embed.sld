@@ -58,11 +58,11 @@
 
     ;; Path P gives `(Some (Source KEY image-I))`.
     (define (art-entry (first-key I32) (index I64) (path String)) (→ (Pair String Syntax))
-      (Pair path
-            (form "Some"
-                  (list (form "Source"
-                              (list (IntegerSyntax (+ (i32->i64 first-key) index))
-                                    (image-name index)))))))
+      (new Pair (first path)
+           (second (form "Some"
+                         (list (form "Source"
+                                     (list (IntegerSyntax (+ (i32->i64 first-key) index))
+                                           (image-name index))))))))
 
     (define (image-name (index I64)) (→ Syntax)
       (SymbolSyntax (string-append "image-" (show index))))
@@ -95,9 +95,9 @@
 
     ;; Ramp K gives `(list C ...)`.
     (define (ramp-entry (ramp (Pair String (List I32)))) (→ (Pair String Syntax))
-      (Pair (● ramp first)
-            (form "list"
-                  (map (lambda (color) (IntegerSyntax (i32->i64 color))) (● ramp second)))))
+      (new Pair (first (● ramp first))
+           (second (form "list"
+                         (map (lambda (color) (IntegerSyntax (i32->i64 color))) (● ramp second))))))
 
     ;; The quoted strings of the file in order: each key is followed by its
     ;; colors, so a string that is not a color starts the next ramp.
@@ -107,9 +107,11 @@
                     (match (color-value word)
                       ((Some color) (match ramps
                                       ((Cons (Pair key colors) rest)
-                                       (Cons (Pair key (append colors (list color))) rest))
+                                       (Cons
+                                        (new Pair (first key) (second (append colors (list color))))
+                                        rest))
                                       ((Nil) ramps)))
-                      ((None) (Cons (Pair word (Nil)) ramps))))
+                      ((None) (Cons (new Pair (first word) (second (Nil))) ramps))))
                   (Nil)
                   (quoted-strings text))))
 

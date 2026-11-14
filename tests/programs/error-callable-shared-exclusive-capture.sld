@@ -1,7 +1,7 @@
 (import
  (snail core base))
 
-(struct Token
+(record Token
   ((value I64)))
 
 (instance (Drop (!) Token)
@@ -10,7 +10,7 @@
 
 (define main
   (lambda ()
-    (let* ((token (Token 1))
+    (let* ((token (new Token (value 1)))
            (inner (ann (lambda () (● token value)) (Fn → I64)))
            (outer (ann (lambda () (inner)) (Fn → I64))))
       (drop outer))

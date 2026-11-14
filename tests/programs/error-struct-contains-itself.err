@@ -1,1 +1,1 @@
-the struct Node can never be built: each of its values would contain another
+the record Node can never be built: each of its values would contain another

@@ -21,13 +21,15 @@
                              " sheets, missing "
                              (show (length (missing paths))))))
 
-(define (olive) (→ Skin) (Skin "olive"))
+(define (olive) (→ Skin) (new Skin (name "olive")))
 
 (define (outfit) (→ Outfit)
-  (Outfit (Some (Hair (HairStyle "bob") (HairColor "ginger")))
-          (Some (Worn (Longsleeve) (Dye "teal")))
-          (Some (Worn (Pants) (Dye "navy")))
-          (Some (Worn (Shoes) (Dye "brown")))))
+  (new Outfit
+    (hair
+     (Some (new Hair (style (new HairStyle (name "bob"))) (color (new HairColor (name "ginger"))))))
+    (torso (Some (new Worn (garment (Longsleeve)) (dye (new Dye (name "teal"))))))
+    (legs (Some (new Worn (garment (Pants)) (dye (new Dye (name "navy"))))))
+    (feet (Some (new Worn (garment (Shoes)) (dye (new Dye (name "brown"))))))))
 
 (define (describe (who (Option Character))) (→ String)
   (match who
@@ -36,13 +38,18 @@
     ((None) "refused")))
 
 (define (same-fingerprint? (a (Option Character)) (b (Option Character))) (→ Bool)
-  (match (Pair a b)
+  (match (new Pair (first a) (second b))
     ((Pair (Some one) (Some other)) (= (fingerprint one) (fingerprint other)))
     (_ #f)))
 
 ;; A camera looking down -z: a figure facing +z faces the viewer, one
 ;; facing +x their right.
-(define (camera) (→ Camera) (Camera (Vec3 0.0 5.0 10.0) (Vec3 0.0 0.0 0.0) (Perspective 0.8)))
+(define (camera)
+  (→ Camera)
+  (new Camera
+    (eye (new Vec3 (x 0.0) (y 5.0) (z 10.0)))
+    (target (new Vec3 (x 0.0) (y 0.0) (z 0.0)))
+    (projection (Perspective 0.8))))
 
 (define (texture-text (item Item)) (→ String)
   (match (● (● item material) texture)
@@ -89,18 +96,22 @@
                              (describe (dress (Male)
                                               (HumanMale)
                                               (olive)
-                                              (Outfit (None)
-                                                      (None)
-                                                      (Some (Worn (Pants) (Dye "green")))
-                                                      (None))))))
+                                              (new Outfit (hair (None))
+                                                   (torso (None))
+                                                   (legs (Some (new Worn
+                                                                 (garment (Pants))
+                                                                 (dye (new Dye (name "green"))))))
+                                                   (feet (None)))))))
   (write-line (string-append "shoes on the torso: "
                              (describe (dress (Female)
                                               (HumanFemale)
                                               (olive)
-                                              (Outfit (None)
-                                                      (Some (Worn (Shoes) (Dye "brown")))
-                                                      (None)
-                                                      (None))))))
+                                              (new Outfit (hair (None))
+                                                   (torso (Some (new Worn
+                                                                  (garment (Shoes))
+                                                                  (dye (new Dye (name "brown"))))))
+                                                   (legs (None))
+                                                   (feet (None)))))))
   (match (dress (Female) (HumanFemale) (olive) (outfit))
     ((Some who)
      (for-each (lambda (sheet)
@@ -122,38 +133,38 @@
                                 (if (same-fingerprint? (Some who)
                                                        (dress (Female)
                                                               (HumanFemale)
-                                                              (Skin "light")
+                                                              (new Skin (name "light"))
                                                               (outfit)))
                                     "no"
                                     "yes"))))
     ((None) (write-line "refused")))
   (write-line (string-append "headings: "
                              (string-join (map (lambda (facing) (show (heading 4 facing (camera))))
-                                               (list (Vec3 0.0 0.0 1.0)
-                                                     (Vec3 1.0 0.0 0.0)
-                                                     (Vec3 0.0 0.0 -1.0)
-                                                     (Vec3 -1.0 0.0 0.0)
-                                                     (Vec3 0.7 0.0 0.8)))
+                                               (list (new Vec3 (x 0.0) (y 0.0) (z 1.0))
+                                                     (new Vec3 (x 1.0) (y 0.0) (z 0.0))
+                                                     (new Vec3 (x 0.0) (y 0.0) (z -1.0))
+                                                     (new Vec3 (x -1.0) (y 0.0) (z 0.0))
+                                                     (new Vec3 (x 0.7) (y 0.0) (z 0.8))))
                                           " ")))
   (write-line (string-append "standing toward the viewer: "
                              (texture-text (pose (walk-book 7)
                                                  (Stand)
-                                                 (Vec3 0.0 0.0 0.0)
-                                                 (Vec3 0.0 0.0 1.0)
+                                                 (new Vec3 (x 0.0) (y 0.0) (z 0.0))
+                                                 (new Vec3 (x 0.0) (y 0.0) (z 1.0))
                                                  2.0
                                                  (camera)))))
   (write-line (string-append "strolling to the right: "
                              (texture-text (pose (walk-book 7)
                                                  (Stroll)
-                                                 (Vec3 0.0 0.0 0.0)
-                                                 (Vec3 1.0 0.0 0.0)
+                                                 (new Vec3 (x 0.0) (y 0.0) (z 0.0))
+                                                 (new Vec3 (x 1.0) (y 0.0) (z 0.0))
                                                  2.0
                                                  (camera)))))
   (write-line (string-append "slashing away: "
                              (texture-text (pose (universal-book 7)
                                                  (Slash)
-                                                 (Vec3 0.0 0.0 0.0)
-                                                 (Vec3 0.0 0.0 -1.0)
+                                                 (new Vec3 (x 0.0) (y 0.0) (z 0.0))
+                                                 (new Vec3 (x 0.0) (y 0.0) (z -1.0))
                                                  2.0
                                                  (camera)))))
   (unit))

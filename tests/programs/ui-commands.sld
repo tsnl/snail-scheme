@@ -19,7 +19,7 @@
 ;; nothing. Hiding asks first. The window hears Control-S, and no other
 ;; key, and the page going back online.
 
-(struct Model
+(record Model
   ((text String)
    (shown Bool)
    (log (List String))))
@@ -40,15 +40,15 @@
 
 (define (update (model Model) (message Msg)) (→ (Pair Model (List (Command Msg))))
   (match message
-    ((Begin) (Pair model (list (once began))))
-    ((Typed text) (Pair (Model-text-set model text) (Nil)))
-    ((Indent) (Pair model (list (once indent))))
-    ((Late) (Pair model (list (once late))))
-    ((Ask) (Pair model (list (once ask))))
-    ((Hide) (Pair (Model-shown-set model #f) (list (once missing))))
-    ((Save) (Pair (logged model "saved") (Nil)))
-    ((Online) (Pair (logged model "online") (Nil)))
-    ((Done what) (Pair (logged model what) (Nil)))))
+    ((Begin) (new Pair (first model) (second (list (once began)))))
+    ((Typed text) (new Pair (first (Model-text-set model text)) (second (Nil))))
+    ((Indent) (new Pair (first model) (second (list (once indent)))))
+    ((Late) (new Pair (first model) (second (list (once late)))))
+    ((Ask) (new Pair (first model) (second (list (once ask)))))
+    ((Hide) (new Pair (first (Model-shown-set model #f)) (second (list (once missing)))))
+    ((Save) (new Pair (first (logged model "saved")) (second (Nil))))
+    ((Online) (new Pair (first (logged model "online")) (second (Nil))))
+    ((Done what) (new Pair (first (logged model what)) (second (Nil))))))
 
 (define (logged (model Model) (what String)) (→ Model)
   (Model-log-set model (append (● model log) (list what))))
@@ -120,7 +120,7 @@
   (list (On "online" (Nil) (Allow) (lambda (event) (Online)))
         (On "keydown"
             (list (Key))
-            (Chords (list (Chord "s" (control-key))))
+            (Chords (list (new Chord (key "s") (modifiers (control-key)))))
             (lambda (event) (Save)))))
 
 (define (began) (→ Msg)
@@ -147,7 +147,7 @@
                          (clicked "hide")
                          (FireWindow "online" (no-event)))
                    (lambda ()
-                     (run-ui (Model "" #t (Nil))
+                     (run-ui (new Model (text "") (shown #t) (log (Nil)))
                              (list (Begin))
                              (lambda (model message) (update model message))
                              view

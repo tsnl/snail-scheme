@@ -18,7 +18,7 @@ store, recreates platform resources and asks for the views it needs.
 | Concept | Representation | Lifetime |
 | --- | --- | --- |
 | Entity | Stable typed key, shared by its component tables | As long as the application retains the identity |
-| Component | Ordinary struct/enum stored as a table row | Committed database data |
+| Component | Ordinary record/enum stored as a table row | Committed database data |
 | View | Typed computation over a snapshot and explicit arguments | Cached result may be evicted at any time |
 | System/action | Ordinary computation inside a write transaction | One invocation |
 | Resource | Socket, window, renderer or other ordinary runtime resource | Its owning runtime/task |
@@ -31,16 +31,16 @@ explicit. IDs are values, not array positions or pointers.
 ## Schema from ordinary types
 
 ```scheme
-(struct EntityId
+(record EntityId
   ((value I64))
   (deriving Serialize Deserialize))
 
-(struct Paragraph
+(record Paragraph
   ((text String)
    (font-size F32))
   (deriving Serialize Deserialize))
 
-(struct Document
+(record Document
   ((title String)
    (paragraphs (Vector EntityId)))
   (deriving Serialize Deserialize))
@@ -77,7 +77,7 @@ sorting before order affects a result; storage iteration order is not an input
 to application behavior. A durable document referring to a paragraph must
 check existence and enforce deletion policy in the same write transaction.
 
-Rows are a deliberately limited data subset: scalars, text, vectors, structs and
+Rows are a deliberately limited data subset: scalars, text, vectors, records and
 enums composed of supported data. Storage reads and writes must take independent
 snapshots rather than expose shared mutable state. No procedures, resource owners,
 opaque managed values or platform handles. Durable keys/rows additionally need
@@ -281,7 +281,7 @@ storage API, not inferred from the server implementation.
 
 | Existing foundation | Work still required |
 | --- | --- |
-| Structs/enums, generic functions, concrete effect operations | Schema/library forms and generated typed operations |
+| Records/enums, generic functions, concrete effect operations | Schema/library forms and generated typed operations |
 | Serialize/Deserialize and schema-sensitive TypeIds | Stable database schema identity and explicit migration boundary |
 | Closed effect rows and handler capture checks | A precise structural data/capture check for cached views and actions |
 | Task waits by ticket, and their cleanup | Recoverable storage-abort boundary, serializable writes, consistent snapshots and commit/cancel ownership |

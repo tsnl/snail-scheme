@@ -21,20 +21,20 @@
 ;; `answered` holds for that id, `answer` is the operation's result, as an
 ;; Any, which the accessors below convert back. A task that traps never
 ;; answers; the host reports the trap under the same id.
-(struct Slot
+(record Slot
   ((value (Option Any))))
 
-(struct Requests
+(record Requests
   ((slots (List (Pair I64 Slot)))))
 
-(define (requests) (→ Requests) (Requests (Nil)))
+(define (requests) (→ Requests) (new Requests (slots (Nil))))
 (expose requests "requests")
 
 (define (request (scheduler Scheduler) (requests Requests) (work (FnOnce → Any ! tcp udp tasks)))
   (→ I64) (! mut host tcp udp)
-  (let* ((slot (Slot (None)))
+  (let* ((slot (new Slot (value (None))))
          (id (dispatch-in scheduler (once (lambda () (set! (● slot value) (Some (work))))))))
-    (set! (● requests slots) (Cons (Pair id slot) (● requests slots)))
+    (set! (● requests slots) (Cons (new Pair (first id) (second slot)) (● requests slots)))
     id))
 
 (define (slot (requests Requests) (id I64)) (→ Slot)
@@ -117,7 +117,7 @@
   (require (fixture-convert answer (Result I32 SocketError))))
 
 (define (overwrite) (→ Bool) (! tcp tasks)
-  (match (write (Connection (Any (ann 1 I32))) #u8(9 8 7))
+  (match (write (new Connection (token (Any (ann 1 I32)))) #u8(9 8 7))
     ((Err error) (string=? (● error code) "EBADF"))
     ((Ok _) #f)))
 

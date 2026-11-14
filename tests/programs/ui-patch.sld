@@ -19,7 +19,7 @@
   (Next))
 
 (define (update (step I64) (message Msg)) (→ (Pair I64 (List (FnOnce → Msg ! tasks))))
-  (Pair (+ step 1) (Nil)))
+  (new Pair (first (+ step 1)) (second (Nil))))
 
 (define (view (step I64)) (→ (Html Msg))
   (Element "div"

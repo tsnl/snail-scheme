@@ -11,7 +11,7 @@
 (instance (Twice (Option A))
   (⊨ (Copy A))
   (define (twice (value (Option A))) (→ (Pair (Option A) (Option A)))
-    (Pair value value)))
+    (new Pair (first value) (second value))))
 
 (define (run (option (Option (FnOnce → Unit ! output-port)))) (→ Unit) (! output-port)
   (match option

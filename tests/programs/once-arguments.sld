@@ -2,7 +2,7 @@
  (snail core base)
  (snail core io))
 
-(struct Token
+(record Token
   ((label String)))
 
 (instance (Drop (! output-port) Token)
@@ -29,9 +29,9 @@
             (+ value answer)))))
 
 (define (main) (→ Unit) (! output-port)
-  (let ((work (offset (Token "called") 4)))
+  (let ((work (offset (new Token (label "called")) 4)))
     (write-line (show (work 5))))
-  (drop (offset (Token "dropped") 100))
+  (drop (offset (new Token (label "dropped")) 100))
   ;; Several arguments and an owned argument retain their original types.
   (let ((work (once (lambda (first last) (string-append first last)))))
     (write-line (work "left" "right")))
@@ -40,11 +40,11 @@
   (write-line
    (show
     (handle Pause ((pause (lambda (resume) (resume 10))))
-      (let ((work (suspended (Token "resumed"))))
+      (let ((work (suspended (new Token (label "resumed")))))
         (work 5)))))
   (write-line
    (show
     (handle Pause ((pause (lambda (resume) (drop resume) -1)))
-      (let ((work (suspended (Token "abandoned"))))
+      (let ((work (suspended (new Token (label "abandoned")))))
         (work 5)))))
   (unit))

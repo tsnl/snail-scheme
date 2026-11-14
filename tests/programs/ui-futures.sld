@@ -9,10 +9,10 @@
  (snail shell dom memory)
  (snail shell ui))
 
-(struct PendingWork
+(record PendingWork
   ((future (Option (Future String)))))
 
-(struct Model
+(record Model
   ((text String)
    (pending (Rc PendingWork))))
 
@@ -54,7 +54,10 @@
 (define (main) (→ Unit) (! host mut output-port completion tasks)
   (match (with-memory-dom (list (Hide) (Hide))
                           (lambda ()
-                            (run-reactor (Model "idle" (rc (PendingWork (None)))) (list (Start))
+                            (run-reactor (new Model
+                                           (text "idle")
+                                           (pending (rc (new PendingWork (future (None))))))
+                                         (list (Start))
                                          (lambda (model msg) (update model msg))
                                          (lambda (model) (view model))
                                          (lambda (model) (window model))

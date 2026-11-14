@@ -2,7 +2,7 @@
  (snail core base)
  (snail core io))
 
-(struct Resource
+(record Resource
   ((value I64)))
 
 (instance (Drop (! output-port) Resource)
@@ -12,7 +12,7 @@
 (effect Pause ((ctl pause (Fn → Unit))))
 
 (define (work) (→ Unit) (! Pause mut output-port)
-  (let ((resource (rc (Resource 7))))
+  (let ((resource (rc (new Resource (value 7)))))
     (pause)
     (display (● resource value)) (newline) (unit)))
 

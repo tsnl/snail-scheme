@@ -1,6 +1,6 @@
 (import
  (snail core base))
 
-(struct Cell
+(record Cell
   ((value I64)))
-(define (main) (→ Unit) (! mut) (Cell-value-replace! (Cell 1) 2) (unit))
+(define (main) (→ Unit) (! mut) (Cell-value-replace! (new Cell (value 1)) 2) (unit))

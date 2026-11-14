@@ -106,7 +106,7 @@
     ;; ---- Modules ----
 
     ;; A linked module instance.
-    (struct Module
+    (record Module
       ((handle I32)))
 
     ;; The function the module exports as `name`.
@@ -122,14 +122,14 @@
     ;; What a loader written in Snail Scheme, such as an engine linking a
     ;; program's modules, needs: a compiled module, its imports, and a link
     ;; against providers it chooses, one per import.
-    (struct Compiled
+    (record Compiled
       ((handle I32)))
 
     ;; The module `bytes` hold, or none when they are not one.
 
     (define (compile-bytes (bytes Bytes)) (→ (Option Compiled)) (! wasm)
       (let ((handle (compile bytes)))
-        (if (< handle 0) (None) (Some (Compiled handle)))))
+        (if (< handle 0) (None) (Some (new Compiled (handle handle))))))
 
     (enum ImportKind
       (FunctionImport)
@@ -138,7 +138,7 @@
       (GlobalImport))
 
     ;; An import: the module and field it names, and what it must be.
-    (struct Import
+    (record Import
       ((from String)
        (name String)
        (kind ImportKind)))
@@ -149,7 +149,7 @@
 
     (define (import-of (module I32) (index I32)) (→ Import) (! wasm)
       (let ((kind (import-at module index)))
-        (Import (held-string 0) (held-string 1) (kind-of kind))))
+        (new Import (from (held-string 0)) (name (held-string 1)) (kind (kind-of kind)))))
 
     (define (kind-of (code I32)) (→ ImportKind)
       (cond ((= code 0) (FunctionImport))
@@ -185,7 +185,7 @@
     ;; The program that loads, as an instance whose exports a loaded module
     ;; may import.
 
-    (define (loading-program) (→ Module) (Module 0))
+    (define (loading-program) (→ Module) (new Module (handle 0)))
 
     ;; Links `compiled`, called `name` in a failure, with `providers`, one
     ;; per import in import order, and initializes it when it exports
@@ -200,7 +200,7 @@
       (prepare-link (● compiled handle))
       (for-each provide providers)
       (let ((handle (link-prepared)))
-        (if (< handle 0) (Err (LinkFailed name)) (Ok (Module handle)))))
+        (if (< handle 0) (Err (LinkFailed name)) (Ok (new Module (handle handle))))))
 
     (define (provide (provider Provider)) (→ Unit) (! wasm)
       (match provider

@@ -2,7 +2,7 @@
  (snail core base)
  (snail core io))
 
-(struct Total
+(record Total
   ((value I64)))
 
 ;; Pure code threads its accumulation directly.
@@ -11,7 +11,7 @@
 
 ;; Other effects still need declaring.
 (define (noisy-sum (items (List I64))) (→ I64) (! mut output-port)
-  (let ((total (Total 0)))
+  (let ((total (new Total (value 0))))
     (for-each
      (lambda (item) (write-line (show item)) (set! (● total value) (+ (● total value) item)))
      items)
@@ -29,6 +29,7 @@
   (newline)
   (display (noisy-sum (list 5 6)))
   (newline)
-  (display (match (first-total (list (Total 7))) ((Some cell) (● cell value)) ((None) 0)))
+  (display
+   (match (first-total (list (new Total (value 7)))) ((Some cell) (● cell value)) ((None) 0)))
   (newline)
   (unit))

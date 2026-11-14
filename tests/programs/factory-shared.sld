@@ -4,26 +4,26 @@
 
 (effect Log ((log-value (Fn I64 → Unit))))
 
-(struct Token
+(record Token
   ((value I64)))
 
 (instance (Drop (! Log) Token)
   (define (drop (token Token)) (→ Unit) (! Log)
     (match token ((Token value) (log-value value)))))
 
-(struct Holders
+(record Holders
   ((strong (Rc Token))
    (weak (WeakRc Token))))
 
 (define (holders) (→ Holders)
-  (let ((owner (rc (Token 7))))
-    (Holders owner (rc-downgrade owner))))
+  (let ((owner (rc (new Token (value 7)))))
+    (new Holders (strong owner) (weak (rc-downgrade owner)))))
 
 (define (dead) (→ (WeakRc Token))
   (unsafe-total
    (lambda ()
      (handle Log ((log-value (lambda (value) (unit))))
-       (let ((owner (rc (Token 9))))
+       (let ((owner (rc (new Token (value 9)))))
          (rc-downgrade owner))))))
 
 (define (probe (value (WeakRc Token))) (→ I64) (! mut Log)
@@ -31,7 +31,7 @@
     ((Some owner) (● owner value))
     ((None) -1)))
 
-(struct Cycle
+(record Cycle
   ((owner (Rc Token))
    (values (Vector (Rc Token)))
    (array (Vector (Rc Token)))
@@ -40,9 +40,13 @@
 (define (cyclic) (→ Cycle)
   (unsafe-total
    (lambda ()
-     (let* ((owner (rc (Token 11)))
+     (let* ((owner (rc (new Token (value 11))))
             (node
-             (Cycle owner (vector-generate 1 (lambda (index) owner)) (make-vector 1 owner) (None))))
+             (new Cycle
+               (owner owner)
+               (values (vector-generate 1 (lambda (index) owner)))
+               (array (make-vector 1 owner))
+               (next (None)))))
        (set! (● node next) (Some node))
        node))))
 

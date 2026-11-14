@@ -1,4 +1,4 @@
-;; Wire values: types that implement Serialize and Deserialize. A struct or
+;; Wire values: types that implement Serialize and Deserialize. A record or
 ;; enum value is written as its case's TypeId followed by its fields, so a
 ;; reader detects data written for a different schema. `deriving` generates
 ;; both instances from a declaration.
@@ -32,10 +32,10 @@
     ;; ---- Byte streams ----
 
     ;; The encoder collects bytes in reverse; the decoder reads forward.
-    (struct Encoder
+    (record Encoder
       ((bytes (List U8))))
 
-    (struct Decoder
+    (record Decoder
       ((bytes Bytes)
        (position I64)))
 
@@ -54,7 +54,7 @@
     (define (serialize (value T)) (→ Bytes) (∀ (T)) (⊨ (Serialize T) (Copy T) (Drop (!) T))
       (unsafe-total
        (lambda ()
-         (let ((encoder (Encoder (Nil))))
+         (let ((encoder (new Encoder (bytes (Nil)))))
            (encode value encoder)
            (list->vector (reverse (● encoder bytes)))))))
 
@@ -64,7 +64,7 @@
     (define (deserialize (bytes Bytes)) (→ T) (∀ (T)) (⊨ (Deserialize T))
       (unsafe-total
        (lambda ()
-         (let* ((decoder (Decoder bytes 0)) (value (decode decoder)))
+         (let* ((decoder (new Decoder (bytes bytes) (position 0))) (value (decode decoder)))
            (unless (= (● decoder position) (vector-length bytes))
              (panic "wire data has trailing bytes"))
            value))))

@@ -27,14 +27,14 @@
     ;; (Finding the program, below), its arguments after the name it is run
     ;; as, and the directory it runs in. The program is apart from the
     ;; arguments, so no command is empty.
-    (struct Command
+    (record Command
       ((program String)
        (arguments (List String))
        (directory String)))
 
     ;; The token belongs to the effect handler that spawned the process, as
     ;; a socket's does; `id` is the operating system's process id.
-    (struct Process
+    (record Process
       ((token Any)
        (id I32)))
 
@@ -58,12 +58,12 @@
        ((name String))))
 
     ;; How a command `run` waited for ended, and everything it wrote.
-    (struct Captured
+    (record Captured
       ((exit Exit)
        (stdout Bytes)
        (stderr Bytes)))
 
-    (struct ProcessError
+    (record ProcessError
       ((code String)))
 
     ;; Spawning starts the child with its three standard streams piped to
@@ -104,7 +104,7 @@
                                                               (stream-descriptor stream)
                                                               maximum))
                                     held-read)
-                            (Err (ProcessError "EINVAL")))))
+                            (Err (new ProcessError (code "EINVAL"))))))
          (write-input (lambda (child bytes)
                         (native (lambda (ticket)
                                   (host-start-write-input ticket (process-handle child) bytes))
@@ -130,7 +130,7 @@
                    ((Ok path)
                     (send-command command path)
                     (host-exec)
-                    (ProcessError (held-text 0)))
+                    (new ProcessError (code (held-text 0))))
                    ((Err error) error)))))))
 
     ;; ---- Termination ----
@@ -157,7 +157,7 @@
 
     ;; Private to the native binding: a token from another handler crosses
     ;; as handle 0, which the host refuses with EBADF.
-    (struct NativeProcess
+    (record NativeProcess
       ((handle I32)))
 
     (define (process-handle (child Process)) (→ I32)
@@ -211,7 +211,7 @@
            (match (find (lambda (path) (executable? (● command directory) path))
                         (candidates program))
              ((Some path) (Ok path))
-             ((None) (Err (ProcessError "ENOENT"))))))))
+             ((None) (Err (new ProcessError (code "ENOENT")))))))))
 
     ;; Where each entry of PATH, in order, would hold `program`.
 
@@ -255,7 +255,7 @@
 
     (define (answered (answer I32) (success (Fn I32 → T))) (→ (Result T ProcessError)) (∀ (T))
       (if (< answer 0)
-          (Err (ProcessError (held-text 0)))
+          (Err (new ProcessError (code (held-text 0))))
           (Ok (success answer))))
 
     (define (held-bytes (position I32)) (→ Bytes)
@@ -269,7 +269,7 @@
                        (lambda (index) (i32->char (host-held-byte position (i64->i32 index))))))
 
     (define (spawned (handle I32)) (→ Process)
-      (Process (Any (NativeProcess handle)) (host-held-number)))
+      (new Process (token (Any (new NativeProcess (handle handle)))) (id (host-held-number))))
 
     (define (held-read (answer I32)) (→ (Option Bytes))
       (if (= answer 0) (None) (Some (held-bytes 0))))
@@ -278,7 +278,7 @@
       (if (= answer 0) (Exited (host-held-number)) (Signaled (held-text 0))))
 
     (define (captured (answer I32)) (→ Captured)
-      (Captured (held-exit answer) (held-bytes 1) (held-bytes 2)))
+      (new Captured (exit (held-exit answer)) (stdout (held-bytes 1)) (stderr (held-bytes 2))))
 
     (define (count (written I32)) (→ I32) written)
 

@@ -10,7 +10,7 @@ output shown. Run one with
 - [Snail Scheme in ten minutes](tour.md): the whole language at a glance, as
   one commented program. Start here.
 - [Fibonacci](fibonacci.md): a typed recursive function and output.
-- [Colors](colors.md): structs, enums, typeclasses and pattern matching.
+- [Colors](colors.md): records, enums, typeclasses and pattern matching.
 - [Effects](effects.md): effect rows and handlers.
 - [Values and mutation](values.md): shared objects, mutable fields and fresh
   explicit factory functions and shared state.

@@ -74,7 +74,7 @@
   (show-reading "(define (twice (x I64)) (→ I64) ; doubles\n  (* 2 x))")
   (show-reading "(define label (→ String) \"label\")")
   (show-reading "(define (adder (n I64)) (→ (Fn I64 → I64)) (lambda (x) (+ n x)))")
-  (show-reading "(struct Point ((x F64)) (deriving Show)) (match p ((Point x) x) (_ 0))")
+  (show-reading "(record Point ((x F64)) (deriving Show)) (match p ((Point x) x) (_ 0))")
   (show-reading
    "(effect ask ((ctl ask (Fn → I64)))) (handle ask ((ask (lambda (resume) (resume 1)))) body)")
   ;; Block comments nest.

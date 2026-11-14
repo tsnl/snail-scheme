@@ -4,7 +4,7 @@
  (snail core io)
  (snail shell future))
 
-(struct Resource
+(record Resource
   ((value I64)))
 
 (instance (Drop (! output-port) Resource)
@@ -14,16 +14,16 @@
 (define (main) (→ Unit) (! host mut output-port completion)
   (match (ann (make-promise) (Pair (Promise I64) (Future I64)))
     ((Pair promise future)
-     (let* ((first (Resource 1))
+     (let* ((first (new Resource (value 1)))
             (future (on-ready future (once (lambda () (drop first)))))
-            (second (Resource 2))
+            (second (new Resource (value 2)))
             (future (on-ready future (once (lambda () (drop second))))))
        (display 3) (newline)
        (drop (fulfill promise 42))
        (drop future))))
   (match (ann (make-promise) (Pair (Promise I64) (Future I64)))
     ((Pair promise future)
-     (let* ((held (Resource 4))
+     (let* ((held (new Resource (value 4)))
             (future (on-ready future (once (lambda () (drop held))))))
        (drop future)
        (drop promise))))

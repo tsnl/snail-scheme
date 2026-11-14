@@ -9,7 +9,7 @@
 (effect log
   ((say (Fn String → Unit))))
 
-(struct Handle
+(record Handle
   ((name String)))
 
 (instance (Drop (! log) Handle)
@@ -20,7 +20,7 @@
 ;; ANCHOR_END: handle
 
 ;; A token is linear by its declaration, and holds nothing to release.
-(struct Token
+(record Token
   ((id I64))
   )
 (instance (Drop (!) Token)
@@ -32,14 +32,14 @@
   (drop items))
 
 (define (demo) (→ Unit) (! log)
-  (drop (Handle "one"))
+  (drop (new Handle (name "one")))
   ;; Glue drops each linear field, in order.
-  (drop (Pair (Handle "two") (Handle "three")))
-  (drop (list (Handle "four") (Handle "five")))
-  (drop (Some (Handle "six")))
-  (release-all (list (Handle "seven") (Handle "eight")))
+  (drop (new Pair (first (new Handle (name "two"))) (second (new Handle (name "three")))))
+  (drop (list (new Handle (name "four")) (new Handle (name "five"))))
+  (drop (Some (new Handle (name "six"))))
+  (release-all (list (new Handle (name "seven")) (new Handle (name "eight"))))
   ;; Nothing to run.
-  (drop (Token 9))
+  (drop (new Token (id 9)))
   (drop (once (lambda () (say "never called"))))
   (say "done"))
 

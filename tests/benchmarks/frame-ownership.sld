@@ -1,10 +1,10 @@
 (import
  (snail core base))
 
-(struct Counter
+(record Counter
   ((closed I64)))
 
-(struct Resource
+(record Resource
   ((counter Counter)
    (number I64)))
 
@@ -23,14 +23,14 @@
         (+ answer (● resource number)))))
 
 (define (iteration (depth I64) (cancel Bool) (counter Counter)) (→ I64) (! mut)
-  (let ((resource (rc (Resource counter 1))))
+  (let ((resource (rc (new Resource (counter counter) (number 1)))))
     (handle Pause
         ((pause (lambda (number resume)
                   (if cancel (begin (drop resume) number) (resume number)))))
       (nested depth resource))))
 
 (define (measure (count I64) (depth I64) (cancel Bool)) (→ I64) (! mut)
-  (let ((counter (Counter 0)))
+  (let ((counter (new Counter (closed 0))))
     (let loop ((left count) (sum 0))
       (if (= left 0) (if (= (● counter closed) count) sum -1)
           (loop (- left 1) (+ sum (iteration depth cancel counter)))))))
