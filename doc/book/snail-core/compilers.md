@@ -5,6 +5,12 @@ Reading supplies located syntax. Preparation closes specialization and
 cleanup requests and produces fixed concrete code.
 Emission consumes that result without revisiting source semantics.
 
+[Query-driven incremental compilation](incremental-compiler.md) proposes a common
+query implementation, compiler performance improvements and simpler orchestration
+for applications, generators and editor requests, with separate build and LSP
+workspaces. That design remains under review;
+the pass descriptions here document the implemented compiler.
+
 ```text
 text ──read───▶ located syntax
      ──expand─▶ resolved program   unique names, declarations, field paths
