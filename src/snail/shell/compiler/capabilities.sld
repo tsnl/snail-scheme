@@ -4,6 +4,7 @@
 ;; procedure's arrow does not describe its captured environment.
 (define-library (snail shell compiler capabilities)
   (export
+   with-type-facts
    linear-type?
    shared-type?
    missing-copy
@@ -25,14 +26,47 @@
    (snail shell compiler core))
   (begin
 
+    ;; ---- Declared facts ----
+
+    ;; The queries below search a type's declarations, and the same few
+    ;; types are asked about throughout a program. A declaration without
+    ;; parameters has fields that no type variable reaches, so what a query
+    ;; answers for it does not depend on the Copy variables or requirements
+    ;; in scope: the expander records each such answer once its program has
+    ;; every type, and a query about that declaration reads it.
+
+    (define (with-type-facts (program Program)) (→ Program)
+      (Program-facts-set program
+                         (fold-left (lambda (facts data)
+                                      (if (null? (● data params))
+                                          (table-set facts (● data name)
+                                                     (declared-facts program (● data name)))
+                                          facts))
+                                    (empty-table)
+                                    (table-values (● program types)))))
+
+    (define (declared-facts (program Program) (name String)) (→ TypeFacts)
+      (let ((type (TCon name (Nil))))
+        (new TypeFacts
+          (linear? (linear-type? program (Nil) type))
+          (shared? (shared-type? program type))
+          (drop-rows (drop-rows program (Nil) (Nil) type)))))
+
+    (define (type-facts (program Program) (type Type)) (→ (Option TypeFacts))
+      (match type
+        ((TCon name (Nil)) (table-ref (● program facts) name))
+        (_ (None))))
+
     ;; ---- Shared ownership ----
 
     ;; Copy containers own their fields once, even when the container has
     ;; aliases. Only containers that can reach counted content need their
     ;; own count. Linear containers already have exactly one owner.
     (define (shared-type? (program Program) (type Type)) (→ Bool)
-      (and (not (linear-type? program (Nil) type))
-           (shared-content? program type (Nil))))
+      (match (type-facts program type)
+        ((Some facts) (● facts shared?))
+        ((None) (and (not (linear-type? program (Nil) type))
+                     (shared-content? program type (Nil))))))
 
     (define (shared-content? (program Program) (type Type) (seen (List String))) (→ Bool)
       (match type
@@ -45,7 +79,7 @@
         ((TCon name args)
          (cond ((member? name (list "Vector"))
                 (any? (lambda (arg) (shared-content? program arg seen)) args))
-               ((any? (lambda (entry) (string=? name (● entry first))) (builtin-types)) #f)
+               ((builtin-type? name) #f)
                ((member? name seen)
                 (any? (lambda (arg) (shared-content? program arg seen)) args))
                (else (shared-fields? program type (Cons name seen)))))
@@ -76,7 +110,7 @@
     ;; them keeps the query a function of its arguments.
     (record Linearity
       ((found? Bool)
-       (keys (List String))
+       (keys (Table Bool))
        (names (List String))))
 
     ;; A type variable is linear unless `copy` names it, as a signature's
@@ -85,8 +119,12 @@
     ;; linear value while remaining Copy; WeakRc has no ownership of its target.
 
     (define (linear-type? (program Program) (copy (List String)) (type Type)) (→ Bool)
-      (● (linear-search program copy type (new Linearity (found? #f) (keys (Nil)) (names (Nil))))
-         found?))
+      (match (type-facts program type)
+        ((Some facts) (● facts linear?))
+        ((None)
+         (● (linear-search program copy type
+                           (new Linearity (found? #f) (keys (empty-table)) (names (Nil))))
+            found?))))
 
     (define (linear-search (program Program) (copy (List String)) (type Type) (progress Linearity))
       (→ Linearity)
@@ -102,7 +140,7 @@
     ;; A builtin holds its arguments directly, and so, conservatively, does
     ;; a declaration met again on the path at other arguments. Any other
     ;; declaration is searched through its fields, with its parameters bound
-    ;; to `args`.
+    ;; to `args`. A builtin is never entered, so it needs no key.
 
     (define (linear-instance (program Program)
                              (copy (List String))
@@ -110,19 +148,19 @@
                              (args (List Type))
                              (progress Linearity))
       (→ Linearity)
-      (let ((key (type-key (TCon name args))))
-        (cond ((member? key (● progress keys)) progress)
-              ((or (member? name (● progress names))
-                   (any? (lambda (entry) (string=? name (● entry first))) (builtin-types)))
-               (linear-any program copy args progress))
-              (else
-               (let* ((names (● progress names))
-                      (entered
-                       (new Linearity
-                         (found? #f)
-                         (keys (Cons key (● progress keys)))
-                         (names (Cons name names)))))
-                 (Linearity-names-set (linear-fields program copy name args entered) names))))))
+      (if (builtin-type? name)
+          (linear-any program copy args progress)
+          (let ((key (type-key (TCon name args))))
+            (cond ((table-contains? (● progress keys) key) progress)
+                  ((member? name (● progress names)) (linear-any program copy args progress))
+                  (else
+                   (let* ((names (● progress names))
+                          (entered (new Linearity
+                                     (found? #f)
+                                     (keys (table-set (● progress keys) key #t))
+                                     (names (Cons name names)))))
+                     (Linearity-names-set (linear-fields program copy name args entered)
+                                          names)))))))
 
     (define (linear-any (program Program)
                         (copy (List String))
@@ -237,7 +275,7 @@
       (→ Plan)
       (match type
         ((TCon name _)
-         (if (any? (lambda (entry) (string=? name (● entry first))) (builtin-types)) (Trivial)
+         (if (builtin-type? name) (Trivial)
              (match (drop-instance program name)
                ((Some instance) (Implemented instance))
                ((None) (data-plan program copy type)))))
@@ -301,7 +339,7 @@
         ((TCon name _)
          (cond ((member? (type-key type) keys) #f)
                ((member? name names) #t)
-               ((any? (lambda (entry) (string=? name (● entry first))) (builtin-types)) #f)
+               ((builtin-type? name) #f)
                (else (match (drop-instance program name)
                        ((Some _) #t)
                        ((None) (fields-drop-run? program copy type keys names))))))
@@ -376,13 +414,16 @@
                        (givens (List Constraint))
                        (type Type))
       (→ (Result (List Type) String))
-      (match (drop-rows-search program
-                               copy
-                               givens
-                               type
-                               (Ok (new RowSearch (rows (Nil)) (keys (Nil)) (names (Nil)))))
-        ((Ok found) (Ok (reverse (● found rows))))
-        ((Err message) (Err message))))
+      (match (type-facts program type)
+        ((Some facts) (● facts drop-rows))
+        ((None)
+         (match (drop-rows-search program
+                                  copy
+                                  givens
+                                  type
+                                  (Ok (new RowSearch (rows (Nil)) (keys (Nil)) (names (Nil)))))
+           ((Ok found) (Ok (reverse (● found rows))))
+           ((Err message) (Err message))))))
 
     (define (drop-rows-search (program Program)
                               (copy (List String))
@@ -422,7 +463,7 @@
                 (fold-left (lambda (progress arg)
                              (drop-rows-search program copy givens arg progress))
                            (Ok found) args))
-               ((any? (lambda (entry) (string=? name (● entry first))) (builtin-types)) (Ok found))
+               ((builtin-type? name) (Ok found))
                (else (match (drop-instance program name)
                        ((Some instance)
                         (instance-search program copy givens type instance found))
@@ -578,7 +619,7 @@
         ((TCon name args)
          (cond ((string=? name target) #t)
                ((or (member? name entered)
-                    (any? (lambda (entry) (string=? name (● entry first))) (builtin-types)))
+                    (builtin-type? name))
                 #f)
                (else (let ((data (program-type program name)))
                        (and (not (● data enum?))

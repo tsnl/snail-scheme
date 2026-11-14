@@ -22,6 +22,10 @@
     ;; Learning holds the substitutions and obligations accumulated so far.
     ;; A signed body's row identity records which declared effects it uses;
     ;; nested lambdas restore the enclosing body's record on return.
+    ;; `unsolved-fields` counts the field selections in `pending` whose
+    ;; projection is not yet solved, so that improving types after a call
+    ;; knows whether an older one is still waiting without searching the
+    ;; whole library's obligations.
     (record Checker
       ((program Program)
        (locals (Table Type))
@@ -34,6 +38,7 @@
        (schemes (Table Scheme))
        (pending (List Wanted))
        (pending-count I64)
+       (unsolved-fields I64)
        (open (List String))
        (performed (List Type))))
 
@@ -72,6 +77,7 @@
            (schemes (● inner schemes))
            (pending (● inner pending))
            (pending-count (● inner pending-count))
+           (unsolved-fields (● inner unsolved-fields))
            (open (● inner open))
            (performed (● inner performed))))
 
@@ -460,8 +466,11 @@
     ;; ---- Instantiation ----
 
     (define (want (ck Checker) (wanted Wanted)) (→ Checker)
-      (Checker-pending-count-set (Checker-pending-set ck (Cons wanted (● ck pending)))
-                                 (+ (● ck pending-count) 1)))
+      (let ((ck (Checker-pending-count-set (Checker-pending-set ck (Cons wanted (● ck pending)))
+                                           (+ (● ck pending-count) 1))))
+        (match wanted
+          ((WantField _) (Checker-unsolved-fields-set ck (+ (● ck unsolved-fields) 1)))
+          (_ ck))))
 
     (define (want-class (ck Checker) (constraint Constraint) (loc Loc)) (→ (Pair Evidence Checker))
       (learning ck ((hole (fresh-identity))
@@ -1458,7 +1467,9 @@
             ((Some (Pair value effects))
              (learning ck ((then (unify (● projection result) (● value type) (● projection loc)))
                            (then (perform effects (● projection row) (● projection loc))))
-                       (Checker-solution-set ck
+                       (Checker-solution-set (Checker-unsolved-fields-set ck
+                                                                          (- (● ck unsolved-fields)
+                                                                             1))
                                              (Solution-projections-set (solution ck)
                                                                        (table-set (● (solution ck)
                                                                                      projections)
@@ -1527,6 +1538,8 @@
     ;; constraints whose inputs a later use decides wait until here.
 
     (define (solve-pending (ck Checker)) (→ Checker) (! compile)
+      (unless (= (● ck unsolved-fields) (length (waiting-fields ck (● ck pending))))
+        (panic "internal error: the checker miscounted its unsolved field selections"))
       (let ((pending (reverse (● ck pending))))
         (learning ck ((then (improve-types 0))
                       (then (default-literals pending #t))
@@ -1902,16 +1915,24 @@
     (define (improve-types (ck Checker) (before I64)) (→ Checker) (! compile)
       (let* ((count (- (● ck pending-count) before))
              (recent (take (● ck pending) count))
-             (deferred (filter (lambda (want)
-                                 (match want
-                                   ((WantField projection) (not (projection-solved? ck projection)))
-                                   (_ #f)))
-                               (list-drop (● ck pending) count)))
+             (deferred (if (= (● ck unsolved-fields) (length (waiting-fields ck recent))) (Nil)
+                           (waiting-fields ck (list-drop (● ck pending) count))))
              (wanted (reverse (append recent deferred))))
         (let loop ((ck ck))
           (let ((next (fold-left improve-output ck wanted)))
             (if (types=? (improvement-types ck wanted) (improvement-types next wanted))
                 next (loop next))))))
+
+    ;; The field selections among `wanted` still waiting for their record's
+    ;; type. When the recent ones are all that wait, no older one is
+    ;; searched for.
+
+    (define (waiting-fields (ck Checker) (wanted (List Wanted))) (→ (List Wanted))
+      (filter (lambda (want)
+                (match want
+                  ((WantField projection) (not (projection-solved? ck projection)))
+                  (_ #f)))
+              wanted))
 
     (define (improvement-types (ck Checker) (wanted (List Wanted))) (→ (List Type))
       (concatenate (map (lambda (want)
@@ -2324,13 +2345,17 @@
     ;; a Never branch can leave a resource it never mentions. Control later
     ;; materializes the same ownership edges as frame droppers.
 
+    ;; The owners `expr` consumes when `taken?`, and otherwise those it
+    ;; leaves: every owner it does not move. Only a linear owner moves, and
+    ;; asking means searching its type's declarations, so it is asked only
+    ;; of the few owners `expr` names.
     (define (cleanup-scope (ck Checker) (scope (List (Pair String Type))) (expr Expr) (taken? Bool))
       (→ (List (Pair String Type)))
       (let ((names (consumed-references (program-of ck) expr)))
         (filter (lambda (entry)
-                  (let ((moved?
-                         (and (linear? ck (● entry second)) (member? (● entry first) names))))
-                    (if taken? (member? (● entry first) names) (not moved?)))) scope)))
+                  (let ((named? (member? (● entry first) names)))
+                    (if taken? named? (not (and named? (linear? ck (● entry second)))))))
+                scope)))
 
     (define (cleanup-row (ck Checker) (callee Expr)) (→ Type)
       (match (● callee term)
@@ -3083,6 +3108,7 @@
                      (schemes schemes)
                      (pending (Nil))
                      (pending-count 0)
+                     (unsolved-fields 0)
                      (open (Nil))
                      (performed (Nil)))))
         (learning ck ((typed (check-items items))
