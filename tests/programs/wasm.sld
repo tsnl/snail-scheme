@@ -5,9 +5,9 @@
 
 ;; Link a module from bytes and call its export through an Fn closure.
 ;; Its function takes evidence first, as a Snail Scheme function does.
-;; The bytes encode the nullable internal reference ABI. Evidence
-;; includes the owner header and the forwarding/copy links used by resumptions;
-;; an older three-field evidence type is not interchangeable with this one.
+;; The bytes encode the nullable internal reference ABI. Evidence holds
+;; its label, its handler, the evidence outside it, and the copy and origin
+;; links resumptions use; a type of another shape is not interchangeable.
 ;; The only function is (param evidence i64 i64) -> i64 and adds locals 1 and 2.
 (define (adder) (→ (List I32))
   (list 0
@@ -19,65 +19,40 @@
         0
         0
         1
-        62
+        37
         2
         78
-        4
-        96
-        3
-        99
-        3
-        99
-        3
-        99
-        3
-        1
-        99
-        3
-        80
-        0
+        2
         95
-        2
-        126
-        1
-        99
-        2
-        0
-        96
-        2
-        99
-        1
-        99
-        3
-        1
-        127
-        79
-        1
-        1
-        95
-        7
-        126
-        1
-        99
-        2
-        0
+        5
         127
         0
         110
         0
         99
-        3
-        0
-        99
         0
         0
         99
-        3
+        1
+        0
+        99
+        0
         0
         96
         3
         99
+        0
+        99
+        0
+        99
+        0
+        1
+        99
+        0
+        96
         3
+        99
+        0
         126
         126
         1
@@ -85,7 +60,7 @@
         3
         2
         1
-        4
+        2
         7
         7
         1

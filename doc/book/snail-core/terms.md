@@ -153,17 +153,13 @@ object components contribute a constant hash. Object-only keys can therefore
 require a linear bucket search. Mixed keys still benefit from scalar and string
 components. There is no hidden identity field added to user objects.
 
-Raw `Funcref` host handles cannot be keys. Keys and results must have no
-deterministic cleanup, including through their
-fields. Linear values, `Rc`, `Any`, functions, and aggregates containing them are
-rejected. Plain mutable records and vectors are allowed. The callback may itself
-capture counted resources: its usual closure ownership keeps them alive and
-releases them when the last wrapper owner leaves. `FnOnce` callbacks and callbacks
-whose control operations can escape are rejected for all four wrappers.
+Raw `Funcref` host handles cannot be keys. Any other value may be a key or a
+result, including functions, `Any` values, mutable records and vectors.
+Callbacks whose control operations can escape are rejected for all four
+wrappers.
 
 A hit skips the callback body, including any effects allowed by the unsafe names.
-Ordinary closure cleanup still runs when an owner leaves scope. Cache only functions for which
-that behavior is intended. An empty effect row still permits reading mutable
+Cache only functions for which that behavior is intended. An empty effect row still permits reading mutable
 objects and captured state, so it does not prove that their answers stay the same.
 The private cache adds no effect to the function's signature.
 A result is stored only after a successful return.
@@ -171,16 +167,6 @@ Reentrant calls can populate the same cache: the last successful completion for
 a key wins, and each call returns its own computed result. There is no in-progress
 entry or recursive-cycle guard. Wrapping a function does not redirect its original
 recursive references through the wrapper.
-
-**Possible follow-up, not implemented:** dedicated `rc-cache` and `lru-rc-cache`
-wrappers could support `Rc T` results without keeping their payloads alive. Their
-maps would store only `WeakRc T`: upgrade a live hit to a strong result, or
-recompute after a dead hit. A miss holds and returns the callback's strong result
-while recording its weak reference. Periodic pruning removes dead entries, and
-bounded eviction prefers dead entries before the least recently used live entry.
-The pruning schedule and effect contract remain design work on [the roadmap](https://github.com/tsnl/snail-scheme/issues/729).
-Ordinary `cache` and `lru-cache` reject `Rc` results today; `WeakRc` results are
-allowed, and their cached weak references may become dead.
 
 A local wrapper has one monomorphic callable type. Generic factory functions can
 create fresh wrappers for different concrete types; one wrapper is never shared
@@ -203,8 +189,8 @@ repeated expensive calculation is about 30–32 times faster; trivial repeated
 work costs about 1.9 times as much, and all-miss trivial work costs about 7.5 times
 as much. These are scalar-key microbenchmarks, not compiler-wide or object-key
 performance claims. The LRU capacity fits every key, so eviction pressure is not
-measured. Forced GC runs outside timing; wrapper release is included, but eventual
-collection of discarded tables is not measured. [Raw samples and artifact hashes](measurements/function-cache-20261113.json)
+measured. Forced GC runs outside timing, and eventual collection of discarded
+tables is not measured. [Raw samples and artifact hashes](measurements/function-cache-20261113.json)
 include an independent-process confirmation. Reproduce after building the
 compiler:
 
@@ -222,14 +208,14 @@ they do not require every source operation to use the same punctuation.
 Familiar projection syntax such as `a.b.c` should be considered on its
 own merits, alongside bindings, calls, signatures and callback bodies.
 
-The implemented [function types](types.md#function-types) are `Fn` and
-`FnOnce`, with `→` separating the result and `!` introducing effects. Named
+The implemented [function type](types.md#functions) is `Fn`, with `→`
+separating the result and `!` introducing effects. Named
 functions use typed parameter pairs and inline result, effect, generic and
 constraint clauses. Definitions continue to use `define`.
 
 Direct field selection is `(● receiver label ...)`: each nominal record type
-supplies its stored fields, and paths follow heap references, including `Rc`
-payloads. Use a projection in `set!` or `replace!` to write its final field.
+supplies its stored fields, and paths follow heap references. Use a
+projection in `set!` to write its final field.
 Every field is mutable. Computed getters are ordinary functions.
 
 Direct-style suspension remains available: the compiler turns the remaining
@@ -238,7 +224,7 @@ boundaries, including through wrapper calls. A separate checked call-site
 marker remains open; examples use ordinary operation names, and `!` retains
 its mutation convention. [Effect transitions](effects.md#resumption-effects-and-effect-transitions)
 describe entry and resumption requirements. Dot notation need not expose a
-runtime offset or change ownership.
+runtime offset.
 
 Evaluate candidates by rewriting complete examples: the tour's counter,
 a nested update in an application, a higher-order collection operation,
@@ -354,7 +340,7 @@ The reader-created form must have a defined hygienic binding; a local
 variable must not accidentally change what punctuation means.
 
 The translation should preserve the existing nominal projection semantics:
-read `(● object field ...)`, or use that projection in `set!` / `replace!`.
+read `(● object field ...)`, or use that projection in `set!`.
 Each step follows one object reference. Field lookup is resolved during
 checking, and every stored field is mutable. Computed getters are ordinary
 functions and do not become writable by punctuation.

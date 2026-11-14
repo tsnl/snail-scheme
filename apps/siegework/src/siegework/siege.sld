@@ -240,7 +240,6 @@
     (define (nearest (items (List A)) (distance (Fn A → I64)))
       (→ (Option A))
       (∀ (A))
-      (⊨ (Copy A) (Drop (!) A))
       (fold-left (lambda (best item)
                    (match best
                      ((Some other) (if (< (distance item) (distance other)) (Some item) best))

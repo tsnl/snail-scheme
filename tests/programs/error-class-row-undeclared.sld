@@ -9,5 +9,5 @@
 (define (fetch-twice (store S) (name String))
   (→ String)
   (∀ (e S))
-  (⊨ (Store e S) (Copy S) (Drop (!) S))
+  (⊨ (Store e S))
   (string-append (fetch-object store name) (fetch-object store name)))

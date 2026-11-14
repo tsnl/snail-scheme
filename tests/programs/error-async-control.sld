@@ -12,5 +12,5 @@
 
   (handle pause
       ((stop (lambda (resume) (resume (unit)))))
-    (drop (dispatch (once (lambda () (stop))))))
+    (dispatch (lambda () (stop))))
   (unit))

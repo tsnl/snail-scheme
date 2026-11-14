@@ -35,20 +35,20 @@
               (gate (Mailbox Unit))
               (state Requests)
               (commands (List Command)))
-  (→ (List (FnOnce → Delivery ! mut host output-port tasks dom fetch)))
+  (→ (List (Fn → Delivery ! mut host output-port tasks dom fetch)))
   (! mut host)
   (match commands
     ((Nil) (Nil))
-    ((Cons (Command work _) rest)
-     (Cons (once (lambda ()
-                   (when delayed
-                     (mailbox-receive gate)
-                     (set! (● state completed) (+ 1 (● state completed))))
-                   (observed work state)))
+    ((Cons (Command work) rest)
+     (Cons (lambda ()
+             (when delayed
+               (mailbox-receive gate)
+               (set! (● state completed) (+ 1 (● state completed))))
+             (observed work state))
            (jobs delayed gate state rest)))))
 
 ;; Record the request identity at its boundary, before it can suspend.
-(define (observed (work (FnOnce → CommandResult ! tasks dom fetch)) (state Requests))
+(define (observed (work (Fn → CommandResult ! tasks dom fetch)) (state Requests))
   (→ Delivery)
   (! mut tasks dom fetch)
   (let ((issued (new Request (issued 0))))
@@ -71,7 +71,7 @@
                      (model Model)
                      (message Delivery))
   (→ (Pair Model
-           (List (FnOnce → Delivery ! mut host output-port tasks dom fetch))))
+           (List (Fn → Delivery ! mut host output-port tasks dom fetch))))
   (! mut host)
   (match message
     ((Input message)
@@ -179,5 +179,5 @@
                       "queued reveal cannot steal focus after a split")))))
 
 (define (main) (→ Unit) (! host mut output-port tasks)
-  (dispatch-local (once (lambda () (run #t) (run #f))))
+  (dispatch-local (lambda () (run #t) (run #f)))
   (unit))

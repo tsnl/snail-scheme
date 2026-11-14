@@ -22,7 +22,7 @@ export function taskExports(program) {
 const engineTasks = exports => ({
   ...exports,
   'tasks:dispose': exports['engine:close'],
-  'tasks:create': exports['engine:create'], 'tasks:create:release-result': exports['engine:create:release-result'],
+  'tasks:create': exports['engine:create'],
   'tasks:turn': exports['engine:turn'], 'tasks:wake': exports['engine:wake'], 'tasks:close': exports['engine:close-tasks'],
   'tasks:running': exports['engine:running'], 'tasks:live': exports['engine:live'],
 });
@@ -30,14 +30,13 @@ const engineTasks = exports => ({
 // One run of a program's tasks: its outstanding host operations and the
 // loop that turns the scheduler. `exports` gives the scheduler's exports
 // once the program is loaded. Closing aborts every outstanding operation
-// and drops every task.
+// and discards every task.
 export function createTasks(exports, {reportError = () => {}} = {}) {
   const outcomes = new Map(), controller = new AbortController();
   let outstanding = 0, resting = null, scheduler = null, owner = null, active = 0, closed = false, disposing = false, closeStatus = 0;
   const settled = [];
 
-  // The run owns one returned credit. Each Wasm entry retains its arguments;
-  // release consumes only this host credit, after queued work has closed.
+  // The run holds the scheduler it created until it closes.
   function context() {
     if (!scheduler) {
       scheduler = exports();
@@ -67,9 +66,8 @@ export function createTasks(exports, {reportError = () => {}} = {}) {
       scheduler['tasks:close'](value);
       closeStatus = Number(scheduler['tasks:dispose']?.(value) ?? 0);
     } finally {
-      owner = null; // Consume the credit before invoking its release companion.
-      try { scheduler['tasks:create:release-result'](value); }
-      finally { disposing = false; }
+      owner = null;
+      disposing = false;
     }
   }
 
@@ -129,16 +127,8 @@ export function createTasks(exports, {reportError = () => {}} = {}) {
       outcomes.delete(ticket);
       return outcome.deliver();
     },
-    // A dropped operation token may own an already-ready result whose task
-    // was canceled before delivery. Pending work is disposed by settle when
-    // its ticket no longer wakes a continuation.
-    discard(ticket) {
-      const outcome = outcomes.get(ticket);
-      if (outcome) { outcomes.delete(ticket); outcome.dispose(); }
-    },
     // Turns until no task is live or the caller stops. A trap is terminal:
-    // Wasm does not unwind source ownership. Close reachable queued work,
-    // but never pretend to recover owners stranded in a trapped frame.
+    // Wasm does not unwind a trapped frame, so the run closes.
     async drive(stopped = () => false) {
       if (closed || !context()) return;
       for (;;) {
@@ -163,8 +153,8 @@ export function createTasks(exports, {reportError = () => {}} = {}) {
       controller.abort(reason);
       let failure;
       try { if (!active) release(); } catch (error) { failure = error; }
-      // A source finalizer may trap. Host results still belong to this run
-      // and must be disposed even when releasing the scheduler failed.
+      // Closing the scheduler runs Snail code, which may trap. Host results
+      // still belong to this run and must be disposed of even then.
       outstanding -= settled.length;
       const abandoned = [...settled.splice(0).map(([, outcome]) => outcome), ...outcomes.values()];
       outcomes.clear();

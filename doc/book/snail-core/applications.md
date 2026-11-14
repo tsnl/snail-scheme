@@ -72,7 +72,7 @@ An application library exports an alias and implements the engine's class:
 `define-page-state` supplies ordinary `PageState` evidence for packing and
 unpacking this concrete state at the host's opaque `Any` boundary. It preserves
 the compiler's checks on reification; it does not permit hidden effectful values
-to cross that boundary. The state must also satisfy `Copy`. Serialization is
+to cross that boundary. Serialization is
 chosen explicitly by the application; these examples use `(snail shell wire)`.
 
 The scene engine performs `mut`, `screen`, `events`, `storage` and `tasks`.
@@ -129,7 +129,7 @@ canvas, in the shape Elm gave them:
 | Function | Meaning |
 | --- | --- |
 | `view : Model -> (Html M)` | A tree of elements and texts. An element's attributes, typed properties (`StringProperty`, `NumberProperty`, `FlagProperty`) and listeners (`On`) are plain data; a listener holds a function from what its event carried to a message `M`. |
-| `update : Model M -> (Pair Model (List (FnOnce → M ! tasks e)))` | The next model, and the commands the message starts: one-shot work, run as tasks, each answering a message. |
+| `update : Model M -> (Pair Model (List (Fn → M ! tasks e)))` | The next model, and the commands the message starts: work run as tasks, each answering a message. |
 
 `run-ui model start update view window commit checkpoint` shows the view in the
 document's root through the `dom` effect of `(snail shell dom)`, updates
@@ -262,35 +262,30 @@ periodic saves and live reload through the same transaction as scenes.
 after a rejected view. Listener identities are never reused after replacement,
 so queued events from an old document cannot invoke a new listener.
 
-### Resource-owning models and futures
+### Models and futures
 
 `run-reactor model start update view window snapshot commit checkpoint` uses the
-same renderer with futures stored in the model. The model satisfies `Copy`;
-linear resources live inside explicit `Rc` owners. The IDE's `Session`, for
-example, shares a counted pending-work object containing its futures. The
-compiler retains and releases those owners when callbacks receive the model.
+same renderer with futures stored in the model. The IDE's `Session`, for
+example, keeps a list of the commands still pending, each a future.
 
-| Function | Ownership and effects |
+| Function | Effects |
 | --- | --- |
 | `update : Model (Option M) → Model ! mut host completion tasks e` | Processes input, polls futures and returns the next model. `Some M` is input; `None` is a completion wake. It may suspend through the ordinary task effect. |
-| `view : Model → (Html M) ! mut host e` | Receives a shared model and describes its presentation. |
+| `view : Model → (Html M) ! mut host e` | Receives the model and describes its presentation. |
 | `window : Model → (List (Attribute M)) ! mut host e` | Describes window listeners. |
 | `snapshot : Model → Save ! mut host e` | Constructs detached recovery data. |
 | `commit : Save → Unit ! mut e` | Publishes a snapshot after a successful presentation. |
 | `checkpoint : Save → Unit ! mut tasks e` | Persists a snapshot on a save request, hiding or close. |
 
-The loop retains its model across waits and admits its cleanup effects. There
-are no source borrows. Reading a field is pure, but releasing a callback's
-last counted owner may run a finalizer; its type must admit those effects.
-Views conventionally leave the model unchanged. The language does not enforce
+The loop holds its model across waits. Reading a field is pure. Views
+conventionally leave the model unchanged. The language does not enforce
 that convention with field annotations or mutation protection.
 
-Dispatch from `(snail shell async)` returns a future immediately. To poll a
-linear future held in a shared object, replace its slot with `None`, then
-consume the removed endpoint. `Pending` returns the endpoint to store again;
-`Ready` moves its result into the next model. This explicit slot transfer
-preserves exact-once ownership without a borrow checker. No completion payload
-has to travel through the input enum.
+Dispatch from `(snail shell async)` returns a future immediately. A model
+keeps it in a field, as an `(Option (Future T))`, and each update polls it:
+`Pending` leaves it in place, and `Ready` hands over its value, after which
+the update clears the field. No completion payload has to travel through
+the input enum.
 
 The reactor handles `completion` by calling `dom`'s `wake`, which queues a
 delivery rather than invoking update inline. Notifications may repeat or be
@@ -298,31 +293,32 @@ unrelated, so update tolerates finding nothing ready. The loop yields between
 deliveries even when input remains queued. Polling itself neither runs tasks
 nor waits for them.
 
-The IDE's `CommandResult` owns a one-shot transition over the current display
-data. It captures the request's result and identity, not an old model. Each
+The IDE's `CommandResult` is a transition over the current display data. It
+captures the request's result and identity, not an old model. Each
 transition checks the operation's generation, revision or submitted draft
 before accepting its result. Its recovery snapshot excludes futures and event
 subscriptions; a replacement reconnects under its new scheduler.
 
 `tests/apps/futures/src/futures/application.sld` is a complete example. Its
-`Model` shares an `Rc PendingWork`, whose field owns an optional future; its
-`Save` contains only display data and a click count. The ordinary `Application`
-instance uses `run-page`, installs DOM and fetch handlers, and calls
-`run-reactor`. Its commit callback calls `commit-page` and `report-ready`; the
-checkpoint callback comes from `run-page`.
+`Model` holds an optional future; its `Save` contains only display data and
+a click count. The ordinary `Application` instance uses `run-page`, installs
+DOM and fetch handlers, and calls `run-reactor`. Its commit callback calls
+`commit-page` and `report-ready`; the checkpoint callback comes from
+`run-page`.
 
 Only detached `Save` crosses a restart or handover. Mutable fields make this
 an application responsibility: a snapshot must not retain mutable model
 storage that later updates can change. Pending futures belong to the old
 scheduler and are never reified into `Any` or serialized. Restore decides
-whether interrupted work should be restarted. On close the example explicitly
-empties its pending slot, so aliases cannot keep a canceled request active.
+whether interrupted work should be restarted. Canceling in the example
+forgets the pending future, so a reply that arrives later is never
+installed; the request itself runs to its end.
 A view or update trap leaves the preceding committed Save available to recovery.
 
 The browser test holds server replies while input continues, verifies that a
-canceled receiver cannot install a late reply, and refreshes while a request
+forgotten future cannot install a late reply, and refreshes while a request
 is pending. The replacement restores its snapshot and can dispatch again.
-`tests/programs/ui-futures.sld` covers the same ownership path over the memory DOM.
+`tests/programs/ui-futures.sld` covers the same path over the memory DOM.
 
 <a id="live-reload"></a>
 
@@ -379,11 +375,11 @@ has none. Completion and presentation readiness are independent. A trap in
 any task fails the run and closes the scheduler; `tasks:running` identifies
 the failing task for the report. Normal root completion after initial presentation
 lets children finish: the host turns until no task is live. Root failure
-or return before that acceptance boundary closes the scheduler, dropping
+or return before that acceptance boundary closes the scheduler, forgetting
 the remaining tasks. Explicit reload waits for the root's checkpoint
 handover before closing it. Repeated stop requests share one handover
-result. This is application lifecycle policy; ordinary task completion
-does not cancel its children.
+result. This is application lifecycle policy; a task finishing does not
+stop its children.
 
 Event waits and storage wait by ticket, as any host operation does
 ([waiting on the host](../runtimes/tasks.md#waiting-on-the-host)). Their
@@ -434,8 +430,7 @@ failure also retains its owner so a source fix can resume it.
 A closure kept in the state can retain old code; applications storing functions
 must reconstruct them through save/restore when changing their implementation.
 There are no global value caches to migrate. Keep state that must survive
-replacement in the application's Save; retiring a module does not run source
-finalizers.
+replacement in the application's Save; retiring a module runs no code.
 
 The reload client (`host/browser/reload.sld`, bound by `reload-client.mjs`) compares
 manifests and relinks from the first changed module. It serializes relinks and

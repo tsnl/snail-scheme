@@ -111,8 +111,8 @@
   (string-append "hello, " (ask)))
 
 ;; A `ctl` operation need not return. Its implementation receives
-;; `resume`, the rest of the handled code, and calls it at most once:
-;; here it collects each value emitted and carries on.
+;; `resume`, the rest of the handled code, and calls it at most once (a
+;; second call panics): here it collects each value emitted and carries on.
 (effect Emit
   ((ctl emit (Fn I64 → Unit))))
 
@@ -169,12 +169,6 @@
            (count-down 3)
            (Nil)))
   (newline)
-  ;; ---- Ownership ----
-
-  ;; `once` makes work that runs at most once, and the checker proves an
-  ;; owned value is used exactly once: called, passed on or dropped.
-  (let ((job (once (lambda () (write-line "ran once")))))
-    (call-once job))
   (let ((left (new Label (text "left")))
         (right (new Label (text "right"))))
     (swap! left right)

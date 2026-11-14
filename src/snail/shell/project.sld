@@ -165,7 +165,6 @@
       (→ (Option T))
       (! compile)
       (∀ (T))
-      (⊨ (Copy T) (Drop (!) T))
       (match previous
         ((Some _) (compile-error loc (string-append "duplicate option " name)))
         ((None) (Some value))))

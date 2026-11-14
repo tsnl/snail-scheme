@@ -30,11 +30,10 @@ A byte vector literal, `#u8(137 80 78 71)`, embeds exactly those bytes. Use
 linked resource and emit a byte literal when embedding is appropriate; the
 reader performs no file inclusion.
 
-A reusable closure has type `(Fn Param ... → Result)`, with an optional
-[effect row](effects.md) after `!`. A consuming closure has type
-`(FnOnce Param ... → Result)`. These are built-in type formers, with the same
-spellings in arguments, fields, collections and results; there is no `dyn`,
-`impl`, `FnMut` or callable-class hierarchy.
+A closure has type `(Fn Param ... → Result)`, with an optional
+[effect row](effects.md) after `!`. This is a built-in type former, with the
+same spelling in arguments, fields, collections and results; there is no
+`dyn`, `impl`, `FnMut` or callable-class hierarchy.
 A typed function header carries its type where it is defined. Every parameter has a
 mandatory `(name Type)` annotation, and the header must state its result
 with `(→ Result)`. Optional effect, generic-variable and constraint clauses follow the parameter list at the start of the
@@ -45,7 +44,6 @@ definition, before its body:
   (→ (List B))
   (! e)
   (∀ (A B e))
-  (⊨ (Copy A) (Copy B))
   (map function values))
 (define (sum (zero T) (values (List T)))
   (→ T)
@@ -62,10 +60,6 @@ body, for example `(declare (describe (value T)) (→ String))`. A colon
 signature is not a language form. Type-level callable signatures use the Unicode `→`;
 universal quantification and requirements use `∀` and `⊨`. These are the only
 spellings: `->`, `All` and `requires` are not aliases.
-
-A type variable is linear unless the signature requires `(Copy T)`, which
-a body needs to use a `T` twice or to discard one
-([ownership](ownership.md)).
 
 Integer literals check against any integer or float type and are
 range-checked; float literals check against `F32` or `F64`. A literal whose
@@ -147,9 +141,8 @@ to `Fn` or change its calling convention.
 
 Read record fields by path: `(● segment from x)`. Each step follows an
 ordinary object reference. Reads are pure. `(set! (● segment from x) 3)`
-and `(replace! (● segment from x) 3)` use the same resolved slots, evaluating
-the receiver and incoming value once. `Rc` transparently exposes its payload's
-record fields. There are no field typeclasses, computed property overloads,
+writes the resolved slot, evaluating the receiver and incoming value once.
+There are no field typeclasses, computed property overloads,
 or borrowed receiver types.
 
 Enum cases are constructors, not types, and are always applied: `(Empty)`.
@@ -158,11 +151,7 @@ case getters or mutable setters. A field path requires a nominal record receiver
 for mutable enum payloads, store a record in the case and access its fields after
 matching.
 
-An aggregate containing a linear member is itself linear. A field read may
-copy an unrestricted value; taking a linear field out requires consuming the
-record by matching it or replacing the field with another owner. See
-[ownership](ownership.md) for exact-once use, mutable access through `Rc`, and
-compiler-managed finalization.
+A field read shares the value the field holds; see [values](values.md).
 
 ```scheme
 {{#include ../../../tests/programs/field-paths.sld:paths}}
@@ -225,15 +214,12 @@ decide:
 
 Fetching from a `(Logged Table)` performs `log`, and from a
 `(Logged Directory)`, `log` and `output-port`. Ordinary class rows may name control
-effects; specialization and control lowering preserve them. `Drop` is also a class over a row
-([releasing](ownership.md#releasing)), derived from the type's structure when
-it has no instance. Cleanup must finish, so its row cannot contain control effects.
+effects; specialization and control lowering preserve them.
 
 Arithmetic and comparison are the classes `Num`, `Ord`, `Integral` and
 `Fractional`; `Show` converts values to text. These classes all take a
 row followed by a value type, as in `(Num e T)`. Concrete numeric
-instances use `(!)`, so arithmetic remains pure. `Drop` releases values
-([ownership](ownership.md#releasing)).
+instances use `(!)`, so arithmetic remains pure.
 
 `Repr` is a pure class with one type parameter: `(Repr T)` supplies
 `(repr value) → String`. `(snail core io)`'s `write` prints that
@@ -282,14 +268,13 @@ A requirement can constrain an output with an equality:
   (→ A)
   (! e)
   (∀ (A e))
-  (⊨ (Copy A) (Add e A A (type Output A)))
+  (⊨ (Add e A A (type Output A)))
   (add a a))
 ```
 
 The equality checks the selected instance. Merely naming an output or
 requiring an instance does not call a method, inspect an `Any`, or perform
-the method's effects. An unknown generic output has the same ownership
-restrictions as another abstract type parameter.
+the method's effects.
 
 Every instance must define each member exactly once. Definitions can use
 input variables and projections from earlier prerequisites. Prerequisites
@@ -313,33 +298,17 @@ rows and defaults.
 
 ## Functions
 
-`Fn` is reusable and may capture unrestricted values, including mutable
-records and `Rc` owners. Copying the closure retains its shared captures;
-leaving the last owning scope releases them. Mutation and effects are
-independent of how often a closure can be called.
+A closure may capture any value, including mutable records, and may be
+called any number of times.
 
 ```scheme
 (define (twice (function (Fn I64 → I64)) (value I64)) (→ I64)
   (function (function value)))
 ```
 
-`FnOnce` is linear. Calling it transfers its captures into its body; dropping
-it without a call releases those captures. `once` converts a closure to the
-corresponding one-shot type without changing its parameters, result or row.
-A source once-lambda can move linear captures directly:
-
-```scheme
-(record Job
-  ((run (FnOnce I64 → Unit ! output-port))))
-
-(define (greeting (text String)) (→ (FnOnce → Unit ! output-port))
-  (once (lambda () (write-line text))))
-```
-
-An alias of a reusable closure remains callable after another alias has been
-converted with `once` and called or dropped. The wrapper owns that one counted
-reference, not every alias of the environment. A handler's `resume` is also a
-`FnOnce`; there are no source loans or borrow restrictions on storing it.
+A handler's `resume` is an `Fn` too, which may be stored like any other;
+the frames it holds run at most once
+([resuming once](effects.md#resuming-once)).
 
 ## Foreign functions
 
@@ -470,12 +439,10 @@ Boxing preserves the exact input type. `(Any (Any 42))` holds an `Any`, whereas
 or function signatures. There are no `type-convert`, `try-convert`, `type-test`,
 `dyn-cast`, dynamic instance dispatch, or `(snail core dynamic)` APIs.
 
-A payload must be non-linear and its disposal must be known to be effect-free.
-An effectful function, or a generic type that could hide one, cannot cross the
-erasure boundary. This also prevents hiding effectful resource finalization.
-Pure closures may be boxed; the box owns their counted reference. A successful
-downcast retains the recovered payload before releasing its input owner, and a
-failed downcast releases the input owner normally.
+A TypeId does not record what a function performs, so an effectful
+function, or a generic type that could stand for one, cannot cross the
+erasure boundary (`tests/programs/error-any-ordinary-function.sld`). Pure
+closures may be boxed.
 
 The type identity includes nominal names, arguments, fields, cases, and nested
 function signatures and effect rows. Changed schemas receive changed identities

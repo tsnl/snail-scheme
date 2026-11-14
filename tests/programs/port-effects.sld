@@ -8,7 +8,7 @@
 (record Output
   ((reversed (List String))))
 
-(define (from-text (text String) (action (FnOnce → A ! input-port e)))
+(define (from-text (text String) (action (Fn → A ! input-port e)))
   (→ A) (! mut e) (∀ (A e))
   (let ((position (new Cursor (index 0))))
     (handle input-port
@@ -20,7 +20,7 @@
                                    (Some (string-ref text index))))))))
       (action))))
 
-(define (capture (action (FnOnce → Unit ! output-port e)))
+(define (capture (action (Fn → Unit ! output-port e)))
   (→ String) (! mut e) (∀ (e))
   (let ((chunks (new Output (reversed (Nil)))))
     (handle output-port
@@ -28,7 +28,7 @@
       (action))
     (string-concatenate (reverse (● chunks reversed)))))
 
-(define (line (value T)) (→ Unit) (! output-port) (∀ (T)) (⊨ (Repr T) (Drop (!) T))
+(define (line (value T)) (→ Unit) (! output-port) (∀ (T)) (⊨ (Repr T))
   (write value)
   (newline))
 

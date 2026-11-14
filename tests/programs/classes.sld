@@ -26,7 +26,7 @@
       ((None) "nothing")
       ((Some x) (string-append "just " (describe x))))))
 
-(define (describe-twice (value T)) (→ String) (∀ (T)) (⊨ (Describe T) (Copy T) (Drop (!) T))
+(define (describe-twice (value T)) (→ String) (∀ (T)) (⊨ (Describe T))
   (string-append (describe value) (string-append " / " (describe value))))
 
 (define (sum (items (List T)) (zero T)) (→ T) (∀ (T)) (⊨ (Num (!) T))

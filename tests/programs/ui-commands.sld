@@ -36,16 +36,16 @@
   (Done ((what String))))
 
 (type (Command M)
-      (FnOnce → M ! dom tasks))
+      (Fn → M ! dom tasks))
 
 (define (update (model Model) (message Msg)) (→ (Pair Model (List (Command Msg))))
   (match message
-    ((Begin) (new Pair (first model) (second (list (once began)))))
+    ((Begin) (new Pair (first model) (second (list began))))
     ((Typed text) (new Pair (first (Model-text-set model text)) (second (Nil))))
-    ((Indent) (new Pair (first model) (second (list (once indent)))))
-    ((Late) (new Pair (first model) (second (list (once late)))))
-    ((Ask) (new Pair (first model) (second (list (once ask)))))
-    ((Hide) (new Pair (first (Model-shown-set model #f)) (second (list (once missing)))))
+    ((Indent) (new Pair (first model) (second (list indent))))
+    ((Late) (new Pair (first model) (second (list late))))
+    ((Ask) (new Pair (first model) (second (list ask))))
+    ((Hide) (new Pair (first (Model-shown-set model #f)) (second (list missing))))
     ((Save) (new Pair (first (logged model "saved")) (second (Nil))))
     ((Online) (new Pair (first (logged model "online")) (second (Nil))))
     ((Done what) (new Pair (first (logged model what)) (second (Nil))))))
@@ -135,33 +135,33 @@
 
 (define (main) (→ Unit) (! host mut output-port tasks)
   (dispatch-local
-   (once (lambda ()
-           (let ((result
-                  (with-memory-dom
-                   (list (Fire "text" "input" (Event-value-set (no-event) "(car x)"))
-                         (clicked "indent")
-                         (FireWindow "keydown"
-                                     (Event-modifiers-set (Event-key-set (no-event) "s")
-                                                          (control-key)))
-                         (clicked "late")
-                         (clicked "hide")
-                         (FireWindow "online" (no-event)))
-                   (lambda ()
-                     (run-ui (new Model (text "") (shown #t) (log (Nil)))
-                             (list (Begin))
-                             (lambda (model message) (update model message))
-                             view
-                             window
-                             (lambda (model) (unit))
-                             (lambda (model) (unit)))))))
-             (write-line (string-append "text: " (● (● result first) text)))
-             (for-each write-line (● (● result first) log))
-             (write-line (document->html (● result second)))
-             (for-each write-line
-                       (filter (lambda (line)
-                                 (not (or (starts-with? "create" line)
-                                          (starts-with? "insert " line)
-                                          (starts-with? "listen" line)
-                                          (starts-with? "set-attribute" line))))
-                               (document-trace (● result second))))))))
+   (lambda ()
+     (let ((result
+            (with-memory-dom
+             (list (Fire "text" "input" (Event-value-set (no-event) "(car x)"))
+                   (clicked "indent")
+                   (FireWindow "keydown"
+                               (Event-modifiers-set (Event-key-set (no-event) "s")
+                                                    (control-key)))
+                   (clicked "late")
+                   (clicked "hide")
+                   (FireWindow "online" (no-event)))
+             (lambda ()
+               (run-ui (new Model (text "") (shown #t) (log (Nil)))
+                       (list (Begin))
+                       (lambda (model message) (update model message))
+                       view
+                       window
+                       (lambda (model) (unit))
+                       (lambda (model) (unit)))))))
+       (write-line (string-append "text: " (● (● result first) text)))
+       (for-each write-line (● (● result first) log))
+       (write-line (document->html (● result second)))
+       (for-each write-line
+                 (filter (lambda (line)
+                           (not (or (starts-with? "create" line)
+                                    (starts-with? "insert " line)
+                                    (starts-with? "listen" line)
+                                    (starts-with? "set-attribute" line))))
+                         (document-trace (● result second)))))))
   (unit))

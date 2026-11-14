@@ -316,8 +316,8 @@ export function wasmImports(program, memory = () => (program().loader ?? program
     }
     if (from === LOADING) return (loaded ??= wasmImports(program, () => program().runtime.exports.memory))[name];
     if (from === 'snail.runtime.resource' && program().entry) {
-      // Import wrappers observe the session's one owning record. They never
-      // acquire a persistent credit that would form a cycle through modules.
+      // Import wrappers call through the session's entry each time, so no
+      // module holds another's scheduler.
       return (...args) => program().entry.call(`resource:${name}`, ...args);
     }
     return program().host[from]?.[name];

@@ -7,7 +7,7 @@
 ;; selection and scroll the page gave it, for as long as the view keeps it.
 ;; Events come back as messages: a listener holds a function from what its
 ;; event carried to a message, which stays in Snail Scheme, as the host sees
-;; only the listener's id. A command is one-shot work, run as a task, whose
+;; only the listener's id. A command is work, run as a task, whose
 ;; answer is a message: it posts the answer to the interface's mailbox and
 ;; wakes the interface's task, the only one that waits on the document.
 ;; The window is no node of the tree, so the listeners on it, for what
@@ -491,7 +491,7 @@
 
     (define (run-ui (model Model)
                     (start (List M))
-                    (update (Fn Model M → (Pair Model (List (FnOnce → M ! tasks e))) ! mut host e))
+                    (update (Fn Model M → (Pair Model (List (Fn → M ! tasks e))) ! mut host e))
                     (view (Fn Model → (Html M)))
                     (window (Fn Model → (List (Attribute M))))
                     (commit (Fn Model → Unit ! e))
@@ -499,7 +499,6 @@
       (→ Model)
       (! mut host dom tasks e)
       (∀ (Model M e))
-      (⊨ (Copy Model) (Drop e Model) (Drop e M))
       (let ((box (make-mailbox)) (shown (create (view model))))
         (insert-node (document-root) (shown-node shown) (None))
         (serve box
@@ -513,7 +512,7 @@
                           start))))
 
     (define (serve (box (Mailbox M))
-                   (update (Fn Model M → (Pair Model (List (FnOnce → M ! tasks e))) ! mut host e))
+                   (update (Fn Model M → (Pair Model (List (Fn → M ! tasks e))) ! mut host e))
                    (view (Fn Model → (Html M)))
                    (window (Fn Model → (List (Attribute M))))
                    (commit (Fn Model → Unit ! e))
@@ -522,7 +521,6 @@
       (→ Model)
       (! mut host dom tasks e)
       (∀ (Model M e))
-      (⊨ (Copy Model) (Drop e Model) (Drop e M))
       (commit (● running model))
       (match (next-event)
         ((Fired listener event)
@@ -556,7 +554,7 @@
 
     (define (answered (box (Mailbox M))
                       (update
-                       (Fn Model M → (Pair Model (List (FnOnce → M ! tasks e))) ! mut host e))
+                       (Fn Model M → (Pair Model (List (Fn → M ! tasks e))) ! mut host e))
                       (view (Fn Model → (Html M)))
                       (window (Fn Model → (List (Attribute M))))
                       (commit (Fn Model → Unit ! e))
@@ -564,7 +562,6 @@
       (→ (Running Model M))
       (! mut host dom tasks e)
       (∀ (Model M e))
-      (⊨ (Copy Model) (Drop e Model) (Drop e M))
       (match (mailbox-try-receive box)
         ((Some message)
          (let ((next (updated box update view window running message)))
@@ -576,7 +573,7 @@
     ;; the view and window of the next model shown.
 
     (define (updated (box (Mailbox M))
-                     (update (Fn Model M → (Pair Model (List (FnOnce → M ! tasks e))) ! mut host e))
+                     (update (Fn Model M → (Pair Model (List (Fn → M ! tasks e))) ! mut host e))
                      (view (Fn Model → (Html M)))
                      (window (Fn Model → (List (Attribute M))))
                      (running (Running Model M))
@@ -584,7 +581,6 @@
       (→ (Running Model M))
       (! mut host dom tasks e)
       (∀ (Model M e))
-      (⊨ (Copy Model) (Drop e Model) (Drop e M))
       (match (update (● running model) message)
         ((Pair model commands)
          (start-commands box commands)
@@ -592,29 +588,28 @@
                   (patch-root (● running shown) (view model))
                   (patch-window (● running window) (window model))))))
 
-    (define (start-commands (box (Mailbox M)) (commands (List (FnOnce → M ! tasks e))))
+    (define (start-commands (box (Mailbox M)) (commands (List (Fn → M ! tasks e))))
       (→ Unit)
       (! mut host dom tasks e)
-      (∀ (M e)) (⊨ (Drop e M))
+      (∀ (M e))
       (match commands
         ((Cons command rest)
-         (dispatch-local (once (lambda () (answer box command))))
+         (dispatch-local (lambda () (answer box command)))
          (start-commands box rest))
         ((Nil) (unit))))
 
-    (define (answer (box (Mailbox M)) (command (FnOnce → M ! tasks e)))
+    (define (answer (box (Mailbox M)) (command (Fn → M ! tasks e)))
       (→ Unit)
-      (! mut host dom tasks e)
-      (∀ (M e)) (⊨ (Drop e M))
+      (! mut dom tasks e)
+      (∀ (M e))
       (mailbox-post box (command))
       (wake))
 
-    ;; ---- Resource-owning models ----
+    ;; ---- Reactors ----
 
-    ;; Models are unrestricted values with explicit Rc owners for resources.
-    ;; An input is Some message; None is a completion wake. The loop holds the
-    ;; model across waits; views and snapshots receive ordinary counted copies.
-    ;; Only snapshots reach commit and checkpoint.
+    ;; A reactor's update takes an input: Some message, or None for a
+    ;; completion wake. The loop holds the model across waits; only
+    ;; snapshots reach commit and checkpoint.
 
     (define (run-reactor (model Model)
                          (start (List M))
@@ -625,9 +620,8 @@
                          (commit (Fn S → Unit ! mut e))
                          (checkpoint (Fn S → Unit ! mut tasks e)))
       (→ Model)
-      (! mut host completion dom tasks e)
+      (! mut host dom tasks e)
       (∀ (Model M S e))
-      (⊨ (Copy Model) (Drop (! mut host e) Model) (Drop (! mut host e) M))
       (handle completion ((completed wake))
         (mount-reactor model start update view window snapshot commit checkpoint)))
 
@@ -642,7 +636,6 @@
       (→ Model)
       (! mut host completion dom tasks e)
       (∀ (Model M S e))
-      (⊨ (Copy Model) (Drop (! mut host e) Model) (Drop (! mut host e) M))
       (let ((shown (create (view model)))
             (window-shown (window-shown (window model))))
         (insert-node (document-root) (shown-node shown) (None))
@@ -662,7 +655,6 @@
       (→ Model)
       (! mut host completion dom tasks e)
       (∀ (Model M S e))
-      (⊨ (Copy Model) (Drop (! mut host e) Model) (Drop (! mut host e) M))
       (match running
         ((Running model shown window-shown listeners)
          (commit (snapshot model))
@@ -715,13 +707,12 @@
       (→ (Running Model M))
       (! mut host completion dom tasks e)
       (∀ (Model M e))
-      (⊨ (Copy Model) (Drop (! mut host e) Model) (Drop (! mut host e) M))
       (match running
         ((Running model shown window-shown _)
          (render-reactor view window (update model message) shown window-shown))))
 
-    ;; The model and both presentations share their counted owners. An
-    ;; application cancels its resource work explicitly before closing.
+    ;; The model is shared with both presentations, not copied. An
+    ;; application stops its own resource work before closing.
 
     (define (render-reactor (view (Fn Model → (Html M) ! mut host e))
                             (window (Fn Model → (List (Attribute M)) ! mut host e))
@@ -731,7 +722,6 @@
       (→ (Running Model M))
       (! mut host dom e)
       (∀ (Model M e))
-      (⊨ (Copy Model) (Drop (! mut host e) Model))
       (let ((shown (patch-root shown (view model)))
             (window-shown (patch-window window-shown (window model))))
         (showing model shown window-shown)))

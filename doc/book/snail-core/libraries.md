@@ -43,10 +43,9 @@ the runtime interfaces.
 | Library | Contents |
 | --- | --- |
 | `(snail shell task)` | The `tasks` effect and its scheduler, written in Snail Scheme: one-shot local dispatch, cooperative yield, timer and ticket waits, waiting on the host, and `Mailbox` queues between tasks ([task operations](../runtimes/tasks.md)). |
-| `(snail shell future)` | Linear `Promise` and `Future` endpoints, nonblocking `poll`, and completion notifications; independent of scheduling ([futures](../runtimes/tasks.md)). |
+| `(snail shell future)` | `Promise` and `Future`, the two ends of a one-shot channel, a pure `poll`, and completion notifications; independent of scheduling ([futures](../runtimes/tasks.md)). |
 | `(snail shell async)` | `dispatch` returns a future, `await-future` suspends its task, and `after` creates a timer future. Built over `(snail shell task)` and `(snail shell future)`. |
 | `(snail shell async-files)` | Explicit native `files` capability for bounded asynchronous reads, backed by Linux `io_uring` or Node's asynchronous filesystem APIs ([file reads](../runtimes/tasks.md#native-asynchronous-file-reads)). |
-| `(snail shell slot)` | `UnsafeSlot`, the one shared place a linear value rests between frames: `take!` and `put!`, each trapping when the slot is in the other state. The scheduler's queues and the mailboxes of `(snail shell task)` are built on it; an `Rc` payload can own linear values. |
 | `(snail shell process)` | Child processes with piped standard streams, through the `process` effect: `spawn`, reading output, writing and closing input, signals and exit, `run` to run a command to its end, and `exec` to replace the program with one; and `termination`, SIGINT or SIGTERM as a value, through the `signals` effect ([child processes](../runtimes/networking.md#child-processes)). |
 | `(snail shell gitignore)` | Immutable snapshots of ignored disk paths from installed Git, with tracked files preserved ([Git ignore snapshots](#git-ignore-snapshots)). |
 | `(snail shell socket)` | TCP listeners and connections and UDP sockets, through the `tcp` and `udp` effects, each wait by ticket, and `endpoint`, which parses an IPv4 address and a port once ([native networking](../runtimes/networking.md)). |
@@ -69,7 +68,7 @@ the runtime interfaces.
 | `(snail shell dom page)` | `with-page-dom`, the handler of `dom` over the browser page's document (`host/browser/dom.mjs`), delivering the events its listeners fire, wakes, hiding and reloads from the page's event queue. |
 | `(snail shell fetch)` | The `fetch` effect: `request method url headers body`, answering a `Reply` or why there was none, and streams of server-sent events of the kinds named, `stream-open`, `stream-next`, which answers a `StreamEvent`, and `stream-close`; a stream that names `error` hears each dropped connection. |
 | `(snail shell fetch page)` | `with-page-fetch`, the handler of `fetch` over the page's `fetch` and `EventSource` (`host/browser/fetch.mjs`). |
-| `(snail shell ui)` | [Document interfaces](applications.md#document-interfaces): `Html` and `Attribute` trees, the keyed reconciler, and `run-ui`, which runs a model, `view` and `update` with commands as tasks, the window's listeners, and messages to start with, commits completed presentations, and saves on request, hiding or close. `run-reactor` uses shared models with explicit `Rc` owners for futures and detached snapshots for commit and storage. |
+| `(snail shell ui)` | [Document interfaces](applications.md#document-interfaces): `Html` and `Attribute` trees, the keyed reconciler, and `run-ui`, which runs a model, `view` and `update` with commands as tasks, the window's listeners, and messages to start with, commits completed presentations, and saves on request, hiding or close. `run-reactor` holds the model across waits and gives commit and storage snapshots of it. |
 | `(snail shell ui page)` | The `Interface` class with associated `Message` type, `InterfaceApplication` adapter, and `Command`, the type of its commands. |
 | `(snail shell ui commands)` | An ordered vector of named actions, independent of keyboard policy. `register` rejects duplicate names; `named` retrieves an action. Actions can be Scheme functions with effects. |
 | `(snail shell ui shortcuts)` | Chords mapped to command names. Registration checks duplicate chords and unknown commands; `matching` retrieves a name and `chords` supplies a window listener. |
@@ -121,8 +120,7 @@ There are no `(scheme …)` compatibility libraries or dynamic numeric tower.
 
 `(list-sort before? items)` in `(snail core base)` sorts an immutable list
 with a pure strict comparator. It is stable: items for which neither
-precedes the other retain their input order. Comparison reads the items,
-so their type must satisfy `Copy`. A merge sort bounds comparisons and
+precedes the other retain their input order. A merge sort bounds comparisons and
 traversal by O(n log n); the compiler, project builder and editor use this
 same operation. Stage 0 supplies the corresponding stable sort on Chez.
 
@@ -187,7 +185,7 @@ effects. `(snail core base)` supplies `Repr` instances for numeric scalars,
 booleans, characters, strings, `Unit`, lists, vectors, `Option`, `Result`
 and `Pair`. Lists use `(element ...)`, vectors use `#(element ...)`, and
 the other containers name their constructors, such as `(Some "hello")`
-or `(new Pair (first 1) (second "one"))`. Vectors require `Copy` elements.
+or `(new Pair (first 1) (second "one"))`.
 
 A record or enum can request constructor notation with `(deriving Repr)`:
 
@@ -203,8 +201,7 @@ A record or enum can request constructor notation with `(deriving Repr)`:
 
 Deriving generates a pure instance that matches each constructor and
 represents its fields in declaration order. Generic type parameters require
-`Copy` and `Repr`. Deriving requires a Copy type, so formatting cannot consume
-a resource owner without releasing it. Records print named construction syntax, `(new Name (field value) ...)`; enum
+`Repr`. Records print named construction syntax, `(new Name (field value) ...)`; enum
 cases keep positional notation.
 An explicit `(instance (Repr T) (define repr (lambda (value) ...)))` chooses custom
 notation. A `Show` instance alone does not supply `Repr`; missing instances

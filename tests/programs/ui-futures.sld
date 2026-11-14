@@ -9,12 +9,9 @@
  (snail shell dom memory)
  (snail shell ui))
 
-(record PendingWork
-  ((future (Option (Future String)))))
-
 (record Model
   ((text String)
-   (pending (Rc PendingWork))))
+   (pending (Option (Future String)))))
 
 (enum Msg
   (Start))
@@ -23,40 +20,40 @@
   (→ Model) (! mut host completion tasks)
   (match message
     ((Some (Start))
-     (drop
-      (replace! (● model pending future) (Some (dispatch (once (lambda () (yield) "finished"))))))
+     (set! (● model pending) (Some (dispatch (lambda () (yield) "finished"))))
      (set! (● model text) "working"))
     ((None) (collect model)))
   model)
 
-(define (collect (model Model)) (→ Unit) (! mut host)
-  (match (replace! (● model pending future) (None))
+(define (collect (model Model)) (→ Unit) (! mut)
+  (match (● model pending)
     ((None) (unit))
     ((Some future)
      (match (poll future)
-       ((Pending future) (drop (replace! (● model pending future) (Some future))))
-       ((Ready (Completed text)) (set! (● model text) text))
-       ((Ready (Abandoned)) (set! (● model text) "canceled"))))))
+       ((Pending) (unit))
+       ((Ready text)
+        (set! (● model pending) (None))
+        (set! (● model text) text))))))
 
-(define (view (model Model)) (→ (Html Msg)) (! mut host)
+(define (view (model Model)) (→ (Html Msg))
   (Element "p" (Nil) (list (Text (● model text)))))
 
-(define (window (model Model)) (→ (List (Attribute Msg))) (! mut host)
+(define (window (model Model)) (→ (List (Attribute Msg)))
   (Nil))
 
-(define (snapshot (model Model)) (→ String) (! mut host)
+(define (snapshot (model Model)) (→ String)
   (● model text))
 
-;; A storage-like wait owns the live model while a producer completes.
+;; A storage-like wait suspends the loop while a producer completes.
 (define (checkpoint (saved String)) (→ Unit) (! tasks)
   (yield))
 
-(define (main) (→ Unit) (! host mut output-port completion tasks)
+(define (main) (→ Unit) (! host mut output-port tasks)
   (match (with-memory-dom (list (Hide) (Hide))
                           (lambda ()
                             (run-reactor (new Model
                                            (text "idle")
-                                           (pending (rc (new PendingWork (future (None))))))
+                                           (pending (None)))
                                          (list (Start))
                                          (lambda (model msg) (update model msg))
                                          (lambda (model) (view model))
@@ -67,5 +64,5 @@
     ((Pair model document)
      (write-line (● model text))
      (write-line (document->html document))
-     (drop model)))
+     (unit)))
   (unit))

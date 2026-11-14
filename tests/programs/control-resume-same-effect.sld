@@ -13,7 +13,7 @@
   (Done)
   (Yielded
    ((value I64)
-    (next (FnOnce Unit → Step)))))
+    (next (Fn Unit → Step)))))
 
 (define (start (body (Fn → Unit ! Gen))) (→ Step)
   (handle Gen ((yield (lambda (value resume) (Yielded value resume))))
@@ -27,7 +27,7 @@
 
 ;; Yields once to a second handler, which announces and resumes it, then
 ;; resumes the generator under that handler.
-(define (under-second (next (FnOnce Unit → Step))) (→ Step) (! output-port)
+(define (under-second (next (Fn Unit → Step))) (→ Step) (! output-port)
   (handle Gen ((yield (lambda (value resume)
                         (write-line (string-append "second handler: " (show value)))
                         (resume (unit)))))

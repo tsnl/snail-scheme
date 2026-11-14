@@ -1,6 +1,7 @@
 //! Bounded native file reads. The host owns every kernel-visible allocation
-//! until that request completes; Wasm owns only a linear reception token.
-//! Dropping the token withdraws delivery, not an in-flight kernel operation.
+//! until that request completes; Wasm holds only the request's id, which it
+//! finishes once its ticket wakes. A result whose ticket wakes no task is
+//! discarded, which withdraws delivery, not an in-flight kernel operation.
 
 use std::collections::BTreeMap;
 use std::time::Duration;
@@ -19,7 +20,8 @@ const FAILED: i32 = -6;
 type Outcome = Result<Vec<u8>, i32>;
 
 /// Staging is synchronous and has one owner. Completed buffers remain owned
-/// here until finish copies them into managed Bytes, or cancel discards them.
+/// here until finish copies them into managed Bytes, or cancel discards them
+/// when the ticket wakes no task.
 #[derive(Default)]
 pub struct Files {
     closed: bool,
@@ -157,9 +159,6 @@ pub fn define(linker: &mut Linker<Host>) -> wasmtime::Result<()> {
     )?;
     linker.func_wrap(MODULE, "finish", |mut caller: Caller<'_, Host>, id: i64| {
         caller.data_mut().async_files.finish(id)
-    })?;
-    linker.func_wrap(MODULE, "cancel", |mut caller: Caller<'_, Host>, id: i64| {
-        caller.data_mut().async_files.cancel(id);
     })?;
     linker.func_wrap(MODULE, "byte", |caller: Caller<'_, Host>, index: i32| {
         caller

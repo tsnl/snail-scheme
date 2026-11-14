@@ -6,36 +6,26 @@
  (snail shell future)
  (snail shell async))
 
-(record Resource
-  ((name String)))
-
-(instance (Drop (! output-port) Resource)
-  (define (drop (resource Resource)) (→ Unit) (! output-port)
-    (match resource
-      ((Resource name) (write-line (string-append "released " name))))))
-
 (define (main) (→ Unit) (! host mut output-port completion tasks)
   ;; Dispatch returns before the work starts. Await yields the task, not
-  ;; the host stack, and transfers a linear result to this continuation.
-  (let ((future (dispatch (once (lambda ()
-                                  (write-line "work starts")
-                                  (yield)
-                                  (new Resource (name "received")))))))
+  ;; the host stack, and hands the result to this continuation.
+  (let ((future (dispatch (lambda ()
+                            (write-line "work starts")
+                            (yield)
+                            "received"))))
     (write-line "dispatch returned")
     (match (poll future)
-      ((Pending future)
+      ((Pending)
        (write-line "pending without running work")
-       (match (await-future future)
-         ((Completed resource) (drop resource))
-         ((Abandoned) (panic "producer unexpectedly abandoned"))))
-      ((Ready result) (drop result))))
+       (write-line (await-future future)))
+      ((Ready _) (unit))))
   ;; Result errors stay typed data and do not trap a task.
-  (match (await-future (dispatch (once (lambda () (ann (Err "missing") (Result I64 String))))))
-    ((Completed (Err message)) (write-line message))
-    ((Completed (Ok value)) (write-line (show value)))
-    ((Abandoned) (panic "producer unexpectedly abandoned")))
-  ;; A timer wakes a parked task. An unobserved result still gets dropped.
-  (drop (await-future (after 1)))
+  (match (await-future (dispatch (lambda () (ann (Err "missing") (Result I64 String)))))
+    ((Err message) (write-line message))
+    ((Ok value) (write-line (show value))))
+  ;; A timer wakes a parked task.
+  (await-future (after 1))
   (write-line "timer")
-  (drop (dispatch (once (lambda () (yield) (new Resource (name "unobserved"))))))
+  ;; Nothing observes this result; the work still runs to its end.
+  (dispatch (lambda () (yield) (write-line "unobserved work finishes")))
   (unit))

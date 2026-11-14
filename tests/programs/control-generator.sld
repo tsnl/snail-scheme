@@ -60,8 +60,7 @@
   (+ x 300))
 
 ;; Locals of other representations live across a yield too: a float,
-;; boxed in the frame, and a `FnOnce`, moved into it and called once the
-;; body resumes.
+;; boxed in the frame, and a procedure, called when the body resumes.
 (define (halves (items (List I64))) (→ F64) (! Gen)
   (match items
     ((Nil) 0.0)
@@ -70,14 +69,12 @@
        (yield item)
        (+ half (halves rest))))))
 
-;; The handler can stop resuming, dropping the rest of the walk: the
+;; The handler can stop resuming, leaving the rest of the walk unrun: the
 ;; values up to the first above the limit.
 (define (until-above (limit I64) (body (Fn → I64 ! Gen))) (→ (List I64))
   (handle Gen ((yield (lambda (value resume)
                         (if (> value limit)
-                            (begin
-                              (drop resume)
-                              (list value))
+                            (list value)
                             (Cons value (resume (unit)))))))
     (body)
     (Nil)))
@@ -101,7 +98,7 @@
   (write-line
    (show (handle Gen ((yield (lambda (value resume) (resume (unit))))) (halves (list 1 2 4)))))
   (show-all (handle Gen ((yield (lambda (value resume) (Cons value (resume (unit))))))
-              (let ((after (once (lambda () (write-line "after the yield")))))
+              (let ((after (lambda () (write-line "after the yield"))))
                 (yield 1)
                 (after)
                 (list 2))))

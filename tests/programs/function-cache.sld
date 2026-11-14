@@ -7,38 +7,32 @@
 
 (record Resource
   ((id I64)))
-(instance (Drop (! output-port) Resource)
-  (define (drop (resource Resource)) (→ Unit) (! output-port)
-    (match resource ((Resource id) (write-line (string-append "drop " (show id)))))))
 
-(define (owned-callback) (→ (Fn I64 → I64 ! mut output-port))
-  (let ((resource (rc (new Resource (id 90)))))
+(define (captured-callback) (→ (Fn I64 → I64 ! mut output-port))
+  (let ((resource (new Resource (id 90))))
     (unsafe-effectful-cache (lambda (key) (+ key (● resource id))))))
 
+;; A cached function may call itself while it computes a miss.
 (record Reentry
-  ((callback (Option (WeakRc (Fn I64 → I64 ! mut))))
+  ((callback (Option (Fn I64 → I64 ! mut)))
    (entered Bool)))
 
 (define (reentrant-test) (→ Unit) (! mut output-port)
   (let* ((state (new Reentry (callback (None)) (entered #f)))
-         (memo (rc (unsafe-effectful-lru-cache 2
-                                               (lambda (key)
-                                                 (if (● state entered) key
-                                                     (begin
-                                                       (set! (● state entered) #t)
-                                                       (match (● state callback)
-                                                         ((None) 0)
-                                                         ((Some weak)
-                                                          (match (weak-rc-upgrade weak)
-                                                            ((None) 0)
-                                                            ((Some callback)
-                                                             (let ((inside (rc-get callback)))
-                                                               (inside 20)
-                                                               (inside 30)
-                                                               (+ (inside key) 1)))))))))))))
-    (set! (● state callback) (Some (rc-downgrade memo)))
-    (write-line (show ((rc-get memo) 10)))
-    (write-line (show ((rc-get memo) 10)))))
+         (memo (unsafe-effectful-lru-cache 2
+                                           (lambda (key)
+                                             (if (● state entered) key
+                                                 (begin
+                                                   (set! (● state entered) #t)
+                                                   (match (● state callback)
+                                                     ((None) 0)
+                                                     ((Some inside)
+                                                      (inside 20)
+                                                      (inside 30)
+                                                      (+ (inside key) 1)))))))))
+    (set! (● state callback) (Some memo))
+    (write-line (show (memo 10)))
+    (write-line (show (memo 10)))))
 
 (define (extra-tests) (→ Unit) (! mut output-port)
   ;; Growing and colliding buckets preserve every cached object.
@@ -71,16 +65,10 @@
   (let* ((wrap cache) (memo (wrap (lambda (key) (new Cell (value key))))))
     (set! (● (memo 8) value) 80)
     (write-line (show (● (memo 8) value))))
-  (let ((memo (owned-callback)))
+  (let ((memo (captured-callback)))
     (write-line (show (memo 1)))
     (write-line (show (memo 1)))
-    (write-line (show (memo 2))))
-  (write-line "released")
-  (let* ((weak (let ((resource (rc (new Resource (id 91))))) (rc-downgrade resource)))
-         (memo (cache (lambda () weak))))
-    (match (weak-rc-upgrade (memo))
-      ((None) (write-line "weak cache stays dead"))
-      ((Some resource) (write-line (show (● resource id)))))))
+    (write-line (show (memo 2)))))
 
 (define (main) (→ Unit) (! mut output-port)
   (let ((one (cache one)) (bounded (lru-cache 2 bounded))

@@ -24,8 +24,6 @@
    type-key
    require-type-capacity
    never-type?
-   drop-class
-   drop-class?
    local-name
    string-type?
    bytes-type?
@@ -47,12 +45,7 @@
    Evidence
    EvInstance
    EvParam
-   EvDerived
    EvHole
-   Plan
-   Trivial
-   Implemented
-   Glue
    Expr
    Term
    Lit
@@ -81,7 +74,6 @@
    expr-reference-types
    expr-children
    DataType
-   DataType-owned?-set
    Case
    Field
    Class
@@ -103,7 +95,6 @@
    field-operation-name
    Replacer
    Setter
-   Swapper
    Method
    Operation
    Primitive
@@ -116,8 +107,6 @@
    item-definitions
    Program
    Program-items-set
-   Program-facts-set
-   TypeFacts
    empty-program
    primitive-global
    program-value
@@ -183,21 +172,18 @@
 
     ;; ---- Procedure types ----
 
-    ;; Fn is a reusable closure; FnOnce consumes its captures. Both contain
-    ;; the same argument/result/effect shape.
+    ;; Fn is the one callable type: a closure that may be called any number
+    ;; of times. A handler's `resume` is an Fn too; the backend panics if it
+    ;; is called a second time.
 
     (define (callable-kind (type Type)) (→ (Option String))
       (match type
         ((TFun _ _ _) (Some "Fn"))
-        ((TCon "FnOnce" _) (Some "FnOnce"))
-
         (_ (None))))
 
     (define (callable-arrow (type Type)) (→ (Option Type))
       (match type
         ((TFun _ _ _) (Some type))
-        ((TCon _ (Cons arrow _))
-         (match (callable-kind type) ((Some _) (Some arrow)) ((None) (None))))
         (_ (None))))
 
     ;; Writing a field changes storage; reading it has no mutation effect.
@@ -214,19 +200,14 @@
        (types (List Type))))
 
     ;; A scheme quantifies rigid variables, which may stand for types or rows.
-    ;; `copy` names those a `(⊨ (Copy A))` declares ω, whose values
-    ;; may be duplicated and discarded. It is no class constraint, as it has
-    ;; no evidence: a constraint's evidence is its position among the
-    ;; constraints. The others will be linear (#550); until then every
-    ;; variable ranges over ω types.
+    ;; A constraint's evidence is its position among the constraints.
     (record Scheme
       ((vars (List String))
        (constraints (List Constraint))
-       (copy (List String))
        (type Type)))
 
     (define (mono-scheme (type Type)) (→ Scheme)
-      (new Scheme (vars (Nil)) (constraints (Nil)) (copy (Nil)) (type type)))
+      (new Scheme (vars (Nil)) (constraints (Nil)) (type type)))
 
     ;; The names of the core forms, which the expander binds in
     ;; (snail core forms) and (snail shell highlight) colors as keywords.
@@ -261,8 +242,6 @@
 
     (define (builtin-types) (→ (List (Pair String I64)))
       (list (new Pair (first "Any") (second 0))
-            (new Pair (first "Rc") (second 1))
-            (new Pair (first "WeakRc") (second 1))
             (new Pair (first "Funcref") (second 0))
             (new Pair (first "U8") (second 0))
             (new Pair (first "I32") (second 0))
@@ -274,7 +253,6 @@
             (new Pair (first "Unit") (second 0))
             (new Pair (first "String") (second 0))
             (new Pair (first "Vector") (second 1))
-            (new Pair (first "FnOnce") (second 1))
             (new Pair (first "Fn") (second 0))
             ))
 
@@ -285,8 +263,6 @@
     (define (builtin-type? (name String)) (→ Bool)
       (match name
         ("Any" #t)
-        ("Rc" #t)
-        ("WeakRc" #t)
         ("Funcref" #t)
         ("U8" #t)
         ("I32" #t)
@@ -298,7 +274,6 @@
         ("Unit" #t)
         ("String" #t)
         ("Vector" #t)
-        ("FnOnce" #t)
         ("Fn" #t)
         (_ #f)))
 
@@ -347,9 +322,6 @@
     (define (type->string (type Type)) (→ String)
       (match type
         ((TFun params result row) (arrow->string "Fn" params result row))
-        ((TCon "FnOnce" (Cons (TFun params result row) (Nil)))
-         (arrow->string "FnOnce" params result row))
-
         ((TCon name (Nil)) (short-name name))
         ((TCon name args) (string-append "(" (short-name name) (types->string args) ")"))
         ((TRow _ _) (string-append "{" (row->string type) " }"))
@@ -387,15 +359,6 @@
       (match type
         ((TCon "snail.core.base:Never" (Nil)) #t)
         (_ #f)))
-
-    ;; `(Drop e T)` releases a T, performing e. Without a declared instance,
-    ;; its implementation and row come from T's fields. The checker and
-    ;; specialization derive this plan rather than matching ordinary instances.
-
-    (define (drop-class) (→ String) "snail.core.base:Drop")
-
-    (define (drop-class? (class String)) (→ Bool)
-      (string=? class (drop-class)))
 
     (define (string-type? (type Type)) (→ Bool)
       (match type
@@ -563,12 +526,8 @@
 
     ;; Evidence says which instance satisfies a constraint: an instance applied
     ;; to type arguments and the evidence for its requirements, or the
-    ;; enclosing definition's own requirement at `index`. A Drop
-    ;; constraint's is derived: the checker records the plan it charged,
-    ;; or None for a type variable, whose instantiation's plan its caller
-    ;; charged, and mono finds the plan again from the ground type and
-    ;; checks that it runs no more (`plan-covers?` in capabilities.sld).
-    ;; Holes exist only while checking.
+    ;; enclosing definition's own requirement at `index`. Holes exist only
+    ;; while checking.
     (enum Evidence
       (EvInstance
        ((instance String)
@@ -576,18 +535,8 @@
         (subs (List Evidence))))
       (EvParam
        ((index I64)))
-      (EvDerived
-       ((plan (Option Plan))))
       (EvHole
        ((id I64))))
-
-    ;; What dropping a type runs: a discard, its instance's method, or
-    ;; glue that releases its fields (`drop-plan` in capabilities.sld).
-    (enum Plan
-      (Trivial)
-      (Implemented
-       ((instance Instance)))
-      (Glue))
 
     ;; ---- Expressions ----
 
@@ -722,7 +671,7 @@
         (_ (fold-left collect-references found (expr-children expr)))))
 
     ;; Local names are unique after resolution. Closure layouts and control
-    ;; ownership use the type carried by each resolved read.
+    ;; frames use the type carried by each resolved read.
     (define (expr-reference-types (expr Expr)) (→ (Table Type))
       (collect-reference-types (empty-table) expr))
 
@@ -733,14 +682,12 @@
 
     ;; ---- Declared entities ----
 
-    ;; A record is a data type with one case named after it. An `owned?`
-    ;; type has a Drop instance and is linear regardless of its fields.
+    ;; A record is a data type with one case named after it.
     (record DataType
       ((name String)
        (params (List String))
        (cases (List Case))
-       (enum? Bool)
-       (owned? Bool)))
+       (enum? Bool)))
 
     (record Case
       ((name String)
@@ -833,15 +780,12 @@
         (_ (Nil))))
 
     ;; Each method maps to the top-level definition that implements it.
-    ;; `copy` names the instance variables its requirements declare ω, as a
-    ;; scheme's does.
     (record Instance
       ((name String)
        (class String)
        (vars (List String))
        (types (List Type))
        (requires (List Constraint))
-       (copy (List String))
        (methods (List (Pair String String)))))
 
     (record Import
@@ -872,7 +816,7 @@
     ;; its typed header was written. Every definition is a function. An instance method has
     ;; its class method's scheme and no signature of its own, and like a
     ;; default no program names it. Internal field operations describe
-    ;; path reads, pure record copies, writes and swaps. Only the pure
+    ;; path reads, pure record copies and writes. Only the pure
     ;; replacement has a source function name; enum fields are read by match.
     (define (field-operation-name (case Case) (index I64) (operation String)) (→ String)
       (string-append "%" operation ":" (● case name) "-"
@@ -894,10 +838,6 @@
         (index I64)
         (scheme Scheme)))
       (Setter
-       ((case Case)
-        (index I64)
-        (scheme Scheme)))
-      (Swapper
        ((case Case)
         (index I64)
         (scheme Scheme)))
@@ -923,7 +863,6 @@
         ((Accessor _ _ scheme) (Some scheme))
         ((Replacer _ _ scheme) (Some scheme))
         ((Setter _ _ scheme) (Some scheme))
-        ((Swapper _ _ scheme) (Some scheme))
         ((Method _ scheme) (Some scheme))
         ((Operation _ scheme) (Some scheme))
         ((Primitive scheme) (Some scheme))
@@ -970,10 +909,7 @@
     ;; first, with the number of items it added; the program's own body
     ;; counts as a library named `main`. A library's items join the program
     ;; as one run, after those of every library loaded before it, so the
-    ;; program's items divide into one run per library. `facts` holds what
-    ;; the capability queries answer for each declaration without
-    ;; parameters, once the expander has every type (capabilities.sld,
-    ;; "Declared facts"); adding a type forgets them.
+    ;; program's items divide into one run per library.
     (record Program
       ((values (Table Value))
        (types (Table DataType))
@@ -981,13 +917,7 @@
        (instances (Table (List Instance)))
        (effects (Table Effect))
        (items (List Item))
-       (libraries (List (Pair String I64)))
-       (facts (Table TypeFacts))))
-
-    (record TypeFacts
-      ((linear? Bool)
-       (shared? Bool)
-       (drop-rows (Result (List Type) String))))
+       (libraries (List (Pair String I64)))))
 
     (define (empty-program) (→ Program)
       (new Program
@@ -997,8 +927,7 @@
         (instances (empty-table))
         (effects (empty-table))
         (items (Nil))
-        (libraries (Nil))
-        (facts (empty-table))))
+        (libraries (Nil))))
 
     (define (program-value (program Program) (name String)) (→ (Option Value))
       (table-ref (● program values) name))
@@ -1082,9 +1011,7 @@
       (Program-values-set program (table-set (● program values) name value)))
 
     (define (program-with-type (program Program) (data DataType)) (→ Program)
-      (Program-facts-set
-       (Program-types-set program (table-set (● program types) (● data name) data))
-       (empty-table)))
+      (Program-types-set program (table-set (● program types) (● data name) data)))
 
     (define (program-with-class (program Program) (class Class)) (→ Program)
       (Program-classes-set program (table-set (● program classes) (● class name) class)))
@@ -1117,9 +1044,7 @@
 
     (define (table-union (table (Table V)) (additions (Table V)))
       (→ (Table V))
-      (! e)
-      (∀ (V e))
-      (⊨ (Copy V) (Drop e V))
+      (∀ (V))
       (fold-left (lambda (result key)
                    (match (table-ref additions key)
                      ((Some value) (table-set result key value))
@@ -1430,8 +1355,7 @@
                                 (cases
                                  (list (new Case (name "test:Payload") (type "test:Payload") (tag 0)
                                             (fields (list (new Field (name label) (type field)))))))
-                                (enum? #f)
-                                (owned? #f))))
+                                (enum? #f))))
 
       (define (test-type-identities) (→ Unit)
         (let* ((i64 (TCon "I64" (Nil))) (payload (TCon "test:Payload" (Nil)))

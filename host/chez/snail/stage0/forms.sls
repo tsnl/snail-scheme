@@ -1,7 +1,7 @@
 ;; The typed source forms erased for the Chez bootstrap. This host executes
 ;; compiler code only; source programs are checked and compiled to WasmGC.
 (library (snail stage0 forms)
-  (export define type ann record new enum match effect handle ● set! replace! test-forms)
+  (export define type ann record new enum match effect handle ● set! test-forms)
   (import
    (rename (chezscheme) (define scheme-define) (set! scheme-set!)))
 
@@ -58,10 +58,6 @@
             [(eq? label (car labels)) index]
             [else (loop (cdr labels) (+ index 1))])))
   (scheme-define (field-of value label) (vector-ref value (field-index value label)))
-  (scheme-define (replace-field! record label value)
-    (let* ([index (field-index record label)] [old (vector-ref record index)])
-      (vector-set! record index value)
-      old))
 
   (meta scheme-define (joined-name name field suffix)
         (datum->syntax name
@@ -167,10 +163,6 @@
          (vector-set! object (field-index object 'label) content))]
       [(_ (● record label next ...) value) (set! (● (● record label) next ...) value)]
       [(_ name value) (scheme-set! name value)]))
-  (define-syntax replace!
-    (syntax-rules (●)
-      [(_ (● record label) value) (replace-field! record 'label value)]
-      [(_ (● record label next ...) value) (replace! (● (● record label) next ...) value)]))
 
   ;; ---- Matching ----
 
@@ -299,7 +291,6 @@
            [changed (Counter-label-set record "after")])
       (set! (● alias value) 2)
       (unless (and (= (● record value) 2) (= (● changed value) 1)
-                   (= (replace! (● record value) 3) 2) (= (● alias value) 3)
                    (= (typed-sum 20 22) 42)
                    (= (handle Read ((read-value (lambda () 10)))
                         (handle Observe ((observe-value (lambda () (read-value))))

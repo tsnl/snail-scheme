@@ -19,7 +19,7 @@ project parser/planner fixtures.
 | Typed `define` headers | Parameter names and function bodies, with type/effect clauses erased. |
 | `record` and `enum` | Distinct constructor identities with mutable fields; pure replacement copies the outer object. |
 | `(new Name (field expression) ...)` | Compile-time field selection and sequential initializer bindings, followed by the private constructor. |
-| `(● object field ...)`, `set!`, `replace!` | Registered field slots, with ordinary object aliasing. |
+| `(● object field ...)`, `set!` | Registered field slots, with ordinary object aliasing. |
 | `match` | Case tests and field bindings. |
 | Types, quantifiers and constraints | Erased after the host adapter has recognized their syntax. |
 | Compiler failure effects | Host handlers with a delimited escape to the compiler's error boundary. |
@@ -134,7 +134,7 @@ Node remains the default for compiler execution. Wasmtime provides an
 independent engine and is exercised by `make test-wasmtime`. Performance
 comparisons must identify the compiler revision and distinguish engine
 startup, compilation of Wasm to native code, and execution; the language's
-boxed records and counted ownership change those costs substantially.
+boxed records change those costs substantially.
 
 The standalone executable and its embedded project tooling remain the
 subject of [#562](https://github.com/tsnl/snail-scheme/issues/562). Chez is

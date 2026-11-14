@@ -11,6 +11,6 @@
 
 (define (main) (→ Unit)
 
-  (handle Abort ((abort (lambda (value resume) (drop resume) value)))
+  (handle Abort ((abort (lambda (value resume) value)))
     (run (lambda () (abort 1))))
   (unit))

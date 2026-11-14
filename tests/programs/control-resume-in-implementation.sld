@@ -18,7 +18,7 @@
   (Done)
   (Yielded
    ((value I64)
-    (next (FnOnce Unit → Step ! Log)))))
+    (next (Fn Unit → Step ! Log)))))
 
 ;; The generator hands back each value, and its implementation logs.
 (define (start (body (Fn → Unit ! Gen Log))) (→ Step) (! Log)
@@ -37,7 +37,7 @@
 ;; An operation that takes the rest of a generator, which its implementation
 ;; runs.
 (effect Runner
-  ((run-step (Fn (FnOnce Unit → Step ! Log) → Step))))
+  ((run-step (Fn (Fn Unit → Step ! Log) → Step))))
 
 (define (show-step (step Step)) (→ Unit) (! output-port)
   (match step

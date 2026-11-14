@@ -12,12 +12,12 @@
   ((log (Fn String → Unit))))
 
 ;; A step of a generator: done, or a value and the rest, which may be
-;; resumed once. Holding `resume` makes a Step linear.
+;; resumed once; a second resume panics.
 (enum Step
   (Done)
   (Yielded
    ((value I64)
-    (next (FnOnce Unit → Step ! Log)))))
+    (next (Fn Unit → Step ! Log)))))
 
 ;; The generator's first step: the handler hands back each value with the
 ;; rest of the body still to run.
@@ -66,7 +66,7 @@
   (Finished)
   (Gave
    ((value I64)
-    (next (FnOnce Unit → Asking ! Ask)))))
+    (next (Fn Unit → Asking ! Ask)))))
 
 (define (scaled (count I64)) (→ Asking) (! Ask)
   (handle Gen ((yield (lambda (value resume) (Gave value resume))))

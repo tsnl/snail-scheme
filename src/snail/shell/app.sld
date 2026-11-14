@@ -1067,7 +1067,7 @@
       ())
 
     (class-instance (Application (! mut screen events storage tasks page) (SceneApplication S))
-                    (⊨ (Scene S) (PageState S) (Copy S) (Drop (!) S))
+                    (⊨ (Scene S) (PageState S))
                     (define start
                       (lambda (entry)
                         (run-page (lambda () (initial-scene entry)) scene-save scene-restore
@@ -1091,7 +1091,7 @@
       (→ Unit)
       (! mut screen events storage tasks page)
       (∀ (S))
-      (⊨ (Scene S) (PageState S) (Copy S) (Drop (!) S))
+      (⊨ (Scene S) (PageState S))
       (match (next-event)
         ((FrameEvent elapsed)
          (let* ((next (scene-update state (Elapsed elapsed))) (frame (scene-view next))

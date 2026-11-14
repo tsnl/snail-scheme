@@ -7,43 +7,9 @@ import {mkdirSync, readFileSync, statSync, writeFileSync} from 'node:fs';
 import {cpus} from 'node:os';
 import {dirname, join, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {WASI} from 'node:wasi';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
-const median = values => values.toSorted((a, b) => a - b)[Math.floor(values.length / 2)];
-
-if (args[0] === '--nested') {
-  assert(globalThis.gc);
-  const variants = [];
-  for (const [index, file] of args.slice(1).entries()) {
-    const wasi = new WASI({version: 'preview1', args: [], env: {}, preopens: {}});
-    const {instance} = await WebAssembly.instantiate(readFileSync(file), wasi.getImportObject());
-    wasi.initialize(instance);
-    assert.equal(instance.exports.main(), 0);
-    variants.push({name: index ? 'current' : 'baseline', measure: instance.exports.measure});
-  }
-  const cases = [];
-  for (const depth of [32n, 128n, 512n]) {
-    const iterations = 10n, checksum = (8n * depth + 8n) * iterations, samples = [];
-    for (let warm = 0; warm < 10; ++warm) for (const variant of variants)
-      assert.equal(variant.measure(depth, iterations), checksum);
-    for (let repeat = 0; repeat < 21; ++repeat) {
-      for (const variant of repeat % 2 ? [...variants].reverse() : variants) {
-        globalThis.gc();
-        const start = performance.now(), result = variant.measure(depth, iterations);
-        const milliseconds = performance.now() - start;
-        assert.equal(result, checksum);
-        samples.push({variant: variant.name, repeat, milliseconds});
-      }
-    }
-    const time = name => median(samples.filter(s => s.variant === name).map(s => s.milliseconds));
-    cases.push({depth: String(depth), iterations: String(iterations), checksum: String(checksum),
-      baseline_ms: time('baseline'), current_ms: time('current'), samples});
-  }
-  console.log(JSON.stringify(cases));
-  process.exit(0);
-}
 
 const [baselineArg, baseCompilerArg, currentCompilerArg, outputArg] = args;
 assert(baselineArg && baseCompilerArg && currentCompilerArg,
@@ -65,7 +31,7 @@ const variants = [
   {name: 'baseline', root: resolve(baselineArg), compiler: resolve(baseCompilerArg)},
   {name: 'current', root, compiler: resolve(currentCompilerArg)},
 ];
-const fixtures = {values: 'value-model', siege: 'siege', nested: 'reference-counting', frames: 'frame-ownership'};
+const fixtures = {values: 'value-model', siege: 'siege'};
 const compileArgs = (v, source, target) => ['--no-warnings', join(root, 'host/native/run-snail.mjs'),
   v.compiler, 'wat', source, target, join(output, 'generated'),
   join(v.root, 'apps/siegework/src'), join(v.root, 'src')];
@@ -98,13 +64,10 @@ function measure(name, order) {
   const first = order[0], second = order[1];
   return {name, positions: {baseline: first.name, current: second.name, first: first.name, second: second.name},
     values: run('taskset', [...pinnedNode('benchmark-values.mjs'), first.values, second.values, '21']).trim().split('\n').map(JSON.parse),
-    siege: JSON.parse(run('taskset', [...pinnedNode('benchmark-siege.mjs'), first.siege, second.siege, '32'])),
-    nested: JSON.parse(run('taskset', [...pinnedNode('benchmark-cuts.mjs'), '--nested', first.nested, second.nested])),
-    frames: JSON.parse(run('taskset', [...pinnedNode('benchmark-frame-ownership.mjs'), '--measure', first.frames, second.frames]))};
+    siege: JSON.parse(run('taskset', [...pinnedNode('benchmark-siege.mjs'), first.siege, second.siege, '32']))};
 }
 report.runtime = [measure('forward', variants), measure('reverse', [...variants].reverse()),
   measure('identical-baseline', [variants[0], variants[0]])];
-report.nested_scope = 'Complete-revision comparison: includes input/type/location factory allocations, ownership lowering, and output-node counting; does not isolate the lowering algorithm.';
 report.memory = [];
 for (let repeat = 0; repeat < 5; ++repeat) {
   for (const variant of repeat % 2 ? [...variants].reverse() : variants) {
@@ -115,7 +78,7 @@ for (let repeat = 0; repeat < 5; ++repeat) {
   }
 }
 report.compilation = [];
-for (const fixture of ['values', 'siege', 'nested']) {
+for (const fixture of ['values', 'siege']) {
   for (let repeat = 0; repeat < 9; ++repeat) {
     for (const variant of repeat % 2 ? [...variants].reverse() : variants) {
       const timing = join(output, 'time.txt'), target = join(output, `${variant.name}-timed.wat`);

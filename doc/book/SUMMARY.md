@@ -6,7 +6,7 @@
   - [Terms](snail-core/terms.md)
   - [Types](snail-core/types.md)
   - [Effects and handlers](snail-core/effects.md)
-  - [Ownership](snail-core/ownership.md)
+  - [Values](snail-core/values.md)
   - [Macros and generated libraries](snail-core/macros.md)
   - [Bootstrap and self-hosting](snail-core/bootstrap.md)
   - [Libraries](snail-core/libraries.md)

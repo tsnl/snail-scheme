@@ -8,7 +8,7 @@
 
 (define (squares (count I64)) (→ (Vector I64))
   (handle Abort ((abort
-                  (lambda (value resume) (drop resume) (vector-generate 0 (lambda (index) index)))))
+                  (lambda (value resume) (vector-generate 0 (lambda (index) index)))))
     (vector-generate count (lambda (index) (if (< index 3) (* index index) (abort index))))))
 
 (define (main) (→ Unit)

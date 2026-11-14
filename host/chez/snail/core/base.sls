@@ -28,7 +28,7 @@
    min
    max
    not
-   unit panic drop unsafe-total cache lru-cache unsafe-effectful-cache unsafe-effectful-lru-cache
+   unit panic unsafe-total cache lru-cache unsafe-effectful-cache unsafe-effectful-lru-cache
    i64-and i64-or i64-xor i64-shift-left i64-shift-right/logical
    i64->string string->i64 u8->i32 i32->u8 i32->i64 i64->i32 digit-value
    Option Some None Result Ok Err Never absurd Pair
@@ -63,7 +63,7 @@
    subvector
    vector-map vector-for-each vector-fold vector->list list->vector
    vector vector-set! vector-copy vector-copy!
-   set! replace!
+   set!
    )
   (import
    (except (chezscheme) define set! case map fold-left fold-right find
@@ -96,10 +96,6 @@
   (define (panic message) (error #f message))
 
   (define (unsafe-total work) (work))
-
-  ;; Stage 0 has no FnOnce: the `resume` its handlers are handed cannot
-  ;; resume (see (snail stage0 forms)), so dropping one releases nothing.
-  (define (drop owned) (unit))
 
   (define (negate n) (- 0 n))
 
@@ -376,7 +372,7 @@
                #xcbf29ce484222325 arguments))
 
   ;; The map and recency list belong to this invocation of the factory.
-  ;; Entries hold argument keys, result, newer and older; no counted values.
+  ;; Entries hold argument keys, result, newer and older.
   (define (cache-wrapper capacity f)
     (let ((entries (make-hashtable cache-argument-hash cache-arguments=?))
           (head #f) (tail #f))

@@ -1,10 +1,10 @@
 # Snail Scheme
 
 **Scheme, but statically typed.** Snail Scheme has S-expressions, hygienic
-macros, explicit types and effects, and exact-once ownership. Records are
-mutable heap objects; primitive values stay unboxed. `Rc` and `WeakRc`
-provide counted resource lifetime without source borrows. Functions use
-`Fn` and `FnOnce` type formers with the Unicode `→` separator.
+macros, and explicit types and effects. Records are mutable heap objects
+that any number of names may share; primitive values stay unboxed, and the
+collector reclaims what nothing reaches. Functions use the `Fn` type former
+with the Unicode `→` separator.
 
 Top-level definitions bind functions. Construct values inside those functions
 and pass shared state explicitly. There are no global value initializers or
@@ -21,6 +21,8 @@ The chapters describe implemented behavior and mark proposed toolchain changes:
   files and dynamic values.
 - [Effects and handlers](effects.md): effect rows, handlers, control
   operations with a one-shot `resume`, and latent rows.
+- [Values](values.md): sharing, mutable records, closures, resources and
+  their representation.
 - [Macros and generated libraries](macros.md): hygienic expansion and explicit
   build-time producers.
 - [Bootstrap and self-hosting](bootstrap.md): the erasure property, the two

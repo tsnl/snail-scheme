@@ -1,5 +1,5 @@
-;; Header variables scope over parameter types and body annotations. Class
-;; evidence and callable ownership retain the same checking obligations.
+;; Header variables scope over parameter types and body annotations, and
+;; class evidence keeps the same checking obligations.
 (import
  (snail core base)
  (snail core io))
@@ -8,7 +8,7 @@
   (→ T)
   (! E)
   (∀ (T E))
-  (⊨ (Num E T) (Copy T) (Drop E T))
+  (⊨ (Num E T))
   (+ (ann value T) value))
 
 (define (empty)
@@ -16,7 +16,7 @@
   (∀ (T))
   (Nil))
 
-(define (apply-one (action (FnOnce I64 → I64)) (value I64))
+(define (apply-one (action (Fn I64 → I64)) (value I64))
   (→ I64)
   (action value))
 

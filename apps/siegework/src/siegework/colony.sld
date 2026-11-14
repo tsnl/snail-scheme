@@ -175,7 +175,7 @@
             ((Some nest) (> (● nest health) 0))
             ((None) #f))))
 
-    (define (null-option? (option (Option T))) (→ Bool) (∀ (T)) (⊨ (Copy T) (Drop (!) T))
+    (define (null-option? (option (Option T))) (→ Bool) (∀ (T))
       (match option
         ((Some _) #f)
         ((None) #t)))
@@ -437,13 +437,11 @@
     (define (insertion-sort (before? (Fn T T → Bool)) (items (List T)))
       (→ (List T))
       (∀ (T))
-      (⊨ (Copy T) (Drop (!) T))
       (fold-left (lambda (sorted item) (insert before? item sorted)) (Nil) items))
 
     (define (insert (before? (Fn T T → Bool)) (item T) (sorted (List T)))
       (→ (List T))
       (∀ (T))
-      (⊨ (Copy T) (Drop (!) T))
       (match sorted
         ((Nil) (list item))
         ((Cons first rest)

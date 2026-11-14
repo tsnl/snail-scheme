@@ -255,6 +255,7 @@ export function createTermination() {
     });
   }
 
-  // `settled` says a task finished, or dropped, a wait a signal ended.
+  // `settled` says a task finished a wait a signal ended, or that its
+  // undelivered result was disposed of.
   return {wait, settled() { unfinished--; listen(); }, close() { listen(false); }};
 }

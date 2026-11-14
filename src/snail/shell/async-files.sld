@@ -1,7 +1,6 @@
 ;; Bounded whole-file reads through an explicit native filesystem capability.
 ;; The calling task waits; ordinary dispatch can expose its result as a future.
-;; A canceled task withdraws reception while the host finishes and closes the
-;; request. Neither this operation nor its result promises a disk snapshot.
+;; Neither this operation nor its result promises a disk snapshot.
 (define-library (snail shell async-files)
   (export files
           read-file
@@ -29,38 +28,29 @@
       (Failed))
 
     (effect files
-      ((read-file (Fn String I32 → (Result Bytes FileError) ! mut tasks)))
+      ((read-file (Fn String I32 → (Result Bytes FileError) ! tasks)))
       (default ((read-file native-read))))
 
-    ;; ---- Pending request ownership ----
+    ;; ---- Reading ----
 
-    ;; Only the suspended frame owns this token. Its cleanup does not free
-    ;; kernel-visible storage: that storage belongs to the native operation.
-    (record Request
-      ((id I64)))
-
-    (instance (Drop (! mut) Request)
-      (define (drop (request Request)) (→ Unit) (! mut)
-        (match request ((Request id) (host-cancel id)))))
-
-    (define (native-read (path String) (maximum I32)) (→ (Result Bytes FileError)) (! mut tasks)
+    ;; The read runs to completion: the host delivers its result to the
+    ;; waiting task, which takes it with `finish`.
+    (define (native-read (path String) (maximum I32)) (→ (Result Bytes FileError)) (! tasks)
       (let ((ticket (ticket)))
         (for-each host-path-character (string->list path))
-        (let ((request (new Request (id (host-start-read ticket maximum)))))
+        (let ((id (host-start-read ticket maximum)))
           (await ticket)
-          (finish request))))
+          (finish id))))
 
     ;; The host holds bytes only until the next finish; copying does not
-    ;; suspend. Completion consumes the token, so Drop cannot cancel it again.
+    ;; suspend.
 
-    (define (finish (request Request)) (→ (Result Bytes FileError))
-      (match request
-        ((Request id)
-         (let ((answer (host-finish id)))
-           (if (< answer 0)
-               (Err (failure answer))
-               (Ok (vector-generate (i32->i64 answer)
-                                    (lambda (index) (i32->u8 (host-byte (i64->i32 index)))))))))))
+    (define (finish (id I64)) (→ (Result Bytes FileError))
+      (let ((answer (host-finish id)))
+        (if (< answer 0)
+            (Err (failure answer))
+            (Ok (vector-generate (i32->i64 answer)
+                                 (lambda (index) (i32->u8 (host-byte (i64->i32 index)))))))))
 
     (define (failure (code I32)) (→ FileError)
       (cond ((= code -1) (Unavailable))

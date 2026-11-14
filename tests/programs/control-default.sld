@@ -27,7 +27,7 @@
    ((value I64)))
   (Waiting
    ((deadline I64)
-    (next (FnOnce I64 → Task ! Clock output-port)))))
+    (next (Fn I64 → Task ! Clock output-port)))))
 
 (define (start (body (Fn → I64 ! Clock Async output-port))) (→ Task) (! Clock output-port)
   (handle Async ((await (lambda (deadline resume) (Waiting deadline resume))))

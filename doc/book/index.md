@@ -4,8 +4,8 @@
 building applications, compiling to WebAssembly with garbage collection.
 Its compiler is written in the language and compiles itself.
 
-- [The language](snail-core/index.md): types, mutable heap objects, ownership,
-  effects, libraries and the compiler.
+- [The language](snail-core/index.md): types, mutable heap objects, effects,
+  libraries and the compiler.
 - [Tutorials](snail-core/tutorials/index.md): complete programs, starting with
   [Snail Scheme in ten minutes](snail-core/tutorials/tour.md).
 - [Siegework](games/index.md): a colony game written in Snail Scheme.

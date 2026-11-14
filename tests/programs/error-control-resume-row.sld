@@ -17,7 +17,7 @@
   (Done)
   (Yielded
    ((value I64)
-    (next (FnOnce I64 → Step)))))
+    (next (Fn I64 → Step)))))
 
 (define (start (body (Fn → Unit ! Gen))) (→ Step) (! Log)
   (handle Gen ((yield (lambda (v resume)

@@ -1,15 +1,15 @@
 # Compiler architecture
 
 The compiler has four main phases: expand, check, prepare, and emit.
-Reading supplies located syntax. Preparation closes specialization and
-cleanup requests and produces fixed concrete code.
+Reading supplies located syntax. Preparation closes specialization requests
+and produces fixed concrete code.
 Emission consumes that result without revisiting source semantics.
 
 ```text
 text ──read───▶ located syntax
      ──expand─▶ resolved program   unique names, declarations, field paths
-     ──check──▶ typed program      types, rows, instances, exact-once ownership
-     ──prepare▶ concrete code      functions, control and cleanup explicit
+     ──check──▶ typed program      types, rows, instances
+     ──prepare▶ concrete code      functions and yield points explicit
      ──emit───▶ WasmGC text ──assemble/link──▶ executable module
 ```
 
@@ -52,15 +52,14 @@ runtime slot.
 `expand.sld` alone knows binding syntax. It loads libraries, resolves import
 sets, expands hygienic `syntax-rules`, assigns unique names and converts
 forms into expressions and declarations. Top-level names are discovered
-before their bodies, allowing recursive and mutually recursive functions. Local bodies remain sequential. Typed `define` and bodyless `declare` share a header grammar here; `Fn` and `FnOnce` are built-in callable type formers.
+before their bodies, allowing recursive and mutually recursive functions. Local bodies remain sequential. Typed `define` and bodyless `declare` share a header grammar here; `Fn` is the built-in callable type former.
 
 Struct field paths remain unresolved only while the receiver type is
 unknown. Once its nominal type is known, checking substitutes the record's
 type arguments and resolves each label to a declared field. Each hop becomes
 an ordinary accessor operation. Nested fields follow object references;
-there is no inline-layout path to reconstruct. `set!` and `replace!` use the
-same resolved field and differ in whether the old value is released or
-returned.
+there is no inline-layout path to reconstruct. `set!` writes the resolved
+field.
 
 Expansion generates constructors, field operations and requested derived
 instances. Their bodies and evidence then go through ordinary checking.
@@ -76,7 +75,7 @@ supplies the instantiated field types before checking each value, so callbacks
 and generic records retain contextual typing. It then erases named construction:
 fields already in declaration order become an ordinary constructor call;
 reordered fields become sequential typed bindings followed by that call.
-Ownership, specialization and Wasm emission use their existing operations.
+Specialization and Wasm emission use their existing operations.
 Chez performs the same ordering at macro expansion time, using private
 constructor procedures and hygienic record descriptors, with no runtime keyword
 lookup for construction.
@@ -90,11 +89,9 @@ polymorphic definitions state their quantifiers and requirements.
 
 An effect row names operations a function may perform. Calls and callbacks
 add row-inclusion obligations, which remain pending while a latent row is
-unknown. The checker also defers escape cleanup and unused-effect decisions
-until those rows have enough information. This avoids either closing a
-callback row too early or granting effects absent from its implementation.
-Finalizers contribute their effects at the scope or write that can release
-the last owner.
+unknown. The checker also defers unused-effect decisions until those rows
+have enough information. This avoids either closing a callback row too early
+or granting effects absent from its implementation.
 
 Explicit `(Any value)` and `(downcast T boxed)` become `BoxAny` and
 `Downcast` terms. Packaging preserves type identity; extraction returns `Some`
@@ -103,86 +100,24 @@ at unrelated boundaries or performs an effect.
 Expansion rejects top-level nonfunctions. Local expressions retain their
 ordinary inference and effect checking.
 
-### Ownership and lifetimes
-
-`capabilities.sld` determines whether a type is linear and how it is dropped. Every stored field participates. A record or enum with a linear
-member is linear, regardless of its mutability. A `Drop` instance also makes a type linear. A generic parameter is linear unless
-its contract requires `Copy`.
-
-These questions are asked of a few types throughout a program, and each
-answer searches the type's declarations. No type variable reaches the fields
-of a declaration without parameters, so its answers do not depend on the
-`Copy` variables or requirements in scope. When expansion has every type, the
-program records each such declaration's facts: whether it is linear, whether
-it is counted, and what dropping it performs. The queries read them; adding a
-type to the program forgets them.
-
-`Rc T` is the sole owning exception: it can share a linear `T` without
-becoming linear. `WeakRc T` does not own the payload. Shared aggregates that
-contain counted owners retain and release those members recursively.
-Lifecycle plans retain the selected finalizer and its effect obligations
-through specialization.
-
-`ownership.sld` checks exact-once consumption along each returning path.
-Alternatives must agree about the owners they consume. Matching a linear
-aggregate transfers its fields; observing an unrestricted field does not
-consume the receiver. A mutable slot may exchange owners, but cannot lose a
-linear value. There is no borrow type, loan table, frozen-owner state or
-borrow checker.
-
-`Fn` captures unrestricted values and can be shared. `FnOnce` moves its
-captures into either execution or cancellation. A saved resumption is a
-`FnOnce` and may be stored in a linear aggregate or owned through `Rc`.
-Calling a reusable closure does not grant permission to consume its captures.
-
-`reference-counting.sld` then makes shared ownership explicit in concrete code. Reads
-that create counted owners retain them; scope exit, overwritten slots and
-abandoned branches release them. The pass distinguishes an observed receiver
-from a transferred argument. It keeps a local's owner until its lexical
-scope ends, so replacing one alias does not prematurely finalize another.
-The Wasm collector manages memory reachability; these operations determine
-resource lifetime and finalizer order.
-
-The pass carries pending releases through the result positions of the original
-expression tree. A nested binding prepends its owner; branches inherit the same
-pending releases, and pattern bindings add theirs. Each result is secured before
-these owners are released. An ordinary tail call evaluates its callee and arguments
-first, releases the caller's owners, then transfers. Operands and nested functions
-start their own release contexts; a handler keeps its caller's cleanup outside its
-evidence scope. There is no separate walk over a lowered suffix for every enclosing
-binding, and no source-level lifetime or borrow analysis.
-
 ### Specialization and preparation
 
-`specialize.sld` owns one registry and worklist for concrete source functions
-and generated cleanup glue. It reserves an identity before expanding its
-body, which permits recursion. Specialization keys contain types and chosen
+`specialize.sld` owns one registry and worklist for concrete source
+functions. It reserves an identity before expanding a function's body, which
+permits recursion. Specialization keys contain types and chosen
 class evidence, not runtime handler identities. Cache hits do not spend the
 finite specialization budget again.
 
-`prepare.sld` closes each newly discovered batch before inspecting its
-original concrete bodies. It folds constants, checks control restrictions,
-inserts reference counts, names yield points, and builds cancellation
-code. Cleanup can request more definitions; those form the next batch.
-An old definition's body and call contract do not change while another batch
-is being checked.
+`prepare.sld` specializes the whole reachable graph before inspecting any
+original concrete body, so each check reads complete callees. It checks
+control restrictions, then names the yield points of each body on its own.
 
 Control lowering uses a subset of the same expression language, not a
 separate CPS language. A call that may yield stays in tail position or is
 named by a `let`; operands that execute before it are named first. The
 backend can therefore test for a pending yield before executing the rest
-of the expression. `with-cleanup` carries ordered cancellation code for that
-suspended scope; its second operand is code, not an evaluated argument.
-A one-shot closure carries the cleanup for captures not
-transferred into its body.
-
-Cleanup uses one rewriting traversal of each body. It requests a concrete `Drop`
-reference when it encounters an owned capture and builds the cleanup code
-immediately. The specialization registry reserves the name and signature;
-later batches build the requested body. Branches share the same initial
-lexical scope while threading that registry, so requests deduplicate without
-mixing ownership between paths. There is no preliminary type collection or
-second traversal to resolve missing cleanup entries.
+of the expression. A `set!` whose value may yield names its place's record
+instead of the place, so the place stays a field read.
 
 Some execution boundaries cannot propagate a yield: raw Wasm loops used by
 sequence generators, arbitrary `unsafe-total` thunks, or work closed over
@@ -196,37 +131,25 @@ hidden their structure.
 `wasm.sld` selects one representation per concrete type. Numeric primitives
 and booleans are Wasm scalars. A record is always a GC struct reference;
 its field is one scalar or reference slot. An enum has a tagged base and
-case subtypes. A vector is an exact-sized GC array. Only vectors with counted
-elements add a holder: an ownership header and an immutable reference to that
-array. Its length comes from the array; there is no capacity or replaceable
-storage. There is no inline record flattening or reconstruction on field writes.
+case subtypes. A vector is an exact-sized GC array; its length comes from
+the array, and there is no capacity or replaceable storage. No object
+carries a header beyond its fields. There is no inline record flattening or
+reconstruction on field writes.
 
 Completed source references are non-null. Internal Wasm storage and signatures
 admit null so uninitialized slots and suspended results need no fabricated
 source value. A control return leaves zero or null; its caller checks the yield
-record before reading, retaining or releasing the result. Tail calls forward
+record before reading the result. Tail calls forward
 that outcome directly. Normal construction and initialization establish when
-a slot contains a source value. Host handovers retain their non-null contracts
+a slot contains a source value. Host handovers keep their non-null contracts
 except for the explicit nullable `Option Any` encoding, and dynamic type tests
 still reject null. Linked modules must use the same internal calling convention.
 
-A shared object that contains counted ownership has an owner header and a
-destructor. Copying its reference retains that owner; the final release
-releases its fields. Linear objects have one statically checked owner. A
-pure replacement of a linear record may reuse it; a replacement of a shared
-record creates a shallow copy. A mutable update publishes the incoming
-field before releasing the old one, so a reentrant finalizer sees the new
-state. Vector copies snapshot incoming owners before replacing destination
-slots, including overlapping ranges, then release displaced owners. Counted
-vector destructors visit only the live prefix. Strings remain character arrays;
-conversions copy storage, and host byte staging copies only a vector's live prefix.
-
-An `Rc` control cell owns its payload and selected finalizer. The last
-strong release makes the payload unavailable before running that finalizer.
-A weak upgrade either takes a new strong reference or reports that the
-payload has gone. Cleanup must not retain the managed wrapper whose payload
-it releases. Strong cycles need explicit breaking or weak edges; WasmGC
-reachability collection cannot supply deterministic finalization for them.
+A pure replacement creates a shallow copy of the record with one field
+replaced. A mutable update writes the field in place, after both its receiver
+and its value have run. Vector copies support overlapping ranges. Strings
+remain character arrays; conversions copy storage, and host byte staging
+copies only a vector's live prefix.
 
 The emitter interns concrete Wasm types before traversing their fields,
 allowing recursive object graphs. Finite budgets diagnose expanding type or
@@ -238,11 +161,9 @@ The checker enforces this at final inferred types before specialization erases
 ordinary effects, including when a primitive is used as a function value.
 `unsafe-effectful-cache` and `unsafe-effectful-lru-cache` instead preserve the
 callback's effect row. All four preserve its parameter and result types.
-Preparation checks concrete key and result types for trivial cleanup and rejects
-suspending callbacks. The Wasm backend builds an ordinary closure capturing its
-callback and a private typed hash table; no module globals or new ownership
-representation are involved. Its destructor releases the callback through the
-existing closure machinery. The Chez adapter implements the same wrapper and key
+Preparation rejects raw `Funcref` keys and suspending callbacks. The Wasm
+backend builds an ordinary closure capturing its callback and a private typed
+hash table; no module globals are involved. The Chez adapter implements the same wrapper and key
 semantics. See [cached functions](terms.md#cached-functions).
 
 ### Effects, control and frames
@@ -253,33 +174,25 @@ outside the matching handler. Latent effects get forwarding evidence from
 the performer. Handler identity is never a specialization key.
 
 A control operation sets a yield record. As execution returns through named
-yield points, the remainder of each scope becomes a frame holding resume and
-cancel entry points, evidence, and one environment. Its captures include both
-the continuation's reads and cleanup-only owners that a `Never` continuation
-does not mention. Each owner moves into the frame once; execution and cancellation
-consume the same credits on mutually exclusive paths. There is no backup
-cancellation closure or extra retain/release pair for its captures.
-The matching handler receives
-a one-shot resumption. Calling it executes the frames from inside out;
-dropping it runs their cleanup without executing their continuation code.
-A handled scope saved among those frames preserves its delimiter.
-Both paths detach the frames before calling user code. Cancellation uses the
-frame's renewed evidence and preserves cleanup order; evidence stays owned
-until the chosen entry finishes. An abort that cannot resume runs cleanup
-directly, without allocating a frame or cleanup closure.
+yield points, the remainder of each scope becomes a frame: a closure of its
+join function, the evidence it runs under and the locals its body reads.
+The matching handler receives a resumption holding the frames. Calling it
+marks the continuation resumed, detaches the frames and executes them from
+inside out; calling it again panics. A handled scope saved among those
+frames preserves its delimiter. An abort that cannot resume saves no frame,
+and a resumption that is never called is reclaimed like any other value.
 
 Resumption creates a fresh handler activation whose outside context is the
 caller of `resume`. A memoized renewal walks parent and forwarding-origin
 edges, then updates compiler-owned frame evidence and nested delimiters to
-use the corresponding new identities. Its map owns old and fresh nodes
-until all slots are consistent. Existing source closures and independently
-owned resumptions retain their original contexts.
+use the corresponding new identities. Its map holds old and fresh nodes
+until all slots are consistent. Existing source closures and other
+resumptions keep their original contexts.
 
-`inherit-handlers` captures an explicit context for later invocation *and
-cancellation*. Ordinary evidence copies share their implementation closures;
-forwarding copies rebuild closures over the renewed origin. Nested handled
-frames execute or cancel their already renewed continuation without activating
-it again. The invariants beside these helpers are part of their contract.
+`inherit-handlers` captures an explicit context for later invocation.
+Ordinary evidence copies share their implementation closures; forwarding
+copies rebuild closures over the renewed origin. Nested handled frames
+execute their already renewed continuation without activating it again. The invariants beside these helpers are part of their contract.
 
 This is ordinary calls and explicit frames, not stack switching. V8 and
 Wasmtime execute the same linked code; no JavaScript continuation mechanism
@@ -577,7 +490,7 @@ available.
 
 Running project build plans and publication belong to the [project builder](projects.md),
 watching and editor services to the [development toolchain](toolchain.md), and
-task scheduling and resource ownership to the [runtime](../runtimes/index.md).
+task scheduling and resources to the [runtime](../runtimes/index.md).
 
 ## Following and checking a change
 

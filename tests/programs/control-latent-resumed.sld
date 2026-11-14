@@ -24,9 +24,9 @@
    ((value I64)))
   (Waiting
    ((ticket I64)
-    (next (FnOnce I64 → Task ! Io Log)))))
+    (next (Fn I64 → Task ! Io Log)))))
 
-(define (start (id I64) (body (FnOnce → I64 ! Io Async Log))) (→ Task) (! Io Log)
+(define (start (id I64) (body (Fn → I64 ! Io Async Log))) (→ Task) (! Io Log)
   (handle Async
       ((await (lambda (ticket resume)
                 (log (string-append "task " (show id) " waits on " (show ticket)))
@@ -51,15 +51,15 @@
                   (log (string-append "fetch resumed in task " (show (task-id))))
                   (await (+ answer 1))))))
     (let ((first (handle Log ((log (lambda (line) (labelled "the first log" line))))
-                   (start 1 (once (lambda () (fetch 1)))))))
+                   (start 1 (lambda () (fetch 1))))))
       (handle Log ((log (lambda (line) (labelled "the second log" line))))
         (match first
           ((Waiting ticket next)
            ;; Task 1's first wait is answered inside task 2.
-           (write-line (show (finish (start 2 (once (lambda ()
-                                                      (log (string-append "task "
-                                                                          (show (task-id))
-                                                                          " resumes task 1"))
-                                                      (finish (next (* ticket 10))))))))))
+           (write-line (show (finish (start 2 (lambda ()
+                                                (log (string-append "task "
+                                                                    (show (task-id))
+                                                                    " resumes task 1"))
+                                                (finish (next (* ticket 10)))))))))
           ((Done value) (write-line (show value)))))))
   (unit))

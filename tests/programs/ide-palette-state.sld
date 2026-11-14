@@ -18,28 +18,27 @@
     (commands (list (new palette-Entry (name "save-buffer") (keys "Ctrl+S"))))
     (paths (list "main.sld"))))
 
-(define (state (step palette-Step)) (→ palette-State) (! dom fetch)
-  (match step ((palette-Step next _ commands) (drop commands) next)))
+(define (state (step palette-Step)) (→ palette-State)
+  (match step ((palette-Step next _ commands) next)))
 
-(define (send (state palette-State) (message palette-Message)) (→ palette-State) (! dom fetch)
+(define (send (state palette-State) (message palette-Message)) (→ palette-State)
   (state-of-update state (context) message))
 
 (define (state-of-update (before palette-State) (context palette-Context) (message palette-Message))
   (→ palette-State)
-  (! dom fetch)
   (state (palette-update before context message)))
 
 (define (check (ok Bool) (label String)) (→ Unit) (! output-port)
   (if ok (write-line label) (panic label)))
 
-(define (requested? (step palette-Step)) (→ Bool) (! dom fetch)
+(define (requested? (step palette-Step)) (→ Bool)
   (match step
     ((palette-Step _ _ commands)
-     (match commands ((Nil) #f) ((Cons first rest) (drop first) (drop rest) #t)))))
+     (match commands ((Nil) #f) ((Cons first rest) #t)))))
 
-(define (no-outcome? (step palette-Step)) (→ Bool) (! dom fetch)
+(define (no-outcome? (step palette-Step)) (→ Bool)
   (match step
-    ((palette-Step _ outcome commands) (drop commands) (match outcome ((None) #t) (_ #f)))))
+    ((palette-Step _ outcome commands) (match outcome ((None) #t) (_ #f)))))
 
 (define (result (path String)) (→ (Result search-Results Failure))
   (Ok (search-SavedResults (new SearchResults
@@ -81,12 +80,11 @@
   (→ (Pair palette-State palette-CommandResult))
   (! dom fetch)
   (match step
-    ((palette-Step state _ (Cons (palette-Command command _) rest))
-     (drop rest)
+    ((palette-Step state _ (Cons (palette-Command command) rest))
      (handle tasks
          ((yield (lambda (resume) (resume (unit))))
           (sleep (lambda (delay resume) (resume (unit))))
-          (await (lambda (ticket resume) (drop resume) (panic "unexpected wait")))
+          (await (lambda (ticket resume) (panic "unexpected wait")))
           (ticket (lambda () 0))
           (current-scheduler (lambda () (panic "logical timer cannot dispatch"))))
        (handle fetch
@@ -95,11 +93,10 @@
             (stream-next (lambda (stream) (panic "stream")))
             (stream-close (lambda (stream) (unit))))
          (new Pair (first state) (second (command))))))
-    (other (drop other) (panic "expected one command"))))
+    (other (panic "expected one command"))))
 
 (define (accept (before palette-State) (result palette-CommandResult))
   (→ palette-State)
-  (! dom fetch)
   (state (result before)))
 
 (define (run) (→ Unit) (! dom fetch output-port)
@@ -145,12 +142,11 @@
     (check (not (requested? ((● a2 second) pending))) "one request per generation")
     (match (palette-update stale (context) (palette-KeyPressed "Enter" 0))
       ((palette-Step next (Some (palette-OpenSavedHit hit)) commands)
-       (drop commands)
        (check (and (string=? (● (● hit point) file) "new.sld")
                    (not (palette-visible? next))
                    (> (● next generation) (● stale generation)))
               "A-B-A keeps the new result and selection advances authority"))
-      (other (drop other) (panic "selection")))
+      (other (panic "selection")))
     (for-each (lambda (message)
                 (match message
                   ((palette-Pick _ _)
@@ -178,12 +174,12 @@
 (define (main) (→ Unit) (! host mut output-port tasks)
 
   (dispatch-local
-   (once (lambda ()
-           (handle fetch
-               ((request (lambda (method url headers body) (panic "unexpected request")))
-                (stream-open (lambda (url kinds) (panic "stream")))
-                (stream-next (lambda (stream) (panic "stream")))
-                (stream-close (lambda (stream) (panic "stream"))))
-             (with-memory-dom (Nil) (once run)))
-           (unit))))
+   (lambda ()
+     (handle fetch
+         ((request (lambda (method url headers body) (panic "unexpected request")))
+          (stream-open (lambda (url kinds) (panic "stream")))
+          (stream-next (lambda (stream) (panic "stream")))
+          (stream-close (lambda (stream) (panic "stream"))))
+       (with-memory-dom (Nil) run))
+     (unit)))
   (unit))

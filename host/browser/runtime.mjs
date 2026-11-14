@@ -152,7 +152,7 @@ export function createRuntime({size = () => [960, 640], seed = 1, load = async (
       'finish-store': ticket => applicationRun().tasks.finish(Number(ticket)),
     },
   };
-  function finish(run, state, error, releaseState) {
+  function finish(run, state, error) {
     clearTimeout(run.saveTimer);
     const unread = run.queue.close();
     if (run.accepted) pending.unshift(...unread);
@@ -161,16 +161,9 @@ export function createRuntime({size = () => [960, 640], seed = 1, load = async (
       if (run.accepted) reportError(error);
     } else if (!run.accepted) run.ready.reject(new Error(run.boot === null ?
       'the new program could not take over the running state' : 'the application stopped before startup completed'));
-    // The caller owns one checkpoint credit until replacement or rollback
-    // has adopted it. Clearing before release makes repeated release harmless.
-    const result = {state, error, release() {
-      const held = result.state;
-      result.state = null;
-      if (held !== null) releaseState(held);
-    }};
-    return result;
+    return {state, error};
   }
-  // Wasm traps do not unwind source ownership. A trap in any task ends this
+  // Wasm traps do not unwind a trapped frame. A trap in any task ends this
   // generation; recovery starts a new task from its last completed checkpoint.
   function trapped(run, error) {
     run.failure ??= error instanceof Error ? error : new Error('application failed', {cause: error});
@@ -199,7 +192,7 @@ export function createRuntime({size = () => [960, 640], seed = 1, load = async (
       run.root = run.tasks.drive(answered).then(() => completionError(run), error => error);
     } catch (error) { run.root = Promise.resolve(error); }
     run.done = run.root.then(async error => {
-      // Acquire the checkpoint's host credit before closing the scheduler.
+      // Read the checkpoint before closing the scheduler.
       const getter = error && run.boot === null ? 'app_incoming' : 'app_state';
       let state = null;
       try {
@@ -212,9 +205,8 @@ export function createRuntime({size = () => [960, 640], seed = 1, load = async (
         const page = run.page;
         run.page = null;
         try { run.tasks.close(); } catch (failure) { error ??= failure; }
-        try { entry.app['app_create:release-result'](page); } catch (failure) { error ??= failure; }
       }
-      return finish(run, state, error ?? run.failure, entry.app[`${getter}:release-result`]);
+      return finish(run, state, error ?? run.failure);
     });
     return run;
   }
@@ -231,9 +223,7 @@ export function createRuntime({size = () => [960, 640], seed = 1, load = async (
       // Transfer the checkpoint through old code without replaying the event
       // or view that trapped. The shared page lifecycle saves without
       // entering either engine in this invocation.
-      const previous = result;
-      try { run = start(run.entry, previous.state, {transfer: true}); }
-      finally { previous.release(); }
+      run = start(run.entry, result.state, {transfer: true});
       result = await stopRun(run);
     }
     result.saved = run.saved;

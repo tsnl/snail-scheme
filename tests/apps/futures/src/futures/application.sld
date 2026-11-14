@@ -1,6 +1,7 @@
 ;; Input stays responsive while a future waits on the server. Canceling
-;; reception and starting again cannot install an older reply. There is
-;; no Loaded action: update takes the result directly out of its model.
+;; forgets the pending future, so starting again cannot install an older
+;; reply; the request itself runs to completion. There is no Loaded
+;; action: update takes the result directly out of its model.
 (define-library (futures application)
   (export FuturesApplication)
   (import
@@ -24,13 +25,10 @@
       (Waiting)
       (deriving Serialize Deserialize))
 
-    (record PendingWork
-      ((future (Option (Future (Result String String))))))
-
     (record Model
       ((display Display)
        (clicks I64)
-       (pending (Rc PendingWork))))
+       (pending (Option (Future (Result String String))))))
 
     (record Save
       ((display Display)
@@ -46,7 +44,7 @@
       (→ Model) (! mut host completion fetch tasks)
       (match message
         ((Some (Load))
-         (drop (replace! (● model pending future) (Some (dispatch (once load-text)))))
+         (set! (● model pending) (Some (dispatch load-text)))
          (set! (● model display) (Waiting)))
         ((Some (Cancel))
          (cancel! model)
@@ -60,25 +58,25 @@
         ((Ok reply) (Ok (● reply body)))
         ((Err why) (Err why))))
 
-    (define (collect (model Model)) (→ Unit) (! mut host)
-      (match (replace! (● model pending future) (None))
+    (define (collect (model Model)) (→ Unit) (! mut)
+      (match (● model pending)
         ((None) (unit))
         ((Some future)
          (match (poll future)
-           ((Pending future) (drop (replace! (● model pending future) (Some future))))
-           ((Ready (Completed (Ok text))) (set! (● model display) (Showing text)))
-           ((Ready (Completed (Err why))) (set! (● model display) (Showing why)))
-           ((Ready (Abandoned)) (set! (● model display) (Showing "abandoned")))))))
+           ((Pending) (unit))
+           ((Ready result)
+            (set! (● model pending) (None))
+            (set! (● model display) (Showing (match result ((Ok text) text) ((Err why) why)))))))))
 
-    (define (cancel! (model Model)) (→ Unit) (! mut host)
-      (drop (replace! (● model pending future) (None))))
+    (define (cancel! (model Model)) (→ Unit) (! mut)
+      (set! (● model pending) (None)))
 
     (define (button (id String) (label String) (message Msg)) (→ (Html Msg))
       (Element "button"
                (list (Attr "id" id) (On "click" (Nil) (Allow) (lambda (event) message)))
                (list (Text label))))
 
-    (define (view (model Model)) (→ (Html Msg)) (! mut host)
+    (define (view (model Model)) (→ (Html Msg))
       (Element "main"
                (list (Attr "aria-busy" (match (● model display)
                                          ((Waiting) "true")
@@ -99,17 +97,17 @@
         ((Showing text) text)
         ((Waiting) "loading")))
 
-    (define (window (model Model)) (→ (List (Attribute Msg))) (! mut host)
+    (define (window (model Model)) (→ (List (Attribute Msg)))
       (Nil))
 
-    (define (save (model Model)) (→ Save) (! mut host)
+    (define (save (model Model)) (→ Save)
       (new Save (display (● model display)) (clicks (● model clicks))))
 
     (define (restore (saved Save)) (→ Model)
       (new Model (display (match (● saved display)
                             ((Waiting) (Showing "interrupted"))
                             (display display)))
-           (clicks (● saved clicks)) (pending (rc (new PendingWork (future (None)))))))
+           (clicks (● saved clicks)) (pending (None))))
 
     (record FuturesApplication
       ())
@@ -126,11 +124,11 @@
                   deserialize
                   present)))
 
-    ;; Save is detached recovery data. The model shares an explicit pending
-    ;; owner; returning from the loop cancels it even if another alias remains.
+    ;; Save is detached recovery data. Returning from the loop forgets the
+    ;; pending future even if another alias of the model remains.
     (define (present (saved Save) (checkpoint (Fn Save → Unit ! events storage tasks)))
       (→ Unit)
-      (! mut host completion events storage tasks page)
+      (! mut host events storage tasks page)
       (with-page-dom
        (lambda ()
          (with-page-fetch

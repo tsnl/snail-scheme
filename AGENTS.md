@@ -35,19 +35,17 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
 
 - Every record is a heap object and every field is mutable. Primitive
   numbers and booleans remain unboxed. Keep ordinary compiler passes pure
-  by convention and by their effect signatures. A linear member makes its
-  aggregate linear; `Rc` alone may own a linear value without becoming
-  linear. `WeakRc` observes that ownership without retaining the payload.
-  There are no source borrows or borrow checker. The ownership pass checks
-  exact-once use and inserts retain/release for shared owners.
+  by convention and by their effect signatures. Every value may be shared,
+  and the Wasm engine's collector reclaims it: there are no linear types,
+  reference counts, finalizers or borrows, and no ownership pass.
 - Top-level definitions bind functions. Values are local to functions or
   explicit state objects; there are no lazy global caches or initialization
-  guards. Preserve typed define headers and `(Fn ... → ...)` / `(FnOnce ... → ...)`.
+  guards. Preserve typed define headers and `(Fn ... → ...)`.
   A direct lambda definition remains function code with an inferred type,
   used by generated application entries to determine their effect rows.
 
 - Use type checking to prove invariants that enable optimization. Preserve
-  evidence about representations, ownership, effects and foreign boundaries
+  evidence about representations, effects and foreign boundaries
   through lowering, so later passes can act on established facts. Keep runtime
   checks where those facts cannot be proved statically.
 - Effect handlers are headed for generalized evidence passing, as Koka does:
@@ -58,10 +56,10 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   semantics for the same program; evidence passing is a translation, needs no
   runtime support, and reuses machinery the compiler already has for
   typeclasses. The consequence is the continuation tier: one-shot and
-  delimited by its handler. `resume` is a linear closure, `FnOnce`, so it is
+  delimited by its handler. `resume` is an ordinary `Fn`, so it is
   first-class — a scheduler can hold it and call it later as a thunk, which
-  is how tasks are effects (`src/snail/shell/task.sld`) — and the ownership checker proves it is
-  called or dropped exactly once. Multi-shot continuations are out of scope, since
+  is how tasks are effects (`src/snail/shell/task.sld`) — and its frames run
+  at most once: a second call panics. Multi-shot continuations are out of scope, since
   they require every frame to be reachable twice and would be paid for by code
   that never captures one. The lowering is evidence passing: every
   function takes `$ev`, the handlers in scope, as its first parameter, and
@@ -106,7 +104,7 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   atomic VM transitions, and tests may be longer when keeping them together
   exposes their contract.
 - Use concrete data and direct control flow. Helpers should establish a useful
-  guarantee, with ownership and effects apparent at the call site. Avoid
+  guarantee, with effects apparent at the call site. Avoid
   forwarding layers, generic callback frameworks, and speculative abstractions.
 - Take inspiration from [Per Vognsen's Bitwise](https://github.com/pervognsen/bitwise)
   and [Resin's discussion](https://github.com/tsnl/resin/blob/main/doc/bitwise.md):

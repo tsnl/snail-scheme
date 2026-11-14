@@ -15,10 +15,10 @@
 //!    none is live: a task that traps is told, and a task that panics tells
 //!    its message and exits; either fails the run, status 1, and ends driving;
 //!    reachable queued work is disposed during close;
-//! 4. close queued work, consume the host's returned ownership credit, and
-//!    close the program's resources whatever happened, `close-resources`
-//!    or the runtime's `snail:io/close-all`; failing to close them makes a
-//!    successful run's status 1.
+//! 4. close queued work, let go of the scheduler, and close the program's
+//!    resources whatever happened, `close-resources` or the runtime's
+//!    `snail:io/close-all`; failing to close them makes a successful run's
+//!    status 1.
 //!
 //! A trap, or a failure of the host, is status 2, told as `snail: MESSAGE`
 //! with the Wasm frames after it on standard error.
@@ -35,8 +35,8 @@ use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use wasmtime::{
-    AnyRef, AsContext, AsContextMut, Engine, Func, Instance, Linker, Module, OwnedRooted,
-    RootScope, Rooted, Store, Val, bail, format_err,
+    AnyRef, AsContext, AsContextMut, Engine, Instance, Linker, Module, OwnedRooted, RootScope,
+    Rooted, Store, Val, bail, format_err,
 };
 use wasmtime_wasi::I32Exit;
 use wasmtime_wasi::p1::{self, WasiP1Ctx};
@@ -131,11 +131,12 @@ fn close(store: &mut Store<Host>, program: &Linked) -> wasmtime::Result<i32> {
     } else {
         Ok(0)
     };
-    let released = release_entry(store);
+    if let Some(entry) = store.data_mut().entry.as_mut() {
+        entry.scheduler = None;
+    }
     let files = store.data_mut().async_files.close();
     let own = call::<i32>(&mut *store, &program.runtime, program.close);
     queues?;
-    released?;
     files?;
     let children = children?;
     let own = own?;
@@ -198,15 +199,14 @@ fn settle(ran: wasmtime::Result<u8>, closed: wasmtime::Result<i32>) -> wasmtime:
     })
 }
 
-// ---- Owned entries ----
+// ---- Entries ----
 
-/// One host ownership credit, independent of its GC root. Incoming entry
-/// wrappers retain source arguments; the creator's release companion consumes
-/// this credit after close. Keep the creator instance alive through release.
+/// The scheduler the program's `create` made, and the instance whose
+/// exports take it. Closing the run lets go of it, so no later import
+/// wrapper can call in.
 pub struct Entry {
     instance: Instance,
-    owner: Option<OwnedRooted<AnyRef>>,
-    release: Func,
+    scheduler: Option<OwnedRooted<AnyRef>>,
     prefix: &'static str,
 }
 
@@ -216,18 +216,14 @@ impl Entry {
             let Some(create) = instance.get_func(&mut *store, &format!("{prefix}:create")) else {
                 continue;
             };
-            let release = instance
-                .get_func(&mut *store, &format!("{prefix}:create:release-result"))
-                .ok_or_else(|| format_err!("{prefix}:create has no release companion"))?;
             let mut scope = RootScope::new(&mut *store);
             let value = create
                 .typed::<(), Rooted<AnyRef>>(&scope)?
                 .call(&mut scope, ())?;
-            let owner = Some(value.to_owned_rooted(&mut scope)?);
+            let scheduler = Some(value.to_owned_rooted(&mut scope)?);
             return Ok(Some(Entry {
                 instance,
-                owner,
-                release,
+                scheduler,
                 prefix,
             }));
         }
@@ -244,32 +240,32 @@ pub fn engine_entry(store: impl AsContext<Data = Host>) -> bool {
         .is_some_and(|entry| entry.prefix == "engine")
 }
 
-/// Import wrappers use this live ownership record, never a persistent copied
-/// credit. A temporary GC root keeps the argument alive through a reentrant
-/// call; it does not retain the language value or outlive the owning record.
+/// Import wrappers pass the scheduler to each call, never a copy of their
+/// own. A temporary GC root keeps it alive through a reentrant call, and no
+/// longer than the entry holds it.
 pub fn entry_call(
     mut store: impl AsContextMut<Data = Host>,
     name: &str,
     args: &[Val],
 ) -> wasmtime::Result<i64> {
-    let (instance, owner) = {
+    let (instance, scheduler) = {
         let context = store.as_context();
         let entry = context
             .data()
             .entry
             .as_ref()
-            .ok_or_else(|| format_err!("this program has no owned entry"))?;
-        let owner = entry
-            .owner
+            .ok_or_else(|| format_err!("this program has no task entry"))?;
+        let scheduler = entry
+            .scheduler
             .as_ref()
-            .ok_or_else(|| format_err!("the program entry has been released"))?;
-        (entry.instance, owner.clone())
+            .ok_or_else(|| format_err!("the program's tasks have closed"))?;
+        (entry.instance, scheduler.clone())
     };
     let mut scope = RootScope::new(&mut store);
     let function = instance
         .get_func(&mut scope, name)
         .ok_or_else(|| format_err!("the entry exports no {name}"))?;
-    let mut arguments = vec![Val::AnyRef(Some(owner.to_rooted(&mut scope)))];
+    let mut arguments = vec![Val::AnyRef(Some(scheduler.to_rooted(&mut scope)))];
     arguments.extend_from_slice(args);
     let mut results = vec![Val::I32(0); function.ty(&scope).results().len()];
     function.call(&mut scope, &arguments, &mut results)?;
@@ -296,25 +292,10 @@ fn entry_task(
     entry_call(&mut store, &format!("{prefix}:{name}"), args)
 }
 
-fn release_entry(store: &mut Store<Host>) -> wasmtime::Result<()> {
-    let Some(entry) = store.data_mut().entry.as_mut() else {
-        return Ok(());
-    };
-    let Some(owner) = entry.owner.take() else {
-        return Ok(());
-    };
-    let release = entry.release;
-    // Consume the credit before calling user cleanup, even when it traps.
-    let mut scope = RootScope::new(store);
-    let value = owner.to_rooted(&mut scope);
-    release.call(&mut scope, &[Val::AnyRef(Some(value))], &mut [])
-}
-
 // ---- Tasks ----
 
 // Turns are bounded FIFO batches. A trap is terminal: Wasm does not unwind
-// language owners. Close can still dispose reachable queued work, but cannot
-// reconstruct ownership stranded in the trapping frame.
+// the trapping frame. Close can still dispose of reachable queued work.
 fn drive(store: &mut Store<Host>) -> wasmtime::Result<bool> {
     if store.data().entry.is_none() {
         return Ok(false);
@@ -533,10 +514,10 @@ mod tests {
 
     // The same, with more items, such as a scheduler's turn.
     fn tasks_program(imports: &str, main: &str, close: i32, items: &str) -> String {
-        let released = if items.is_empty() {
+        let closed = if items.is_empty() {
             ""
         } else {
-            "(if (i32.ne (global.get $released) (i32.const 1)) (then unreachable))"
+            "(if (i32.ne (global.get $closed) (i32.const 1)) (then unreachable))"
         };
         format!(
             r#"(module {imports}
@@ -544,7 +525,7 @@ mod tests {
                  (memory (export "memory") 1)
                  (func (export "_initialize"))
                  (func (export "main") (result i32) {main})
-                 (func (export "close-resources") (result i32) {released} (i32.const {close}))
+                 (func (export "close-resources") (result i32) {closed} (i32.const {close}))
                  {items})"#
         )
     }
@@ -576,14 +557,11 @@ mod tests {
             .map_or(turns.len() + 1, |index| index + 1);
         format!(
             r#"(type $state (struct (field (mut i32))))
-               (global $released (mut i32) (i32.const 0))
+               (global $closed (mut i32) (i32.const 0))
                (func (export "tasks:create") (result (ref $state)) (struct.new $state (i32.const 0)))
                (func (export "tasks:close") (param $state (ref $state))
                  (if (i32.ne (struct.get $state 0 (local.get $state)) (i32.const {expected})) (then unreachable))
-                 (struct.set $state 0 (local.get $state) (i32.const -1)))
-               (func (export "tasks:create:release-result") (param $state (ref $state))
-                 (if (i32.ne (struct.get $state 0 (local.get $state)) (i32.const -1)) (then unreachable))
-                 (global.set $released (i32.add (global.get $released) (i32.const 1))))
+                 (global.set $closed (i32.add (global.get $closed) (i32.const 1))))
                (func (export "tasks:turn") (param $state (ref $state)) (param $now i64) (result i64) (local $n i32)
                  (local.set $n (struct.get $state 0 (local.get $state)))
                  (struct.set $state 0 (local.get $state) (i32.add (local.get $n) (i32.const 1)))
@@ -673,7 +651,7 @@ mod tests {
     }
 
     #[test]
-    fn a_trapped_task_ends_driving_before_close_and_release() {
+    fn a_trapped_task_ends_driving_before_close() {
         let file = module_file(
             "trapped",
             &tasks_program(
@@ -689,7 +667,7 @@ mod tests {
     // A panic exits through WASI. In a task that ends the task, as a trap
     // does, so the run fails with 1 rather than ending with the exit's 7.
     #[test]
-    fn a_task_that_exits_ends_driving_before_close_and_release() {
+    fn a_task_that_exits_ends_driving_before_close() {
         let file = module_file(
             "exited",
             &tasks_program(

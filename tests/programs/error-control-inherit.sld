@@ -1,6 +1,5 @@
 (import
  (snail core base)
- (only (snail core forms) host)
  (only (snail core primitive) inherit-handlers))
 
 ;; A procedure closed over its handlers may run after their handles have
@@ -8,10 +7,9 @@
 (effect Stop
   ((ctl stop (Fn → Unit))))
 
-(define (main) (→ Unit) (! host)
+(define (main) (→ Unit)
 
-  (drop
-   (handle Stop ((stop
-                  (lambda (resume) (drop resume) (inherit-handlers (once (lambda () (unit)))))))
-     (inherit-handlers (once (lambda () (stop))))))
+  (handle Stop ((stop
+                 (lambda (resume) (inherit-handlers (lambda () (unit))))))
+    (inherit-handlers (lambda () (stop))))
   (unit))

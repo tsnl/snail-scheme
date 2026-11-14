@@ -13,8 +13,7 @@
   (export
    unit panic unsafe-total unsafe-cast
    cache lru-cache unsafe-effectful-cache unsafe-effectful-lru-cache
-   rc rc-get rc-downgrade weak-rc-upgrade
-   once call-once inherit-handlers inherit-handlers-1
+   inherit-handlers inherit-handlers-1
    i32-add i32-sub i32-mul i32-quotient i32-remainder i32-and i32-or i32-xor
    i32-shift-left i32-shift-right i32-shift-right/logical i32-eq i32-lt i32-le i32-gt i32-ge
    i64-add i64-sub i64-mul i64-quotient i64-remainder i64-and i64-or i64-xor
@@ -47,8 +46,7 @@
    string->vector vector->string
    vector-length vector-ref vector-append subvector make-vector vector-set vector-generate
    vector vector-set! vector-copy vector-copy!
-   set!
-   replace!)
+   set!)
   (import
    (snail core forms))
   (begin
@@ -71,72 +69,29 @@
     ;; F stands for an entire function signature of any arity. The checker
     ;; requires an empty outward effect row for the safe wrappers, before
     ;; specialization erases ordinary effects. Preparation checks all four
-    ;; wrappers' keys/results need no cleanup and callbacks cannot suspend.
+    ;; wrappers' keys can be compared and callbacks cannot suspend.
     (primitive cache (∀ (F) (Fn F → F)))
     (primitive lru-cache (∀ (F) (Fn I64 F → F)))
     (primitive unsafe-effectful-cache (∀ (F) (Fn F → F)))
     (primitive unsafe-effectful-lru-cache (∀ (F) (Fn I64 F → F)))
 
-    ;; ---- Counted ownership ----
+    ;; ---- Inherited handlers ----
 
-    (primitive rc (∀ (T) (Fn T → (Rc T))))
-    (primitive rc-get (∀ (T) (⊨ (Copy T)) (Fn (Rc T) → T)))
-    (primitive rc-downgrade (∀ (T) (Fn (Rc T) → (WeakRc T))))
-    (primitive weak-rc-upgrade weak-upgrade-signature)
-
-    ;; Lifetime lowering inserts these operations after types are concrete.
-    ;; They are deliberately absent from this library's exports.
-    (primitive constant-record (∀ (T) (Fn String → T)))
-    (primitive constant-vector-shell (∀ (T) (Fn I64 → (Vector T))))
-    (primitive constant-vector-fill (∀ (T) (Fn (Vector T) → Unit)))
-    (primitive constant-dead-weak (∀ (T) (Fn → (WeakRc T))))
-    (primitive constant-vector (∀ (T) (Fn → (Vector T))))
-    (primitive current-closure (∀ (T) (Fn → T)))
-    (primitive pattern-retain (∀ (T) (Fn T → T)))
-    (primitive retain (∀ (T) (Fn T → T)))
-    (primitive release (∀ (T) (Fn T → Unit)))
-    (primitive rc-new (∀ (T D) (Fn T D → (Rc T))))
-
-    ;; ---- One-shot procedures ----
-
-    ;; A FnOnce owns a procedure that runs once: it is linear, so each one is
-    ;; called or dropped exactly once. `once` preserves any procedure signature, and a
-    ;; control handler is handed `resume` as another. `discard` releases a
-    ;; value and runs nothing: it is what (snail core base)'s `drop` becomes
-    ;; for a value whose release runs nothing. Mono names it `prim:discard`,
-    ;; so it is not exported: called anywhere else, it would lose a value
-    ;; whose release runs something.
-    ;; A signature family: F: FnOnce<Signature> becomes dyn FnOnce<Signature>.
-    ;; The expander binds this intrinsic with ordinary callable evidence.
-    (primitive once callable-once)
-    (primitive call-once (∀ (e) (Fn (FnOnce → Unit ! e) → Unit ! e)))
-    (primitive discard (∀ (A) (Fn A → Unit)))
-    ;; Cleanup inserted by prepare.sld: `with-cleanup` marks a let's value
-    ;; with unevaluated cancellation code for the frame saved there;
-    ;; it is not an ordinary call. `once-dropping` builds a FnOnce carrying
-    ;; the dropper of what it captured, and `drop-once` drops a FnOnce
-    ;; unrun, running its dropper. None is written by a program.
-    (primitive with-cleanup (∀ (A) (Fn A Unit → A)))
-    (primitive once-dropping
-               (∀ (A e)
-                  (Fn (Fn → A ! e) (Fn → Unit) → (FnOnce → A ! e))))
-    (primitive drop-once (∀ (A e) (Fn (FnOnce → A ! e) → Unit ! e)))
-
-    ;; `inherit-handlers` closes a one-shot thunk over the handlers in scope
-    ;; where it is called, and `inherit-handlers-1` a procedure of one
-    ;; argument, such as a `resume`: the FnOnce it makes runs the procedure
-    ;; under those handlers, wherever it is called. The caller is charged
-    ;; the procedure's row, as dispatching is. The handlers answer the
-    ;; effects the row declares; what remains, `mut` and the effects the
-    ;; host implements, happens when the FnOnce runs, so it performs `host`,
-    ;; which only code that may run anything the host implements, such as
-    ;; a scheduler, can perform. The procedure may not yield to a control
+    ;; `inherit-handlers` closes a thunk over the handlers in scope where it
+    ;; is called, and `inherit-handlers-1` a procedure of one argument, such
+    ;; as a `resume`: the function it makes runs the procedure under those
+    ;; handlers, wherever it is called. The caller is charged the
+    ;; procedure's row, as dispatching is. The handlers answer the effects
+    ;; the row declares; what remains, `mut` and the effects the host
+    ;; implements, happens when the function runs, so it performs `host`,
+    ;; which only code that may run anything the host implements, such as a
+    ;; scheduler, can perform. The procedure may not yield to a control
     ;; effect, since the handles it would yield to may have returned by then.
     (primitive inherit-handlers
-               (∀ (A e) (Fn (FnOnce → A ! e) → (FnOnce → A ! host) ! e)))
+               (∀ (A e) (Fn (Fn → A ! e) → (Fn → A ! host) ! e)))
     (primitive inherit-handlers-1
                (∀ (A B e)
-                  (Fn (FnOnce A → B ! e) → (FnOnce A → B ! host) ! e)))
+                  (Fn (Fn A → B ! e) → (Fn A → B ! host) ! e)))
 
     ;; ---- Integers ----
 
@@ -252,29 +207,20 @@
 
     ;; ---- Vectors ----
 
-    ;; A vector shares its mutable slots. Elements must be duplicable; Rc
-    ;; lets a slot own a linear resource through a counted, duplicable handle.
-    (primitive vector (∀ (A) (⊨ (Copy A)) (Fn → (Vector A))))
-    (primitive vector-length (∀ (A) (⊨ (Copy A)) (Fn (Vector A) → I64)))
-    (primitive vector-ref (∀ (A) (⊨ (Copy A)) (Fn (Vector A) I64 → A)))
-    (primitive vector-append
-               (∀ (A) (⊨ (Copy A)) (Fn (Vector A) (Vector A) → (Vector A))))
-    (primitive subvector (∀ (A) (⊨ (Copy A)) (Fn (Vector A) I64 I64 → (Vector A))))
-    (primitive make-vector (∀ (A) (⊨ (Copy A)) (Fn I64 A → (Vector A))))
-    (primitive vector-set (∀ (A) (⊨ (Copy A)) (Fn (Vector A) I64 A → (Vector A))))
-    (primitive vector-generate
-               (∀ (A e)
-                  (⊨ (Copy A))
-                  (Fn I64 (Fn I64 → A ! e) → (Vector A) ! e)))
+    ;; A vector shares its mutable slots.
+    (primitive vector (∀ (A) (Fn → (Vector A))))
+    (primitive vector-length (∀ (A) (Fn (Vector A) → I64)))
+    (primitive vector-ref (∀ (A) (Fn (Vector A) I64 → A)))
+    (primitive vector-append (∀ (A) (Fn (Vector A) (Vector A) → (Vector A))))
+    (primitive subvector (∀ (A) (Fn (Vector A) I64 I64 → (Vector A))))
+    (primitive make-vector (∀ (A) (Fn I64 A → (Vector A))))
+    (primitive vector-set (∀ (A) (Fn (Vector A) I64 A → (Vector A))))
+    (primitive vector-generate (∀ (A e) (Fn I64 (Fn I64 → A ! e) → (Vector A) ! e)))
 
-    (primitive vector-set! (∀ (A) (⊨ (Copy A)) (Fn (Vector A) I64 A → Unit ! mut)))
-    (primitive vector-copy (∀ (A) (⊨ (Copy A)) (Fn (Vector A) → (Vector A))))
-    (primitive vector-copy!
-               (∀ (A) (⊨ (Copy A)) (Fn (Vector A) I64 (Vector A) I64 I64 → Unit ! mut)))
+    (primitive vector-set! (∀ (A) (Fn (Vector A) I64 A → Unit ! mut)))
+    (primitive vector-copy (∀ (A) (Fn (Vector A) → (Vector A))))
+    (primitive vector-copy! (∀ (A) (Fn (Vector A) I64 (Vector A) I64 I64 → Unit ! mut)))
 
-    ;; `set!` writes a place and `replace!` swaps a value into one and
-    ;; answers the old. A place is a declared field, `(● record count)`,
-    ;; which the checker resolves directly. Setting discards the old content, so
-    ;; it must be unrestricted; a swap moves it out.
-    (primitive set! (∀ (A) (⊨ (Copy A)) (Fn A A → Unit ! mut)))
-    (primitive replace! (∀ (A) (Fn A A → A ! mut)))))
+    ;; `set!` writes a place: a declared field, `(● record count)`, which
+    ;; the checker resolves directly.
+    (primitive set! (∀ (A) (Fn A A → Unit ! mut)))))

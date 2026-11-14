@@ -196,9 +196,9 @@
     (or (not (string=? day-night night-day))
         (report "type ids" "unchanged by reordering an enum's cases" day-night))))
 
-;; Counted owners crossing the host boundary survive repeated calls and release
-;; once per returned credit, including aliases and nullable Any payloads.
-(define (check-owned-boundary root name)
+;; Values crossing the host boundary survive repeated calls, including
+;; aliases and nullable Any payloads.
+(define (check-exposed-values root name)
   (let* ((program (path-join root (string-append "build/tests/" name ".wasm")))
          (text (program->wat root (standard-directories root)
                              (path-join root "tests" name "main.sld"))))
@@ -256,14 +256,14 @@
 
 (define (enum-type-id root cases)
   (let ((source (path-join root "build/tests/type-ids/main.sld"))
-        (marker "(struct.new $any (i64.const -1) (ref.func $owner-noop.) (i32.const "))
+        (marker "(struct.new $any (i32.const "))
     (create-directory* (path-join root "build/tests/type-ids"))
     (call-with-replacing-output-file source
                                      (lambda (port)
                                        (write-string
                                         (string-append "(import (snail core base))\n(enum Phase "
                                                        cases
-                                                       ")\n(define (main) (→ Unit) (drop (Any (Day))))\n")
+                                                       ")\n(define (main) (→ Unit) (match (Any (Day)) (_ (unit))))\n")
                                         port)))
     (let* ((text (program->wat root (standard-directories root) source))
            (start (+ (text-index text marker 0) (string-length marker))))
@@ -614,35 +614,28 @@
     ("tests/programs" "tables")
     ("tests/programs" "libraries")
     ("tests/programs" "specialization-order")
-    ("tests/programs" "specialization-drop")
     ("tests/programs" "generated") ("tests/programs" "wasm")
     ("tests/programs" "wasm-instance-identity")
 
     ("tests/programs" "handler-captures")
     ("tests/programs" "tasks-main")
-    ("tests/programs" "once")
     ("tests/programs" "tasks")
     ("tests/programs" "futures")
     ("tests/programs" "futures-wake")
     ("tests/programs" "async-futures")
-    ("tests/programs" "async-cancel")
     ("tests/programs" "ui-futures")
     ("tests/programs" "mailbox")
     ("tests/programs" "effect-row-inclusion")
     ("tests/programs" "link-file")
     ("tests/programs" "control-early-exit")
     ("tests/programs" "control-per-library")
-    ("tests/programs" "rc-per-library")
     ("tests/programs" "function-values")
     ("tests/programs" "function-cache")
-    ("tests/programs" "factory-shared")
-    ("tests/programs" "rc-model-parameters")
-    ("tests/programs" "rc-model-fields")
-    ("tests/programs" "rc-model-continuations")
     ("tests/programs" "control-placeholders")
     ("tests/programs" "control-generator")
     ("tests/programs" "control-resumable-exception")
     ("tests/programs" "control-stored-resume")
+    ("tests/programs" "control-resume-twice")
     ("tests/programs" "control-tail-loop")
     ("tests/programs" "tcp") ("tests/programs" "tcp-handler") ("tests/programs" "process")
     ("tests/programs" "udp") ("tests/programs" "udp-handler") ("tests/programs" "http")
@@ -786,8 +779,7 @@
                                   (lambda () (check-type-ids root))
                                   (lambda () (check-numeric-runtime root))
                                   (lambda ()
-                                    (and (and (check-owned-boundary root "host-owners")
-                                              (check-owned-boundary root "task-owners"))
+                                    (and (check-exposed-values root "host-values")
                                          (check-host-boundary root)))
                                   (compile-artifacts root)
                                   (compile-socket-boundary root)

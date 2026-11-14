@@ -37,7 +37,6 @@
       ((yield (lambda (value resume)
                 (if (> value limit)
                     (begin
-                      (drop resume)
                       value)
                     (resume (unit))))))
     (body)
@@ -51,7 +50,7 @@
   (Done)
   (Yielded
    ((value I64)
-    (next (FnOnce Unit → Step)))))
+    (next (Fn Unit → Step)))))
 
 ;; Runs `body` to its first yield, and hands back the rest rather than
 ;; resuming it.

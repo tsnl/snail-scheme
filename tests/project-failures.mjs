@@ -16,13 +16,14 @@ const build = target => execute(join(root, 'snail'), ['build', project, target],
 const inventory = () => fs.readdirSync(join(project, 'build')).sort();
 
 async function throughTheCommandLine() {
-  // The checker finds a linear value's misuse, and the passes after
-  // specialization the control effects an implementation may not yield
-  // to; those errors reach the user through a build as a type error does.
+  // The checker finds a resumption whose row its use does not allow, and
+  // the passes after specialization the control effects an implementation
+  // may not yield to; those errors reach the user through a build as a
+  // type error does.
   write('project.datum', '((build-target main (program (entry "main.sld"))))');
-  write('main.sld', '(import (snail core base)) (define (main) (→ Unit) (drop (ann "wrong type" I64)))');
+  write('main.sld', '(import (snail core base)) (define (main) (→ Unit) (ann "wrong type" I64) (unit))');
   await assert.rejects(build('main'), /expected I64, found String/);
-  for (const name of ['error-control-implementation', 'error-once-capture']) {
+  for (const name of ['error-control-implementation', 'error-control-resume-row']) {
     write('main.sld', fs.readFileSync(join(root, `tests/programs/${name}.sld`), 'utf8'));
     const expected = fs.readFileSync(join(root, `tests/programs/${name}.err`), 'utf8').trim();
     await assert.rejects(build('main'), error => error.stderr.includes(expected));
@@ -39,7 +40,7 @@ async function throughTheCommandLine() {
   // compiled and run in private compiler scratch, so the project's build
   // directory holds only the target's generation and its link.
   write('project.datum', '((build-target main (program (entry "main.sld") (library-roots (".")))))');
-  write('main.sld', '(import (snail core base) (generated flag)) (define (main) (→ Unit) (drop (ann (value) String)))');
+  write('main.sld', '(import (snail core base) (generated flag)) (define (main) (→ Unit) (ann (value) String) (unit))');
   write('flag.txt', 'valid');
   write('generated/flag.sld', `(generate-library (generated flag)
     (import (snail core base) (snail core io) (snail shell syntax))

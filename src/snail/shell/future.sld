@@ -1,9 +1,9 @@
-;; A one-shot channel. Its linear endpoints share an Rc-owned state; no
-;; borrowed or unowned slot can hide a buffered linear value. Every transition
-;; publishes its new state before invoking or dropping a callback.
+;; A one-shot channel: a promise is fulfilled once, and its future is ready
+;; from then on. Every transition publishes its new state before invoking a
+;; callback. A promise that is never fulfilled leaves its future pending.
 (define-library (snail shell future)
   (export
-   Promise Future Completion Completed Abandoned Poll Pending Ready
+   Promise Future Poll Pending Ready
    completion completed make-promise fulfill poll on-ready)
   (import
    (snail core base)
@@ -13,127 +13,64 @@
 
     ;; ---- The channel ----
 
-    (enum (Completion T)
-      (Completed ((value T)))
-      (Abandoned))
-
     (enum (Poll T)
-      (Pending ((future (Future T))))
-      (Ready ((result (Completion T)))))
+      (Pending)
+      (Ready ((value T))))
 
-    ;; One registration is invoked or dropped once. Its inherited handlers
-    ;; outlive registration and bound both invocation and capture cleanup.
-    (type Waker (FnOnce → Unit ! host))
+    ;; Any number of tasks may wait on one future, so a pending one keeps
+    ;; every waker, newest first. Each runs under the handlers in scope
+    ;; where it was registered.
+    (type Waker (Fn → Unit ! host))
     (enum (State T)
-      (Unresolved ((waker (Option Waker))))
-      (Resolved ((result (Completion T))))
-      (Unobserved))
+      (Unresolved ((wakers (List Waker))))
+      (Resolved ((value T))))
 
     (record (Channel T)
       ((state (State T))))
 
     (enum (Promise T)
-      (Sender ((channel (Rc (Channel T))))))
+      (Sender ((channel (Channel T)))))
 
     (enum (Future T)
-      (Receiver ((channel (Rc (Channel T))))))
+      (Receiver ((channel (Channel T)))))
 
     (effect completion
       ((completed (Fn → Unit)))
       (default ((completed (lambda () (unit))))))
 
-    ;; Each endpoint owns one shared credit. Either may release the last
-    ;; one, so both carry T's disposal bound, including operations that
-    ;; normally transfer T without dropping it. No state provenance is hidden
-    ;; in a convention about which endpoint happens to be released first.
-    (define (make-promise) (→ (Pair (Promise T) (Future T))) (∀ (T d)) (⊨ (Drop d T))
-      (let ((channel (rc (new Channel (state (Unresolved (None)))))))
+    (define (make-promise) (→ (Pair (Promise T) (Future T))) (∀ (T))
+      (let ((channel (new Channel (state (Unresolved (Nil))))))
         (new Pair (first (Sender channel)) (second (Receiver channel)))))
 
     ;; ---- Sending ----
 
     (define (fulfill (promise (Promise T)) (value T))
-      (→ (Result Unit T)) (! mut host completion d) (∀ (T d)) (⊨ (Drop d T))
+      (→ Unit) (! mut host completion) (∀ (T))
       (match promise
         ((Sender channel)
-         (match (replace! (● channel state) (Unobserved))
-           ((Unresolved waker)
-            (drop (replace! (● channel state) (Resolved (Completed value))))
-            (sent waker))
-           ((Unobserved) (Err value))
-           ((Resolved result)
-            (drop result)
-            (drop value)
-            (panic "a promise was fulfilled twice"))))))
-
-    ;; This tail call releases the sender's local channel owner before a
-    ;; waker can reenter. The state already owns the published result.
-    (define (sent (waker (Option Waker))) (→ (Result Unit T)) (! host completion) (∀ (T))
-      (notify waker)
-      (Ok (unit)))
-
-    (define (notify (waker (Option Waker))) (→ Unit) (! host completion)
-      (match waker
-        ((Some wake) (wake))
-        ((None) (unit)))
-      (completed))
-
-    (instance (Drop (! mut host completion d) (Promise T))
-      (⊨ (Drop d T))
-      (define (drop (promise (Promise T))) (→ Unit) (! mut host completion d)
-
-        (match promise
-          ((Sender channel)
-           (match (replace! (● channel state) (Unobserved))
-             ((Unresolved waker)
-              (drop (replace! (● channel state) (Resolved (Abandoned))))
-              (notify waker))
-             ((Unobserved) (unit))
-             ((Resolved result)
-              (drop result)
-              (panic "a consumed promise was dropped")))))))
+         (match (● channel state)
+           ((Unresolved wakers)
+            (set! (● channel state) (Resolved value))
+            (for-each (lambda (wake) (wake)) (reverse wakers))
+            (completed))
+           ((Resolved _) (panic "a promise was fulfilled twice"))))))
 
     ;; ---- Receiving ----
 
-    (define (poll (future (Future T)))
-      (→ (Poll T)) (! mut host d) (∀ (T d)) (⊨ (Drop d T))
+    (define (poll (future (Future T))) (→ (Poll T)) (∀ (T))
       (match future
         ((Receiver channel)
-         (match (replace! (● channel state) (Unobserved))
-           ((Unresolved waker)
-            (drop (replace! (● channel state) (Unresolved waker)))
-            (Pending (Receiver channel)))
-           ((Resolved result) (Ready result))
-           ((Unobserved) (panic "a consumed future was polled"))))))
+         (match (● channel state)
+           ((Unresolved _) (Pending))
+           ((Resolved value) (Ready value))))))
 
-    ;; Registration owns its callback and handlers. No suspension is allowed:
-    ;; a ready result calls it immediately, and a pending result calls it
-    ;; after publication. Replacing a registration drops its previous callback
-    ;; only after the new callback is installed.
-    (define (on-ready (future (Future T)) (wake (FnOnce → Unit ! d)))
-      (→ (Future T)) (! mut host d) (∀ (T d)) (⊨ (Drop d T))
-      (register future (inherit-handlers wake)))
-
-    (define (register (future (Future T)) (wake Waker))
-      (→ (Future T)) (! mut host d) (∀ (T d)) (⊨ (Drop d T))
-      (match future
-        ((Receiver channel)
-         (match (replace! (● channel state) (Unobserved))
-           ((Unresolved previous)
-            (drop (replace! (● channel state) (Unresolved (Some wake))))
-            (drop previous))
-           ((Resolved result)
-            (drop (replace! (● channel state) (Resolved result)))
-            (wake))
-           ((Unobserved) (drop wake) (panic "a consumed future was observed")))
-         (Receiver channel))))
-
-    ;; Detach buffered content before disposing it. The Rc payload then holds
-    ;; Unobserved, so releasing either endpoint cannot finalize that content
-    ;; a second time, even if its cleanup calls another channel operation.
-    (instance (Drop (! mut host d) (Future T))
-      (⊨ (Drop d T))
-      (define (drop (future (Future T))) (→ Unit) (! mut host d)
-
+    ;; No suspension is allowed: a ready future calls `wake` at once, and a
+    ;; pending one when it is fulfilled, after the wakers registered before.
+    (define (on-ready (future (Future T)) (wake (Fn → Unit ! d)))
+      (→ Unit) (! mut host d) (∀ (T d))
+      (let ((waker (inherit-handlers wake)))
         (match future
-          ((Receiver channel) (drop (replace! (● channel state) (Unobserved)))))))))
+          ((Receiver channel)
+           (match (● channel state)
+             ((Unresolved wakers) (set! (● channel state) (Unresolved (Cons waker wakers))))
+             ((Resolved _) (waker)))))))))

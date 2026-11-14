@@ -113,7 +113,6 @@
       (→ T)
       (! building e)
       (∀ (T e))
-      (⊨ (Copy T) (Drop e T))
       (match (compiling work)
         ((Ok value) value)
         ((Err (Failed diagnostics)) (absurd (stop (CompileFailure diagnostics))))
@@ -1182,7 +1181,6 @@
       (→ Unit)
       (! building)
       (∀ (T))
-      (⊨ (Copy T) (Drop (!) T))
       (match result
         ((Ok _) (unit))
         ((Err error) (fail-build (string-append failure ": " (show error))))))

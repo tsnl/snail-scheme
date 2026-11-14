@@ -6,17 +6,9 @@
 (effect Reading ((read-number (Fn I64 → I64))))
 (effect Pausing ((ctl pause-number (Fn I64 → I64))))
 (effect Stopping ((ctl stop-text (Fn String → Never))))
-(effect Finalized ((finalized (Fn I64 → Unit))))
 
 (record Counter
   ((value I64)))
-
-(record Resource
-  ((value I64)))
-
-(instance (Drop (! Finalized) Resource)
-  (define (drop (resource Resource)) (→ Unit) (! Finalized)
-    (match resource ((Resource value) (finalized value)))))
 
 (define (ordinary) (→ I64)
   (handle Reading ((read-number (lambda (number) (+ number 3))))
@@ -40,39 +32,10 @@
                             (resume number))))
          (+ (pause-number 2) (● counter value)))))))
 
-(define (counted-scope) (→ Unit) (! mut Finalized)
-  (let ((owner (rc (new Resource (value 5)))))
-    (let ((alias owner))
-      (drop alias))))
-
-(define (finalized-value) (→ I64)
-  (unsafe-total
-   (lambda ()
-     (let ((counter (new Counter (value 0))))
-       (handle Finalized ((finalized (lambda (value) (set! (● counter value) value))))
-         (counted-scope))
-       (● counter value)))))
-
-(define (cancelled) (→ I64)
-  (unsafe-total
-   (lambda ()
-     (let ((counter (new Counter (value 0))))
-       (handle Finalized ((finalized (lambda (value) (set! (● counter value) value))))
-         (handle Pausing ((pause-number (lambda (number resume)
-                                          (drop resume)
-                                          number)))
-           (let ((resource (new Resource (value 8))))
-             (pause-number 2)
-             (drop resource)
-             0)))
-       (● counter value)))))
-
 (define (folded-ordinary) (→ I64) (ordinary))
 (define (folded-resumed) (→ I64) (resumed))
 (define (folded-aborted) (→ String) (aborted))
 (define (folded-heap) (→ I64) (current-heap))
-(define (folded-finalized) (→ I64) (finalized-value))
-(define (folded-cancelled) (→ I64) (cancelled))
 (define (add-nine) (→ (Fn I64 → I64))
   ((lambda (base) (lambda (value) (+ base value))) 9))
 
@@ -94,7 +57,7 @@
   (unsafe-total
    (lambda ()
      (let ((reader (handle Reading ((read-number (lambda (value) (+ value 20))))
-                     (inherit-handlers (once (lambda () (read-number 3)))))))
+                     (inherit-handlers (lambda () (read-number 3))))))
        (reader)))))
 
 (define (folded-reader) (→ I64) (bound-reader))
@@ -109,57 +72,12 @@
 (define (once-alias) (→ I64)
   (let ((value 7))
     (define (f) (→ I64) value)
-    (let ((answer ((once f))))
-      (drop (once f))
+    (let ((answer (f)))
       (+ answer (f)))))
-
-(define (capture-order) (→ I64)
-  (unsafe-total
-   (lambda ()
-     (let ((counter (new Counter (value 0))))
-       (handle Finalized
-           ((finalized
-             (lambda (value) (set! (● counter value) (+ (* 10 (● counter value)) value)))))
-         (let ((f (let ((alpha (rc (new Resource (value 1)))) (omega (rc (new Resource (value 2)))))
-                    (lambda () (+ (● alpha value) (● omega value))))))
-           (drop f)))
-       (● counter value)))))
-
-(define (linear-capture-order) (→ I64)
-  (unsafe-total
-   (lambda ()
-     (let ((counter (new Counter (value 0))))
-       (handle Finalized
-           ((finalized
-             (lambda (value) (set! (● counter value) (+ (* 10 (● counter value)) value)))))
-         (let ((alpha (new Resource (value 1))) (omega (new Resource (value 2))))
-           (drop (once (lambda () (drop alpha) (drop omega))))))
-       (● counter value)))))
-
-(record Work
-  ((action (FnOnce → Unit))
-   (owner (Rc Resource))
-   (attempts I64)))
-
-(define (linear-replacement) (→ I64)
-  (unsafe-total
-   (lambda ()
-     (let ((counter (new Counter (value 0))))
-       (handle Finalized ((finalized (lambda (value) (set! (● counter value) value))))
-         (let* ((work (new Work
-                        (action (once (lambda () (unit))))
-                        (owner (rc (new Resource (value 13))))
-                        (attempts 0)))
-                (work (Work-attempts-set work 1)))
-           (drop work)))
-       (● counter value)))))
 
 (define (folded-hidden) (→ I64) (hidden-handler))
 (define (folded-alias) (→ I64) (once-alias))
-(define (folded-order) (→ I64) (capture-order))
-(define (folded-linear-order) (→ I64) (linear-capture-order))
 
-(define (folded-replacement) (→ I64) (linear-replacement))
 
 (define (main) (→ Unit) (! output-port)
   (write-line (show (folded-ordinary)))
@@ -170,10 +88,6 @@
   (write-line (aborted))
   (write-line (show (folded-heap)))
   (write-line (show (current-heap)))
-  (write-line (show (folded-finalized)))
-  (write-line (show (finalized-value)))
-  (write-line (show (folded-cancelled)))
-  (write-line (show (cancelled)))
   (write-line (show ((add-nine) 4)))
   (write-line (show (folded-sum)))
   (write-line (show ((recursive-sum) 5)))
@@ -183,11 +97,5 @@
   (write-line (show (hidden-handler)))
   (write-line (show (folded-alias)))
   (write-line (show (once-alias)))
-  (write-line (show (folded-order)))
-  (write-line (show (capture-order)))
-  (write-line (show (folded-replacement)))
-  (write-line (show (linear-replacement)))
-  (write-line (show (folded-linear-order)))
-  (write-line (show (linear-capture-order)))
   (write-line (show ((recursive-capture) 5)))
   (unit))

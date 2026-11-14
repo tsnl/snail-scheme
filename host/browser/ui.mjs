@@ -19,7 +19,7 @@ export async function startInterface({url, container, storageKey, session = fals
     imports: {...runtime.imports, 'snail.runtime.browser.dom': dom.imports, 'snail.runtime.browser.fetch': requests.imports},
     reset() { dom.reset(); requests.reset(); }}, url);
 
-  // Navigation transfers ownership only after the stopped root task's final
+  // Navigation leaves the page only after the stopped root task's final
   // checkpoint is durably stored. Stop drains queued input; inert prevents
   // further edits while asynchronous storage is outstanding. Wait for the
   // final composition input before freezing an IME editor.
@@ -50,7 +50,6 @@ export async function startInterface({url, container, storageKey, session = fals
       // intentional navigation requires an explicit successful write.
       await store(stopped.saved);
       dom.allowUnload();
-      stopped.release();
       location.reload();
     } catch (error) {
       deferred = true;
@@ -59,7 +58,6 @@ export async function startInterface({url, container, storageKey, session = fals
         // Reconstruct from the application's save, so canceled commands do
         // not leave in-flight flags or dead handles in the resumed model.
         const restarted = runtime.start(applicationEntry(application.program), null, {restore: stopped.saved});
-        stopped.release();
         await restarted.ready.promise;
       }
       const notice = document.createElement('div');
