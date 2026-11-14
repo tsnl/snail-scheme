@@ -53,6 +53,7 @@
                                      "prim:drop-once"
                                      "prim:discard"
                                      "prim:cache" "prim:lru-cache"
+                                     "prim:unsafe-effectful-cache" "prim:unsafe-effectful-lru-cache"
                                      "prim:rc" "prim:rc-new" "prim:set!" "prim:replace!"
                                      "prim:retain" "prim:release")))
                  (not (and (= index 2)
@@ -118,7 +119,9 @@
                   ((Some (Constructor _ _)) (surviving-operands program args))
                   (_ (if (member? name (list "prim:rc" "prim:rc-new" "prim:once"
                                              "prim:inherit-handlers" "prim:inherit-handlers-1"
-                                             "prim:cache" "prim:lru-cache"))
+                                             "prim:cache" "prim:lru-cache"
+                                             "prim:unsafe-effectful-cache"
+                                             "prim:unsafe-effectful-lru-cache"))
                          (surviving-operands program args) (Nil)))))
                (_ (Nil)))))
         (_ (Nil))))

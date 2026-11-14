@@ -1,0 +1,1 @@
+lru-cache requires a function with an empty effect row; use unsafe-effectful-lru-cache

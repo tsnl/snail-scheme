@@ -97,9 +97,12 @@ uses macros (`list`, `string-append`) or lists.
 ## Cached functions
 
 `cache` and `lru-cache` wrap ordinary functions, including lambdas. They preserve
-all argument types, the result type, and the effect row; they work at any fixed
-arity. The callback expression is evaluated once. Each wrapper owns a fresh
-local cache that remains alive between calls. Aliases of that wrapper share its
+all argument types and the result type; they work at any fixed arity. They require
+an ordinary `Fn` with a closed, empty outward effect row. An effect-polymorphic
+callback is rejected even if no particular effect is named. The callback
+expression is evaluated once, and evaluating it may itself perform effects.
+Each wrapper owns a fresh local cache that remains alive between calls.
+Aliases of that wrapper share its
 cache, while two evaluations of `(cache f)` have separate caches.
 
 ```scheme
@@ -109,6 +112,25 @@ cache, while two evaluations of `(cache f)` have separate caches.
 (define (use-lookup) (→ I64)
   (let ((lookup (lru-cache 128 (lambda (key) (* key key)))))
     (+ (lookup 12) (lookup 12))))
+```
+
+`unsafe-effectful-cache` and `unsafe-effectful-lru-cache` have the same call shapes
+and storage behavior, but accept effectful callbacks and preserve their effect
+rows. Their names make skipping those effects on cache hits explicit. They still
+reject callbacks whose control operations can escape the call. Handling an effect
+inside a callback is allowed, including for the safe names when the outward row
+is empty.
+
+All four names are builtins sharing one runtime implementation. An ordinary
+library wrapper can express the safe signature for a particular arity, but the
+language has no parameter packs to express every arity at once. The compiler
+checks the safe names before specialization erases ordinary effects, including
+when a builtin is passed as a function value. A generic factory must specify a
+known function shape with an empty row, for example:
+
+```scheme
+(define (memoize (f (Fn A → B))) (→ (Fn A → B)) (∀ (A B))
+  (cache f))
 ```
 
 An unbounded cache retains successful results until its wrapper becomes
@@ -137,13 +159,14 @@ fields. Linear values, `Rc`, `Any`, functions, and aggregates containing them ar
 rejected. Plain mutable records and vectors are allowed. The callback may itself
 capture counted resources: its usual closure ownership keeps them alive and
 releases them when the last wrapper owner leaves. `FnOnce` callbacks and callbacks
-that can perform control operations are rejected.
+whose control operations can escape are rejected for all four wrappers.
 
-A hit skips the callback body, including its effects. Ordinary closure cleanup
-still runs when an owner leaves scope. Cache only functions for which
-that behavior is intended; the type system does not prove that mutation or
-external state cannot change their answers. The private cache adds no effect to
-the function's signature. A result is stored only after a successful return.
+A hit skips the callback body, including any effects allowed by the unsafe names.
+Ordinary closure cleanup still runs when an owner leaves scope. Cache only functions for which
+that behavior is intended. An empty effect row still permits reading mutable
+objects and captured state, so it does not prove that their answers stay the same.
+The private cache adds no effect to the function's signature.
+A result is stored only after a successful return.
 Reentrant calls can populate the same cache: the last successful completion for
 a key wins, and each call returns its own computed result. There is no in-progress
 entry or recursive-cycle guard. Wrapping a function does not redirect its original
