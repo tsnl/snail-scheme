@@ -5253,10 +5253,15 @@
                                 (new Pair (first "code") (second (code-type m base)))
                                 (new Pair (first "evidence") (second (evidence-type m)))))))
 
+    ;; Strings of different lengths differ without comparing a character,
+    ;; and most comparisons in a lookup are between such names.
+
     (define (string-equal-helper (m Module)) (→ String) (! mut)
       (let* ((array (array-type m (Scalar "i32"))) (compare (string-compare-helper m)))
         (template-helper! m "string-equal" ""
                           "(func {id} (param $a (ref null {array})) (param $b (ref null {array})) (result i32)
+    (if (i32.ne (array.len (local.get $a)) (array.len (local.get $b)))
+      (then (return (i32.const 0))))
     (i32.eqz (call {compare} (local.get $a) (local.get $b))))"
                           (list (new Pair (first "array") (second array))
                                 (new Pair (first "compare") (second compare))))))

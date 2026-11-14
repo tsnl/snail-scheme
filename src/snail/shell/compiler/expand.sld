@@ -377,8 +377,9 @@
         (top-count 0)
         (deriving (None))))
 
+    ;; The program has every type now, so its declarations' facts are known.
     (define (expanded-program (cx Context)) (→ ExpandedProgram)
-      (new ExpandedProgram (program (● cx program)) (libraries (● cx expanded))))
+      (new ExpandedProgram (program (with-type-facts (● cx program))) (libraries (● cx expanded))))
 
     ;; Each addition hands back the context with a larger program, except
     ;; that an item joins the library's own items until its run is done.

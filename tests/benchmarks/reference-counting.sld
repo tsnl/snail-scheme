@@ -38,8 +38,8 @@
   (+ 1 (fold-left (lambda (total child) (+ total (nodes child))) 0 (expr-children value))))
 
 (define (lowered-size (value Item)) (→ I64)
-  (match (lower-reference-counting (declarations) value)
-    ((Define _ body) (nodes body))
+  (match (lower-reference-counting (declarations) (list value))
+    ((Cons (Define _ body) (Nil)) (nodes body))
     (_ (panic "expected a definition"))))
 
 (define (measure (depth I64) (iterations I64)) (→ I64)

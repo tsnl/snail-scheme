@@ -85,16 +85,32 @@
 
     ;; ---- Expressions ----
 
-    (define (lower-reference-counting (declarations Declarations) (item Item)) (→ Item)
+    ;; A batch of definitions shares one table of which of its types are
+    ;; counted: the answers depend only on the program's types, and the
+    ;; same few generic instances recur in every definition.
+
+    (define (lower-reference-counting (declarations Declarations) (items (List Item)))
+      (→ (List Item))
+      (let ((known (fold-left (lambda (known item)
+                                (match item
+                                  ((Define _ value)
+                                   (known-types (● declarations program) known value))
+                                  (_ known)))
+                              (empty-table)
+                              items)))
+        (map (lambda (item) (lower-definition declarations known item)) items)))
+
+    (define (lower-definition (declarations Declarations) (known (Table Bool)) (item Item))
+      (→ Item)
       (match item
         ((Define name value)
-         (let ((state (new-counting declarations value)))
+         (let ((state (new Counting
+                        (program (● declarations program))
+                        (globals (● declarations bindings))
+                        (shared known)
+                        (next 0))))
            (Define name (● (lower-function state value #t) first))))
         (_ item)))
-
-    (define (new-counting (declarations Declarations) (value Expr)) (→ Counting)
-      (new Counting (program (● declarations program)) (globals (● declarations bindings))
-           (shared (known-types (● declarations program) (empty-table) value)) (next 0)))
 
     ;; Pending releases follow result positions in the original tree. Operands
     ;; start with no pending releases; their surrounding expression owns the
