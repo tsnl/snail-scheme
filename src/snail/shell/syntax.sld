@@ -122,11 +122,10 @@
     ;; driver names as the producer's argument. The expression runs in a
     ;; task, so it may read the files its recipe links with `read-resource`.
 
-    (define (write-generated-library (library (FnOnce → Syntax ! fs resource tasks)))
+    (define (write-generated-library (library (Fn → Syntax ! fs resource tasks)))
       (→ Unit) (! fs resource tasks)
       (match (command-line)
         ((Cons _ (Cons path _)) (write-bytes path (syntax->bytes (library))))
-        (_ (drop library)
-           (panic "a producer writes its library to the path given as its argument"))))
+        (_ (panic "a producer writes its library to the path given as its argument"))))
 
     ))

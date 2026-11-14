@@ -16,10 +16,10 @@
 ;; A DOM edit can precede its input message. Change the live field after
 ;; formatting was scheduled but before its command runs. Neither replacement
 ;; nor scroll restoration may act on the obsolete field snapshot.
-(define (snapshot (session Session)) (→ Ide) (! mut host)
+(define (snapshot (session Session)) (→ Ide)
   (● session ide))
 
-(define (finished (session Session)) (→ Ide) (! mut host)
+(define (finished (session Session)) (→ Ide) (! mut)
   (close-session! session)
   (● session ide))
 
@@ -53,7 +53,7 @@
      (write-line (show (number-property scroller "scrollTop"))))
     (_ (panic "missing editor"))))
 
-(define (run (changed-path Bool)) (→ Unit) (! mut host completion output-port tasks)
+(define (run (changed-path Bool)) (→ Unit) (! mut host output-port tasks)
   (handle fetch
       ((request (lambda (method url headers body)
                   (Ok (new Reply
@@ -90,6 +90,6 @@
       (unless (● race injected) (panic "the formatting race was not exercised"))
       (unit))))
 
-(define (main) (→ Unit) (! host mut output-port completion tasks)
-  (dispatch-local (once (lambda () (run #f) (run #t))))
+(define (main) (→ Unit) (! host mut output-port tasks)
+  (dispatch-local (lambda () (run #f) (run #t)))
   (unit))

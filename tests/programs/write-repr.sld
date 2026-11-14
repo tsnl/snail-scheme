@@ -6,7 +6,7 @@
 (record Output
   ((text String)))
 
-(define (line (value T)) (→ Unit) (! output-port) (∀ (T)) (⊨ (Repr T) (Drop (!) T))
+(define (line (value T)) (→ Unit) (! output-port) (∀ (T)) (⊨ (Repr T))
   (write value)
   (newline))
 

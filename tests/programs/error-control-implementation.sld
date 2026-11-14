@@ -11,7 +11,7 @@
   ((ask (Fn → I64))))
 
 (define (answer) (→ I64)
-  (handle Abort ((abort (lambda (value resume) (drop resume) value)))
+  (handle Abort ((abort (lambda (value resume) value)))
     (handle Ask ((ask (lambda () (abort 0))))
       (+ (ask) 1))))
 

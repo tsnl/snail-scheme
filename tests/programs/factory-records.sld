@@ -16,7 +16,7 @@
 (define (prepared) (→ Shared)
   (unsafe-total
    (lambda ()
-     (let* ((cell (new Cell (value 3))) (previous (replace! (● cell value) 7)))
+     (let* ((cell (new Cell (value 3))) (previous (● cell value)))
        (set! (● cell value) 9)
        (new Shared (left cell) (right cell) (previous previous))))))
 

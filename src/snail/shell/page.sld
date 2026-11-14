@@ -142,14 +142,14 @@
 
     ;; The host retains these opaque saved values across replacement.
     ;; Only a completed presentation commits; boot keeps an initial recovery
-    ;; point without declaring the page ready. The host checks root
-    ;; ownership before a caller can replace the checkpoint.
+    ;; point without declaring the page ready. Only the root task may
+    ;; replace the checkpoint, which the host checks first.
 
     (define (commit-page (state S))
       (→ Unit)
       (! mut events page)
       (∀ (S))
-      (⊨ (PageState S) (Copy S) (Drop (!) S))
+      (⊨ (PageState S))
       (checkpoint-root)
       (set! (● (current-page) current) (Some (pack-state state))))
 
@@ -159,7 +159,7 @@
       (→ (Option (Pair S I32)))
       (! events storage tasks)
       (∀ (S))
-      (⊨ (PageState S) (Copy S) (Drop (!) S))
+      (⊨ (PageState S))
       (match (load-save)
         ((Some bytes) (Some (new Pair (first (decode bytes)) (second 1))))
         ((None) (if cold? (Some (new Pair (first (initialize)) (second 2))) (None)))))
@@ -168,7 +168,7 @@
       (→ (Option (Pair S I32)))
       (! events storage tasks)
       (∀ (S))
-      (⊨ (PageState S) (Copy S) (Drop (!) S))
+      (⊨ (PageState S))
       (match (● context incoming)
         ((Some previous)
          (match (unpack-state previous)
@@ -186,7 +186,7 @@
       (→ Unit)
       (! mut events storage tasks page e)
       (∀ (S e))
-      (⊨ (PageState S) (Copy S) (Drop (!) S))
+      (⊨ (PageState S))
       (let ((context (current-page)))
         (match (boot-page context initialize decode)
           ((Some (Pair state kind))
@@ -201,17 +201,16 @@
           ((None) (unit)))))
 
     (define (start-page (context PageRun) (scheduler Scheduler)
-                        (work (FnOnce → Unit ! mut tasks page e)))
+                        (work (Fn → Unit ! mut tasks page e)))
       (→ I64) (! mut host e) (∀ (e))
       (handle page ((current-page (lambda () context)))
         (dispatch-in scheduler
-                     (once (lambda ()
-                             (work)
-                             (set! (● context completed) #t))))))
+                     (lambda ()
+                       (work)
+                       (set! (● context completed) #t)))))
 
     ;; Only a published checkpoint is the page's state. If loading traps
     ;; before boot, the host can recover the incoming value separately.
-    ;; Each getter transfers one credit to its host caller.
 
     (define (page-state (context PageRun)) (→ (Option Any))
       (● context current))
@@ -229,7 +228,7 @@
            (define page-main
              (lambda (scheduler page)
                (start-page (ann page PageRun) (ann scheduler Scheduler)
-                           (once (lambda () (start (ann (new Entry) (Entry App))))))))
+                           (lambda () (start (ann (new Entry) (Entry App)))))))
            (expose page-main "app_main")))))
 
     (expose make-page "app_create")

@@ -8,16 +8,16 @@
 
 (enum Step
   (Done ((value I64)))
-  (More ((invoke (FnOnce (FnOnce Unit → Step) → Step ! host))
-         (next (FnOnce Unit → Step)))))
+  (More ((invoke (Fn (Fn Unit → Step) → Step ! host))
+         (next (Fn Unit → Step)))))
 
 (effect Pause
-  ((ctl pause (Fn (FnOnce (FnOnce Unit → Step) → Step ! host) → Unit))))
+  ((ctl pause (Fn (Fn (Fn Unit → Step) → Step ! host) → Unit))))
 
 (define (start) (→ Step)
   (handle Pause ((pause (lambda (invoke resume) (More invoke resume))))
     (handle Reading ((read-number (lambda () 7)))
-      (pause (inherit-handlers-1 (once (lambda (next) (next (unit))))))
+      (pause (inherit-handlers-1 (lambda (next) (next (unit)))))
       (Done (read-number)))))
 
 (define (show-step (step Step)) (→ Unit) (! host output-port)

@@ -9,7 +9,7 @@
   (begin
     ;; The value signalled first, or 0 when the action finishes.
     (define (first-signal (action (Fn → Unit ! Signal output-port))) (→ I64) (! output-port)
-      (handle Signal ((signal (lambda (value resume) (drop resume) value)))
+      (handle Signal ((signal (lambda (value resume) value)))
         (action)
         0))
 

@@ -55,12 +55,6 @@ export function createAsyncFiles(tasks) {
       held = result.bytes ?? new Uint8Array();
       return result.code ?? held.length;
     },
-    cancel(id) {
-      const request = pending.get(id);
-      if (!request) return;
-      request.canceled = true;
-      tasks.discard(request.ticket);
-    },
     byte(index) {
       if (index < 0 || index >= held.length) throw new Error('file result byte is out of range');
       return held[index];

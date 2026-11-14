@@ -78,7 +78,7 @@ async function throughTheService() {
     assert.ok(invalidations() > observed, 'the observer reports the edits to the editor too');
 
     // Artifact context must not overwrite a failing dependency's real source.
-    write('main.sld', '(import (snail core base) (snail shell artifact)) (define (main) (→ Unit) (drop (artifact-bundle "client")))');
+    write('main.sld', '(import (snail core base) (snail shell artifact)) (define (main) (→ Unit) (artifact-bundle "client") (unit))');
     write('client.sld', '(import (snail core base)) (define (main) (→ Unit) (child-missing))');
     const childFailure = await service.settled(repaired.id, 'failed');
     assert.match(childFailure.diagnostics[0].message, /child-missing/);

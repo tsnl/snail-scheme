@@ -32,20 +32,20 @@
 (extern background-ready "snail.runtime.browser.events" "ready" (Fn → Unit ! events))
 (extern background-poll "snail.runtime.browser.events" "poll" (Fn → I32 ! events))
 (define (background-main (scheduler Scheduler) (context PageRun)) (→ I64) (! mut host events)
-  (start-page context scheduler (once (lambda ()
-                                        (background-boot 2)
-                                        (background-poll) ; Resize.
-                                        (background-poll) ; Frame.
-                                        (background-ready) ; Acknowledge presentation explicitly.
-                                        (dispatch-local (once (lambda () (sleep 100000))))
-                                        (unit)))))
+  (start-page context scheduler (lambda ()
+                                  (background-boot 2)
+                                  (background-poll) ; Resize.
+                                  (background-poll) ; Frame.
+                                  (background-ready) ; Acknowledge presentation explicitly.
+                                  (dispatch-local (lambda () (sleep 100000)))
+                                  (unit))))
 (expose background-main "background_main")
 
 (define (unpresented-main (scheduler Scheduler) (context PageRun)) (→ I64) (! mut host events)
-  (start-page context scheduler (once (lambda ()
-                                        (background-boot 2)
-                                        (dispatch-local (once (lambda () (sleep 100000))))
-                                        (unit)))))
+  (start-page context scheduler (lambda ()
+                                  (background-boot 2)
+                                  (dispatch-local (lambda () (sleep 100000)))
+                                  (unit))))
 (expose unpresented-main "unpresented_main")
 
 ;; Tasks beside the loop cannot enter its protocol: each of these traps.
@@ -67,14 +67,14 @@
   (→ Unit) (! mut host storage events)
   (handle page ((current-page (lambda () context)))
     (dispatch-in scheduler
-                 (once (lambda ()
-                         (match which
-                           (0 (child-load))
-                           (1 (child-store))
-                           (2 (child-event))
-                           (4 (child-commit))
-                           (5 (report-ready))
-                           (_ (child-boot)))))))
+                 (lambda ()
+                   (match which
+                     (0 (child-load))
+                     (1 (child-store))
+                     (2 (child-event))
+                     (4 (child-commit))
+                     (5 (report-ready))
+                     (_ (child-boot))))))
   (unit))
 (expose spawn-child "spawn_child")
 
@@ -161,11 +161,11 @@
     (! mut host screen events storage tasks page)
     (handle Marker
         ((marker (lambda () 17)))
-      (dispatch-local (once (lambda ()
-                              (yield)
-                              (unless (= (marker) 17)
-                                (panic "a child lost its inherited handler"))
-                              (sleep 100000))))
+      (dispatch-local (lambda ()
+                        (yield)
+                        (unless (= (marker) 17)
+                          (panic "a child lost its inherited handler"))
+                        (sleep 100000)))
       (start (ann (new Entry) (Entry (SceneApplication Counter)))))))
 
 (define-page-entry TestApplication)

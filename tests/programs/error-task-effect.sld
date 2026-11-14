@@ -6,5 +6,5 @@
 
 (define main
   (lambda ()
-    (dispatch-local (once (lambda () (missing))))
+    (dispatch-local (lambda () (missing)))
     (unit)))

@@ -40,10 +40,9 @@ async function startCold(application) {
   const run = runtime.start(entry);
   try { await run.ready.promise; }
   catch (error) {
-    const stopped = await run.done;
-    if (application.strictRestore) { stopped.release(); throw error; }
+    await run.done;
+    if (application.strictRestore) throw error;
     if (run.boot !== null || run.loaded == null) { reportApplicationError(error); return; }
-    stopped.release();
     console.warn('discarding an incompatible save:', error.message);
     application.reset();
     const retry = runtime.start(entry, null, {restore: null});
@@ -85,7 +84,7 @@ function printer(application) {
 
 // A full page reload first lets every loop save and return.
 export function saveAll() {
-  return Promise.all(running.map(async application => { await application.startup; const saved = await application.runtime.stop(); saved.release(); return saved; }));
+  return Promise.all(running.map(async application => { await application.startup; return application.runtime.stop(); }));
 }
 
 // `manifest` is the modules.json of the build to relink from, which the
@@ -102,8 +101,7 @@ async function relinkApplication(application, from, fresh, manifest) {
   await application.startup;
   const {runtime, program: previous} = application;
   application.capture = [];
-  const handover = await runtime.stop();
-  const {state, saved} = handover;
+  const {state, saved} = await runtime.stop();
   let candidate = null;
   try {
     const program = await relinkProgram(previous, from, manifest, fetchRead(manifest));
@@ -112,7 +110,7 @@ async function relinkApplication(application, from, fresh, manifest) {
     await candidate.ready.promise;
     application.program = program;
   } catch (error) {
-    if (candidate) (await candidate.done).release();
+    if (candidate) await candidate.done;
     application.reset();
     const rollback = runtime.start(applicationEntry(previous), state, {restore: saved});
     // A failed rollback remains the current run. Keep its checkpoint for
@@ -120,7 +118,6 @@ async function relinkApplication(application, from, fresh, manifest) {
     try { await rollback.ready.promise; } catch { await rollback.done; }
     throw new Error(application.capture.join('\n') || error.message);
   } finally {
-    handover.release();
     application.capture = null;
   }
 }

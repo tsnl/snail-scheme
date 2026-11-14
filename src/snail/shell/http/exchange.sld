@@ -198,10 +198,10 @@
                      (Some (● (● request head) method))
                      response))))))
 
-    ;; Exclusive use is a calling convention, not a linear socket guarantee.
-    ;; Returned failures close here. Traps and cancellation in an unrelated
-    ;; handler effect cannot unwind through this code; runtime shutdown owns
-    ;; their remaining native resources. Active native I/O cancels its socket.
+    ;; Exclusive use is a calling convention the checker does not enforce.
+    ;; Returned failures close here. A trap in an unrelated handler effect
+    ;; cannot unwind through this code; runtime shutdown closes the remaining
+    ;; native resources. Aborting active native I/O closes its socket.
 
     (define (serve-one (connection Connection)
                        (grace I32)
@@ -209,7 +209,6 @@
       (→ (Result Unit (ExchangeError E)))
       (! tcp tasks e)
       (∀ (E e))
-      (⊨ (Copy E))
       (let ((result (exchange connection grace handler)))
         (match result
           ((Err _) (close-connection connection) result)

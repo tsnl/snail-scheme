@@ -4,9 +4,9 @@
  (only (snail core forms) host)
  (only (snail core primitive) inherit-handlers inherit-handlers-1))
 
-;; `inherit-handlers` closes a one-shot procedure over the handlers in
-;; scope where it is called, so the procedure reaches them wherever it is
-;; later called, even after their handles have returned. The FnOnce it makes
+;; `inherit-handlers` closes a procedure over the handlers in scope where
+;; it is called, so the procedure reaches them wherever it is later
+;; called, even after their handles have returned. The function it makes
 ;; performs `host`, as code may that runs whatever the host implements,
 ;; which a program's top level may. The book's chapter on effects includes
 ;; the text between each ANCHOR and ANCHOR_END.
@@ -33,7 +33,7 @@
   (Done)
   (Yielded
    ((value I64)
-    (next (FnOnce Unit → Step ! host)))))
+    (next (Fn Unit → Step ! host)))))
 
 (define (start (body (Fn → Unit ! Gen Log))) (→ Step) (! Log)
   (handle Gen ((yield (lambda (value resume) (Yielded value (inherit-handlers-1 resume)))))
@@ -60,7 +60,7 @@
   ;; A thunk closed under the first log runs under the second, and logs to
   ;; the first.
   (let ((work (handle Log ((log first-log))
-                (inherit-handlers (once (lambda () (log "a thunk")))))))
+                (inherit-handlers (lambda () (log "a thunk"))))))
     (handle Log ((log second-log))
       (log "before the thunk")
       (work)))

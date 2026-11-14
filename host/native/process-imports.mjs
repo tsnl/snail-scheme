@@ -48,7 +48,8 @@ export function processImports(program, tasks, processes, termination) {
       start(ticket, signal => processes.wait(signal, child), ended);
     },
     // The signal's number is delivered once the waiting task finishes,
-    // which settles the delivery for `termination`, as dropping it does.
+    // which settles the delivery for `termination`, as disposing of an
+    // undelivered one does.
     'start-termination'(ticket) {
       start(ticket, signal => termination.wait(signal),
             number => { termination.settled(); return {value: number}; },

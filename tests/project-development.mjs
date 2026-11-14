@@ -129,7 +129,7 @@ async function throughTheService() {
     // attempt removes every generation it created.
     const beforeFailure = outputs(), accepted = fs.realpathSync(join(project, 'build/server'));
     write('server.sld', `${source}\n(define (broken) (→ Unit) (missing-function))\n`);
-    write('client.sld', '(import (snail core base)) (define (main) (→ Unit) (drop (ann 42 I64)))');
+    write('client.sld', '(import (snail core base)) (define (main) (→ Unit) (ann 42 I64) (unit))');
     write('client-public/nested/data.bin', Buffer.from([90, 0, 255]));
     const failed = await service.rebuilt('failed');
     assert.match(failed.diagnostics[0].message, /missing-function/);

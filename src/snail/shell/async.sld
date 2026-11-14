@@ -12,44 +12,38 @@
 
     ;; ---- Dispatching ----
 
-    ;; Dispatch owns the producer; the caller owns its receiver. Dropping
-    ;; the receiver cancels reception, not the task or its external work.
-    ;; If nobody receives, the task drops its unsent result under the
-    ;; result's own Drop row. Expected failures are values in T.
+    ;; The task fulfills the future's promise with the work's result.
+    ;; Expected failures are values in T.
 
-    (define (dispatch (work (FnOnce → T ! tasks e)))
+    (define (dispatch (work (Fn → T ! tasks e)))
       (→ (Future T))
       (! mut host completion tasks e)
       (∀ (T e))
-      (⊨ (Drop e T))
       (match (make-promise)
         ((Pair promise future)
-         (dispatch-task (once (lambda () (produce promise work))))
+         (dispatch-task (lambda () (produce promise work)))
          future)))
 
-    (define (produce (promise (Promise T)) (work (FnOnce → T ! tasks e)))
+    (define (produce (promise (Promise T)) (work (Fn → T ! tasks e)))
       (→ Unit)
       (! mut host completion tasks e)
       (∀ (T e))
-      (⊨ (Drop e T))
-      (drop (fulfill promise (work))))
+      (fulfill promise (work)))
 
     ;; ---- Waiting ----
 
-    ;; A pending future remains owned by the suspended continuation, so
-    ;; cancellation drops it. No task or host callback can run between
-    ;; polling, registering the ticket and parking on it in this runtime.
+    ;; No task or host callback can run between polling, registering the
+    ;; ticket and parking on it in this runtime.
 
     (define (await-future (future (Future T)))
-      (→ (Completion T))
-      (! mut host tasks d)
-      (∀ (T d))
-      (⊨ (Drop d T))
+      (→ T)
+      (! mut host tasks)
+      (∀ (T))
       (match (poll future)
-        ((Ready result) result)
-        ((Pending future)
-         (let* ((id (ticket)) (scheduler (current-scheduler))
-                (future (on-ready future (once (lambda () (wake-task! scheduler id) (unit))))))
+        ((Ready value) value)
+        ((Pending)
+         (let ((id (ticket)) (scheduler (current-scheduler)))
+           (on-ready future (lambda () (tasks-wake! scheduler id) (unit)))
            (await id)
            (await-future future)))))
 
@@ -57,4 +51,4 @@
     ;; next deadline or I/O completion; there is no repeated polling.
 
     (define (after (milliseconds I64)) (→ (Future Unit)) (! mut host completion tasks)
-      (dispatch (once (lambda () (sleep milliseconds)))))))
+      (dispatch (lambda () (sleep milliseconds))))))

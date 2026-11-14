@@ -27,11 +27,11 @@
                  " to "
                  (show-point (● segment to))))
 
-;; A pure replacement transfers a linear record into its result. The
-;; replacement expression can inspect fields before that transfer.
+;; A pure replacement makes a new record with one field replaced. The
+;; replacement expression can inspect the record's fields.
 (record Job
   ((at Point)
-   (work (FnOnce → Unit ! output-port))))
+   (work (Fn → Unit ! output-port))))
 
 (define (flip (job Job)) (→ Job)
   (Job-at-set job (new Point (x (● (● job at) y)) (y (● (● job at) x)))))
@@ -89,10 +89,10 @@
     (write-line (show-segment segment))
     (write-line (show-segment moved)))
   (match (flip
-          (new Job (at (new Point (x 1) (y 2))) (work (once (lambda () (write-line "worked"))))))
+          (new Job (at (new Point (x 1) (y 2))) (work (lambda () (write-line "worked")))))
     ((Job at work)
      (write-line (show-point at))
-     (call-once work)))
+     (work)))
   ;; A generic record also stores its object argument by reference.
   (let ((pair (new Pair (first (new Point (x 7) (y 8))) (second "seven-eight"))))
     (write-line (string-append (● pair second) " " (show-point (● pair first)))))
@@ -118,7 +118,8 @@
                                (show-point (● cursor home))
                                " "
                                (show-point (● cursor last))))
-    (write-line (show-point (replace! (● cursor last) (new Point (x 3) (y 3)))))
+    (write-line (show-point (● cursor last)))
+    (set! (● cursor last) (new Point (x 3) (y 3)))
     (write-line (show-point (● cursor last))))
   ;; Accessors are functions too, and an Any holds a Point as itself.
   (write-line

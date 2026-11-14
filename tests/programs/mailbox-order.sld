@@ -12,7 +12,7 @@
 (define (receive-one (mailbox (Mailbox String)) (name String)) (→ Unit) (! output-port mut tasks)
   (write-line (string-append name " received " (mailbox-receive mailbox))))
 
-(define (produce (mailbox (Mailbox String))) (→ Unit) (! mut host tasks)
+(define (produce (mailbox (Mailbox String))) (→ Unit) (! mut tasks)
   (mailbox-post mailbox "one")
   (yield)
   (mailbox-post mailbox "two")
@@ -21,8 +21,8 @@
 
 (define (main) (→ Unit) (! host mut output-port tasks)
   (let ((mailbox (make-mailbox)))
-    (dispatch-local (once (lambda () (receive-one mailbox "first"))))
-    (dispatch-local (once (lambda () (receive-one mailbox "second"))))
-    (dispatch-local (once (lambda () (produce mailbox))))
-    (dispatch-local (once (lambda () (receive-one mailbox "third")))))
+    (dispatch-local (lambda () (receive-one mailbox "first")))
+    (dispatch-local (lambda () (receive-one mailbox "second")))
+    (dispatch-local (lambda () (produce mailbox)))
+    (dispatch-local (lambda () (receive-one mailbox "third"))))
   (unit))

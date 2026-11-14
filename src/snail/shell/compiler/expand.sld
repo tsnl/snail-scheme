@@ -33,7 +33,6 @@
          generating-stack
          read-source-file)
    (snail shell compiler core)
-   (snail shell compiler capabilities)
    (snail shell compiler sha256))
   (begin
 
@@ -285,7 +284,6 @@
       (→ (Pair (List B) Context))
       (! e)
       (∀ (A B e))
-      (⊨ (Copy B) (Drop e B))
       (let ((done (fold-left (lambda (done item)
                                (match (step (● done second) item)
                                  ((Pair value cx)
@@ -377,9 +375,8 @@
         (top-count 0)
         (deriving (None))))
 
-    ;; The program has every type now, so its declarations' facts are known.
     (define (expanded-program (cx Context)) (→ ExpandedProgram)
-      (new ExpandedProgram (program (with-type-facts (● cx program))) (libraries (● cx expanded))))
+      (new ExpandedProgram (program (● cx program)) (libraries (● cx expanded))))
 
     ;; Each addition hands back the context with a larger program, except
     ;; that an item joins the library's own items until its run is done.
@@ -1459,7 +1456,6 @@
                    (expanding cx ((bodies (each (lambda (cx entry) (declare cx signatures entry))
                                                 pending)))
                               (check-buildable-records cx pending)
-                              (check-repr-types cx pending)
                               (expand-bodies cx (concatenate bodies))))))
 
     ;; A body that fails leaves the context as it was before it, and the
@@ -1508,6 +1504,42 @@
                                              (_ (panic "internal error: expected Ident")))
                                            " can never be built: each of its values would contain another"))))
           (_ (panic "internal error: record")))))
+
+    ;; Whether every value of the record `data` would hold another of
+    ;; itself. The search follows record fields and stops at every other
+    ;; type, each of which has a value that holds no record: an enum's tag,
+    ;; an empty array or string, an Any, a function. A declaration is
+    ;; entered once per path: one that reached its own name would itself
+    ;; contain itself, and the expander refuses it where it is declared.
+
+    (define (contains-itself? (program Program) (data DataType)) (→ Bool)
+      (any? (lambda (field) (reaches? program (● data name) field (Nil)))
+            (record-field-types data (map TRigid (● data params)))))
+
+    (define (reaches? (program Program) (target String) (type Type) (entered (List String)))
+      (→ Bool)
+      (match type
+        ((TCon name args)
+         (cond ((string=? name target) #t)
+               ((or (member? name entered)
+                    (builtin-type? name))
+                #f)
+               (else (let ((data (program-type program name)))
+                       (and (not (● data enum?))
+                            (any?
+                             (lambda (field) (reaches? program target field (Cons name entered)))
+                             (record-field-types data args)))))))
+        (_ #f)))
+
+    ;; The field types of a record's one case, with its parameters bound to
+    ;; `args`.
+
+    (define (record-field-types (data DataType) (args (List Type))) (→ (List Type))
+      (let ((bindings (zip (● data params) args)))
+        (match (● data cases)
+          ((Cons case _)
+           (map (lambda (field) (substitute bindings (● field type))) (● case fields)))
+          ((Nil) (panic "internal error: a record has one case")))))
 
     (define (scan-top-level (cx Context) (env Env) (form Syntax))
       (→ (Pair (List Pending) Context)) (! fs compile generator)
@@ -1940,8 +1972,7 @@
                         (params (ident-names params))
                         (cases (map-indexed (lambda (tag case) (resolve-case cx scope case id tag))
                                             cases))
-                        (enum? enum?)
-                        (owned? #f))))
+                        (enum? enum?))))
         (Context-program-set cx
                              (fold-left (lambda (program case)
                                           (with-case-values program data case (not enum?)))
@@ -1976,15 +2007,13 @@
                             identifier-name)))))
         (_ (panic "internal error: expected Ident"))))
 
-    ;; Construction and field reads are pure. Setters and swappers perform
-    ;; mut; ownership decides whether overwritten content may be released.
+    ;; Construction and field reads are pure. Setters perform mut.
     (define (with-case-values (program Program) (data DataType) (case Case) (record? Bool))
       (→ Program)
       (let* ((params (● data params)) (self (TCon (● data name) (map TRigid params)))
              (constructor (Constructor case
                                        (new Scheme (vars params)
                                             (constraints (Nil))
-                                            (copy (Nil))
                                             (type (TFun (map (lambda (record) (● record type))
                                                              (● case fields))
                                                         self
@@ -2021,23 +2050,19 @@
                                                                       (empty-row))))
                           program)))
         (if (not record?) program
-            (program-with-value
-             (program-with-value program (field-operation-name case index "set!")
-                                 (Setter case
-                                         index
-                                         (field-scheme params
-                                                       (list self type)
-                                                       (TCon "Unit" (Nil))
-                                                       (mut-row))))
-             (field-operation-name case index "replace!")
-             (Swapper case index (field-scheme params (list self type) type (mut-row)))))))
+            (program-with-value program (field-operation-name case index "set!")
+                                (Setter case
+                                        index
+                                        (field-scheme params
+                                                      (list self type)
+                                                      (TCon "Unit" (Nil))
+                                                      (mut-row)))))))
 
     (define (field-scheme (params (List String)) (arguments (List Type)) (result Type) (row Type))
       (→ Scheme)
       (new Scheme
         (vars params)
         (constraints (Nil))
-        (copy (Nil))
         (type (TFun arguments result row))))
 
     ;; Resolve definition headers before expanding bodies so recursive calls
@@ -2164,7 +2189,7 @@
                                         (new Scheme
                                           (vars (append (ident-names params) (● own vars)))
                                           (constraints (Cons self (● own constraints)))
-                                          (copy (● own copy)) (type (● own type)))))))))
+                                          (type (● own type)))))))))
 
     ;; Returns one step per method, which expands its definition.
 
@@ -2212,8 +2237,8 @@
         (_ (compile-error (syntax-loc class-ident)
                           "instance of something that is not a typeclass"))))
 
-    ;; The program after an instance's checks of its head, with a Drop
-    ;; instance's type made linear; any other instance changes nothing.
+    ;; The program after an instance's checks of its head, which change
+    ;; nothing in it.
 
     (define (instance-program (cx Context) (class Class) (instance Instance) (loc Loc))
       (→ Program)
@@ -2228,7 +2253,7 @@
                                         ")")))
         (check-instance-determination (● cx program) class instance loc)
         (check-head-rows (● cx program) class instance loc)
-        (if (drop-class? name) (drop-program cx instance loc) (● cx program))))
+        (● cx program)))
 
     ;; Prerequisites are ordered. Inputs bind variables first; only an
     ;; earlier requirement's row or output may determine another variable.
@@ -2271,78 +2296,36 @@
                                         (append (output-arguments class types)
                                                 (row-arguments class types)))))))
 
-    ;; A Drop instance is declared beside its type and makes it linear.
-
-    (define (drop-program (cx Context) (instance Instance) (loc Loc)) (→ Program) (! compile)
-      (let ((program (● cx program)))
-        (match (● instance types)
-          ((Cons _ (Cons (TCon name args) (Nil)))
-           (check-drop-head cx name args loc)
-           (program-with-type program (DataType-owned?-set (program-type program name) #t)))
-          (_ (compile-error loc "a Drop instance names a row and a declared type")))))
-
     ;; An instance writes each row its class's methods perform in its head,
     ;; `(! label ...)`, since mono finds the instance from ground types,
     ;; where no row variable could be solved, and gives a type for each
     ;; other parameter. A row is closed, or ends with the row `e` of the
-    ;; instance's requirements, as `(Drop e A)` or `(Store e S)`, which the
-    ;; types the requirement is given decide. Ordinary methods may perform
-    ;; control effects; mono retains these rows in specialization keys and
-    ;; call types. Drops must still run to completion.
+    ;; instance's requirements, as `(Store e S)`, which the types the
+    ;; requirement is given decide. Methods may perform control effects;
+    ;; mono retains these rows in specialization keys and call types.
 
     (define (check-head-rows (program Program) (class Class) (instance Instance) (loc Loc))
       (→ Unit)
       (! compile)
       (for-each (lambda (argument)
-                  (check-head-argument program
-                                       class
-                                       (● argument first)
-                                       (● argument second)
-                                       loc))
+                  (check-head-argument class (● argument first) (● argument second) loc))
                 (zip (● class params) (● instance types)))
-      (cond ((drop-class? (● class name))
-             (check-drop-requirements instance (head-tail instance) loc))
-            ((not (null? (● class rows))) (check-row-requirements program class instance loc))
-            (else (unit))))
+      (unless (null? (● class rows))
+        (check-row-requirements program class instance loc)))
 
-    (define (check-head-argument (program Program)
-                                 (class Class)
-                                 (param String)
-                                 (argument Type)
-                                 (loc Loc))
+    (define (check-head-argument (class Class) (param String) (argument Type) (loc Loc))
       (→ Unit)
       (! compile)
       (match argument
-        ((TRow labels _)
+        ((TRow _ _)
          (unless (member? param (● class rows))
            (compile-error loc
                           (string-append (instance-noun (● class name))
                                          " gives its type parameter "
                                          param
-                                         " a row, not a type")))
-         (for-each (lambda (label) (check-head-label program (● class name) label loc))
-                   labels))
+                                         " a row, not a type"))))
         (_ (when (member? param (● class rows))
              (compile-error loc (row-usage (● class name)))))))
-
-    (define (check-head-label (program Program) (class String) (label String) (loc Loc))
-      (→ Unit)
-      (! compile)
-      (match (table-ref (● program effects) label)
-        ((Some effect)
-         (when (and (drop-class? class) (not (null? (● effect control))))
-           (compile-error loc
-                          (string-append "a drop"
-                                         " cannot perform the control effect "
-                                         (short-name label)))))
-        ((None) (unit))))
-
-    ;; The tail of a Drop instance's row, its first argument.
-
-    (define (head-tail (instance Instance)) (→ (Option Type))
-      (match (● instance types)
-        ((Cons (TRow _ tail) _) tail)
-        (_ (None))))
 
     ;; A row class's instance ends its rows with variables its requirements
     ;; of row classes give their rows, and those requirements give theirs
@@ -2380,75 +2363,14 @@
         (_ #f)))
 
     (define (row-usage (class String)) (→ String)
-      (if (drop-class? class)
-          (drop-row-usage)
-          (string-append (instance-noun class)
-                         "'s rows are closed, (! label ...), or end with the row e its"
-                         " requirements give a row class, as (! label ... e) with (⊨ ("
-                         (short-name class)
-                         " e A))")))
-
-    ;; Each requirement runs the class's method at one of the instance's
-    ;; variables in the row its head ends with, so one row holds what all
-    ;; of them perform; without one, the row is closed.
-
-    (define (check-drop-requirements (instance Instance)
-                                     (tail (Option Type))
-                                     (loc Loc))
-      (→ Unit)
-      (! compile)
-      (let ((required (● instance requires)))
-        (for-each (lambda (constraint)
-                    (unless (string=? (● constraint class) (drop-class))
-                      (compile-error loc
-                                     (string-append "a Drop instance"
-                                                    " can require only (Copy A) and ("
-                                                    "Drop"
-                                                    " e A)")))
-                    (match (new Pair (first tail) (second (● constraint types)))
-                      ((Pair (Some (TRigid name)) (Cons (TRigid row) (Cons (TRigid var) (Nil))))
-                       (unless (and (string=? name row) (member? var (● instance vars)))
-                         (compile-error loc (drop-row-usage))))
-                      (_ (compile-error loc (drop-row-usage)))))
-                  required)
-        (match (new Pair (first tail) (second required))
-          ((Pair (Some _) (Nil)) (compile-error loc (drop-row-usage)))
-          (_ (unit)))))
-
-    (define (drop-row-usage) (→ String)
-      (string-append "a Drop instance"
-                     "'s row is closed, (! label ...), or ends with the row e of its requirements ("
-                     "Drop"
-                     " e A), as (! label ... e)"))
+      (string-append (instance-noun class)
+                     "'s rows are closed, (! label ...), or end with the row e its"
+                     " requirements give a row class, as (! label ... e) with (⊨ ("
+                     (short-name class)
+                     " e A))"))
 
     (define (instance-noun (class String)) (→ String)
       (string-append "a " (short-name class) " instance"))
-
-    ;; It is declared beside its type, for the type at distinct variables,
-    ;; so a type has one of each class, which its name finds, and its
-    ;; library alone may take the type's values apart when it has a Drop
-    ;; instance.
-
-    (define (check-drop-head (cx Context)
-                             (name String)
-                             (args (List Type))
-                             (loc Loc))
-      (→ Unit)
-      (! compile)
-      (unless (string=? (name-owner name) (● cx prefix))
-        (compile-error loc
-                       (string-append "a Drop instance"
-                                      " is declared in the library of its type")))
-      (let ((names (map (lambda (arg)
-                          (match arg
-                            ((TRigid name) name)
-                            (_ "")))
-                        args)))
-        (unless (and (not (member? "" names))
-                     (= (length (delete-duplicates string=? names)) (length names)))
-          (compile-error loc
-                         (string-append "a Drop instance"
-                                        " is for its type at distinct variables")))))
 
     (define (instance-with-methods (instance Instance) (methods (List MethodDefinition)))
       (→ Instance)
@@ -2492,7 +2414,7 @@
                                        (vars (● requirements vars))
                                        (types (append types outputs))
                                        (requires (● requirements constraints))
-                                       (copy (● requirements copy)) (methods (Nil))))
+                                       (methods (Nil))))
                               (second (● requirements env))))
                      (second cx)))))
 
@@ -2601,20 +2523,13 @@
     (define (check-method-requirements (own Scheme) (expected Scheme)
                                        (substitution Substitution) (loc Loc))
       (→ Unit) (! compile)
-      (unless (and
-               (every? (lambda (name)
-                         (member? (match (substitute substitution (TRigid name))
-                                    ((TRigid name) name)
-                                    (_ (panic "internal error: method variables stay rigid")))
-                                  (● expected copy)))
-                       (● own copy))
-               (every? (lambda (required)
-                         (let ((required (substitute-constraint substitution required)))
-                           (any? (lambda (given)
-                                   (and (string=? (● required class) (● given class))
-                                        (types=? (● required types) (● given types))))
-                                 (● expected constraints))))
-                       (● own constraints)))
+      (unless (every? (lambda (required)
+                        (let ((required (substitute-constraint substitution required)))
+                          (any? (lambda (given)
+                                  (and (string=? (● required class) (● given class))
+                                       (types=? (● required types) (● given types))))
+                                (● expected constraints))))
+                      (● own constraints))
         (compile-error loc "a method header cannot require more than its class and instance")))
 
     (define (instance-method-scope (env Env) (definition Definition) (own Scheme)
@@ -2639,7 +2554,7 @@
                                     (instance Instance))
       (→ Scheme)
       (match (program-value program method)
-        ((Some (Method _ (Scheme method-vars (Cons _ own) copy type)))
+        ((Some (Method _ (Scheme method-vars (Cons _ own) type)))
          (let* ((class-vars (● class params))
                 (locals (rename-method-variables (list-drop method-vars (length class-vars))
                                                  (● instance vars)))
@@ -2652,8 +2567,6 @@
              (vars (append (● instance vars) (map (lambda (record) (● record second)) locals)))
              (constraints (append (● instance requires)
                                   (map (lambda (c) (substitute-constraint substitution c)) own)))
-             (copy (append (● instance copy)
-                           (map (lambda (name) (renamed-variable locals name)) copy)))
              (type (substitute substitution type)))))
         (_ (panic "internal error: not a method"))))
 
@@ -2672,11 +2585,6 @@
 
     (define (fresh-type-variable (name String) (taken (List String))) (→ String)
       (if (member? name taken) (fresh-type-variable (string-append "$" name) taken) name))
-
-    (define (renamed-variable (names (List (Pair String String))) (name String)) (→ String)
-      (match (assoc-ref names name)
-        ((Some renamed) renamed)
-        ((None) name)))
 
     ;; Instance selection matches heads, so two heads may never both match
     ;; the same types. A type variable in either head matches anything.
@@ -2810,7 +2718,7 @@
       (→ (Pair (Pair String Bool) Context))
       (! compile)
       (match (operational-scheme (resolve-scheme cx env type))
-        ((Scheme vars constraints _ (TFun params result (TRow latent (None))))
+        ((Scheme vars constraints (TFun params result (TRow latent (None))))
          (unless (and (null? vars) (null? constraints))
            (compile-error (syntax-loc type)
                           "an operation's type cannot be polymorphic: a handler implements it once, at one type"))
@@ -2933,10 +2841,9 @@
       (match (program-value (● cx program) operation)
         ((Some (Operation effect scheme))
          (match scheme
-           ((Scheme (Nil) (Nil) _ (TFun params result _))
+           ((Scheme (Nil) (Nil) (TFun params result _))
             (new Scheme (vars (Nil))
                  (constraints (Nil))
-                 (copy (Nil))
                  (type (TFun params result (TRow (operation-latent effect scheme) (None))))))
            (_ (compile-error loc "an operation with a default must have a monomorphic type"))))
         (_ (panic "internal error: not an operation"))))
@@ -2975,7 +2882,7 @@
 
     (define (operation-arity (cx Context) (operation String)) (→ I64)
       (match (program-value (● cx program) operation)
-        ((Some (Operation _ (Scheme _ _ _ (TFun params _ _)))) (length params))
+        ((Some (Operation _ (Scheme _ _ (TFun params _ _)))) (length params))
         (_ (panic "internal error: not an operation"))))
 
     ;; ---- Primitives ----
@@ -2998,26 +2905,8 @@
         ((Form (Cons _ (Cons name (Cons type (Nil)))) _)
          (let* ((global (primitive-global (expect-name name "a primitive name")))
                 (cx (bind-top cx env name (Global global))))
-           (add-value cx global (Primitive (resolve-primitive-scheme cx env global type)))))
+           (add-value cx global (Primitive (operational-scheme (resolve-scheme cx env type))))))
         (_ (compile-error (syntax-loc form) "expected (primitive name type)"))))
-
-    ;; This intrinsic preserves a complete, arity-independent signature.
-    ;; The receiver and signature are ordinary class parameters; deriving
-    ;; FnOnce evidence determines the result's erased calling convention.
-
-    (define (resolve-primitive-scheme (cx Context) (env Env) (global String) (syntax Syntax))
-      (→ Scheme) (! compile)
-      (cond ((string=? global "prim:once")
-             (let ((signature (TRigid "F")))
-               (new Scheme (vars (list "F")) (constraints (Nil)) (copy (Nil))
-                    (type (TFun (list signature) (TCon "FnOnce" (list signature)) (empty-row))))))
-            ((string=? global "prim:weak-rc-upgrade")
-             (let ((value (TRigid "T")))
-               (new Scheme (vars (list "T")) (constraints (Nil)) (copy (Nil))
-                    (type (TFun (list (TCon "WeakRc" (list value)))
-                                (TCon "snail.core.base:Option" (list (TCon "Rc" (list value))))
-                                (mut-row))))))
-            (else (operational-scheme (resolve-scheme cx env syntax)))))
 
     ;; ---- Types ----
 
@@ -3026,7 +2915,6 @@
     ;; same ordinary type argument of the same evidence requirement.
     (record Requirements
       ((constraints (List Constraint))
-       (copy (List String))
        (vars (List String))
        (env Env)))
 
@@ -3037,7 +2925,7 @@
     ;; than introducing a source closure identity of its own.
 
     (define (operational-scheme (scheme Scheme)) (→ Scheme)
-      (new Scheme (vars (● scheme vars)) (constraints (● scheme constraints)) (copy (● scheme copy))
+      (new Scheme (vars (● scheme vars)) (constraints (● scheme constraints))
            (type (fn-arrow (● scheme type)))))
 
     (define (resolve-raw-scheme (cx Context) (env Env) (syntax Syntax)) (→ Scheme) (! compile)
@@ -3050,7 +2938,6 @@
            (match (● parts second)
              ((Cons type (Nil))
               (new Scheme (vars (● requirements vars)) (constraints (● requirements constraints))
-                   (copy (● requirements copy))
                    (type (resolve-type cx (● requirements env) type))))
              (_ (compile-error loc
                                "expected (∀ (variable ...) [(⊨ constraint ...)] type)")))))
@@ -3063,40 +2950,23 @@
       (→ Requirements)
       (! compile)
       (fold-left (lambda (found requirement) (resolve-requirement cx found requirement))
-                 (new Requirements (constraints (Nil)) (copy (Nil)) (vars vars) (env env))
+                 (new Requirements (constraints (Nil)) (vars vars) (env env))
                  requirements))
 
     (define (resolve-requirement (cx Context) (found Requirements) (syntax Syntax))
       (→ Requirements)
       (! compile)
-      (match syntax
-        ((Form (Cons (Ident "Copy" _ _) args) loc)
-         (Requirements-copy-set found
-                                (append (● found copy)
-                                        (list (copy-variable (● found vars) args loc)))))
-        (_ (let* ((index (length (enclosing-requirements (● found env))))
-                  (prefix (string-append "$associated." (i64->string index) "."))
-                  (constraint (resolve-constraint cx (● found env) syntax index))
-                  (hidden
-                   (filter (lambda (name) (and (>= (string-length name) (string-length prefix))
-                                               (string=? (substring name 0 (string-length prefix))
-                                                         prefix)))
-                           (concatenate (map type-names (● constraint types))))))
-             (new Requirements (constraints (append (● found constraints) (list constraint)))
-                  (copy (● found copy))
-                  (vars (delete-duplicates string=? (append (● found vars) hidden)))
-                  (env (EvidenceScope (list constraint) (● found env))))))))
-
-    (define (copy-variable (vars (List String)) (args (List Syntax)) (loc Loc))
-      (→ String)
-      (! compile)
-      (match args
-        ((Cons (Ident name _ _) (Nil))
-         (if (member? name vars)
-             name
-             (compile-error loc
-                            (string-append "Copy names a quantified type variable, not " name))))
-        (_ (compile-error loc "expected (Copy variable)"))))
+      (let* ((index (length (enclosing-requirements (● found env))))
+             (prefix (string-append "$associated." (i64->string index) "."))
+             (constraint (resolve-constraint cx (● found env) syntax index))
+             (hidden
+              (filter (lambda (name) (and (>= (string-length name) (string-length prefix))
+                                          (string=? (substring name 0 (string-length prefix))
+                                                    prefix)))
+                      (concatenate (map type-names (● constraint types))))))
+        (new Requirements (constraints (append (● found constraints) (list constraint)))
+             (vars (delete-duplicates string=? (append (● found vars) hidden)))
+             (env (EvidenceScope (list constraint) (● found env))))))
 
     (define (resolve-constraint (cx Context) (env Env) (syntax Syntax) (index I64))
       (→ Constraint)
@@ -3178,9 +3048,8 @@
         ((Ident _ _ loc) (resolve-type-name cx env syntax (Nil) loc))
         ((Form (Cons (Ident "!" _ _) labels) loc) (resolve-row cx env labels loc))
         ((Form (Cons (Ident kind _ _) items) loc)
-         (if (member? kind (list "Fn" "FnOnce"))
-             (let ((arrow (resolve-callable-arrow cx env items (Nil) loc)))
-               (if (string=? kind "Fn") arrow (TCon kind (list arrow))))
+         (if (string=? kind "Fn")
+             (resolve-callable-arrow cx env items (Nil) loc)
              (resolve-type-application cx env syntax loc)))
         ((Form (Cons head args) loc)
          (resolve-type-name cx env (expect-ident head "a type constructor") args loc))
@@ -3451,16 +3320,6 @@
                   loc))
            ((Some (Global name))
             (check-constructor-reference cx name loc)
-            (match (program-value
-                    (● cx program)
-                    name)
-              ((Some (Replacer case _ _))
-               (check-own-library cx
-                                  (● case
-                                     type)
-                                  loc
-                                  "replace its fields"))
-              (_ (unit)))
             (expr (Var name (Nil) (Nil))
                   loc))
            ((Some (TypeName _
@@ -3920,26 +3779,6 @@
                         (scope (register-scope env)))
                     (new Pair (first scope) (second (Context-deriving-set cx (Some scope))))))))
 
-    ;; Deriving may inspect only Copy values. Check after all declarations,
-    ;; since a later Drop instance can make a type own an external resource.
-    (define (check-repr-types (cx Context) (pending (List Pending))) (→ Unit) (! compile)
-      (for-each (lambda (entry)
-                  (when (and (member? (● entry keyword) (list "record" "enum"))
-                             (any? (lambda (class)
-                                     (match class ((Ident "Repr" _ _) #t) (_ #f)))
-                                   (derived-classes (● entry form))))
-                    (check-repr-type cx entry)))
-                pending))
-
-    (define (check-repr-type (cx Context) (entry Pending)) (→ Unit) (! compile)
-      (let ((name (declared-name (declaration-head (● entry form)))))
-        (match (resolve cx (● entry env) name)
-          ((Some (TypeName id _ _))
-           (let ((params (● (program-type (● cx program) id) params)))
-             (when (linear-type? (● cx program) params (TCon id (map TRigid params)))
-               (compile-error (syntax-loc name) "deriving Repr requires a Copy type"))))
-          (_ (panic "internal error: represented type")))))
-
     ;; Builds the syntax of a derived instance; `w` marks introduced identifiers.
     (record Deriver
       ((scope I64)
@@ -3966,16 +3805,8 @@
                     (Nil)
                     (list (f d
                              (Cons (w d "⊨")
-                                   (concatenate
-                                    (map (lambda (param)
-                                           (let ((requirement (f d (list (w d class) param))))
-                                             (if (string=? class "Repr")
-                                                 (list (f d (list (w d "Copy") param))
-                                                       (f d (list (w d "Drop")
-                                                                  (f d (list (w d "!"))) param))
-                                                       requirement)
-                                                 (list requirement))))
-                                         params)))))))))
+                                   (map (lambda (param) (f d (list (w d class) param)))
+                                        params))))))))
 
     ;; A derived method inherits its class's signature. Its lambda keeps
     ;; that inference without introducing an unannotated function head.
@@ -4212,32 +4043,7 @@
         (_ (compile-error (syntax-loc syntax) "expected a pattern"))))
 
     (define (pattern-constructor (cx Context) (env Env) (head Syntax)) (→ String) (! compile)
-      (let ((name (constructor-name cx env (expect-ident head "a constructor"))))
-        (match (program-value (● cx program) name)
-          ((Some (Constructor case _))
-           (check-own-library cx
-                              (● case type)
-                              (syntax-loc head)
-                              "take it apart; drop it instead"))
-          (_ (unit)))
-        name))
-
-    ;; A type with a Drop instance is taken apart, or has a field replaced,
-    ;; only in its own library, which the instance trusts to release what a
-    ;; value holds; elsewhere a value of it is dropped, or given to a
-    ;; function of its library.
-
-    (define (check-own-library (cx Context) (type String) (loc Loc) (what String))
-      (→ Unit)
-      (! compile)
-      (match (drop-instance (● cx program) type)
-        ((Some _)
-         (unless (string=? (name-owner type) (● cx prefix))
-           (compile-error loc
-                          (string-append (short-name type)
-                                         " has a Drop instance, so only its own library can "
-                                         what))))
-        ((None) (unit))))
+      (constructor-name cx env (expect-ident head "a constructor")))
 
     ;; ---- Syntax rules ----
 
@@ -4767,7 +4573,7 @@
                           (list (list "A") "(Fn (Vector A) I64 → A)"))
                   (expect (primitive-scheme program "inherit-handlers")
                           (list (list "A" "e")
-                                "(Fn (FnOnce → A ! e) → (FnOnce → A ! host) ! e)"))
+                                "(Fn (Fn → A ! e) → (Fn → A ! host) ! e)"))
                   (expect (map (lambda (record) (● record first))
                                (library-items program (program-items program)))
                           (list "main")))))

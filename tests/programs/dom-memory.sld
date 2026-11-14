@@ -46,7 +46,7 @@
 
 (define (main) (→ Unit) (! mut output-port)
 
-  (define result (→ (Pair String Document)) (with-memory-dom (Nil) (once build)))
+  (define result (→ (Pair String Document)) (with-memory-dom (Nil) build))
   (define removed (→ Document)
     (● (with-memory-dom (Nil) (lambda ()
                                 (let ((outer (create-element "div"))

@@ -47,17 +47,13 @@ async function relink(page, build) {
   });
   assert.equal(changed.name, 'counter.application', 'the selected application library changes');
   const handover = await page.runtime.stop();
-  try {
-    const program = await relinkProgram(page.program, changed.name, build.manifest, build.read);
-    for (const {name} of build.modules.slice(0, build.modules.indexOf(changed))) {
-      assert.equal(program.linked.get(name), page.program.linked.get(name), name);
-    }
-    const boot = await page.runtime.start(applicationEntry(program), handover.state, {restore: handover.saved}).ready.promise;
-    assert.equal(boot, 0, 'the unchanged state type is adopted directly');
-    Object.assign(page, {program, build});
-  } finally {
-    handover.release();
+  const program = await relinkProgram(page.program, changed.name, build.manifest, build.read);
+  for (const {name} of build.modules.slice(0, build.modules.indexOf(changed))) {
+    assert.equal(program.linked.get(name), page.program.linked.get(name), name);
   }
+  const boot = await page.runtime.start(applicationEntry(program), handover.state, {restore: handover.saved}).ready.promise;
+  assert.equal(boot, 0, 'the unchanged state type is adopted directly');
+  Object.assign(page, {program, build});
 }
 
 const text = (page, key) => page.widgets.find(entry => entry.key === key)?.text;
@@ -88,6 +84,6 @@ try {
   assert.deepEqual([text(page, 'greeting'), text(page, 'count')], ['repaired', '3']);
   console.log('project reload: incremental modules, state handover and failure recovery passed');
 } finally {
-  try { if (page) (await page.runtime.stop()).release(); }
+  try { if (page) await page.runtime.stop(); }
   finally { await service.stop(); await rm(directory, {recursive: true, force: true}); }
 }

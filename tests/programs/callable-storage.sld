@@ -9,27 +9,23 @@
 (define (code (value I64)) (→ I64)
   (+ value 10))
 
-(define (consume (function (FnOnce I64 → I64)))
+(define (consume (function (Fn I64 → I64)))
   (→ I64)
   (function 7))
 
 (define (main) (→ Unit) (! output-port)
 
   (write-line (repr (map (lambda (function) (function 5)) (handlers))))
-  ;; A first-class constructor preserves argument count, too.
-  (let ((to-once once))
-    (let ((function (to-once (lambda (left right) (string-append left right)))))
-      (write-line (function "first " "class"))))
-  (let ((function (once (lambda (value) (code value)))))
+  (let ((function (lambda (value) (code value))))
     (write-line (show (function 5))))
-  (write-line (show (consume (once (lambda (value) (code value))))))
-  ;; A list transfers each one-shot procedure to exactly one caller.
-  (let ((jobs (ann (list (once (lambda (value) (+ value 2)))
-                         (once (lambda (value) (* value 3))))
-                   (List (FnOnce I64 → I64)))))
+  (write-line (show (consume (lambda (value) (code value)))))
+  ;; Procedures in a list are values like any other.
+  (let ((jobs (ann (list (lambda (value) (+ value 2))
+                         (lambda (value) (* value 3)))
+                   (List (Fn I64 → I64)))))
     (match jobs
       ((Cons first (Cons second (Nil)))
        (write-line (show (first 10)))
        (write-line (show (second 10))))
-      (other (drop other) (panic "expected two jobs"))))
+      (other (panic "expected two jobs"))))
   (unit))

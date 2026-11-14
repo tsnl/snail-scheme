@@ -32,7 +32,7 @@
 ;; event connection. Reconnect and restore buffers under the new scheduler.
 (define (present (saved Save) (checkpoint (Fn Save → Unit ! events storage tasks)))
   (→ Unit)
-  (! mut host completion events storage tasks page)
+  (! mut host events storage tasks page)
   (with-page-dom
    (lambda ()
      (with-page-fetch
@@ -48,7 +48,7 @@
           (lambda (saved) (commit saved))
           (lambda (saved) (checkpoint saved)))))))))
 
-(define (snapshot (session Session)) (→ Save) (! mut host)
+(define (snapshot (session Session)) (→ Save)
   (Some (session-snapshot session)))
 
 (define (encode (saved Save)) (→ Bytes)

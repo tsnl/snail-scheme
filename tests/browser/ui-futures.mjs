@@ -85,7 +85,7 @@ try {
   final.end('restored and responsive');
   await until(async () => await shown('result') === 'restored and responsive', 'work after restoration');
   if (screenshot) await browser.screenshot(screenshot);
-  console.log('linear UI futures handle input, completion, cancellation, late replies, periodic saves and checkpoint restoration');
+  console.log('UI futures handle input, completion, cancellation, late replies, periodic saves and checkpoint restoration');
 } finally {
   for (const response of waiting) response.end();
   browser.close();

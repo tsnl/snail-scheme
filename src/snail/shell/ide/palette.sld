@@ -94,8 +94,7 @@
 
     (type CommandResult (Fn State → Step))
     (record Command
-      ((work (FnOnce → CommandResult ! tasks dom fetch))
-       (interrupted CommandResult)))
+      ((work (Fn → CommandResult ! tasks dom fetch))))
 
     (record Step
       ((state State)
@@ -131,11 +130,11 @@
                              (generation (+ 1 (● state generation)))
                              (panel (Some (new Panel (mode mode) (query "") (selected 0)))))))
            (outcome (None))
-           (commands (list (new Command (work (once (lambda ()
-                                                      (match (element-by-id "command-query")
-                                                        ((Some field) (focus-node field))
-                                                        ((None) (unit)))
-                                                      stay))) (interrupted stay))))))
+           (commands (list (new Command (work (lambda ()
+                                                (match (element-by-id "command-query")
+                                                  ((Some field) (focus-node field))
+                                                  ((None) (unit)))
+                                                stay)))))))
 
     ;; ---- Updates ----
 
@@ -195,14 +194,11 @@
                                            (selected (if (finding? state) -1 0))))))))
                (new Step (state next) (outcome (None))
                     (commands (if (and (searching? mode) (not (string=? text "")))
-                                  (list (new Command (work (once (lambda ()
-                                                                   (sleep 120)
-                                                                   (lambda (current)
-                                                                     (search-due current
-                                                                                 generation)))))
-                                             (interrupted (lambda (current)
-                                                            (search-interrupted current
-                                                                                generation)))))
+                                  (list (new Command (work (lambda ()
+                                                             (sleep 120)
+                                                             (lambda (current)
+                                                               (search-due current
+                                                                           generation))))))
                                   (Nil)))))))
         ((None) (stay state))))
 
@@ -283,31 +279,12 @@
              (new Step
                (state (mode-set state (Searching (new Search (source source) (phase (Fetching))))))
                (outcome (None))
-               (commands (list (new Command (work (once (lambda ()
-                                                          (let ((result (search-run source query)))
-                                                            (lambda (current)
-                                                              (searched current
-                                                                        generation
-                                                                        result))))))
-                                    (interrupted
-                                     (lambda (current) (search-interrupted current generation)))))))
-             (stay state)))
-        (_ (stay state))))
-
-    (define (interrupted-request) (→ Failure)
-      (new Failure
-        (status 0)
-        (message "Request interrupted; its server-side outcome may be unknown.")))
-
-    (define (search-interrupted (state State) (generation I64)) (→ Step)
-      (match (● state panel)
-        ((Some (Panel (Searching (Search source _)) _ _))
-         (if (= generation (● state generation))
-             (stay
-              (mode-set state
-                        (Searching (new Search
-                                     (source source)
-                                     (phase (Finished (Err (interrupted-request))))))))
+               (commands (list (new Command (work (lambda ()
+                                                    (let ((result (search-run source query)))
+                                                      (lambda (current)
+                                                        (searched current
+                                                                  generation
+                                                                  result)))))))))
              (stay state)))
         (_ (stay state))))
 
@@ -331,23 +308,19 @@
                                   (Creating
                                    (new Creation (directory directory) (pending #t) (problem "")))))
                  (outcome (None))
-                 (commands (list (new Command (work (once (lambda ()
-                                                            (let ((result (api "POST" (string-append
-                                                                                       (if directory
-                                                                                           "/api/directory?path="
-                                                                                           "/api/file?path=")
-                                                                                       (url-component
-                                                                                        path))
-                                                                               (Nil)
-                                                                               "")))
-                                                              (lambda (current)
-                                                                (created current
-                                                                         generation
-                                                                         result))))))
-                                      (interrupted (lambda (current)
-                                                     (created current
-                                                              generation
-                                                              (Err (interrupted-request))))))))))))
+                 (commands (list (new Command (work (lambda ()
+                                                      (let ((result (api "POST" (string-append
+                                                                                 (if directory
+                                                                                     "/api/directory?path="
+                                                                                     "/api/file?path=")
+                                                                                 (url-component
+                                                                                  path))
+                                                                         (Nil)
+                                                                         "")))
+                                                        (lambda (current)
+                                                          (created current
+                                                                   generation
+                                                                   result))))))))))))
         (_ (stay state))))
 
     ;; Closing does not undo a write. Its watcher event still updates the file

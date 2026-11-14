@@ -11,9 +11,9 @@
 
   (let ((cell (new TaskValue (value 0))))
     (dispatch-local
-     (once (lambda ()
-             (set! (● cell value) 42)
-             (yield)
-             (display (● cell value))
-             (newline)))))
+     (lambda ()
+       (set! (● cell value) 42)
+       (yield)
+       (display (● cell value))
+       (newline))))
   (unit))

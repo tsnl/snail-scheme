@@ -24,7 +24,8 @@
     (match circle
       ((Circle radius)
        (write-line (show (● radius value)))
-       (write-line (show (replace! (● radius value) 12))))
+       (write-line (show (● radius value)))
+       (set! (● radius value) 12))
       ((Empty) (panic "empty shape")))
     (match alias
       ((Circle radius) (write-line (show (● radius value))))

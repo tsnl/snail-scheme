@@ -25,7 +25,7 @@
    ((value I64)))
   (Waiting
    ((ticket I64)
-    (next (FnOnce I64 → Task ! Io output-port)))))
+    (next (Fn I64 → Task ! Io output-port)))))
 
 ;; Runs a task to its first wait under its own handler, which hands back
 ;; the rest of the task rather than resuming it.

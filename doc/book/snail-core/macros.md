@@ -3,12 +3,12 @@
 Macros are hygienic `syntax-rules` transformers, defined with
 `define-syntax` at the top level or in a local body. Surface forms such as
 `let*`, `cond`, `case` and the variadic `list` are macros in `(snail core base)`.
-They expand before checking, so generated expressions obey the same types,
-effects and ownership rules as handwritten code.
+They expand before checking, so generated expressions obey the same types
+and effects rules as handwritten code.
 
 A macro can generate a typed definition, including its `(→ Result)`, `!`,
 `∀`, `⊨` and documentation clauses. It cannot grant permission to perform an
-effect, hide a linear member, or introduce an effectful top-level initializer.
+effect or introduce an effectful top-level initializer.
 Generated identifiers retain their lexical context; field labels select
 stored slots of the receiver's nominal type.
 

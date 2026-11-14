@@ -15,8 +15,10 @@ remaining work.
 
 Import `(snail shell socket)` and include `tcp` or `udp` in the effect row of code using it.
 Every operation returns `Result` with a `SocketError` whose `code` is a string
-such as `"EBADF"`, `"EINVAL"` or a native network error code. Cancellation
-unwinds the task; it is not a recoverable `SocketError`.
+such as `"EBADF"`, `"EINVAL"` or a native network error code. Nothing
+cancels a waiting task: it resumes when its operation settles. When the run
+ends, the host aborts the operations still outstanding, and the tasks
+waiting on them never resume.
 
 An `Endpoint` is an IPv4 address and a port, and only `(endpoint address
 port)` makes one, from dotted text: four decimal octets from 0 to 255
@@ -96,13 +98,13 @@ A datagram's sender is held as Node's dotted text, which `endpoint` parses.
 Outgoing bytes are copied from staging before any other Wasm call or await.
 
 A pending acquisition carries its native handle and bound-port metadata, where
-applicable. The scheduler disposes a successful acquisition if cancellation wins
-before delivery. Once `finish` answers with a handle, the handle is the shell's.
-Successful delivery transfers responsibility to user code: close explicitly, or
-leave cleanup to runtime shutdown. There is no implicit last-use socket drop or
-task-scoped socket owner. Cancelling an unrelated task does not close a delivered
-endpoint. The runner cancels/drains tasks, closes all socket resources, then closes
-its scalar resources when execution ends or initialization fails.
+applicable. The scheduler disposes a successful acquisition that no task can
+receive, because the run has closed or the waiting task trapped. Once
+`finish` answers with a handle, the handle is the shell's. Successful delivery
+hands responsibility to user code: close explicitly, or leave cleanup to
+runtime shutdown. Nothing closes a socket when its last reference goes. The
+runner closes the scheduler, then all socket resources, then its scalar
+resources when execution ends or initialization fails.
 
 ## TCP operations
 
@@ -136,7 +138,7 @@ read before EOF. No operation promises peer receipt or message framing.
 
 Write borrows its bytes unchanged until settlement. The Wasm binding copies
 staging memory before awaiting; native callers must not mutate or detach
-the supplied storage. A cancelled write may already have transmitted bytes, so
+the supplied storage. An aborted write may already have transmitted bytes, so
 retrying the whole buffer is not automatically safe.
 
 ### Finishing a connection
@@ -156,18 +158,21 @@ the response.
 
 The deadline is elapsed time, not an idle timeout renewed by incoming data.
 Expiry forces closure and reports `ETIMEDOUT`; zero means immediate expiry.
-Cancellation preserves its exact reason. Transport failure, explicit close,
-timeout or cancellation records the first cause; clean native closure records
-success. A later cancellation cannot rewrite that native outcome, although the
-task scheduler can still reject delivery to a cancelled task. Every accepted
+An abort preserves its exact reason. Transport failure, explicit close,
+timeout or abort records the first cause; clean native closure records
+success. A later abort cannot rewrite that native outcome, although the
+scheduler still disposes of a result that no task receives. Every accepted
 finish waits for physical closure before settling. The grace bounds graceful
 progress; forced cleanup still needs event-loop scheduling.
 
-## Ownership and cancellation
+## Native resources and aborts
+
+The signal each native operation takes is the run's: the scheduler aborts it
+when the run closes, and nothing else does.
 
 Node accepts eagerly. A listener retains at most its backlog of unclaimed
 connections in a paused state, using native stream buffers. Overflow connections close immediately.
-Revoked queued connections are skipped by accept. Cancelling accept leaves its
+Revoked queued connections are skipped by accept. Aborting accept leaves its
 listener and unclaimed connections usable; closing a listener releases its queue
 but leaves already handed-out connections independent.
 
@@ -178,17 +183,17 @@ abort until physical closure. Failed creation and rejected incoming sockets ther
 shutdown without receiving a handle. Exhausting the handle namespace reports
 `EMFILE`; an accept that cannot publish leaves its connection listener-owned.
 
-Cancelling listen/connect closes the pending resource and waits for cleanup.
-Cancelling an installed read or write closes that connection and wakes its other
-pending operation. Completed operations detach cancellation. A success arriving
-just before cancellation is checked again before it can publish a handle or
-write count. Abort failures preserve the task's exact cancellation reason.
+Aborting listen/connect closes the pending resource and waits for cleanup.
+Aborting an installed read or write closes that connection and wakes its other
+pending operation. Completed operations detach the abort. A success arriving
+just before an abort is checked again before it can publish a handle or
+write count. Abort failures preserve the exact abort reason.
 
 Ordinary close does not wait: Node can defer a listener's close callback until
 its handed-out connections finish. Shutdown closes those connections too and
 waits for all ownership, including late arrivals during listener closure.
-The task scheduler separately owns successful native results until delivery;
-the binding supplies its disposer when a cancelled task cannot receive a newly
+The task scheduler separately holds successful native results until delivery;
+the binding supplies its disposer for when no task can receive a newly
 created handle. No native cleanup record retains a managed wrapper.
 
 ## Native UDP owner
@@ -236,7 +241,7 @@ but defers native close until the single send settles. The closed record remains
 owned until its close event. Shutdown cannot finish while that send or cleanup
 is outstanding. Failed bind closes and awaits cleanup before rejecting.
 
-As for TCP, the scheduler owns successful acquisitions until delivery; the shared
+As for TCP, the scheduler holds successful acquisitions until delivery; the shared
 binding supplies the existing native disposer. The owner adds no second
 delivery protocol and retains no managed wrapper.
 
@@ -246,7 +251,7 @@ delivery protocol and retains no managed wrapper.
 their standard streams piped to the program. Import it and include `process`
 in the effect row of code using it. Every operation returns `Result` with a
 `ProcessError` whose `code` is a string such as `"EBADF"` or a native error
-code. As for sockets, cancellation unwinds the task.
+code. As for sockets, nothing cancels a waiting task.
 
 | Operation | Success value |
 | --- | --- |
@@ -307,10 +312,10 @@ order, here by terminating a child and waiting for it:
 
 ```scheme
 (dispatch-local
- (once (lambda ()
-         (termination)
-         (send-signal child (Terminate))
-         (wait-exit child))))
+ (lambda ()
+   (termination)
+   (send-signal child (Terminate))
+   (wait-exit child)))
 ```
 
 A wait ends with its signal, so a second Ctrl-C during that shutdown ends
@@ -366,16 +371,17 @@ is changed back.
 `createTermination()` in the same file holds the termination waiters and
 the process's handlers for SIGINT and SIGTERM while they are needed:
 `wait(signal)` resolves with the signal's number, 2 or 15; `settled()` says
-a task finished or dropped the wait a signal ended; and a signal resolves
+a task finished the wait a signal ended, or that its result was disposed of;
+and a signal resolves
 every waiter or keeps itself while a delivery is unsettled.
 
 Node discards a child's output when it exits unless a `'readable'` listener
 is waiting for it, so each output stream keeps one, and its bytes wait in
 the stream until `read`. A successful spawn waiting for delivery belongs to
-the scheduler; if its task is cancelled first, the binding's disposer closes
-the handle, which kills the child. Cancelling a read consumes nothing and
-leaves the process usable; cancelling a pending write destroys the child's
-input, since the bytes may be partly written. The runner shuts the owner down
+the scheduler; if no task can receive it, the binding's disposer closes the
+handle, which kills the child. Aborting a read consumes nothing and leaves
+the process usable; aborting a pending write destroys the child's input,
+since the bytes may be partly written. The runner shuts the owner down
 with the socket owners when a program ends, so no child outlives a program
 that ends normally. Only the child is killed: a process it started, as a
 shell does for a command it does not `exec`, is the child's to end. No native record retains a managed wrapper. The browser has

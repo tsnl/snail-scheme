@@ -23,7 +23,7 @@
 
     ;; One item of a list, and the generator after the draw.
     (define (deal (random Random) (items (List T)))
-      (→ (Pair T Random)) (∀ (T)) (⊨ (Copy T) (Drop (!) T))
+      (→ (Pair T Random)) (∀ (T))
       (new Pair
         (first (list-ref items (random-below random (length items))))
         (second (random-next random))))

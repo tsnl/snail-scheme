@@ -20,7 +20,7 @@
 
     ;; ---- Handling ----
 
-    (define (with-page-dom (work (FnOnce → T ! dom e))) (→ T) (! events e) (∀ (T e))
+    (define (with-page-dom (work (Fn → T ! dom e))) (→ T) (! events e) (∀ (T e))
       (handle dom
           ((document-root (lambda () (new Node (handle (host-root)))))
            (create-element

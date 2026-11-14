@@ -1,8 +1,7 @@
 # Instances, queues and shared memory
 
 *Proposed, not implemented. The design is
-[#553](https://github.com/tsnl/snail-scheme/issues/553); ownership of the
-handles it describes comes from [#550](https://github.com/tsnl/snail-scheme/issues/550).*
+[#553](https://github.com/tsnl/snail-scheme/issues/553).*
 
 GC is the only heap, and each instance of a program is strictly
 single-threaded: one Wasm instance, one GC heap, one thread. Parallel work
@@ -20,9 +19,9 @@ bytes.
 `(snail shell queue)` copies, and works on every host, including a browser
 page without cross-origin isolation.
 
-- A queue has many senders and one receiver, like Rust's `mpsc`. Both
-  endpoints are linear values. A second sender comes from an explicit
-  `clone-sender`, and the receiver can tell when every sender has closed.
+- A queue has many senders and one receiver, like Rust's `mpsc`. A second
+  sender comes from an explicit `clone-sender`, each sender is closed
+  explicitly, and the receiver can tell when every sender has closed.
 - Queues are bounded. A full queue makes `send` wait; `try-send` returns
   `Full`.
 - Endpoints can travel inside messages, as file descriptors do.

@@ -33,7 +33,7 @@
                      (depth I64))
       (→ (Option (Violation S M)))
       (∀ (S M))
-      (⊨ (Serialize S) (Copy S) (Drop (!) S) (Copy M) (Drop (!) M))
+      (⊨ (Serialize S))
       (search (list (new Visit (state initial) (path (Nil))))
               moves
               step
@@ -52,7 +52,7 @@
                     (seen (Table Bool)))
       (→ (Option (Violation S M)))
       (∀ (S M))
-      (⊨ (Serialize S) (Copy M) (Drop (!) M) (Copy S) (Drop (!) S))
+      (⊨ (Serialize S))
       (match (first-violation frontier invariant)
         ((Some violation) (Some violation))
         ((None)
@@ -65,7 +65,6 @@
                              (invariant (Fn S → (Option String))))
       (→ (Option (Violation S M)))
       (∀ (S M))
-      (⊨ (Copy M) (Drop (!) M) (Copy S) (Drop (!) S))
       (match frontier
         ((Nil) (None))
         ((Cons visit rest)
@@ -86,7 +85,7 @@
                         (seen (Table Bool)))
       (→ (Pair (List (Visit S M)) (Table Bool)))
       (∀ (S M))
-      (⊨ (Serialize S) (Copy M) (Drop (!) M) (Copy S) (Drop (!) S))
+      (⊨ (Serialize S))
       (match (fold-left (lambda (found visit)
                           (fold-left (lambda (found move)
                                        (let* ((state (step (● visit state) move))
@@ -107,7 +106,7 @@
 
     ;; The encoding as text, one character per byte, to key the table.
 
-    (define (state-key (state S)) (→ String) (∀ (S)) (⊨ (Serialize S) (Copy S) (Drop (!) S))
+    (define (state-key (state S)) (→ String) (∀ (S)) (⊨ (Serialize S))
       (let ((bytes (serialize state)))
         (string-generate (vector-length bytes)
                          (lambda (index) (i32->char (u8->i32 (vector-ref bytes index)))))))

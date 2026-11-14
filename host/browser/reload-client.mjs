@@ -60,9 +60,7 @@ export async function createReloadClient(bytes, page) {
     event: text => enter(client, 'reload_event', text),
     pageError: (text, stopped) => enter(client, 'reload_page_error', text, stopped ? 1 : 0),
     close() {
-      const owner = client.owner;
       client.owner = null;
-      if (owner !== null) client.exports['reload_create:release-result'](owner);
       client.notice.hide();
     },
   };

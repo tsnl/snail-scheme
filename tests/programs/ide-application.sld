@@ -48,16 +48,16 @@
   (list (key "F1" 0) (input "command-query" name)
         (Fire "command-query" "keydown" (Event-key-set (no-event) "Enter"))))
 
-(define (snapshot (session Session)) (→ Ide) (! mut host)
+(define (snapshot (session Session)) (→ Ide)
   (● session ide))
 
-(define (finished (session Session)) (→ Ide) (! mut host)
+(define (finished (session Session)) (→ Ide) (! mut)
   (close-session! session)
   (● session ide))
 
 (define (run (delay Delay) (cues (List Cue)))
   (→ (Pair Ide Document))
-  (! mut host completion output-port tasks)
+  (! mut host output-port tasks)
   (let ((state (new Requests
                  (disk "disk")
                  (revision "initial")
@@ -124,37 +124,37 @@
      (write-line (show (dirty? buffer))))
     ((None) (panic "missing buffer"))))
 
-(define (panes-after (cues (List Cue))) (→ Unit) (! mut host completion output-port tasks)
+(define (panes-after (cues (List Cue))) (→ Unit) (! mut host output-port tasks)
   (let ((model (● (run (NoDelay) cues) first)))
     (write-line (show (length (● model panes))))))
 
-(define (files-after (cues (List Cue))) (→ Unit) (! mut host completion output-port tasks)
+(define (files-after (cues (List Cue))) (→ Unit) (! mut host output-port tasks)
   (write-line (show (● (● (run (NoDelay) cues) first) files-shown))))
 
-(define (main) (→ Unit) (! host mut output-port completion tasks)
+(define (main) (→ Unit) (! host mut output-port tasks)
   (dispatch-local
-   (once (lambda ()
-           ;; A successful save changes the baseline, never subsequent typing.
-           (report (● (run (SaveReply)
-                           (list (input "text-0" "submitted") (key "s" (control-key))
-                                 (input "text-0" "later") (Hide))) first))
-           ;; A newer watcher read can finish a confirmed dirty reload. Typing
-           ;; after that read survives the original reload's delayed reply.
-           (report (● (run (ReloadReply)
-                           (concatenate (list (list (input "text-0" "discard"))
-                                              (invoke "reload-buffer")
-                                              (list (FireWindow "online" (no-event))
-                                                    (input "text-0" "later") (Hide))))) first))
-           ;; Save invalidates reads that began before it.
-           (report (● (run (SecondRead)
-                           (append (invoke "reload-buffer")
-                                   (list (input "text-0" "submitted") (key "s" (control-key))
-                                         (Hide)))) first))
-           ;; Observe each transition: two broken operations must not cancel out.
-           (panes-after (invoke "spri"))
-           (panes-after (append (invoke "spri") (list (key "w" (alt-key)))))
-           (files-after (invoke "toggle-files"))
-           (files-after (append (invoke "toggle-files") (list (key "b" (control-key)))))
-           (let ((model (● (run (NoDelay) (invoke "no-such-command")) first)))
-             (write-line (show (visible? (● model palette))))))))
+   (lambda ()
+     ;; A successful save changes the baseline, never subsequent typing.
+     (report (● (run (SaveReply)
+                     (list (input "text-0" "submitted") (key "s" (control-key))
+                           (input "text-0" "later") (Hide))) first))
+     ;; A newer watcher read can finish a confirmed dirty reload. Typing
+     ;; after that read survives the original reload's delayed reply.
+     (report (● (run (ReloadReply)
+                     (concatenate (list (list (input "text-0" "discard"))
+                                        (invoke "reload-buffer")
+                                        (list (FireWindow "online" (no-event))
+                                              (input "text-0" "later") (Hide))))) first))
+     ;; Save invalidates reads that began before it.
+     (report (● (run (SecondRead)
+                     (append (invoke "reload-buffer")
+                             (list (input "text-0" "submitted") (key "s" (control-key))
+                                   (Hide)))) first))
+     ;; Observe each transition: two broken operations must not cancel out.
+     (panes-after (invoke "spri"))
+     (panes-after (append (invoke "spri") (list (key "w" (alt-key)))))
+     (files-after (invoke "toggle-files"))
+     (files-after (append (invoke "toggle-files") (list (key "b" (control-key)))))
+     (let ((model (● (run (NoDelay) (invoke "no-such-command")) first)))
+       (write-line (show (visible? (● model palette)))))))
   (unit))

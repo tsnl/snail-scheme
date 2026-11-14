@@ -62,8 +62,7 @@ fails to compile:
 ```
 
 `mut` covers writes to object fields and mutable sequence operations.
-Reading a record field is pure, including through `Rc`. A function can still
-perform cleanup effects when it releases the last counted owner. `(snail core io)` declares `input-port`, `output-port`, `fs` and `clock`, and other
+Reading a record field is pure. `(snail core io)` declares `input-port`, `output-port`, `fs` and `clock`, and other
 libraries declare their own, such as `tcp` in `(snail shell socket)`. A
 program declares more with `effect`, in the [next section](#handlers). Traps
 and non-termination are not tracked: a total function may still panic or
@@ -306,7 +305,6 @@ representation; this design introduces no implicit erased-provider fallback.
 Local instances may capture ordinary values and therefore are runtime
 closures even though method selection is static. Ambient provider
 requirements are parameters rather than automatically captured values.
-Capture ownership remains checked.
 
 All methods of one `(State T)` provider share the same `T`; independently
 instantiating its read and write methods would break that guarantee.
@@ -325,7 +323,7 @@ a one-shot continuation up to a particular boundary. If `emit` answers
 accepts `Unit` and returns `(List I64)`; the implementation itself also
 returns the collecting computation's answer. Omitting a call to that
 continuation abandons the computation up to that boundary, not the whole
-program. Ownership must account for the abandoned continuation's captures.
+program.
 
 A scoped control provider must therefore establish a typed delimiter, even
 if there is no source form named `handle`. The body extent, answer type,
@@ -402,8 +400,7 @@ providers; enqueueing transfers that obligation with the value. A provider
 that resumes immediately must itself supply them and account for the
 resulting invocation effects. An operation that merely accepts an IO
 continuation has not proved it can resume that continuation in an arbitrary
-context. Result types, delimiter answers and cleanup requirements must also
-match. A transition changes which context supplies requirements; it cannot
+context. Result types and delimiter answers must also match. A transition changes which context supplies requirements; it cannot
 relabel IO as mutation or discard an unsatisfied requirement.
 
 Inference must follow continuation structure, rather than taking a flat
@@ -427,7 +424,6 @@ resumption requirement says what the deferred computation needs when invoked.
 Both remain visible in the callable/control contract. A queue insertion has
 its own effects, such as mutation, without executing the job's IO. Invoking
 the job performs the effects of its selected provider implementations.
-Dropping it must account for cleanup effects of its captures separately.
 
 Providing an implementation may discharge a capability requirement, but
 observable effects of that implementation still count. Passing or retaining
@@ -471,8 +467,8 @@ at the source call, not only at the underlying primitive.
 Moving a continuation into a work queue does not invoke it. A control
 implementation that only enqueues has the effects of enqueueing, such as
 queue mutation, without thereby performing the continuation's latent row
-`E`. The queue takes ownership of the one-shot value; the eventual worker
-must call or drop it exactly once. A job adapter must supply the operation's
+`E`. The queue holds the one-shot value; the eventual worker calls it at
+most once. A job adapter must supply the operation's
 result and account for the delimiter's answer, matching the scheduler's
 job interface.
 
@@ -483,7 +479,6 @@ contracts, not proposed concrete storage types or surface syntax:
 | --- | --- |
 | Enqueue a job with row `E` | Require `E` to be included in `Q`; perform only the enqueue operation's own effects. |
 | Run a queued job | Require permission for `Q`, plus the worker's own queue operations. |
-| Cancel or reject a job by dropping it | Account for cleanup effects separately; an invocation bound alone is not a drop contract. |
 
 Effect inclusion permits jobs with smaller rows: a queue allowing mutation
 and output may also accept a pure job. Insertion of an output-capable job
@@ -502,8 +497,8 @@ Use an **explicit job package with a closed sum of adapter types** at the
 queue boundary. Each adapter supplies the operation result and handles the
 delimiter answer to satisfy a common job interface. Its captures include a
 concrete saved resumption. A source `Fn` type alone does not create
-this package. The package names its invocation and cleanup bounds; packing
-checks both, including nested transition requirements.
+this package. The package names its invocation bound; packing checks it,
+including nested transition requirements.
 
 Packaging instantiations register their variants with a named package
 boundary. The compiler generates its finite sum and a worker entry specialized
@@ -528,8 +523,8 @@ and uses a may-yield analysis. The proposal instead uses a memoized emitter
 after type checking. It builds
 [structured Wasm directly](compilers.md#effects-control-and-frames),
 using the instantiated checked contracts as conservative control bounds.
-Functions, provider methods, continuation entries and cleanup routines use
-the same reservation and emission mechanism. Source contracts remain
+Functions, provider methods and continuation entries use the same
+reservation and emission mechanism. Source contracts remain
 available for interfaces and diagnostics; target signatures contain explicit
 provider arguments and control paths, with no source effect rows.
 
@@ -538,8 +533,8 @@ A normal return tail-calls it with ordinary arguments; a yield saves those
 inputs in a GC frame. The baseline uses yield bubbling and needs no analysis
 to recover local control flow from allocated continuations. Each caller
 through which control escapes preserves its remaining work up to the
-delimiter. A queued continuation retains its captures and ownership, with
-outstanding providers supplied when invoked. Tail-call instructions transfer
+delimiter. A queued continuation retains its captures, with outstanding
+providers supplied when invoked. Tail-call instructions transfer
 control but do not capture a Wasm activation. Separate compilation must
 expose the checked generic bodies and identities needed for downstream
 provider specialization.
@@ -555,15 +550,13 @@ captures with shared specialized code, early exit and stored one-shot
 resumption under a different local provider. Verify that outstanding
 requirements use the resumer's providers while internal handler scopes are
 restored. Check that both ordinary closures and resumptions enforce their
-invocation and cleanup contracts. Reject inconsistent
-provider method types, ambiguous instances, operation-local polymorphism,
-erased provider selection and repeated use
-of one-shot continuations. Execute linked Wasm and check simple direct-provider
+invocation contracts. Reject inconsistent provider method types, ambiguous
+instances, operation-local polymorphism and erased provider selection, and
+check that a repeated resumption panics. Execute linked Wasm and check simple direct-provider
 specializations for ordinary calls without unnecessary continuation environments.
 Also execute yielding paths and resumptions without relying on optimization.
 Queue tests must accept smaller job rows, reject effects outside the queue's
-bound, separate enqueue effects from invocation effects, and check cleanup
-when jobs are cancelled. Exercise distinct concrete job types through the
+bound and separate enqueue effects from invocation effects. Exercise distinct concrete job types through the
 closed package, and rebuild its dispatchers when a variant is added.
 Transition tests must cover
 IO before and after yield, paths that bypass suspension, wrapper calls,
@@ -703,9 +696,8 @@ functions. Each call performs only the effects in its signature.
 
 An ordinary operation always returns to its caller. An operation declared
 with `ctl` need not. Its implementation receives one more argument,
-`resume`, the rest of the handled body, and decides what to do with it.
-`resume` is linear, so the implementation uses it exactly once. The
-simplest choice is to drop it, with `(drop resume)`, as an exception does
+`resume`, the rest of the handled body, and decides what to do with it:
+call it once, or never, as an exception does
 (`tests/programs/control-exception.sld`):
 
 ```scheme
@@ -721,12 +713,10 @@ not a digit: x
 An implementation's result is the handler's answer: the value of the whole
 `handle` expression. Its type, the answer type, is the type of the handled
 body, here `I64`. `raise`'s own result type, also `I64`, is what `resume`
-would take. This implementation drops `resume`, so nothing after the
+would take. This implementation never calls `resume`, so nothing after the
 `raise` runs, in `digit`, in `number`'s fold, or anywhere between them and
-the handler, and `parse-or` answers `default`. A `FnOnce` held across an
-abandoned operation is dropped and never called, and dropping it drops
-what it captured ([drops that may
-run](ownership.md#drops-that-may-run)); there is no `finally` clause
+the handler, and `parse-or` answers `default`. A procedure held across an
+abandoned operation is never called; there is no `finally` clause
 (`tests/programs/control-early-exit.sld`). An implementation that raises
 again reaches the handler outside it, as an ordinary one does.
 
@@ -804,8 +794,7 @@ choose, value by value, whether to resume:
 
 ### Storing `resume`
 
-`resume` is a `FnOnce`: a function that is called, or dropped, exactly once. It is
-also first-class. An implementation may return it inside a value, and
+`resume` is an ordinary `Fn`, so it is first-class. An implementation may return it inside a value, and
 whoever holds that value may call it later, after the `handle` has
 returned:
 
@@ -819,8 +808,8 @@ returned:
 
 `start` runs a generator to its first `yield`, and the implementation
 returns the value with `resume` instead of calling it. `interleave` calls
-each `next` long after `start` returned. A `Step` that holds a `FnOnce` is
-linear itself, used exactly once ([ownership](ownership.md)).
+each `next` long after `start` returned, and calls each one once; calling
+one again would panic ([resuming once](#resuming-once)).
 
 The handler is deep: resuming re-installs it around the rest of the body,
 so the generator's next `yield` reaches the same implementation, and
@@ -841,10 +830,10 @@ handler's own implementation runs outside it there too
 
 ### Closing over handlers
 
-`inherit-handlers`, from `(snail core primitive)`, closes a one-shot thunk
-over the handlers in scope where it is called, and `inherit-handlers-1`
-closes a procedure of one argument, such as a `resume`. Wherever the `FnOnce`
-it makes is called, the procedure's operations reach those handlers, even
+`inherit-handlers`, from `(snail core primitive)`, closes a thunk over the
+handlers in scope where it is called, and `inherit-handlers-1` closes a
+procedure of one argument, such as a `resume`. Wherever the function it
+makes is called, the procedure's operations reach those handlers, even
 after their handles have returned:
 
 ```scheme
@@ -857,7 +846,7 @@ first log: a thunk
 ```
 
 The caller of `inherit-handlers` is charged the procedure's row, as if it
-ran the procedure there. The `FnOnce` it makes performs `host` instead: the
+ran the procedure there. The function it makes performs `host` instead: the
 captured handlers answer the effects the row declares, and what remains,
 `mut` and the effects the host implements, happens when it runs. So pure
 code cannot call it (`tests/programs/error-inherit-pure.sld`), and one type
@@ -881,7 +870,7 @@ These are how a scheduler closes each step of a task
 `resume` takes the operation's result and returns the handler's answer,
 and it performs the row of the code around the `handle`, its **context
 row**. For `(ctl yield (Fn I64 → I64))` handled in a function of row `Log`,
-whose handler answers `Step`, `resume` is `(FnOnce I64 → Step ! Log)`.
+whose handler answers `Step`, `resume` is `(Fn I64 → Step ! Log)`.
 
 Calling `resume` runs under the caller's handlers everything the `handle`
 would perform outward: the rest of the body, and, since the handler is
@@ -898,10 +887,8 @@ effect once more. Both are in the context row. So a `Step` that stores
 {{#include ../../../tests/programs/error-control-resume-row.err}}
 ```
 
-Typed `(FnOnce I64 → Step ! Log)`, the stored `next` is resumed under a
-`Log` handler, the one where it is called, and the `rest` left unrun is
-dropped under one too, since dropping a resumption performs its row
-([Drops that may run](ownership.md#drops-that-may-run))
+Typed `(Fn I64 → Step ! Log)`, the stored `next` is resumed under a
+`Log` handler, the one where it is called
 (`tests/programs/control-resume-row.sld`):
 
 ```text
@@ -915,9 +902,8 @@ that whole row, a function whose control implementation calls `resume`
 counts every effect of its signature as performed, so the
 [unused-effect rule](#claiming-only-what-the-body-performs) cannot flag
 one there. A row of the `handle`'s own, the body's and the
-implementations' effects alone, would need row inclusion that the checker,
-must preserve once a rigid tail
-such as `e` is involved.
+implementations' effects alone would need row inclusion, which the checker
+cannot decide once a rigid tail such as `e` is involved.
 
 ### Loops in constant stack
 
@@ -934,20 +920,23 @@ stack (`tests/programs/control-tail-loop.sld`):
 
 A hundred thousand yields grow neither the loop's stack nor the handler's.
 
-### One shot
+### Resuming once
 
-`resume` is one-shot, so the checker rejects calling it twice. Nothing
-checks again at run time: a linear value cannot reach `Any`, a global or
-an export, so no unchecked path can call it twice either.
-`tests/programs/error-control-resume-twice.sld`:
+The frames `resume` holds run at most once. The checker does not track
+this: to it, `resume` is an `Fn` like any other. Instead the continuation
+records that it has run, and a second call panics
+(`tests/programs/control-resume-twice.sld`):
 
 ```scheme
-{{#include ../../../tests/programs/error-control-resume-twice.sld}}
+{{#include ../../../tests/programs/control-resume-twice.sld}}
 ```
 
 ```text
-{{#include ../../../tests/programs/error-control-resume-twice.err}}
+{{#include ../../../tests/programs/control-resume-twice.out}}
 ```
+
+An implementation that never calls `resume` leaves its frames to the
+collector; nothing in them runs.
 
 Multi-shot continuations are out of scope: they would need every frame to
 be reachable twice, a cost paid by code that never captures one.

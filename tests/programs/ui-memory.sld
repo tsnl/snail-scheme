@@ -33,7 +33,7 @@
   (Saved ((count I64))))
 
 (define (update (model Model) (message Msg))
-  (→ (Pair Model (List (FnOnce → Msg ! output-port tasks))))
+  (→ (Pair Model (List (Fn → Msg ! output-port tasks))))
   (match message
     ((Typed text) (new Pair (first (Model-draft-set model text)) (second (Nil))))
     ((Add)
@@ -42,9 +42,9 @@
        (new Pair
          (first
           (new Model (items items) (draft "") (next (+ (● model next) 1)) (saved (● model saved))))
-         (second (list (once (lambda ()
-                               (yield)
-                               (Saved (length items)))))))))
+         (second (list (lambda ()
+                         (yield)
+                         (Saved (length items))))))))
     ((Reverse) (new Pair (first (Model-items-set model (reverse (● model items)))) (second (Nil))))
     ((Remove id)
      (new Pair (first (Model-items-set model
@@ -110,18 +110,18 @@
 
 (define (main) (→ Unit) (! host mut output-port tasks)
   (dispatch-local
-   (once (lambda ()
-           (let ((result
-                  (with-memory-dom (script)
-                                   (lambda ()
-                                     (run-ui (new Model (items (Nil)) (draft "") (next 0) (saved 0))
-                                             (Nil)
-                                             (lambda (model message) (update model message))
-                                             view
-                                             (lambda (model) (Nil))
-                                             (lambda (model) (unit))
-                                             checkpoint)))))
-             (write-line (string-append "saved " (show (● (● result first) saved))))
-             (write-line (document->html (● result second)))
-             (for-each write-line (document-trace (● result second)))))))
+   (lambda ()
+     (let ((result
+            (with-memory-dom (script)
+                             (lambda ()
+                               (run-ui (new Model (items (Nil)) (draft "") (next 0) (saved 0))
+                                       (Nil)
+                                       (lambda (model message) (update model message))
+                                       view
+                                       (lambda (model) (Nil))
+                                       (lambda (model) (unit))
+                                       checkpoint)))))
+       (write-line (string-append "saved " (show (● (● result first) saved))))
+       (write-line (document->html (● result second)))
+       (for-each write-line (document-trace (● result second))))))
   (unit))
