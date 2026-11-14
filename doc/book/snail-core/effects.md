@@ -145,10 +145,40 @@ performs its own ([rows as parameters](types.md#rows-as-parameters)).
 A row with a tail fits a larger row with the same tail: `e` fits
 `output-port e`, and `fs e` fits `output-port fs e`. The reverse does not hold, and
 two unrelated tails never fit each other
-(`tests/programs/error-effect-row-tail.sld`). This check is about
-permission to call; equality of function types still compares whole rows.
+(`tests/programs/error-effect-row-tail.sld`).
 The [effects tutorial](tutorials/effects.md) shows a function that adds
 `output-port` around its argument's row.
+
+### Subsumption
+
+A function value fits a function type whose row includes its own: a
+function that performs fewer effects can run wherever more are allowed.
+This holds wherever a value meets a type, as an argument, a result, or a
+field it initializes or is written to:
+
+```scheme
+{{#include ../../../tests/programs/effect-subsumption.sld:subsumption}}
+```
+
+Rows widen through the parts of a type that only hand values out:
+
+- A function type widens its result and its row and narrows its
+  parameters. A function that accepts any printing thunk fits where only
+  pure thunks will be passed.
+- An enum's type arguments widen, since an enum's fields are never
+  written: `(List (Fn → Unit ! output-port))` fits
+  `(List (Fn → Unit ! output-port Log))`.
+- A record's type arguments must be equal. Its fields can be written, so
+  a pair widened to hold printing functions could have one written into
+  it that a reader of the original pair would call as pure
+  (`tests/programs/error-subsumption-record.sld`).
+
+Nothing but rows ever differs, so a value keeps its representation when
+it fits a wider type, and nothing converts it at run time. A function
+finds each handler by its effect's name in the handlers it is given, so
+it runs the same under any larger set. Fitting a narrower row is a type
+mismatch (`tests/programs/error-subsumption-narrow.sld`). A type or row
+still being inferred is unified, as everywhere else.
 
 ### Local mutation
 
