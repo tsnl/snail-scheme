@@ -2,7 +2,7 @@
  (snail core base)
  (snail core io))
 
-(struct Resource
+(record Resource
   ((value I64)))
 
 (instance (Drop (! output-port) Resource)
@@ -19,7 +19,7 @@
   (handle Pause ((pause (lambda (resume) (More resume))))
     (handle ReadValue
         ((read-value
-          (let ((resource (rc (Resource 12))))
+          (let ((resource (rc (new Resource (value 12)))))
             (ann (lambda () (● resource value)) (Fn → I64 ! mut output-port)))))
       (pause)
       (display (read-value)) (newline)

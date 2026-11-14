@@ -4,12 +4,12 @@
   (import
    (snail core base))
   (begin
-    (struct Model
+    (record Model
       ((title String)
        (work (FnOnce → Unit))))
 
     (define (make-model (text String)) (→ (Rc Model))
-      (rc (Model text (once (lambda () (unit))))))
+      (rc (new Model (title text) (work (once (lambda () (unit)))))))
 
     (define (title (model (Rc Model))) (→ String) (! mut)
       (● model title))))

@@ -1,10 +1,10 @@
 (import
  (snail core base))
 
-(struct Point
+(record Point
   ((x I64)))
 
 (define main
   (lambda ()
-    (::x (Point 1))
+    (::x (new Point (x 1)))
     (unit)))

@@ -1,5 +1,5 @@
 ;; The shared formatter: calls, special forms, a named let, imports and
-;; struct fields on their own lines, strings
+;; record fields on their own lines, strings
 ;; and characters that hold parentheses, and comments that keep their place.
 ;; Then lines past a width, here 40 columns: binding forms, calls, match arms,
 ;; a comment after the code,
@@ -11,7 +11,7 @@
  (snail shell format))
 
 (define (source) (→ String)
-  "(define (f x)\n(let loop ((i 0) (acc (Nil)))\n(if (< i x)\n(loop (+ i 1)\n(Cons i acc))\nacc)))\n(import (snail core base) (snail core io)\n(only (snail core table) empty-table))\n(struct Point ((x F64) (y F64)) (deriving Show))\n(match value\n((Some x) (display x))\n(_ (unit)))\n(handle output-port\n((write-string (lambda (c) (unit))))\n(display \"a\nb\")\n(display #\\())\n(foo bar\nbaz\nqux)\n(foo\nbar\nbaz)\n;;; three semicolons stay\n   ;;; even indented\n(let* ((a 1)\n(b 2))\n(+ a b))\n")
+  "(define (f x)\n(let loop ((i 0) (acc (Nil)))\n(if (< i x)\n(loop (+ i 1)\n(Cons i acc))\nacc)))\n(import (snail core base) (snail core io)\n(only (snail core table) empty-table))\n(record Point ((x F64) (y F64)) (deriving Show))\n(match value\n((Some x) (display x))\n(_ (unit)))\n(handle output-port\n((write-string (lambda (c) (unit))))\n(display \"a\nb\")\n(display #\\())\n(foo bar\nbaz\nqux)\n(foo\nbar\nbaz)\n;;; three semicolons stay\n   ;;; even indented\n(let* ((a 1)\n(b 2))\n(+ a b))\n")
 
 (define (long) (→ String)
   (string-append

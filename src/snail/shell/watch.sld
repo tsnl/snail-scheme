@@ -29,10 +29,10 @@
     ;; ---- Inventories ----
 
     ;; Each path under the roots, with its fingerprint.
-    (struct Inventory
+    (record Inventory
       ((fingerprints (Table String))))
 
-    (define (empty-inventory) (→ Inventory) (Inventory (empty-table)))
+    (define (empty-inventory) (→ Inventory) (new Inventory (fingerprints (empty-table))))
 
     ;; The paths under `roots`, the roots among them, leaving out each path
     ;; in `excluded` and what is under it. A path that vanishes while the
@@ -44,7 +44,7 @@
       (→ (Result Inventory String))
       (! fs)
       (match (take-paths (empty-table) roots excluded)
-        ((Ok fingerprints) (Ok (Inventory fingerprints)))
+        ((Ok fingerprints) (Ok (new Inventory (fingerprints fingerprints))))
         ((Err message) (Err message))))
 
     (define (take-paths (fingerprints (Table String))
@@ -112,9 +112,10 @@
     ;; `before` has not, and then those only `before` has.
 
     (define (inventory-changes (before Inventory) (after Inventory)) (→ (List String))
-      (let ((old (● before fingerprints)) (new (● after fingerprints)))
-        (append (filter (lambda (path) (not (same-fingerprint? old new path))) (table-keys new))
-                (filter (lambda (path) (not (table-contains? new path))) (table-keys old)))))
+      (let ((old (● before fingerprints)) (updated (● after fingerprints)))
+        (append
+         (filter (lambda (path) (not (same-fingerprint? old updated path))) (table-keys updated))
+         (filter (lambda (path) (not (table-contains? updated path))) (table-keys old)))))
 
     ;; The regular files an inventory found, in no particular order.
 
@@ -137,8 +138,8 @@
                     ((None) #f)))
                 (table-keys fingerprints))))
 
-    (define (same-fingerprint? (old (Table String)) (new (Table String)) (path String)) (→ Bool)
-      (match (Pair (table-ref old path) (table-ref new path))
+    (define (same-fingerprint? (old (Table String)) (updated (Table String)) (path String)) (→ Bool)
+      (match (new Pair (first (table-ref old path)) (second (table-ref updated path)))
         ((Pair (Some was) (Some is)) (string=? was is))
         (_ #f)))
 
@@ -166,7 +167,7 @@
             (= (through-host (lambda (ticket) (host-start-hint ticket id)) host-finish-hint) 1))))))
 
     ;; A watch the host keeps, by number.
-    (struct Watch
+    (record Watch
       ((id I32)))
 
     ;; A watch of `root` and what is under it, but for each path in
@@ -177,7 +178,7 @@
       (for-each send-hint-text (list "watch" root))
       (for-each send-hint-text excluded)
       (let ((id (hint-command 0)))
-        (if (< id 0) (None) (Some (Watch id)))))
+        (if (< id 0) (None) (Some (new Watch (id id))))))
 
     (define (send-hint-text (text String)) (→ Unit) (! hints)
       (for-each hint-character (string->list text))

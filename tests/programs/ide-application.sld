@@ -16,7 +16,7 @@
 ;; the fetch effect. A Hide cue releases a held reply only after later input
 ;; has reached the model. Completion counts prove the test did not merely
 ;; close the document with the important command still suspended.
-(struct Requests
+(record Requests
   ((disk String)
    (revision String)
    (reads I64)
@@ -31,9 +31,12 @@
   (SecondRead))
 
 (define (reply (text String) (revision String)) (→ (Result Reply String))
-  (Ok (Reply 200
-             (json->string (JsonObject (list (Pair "text" (JsonString text))
-                                             (Pair "revision" (JsonString revision))))))))
+  (Ok (new Reply (status 200)
+           (body
+            (json->string (JsonObject (list (new Pair (first "text") (second (JsonString text)))
+                                            (new Pair
+                                              (first "revision")
+                                              (second (JsonString revision))))))))))
 
 (define (key (name String) (modifiers I32)) (→ Cue)
   (FireWindow "keydown" (Event-modifiers-set (Event-key-set (no-event) name) modifiers)))
@@ -55,14 +58,22 @@
 (define (run (delay Delay) (cues (List Cue)))
   (→ (Pair Ide Document))
   (! mut host completion output-port tasks)
-  (let ((state (Requests "disk" "initial" 0 0 0 #f)) (gate (make-mailbox)))
+  (let ((state (new Requests
+                 (disk "disk")
+                 (revision "initial")
+                 (reads 0)
+                 (writes 0)
+                 (completed 0)
+                 (streamed #f)))
+        (gate (make-mailbox)))
     (let ((result
            (handle fetch
                ((request
                  (lambda (method url headers body)
                    (if (string=? url "/api/project")
-                       (Ok (Reply 200
-                                  "{\"name\":\"test\",\"directory\":\"/test\",\"files\":[\"notes.txt\"],\"directories\":[]}"))
+                       (Ok (new Reply (status 200)
+                                (body
+                                 "{\"name\":\"test\",\"directory\":\"/test\",\"files\":[\"notes.txt\"],\"directories\":[]}")))
                        (let ((saving (string=? method "PUT")))
                          (if saving
                              (begin (set! (● state disk) body) (set! (● state revision) "saved")
@@ -79,12 +90,12 @@
                              (mailbox-receive gate))
                            (set! (● state completed) (+ 1 (● state completed)))
                            answer)))))
-                (stream-open (lambda (url kinds) (Stream 1)))
+                (stream-open (lambda (url kinds) (new Stream (id 1))))
                 (stream-next (lambda (stream)
                                (if (● state streamed) (None)
                                    (begin
                                      (set! (● state streamed) #t)
-                                     (Some (StreamEvent "open" ""))))))
+                                     (Some (new StreamEvent (kind "open") (data "")))))))
                 (stream-close (lambda (stream) (panic "unexpected stream close"))))
              (with-memory-dom cues
                               (lambda ()

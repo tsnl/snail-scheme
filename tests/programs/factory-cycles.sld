@@ -2,25 +2,25 @@
  (snail core base)
  (snail core io))
 
-(struct Link
+(record Link
   ((value I64)
    (next (Option Link))))
 
-(struct Branch
+(record Branch
   ((value I64)
    (children (Vector (Option Branch)))))
 
 (define (ring) (→ Link)
   (unsafe-total
    (lambda ()
-     (let ((node (Link 3 (None))))
+     (let ((node (new Link (value 3) (next (None)))))
        (set! (● node next) (Some node))
        node))))
 
 (define (tree) (→ Branch)
   (unsafe-total
    (lambda ()
-     (let ((node (Branch 4 (make-vector 1 (None)))))
+     (let ((node (new Branch (value 4) (children (make-vector 1 (None))))))
        (vector-set! (● node children) 0 (Some node))
        node))))
 

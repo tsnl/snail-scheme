@@ -2,7 +2,7 @@
  (snail core base)
  (snail core io))
 
-(struct Model
+(record Model
   ((title String)
    (work (FnOnce → Unit ! output-port))))
 
@@ -13,7 +13,7 @@
   (→ String) (! e) (∀ (T e)) (⊨ (Copy T) (Drop e T))
   (read value))
 
-(struct Reader
+(record Reader
   ((read (Fn (Rc Model) → String ! mut output-port))))
 
 ;; This callback keeps the copied text and can outlive the model.
@@ -23,9 +23,10 @@
 
 (define (main) (→ Unit) (! mut output-port)
   (let ((read
-         (let ((model (rc (Model "ready" (once (lambda () (write-line "finished")))))))
+         (let ((model
+                (rc (new Model (title "ready") (work (once (lambda () (write-line "finished"))))))))
            (write-line (title model))
-           (write-line (forward model (● (Reader title) read)))
+           (write-line (forward model (● (new Reader (read title)) read)))
            ((replace! (● model work) (once (lambda () (unit)))))
            (callback model))))
     (write-line (read)))

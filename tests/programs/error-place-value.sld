@@ -3,7 +3,7 @@
 
 ;; A selector lambda still owns its linear argument. Observing a field
 ;; does not consume the rest of the record or release its work item.
-(struct Task
+(record Task
   ((work (FnOnce → Unit))
    (tries I64)))
 

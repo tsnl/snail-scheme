@@ -79,8 +79,9 @@ for (const variant of variants) {
     compiler: artifact(variant.compiler), artifacts: {}, sources: {}};
   variant.sources = {};
   for (const [kind, name] of Object.entries(fixtures)) {
-    // The IR fixture uses each revision's own constructor shapes. Other inputs are identical.
-    const source = join(kind === 'nested' ? variant.root : root, 'tests/benchmarks', `${name}.sld`);
+    // Each revision supplies its source spelling and IR shapes; the runners
+    // verify the same checksums before comparing runtime behavior.
+    const source = join(variant.root, 'tests/benchmarks', `${name}.sld`);
     const prefix = join(output, `${variant.name}-${kind}`);
     run('node', compileArgs(variant, source, `${prefix}.wat`), variant.root);
     run(join(root, 'build/native-snail/release/snail'), ['link', `${prefix}.wat`, runtime, `${prefix}.wasm`]);

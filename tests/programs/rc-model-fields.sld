@@ -2,14 +2,14 @@
  (snail core base)
  (snail core io))
 
-(struct Child
+(record Child
   ((name String))
   )
 (instance (Drop (!) Child)
   (define (drop (value Child)) (→ Unit)
     (match value ((Child _) (unit)))))
 
-(struct Model
+(record Model
   ((title String)
    (child (Rc Child))))
 
@@ -20,7 +20,8 @@
   (rc-get value))
 
 (define (main) (→ Unit) (! mut output-port)
-  (let ((model (Model "ready" (rc (Child "nested")))) (other (Child "consumed")))
+  (let ((model (new Model (title "ready") (child (rc (new Child (name "nested"))))))
+        (other (new Child (name "consumed"))))
     (let ((child (● model child)))
       (write-line (child-name child))
       (write-line (child-name child)))

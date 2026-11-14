@@ -3,7 +3,7 @@
  (only (snail core io) write-line))
 
 ;; Methods are named within their class, whatever prefix imports it.
-(b:struct Pair2
+(b:record Pair2
           ((left b:I64)
            (right b:I64)))
 
@@ -16,5 +16,5 @@
 
 (b:define main
           (b:lambda ()
-                    (write-line (b:show (Pair2 3 4)))
+                    (write-line (b:show (b:new Pair2 (left 3) (right 4))))
                     (b:unit)))

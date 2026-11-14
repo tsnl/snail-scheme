@@ -134,7 +134,7 @@
     ;; a building gains a level and the hub gains a build slot. Its cost and
     ;; duration are fixed when it is ordered. Progress grows by one each tick
     ;; the work holds a hub slot and its owner is powered.
-    (struct Work
+    (record Work
       ((order I64)
        (cost I64)
        (duration I64)
@@ -143,7 +143,7 @@
     ;; A building at level 0 is an unfinished site: it neither carries wires
     ;; nor works, but enemies may still destroy it. `aim` is where a turret
     ;; last fired; its guns stay there until it fires again.
-    (struct Building
+    (record Building
       ((id I64)
        (kind Kind)
        (cell Cell)
@@ -220,7 +220,7 @@
 
     ;; The hub covers the three by three cells around its center. Its work
     ;; adds a build slot: the number of works that progress at once.
-    (struct Hub
+    (record Hub
       ((cell Cell)
        (health I64)
        (slots I64)
@@ -244,13 +244,13 @@
 
     ;; ---- Crystals and nests ----
 
-    (struct Crystal
+    (record Crystal
       ((cell Cell)
        (rate I64)
        (reserve I64)))
 
     ;; Each nest covers a rich crystal, exposed when the nest is destroyed.
-    (struct Nest
+    (record Nest
       ((front I64)
        (cell Cell)
        (health I64)))
@@ -272,7 +272,7 @@
     ;; raider chose when it spawned, and `aggro` the turret it turned on when
     ;; hit. Each is kept as an id, which is never reused, so one that no
     ;; longer stands simply names nothing. A burrower digs through rock.
-    (struct Enemy
+    (record Enemy
       ((id I64)
        (behavior Behavior)
        (rank I64)
@@ -285,26 +285,26 @@
        (aggro (Option I64))))
 
     ;; Rock being dug, with what remains of it.
-    (struct Dig
+    (record Dig
       ((cell Cell)
        (remaining I64)))
 
     (define (rock-health) (→ I64) 80)
 
     ;; A shot is drawn for a few ticks after a turret fires.
-    (struct Shot
+    (record Shot
       ((from Cell)
        (to Cell)
        (tick I64)))
 
     ;; Where the colony was last struck, and when.
-    (struct Alert
+    (record Alert
       ((cell Cell)
        (tick I64)))
 
     ;; A distance field toward a goal for walkers or burrowers, kept until
     ;; rock is opened.
-    (struct Route
+    (record Route
       ((goal Cell)
        (burrower Bool)
        (field (Vector I64))))
@@ -319,7 +319,7 @@
 
     ;; Energy produced and spent, net of refunds, so energy is always
     ;; starting-energy + produced - spent; and the colony's losses.
-    (struct Ledger
+    (record Ledger
       ((produced I64)
        (spent I64)
        (kills I64)
@@ -328,25 +328,25 @@
     ;; ---- Network ----
 
     ;; A node is the hub (id 0) or a finished building, with its reach.
-    (struct Node
+    (record Node
       ((id I64)
        (cell Cell)
        (reach I64)))
 
-    (struct Wire
+    (record Wire
       ((from Node)
        (to Node)))
 
     ;; The wires, each from the node it was reached from to the next, and
     ;; the nodes the hub reaches through them, in the order reached.
-    (struct Network
+    (record Network
       ((wires (List Wire))
        (powered (List Node))))
 
     ;; The cells explored most recently, for drawing them unveiled: those
     ;; explored now but not `before`, within `radius` of `center`, since
     ;; `tick`.
-    (struct Reveal
+    (record Reveal
       ((before (Vector Bool))
        (center Cell)
        (radius I64)
@@ -356,7 +356,7 @@
 
     ;; The versions change whenever the buildings or the explored cells do,
     ;; so a view can reuse what it drew.
-    (struct World
+    (record World
       ((seed I64)
        (land Land)
        (tick I64)
@@ -394,39 +394,51 @@
 
     (define (first-world (seed I64)) (→ World)
       (let ((land (new-land (land-seed seed))) (cells (* (map-size) (map-size))))
-        (rewire (World seed
-                       land
-                       0
-                       #f
-                       (Playing)
-                       (starting-energy)
-                       (Hub (● land hub) (hub-health) 1 (None))
-                       (Nil)
-                       (append (map site-crystal (● land sites))
-                               (map nest-crystal (● land fronts)))
-                       (map-indexed (lambda (front cell) (Nest front cell (nest-health)))
-                                    (● land fronts))
-                       (Nil)
-                       (Nil)
-                       (make-vector cells #f)
-                       (Nil)
-                       (Nil)
-                       (Nil)
-                       (Ledger 0 0 0 0)
-                       1
-                       1
-                       (Network (Nil) (Nil))
-                       (make-vector cells #f)
-                       (make-vector cells #f)
-                       (Reveal (make-vector cells #f) (● land hub) 0 0)
-                       0
-                       0))))
+        (rewire (new World (seed seed)
+                     (land land)
+                     (tick 0)
+                     (started #f)
+                     (outcome (Playing))
+                     (energy (starting-energy))
+                     (hub
+                      (new Hub (cell (● land hub)) (health (hub-health)) (slots 1) (work (None))))
+                     (buildings (Nil))
+                     (crystals (append (map site-crystal (● land sites))
+                                       (map nest-crystal (● land fronts))))
+                     (nests (map-indexed (lambda (front cell)
+                                           (new Nest
+                                             (front front)
+                                             (cell cell)
+                                             (health (nest-health))))
+                                         (● land fronts)))
+                     (enemies (Nil))
+                     (digs (Nil))
+                     (opened (make-vector cells #f))
+                     (shots (Nil))
+                     (alerts (Nil))
+                     (routes (Nil))
+                     (ledger (new Ledger (produced 0) (spent 0) (kills 0) (lost 0)))
+                     (next-id 1)
+                     (next-order 1)
+                     (network (new Network (wires (Nil)) (powered (Nil))))
+                     (visible (make-vector cells #f))
+                     (explored (make-vector cells #f))
+                     (reveal (new Reveal
+                               (before (make-vector cells #f))
+                               (center (● land hub))
+                               (radius 0)
+                               (tick 0)))
+                     (structure-version 0)
+                     (explored-version 0)))))
 
     (define (site-crystal (site Site)) (→ Crystal)
-      (Crystal (● site cell) (● site rate) (* (reserve-per-rate) (● site rate))))
+      (new Crystal
+        (cell (● site cell))
+        (rate (● site rate))
+        (reserve (* (reserve-per-rate) (● site rate)))))
 
     (define (nest-crystal (cell Cell)) (→ Crystal)
-      (Crystal cell (nest-rate) (* (reserve-per-rate) (nest-rate))))
+      (new Crystal (cell cell) (rate (nest-rate)) (reserve (* (reserve-per-rate) (nest-rate)))))
 
     (define (playing? (world World)) (→ Bool)
       (match (● world outcome)
@@ -439,7 +451,9 @@
       (and (not (● world started)) (playing? world)))
 
     (define (fresh-id (world World)) (→ (Pair I64 World))
-      (Pair (● world next-id) (World-next-id-set world (+ (● world next-id) 1))))
+      (new Pair
+        (first (● world next-id))
+        (second (World-next-id-set world (+ (● world next-id) 1)))))
 
     ;; ---- Lookups and replacements ----
 
@@ -510,15 +524,15 @@
       (and (within? a b (max reach-a reach-b)) (clear-line? world a b)))
 
     (define (hub-node (world World)) (→ Node)
-      (Node 0 (● (● world hub) cell) (hub-reach)))
+      (new Node (id 0) (cell (● (● world hub) cell)) (reach (hub-reach))))
 
     (define (building-nodes (world World)) (→ (List Node))
-      (map (lambda (b) (Node (● b id) (● b cell) (building-reach b)))
+      (map (lambda (b) (new Node (id (● b id)) (cell (● b cell)) (reach (building-reach b))))
            (filter built? (● world buildings))))
 
     ;; A pair of nodes a wire could join, by their places in the list of
     ;; nodes, with the squared length that ranks it.
-    (struct Link
+    (record Link
       ((a I64)
        (b I64)
        (cost I64)))
@@ -533,7 +547,7 @@
     (define (link (world World) (nodes (Vector Node)) (i I64) (j I64)) (→ (Option Link))
       (let ((a (vector-ref nodes i)) (b (vector-ref nodes j)))
         (if (wire-reaches? world (● a cell) (● a reach) (● b cell) (● b reach))
-            (Some (Link i j (distance-squared (● a cell) (● b cell))))
+            (Some (new Link (a i) (b j) (cost (distance-squared (● a cell) (● b cell)))))
             (None))))
 
     ;; The wires run along a minimum spanning forest of the links: a tree
@@ -553,7 +567,10 @@
                         (list (vector-ref nodes root)))
              ((Pair (Pair inside wires) tree)
               (loop inside wires (match powered ((None) (Some (reverse tree))) (_ powered))))))
-          ((None) (Pair (match powered ((Some tree) tree) ((None) (Nil))) (reverse wires))))))
+          ((None)
+           (new Pair
+             (first (match powered ((Some tree) tree) ((None) (Nil))))
+             (second (reverse wires)))))))
 
     ;; Adds the shortest link from the tree to a new node until none is left.
     (define (grow (nodes (Vector Node))
@@ -570,9 +587,9 @@
            (grow nodes
                  links
                  (vector-set inside to #t)
-                 (Cons (Wire (vector-ref nodes from) (vector-ref nodes to)) wires)
+                 (Cons (new Wire (from (vector-ref nodes from)) (to (vector-ref nodes to))) wires)
                  (Cons (vector-ref nodes to) tree))))
-        ((None) (Pair (Pair inside wires) tree))))
+        ((None) (new Pair (first (new Pair (first inside) (second wires))) (second tree)))))
 
     ;; The first of the shortest links with one end inside, so ties go to
     ;; the older pair.
@@ -611,7 +628,8 @@
       (let ((offsets (map (lambda (i) (- i radius)) (iota (+ 1 (* 2 radius))))))
         (for-each (lambda (dy)
                     (for-each (lambda (dx)
-                                (let ((cell (Cell (+ (● center x) dx) (+ (● center y) dy))))
+                                (let ((cell
+                                       (new Cell (x (+ (● center x) dx)) (y (+ (● center y) dy)))))
                                   (when (and (in-bounds? cell) (within? cell center radius))
                                     (vector-set! seen (cell-index cell) #t))))
                               offsets))
@@ -631,9 +649,11 @@
       (let* ((nodes (list->vector (Cons (hub-node world) (building-nodes world))))
              (spanned (span nodes (links world nodes))))
         (explore (structures-changed (World-visible-set (World-network-set world
-                                                                           (Network
-                                                                            (● spanned second)
-                                                                            (● spanned first)))
+                                                                           (new Network
+                                                                             (wires
+                                                                              (● spanned second))
+                                                                             (powered
+                                                                              (● spanned first))))
                                                         (lit-cells (● spanned first)))))))
 
     (define (explore (world World)) (→ World)
@@ -658,14 +678,17 @@
     (define (reveal-around (before (Vector Bool)) (cells (List Cell)) (tick I64)) (→ Reveal)
       (let* ((count (length cells))
              (center
-              (Cell (quotient (fold-left + 0 (map (lambda (record) (● record x)) cells)) count)
-                    (quotient (fold-left + 0 (map (lambda (record) (● record y)) cells)) count))))
-        (Reveal before
-                center
-                (+ 1
-                   (integer-sqrt
-                    (fold-left max 0 (map (lambda (cell) (distance-squared cell center)) cells))))
-                tick)))
+              (new Cell
+                (x (quotient (fold-left + 0 (map (lambda (record) (● record x)) cells)) count))
+                (y (quotient (fold-left + 0 (map (lambda (record) (● record y)) cells)) count)))))
+        (new Reveal (before before)
+             (center center)
+             (radius (+ 1
+                        (integer-sqrt
+                         (fold-left max
+                                    0
+                                    (map (lambda (cell) (distance-squared cell center)) cells)))))
+             (tick tick))))
 
     ;; A decided game shows the whole map for inspection, at once: the world
     ;; is still, so nothing could unveil.

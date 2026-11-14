@@ -7,7 +7,7 @@
    (snail core base))
   (begin
 
-    (struct Point
+    (record Point
       ((x I64)
        (y I64)))
 

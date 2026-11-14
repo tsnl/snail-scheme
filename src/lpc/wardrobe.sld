@@ -23,18 +23,18 @@
 
     ;; ---- Outfits ----
 
-    (struct Hair
+    (record Hair
       ((style HairStyle)
        (color HairColor))
       (deriving Serialize Deserialize))
 
-    (struct Worn
+    (record Worn
       ((garment Garment)
        (dye Dye))
       (deriving Serialize Deserialize))
 
     ;; One garment at most in each slot.
-    (struct Outfit
+    (record Outfit
       ((hair (Option Hair))
        (torso (Option Worn))
        (legs (Option Worn))
@@ -44,7 +44,7 @@
     ;; ---- Dressing ----
 
     ;; The sheets of a character's walking rows, bottom first.
-    (struct Character
+    (record Character
       ((sheets (List Sheet))))
 
     ;; A character wearing `outfit`, if every garment in it is worn in its
@@ -55,15 +55,15 @@
                    (worn-sheets build (Legs) (● outfit legs))
                    (worn-sheets build (Torso) (● outfit torso)))
         ((Cons (Some feet) (Cons (Some legs) (Cons (Some torso) (Nil))))
-         (Some (Character (concatenate (list (list (body-sheet build skin))
-                                             feet
-                                             legs
-                                             torso
-                                             (list (head-sheet head skin))
-                                             (match (● outfit hair)
-                                               ((Some (Hair style color))
-                                                (list (hair-sheet build style color)))
-                                               ((None) (Nil))))))))
+         (Some (new Character (sheets (concatenate (list (list (body-sheet build skin))
+                                                         feet
+                                                         legs
+                                                         torso
+                                                         (list (head-sheet head skin))
+                                                         (match (● outfit hair)
+                                                           ((Some (Hair style color))
+                                                            (list (hair-sheet build style color)))
+                                                           ((None) (Nil)))))))))
         (_ (None))))
 
     ;; The sheet a slot's garment is drawn on, none for an empty slot, or
@@ -79,7 +79,7 @@
         ((None) (Some (Nil)))))
 
     (define (same-slot? (a Slot) (b Slot)) (→ Bool)
-      (match (Pair a b)
+      (match (new Pair (first a) (second b))
         ((Pair (Torso) (Torso)) #t)
         ((Pair (Legs) (Legs)) #t)
         ((Pair (Feet) (Feet)) #t)
@@ -110,15 +110,24 @@
     ;; whose file `art` lacks is left out.
     (define (walk-picture (art (Fn String → (Option Source))) (key I32) (who Character))
       (→ Picture)
-      (Picture key (fingerprint who) (● (walk-region) width) (● (walk-region) height)
-               (lambda ()
-                 (concatenate
-                  (map (lambda (sheet)
-                         (match (art (● sheet path))
-                           ((Some source)
-                            (list (Layer source (● sheet from) 0 0 (● sheet swaps))))
-                           ((None) (Nil))))
-                       (● who sheets))))))
+      (new Picture
+        (key key)
+        (version (fingerprint who))
+        (width (● (walk-region) width))
+        (height (● (walk-region) height))
+        (layers (lambda ()
+                  (concatenate
+                   (map (lambda (sheet)
+                          (match (art (● sheet path))
+                            ((Some source)
+                             (list (new Layer
+                                     (source source)
+                                     (from (● sheet from))
+                                     (x 0)
+                                     (y 0)
+                                     (swaps (● sheet swaps)))))
+                            ((None) (Nil))))
+                        (● who sheets)))))))
 
     ;; The character in picture `key`, shoulders up, each texel `scale`
     ;; pixels wide.

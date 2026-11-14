@@ -67,7 +67,7 @@
     ;; cells from the bottom of the screen to the top. A turn eases from
     ;; `turned-from` over the `turn-milliseconds` of the game's clock after
     ;; `turned-at`.
-    (struct View
+    (record View
       ((x F32)
        (z F32)
        (scale F32)
@@ -96,7 +96,7 @@
     ;; `preview` is the
     ;; building whose button the pointer is over; `rush` makes new buildings
     ;; rushed; `message` explains the last rejected order.
-    (struct Game
+    (record Game
       ((world World)
        (orders (List Entry))
        (epoch I64)
@@ -120,7 +120,7 @@
     ;; oldest entry first, so restoring replays the game; and how it was
     ;; being played: paused, for which hand, and the view, so a reloaded
     ;; page or module looks where the player was looking.
-    (struct Save
+    (record Save
       ((seed I64)
        (tick I64)
        (orders (List Entry))
@@ -143,25 +143,25 @@
                          (height I32))
       (→ Game)
       (let ((start (● (● world land) starter)))
-        (Game world
-              orders
-              epoch
-              0
-              0
-              0
-              (View (i64->f32 (● start x))
-                    (i64->f32 (● start y))
-                    1.0
-                    0
-                    0
-                    (negate (turn-milliseconds)))
-              (Nil)
-              (no-gestures)
-              (None)
-              (None)
-              (None)
-              #f
-              menu left-handed "" width height)))
+        (new Game (world world)
+             (orders orders)
+             (epoch epoch)
+             (clock 0)
+             (shown 0)
+             (phase 0)
+             (view (new View (x (i64->f32 (● start x)))
+                        (z (i64->f32 (● start y)))
+                        (scale 1.0)
+                        (heading 0)
+                        (turned-from 0)
+                        (turned-at (negate (turn-milliseconds)))))
+             (held (Nil))
+             (gestures (no-gestures))
+             (hover (None))
+             (selected (None))
+             (preview (None))
+             (rush #f)
+             (menu menu) (left-handed left-handed) (message "") (width width) (height height))))
 
     ;; ---- Time ----
 
@@ -191,13 +191,13 @@
     ;; saved as finished.
     (define (game-save (game Game)) (→ Save)
       (let ((world (● game world)) (view (● game view)))
-        (Save (● world seed)
-              (● world tick)
-              (reverse (● game orders))
-              (paused? game)
-              (● game left-handed)
-              (View-turned-at-set (View-turned-from-set view (● view heading))
-                                  (negate (turn-milliseconds))))))
+        (new Save (seed (● world seed))
+             (tick (● world tick))
+             (orders (reverse (● game orders)))
+             (paused (paused? game))
+             (left-handed (● game left-handed))
+             (view (View-turned-at-set (View-turned-from-set view (● view heading))
+                                       (negate (turn-milliseconds)))))))
 
     ;; The host reports the screen's size after restoring.
     (define (game-restore (save Save)) (→ Game)
@@ -232,11 +232,11 @@
              (c (f64->f32 (cos angle)))
              (s (f64->f32 (sin angle)))
              (k (● view scale))
-             (target (Vec3 (● view x) 0.0 (● view z))))
-        (Camera (Vec3 (+ (● target x) (* 18.0 (* k (+ c s))))
-                      (* k 14.696938)
-                      (+ (● target z) (* 18.0 (* k (- c s)))))
-                target (Orthographic (* 18.0 k)))))
+             (target (new Vec3 (x (● view x)) (y 0.0) (z (● view z)))))
+        (new Camera (eye (new Vec3 (x (+ (● target x) (* 18.0 (* k (+ c s)))))
+                              (y (* k 14.696938))
+                              (z (+ (● target z) (* 18.0 (* k (- c s)))))))
+             (target target) (projection (Orthographic (* 18.0 k))))))
 
     (define (clamp (value F32) (low F32) (high F32)) (→ F32)
       (max low (min high value)))
@@ -307,7 +307,8 @@
     (define (pick (game Game) (x I32) (y I32)) (→ (Option Cell))
       (match (ground-point (game-camera game) x y (● game width) (● game height))
         ((Some point)
-         (let ((cell (Cell (f32->i64 (round (● point x))) (f32->i64 (round (● point z))))))
+         (let ((cell
+                (new Cell (x (f32->i64 (round (● point x)))) (y (f32->i64 (round (● point z)))))))
            (if (in-bounds? cell) (Some cell) (None))))
         ((None) (None))))
 
@@ -340,7 +341,8 @@
     ;; A command as a button's action and argument: a cell travels as its
     ;; index.
     (define (press-code (command Command)) (→ (Pair I32 I32))
-      (let ((at (lambda (action cell) (Pair action (i64->i32 (cell-index cell))))))
+      (let ((at (lambda (action cell)
+                  (new Pair (first action) (second (i64->i32 (cell-index cell)))))))
         (match command
           ((BuildAt (Extractor) cell) (at 1 cell))
           ((BuildAt (Pylon) cell) (at 2 cell))
@@ -350,9 +352,9 @@
           ((CancelAt cell) (at 6 cell))
           ((ScavengeAt cell) (at 7 cell))
           ((Locate cell) (at 8 cell))
-          ((Turn quarters) (Pair 10 (i64->i32 quarters)))
-          ((Hand left) (Pair 11 (if left 1 0)))
-          (_ (Pair (+ 20 (plain-code command)) 0)))))
+          ((Turn quarters) (new Pair (first 10) (second (i64->i32 quarters))))
+          ((Hand left) (new Pair (first 11) (second (if left 1 0))))
+          (_ (new Pair (first (+ 20 (plain-code command))) (second 0))))))
 
     (define (plain-code (command Command)) (→ I32)
       (match command

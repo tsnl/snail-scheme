@@ -3,14 +3,14 @@
  (snail core io))
 
 ;; These private handlers model streams with state owned by each invocation.
-(struct Cursor
+(record Cursor
   ((index I64)))
-(struct Output
+(record Output
   ((reversed (List String))))
 
 (define (from-text (text String) (action (FnOnce → A ! input-port e)))
   (→ A) (! mut e) (∀ (A e))
-  (let ((position (Cursor 0)))
+  (let ((position (new Cursor (index 0))))
     (handle input-port
         ((read-char (lambda ()
                       (let ((index (● position index)))
@@ -22,7 +22,7 @@
 
 (define (capture (action (FnOnce → Unit ! output-port e)))
   (→ String) (! mut e) (∀ (e))
-  (let ((chunks (Output (Nil))))
+  (let ((chunks (new Output (reversed (Nil)))))
     (handle output-port
         ((write-string (lambda (text) (set! (● chunks reversed) (Cons text (● chunks reversed))))))
       (action))

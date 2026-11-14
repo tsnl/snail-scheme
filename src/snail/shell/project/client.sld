@@ -15,7 +15,7 @@
 
     ;; Why a request failed: the reply's status, or -1 when there was no
     ;; reply, and the service's message, or the connection's.
-    (struct Failure
+    (record Failure
       ((status I32)
        (message String)))
 
@@ -27,7 +27,7 @@
       (! fetch tasks)
       (match (request method url headers body)
         ((Ok reply) (reply-json reply))
-        ((Err why) (Err (Failure -1 why)))))
+        ((Err why) (Err (new Failure (status -1) (message why))))))
 
     (define (reply-json (reply Reply)) (→ (Result Json Failure))
       (let ((status (● reply status)))
@@ -35,13 +35,15 @@
           ((Some json)
            (if (and (>= status 200) (< status 300))
                (Ok json)
-               (Err (Failure status (match (json->message json)
-                                      ((Some message) message)
-                                      ((None) "invalid service error response"))))))
+               (Err (new Failure (status status) (message (match (json->message json)
+                                                            ((Some message) message)
+                                                            ((None)
+                                                             "invalid service error response")))))))
           ((None)
            (Err
-            (Failure status
-                     (string-append "the service answered " (show status) " without JSON")))))))
+            (new Failure (status status)
+                 (message
+                  (string-append "the service answered " (show status) " without JSON"))))))))
 
     ;; `text` as one component of a URL, as `encodeURIComponent` writes it:
     ;; its UTF-8 bytes, each but the unreserved characters escaped.
@@ -79,7 +81,10 @@
         ((Ok json)
          (match (decode json)
            ((Some value) (Ok value))
-           ((None) (Err (Failure 200 (string-append "invalid " subject " response"))))))))
+           ((None)
+            (Err (new Failure
+                   (status 200)
+                   (message (string-append "invalid " subject " response")))))))))
 
     (define (file-reply (reply (Result Json Failure))) (→ (Result Snapshot Failure))
       (decoded-reply json->file "file" reply))

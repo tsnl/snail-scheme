@@ -1,7 +1,6 @@
 ;; The repository's Lisp formatter, shared by scripts/format-scheme and the
 ;; IDE. Formatting is a pure operation on text, including unfinished source.
-;; Formatting first puts each import specification, struct field and record
-;; field on its own line, then indents every line. A line's indentation goes
+;; Formatting first puts each import specification and field declaration on its own line, then indents every line. A line's indentation goes
 ;; under the first argument of a call, under the first expression of the
 ;; line its list's last element starts on, or in by two columns for the body
 ;; of a special form, as the
@@ -45,7 +44,7 @@
 
     ;; A line, the mode it starts in, its tokens, and the offset just past
     ;; its last token, where its code ends before any comment.
-    (struct Line
+    (record Line
       ((text String)
        (mode Mode)
        (tokens (List Token))
@@ -72,7 +71,7 @@
 
     ;; One step of lexing: the offset after what it read, the mode after
     ;; it, and the token it made, if any.
-    (struct Step
+    (record Step
       ((next I64)
        (mode Mode)
        (token (Option Token))))
@@ -82,7 +81,9 @@
     (define (lex-line (line String) (mode Mode)) (→ (Pair Line Mode))
       (let loop ((offset 0) (state mode) (tokens (Nil)) (end 0))
         (if (>= offset (string-length line))
-            (Pair (Line line mode (reverse tokens) end) state)
+            (new Pair
+              (first (new Line (text line) (mode mode) (tokens (reverse tokens)) (end end)))
+              (second state))
             (let ((step (lex-step line offset state)))
               (match (● step token)
                 ((Some token)
@@ -102,8 +103,8 @@
 
     (define (lex-code (line String) (offset I64)) (→ Step)
       (let ((c (string-ref line offset)) (after (+ offset 1)))
-        (cond ((char-whitespace? c) (Step after (Code) (None)))
-              ((= c #\;) (Step (string-length line) (Code) (None)))
+        (cond ((char-whitespace? c) (new Step (next after) (mode (Code)) (token (None))))
+              ((= c #\;) (new Step (next (string-length line)) (mode (Code)) (token (None))))
               ((or (= c #\() (= c #\[)) (code-token after (Open offset (spaced? line after))))
               ((or (= c #\)) (= c #\])) (code-token after (Close offset)))
               ((or (= c #\") (= c #\|))
@@ -114,7 +115,7 @@
               (else (lex-atom line offset offset)))))
 
     (define (code-token (next I64) (token Token)) (→ Step)
-      (Step next (Code) (Some token)))
+      (new Step (next next) (mode (Code)) (token (Some token))))
 
     ;; `#(` opens a vector, `#|` a block comment, and `#;` comments out the
     ;; next datum; `#\` starts a character,
@@ -125,7 +126,8 @@
         (cond ((at? line after "(") (code-token after (Prefix offset)))
               ((at? line after "u8(") (code-token (+ after 2) (Prefix offset)))
               ((at? line after "|") (lex-comment line (+ after 1) 1))
-              ((at? line after ";") (Step (+ after 1) (InDatum 0 (Code)) (None)))
+              ((at? line after ";")
+               (new Step (next (+ after 1)) (mode (InDatum 0 (Code))) (token (None))))
               ((at? line after "\\") (lex-atom line offset (min (+ after 2) (string-length line))))
               (else (lex-atom line offset after)))))
 
@@ -145,10 +147,12 @@
     ;; escapes and newlines. Only their opening delimiter makes a token.
 
     (define (lex-quoted (line String) (offset I64) (delimiter Char)) (→ Step)
-      (cond ((>= offset (string-length line)) (Step offset (InQuoted delimiter) (None)))
+      (cond ((>= offset (string-length line))
+             (new Step (next offset) (mode (InQuoted delimiter)) (token (None))))
             ((= (string-ref line offset) #\\)
              (lex-quoted line (min (+ offset 2) (string-length line)) delimiter))
-            ((= (string-ref line offset) delimiter) (Step (+ offset 1) (Code) (None)))
+            ((= (string-ref line offset) delimiter)
+             (new Step (next (+ offset 1)) (mode (Code)) (token (None))))
             (else (lex-quoted line (+ offset 1) delimiter))))
 
     ;; Discard one datum's tokens. Depth zero waits for its expression; -1
@@ -164,19 +168,20 @@
                            ((Some _) (if (= depth 0) -1 depth))
                            ((None) depth)))
              (closed (match (● step token) ((Some (Close _)) (<= depth 1)) (_ #f))))
-        (Step (● step next)
-              (if (or closed (and (< next-depth 0) (code-mode? (● step mode))))
-                  (Code)
-                  (InDatum next-depth (● step mode)))
-              (None))))
+        (new Step (next (● step next))
+             (mode (if (or closed (and (< next-depth 0) (code-mode? (● step mode))))
+                       (Code)
+                       (InDatum next-depth (● step mode))))
+             (token (None)))))
 
     ;; Inside a block comment, which nests.
 
     (define (lex-comment (line String) (offset I64) (depth I64)) (→ Step)
-      (cond ((>= offset (string-length line)) (Step offset (InComment depth) (None)))
+      (cond ((>= offset (string-length line))
+             (new Step (next offset) (mode (InComment depth)) (token (None))))
             ((at? line offset "|#")
              (if (= depth 1)
-                 (Step (+ offset 2) (Code) (None))
+                 (new Step (next (+ offset 2)) (mode (Code)) (token (None)))
                  (lex-comment line (+ offset 2) (- depth 1))))
             ((at? line offset "#|") (lex-comment line (+ offset 2) (+ depth 1)))
             (else (lex-comment line (+ offset 1) depth))))
@@ -199,7 +204,7 @@
 
     ;; Where an element starts, and the column of the first expression on
     ;; that line, which may lie in another list.
-    (struct Element
+    (record Element
       ((head Head)
        (column I64)
        (line I64)
@@ -209,7 +214,7 @@
     ;; a bounded record rather than every element. `count` and `first` cover
     ;; the arguments, excluding the head; `last` is the head until an
     ;; argument appears.
-    (struct Elements
+    (record Elements
       ((head Element)
        (first (Option Element))
        (last Element)
@@ -218,7 +223,7 @@
     ;; An open list: its parenthesis, whether a space follows it, and what
     ;; its elements so far contribute. At the start of a line, every element
     ;; of the innermost open list is complete.
-    (struct Frame
+    (record Frame
       ((column I64)
        (line I64)
        (spaced Bool)
@@ -318,7 +323,7 @@
         (("dynamic-wind") (Some (Special 3)))
         (("scheme-define" "declare") (Some (Definition)))
         (("syntax-rules") (Some (Definition)))
-        (("struct" "enum" "typeclass" "instance" "effect" "match" "guard") (Some (Special 1)))
+        (("new" "record" "enum" "typeclass" "instance" "effect" "match" "guard") (Some (Special 1)))
         (("handle") (Some (Special 2)))
         (else (None))))
 
@@ -342,7 +347,9 @@
 
     (define (def-prefix? (name String)) (→ Bool)
       (every? (lambda (pair) (member? (string-ref name (● pair first)) (● pair second)))
-              (list (Pair 0 (list #\d #\D)) (Pair 1 (list #\e #\E)) (Pair 2 (list #\f #\F)))))
+              (list (new Pair (first 0) (second (list #\d #\D)))
+                    (new Pair (first 1) (second (list #\e #\E)))
+                    (new Pair (first 2) (second (list #\f #\F))))))
 
     ;; ---- Indentation ----
 
@@ -421,7 +428,7 @@
           ((Cons line rest)
            (match (if (and (<= first index) (<= index last))
                       (reindent line frames)
-                      (Pair (● line text) 0))
+                      (new Pair (first (● line text)) (second 0)))
              ((Pair indented shift)
               (loop rest
                     (+ index 1)
@@ -437,11 +444,13 @@
       (let* ((text (● line text))
              (start (indentation text))
              (rest (substring text start (string-length text))))
-        (cond ((not (code-mode? (● line mode))) (Pair text 0))
-              ((string=? rest "") (Pair "" 0))
-              ((at? rest 0 ";;;") (Pair text 0))
+        (cond ((not (code-mode? (● line mode))) (new Pair (first text) (second 0)))
+              ((string=? rest "") (new Pair (first "") (second 0)))
+              ((at? rest 0 ";;;") (new Pair (first text) (second 0)))
               (else (let ((column (stack-indent frames)))
-                      (Pair (string-append (make-string column #\space) rest) (- column start)))))))
+                      (new Pair
+                        (first (string-append (make-string column #\space) rest))
+                        (second (- column start))))))))
 
     (define (indentation (text String)) (→ I64)
       (let loop ((index 0))
@@ -464,7 +473,7 @@
 
     ;; The open lists while a line is scanned, the column of its first
     ;; expression, and the column of a prefix waiting for its expression.
-    (struct Scan
+    (record Scan
       ((frames (List Frame))
        (first (Option I64))
        (prefix (Option I64))))
@@ -475,7 +484,7 @@
     (define (scan-line (frames (List Frame)) (tokens (List Token)) (shift I64) (line I64))
       (→ (List Frame))
       (● (fold-left (lambda (scan token) (scan-token scan token shift line))
-                    (Scan frames (None) (None))
+                    (new Scan (frames frames) (first (None)) (prefix (None)))
                     tokens) frames))
 
     (define (scan-token (scan Scan) (token Token) (shift I64) (line I64)) (→ Scan)
@@ -483,12 +492,16 @@
         ((Open offset spaced)
          (let ((added (add-expression scan (Listed) (+ offset shift) line)))
            (Scan-frames-set added
-                            (Cons (Frame (+ offset shift) line spaced (None))
+                            (Cons (new Frame
+                                    (column (+ offset shift))
+                                    (line line)
+                                    (spaced spaced)
+                                    (elements (None)))
                                   (● added frames)))))
         ((Close _) (Scan-frames-set scan (list-drop (● scan frames) 1)))
         ((Prefix offset)
-         (Scan (● scan frames) (Some (or-else (● scan first) (+ offset shift)))
-               (Some (or-else (● scan prefix) (+ offset shift)))))
+         (new Scan (frames (● scan frames)) (first (Some (or-else (● scan first) (+ offset shift))))
+              (prefix (Some (or-else (● scan prefix) (+ offset shift))))))
         ((Atom offset text) (add-expression scan (atom-head text) (+ offset shift) line))
         ((Text offset) (add-expression scan (Other) (+ offset shift) line))))
 
@@ -502,9 +515,11 @@
 
     (define (add-expression (scan Scan) (head Head) (column I64) (line I64)) (→ Scan)
       (let* ((start (or-else (● scan prefix) column)) (first (or-else (● scan first) start)))
-        (Scan (add-element (● scan frames) (Element head start line first))
-              (Some first)
-              (None))))
+        (new Scan
+          (frames (add-element (● scan frames)
+                               (new Element (head head) (column start) (line line) (first first))))
+          (first (Some first))
+          (prefix (None)))))
 
     (define (add-element (frames (List Frame)) (element Element)) (→ (List Frame))
       (match frames
@@ -517,9 +532,13 @@
 
     (define (extend (elements (Option Elements)) (element Element)) (→ Elements)
       (match elements
-        ((None) (Elements element (None) element 0))
+        ((None) (new Elements (head element) (first (None)) (last element) (count 0)))
         ((Some (Elements head first _ count))
-         (Elements head (match first ((None) (Some element)) (_ first)) element (+ count 1)))))
+         (new Elements
+           (head head)
+           (first (match first ((None) (Some element)) (_ first)))
+           (last element)
+           (count (+ count 1))))))
 
     (define (or-else (value (Option I64)) (default I64)) (→ I64)
       (match value
@@ -531,7 +550,7 @@
     ;; A token with its line and that line's leading whitespace. A token
     ;; after a comment is not at the start of its line, even if no earlier
     ;; token was emitted on that line.
-    (struct Placed
+    (record Placed
       ((line I64)
        (token Token)
        (indent I64)))
@@ -539,7 +558,11 @@
     (define (placed-tokens (lines (List Line))) (→ (Vector Placed))
       (list->vector (concatenate (map-indexed (lambda (index line)
                                                 (let ((indent (indentation (● line text))))
-                                                  (map (lambda (token) (Placed index token indent))
+                                                  (map (lambda (token)
+                                                         (new Placed
+                                                           (line index)
+                                                           (token token)
+                                                           (indent indent)))
                                                        (● line tokens))))
                                               lines))))
 
@@ -588,14 +611,16 @@
 
     (define (form-name (tokens (Vector Placed)) (index I64)) (→ (Option String))
       (if (and (open-at? tokens index) (< (+ index 1) (vector-length tokens)))
-          (match (Pair (vector-ref tokens index) (vector-ref tokens (+ index 1)))
+          (match (new Pair
+                   (first (vector-ref tokens index))
+                   (second (vector-ref tokens (+ index 1))))
             ((Pair (Placed line (Open offset _) _) (Placed next-line (Atom next-offset name) _))
              (if (and (= line next-line) (= next-offset (+ offset 1))) (Some name) (None)))
             (_ (None)))
           (None)))
 
     ;; Breaks found so far, and whether the expressions they lie in ended.
-    (struct Found
+    (record Found
       ((breaks (List Placed))
        (ended Bool)))
 
@@ -607,8 +632,8 @@
           (let ((breaks (break-before tokens index breaks)))
             (match (expression-end tokens index)
               ((Some next) (break-entries tokens next breaks))
-              ((None) (Found breaks #f))))
-          (Found breaks #t)))
+              ((None) (new Found (breaks breaks) (ended #f)))))
+          (new Found (breaks breaks) (ended #t))))
 
     (define (break-before (tokens (Vector Placed)) (index I64) (breaks (List Placed)))
       (→ (List Placed))
@@ -617,10 +642,10 @@
             breaks
             (Cons placed breaks))))
 
-    ;; A struct's field list starts its own line, and so does each field
+    ;; A record's field list starts its own line, and so does each field
     ;; after the first.
 
-    (define (break-struct (tokens (Vector Placed)) (index I64) (breaks (List Placed)))
+    (define (break-record-declaration (tokens (Vector Placed)) (index I64) (breaks (List Placed)))
       (→ (List Placed))
       (match (skip-expressions tokens (+ index 1) 2)
         ((Some fields)
@@ -644,7 +669,7 @@
         ((None) breaks)))
 
     ;; Declaration breaks, in order: before each import
-    ;; specification, a struct's field list and its fields after the first,
+    ;; specification, a record's field list and its fields after the first,
     ;; and a record type's fields. An import that does not end stops the
     ;; search, since everything after it is part of it.
 
@@ -658,7 +683,7 @@
                  ((Found found #t)
                   (loop (or-else (expression-end tokens index) (vector-length tokens)) found))
                  ((Found found #f) (reverse found))))
-              ((Some "struct") (loop (+ index 2) (break-struct tokens index breaks)))
+              ((Some "record") (loop (+ index 2) (break-record-declaration tokens index breaks)))
               ((Some "define-record-type") (loop (+ index 2) (break-record tokens index breaks)))
               (_ (loop (+ index 1) breaks))))))
 
@@ -724,17 +749,17 @@
     ;; keeps its bindings in. The body follows the bindings.
 
     (define (binding-forms) (→ (List (Pair String I64)))
-      (list (Pair "letrec" 1)
-            (Pair "letrec*" 1)
-            (Pair "let-values" 1)
-            (Pair "let*-values" 1)
-            (Pair "parameterize" 1)
-            (Pair "do" 1)
-            (Pair "handle" 2)
-            (Pair "learning" 2)
-            (Pair "expanding" 2)
-            (Pair "naming" 2)
-            (Pair "specializing" 2)))
+      (list (new Pair (first "letrec") (second 1))
+            (new Pair (first "letrec*") (second 1))
+            (new Pair (first "let-values") (second 1))
+            (new Pair (first "let*-values") (second 1))
+            (new Pair (first "parameterize") (second 1))
+            (new Pair (first "do") (second 1))
+            (new Pair (first "handle") (second 2))
+            (new Pair (first "learning") (second 2))
+            (new Pair (first "expanding") (second 2))
+            (new Pair (first "naming") (second 2))
+            (new Pair (first "specializing") (second 2))))
 
     ;; A name's shape follows its indentation rule: a special form keeps
     ;; only its first distinguished argument beside its name, and a
@@ -760,7 +785,7 @@
     ;; has key -1: its head is behind it, so it breaks before each element.
     ;; `head` is where the first element starts, if on the line. After a
     ;; `!`, which starts the effects of a function type, nothing breaks.
-    (struct Group
+    (record Group
       ((depth I64)
        (key I64)
        (bindings Bool)
@@ -777,14 +802,14 @@
       (Break)
       (Fallback ((fits Bool))))
 
-    (struct Candidate
+    (record Candidate
       ((depth I64)
        (key I64)
        (offset I64)
        (place Place)))
 
     ;; The line being broken, where its code starts and ends, and the width.
-    (struct Extent
+    (record Extent
       ((text String)
        (first I64)
        (end I64)
@@ -801,7 +826,7 @@
     ;; The scan of a line for breaks: the lists open, as indentation and as
     ;; breaking see them, and the candidates found so far, latest first.
     ;; The top level is always at the bottom of the groups.
-    (struct Breaking
+    (record Breaking
       ((scan Scan)
        (groups (List Group))
        (candidates (List Candidate))))
@@ -809,7 +834,7 @@
     ;; What an element tells the list it is in: the list's group afterwards,
     ;; the candidates it adds, and whether the element, a list, holds the
     ;; bindings of the binding form it is in.
-    (struct Arrival
+    (record Arrival
       ((group Group)
        (candidates (List Candidate))
        (bindings Bool)))
@@ -819,8 +844,9 @@
     (define (enclosing-groups (frames (List Frame))) (→ (List Group))
       (match frames
         ((Cons _ rest)
-         (Cons (Group (length frames) -1 #f (None) #f) (enclosing-groups rest)))
-        ((Nil) (list (Group 0 -1 #f (None) #f)))))
+         (Cons (new Group (depth (length frames)) (key -1) (bindings #f) (head (None)) (effects #f))
+               (enclosing-groups rest)))
+        ((Nil) (list (new Group (depth 0) (key -1) (bindings #f) (head (None)) (effects #f))))))
 
     (define (next-index (frame Frame)) (→ I64)
       (match (● frame elements)
@@ -842,12 +868,15 @@
             (breaks
              (and (breakable? extent start) (not (● group effects)))))
         (if (above? group)
-            (Arrival after (candidate-at group start breaks (Break)) #f)
+            (new Arrival
+              (group after)
+              (candidates (candidate-at group start breaks (Break)))
+              (bindings #f))
             (match frames
               ((Cons frame _)
                (arrive-opened extent frame after start opens breaks))
               ;; A list that opened on the line is the innermost frame.
-              ((Nil) (Arrival after (Nil) #f))))))
+              ((Nil) (new Arrival (group after) (candidates (Nil)) (bindings #f)))))))
 
     ;; The next element of a list that opened on the line, which `frame`
     ;; describes: its head, a binding form's binding, or wherever the list's
@@ -862,22 +891,25 @@
       (→ Arrival)
       (let ((index (next-index frame)))
         (cond ((● group bindings)
-               (Arrival group
-                        (candidate-at group
-                                      start
-                                      (and (>= index 1)
-                                           (breakable? extent start))
-                                      (Break))
-                        #f))
+               (new Arrival (group group)
+                    (candidates (candidate-at group
+                                              start
+                                              (and (>= index 1)
+                                                   (breakable? extent start))
+                                              (Break)))
+                    (bindings #f)))
               ((= index 0)
-               (Arrival (Group-head-set group (Some start)) (Nil) #f))
+               (new Arrival
+                 (group (Group-head-set group (Some start)))
+                 (candidates (Nil))
+                 (bindings #f)))
               (breaks (shaped-arrival extent
                                       (frame-shape frame)
                                       group
                                       index
                                       start
                                       opens))
-              (else (Arrival group (Nil) #f)))))
+              (else (new Arrival (group group) (candidates (Nil)) (bindings #f))))))
 
     (define (frame-shape (frame Frame)) (→ Shape)
       (match (● frame elements)
@@ -897,23 +929,27 @@
       (match shape
         ((Binding bindings)
          (if (and (= index bindings) opens)
-             (Arrival group (Nil) #t)
-             (Arrival group
-                      (candidate-at group start (> index bindings) (Break))
-                      #f)))
+             (new Arrival (group group) (candidates (Nil)) (bindings #t))
+             (new Arrival (group group)
+                  (candidates (candidate-at group start (> index bindings) (Break)))
+                  (bindings #f))))
         ((Body from)
-         (Arrival group (candidate-at group start (>= index from) (Break)) #f))
+         (new Arrival
+           (group group)
+           (candidates (candidate-at group start (>= index from) (Break)))
+           (bindings #f)))
         ((Arguments)
-         (Arrival group
-                  (if (>= index 2)
-                      (candidate-at group start #t (Break))
-                      (fallback-at extent group start index))
-                  #f))))
+         (new Arrival (group group)
+              (candidates (if (>= index 2)
+                              (candidate-at group start #t (Break))
+                              (fallback-at extent group start index)))
+              (bindings #f)))))
 
     (define (candidate-at (group Group) (start I64) (breaks Bool) (place Place))
       (→ (List Candidate))
       (if breaks
-          (list (Candidate (● group depth) (● group key) start place))
+          (list
+           (new Candidate (depth (● group depth)) (key (● group key)) (offset start) (place place)))
           (Nil)))
 
     ;; A call's first argument, which would move under the call's head.
@@ -949,9 +985,9 @@
     (define (settle (breaking Breaking) (scan Scan) (arrival (Option Arrival))) (→ Breaking)
       (match arrival
         ((Some (Arrival group candidates _))
-         (Breaking scan
-                   (Cons group (list-drop (● breaking groups) 1))
-                   (append candidates (● breaking candidates))))
+         (new Breaking (scan scan)
+              (groups (Cons group (list-drop (● breaking groups) 1)))
+              (candidates (append candidates (● breaking candidates)))))
         ((None) (Breaking-scan-set breaking scan))))
 
     ;; The group of a list that opens at `key`: the binding form's, when the
@@ -960,8 +996,13 @@
     (define (opened-group (arrival (Option Arrival)) (depth I64) (key I64)) (→ Group)
       (match arrival
         ((Some (Arrival owner _ #t))
-         (Group (● owner depth) (● owner key) #t (None) #f))
-        (_ (Group depth key #f (None) #f))))
+         (new Group
+           (depth (● owner depth))
+           (key (● owner key))
+           (bindings #t)
+           (head (None))
+           (effects #f)))
+        (_ (new Group (depth depth) (key key) (bindings #f) (head (None)) (effects #f)))))
 
     ;; A list closes; a parenthesis too many leaves the top level in place.
 
@@ -993,9 +1034,9 @@
         (match token
           ((Prefix _) (Breaking-scan-set breaking scan))
           ((Close _)
-           (Breaking scan
-                     (close-group (● breaking groups))
-                     (● breaking candidates)))
+           (new Breaking (scan scan)
+                (groups (close-group (● breaking groups)))
+                (candidates (● breaking candidates))))
           ((Open offset _)
            (open-list extent breaking scan start (+ offset shift)))
           ((Atom offset text)
@@ -1019,9 +1060,9 @@
       (reverse
        (● (fold-left (lambda (breaking token)
                        (break-token extent shift index breaking token))
-                     (Breaking (Scan frames (None) (None))
-                               (enclosing-groups frames)
-                               (Nil))
+                     (new Breaking (scan (new Scan (frames frames) (first (None)) (prefix (None))))
+                          (groups (enclosing-groups frames))
+                          (candidates (Nil)))
                      (● line tokens)) candidates)))
 
     ;; ---- Choosing breaks ----
@@ -1090,10 +1131,10 @@
       (→ (List I64))
       (match (● line tokens)
         ((Cons token _)
-         (let ((extent (Extent text
-                               (+ (token-offset token) shift)
-                               (+ (● line end) shift)
-                               width)))
+         (let ((extent (new Extent (text text)
+                            (first (+ (token-offset token) shift))
+                            (end (+ (● line end) shift))
+                            (width width))))
            (if (and (code-mode? (● line mode)) (> (● extent end) width))
                (chosen-breaks (line-candidates extent line shift frames index))
                (Nil))))

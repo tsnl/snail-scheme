@@ -2,7 +2,7 @@
  (snail core base))
 
 ;; Replacing a linear field would discard what it held.
-(struct Job
+(record Job
   ((name String)
    (work (FnOnce → Unit))))
 

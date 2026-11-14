@@ -14,7 +14,7 @@
  (snail shell wire)
  (snail shell ide application))
 
-(struct IdeApplication
+(record IdeApplication
   ())
 
 (type Save (Option TabbedRecovery))

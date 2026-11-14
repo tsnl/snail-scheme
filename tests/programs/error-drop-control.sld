@@ -5,7 +5,7 @@
 (effect Gen
   ((ctl next (Fn → Unit))))
 
-(struct Handle
+(record Handle
   ((id I64)))
 
 (instance (Drop (! Gen) Handle)

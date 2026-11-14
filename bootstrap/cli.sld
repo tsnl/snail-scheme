@@ -42,7 +42,7 @@
 
 ;; What one invocation asks for. A build's `target` is a build target, a
 ;; run's a run target.
-(struct Job
+(record Job
   ((tools Tools)
    (run? Bool)
    (mode Mode)
@@ -56,9 +56,10 @@
 (define (request (arguments (List String))) (→ Job)
   (match arguments
     ((Cons _ (Cons root (Cons runtime (Cons action rest))))
-     (let ((tools (Tools root runtime (match (environment-variable "NODE")
-                                        ((Some node) node)
-                                        ((None) "node")))))
+     (let ((tools
+            (new Tools (root root) (runtime runtime) (node (match (environment-variable "NODE")
+                                                             ((Some node) node)
+                                                             ((None) "node"))))))
        (cond ((string=? action "build") (build-request tools rest))
              ((string=? action "run") (run-request tools rest))
              ((string=? action "resident") (resident-request tools rest))
@@ -68,18 +69,45 @@
 (define (build-request (tools Tools) (arguments (List String))) (→ Job)
   (match arguments
     ((Cons "--release" (Cons project (Cons target (Nil))))
-     (Job tools #f (Release) (resolved project) target (Nil)))
-    ((Cons project (Cons target (Nil))) (Job tools #f (Debug) (resolved project) target (Nil)))
+     (new Job
+       (tools tools)
+       (run? #f)
+       (mode (Release))
+       (project (resolved project))
+       (target target)
+       (arguments (Nil))))
+    ((Cons project (Cons target (Nil)))
+     (new Job
+       (tools tools)
+       (run? #f)
+       (mode (Debug))
+       (project (resolved project))
+       (target target)
+       (arguments (Nil))))
     (_ (panic (usage)))))
 
 (define (run-request (tools Tools) (arguments (List String))) (→ Job)
   (match arguments
-    ((Cons project (Cons target rest)) (Job tools #t (Debug) (resolved project) target rest))
+    ((Cons project (Cons target rest))
+     (new Job
+       (tools tools)
+       (run? #t)
+       (mode (Debug))
+       (project (resolved project))
+       (target target)
+       (arguments rest)))
     (_ (panic (usage)))))
 
 (define (resident-request (tools Tools) (arguments (List String))) (→ Job)
   (match arguments
-    ((Cons project (Nil)) (Job tools #f (Development) (resolved project) "" (Nil)))
+    ((Cons project (Nil))
+     (new Job
+       (tools tools)
+       (run? #f)
+       (mode (Development))
+       (project (resolved project))
+       (target "")
+       (arguments (Nil))))
     (_ (panic "usage: snail resident PROJECT"))))
 
 ;; A path made absolute against the working directory, without empty or
@@ -153,13 +181,13 @@
                                            description
                                            (● (● run program) name)))
             (tools (● job tools))
-            (error (exec (Command (● tools node)
-                                  (append (list "--no-warnings"
-                                                (string-append (● tools root)
-                                                               "/host/native/run-snail.mjs")
-                                                (string-append generation "/program.wasm"))
-                                          (append (● run arguments) (● job arguments)))
-                                  "."))))
+            (error (exec (new Command (program (● tools node))
+                              (arguments (append (list "--no-warnings"
+                                                       (string-append (● tools root)
+                                                                      "/host/native/run-snail.mjs")
+                                                       (string-append generation "/program.wasm"))
+                                                 (append (● run arguments) (● job arguments))))
+                              (directory ".")))))
        (panic (string-append "cannot run " (● tools node) ": " (● error code)))))))
 
 ;; ---- The resident builder ----
@@ -185,7 +213,7 @@
 ;; Each request rebuilds every configured target. Only an unpublished
 ;; candidate survives between requests; no compiler cache does. The
 ;; resident exits when its input ends.
-(struct Resident
+(record Resident
   ((job Job)
    (held (Option (Pair I64 Candidate)))))
 
@@ -206,14 +234,14 @@
     ((BuildRequest epoch prefix) (build-for resident epoch prefix))
     ((PublishRequest epoch)
      (let ((published (publish-project (held resident epoch))))
-       (reply (list (Pair "epoch" (JsonInteger epoch))
-                    (Pair "error" (match published
-                                    ((Ok _) (JsonNull))
-                                    ((Err message) (JsonString message))))))
+       (reply (list (new Pair (first "epoch") (second (JsonInteger epoch)))
+                    (new Pair (first "error") (second (match published
+                                                        ((Ok _) (JsonNull))
+                                                        ((Err message) (JsonString message)))))))
        (Resident-held-set resident (None))))
     ((DiscardRequest epoch)
      (discard-candidate (held resident epoch))
-     (reply (list (Pair "epoch" (JsonInteger epoch))))
+     (reply (list (new Pair (first "epoch") (second (JsonInteger epoch)))))
      (Resident-held-set resident (None)))))
 
 (define (build-for (resident Resident) (epoch I64) (prefix String))
@@ -239,21 +267,23 @@
               (milliseconds (quotient (- (monotonic-nanoseconds) began) 1000000)))
          (match built
            ((Ok candidate)
-            (reply (list (Pair "epoch" (JsonInteger epoch))
-                         (Pair "description" (description->json description))
-                         (Pair "candidate" (candidate->json candidate description milliseconds))
-                         (Pair "diagnostics" (JsonArray (Nil)))))
-            (Resident job (Some (Pair epoch candidate))))
+            (reply (list (new Pair (first "epoch") (second (JsonInteger epoch)))
+                         (new Pair (first "description") (second (description->json description)))
+                         (new Pair
+                           (first "candidate")
+                           (second (candidate->json candidate description milliseconds)))
+                         (new Pair (first "diagnostics") (second (JsonArray (Nil))))))
+            (new Resident (job job) (held (Some (new Pair (first epoch) (second candidate))))))
            ((Err failure)
             (reply (build-reply epoch (description->json description) (JsonNull) failure))
-            (Resident job (None)))))))))
+            (new Resident (job job) (held (None))))))))))
 
 (define (build-reply (epoch I64) (description Json) (candidate Json) (failure Failure))
   (→ (List (Pair String Json)))
-  (list (Pair "epoch" (JsonInteger epoch))
-        (Pair "description" description)
-        (Pair "candidate" candidate)
-        (Pair "diagnostics" (JsonArray (failure-diagnostics failure)))))
+  (list (new Pair (first "epoch") (second (JsonInteger epoch)))
+        (new Pair (first "description") (second description))
+        (new Pair (first "candidate") (second candidate))
+        (new Pair (first "diagnostics") (second (JsonArray (failure-diagnostics failure))))))
 
 (define (held (resident Resident) (epoch I64)) (→ Candidate)
   (match (● resident held)
@@ -308,66 +338,79 @@
 ;; with its source point.
 
 (define (description->json (description Project)) (→ Json)
-  (JsonObject (list (Pair "builds" (JsonArray (map build->json (● description builds))))
-                    (Pair "runs" (JsonArray (map run->json (● description runs)))))))
+  (JsonObject
+   (list (new Pair (first "builds") (second (JsonArray (map build->json (● description builds)))))
+         (new Pair (first "runs") (second (JsonArray (map run->json (● description runs))))))))
 
 (define (entry->json (entry ProjectEntry)) (→ Json)
   (match entry
     ((SourceEntry path) (JsonString (● path text)))
     ((ApplicationEntry library name)
-     (JsonObject (list (Pair "library" (JsonArray (map JsonString library)))
-                       (Pair "type" (JsonString name)))))))
+     (JsonObject (list (new Pair (first "library") (second (JsonArray (map JsonString library))))
+                       (new Pair (first "type") (second (JsonString name))))))))
 
 (define (build->json (target BuildTarget)) (→ Json)
   (match target
     ((ProgramTarget program)
-     (JsonObject (list (Pair "kind" (JsonString "program"))
-                       (Pair "name" (JsonString (● program name)))
-                       (Pair "entry" (entry->json (● program entry)))
-                       (Pair "location" (JsonString (loc->string (● program loc))))
-                       (Pair "libraries" (paths->json (● program libraries))))))
+     (JsonObject (list (new Pair (first "kind") (second (JsonString "program")))
+                       (new Pair (first "name") (second (JsonString (● program name))))
+                       (new Pair (first "entry") (second (entry->json (● program entry))))
+                       (new Pair
+                         (first "location")
+                         (second (JsonString (loc->string (● program loc)))))
+                       (new Pair
+                         (first "libraries")
+                         (second (paths->json (● program libraries)))))))
     ((BrowserTarget browser)
-     (JsonObject (list (Pair "kind" (JsonString "browser"))
-                       (Pair "name" (JsonString (● browser name)))
-                       (Pair "entry" (entry->json (● browser entry)))
-                       (Pair "location" (JsonString (loc->string (● browser loc))))
-                       (Pair "libraries" (paths->json (● browser libraries)))
-                       (Pair "public" (match (● browser public)
-                                        ((Some path) (JsonString (● path text)))
-                                        ((None) (JsonNull)))))))))
+     (JsonObject (list (new Pair (first "kind") (second (JsonString "browser")))
+                       (new Pair (first "name") (second (JsonString (● browser name))))
+                       (new Pair (first "entry") (second (entry->json (● browser entry))))
+                       (new Pair
+                         (first "location")
+                         (second (JsonString (loc->string (● browser loc)))))
+                       (new Pair (first "libraries") (second (paths->json (● browser libraries))))
+                       (new Pair (first "public") (second (match (● browser public)
+                                                            ((Some path) (JsonString (● path text)))
+                                                            ((None) (JsonNull))))))))))
 
 (define (paths->json (paths (List ProjectPath))) (→ Json)
   (JsonArray (map (lambda (path) (JsonString (● path text))) paths)))
 
 (define (run->json (run RunTarget)) (→ Json)
-  (JsonObject (list (Pair "kind" (JsonString "run"))
-                    (Pair "name" (JsonString (● run name)))
-                    (Pair "build" (JsonString (● (● run program) name)))
-                    (Pair "location" (JsonString (loc->string (● run loc))))
-                    (Pair "args" (JsonArray (map JsonString (● run arguments)))))))
+  (JsonObject (list (new Pair (first "kind") (second (JsonString "run")))
+                    (new Pair (first "name") (second (JsonString (● run name))))
+                    (new Pair (first "build") (second (JsonString (● (● run program) name))))
+                    (new Pair (first "location") (second (JsonString (loc->string (● run loc)))))
+                    (new Pair
+                      (first "args")
+                      (second (JsonArray (map JsonString (● run arguments))))))))
 
 ;; How long the build took, and each target's generation, with its
 ;; digests and how many of its modules the build compiled.
 
 (define (candidate->json (candidate Candidate) (description Project) (milliseconds I64)) (→ Json)
   (JsonObject
-   (list (Pair "project" (JsonString (● candidate project)))
-         (Pair "milliseconds" (JsonInteger milliseconds))
-         (Pair "description" (description->json description))
-         (Pair "targets" (JsonArray (map output->json (● candidate outputs)))))))
+   (list (new Pair (first "project") (second (JsonString (● candidate project))))
+         (new Pair (first "milliseconds") (second (JsonInteger milliseconds)))
+         (new Pair (first "description") (second (description->json description)))
+         (new Pair
+           (first "targets")
+           (second (JsonArray (map output->json (● candidate outputs))))))))
 
 (define (output->json (output Output)) (→ Json)
-  (JsonObject (list (Pair "name" (JsonString (● output name)))
-                    (Pair "directory" (JsonString (● output directory)))
-                    (Pair "digest" (JsonString (● output digest)))
-                    (Pair "compiled" (JsonInteger (● output compiled)))
-                    (Pair "modules" (JsonInteger (● output modules)))
-                    (Pair "files"
-                          (JsonObject (map (lambda (file)
-                                             (Pair (● file first)
-                                                   (JsonString (● file second))))
-                                           (● output files))))
-                    (Pair "linked" (JsonArray (map JsonString (● output linked)))))))
+  (JsonObject (list (new Pair (first "name") (second (JsonString (● output name))))
+                    (new Pair (first "directory") (second (JsonString (● output directory))))
+                    (new Pair (first "digest") (second (JsonString (● output digest))))
+                    (new Pair (first "compiled") (second (JsonInteger (● output compiled))))
+                    (new Pair (first "modules") (second (JsonInteger (● output modules))))
+                    (new Pair (first "files")
+                         (second (JsonObject (map (lambda (file)
+                                                    (new Pair (first (● file first))
+                                                         (second (JsonString (● file second)))))
+                                                  (● output files)))))
+                    (new Pair
+                      (first "linked")
+                      (second (JsonArray (map JsonString (● output linked))))))))
 
 ;; A failure's diagnostics as the editor shows them: a compile's, each
 ;; naming its source point when it has one, or the build's one.
@@ -389,14 +432,14 @@
           (else (diagnostic->json (diagnostic->string diagnostic) (JsonNull))))))
 
 (define (source->json (loc Loc)) (→ Json)
-  (JsonObject (list (Pair "file" (JsonString (● loc file)))
-                    (Pair "line" (JsonInteger (● loc line)))
-                    (Pair "column" (JsonInteger (● loc column))))))
+  (JsonObject (list (new Pair (first "file") (second (JsonString (● loc file))))
+                    (new Pair (first "line") (second (JsonInteger (● loc line))))
+                    (new Pair (first "column") (second (JsonInteger (● loc column)))))))
 
 (define (diagnostic->json (message String) (source Json)) (→ Json)
-  (JsonObject (list (Pair "severity" (JsonString "error"))
-                    (Pair "message" (JsonString message))
-                    (Pair "source" source))))
+  (JsonObject (list (new Pair (first "severity") (second (JsonString "error")))
+                    (new Pair (first "message") (second (JsonString message)))
+                    (new Pair (first "source") (second source)))))
 
 ;; ---- The development service ----
 
@@ -409,9 +452,25 @@
                 ((None) "node"))))
     (match arguments
       ((Cons editor (Cons client (Cons "--port" (Cons port (Cons project (Nil))))))
-       (Setup root cli runtime node editor client (resolved project) (port-number port)))
+       (new Setup
+         (root root)
+         (cli cli)
+         (runtime runtime)
+         (node node)
+         (editor editor)
+         (client client)
+         (project (resolved project))
+         (port (port-number port))))
       ((Cons editor (Cons client (Cons project (Nil))))
-       (Setup root cli runtime node editor client (resolved project) 8000))
+       (new Setup
+         (root root)
+         (cli cli)
+         (runtime runtime)
+         (node node)
+         (editor editor)
+         (client client)
+         (project (resolved project))
+         (port 8000)))
       (_ (panic "usage: snail dev [--port PORT] PROJECT")))))
 
 (define (port-number (text String)) (→ I32)
@@ -432,7 +491,7 @@
 
 (define (invoke (job Job)) (→ Unit) (! mut fs clock process input-port output-port)
   (match (● job mode)
-    ((Development) (serve (Resident job (None))))
+    ((Development) (serve (new Resident (job job) (held (None)))))
     (_
      (match (read-project (● job project))
        ((Err failure) (panic (failure->string failure)))

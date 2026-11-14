@@ -26,7 +26,7 @@
   (add a a))
 
 ;; An output of an earlier prerequisite becomes a later prerequisite's input.
-(struct (Box A)
+(record (Box A)
   ((value A)))
 
 (typeclass (Extract T)
@@ -81,9 +81,9 @@
   (newline)
   (display (twice (ann 7 I64)))
   (newline)
-  (display (sum (Box (ann 4 I64)) 0.5))
+  (display (sum (new Box (value (ann 4 I64))) 0.5))
   (newline)
-  (display (flatten (Box (Box (ann 9 I64)))))
+  (display (flatten (new Box (value (new Box (value (ann 9 I64)))))))
   (newline)
   (display (identity (ann 11 I64)))
   (newline)

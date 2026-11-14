@@ -9,7 +9,7 @@
 (effect Ask
   ((ctl ask (Fn → I64))))
 
-(struct Handle
+(record Handle
   ((name String)))
 
 (instance (Drop (! audit) Handle)
@@ -22,4 +22,4 @@
   value)
 
 (define (use) (→ Handle) (! Ask)
-  (hold (Handle "h") (lambda () (ask) (unit))))
+  (hold (new Handle (name "h")) (lambda () (ask) (unit))))

@@ -10,7 +10,7 @@
 ;; Build an independent worktree so this repository's own excludes and index
 ;; cannot decide the answers. No commits or user identity are needed.
 (define (git (directory String) (arguments (List String))) (→ String) (! process)
-  (match (run (Command "git" arguments directory) #u8())
+  (match (run (new Command (program "git") (arguments arguments) (directory directory)) #u8())
     ((Ok result)
      (match (● result exit)
        ((Exited 0)

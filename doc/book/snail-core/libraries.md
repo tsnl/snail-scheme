@@ -187,9 +187,9 @@ effects. `(snail core base)` supplies `Repr` instances for numeric scalars,
 booleans, characters, strings, `Unit`, lists, vectors, `Option`, `Result`
 and `Pair`. Lists use `(element ...)`, vectors use `#(element ...)`, and
 the other containers name their constructors, such as `(Some "hello")`
-or `(Pair 1 "one")`. Vectors require `Copy` elements.
+or `(new Pair (first 1) (second "one"))`. Vectors require `Copy` elements.
 
-A struct or enum can request constructor notation with `(deriving Repr)`:
+A record or enum can request constructor notation with `(deriving Repr)`:
 
 ```scheme
 (enum Action
@@ -204,8 +204,8 @@ A struct or enum can request constructor notation with `(deriving Repr)`:
 Deriving generates a pure instance that matches each constructor and
 represents its fields in declaration order. Generic type parameters require
 `Copy` and `Repr`. Deriving requires a Copy type, so formatting cannot consume
-a resource owner without releasing it. A struct with mutable fields cannot
-derive an instance.
+a resource owner without releasing it. Records print named construction syntax, `(new Name (field value) ...)`; enum
+cases keep positional notation.
 An explicit `(instance (Repr T) (define repr (lambda (value) ...)))` chooses custom
 notation. A `Show` instance alone does not supply `Repr`; missing instances
 are compile errors.
@@ -302,20 +302,20 @@ program's runtime for staging memory. See [linking by hand](compilers.md#linking
 
 ## Wire types
 
-`(deriving Serialize Deserialize)` at the end of a struct or enum generates
+`(deriving Serialize Deserialize)` at the end of a record or enum generates
 instances of `(snail shell wire)`'s classes. `serialize` writes a value as bytes and
 `deserialize` reads it back:
 
 ```scheme
-(struct Point
+(record Point
   ((x I64)
    (y I64))
   (deriving Serialize Deserialize))
 
-(ann (deserialize (serialize (Point 1 2))) Point)
+(ann (deserialize (serialize (new Point (x 1) (y 2)))) Point)
 ```
 
-Each struct and enum case has a 32-bit TypeId hashed from its library, name
-and field schema. Every struct or enum value is written as its case's TypeId
+Each record and enum case has a 32-bit TypeId hashed from its library, name
+and field schema. Every record or enum value is written as its case's TypeId
 followed by its fields, so reading data written for another schema fails at
 the first changed type instead of misreading it.

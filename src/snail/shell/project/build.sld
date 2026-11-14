@@ -62,7 +62,7 @@
     ;; libraries (src/), the browser host's files and the native runner,
     ;; `runtime` is the runtime module a program is linked with, and `node`
     ;; runs producers. Assembly and linking use the toolchain runtime.
-    (struct Tools
+    (record Tools
       ((root String)
        (runtime String)
        (node String)))
@@ -139,7 +139,7 @@
     ;; description, the mode, the scratch directory its compiles and
     ;; producers work in, which no other build shares, and the prefix its
     ;; generations' names begin with.
-    (struct Builder
+    (record Builder
       ((tools Tools)
        (project String)
        (description Project)
@@ -155,17 +155,17 @@
       (map (lambda (target)
              (match target
                ((ProgramTarget program)
-                (Target (● program name)
-                        #f
-                        (entry-source builder #f (● program entry))
-                        (library-directories builder (● program libraries))
-                        (● program loc)))
+                (new Target (name (● program name))
+                     (browser? #f)
+                     (entry (entry-source builder #f (● program entry)))
+                     (directories (library-directories builder (● program libraries)))
+                     (loc (● program loc))))
                ((BrowserTarget browser)
-                (Target (● browser name)
-                        #t
-                        (entry-source builder #t (● browser entry))
-                        (library-directories builder (● browser libraries))
-                        (● browser loc)))))
+                (new Target (name (● browser name))
+                     (browser? #t)
+                     (entry (entry-source builder #t (● browser entry)))
+                     (directories (library-directories builder (● browser libraries)))
+                     (loc (● browser loc))))))
            (● (● builder description) builds)))
 
     ;; Entry selection emits ordinary source, so normal import resolution,
@@ -200,7 +200,7 @@
                      "(prefix (" (string-join library " ") ") selected:))\n"
                      (if browser?
                          "(define-page-entry selected:"
-                         "(define main (lambda () (start (ann (Entry) (Entry selected:")
+                         "(define main (lambda () (start (ann (new Entry) (Entry selected:")
                      name (if browser? ")\n" ")))))\n")))
 
     (define (in-project (builder Builder) (path ProjectPath)) (→ String)
@@ -229,7 +229,7 @@
     ;; but its modules and linked files, whose names are already digests,
     ;; by relative name. `linked` holds the paths of the files its program
     ;; links; editing one compiles the library that links it again.
-    (struct Output
+    (record Output
       ((name String)
        (directory String)
        (digest String)
@@ -240,20 +240,20 @@
 
     ;; What a build made and has not published: each target's generation,
     ;; in plan order, which puts the first root first.
-    (struct Candidate
+    (record Candidate
       ((project String)
        (outputs (List Output))))
 
     ;; A module as assembled: its library, its bytes, and their digest,
     ;; which names the object it is placed as.
-    (struct Assembled
+    (record Assembled
       ((library String)
        (digest String)
        (bytes Bytes)))
 
     ;; A built target: its node in the plan, its generation, and the files
     ;; in it, each relative name with its path, in name order.
-    (struct Generation
+    (record Generation
       ((node I64)
        (output Output)
        (files (List (Pair String String)))))
@@ -262,7 +262,7 @@
     ;; with, the targets built, the names of those whose files the inputs
     ;; already hold, and the failure that stopped this attempt, if one did.
     ;; No phase runs after a failure.
-    (struct Progress
+    (record Progress
       ((inputs Inputs)
        (generations (List Generation))
        (supplied (List String))
@@ -276,7 +276,14 @@
       (match (attempt (lambda () (fresh-scratch scratch)))
         ((Err failure) (Err failure))
         ((Ok working)
-         (let ((built (build-roots (Builder tools directory project mode working prefix) names)))
+         (let ((built (build-roots (new Builder
+                                     (tools tools)
+                                     (project directory)
+                                     (description project)
+                                     (mode mode)
+                                     (scratch working)
+                                     (prefix prefix))
+                                   names)))
            (remove-tree working)
            built))))
 
@@ -289,7 +296,14 @@
       (match (attempt (lambda () (plan-roots builder names)))
         ((Err failure) (Err failure))
         ((Ok plan)
-         (outcome builder (run-waves builder plan (Progress (no-inputs) (Nil) (Nil) (None)))))))
+         (outcome builder
+                  (run-waves builder
+                             plan
+                             (new Progress
+                               (inputs (no-inputs))
+                               (generations (Nil))
+                               (supplied (Nil))
+                               (failure (None))))))))
 
     (define (plan-roots (builder Builder) (names (List String))) (→ Plan) (! fs building)
       (let* ((targets (plan-targets builder))
@@ -307,9 +321,9 @@
          (discard (map (lambda (record) (● record output)) (● progress generations)))
          (Err failure))
         ((None)
-         (Ok (Candidate (● builder project)
-                        (map (lambda (record) (● record output))
-                             (by-node (● progress generations))))))))
+         (Ok (new Candidate (project (● builder project))
+                  (outputs (map (lambda (record) (● record output))
+                                (by-node (● progress generations)))))))))
 
     ;; Runs each wave's phases in order. A wave that leaves phases waiting
     ;; has run the producers whose outputs they need, and the plan refined
@@ -406,7 +420,8 @@
     ;; an embedded page is complete wherever it is served from.
 
     (define (snapshot (generation Generation)) (→ ArtifactFiles) (! fs building)
-      (let ((files (map (lambda (file) (Pair (● file first) (read-bytes (● file second))))
+      (let ((files (map (lambda (file)
+                          (new Pair (first (● file first)) (second (read-bytes (● file second)))))
                         (● generation files))))
         (match (assoc-ref files "modules.json")
           ((Some bytes)
@@ -422,13 +437,14 @@
            (list-sort (lambda (a b) (string<? (● a first) (● b first)))
                       (append (map (lambda (file)
                                      (if (string=? (● file first) "modules.json")
-                                         (Pair "modules.json"
-                                               (string->utf8 (json->string (store-set json))))
+                                         (new Pair (first "modules.json")
+                                              (second
+                                               (string->utf8 (json->string (store-set json)))))
                                          file))
                                    files)
                               (map (lambda (digest)
-                                     (Pair (object-path "store" digest)
-                                           (read-bytes (object-path store digest))))
+                                     (new Pair (first (object-path "store" digest))
+                                          (second (read-bytes (object-path store digest)))))
                                    (manifest-digests json))))))
         ((None) (fail-build (string-append directory "/modules.json is not a manifest")))))
 
@@ -455,7 +471,7 @@
         ((JsonObject members)
          (JsonObject (map (lambda (member)
                             (if (string=? (● member first) "store")
-                                (Pair "store" (JsonString "store/"))
+                                (new Pair (first "store") (second (JsonString "store/")))
                                 member))
                           members)))
         (_ json)))
@@ -489,9 +505,10 @@
         (match (attempt (lambda () (package builder target directory)))
           ((Ok files)
            (Progress-generations-set progress
-                                     (Cons (Generation node
-                                                       (program-output program name directory files)
-                                                       files)
+                                     (Cons (new Generation (node node)
+                                                (output
+                                                 (program-output program name directory files))
+                                                (files files))
                                            (● progress generations))))
           ((Err failure)
            (remove-tree directory)
@@ -512,7 +529,7 @@
 
     ;; What building a target's program left: how many modules it compiled
     ;; of how many, and the files it links, by their sources' paths.
-    (struct Program
+    (record Program
       ((compiled I64)
        (modules I64)
        (linked (List String))))
@@ -524,13 +541,13 @@
       (→ Output)
       (! fs)
       (let ((digests (file-digests files)))
-        (Output name
-                directory
-                (generation-digest files digests)
-                (● program compiled)
-                (● program modules)
-                digests
-                (● program linked))))
+        (new Output (name name)
+             (directory directory)
+             (digest (generation-digest files digests))
+             (compiled (● program compiled))
+             (modules (● program modules))
+             (files digests)
+             (linked (● program linked)))))
 
     ;; The target's program in its generation, with the files it links: one
     ;; module for a debug or release build, a module per library for a
@@ -558,9 +575,9 @@
                          (place-links (string-append directory "/store")
                                       (base-name directory)
                                       links)
-                         (Program 1
-                                  1
-                                  (map (lambda (record) (● record path)) links))))))))
+                         (new Program (compiled 1)
+                              (modules 1)
+                              (linked (map (lambda (record) (● record path)) links)))))))))
 
     ;; A browser target's host files and public tree; then the files the
     ;; generation holds.
@@ -650,7 +667,7 @@
           (unless (string=? (bytes->hex (sha256 bytes)) digest)
             (fail-build (string-append "the linked file " from " changed during the build")))
           (place-object store token digest bytes)
-          (Pair digest (vector-length bytes)))))
+          (new Pair (first digest) (second (vector-length bytes))))))
 
     ;; An object already in the store is left as it is: its bytes are what
     ;; its name says. A new one is written beside its place, under a name
@@ -700,12 +717,19 @@
              (links (concatenate (map (lambda (module) (● module links)) built))))
         (write-modules builder directory modules
                        (place-links (project-store builder) (base-name directory) links))
-        (Program (length modules) (length modules) (map (lambda (file) (● file path)) links))))
+        (new Program
+          (compiled (length modules))
+          (modules (length modules))
+          (linked (map (lambda (file) (● file path)) links)))))
 
     (define (assemble-module (module Built)) (→ Assembled) (! building)
       (let ((text (● module text)))
         (match (assemble text)
-          ((Ok bytes) (Assembled (● module name) (bytes->hex (sha256 bytes)) bytes))
+          ((Ok bytes)
+           (new Assembled
+             (library (● module name))
+             (digest (bytes->hex (sha256 bytes)))
+             (bytes bytes)))
           ((Err message)
            (fail-build (string-append "internal error: cannot assemble the module of "
                                       (● module name)
@@ -731,9 +755,10 @@
         (let ((runtime-digest (bytes->hex (sha256 runtime))))
           (place-object store token runtime-digest runtime)
           (write-file (string-append directory "/modules.json")
-                      (json->string (manifest (Pair runtime-digest (vector-length runtime))
-                                              modules
-                                              files))))))
+                      (json->string
+                       (manifest (new Pair (first runtime-digest) (second (vector-length runtime)))
+                                 modules
+                                 files))))))
 
     ;; The manifest: the store its objects are in, relative to it, the
     ;; runtime, each module in link order, and each file the program links,
@@ -744,17 +769,20 @@
                       (files (List (Pair String I64))))
       (→ Json)
       (JsonObject
-       (list (Pair "runtime" (object-json runtime))
-             (Pair "store" (JsonString (shared-store)))
-             (Pair "modules"
-                   (JsonArray (map (lambda (module)
-                                     (JsonObject
-                                      (Cons (Pair "name" (JsonString (● module library)))
-                                            (object-members (Pair (● module digest)
-                                                                  (vector-length
-                                                                   (● module bytes)))))))
-                                   modules)))
-             (Pair "files" (JsonArray (map object-json files))))))
+       (list (new Pair (first "runtime") (second (object-json runtime)))
+             (new Pair (first "store") (second (JsonString (shared-store))))
+             (new Pair (first "modules")
+                  (second (JsonArray (map (lambda (module)
+                                            (JsonObject
+                                             (Cons (new Pair
+                                                     (first "name")
+                                                     (second (JsonString (● module library))))
+                                                   (object-members
+                                                    (new Pair (first (● module digest))
+                                                         (second (vector-length
+                                                                  (● module bytes))))))))
+                                          modules))))
+             (new Pair (first "files") (second (JsonArray (map object-json files)))))))
 
     ;; An object as a manifest names it: its digest and size.
 
@@ -762,8 +790,8 @@
       (JsonObject (object-members object)))
 
     (define (object-members (object (Pair String I64))) (→ (List (Pair String Json)))
-      (list (Pair "digest" (JsonString (● object first)))
-            (Pair "size" (JsonInteger (● object second)))))
+      (list (new Pair (first "digest") (second (JsonString (● object first))))
+            (new Pair (first "size") (second (JsonInteger (● object second))))))
 
     ;; Runs a command to its end, and stops the build with what it wrote to
     ;; stderr unless it exits with status 0.
@@ -818,12 +846,13 @@
       (→ Unit)
       (! fs process building)
       (let ((tools (● builder tools)))
-        (run-command (Command (● tools node)
-                              (list "--no-warnings"
-                                    (string-append (● tools root) "/host/native/run-snail.mjs")
-                                    program
-                                    output)
-                              ".")
+        (run-command (new Command (program (● tools node))
+                          (arguments (list "--no-warnings"
+                                           (string-append (● tools root)
+                                                          "/host/native/run-snail.mjs")
+                                           program
+                                           output))
+                          (directory "."))
                      "the producer")
         (unless (file-exists? output)
           (fail-build "the producer did not write its generated library"))))
@@ -1019,7 +1048,9 @@
       (→ (List (Pair String String)))
       (! fs)
       (map (lambda (file)
-             (Pair (● file first) (bytes->hex (sha256 (read-bytes (● file second))))))
+             (new Pair
+               (first (● file first))
+               (second (bytes->hex (sha256 (read-bytes (● file second)))))))
            (filter (lambda (file) (not (content-named? (● file first)))) files)))
 
     (define (content-named? (name String)) (→ Bool)
@@ -1052,7 +1083,7 @@
                      (path (string-append directory "/" file)))
                 (match (status-kind path)
                   ((Some (Directory)) (files-under directory file))
-                  ((Some (RegularFile)) (list (Pair file path)))
+                  ((Some (RegularFile)) (list (new Pair (first file) (second path))))
                   (_ (fail-build (string-append
                                   "completed output must contain regular files and directories: "
                                   path))))))
@@ -1123,7 +1154,7 @@
         ((Err _) (None))))
 
     (define (kind-is? (path String) (kind FileKind)) (→ Bool) (! fs)
-      (match (Pair (status-kind path) kind)
+      (match (new Pair (first (status-kind path)) (second kind))
         ((Pair (Some (RegularFile)) (RegularFile)) #t)
         ((Pair (Some (Directory)) (Directory)) #t)
         ((Pair (Some (SymbolicLink)) (SymbolicLink)) #t)

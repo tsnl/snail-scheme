@@ -1,7 +1,7 @@
 (import
  (snail core base))
 
-(struct Bad
+(record Bad
   ((work (Vector (FnOnce → Unit)))))
 
 (define main

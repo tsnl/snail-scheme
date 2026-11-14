@@ -6,7 +6,7 @@
 (effect Pause ((ctl pause (Fn → Unit))))
 (effect Abort ((ctl stop (Fn → Never))))
 
-(struct Resource
+(record Resource
   ((number I64)))
 
 (instance (Drop (! Audit) Resource)
@@ -22,8 +22,8 @@
 ;; Cancellation must finalize 2 before dropping 1. The old backup closure
 ;; delayed 2 until its own captures were released, incorrectly printing 1 first.
 (define (work) (→ Unit) (! Pause Audit mut)
-  (let* ((linear (Resource 1))
-         (shared (rc (Resource 2)))
+  (let* ((linear (new Resource (number 1)))
+         (shared (rc (new Resource (number 2))))
          (alias shared))
     (pause)
     (pause)
@@ -38,7 +38,7 @@
 ;; The owner has no source read in the Never continuation. It still belongs
 ;; to cancellation after pause, or to direct cleanup when stop aborts.
 (define (abandon) (→ Never) (! Pause Abort Audit)
-  (let ((unread (Resource 3)))
+  (let ((unread (new Resource (number 3))))
     (pause)
     (stop)))
 
@@ -56,7 +56,7 @@
     ((Done) (unit))
     ((More next) (finish (next (unit))))))
 
-(struct Observer
+(record Observer
   ((weak (WeakRc Resource))))
 
 (instance (Drop (! Audit mut) Observer)
@@ -84,10 +84,10 @@
 ;; Tail transfer releases this constructing scope before observed starts;
 ;; no outer counted alias may mask the cancellation order being tested.
 (define (new-observed (abort Bool)) (→ Unit) (! Pause Abort Audit mut)
-  (let ((shared (rc (Resource 5))))
-    (observed (Observer (rc-downgrade shared)) shared abort)))
+  (let ((shared (rc (new Resource (number 5)))))
+    (observed (new Observer (weak (rc-downgrade shared))) shared abort)))
 
-(struct Finish
+(record Finish
   ((step Step)))
 
 (instance (Drop (! Audit mut) Finish)
@@ -99,7 +99,7 @@
 ;; computation. The cancelling continuation must already own no frames.
 (define (start-finish) (→ Step) (! Audit mut)
   (handle Pause ((pause (lambda (resume) (More resume))))
-    (let ((resource (rc (Finish (start)))))
+    (let ((resource (rc (new Finish (step (start))))))
       (pause)
       (drop resource))
     (Done)))

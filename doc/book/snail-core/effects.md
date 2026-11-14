@@ -509,7 +509,7 @@ syntax for this explicit packaging remains to be designed.
 Saved resumptions use
 [tagged GC frame chains](compilers.md#saved-frame-representation) whose types
 do not grow with stack depth. The queue stores managed references to packaged
-jobs; it does not create an array of inline struct values or erase arbitrary
+jobs; it does not create an array of inline record values or erase arbitrary
 source closures and object references. A new package variant rebuilds the
 affected dispatchers. Unknown runtime-loaded variants require another ABI
 and are outside this design.

@@ -18,7 +18,7 @@
     ((Ok value) value)
     ((Err error) (panic (● error code)))))
 
-(struct Buffer
+(record Buffer
   ((bytes Bytes)))
 
 (define (main) (→ Unit) (! host mut output-port tasks)
@@ -32,9 +32,10 @@
            (handle tcp
                ((listen
                  (lambda (endpoint)
-                   (Ok (Listener (Any endpoint) (Endpoint-port endpoint)))))
-                (connect (lambda (_) (Ok (Connection (Any (Buffer #u8()))))))
-                (accept (lambda (_) (Ok (Connection (Any (Buffer #u8()))))))
+                   (Ok (new Listener (token (Any endpoint)) (port (Endpoint-port endpoint))))))
+                (connect
+                 (lambda (_) (Ok (new Connection (token (Any (new Buffer (bytes #u8()))))))))
+                (accept (lambda (_) (Ok (new Connection (token (Any (new Buffer (bytes #u8()))))))))
                 (read (lambda (connection _)
                         (Ok
                          (Some

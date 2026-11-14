@@ -1,6 +1,6 @@
 ;; Compiler-owned properties of types, found from their structure: whether a
 ;; type is linear, what dropping
-;; one of its values runs, and whether a struct contains itself. A
+;; one of its values runs, and whether a record contains itself. A
 ;; procedure's arrow does not describe its captured environment.
 (define-library (snail shell compiler capabilities)
   (export
@@ -74,7 +74,7 @@
     ;; `(Option (Queue T))` and `(Option T)` do, are not recursion, so each is
     ;; searched through its fields. Carrying the sets rather than mutating
     ;; them keeps the query a function of its arguments.
-    (struct Linearity
+    (record Linearity
       ((found? Bool)
        (keys (List String))
        (names (List String))))
@@ -85,7 +85,8 @@
     ;; linear value while remaining Copy; WeakRc has no ownership of its target.
 
     (define (linear-type? (program Program) (copy (List String)) (type Type)) (→ Bool)
-      (● (linear-search program copy type (Linearity #f (Nil) (Nil))) found?))
+      (● (linear-search program copy type (new Linearity (found? #f) (keys (Nil)) (names (Nil))))
+         found?))
 
     (define (linear-search (program Program) (copy (List String)) (type Type) (progress Linearity))
       (→ Linearity)
@@ -117,7 +118,10 @@
               (else
                (let* ((names (● progress names))
                       (entered
-                       (Linearity #f (Cons key (● progress keys)) (Cons name names))))
+                       (new Linearity
+                         (found? #f)
+                         (keys (Cons key (● progress keys)))
+                         (names (Cons name names)))))
                  (Linearity-names-set (linear-fields program copy name args entered) names))))))
 
     (define (linear-any (program Program)
@@ -210,7 +214,7 @@
                                    (bindings Substitution))
       (→ (Option String))
       (fold-left (lambda (refusal var)
-                   (match (Pair refusal (assoc-ref bindings var))
+                   (match (new Pair (first refusal) (second (assoc-ref bindings var)))
                      ((Pair (None) (Some bound))
                       (copy-refusal program
                                     copy
@@ -257,7 +261,7 @@
     ;; found by its type's name in both.
 
     (define (plan-covers? (checked (Option Plan)) (ground Plan)) (→ Bool)
-      (match (Pair checked ground)
+      (match (new Pair (first checked) (second ground))
         ((Pair (None) _) #t)
         ((Pair _ (Trivial)) #t)
         ((Pair (Some (Implemented charged)) (Implemented found))
@@ -362,7 +366,7 @@
     ;; so it needs an instance instead, while sibling fields may hold one
     ;; declaration at different arguments, as `(Option Handle)` and
     ;; `(Option Token)`.
-    (struct RowSearch
+    (record RowSearch
       ((rows (List Type))
        (keys (List Type))
        (names (List String))))
@@ -372,7 +376,11 @@
                        (givens (List Constraint))
                        (type Type))
       (→ (Result (List Type) String))
-      (match (drop-rows-search program copy givens type (Ok (RowSearch (Nil) (Nil) (Nil))))
+      (match (drop-rows-search program
+                               copy
+                               givens
+                               type
+                               (Ok (new RowSearch (rows (Nil)) (keys (Nil)) (names (Nil)))))
         ((Ok found) (Ok (reverse (● found rows))))
         ((Err message) (Err message))))
 
@@ -382,7 +390,7 @@
                               (type Type)
                               (progress (Result RowSearch String)))
       (→ (Result RowSearch String))
-      (match (Pair type progress)
+      (match (new Pair (first type) (second progress))
         ((Pair _ (Err message)) (Err message))
         ((Pair (TRigid name) (Ok found))
          (match (given-drop-row givens name)
@@ -476,7 +484,7 @@
     ;; against its head, which names its type at distinct variables.
 
     (define (instance-bindings (instance Instance) (type Type)) (→ Substitution)
-      (match (Pair (● instance types) type)
+      (match (new Pair (first (● instance types)) (second type))
         ((Pair (Cons _ (Cons (TCon _ params) (Nil))) (TCon _ args))
          (zip (map (lambda (param)
                      (match param
@@ -498,7 +506,7 @@
                (match type
                  ((TCon _ args)
                   (fold-left (lambda (progress arg)
-                               (match (Pair arg progress)
+                               (match (new Pair (first arg) (second progress))
                                  ((Pair (TRow _ _) (Ok inner))
                                   (Ok (RowSearch-rows-set inner (Cons arg (● inner rows)))))
                                  (_ (drop-rows-search program copy givens arg progress))))
@@ -509,8 +517,10 @@
                                           copy
                                           givens
                                           type
-                                          (RowSearch (● found rows) (Cons key (● found keys))
-                                                     (Cons name (● found names))))
+                                          (new RowSearch
+                                            (rows (● found rows))
+                                            (keys (Cons key (● found keys)))
+                                            (names (Cons name (● found names)))))
                  ((Ok inner) (Ok (RowSearch-names-set inner (● found names))))
                  (failed failed))))))
 
@@ -548,11 +558,11 @@
         ((Cons type _) type)
         ((Nil) (panic "internal error: a constraint has types"))))
 
-    ;; ---- Buildable structs ----
+    ;; ---- Buildable records ----
 
-    ;; Whether every value of the struct `data` would hold another of
-    ;; itself. The search follows struct fields, cells among them, and stops
-    ;; at every other type, each of which has a value that holds no struct:
+    ;; Whether every value of the record `data` would hold another of
+    ;; itself. The search follows record fields, cells among them, and stops
+    ;; at every other type, each of which has a value that holds no record:
     ;; an enum's tag, an empty array or string, an Any, a function. A
     ;; declaration is entered once per path: one that reached its own name
     ;; would itself contain itself, and the expander refuses it where it is
@@ -560,7 +570,7 @@
 
     (define (contains-itself? (program Program) (data DataType)) (→ Bool)
       (any? (lambda (field) (reaches? program (● data name) field (Nil)))
-            (struct-field-types data (map TRigid (● data params)))))
+            (record-field-types data (map TRigid (● data params)))))
 
     (define (reaches? (program Program) (target String) (type Type) (entered (List String)))
       (→ Bool)
@@ -574,15 +584,15 @@
                        (and (not (● data enum?))
                             (any?
                              (lambda (field) (reaches? program target field (Cons name entered)))
-                             (struct-field-types data args)))))))
+                             (record-field-types data args)))))))
         (_ #f)))
 
-    ;; The field types of a struct's one case, with its parameters bound to
+    ;; The field types of a record's one case, with its parameters bound to
     ;; `args`.
 
-    (define (struct-field-types (data DataType) (args (List Type))) (→ (List Type))
+    (define (record-field-types (data DataType) (args (List Type))) (→ (List Type))
       (let ((bindings (zip (● data params) args)))
         (match (● data cases)
           ((Cons case _)
            (map (lambda (field) (substitute bindings (● field type))) (● case fields)))
-          ((Nil) (panic "internal error: a struct has one case")))))))
+          ((Nil) (panic "internal error: a record has one case")))))))

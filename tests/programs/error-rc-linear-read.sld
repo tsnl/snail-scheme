@@ -1,7 +1,7 @@
 (import
  (snail core base))
 
-(struct Work
+(record Work
   ((run (FnOnce → Unit))))
 
 (define (run (work (Rc Work))) (→ Unit) (! mut)

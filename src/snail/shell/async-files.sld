@@ -36,7 +36,7 @@
 
     ;; Only the suspended frame owns this token. Its cleanup does not free
     ;; kernel-visible storage: that storage belongs to the native operation.
-    (struct Request
+    (record Request
       ((id I64)))
 
     (instance (Drop (! mut) Request)
@@ -46,7 +46,7 @@
     (define (native-read (path String) (maximum I32)) (→ (Result Bytes FileError)) (! mut tasks)
       (let ((ticket (ticket)))
         (for-each host-path-character (string->list path))
-        (let ((request (Request (host-start-read ticket maximum))))
+        (let ((request (new Request (id (host-start-read ticket maximum)))))
           (await ticket)
           (finish request))))
 

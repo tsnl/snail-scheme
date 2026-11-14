@@ -1,10 +1,10 @@
 (import
  (snail core base))
 
-(struct Work
+(record Work
   ((run (FnOnce → Unit))))
 
 (define (make) (→ Work)
-  (Work (once (lambda () (unit)))))
+  (new Work (run (once (lambda () (unit))))))
 
 (expose make "make")

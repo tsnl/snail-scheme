@@ -73,17 +73,23 @@
       (let ((hash (string-hash key)))
         (let insert ((table table))
           (match table
-            ((Empty) (Leaf hash (list (Pair key value))))
+            ((Empty) (Leaf hash (list (new Pair (first key) (second value)))))
             ((Leaf leaf-hash entries)
              (if (= leaf-hash hash)
                  (Leaf hash
-                       (Cons (Pair key value)
+                       (Cons (new Pair (first key) (second value))
                              (filter (lambda (entry) (not (string=? (● entry first) key)))
                                      entries)))
-                 (join hash (Leaf hash (list (Pair key value))) leaf-hash table)))
+                 (join hash
+                       (Leaf hash (list (new Pair (first key) (second value))))
+                       leaf-hash
+                       table)))
             ((Branch prefix bit zero one)
              (cond ((not (= (below hash bit) prefix))
-                    (join hash (Leaf hash (list (Pair key value))) prefix table))
+                    (join hash
+                          (Leaf hash (list (new Pair (first key) (second value))))
+                          prefix
+                          table))
                    ((= (i64-and hash bit) 0) (Branch prefix bit (insert zero) one))
                    (else (Branch prefix bit zero (insert one)))))))))
 

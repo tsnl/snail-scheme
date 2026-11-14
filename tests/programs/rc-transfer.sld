@@ -2,28 +2,28 @@
  (snail core base)
  (snail core io))
 
-(struct Resource
+(record Resource
   ((value I64)))
 
 (instance (Drop (! output-port) Resource)
   (define (drop (resource Resource)) (→ Unit) (! output-port)
     (match resource ((Resource value) (display value) (newline)))))
 
-(struct Holder
+(record Holder
   ((value (Rc Resource))))
 
 (define (identity (resource (Rc Resource))) (→ (Rc Resource)) resource)
 
-(define (wrap (resource (Rc Resource))) (→ Holder) (Holder resource))
+(define (wrap (resource (Rc Resource))) (→ Holder) (new Holder (value resource)))
 
 (define (duplicate (resource (Rc Resource))) (→ (Pair (Rc Resource) (Rc Resource)))
-  (Pair resource resource))
+  (new Pair (first resource) (second resource)))
 
 (define (reader (resource (Rc Resource))) (→ (Fn → I64 ! mut output-port))
   (lambda () (● resource value)))
 
 (define (main) (→ Unit) (! mut output-port)
-  (let ((resource (identity (rc (Resource 8)))))
+  (let ((resource (identity (rc (new Resource (value 8))))))
     (let ((holder (wrap resource))
           (both (duplicate resource))
           (read (reader resource)))

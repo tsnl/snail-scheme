@@ -2,7 +2,7 @@
  (snail core base)
  (snail core io))
 
-(struct Handle
+(record Handle
   ((id I64))
   (deriving Repr))
 
@@ -13,5 +13,5 @@
 
 (define main
   (lambda ()
-    (write (Handle 1))
+    (write (new Handle (id 1)))
     (unit)))

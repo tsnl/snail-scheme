@@ -13,13 +13,13 @@
    (snail shell wire))
   (begin
 
-    (struct (Violation S M)
+    (record (Violation S M)
       ((reason String)
        (moves (List M))
        (state S)))
 
     ;; A state with the moves that reached it, newest first.
-    (struct (Visit S M)
+    (record (Visit S M)
       ((state S)
        (path (List M))))
 
@@ -34,7 +34,7 @@
       (→ (Option (Violation S M)))
       (∀ (S M))
       (⊨ (Serialize S) (Copy S) (Drop (!) S) (Copy M) (Drop (!) M))
-      (search (list (Visit initial (Nil)))
+      (search (list (new Visit (state initial) (path (Nil))))
               moves
               step
               invariant
@@ -71,7 +71,10 @@
         ((Cons visit rest)
          (match (invariant (● visit state))
            ((Some reason)
-            (Some (Violation reason (reverse (● visit path)) (● visit state))))
+            (Some (new Violation
+                    (reason reason)
+                    (moves (reverse (● visit path)))
+                    (state (● visit state)))))
            ((None) (first-violation rest invariant))))))
 
     ;; The states the frontier reaches for the first time, with `seen`
@@ -92,13 +95,15 @@
                                            ((Pair next seen)
                                             (if (table-contains? seen key)
                                                 found
-                                                (Pair
-                                                 (Cons (Visit state (Cons move (● visit path)))
-                                                       next)
-                                                 (table-set seen key #t)))))))
+                                                (new Pair
+                                                  (first (Cons (new Visit
+                                                                 (state state)
+                                                                 (path (Cons move (● visit path))))
+                                                               next))
+                                                  (second (table-set seen key #t))))))))
                                      found (moves (● visit state))))
-                        (Pair (Nil) seen) frontier)
-        ((Pair next seen) (Pair (reverse next) seen))))
+                        (new Pair (first (Nil)) (second seen)) frontier)
+        ((Pair next seen) (new Pair (first (reverse next)) (second seen)))))
 
     ;; The encoding as text, one character per byte, to key the table.
 

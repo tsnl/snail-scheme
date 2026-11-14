@@ -32,7 +32,7 @@
 
     ;; The four walking rows alone. Their first frame is the figure standing
     ;; still; the other eight are its stride.
-    (define (walk-region) (→ Rect) (Rect 0 512 576 256))
+    (define (walk-region) (→ Rect) (new Rect (x 0) (y 512) (width 576) (height 256)))
 
     ;; The row within a motion's four for a spritebook heading: heading 0
     ;; faces the viewer (the sheet's third row), 1 their right (the fourth),
@@ -54,16 +54,21 @@
     ;; one row, seen from every heading.
     (define (motion-strip (motion Motion) (heading I64)) (→ Strip)
       (match motion
-        ((Cast) (Strip 0 (heading-row heading) 7 100))
-        ((Thrust) (Strip 0 (+ 4 (heading-row heading)) 8 80))
-        ((Walk) (Strip 1 (+ 8 (heading-row heading)) 8 90))
-        ((Slash) (Strip 0 (+ 12 (heading-row heading)) 6 80))
-        ((Shoot) (Strip 0 (+ 16 (heading-row heading)) 13 70))
-        ((Hurt) (Strip 0 20 6 100))))
+        ((Cast) (new Strip (column 0) (row (heading-row heading)) (frames 7) (period 100)))
+        ((Thrust) (new Strip (column 0) (row (+ 4 (heading-row heading))) (frames 8) (period 80)))
+        ((Walk) (new Strip (column 1) (row (+ 8 (heading-row heading))) (frames 8) (period 90)))
+        ((Slash) (new Strip (column 0) (row (+ 12 (heading-row heading))) (frames 6) (period 80)))
+        ((Shoot) (new Strip (column 0) (row (+ 16 (heading-row heading))) (frames 13) (period 70)))
+        ((Hurt) (new Strip (column 0) (row 20) (frames 6) (period 100)))))
 
     ;; A picture holding a whole universal sheet.
     (define (universal-book (picture I32)) (→ (Spritebook Motion))
-      (Spritebook picture (cell) (cell) 4 motion-strip))
+      (new Spritebook
+        (picture picture)
+        (cell-width (cell))
+        (cell-height (cell))
+        (headings 4)
+        (strip motion-strip)))
 
     ;; ---- The walking rows ----
 
@@ -74,15 +79,20 @@
 
     (define (gait-strip (gait Gait) (heading I64)) (→ Strip)
       (match gait
-        ((Stand) (Strip 0 (heading-row heading) 1 1))
-        ((Stroll) (Strip 1 (heading-row heading) 8 90))))
+        ((Stand) (new Strip (column 0) (row (heading-row heading)) (frames 1) (period 1)))
+        ((Stroll) (new Strip (column 1) (row (heading-row heading)) (frames 8) (period 90)))))
 
     ;; A picture holding `walk-region` of a sheet, at its top left.
     (define (walk-book (picture I32)) (→ (Spritebook Gait))
-      (Spritebook picture (cell) (cell) 4 gait-strip))
+      (new Spritebook
+        (picture picture)
+        (cell-width (cell))
+        (cell-height (cell))
+        (headings 4)
+        (strip gait-strip)))
 
     ;; In such a picture, the standing figure facing the viewer from the
     ;; shoulders up, room left for tall hair: a portrait.
-    (define (face-region) (→ Rect) (Rect 12 130 40 40))
+    (define (face-region) (→ Rect) (new Rect (x 12) (y 130) (width 40) (height 40)))
 
     ))

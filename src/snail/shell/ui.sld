@@ -140,7 +140,8 @@
       (∀ (M))
       (match attributes
         ((Cons (On event captures prevent _) rest)
-         (Cons (Pair event (listen node event captures prevent)) (listen-all node rest)))
+         (Cons (new Pair (first event) (second (listen node event captures prevent)))
+               (listen-all node rest)))
         ((Cons _ rest) (listen-all node rest))
         ((Nil) (Nil))))
 
@@ -152,10 +153,10 @@
 
     (define (patch (shown (Shown M)) (html (Html M))) (→ (Shown M)) (! dom) (∀ (M))
       (if (matches? shown html)
-          (match (Pair shown html)
-            ((Pair (ShownText node text) (Text new))
-             (unless (string=? text new) (set-text node new))
-             (ShownText node new))
+          (match (new Pair (first shown) (second html))
+            ((Pair (ShownText node text) (Text updated))
+             (unless (string=? text updated) (set-text node updated))
+             (ShownText node updated))
             ((Pair (ShownElement node tag attributes listeners children)
                    (Element _ new-attributes new-children))
              (patch-attributes node attributes new-attributes)
@@ -168,7 +169,7 @@
           (create html)))
 
     (define (matches? (shown (Shown M)) (html (Html M))) (→ Bool) (∀ (M))
-      (match (Pair shown html)
+      (match (new Pair (first shown) (second html))
         ((Pair (ShownText _ _) (Text _)) #t)
         ((Pair (ShownElement _ tag attributes _ _) (Element new-tag new-attributes _))
          (and (string=? tag new-tag) (string=? (key-of attributes) (key-of new-attributes))))
@@ -177,21 +178,21 @@
     ;; Each attribute and property the view now gives a value other than
     ;; the one it gave is set, and each it no longer gives is cleared.
 
-    (define (patch-attributes (node Node) (old (List (Attribute M))) (new (List (Attribute M))))
+    (define (patch-attributes (node Node) (old (List (Attribute M))) (updated (List (Attribute M))))
       (→ Unit)
       (! dom)
       (∀ (M))
       (for-each (lambda (attribute)
                   (unless (any? (lambda (before) (same-value? before attribute)) old)
                     (apply-attribute node attribute)))
-                new)
+                updated)
       (for-each (lambda (attribute)
-                  (unless (any? (lambda (after) (same-name? attribute after)) new)
+                  (unless (any? (lambda (after) (same-name? attribute after)) updated)
                     (clear-attribute node attribute)))
                 old))
 
     (define (same-name? (a (Attribute M)) (b (Attribute M))) (→ Bool) (∀ (M))
-      (match (Pair a b)
+      (match (new Pair (first a) (second b))
         ((Pair (Attr x _) (Attr y _)) (string=? x y))
         ((Pair (StringProperty x _) (StringProperty y _)) (string=? x y))
         ((Pair (NumberProperty x _) (NumberProperty y _)) (string=? x y))
@@ -200,7 +201,7 @@
 
     (define (same-value? (a (Attribute M)) (b (Attribute M))) (→ Bool) (∀ (M))
       (and (same-name? a b)
-           (match (Pair a b)
+           (match (new Pair (first a) (second b))
              ((Pair (Attr _ x) (Attr _ y)) (string=? x y))
              ((Pair (StringProperty _ x) (StringProperty _ y)) (string=? x y))
              ((Pair (NumberProperty _ x) (NumberProperty _ y)) (= x y))
@@ -221,25 +222,27 @@
     (define (patch-listeners (node Node)
                              (old (List (Attribute M)))
                              (listeners (List (Pair String Listener)))
-                             (new (List (Attribute M))))
+                             (updated (List (Attribute M))))
       (→ (List (Pair String Listener)))
       (! dom)
       (∀ (M))
       (for-each (lambda (pair)
-                  (unless (kept-listener? (● pair first) old new) (unlisten (● pair second))))
+                  (unless (kept-listener? (● pair first) old updated) (unlisten (● pair second))))
                 listeners)
-      (append (filter (lambda (pair) (kept-listener? (● pair first) old new)) listeners)
+      (append (filter (lambda (pair) (kept-listener? (● pair first) old updated)) listeners)
               (listen-all node
                           (filter (lambda (attribute)
                                     (match attribute
-                                      ((On event _ _ _) (not (kept-listener? event old new)))
+                                      ((On event _ _ _) (not (kept-listener? event old updated)))
                                       (_ #f)))
-                                  new))))
+                                  updated))))
 
-    (define (kept-listener? (event String) (old (List (Attribute M))) (new (List (Attribute M))))
+    (define (kept-listener? (event String)
+                            (old (List (Attribute M)))
+                            (updated (List (Attribute M))))
       (→ Bool)
       (∀ (M))
-      (match (Pair (listening event old) (listening event new))
+      (match (new Pair (first (listening event old)) (second (listening event updated)))
         ((Pair (Some (On _ captures prevent _)) (Some (On _ new-captures new-prevent _)))
          (and (= (capture-bits captures) (capture-bits new-captures))
               (same-prevent? prevent new-prevent)))
@@ -255,7 +258,7 @@
             attributes))
 
     (define (same-prevent? (a Prevent) (b Prevent)) (→ Bool)
-      (match (Pair a b)
+      (match (new Pair (first a) (second b))
         ((Pair (Allow) (Allow)) #t)
         ((Pair (Always) (Always)) #t)
         ((Pair (Chords x) (Chords y))
@@ -275,11 +278,11 @@
     ;; removed, which leaves the document holding the taken ones in their
     ;; old order, and then the children are put in their new order.
 
-    (define (patch-children (parent Node) (old (List (Shown M))) (new (List (Html M))))
+    (define (patch-children (parent Node) (old (List (Shown M))) (updated (List (Html M))))
       (→ (List (Shown M)))
       (! dom)
       (∀ (M))
-      (let* ((pairs (taking old new))
+      (let* ((pairs (taking old updated))
              (taken (taken-names pairs))
              (children (map (lambda (pair)
                               (match (● pair first)
@@ -301,10 +304,10 @@
     ;; or for a child without one, the next old child without one, when
     ;; it matches.
 
-    (define (taking (old (List (Shown M))) (new (List (Html M))))
+    (define (taking (old (List (Shown M))) (updated (List (Html M))))
       (→ (List (Pair (Option (Shown M)) (Html M))))
       (∀ (M))
-      (let ((keys (filter (lambda (key) (not (string=? key ""))) (map html-key new))))
+      (let ((keys (filter (lambda (key) (not (string=? key ""))) (map html-key updated))))
         (unless (= (length keys) (length (delete-duplicates string=? keys)))
           (panic "two children have the same key"))
         (taking-from (fold-left (lambda (keyed shown)
@@ -314,22 +317,26 @@
                                 (empty-table)
                                 old)
                      (filter (lambda (shown) (string=? (shown-key shown) "")) old)
-                     new)))
+                     updated)))
 
-    (define (taking-from (keyed (Table (Shown M))) (unkeyed (List (Shown M))) (new (List (Html M))))
+    (define (taking-from (keyed (Table (Shown M)))
+                         (unkeyed (List (Shown M)))
+                         (updated (List (Html M))))
       (→ (List (Pair (Option (Shown M)) (Html M))))
       (∀ (M))
-      (match new
+      (match updated
         ((Cons html rest)
          (if (string=? (html-key html) "")
              (match unkeyed
                ((Cons first others)
-                (Cons (Pair (matching first html) html) (taking-from keyed others rest)))
-               ((Nil) (Cons (Pair (None) html) (taking-from keyed unkeyed rest))))
-             (Cons (Pair (match (table-ref keyed (html-key html))
-                           ((Some shown) (matching shown html))
-                           ((None) (None)))
-                         html)
+                (Cons (new Pair (first (matching first html)) (second html))
+                      (taking-from keyed others rest)))
+               ((Nil)
+                (Cons (new Pair (first (None)) (second html)) (taking-from keyed unkeyed rest))))
+             (Cons (new Pair (first (match (table-ref keyed (html-key html))
+                                      ((Some shown) (matching shown html))
+                                      ((None) (None))))
+                        (second html))
                    (taking-from keyed unkeyed rest))))
         ((Nil) (Nil))))
 
@@ -446,7 +453,8 @@
          (append (concatenate
                   (map (lambda (pair)
                          (match (listening (● pair first) attributes)
-                           ((Some (On _ _ _ message)) (list (Pair message (● pair second))))
+                           ((Some (On _ _ _ message))
+                            (list (new Pair (first message) (second (● pair second)))))
                            (_ (Nil))))
                        listeners))
                  (concatenate (map listener-functions children))))))
@@ -456,7 +464,7 @@
     ;; The interface between deliveries: its model, the tree shown, the
     ;; window's listeners, and the listeners' functions by listener id,
     ;; which only `showing` builds, so they agree.
-    (struct (Running Model M)
+    (record (Running Model M)
       ((model Model)
        (shown (Shown M))
        (window (Shown M))
@@ -465,7 +473,11 @@
     (define (showing (model Model) (shown (Shown M)) (window (Shown M)))
       (→ (Running Model M))
       (∀ (Model M))
-      (Running model shown window (listener-table (list window shown))))
+      (new Running
+        (model model)
+        (shown shown)
+        (window window)
+        (listeners (listener-table (list window shown)))))
 
     ;; Shows the view of `model` in the document's root, with the listeners
     ;; `window` gives the window, updates it with each message in `start`,
@@ -661,17 +673,34 @@
            ((Hidden)
             (checkpoint (snapshot model))
             (serve-reactor update view window snapshot commit checkpoint
-                           (Running model shown window-shown listeners)))
+                           (new Running
+                             (model model)
+                             (shown shown)
+                             (window window-shown)
+                             (listeners listeners))))
            ((SaveRequested)
             (checkpoint (snapshot model))
             (serve-reactor update view window snapshot commit checkpoint
-                           (Running model shown window-shown listeners)))
+                           (new Running
+                             (model model)
+                             (shown shown)
+                             (window window-shown)
+                             (listeners listeners))))
            ((Woken)
             (serve-reactor update view window snapshot commit checkpoint
                            (step-reactor update view window
-                                         (Running model shown window-shown listeners) (None))))
+                                         (new Running
+                                           (model model)
+                                           (shown shown)
+                                           (window window-shown)
+                                           (listeners listeners))
+                                         (None))))
            ((Fired listener event)
-            (let ((running (Running model shown window-shown listeners)))
+            (let ((running (new Running
+                             (model model)
+                             (shown shown)
+                             (window window-shown)
+                             (listeners listeners))))
               (serve-reactor update view window snapshot commit checkpoint
                              (match (table-ref listeners (show (● listener id)))
                                ((Some message)

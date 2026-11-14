@@ -8,7 +8,7 @@
 ;; someone else may hold it. The book's ownership chapter includes the
 ;; text between ANCHOR and ANCHOR_END.
 ;; ANCHOR: retry
-(struct Job
+(record Job
   ((name String)
    (attempts I64)
    (work (FnOnce → Unit ! output-port))))
@@ -26,7 +26,7 @@
 
 ;; A generic body is checked with A linear, and specialized at an
 ;; unrestricted A it copies, since the caller may still hold the record.
-(struct (Labelled A)
+(record (Labelled A)
   ((item A)
    (label String)))
 
@@ -38,11 +38,23 @@
   (replace job 5))
 
 (define (main) (→ Unit) (! output-port)
-  (run (retry (retry (Job "build" 0 (once (lambda () (write-line "built")))))))
-  (run (bump Job-attempts-set (Job "deploy" 0 (once (lambda () (write-line "deployed"))))))
-  (let* ((original (Labelled 1 "original")) (changed (relabel original)))
+  (run (retry (retry (new Job
+                       (name "build")
+                       (attempts 0)
+                       (work (once (lambda () (write-line "built"))))))))
+  (run (bump Job-attempts-set
+             (new Job
+               (name "deploy")
+               (attempts 0)
+               (work (once (lambda () (write-line "deployed")))))))
+  (let* ((original (new Labelled (item 1) (label "original"))) (changed (relabel original)))
     (write-line (string-append (● original label) ", " (● changed label))))
-  (match (relabel (Labelled (Job "test" 0 (once (lambda () (write-line "tested")))) "job"))
+  (match (relabel (new Labelled
+                    (item (new Job
+                            (name "test")
+                            (attempts 0)
+                            (work (once (lambda () (write-line "tested"))))))
+                    (label "job")))
     ((Labelled job label)
      (write-line label)
      (run job)))

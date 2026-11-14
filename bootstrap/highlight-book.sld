@@ -57,8 +57,8 @@
   (match json
     ((JsonObject members)
      (JsonObject (map (lambda (member)
-                        (Pair (● member first)
-                              (change (● member first) (● member second))))
+                        (new Pair (first (● member first))
+                             (second (change (● member first) (● member second)))))
                       members)))
     (other other)))
 
@@ -73,7 +73,7 @@
 ;; item. A `scheme` block becomes one line of HTML, its newlines written
 ;; `&#10;`, so it keeps its place in a list item. Its class, `nohighlight`,
 ;; is the one highlight.js leaves alone.
-(struct Fence
+(record Fence
   ((indent I64)
    (marker Char)
    (length I64)
@@ -109,9 +109,9 @@
   (match lines
     ((Cons line rest)
      (if (closes? fence line)
-         (Pair (reverse body) lines)
+         (new Pair (first (reverse body)) (second lines))
          (until-closing fence rest (Cons line body))))
-    ((Nil) (Pair (reverse body) (Nil)))))
+    ((Nil) (new Pair (first (reverse body)) (second (Nil))))))
 
 (define (first-only (lines (List String))) (→ (List String))
   (match lines
@@ -135,7 +135,7 @@
     (if (and (or (char=? marker #\`) (char=? marker #\~))
              (>= (- end indent) 3)
              (not (and (char=? marker #\`) (contains-char? info #\`))))
-        (Some (Fence indent marker (- end indent) info))
+        (Some (new Fence (indent indent) (marker marker) (length (- end indent)) (info info)))
         (None))))
 
 ;; A line of spaces, then at least as many of the fence's character, then

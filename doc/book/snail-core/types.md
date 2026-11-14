@@ -87,10 +87,10 @@ importing or linking a library runs no source initializer.
 Use a function to construct a value:
 
 ```scheme
-(struct Point
+(record Point
   ((x I64)
    (y I64)))
-(define (origin) (→ Point) (Point 0 0))
+(define (origin) (→ Point) (new Point (x 0) (y 0)))
 (define (empty) (→ (List A)) (∀ (A)) (Nil))
 ```
 
@@ -109,7 +109,7 @@ for an alias. Recursive and mutually recursive functions remain ordinary code.
 ## Data
 
 ```scheme
-(struct (Vec3 T)
+(record (Vec3 T)
   ((x T)
    (y T)
    (z T)))
@@ -120,23 +120,42 @@ for an alias. Recursive and mutually recursive functions remain ordinary code.
   (Empty))
 ```
 
-Every struct and every enum case with fields is a heap object. Its fields
-are mutable by default; there is no per-field mutation annotation. A struct
+Every record and every enum case with fields is a heap object. Its fields
+are mutable by default; there is no per-field mutation annotation. A record
 `Name` defines its constructor and pure `Name-field-set` operations, which
 produce shallow replacement records. It generates no field getters or mutable
 setter functions.
 
-Read struct fields by path: `(● segment from x)`. Each step follows an
+Construct a record with `new`, naming every field exactly once:
+
+```scheme
+(new Vec3 (z 3.0) (x 1.0) (y 2.0))
+```
+
+Fields may appear in any order. Initializers run once each, from left to right
+as written; their names select the destination slots. Unknown, repeated and
+missing fields are compile errors. Field types and the expected record type
+guide inference, including generic records and callback fields. There are no
+defaults or spreads. A visible type alias does not grant access to a hidden
+constructor.
+
+Record constructors are used only through `new`. Use an ordinary function or
+lambda for a factory, such as `(lambda (x y) (new Point (x x) (y y)))`.
+Record patterns remain positional: `(match point ((Point x y) ...))`.
+Function arguments remain positional; `new` does not add keyword arguments
+to `Fn` or change its calling convention.
+
+Read record fields by path: `(● segment from x)`. Each step follows an
 ordinary object reference. Reads are pure. `(set! (● segment from x) 3)`
 and `(replace! (● segment from x) 3)` use the same resolved slots, evaluating
 the receiver and incoming value once. `Rc` transparently exposes its payload's
-struct fields. There are no field typeclasses, computed property overloads,
+record fields. There are no field typeclasses, computed property overloads,
 or borrowed receiver types.
 
 Enum cases are constructors, not types, and are always applied: `(Empty)`.
 Use `match` to select an enum case and bind its fields. There are no generated
-case getters or mutable setters. A field path requires a nominal struct receiver;
-for mutable enum payloads, store a struct in the case and access its fields after
+case getters or mutable setters. A field path requires a nominal record receiver;
+for mutable enum payloads, store a record in the case and access its fields after
 matching.
 
 An aggregate containing a linear member is itself linear. A field read may
@@ -218,7 +237,7 @@ instances use `(!)`, so arithmetic remains pure. `Drop` releases values
 
 `Repr` is a pure class with one type parameter: `(Repr T)` supplies
 `(repr value) → String`. `(snail core io)`'s `write` prints that
-representation through `output-port`. Structs and enums can generate instances
+representation through `output-port`. Records and enums can generate instances
 with `(deriving Repr)`; see [current ports](libraries.md#current-input-and-output-ports).
 
 ### Associated output types
@@ -310,7 +329,7 @@ corresponding one-shot type without changing its parameters, result or row.
 A source once-lambda can move linear captures directly:
 
 ```scheme
-(struct Job
+(record Job
   ((run (FnOnce I64 → Unit ! output-port))))
 
 (define (greeting (text String)) (→ (FnOnce → Unit ! output-port))

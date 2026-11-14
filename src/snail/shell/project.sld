@@ -26,13 +26,13 @@
 
     ;; ---- Descriptions ----
 
-    (struct Project
+    (record Project
       ((builds (List BuildTarget))
        (runs (List RunTarget))))
 
     ;; A nonempty project-relative path, with no escaping or empty components.
     ;; The spelling "." is allowed for a directory, but not an entry file.
-    (struct ProjectPath
+    (record ProjectPath
       ((text String)
        (loc Loc)))
 
@@ -44,13 +44,13 @@
        ((library (List String))
         (name String))))
 
-    (struct ProgramBuild
+    (record ProgramBuild
       ((name String)
        (entry ProjectEntry)
        (libraries (List ProjectPath))
        (loc Loc)))
 
-    (struct BrowserBuild
+    (record BrowserBuild
       ((name String)
        (entry ProjectEntry)
        (libraries (List ProjectPath))
@@ -62,7 +62,7 @@
       (BrowserTarget ((browser BrowserBuild))))
 
     ;; A resolved run contains a program, never a browser or unchecked name.
-    (struct RunTarget
+    (record RunTarget
       ((name String)
        (program ProgramBuild)
        (arguments (List String))
@@ -130,7 +130,7 @@
                      (or (string=? text ".") (path-components? text)))
           (compile-error loc
                          "expected a project-relative path using /, without empty, . or .. components, backslash, colon or NUL"))
-        (ProjectPath text loc)))
+        (new ProjectPath (text text) (loc loc))))
 
     (define (entry-path (syntax Syntax)) (→ ProjectPath) (! compile)
       (let ((path (parse-path syntax)))
@@ -183,8 +183,17 @@
              ((Some path)
               (let ((roots (match libraries ((Some paths) paths) ((None) (Nil)))))
                 (if browser?
-                    (BrowserTarget (BrowserBuild name path roots public declaration))
-                    (ProgramTarget (ProgramBuild name path roots declaration)))))))
+                    (BrowserTarget (new BrowserBuild
+                                     (name name)
+                                     (entry path)
+                                     (libraries roots)
+                                     (public public)
+                                     (loc declaration)))
+                    (ProgramTarget (new ProgramBuild
+                                     (name name)
+                                     (entry path)
+                                     (libraries roots)
+                                     (loc declaration))))))))
           ((Cons form rest)
            (match form
              ((Form (Cons (Ident key _ _) (Cons value (Nil))) loc)
@@ -237,7 +246,11 @@
       (! compile)
       (match syntax
         ((Form (Cons (Ident "run" _ _) (Cons target forms)) _)
-         (RunTarget name (resolve-program builds target) (run-arguments forms) declaration))
+         (new RunTarget
+           (name name)
+           (program (resolve-program builds target))
+           (arguments (run-arguments forms))
+           (loc declaration)))
         (_ (compile-error (syntax-loc syntax) "expected (run BUILD-NAME (args (STRING ...)))"))))
 
     ;; The reader's syntax already retains forward references. Collect builds,
@@ -278,12 +291,14 @@
       (match (read-text text file)
         ((Cons (Form declarations _) (Nil))
          (let ((builds (collect-builds declarations)))
-           (Project builds (collect-runs declarations builds))))
+           (new Project (builds builds) (runs (collect-runs declarations builds)))))
         ((Cons _ (Cons extra _))
          (compile-error (syntax-loc extra) "a project description must contain exactly one list"))
         ((Cons form _)
          (compile-error (syntax-loc form) "a project description must contain exactly one list"))
-        ((Nil) (compile-error (Loc file 1 1) "expected a project description list"))))
+        ((Nil)
+         (compile-error (new Loc (file file) (line 1) (column 1))
+                        "expected a project description list"))))
 
     )
 

@@ -123,7 +123,7 @@
     ;; ---- Tokens ----
 
     ;; A token covers the characters from `start` up to `end`.
-    (struct Token
+    (record Token
       ((start I64)
        (end I64)
        (class Class)))
@@ -155,15 +155,21 @@
       (→ (Option (Pair Token Naming)))
       (match (atmosphere-at source index)
         ((Some (Pair (DatumComment) end))
-         (Some (Pair (Token index (datum-end source end) (Comment)) naming)))
+         (Some (new Pair
+                 (first (new Token (start index) (end (datum-end source end)) (class (Comment))))
+                 (second naming))))
         ((Some (Pair atmosphere end))
-         (Some (Pair (Token index end (atmosphere-class atmosphere)) naming)))
+         (Some (new Pair
+                 (first (new Token (start index) (end end) (class (atmosphere-class atmosphere))))
+                 (second naming))))
         ((None)
          (match (lexeme-at source index)
            ((Pair (EndOfText) _) (None))
            ((Pair lexeme end)
             (let ((classified (lexeme-class source index end lexeme naming)))
-              (Some (Pair (Token index end (● classified first)) (● classified second)))))))))
+              (Some (new Pair
+                      (first (new Token (start index) (end end) (class (● classified first))))
+                      (second (● classified second))))))))))
 
     (define (atmosphere-class (atmosphere Atmosphere)) (→ Class)
       (match atmosphere
@@ -174,32 +180,35 @@
     (define (lexeme-class (source Source) (start I64) (end I64) (lexeme Lexeme) (naming Naming))
       (→ (Pair Class Naming))
       (match lexeme
-        ((ListOpen _) (Pair (Punctuation) (match naming ((Defining) (Defining)) (_ (Opened)))))
-        ((ListClose _) (Pair (Punctuation) (Plain)))
-        ((QuoteMark) (Pair (Punctuation) naming))
-        ((BytesOpen) (Pair (Punctuation) (Plain)))
-        ((StringLexeme _) (Pair (StringLiteral) (Plain)))
-        ((CharacterLexeme) (Pair (CharacterLiteral) (Plain)))
+        ((ListOpen _)
+         (new Pair
+           (first (Punctuation))
+           (second (match naming ((Defining) (Defining)) (_ (Opened))))))
+        ((ListClose _) (new Pair (first (Punctuation)) (second (Plain))))
+        ((QuoteMark) (new Pair (first (Punctuation)) (second naming)))
+        ((BytesOpen) (new Pair (first (Punctuation)) (second (Plain))))
+        ((StringLexeme _) (new Pair (first (StringLiteral)) (second (Plain))))
+        ((CharacterLexeme) (new Pair (first (CharacterLiteral)) (second (Plain))))
         ((TokenLexeme) (token-class (source-text source start end) naming))
         ;; `next-token` stops at the end of the text.
-        ((EndOfText) (Pair (Blank) naming))))
+        ((EndOfText) (new Pair (first (Blank)) (second naming)))))
 
     (define (token-class (text String) (naming Naming)) (→ (Pair Class Naming))
       (match (token-kind text)
-        ((BooleanToken _) (Pair (BooleanLiteral) (Plain)))
-        ((IntegerToken) (Pair (NumberLiteral) (Plain)))
-        ((FloatToken) (Pair (NumberLiteral) (Plain)))
-        ((InvalidToken _) (Pair (Invalid) (Plain)))
+        ((BooleanToken _) (new Pair (first (BooleanLiteral)) (second (Plain))))
+        ((IntegerToken) (new Pair (first (NumberLiteral)) (second (Plain))))
+        ((FloatToken) (new Pair (first (NumberLiteral)) (second (Plain))))
+        ((InvalidToken _) (new Pair (first (Invalid)) (second (Plain))))
         ((NameToken) (name-class text naming))))
 
     (define (name-class (name String) (naming Naming)) (→ (Pair Class Naming))
       (match naming
-        ((Defining) (Pair (DefinedName) (Plain)))
+        ((Defining) (new Pair (first (DefinedName)) (second (Plain))))
         ((Opened)
          (if (member? name (defining-forms))
-             (Pair (Keyword) (Defining))
-             (Pair (plain-name-class name) (Plain))))
-        ((Plain) (Pair (plain-name-class name) (Plain)))))
+             (new Pair (first (Keyword)) (second (Defining)))
+             (new Pair (first (plain-name-class name)) (second (Plain)))))
+        ((Plain) (new Pair (first (plain-name-class name)) (second (Plain))))))
 
     ;; A type's name starts with a capital letter.
     (define (plain-name-class (name String)) (→ Class)
@@ -219,7 +228,7 @@
       (let ((source (make-source "" text)) (point (min (string-length text) (max 0 offset))))
         (let loop ((index 0))
           (match (next-token source index (Plain))
-            ((None) (Pair point point))
+            ((None) (new Pair (first point) (second point)))
             ((Some (Pair token _))
              (if (<= (● token end) point)
                  (loop (● token end))
@@ -227,11 +236,11 @@
 
     (define (token-range (source Source) (token Token) (point I64)) (→ (Pair I64 I64))
       (match (● token class)
-        ((Blank) (Pair point (+ point 1)))
+        ((Blank) (new Pair (first point) (second (+ point 1))))
         ((Punctuation)
-         (Pair (● token start)
-               (max (● token end) (datum-end source (● token start)))))
-        (_ (Pair (● token start) (● token end)))))
+         (new Pair (first (● token start))
+              (second (max (● token end) (datum-end source (● token start))))))
+        (_ (new Pair (first (● token start)) (second (● token end))))))
 
     ;; ---- Datum boundaries ----
 

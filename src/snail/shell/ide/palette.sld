@@ -25,11 +25,11 @@
 
     ;; ---- State and boundary ----
 
-    (struct Entry
+    (record Entry
       ((name String)
        (keys String)))
 
-    (struct Context
+    (record Context
       ((commands (List Entry))
        (paths (List String))))
 
@@ -38,11 +38,11 @@
       (Fetching)
       (Finished ((result (Result search-Results Failure)))))
 
-    (struct Search
+    (record Search
       ((source search-Source)
        (phase SearchPhase)))
 
-    (struct Creation
+    (record Creation
       ((directory Bool)
        (pending Bool)
        (problem String)))
@@ -53,7 +53,7 @@
       (Searching ((search Search)))
       (Creating ((creation Creation))))
 
-    (struct Panel
+    (record Panel
       ((mode Mode)
        (query String)
        (selected I64)))
@@ -62,7 +62,7 @@
     ;; navigation it requested. It survives closing. New queries, openings,
     ;; cancellations and selections revoke every older timer, reply and choice.
     ;; Buffer reads and saves have separate owners and sequence numbers.
-    (struct State
+    (record State
       ((generation I64)
        (panel (Option Panel))))
 
@@ -93,16 +93,16 @@
       (Reconnected))
 
     (type CommandResult (Fn State → Step))
-    (struct Command
+    (record Command
       ((work (FnOnce → CommandResult ! tasks dom fetch))
        (interrupted CommandResult)))
 
-    (struct Step
+    (record Step
       ((state State)
        (outcome (Option Outcome))
        (commands (List Command))))
 
-    (define (initial) (→ State) (State 0 (None)))
+    (define (initial) (→ State) (new State (generation 0) (panel (None))))
 
     (define (visible? (state State)) (→ Bool)
       (match (● state panel) ((Some _) #t) ((None) #f)))
@@ -116,21 +116,26 @@
       (match mode ((Searching (Search (search-CurrentDraft _) _)) #t) (_ #f)))
 
     (define (cancel (state State)) (→ State)
-      (State (+ 1 (● state generation)) (None)))
+      (new State (generation (+ 1 (● state generation))) (panel (None))))
 
-    (define (stay (state State)) (→ Step) (Step state (None) (Nil)))
+    (define (stay (state State))
+      (→ Step)
+      (new Step (state state) (outcome (None)) (commands (Nil))))
 
     (define (selected (state State) (outcome Outcome)) (→ Step)
-      (Step (cancel state) (Some outcome) (Nil)))
+      (new Step (state (cancel state)) (outcome (Some outcome)) (commands (Nil))))
 
     (define (open (state State) (mode Mode)) (→ Step)
-      (Step (if (and (finding? state) (find-mode? mode)) state
-                (State (+ 1 (● state generation)) (Some (Panel mode "" 0)))) (None)
-                (list (Command (once (lambda ()
-                                       (match (element-by-id "command-query")
-                                         ((Some field) (focus-node field))
-                                         ((None) (unit)))
-                                       stay)) stay))))
+      (new Step (state (if (and (finding? state) (find-mode? mode)) state
+                           (new State
+                             (generation (+ 1 (● state generation)))
+                             (panel (Some (new Panel (mode mode) (query "") (selected 0)))))))
+           (outcome (None))
+           (commands (list (new Command (work (once (lambda ()
+                                                      (match (element-by-id "command-query")
+                                                        ((Some field) (focus-node field))
+                                                        ((None) (unit)))
+                                                      stay))) (interrupted stay))))))
 
     ;; ---- Updates ----
 
@@ -167,9 +172,10 @@
                    (queried (State-panel-set state
                                              (Some (Panel-mode-set panel
                                                                    (Searching
-                                                                    (Search
-                                                                     (search-CurrentDraft draft)
-                                                                     (Debouncing))))))
+                                                                    (new Search
+                                                                      (source
+                                                                       (search-CurrentDraft draft))
+                                                                      (phase (Debouncing)))))))
                             (● panel query))))
               ((None) (selected state (Dismissed)))))
            (_ (stay state))))
@@ -181,20 +187,30 @@
          (if (creation-pending? panel) (stay state)
              (let* ((generation (+ 1 (● state generation)))
                     (mode (reset-mode (● panel mode)))
-                    (next (State generation (Some (Panel mode text (if (finding? state) -1 0))))))
-               (Step next (None)
-                     (if (and (searching? mode) (not (string=? text "")))
-                         (list (Command (once (lambda ()
-                                                (sleep 120)
-                                                (lambda (current) (search-due current generation))))
-                                        (lambda (current) (search-interrupted current generation))))
-                         (Nil))))))
+                    (next (new State
+                            (generation generation)
+                            (panel (Some (new Panel
+                                           (mode mode)
+                                           (query text)
+                                           (selected (if (finding? state) -1 0))))))))
+               (new Step (state next) (outcome (None))
+                    (commands (if (and (searching? mode) (not (string=? text "")))
+                                  (list (new Command (work (once (lambda ()
+                                                                   (sleep 120)
+                                                                   (lambda (current)
+                                                                     (search-due current
+                                                                                 generation)))))
+                                             (interrupted (lambda (current)
+                                                            (search-interrupted current
+                                                                                generation)))))
+                                  (Nil)))))))
         ((None) (stay state))))
 
     (define (reset-mode (mode Mode)) (→ Mode)
       (match mode
         ((Searching search) (Searching (Search-phase-set search (Debouncing))))
-        ((Creating (Creation directory _ _)) (Creating (Creation directory #f "")))
+        ((Creating (Creation directory _ _))
+         (Creating (new Creation (directory directory) (pending #f) (problem ""))))
         (_ mode)))
 
     (define (searching? (mode Mode)) (→ Bool)
@@ -240,15 +256,19 @@
            (if (or (not (finding? state)) (= count 0)) (stay state)
                (match (● (list-ref options at) action)
                  ((Choose outcome)
-                  (Step (State (+ 1 (● state generation)) (Some (Panel-selected-set panel at)))
-                        (Some outcome) (Nil)))
+                  (new Step
+                    (state (new State
+                             (generation (+ 1 (● state generation)))
+                             (panel (Some (Panel-selected-set panel at)))))
+                    (outcome (Some outcome)) (commands (Nil))))
                  (_ (stay state))))))
         ((None) (stay state))))
 
     (define (current-match (state State)) (→ (Option Outcome))
       (match (● state panel)
         ((Some panel)
-         (let ((options (choices (Context (Nil) (Nil)) panel)) (at (● panel selected)))
+         (let ((options (choices (new Context (commands (Nil)) (paths (Nil))) panel))
+               (at (● panel selected)))
            (if (and (finding? state) (>= at 0) (< at (length options)))
                (match (● (list-ref options at) action) ((Choose outcome) (Some outcome)) (_ (None)))
                (None))))
@@ -260,24 +280,34 @@
       (match (● state panel)
         ((Some (Panel (Searching (Search source (Debouncing))) query _))
          (if (and (= generation (● state generation)) (not (string=? query "")))
-             (Step (mode-set state (Searching (Search source (Fetching)))) (None)
-                   (list (Command (once (lambda ()
-                                          (let ((result (search-run source query)))
-                                            (lambda (current)
-                                              (searched current generation result)))))
-                                  (lambda (current) (search-interrupted current generation)))))
+             (new Step
+               (state (mode-set state (Searching (new Search (source source) (phase (Fetching))))))
+               (outcome (None))
+               (commands (list (new Command (work (once (lambda ()
+                                                          (let ((result (search-run source query)))
+                                                            (lambda (current)
+                                                              (searched current
+                                                                        generation
+                                                                        result))))))
+                                    (interrupted
+                                     (lambda (current) (search-interrupted current generation)))))))
              (stay state)))
         (_ (stay state))))
 
     (define (interrupted-request) (→ Failure)
-      (Failure 0 "Request interrupted; its server-side outcome may be unknown."))
+      (new Failure
+        (status 0)
+        (message "Request interrupted; its server-side outcome may be unknown.")))
 
     (define (search-interrupted (state State) (generation I64)) (→ Step)
       (match (● state panel)
         ((Some (Panel (Searching (Search source _)) _ _))
          (if (= generation (● state generation))
              (stay
-              (mode-set state (Searching (Search source (Finished (Err (interrupted-request)))))))
+              (mode-set state
+                        (Searching (new Search
+                                     (source source)
+                                     (phase (Finished (Err (interrupted-request))))))))
              (stay state)))
         (_ (stay state))))
 
@@ -286,7 +316,8 @@
       (match (● state panel)
         ((Some (Panel (Searching (Search source (Fetching))) _ _))
          (if (= generation (● state generation))
-             (stay (mode-set state (Searching (Search source (Finished result)))))
+             (stay
+              (mode-set state (Searching (new Search (source source) (phase (Finished result))))))
              (stay state)))
         (_ (stay state))))
 
@@ -295,21 +326,28 @@
         ((Some (Panel (Creating (Creation directory #f _)) path _))
          (if (string=? path "") (stay state)
              (let ((generation (● state generation)))
-               (Step (mode-set state (Creating (Creation directory #t ""))) (None)
-                     (list (Command (once (lambda ()
-                                            (let ((result (api "POST" (string-append
-                                                                       (if directory
-                                                                           "/api/directory?path="
-                                                                           "/api/file?path=")
-                                                                       (url-component path))
-                                                               (Nil)
-                                                               "")))
-                                              (lambda (current)
-                                                (created current generation result)))))
-                                    (lambda (current)
-                                      (created current
-                                               generation
-                                               (Err (interrupted-request))))))))))
+               (new Step
+                 (state (mode-set state
+                                  (Creating
+                                   (new Creation (directory directory) (pending #t) (problem "")))))
+                 (outcome (None))
+                 (commands (list (new Command (work (once (lambda ()
+                                                            (let ((result (api "POST" (string-append
+                                                                                       (if directory
+                                                                                           "/api/directory?path="
+                                                                                           "/api/file?path=")
+                                                                                       (url-component
+                                                                                        path))
+                                                                               (Nil)
+                                                                               "")))
+                                                              (lambda (current)
+                                                                (created current
+                                                                         generation
+                                                                         result))))))
+                                      (interrupted (lambda (current)
+                                                     (created current
+                                                              generation
+                                                              (Err (interrupted-request))))))))))))
         (_ (stay state))))
 
     ;; Closing does not undo a write. Its watcher event still updates the file
@@ -323,13 +361,16 @@
                ((Ok _) (selected state (CreatedPath path directory)))
                ((Err failure)
                 (stay (mode-set state
-                                (Creating (Creation directory #f (● failure message)))))))
+                                (Creating (new Creation
+                                            (directory directory)
+                                            (pending #f)
+                                            (problem (● failure message))))))))
              (stay state)))
         (_ (stay state))))
 
     ;; ---- Choices ----
 
-    (struct Choice
+    (record Choice
       ((label String)
        (detail String)
        (action Action)))
@@ -351,18 +392,20 @@
       (let ((query (● panel query)))
         (match (● panel mode)
           ((Commands)
-           (map (lambda (entry) (Choice (● entry name) (● entry keys)
-                                        (Choose (InvokeNamed (● entry name)))))
+           (map (lambda (entry) (new Choice (label (● entry name)) (detail (● entry keys))
+                                     (action (Choose (InvokeNamed (● entry name))))))
                 (filter (lambda (entry) (matches? query (● entry name)))
                         (● context commands))))
           ((Files)
-           (map (lambda (path) (Choice path "" (Choose (OpenPath path))))
-                (take (filter (lambda (path) (matches? query path)) (● context paths)) 200)))
+           (map
+            (lambda (path) (new Choice (label path) (detail "") (action (Choose (OpenPath path)))))
+            (take (filter (lambda (path) (matches? query path)) (● context paths)) 200)))
           ((Creating (Creation directory pending _))
            (if (or pending (string=? query "")) (Nil)
                (list
-                (Choice (string-append (if directory "Create directory: " "Create file: ") query)
-                        "Enter" (Create)))))
+                (new Choice
+                  (label (string-append (if directory "Create directory: " "Create file: ") query))
+                  (detail "Enter") (action (Create))))))
           ((Searching (Search _ (Finished (Ok results))))
            (search-choices results (string-length query)))
           ((Searching _) (Nil)))))
@@ -375,14 +418,15 @@
         ((search-SavedResults results)
          (map (lambda (hit)
                 (let ((point (● hit point)))
-                  (Choice (location (● point file) (● point line) (● point column))
-                          (● hit snippet) (Choose (OpenSavedHit hit)))))
+                  (new Choice (label (location (● point file) (● point line) (● point column)))
+                       (detail (● hit snippet)) (action (Choose (OpenSavedHit hit))))))
               (● results hits)))
         ((search-DraftResults draft hits _)
          (map (lambda (hit)
-                (Choice
-                 (location (● draft path) (● hit line) (● hit column))
-                 (● hit snippet) (Choose (SelectDraftHit draft hit size)))) hits))))
+                (new Choice
+                  (label (location (● draft path) (● hit line) (● hit column)))
+                  (detail (● hit snippet)) (action (Choose (SelectDraftHit draft hit size)))))
+              hits))))
 
     ;; ---- View ----
 
@@ -441,8 +485,10 @@
             (_ "Searching…"))))
 
     (define (find-chords) (→ (List Chord))
-      (list (Chord "Enter" 0) (Chord "Enter" (shift-key)) (Chord "Escape" 0)
-            (Chord "ArrowUp" 0) (Chord "ArrowDown" 0)))
+      (list (new Chord (key "Enter") (modifiers 0))
+            (new Chord (key "Enter") (modifiers (shift-key)))
+            (new Chord (key "Escape") (modifiers 0))
+            (new Chord (key "ArrowUp") (modifiers 0)) (new Chord (key "ArrowDown") (modifiers 0))))
 
     (define (view (state State) (context Context)) (→ (List (Html Message)))
       (match (● state panel)
@@ -582,6 +628,7 @@
       (if limited " · Results limited; narrow your query" ""))
 
     (define (panel-chords) (→ (List Chord))
-      (Cons (Chord "Tab" (shift-key))
-            (map (lambda (key) (Chord key 0)) (list "ArrowUp" "ArrowDown" "Enter" "Escape" "Tab"))))
+      (Cons (new Chord (key "Tab") (modifiers (shift-key)))
+            (map (lambda (key) (new Chord (key key) (modifiers 0)))
+                 (list "ArrowUp" "ArrowDown" "Enter" "Escape" "Tab"))))
     ))

@@ -8,7 +8,7 @@
 (effect Stop
   ((ctl stop (Fn → Unit))))
 
-(struct Resource
+(record Resource
   ((name String)))
 
 ;; This method is reached only by cleanup of a suspended frame. New
@@ -20,7 +20,7 @@
       ((Resource name) (write-line name)))))
 
 (define (work) (→ Unit) (! Pause output-port)
-  (let ((resource (Resource "resource")))
+  (let ((resource (new Resource (name "resource"))))
     (pause)
     (match resource
       ((Resource name) (write-line name)))))

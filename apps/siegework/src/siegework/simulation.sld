@@ -39,7 +39,7 @@
 
     ;; An order the world accepted, with the tick it was given at. A seed
     ;; and the journal of a colony's orders rebuild the colony exactly.
-    (struct Entry
+    (record Entry
       ((tick I64)
        (action Action))
       (deriving Serialize Deserialize))
@@ -48,7 +48,8 @@
     ;; order was rejected.
     (define (command (world World) (action Action)) (→ (Result (Pair World Entry) Rejection))
       (match (act world action)
-        ((Ok next) (Ok (Pair next (Entry (● world tick) action))))
+        ((Ok next)
+         (Ok (new Pair (first next) (second (new Entry (tick (● world tick)) (action action))))))
         ((Err rejection) (Err rejection))))
 
     ;; Rebuilds a colony from its seed, its journal, oldest entry first, and
@@ -58,17 +59,17 @@
     ;; since the journal was written, an order the world now rejects, or
     ;; whose tick the world no longer reaches, is dropped.
     (define (replay (seed I64) (entries (List Entry)) (tick I64)) (→ (Pair World (List Entry)))
-      (match (fold-left replay-entry (Pair (new-world seed) (Nil)) entries)
-        ((Pair world kept) (Pair (advance-until world tick) (reverse kept)))))
+      (match (fold-left replay-entry (new Pair (first (new-world seed)) (second (Nil))) entries)
+        ((Pair world kept) (new Pair (first (advance-until world tick)) (second (reverse kept))))))
 
     (define (replay-entry (played (Pair World (List Entry))) (entry Entry))
       (→ (Pair World (List Entry)))
       (let ((world (advance-until (● played first) (● entry tick))))
         (if (= (● world tick) (● entry tick))
             (match (command world (● entry action))
-              ((Ok (Pair next kept)) (Pair next (Cons kept (● played second))))
-              ((Err _) (Pair world (● played second))))
-            (Pair world (● played second)))))
+              ((Ok (Pair next kept)) (new Pair (first next) (second (Cons kept (● played second)))))
+              ((Err _) (new Pair (first world) (second (● played second)))))
+            (new Pair (first world) (second (● played second))))))
 
     ;; Advances to `tick`, or until the world stops: before the first order
     ;; and once the game is decided, a tick changes nothing.

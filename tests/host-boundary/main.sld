@@ -14,10 +14,10 @@
 (extern note-bytes "snail.test" "bytes" (Fn I32 Bytes → I32))
 (extern receive-managed "snail.test" "managed" (Fn → (Result Payload String)))
 
-(struct Checkpoint
+(record Checkpoint
   ((value Any)))
 
-(define (create) (→ Checkpoint) (Checkpoint (Any 42)))
+(define (create) (→ Checkpoint) (new Checkpoint (value (Any 42))))
 (expose create "create")
 
 (define (state (checkpoint Checkpoint)) (→ Any)

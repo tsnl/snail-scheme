@@ -9,11 +9,11 @@
 ;; once rather than waiting, so what the work prints depends on the
 ;; program alone, as a test of it needs. Nothing here wakes a ticket, so
 ;; awaiting one abandons the work.
-(struct Clock
+(record Clock
   ((elapsed I64)))
 
 (define (logical (work (FnOnce → Unit ! mut output-port tasks))) (→ Unit) (! output-port mut)
-  (let ((clock (Clock 0)))
+  (let ((clock (new Clock (elapsed 0))))
     (handle tasks
         ((yield (lambda (resume) (resume (unit))))
          (sleep (lambda (delay resume)

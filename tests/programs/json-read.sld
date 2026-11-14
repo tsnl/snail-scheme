@@ -20,7 +20,8 @@
         (JsonString "quote \" backslash \\ tab\tend λ 😀")
         (JsonString (list->string (list (integer->char 55296) (integer->char 31))))
         (JsonArray (list (JsonInteger 1) (JsonArray (Nil)) (JsonObject (Nil))))
-        (JsonObject (list (Pair "a" (JsonBool #t)) (Pair "a" (JsonBool #f))))))
+        (JsonObject (list (new Pair (first "a") (second (JsonBool #t)))
+                          (new Pair (first "a") (second (JsonBool #f)))))))
 
 (define (main) (→ Unit) (! output-port)
   (for-each (lambda (value) (write-line (read-back (json->string value)))) (written))

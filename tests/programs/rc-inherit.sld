@@ -4,7 +4,7 @@
  (only (snail core primitive) inherit-handlers)
  (only (snail core forms) host))
 
-(struct Resource
+(record Resource
   ((value I64)))
 
 (instance (Drop (! output-port) Resource)
@@ -16,7 +16,7 @@
 (define (job) (→ (FnOnce → Unit ! host)) (! mut output-port)
   (handle ReadValue
       ((read-value
-        (let ((resource (rc (Resource 12))))
+        (let ((resource (rc (new Resource (value 12)))))
           (ann (lambda () (● resource value)) (Fn → I64 ! mut output-port)))))
     (inherit-handlers (once (lambda () (display (read-value)) (newline))))))
 

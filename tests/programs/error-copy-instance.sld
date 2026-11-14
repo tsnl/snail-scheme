@@ -6,7 +6,7 @@
 
 (instance (Twice (Option A))
   (define (twice (value (Option A))) (→ (Pair (Option A) (Option A)))
-    (Pair value value)))
+    (new Pair (first value) (second value))))
 
 (define main
   (lambda ()

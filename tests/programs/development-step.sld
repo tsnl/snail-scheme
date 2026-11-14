@@ -17,32 +17,41 @@
 (define (project) (→ String) "/r/apps/p")
 
 (define (description) (→ Description)
-  (Description (list "main.sld")
-               (list "public")
-               (Nil)
-               (list (RunDefinition "app" "server" (list "--port")))))
+  (new Description (entries (list "main.sld"))
+       (publics (list "public"))
+       (browsers (Nil))
+       (runs (list (new RunDefinition (name "app") (build "server") (arguments (list "--port")))))))
 
 (define (candidate (digest String)) (→ Candidate)
-  (Candidate (description)
-             (list
-              (Generation "server" (string-append "/r/apps/p/build/s-" digest) digest (Nil) (Nil)))
-             0))
+  (new Candidate (description (description))
+       (generations (list
+                     (new Generation
+                       (name "server")
+                       (directory (string-append "/r/apps/p/build/s-" digest))
+                       (digest digest)
+                       (files (Nil))
+                       (linked (Nil)))))
+       (milliseconds 0)))
 
 (define (succeeded (digest String)) (→ Reply)
-  (Reply (Some (description)) (Some (candidate digest)) (Nil)))
+  (new Reply
+    (description (Some (description)))
+    (candidate (Some (candidate digest)))
+    (diagnostics (Nil))))
 
 ;; A build into generation `name`, whose files have the digest given, as a
 ;; build of an unchanged program does into a new generation.
 (define (built-in (name String) (digest String)) (→ Reply)
-  (Reply (Some (description))
-         (Some (Candidate (description)
-                          (list (Generation "server"
-                                            (string-append "/r/apps/p/build/" name)
-                                            digest
-                                            (Nil)
-                                            (Nil)))
-                          0))
-         (Nil)))
+  (new Reply (description (Some (description)))
+       (candidate (Some (new Candidate (description (description))
+                             (generations (list (new Generation (name "server")
+                                                     (directory
+                                                      (string-append "/r/apps/p/build/" name))
+                                                     (digest digest)
+                                                     (files (Nil))
+                                                     (linked (Nil)))))
+                             (milliseconds 0))))
+       (diagnostics (Nil))))
 
 ;; An edit, and the attempt it starts built and published as `epoch`.
 (define (rebuilt (epoch I64) (reply Reply)) (→ (List Event))
@@ -53,25 +62,47 @@
         (PublishReplied epoch (None))))
 
 (define (failed) (→ Reply)
-  (Reply (Some (description))
-         (None)
-         (list (Diagnostic "unbound identifier x" (Some (SourcePoint "/r/apps/p/main.sld" 1 2))))))
+  (new Reply (description (Some (description)))
+       (candidate (None))
+       (diagnostics (list (new Diagnostic
+                            (message "unbound identifier x")
+                            (source (Some (new SourcePoint
+                                            (file "/r/apps/p/main.sld")
+                                            (line 1)
+                                            (column 2)))))))))
 
 ;; A publication whose description has no run targets.
 (define (without-runs) (→ Reply)
-  (let ((bare (Description (list "main.sld") (Nil) (Nil) (Nil))))
-    (Reply (Some bare)
-           (Some
-            (Candidate bare (list (Generation "server" "/r/apps/p/build/s-x" "x" (Nil) (Nil))) 0))
-           (Nil))))
+  (let ((bare (new Description
+                (entries (list "main.sld"))
+                (publics (Nil))
+                (browsers (Nil))
+                (runs (Nil)))))
+    (new Reply (description (Some bare))
+         (candidate (Some
+                     (new Candidate
+                       (description bare)
+                       (generations (list (new Generation
+                                            (name "server")
+                                            (directory "/r/apps/p/build/s-x")
+                                            (digest "x")
+                                            (files (Nil))
+                                            (linked (Nil)))))
+                       (milliseconds 0))))
+         (diagnostics (Nil)))))
 
 ;; A build whose program links the file at `path`.
 (define (linking (path String)) (→ Reply)
-  (Reply (Some (description))
-         (Some (Candidate (description)
-                          (list (Generation "server" "/r/apps/p/build/s-l" "l" (Nil) (list path)))
-                          0))
-         (Nil)))
+  (new Reply (description (Some (description)))
+       (candidate (Some (new Candidate (description (description))
+                             (generations (list (new Generation
+                                                  (name "server")
+                                                  (directory "/r/apps/p/build/s-l")
+                                                  (digest "l")
+                                                  (files (Nil))
+                                                  (linked (list path)))))
+                             (milliseconds 0))))
+       (diagnostics (Nil))))
 
 ;; ---- Printing ----
 

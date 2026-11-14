@@ -33,7 +33,10 @@
 
 (define (echo (request Request)) (→ (Result Response String)) (! tasks)
   (sleep 1)
-  (Ok (Response 200 (list (Header "Content-Type" "text/plain")) (● request body))))
+  (Ok (new Response
+        (status 200)
+        (headers (list (new Header (name "Content-Type") (value "text/plain"))))
+        (body (● request body)))))
 
 (define (main) (→ Unit) (! host mut output-port tcp tasks)
   ;; A program waits on sockets from a task, which the scheduler runs once

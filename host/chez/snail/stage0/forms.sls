@@ -1,7 +1,7 @@
 ;; The typed source forms erased for the Chez bootstrap. This host executes
 ;; compiler code only; source programs are checked and compiled to WasmGC.
 (library (snail stage0 forms)
-  (export define type ann struct enum match effect handle ● set! replace! test-forms)
+  (export define type ann record new enum match effect handle ● set! replace! test-forms)
   (import
    (rename (chezscheme) (define scheme-define) (set! scheme-set!)))
 
@@ -77,21 +77,64 @@
            #'((scheme-define (replace value content)
                 (let ([copy (vector-copy value)]) (vector-set! copy index content) copy))))))
 
-  (meta scheme-define (record-definitions name fields struct?)
-        (let ([names (map field-name fields)])
-          (append (if (and (not struct?) (null? fields))
-                      (let ([singleton (car (generate-temporaries '(singleton)))])
-                        (list #`(scheme-define (#,name) #,singleton)
-                              #`(scheme-define #,singleton (vector #,name))))
-                      (list #`(scheme-define (#,name #,@names) (vector #,name #,@names))))
-                  (list #`(scheme-define #,(car (generate-temporaries '(registered)))
-                            (register-fields! #,name '(#,@names))))
-                  (let loop ([names names] [index 1])
-                    (if (null? names) '()
-                        (append (if struct? (field-definitions name (car names) index) '())
-                                (loop (cdr names) (+ index 1))))))))
+  ;; Private, hygienic requests let match obtain a tag without exposing the
+  ;; record's allocation procedure as a source value.
+  (define-syntax constructor-tag (syntax-rules ()))
+  (define-syntax record-construction (syntax-rules ()))
+  (define-syntax new
+    (syntax-rules () [(_ name field ...) (name record-construction field ...)]))
 
-  (define-syntax struct
+  (meta scheme-define (named-construction maker labels entries form)
+        (let* ([entries (map (lambda (entry)
+                               (syntax-case entry ()
+                                 [(label value) (identifier? #'label)
+                                  (cons (syntax->datum #'label) #'value)]
+                                 [_ (syntax-error entry "expected (field expression)")])) entries)]
+               [names (map car entries)]
+               [temps (generate-temporaries names)])
+          (for-each (lambda (label)
+                      (unless (memq label labels) (syntax-error form "unknown record field" label))
+                      (unless (= 1 (length (filter (lambda (name) (eq? name label)) names)))
+                        (syntax-error form "duplicate record field" label))) names)
+          (for-each (lambda (label)
+                      (unless (memq label names) (syntax-error form "missing record field" label)))
+                    labels)
+          (let ([bindings (map cons names temps)])
+            #`(let* (#,@(map (lambda (temp entry) #`(#,temp #,(cdr entry))) temps entries))
+                (#,maker #,@(map (lambda (label) (cdr (assq label bindings))) labels))))))
+
+  (meta scheme-define (record-transformer maker labels)
+        (lambda (form)
+          (syntax-case form (constructor-tag record-construction)
+            [(_ constructor-tag) maker]
+            [(_ record-construction field ...)
+             (named-construction maker labels (syntax-list #'(field ...)) form)]
+            [_ (syntax-error form "construct records with (new Record (field expression) ...)")])))
+
+  (meta scheme-define (record-definitions name fields record?)
+        (let ([names (map field-name fields)] [maker (car (generate-temporaries '(allocate)))])
+          (append
+           (list (if record?
+                     #`(define-syntax #,name (record-transformer #'#,maker '(#,@names)))
+                     #`(define-syntax #,name
+                         (lambda (form)
+                           (syntax-case form (constructor-tag)
+                             [(_ constructor-tag) #'#,maker]
+                             [(_ argument (... ...)) #'(#,maker argument (... ...))]
+                             [identifier (identifier? #'identifier) #'#,maker])))))
+           (if (and (not record?) (null? fields))
+               (let ([singleton (car (generate-temporaries '(singleton)))])
+                 (list #`(scheme-define (#,maker) #,singleton)
+                       #`(scheme-define #,singleton (vector #,maker))))
+               (list #`(scheme-define (#,maker #,@names) (vector #,maker #,@names))))
+           (list #`(scheme-define #,(car (generate-temporaries '(registered)))
+                     (register-fields! #,maker '(#,@names))))
+           (let loop ([names names] [index 1])
+             (if (null? names) '()
+                 (append (if record? (field-definitions name (car names) index) '())
+                         (loop (cdr names) (+ index 1))))))))
+
+  (define-syntax record
     (lambda (form)
       (syntax-case form ()
         [(_ head (field ...) . rest)
@@ -144,7 +187,8 @@
                     #`(and (pair? #,value)
                            #,(pattern-test (car fields) #`(car #,value))
                            #,(pattern-test (cadr fields) #`(cdr #,value)))]
-                   [else #`(and (vector? #,value) (eq? (vector-ref #,value 0) constructor)
+                   [else #`(and (vector? #,value)
+                                (eq? (vector-ref #,value 0) (constructor constructor-tag))
                                 #,@(let loop ([fields fields] [index 1])
                                      (if (null? fields) '()
                                          (cons
@@ -234,7 +278,7 @@
                           (syntax-list #'(operation ...))))])))
   ;; ---- Tests ----
 
-  (struct Counter
+  (record Counter
     ((label String)
      (value I64)))
   (enum Documented (Present ((value I64)))
@@ -244,7 +288,14 @@
   (effect Observe ((observe-value (Fn → I64))))
   (define (typed-sum (left I64) (right I64)) (→ I64) (+ left right))
   (scheme-define (test-forms)
-    (let* ([record (Counter "before" 1)] [alias record]
+    (let* ([seen '()]
+           [value (new Counter
+                    (value (begin (scheme-set! seen (cons 'value seen)) 42))
+                    (label (begin (scheme-set! seen (cons 'label seen)) "ordered")))])
+      (unless (and (equal? seen '(label value)) (= (● value value) 42)
+                   (string=? (● value label) "ordered"))
+        (error 'test-forms "named construction changed evaluation order")))
+    (let* ([record (new Counter (label "before") (value 1))] [alias record]
            [changed (Counter-label-set record "after")])
       (set! (● alias value) 2)
       (unless (and (= (● record value) 2) (= (● changed value) 1)

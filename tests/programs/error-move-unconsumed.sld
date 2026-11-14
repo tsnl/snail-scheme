@@ -2,7 +2,7 @@
  (snail core base))
 
 ;; A token is linear by its declaration, so it must be used.
-(struct Token
+(record Token
   ((id I64))
   )
 (instance (Drop (!) Token)
@@ -11,6 +11,6 @@
 
 (define main
   (lambda ()
-    (let ((token (Token 1)))
+    (let ((token (new Token (id 1))))
       (unit))
     (unit)))

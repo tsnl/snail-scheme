@@ -32,7 +32,7 @@
   (tasks-turn scheduler 0)
   (step scheduler session (None)))
 
-(struct RequestState
+(record RequestState
   ((started Bool)
    (finished Bool)))
 
@@ -41,7 +41,9 @@
   (handle fetch
       ((request (lambda (method url headers body)
                   (if (string=? method "PUT") (panic "canceled save ran")
-                      (Ok (Reply 200 "{\"text\":\"disk\",\"revision\":\"initial\"}")))))
+                      (Ok (new Reply
+                            (status 200)
+                            (body "{\"text\":\"disk\",\"revision\":\"initial\"}"))))))
        (stream-open (lambda (url kinds) (panic "unexpected stream")))
        (stream-next (lambda (stream) (panic "unexpected stream")))
        (stream-close (lambda (stream) (unit))))
@@ -69,13 +71,14 @@
             (tasks-close! replacement)))))))
   ;; Canceling reception withdraws UI authority, not the producer's work.
   ;; A pending request still completes and drops its unobserved result.
-  (let ((gate (make-mailbox)) (request-state (RequestState #f #f)))
+  (let ((gate (make-mailbox)) (request-state (new RequestState (started #f) (finished #f))))
     (handle fetch
         ((request (lambda (method url headers body)
                     (set! (● request-state started) #t)
                     (mailbox-receive gate)
                     (set! (● request-state finished) #t)
-                    (Ok (Reply 200 "{\"text\":\"late\",\"revision\":\"late\"}"))))
+                    (Ok
+                     (new Reply (status 200) (body "{\"text\":\"late\",\"revision\":\"late\"}")))))
          (stream-open (lambda (url kinds) (panic "unexpected stream")))
          (stream-next (lambda (stream) (panic "unexpected stream")))
          (stream-close (lambda (stream) (unit))))

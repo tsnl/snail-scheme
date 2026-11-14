@@ -29,14 +29,14 @@
 
     ;; An object as the manifest names it: the digest that names it in the
     ;; store, and its size.
-    (struct Object
+    (record Object
       ((digest String)
        (size I64)))
 
     ;; The manifest, with the directory it was read from: the store its
     ;; objects are in, relative to it, the runtime, each library's module
     ;; by name in program order, and the files the program links.
-    (struct Manifest
+    (record Manifest
       ((directory String)
        (store String)
        (runtime Object)
@@ -53,23 +53,27 @@
     (define (manifest-of (directory String) (json (Option Json))) (→ (Option Manifest))
       (match json
         ((Some json)
-         (match (Pair (object-of (json-member json "runtime"))
-                      (modules-of (json-array json "modules")))
+         (match (new Pair (first (object-of (json-member json "runtime")))
+                     (second (modules-of (json-array json "modules"))))
            ((Pair (Some runtime) (Some modules))
-            (Some (Manifest directory
-                            (json-text json "store" "store/")
-                            runtime
-                            modules
-                            (objects-of (json-array json "files")))))
+            (Some (new Manifest (directory directory)
+                       (store (json-text json "store" "store/"))
+                       (runtime runtime)
+                       (modules modules)
+                       (files (objects-of (json-array json "files"))))))
            (_ (None))))
         ((None) (None))))
 
     (define (modules-of (entries (List Json))) (→ (Option (List (Pair String Object))))
       (fold-right (lambda (entry rest)
-                    (match (Pair rest (Pair (json-member entry "name") (object-of (Some entry))))
+                    (match (new Pair
+                             (first rest)
+                             (second (new Pair
+                                       (first (json-member entry "name"))
+                                       (second (object-of (Some entry))))))
                       ((Pair (Some rest) (Pair (Some (JsonString name)) (Some object)))
                        (if (module-name-available? name rest)
-                           (Some (Cons (Pair name object) rest)) (None)))
+                           (Some (Cons (new Pair (first name) (second object)) rest)) (None)))
                       (_ (None))))
                   (Some (Nil))
                   entries))
@@ -97,10 +101,10 @@
         ((Some entry)
          (match (json-member entry "digest")
            ((Some (JsonString digest))
-            (Some (Object digest
-                          (match (json-member entry "size")
-                            ((Some (JsonInteger size)) size)
-                            (_ 0)))))
+            (Some (new Object (digest digest)
+                       (size (match (json-member entry "size")
+                               ((Some (JsonInteger size)) size)
+                               (_ 0))))))
            (_ (None))))
         ((None) (None))))
 
@@ -159,11 +163,11 @@
     ;; ordinary heap data and a weak scheduler reference. The loaded instances
     ;; are held by host handles and by their importers; engine metadata need
     ;; not keep another library registry.
-    (struct Engine
+    (record Engine
       ((scheduler Scheduler)
        (state EngineState)))
 
-    (struct EngineState
+    (record EngineState
       ((scheduler WeakScheduler)
        (runtime (Option Module))
        (status I64)
@@ -173,8 +177,14 @@
 
     (define (make-engine) (→ Engine)
       (let ((scheduler (make-scheduler)))
-        (Engine scheduler
-                (EngineState (rc-downgrade scheduler) (None) 0 (make-vector 0 "") (Nil) #u8()))))
+        (new Engine (scheduler scheduler)
+             (state (new EngineState
+                      (scheduler (rc-downgrade scheduler))
+                      (runtime (None))
+                      (status 0)
+                      (files (make-vector 0 ""))
+                      (answers (Nil))
+                      (held #u8()))))))
 
     ;; Startup transfers metadata into one task; that task does not capture
     ;; Engine or its strong scheduler owner. Program work joins the same FIFO.
@@ -227,7 +237,10 @@
         ((Cons (Pair name object) rest)
          (let ((instance (if (string=? name "snail.core.control") (loading-program)
                              (link-object manifest name object (Some runtime) libraries))))
-           (link-libraries manifest runtime rest (Cons (Pair name instance) libraries))))))
+           (link-libraries manifest
+                           runtime
+                           rest
+                           (Cons (new Pair (first name) (second instance)) libraries))))))
 
     ;; An object compiled and linked, called `name` in a failure, against
     ;; the providers its imports call for.
@@ -335,7 +348,9 @@
         (dispatch-in (● engine scheduler)
                      (once (lambda ()
                              (let ((bytes (read-object file)))
-                               (set! (● state answers) (Cons (Pair ticket bytes) (● state answers)))
+                               (set! (● state answers)
+                                     (Cons (new Pair (first ticket) (second bytes))
+                                           (● state answers)))
                                (unless (wake-task! (● state scheduler) ticket)
                                  (take-answer state ticket) (unit))))))
         (unit)))

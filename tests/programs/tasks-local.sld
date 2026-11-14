@@ -4,12 +4,12 @@
  (snail core io)
  (snail shell task))
 
-(struct TaskValue
+(record TaskValue
   ((value I64)))
 
 (define (main) (→ Unit) (! host mut output-port tasks)
 
-  (let ((cell (TaskValue 0)))
+  (let ((cell (new TaskValue (value 0))))
     (dispatch-local
      (once (lambda ()
              (set! (● cell value) 42)

@@ -2,7 +2,7 @@
  (snail core base)
  (snail core io))
 
-(struct Ranked
+(record Ranked
   ((key I64)
    (index I64)))
 
@@ -12,6 +12,9 @@
     (write-line (show (fold-left + 0 sorted)))
     (write-line (show (list-ref sorted 29999))))
   (let ((sorted (list-sort (lambda (a b) (< (● a key) (● b key)))
-                           (list (Ranked 1 0) (Ranked 0 1) (Ranked 1 2) (Ranked 0 3)))))
+                           (list (new Ranked (key 1) (index 0))
+                                 (new Ranked (key 0) (index 1))
+                                 (new Ranked (key 1) (index 2))
+                                 (new Ranked (key 0) (index 3))))))
     (write-line (string-join (map (lambda (item) (show (● item index))) sorted) ",")))
   (unit))

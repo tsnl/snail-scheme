@@ -30,10 +30,10 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   native Chez libraries and erases typed forms. It rejects application
   libraries outside that closure; adding a dependency is a deliberate edit
   to the loader. Test support has its own allowance in test mode. The
-  compiler reads struct fields with `(● record label ...)`; stage 0 maps
+  compiler reads record fields with `(● record label ...)`; stage 0 maps
   that form to the same mutable record slots.
 
-- Every struct is a heap object and every field is mutable. Primitive
+- Every record is a heap object and every field is mutable. Primitive
   numbers and booleans remain unboxed. Keep ordinary compiler passes pure
   by convention and by their effect signatures. A linear member makes its
   aggregate linear; `Rc` alone may own a linear value without becoming
@@ -90,7 +90,7 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   at no cost in speed; the count per module is worth watching.
 - Prefer cohesive single-file modules with named sections. A large file can
   explain one subject well; extract a file only for a substantial new subject.
-- Put each Scheme import specification and struct field on its own line.
+- Put each Scheme import specification and record field on its own line.
   Name pure field replacements `<accessor>-set`, without a trailing `!`;
   reserve `!` for mutation.
 - Write section headers as `;; ---- Title ----` in Scheme,

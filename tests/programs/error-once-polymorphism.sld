@@ -1,7 +1,11 @@
 (import
  (snail core base))
 
-(define (duplicate (value T)) (→ (Pair T T)) (∀ (T)) (⊨ (Copy T)) (Pair value value))
+(define (duplicate (value T))
+  (→ (Pair T T))
+  (∀ (T))
+  (⊨ (Copy T))
+  (new Pair (first value) (second value)))
 
 (define main
   (lambda ()

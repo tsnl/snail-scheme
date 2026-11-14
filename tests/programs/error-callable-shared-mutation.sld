@@ -1,7 +1,7 @@
 (import
  (snail core base))
 
-(struct Counter
+(record Counter
   ((value I64)))
 
 (instance (Drop (!) Counter)
@@ -10,7 +10,7 @@
 
 (define main
   (lambda ()
-    (let* ((counter (Counter 0))
+    (let* ((counter (new Counter (value 0)))
            (advance (ann (lambda () (set! (● counter value) 1))
                          (Fn → Unit ! mut))))
       (drop advance))

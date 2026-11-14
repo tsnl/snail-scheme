@@ -183,8 +183,8 @@
         ((Regular) (lane-behavior world nest lane))))
 
     (define (lane-behavior (world World) (nest Nest) (lane I64)) (→ Behavior)
-      (let ((sample (Cell (+ (● (● nest cell) x) (if (= (remainder lane 3) 0) -12 12))
-                          (+ (● (● nest cell) y) (- (remainder lane 5) 2)))))
+      (let ((sample (new Cell (x (+ (● (● nest cell) x) (if (= (remainder lane 3) 0) -12 12)))
+                         (y (+ (● (● nest cell) y) (- (remainder lane 5) 2))))))
         (if
          (and (in-bounds? sample) (match (ground-at (● world land) sample) ((Rock) #t) (_ #f)))
          (Raider)
@@ -195,22 +195,22 @@
       (→ World)
       (match (fresh-id world)
         ((Pair id world)
-         (let* ((cell (Cell (+ (● (● nest cell) x) (- (remainder lane 3) 1))
-                            (+ (● (● nest cell) y) 2)))
+         (let* ((cell (new Cell (x (+ (● (● nest cell) x) (- (remainder lane 3) 1)))
+                           (y (+ (● (● nest cell) y) 2))))
                 (health (spawn-health world behavior rank))
                 (burrower
                  (= (remainder (+ (remainder (● world seed) 10) (remainder id 10)) 10) 0)))
            (World-enemies-set world (append (● world enemies)
-                                            (list (Enemy id
-                                                         behavior
-                                                         rank
-                                                         burrower
-                                                         cell
-                                                         cell
-                                                         health
-                                                         health
-                                                         (raid-target world nest behavior)
-                                                         (None)))))))))
+                                            (list (new Enemy (id id)
+                                                       (behavior behavior)
+                                                       (rank rank)
+                                                       (burrower burrower)
+                                                       (cell cell)
+                                                       (previous cell)
+                                                       (health health)
+                                                       (maximum health)
+                                                       (raid (raid-target world nest behavior))
+                                                       (aggro (None))))))))))
 
     ;; A raider picks the nearest exposed outpost on its own approach: a
     ;; finished extractor or pylon on the mainland, more than nine cells
@@ -257,13 +257,17 @@
                      (and (cell=? (● route goal) goal)
                           (eq-bool? (● route burrower) burrower)))
                    (● world routes))
-        ((Some route) (Pair (● route field) world))
+        ((Some route) (new Pair (first (● route field)) (second world)))
         ((None) (let ((field (distance-field (passable world burrower) (goal-cells world goal))))
-                  (Pair field
-                        (World-routes-set world
-                                          (take
-                                           (Cons (Route goal burrower field) (● world routes))
-                                           8)))))))
+                  (new Pair (first field)
+                       (second (World-routes-set world
+                                                 (take
+                                                  (Cons (new Route
+                                                          (goal goal)
+                                                          (burrower burrower)
+                                                          (field field))
+                                                        (● world routes))
+                                                  8))))))))
 
     (define (eq-bool? (a Bool) (b Bool)) (→ Bool)
       (if a b (not b)))
@@ -274,8 +278,8 @@
         (if (cell=? goal (● hub cell))
             (filter (lambda (cell) (hub-cell? hub cell))
                     (map (lambda (i)
-                           (Cell (+ (● goal x) (- (remainder i 3) 1))
-                                 (+ (● goal y) (- (quotient i 3) 1))))
+                           (new Cell (x (+ (● goal x) (- (remainder i 3) 1)))
+                                (y (+ (● goal y) (- (quotient i 3) 1)))))
                          (iota 9)))
             (list goal))))
 
@@ -381,9 +385,10 @@
     (define (heading (world World) (crowd (Vector I64)) (enemy Enemy))
       (→ (Pair (Option Cell) World))
       (if (engaged? world enemy)
-          (Pair (None) world)
+          (new Pair (first (None)) (second world))
           (match (route-field world (target-cell world enemy) (● enemy burrower))
-            ((Pair field world) (Pair (next-cell world field crowd (● enemy cell)) world)))))
+            ((Pair field world)
+             (new Pair (first (next-cell world field crowd (● enemy cell))) (second world))))))
 
     (define (walkable? (world World) (cell Cell)) (→ Bool)
       (match (ground-at (● world land) cell)
@@ -419,12 +424,12 @@
         (fold-left (lambda (found enemy)
                      (match (heading (● found second) crowd enemy)
                        ((Pair (Some cell) world)
-                        (Pair (if (walkable? world cell)
-                                  (● found first)
-                                  (Cons cell (● found first)))
-                              world))
-                       ((Pair (None) world) (Pair (● found first) world))))
-                   (Pair (Nil) world)
+                        (new Pair (first (if (walkable? world cell)
+                                             (● found first)
+                                             (Cons cell (● found first))))
+                             (second world)))
+                       ((Pair (None) world) (new Pair (first (● found first)) (second world)))))
+                   (new Pair (first (Nil)) (second world))
                    (filter (lambda (record) (● record burrower)) (● world enemies)))))
 
     (define (chip (world World) (cell Cell) (amount I64)) (→ World)
@@ -435,7 +440,7 @@
             (others (filter (lambda (d) (not (cell=? (● d cell) cell))) (● world digs))))
         (if (<= remaining 0)
             (open-rock (World-digs-set world others) cell)
-            (World-digs-set world (Cons (Dig cell remaining) others)))))
+            (World-digs-set world (Cons (new Dig (cell cell) (remaining remaining)) others)))))
 
     ;; ---- Turrets ----
 
@@ -514,7 +519,10 @@
     (define (shoot (world World) (turret Building) (cell Cell)) (→ World)
       (World-buildings-set (World-shots-set world
                                             (Cons
-                                             (Shot (● turret cell) cell (● world tick))
+                                             (new Shot
+                                               (from (● turret cell))
+                                               (to cell)
+                                               (tick (● world tick)))
                                              (● world shots)))
                            (map (lambda (b)
                                   (if (= (● b id) (● turret id))
@@ -549,7 +557,7 @@
     ;; older than eight seconds.
     (define (alert (world World) (cell Cell)) (→ World)
       (let ((tick (● world tick)))
-        (World-alerts-set world (Cons (Alert cell tick)
+        (World-alerts-set world (Cons (new Alert (cell cell) (tick tick))
                                       (take (filter (lambda (a)
                                                       (and (<= (- tick (● a tick)) 80)
                                                            (not (within? (● a cell) cell 4))))

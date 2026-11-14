@@ -7,7 +7,7 @@
 (effect Abort
   ((ctl abort (Fn I64 → I64))))
 
-(struct Point
+(record Point
   ((x I64)
    (y I64)))
 
@@ -16,7 +16,7 @@
   (Box
    ((width I64))))
 
-(define (point) (→ Point) (! Abort) (Point 1 (abort 2)))
+(define (point) (→ Point) (! Abort) (new Point (x 1) (y (abort 2))))
 
 (define (shape) (→ Shape) (! Abort) (Box (abort 3)))
 

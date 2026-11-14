@@ -14,7 +14,7 @@
 
     ;; The offset of the first byte of the first ill-formed sequence: its
     ;; lead, or the stray continuation or invalid byte that stands alone.
-    (struct Utf8Error
+    (record Utf8Error
       ((offset I64)))
 
     ;; ---- Decoding ----
@@ -22,7 +22,7 @@
     ;; What a lead byte says of its sequence: the sequence's length in
     ;; bytes, the range its second byte must fall in, and the bits the lead
     ;; contributes to the scalar.
-    (struct Lead
+    (record Lead
       ((width I64)
        (low I32)
        (high I32)
@@ -35,15 +35,15 @@
     ;; nothing, and neither does a continuation.
 
     (define (lead (byte I32)) (→ (Option Lead))
-      (cond ((< byte 128) (Some (Lead 1 0 0 byte)))
+      (cond ((< byte 128) (Some (new Lead (width 1) (low 0) (high 0) (bits byte))))
             ((< byte 194) (None))
-            ((< byte 224) (Some (Lead 2 128 191 (i32-and byte 31))))
-            ((= byte 224) (Some (Lead 3 160 191 0)))
-            ((= byte 237) (Some (Lead 3 128 159 13)))
-            ((< byte 240) (Some (Lead 3 128 191 (i32-and byte 15))))
-            ((= byte 240) (Some (Lead 4 144 191 0)))
-            ((< byte 244) (Some (Lead 4 128 191 (i32-and byte 7))))
-            ((= byte 244) (Some (Lead 4 128 143 4)))
+            ((< byte 224) (Some (new Lead (width 2) (low 128) (high 191) (bits (i32-and byte 31)))))
+            ((= byte 224) (Some (new Lead (width 3) (low 160) (high 191) (bits 0))))
+            ((= byte 237) (Some (new Lead (width 3) (low 128) (high 159) (bits 13))))
+            ((< byte 240) (Some (new Lead (width 3) (low 128) (high 191) (bits (i32-and byte 15)))))
+            ((= byte 240) (Some (new Lead (width 4) (low 144) (high 191) (bits 0))))
+            ((< byte 244) (Some (new Lead (width 4) (low 128) (high 191) (bits (i32-and byte 7)))))
+            ((= byte 244) (Some (new Lead (width 4) (low 128) (high 143) (bits 4))))
             (else (None))))
 
     ;; The byte at `index`, if the bytes reach that far and it is in the
@@ -65,7 +65,7 @@
         ((Some lead)
          (let loop ((next 1) (code (● lead bits)))
            (if (= next (● lead width))
-               (Some (Pair (i32->char code) (+ index next)))
+               (Some (new Pair (first (i32->char code)) (second (+ index next))))
                (match (continuation bytes
                                     (+ index next)
                                     (if (= next 1) (● lead low) 128)
@@ -84,7 +84,7 @@
                           (if (= index (vector-length bytes))
                               (Ok (vector->string (subvector chars 0 count)))
                               (match (sequence-at bytes index)
-                                ((None) (Err (Utf8Error index)))
+                                ((None) (Err (new Utf8Error (offset index))))
                                 ((Some decoded)
                                  (vector-set! chars count (● decoded first))
                                  (loop (● decoded second) (+ count 1))))))))))

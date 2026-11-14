@@ -67,6 +67,20 @@ instances. Their bodies and evidence then go through ordinary checking.
 No runtime top-level expression is admitted: a producer recipe gets an
 explicit entry function, and a program starts at its root `main`.
 
+### Named record construction
+
+Resolution turns `new` into a constructor and a list of initializers in written
+order. Each initializer carries its resolved slot and a fresh temporary name;
+the slots form a complete permutation of the record's fields. The checker
+supplies the instantiated field types before checking each value, so callbacks
+and generic records retain contextual typing. It then erases named construction:
+fields already in declaration order become an ordinary constructor call;
+reordered fields become sequential typed bindings followed by that call.
+Ownership, specialization and Wasm emission use their existing operations.
+Chez performs the same ordering at macro expansion time, using private
+constructor procedures and hygienic record descriptors, with no runtime keyword
+lookup for construction.
+
 ### Types, effects and conversions
 
 `check.sld` infers types and effect rows, solves class requirements and
@@ -91,7 +105,7 @@ ordinary inference and effect checking.
 
 ### Ownership and lifetimes
 
-`capabilities.sld` determines whether a type is linear and how it is dropped. Every stored field participates. A struct or enum with a linear
+`capabilities.sld` determines whether a type is linear and how it is dropped. Every stored field participates. A record or enum with a linear
 member is linear, regardless of its mutability. A `Drop` instance also makes a type linear. A generic parameter is linear unless
 its contract requires `Copy`.
 
@@ -172,12 +186,12 @@ hidden their structure.
 ### WasmGC emission
 
 `wasm.sld` selects one representation per concrete type. Numeric primitives
-and booleans are Wasm scalars. A struct is always a GC struct reference;
+and booleans are Wasm scalars. A record is always a GC struct reference;
 its field is one scalar or reference slot. An enum has a tagged base and
 case subtypes. A vector is an exact-sized GC array. Only vectors with counted
 elements add a holder: an ownership header and an immutable reference to that
 array. Its length comes from the array; there is no capacity or replaceable
-storage. There is no inline struct flattening or reconstruction on field writes.
+storage. There is no inline record flattening or reconstruction on field writes.
 
 Completed source references are non-null. Internal Wasm storage and signatures
 admit null so uninitialized slots and suspended results need no fabricated
@@ -378,8 +392,8 @@ provider, and an `Inputs` value supplied by the build. The provider receives eac
 producer with the libraries loading when it was reached:
 
 ```scheme
-(struct Generated ((text String) (bytes Bytes)))
-(struct Inputs ((artifacts (Table ArtifactFiles)) (generated (Table Generated))))
+(record Generated ((text String) (bytes Bytes)))
+(record Inputs ((artifacts (Table ArtifactFiles)) (generated (Table Generated))))
 ```
 
 `artifacts` maps target names to ordered file snapshots, each a
