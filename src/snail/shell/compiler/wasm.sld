@@ -4578,8 +4578,10 @@
              (sequence (lambda (t) (sequence-raw-type m t)))
              (data (lambda (n) (sequence-data m (list-ref types n) (arg n)))))
         (case operation
-          (("cache") (list (cached-function m type (wat "i64.const" (int 0)) (arg 0) #f)))
-          (("lru-cache") (list (cached-function m type (arg 0) (arg 1) #t)))
+          (("cache" "unsafe-effectful-cache")
+           (list (cached-function m type (wat "i64.const" (int 0)) (arg 0) #f)))
+          (("lru-cache" "unsafe-effectful-lru-cache")
+           (list (cached-function m type (arg 0) (arg 1) #t)))
           (("rc-new") (list (new-rc m type (arg 0) (arg 1))))
           (("rc-get") (list (rc-payload m (first-type types) (arg 0))))
           (("rc-downgrade") (list (arg 0)))
