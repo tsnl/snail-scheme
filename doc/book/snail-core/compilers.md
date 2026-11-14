@@ -109,6 +109,14 @@ ordinary inference and effect checking.
 member is linear, regardless of its mutability. A `Drop` instance also makes a type linear. A generic parameter is linear unless
 its contract requires `Copy`.
 
+These questions are asked of a few types throughout a program, and each
+answer searches the type's declarations. No type variable reaches the fields
+of a declaration without parameters, so its answers do not depend on the
+`Copy` variables or requirements in scope. When expansion has every type, the
+program records each such declaration's facts: whether it is linear, whether
+it is counted, and what dropping it performs. The queries read them; adding a
+type to the program forgets them.
+
 `Rc T` is the sole owning exception: it can share a linear `T` without
 becoming linear. `WeakRc T` does not own the payload. Shared aggregates that
 contain counted owners retain and release those members recursively.

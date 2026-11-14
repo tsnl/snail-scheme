@@ -83,10 +83,7 @@
       (let ((callees (specialization-callees state)))
         (for-each (lambda (item) (check-item callees item)) items)
         (let* ((declarations (specialization-declarations state))
-               (items
-                (map
-                 (lambda (item) (lower-reference-counting declarations item))
-                 items))
+               (items (lower-reference-counting declarations items))
                (lowered (fold-left (lambda (lowered item) (lower-item lowered callees item))
                                    (new Lowered (items (Nil)) (state state)) items)))
           (Lowered-items-set lowered (reverse (● lowered items))))))

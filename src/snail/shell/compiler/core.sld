@@ -42,6 +42,7 @@
    label-union
    label-difference
    builtin-types
+   builtin-type?
    core-keywords
    Evidence
    EvInstance
@@ -115,6 +116,8 @@
    item-definitions
    Program
    Program-items-set
+   Program-facts-set
+   TypeFacts
    empty-program
    primitive-global
    program-value
@@ -274,6 +277,30 @@
             (new Pair (first "FnOnce") (second 1))
             (new Pair (first "Fn") (second 0))
             ))
+
+    ;; Whether `name` is one of `builtin-types`. Type queries ask this of
+    ;; each declaration they enter, so it matches the names rather than
+    ;; building the list; the tests keep the two in step.
+
+    (define (builtin-type? (name String)) (→ Bool)
+      (match name
+        ("Any" #t)
+        ("Rc" #t)
+        ("WeakRc" #t)
+        ("Funcref" #t)
+        ("U8" #t)
+        ("I32" #t)
+        ("I64" #t)
+        ("F32" #t)
+        ("F64" #t)
+        ("Bool" #t)
+        ("Char" #t)
+        ("Unit" #t)
+        ("String" #t)
+        ("Vector" #t)
+        ("FnOnce" #t)
+        ("Fn" #t)
+        (_ #f)))
 
     ;; Unique names look like `snail.core.base:map`; diagnostics show the source
     ;; name. Text is scanned as a vector of characters, which both hosts index
@@ -943,7 +970,10 @@
     ;; first, with the number of items it added; the program's own body
     ;; counts as a library named `main`. A library's items join the program
     ;; as one run, after those of every library loaded before it, so the
-    ;; program's items divide into one run per library.
+    ;; program's items divide into one run per library. `facts` holds what
+    ;; the capability queries answer for each declaration without
+    ;; parameters, once the expander has every type (capabilities.sld,
+    ;; "Declared facts"); adding a type forgets them.
     (record Program
       ((values (Table Value))
        (types (Table DataType))
@@ -951,7 +981,13 @@
        (instances (Table (List Instance)))
        (effects (Table Effect))
        (items (List Item))
-       (libraries (List (Pair String I64)))))
+       (libraries (List (Pair String I64)))
+       (facts (Table TypeFacts))))
+
+    (record TypeFacts
+      ((linear? Bool)
+       (shared? Bool)
+       (drop-rows (Result (List Type) String))))
 
     (define (empty-program) (→ Program)
       (new Program
@@ -961,7 +997,8 @@
         (instances (empty-table))
         (effects (empty-table))
         (items (Nil))
-        (libraries (Nil))))
+        (libraries (Nil))
+        (facts (empty-table))))
 
     (define (program-value (program Program) (name String)) (→ (Option Value))
       (table-ref (● program values) name))
@@ -1045,7 +1082,9 @@
       (Program-values-set program (table-set (● program values) name value)))
 
     (define (program-with-type (program Program) (data DataType)) (→ Program)
-      (Program-types-set program (table-set (● program types) (● data name) data)))
+      (Program-facts-set
+       (Program-types-set program (table-set (● program types) (● data name) data))
+       (empty-table)))
 
     (define (program-with-class (program Program) (class Class)) (→ Program)
       (Program-classes-set program (table-set (● program classes) (● class name) class)))
@@ -1375,6 +1414,9 @@
         (lambda () (expect (short-name "snail.core.base:map") "map")
                 (expect (label-union (list "b" "d") (list "c" "a" "b")) (list "a" "b" "c" "d"))
 
+                (expect (every? (lambda (entry) (builtin-type? (● entry first))) (builtin-types))
+                        #t)
+                (expect (builtin-type? "snail.core.base:List") #f)
                 (test-type-identities)
                 (test-hidden-effects)
                 (test-references)))
