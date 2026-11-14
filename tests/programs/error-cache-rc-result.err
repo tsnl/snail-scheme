@@ -1,1 +1,0 @@
-cache and lru-cache do not support Rc results; return WeakRc instead

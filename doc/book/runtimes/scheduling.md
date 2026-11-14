@@ -50,7 +50,7 @@ calls `finish(ticket)`, which runs `deliver` on a success, making the
 answer the library reads, or throws a failure into the finish, where it
 traps the task. `coded` turns a native failure
 with an error code, such as `ECONNRESET`, into the operation's `Err`
-value, and leaves a cancellation or an uncoded failure a failure.
+value, and leaves an abort or an uncoded failure a failure.
 
 A success whose ticket wakes nothing, because its task trapped or its run
 closed, is disposed of exactly once, through the operation's synchronous
@@ -59,7 +59,7 @@ failures are not disposed of.
 
 ## Closing a run
 
-`close` aborts the run's signal, drops every task through `tasks:close`,
+`close` aborts the run's signal, forgets every task through `tasks:close`,
 and disposes of each outcome still held. An operation that cannot abort
 may finish normally afterwards; its ticket then wakes nothing, and its
 outcome is disposed of. Its external effects are not rolled back.

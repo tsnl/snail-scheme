@@ -9,7 +9,7 @@
   ((ctl stop (Fn I64 → I64))))
 
 (define (sum-until-negative (items (List I64))) (→ I64)
-  (handle Stop ((stop (lambda (total resume) (drop resume) total)))
+  (handle Stop ((stop (lambda (total resume) total)))
     (fold-left (lambda (total item) (if (< item 0) (stop total) (+ total item))) 0 items)))
 
 (define (sum (items (List I64))) (→ I64)
@@ -21,7 +21,7 @@
   (display (sum (list 1 2 3 -4 5)))
   (newline)
   (for-each (lambda (item) (display item) (newline)) (list 7 8))
-  (display (handle Stop ((stop (lambda (item resume) (drop resume) item)))
+  (display (handle Stop ((stop (lambda (item resume) item)))
              (for-each (lambda (item) (when (> item 7) (stop item) (unit))) (list 7 8 9))
              0))
   (newline)

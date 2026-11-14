@@ -12,7 +12,7 @@
 
 (record Work
   ((label String)
-   (job (FnOnce → Unit ! output-port))))
+   (job (Fn → Unit ! output-port))))
 
 (record Empty
   ())
@@ -48,6 +48,6 @@
   (write-line (i64->string (● (at-origin) x)))
   (match (new Empty) ((Empty) (write-line "empty")))
   (match (new Work
-           (job (once (lambda () (write-line "ran once"))))
-           (label "linear"))
-    ((Work label job) (write-line label) (call-once job))))
+           (job (lambda () (write-line "ran the job")))
+           (label "work"))
+    ((Work label job) (write-line label) (job))))

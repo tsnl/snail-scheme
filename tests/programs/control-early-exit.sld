@@ -3,8 +3,8 @@
  (snail core io))
 
 ;; A search stops at the first value it finds: `found` hands the value to
-;; its handler, whose implementation drops `resume`, so nothing after the
-;; operation runs, in the search or in the frames that called it.
+;; its handler, whose implementation never calls `resume`, so nothing after
+;; the operation runs, in the search or in the frames that called it.
 (effect Found
   ((ctl found (Fn I64 → Unit))))
 
@@ -30,7 +30,7 @@
      (walk wanted right))))
 
 (define (first-where (wanted (Fn I64 → Bool))) (→ I64) (! output-port)
-  (handle Found ((found (lambda (value resume) (drop resume) value)))
+  (handle Found ((found (lambda (value resume) value)))
     (walk wanted (tree))
     -1))
 
@@ -42,11 +42,11 @@
     ((Node left value right)
      (+ (sum left) (+ (if (= value 12) (begin (found value) 0) value) (sum right))))))
 
-;; A `FnOnce` held across the operation is dropped with the frame that held
-;; it, and never runs.
+;; A procedure held across the operation stays in the frame that held it,
+;; which nothing resumes, so it never runs.
 (define (guarded (items (List I64))) (→ I64) (! output-port)
-  (handle Found ((found (lambda (value resume) (drop resume) value)))
-    (let ((cleanup (once (lambda () (write-line "cleanup ran")))))
+  (handle Found ((found (lambda (value resume) value)))
+    (let ((cleanup (lambda () (write-line "cleanup ran"))))
       (for-each (lambda (item) (when (< item 0) (found item))) items)
       (cleanup)
       0)))
@@ -58,7 +58,6 @@
   (write-line (string-append "sum: "
                              (show (handle Found ((found
                                                    (lambda (value resume)
-                                                     (drop resume)
                                                      (- 0 value))))
                                      (sum (tree))))))
   (write-line (string-append "guarded: " (show (guarded (list 1 2 3)))))

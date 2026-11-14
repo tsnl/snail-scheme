@@ -4,29 +4,18 @@
  (snail core io)
  (snail shell future))
 
-(record Resource
-  ((value I64)))
-
-(instance (Drop (! output-port) Resource)
-  (define (drop (resource Resource)) (→ Unit) (! output-port)
-    (match resource ((Resource value) (display value) (newline)))))
-
+;; Every waker runs, in the order registered, and a ready future calls
+;; its waker at once.
 (define (main) (→ Unit) (! host mut output-port completion)
   (match (ann (make-promise) (Pair (Promise I64) (Future I64)))
     ((Pair promise future)
-     (let* ((first (new Resource (value 1)))
-            (future (on-ready future (once (lambda () (drop first)))))
-            (second (new Resource (value 2)))
-            (future (on-ready future (once (lambda () (drop second))))))
-       (display 3) (newline)
-       (drop (fulfill promise 42))
-       (drop future))))
+     (on-ready future (lambda () (write-line "first waker runs")))
+     (on-ready future (lambda () (write-line "second waker runs")))
+     (write-line "fulfilling")
+     (fulfill promise 42)
+     (on-ready future (lambda () (write-line "a ready future wakes at once")))))
   (match (ann (make-promise) (Pair (Promise I64) (Future I64)))
     ((Pair promise future)
-     (let* ((held (new Resource (value 4)))
-            (future (on-ready future (once (lambda () (drop held))))))
-       (drop future)
-       (drop promise))))
-  (display 5)
-  (newline)
+     (on-ready future (lambda () (write-line "never woken")))))
+  (write-line "done")
   (unit))

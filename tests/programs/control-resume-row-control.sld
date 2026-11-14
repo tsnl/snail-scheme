@@ -17,7 +17,7 @@
   (Done)
   (Yielded
    ((value I64)
-    (next (FnOnce I64 → Step ! Log)))))
+    (next (Fn I64 → Step ! Log)))))
 
 (define (start (body (Fn → Unit ! Gen))) (→ Step) (! Log)
   (handle Gen ((yield (lambda (v resume)
@@ -44,8 +44,7 @@
        (let ((step (next 10)))
          (write-line "after next")
          (match step
-           ((Yielded value rest)
-            (drop rest)
+           ((Yielded value _)
             (write-line (string-append "got " (show value))))
            ((Done) (write-line "done")))))
       ((Done) (write-line "done at once")))))

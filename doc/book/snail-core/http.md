@@ -166,11 +166,11 @@ reset that loses the response; see
 [RFC 9112 §9.6](https://www.rfc-editor.org/rfc/rfc9112.html#section-9.6).
 This grace is for completion only. There is no request-idle deadline yet.
 
-Exclusive use is a calling convention, not linear ownership. The caller must not
-use another alias during the exchange. Cancellation of active native socket I/O
-closes that socket. An uncatchable trap or cancellation while the callback waits
-on an unrelated effect cannot execute the Snail Scheme cleanup branch; runtime shutdown
-cleans the remaining native resource. `serve-one` does not introduce a task scope
+Exclusive use is a calling convention the checker does not enforce. The caller
+must not use another alias during the exchange. Aborting active native socket
+I/O, as closing the run does, closes that socket. A trap while the callback
+waits on an unrelated effect cannot execute the Snail Scheme cleanup branch;
+runtime shutdown cleans the remaining native resource. `serve-one` does not introduce a task scope
 or stronger unwinding guarantee.
 
 `read-request` and `respond` are the exchange's two halves, exported for a

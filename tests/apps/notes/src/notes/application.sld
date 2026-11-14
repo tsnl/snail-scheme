@@ -60,8 +60,8 @@
         ((Typed text) (new Pair (first (Notes-draft-set model text)) (second (Nil))))
         ((Pressed key at) (pressed model key at))
         ((Add) (added model))
-        ((Bullet) (new Pair (first model) (second (list (once bullet)))))
-        ((Clear) (new Pair (first model) (second (list (once clear)))))
+        ((Bullet) (new Pair (first model) (second (list bullet))))
+        ((Clear) (new Pair (first model) (second (list clear))))
         ((Cleared) (new Pair (first (Notes-notes-set model (Nil))) (second (Nil))))
         ((Added count) (new Pair (first (Notes-added-set model count)) (second (Nil))))
         ((Remove id)
@@ -69,7 +69,7 @@
                                            (filter (lambda (note) (not (= (● note id) id)))
                                                    (● model notes))))
               (second (Nil))))
-        ((Load) (new Pair (first model) (second (list (once load)))))
+        ((Load) (new Pair (first model) (second (list load))))
         ((Loaded text)
          (new Pair
            (first (Notes-server-set model (Server-greeting-set (● model server) text)))
@@ -77,7 +77,7 @@
         ((Share)
          (new Pair
            (first model)
-           (second (list (once (lambda () (share (● model notes) (● model next))))))))
+           (second (list (lambda () (share (● model notes) (● model next)))))))
         ((Shared text)
          (new Pair
            (first (Notes-server-set model (Server-shared-set (● model server) text)))
@@ -85,20 +85,19 @@
         ((Listen)
          (new Pair (first model)
               (second (list
-                       (once
-                        (lambda () (hear (stream-open "/api/events" (list "message" "note")))))))))
+                       (lambda () (hear (stream-open "/api/events" (list "message" "note"))))))))
         ((Heard stream text)
-         (new Pair (first (heard model text)) (second (list (once (lambda () (hear stream)))))))
+         (new Pair (first (heard model text)) (second (list (lambda () (hear stream))))))
         ((Ended) (new Pair (first (heard model "ended")) (second (Nil))))))
 
     (define (pressed (model Notes) (key String) (at I32)) (→ (Pair Notes (List (Command Message))))
       (cond ((string=? key "Enter") (update model (Add)))
             ((string=? key "Tab")
              (new Pair (first model)
-                  (second (list (once (lambda ()
-                                        (with-draft
-                                         (lambda (node) (insert-text node at at "  ") (unit)))
-                                        (Pressed "" 0)))))))
+                  (second (list (lambda ()
+                                  (with-draft
+                                   (lambda (node) (insert-text node at at "  ") (unit)))
+                                  (Pressed "" 0))))))
             (else (new Pair (first model) (second (Nil))))))
 
     (define (clear) (→ Message) (! dom)
@@ -149,10 +148,10 @@
                        (next (+ (● model next) 1))
                        (added (● model added))
                        (server (● model server))))
-              (second (list (once (lambda ()
-                                    (yield)
-                                    (with-draft focus-node)
-                                    (Added count)))))))))
+              (second (list (lambda ()
+                              (yield)
+                              (with-draft focus-node)
+                              (Added count))))))))
 
     ;; Does `act` to the draft field, if the view still shows it.
     (define (with-draft (act (Fn Node → Unit ! dom))) (→ Unit) (! dom)

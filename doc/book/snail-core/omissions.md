@@ -9,10 +9,13 @@ each can return if a program needs it.
 - **The dependent elaborator.** Generic code is served by Hindley–Milner
   checking with typeclasses, effect rows and monomorphization. Normalization
   by evaluation and implicit arguments would add type-level computation
-  no program uses. Ownership has two grades, linear and omega, found from
-  a type's structure, a `Drop` instance, and the
-  `(Copy A)` a definition requires ([ownership](ownership.md)); there are
-  no grade variables.
+  no program uses.
+- **Linear types and counted ownership.** Every value may be shared, and
+  the collector reclaims it ([values](values.md)). There is no `FnOnce`,
+  `Rc`, `WeakRc`, `Drop` or `Copy`, and no finalizer: a resource has an
+  explicit close operation. A second call of `resume` panics at run time
+  instead of being rejected by the checker
+  ([#767](https://github.com/tsnl/snail-scheme/issues/767)).
 - **Incremental compiler state.** Every build expands, checks and emits its
   complete dependency closure. There is no retained compiler Session,
   interface hashing or checked-code/Wasm reuse. Wire schemas come from the

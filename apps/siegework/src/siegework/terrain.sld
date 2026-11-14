@@ -154,7 +154,6 @@
     (define (pick (seed I64) (key I64) (items (List A)))
       (→ (Option A))
       (∀ (A))
-      (⊨ (Copy A) (Drop (!) A))
       (if (null? items)
           (None)
           (Some (list-ref items (remainder (hash seed key 0 0) (length items))))))

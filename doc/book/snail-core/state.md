@@ -284,7 +284,7 @@ storage API, not inferred from the server implementation.
 | Records/enums, generic functions, concrete effect operations | Schema/library forms and generated typed operations |
 | Serialize/Deserialize and schema-sensitive TypeIds | Stable database schema identity and explicit migration boundary |
 | Closed effect rows and handler capture checks | A precise structural data/capture check for cached views and actions |
-| Task waits by ticket, and their cleanup | Recoverable storage-abort boundary, serializable writes, consistent snapshots and commit/cancel ownership |
+| Task waits by ticket | Recoverable storage-abort boundary, serializable writes, consistent snapshots and commit/abort handling |
 | Compiler generation identity | Bounded view caching tied to database identity and snapshot revision |
 
 No associated types, borrow checker, user-defined control handlers or new

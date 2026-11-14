@@ -3,8 +3,8 @@
  (snail core io))
 
 ;; An exception is a control operation with a resumable shape: `raise`
-;; could hand its caller a number, but these handlers drop `resume` and
-;; answer for the whole handled computation instead.
+;; could hand its caller a number, but these handlers never call `resume`
+;; and answer for the whole handled computation instead.
 ;; ANCHOR: parse-or
 (effect Raise
   ((ctl raise (Fn String → I64))))
@@ -19,7 +19,7 @@
 
 ;; The handler's answer is a default, after reporting the message.
 (define (parse-or (text String) (default I64)) (→ I64) (! output-port)
-  (handle Raise ((raise (lambda (message resume) (drop resume) (write-line message) default)))
+  (handle Raise ((raise (lambda (message resume) (write-line message) default)))
     (number text)))
 
 (define (main) (→ Unit) (! output-port)
@@ -34,25 +34,21 @@
   ;; outer handler, which answers for everything inside it.
   (display
    (handle Raise ((raise (lambda (message resume)
-                           (drop resume)
                            (write-line (string-append "outer: " message))
                            0)))
      (+ 100
         (handle Raise ((raise
                         (lambda (message resume)
-                          (drop resume)
                           (write-line (string-append "inner: " message))
                           1)))
           (raise "boom")))))
   (newline)
   (display
    (handle Raise ((raise (lambda (message resume)
-                           (drop resume)
                            (write-line (string-append "outer: " message))
                            0)))
      (+ 100
         (handle Raise ((raise (lambda (message resume)
-                                (drop resume)
                                 (raise (string-append "again " message)))))
           (raise "boom")))))
   (newline)

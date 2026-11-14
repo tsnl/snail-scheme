@@ -42,26 +42,26 @@
   ;; A program waits on sockets from a task, which the scheduler runs once
   ;; main returns.
   (dispatch-local
-   (once (lambda ()
-           (let* ((listener (require (listen (require (endpoint "127.0.0.1" 0)))))
-                  (client
-                   (require (connect (require (endpoint "127.0.0.1" (● listener port))))))
-                  (server (require (accept listener))))
-             (require (close-listener listener))
-             (dispatch-local
-              (once (lambda ()
-                      (match (serve-one server 2000 echo)
-                        ((Ok _) (unit))
-                        ((Err _) (panic "HTTP server exchange failed"))))))
-             (write-all client
-                        (ascii
-                         "POST /echo HTTP/1.1\r\nHost: test\r\nContent-Length: 4\r\n\r\nbody"))
-             (write-all client (make-vector 131073 (i32->u8 88)))
-             (let ((response (read-all client)))
-               (require (finish-connection client 2000))
-               (unless (string=? (text response)
-                                 "HTTP/1.1 200 \r\nConnection: close\r\nContent-Length: 4\r\ncontent-type: text/plain\r\n\r\nbody")
-                 (panic "incomplete HTTP response")))
-             (write-line
-              "HTTP exchange: real sockets, suspended handler, unread input and graceful finish")))))
+   (lambda ()
+     (let* ((listener (require (listen (require (endpoint "127.0.0.1" 0)))))
+            (client
+             (require (connect (require (endpoint "127.0.0.1" (● listener port))))))
+            (server (require (accept listener))))
+       (require (close-listener listener))
+       (dispatch-local
+        (lambda ()
+          (match (serve-one server 2000 echo)
+            ((Ok _) (unit))
+            ((Err _) (panic "HTTP server exchange failed")))))
+       (write-all client
+                  (ascii
+                   "POST /echo HTTP/1.1\r\nHost: test\r\nContent-Length: 4\r\n\r\nbody"))
+       (write-all client (make-vector 131073 (i32->u8 88)))
+       (let ((response (read-all client)))
+         (require (finish-connection client 2000))
+         (unless (string=? (text response)
+                           "HTTP/1.1 200 \r\nConnection: close\r\nContent-Length: 4\r\ncontent-type: text/plain\r\n\r\nbody")
+           (panic "incomplete HTTP response")))
+       (write-line
+        "HTTP exchange: real sockets, suspended handler, unread input and graceful finish"))))
   (unit))

@@ -12,7 +12,7 @@ const project = await mkdtemp(join(tmpdir(), 'snail-project-artifacts-'));
 const output = name => join(project, 'build', name);
 const build = name => execute(join(root, 'snail'), ['build', project, name], {maxBuffer: 4 * 1024 * 1024});
 const run = path => execute(process.execPath, ['--no-warnings', join(root, 'host/native/run-snail.mjs'), path]);
-const artifact = name => `(import (snail core base) (snail shell artifact))\n(define (main) (→ Unit) (drop (artifact-bundle "${name}")))\n`;
+const artifact = name => `(import (snail core base) (snail shell artifact))\n(define (main) (→ Unit) (artifact-bundle "${name}") (unit))\n`;
 
 async function generations() {
   const counts = {};

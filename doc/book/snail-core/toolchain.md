@@ -478,15 +478,14 @@ palette, buttons and keyboard dispatch command names through the application loo
 `(snail shell ui shortcuts)` separately maps complete key chords to those names,
 checking duplicate chords and unknown commands when the mappings are built.
 Dispatch schedules an invocation against the current model. Asynchronous work
-returns typed futures owned by the IDE's linear session. Update polls them
-without suspending and applies their common `CommandResult`: a one-shot pure
-transition against current display data. Completion wakes carry no result
-payload or command-specific message. File reads, saves and searches retain
-the evidence specific to their own results, and abandoned producers run the
-same request-specific recovery checks. Dropping a future withdraws reception;
-it does not undo external work such as a submitted file write. The
-[owned-model reactor](applications.md#owned-models-and-futures) describes the
-loop and reload ownership.
+returns typed futures, which the IDE's session keeps until they are ready.
+Update polls them without suspending and applies their common
+`CommandResult`: a pure transition against current display data. Completion
+wakes carry no result payload or command-specific message. File reads, saves
+and searches retain the evidence specific to their own results. Forgetting a
+future withdraws reception; it does not undo external work such as a
+submitted file write. The [reactor](applications.md#models-and-futures)
+describes the loop and what crosses a reload.
 
 The application lives in `(snail shell ide application)`; `host/ide/ide.sld`
 only binds it to the browser page. Scheme scenarios can run its exact update,

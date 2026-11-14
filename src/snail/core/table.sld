@@ -46,9 +46,7 @@
 
     (define (table-ref (table (Table V)) (key String))
       (→ (Option V))
-      (! e)
-      (∀ (V e))
-      (⊨ (Copy V) (Drop e V))
+      (∀ (V))
       (let ((hash (string-hash key)))
         (let loop ((table table))
           (match table
@@ -58,18 +56,14 @@
 
     (define (table-contains? (table (Table V)) (key String))
       (→ Bool)
-      (! e)
-      (∀ (V e))
-      (⊨ (Copy V) (Drop e V))
+      (∀ (V))
       (match (table-ref table key)
         ((Some _) #t)
         ((None) #f)))
 
     (define (table-set (table (Table V)) (key String) (value V))
       (→ (Table V))
-      (! e)
-      (∀ (V e))
-      (⊨ (Copy V) (Drop e V))
+      (∀ (V))
       (let ((hash (string-hash key)))
         (let insert ((table table))
           (match table
@@ -115,23 +109,17 @@
 
     (define (table-count (table (Table V)))
       (→ I64)
-      (! e)
-      (∀ (V e))
-      (⊨ (Copy V) (Drop e V))
+      (∀ (V))
       (table-fold (lambda (count entry) (+ count 1)) 0 table))
 
     (define (table-keys (table (Table V)))
       (→ (List String))
-      (! e)
-      (∀ (V e))
-      (⊨ (Copy V) (Drop e V))
+      (∀ (V))
       (reverse (table-fold (lambda (keys entry) (Cons (● entry first) keys)) (Nil) table)))
 
     (define (table-values (table (Table V)))
       (→ (List V))
-      (! e)
-      (∀ (V e))
-      (⊨ (Copy V) (Drop e V))
+      (∀ (V))
       (reverse (table-fold (lambda (values entry) (Cons (● entry second) values)) (Nil) table)))
 
     ))

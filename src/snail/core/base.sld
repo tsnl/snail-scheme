@@ -13,11 +13,10 @@
    effect
    handle
    expose
-   Any U8 I32 I64 F32 F64 Bool Char Unit String Vector Bytes FnOnce Fn Rc WeakRc mut
-   rc rc-get rc-downgrade weak-rc-upgrade
+   Any U8 I32 I64 F32 F64 Bool Char Unit String Vector Bytes Fn mut
    u8->i32 i32->u8
    let* letrec cond case when unless and or do
-   not unit panic unsafe-total once call-once Drop drop
+   not unit panic unsafe-total
    cache lru-cache unsafe-effectful-cache unsafe-effectful-lru-cache
    Num + - * negate abs
    Ord = < <= > >= min max
@@ -69,7 +68,7 @@
    subvector
    vector-map vector-for-each vector-fold vector->list list->vector
    vector vector-set! vector-copy vector-copy!
-   set! replace!)
+   set!)
   (import
    (snail core forms)
    (snail core primitive)
@@ -376,21 +375,21 @@
       (→ T)
       (! e)
       (∀ (T e))
-      (⊨ (Num e T) (Ord e T) (Copy T) (Drop e T))
+      (⊨ (Num e T) (Ord e T))
       (if (< x (- x x)) (negate x) x))
 
     (define (min (a T) (b T))
       (→ T)
       (! e)
       (∀ (T e))
-      (⊨ (Ord e T) (Copy T) (Drop e T))
+      (⊨ (Ord e T))
       (if (< b a) b a))
 
     (define (max (a T) (b T))
       (→ T)
       (! e)
       (∀ (T e))
-      (⊨ (Ord e T) (Copy T) (Drop e T))
+      (⊨ (Ord e T))
       (if (< a b) b a))
 
     ;; Bytes are packed one per array slot.
@@ -419,15 +418,6 @@
     (define (absurd (never Never)) (→ A) (∀ (A))
       (match never))
 
-    ;; ---- Releasing ----
-
-    ;; `drop` consumes a linear value or releases one shared owner. The
-    ;; final shared owner releases its fields; Rc runs its payload finalizer.
-    ;; A FnOnce drops its uncalled captures. Uncounted values need no cleanup.
-    ;; The Drop constraint records the effects this cleanup may perform.
-    (typeclass (Drop e T)
-      (declare (drop (value T)) (→ Unit) (! e)))
-
     ;; ---- Lists ----
 
     (enum (List T)
@@ -441,18 +431,14 @@
 
     (define (null? (items (List T)))
       (→ Bool)
-      (! e)
-      (∀ (T e))
-      (⊨ (Copy T) (Drop e T))
+      (∀ (T))
       (match items
         ((Nil) #t)
         ((Cons _ _) #f)))
 
     (define (length (items (List T)))
       (→ I64)
-      (! e)
-      (∀ (T e))
-      (⊨ (Copy T) (Drop e T))
+      (∀ (T))
       (fold-left (lambda (count item) (+ count 1)) 0 items))
 
     (define (reverse (items (List T))) (→ (List T)) (∀ (T))
@@ -491,7 +477,6 @@
       (→ (List A))
       (! e)
       (∀ (A e))
-      (⊨ (Copy A) (Drop e A))
       (reverse
        (fold-left (lambda (kept item) (if (keep? item) (Cons item kept) kept)) (Nil) items)))
 
@@ -511,9 +496,7 @@
 
     (define (list-tail (items (List T)) (index I64))
       (→ (List T))
-      (! e)
-      (∀ (T e))
-      (⊨ (Copy T) (Drop e T))
+      (∀ (T))
       (if (= index 0)
           items
           (match items
@@ -522,9 +505,7 @@
 
     (define (list-ref (items (List T)) (index I64))
       (→ T)
-      (! e)
-      (∀ (T e))
-      (⊨ (Copy T) (Drop e T))
+      (∀ (T))
       (match (list-tail items index)
         ((Cons item _) item)
         ((Nil) (panic "list-ref: index out of range"))))
@@ -533,7 +514,6 @@
       (→ Bool)
       (! e)
       (∀ (A e))
-      (⊨ (Copy A) (Drop e A))
       (match items
         ((Nil) #f)
         ((Cons item rest) (if (test item) #t (any? test rest)))))
@@ -542,7 +522,6 @@
       (→ Bool)
       (! e)
       (∀ (A e))
-      (⊨ (Copy A) (Drop e A))
       (match items
         ((Nil) #t)
         ((Cons item rest) (if (test item) (every? test rest) #f))))
@@ -551,7 +530,6 @@
       (→ (Option A))
       (! e)
       (∀ (A e))
-      (⊨ (Copy A) (Drop e A))
       (match items
         ((Nil) (None))
         ((Cons item rest) (if (test item) (Some item) (find test rest)))))
@@ -560,7 +538,7 @@
       (→ Bool)
       (! e)
       (∀ (A e))
-      (⊨ (Ord e A) (Copy A) (Drop e A))
+      (⊨ (Ord e A))
       (any? (lambda (item) (= item value)) items))
 
     ;; Keeps the first of each group of equal items.
@@ -569,7 +547,6 @@
       (→ (List A))
       (! e)
       (∀ (A e))
-      (⊨ (Copy A) (Drop e A))
       (reverse (fold-left (lambda (kept item)
                             (if (any? (lambda (other) (same? other item)) kept)
                                 kept
@@ -578,9 +555,7 @@
 
     (define (take (items (List T)) (count I64))
       (→ (List T))
-      (! e)
-      (∀ (T e))
-      (⊨ (Copy T) (Drop e T))
+      (∀ (T))
       (let loop ((items items) (count count) (taken (Nil)))
         (match items
           ((Cons item rest)
@@ -589,9 +564,7 @@
 
     (define (list-drop (items (List T)) (count I64))
       (→ (List T))
-      (! e)
-      (∀ (T e))
-      (⊨ (Copy T) (Drop e T))
+      (∀ (T))
       (if (= count 0)
           items
           (match items
@@ -600,13 +573,11 @@
 
     ;; A stable merge sort: contiguous halves keep their order, and the
     ;; merge takes the left item first when neither precedes the other.
-    ;; Comparing and splitting read the items, so their type must be Copy.
 
     (define (list-sort (before? (Fn T T → Bool ! e)) (items (List T)))
       (→ (List T))
       (! e)
       (∀ (T e))
-      (⊨ (Copy T) (Drop e T))
       (let ((half (quotient (length items) 2)))
         (if (= half 0)
             items
@@ -615,7 +586,7 @@
                           (list-sort before? (list-drop items half))))))
 
     (define (merge-sorted (before? (Fn T T → Bool ! e)) (left (List T)) (right (List T)))
-      (→ (List T)) (! e) (∀ (T e)) (⊨ (Copy T) (Drop e T))
+      (→ (List T)) (! e) (∀ (T e))
       ;; The merge is linear in the list length, but uses constant stack.
       ;; Equal elements come from the left run first, preserving stability.
       (let loop ((left left) (right right) (reversed (Nil)))
@@ -628,9 +599,7 @@
 
     (define (last (items (List T)))
       (→ (Option T))
-      (! e)
-      (∀ (T e))
-      (⊨ (Copy T) (Drop e T))
+      (∀ (T))
       (match items
         ((Nil) (None))
         ((Cons item (Nil)) (Some item))
@@ -640,7 +609,6 @@
       (→ (Option I64))
       (! e)
       (∀ (A e))
-      (⊨ (Copy A) (Drop e A))
       (let loop ((items items) (index 0))
         (match items
           ((Nil) (None))
@@ -652,7 +620,7 @@
       (→ (Option V))
       (! e)
       (∀ (K V e))
-      (⊨ (Ord e K) (Copy K) (Copy V) (Drop e K) (Drop e V))
+      (⊨ (Ord e K))
       (match entries
         ((Nil) (None))
         ((Cons entry rest)
@@ -662,9 +630,7 @@
 
     (define (zip (as (List A)) (bs (List B)))
       (→ (List (Pair A B)))
-      (! e)
-      (∀ (A B e))
-      (⊨ (Copy A) (Copy B) (Drop e A) (Drop e B))
+      (∀ (A B))
       (let loop ((as as) (bs bs) (pairs (Nil)))
         (match as
           ((Nil) (reverse pairs))
@@ -684,14 +650,12 @@
       (→ (Vector B))
       (! e)
       (∀ (A B e))
-      (⊨ (Copy A) (Copy B) (Drop e A))
       (vector-generate (vector-length items) (lambda (index) (f (vector-ref items index)))))
 
     (define (vector-for-each (f (Fn A → Unit ! e)) (items (Vector A)))
       (→ Unit)
       (! e)
       (∀ (A e))
-      (⊨ (Copy A) (Drop e A))
       (let loop ((index 0))
         (when (< index (vector-length items))
           (f (vector-ref items index))
@@ -701,7 +665,6 @@
       (→ B)
       (! e)
       (∀ (A B e))
-      (⊨ (Copy A) (Drop e A))
       (let loop ((index 0) (result initial))
         (if (< index (vector-length items))
             (loop (+ index 1) (f result (vector-ref items index)))
@@ -709,9 +672,7 @@
 
     (define (vector->list (items (Vector T)))
       (→ (List T))
-      (! e)
-      (∀ (T e))
-      (⊨ (Copy T) (Drop e T))
+      (∀ (T))
       (let loop ((index (- (vector-length items) 1)) (result (Nil)))
         (if (< index 0) result (loop (- index 1) (Cons (vector-ref items index) result)))))
 
@@ -724,7 +685,6 @@
       (→ (Vector T))
       (! e)
       (∀ (T e))
-      (⊨ (Copy T) (Drop e T))
       (unsafe-total (ann (lambda () (let ((cursor (new ListCursor (remaining items))))
                                       (vector-generate (length items)
                                                        (lambda (index)
@@ -745,7 +705,6 @@
       (→ (Vector T))
       (! e)
       (∀ (T e))
-      (⊨ (Copy T) (Drop e T))
       (unsafe-total (ann (lambda () (let ((cursor (new VectorCursor (vectors vectors) (offset 0))))
                                       (vector-generate
                                        (fold-left
@@ -990,7 +949,7 @@
         (string-append "(" (string-join (map repr items) " ") ")")))
 
     (instance (Repr (Vector T))
-      (⊨ (Repr T) (Copy T) (Drop (!) T))
+      (⊨ (Repr T))
       (define (repr (items (Vector T))) (→ String)
 
         (string-append "#(" (string-join (map repr (vector->list items)) " ") ")")))

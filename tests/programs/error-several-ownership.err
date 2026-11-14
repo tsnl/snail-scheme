@@ -1,2 +1,0 @@
-error-several-ownership.sld:7:35: linear value used more than once: value
-error-several-ownership.sld:12:1: linear value never consumed: value

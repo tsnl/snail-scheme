@@ -1,6 +1,5 @@
 ;; Concrete definitions built from checked source. One registry reserves
-;; source functions, imports and generated cleanup before visiting their
-;; bodies. Each body is instantiated once; source bodies are retained for
+;; source functions and imports before visiting their bodies. Each body is instantiated once; source bodies are retained for
 ;; preparation's contextual checks. Emission receives fixed declaration metadata.
 (define-library (snail shell compiler specialize)
   (export
@@ -15,14 +14,12 @@
    specialization-definitions
    start-specialization
    complete-specializations
-   request-drop
    control-effects)
   (import
    (snail core base)
    (snail core table)
    (snail shell compiler read)
    (snail shell compiler core)
-   (snail shell compiler capabilities)
    (snail shell compiler check))
   (begin
 
@@ -58,8 +55,8 @@
       ((type Type)
        (external? Bool)))
 
-    ;; Requests reserve names before visiting bodies, so recursive calls and
-    ;; recursive drop glue terminate. A recipe becomes a concrete body once.
+    ;; Requests reserve names before visiting bodies, so recursive calls
+    ;; terminate. A recipe becomes a concrete body once.
     ;; Original bodies survive until preparation has checked every batch.
     (record State
       ((input Specialization)
@@ -80,14 +77,8 @@
        ((name String)
         (types (List Type))
         (evidence (List Evidence))))
-      (DropGlue
-       ((method String)
-        (subject Type)
-        (loc Loc)))
-
       (SourceBody
        ((value Expr)))
-      (GlueBody)
       (Imported))
 
     (define (Definition-external? (binding Definition)) (→ Bool)
@@ -126,9 +117,7 @@
 
     (define (each (state State) (step (Fn State A → (Pair B State))) (items (List A)))
       (→ (Pair (List B) State))
-      (! e)
-      (∀ (A B e))
-      (⊨ (Copy B) (Drop e B))
+      (∀ (A B))
       (let ((done (fold-left (lambda (done item)
                                (match (step (● done second) item)
                                  ((Pair value state)
@@ -167,8 +156,7 @@
                                                     (● value type)))
                                       (body (SourceRecipe name types evidence))))))))))
 
-    ;; All executable work, including recursive glue, uses this reservation
-    ;; rule and this queue. Merely looking up a binding never generates code.
+    ;; All executable work uses this reservation rule and this queue. Merely looking up a binding never generates code.
 
     (define (reserve (state State) (name String) (binding Definition)) (→ State)
       (if (table-contains? (● state bindings) name)
@@ -217,19 +205,14 @@
 
     (define (complete-definition (state State) (name String) (definition Definition) (value Expr))
       (→ State)
-      (let ((body (match (● definition body)
-                    ((SourceRecipe _ _ _) (SourceBody value))
-                    (_ (GlueBody)))))
-        (State-bindings-set state
-                            (table-set (● state bindings) name
-                                       (Definition-body-set definition body)))))
+      (State-bindings-set state
+                          (table-set (● state bindings) name
+                                     (Definition-body-set definition (SourceBody value)))))
 
     (define (instantiate-body (state State) (body Body)) (→ (Pair Expr State))
       (match body
         ((SourceRecipe name types evidence)
          (copy-expr state (instantiation state name types evidence) (definition state name)))
-        ((DropGlue method subject loc) (drop-function state method subject loc))
-
         (_ (panic "internal error: only an unbuilt recipe can be queued"))))
 
     (define (binding-of (state State) (name String)) (→ Definition)
@@ -252,15 +235,14 @@
                                                      (Definition-external? definition))))))
                                 (empty-table) (table-keys (● state bindings))))))
 
-    ;; A read-only snapshot of original source instantiations. Generated
-    ;; glue and imports keep their declared rows, as before. Missing local
-    ;; bodies mean discovery was not closed before analysis.
+    ;; A read-only snapshot of original source instantiations. Imports keep
+    ;; their declared rows. Missing local bodies mean discovery was not
+    ;; closed before analysis.
 
     (define (specialization-definitions (state State)) (→ (Table Expr))
       (fold-left (lambda (bodies name)
                    (match (● (binding-of state name) body)
                      ((SourceBody value) (table-set bodies name value))
-                     ((GlueBody) bodies)
                      ((Imported) bodies)
                      (_ (panic "internal error: analysis requires completed definitions"))))
                  (empty-table) (table-keys (● state bindings))))
@@ -329,7 +311,6 @@
          (EvInstance instance
                      (map (lambda (type) (ground inst type)) types)
                      (map (lambda (sub) (ground-evidence inst sub)) subs)))
-        ((EvDerived plan) (EvDerived plan))
         ((EvHole _) (panic "internal error: unsolved evidence"))))
 
     (define (copy-expr (state State) (inst Instantiation) (expr Expr)) (→ (Pair Expr State))
@@ -342,25 +323,6 @@
                               (new Pair
                                 (first (new Expr (term copied) (type type) (loc loc)))
                                 (second state)))))))
-
-    ;; A counted owner keeps the finalizer selected for its concrete
-    ;; payload. Requesting it here uses the same registry as explicit drop.
-    (define (counted-construction (state State) (callee Expr) (args (List Expr)))
-      (→ (Pair Term State))
-      (match (new Pair (first (● callee term)) (second args))
-        ((Pair (Var "prim:rc" _ _) (Cons value (Nil)))
-         (specializing state ((finalizer (request-drop (● value type) (● value loc))))
-                       (let* ((type (TFun (list (● value type) (● finalizer type))
-                                          (TCon "Rc" (list (● value type))) (empty-row)))
-                              (constructor
-                               (new Expr
-                                 (term (Var "prim:rc-new" (Nil) (Nil)))
-                                 (type type)
-                                 (loc (● callee loc)))))
-                         (new Pair
-                           (first (App constructor (list value finalizer)))
-                           (second state)))))
-        (_ (new Pair (first (App callee args)) (second state)))))
 
     ;; A copy requests the specializations it references, so the copies of
     ;; sibling terms are steps in the order they are written.
@@ -375,7 +337,7 @@
                        (new Pair (first (Lambda params body )) (second state))))
         ((App callee args)
          (specializing state ((callee (copy-expr inst callee)) (args (copy-exprs inst args)))
-                       (counted-construction state callee args)))
+                       (new Pair (first (App callee args)) (second state))))
         ((If test consequent alternative)
          (specializing state ((test (copy-expr inst test))
                               (consequent (copy-expr inst consequent))
@@ -454,214 +416,29 @@
       (match (program-value (specialization-program state) name)
         ((Some (Defined _ _ )) (definition-reference state name types evidence type loc))
         ((Some (Method class _))
-         (if (drop-class? class)
-             (drop-reference state name (list-ref types 1) (charged-plan evidence) type loc)
-             (match evidence
-               ((Cons (EvInstance instance instance-types subs) rest)
-                (let ((class-arity
-                       (length (● (program-class (specialization-program state) class) params)))
-                      (target (instance-method state instance name)))
-                  ;; A record's own field instance names the field's
-                  ;; accessor, a builtin, which keeps its name.
-                  (match (program-value (specialization-program state) target)
-                    ((Some (Defined _ _ ))
-                     (definition-reference state
-                       target
-                       (append instance-types (list-drop types class-arity))
-                       (append subs rest) type loc))
-                    (_ (new Pair
-                         (first (new Expr (term (Var target (Nil) (Nil))) (type type) (loc loc)))
-                         (second state))))))
-               (_ (panic "internal error: a method needs instance evidence")))))
+         (match evidence
+           ((Cons (EvInstance instance instance-types subs) rest)
+            (let ((class-arity
+                   (length (● (program-class (specialization-program state) class) params)))
+                  (target (instance-method state instance name)))
+              ;; A record's own field instance names the field's
+              ;; accessor, a builtin, which keeps its name.
+              (match (program-value (specialization-program state) target)
+                ((Some (Defined _ _ ))
+                 (definition-reference state
+                   target
+                   (append instance-types (list-drop types class-arity))
+                   (append subs rest) type loc))
+                (_ (new Pair
+                     (first (new Expr (term (Var target (Nil) (Nil))) (type type) (loc loc)))
+                     (second state))))))
+           (_ (panic "internal error: a method needs instance evidence"))))
         ((Some (Operation effect _)) (operation-reference state effect name type loc))
         (_ (new Pair
              (first (new Expr (term (Var name (Nil) (Nil))) (type type) (loc loc)))
              (second state)))))
 
-    ;; ---- Drops ----
-
-    ;; Specialization uses the recorded drop plan at the concrete type.
-    ;; FnOnce releases its captures, an instance calls its method, and other
-    ;; linear data gets field-release glue. The ground plan cannot exceed
-    ;; the effects already charged by the checker.
-
-    (define (drop-reference (state State)
-                            (method String)
-                            (subject Type)
-                            (charged (Option Plan))
-                            (type Type)
-                            (loc Loc))
-      (→ (Pair Expr State))
-      (match subject
-        ((TCon "FnOnce" _)
-         (new Pair
-           (first (new Expr (term (Var "prim:drop-once" (Nil) (Nil))) (type type) (loc loc)))
-           (second state)))
-        (_ (planned-reference state method subject charged type loc))))
-
-    (define (planned-reference (state State)
-                               (method String)
-                               (subject Type)
-                               (charged (Option Plan))
-                               (type Type)
-                               (loc Loc))
-      (→ (Pair Expr State))
-      (match (covered-plan (drop-plan (specialization-program state) (Nil) subject)
-                           charged subject)
-        ((Trivial)
-         (new Pair
-           (first (new Expr (term (Var "prim:discard" (Nil) (Nil))) (type type) (loc loc)))
-           (second state)))
-        ((Implemented instance)
-         (definition-reference state (instance-method state (● instance name) method)
-           (instance-arguments instance subject) (Nil) type loc))
-        ((Glue) (glue-reference state method subject type loc))))
-
-    (define (charged-plan (evidence (List Evidence))) (→ (Option Plan))
-      (match evidence
-        ((Cons (EvDerived plan) _) plan)
-        (_ (panic "internal error: a drop has derived evidence"))))
-
-    (define (covered-plan (plan Plan) (charged (Option Plan)) (subject Type)) (→ Plan)
-      (if (plan-covers? charged plan)
-          plan
-          (panic (string-append "internal error: releasing "
-                                (type->string subject)
-                                " runs more than the checker charged"))))
-
-    ;; The instance's variables, as the ground type binds them in its head.
-    ;; The row its head ends with, if it names one, is left empty: a drop
-    ;; performs no control effect, and only those specialize code.
-
-    (define (instance-arguments (instance Instance) (subject Type)) (→ (List Type))
-      (let ((bindings (instance-bindings instance subject)))
-        (map (lambda (var)
-               (match (assoc-ref bindings var)
-                 ((Some type) type)
-                 ((None) (empty-row))))
-             (● instance vars))))
-
-    ;; Glue has one implementation per concrete type. Reserve its recipe
-    ;; now, and build the body only when the emitter asks for the next item.
-
-    (define (glue-reference (state State)
-                            (method String)
-                            (subject Type)
-                            (type Type)
-                            (loc Loc))
-      (→ (Pair Expr State))
-      (let ((name (string-append "glue:drop<" (spec-key subject) ">")))
-        (new Pair (first (new Expr (term (Var name (Nil) (Nil))) (type type) (loc loc)))
-             (second (reserve state
-                              name
-                              (new Definition
-                                (type (glue-type type))
-                                (body (DropGlue method subject loc))))))))
-
-    ;; A method use may have the enclosing control row. Generated glue
-    ;; itself never yields, independently of which use first requested it.
-    ;; Nested function arguments keep their own control rows.
-
-    (define (glue-type (type Type)) (→ Type)
-      (match type
-        ((TFun params result _) (TFun params result (empty-row)))
-        (_ (panic "internal error: glue has a function type"))))
-
-    ;; Drop glue matches the value apart and drops each linear
-    ;; field, skipping the rest.
-
-    (define (drop-function (state State) (method String) (subject Type) (loc Loc))
-      (→ (Pair Expr State))
-      (let ((data (program-type (specialization-program state) (type-name subject)))
-            (value (new Expr (term (Var "glue%value" (Nil) (Nil))) (type subject) (loc loc))))
-        (specializing state ((clauses (each (lambda (state case)
-                                              (drop-clause state method subject case loc))
-                                            (● data cases))))
-                      (new Pair
-                        (first (new Expr
-                                 (term (Lambda (list "glue%value")
-                                               (new Expr
-                                                 (term (Match value clauses))
-                                                 (type (unit-type))
-                                                 (loc loc)) ))
-                                 (type (TFun (list subject) (unit-type) (empty-row))) (loc loc)))
-                        (second state)))))
-
-    ;; One case's clause binds each field glue drops to a local of its own
-    ;; and skips the others, then drops what it bound, in field order.
-
-    (define (drop-clause (state State) (method String) (dropped Type) (case Case) (loc Loc))
-      (→ (Pair Clause State))
-      (let* ((program (specialization-program state))
-             (released (glue-fields program (Nil) dropped case)))
-        (specializing state
-                      ((drops (each (lambda (state field) (glue-drop state method case field loc))
-                                    released)))
-                      (new Pair (first (new Clause (pattern (PCon (● case name)
-                                                                  (map-indexed (lambda (index type)
-                                                                                 (if
-                                                                                  (any?
-                                                                                   (lambda (entry)
-                                                                                     (= (● entry
-                                                                                           first)
-                                                                                        index))
-                                                                                   released)
-                                                                                  (PVar
-                                                                                   (glue-local case
-                                                                                               index)
-                                                                                   type)
-                                                                                  (PWild type)))
-                                                                               (field-types program
-                                                                                            dropped
-                                                                                            case))
-                                                                  dropped))
-                                            (body (in-sequence drops loc))))
-                           (second state)))))
-
-    (define (glue-drop (state State) (method String) (case Case) (field (Pair I64 Type)) (loc Loc))
-      (→ (Pair Expr State))
-      (let ((type (● field second)))
-        (specializing state ((callee (drop-reference method
-                                                     type
-                                                     (None)
-                                                     (TFun (list type) (unit-type) (empty-row))
-                                                     loc)))
-                      (new Pair (first (new Expr (term (App callee
-                                                            (list
-                                                             (new Expr
-                                                               (term (Var (glue-local case
-                                                                                      (● field
-                                                                                         first))
-                                                                          (Nil)
-                                                                          (Nil)))
-                                                               (type type)
-                                                               (loc loc)))))
-                                            (type (unit-type))
-                                            (loc loc)))
-                           (second state)))))
-
-    (define (type-name (type Type)) (→ String)
-      (match type
-        ((TCon name _) name)
-        (_ (panic "internal error: glue takes data apart"))))
-
-    ;; Each case's fields have locals of their own, since the clauses of a
-    ;; function share its locals.
-
-    (define (glue-local (case Case) (index I64)) (→ String)
-      (string-append "glue%" (i64->string (● case tag)) "%" (i64->string index)))
-
-    ;; The drops in order, the last one in tail position, so glue for a
-    ;; list runs in constant stack.
-
-    (define (in-sequence (drops (List Expr)) (loc Loc)) (→ Expr)
-      (match drops
-        ((Nil) (new Expr (term (Lit (DUnit))) (type (unit-type)) (loc loc)))
-        ((Cons last (Nil)) last)
-        ((Cons first rest)
-         (new Expr (term (Seq first (in-sequence rest loc))) (type (unit-type)) (loc loc)))))
-
-    (define (unit-type) (→ Type) (TCon "Unit" (Nil)))
+    ;; ---- Operations ----
 
     ;; Performing an operation runs its Snail Scheme default when no handler
     ;; is in scope, so a use of the operation reaches the default too, which
@@ -748,7 +525,7 @@
                            (not (string=? (name-owner name) owner))))
         ((None) #f)))
 
-    ;; ---- Roots and cleanup requests ----
+    ;; ---- Roots ----
 
     (define (new-state (input Specialization) (owner (Option String))) (→ State)
       (new State (input input) (owner owner)
@@ -779,22 +556,6 @@
                ((Some _) (new Pair (first (list name)) (second (requested state name))))
                ((None) (new Pair (first (Nil)) (second state))))
              (new Pair (first (Nil)) (second state))))))
-
-    ;; Frame cleanup asks for ordinary definitions or derived glue. Those
-    ;; requests join the very same queue as calls discovered in a body.
-
-    (define (request-drop (state State) (type Type) (loc Loc)) (→ (Pair Expr State))
-      (drop-reference state
-                      (drop-method state)
-                      type
-                      (None)
-                      (TFun (list type) (unit-type) (empty-row))
-                      loc))
-
-    (define (drop-method (state State)) (→ String)
-      (match (● (program-class (specialization-program state) (drop-class)) methods)
-        ((Cons method _) method)
-        ((Nil) (panic "internal error: Drop has a method"))))
 
     )
 

@@ -30,7 +30,7 @@
 
     ;; ---- Interfaces ----
 
-    (type (Command M) (FnOnce → M ! tasks dom fetch))
+    (type (Command M) (Fn → M ! tasks dom fetch))
 
     (typeclass (Interface Model)
       (type Message)
@@ -47,8 +47,7 @@
       ())
 
     (instance (Application (! mut host events storage tasks page) (InterfaceApplication Model))
-      (⊨ (Interface Model) (PageState Model) (Copy Model) (Drop (!) Model)
-         (Drop (!) (Interface.Message Model)))
+      (⊨ (Interface Model) (PageState Model))
       (define (start (entry (Entry (InterfaceApplication Model))))
         (→ Unit)
         (! mut host events storage tasks page)
@@ -67,10 +66,10 @@
     ;; retain their narrower public contract and run under the same handlers.
 
     (define (widen-commands (commands (List (Command M))))
-      (→ (List (FnOnce → M ! mut host page events storage tasks dom fetch)))
+      (→ (List (Fn → M ! mut host page events storage tasks dom fetch)))
       (∀ (M))
       (match commands
-        ((Cons command rest) (Cons (once (lambda () (command))) (widen-commands rest)))
+        ((Cons command rest) (Cons (lambda () (command)) (widen-commands rest)))
         ((Nil) (Nil))))
 
     (define (interface-save-callback (save (Fn S → Unit ! events storage tasks)))
@@ -82,8 +81,7 @@
       (→ Unit)
       (! mut host events storage tasks page)
       (∀ (Model))
-      (⊨ (Interface Model) (PageState Model) (Copy Model) (Drop (!) Model)
-         (Drop (!) (Interface.Message Model)))
+      (⊨ (Interface Model) (PageState Model))
       (with-page-dom
        (lambda ()
          (with-page-fetch

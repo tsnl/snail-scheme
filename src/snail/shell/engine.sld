@@ -1,6 +1,5 @@
 ;; The engine links a manifest's modules and schedules their main in the
-;; same owned scheduler as its loading and file work. Its metadata holds only
-;; a weak scheduler reference, so saved work cannot retain the engine owner.
+;; same scheduler as its loading and file work.
 (define-library (snail shell engine)
   (export
    linked-content-store
@@ -159,16 +158,11 @@
 
     ;; ---- Linking ----
 
-    ;; The host owns Engine. Work captures EngineState, which contains only
-    ;; ordinary heap data and a weak scheduler reference. The loaded instances
-    ;; are held by host handles and by their importers; engine metadata need
-    ;; not keep another library registry.
+    ;; The host holds the engine, and its work holds it too. The loaded
+    ;; instances are held by host handles and by their importers; engine
+    ;; metadata need not keep another library registry.
     (record Engine
       ((scheduler Scheduler)
-       (state EngineState)))
-
-    (record EngineState
-      ((scheduler WeakScheduler)
        (runtime (Option Module))
        (status I64)
        (files (Vector String))
@@ -176,52 +170,43 @@
        (held Bytes)))
 
     (define (make-engine) (→ Engine)
-      (let ((scheduler (make-scheduler)))
-        (new Engine (scheduler scheduler)
-             (state (new EngineState
-                      (scheduler (rc-downgrade scheduler))
-                      (runtime (None))
-                      (status 0)
-                      (files (make-vector 0 ""))
-                      (answers (Nil))
-                      (held #u8()))))))
+      (new Engine
+        (scheduler (make-scheduler))
+        (runtime (None))
+        (status 0)
+        (files (make-vector 0 ""))
+        (answers (Nil))
+        (held #u8())))
 
-    ;; Startup transfers metadata into one task; that task does not capture
-    ;; Engine or its strong scheduler owner. Program work joins the same FIFO.
+    ;; Startup links in one task. Program work joins the same FIFO.
     (define (run-manifest (engine Engine) (path String) (text String))
       (→ Unit) (! mut host wasm linked-content-store)
-      (let ((state (● engine state)))
-        (dispatch-in (● engine scheduler)
-                     (once (lambda () (link-manifest state (parse-manifest path text))))))
+      (dispatch-in (● engine scheduler)
+                   (lambda () (link-manifest engine (parse-manifest path text))))
       (unit))
 
-    (define (link-manifest (state EngineState) (manifest Manifest))
+    (define (link-manifest (engine Engine) (manifest Manifest))
       (→ Unit) (! mut host wasm tasks linked-content-store)
       (let ((runtime (link-object manifest "the runtime" (● manifest runtime) (None) (Nil))))
         (bind-runtime runtime)
-        (set! (● state runtime) (Some runtime))
-        (set! (● state files)
+        (set! (● engine runtime) (Some runtime))
+        (set! (● engine files)
               (list->vector (map (lambda (object) (object-file manifest (● object digest)))
                                  (● manifest files))))
-        (run-main state (link-libraries manifest runtime (● manifest modules) (Nil)))))
+        (run-main engine (link-libraries manifest runtime (● manifest modules) (Nil)))))
 
-    (define (run-main (state EngineState) (libraries (List (Pair String Module))))
+    (define (run-main (engine Engine) (libraries (List (Pair String Module))))
       (→ Unit) (! mut host wasm)
       (match libraries
         ((Nil) (panic "the manifest has no program"))
         ((Cons (Pair _ program) (Nil))
          (match (module-export program "main:body")
-           ((Ok body) (start-loaded-main state body))
+           ((Ok body) (start-main (● engine scheduler) body))
            ((Err _) (panic "the program has no main function"))))
-        ((Cons _ rest) (run-main state rest))))
+        ((Cons _ rest) (run-main engine rest))))
 
-    (define (start-loaded-main (state EngineState) (body Funcref)) (→ Unit) (! mut host)
-      (match (weak-rc-upgrade (● state scheduler))
-        ((Some scheduler) (start-main scheduler body))
-        ((None) (panic "the engine's scheduler has closed"))))
-
-    (define (program-status (engine Engine)) (→ I64) (! mut host)
-      (● (● engine state) status))
+    (define (program-status (engine Engine)) (→ I64)
+      (● engine status))
 
     ;; Each library linked against the runtime and the libraries before it,
     ;; in program order. The local list supplies each import explicitly.
@@ -305,20 +290,20 @@
     ;; ---- Driving and closing ----
 
     ;; One scheduler means one ticket space and one bounded FIFO turn. Loading
-    ;; work and program work have the same lifetime and cancellation protocol.
+    ;; work and program work have the same lifetime.
     (define (engine-turn (engine Engine) (now I64)) (→ I64) (! mut host)
       (tasks-turn (● engine scheduler) now))
 
-    (define (engine-wake (engine Engine) (ticket I64)) (→ I32) (! mut host)
+    (define (engine-wake (engine Engine) (ticket I64)) (→ I32) (! mut)
       (if (tasks-wake! (● engine scheduler) ticket) 1 0))
 
-    (define (engine-close-tasks (engine Engine)) (→ Unit) (! mut host)
+    (define (engine-close-tasks (engine Engine)) (→ Unit) (! mut)
       (tasks-close! (● engine scheduler)))
 
-    (define (engine-running (engine Engine)) (→ I64) (! mut host)
+    (define (engine-running (engine Engine)) (→ I64)
       (tasks-running (● engine scheduler)))
 
-    (define (engine-live (engine Engine)) (→ I64) (! mut host)
+    (define (engine-live (engine Engine)) (→ I64)
       (tasks-live (● engine scheduler)))
 
     ;; Calls an export the program's modules are known to have; one they
@@ -332,43 +317,42 @@
     ;; Closes the program's runtime, as the host closes its own: the
     ;; status of closing its resources.
 
-    (define (close-program (engine Engine)) (→ I32) (! mut host wasm)
-      (match (● (● engine state) runtime)
+    (define (close-program (engine Engine)) (→ I32) (! wasm)
+      (match (● engine runtime)
         ((Some runtime) (i64->i32 (call runtime "snail:io/close-all" 0)))
         ((None) 0)))
 
     ;; ---- Linked files ----
 
-    ;; The host's resource imports forward to these entries with its engine
-    ;; owner. A file-read task captures metadata alone. Its completion wakes
-    ;; the program's ticket in the same scheduler, after installing the bytes.
+    ;; The host's resource imports forward to these entries with its engine.
+    ;; A file-read task's completion wakes the program's ticket in the same
+    ;; scheduler, after installing the bytes.
     (define (resource-read (engine Engine) (ticket I64) (handle I32))
       (→ Unit) (! mut host linked-content-store)
-      (let* ((state (● engine state)) (file (vector-ref (● state files) (i32->i64 handle))))
+      (let ((file (vector-ref (● engine files) (i32->i64 handle))))
         (dispatch-in (● engine scheduler)
-                     (once (lambda ()
-                             (let ((bytes (read-object file)))
-                               (set! (● state answers)
-                                     (Cons (new Pair (first ticket) (second bytes))
-                                           (● state answers)))
-                               (unless (wake-task! (● state scheduler) ticket)
-                                 (take-answer state ticket) (unit))))))
+                     (lambda ()
+                       (let ((bytes (read-object file)))
+                         (set! (● engine answers)
+                               (Cons (new Pair (first ticket) (second bytes))
+                                     (● engine answers)))
+                         (unless (tasks-wake! (● engine scheduler) ticket)
+                           (take-answer engine ticket) (unit)))))
         (unit)))
 
-    (define (take-answer (state EngineState) (ticket I64)) (→ (Option (Option Bytes))) (! mut)
-      (let ((answer (assoc-ref (● state answers) ticket)))
-        (set! (● state answers)
-              (filter (lambda (answer) (not (= (● answer first) ticket))) (● state answers)))
+    (define (take-answer (engine Engine) (ticket I64)) (→ (Option (Option Bytes))) (! mut)
+      (let ((answer (assoc-ref (● engine answers) ticket)))
+        (set! (● engine answers)
+              (filter (lambda (answer) (not (= (● answer first) ticket))) (● engine answers)))
         answer))
 
-    (define (resource-finish (engine Engine) (ticket I64)) (→ I32) (! mut host)
-      (let ((state (● engine state)))
-        (match (take-answer state ticket)
-          ((Some (Some bytes))
-           (set! (● state held) bytes)
-           (i64->i32 (vector-length bytes)))
-          ((Some (None)) (panic "cannot read a linked file: the store does not have it"))
-          ((None) (panic "a ticket was finished before its read completed")))))
+    (define (resource-finish (engine Engine) (ticket I64)) (→ I32) (! mut)
+      (match (take-answer engine ticket)
+        ((Some (Some bytes))
+         (set! (● engine held) bytes)
+         (i64->i32 (vector-length bytes)))
+        ((Some (None)) (panic "cannot read a linked file: the store does not have it"))
+        ((None) (panic "a ticket was finished before its read completed"))))
 
-    (define (resource-byte (engine Engine) (index I32)) (→ I32) (! mut host)
-      (u8->i32 (vector-ref (● (● engine state) held) (i32->i64 index))))))
+    (define (resource-byte (engine Engine) (index I32)) (→ I32)
+      (u8->i32 (vector-ref (● engine held) (i32->i64 index))))))

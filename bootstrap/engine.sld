@@ -15,7 +15,7 @@
 ;; The store is files: an object is read at once, and one that is not
 ;; there is none.
 
-(define (with-files (body (FnOnce → A ! linked-content-store e))) (→ A) (! fs e) (∀ (A e))
+(define (with-files (body (Fn → A ! linked-content-store e))) (→ A) (! fs e) (∀ (A e))
   (handle linked-content-store
       ((read-object (lambda (path)
                       (if (file-exists? path)
@@ -24,7 +24,7 @@
     (body)))
 
 (define (read-file-resource (engine Engine) (ticket I64) (handle I32)) (→ Unit) (! mut host fs)
-  (with-files (once (lambda () (resource-read engine ticket handle)))))
+  (with-files (lambda () (resource-read engine ticket handle))))
 
 (expose engine-turn "engine:turn")
 (expose engine-wake "engine:wake")
@@ -40,7 +40,7 @@
 (define (start-engine (engine Engine)) (→ Unit) (! mut host fs wasm)
   (match (environment-variable "SNAIL_MANIFEST")
     ((Some manifest)
-     (with-files (once (lambda () (run-manifest engine manifest (read-file manifest))))))
+     (with-files (lambda () (run-manifest engine manifest (read-file manifest)))))
     ((None) (panic "the engine needs SNAIL_MANIFEST, the modules.json of the program to run"))))
 
 (expose make-engine "engine:create")

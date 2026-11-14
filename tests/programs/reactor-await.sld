@@ -14,7 +14,7 @@
   (yield)
   (match message ((Some delta) (+ model delta)) ((None) model)))
 
-(define (main) (→ Unit) (! mut host tasks completion output-port)
+(define (main) (→ Unit) (! mut host tasks output-port)
   (let ((result (with-memory-dom
                  (Nil)
                  (lambda ()

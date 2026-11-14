@@ -22,7 +22,7 @@
   (→ A)
   (! e)
   (∀ (A e))
-  (⊨ (Copy A) (Drop e A) (Add e A A (type Output A)))
+  (⊨ (Add e A A (type Output A)))
   (add a a))
 
 ;; An output of an earlier prerequisite becomes a later prerequisite's input.

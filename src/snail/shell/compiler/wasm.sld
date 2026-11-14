@@ -10,7 +10,7 @@
 ;; what it uses from the modules of other libraries. A control operation
 ;; leaves a record in one global, which each caller tests after a call that
 ;; may yield, saving the rest of its work as a frame, back to the handle it
-;; is aimed at; `resume` runs those frames again.
+;; is aimed at; `resume` runs those frames again, once.
 (define-library (snail shell compiler wasm)
   (export
    emit-module
@@ -21,7 +21,6 @@
    (snail core table)
    (snail shell compiler read)
    (snail shell compiler core)
-   (snail shell compiler capabilities)
    (only (snail shell compiler specialize)
          Declarations Binding
          control-effects)
@@ -298,7 +297,7 @@
     ;; A value's Wasm type: a number type, or a reference to a
     ;; declared type. Active source values are non-null; nullable machine
     ;; references also hold inactive slots during control unwinding. No
-    ;; source use or ownership operation may precede the yield test.
+    ;; source use may precede the yield test.
     ;; `i8` appears only as the element of a byte array.
     (enum Rep
       (Scalar
@@ -335,9 +334,7 @@
         ((Scalar name) (wat (string-append name ".const") (Word "0")))
         ((Reference type) (wat "ref.null" (id type)))))
 
-    ;; A linear value is its payload: linearity is a fact the ownership
-    ;; check proves, and nothing at run time keeps it. A FnOnce is the
-    ;; closure of its function type, and a fn a reference to code alone.
+    ;; A function value is a reference to its closure.
 
     (define (rep (m Module) (type Type)) (→ Rep) (! mut)
       (match type
@@ -349,11 +346,8 @@
            (("F64") (Scalar "f64"))
            (("String") (Reference (array-type m (Scalar "i32"))))
            (("Any") (Reference (any-type m)))
-           (("Rc" "WeakRc") (Reference (rc-type m (first-type args))))
            (("Funcref") (Scalar "funcref"))
-           (("Vector") (Reference (sequence-type m (first-type args))))
-           (("FnOnce") (rep m (first-type args)))
-
+           (("Vector") (Reference (array-type m (element-rep m (first-type args)))))
            (else (if (tag-enum? m name) (Scalar "i32") (Reference (data-type m type))))))
         ((TFun params result _)
          (Reference
@@ -410,9 +404,6 @@
            (let ((closure (wasm-id key)) (code (wasm-id (string-append "fn." signature))))
              (put! (● m type-ids) key closure)
              (put! (● m type-ids) (string-append "code:" closure) code)
-             (put! (● m type-ids) (string-append "counted:" closure) closure)
-             (owner-type m)
-             (dropper-type m)
              (register-type! m (string-append "fn." signature) code
                              (wat "type" (id code)
                                   (wat* "func"
@@ -426,26 +417,8 @@
                                                  (list (wat "result"
                                                             (rep->wat result))))))))
              (register-type! m key closure
-                             (wat "type" (id closure) (wat "sub" (id (owner-type m))
-                                                           (wat* "struct"
-                                                                 (closure-fields m closure))))))))))
-
-    ;; Every closure carries, beside its code, a nullable dropper: a thunk
-    ;; closure that drops the linear values it captured, which `drop-once`
-    ;; runs when a FnOnce is dropped unrun (control.sld, "Droppers"). A
-    ;; frame carries one too, for the locals live across its yield point,
-    ;; and a `resume` one that runs its frames' (`resume-dropper-code`).
-    ;; The thunk's own closure type is registered first, since every
-    ;; closure type names it.
-
-    (define (dropper-type (m Module)) (→ String) (! mut)
-      (closure-type m (Nil) (Scalar "i32")))
-
-    (define (dropper-ref) (→ Wat)
-      (ref-wat "$clo.->i32"))
-
-    (define (dropper-null) (→ Wat)
-      (wat "ref.null" (id "$clo.->i32")))
+                             (wat "type" (id closure)
+                                  (wat "sub" (wat* "struct" (closure-fields m closure))))))))))
 
     ;; Every closure subtype shares its base's code type.
 
@@ -475,25 +448,10 @@
            (map (lambda (field) (substitute substitution (● field type))) (● case fields))))
         (_ (panic "internal error: not a data type"))))
 
-    ;; Every source field occupies one Wasm field. Physical mutability also
-    ;; permits replacements to reuse a record whose unique ownership is proved.
+    ;; Every source field occupies one mutable Wasm field.
     (define (case-fields (m Module) (type Type) (case Case)) (→ (List Wat)) (! mut)
       (map (lambda (type) (wat "field" (wat "mut" (rep->wat (rep m type)))))
            (case-field-types m type case)))
-
-    ;; A linear record leaves only by being taken apart, dropped or
-    ;; replaced, so its reference has one owner, and a replacement, which
-    ;; consumes the record, may write the field where it is: no other
-    ;; reference could see it change. That holds of a ground type that is
-    ;; linear; an unrestricted one, which a generic body checked as linear
-    ;; may be specialized at, can be shared, so its replacement copies.
-
-    (define (reused-in-place? (m Module) (type Type)) (→ Bool)
-      (match type
-        ((TCon name _)
-         (and (not (● (data-type-of m name) enum?))
-              (linear-type? (program-of m) (Nil) type)))
-        (_ #f)))
 
     (define (type-name (type Type)) (→ String)
       (match type
@@ -514,32 +472,18 @@
            (when (= (● m remaining-data-types) 0)
              (panic "compilation exceeds the limit of 65536 concrete aggregate types"))
            (set! (● m remaining-data-types) (- (● m remaining-data-types) 1))
-           (let* ((type-id (wasm-id key)) (data (data-type-of m (type-name type)))
-                  (header (data-header m type)))
+           (let ((type-id (wasm-id key)) (data (data-type-of m (type-name type))))
              (put! (● m type-ids) key type-id)
-             (unless (null? header)
-               (put! (● m type-ids) (string-append "counted:" type-id) type-id))
              (if (● data enum?)
                  (begin
                    (push! (● m types)
                           (wat "type" (id type-id)
-                               (wat* "sub"
-                                     (append (if (null? header) (Nil) (list (id (owner-type m))))
-                                             (list (wat* "struct"
-                                                         (append header
-                                                                 (list
-                                                                  (wat "field" (Word "i32"))))))))))
+                               (wat "sub" (wat "struct" (wat "field" (Word "i32"))))))
                    (for-each (lambda (case) (case-type m type case) (unit))
                              (filter (lambda (case) (not (null? (● case fields)))) (● data cases))))
-                 (let* ((case (record-case m type))
-                        (body (wat* "struct" (append header (case-fields m type case)))))
-                   (push! (● m types) (wat "type" (id type-id)
-                                           (if (null? header)
-                                               body
-                                               (wat "sub"
-                                                    (Word "final")
-                                                    (id (owner-type m))
-                                                    body))))))
+                 (push! (● m types)
+                        (wat "type" (id type-id)
+                             (wat* "struct" (case-fields m type (record-case m type))))))
              type-id)))))
 
     (define (case-type (m Module) (type Type) (case Case)) (→ String) (! mut)
@@ -552,12 +496,10 @@
              (register-type! m key case-id
                              (wat "type" (id case-id) (wat "sub" (Word "final") (id base)
                                                            (wat* "struct"
-                                                                 (append (data-header m type)
-                                                                         (Cons
-                                                                          (wat "field" (Word "i32"))
-                                                                          (case-fields m
-                                                                                       type
-                                                                                       case))))))))))))
+                                                                 (Cons (wat "field" (Word "i32"))
+                                                                       (case-fields m
+                                                                                    type
+                                                                                    case)))))))))))
 
     ;; A record has one case, whose declared fields are its complete layout.
     (define (record-case (m Module) (type Type)) (→ Case)
@@ -569,7 +511,7 @@
 
     ;; `access` maps each visible local name to the instruction that reads it,
     ;; and `reps` to its representation. A closure's `self` records exact
-    ;; aliases of the incoming closure, its code and its ownership layout.
+    ;; aliases of the incoming closure and its code.
     ;; Fresh function and control-frame contexts inherit none of those facts.
     ;; `exit` is where a yield leaves the code being emitted (see Control).
     (record FnState
@@ -587,8 +529,7 @@
 
     (record Self
       ((names (List String))
-       (code String)
-       (counted? Bool)))
+       (code String)))
 
     ;; Context replacements share this function's output builder while
     ;; changing only immutable control and evidence metadata.
@@ -767,12 +708,11 @@
                   (lambda ()
                     (let ((segment (keyed-id "bytes" text)))
                       (push! (● m data) (wat "data" (id segment) (Word text)))
-                      (sequence-owned m (TCon "Vector" (list (TCon "U8" (Nil))))
-                                      (wat "array.new_data"
-                                           (id (array-type m (Scalar "i8")))
-                                           (id segment)
-                                           (wat "i32.const" (int 0))
-                                           (wat "i32.const" (int (vector-length bytes))))))))))
+                      (wat "array.new_data"
+                           (id (array-type m (Scalar "i8")))
+                           (id segment)
+                           (wat "i32.const" (int 0))
+                           (wat "i32.const" (int (vector-length bytes)))))))))
 
     ;; Every byte is a two-digit escape, so the text is three characters per
     ;; byte, generated in one pass: images make literals of millions of
@@ -794,31 +734,17 @@
     (define (hex-char (value I64)) (→ Char)
       (string-ref "0123456789abcdef" value))
 
-    ;; A let whose value may yield tests for the yield before its body. The
-    ;; control pass marks such a value with the cleanup of the frame saved
-    ;; there (`with-cleanup`), emitted as its cancellation entry.
+    ;; A let whose value may yield tests for the yield before its body.
 
-    (define (emit-let (fn Fn) (name String) (marked Expr) (body Expr) (tail? Bool))
+    (define (emit-let (fn Fn) (name String) (value Expr) (body Expr) (tail? Bool))
       (→ (List Wat))
       (! mut)
-      (match (cleanup-of marked)
-        ((Pair value cleanup)
-         (let* ((code (if (and (lambda-expr? value) (member? name (expr-references value)))
-                          (closure fn value (Some name))
-                          (emit-let-value fn value)))
-                (local (declare-local! fn name (fn-rep fn (● value type)))))
-           (Cons (wat "local.set" (id local) code)
-                 (let-rest (bind-self fn name value) name value cleanup body tail?))))))
-
-    ;; A let's value and its unevaluated cancellation code, if any.
-
-    (define (cleanup-of (marked Expr)) (→ (Pair Expr (Option Expr)))
-      (match (● marked term)
-        ((App callee (Cons value (Cons cleanup (Nil))))
-         (match (● callee term)
-           ((Var "prim:with-cleanup" _ _) (new Pair (first value) (second (Some cleanup))))
-           (_ (new Pair (first marked) (second (None))))))
-        (_ (new Pair (first marked) (second (None))))))
+      (let* ((code (if (and (lambda-expr? value) (member? name (expr-references value)))
+                       (closure fn value (Some name))
+                       (emit-let-value fn value)))
+             (local (declare-local! fn name (fn-rep fn (● value type)))))
+        (Cons (wat "local.set" (id local) code)
+              (let-rest (bind-self fn name value) name value body tail?))))
 
     ;; ---- Variables ----
 
@@ -924,16 +850,10 @@
                              (wat "global"
                                   (id global)
                                   (ref-wat base)
-                                  (wat "struct.new"
-                                       (id base)
-                                       (wat "i64.const" (int -1)) (code-of m (owner-noop m))
-                                       (wat "ref.func" (id code))
-                                       (dropper-null))))
+                                  (wat "struct.new" (id base) (wat "ref.func" (id code)))))
                       (wat "global.get" (id global)))))))
 
-    ;; Only captures with deterministic cleanup need a counted owner. Prepare
-    ;; attaches a cancellation dropper only to lambdas with linear captures,
-    ;; which keeps every closure that can acquire a dropper counted here.
+    ;; A closure with captures copies each captured local into its fields.
     (define (closure-with-captures (fn Fn)
                                    (function Expr)
                                    (self (Option String))
@@ -943,29 +863,11 @@
              (base (closure-type m (● signature first) (● signature second)))
              (reps (map (lambda (name) (capture-rep fn name)) captured))
              (subtype (capture-type m base reps))
-             (fields (capture-types function captured))
-             (counted? (counted-captures? m fields))
              (code (lambda-function! m function self (zip captured reps) subtype)))
         (wat* "struct.new"
               (Cons (id subtype)
-                    (append (list (wat "i64.const" (int (if counted? 1 -1)))
-                                  (code-of m (if counted? (capture-destructor m subtype fields)
-                                                 (owner-noop m)))
-                                  (wat "ref.func" (id code)) (dropper-null))
-                            (map (lambda (entry) (retain-value m (● entry second)
-                                                               (variable fn
-                                                                         (● entry first)
-                                                                         (unchecked))))
-                                 (zip captured fields)))))))
-
-    (define (capture-types (function Expr) (captured (List String))) (→ (List Type))
-      (let ((types (expr-reference-types function)))
-        (map (lambda (name) (reference-type-of types name)) captured)))
-
-    (define (counted-captures? (m Module) (fields (List Type))) (→ Bool)
-      (any? (lambda (type)
-              (or (shared-type? (program-of m) type)
-                  (linear-type? (program-of m) (Nil) type))) fields))
+                    (Cons (wat "ref.func" (id code))
+                          (map (lambda (name) (variable fn name (unchecked))) captured))))))
 
     ;; The captures extend the base struct with their fields. Closures with
     ;; one base and one list of representations share the subtype.
@@ -978,7 +880,7 @@
           ((None)
            (put! (● m type-ids)
                  (string-append "capture-offset:" name)
-                 (if (string=? base "$frame") "3" "4"))
+                 (if (string=? base "$frame") "2" "1"))
            (register-type! m name name
                            (wat "type" (id name) (wat "sub" (Word "final") (id base)
                                                       (wat* "struct" (append (closure-fields m base)
@@ -988,92 +890,19 @@
                                                                                           r)))
                                                                                   reps))))))))))
 
-    ;; Source closures own shared captures until their last activation or
-    ;; stored alias leaves. A frame transfers one environment into either
-    ;; resume or cancellation code; it owns no separate cleanup closure.
+    ;; A closure's first field is its code, and its captures follow. A
+    ;; frame also holds the evidence its body runs under, which activation
+    ;; may renew before it runs.
     (define (closure-fields (m Module) (base String)) (→ (List Wat)) (! mut)
       (if (string=? base "$frame")
           (list (wat "field" (ref-wat (code-type m base)))
-                (wat "field" (ref-wat (code-type m base)))
                 (wat "field" (wat "mut" (evidence-ref m))))
-          (append (owner-fields)
-                  (list (wat "field" (ref-wat (code-type m base)))
-                        (wat "field" (wat "mut" (dropper-ref)))))))
+          (list (wat "field" (ref-wat (code-type m base))))))
 
     (define (capture-offset (m Module) (type String)) (→ I64)
       (match (known-type m (string-append "capture-offset:" type))
-        ((Some "3") 3)
-        (_ 4)))
-
-    (define (reference-type-of (types (Table Type)) (name String)) (→ Type)
-      (match (table-ref types name)
-        ((Some type) type)
-        ((None) (panic (string-append "internal error: untyped capture " name)))))
-
-    ;; Once the last child is released this destructor has no work left.
-    ;; Tail dispatch keeps lists and chains of counted wrappers off the stack.
-    (define (tail-release (call Wat)) (→ Wat)
-      (match call
-        ((Node (Cons (Word "call") arguments)) (wat* "return_call" arguments))
-        (_ (wat "return" call))))
-
-    (define (release-sequence (calls (List Wat))) (→ (List Wat))
-      (match calls
-        ((Nil) (list (wat "return" (wat "i32.const" (int 0)))))
-        ((Cons last (Nil)) (list (tail-release last)))
-        ((Cons first rest) (Cons (wat "drop" first) (release-sequence rest)))))
-
-    (define (capture-destructor (m Module) (holder String) (types (List Type))) (→ String) (! mut)
-      (helper! m "capture-drop" (string-append holder ":" (string-join (map type-key types) ","))
-               (lambda (name)
-                 (let ((read
-                        (wat "ref.cast"
-                             (ref-wat holder)
-                             (wat "local.get" (Word "$owner"))))
-                       (evidence (wat "local.get" (Word "$ev"))))
-                   (wat* "func"
-                         (append (list (id name) (wat "type" (Word "$owner.drop"))
-                                       (wat "param"
-                                            (Word "$owner")
-                                            (ref-wat (owner-type m)))
-                                       (evidence-param m) (wat "result" (Word "i32"))
-                                       (disarm-dropper m holder read evidence))
-                                 (release-sequence
-                                  (capture-releases m holder types read evidence))))))))
-
-    (define (capture-releases (m Module)
-                              (holder String)
-                              (types (List Type))
-                              (read Wat)
-                              (evidence Wat))
-      (→ (List Wat)) (! mut)
-      (map (lambda (field)
-             (release-value m (● field second)
-                            (wat "struct.get" (id holder) (int (+ (● field first) 4)) read)
-                            evidence))
-           (filter (lambda (field) (shared-type? (program-of m) (● field second)))
-                   (zip (iota (length types)) types))))
-
-    ;; Moving a dropper out clears its slot before any release can call user
-    ;; code. Entering a closure transfers its linear captures into the call,
-    ;; so the unused cancellation thunk is released without running its body.
-    (define (disarm-dropper (m Module) (holder String) (value Wat) (evidence Wat)) (→ Wat) (! mut)
-      (wat "drop"
-           (wat "call" (id (disarm-helper m holder)) value evidence)))
-
-    (define (disarm-helper (m Module) (holder String)) (→ String) (! mut)
-      (template-helper! m "disarm" holder
-                        "(func {id} (param $closure (ref null {holder})) (param $ev (ref null {evidence})) (result i32)
-  (local $dropper (ref null {dropper}))
-  (local.set $dropper (struct.get {holder} 3 (local.get $closure)))
-  (struct.set {holder} 3 (local.get $closure) (ref.null {dropper}))
-  (if (i32.eqz (ref.is_null (local.get $dropper)))
-    (then (drop (call {release} (local.get $dropper) (local.get $ev)))))
-  (i32.const 0))"
-                        (list (new Pair (first "holder") (second holder))
-                              (new Pair (first "evidence") (second (evidence-type m)))
-                              (new Pair (first "dropper") (second (dropper-type m)))
-                              (new Pair (first "release") (second (release-helper m))))))
+        ((Some "2") 2)
+        (_ 1)))
 
     (define (capture-rep (fn Fn) (name String)) (→ Rep)
       (match (table-ref (● (● fn state) reps) name)
@@ -1092,11 +921,7 @@
          (let* ((signature (function-signature m (● function type)))
                 (reps (● signature first))
                 (base (closure-type m reps (● signature second)))
-                (counted? (counted-captures? m
-                                             (capture-types function
-                                                            (map (lambda (field) (● field first))
-                                                                 captured))))
-                (fn (Fn-exit-set (lambda-fn m self "$lambda.self" base counted?)
+                (fn (Fn-exit-set (lambda-fn m self "$lambda.self" base)
                                  (function-exit (● function type)))))
            (bind-params! fn params reps)
            (let* ((loads (capture-loads fn captured closure)) (code (emit fn body #t))
@@ -1110,16 +935,7 @@
                                                    (ref-wat base))
                                               (Cons (evidence-param m) (param-wats params reps))))
                                        (● signature second)
-                                       (append loads
-                                               (if counted?
-                                                   (Cons (disarm-dropper m
-                                                                         base
-                                                                         (wat "local.get"
-                                                                              (Word "$closure"))
-                                                                         (wat "local.get"
-                                                                              (Word "$ev")))
-                                                         code)
-                                                   code)))))
+                                       (append loads code))))
              (lambda-id m "lambda" draft 0))))
         (_ (panic "internal error: not a lambda"))))
 
@@ -1148,14 +964,11 @@
 
     ;; A recursive lambda reads its own name as its closure.
 
-    (define (lambda-fn (m Module) (self (Option String)) (function-id String) (base String)
-                       (counted? Bool))
+    (define (lambda-fn (m Module) (self (Option String)) (function-id String) (base String))
       (→ Fn)
       (! mut)
       (let* ((names (match self ((Some name) (list name)) ((None) (Nil))))
-             (fn (Fn-self-set (new-fn m)
-                              (Some
-                               (new Self (names names) (code function-id) (counted? counted?))))))
+             (fn (Fn-self-set (new-fn m) (Some (new Self (names names) (code function-id))))))
         (match self
           ((Some name) (bind-local! fn name (wat "local.get" (Word "$closure")) (Reference base)))
           ((None) (unit)))
@@ -1188,23 +1001,15 @@
     (define (call-op (tail? Bool)) (→ String)
       (if tail? "return_call" "call"))
 
-    ;; Resolved locals are immutable. A direct alias or retain keeps the same
-    ;; recursive entry point; other expressions establish no such proof. Emit
-    ;; the actual callee operand below, preserving its operand evaluation.
+    ;; Resolved locals are immutable. A direct alias keeps the same recursive
+    ;; entry point; other expressions establish no such proof. Emit the
+    ;; actual callee operand below, preserving its operand evaluation.
     (define (self-target (fn Fn) (callee Expr)) (→ (Option String))
       (match (● callee term)
         ((Var name _ _)
          (match (● fn self)
            ((Some self) (if (member? name (● self names)) (Some (● self code)) (None)))
            ((None) (None))))
-        ((App (Expr (Var "prim:current-closure" _ _) _ _) (Nil))
-         (match (● fn self)
-           ((Some self) (Some (● self code)))
-           ((None) (None))))
-        ((App operation (Cons value (Nil)))
-         (match (● operation term)
-           ((Var "prim:retain" _ _) (self-target fn value))
-           (_ (None))))
         (_ (None))))
 
     ;; The alias belongs only to this let's body. Fresh function and control
@@ -1214,13 +1019,6 @@
         ((Pair (Some self) (Some _))
          (Fn-self-set fn (Some (Self-names-set self (Cons name (● self names))))))
         (_ fn)))
-
-    ;; Only exact aliases qualify, not other closures with the same code.
-    ;; The layout cannot acquire a cancellation dropper without linear captures.
-    (define (uncounted-self? (fn Fn) (value Expr)) (→ Bool)
-      (match (new Pair (first (● fn self)) (second (self-target fn value)))
-        ((Pair (Some self) (Some _)) (not (● self counted?)))
-        (_ #f)))
 
     (define (emit-call (fn Fn) (expr Expr) (callee Expr) (args (List Expr)) (tail? Bool))
       (→ (List Wat)) (! mut)
@@ -1262,10 +1060,8 @@
           ((Some (Replacer case index _))
            (list (replace-field fn case index (first-arg args) (list-ref args 1))))
           ((Some (Setter case index _))
-           (append (set-field fn case index (first-arg args) (list-ref args 1))
-                   (list (wat "i32.const" (int 0)))))
-          ((Some (Swapper case index _))
-           (list (swap-field fn case index (first-arg args) (list-ref args 1))))
+           (list (set-field fn case index (first-arg args) (list-ref args 1))
+                 (wat "i32.const" (int 0))))
           ((Some (Primitive _)) (emit-primitive fn name args (● expr type)))
           ((Some (Operation effect _))
            (list (wat* "call"
@@ -1281,8 +1077,7 @@
         ((Nil) (panic "internal error: missing argument"))))
 
     ;; The callee is evaluated once, into a temporary unless it is already a
-    ;; variable read. Calling a FnOnce calls the closure it is; the
-    ;; ownership check has proved nothing calls it again.
+    ;; variable read.
 
     (define (closure-call (fn Fn) (callee Expr) (args (List Expr)) (tail? Bool))
       (→ (List Wat))
@@ -1311,7 +1106,7 @@
 
       (wat* (if tail? "return_call_ref" "call_ref")
             (Cons (id (code-type m base))
-                  (Cons read (append args (list (wat "struct.get" (id base) (int 2) read)))))))
+                  (Cons read (append args (list (wat "struct.get" (id base) (int 0) read)))))))
 
     (define (variable-read? (code Wat)) (→ Bool)
       (match code
@@ -1343,13 +1138,10 @@
       (let* ((m (● fn module)) (name (● case type)))
         (cond ((tag-enum? m name) (wat "i32.const" (int (● case tag))))
               ((not (● (data-type-of m name) enum?))
-               (wat* "struct.new"
-                     (Cons (id (data-type m type)) (append (data-owner m type #f) slots))))
+               (wat* "struct.new" (Cons (id (data-type m type)) slots)))
               ((null? slots) (singleton m type case))
               (else (wat* "struct.new" (Cons (id (case-type m type case))
-                                             (append (data-owner m type #f)
-                                                     (Cons (wat "i32.const" (int (● case tag)))
-                                                           slots))))))))
+                                             (Cons (wat "i32.const" (int (● case tag))) slots)))))))
 
     (define (singleton (m Module) (type Type) (case Case)) (→ Wat) (! mut)
       (let ((key (string-append (type-key type) ":" (● case name))))
@@ -1358,404 +1150,28 @@
                     (let ((global (keyed-id "value" key)) (base (data-type m type)))
                       (push! (● m globals)
                              (wat "global" (id global) (ref-wat base)
-                                  (wat* "struct.new" (Cons (id base) (append (data-owner m type #t)
-                                                                             (list (wat "i32.const"
-                                                                                        (int (● case
-                                                                                                tag)))))))))
+                                  (wat "struct.new"
+                                       (id base)
+                                       (wat "i32.const" (int (● case tag))))))
                       (wat "global.get" (id global)))))))
-
-    ;; ---- Counted owners ----
-
-    ;; WasmGC owns storage. This header owns deterministic cleanup: positive
-    ;; counts are live, zero is dead, and -1 marks an immortal code constant.
-    ;; The last release marks an owner dead before entering user cleanup.
-    ;; Shared mutable records own their current fields once, independently
-    ;; of how many aliases the record itself has. Linear records keep their
-    ;; existing single-owner representation and are consumed by Drop glue.
-    (define (data-offset (m Module) (type Type)) (→ I64) (! mut)
-      (let ((key (string-append "shared:" (type-key type))))
-        (match (known-type m key)
-          ((Some value) (if (string=? value "yes") 2 0))
-          ((None)
-           (let ((answer (shared-type? (program-of m) type)))
-             (put! (● m type-ids) key (if answer "yes" "no"))
-             (if answer 2 0))))))
-
-    (define (data-header (m Module) (type Type)) (→ (List Wat)) (! mut)
-      (if (= (data-offset m type) 0) (Nil) (begin (owner-type m) (owner-fields))))
-
-    (define (owner-noop (m Module)) (→ String) (! mut)
-      (owner-type m)
-      (helper! m "owner-noop" ""
-               (lambda (name)
-                 (wat "func" (id name) (wat "type" (Word "$owner.drop"))
-                      (wat "param" (ref-wat (owner-type m)))
-                      (wat "param" (evidence-ref m))
-                      (wat "result" (Word "i32")) (wat "i32.const" (int 0))))))
-
-    (define (data-owner (m Module) (type Type) (immortal? Bool)) (→ (List Wat)) (! mut)
-      (if (= (data-offset m type) 0) (Nil)
-          (list (wat "i64.const" (int (if immortal? -1 1)))
-                (code-of m (if immortal? (owner-noop m) (data-destructor m type))))))
-
-    (define (data-destructor (m Module) (type Type)) (→ String) (! mut)
-      (let ((data (data-type-of m (type-name type))) (holder (data-type m type)))
-        (helper! m "record-drop" holder
-                 (lambda (name)
-                   (let ((read (wat "ref.cast"
-                                    (ref-wat holder)
-                                    (wat "local.get" (Word "$owner")))))
-                     (wat* "func"
-                           (append (list (id name) (wat "type" (Word "$owner.drop"))
-                                         (wat "param"
-                                              (Word "$owner")
-                                              (ref-wat (owner-type m)))
-                                         (evidence-param m) (wat "result" (Word "i32")))
-                                   (append
-                                    (concatenate
-                                     (map (lambda (case)
-                                            (let ((drops (release-case m type case read)))
-                                              (if (or (not (● data enum?)) (null? drops)) drops
-                                                  (list (wat "if"
-                                                             (wat "i32.eq"
-                                                                  (wat "struct.get"
-                                                                       (id holder)
-                                                                       (int 2)
-                                                                       read)
-                                                                  (wat "i32.const"
-                                                                       (int (● case tag))))
-                                                             (wat* "then" drops))))))
-                                          (● data cases)))
-                                    (list (wat "i32.const" (int 0)))))))))))
-
-    (define (release-case (m Module) (type Type) (case Case) (record Wat)) (→ (List Wat)) (! mut)
-      (let* ((enum? (● (data-type-of m (type-name type)) enum?))
-             (holder (if enum? (case-type m type case) (data-type m type)))
-             (read (if enum? (wat "ref.cast" (ref-wat holder) record) record))
-             (offset (+ (data-offset m type) (if enum? 1 0)))
-             (fields (filter (lambda (field) (shared-type? (program-of m) (● field second)))
-                             (zip (iota (length (● case fields))) (case-field-types m type case)))))
-        (release-sequence
-         (map (lambda (field)
-                (release-value m (● field second)
-                               (wat "struct.get" (id holder) (int (+ offset (● field first))) read)
-                               (wat "local.get" (Word "$ev")))) fields))))
-
-    (define (owner-type (m Module)) (→ String) (! mut)
-      (match (known-type m "owner")
-        ((Some type) type)
-        ((None)
-         (put! (● m type-ids) "owner" "$owner")
-         (register-type! m "owner.drop" "$owner.drop"
-                         (wat "type" (Word "$owner.drop")
-                              (wat "func" (wat "param" (ref-wat "$owner"))
-                                   (wat "param" (evidence-ref m)) (wat "result" (Word "i32")))))
-         (register-type! m "owner" "$owner"
-                         (wat "type" (Word "$owner")
-                              (wat "sub" (wat* "struct" (owner-fields))))))))
-
-    (define (owner-fields) (→ (List Wat))
-      (list (wat "field" (wat "mut" (Word "i64")))
-            (wat "field" (ref-wat "$owner.drop"))))
-
-    (define (retain-helper (m Module)) (→ String) (! mut)
-      (owner-type m)
-      (template-helper! m "retain" ""
-                        "(func {id} (param $owner (ref null $owner)) (result (ref null $owner))
-  (local $count i64)
-  (local.set $count (struct.get $owner 0 (local.get $owner)))
-  (if (i64.ne (local.get $count) (i64.const -1))
-    (then
-      (if (i32.or (i64.le_s (local.get $count) (i64.const 0))
-                  (i64.eq (local.get $count) (i64.const 9223372036854775807))) (then unreachable))
-      (struct.set $owner 0 (local.get $owner) (i64.add (local.get $count) (i64.const 1)))))
-  (local.get $owner))" (Nil)))
-
-    (define (release-helper (m Module)) (→ String) (! mut)
-      (owner-type m)
-      (template-helper! m "release" ""
-                        "(func {id} (param $owner (ref null $owner)) (param $ev (ref null {evidence})) (result i32)
-  (local $count i64)
-  (local.set $count (struct.get $owner 0 (local.get $owner)))
-  (if (i64.ne (local.get $count) (i64.const -1))
-    (then
-      (if (i64.le_s (local.get $count) (i64.const 0)) (then unreachable))
-      (local.set $count (i64.sub (local.get $count) (i64.const 1)))
-      (struct.set $owner 0 (local.get $owner) (local.get $count))
-      (if (i64.eqz (local.get $count))
-        (then (return_call_ref $owner.drop (local.get $owner) (local.get $ev)
-                (struct.get $owner 1 (local.get $owner)))))))
-  (i32.const 0))" (list (new Pair (first "evidence") (second (evidence-type m))))))
-
-    ;; Rc and WeakRc share a GC control cell. A weak reference contributes
-    ;; no strong count. Clearing the payload makes a dead weak cell harmless
-    ;; even when it remains reachable after its resource has been finalized.
-    (define (rc-type (m Module) (payload Type)) (→ String) (! mut)
-      (let ((key (string-append "rc." (type-key payload))))
-        (match (known-type m key)
-          ((Some type) type)
-          ((None)
-           (let ((name (wasm-id key)))
-             (owner-type m)
-             (put! (● m type-ids) key name)
-             (put! (● m type-ids) (string-append "counted:" name) name)
-             (register-type! m key name
-                             (wat "type" (id name)
-                                  (wat "sub" (Word "final") (id (owner-type m))
-                                       (wat* "struct"
-                                             (append (owner-fields)
-                                                     (list (wat "field"
-                                                                (wat "mut"
-                                                                     (rep->wat (rep m payload))))
-                                                           (wat "field"
-                                                                (ref-wat (rc-finalizer-type m
-                                                                                            payload))))))))))))))
-
-    (define (rc-finalizer-type (m Module) (payload Type)) (→ String) (! mut)
-      (closure-type m (list (rep m payload)) (Scalar "i32")))
-
-    (define (rc-payload (m Module) (type Type) (value Wat)) (→ Wat) (! mut)
-      (wat "struct.get" (id (rc-type m (first-type (type-args type)))) (int 2) value))
-
-    (define (type-args (type Type)) (→ (List Type))
-      (match type ((TCon _ args) args) (_ (panic "internal error: expected a named type"))))
-
-    (define (rc-destructor (m Module) (payload Type)) (→ String) (! mut)
-      (let* ((holder (rc-type m payload)) (finalizer (rc-finalizer-type m payload))
-             (read (wat "local.get" (Word "$cell"))))
-        (helper! m "rc-drop" holder
-                 (lambda (name)
-                   (wat "func" (id name) (wat "type" (Word "$owner.drop"))
-                        (wat "param" (Word "$owner") (ref-wat (owner-type m)))
-                        (evidence-param m) (wat "result" (Word "i32"))
-                        (wat "local" (Word "$cell") (ref-wat holder))
-                        (wat "local" (Word "$value") (rep->wat (rep m payload)))
-                        (wat "local" (Word "$finalizer") (ref-wat finalizer))
-                        (wat "local.set" (Word "$cell")
-                             (wat "ref.cast"
-                                  (ref-wat holder)
-                                  (wat "local.get" (Word "$owner"))))
-                        (wat "local.set"
-                             (Word "$value")
-                             (wat "struct.get" (id holder) (int 2) read))
-                        (wat "struct.set" (id holder) (int 2) read (default-value (rep m payload)))
-                        (wat "local.set"
-                             (Word "$finalizer")
-                             (wat "struct.get" (id holder) (int 3) read))
-                        (closure-call-wat m finalizer (wat "local.get" (Word "$finalizer"))
-                                          (list (wat "local.get" (Word "$ev"))
-                                                (wat "local.get" (Word "$value"))) #t))))))
-
-    (define (new-rc (m Module) (type Type) (payload Wat) (finalizer Wat)) (→ Wat) (! mut)
-      (let ((content (first-type (type-args type))))
-        (wat "struct.new" (id (rc-type m content))
-             (wat "i64.const" (int 1)) (code-of m (rc-destructor m content)) payload finalizer)))
-
-    (define (counted-value? (m Module) (type Type)) (→ Bool) (! mut)
-      (and (shared-type? (program-of m) type)
-           (match (rep m type)
-             ((Reference name)
-              (match (known-type m (string-append "counted:" name)) ((Some _) #t) ((None) #f)))
-             (_ #f))))
-
-    (define (retain-value (m Module) (type Type) (value Wat)) (→ Wat) (! mut)
-      (if (counted-value? m type)
-          (wat "ref.cast" (rep->wat (rep m type)) (wat "call" (id (retain-helper m)) value)) value))
-
-    (define (release-value (m Module) (type Type) (value Wat) (evidence Wat)) (→ Wat) (! mut)
-      (if (counted-value? m type) (wat "call" (id (release-helper m)) value evidence)
-          (discard-value value)))
-
-    (define (discard-value (value Wat)) (→ Wat)
-      (wat "block" (wat "result" (Word "i32")) (wat "drop" value) (wat "i32.const" (int 0))))
-
-    (define (upgrade-weak (fn Fn) (type Type) (value Wat)) (→ Wat) (! mut)
-      (let* ((m (● fn module)) (strong (first-type (type-args type)))
-             (temp (declare-temp! fn (rep->wat (rep m strong))))
-             (read (wat "local.get" (id temp))))
-        (wat "block" (wat "result" (rep->wat (rep m type)))
-             (wat "local.set" (id temp) value)
-             (wat "if" (wat "result" (rep->wat (rep m type)))
-                  (wat "i64.gt_s" (wat "struct.get" (id (owner-type m)) (int 0) read)
-                       (wat "i64.const" (int 0)))
-                  (wat "then" (construct-slots fn (option-case m #t) type
-                                               (list (retain-value m strong read))))
-                  (wat "else" (construct-slots fn (option-case m #f) type (Nil)))))))
-
-    ;; Rc automatically projects into its stable payload. Following another
-    ;; ordinary field is still a separate source-level read and ownership
-    ;; operation; these helpers only remove Rc control cells from the path.
-    (define (record-type (type Type)) (→ Type)
-      (match type ((TCon "Rc" (Cons content (Nil))) (record-type content)) (_ type)))
-
-    (define (record-value (fn Fn) (value Expr)) (→ Wat) (! mut)
-      (record-through (● fn module) (● value type) (emit1 fn value)))
-
-    (define (record-through (m Module) (type Type) (value Wat)) (→ Wat) (! mut)
-      (match type
-        ((TCon "Rc" (Cons content (Nil))) (record-through m content (rc-payload m type value)))
-        (_ value)))
 
     ;; ---- Vectors ----
 
-    ;; A vector's array has its exact, permanent length. Uncounted elements
-    ;; need no wrapper; counted elements add an owner header and one fixed
-    ;; array reference. Each initialized slot owns its element credit.
-    ;; Strings remain separate values; conversions copy their character data.
+    ;; A vector is an array of its exact, permanent length, every slot
+    ;; initialized, including reference elements. Strings remain separate
+    ;; values; conversions copy their character data.
     (define (sequence-element (type Type)) (→ Type)
       (match type
         ((TCon "String" _) (TCon "Char" (Nil)))
         ((TCon _ (Cons element (Nil))) element)
         (_ (panic "internal error: not a sequence"))))
 
-    (define (sequence-raw-type (m Module) (type Type)) (→ String) (! mut)
+    (define (sequence-type (m Module) (type Type)) (→ String) (! mut)
       (array-type m (element-rep m (sequence-element type))))
 
-    (define (sequence-type (m Module) (element Type)) (→ String) (! mut)
-      (let ((array (array-type m (element-rep m element)))
-            (key (string-append "vector." (type-key element))))
-        (if (not (shared-type? (program-of m) element)) array
-            (match (known-type m key)
-              ((Some type) type)
-              ((None)
-               (let ((name (wasm-id key)))
-                 (owner-type m)
-                 (put! (● m type-ids) (string-append "counted:" name) name)
-                 (register-type! m key name
-                                 (wat "type" (id name)
-                                      (wat "sub" (Word "final") (id (owner-type m))
-                                           (wat* "struct" (append (owner-fields)
-                                                                  (list (wat "field"
-                                                                             (ref-wat
-                                                                              array))))))))))))))
-
-    (define (sequence-data (m Module) (type Type) (value Wat)) (→ Wat) (! mut)
-      (let ((element (sequence-element type)))
-        (if (shared-type? (program-of m) element)
-            (wat "struct.get" (id (sequence-type m element)) (int 2) value)
-            value)))
-
-    (define (sequence-length (m Module) (type Type) (value Wat)) (→ Wat) (! mut)
-      (wat "array.len" (sequence-data m type value)))
-
-    (define (sequence-owned (m Module) (type Type) (data Wat)) (→ Wat) (! mut)
-      (let ((element (sequence-element type)))
-        (if (shared-type? (program-of m) element)
-            (wat "struct.new" (id (sequence-type m element))
-                 (wat "i64.const" (int 1)) (code-of m (sequence-destructor m element)) data)
-            data)))
-
-    (define (sequence-copied (m Module) (type Type) (data Wat)) (→ Wat) (! mut)
-      (let ((element (sequence-element type)))
-        (sequence-owned m type
-                        (if (shared-type? (program-of m) element)
-                            (wat "call" (id (array-retain-helper m element)) data) data))))
-
-    ;; Every accessible slot is initialized, including reference elements.
     (define (array-read (m Module) (element Type) (data Wat) (index Wat)) (→ Wat) (! mut)
       (let ((array (array-type m (element-rep m element))))
         (wat (array-get array) (id array) data index)))
-
-    ;; These loops are typed by the element, not merely its Wasm layout:
-    ;; WeakRc and Rc have the same representation but different ownership.
-    (define (array-retain-helper (m Module) (element Type)) (→ String) (! mut)
-      (let ((array (array-type m (element-rep m element))))
-        (template-helper! m "array-retain" (type-key element)
-                          "(func {id} (param $array (ref null {array})) (result (ref null {array}))
-  (local $index i32)
-  (block $done (loop $next
-    (br_if $done (i32.ge_u (local.get $index) (array.len (local.get $array))))
-    (drop (call {retain} (array.get {array} (local.get $array) (local.get $index))))
-    (local.set $index (i32.add (local.get $index) (i32.const 1))) (br $next)))
-  (local.get $array))"
-                          (list (new Pair (first "array") (second array))
-                                (new Pair (first "retain") (second (retain-helper m)))))))
-
-    (define (array-release-helper (m Module) (element Type)) (→ String) (! mut)
-      (let ((array (array-type m (element-rep m element))))
-        (template-helper! m "array-release" (type-key element)
-                          "(func {id} (param $array (ref null {array})) (param $ev (ref null {evidence})) (result i32)
-  (local $index i32)
-  (block $done (loop $next
-    (br_if $done (i32.ge_u (local.get $index) (array.len (local.get $array))))
-    (if (i32.eq (i32.add (local.get $index) (i32.const 1)) (array.len (local.get $array)))
-      (then (return_call {release} (array.get {array} (local.get $array) (local.get $index)) (local.get $ev))))
-    (drop (call {release} (array.get {array} (local.get $array) (local.get $index)) (local.get $ev)))
-    (local.set $index (i32.add (local.get $index) (i32.const 1))) (br $next)))
-  (i32.const 0))"
-                          (list (new Pair (first "array") (second array))
-                                (new Pair (first "evidence") (second (evidence-type m)))
-                                (new Pair (first "release") (second (release-helper m)))))))
-
-    (define (sequence-destructor (m Module) (element Type)) (→ String) (! mut)
-      (let ((holder (sequence-type m element)))
-        (helper! m "vector-drop" (type-key element)
-                 (lambda (name)
-                   (let ((value (wat "ref.cast" (ref-wat holder)
-                                     (wat "local.get" (Word "$owner")))))
-                     (wat "func" (id name) (wat "type" (Word "$owner.drop"))
-                          (wat "param" (Word "$owner") (ref-wat (owner-type m)))
-                          (evidence-param m) (wat "result" (Word "i32"))
-                          (wat "return_call" (id (array-release-helper m element))
-                               (wat "struct.get" (id holder) (int 2) value)
-                               (wat "local.get" (Word "$ev")))))))))
-
-    (define (array-write-helper (m Module) (element Type)) (→ String) (! mut)
-      (template-helper! m "array-write" (type-key element)
-                        "(func {id} (param $array (ref null {array})) (param $index i32) (param $value {element}) (param $ev (ref null {evidence})) (result i32)
-  (local $old {element})
-  (local.set $old (array.get {array} (local.get $array) (local.get $index)))
-  (array.set {array} (local.get $array) (local.get $index) (local.get $value))
-  (return_call {release} (local.get $old) (local.get $ev)))"
-                        (list
-                         (new Pair (first "array") (second (array-type m (element-rep m element))))
-                         (new Pair
-                           (first "element")
-                           (second (wat->text (rep->wat (rep m element)))))
-                         (new Pair (first "evidence") (second (evidence-type m)))
-                         (new Pair (first "release") (second (release-helper m))))))
-
-    ;; Copying owns all unchanged elements; the replacement argument moves
-    ;; into its selected slot. The original array remains an independent owner.
-    (define (array-replace-helper (m Module) (element Type)) (→ String) (! mut)
-      (let ((array (array-type m (element-rep m element))))
-        (template-helper! m "array-replace" (type-key element)
-                          "(func {id} (param $array (ref null {array})) (param $index i64) (param $value {element}) (param $ev (ref null {evidence})) (result (ref null {array}))
-  (local $result (ref null {array}))
-  (local.set $result (call {retain} (call {copy} (local.get $array))))
-  (drop (call {write} (local.get $result) (i32.wrap_i64 (local.get $index)) (local.get $value) (local.get $ev)))
-  (local.get $result))"
-                          (list (new Pair (first "array") (second array))
-                                (new Pair
-                                  (first "element")
-                                  (second (wat->text (rep->wat (rep m element)))))
-                                (new Pair (first "evidence") (second (evidence-type m)))
-                                (new Pair (first "retain") (second (array-retain-helper m element)))
-                                (new Pair (first "copy") (second (copy-helper m array)))
-                                (new Pair
-                                  (first "write")
-                                  (second (array-write-helper m element)))))))
-
-    ;; Snapshot both ranges before writing. Incoming owners are retained,
-    ;; the entire destination is installed, and only then do old elements
-    ;; release. Overlap and reentrant finalizers therefore see a completed copy.
-    (define (array-copy-owners-helper (m Module) (element Type)) (→ String) (! mut)
-      (let ((array (array-type m (element-rep m element))))
-        (template-helper! m "array-copy-owners" (type-key element)
-                          "(func {id} (param $to (ref null {array})) (param $at i64) (param $from (ref null {array})) (param $start i64) (param $count i64) (param $ev (ref null {evidence})) (result i32)
-  (local $incoming (ref null {array})) (local $old (ref null {array}))
-  (local.set $incoming (call {slice} (local.get $from) (local.get $start) (i64.add (local.get $start) (local.get $count))))
-  (local.set $old (call {slice} (local.get $to) (local.get $at) (i64.add (local.get $at) (local.get $count))))
-  (drop (call {retain} (local.get $incoming)))
-  (array.copy {array} {array} (local.get $to) (i32.wrap_i64 (local.get $at)) (local.get $incoming) (i32.const 0) (i32.wrap_i64 (local.get $count)))
-  (return_call {release} (local.get $old) (local.get $ev)))"
-                          (list (new Pair (first "array") (second array))
-                                (new Pair (first "slice") (second (slice-helper m array)))
-                                (new Pair (first "evidence") (second (evidence-type m)))
-                                (new Pair (first "retain") (second (array-retain-helper m element)))
-                                (new Pair
-                                  (first "release")
-                                  (second (array-release-helper m element)))))))
 
     ;; Validate full-width indices
     ;; before narrowing to Wasm's i32 indices, including zero-length copies.
@@ -1774,187 +1190,92 @@
 
     (define (vector-storage-bindings (m Module) (element Type))
       (→ (List (Pair String String))) (! mut)
-      (list (new Pair (first "holder") (second (sequence-type m element)))
-            (new Pair (first "array") (second (array-type m (element-rep m element))))
-            (new Pair
-              (first "data")
-              (second (wat->text (sequence-data m (TCon "Vector" (list element))
-                                                (wat "local.get" (Word "$vector"))))))
+      (list (new Pair (first "array") (second (array-type m (element-rep m element))))
             (new Pair (first "element") (second (wat->text (rep->wat (rep m element)))))
+            (new Pair (first "range") (second (range-helper m)))
             (new Pair
               (first "read")
-              (second (wat->text (array-read m element (wat "local.get" (Word "$data"))
+              (second (wat->text (array-read m element (wat "local.get" (Word "$vector"))
                                              (wat "local.get" (Word "$index"))))))))
 
     (define (vector-read-helper (m Module) (element Type)) (→ String) (! mut)
       (template-helper! m "vector-read" (type-key element)
-                        "(func {id} (param $vector (ref null {holder})) (param $at i64) (result {element})
-  (local $data (ref null {array})) (local $index i32)
-  (local.set $data {data})
-  (local.set $index (call {range} (array.len (local.get $data)) (local.get $at) (i64.const 1)))
+                        "(func {id} (param $vector (ref null {array})) (param $at i64) (result {element})
+  (local $index i32)
+  (local.set $index (call {range} (array.len (local.get $vector)) (local.get $at) (i64.const 1)))
   {read})"
-                        (Cons (new Pair (first "range") (second (range-helper m)))
-                              (vector-storage-bindings m element))))
+                        (vector-storage-bindings m element)))
 
     (define (vector-write-helper (m Module) (element Type)) (→ String) (! mut)
-      (let ((write (if (shared-type? (program-of m) element)
-                       (string-append "(return_call " (array-write-helper m element)
-                                      " (local.get $data) (local.get $index) (local.get $value) (local.get $ev))")
-                       "(array.set {array} (local.get $data) (local.get $index) (local.get $value)) (i32.const 0)")))
-        (template-helper! m "vector-write" (type-key element)
-                          (string-append
-                           "(func {id} (param $vector (ref null {holder})) (param $at i64) (param $value {element}) (param $ev (ref null {evidence})) (result i32)
-  (local $data (ref null {array})) (local $index i32)
-  (local.set $data {data})
-  (local.set $index (call {range} (array.len (local.get $data)) (local.get $at) (i64.const 1)))
-  " write ")")
-                          (append (list (new Pair (first "range") (second (range-helper m)))
-                                        (new Pair (first "evidence") (second (evidence-type m))))
-                                  (vector-storage-bindings m element)))))
+      (template-helper! m "vector-write" (type-key element)
+                        "(func {id} (param $vector (ref null {array})) (param $at i64) (param $value {element}) (result i32)
+  (local $index i32)
+  (local.set $index (call {range} (array.len (local.get $vector)) (local.get $at) (i64.const 1)))
+  (array.set {array} (local.get $vector) (local.get $index) (local.get $value))
+  (i32.const 0))"
+                        (vector-storage-bindings m element)))
 
     (define (sequence-slice-helper (m Module) (type Type)) (→ String) (! mut)
-      (helper! m "sequence-slice" (type-key type)
-               (lambda (name)
-                 (let ((value (wat "local.get" (Word "$value")))
-                       (start (wat "local.get" (Word "$start")))
-                       (end (wat "local.get" (Word "$end"))))
-                   (wat "func" (id name) (wat "param" (Word "$value") (rep->wat (rep m type)))
-                        (wat "param" (Word "$start") (Word "i64"))
-                        (wat "param" (Word "$end") (Word "i64"))
-                        (wat "result" (rep->wat (rep m type)))
-                        (wat "drop" (wat "call" (id (range-helper m)) (sequence-length m type value)
-                                         start (wat "i64.sub" end start)))
-                        (sequence-copied m
-                                         type
-                                         (wat "call"
-                                              (id (slice-helper m (sequence-raw-type m type)))
-                                              (sequence-data m type value) start end)))))))
-
-    (define (sequence-append-helper (m Module) (type Type)) (→ String) (! mut)
-      (helper! m "sequence-append" (type-key type)
-               (lambda (name)
-                 (let ((left (wat "local.get" (Word "$left")))
-                       (right (wat "local.get" (Word "$right"))))
-                   (wat "func" (id name) (wat "param" (Word "$left") (rep->wat (rep m type)))
-                        (wat "param" (Word "$right") (rep->wat (rep m type)))
-                        (wat "result" (rep->wat (rep m type)))
-                        (sequence-copied m
-                                         type
-                                         (wat "call"
-                                              (id (append-helper m (sequence-raw-type m type)))
-                                              (sequence-data m type left)
-                                              (sequence-data m type right))))))))
-
-    (define (vector-copy-helper (m Module) (element Type)) (→ String) (! mut)
-      (let* ((type (TCon "Vector" (list element))) (holder (sequence-type m element)))
-        (helper! m "vector-copy" (type-key element)
-                 (lambda (name)
-                   (let ((value (wat "local.get" (Word "$value"))))
-                     (wat "func"
-                          (id name)
-                          (wat "param" (Word "$value") (ref-wat holder))
-                          (wat "result" (ref-wat holder))
-                          (wat "return_call" (id (sequence-slice-helper m type)) value
-                               (wat "i64.const" (int 0))
-                               (wat "i64.extend_i32_u" (sequence-length m type value)))))))))
+      (template-helper! m "sequence-slice" (type-key type)
+                        "(func {id} (param $value (ref null {array})) (param $start i64) (param $end i64) (result (ref null {array}))
+  (drop (call {range} (array.len (local.get $value)) (local.get $start) (i64.sub (local.get $end) (local.get $start))))
+  (return_call {slice} (local.get $value) (local.get $start) (local.get $end)))"
+                        (list (new Pair (first "array") (second (sequence-type m type)))
+                              (new Pair (first "range") (second (range-helper m)))
+                              (new Pair (first "slice")
+                                   (second (slice-helper m (sequence-type m type)))))))
 
     (define (vector-replace-helper (m Module) (element Type)) (→ String) (! mut)
-      (let* ((type (TCon "Vector" (list element))) (array (sequence-raw-type m type))
-             (counted? (shared-type? (program-of m) element)))
-        (helper! m "vector-replace" (type-key element)
-                 (lambda (name)
-                   (let ((value (wat "local.get" (Word "$vector")))
-                         (index (wat "local.get" (Word "$index"))))
-                     (wat "func" (id name) (wat "param" (Word "$vector") (rep->wat (rep m type)))
-                          (wat "param" (Word "$index") (Word "i64"))
-                          (wat "param" (Word "$value") (rep->wat (rep m element)))
-                          (evidence-param m) (wat "result" (rep->wat (rep m type)))
-                          (wat "drop"
-                               (wat "call" (id (range-helper m)) (sequence-length m type value)
-                                    index (wat "i64.const" (int 1))))
-                          (sequence-owned m type
-                                          (wat* "call"
-                                                (append (list (id (if counted?
-                                                                      (array-replace-helper m
-                                                                                            element)
-                                                                      (set-helper m
-                                                                                  array
-                                                                                  (rep m element))))
-                                                              (sequence-data m type value)
-                                                              index
-                                                              (wat "local.get" (Word "$value")))
-                                                        (if counted?
-                                                            (list (wat "local.get" (Word "$ev")))
-                                                            (Nil)))))))))))
+      (template-helper! m "vector-replace" (type-key element)
+                        "(func {id} (param $vector (ref null {array})) (param $index i64) (param $value {element}) (result (ref null {array}))
+  (drop (call {range} (array.len (local.get $vector)) (local.get $index) (i64.const 1)))
+  (return_call {set} (local.get $vector) (local.get $index) (local.get $value)))"
+                        (Cons (new Pair (first "set")
+                                   (second (set-helper m (array-type m (element-rep m element))
+                                                       (rep m element))))
+                              (vector-storage-bindings m element))))
 
     (define (vector-copy-into-helper (m Module) (element Type)) (→ String) (! mut)
-      (let ((copy (if (shared-type? (program-of m) element)
-                      (string-append "(return_call " (array-copy-owners-helper m element)
-                                     " (local.get $to-data) (local.get $at) (local.get $from-data) (local.get $start) (local.get $count) (local.get $ev))")
-                      "(array.copy {array} {array} (local.get $to-data) (i32.wrap_i64 (local.get $at)) (local.get $from-data) (i32.wrap_i64 (local.get $start)) (i32.wrap_i64 (local.get $count))) (i32.const 0)")))
-        (template-helper! m "vector-copy-into" (type-key element)
-                          (string-append
-                           "(func {id} (param $to (ref null {holder})) (param $at i64) (param $from (ref null {holder})) (param $start i64) (param $count i64) (param $ev (ref null {evidence})) (result i32)
-  (local $to-data (ref null {array})) (local $from-data (ref null {array}))
-  (local.set $to-data {to-data})
-  (local.set $from-data {from-data})
-  (drop (call {range} (array.len (local.get $to-data)) (local.get $at) (local.get $count)))
-  (drop (call {range} (array.len (local.get $from-data)) (local.get $start) (local.get $count)))
-  " copy ")")
-                          (append (list (new Pair (first "range") (second (range-helper m)))
-                                        (new Pair (first "evidence") (second (evidence-type m)))
-                                        (new Pair (first "to-data")
-                                             (second (wat->text
-                                                      (sequence-data m
-                                                                     (TCon "Vector" (list element))
-                                                                     (wat "local.get"
-                                                                          (Word "$to"))))))
-                                        (new Pair (first "from-data")
-                                             (second (wat->text
-                                                      (sequence-data m
-                                                                     (TCon "Vector" (list element))
-                                                                     (wat "local.get"
-                                                                          (Word "$from")))))))
-                                  (vector-storage-bindings m element)))))
+      (template-helper! m "vector-copy-into" (type-key element)
+                        "(func {id} (param $to (ref null {array})) (param $at i64) (param $from (ref null {array})) (param $start i64) (param $count i64) (result i32)
+  (drop (call {range} (array.len (local.get $to)) (local.get $at) (local.get $count)))
+  (drop (call {range} (array.len (local.get $from)) (local.get $start) (local.get $count)))
+  (array.copy {array} {array} (local.get $to) (i32.wrap_i64 (local.get $at)) (local.get $from) (i32.wrap_i64 (local.get $start)) (i32.wrap_i64 (local.get $count)))
+  (i32.const 0))"
+                        (vector-storage-bindings m element)))
 
     ;; ---- Fields ----
 
     ;; A projection follows one reference and reads one declared field. Enum
     ;; accessors first establish the case subtype, whose fields follow its tag.
     (define (field-access (fn Fn) (case Case) (index I64) (value Expr)) (→ Wat) (! mut)
-      (let* ((m (● fn module)) (type (record-type (● value type))))
+      (let* ((m (● fn module)) (type (● value type)))
         (wat "struct.get" (id (field-holder m type case)) (int (+ index (field-offset m type)))
              (field-record fn case value))))
 
     (define (field-holder (m Module) (type Type) (case Case)) (→ String) (! mut)
       (if (● (data-type-of m (● case type)) enum?) (case-type m type case) (data-type m type)))
 
-    (define (field-offset (m Module) (type Type)) (→ I64) (! mut)
-      (+ (data-offset m type) (if (● (data-type-of m (type-name type)) enum?) 1 0)))
+    ;; An enum case's fields follow its tag.
+    (define (field-offset (m Module) (type Type)) (→ I64)
+      (if (● (data-type-of m (type-name type)) enum?) 1 0))
 
     (define (field-record (fn Fn) (case Case) (record Expr)) (→ Wat) (! mut)
-      (let* ((m (● fn module)) (type (record-type (● record type))))
-        (case-record m type case (record-value fn record))))
+      (case-record (● fn module) (● record type) case (emit1 fn record)))
 
-    ;; Enum reads here are introduced by ownership lowering inside a
-    ;; matched clause. Its tag test already proved the nominal case, even
-    ;; when two case layouts share the same structural Wasm subtype.
+    ;; The accessor names the case, and the cast checks it, even when two
+    ;; case layouts share the same structural Wasm subtype.
     (define (case-record (m Module) (type Type) (case Case) (record Wat)) (→ Wat) (! mut)
       (wat "ref.cast" (ref-wat (field-holder m type case)) record))
 
     ;; Wasm evaluates the receiver before the incoming value, each once.
+    ;; The case check is inside the helper, after both call operands run.
     (define (set-field (fn Fn) (case Case) (index I64) (record Expr) (content Expr))
-      (→ (List Wat)) (! mut)
-      (list (wat "drop" (release-value (● fn module) (● content type)
-                                       (swap-field fn case index record content)
-                                       (● fn evidence)))))
-
-    (define (swap-field (fn Fn) (case Case) (index I64) (record Expr) (content Expr))
       (→ Wat) (! mut)
-      (let* ((m (● fn module)) (type (record-type (● record type))))
-        (wat "call" (id (swap-helper m type case (+ index (field-offset m type))
-                                     (rep m (● content type))))
-             (record-value fn record) (emit1 fn content))))
+      (let* ((m (● fn module)) (type (● record type)))
+        (wat "call" (id (field-set-helper m type case (+ index (field-offset m type))
+                                          (rep m (● content type))))
+             (emit1 fn record) (emit1 fn content))))
 
     ;; Checking has resolved a place to an actual mutable field. The target
     ;; expression may itself follow any number of ordinary object references.
@@ -1973,74 +1294,38 @@
            (_ (panic "internal error: a place reads a field"))))
         (_ (panic "internal error: a place reads a field"))))
 
-    (define (place-write (fn Fn) (place Expr) (value Expr)) (→ (List Wat)) (! mut)
+    (define (place-write (fn Fn) (place Expr) (value Expr)) (→ Wat) (! mut)
       (let ((target (place-field fn place)))
         (set-field fn (● target case) (● target index) (● target record) value)))
 
-    (define (place-swap (fn Fn) (place Expr) (value Expr)) (→ Wat) (! mut)
-      (let ((target (place-field fn place)))
-        (swap-field fn (● target case) (● target index) (● target record) value)))
-
-    ;; Swaps a mutable field's content for a new value and answers the old
-    ;; one, which stays on the operand stack while the new one is stored.
-    ;; The case check is inside the helper, after both call operands run.
-    ;; The content moves without a copy, so the caller is its only owner,
-    ;; and a mutable field may hold a linear value.
-
-    (define (swap-helper (m Module) (record-type Type) (case Case) (index I64) (content Rep))
+    (define (field-set-helper (m Module) (record-type Type) (case Case) (index I64) (content Rep))
       (→ String) (! mut)
-      (let ((type (rep->wat content)) (base (data-type m record-type))
-            (holder (field-holder m record-type case)))
-        (helper! m "swap" (string-append holder "." (i64->string index))
+      (let ((base (data-type m record-type)) (holder (field-holder m record-type case)))
+        (helper! m "set-field" (string-append holder "." (i64->string index))
                  (lambda (function-id)
                    (wat "func" (id function-id)
                         (wat "param" (Word "$record") (ref-wat base))
-                        (wat "param" (Word "$value") type)
-                        (wat "result" type)
-                        (wat "local" (Word "$case") (ref-wat holder))
-                        (wat "local.set" (Word "$case")
-                             (case-record m record-type case (wat "local.get" (Word "$record"))))
-                        (wat "struct.get" (id holder) (int index) (wat "local.get" (Word "$case")))
+                        (wat "param" (Word "$value") (rep->wat content))
                         (wat "struct.set" (id holder) (int index)
-                             (wat "local.get" (Word "$case"))
+                             (case-record m record-type case (wat "local.get" (Word "$record")))
                              (wat "local.get" (Word "$value"))))))))
 
-    ;; A pure replacement consumes its record. Its established uniqueness
-    ;; permits reuse; otherwise the new object shares unchanged field values.
-    ;; Evaluate both operands before reading the remaining fields.
+    ;; A pure replacement makes a new record that shares the unchanged field
+    ;; values. Evaluate both operands before reading the remaining fields.
     (define (replace-field (fn Fn) (case Case) (index I64) (value Expr) (replacement Expr))
       (→ Wat) (! mut)
       (let* ((m (● fn module)) (type (● value type)) (holder (data-type m type))
-             (owner (declare-temp! fn (rep->wat (Reference holder))))
-             (incoming (declare-temp! fn (rep->wat (rep m (● replacement type)))))
-             (record (wat "local.get" (id owner))) (content (wat "local.get" (id incoming)))
-             (offset (data-offset m type)))
-        (wat* "block"
-              (append (list (wat "result" (ref-wat holder))
-                            (wat "local.set" (id owner) (emit1 fn value))
-                            (wat "local.set" (id incoming) (emit1 fn replacement)))
-                      (if (reused-in-place? m type)
-                          (list (wat "drop" (release-value m (● replacement type)
-                                                           (wat "call"
-                                                                (id (swap-helper m
-                                                                                 type case
-                                                                                 (+ index offset)
-                                                                                 (rep m
-                                                                                      (● replacement
-                                                                                         type))))
-                                                                record content) (● fn evidence)))
-                                record)
-                          (list (construct-slots fn case type
-                                                 (map-indexed (lambda (i field)
-                                                                (if (= i index) content
-                                                                    (retain-value m
-                                                                                  field
-                                                                                  (wat "struct.get"
-                                                                                       (id holder)
-                                                                                       (int (+ i
-                                                                                               offset))
-                                                                                       record))))
-                                                              (case-field-types m type case)))))))))
+             (record (declare-temp! fn (rep->wat (Reference holder))))
+             (incoming (declare-temp! fn (rep->wat (rep m (● replacement type))))))
+        (wat "block" (wat "result" (ref-wat holder))
+             (wat "local.set" (id record) (emit1 fn value))
+             (wat "local.set" (id incoming) (emit1 fn replacement))
+             (construct-slots fn case type
+                              (map-indexed (lambda (i field)
+                                             (if (= i index) (wat "local.get" (id incoming))
+                                                 (wat "struct.get" (id holder) (int i)
+                                                      (wat "local.get" (id record)))))
+                                           (case-field-types m type case))))))
 
     ;; ---- Host calls ----
 
@@ -2116,11 +1401,8 @@
 
     ;; ---- Exposed handovers ----
 
-    ;; Each host argument is observed: the entry acquires an owner for the
-    ;; source call, leaving the host's owner intact. Results transfer an owner
-    ;; to the host. Its creator's :release-result export consumes that owner;
-    ;; the host keeps the value and creator alive until release finishes.
-    ;; Option Any crosses as a nullable Any, not as its enum wrapper.
+    ;; An exposed function's arguments and result cross as the references
+    ;; they are. Option Any crosses as a nullable Any, not as its enum wrapper.
 
     (define (exposed-value-type (m Module) (type Type)) (→ Wat) (! mut)
       (if (optional-any-type? type) (rep->wat (Reference (any-type m))) (nonnull (rep m type))))
@@ -2138,9 +1420,8 @@
                  (wat "then" (construct-slots fn (option-case m #f) type (Nil)))
                  (wat "else"
                       (construct-slots fn (option-case m #t) type
-                                       (list (retain-value m (TCon "Any" (Nil))
-                                                           (wat "ref.as_non_null" value))))))
-            (retain-value m type value))))
+                                       (list (wat "ref.as_non_null" value)))))
+            value)))
 
     (define (export-handover (fn Fn) (type Type) (value Wat)) (→ Wat) (! mut)
       (if (optional-any-type? type)
@@ -2151,56 +1432,18 @@
 
     (define (export-option (fn Fn) (type Type) (value Wat)) (→ Wat) (! mut)
       (let* ((m (● fn module)) (temp (declare-temp! fn (rep->wat (rep m type))))
-             (answer (declare-temp! fn (exposed-value-type m type)))
              (read (wat "local.get" (id temp))) (some (case-type m type (option-case m #t))))
         (wat "block" (wat "result" (exposed-value-type m type))
              (wat "local.set" (id temp) value)
-             (wat "local.set" (id answer)
-                  (wat "if" (wat "result" (exposed-value-type m type))
-                       (wat "i32.eq"
-                            (wat "struct.get"
-                                 (id (data-type m type))
-                                 (int (data-offset m type))
-                                 read)
-                            (wat "i32.const" (int (● (option-case m #f) tag))))
-                       (wat "then" (wat "ref.null" (id (any-type m))))
-                       (wat "else"
-                            (retain-value m (TCon "Any" (Nil))
-                                          (wat "struct.get"
-                                               (id some)
-                                               (int (+ 1 (data-offset m type)))
-                                               (wat "ref.cast"
-                                                    (ref-wat some)
-                                                    read))))))
-             (wat "drop" (release-value m type read (evidence-none m)))
-             (wat "local.get" (id answer)))))
-
-    ;; A release entry consumes its argument without the ordinary entry's
-    ;; retain. Mark a host ownership record consumed before calling it, even
-    ;; if disposal reenters the host or traps. A trap is terminal, not unwind.
-    (define (export-result-release! (m Module) (name String) (symbol String) (type Type))
-      (→ Unit) (! mut)
-      (match (fn-arrow type)
-        ((TFun _ result _)
-         (when (counted-value? m result)
-           (let ((wrapper (wasm-id (string-append "release-result." name))))
-             (push-function! m wrapper
-                             (wat "func" (id wrapper)
-                                  (wat "param" (id "$result") (exposed-value-type m result))
-                                  (wat "drop" (release-handover m result
-                                                                (wat "local.get" (id "$result"))))))
-             (push! (● m exports)
-                    (wat "export" (wat-string (string-append symbol ":release-result"))
-                         (wat "func" (id wrapper)))))))
-        (_ (panic "internal error: an exposed value has a function type"))))
-
-    (define (release-handover (m Module) (type Type) (value Wat)) (→ Wat) (! mut)
-      (if (optional-any-type? type)
-          (wat "if" (wat "result" (Word "i32")) (wat "ref.is_null" value)
-               (wat "then" (wat "i32.const" (int 0)))
-               (wat "else" (release-value m (TCon "Any" (Nil)) (wat "ref.as_non_null" value)
-                                          (evidence-none m))))
-          (release-value m type value (evidence-none m))))
+             (wat "if" (wat "result" (exposed-value-type m type))
+                  (wat "i32.eq" (wat "struct.get" (id (data-type m type)) (int 0) read)
+                       (wat "i32.const" (int (● (option-case m #f) tag))))
+                  (wat "then" (wat "ref.null" (id (any-type m))))
+                  (wat "else"
+                       (wat "struct.get"
+                            (id some)
+                            (int 1)
+                            (wat "ref.cast" (ref-wat some) read)))))))
 
     (define (exposed-function (m Module) (name String) (type Type)) (→ String) (! mut)
       (match (fn-arrow type)
@@ -2336,7 +1579,7 @@
                           (id fail)
                           (wat "i32.ne" value (wat "i32.const" (int (● case tag)))))))
               ((not (● (data-type-of m name) enum?))
-               (fields-code fn (data-type m type) (data-offset m type) case type args value fail))
+               (fields-code fn (data-type m type) 0 case type args value fail))
               (else
                ;; A case's own type is registered only when its fields are
                ;; read, so a field-less case never declares one.
@@ -2344,7 +1587,7 @@
                  (Cons (wat "br_if"
                             (id fail)
                             (wat "i32.ne"
-                                 (wat "struct.get" (id base) (int (data-offset m type)) value)
+                                 (wat "struct.get" (id base) (int 0) value)
                                  (wat "i32.const" (int (● case tag)))))
                        (if (every? wild? args)
                            (Nil)
@@ -2355,7 +1598,7 @@
                                         (wat "ref.cast"
                                              (ref-wat case-id)
                                              value))
-                                   (fields-code fn case-id (+ 1 (data-offset m type)) case type args
+                                   (fields-code fn case-id 1 case type args
                                                 (wat "local.get" (id cast)) fail))))))))))
 
     (define (wild? (pattern Pattern)) (→ Bool)
@@ -2396,17 +1639,10 @@
       (match (known-type m "any")
         ((Some type) type)
         ((None)
-         (owner-type m)
-         (put! (● m type-ids) "counted:$any" "$any")
          (register-type! m "any" "$any"
-                         (wat "type" (Word "$any") (wat "sub" (Word "final") (id (owner-type m))
-                                                        (wat* "struct" (append (owner-fields)
-                                                                               (list (wat "field"
-                                                                                          (Word
-                                                                                           "i32"))
-                                                                                     (wat "field"
-                                                                                          (Word
-                                                                                           "anyref")))))))))))
+                         (wat "type" (Word "$any")
+                              (wat "struct" (wat "field" (Word "i32"))
+                                   (wat "field" (Word "anyref"))))))))
 
     (define (box-type (m Module) (r Rep)) (→ String) (! mut)
       (let ((key (string-append "box." (rep-key r))))
@@ -2420,11 +1656,9 @@
                                 (id (wasm-id key))
                                 (wat "struct" (wat "field" (rep->wat r)))))))))
 
-    ;; Any owns its payload credit. Downcast consumes one Any credit on
-    ;; either branch and retains the recovered payload into Some. The type
-    ;; test proves both nominal identity and representation before reading.
-    ;; TypeIds omit effects; the checker rejects payloads that could erase
-    ;; a function's effects or hide effectful disposal.
+    ;; The type test proves both nominal identity and representation before
+    ;; reading. TypeIds omit effects; the checker rejects payloads that could
+    ;; erase a function's effects.
 
     (define (emit-downcast (fn Fn) (inner Expr) (target Type) (result Type)) (→ Wat) (! mut)
       (let* ((m (● fn module)) (temp (declare-temp! fn (ref-wat (any-type m))))
@@ -2435,15 +1669,11 @@
                   (any-holds? fn read target)
                   (wat "then" (construct-slots fn (option-case m #t) result
                                                (list (from-any fn target read))))
-                  (wat "else"
-                       (wat "drop" (release-value m (● inner type) read (● fn evidence)))
-                       (construct-slots fn (option-case m #f) result (Nil)))))))
+                  (wat "else" (construct-slots fn (option-case m #f) result (Nil)))))))
 
     (define (to-any (m Module) (type Type) (value Wat)) (→ Wat) (! mut)
-      (let ((r (rep m type)) (shared? (shared-type? (program-of m) type)))
+      (let ((r (rep m type)))
         (wat "struct.new" (id (any-type m))
-             (wat "i64.const" (int (if shared? 1 -1)))
-             (code-of m (if shared? (any-destructor m type) (owner-noop m)))
              (wat "i32.const" (int (any-type-id (program-of m) type)))
              (match r
                ((Scalar _) (wat "struct.new" (id (held-type m r)) value))
@@ -2451,33 +1681,11 @@
 
     (define (from-any (fn Fn) (type Type) (value Wat)) (→ Wat) (! mut)
       (let* ((m (● fn module)) (r (fn-rep fn type))
-             (owner (declare-temp! fn (ref-wat (any-type m))))
-             (result (declare-temp! fn (rep->wat r)))
              (held (wat "ref.cast" (ref-wat (held-type m r))
-                        (wat "struct.get" (id (any-type m)) (int 3) (wat "local.get" (id owner)))))
-             (read (match r ((Scalar _) (wat "struct.get" (id (held-type m r)) (int 0) held))
-                          ((Reference _) held))))
-        (wat "block" (wat "result" (rep->wat r))
-             (wat "local.set" (id owner) value)
-             (wat "local.set" (id result) (retain-value m type read))
-             (wat "drop"
-                  (wat "call" (id (release-helper m)) (wat "local.get" (id owner)) (● fn evidence)))
-             (wat "local.get" (id result)))))
-
-    (define (any-destructor (m Module) (type Type)) (→ String) (! mut)
-      (helper! m "any-drop" (type-key type)
-               (lambda (name)
-                 (wat "func" (id name) (wat "type" (Word "$owner.drop"))
-                      (wat "param" (Word "$owner") (ref-wat (owner-type m)))
-                      (evidence-param m) (wat "result" (Word "i32"))
-                      (tail-release (release-value m type
-                                                   (wat "ref.cast" (rep->wat (rep m type))
-                                                        (wat "struct.get" (id (any-type m)) (int 3)
-                                                             (wat "ref.cast"
-                                                                  (ref-wat (any-type m))
-                                                                  (wat "local.get"
-                                                                       (Word "$owner")))))
-                                                   (wat "local.get" (Word "$ev"))))))))
+                        (wat "struct.get" (id (any-type m)) (int 1) value))))
+        (match r
+          ((Scalar _) (wat "struct.get" (id (held-type m r)) (int 0) held))
+          ((Reference _) held))))
 
     ;; An Any holds a value of `type` when its TypeId is the type's and its
     ;; value has the type's representation, which `ref.test` checks without
@@ -2487,8 +1695,8 @@
       (let* ((m (● fn module))
              (field (lambda (index) (wat "struct.get" (id (any-type m)) (int index) value))))
         (wat "i32.and"
-             (wat "i32.eq" (field 2) (wat "i32.const" (int (any-type-id (program-of m) type))))
-             (wat "ref.test" (wat "ref" (id (held-type m (fn-rep fn type)))) (field 3)))))
+             (wat "i32.eq" (field 0) (wat "i32.const" (int (any-type-id (program-of m) type))))
+             (wat "ref.test" (wat "ref" (id (held-type m (fn-rep fn type)))) (field 1)))))
 
     ;; What an Any holds for a value of representation `r`: the value, or a
     ;; box around a scalar.
@@ -2516,9 +1724,7 @@
                 (holder (funcref-holder-type m base)))
            (wat "struct.new"
                 (id holder)
-                (wat "i64.const" (int -1)) (code-of m (owner-noop m))
                 (wat "ref.func" (id (funcref-code m signature base holder)))
-                (dropper-null)
                 reference)))
         (_ (panic (string-append "unsafe-cast makes a function, not a " (type->string type))))))
 
@@ -2556,7 +1762,7 @@
       (let ((own (funcref-type m params result))
             (held (wat "struct.get"
                        (id holder)
-                       (int 4)
+                       (int 1)
                        (wat "ref.cast"
                             (ref-wat holder)
                             (wat "local.get" (int 0))))))
@@ -2597,103 +1803,35 @@
     ;; Nothing is global, so a task carries its handlers on its own stack.
     ;; Parent links are immutable. A resumed computation gets fresh nodes,
     ;; so inherited contexts and other suspended work keep their ancestry.
-    ;; Field 5 copies the node's payload; field 6 names a forwarding node's
-    ;; performer context, which renewal must follow even when it is hidden.
+    ;; Field 3 copies the node; field 4 names a forwarding node's performer
+    ;; context, which renewal must follow even when it is hidden.
 
     (define (evidence-type (m Module)) (→ String) (! mut)
       (match (known-type m "evidence")
         ((Some type) type)
         ((None)
          (put! (● m type-ids) "evidence" "$evidence")
-         (owner-type m)
          (evidence-copy-type m)
          (push! (● m globals)
                 (wat "global" (id "$evidence.none") (ref-wat "$evidence")
                      (wat "struct.new" (id "$evidence")
-                          (wat "i64.const" (int -1)) (code-of m (owner-noop m))
                           (wat "i32.const" (int -1)) (wat "ref.null" (Word "any"))
                           (wat "ref.null" (id "$evidence")) (wat "ref.null" (id "$evidence.copy"))
                           (wat "ref.null" (id "$evidence")))))
          (register-type! m "evidence" "$evidence"
-                         (wat "type"
-                              (Word "$evidence")
-                              (wat "sub"
-                                   (Word "final")
-                                   (Word "$owner")
-                                   (wat "struct"
-                                        (wat "field" (wat "mut" (Word "i64")))
-                                        (wat "field" (ref-wat "$owner.drop"))
-                                        (wat "field" (Word "i32"))
-                                        (wat "field" (Word "anyref"))
-                                        (wat "field" (ref-wat "$evidence"))
-                                        (wat "field"
-                                             (ref-wat "$evidence.copy"))
-                                        (wat "field"
-                                             (ref-wat "$evidence")))))))))
+                         (wat "type" (Word "$evidence")
+                              (wat "struct"
+                                   (wat "field" (Word "i32"))
+                                   (wat "field" (Word "anyref"))
+                                   (wat "field" (ref-wat "$evidence"))
+                                   (wat "field" (ref-wat "$evidence.copy"))
+                                   (wat "field" (ref-wat "$evidence"))))))))
 
-    ;; Handler nodes own their implementations and their outer context.
-    ;; Calls only observe evidence; saved frames and inherited contexts
-    ;; acquire an owner when they outlive that call.
-    (define (retain-evidence (m Module) (value Wat)) (→ Wat) (! mut)
-      (wat "ref.cast" (evidence-ref m) (wat "call" (id (retain-helper m)) value)))
-
-    (define (evidence-destructor (m Module) (effect String)) (→ String) (! mut)
-      (let ((info (program-effect (program-of m) effect)) (node (wat "local.get" (Word "$node"))))
-        (helper! m "evidence-drop" effect
-                 (lambda (name)
-                   (wat* "func"
-                         (append
-                          (list (id name) (wat "type" (Word "$owner.drop"))
-                                (wat "param"
-                                     (Word "$owner")
-                                     (ref-wat (owner-type m)))
-                                (evidence-param m) (wat "result" (Word "i32"))
-                                (wat "local" (Word "$node") (evidence-ref m))
-                                (wat "local"
-                                     (Word "$outside")
-                                     (ref-wat (evidence-type m)))
-                                (wat "local.set"
-                                     (Word "$node")
-                                     (wat "ref.cast"
-                                          (evidence-ref m)
-                                          (wat "local.get" (Word "$owner"))))
-                                (wat "local.set"
-                                     (Word "$outside")
-                                     (wat "struct.get" (id (evidence-type m)) (int 4) node))
-                                )
-                          (append
-                           (map-indexed (lambda (index operation)
-                                          (wat "drop" (wat "call" (id (release-helper m))
-                                                           (wat "ref.cast"
-                                                                (ref-wat (owner-type m))
-                                                                (handler-field m info node index))
-                                                           (wat "local.get"
-                                                                (Word "$outside")))))
-                                        (● info operations))
-                           (list
-                            (wat "if"
-                                 (wat "i32.eqz" (wat "ref.is_null"
-                                                     (wat "struct.get"
-                                                          (id (evidence-type m))
-                                                          (int 6)
-                                                          node)))
-                                 (wat "then" (wat "drop" (wat "call" (id (release-helper m))
-                                                              (wat "struct.get"
-                                                                   (id (evidence-type m))
-                                                                   (int 6)
-                                                                   node)
-                                                              (wat "local.get" (Word "$ev"))))))
-                            (wat "return_call" (id (release-helper m))
-                                 (wat "local.get" (Word "$outside"))
-                                 (wat "local.get" (Word "$ev")))))))))))
-
-    ;; A resumption owns its frames, but inherited closures can also retain
-    ;; their evidence. Renew the captured activation graph before either call
-    ;; or cancellation. The map gives every old node exactly one new identity;
-    ;; map entries own both identities until all frame and continuation slots
-    ;; agree. Slot replacement retains before releasing, so it cannot finalize
-    ;; either a changed node (held by the map) or an unchanged node (held by
-    ;; its replacement slot). Only releasing the completed map can finalize.
+    ;; Resuming runs the saved frames under the evidence `resume` is called
+    ;; with. Renewal copies each node whose ancestry changes, rather than
+    ;; editing it, so other suspended work and inherited contexts that share
+    ;; the old node keep theirs. The map gives every old node exactly one
+    ;; new identity.
     (define (activation-type (m Module)) (→ String) (! mut)
       (match (known-type m "activation")
         ((Some type) type)
@@ -2707,18 +1845,14 @@
                                    (wat "field" (ref-wat "$evidence"))
                                    (wat "field"
                                         (ref-wat "$activation.map")))))
-
          (register-type! m "activation" "$activation"
                          (wat "type"
                               (Word "$activation")
                               (wat "struct"
                                    (wat "field"
                                         (wat "mut"
-                                             (ref-wat "$activation.map")))
-                                   ))))))
+                                             (ref-wat "$activation.map")))))))))
 
-    ;; Returned nodes are observations. Each map entry owns its old and fresh
-    ;; nodes; parents, forwarding origins and installed roots retain separately.
     ;; Evidence is acyclic: installation points to existing contexts, and
     ;; activation seeds the delimiter before renewing any descendant paths.
     ;; An unchanged outside context keeps its identity and active delimiter.
@@ -2736,95 +1870,66 @@
     (if (ref.eq (struct.get $activation.map 0 (local.get $entry)) (local.get $node))
       (then (return (struct.get $activation.map 1 (local.get $entry)))))
     (local.set $entry (struct.get $activation.map 2 (local.get $entry))) (br $find)))
-  (local.set $parent (call {id} (local.get $state) (struct.get {evidence} 4 (local.get $node))))
-  (local.set $origin (call {id} (local.get $state) (struct.get {evidence} 6 (local.get $node))))
-  (if (i32.and (ref.eq (local.get $parent) (struct.get {evidence} 4 (local.get $node)))
-               (ref.eq (local.get $origin) (struct.get {evidence} 6 (local.get $node))))
+  (local.set $parent (call {id} (local.get $state) (struct.get {evidence} 2 (local.get $node))))
+  (local.set $origin (call {id} (local.get $state) (struct.get {evidence} 4 (local.get $node))))
+  (if (i32.and (ref.eq (local.get $parent) (struct.get {evidence} 2 (local.get $node)))
+               (ref.eq (local.get $origin) (struct.get {evidence} 4 (local.get $node))))
     (then (return (local.get $node))))
   (local.set $fresh (call_ref {copier} (local.get $node)
     (local.get $parent) (local.get $origin)
-    (struct.get {evidence} 5 (local.get $node))))
+    (struct.get {evidence} 3 (local.get $node))))
   (struct.set $activation 0 (local.get $state)
-    (struct.new $activation.map
-      (ref.cast (ref null {evidence}) (call {retain} (local.get $node))) (local.get $fresh)
+    (struct.new $activation.map (local.get $node) (local.get $fresh)
       (struct.get $activation 0 (local.get $state))))
   (local.get $fresh))"
                         (list (new Pair (first "evidence") (second (evidence-type m)))
-                              (new Pair (first "copier") (second (evidence-copy-type m)))
-                              (new Pair (first "retain") (second (retain-helper m))))))
+                              (new Pair (first "copier") (second (evidence-copy-type m))))))
 
-    ;; Handled frames contain another owned continuation. Both entries read
-    ;; that same object, so updating it establishes both execution and
-    ;; cancellation contexts together. Source values in captures stay intact.
+    ;; A handled frame holds its own handle's continuation, which renews
+    ;; with the frames around it. Source values in captures stay intact.
     (define (activate-continuation (m Module)) (→ String) (! mut)
       (activation-type m)
       (template-helper! m "activation-frames" ""
                         "(func {id} (param $state (ref null $activation)) (param $continuation (ref null {continuation}))
-  (local $old (ref null {evidence})) (local $frames (ref null {frames})) (local $frame (ref null {frame}))
-  (local.set $old (struct.get {continuation} 1 (local.get $continuation)))
+  (local $frames (ref null {frames})) (local $frame (ref null {frame}))
   (struct.set {continuation} 1 (local.get $continuation)
-    (ref.cast (ref null {evidence}) (call {retain}
-      (call {renew} (local.get $state) (local.get $old)))))
-  (drop (call {release} (local.get $old) (struct.get {continuation} 1 (local.get $continuation))))
+    (call {renew} (local.get $state) (struct.get {continuation} 1 (local.get $continuation))))
   (local.set $frames (struct.get {continuation} 0 (local.get $continuation)))
   (block $done (loop $next
     (br_if $done (ref.is_null (local.get $frames)))
     (local.set $frame (struct.get {frames} 0 (local.get $frames)))
     (if (ref.test (ref {handled}) (local.get $frame))
       (then (call {id} (local.get $state)
-        (struct.get {handled} 3 (ref.cast (ref null {handled}) (local.get $frame))))))
-    (local.set $old (struct.get {frame} 2 (local.get $frame)))
-    (struct.set {frame} 2 (local.get $frame)
-      (ref.cast (ref null {evidence}) (call {retain}
-        (call {renew} (local.get $state) (local.get $old)))))
-    (drop (call {release} (local.get $old) (struct.get {continuation} 1 (local.get $continuation))))
+        (struct.get {handled} 2 (ref.cast (ref null {handled}) (local.get $frame))))))
+    (struct.set {frame} 1 (local.get $frame)
+      (call {renew} (local.get $state) (struct.get {frame} 1 (local.get $frame))))
     (local.set $frames (struct.get {frames} 1 (local.get $frames))) (br $next))))"
-                        (list (new Pair (first "evidence") (second (evidence-type m)))
-                              (new Pair (first "continuation") (second (continuation-type m)))
+                        (list (new Pair (first "continuation") (second (continuation-type m)))
                               (new Pair (first "frames") (second (frames-type m)))
                               (new Pair (first "frame") (second (frame-type m)))
                               (new Pair (first "handled") (second (handled-type m)))
-                              (new Pair (first "retain") (second (retain-helper m)))
-                              (new Pair (first "renew") (second (activation-node m)))
-                              (new Pair (first "release") (second (release-helper m))))))
-
-    (define (release-activation (m Module)) (→ String) (! mut)
-      (activation-type m)
-      (template-helper! m "activation-release" ""
-                        "(func {id} (param $state (ref null $activation)) (param $ev (ref null {evidence}))
-  (local $entry (ref null $activation.map))
-  (local.set $entry (struct.get $activation 0 (local.get $state)))
-  (block $new-done (loop $new
-    (br_if $new-done (ref.is_null (local.get $entry)))
-    (drop (call {release} (struct.get $activation.map 0 (local.get $entry)) (local.get $ev)))
-    (drop (call {release} (struct.get $activation.map 1 (local.get $entry)) (local.get $ev)))
-    (local.set $entry (struct.get $activation.map 2 (local.get $entry))) (br $new))))"
-                        (list (new Pair (first "evidence") (second (evidence-type m)))
-                              (new Pair (first "release") (second (release-helper m))))))
+                              (new Pair (first "renew") (second (activation-node m))))))
 
     ;; Public resumptions originate at actual handler catches, so this
     ;; delimiter is ordinary, with no forwarding origin. Nested forwarding
-    ;; catches are renewed through their enclosing owned handled frames.
+    ;; catches are renewed through their enclosing handled frames.
     (define (activate-helper (m Module)) (→ String) (! mut)
       (activation-type m)
       (template-helper! m "activation-start" ""
                         "(func {id} (param $continuation (ref null {continuation})) (param $ev (ref null {evidence}))
-  (local $old (ref null {evidence})) (local $fresh (ref null {evidence})) (local $state (ref null $activation))
+  (local $old (ref null {evidence})) (local $fresh (ref null {evidence}))
   (local.set $old (struct.get {continuation} 1 (local.get $continuation)))
   (local.set $fresh (call_ref {copier} (local.get $old) (local.get $ev)
-    (struct.get {evidence} 6 (local.get $old))
-    (struct.get {evidence} 5 (local.get $old))))
-  (local.set $state (struct.new $activation
-    (struct.new $activation.map (ref.cast (ref null {evidence}) (call {retain} (local.get $old)))
-      (local.get $fresh) (ref.null $activation.map))))
-  (call {frames} (local.get $state) (local.get $continuation))
-  (call {release} (local.get $state) (local.get $ev)))"
+    (struct.get {evidence} 4 (local.get $old))
+    (struct.get {evidence} 3 (local.get $old))))
+  (call {frames}
+    (struct.new $activation
+      (struct.new $activation.map (local.get $old) (local.get $fresh) (ref.null $activation.map)))
+    (local.get $continuation)))"
                         (list (new Pair (first "evidence") (second (evidence-type m)))
                               (new Pair (first "continuation") (second (continuation-type m)))
                               (new Pair (first "copier") (second (evidence-copy-type m)))
-                              (new Pair (first "retain") (second (retain-helper m)))
-                              (new Pair (first "frames") (second (activate-continuation m)))
-                              (new Pair (first "release") (second (release-activation m))))))
+                              (new Pair (first "frames") (second (activate-continuation m))))))
 
     (define (evidence-copy-type (m Module)) (→ String) (! mut)
       (match (known-type m "evidence.copy")
@@ -2839,54 +1944,40 @@
                                    (wat "param" (ref-wat "$evidence"))
                                    (wat "result" (ref-wat "$evidence"))))))))
 
-    ;; The copier owns a newly allocated activation. Ordinary implementations
-    ;; are shared; forwarding implementations are rebuilt over their renewed
-    ;; performer context. The evidence walker treats that origin as another
-    ;; graph edge, including when it is hidden from the visible parent chain.
+    ;; The copier makes a node like `node` over new outside and origin
+    ;; contexts. Ordinary implementations are shared; forwarding
+    ;; implementations are rebuilt over their renewed performer context.
+    ;; The evidence walker treats that origin as another graph edge,
+    ;; including when it is hidden from the visible parent chain.
     (define (evidence-copier (m Module) (effect String) (forwarding? Bool)) (→ String) (! mut)
       (helper! m (if forwarding? "forward-copy" "evidence-copy") effect
                (lambda (name)
                  (let* ((info (program-effect (program-of m) effect))
-                        (node (wat "local.get" (Word "$node")))
                         (origin (wat "local.get" (Word "$origin")))
-                        (fields (map-indexed
-                                 (lambda (index operation)
-                                   (if forwarding?
-                                       (forwarding-field m
-                                                         info
-                                                         operation
-                                                         origin)
-                                       (wat "ref.cast" (implementation-field m info operation)
-                                            (wat "call" (id (retain-helper m))
-                                                 (wat "ref.cast"
-                                                      (ref-wat (owner-type m))
-                                                      (handler-field m info node index))))))
-                                 (● info operations))))
+                        (handler
+                         (if forwarding?
+                             (wat* "struct.new"
+                                   (Cons (id (handler-type m effect))
+                                         (map (lambda (operation)
+                                                (forwarding-field m info operation origin))
+                                              (● info operations))))
+                             (wat "struct.get" (id (evidence-type m)) (int 1)
+                                  (wat "local.get" (Word "$node"))))))
                    (push! (● m declared) name)
                    (wat "func" (id name) (wat "type" (id (evidence-copy-type m)))
                         (wat "param" (Word "$node") (evidence-ref m))
                         (wat "param" (Word "$outside") (evidence-ref m))
-                        (wat "param"
-                             (Word "$origin")
-                             (ref-wat (evidence-type m)))
+                        (wat "param" (Word "$origin") (evidence-ref m))
                         (wat "result" (evidence-ref m))
-                        (new-evidence m effect
-                                      (wat* "struct.new" (Cons (id (handler-type m effect)) fields))
-                                      (wat "local.get" (Word "$outside")) forwarding? origin))))))
-
-    (define (retain-optional-evidence (m Module) (value Wat)) (→ Wat) (! mut)
-      (wat "if" (wat "result" (ref-wat (evidence-type m)))
-           (wat "ref.is_null" value)
-           (wat "then" (wat "ref.null" (id (evidence-type m))))
-           (wat "else" (retain-evidence m value))))
+                        (new-evidence m effect handler (wat "local.get" (Word "$outside"))
+                                      forwarding? origin))))))
 
     (define (new-evidence (m Module) (effect String) (handler Wat) (outside Wat)
                           (forwarding? Bool) (origin Wat)) (→ Wat) (! mut)
                           (wat "struct.new" (id (evidence-type m))
-                               (wat "i64.const" (int 1)) (code-of m (evidence-destructor m effect))
-                               (effect-label effect) handler (retain-evidence m outside)
+                               (effect-label effect) handler outside
                                (wat "ref.func" (id (evidence-copier m effect forwarding?)))
-                               (retain-optional-evidence m origin)))
+                               origin))
 
     (define (evidence-rep (m Module)) (→ Rep) (! mut)
       (Reference (evidence-type m)))
@@ -2932,7 +2023,7 @@
 
     (define (operation-type (m Module) (operation String)) (→ Type)
       (match (program-value (program-of m) operation)
-        ((Some (Operation _ (Scheme _ _ _ (TFun params result _))))
+        ((Some (Operation _ (Scheme _ _ (TFun params result _))))
          (TFun params result (empty-row)))
         (_ (panic "internal error: not an operation"))))
 
@@ -3033,10 +2124,10 @@
          (wat "if" (wat "ref.is_null" node) (wat* "then" (default-call m info operation names)))
          (wat "if"
               (wat "i32.eq"
-                   (wat "struct.get" (id evidence) (int 2) node)
+                   (wat "struct.get" (id evidence) (int 0) node)
                    (effect-label (● info name)))
               (wat* "then" (at-handler m info operation names params result)))
-         (wat "local.set" (Word "$node") (wat "struct.get" (id evidence) (int 4) node))
+         (wat "local.set" (Word "$node") (node-outside m node))
          (wat "br" (Word "$walk")))))
 
     ;; At the effect's node an ordinary operation calls the implementation
@@ -3084,24 +2175,22 @@
                         (ref-wat handler-id)
                         (wat "struct.get"
                              (id (evidence-type m))
-                             (int 3)
+                             (int 1)
                              (wat "local.get" (Word "$node")))))))
         (wat* "call_ref" (Cons (id (code-type m base))
-                               (Cons (wat "ref.cast"
-                                          (ref-wat base)
-                                          (wat "call" (id (retain-helper m)) implementation))
+                               (Cons (wat "ref.cast" (ref-wat base) implementation)
                                      (Cons evidence
                                            (append
                                             (map (lambda (name) (wat "local.get" (id name))) names)
                                             (list (wat "struct.get"
                                                        (id base)
-                                                       (int 2)
+                                                       (int 0)
                                                        implementation)))))))))
 
     ;; The evidence outside a node.
 
     (define (node-outside (m Module) (node Wat)) (→ Wat) (! mut)
-      (wat "struct.get" (id (evidence-type m)) (int 4) node))
+      (wat "struct.get" (id (evidence-type m)) (int 2) node))
 
     ;; Past the last node: the Snail Scheme default, called under the
     ;; performer's evidence, or a trap.
@@ -3242,32 +2331,19 @@
     ;; A yield that nothing can resume saves nothing, so its test only
     ;; leaves, and the body follows in the same function.
 
-    (define (let-rest (fn Fn)
-                      (name String)
-                      (value Expr)
-                      (cleanup (Option Expr))
-                      (body Expr)
-                      (tail? Bool))
+    (define (let-rest (fn Fn) (name String) (value Expr) (body Expr) (tail? Bool))
       (→ (List Wat))
       (! mut)
       (cond ((not (may-yield? fn value)) (emit fn body tail?))
             ((aborts? fn value)
-             (Cons (wat "if" (yielding? (● fn module))
-                        (wat* "then" (append (abort-drops fn cleanup)
-                                             (list (leave fn)))))
+             (Cons (wat "if" (yielding? (● fn module)) (wat "then" (leave fn)))
                    (emit fn body tail?)))
             ((match (● fn exit) ((Some (ToRunner)) #t) (_ #f))
-             (continue-in-frame fn name value cleanup body))
-            (else (let ((test (yield-test fn (frame fn name value cleanup body))))
+             (continue-in-frame fn name value body))
+            ;; The frame reads the locals declared so far, so it is built
+            ;; before the body declares its own.
+            (else (let ((test (yield-test fn (frame fn name value body))))
                     (append test (emit fn body tail?))))))
-
-    ;; No resumption will own this scope. Drop its live values before
-    ;; leaving its handlers; cleanup cannot itself perform control.
-
-    (define (abort-drops (fn Fn) (cleanup (Option Expr))) (→ (List Wat)) (! mut)
-      (match cleanup
-        ((Some body) (list (wat "drop" (emit1 fn body))))
-        ((None) (Nil))))
 
     ;; Whether every effect `value` may yield to aborts: each of its control
     ;; operations answers Never, so its handler is handed no `resume`, and
@@ -3287,16 +2363,12 @@
       (let* ((m (● fn module)) (exit (leave fn)))
         (list (wat "if" (yielding? m) (wat "then" (wat "call" (id (push-helper m)) saved) exit)))))
 
-    (define (continue-in-frame (fn Fn)
-                               (name String)
-                               (value Expr)
-                               (cleanup (Option Expr))
-                               (body Expr))
+    (define (continue-in-frame (fn Fn) (name String) (value Expr) (body Expr))
       (→ (List Wat)) (! mut)
       (let* ((m (● fn module)) (base (frame-type m))
              (temp (declare-temp! fn (ref-wat base)))
              (saved (wat "local.get" (id temp)))
-             (set (wat "local.set" (id temp) (frame fn name value cleanup body)))
+             (set (wat "local.set" (id temp) (frame fn name value body)))
              (test (yield-test fn saved))
              (argument (box-value m (● value type) (variable fn name (unchecked)))))
         (Cons set (append test (list (wat "return_call" (id (frame-runner m)) saved argument))))))
@@ -3329,33 +2401,26 @@
     ;; A frame is a closure over the rest of a function at a yield point:
     ;; the body of a let whose value yielded. Its code takes the frame and
     ;; the let's value and returns the body's, each boxed when a scalar, so
-    ;; one code type serves both entries of every frame. It holds evidence
-    ;; and the locals needed by execution or cleanup; that evidence reaches
-    ;; the handler the yield is aimed at. Outside join functions a frame is
-    ;; built only on the path that leaves, so the fast path allocates none.
+    ;; one code type serves every frame. It holds evidence and the locals
+    ;; its body reads; that evidence reaches the handler the yield is aimed
+    ;; at. Outside join functions a frame is built only on the path that
+    ;; leaves, so the fast path allocates none.
 
-    ;; The runner consumes one saved frame, detached from its continuation
-    ;; before entry. Only this path or cancellation can take its owners.
-    ;; Evidence stays alive through that execution, including its releases.
+    ;; The runner runs one saved frame, detached from its continuation
+    ;; before entry.
     (define (frame-runner (m Module)) (→ String) (! mut)
       (template-helper! m "frame-run" ""
                         "(func {id} (param $frame (ref null {frame})) (param $value anyref) (result anyref)
-  (local $ev (ref null {evidence}))
-  (local.set $ev (struct.get {frame} 2 (local.get $frame)))
-  (local.set $value (call_ref {code} (local.get $frame) (local.get $value) (struct.get {frame} 0 (local.get $frame))))
-  (drop (call {release} (local.get $ev) (local.get $ev)))
-  (local.get $value))"
+  (return_call_ref {code} (local.get $frame) (local.get $value) (struct.get {frame} 0 (local.get $frame))))"
                         (list (new Pair (first "frame") (second (frame-type m)))
-                              (new Pair (first "evidence") (second (evidence-type m)))
-                              (new Pair (first "code") (second (code-type m (frame-type m))))
-                              (new Pair (first "release") (second (release-helper m))))))
+                              (new Pair (first "code") (second (code-type m (frame-type m)))))))
 
     (define (frame-type (m Module)) (→ String) (! mut)
       (match (known-type m "frame")
         ((Some type) type)
         ((None)
          (put! (● m type-ids) "code:$frame" "$frame.code")
-         (put! (● m type-ids) "capture-offset:$frame" "3")
+         (put! (● m type-ids) "capture-offset:$frame" "2")
          (register-type! m "frame.code" "$frame.code"
                          (wat "type" (id "$frame.code")
                               (wat "func" (wat "param" (ref-wat "$frame"))
@@ -3382,19 +2447,12 @@
                                      (wat "field" (ref-wat "$frames")))))))))
 
     ;; The frame of the let binding `name` to `value`: the join function of
-    ;; its body, cancellation code, retained evidence, and one environment
-    ;; shared by both entries. Cleanup-only owners must be captured too:
-    ;; a Never continuation need not mention the owners it abandons.
+    ;; its body, the evidence, and the locals the body reads.
 
-    (define (frame (fn Fn) (name String) (value Expr) (cleanup (Option Expr)) (body Expr))
-      (→ Wat) (! mut)
+    (define (frame (fn Fn) (name String) (value Expr) (body Expr)) (→ Wat) (! mut)
       (let* ((m (● fn module))
              (captured (filter (lambda (local) (and (not (string=? local name)) (local? fn local)))
-                               (delete-duplicates string=?
-                                                  (append (expr-references body)
-                                                          (match cleanup
-                                                            ((Some code) (expr-references code))
-                                                            ((None) (Nil)))))))
+                               (delete-duplicates string=? (expr-references body))))
              (entries (map (lambda (local) (new Pair (first local) (second (capture-rep fn local))))
                            captured))
              (type
@@ -3402,9 +2460,7 @@
              (join
               (emit-join! (Fn-exit-set (new-fn m) (Some (ToRunner))) name value body entries type)))
         (wat* "struct.new"
-              (append (list (id type) (wat "ref.func" (id join))
-                            (wat "ref.func" (id (emit-cancel! m cleanup entries type)))
-                            (retain-evidence m (● fn evidence)))
+              (append (list (id type) (wat "ref.func" (id join)) (● fn evidence))
                       (map (lambda (local) (variable fn local (unchecked))) captured)))))
 
     ;; A let's body as a function of its frame and its boxed value: it
@@ -3436,25 +2492,13 @@
                    (join-wat join (append loads (list argument result)))
                    0)))
 
-    (define (emit-cancel! (m Module) (cleanup (Option Expr))
-                          (entries (List (Pair String Rep))) (type String))
-      (→ String) (! mut)
-      (let* ((cancel (new-fn m))
-             (code (match cleanup
-                     ((Some body)
-                      (let ((loads (frame-loads cancel entries type)))
-                        (append loads (list (wat "drop" (emit1 cancel body))))))
-                     ((None) (Nil)))))
-        (lambda-id m "cancel"
-                   (join-wat cancel (append code (list (wat "ref.null" (Word "any"))))) 0)))
-
-    ;; Both entries read the same captures and the frame's current evidence,
-    ;; which activation may have renewed before resume or cancellation.
+    ;; The join reads the captures and the frame's current evidence, which
+    ;; activation may have renewed before resuming.
     (define (frame-loads (fn Fn) (entries (List (Pair String Rep))) (type String))
       (→ (List Wat)) (! mut)
       (push! (● (● fn state) locals) (wat "local" (Word "$ev") (evidence-ref (● fn module))))
       (let ((frame (wat "ref.cast" (ref-wat type) (wat "local.get" (Word "$closure")))))
-        (Cons (wat "local.set" (Word "$ev") (wat "struct.get" (id type) (int 2) frame))
+        (Cons (wat "local.set" (Word "$ev") (wat "struct.get" (id type) (int 1) frame))
               (capture-loads fn entries type))))
 
     (define (join-wat (join Fn) (code (List Wat))) (→ Wat) (! mut)
@@ -3584,8 +2628,6 @@
                    (id value)
                    (wat* "block" (Cons (id label) (Cons (wat "result" (rep->wat result)) code))))
               catch
-              (wat "drop"
-                   (wat "call" (id (release-helper m)) (wat "local.get" (id node)) (● fn evidence)))
               (wat "local.get" (id value)))))
 
     (define (catch-yield (m Module) (info Effect) (type Type) (node Wat) (value String) (loc Loc))
@@ -3596,7 +2638,7 @@
            (wat "then"
                 (wat "local.set"
                      (id value)
-                     (wat "call" (id (catcher m info type loc)) (retain-evidence m node))))))
+                     (wat "call" (id (catcher m info type loc)) node)))))
 
     ;; What a handle does with the yield that has reached it, for one
     ;; effect and handle result type; the handle site and `resume` both
@@ -3654,7 +2696,8 @@
                    (wat "struct.new"
                         (id (continuation-type m))
                         (wat "call" (id (reverse-helper m)) frames)
-                        (wat "local.get" (Word "$node")))))))
+                        (wat "local.get" (Word "$node"))
+                        (wat "i32.const" (int 0)))))))
 
     ;; The implementation of a control operation, if the record names it,
     ;; taken from the handler at the node.
@@ -3666,7 +2709,7 @@
              (base (implementation-base m operation type))
              (local (implementation-local info operation))
              (node (wat "local.get" (Word "$node")))
-             (outer (wat "struct.get" (id (evidence-type m)) (int 4) node))
+             (outer (node-outside m node))
              (arguments (recorded-arguments m operation (wat "local.get" (Word "$record")))))
         (wat "if"
              (wat "i32.eq"
@@ -3675,14 +2718,7 @@
              (wat "then"
                   (wat "local.set"
                        local
-                       (wat "ref.cast" (ref-wat base)
-                            (wat "call" (id (retain-helper m))
-                                 (wat "ref.cast"
-                                      (ref-wat (owner-type m))
-                                      (handler-field m info node index)))))
-                  (if (answers-never? m operation)
-                      (wat "drop" (call-dropper m (resume-dropper m) outer))
-                      (wat "nop"))
+                       (wat "ref.cast" (ref-wat base) (handler-field m info node index)))
                   (closure-call-wat m
                                     base
                                     (wat "local.get" local)
@@ -3720,7 +2756,7 @@
              (int index)
              (wat "ref.cast"
                   (ref-wat handler)
-                  (wat "struct.get" (id (evidence-type m)) (int 3) node)))))
+                  (wat "struct.get" (id (evidence-type m)) (int 1) node)))))
 
     (define (recorded-arguments (m Module) (operation String) (record Wat)) (→ (List Wat)) (! mut)
       (let* ((params (● (function-signature m (operation-type m operation)) first))
@@ -3732,17 +2768,17 @@
 
     ;; ---- Resuming ----
 
-    ;; A continuation owns the frames saved inside a handle, innermost first,
-    ;; and its delimiter node. Public resume/cancel renew their activation
-    ;; graph under the caller's evidence before consuming those frames. A
-    ;; nested handled frame uses that already renewed graph. The handler is
-    ;; deep: a yield a yield aimed at the node runs the
-    ;; handler again, in tail position, as the handle site would, even after
-    ;; that handle has returned. A handle that any other yield leaves, at
-    ;; its site or resumed, becomes one frame holding the continuation
-    ;; inside it, so resuming the outer computation enters the handle again
-    ;; too. Dropping `resume` detaches those frames and runs their cleanup
-    ;; under the drop site's evidence before releasing the continuation.
+    ;; A continuation holds the frames saved inside a handle, innermost
+    ;; first, its delimiter node, and whether it has been resumed. Resuming
+    ;; renews its activation graph under the caller's evidence before running
+    ;; the frames; a nested handled frame uses that already renewed graph.
+    ;; The handler is deep: a yield aimed at the node runs the handler
+    ;; again, in tail position, as the handle site would, even after that
+    ;; handle has returned. A handle that any other yield leaves, at its
+    ;; site or resumed, becomes one frame holding the continuation inside
+    ;; it, so resuming the outer computation enters the handle again too.
+    ;; A continuation runs at most once. A `resume` that is never called
+    ;; leaves its frames to the collector, and nothing finishes them.
 
     (define (continuation-type (m Module)) (→ String) (! mut)
       (match (known-type m "continuation")
@@ -3753,7 +2789,8 @@
                            (wat "type" (id "$continuation")
                                 (wat "struct"
                                      (wat "field" (wat "mut" (ref-wat frames)))
-                                     (wat "field" (wat "mut" (evidence-ref m))))))))))
+                                     (wat "field" (wat "mut" (evidence-ref m)))
+                                     (wat "field" (wat "mut" (Word "i32"))))))))))
 
     ;; `resume`, a closure of the operation's answer to the handle's result.
 
@@ -3769,76 +2806,13 @@
       (let ((base (resume-base m operation type)))
         (wat "struct.new"
              (id (resume-type m base))
-             (wat "i64.const" (int 1)) (code-of m (owner-noop m))
              (wat "ref.func" (id (resume-code m info operation type loc)))
-             (resume-dropper m)
              (wat "local.get" (Word "$continuation")))))
 
-    ;; A resume's dropper: a thunk closed over the continuation, whose code
-    ;; rebases the continuation's handle onto the drop site's evidence,
-    ;; just as resuming does. Its own handled effect stays discharged, while
-    ;; other drops reach the handlers at the actual drop site. It detaches
-    ;; the frames before dropping them. Dropping therefore performs no more than the
-    ;; resume's own row, which the checker charged (capabilities.sld,
-    ;; `trivial-rows`).
-
-    (define (resume-dropper (m Module)) (→ Wat) (! mut)
-      (wat "struct.new"
-           (id (resume-dropper-type m))
-           (wat "i64.const" (int 1)) (code-of m (owner-noop m))
-           (wat "ref.func" (id (resume-dropper-code m)))
-           (dropper-null)
-           (wat "local.get" (Word "$continuation"))))
-
-    (define (resume-dropper-type (m Module)) (→ String) (! mut)
-      (capture-type m (dropper-type m) (list (Reference (continuation-type m)))))
-
-    (define (cancel-continuation-helper (m Module)) (→ String) (! mut)
-      (template-helper! m "cancel-continuation" ""
-                        "(func {id} (param $continuation (ref null {continuation})) (param $ev (ref null {evidence})) (result i32)
-  (local $frames (ref null {frames}))
-  (local $frame (ref null {frame}))
-  (local.set $frames (struct.get {continuation} 0 (local.get $continuation)))
-  (struct.set {continuation} 0 (local.get $continuation) (ref.null {frames}))
-  (block $done
-    (loop $next
-      (br_if $done (ref.is_null (local.get $frames)))
-      (local.set $frame (struct.get {frames} 0 (local.get $frames)))
-      (local.set $frames (struct.get {frames} 1 (local.get $frames)))
-      (drop (call_ref {code} (local.get $frame) (ref.null any) (struct.get {frame} 1 (local.get $frame))))
-      (drop (call {release} (struct.get {frame} 2 (local.get $frame)) (local.get $ev)))
-      (br $next)))
-  (return_call {release} (struct.get {continuation} 1 (local.get $continuation)) (local.get $ev)))"
-                        (list (new Pair (first "release") (second (release-helper m)))
-                              (new Pair (first "code") (second (code-type m (frame-type m))))
-                              (new Pair (first "evidence") (second (evidence-type m)))
-                              (new Pair (first "continuation") (second (continuation-type m)))
-                              (new Pair (first "frames") (second (frames-type m)))
-                              (new Pair (first "frame") (second (frame-type m))))))
-
-    (define (resume-dropper-code (m Module)) (→ String) (! mut)
-      (helper! m "drop" "resume"
-               (lambda (name)
-                 (push! (● m declared) name)
-                 (Word (fill
-                        "(func {id} (type {code}) (param $closure (ref null {base})) (param $ev (ref null {evidence})) (result i32)
-  (local $continuation (ref null {continuation}))
-  (local.set $continuation (struct.get {holder} 4 (ref.cast (ref null {holder}) (local.get $closure))))
-  (call {activate} (local.get $continuation) (local.get $ev))
-  (return_call {cancel} (local.get $continuation) (local.get $ev)))"
-                        (list (new Pair (first "id") (second name))
-                              (new Pair (first "code") (second (code-type m (dropper-type m))))
-                              (new Pair (first "base") (second (dropper-type m)))
-                              (new Pair (first "evidence") (second (evidence-type m)))
-                              (new Pair (first "continuation") (second (continuation-type m)))
-                              (new Pair (first "holder") (second (resume-dropper-type m)))
-                              (new Pair (first "activate") (second (activate-helper m)))
-                              (new Pair
-                                (first "cancel")
-                                (second (cancel-continuation-helper m)))))))))
-
     ;; The code of an operation's `resume`: the handle again, run on the
-    ;; boxed answer under the caller's evidence.
+    ;; boxed answer under the caller's evidence. `resume` is an ordinary
+    ;; function to the checker, so a second call is refused here, before
+    ;; it could run frames another call has taken.
 
     (define (resume-code (m Module) (info Effect) (operation String) (type Type) (loc Loc))
       (→ String)
@@ -3851,14 +2825,13 @@
                     (fill
                      "(func {id} (type {code}) (param $closure (ref null {base})) (param $ev (ref null {evidence})) (param $answer {answer}) (result {result})
   (local $continuation (ref null {continuation}))
-  (local.set $continuation (struct.get {resume} 4 (ref.cast (ref null {resume}) (local.get $closure))))
-  (drop (call {disarm} (local.get $closure) (local.get $ev)))
-  (drop (call {release} (local.get $closure) (local.get $ev)))
+  (local.set $continuation (struct.get {resume} 1 (ref.cast (ref null {resume}) (local.get $closure))))
+  (if (struct.get {continuation} 2 (local.get $continuation))
+    (then (call {panic} {message}) (unreachable)))
+  (struct.set {continuation} 2 (local.get $continuation) (i32.const 1))
   (call {activate} (local.get $continuation) (local.get $ev))
-  (return_call {rehandle} (local.get $continuation) (local.get $ev) {boxed}))"
+  (return_call {rehandle} (local.get $continuation) {boxed}))"
                      (list (new Pair (first "continuation") (second (continuation-type m)))
-                           (new Pair (first "disarm") (second (disarm-helper m base)))
-                           (new Pair (first "release") (second (release-helper m)))
                            (new Pair (first "id") (second function-id))
                            (new Pair (first "code") (second (code-type m base)))
                            (new Pair (first "base") (second base))
@@ -3867,6 +2840,9 @@
                                 (second
                                  (wat->text (rep->wat (rep m (operation-result m operation))))))
                            (new Pair (first "result") (second (wat->text (rep->wat (rep m type)))))
+                           (new Pair (first "panic") (second (panic-helper m)))
+                           (new Pair (first "message")
+                                (second (wat->text (string-literal m "resume called twice"))))
                            (new Pair (first "activate") (second (activate-helper m)))
                            (new Pair
                              (first "rehandle")
@@ -3904,23 +2880,21 @@
         (string-append (● info name) " " (type-key type))))
 
     ;; The handle again, for one catch and handle result type: the
-    ;; continuation run on a boxed value under `$ev`, ending, if a yield
-    ;; reaches it, in the handle's catch, in tail position.
+    ;; continuation run on a boxed value under the evidence its frames
+    ;; hold, ending, if a yield reaches it, in the handle's catch, in tail
+    ;; position.
 
     (define (rehandler (m Module) (catch Catch) (type Type)) (→ String) (! mut)
       (helper! m (catch-prefix catch "rehandle") (catch-key catch type)
                (lambda (function-id)
                  (Word
                   (fill
-                   "(func {id} (param $continuation (ref null {continuation})) (param $ev (ref null {evidence})) (param $value anyref) (result {result})
+                   "(func {id} (param $continuation (ref null {continuation})) (param $value anyref) (result {result})
   (local.set $value (call {continue} (local.get $continuation) (local.get $value)))
   (if {yielding} (then (return_call {catch} (struct.get {continuation} 1 (local.get $continuation)))))
-  (drop (call {release} (struct.get {continuation} 1 (local.get $continuation)) (local.get $ev)))
   {unboxed})"
-                   (list (new Pair (first "release") (second (release-helper m)))
-                         (new Pair (first "id") (second function-id))
+                   (list (new Pair (first "id") (second function-id))
                          (new Pair (first "continuation") (second (continuation-type m)))
-                         (new Pair (first "evidence") (second (evidence-type m)))
                          (new Pair (first "result") (second (wat->text (rep->wat (rep m type)))))
                          (new Pair (first "continue") (second (continue-helper m)))
                          (new Pair (first "yielding") (second (wat->text (yielding? m))))
@@ -3933,12 +2907,12 @@
 
     ;; A handle that a yield leaves, saved as a frame: the frames saved
     ;; inside its body, as a continuation for its node. Run, it is the
-    ;; handle again, under the evidence outside its node as it stands,
-    ;; since whatever resumed the computation around it rebased that, and
-    ;; it boxes the handle's result.
+    ;; handle again, under its node as it stands, since whatever resumed
+    ;; the computation around it rebased that, and it boxes the handle's
+    ;; result.
 
     (define (handled-type (m Module)) (→ String) (! mut)
-      (let ((name (capture-type m (frame-type m) (list (Reference (continuation-type m)))))) name))
+      (capture-type m (frame-type m) (list (Reference (continuation-type m)))))
 
     (define (handled-code (m Module) (catch Catch) (type Type)) (→ String) (! mut)
       (helper! m (catch-prefix catch "handled") (catch-key catch type)
@@ -3949,7 +2923,7 @@
                     (fill
                      "(func {id} (type {code}) (param $frame (ref null {frame})) (param $value anyref) (result anyref)
   (local $continuation (ref null {continuation}))
-  (local.set $continuation (struct.get {handled} 3 (ref.cast (ref null {handled}) (local.get $frame))))
+  (local.set $continuation (struct.get {handled} 2 (ref.cast (ref null {handled}) (local.get $frame))))
   {boxed})"
                      (list (new Pair (first "id") (second function-id))
                            (new Pair (first "code") (second (code-type m frame)))
@@ -3963,49 +2937,8 @@
                                                                    (id (rehandler m catch type))
                                                                    (wat "local.get"
                                                                         (Word "$continuation"))
-                                                                   (wat "struct.get"
-                                                                        (id (evidence-type m))
-                                                                        (int 4)
-                                                                        (wat "struct.get"
-                                                                             (id continuation)
-                                                                             (int 1)
-                                                                             (wat "local.get"
-                                                                                  (Word
-                                                                                   "$continuation"))))
                                                                    (wat "local.get"
                                                                         (Word "$value"))))))))))))))
-
-    ;; A handled frame owns the installed node, not its outside context.
-    ;; Enter its cancellation path just as `handled-code` enters its code:
-    ;; under the current outside of that node. Keep that outside alive
-    ;; independently while finalizers run and may rebase other continuations.
-    (define (handled-cancel-code (m Module)) (→ String) (! mut)
-      (helper! m "drop" "handled"
-               (lambda (function-id)
-                 (push! (● m declared) function-id)
-                 (Word
-                  (fill
-                   "(func {id} (type {code}) (param $frame (ref null {frame})) (param $value anyref) (result anyref)
-  (local $continuation (ref null {continuation}))
-  (local $ev (ref null {evidence}))
-  (local $outside (ref null {evidence}))
-  (local.set $ev (struct.get {frame} 2 (local.get $frame)))
-  (local.set $continuation (struct.get {handled} 3 (ref.cast (ref null {handled}) (local.get $frame))))
-  (local.set $outside (ref.cast (ref null {evidence}) (call {retain}
-    (struct.get {evidence} 4
-      (struct.get {continuation} 1 (local.get $continuation))))))
-  (drop (call {cancel} (local.get $continuation) (local.get $outside)))
-  (drop (call {release} (local.get $outside) (local.get $ev)))
-  (ref.null any))"
-                   (list (new Pair (first "id") (second function-id))
-                         (new Pair (first "code") (second (code-type m (frame-type m))))
-                         (new Pair (first "frame") (second (frame-type m)))
-                         (new Pair (first "evidence") (second (evidence-type m)))
-                         (new Pair (first "continuation") (second (continuation-type m)))
-                         (new Pair (first "handled") (second (handled-type m)))
-                         (new Pair (first "retain") (second (retain-helper m)))
-                         (new Pair (first "release") (second (release-helper m)))
-                         (new Pair (first "cancel") (second (cancel-continuation-helper m)))))))))
 
     ;; Saves the handle at `node`, which a yield is leaving, as one frame
     ;; in place of the frames saved inside its body.
@@ -4019,25 +2952,22 @@
   (local $record (ref null {yield}))
   (local $continuation (ref null {continuation}))
   (local.set $record (global.get {yielding}))
-  (local.set $continuation (struct.new {continuation} (call {reverse} (struct.get {yield} 3 (local.get $record))) (local.get $node)))
+  (local.set $continuation (struct.new {continuation} (call {reverse} (struct.get {yield} 3 (local.get $record))) (local.get $node) (i32.const 0)))
   (struct.set {yield} 3 (local.get $record)
     (struct.new {frames}
-      (struct.new {handled} (local.get $code) (ref.func {cancel})
-        (ref.cast (ref null {evidence}) (call {retain} (local.get $node))) (local.get $continuation))
+      (struct.new {handled} (local.get $code) (local.get $node) (local.get $continuation))
       (ref.null {frames}))))"
-                        (list (new Pair (first "retain") (second (retain-helper m)))
-                              (new Pair (first "evidence") (second (evidence-type m)))
+                        (list (new Pair (first "evidence") (second (evidence-type m)))
                               (new Pair (first "code") (second (code-type m (frame-type m))))
                               (new Pair (first "yield") (second (yield-type m)))
                               (new Pair (first "yielding") (second (yielding m)))
                               (new Pair (first "frames") (second (frames-type m)))
                               (new Pair (first "handled") (second (handled-type m)))
                               (new Pair (first "continuation") (second (continuation-type m)))
-                              (new Pair (first "reverse") (second (reverse-helper m)))
-                              (new Pair (first "cancel") (second (handled-cancel-code m))))))
+                              (new Pair (first "reverse") (second (reverse-helper m))))))
 
-    ;; Runs an activated continuation and takes the frames out, so that neither the continuation nor
-    ;; `resume` holds them while they run. Then each frame runs in turn,
+    ;; Runs an activated continuation and takes the frames out, so that
+    ;; neither the continuation nor `resume` holds them while they run. Then each frame runs in turn,
     ;; innermost first, on the value the one before produced. When a frame
     ;; yields, the frames after it are saved on the record in turn, as if
     ;; the yield were leaving them, and the loop returns with the record
@@ -4156,10 +3086,6 @@
                           (Word "$forwarded")
                           (implementation-call m info operation names params result last-node)))
                (reverse (forwarding-catches m effects (operation-result m operation)))
-               (reverse (map-indexed (lambda (index effect)
-                                       (wat "drop" (wat "call" (id (release-helper m))
-                                                        (wat "local.get" (latent-local index))
-                                                        (wat "local.get" (Word "$ev"))))) effects))
                (list (wat "return" (wat "local.get" (Word "$forwarded"))))))))
 
     (define (forwarding-catches (m Module) (effects (List Effect)) (type Type))
@@ -4173,11 +3099,9 @@
                                                                   (wat "call"
                                                                        (id
                                                                         (forwarder m effect type))
-                                                                       (retain-evidence m
-                                                                                        (wat
-                                                                                         "local.get"
-                                                                                         (latent-local
-                                                                                          index))))))))))
+                                                                       (wat "local.get"
+                                                                            (latent-local
+                                                                             index)))))))))
                                 effects)))
 
     ;; A forwarding node for an effect over `outside`, whose handler sends
@@ -4195,12 +3119,9 @@
     (define (forwarding-field (m Module) (info Effect) (operation String) (evidence Wat))
       (→ Wat)
       (! mut)
-      (if (member? operation (● info control)) (retain-evidence m evidence)
-          (let ((holder (forwarding-closure m operation)))
-            (wat "struct.new" (id holder)
-                 (wat "i64.const" (int 1)) (code-of m (context-closure-destructor m holder))
-                 (wat "ref.func" (id (forwarding-code m info operation))) (dropper-null)
-                 (retain-evidence m evidence)))))
+      (if (member? operation (● info control)) evidence
+          (wat "struct.new" (id (forwarding-closure m operation))
+               (wat "ref.func" (id (forwarding-code m info operation))) evidence)))
 
     ;; An ordinary operation's closure that holds the evidence to perform it
     ;; under.
@@ -4218,18 +3139,11 @@
                (lambda (function-id)
                  (let* ((signature (function-signature m (operation-type m operation)))
                         (closure (forwarding-closure m operation))
-                        (call (wat* "call" (Cons (id (performer m (● info name) operation))
-                                                 (Cons (held-capture closure 1)
-                                                       (argument-reads signature))))))
-                   (code-function m
-                                  function-id
-                                  signature
-                                  (context-call-body m
-                                                     (closure-type m
-                                                                   (● signature first)
-                                                                   (● signature second))
-                                                     (● signature second)
-                                                     call))))))
+                        (call (wat* "return_call"
+                                    (Cons (id (performer m (● info name) operation))
+                                          (Cons (held-capture closure 1)
+                                                (argument-reads signature))))))
+                   (code-function m function-id signature (list call))))))
 
     ;; The function of a closure's code, which the module declares for
     ;; `ref.func`: the closure, the evidence and the arguments, read by
@@ -4266,12 +3180,12 @@
       (map (lambda (name) (wat "local.get" (id name))) (argument-names signature)))
 
     ;; A field of the closure a code function runs, which is of the subtype
-    ;; `closure`; field 0 is the code.
+    ;; `closure`; field 0 is the code, and captures follow from field 1.
 
     (define (held-capture (closure String) (index I64)) (→ Wat)
       (wat "struct.get"
            (id closure)
-           (int (+ index 3))
+           (int index)
            (wat "ref.cast"
                 (ref-wat closure)
                 (wat "local.get" (Word "$closure")))))
@@ -4304,14 +3218,14 @@
   (local $record (ref null {yield}))
   (local $target (ref null {evidence}))
   (local.set $record (global.get {yielding}))
-  (local.set $target (ref.cast (ref null {evidence}) (struct.get {handler} {index} (ref.cast (ref null {handler}) (struct.get {evidence} 3 (local.get $node))))))
+  (local.set $target (ref.cast (ref null {evidence}) (struct.get {handler} {index} (ref.cast (ref null {handler}) (struct.get {evidence} 1 (local.get $node))))))
   (loop $walk
     (if (ref.is_null (local.get $target)) (then (call {panic} {message}) (unreachable)))
-    (if (i32.eq (struct.get {evidence} 2 (local.get $target)) {label})
+    (if (i32.eq (struct.get {evidence} 0 (local.get $target)) {label})
       (then (global.set {yielding} (struct.new {yield} (local.get $target) (struct.get {yield} 1 (local.get $record))
                                      (struct.get {yield} 2 (local.get $record)) (struct.get {yield} 3 (local.get $record))))
             (return)))
-    (local.set $target (struct.get {evidence} 4 (local.get $target)))
+    (local.set $target (struct.get {evidence} 2 (local.get $target)))
     (br $walk)))"
                         (list (new Pair (first "evidence") (second (evidence-type m)))
                               (new Pair (first "yield") (second (yield-type m)))
@@ -4338,44 +3252,22 @@
 
     ;; ---- Inherited handlers ----
 
-    ;; `inherit-handlers` closes a one-shot procedure over the handlers in
-    ;; scope where it is called. The FnOnce it makes is a closure holding
-    ;; that evidence and the procedure, moved in; its code ignores the
-    ;; evidence it is called with and tail-calls the procedure under the
-    ;; evidence it holds. So whoever calls the FnOnce, the procedure's
-    ;; operations reach the handlers of the place it
-    ;; was closed. A `resume` closed this way resumes under them too, since
-    ;; resuming rebases its handler's node onto the evidence it is called
-    ;; with (see Resuming). Nothing yields through it: control.sld refuses a
-    ;; procedure that may yield to a control effect.
+    ;; `inherit-handlers` closes a procedure over the handlers in scope
+    ;; where it is called. The function it makes is a closure holding that
+    ;; evidence and the procedure; its code ignores the evidence it is
+    ;; called with and tail-calls the procedure under the evidence it holds.
+    ;; So whoever calls it, the procedure's operations reach the handlers of
+    ;; the place it was closed. A `resume` closed this way resumes under
+    ;; them too, since resuming rebases its handler's node onto the evidence
+    ;; it is called with (see Resuming). Nothing yields through it:
+    ;; (snail shell compiler prepare) refuses a procedure that may yield to
+    ;; a control effect.
 
     (define (inherited (fn Fn) (type Type) (procedure Wat)) (→ Wat) (! mut)
-      (match type
-        ((TCon "FnOnce" (Cons procedure-type (Nil)))
-         (let* ((m (● fn module)) (signature (function-signature m procedure-type))
-                (base (closure-type m (● signature first) (● signature second)))
-                (holder (inherit-closure m signature))
-                (saved (declare-temp! fn (ref-wat base))))
-           (wat "block" (wat "result" (ref-wat holder))
-                (wat "local.set" (id saved) procedure)
-                (wat "struct.new" (id holder)
-                     (wat "i64.const" (int 1)) (code-of m (context-closure-destructor m holder))
-                     (wat "ref.func" (id (inherit-code m signature)))
-                     (inherited-dropper fn base (wat "local.get" (id saved)))
-                     (retain-evidence m (● fn evidence)) (wat "local.get" (id saved))))))
-        (_ (panic "internal error: inherit-handlers makes a FnOnce"))))
-
-    ;; Cleanup runs under the same saved handlers as the work. Capture the
-    ;; original dropper, not its owner closure, so cleanup never retains
-    ;; the managed wrapper whose resources it releases.
-
-    (define (inherited-dropper (fn Fn) (base String) (procedure Wat)) (→ Wat) (! mut)
-      (let* ((m (● fn module))
-             (holder (capture-type m (dropper-type m) (list (evidence-rep m) (Reference base)))))
-        (wat "struct.new" (id holder)
-             (wat "i64.const" (int 1)) (code-of m (context-closure-destructor m holder))
-             (wat "ref.func" (id (inherited-dropper-code m base holder))) (dropper-null)
-             (retain-evidence m (● fn evidence)) procedure)))
+      (let* ((m (● fn module)) (signature (function-signature m type)))
+        (wat "struct.new" (id (inherit-closure m signature))
+             (wat "ref.func" (id (inherit-code m signature)))
+             (● fn evidence) procedure)))
 
     ;; Closures of one signature share the subtype that holds the evidence
     ;; and the procedure.
@@ -4390,69 +3282,10 @@
         (helper! m "inherit" (substring base 1 (string-length base))
                  (lambda (function-id)
                    (code-function m function-id signature
-                                  (context-call-body m
-                                                     (closure-type m
-                                                                   (● signature first)
-                                                                   (● signature second))
-                                                     (● signature second)
-                                                     (closure-call-wat m
-                                                                       base
-                                                                       (held-capture closure 2)
-                                                                       (Cons
-                                                                        (held-capture closure 1)
-                                                                        (argument-reads signature))
-                                                                       #f)))))))
-
-    ;; Compiler-generated context closures own the evidence in field 4.
-    ;; Their one-shot procedure, when present, transfers to either invocation
-    ;; or cancellation; it is never duplicated by the wrapper's destructor.
-    (define (context-closure-destructor (m Module) (holder String)) (→ String) (! mut)
-      (helper! m "context-closure-drop" holder
-               (lambda (name)
-                 (wat "func" (id name) (wat "type" (Word "$owner.drop"))
-                      (wat "param" (Word "$owner") (ref-wat (owner-type m)))
-                      (evidence-param m) (wat "result" (Word "i32"))
-                      (wat "return_call" (id (release-helper m))
-                           (wat "struct.get" (id holder) (int 4)
-                                (wat "ref.cast"
-                                     (ref-wat holder)
-                                     (wat "local.get" (Word "$owner"))))
-                           (wat "local.get" (Word "$ev")))))))
-
-    (define (context-call-body (m Module) (base String) (result Rep) (call Wat))
-      (→ (List Wat))
-      (! mut)
-      (list (wat "local" (Word "$result") (rep->wat result))
-            (disarm-dropper m
-                            base
-                            (wat "local.get" (Word "$closure"))
-                            (wat "local.get" (Word "$ev")))
-            (wat "local.set" (Word "$result") call)
-            (wat "drop" (wat "call" (id (release-helper m)) (wat "local.get" (Word "$closure"))
-                             (wat "local.get" (Word "$ev"))))
-            (wat "local.get" (Word "$result"))))
-
-    (define (inherited-dropper-code (m Module) (base String) (holder String)) (→ String) (! mut)
-      (helper! m "inherit-drop" holder
-               (lambda (name)
-                 (code-function m name (new Pair (first (Nil)) (second (Scalar "i32")))
-                                (list (wat "return_call" (id (drop-once-helper m base))
-                                           (held-capture holder 2) (held-capture holder 1)))))))
-
-    (define (drop-once-helper (m Module) (base String)) (→ String) (! mut)
-      (template-helper! m "drop-once" base
-                        "(func {id} (param $closure (ref null {base})) (param $ev (ref null {evidence})) (result i32)
-  (local $dropper (ref null {dropper}))
-  (local.set $dropper (struct.get {base} 3 (local.get $closure)))
-  (struct.set {base} 3 (local.get $closure) (ref.null {dropper}))
-  (if (i32.eqz (ref.is_null (local.get $dropper)))
-    (then (drop (call {invoke} (local.get $dropper) (local.get $ev)))))
-  (return_call {release} (local.get $closure) (local.get $ev)))"
-                        (list (new Pair (first "base") (second base))
-                              (new Pair (first "evidence") (second (evidence-type m)))
-                              (new Pair (first "dropper") (second (dropper-type m)))
-                              (new Pair (first "invoke") (second (dropper-call-helper m)))
-                              (new Pair (first "release") (second (release-helper m))))))
+                                  (list (closure-call-wat m base (held-capture closure 2)
+                                                          (Cons (held-capture closure 1)
+                                                                (argument-reads signature))
+                                                          #t)))))))
 
     ;; ---- Primitives ----
 
@@ -4549,25 +3382,30 @@
     (define (index (value Wat)) (→ Wat)
       (wat "i32.wrap_i64" value))
 
+    ;; A write and a total call emit their operands themselves: the write
+    ;; resolves its place to a field, and the call reaches its closure. Every
+    ;; other primitive operates on operands emitted first, each once.
+
     (define (emit-primitive (fn Fn) (name String) (args (List Expr)) (type Type))
       (→ (List Wat))
       (! mut)
       (let ((operation (substring name 5 (string-length name))))
-        (match (primitive-instruction operation)
-          ((Some instruction) (list (wat* instruction (emit-args fn args))))
-          ((None)
-           (special-primitive fn
-                              operation
-                              args
-                              (emit-args fn args)
-                              (map (lambda (record) (● record type)) args)
-                              type)))))
-
-    ;; Primitive calls evaluate operands once, then operate on the stable holder.
+        (case operation
+          (("set!")
+           (list (place-write fn (first-arg args) (list-ref args 1)) (wat "i32.const" (int 0))))
+          (("unsafe-total") (closure-call fn (first-arg args) (Nil) #f))
+          (else
+           (match (primitive-instruction operation)
+             ((Some instruction) (list (wat* instruction (emit-args fn args))))
+             ((None)
+              (special-primitive fn
+                                 operation
+                                 (emit-args fn args)
+                                 (map (lambda (record) (● record type)) args)
+                                 type)))))))
 
     (define (special-primitive (fn Fn)
                                (operation String)
-                               (args (List Expr))
                                (code (List Wat))
                                (types (List Type))
                                (type Type))
@@ -4575,43 +3413,24 @@
       (! mut)
       (let* ((m (● fn module))
              (arg (lambda (n) (list-ref code n)))
-             (sequence (lambda (t) (sequence-raw-type m t)))
-             (data (lambda (n) (sequence-data m (list-ref types n) (arg n)))))
+             (sequence (lambda (t) (sequence-type m t))))
         (case operation
           (("cache" "unsafe-effectful-cache")
            (list (cached-function m type (wat "i64.const" (int 0)) (arg 0) #f)))
           (("lru-cache" "unsafe-effectful-lru-cache")
            (list (cached-function m type (arg 0) (arg 1) #t)))
-          (("rc-new") (list (new-rc m type (arg 0) (arg 1))))
-          (("rc-get") (list (rc-payload m (first-type types) (arg 0))))
-          (("rc-downgrade") (list (arg 0)))
-          (("weak-rc-upgrade") (list (upgrade-weak fn type (arg 0))))
-          (("current-closure") (list (wat "local.get" (Word "$closure"))))
-          (("retain" "pattern-retain")
-           (list (if (uncounted-self? fn (first-arg args)) (arg 0)
-                     (retain-value m (first-type types) (arg 0)))))
-          (("release" "discard")
-           (list (if (uncounted-self? fn (first-arg args)) (discard-value (arg 0))
-                     (release-value m (first-type types) (arg 0) (● fn evidence)))))
           (("unit") (list (wat "i32.const" (int 0))))
-          (("once") (list (arg 0)))
-          (("call-once") (list (wat "call" (id (call-once-helper m)) (arg 0) (● fn evidence))))
           (("inherit-handlers" "inherit-handlers-1") (list (inherited fn type (arg 0))))
-          (("drop-once") (drop-once fn (first-arg args) (arg 0)))
-          (("once-dropping") (list (once-dropping fn (first-arg args) (arg 0) (arg 1))))
-          (("with-cleanup") (panic "internal error: cleanup marks only a let's value"))
-          (("unsafe-total") (closure-call fn (first-arg args) (Nil) #f))
           (("unsafe-cast") (list (funcref-closure m type (arg 0))))
 
           (("panic") (list (wat* "call" (Cons (id (panic-helper m)) code)) (wat "unreachable")))
           (("bool->i32" "char->i32" "i32->char" "u8->i32") code)
           (("i32->u8") (list (wat "i32.and" (arg 0) (wat "i32.const" (int 255)))))
           (("i32->bool") (list (wat "i32.ne" (arg 0) (wat "i32.const" (int 0)))))
-          (("string->vector")
-           (list (sequence-owned m type (wat "call" (id (copy-helper m (sequence type))) (arg 0)))))
-          (("vector->string") (list (wat "call" (id (copy-helper m (sequence type))) (arg 0))))
+          (("string->vector" "vector->string" "vector-copy")
+           (list (wat "call" (id (copy-helper m (sequence type))) (arg 0))))
           (("string-length" "vector-length")
-           (list (wat "i64.extend_i32_u" (sequence-length m (first-type types) (arg 0)))))
+           (list (wat "i64.extend_i32_u" (wat "array.len" (arg 0)))))
           (("string-ref")
            (list (wat "array.get" (id (sequence (first-type types))) (arg 0) (index (arg 1)))))
           (("vector-ref")
@@ -4619,91 +3438,34 @@
                       (id (vector-read-helper m (sequence-element (first-type types))))
                       (arg 0)
                       (arg 1))))
-          (("set!")
-           (append (place-write fn (first-arg args) (list-ref args 1))
-                   (list (wat "i32.const" (int 0)))))
-          (("replace!") (list (place-swap fn (first-arg args) (list-ref args 1))))
           (("vector-set!")
            (list (wat "call" (id (vector-write-helper m (sequence-element (first-type types))))
-                      (arg 0) (arg 1) (arg 2) (● fn evidence))))
-          (("vector")
-           (list (sequence-owned m type (wat "array.new_fixed" (id (sequence type)) (int 0)))))
+                      (arg 0) (arg 1) (arg 2))))
+          (("vector") (list (wat "array.new_fixed" (id (sequence type)) (int 0))))
           (("make-string" "make-vector")
-           (list (sequence-copied m type (wat "array.new" (id (sequence type)) (arg 1)
-                                              (wat "call" (id (size-helper m)) (arg 0))))))
+           (list (wat "array.new" (id (sequence type)) (arg 1)
+                      (wat "call" (id (size-helper m)) (arg 0)))))
           (("string-append" "vector-append")
-           (list (wat "call" (id (sequence-append-helper m type)) (arg 0) (arg 1))))
+           (list (wat "call" (id (append-helper m (sequence type))) (arg 0) (arg 1))))
           (("substring" "subvector")
            (list (wat "call" (id (sequence-slice-helper m type)) (arg 0) (arg 1) (arg 2))))
           (("vector-set")
            (list (wat "call" (id (vector-replace-helper m (sequence-element type)))
-                      (arg 0) (arg 1) (arg 2) (● fn evidence))))
-          (("vector-copy")
-           (list (wat "call" (id (vector-copy-helper m (sequence-element type))) (arg 0))))
+                      (arg 0) (arg 1) (arg 2))))
           (("vector-copy!")
            (list (wat "call" (id (vector-copy-into-helper m (sequence-element (first-type types))))
-                      (arg 0) (arg 1) (arg 2) (arg 3) (arg 4) (● fn evidence))))
+                      (arg 0) (arg 1) (arg 2) (arg 3) (arg 4))))
           (("string=?") (list (wat* "call" (Cons (id (string-equal-helper m)) code))))
           (("string-compare") (list (wat* "call" (Cons (id (string-compare-helper m)) code))))
           (("vector-generate" "string-generate")
-           (list (sequence-owned m type
-                                 (wat* "call"
-                                       (Cons
-                                        (id (generate-helper m (sequence type) (list-ref types 1)))
-                                        (append code (list (● fn evidence))))))))
+           (list (wat* "call"
+                       (Cons (id (generate-helper m (sequence type) (list-ref types 1)))
+                             (append code (list (● fn evidence)))))))
           (else (panic (string-append "internal error: unknown primitive " operation))))))
-
-    ;; `call-once` calls the thunk it is given, which is its own closure.
-
-    (define (call-once-helper (m Module)) (→ String) (! mut)
-      (let ((closure (closure-type m (Nil) (Scalar "i32"))))
-        (template-helper! m "call-once" ""
-                          "(func {id} (param $closure (ref null {closure})) (param $ev (ref null {evidence})) (result i32)
-  (return_call_ref {code} (local.get $closure) (local.get $ev) (struct.get {closure} 2 (local.get $closure))))"
-                          (list (new Pair (first "closure") (second closure))
-                                (new Pair (first "code") (second (code-type m closure)))
-                                (new Pair (first "evidence") (second (evidence-type m)))))))
-
-    ;; ---- Droppers ----
-
-    ;; Dropping a FnOnce unrun runs the dropper its closure carries, if any,
-    ;; under the dropper's caller's handlers: what it performs is within the
-    ;; FnOnce's row, which the checker charged where the drop is written.
-
-    (define (drop-once (fn Fn) (value Expr) (code Wat)) (→ (List Wat)) (! mut)
-      (list
-       (wat "call" (id (drop-once-helper (● fn module) (reference-type (fn-rep fn (● value type)))))
-            code (● fn evidence))))
-
-    (define (call-dropper (m Module) (dropper Wat) (evidence Wat)) (→ Wat) (! mut)
-      (wat "call" (id (dropper-call-helper m)) dropper evidence))
-
-    (define (dropper-call-helper (m Module)) (→ String) (! mut)
-      (let ((base (dropper-type m)))
-        (template-helper! m "invoke-dropper" ""
-                          "(func {id} (param $dropper (ref null {base})) (param $ev (ref null {evidence})) (result i32)
-  (drop (call_ref {code} (local.get $dropper) (local.get $ev) (struct.get {base} 2 (local.get $dropper))))
-  (return_call {release} (local.get $dropper) (local.get $ev)))"
-                          (list (new Pair (first "base") (second base))
-                                (new Pair (first "code") (second (code-type m base)))
-                                (new Pair (first "evidence") (second (evidence-type m)))
-                                (new Pair (first "release") (second (release-helper m)))))))
-
-    ;; `once` of a lambda with linear captures: the closure, with the
-    ;; dropper of its captures stored beside its code.
-
-    (define (once-dropping (fn Fn) (value Expr) (closure Wat) (dropper Wat)) (→ Wat) (! mut)
-      (let* ((base (reference-type (fn-rep fn (● value type))))
-             (temp (declare-temp! fn (ref-wat base))))
-        (wat "block"
-             (wat "result" (ref-wat base))
-             (wat "local.set" (id temp) closure)
-             (wat "struct.set" (id base) (int 3) (wat "local.get" (id temp)) dropper)
-             (wat "local.get" (id temp)))))
 
     ;; ---- Memoized closures ----
 
-    ;; A wrapper owns its callback; entries contain only plain GC values.
+    ;; A wrapper holds its callback and its state.
     ;; State fields: buckets, entry count, capacity (0 = unbounded), MRU, LRU.
     ;; Entry fields: hash, bucket successor, newer, older, result, argument keys.
     (record CacheLayout
@@ -5040,18 +3802,14 @@
   (local $entry (ref null {entry})) (local $callback (ref null {base}))
   (local $result {result}) (local $hash i64)
   (local.set $self (ref.cast (ref null {holder}) (local.get $closure)))
-  (local.set $state (struct.get {holder} 5 (local.get $self)))
+  (local.set $state (struct.get {holder} 2 (local.get $self)))
   (local.set $hash {hash})
   (local.set $entry {find})
   (if (i32.eqz (ref.is_null (local.get $entry)))
-    (then
-      (local.set $result (struct.get {entry} 4 (local.get $entry)))
-      (drop {release})
-      (return (local.get $result))))
-  (local.set $callback {retain})
+    (then (return (struct.get {entry} 4 (local.get $entry)))))
+  (local.set $callback (struct.get {holder} 1 (local.get $self)))
   (local.set $result {call})
   {publish}
-  (drop {release})
   (local.get $result))"
                           (append (cache-bindings layout)
                                   (list
@@ -5080,21 +3838,6 @@
                                      (first "find")
                                      (second (wat->text (cache-find-call m layout params))))
                                    (new Pair
-                                     (first "retain")
-                                     (second (wat->text (retain-value m (● layout signature)
-                                                                      (wat "struct.get"
-                                                                           (id holder)
-                                                                           (int 4)
-                                                                           (wat "local.get"
-                                                                                (Word
-                                                                                 "$self")))))))
-                                   (new Pair
-                                     (first "release")
-                                     (second (wat->text (release-value m (● layout signature)
-                                                                       (wat "local.get"
-                                                                            (Word "$closure"))
-                                                                       evidence))))
-                                   (new Pair
                                      (first "call")
                                      (second (wat->text (closure-call-wat m base callback
                                                                           (Cons evidence
@@ -5105,15 +3848,12 @@
                                      (first "publish")
                                      (second (wat->text (cache-publish m layout params)))))))))
 
-    ;; The map is a captured local, never a module global. The closure's
-    ;; existing destructor releases its one callback credit; plain entries
-    ;; need no finalizers. A zero-argument cache needs only its result slot.
+    ;; The map is a captured local, never a module global. A zero-argument
+    ;; cache needs only its result slot.
     (define (cache-new (m Module) (layout CacheLayout) (params (List Type)) (result Type))
       (→ Wat) (! mut)
       (wat "struct.new" (id (● layout holder))
-           (wat "i64.const" (int 1))
-           (code-of m (capture-destructor m (● layout holder) (list (● layout signature))))
-           (code-of m (cache-invoke m layout params result)) (dropper-null)
+           (code-of m (cache-invoke m layout params result))
            (wat "local.get" (Word "$callback"))
            (wat "struct.new" (id (● layout state))
                 (if (null? params) (wat "ref.null" (id (● layout buckets)))
@@ -5235,19 +3975,18 @@
     (local $result (ref null {array})) (local $length i32) (local $index i32)
     (local.set $length (call {size} (local.get $count)))
     (if (i32.eqz (local.get $length)) (then (return (array.new_fixed {array} 0))))
-    (local.set $result (array.new {array} (call_ref {code} (ref.cast (ref null {base}) (call {retain} (local.get $f))) (local.get $ev) (i64.const 0) (struct.get {base} 2 (local.get $f)))
+    (local.set $result (array.new {array} (call_ref {code} (local.get $f) (local.get $ev) (i64.const 0) (struct.get {base} 0 (local.get $f)))
                                   (local.get $length)))
     (local.set $index (i32.const 1))
     (block $done
       (loop $next
         (br_if $done (i32.ge_u (local.get $index) (local.get $length)))
         (array.set {array} (local.get $result) (local.get $index)
-                   (call_ref {code} (ref.cast (ref null {base}) (call {retain} (local.get $f))) (local.get $ev) (i64.extend_i32_u (local.get $index)) (struct.get {base} 2 (local.get $f))))
+                   (call_ref {code} (local.get $f) (local.get $ev) (i64.extend_i32_u (local.get $index)) (struct.get {base} 0 (local.get $f))))
         (local.set $index (i32.add (local.get $index) (i32.const 1)))
         (br $next)))
     (local.get $result))"
                           (list (new Pair (first "size") (second (size-helper m)))
-                                (new Pair (first "retain") (second (retain-helper m)))
                                 (new Pair (first "array") (second array))
                                 (new Pair (first "base") (second base))
                                 (new Pair (first "code") (second (code-type m base)))
@@ -5315,14 +4054,8 @@
     {result})"
                           (list
                            (new Pair (first "type") (second (wat->text (rep->wat (rep m type)))))
-                           (new Pair (first "data")
-                                (second (wat->text
-                                         (sequence-data m type (wat "local.get" (Word "$value"))))))
-                           (new Pair (first "length")
-                                (second (wat->text
-                                         (sequence-length m
-                                                          type
-                                                          (wat "local.get" (Word "$value"))))))
+                           (new Pair (first "data") (second "(local.get $value)"))
+                           (new Pair (first "length") (second "(array.len (local.get $value))"))
                            (new Pair
                              (first "array")
                              (second (array-type m (Scalar (if bytes? "i8" "i32")))))
@@ -5549,13 +4282,10 @@
 
     (define (sort-named (entries (List (Pair String A))))
       (→ (List (Pair String A)))
-      (! e)
-      (∀ (A e))
-      (⊨ (Copy A) (Drop e A))
+      (∀ (A))
       (list-sort (lambda (a b) (string<? (● a first) (● b first))) entries))
 
-    ;; Host exposures are adapters around ordinary functions. Counted
-    ;; results transfer a credit with an explicit companion for its release.
+    ;; Host exposures are adapters around ordinary functions.
     (define (emit-exposure! (m Module) (item Item)) (→ Unit) (! mut)
       (match item
         ((Expose name symbol _)
@@ -5563,8 +4293,7 @@
            ((Some definition)
             (push! (● m exports)
                    (wat "export" (wat-string symbol)
-                        (wat "func" (id (exposed-function m name (● definition type))))))
-            (export-result-release! m name symbol (● definition type)))
+                        (wat "func" (id (exposed-function m name (● definition type)))))))
            ((None) (panic "internal error: an exposed function has no definition"))))
         (_ (panic "internal error: expected a host exposure"))))
 

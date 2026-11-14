@@ -67,7 +67,7 @@ try {
   }
 
   // The original CLI PID is now the application; no signal forwarding exists.
-  await writeFile(join(project, 'main.sld'), '(import (snail core base) (snail core io)) (define (main) (→ Unit) (! input-port output-port) (write-line "ready") (drop (read-line)))');
+  await writeFile(join(project, 'main.sld'), '(import (snail core base) (snail core io)) (define (main) (→ Unit) (! input-port output-port) (write-line "ready") (read-line) (unit))');
   for (const signal of ['SIGINT', 'SIGTERM']) {
     const waiting = run('app'), stopped = assert.rejects(waiting, {signal});
     await ready(waiting.child);

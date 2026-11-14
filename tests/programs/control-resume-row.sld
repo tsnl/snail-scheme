@@ -15,7 +15,7 @@
   (Done)
   (Yielded
    ((value I64)
-    (next (FnOnce I64 → Step ! Log)))))
+    (next (Fn I64 → Step ! Log)))))
 
 (define (start (body (Fn → Unit ! Gen))) (→ Step) (! Log)
   (handle Gen ((yield (lambda (v resume)
@@ -30,17 +30,14 @@
   (unit))
 
 (define (main) (→ Unit) (! output-port)
-  ;; Each handler prints the lines it is given under its own name. Dropping a
-  ;; resumption performs its row too, so `rest` is dropped under the second
-  ;; handler, not outside it.
+  ;; Each handler prints the lines it is given under its own name.
   (match (handle Log ((log (lambda (line) (write-line (string-append "first: " line)))))
            (start counter))
     ((Yielded value next)
      (write-line (string-append "got " (show value)))
      (handle Log ((log (lambda (line) (write-line (string-append "second: " line)))))
        (match (next 10)
-         ((Yielded value rest)
-          (drop rest)
+         ((Yielded value _)
           (write-line (string-append "got " (show value))))
          ((Done) (write-line "done")))))
     ((Done) (write-line "done at once")))
