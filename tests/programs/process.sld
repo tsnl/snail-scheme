@@ -2,7 +2,7 @@
  (snail core base)
  (only (snail core forms) host)
  (snail core io)
- (only (snail shell task) tasks dispatch-local)
+ (only (snail shell task) tasks dispatch)
  (snail shell utf8)
  (snail shell process))
 
@@ -42,7 +42,7 @@
   ;; A program waits on processes from a task, which the scheduler runs once
   ;; main returns.
   ;; Both output streams, and the exit status, with output read after exit.
-  (dispatch-local
+  (dispatch
    (lambda ()
      (let ((child (shell "echo out; echo err >&2; exit 3")))
        (write-line (exit-text (require (wait-exit child))))

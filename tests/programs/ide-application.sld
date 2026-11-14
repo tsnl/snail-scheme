@@ -3,7 +3,6 @@
  (only (snail core forms) host)
  (snail core io)
  (snail shell task)
- (snail shell future)
  (snail shell dom)
  (snail shell dom memory)
  (snail shell fetch)
@@ -47,13 +46,6 @@
 (define (invoke (name String)) (→ (List Cue))
   (list (key "F1" 0) (input "command-query" name)
         (Fire "command-query" "keydown" (Event-key-set (no-event) "Enter"))))
-
-(define (snapshot (session Session)) (→ Ide)
-  (● session ide))
-
-(define (finished (session Session)) (→ Ide) (! mut)
-  (close-session! session)
-  (● session ide))
 
 (define (run (delay Delay) (cues (List Cue)))
   (→ (Pair Ide Document))
@@ -99,16 +91,13 @@
                 (stream-close (lambda (stream) (panic "unexpected stream close"))))
              (with-memory-dom cues
                               (lambda ()
-                                (finished (run-reactor (begin-session (initial))
-                                                       (list (Open "notes.txt"))
-                                                       (lambda (model message)
-                                                         (update-session model message))
-                                                       (lambda (model) (session-view model))
-                                                       (lambda (model) (session-window model))
-                                                       (lambda (model) (snapshot model))
-                                                       (lambda (model) (unit))
-                                                       (lambda (model)
-                                                         (mailbox-post gate (unit))))))))))
+                                (run-ui (initial)
+                                        (list (Open "notes.txt"))
+                                        (lambda (model message) (ui-update model message))
+                                        (lambda (model) (view model))
+                                        (lambda (model) (window model))
+                                        (lambda (model) (unit))
+                                        (lambda (model) (mailbox-post gate (unit)))))))))
       (unless (= (● state completed) (+ (● state reads) (● state writes)))
         (panic "the document closed before all replies completed"))
       (write-line (string-append "requests " (show (● state reads)) "/" (show (● state writes))))
@@ -132,7 +121,7 @@
   (write-line (show (● (● (run (NoDelay) cues) first) files-shown))))
 
 (define (main) (→ Unit) (! host mut output-port tasks)
-  (dispatch-local
+  (dispatch
    (lambda ()
      ;; A successful save changes the baseline, never subsequent typing.
      (report (● (run (SaveReply)

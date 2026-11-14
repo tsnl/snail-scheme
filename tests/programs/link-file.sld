@@ -7,14 +7,14 @@
  (only (snail core forms) host)
  (snail core base)
  (snail core io)
- (only (snail shell task) tasks dispatch-local)
+ (only (snail shell task) tasks dispatch)
  (snail shell resource)
  (sample linked))
 
 (define (image) (→ Resource) (link-file "data/./pixel.png"))
 
 (define (main) (→ Unit) (! host mut output-port resource tasks)
-  (dispatch-local
+  (dispatch
    (lambda ()
      (write-line (greeting-text))
      (let ((bytes (read-resource (image))))

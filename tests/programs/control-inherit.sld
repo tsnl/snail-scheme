@@ -2,7 +2,7 @@
  (snail core base)
  (snail core io)
  (only (snail core forms) host)
- (only (snail core primitive) inherit-handlers inherit-handlers-1))
+ (only (snail core primitive) inherit-handlers))
 
 ;; `inherit-handlers` closes a procedure over the handlers in scope where
 ;; it is called, so the procedure reaches them wherever it is later
@@ -21,10 +21,10 @@
 
 ;; ANCHOR_END: thunk
 
-;; A resumption is a procedure of one argument. Stored and resumed later
-;; under another log, as in control-stored-resume, it logs to that one;
-;; closed over its handlers first, it logs to the one in scope where the
-;; generator yielded, as a task scheduler's steps must.
+;; A resumption stored and resumed later under another log, as in
+;; control-stored-resume, logs to that one. A thunk that resumes it, closed
+;; over the handlers where the generator yielded, logs to the log in scope
+;; there, as a task scheduler's steps must.
 (effect Gen
   ((ctl yield (Fn I64 → Unit))))
 
@@ -33,10 +33,11 @@
   (Done)
   (Yielded
    ((value I64)
-    (next (Fn Unit → Step ! host)))))
+    (next (Fn → Step ! host)))))
 
 (define (start (body (Fn → Unit ! Gen Log))) (→ Step) (! Log)
-  (handle Gen ((yield (lambda (value resume) (Yielded value (inherit-handlers-1 resume)))))
+  (handle Gen ((yield (lambda (value resume)
+                        (Yielded value (inherit-handlers (lambda () (resume (unit))))))))
     (body)
     (Done)))
 
@@ -53,7 +54,7 @@
     ((Done) (write-line "done"))
     ((Yielded value next)
      (write-line (string-append "got " (show value)))
-     (drain (next (unit))))))
+     (drain (next)))))
 
 (define (main) (→ Unit) (! host output-port)
   ;; ANCHOR: thunk

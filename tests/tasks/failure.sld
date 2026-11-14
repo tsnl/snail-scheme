@@ -5,6 +5,6 @@
  (snail shell task))
 
 (define (main) (→ Unit) (! tasks mut host output-port)
-  (dispatch-local (lambda () (panic "child failed")))
-  (dispatch-local (lambda () (yield) (write-line "survived")))
+  (dispatch (lambda () (panic "child failed")))
+  (dispatch (lambda () (yield) (write-line "survived")))
   (unit))

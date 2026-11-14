@@ -13,7 +13,7 @@
   (export
    unit panic unsafe-total unsafe-cast
    cache lru-cache unsafe-effectful-cache unsafe-effectful-lru-cache
-   inherit-handlers inherit-handlers-1
+   inherit-handlers
    i32-add i32-sub i32-mul i32-quotient i32-remainder i32-and i32-or i32-xor
    i32-shift-left i32-shift-right i32-shift-right/logical i32-eq i32-lt i32-le i32-gt i32-ge
    i64-add i64-sub i64-mul i64-quotient i64-remainder i64-and i64-or i64-xor
@@ -78,20 +78,16 @@
     ;; ---- Inherited handlers ----
 
     ;; `inherit-handlers` closes a thunk over the handlers in scope where it
-    ;; is called, and `inherit-handlers-1` a procedure of one argument, such
-    ;; as a `resume`: the function it makes runs the procedure under those
-    ;; handlers, wherever it is called. The caller is charged the
-    ;; procedure's row, as dispatching is. The handlers answer the effects
+    ;; is called: the function it makes runs the thunk under those handlers,
+    ;; wherever it is called. The caller is charged the thunk's row, as
+    ;; dispatching is. The handlers answer the effects
     ;; the row declares; what remains, `mut` and the effects the host
     ;; implements, happens when the function runs, so it performs `host`,
     ;; which only code that may run anything the host implements, such as a
-    ;; scheduler, can perform. The procedure may not yield to a control
-    ;; effect, since the handles it would yield to may have returned by then.
+    ;; scheduler, can perform. The thunk may not yield to a control effect,
+    ;; since the handles it would yield to may have returned by then.
     (primitive inherit-handlers
                (∀ (A e) (Fn (Fn → A ! e) → (Fn → A ! host) ! e)))
-    (primitive inherit-handlers-1
-               (∀ (A B e)
-                  (Fn (Fn A → B ! e) → (Fn A → B ! host) ! e)))
 
     ;; ---- Integers ----
 

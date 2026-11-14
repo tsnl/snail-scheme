@@ -10,7 +10,7 @@
 (define (main) (→ Unit) (! host mut output-port tasks)
 
   (let ((cell (new TaskValue (value 0))))
-    (dispatch-local
+    (dispatch
      (lambda ()
        (set! (● cell value) 42)
        (yield)

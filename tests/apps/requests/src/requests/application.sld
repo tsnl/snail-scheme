@@ -1,15 +1,14 @@
-;; Input stays responsive while a future waits on the server. Canceling
-;; forgets the pending future, so starting again cannot install an older
-;; reply; the request itself runs to completion. There is no Loaded
-;; action: update takes the result directly out of its model.
-(define-library (futures application)
-  (export FuturesApplication)
+;; Input stays responsive while a request waits on the server. Each reply
+;; carries the number of the request that asked for it, and only the
+;; latest request's reply is shown. Canceling moves the number on, so
+;; starting again cannot install an older reply; the request itself runs
+;; to completion.
+(define-library (requests application)
+  (export RequestsApplication)
   (import
    (snail core base)
    (only (snail core forms) host)
    (snail shell task)
-   (snail shell future)
-   (snail shell async)
    (snail shell dom)
    (snail shell fetch)
    (snail shell ui)
@@ -28,7 +27,7 @@
     (record Model
       ((display Display)
        (clicks I64)
-       (pending (Option (Future (Result String String))))))
+       (request I64)))
 
     (record Save
       ((display Display)
@@ -38,38 +37,36 @@
     (enum Msg
       (Load)
       (Cancel)
-      (Click))
+      (Click)
+      (Loaded ((request I64)
+               (result (Result String String)))))
 
-    (define (update (model Model) (message (Option Msg)))
-      (→ Model) (! mut host completion fetch tasks)
+    (define (update (model Model) (message Msg))
+      (→ (Pair Model (List (Fn → Msg ! fetch tasks e))))
+      (∀ (e))
       (match message
-        ((Some (Load))
-         (set! (● model pending) (Some (dispatch load-text)))
-         (set! (● model display) (Waiting)))
-        ((Some (Cancel))
-         (cancel! model)
-         (set! (● model display) (Showing "canceled")))
-        ((Some (Click)) (set! (● model clicks) (+ (● model clicks) 1)) (collect model))
-        ((None) (collect model)))
-      model)
+        ((Load)
+         (let ((request (+ (● model request) 1)))
+           (new Pair
+             (first (Model-request-set (Model-display-set model (Waiting)) request))
+             (second (list (lambda () (Loaded request (load-text))))))))
+        ((Cancel)
+         (stay (Model-request-set (Model-display-set model (Showing "canceled"))
+                                  (+ (● model request) 1))))
+        ((Click) (stay (Model-clicks-set model (+ (● model clicks) 1))))
+        ((Loaded request result)
+         (stay (if (= request (● model request))
+                   (Model-display-set model
+                                      (Showing (match result ((Ok text) text) ((Err why) why))))
+                   model)))))
+
+    (define (stay (model Model)) (→ (Pair Model (List (Fn → Msg ! fetch tasks e)))) (∀ (e))
+      (new Pair (first model) (second (Nil))))
 
     (define (load-text) (→ (Result String String)) (! fetch tasks)
       (match (request "GET" "/api/text" (Nil) "")
         ((Ok reply) (Ok (● reply body)))
         ((Err why) (Err why))))
-
-    (define (collect (model Model)) (→ Unit) (! mut)
-      (match (● model pending)
-        ((None) (unit))
-        ((Some future)
-         (match (poll future)
-           ((Pending) (unit))
-           ((Ready result)
-            (set! (● model pending) (None))
-            (set! (● model display) (Showing (match result ((Ok text) text) ((Err why) why)))))))))
-
-    (define (cancel! (model Model)) (→ Unit) (! mut)
-      (set! (● model pending) (None)))
 
     (define (button (id String) (label String) (message Msg)) (→ (Html Msg))
       (Element "button"
@@ -81,7 +78,7 @@
                (list (Attr "aria-busy" (match (● model display)
                                          ((Waiting) "true")
                                          (_ "false"))))
-               (list (Element "h1" (Nil) (list (Text "Future requests")))
+               (list (Element "h1" (Nil) (list (Text "Requests")))
                      (Element "p"
                               (list (Attr "id" "result"))
                               (list (Text (display-text (● model display)))))
@@ -103,29 +100,30 @@
     (define (save (model Model)) (→ Save)
       (new Save (display (● model display)) (clicks (● model clicks))))
 
+    ;; A request still waiting when the page stopped never answers.
     (define (restore (saved Save)) (→ Model)
       (new Model (display (match (● saved display)
                             ((Waiting) (Showing "interrupted"))
                             (display display)))
-           (clicks (● saved clicks)) (pending (None))))
+           (clicks (● saved clicks)) (request 0)))
 
-    (record FuturesApplication
+    (record RequestsApplication
       ())
 
     (define-page-state Save)
 
-    (instance (Application (! mut host completion events storage tasks page) FuturesApplication)
-      (define (start (entry (Entry FuturesApplication)))
+    (instance (Application (! mut host events storage tasks page) RequestsApplication)
+      (define (start (entry (Entry RequestsApplication)))
         (→ Unit)
-        (! mut host completion events storage tasks page)
+        (! mut host events storage tasks page)
 
         (run-page (lambda () (new Save (display (Showing "idle")) (clicks 0)))
                   serialize
                   deserialize
                   present)))
 
-    ;; Save is detached recovery data. Returning from the loop forgets the
-    ;; pending future even if another alias of the model remains.
+    ;; Save is detached recovery data: a replacement starts with no request
+    ;; outstanding.
     (define (present (saved Save) (checkpoint (Fn Save → Unit ! events storage tasks)))
       (→ Unit)
       (! mut host events storage tasks page)
@@ -133,15 +131,14 @@
        (lambda ()
          (with-page-fetch
           (lambda ()
-            (cancel! (run-reactor (restore saved) (Nil)
-                                  (lambda (model message) (update model message))
-                                  (lambda (model) (view model))
-                                  (lambda (model) (window model))
-                                  (lambda (model) (save model))
-                                  (lambda (saved) (commit saved))
-                                  (lambda (saved) (checkpoint saved)))))))))
+            (run-ui (restore saved) (Nil)
+                    (lambda (model message) (update model message))
+                    (lambda (model) (view model))
+                    (lambda (model) (window model))
+                    (lambda (model) (commit (save model)))
+                    (lambda (model) (checkpoint (save model))))
+            (unit))))))
 
     (define (commit (saved Save)) (→ Unit) (! mut events page)
       (commit-page saved)
-      (report-ready))
-    ))
+      (report-ready))))

@@ -27,7 +27,7 @@
   ;; main returns.
   ;; Mutable test state travels in operation arguments, not the reusable
   ;; handler's captures. A dispatched task inherits this handler across waits.
-  (dispatch-local
+  (dispatch
    (lambda ()
      (handle tcp
          ((listen
@@ -54,7 +54,7 @@
                                (Ok (unit))))
           (close-connection (lambda (_) (Ok (unit)))))
        (let ((connection (require (connect (require (endpoint "192.0.2.1" 0))))))
-         (dispatch-local
+         (dispatch
           (lambda ()
             (require (write connection #u8(7 8)))
             (match (require (read connection 2))

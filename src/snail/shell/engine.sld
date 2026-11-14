@@ -289,7 +289,7 @@
 
     ;; ---- Driving and closing ----
 
-    ;; One scheduler means one ticket space and one bounded FIFO turn. Loading
+    ;; One scheduler means one ticket space and one turn. Loading
     ;; work and program work have the same lifetime.
     (define (engine-turn (engine Engine) (now I64)) (→ I64) (! mut host)
       (tasks-turn (● engine scheduler) now))

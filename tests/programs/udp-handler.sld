@@ -25,7 +25,7 @@
 
   ;; A program waits on sockets from a task, which the scheduler runs once
   ;; main returns.
-  (dispatch-local
+  (dispatch
    (lambda ()
      (handle udp
          ((bind (lambda (endpoint)
@@ -43,7 +43,7 @@
                      (Ok (● (fixture-convert (● socket token) PendingPacket) packet))))
           (close-udp (lambda (_) (Ok (unit)))))
        (let ((socket (require (bind (require (endpoint "192.0.2.1" 7))))))
-         (dispatch-local
+         (dispatch
           (lambda ()
             (require (send socket (require (endpoint "192.0.2.2" 8)) #u8(9 10)))
             (let ((packet (require (receive socket 2))))

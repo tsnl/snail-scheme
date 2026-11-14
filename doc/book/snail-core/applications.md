@@ -262,63 +262,46 @@ periodic saves and live reload through the same transaction as scenes.
 after a rejected view. Listener identities are never reused after replacement,
 so queued events from an old document cannot invoke a new listener.
 
-### Models and futures
+### Commands and late replies
 
-`run-reactor model start update view window snapshot commit checkpoint` uses the
-same renderer with futures stored in the model. The IDE's `Session`, for
-example, keeps a list of the commands still pending, each a future.
+A command's answer is an ordinary message, so an interface sees a reply
+when it arrives and decides then what it still means. Nothing cancels a
+command: a reply that is no longer wanted still arrives, and the update
+ignores it, telling current replies from stale ones by what the message
+carries.
 
-| Function | Effects |
-| --- | --- |
-| `update : Model (Option M) → Model ! mut host completion tasks e` | Processes input, polls futures and returns the next model. `Some M` is input; `None` is a completion wake. It may suspend through the ordinary task effect. |
-| `view : Model → (Html M) ! mut host e` | Receives the model and describes its presentation. |
-| `window : Model → (List (Attribute M)) ! mut host e` | Describes window listeners. |
-| `snapshot : Model → Save ! mut host e` | Constructs detached recovery data. |
-| `commit : Save → Unit ! mut e` | Publishes a snapshot after a successful presentation. |
-| `checkpoint : Save → Unit ! mut tasks e` | Persists a snapshot on a save request, hiding or close. |
+`tests/apps/requests/src/requests/application.sld` is a complete example.
+Its `Model` numbers the requests it makes. `Load` starts the next
+number's request as a command, which answers `Loaded` with that number
+and the reply, and an update shows a reply only if it carries the latest
+number. `Cancel` moves the number on, so a reply that arrives after it,
+or after a newer `Load`, is ignored; the request itself runs to its end.
+Its `Save` contains only display data and a click count. The ordinary
+`Application` instance uses `run-page`, installs DOM and fetch handlers,
+and calls `run-ui`. Its commit callback calls `commit-page` and
+`report-ready`; the checkpoint callback comes from `run-page`.
 
-The loop holds its model across waits. Reading a field is pure. Views
-conventionally leave the model unchanged. The language does not enforce
-that convention with field annotations or mutation protection.
+The IDE's commands answer `Finished` with a `CommandResult`, a transition
+over the current display data. It captures the request's result and
+identity, not an old model. Each transition checks the operation's
+generation, revision or submitted draft before accepting its result. Its
+recovery snapshot excludes event subscriptions; a replacement reconnects
+under its new scheduler.
 
-Dispatch from `(snail shell async)` returns a future immediately. A model
-keeps it in a field, as an `(Option (Future T))`, and each update polls it:
-`Pending` leaves it in place, and `Ready` hands over its value, after which
-the update clears the field. No completion payload has to travel through
-the input enum.
-
-The reactor handles `completion` by calling `dom`'s `wake`, which queues a
-delivery rather than invoking update inline. Notifications may repeat or be
-unrelated, so update tolerates finding nothing ready. The loop yields between
-deliveries even when input remains queued. Polling itself neither runs tasks
-nor waits for them.
-
-The IDE's `CommandResult` is a transition over the current display data. It
-captures the request's result and identity, not an old model. Each
-transition checks the operation's generation, revision or submitted draft
-before accepting its result. Its recovery snapshot excludes futures and event
-subscriptions; a replacement reconnects under its new scheduler.
-
-`tests/apps/futures/src/futures/application.sld` is a complete example. Its
-`Model` holds an optional future; its `Save` contains only display data and
-a click count. The ordinary `Application` instance uses `run-page`, installs
-DOM and fetch handlers, and calls `run-reactor`. Its commit callback calls
-`commit-page` and `report-ready`; the checkpoint callback comes from
-`run-page`.
-
-Only detached `Save` crosses a restart or handover. Mutable fields make this
-an application responsibility: a snapshot must not retain mutable model
-storage that later updates can change. Pending futures belong to the old
-scheduler and are never reified into `Any` or serialized. Restore decides
-whether interrupted work should be restarted. Canceling in the example
-forgets the pending future, so a reply that arrives later is never
-installed; the request itself runs to its end.
+Only detached `Save` crosses a restart or handover. Mutable fields make
+this an application responsibility: a snapshot must not retain mutable
+model storage that later updates can change. A command still running
+belongs to the old scheduler and never answers the replacement. Restore
+decides whether interrupted work should be restarted; the example shows
+an interrupted request as such.
 A view or update trap leaves the preceding committed Save available to recovery.
 
-The browser test holds server replies while input continues, verifies that a
-forgotten future cannot install a late reply, and refreshes while a request
-is pending. The replacement restores its snapshot and can dispatch again.
-`tests/programs/ui-futures.sld` covers the same path over the memory DOM.
+`tests/browser/ui-requests.mjs` holds server replies while input
+continues, verifies that a canceled request cannot install a late reply,
+and refreshes while a request is pending. The replacement restores its
+snapshot and can request again. `tests/programs/ui-checkpoint-wait.sld`
+runs a command that finishes while a checkpoint waits, over the memory
+DOM.
 
 <a id="live-reload"></a>
 

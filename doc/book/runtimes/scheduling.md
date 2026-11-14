@@ -18,25 +18,21 @@ says, until no task is live:
 | -2, every task waits on a ticket | until a completion wakes one; with no operation outstanding, nothing will, and the run fails |
 | -1, no task is live | not at all: `drive` returns |
 
-A trap unwinds out of `turn`. The scheduler took the trapped task off its
-queue before running it, so the driver reports the trap with the id
-`tasks:running` gives, closes the run and returns. Wasm does not unwind
-language owners; closure can dispose queued work but cannot recover owners
-stranded in the trapping frame. `drive` takes a `stopped` test,
+A trap unwinds out of `turn`. The driver reports the trap with the id
+`tasks:running` gives, closes the run and returns; Wasm does not unwind
+the trapping frame, and closing forgets the rest of the scheduler's
+tasks. `drive` takes a `stopped` test,
 asked after each turn: the application runtime stops at the loop's answer
 and only then decides whether its children may go on. `interrupt` ends a
 rest early, so that `stopped` is asked again. A CPU loop that does not
 wait still monopolizes the execution agent; the scheduler does not
 preempt it.
 
-An engine ([runtimes](index.md#direction)) runs tasks of its own, linking
-and reading linked files, beside the program's, and the driver turns the
-two as one through the engine's `engine:turn`, `engine:wake`,
-`engine:close-tasks`, `engine:running` and `engine:live`. A turn runs the
-program's turn and then the engine's, answering 0 when the engine's woke
-a task of the program's, and otherwise the sooner of the two answers.
-`engine:running` names a task of the program's by its id and one of the
-engine's by its id negated.
+An engine ([runtimes](index.md#direction)) runs its own work, linking
+and reading linked files, as tasks on the program's scheduler, so the two
+share one ticket space and one turn. The driver turns that scheduler
+through the engine's `engine:turn`, `engine:wake`, `engine:close-tasks`,
+`engine:running` and `engine:live`.
 
 ## Host operations
 
