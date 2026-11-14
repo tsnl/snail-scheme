@@ -2204,17 +2204,20 @@
         ((PCon _ args _) (concatenate (map pattern-variables args)))
         (_ (Nil))))
 
-    ;; ---- Places ----
+    ;; ---- Checked operations ----
 
-    ;; A written place selects a record field. Enum fields are destructured
-    ;; by match; mutable payloads can themselves be records.
-    (define (check-places-item (program Program) (item Item)) (→ Unit) (! compile)
+    ;; Validate operations at their final inferred types, including references
+    ;; passed as values. This runs before specialization erases ordinary effects.
+    (define (check-operations-item (program Program) (item Item)) (→ Unit) (! compile)
       (match item
-        ((Define _ value) (check-places program value))
+        ((Define _ value) (check-operations program value))
         (_ (unit))))
 
-    (define (check-places (program Program) (expr Expr)) (→ Unit) (! compile)
+    (define (check-operations (program Program) (expr Expr)) (→ Unit) (! compile)
       (match (● expr term)
+        ((Var name _ _)
+         (when (member? name (list "prim:cache" "prim:lru-cache"))
+           (check-cache-effects (short-name name) (● expr type) (● expr loc))))
         ((App callee (Cons place (Cons _ (Nil))))
          (match (● callee term)
            ((Var name _ _)
@@ -2222,9 +2225,22 @@
               (check-place-links program place)))
            (_ (unit))))
         (_ (unit)))
-      (for-each (lambda (child) (check-places program child)) (expr-children expr)))
+      (for-each (lambda (child) (check-operations program child)) (expr-children expr)))
 
-    ;; A place resolves to its declared field and ordinary receiver expression.
+    ;; An unknown F or open row cannot promise effect-free calls. Fixed-arity
+    ;; generic factories can state the empty callback row in their headers.
+    (define (check-cache-effects (name String) (type Type) (loc Loc)) (→ Unit) (! compile)
+      (match type
+        ((TFun _ (TFun _ _ (TRow (Nil) (None))) _) (unit))
+        ((TFun _ (TFun _ _ _) _)
+         (compile-error loc
+                        (string-append name
+                                       " requires a function with an empty effect row; use unsafe-effectful-"
+                                       name " to cache an effectful function")))
+        (_ (compile-error loc "cache requires an ordinary Fn function with a known signature"))))
+
+    ;; A written place selects a record field. Enum fields are destructured
+    ;; by match; mutable payloads can themselves be records.
 
     (define (check-place-links (program Program) (place Expr)) (→ Unit) (! compile)
       (match (place-link program place)
@@ -3094,7 +3110,7 @@
       (→ Unit)
       (! compile)
 
-      (check-places-item program item)
+      (check-operations-item program item)
       (check-item-ownership program schemes item))
 
     (define (check-exposures (ck Checker) (items (List Item))) (→ Checker) (! compile)

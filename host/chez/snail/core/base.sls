@@ -28,7 +28,7 @@
    min
    max
    not
-   unit panic drop unsafe-total cache lru-cache
+   unit panic drop unsafe-total cache lru-cache unsafe-effectful-cache unsafe-effectful-lru-cache
    i64-and i64-or i64-xor i64-shift-left i64-shift-right/logical
    i64->string string->i64 u8->i32 i32->u8 i32->i64 i64->i32 digit-value
    Option Some None Result Ok Err Never absurd Pair
@@ -406,8 +406,12 @@
           (if entry (begin (touch entry) (raw:vector-ref entry 1))
               (let ((value (apply f arguments))) (publish arguments value) value))))))
 
-  (define (cache f) (cache-wrapper 0 f))
-  (define (lru-cache capacity f)
+  ;; Stage zero erases types; the source checker establishes the safe names'
+  ;; empty-row requirement. Both policies share the runtime implementation.
+  (define (cache f) (unsafe-effectful-cache f))
+  (define (lru-cache capacity f) (unsafe-effectful-lru-cache capacity f))
+  (define (unsafe-effectful-cache f) (cache-wrapper 0 f))
+  (define (unsafe-effectful-lru-cache capacity f)
     (cond ((< capacity 0) (panic "lru-cache capacity must be nonnegative"))
           ((= capacity 0) f)
           (else (cache-wrapper capacity f))))

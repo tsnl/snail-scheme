@@ -37,6 +37,13 @@ Every example is part of a program under `tests/programs/`, which
 A function type may end in `!` and a row of effects. A function without `!`
 is total: a call can only compute its result.
 
+The empty effect row is written `(!)` when used as a row argument or definition
+header clause. In a function type, `(Fn I64 → I64)` and `(Fn I64 → I64 !)` mean
+the same closed, empty row. An omitted effect clause in an otherwise typed
+definition also means empty; a definition with no signature infers its effects.
+An empty row is not an effect variable such as `e`: it cannot acquire effects
+through instantiation.
+
 ```scheme
 {{#include ../../../tests/programs/effects-basic.sld:rows}}
 ```
