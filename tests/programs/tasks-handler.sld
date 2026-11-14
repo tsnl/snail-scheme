@@ -37,6 +37,6 @@
   ;; The same function under the logical clock, at once, and under the
   ;; scheduler, in real time, once main returns.
   (logical (lambda () (countdown "logical" 2)))
-  (dispatch-local (lambda () (countdown "real" 2)))
+  (dispatch (lambda () (countdown "real" 2)))
   (write-line "main returns")
   (unit))

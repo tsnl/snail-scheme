@@ -112,7 +112,7 @@
 
   ;; A program waits on sockets from a task, which the scheduler runs once
   ;; main returns.
-  (dispatch-local
+  (dispatch
    (lambda ()
      (handle tcp
          ((listen (lambda (_) (panic "unexpected listen")))

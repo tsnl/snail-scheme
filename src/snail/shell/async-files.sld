@@ -1,5 +1,5 @@
 ;; Bounded whole-file reads through an explicit native filesystem capability.
-;; The calling task waits; ordinary dispatch can expose its result as a future.
+;; The calling task waits while other tasks run.
 ;; Neither this operation nor its result promises a disk snapshot.
 (define-library (snail shell async-files)
   (export files

@@ -156,7 +156,7 @@
       (→ (Result (Option Captured) String))
       (! mut host tasks process)
       (let ((errors (make-mailbox)))
-        (dispatch-local
+        (dispatch
          (lambda () (mailbox-post errors (read-pipe child (Stderr) 65536 (Nil)))))
         (let* ((output (read-pipe child (Stdout) 16777216 (Nil)))
                (error (mailbox-receive errors))

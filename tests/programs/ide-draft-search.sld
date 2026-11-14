@@ -19,7 +19,7 @@
 
 (define (main) (→ Unit) (! host mut output-port tasks)
 
-  (dispatch-local
+  (dispatch
    (lambda ()
      (handle fetch
          ((request

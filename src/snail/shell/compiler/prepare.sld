@@ -169,7 +169,7 @@
 
     (define (closing-primitives)
       (→ (List String))
-      (list "prim:inherit-handlers" "prim:inherit-handlers-1"))
+      (list "prim:inherit-handlers"))
 
     ;; A `resume` of a handle of X runs the rest of its body under the same
     ;; handle again, which catches every yield to X there.
@@ -297,22 +297,7 @@
                  (position 0)
                  (what "a procedure given to inherit-handlers")
                  (allowed (Nil)))))
-        (("prim:inherit-handlers-1")
-         (Some (new Restriction
-                 (position 0)
-                 (what "a procedure given to inherit-handlers-1")
-                 (allowed (Nil)))))
-        (("snail.shell.task:dispatch-local")
-         (Some (new Restriction
-                 (position 0)
-                 (what "work given to dispatch-local")
-                 (allowed (list "snail.shell.task:tasks")))))
-        (("snail.shell.task:dispatch-task")
-         (Some (new Restriction
-                 (position 0)
-                 (what "work given to dispatch-task")
-                 (allowed (list "snail.shell.task:tasks")))))
-        (("snail.shell.async:dispatch")
+        (("snail.shell.task:dispatch")
          (Some (new Restriction
                  (position 0)
                  (what "work given to dispatch")
@@ -1017,13 +1002,20 @@
 
           (define test-resuming
             (lambda () (let* ((resume-type (TFun (list i64) i64 abort-row))
-                              (inherit (local "prim:inherit-handlers-1"
-                                              (TFun (list resume-type) i64 (empty-row))))
+                              (thunk-type (TFun (list) i64 abort-row))
+                              (inherit (local "prim:inherit-handlers"
+                                              (TFun (list thunk-type) i64 (empty-row))))
+                              (resuming (lambda (name)
+                                          (new Expr
+                                            (term (Lambda (Nil)
+                                                          (call (local name resume-type)
+                                                                (list (number 1)))))
+                                            (type thunk-type)
+                                            (loc loc))))
                               (implementation-type (TFun (list i64 resume-type) i64 (empty-row)))
                               (closing (new Expr (term (Lambda (list "v.1" "resume.1")
                                                                (call inherit
-                                                                     (list (local "resume.1"
-                                                                                  resume-type)))
+                                                                     (list (resuming "resume.1")))
                                                                ))
                                             (type implementation-type)
                                             (loc loc)))
@@ -1033,8 +1025,7 @@
                                                              (list (call f (list (number 1)))
                                                                    (call inherit
                                                                          (list
-                                                                          (local "resume.2"
-                                                                                 resume-type)))))
+                                                                          (resuming "resume.2")))))
                                                        ))
                                     (type implementation-type)
                                     (loc loc))))
@@ -1055,9 +1046,9 @@
                                            (number 1)))
                              (type i64)
                              (loc loc)))
-                          "a procedure given to inherit-handlers-1 cannot reach a control operation")
-                         (expect (refused? (call inherit (list (local "resume.3" resume-type))))
-                                 "a procedure given to inherit-handlers-1 cannot reach a control operation"))))
+                          "a procedure given to inherit-handlers cannot reach a control operation")
+                         (expect (refused? (call inherit (list (resuming "resume.3"))))
+                                 "a procedure given to inherit-handlers cannot reach a control operation"))))
 
           (define test-reading
             (lambda () (let* ((caught-type (TFun (list i64) i64 abort-row))

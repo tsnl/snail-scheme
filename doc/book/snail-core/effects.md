@@ -831,10 +831,9 @@ handler's own implementation runs outside it there too
 ### Closing over handlers
 
 `inherit-handlers`, from `(snail core primitive)`, closes a thunk over the
-handlers in scope where it is called, and `inherit-handlers-1` closes a
-procedure of one argument, such as a `resume`. Wherever the function it
-makes is called, the procedure's operations reach those handlers, even
-after their handles have returned:
+handlers in scope where it is called. Wherever the function it makes is
+called, the thunk's operations reach those handlers, even after their
+handles have returned:
 
 ```scheme
 {{#include ../../../tests/programs/control-inherit.sld:thunk}}
@@ -845,21 +844,22 @@ second log: before the thunk
 first log: a thunk
 ```
 
-The caller of `inherit-handlers` is charged the procedure's row, as if it
-ran the procedure there. The function it makes performs `host` instead: the
+The caller of `inherit-handlers` is charged the thunk's row, as if it
+ran the thunk there. The function it makes performs `host` instead: the
 captured handlers answer the effects the row declares, and what remains,
 `mut` and the effects the host implements, happens when it runs. So pure
 code cannot call it (`tests/programs/error-inherit-pure.sld`), and one type
-serves work of every row, as the steps of a scheduler need:
+serves work of every row, as the steps of a scheduler need. A step is a
+thunk that resumes:
 
 ```scheme
 {{#include ../../../tests/programs/control-inherit.sld:resume}}
 ```
 
 Each step resumes under the log in scope where the generator yielded,
-unlike `control-stored-resume`'s. A closed procedure cannot yield to a
+unlike `control-stored-resume`'s. A closed thunk cannot yield to a
 control effect, whose handle may be gone by the time it runs, except to
-a handle that cannot be gone: one inside the procedure, or inside a
+a handle that cannot be gone: one inside the thunk, or inside a
 function it calls, and the handle whose implementation closes its own
 `resume`, which runs the rest of the body under that handler again.
 These are how a scheduler closes each step of a task

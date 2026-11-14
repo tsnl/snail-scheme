@@ -27,14 +27,12 @@
    On
    Keyed
    map-html
-   run-ui
-   run-reactor)
+   run-ui)
   (import
    (snail core base)
    (only (snail core forms) host)
    (snail core table)
    (snail shell task)
-   (only (snail shell future) completion completed)
    (snail shell dom))
   (begin
 
@@ -482,12 +480,10 @@
     ;; Shows the view of `model` in the document's root, with the listeners
     ;; `window` gives the window, updates it with each message in `start`,
     ;; and runs the interface, a delivery at a time, until the document
-    ;; closes, then answers the last model. An event at a listener the view has since
-    ;; dropped is ignored. `commit` publishes complete presentations;
-    ;; `checkpoint` saves on request, hiding and close. A
-    ;; command still running then never answers. Both `view` and `update`
-    ;; take the model, and the loop keeps it for `checkpoint`, so a model
-    ;; is shared rather than moved: it must be Copy.
+    ;; closes, then answers the last model. An event at a listener the view
+    ;; has since dropped is ignored. `commit` publishes complete
+    ;; presentations; `checkpoint` saves on request, hiding and close. A
+    ;; command still running then never answers.
 
     (define (run-ui (model Model)
                     (start (List M))
@@ -594,7 +590,7 @@
       (∀ (M e))
       (match commands
         ((Cons command rest)
-         (dispatch-local (lambda () (answer box command)))
+         (dispatch (lambda () (answer box command)))
          (start-commands box rest))
         ((Nil) (unit))))
 
@@ -604,127 +600,6 @@
       (∀ (M e))
       (mailbox-post box (command))
       (wake))
-
-    ;; ---- Reactors ----
-
-    ;; A reactor's update takes an input: Some message, or None for a
-    ;; completion wake. The loop holds the model across waits; only
-    ;; snapshots reach commit and checkpoint.
-
-    (define (run-reactor (model Model)
-                         (start (List M))
-                         (update (Fn Model (Option M) → Model ! mut host completion tasks e))
-                         (view (Fn Model → (Html M) ! mut host e))
-                         (window (Fn Model → (List (Attribute M)) ! mut host e))
-                         (snapshot (Fn Model → S ! mut host e))
-                         (commit (Fn S → Unit ! mut e))
-                         (checkpoint (Fn S → Unit ! mut tasks e)))
-      (→ Model)
-      (! mut host dom tasks e)
-      (∀ (Model M S e))
-      (handle completion ((completed wake))
-        (mount-reactor model start update view window snapshot commit checkpoint)))
-
-    (define (mount-reactor (model Model)
-                           (start (List M))
-                           (update (Fn Model (Option M) → Model ! mut host completion tasks e))
-                           (view (Fn Model → (Html M) ! mut host e))
-                           (window (Fn Model → (List (Attribute M)) ! mut host e))
-                           (snapshot (Fn Model → S ! mut host e))
-                           (commit (Fn S → Unit ! mut e))
-                           (checkpoint (Fn S → Unit ! mut tasks e)))
-      (→ Model)
-      (! mut host completion dom tasks e)
-      (∀ (Model M S e))
-      (let ((shown (create (view model)))
-            (window-shown (window-shown (window model))))
-        (insert-node (document-root) (shown-node shown) (None))
-        (serve-reactor update view window snapshot commit checkpoint
-                       (fold-left (lambda (running message)
-                                    (step-reactor update view window running (Some message)))
-                                  (showing model shown window-shown)
-                                  start))))
-
-    (define (serve-reactor (update (Fn Model (Option M) → Model ! mut host completion tasks e))
-                           (view (Fn Model → (Html M) ! mut host e))
-                           (window (Fn Model → (List (Attribute M)) ! mut host e))
-                           (snapshot (Fn Model → S ! mut host e))
-                           (commit (Fn S → Unit ! mut e))
-                           (checkpoint (Fn S → Unit ! mut tasks e))
-                           (running (Running Model M)))
-      (→ Model)
-      (! mut host completion dom tasks e)
-      (∀ (Model M S e))
-      (match running
-        ((Running model shown window-shown listeners)
-         (commit (snapshot model))
-         ;; Give dispatched work a turn even when input is already queued.
-         (yield)
-         (match (next-event)
-           ((Closed) (checkpoint (snapshot model)) model)
-           ((Hidden)
-            (checkpoint (snapshot model))
-            (serve-reactor update view window snapshot commit checkpoint
-                           (new Running
-                             (model model)
-                             (shown shown)
-                             (window window-shown)
-                             (listeners listeners))))
-           ((SaveRequested)
-            (checkpoint (snapshot model))
-            (serve-reactor update view window snapshot commit checkpoint
-                           (new Running
-                             (model model)
-                             (shown shown)
-                             (window window-shown)
-                             (listeners listeners))))
-           ((Woken)
-            (serve-reactor update view window snapshot commit checkpoint
-                           (step-reactor update view window
-                                         (new Running
-                                           (model model)
-                                           (shown shown)
-                                           (window window-shown)
-                                           (listeners listeners))
-                                         (None))))
-           ((Fired listener event)
-            (let ((running (new Running
-                             (model model)
-                             (shown shown)
-                             (window window-shown)
-                             (listeners listeners))))
-              (serve-reactor update view window snapshot commit checkpoint
-                             (match (table-ref listeners (show (● listener id)))
-                               ((Some message)
-                                (step-reactor update view window running (Some (message event))))
-                               ((None) running)))))))))
-
-    (define (step-reactor (update (Fn Model (Option M) → Model ! mut host completion tasks e))
-                          (view (Fn Model → (Html M) ! mut host e))
-                          (window (Fn Model → (List (Attribute M)) ! mut host e))
-                          (running (Running Model M))
-                          (message (Option M)))
-      (→ (Running Model M))
-      (! mut host completion dom tasks e)
-      (∀ (Model M e))
-      (match running
-        ((Running model shown window-shown _)
-         (render-reactor view window (update model message) shown window-shown))))
-
-    ;; The model is shared with both presentations, not copied. An
-    ;; application stops its own resource work before closing.
-
-    (define (render-reactor (view (Fn Model → (Html M) ! mut host e))
-                            (window (Fn Model → (List (Attribute M)) ! mut host e))
-                            (model Model)
-                            (shown (Shown M))
-                            (window-shown (Shown M)))
-      (→ (Running Model M))
-      (! mut host dom e)
-      (∀ (Model M e))
-      (let ((shown (patch-root shown (view model)))
-            (window-shown (patch-window window-shown (window model))))
-        (showing model shown window-shown)))
 
     ;; The root's one child, patched, or replaced by a new one.
 

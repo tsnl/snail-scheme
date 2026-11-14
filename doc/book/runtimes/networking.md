@@ -311,7 +311,7 @@ A service runs a task that waits for termination and then shuts down in
 order, here by terminating a child and waiting for it:
 
 ```scheme
-(dispatch-local
+(dispatch
  (lambda ()
    (termination)
    (send-signal child (Terminate))

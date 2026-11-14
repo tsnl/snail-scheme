@@ -80,7 +80,7 @@
   (→ (Pair palette-State palette-CommandResult))
   (! dom fetch)
   (match step
-    ((palette-Step state _ (Cons (palette-Command command) rest))
+    ((palette-Step state _ (Cons command rest))
      (handle tasks
          ((yield (lambda (resume) (resume (unit))))
           (sleep (lambda (delay resume) (resume (unit))))
@@ -173,7 +173,7 @@
 
 (define (main) (→ Unit) (! host mut output-port tasks)
 
-  (dispatch-local
+  (dispatch
    (lambda ()
      (handle fetch
          ((request (lambda (method url headers body) (panic "unexpected request")))

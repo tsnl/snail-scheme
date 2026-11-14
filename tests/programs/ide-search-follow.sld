@@ -26,7 +26,7 @@
              (result CommandResult))))
 
 ;; This race driver controls when a command runs, using the IDE's actual
-;; pure transitions. The other IDE tests run the owned-future reactor.
+;; pure transitions. The other IDE tests run its own `ui-update`.
 (record Model
   ((ide Ide)
    (answers I64)))
@@ -39,7 +39,7 @@
   (! mut host)
   (match commands
     ((Nil) (Nil))
-    ((Cons (Command work) rest)
+    ((Cons work rest)
      (Cons (lambda ()
              (when delayed
                (mailbox-receive gate)
@@ -48,7 +48,7 @@
            (jobs delayed gate state rest)))))
 
 ;; Record the request identity at its boundary, before it can suspend.
-(define (observed (work (Fn → CommandResult ! tasks dom fetch)) (state Requests))
+(define (observed (work Command) (state Requests))
   (→ Delivery)
   (! mut tasks dom fetch)
   (let ((issued (new Request (issued 0))))
@@ -76,17 +76,16 @@
   (match message
     ((Input message)
      (match (update (● model ide) message)
-       ((Pair next commands)
+       ((Step next commands)
         (new Pair
           (first (new Model (ide next) (answers (● model answers))))
           (second (jobs #f gate state commands))))))
-    ((Produced read (CommandResult accept))
-     (let ((transition (accept)))
-       (match (transition (● model ide))
-         ((Pair next commands)
-          (new Pair
-            (first (new Model (ide next) (answers (+ (● model answers) (if (> read 0) 1 0)))))
-            (second (jobs (and (not delayed-read) (= read 2)) gate state commands)))))))))
+    ((Produced read transition)
+     (match (transition (● model ide))
+       ((Step next commands)
+        (new Pair
+          (first (new Model (ide next) (answers (+ (● model answers) (if (> read 0) 1 0)))))
+          (second (jobs (and (not delayed-read) (= read 2)) gate state commands))))))))
 
 (define (shown (model Model)) (→ (Html Delivery))
   (map-html Input (view (● model ide))))
@@ -179,5 +178,5 @@
                       "queued reveal cannot steal focus after a split")))))
 
 (define (main) (→ Unit) (! host mut output-port tasks)
-  (dispatch-local (lambda () (run #t) (run #f)))
+  (dispatch (lambda () (run #t) (run #f)))
   (unit))
