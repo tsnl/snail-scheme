@@ -5,14 +5,14 @@
 (define-library (snail shell task)
   (export
    tasks yield sleep await ticket current-scheduler
-   Scheduler make-scheduler dispatch-in start-main
+   Scheduler make-scheduler dispatch-in
    dispatch through-host
    tasks-turn tasks-wake! tasks-close! tasks-running tasks-live
    Mailbox make-mailbox mailbox-post mailbox-receive mailbox-try-receive)
   (import
    (snail core base)
-   (only (snail core forms) host Funcref)
-   (only (snail core primitive) inherit-handlers unsafe-cast))
+   (only (snail core forms) host)
+   (only (snail core primitive) inherit-handlers))
   (begin
 
     ;; ---- The effect ----
@@ -23,8 +23,7 @@
        (ctl sleep (Fn I64 → Unit))
        (ctl await (Fn I64 → Unit))
        (ticket (Fn → I64))
-       (current-scheduler (Fn → Scheduler)))
-      (around-main))
+       (current-scheduler (Fn → Scheduler))))
 
     ;; ---- Queues ----
 
@@ -250,15 +249,7 @@
       (+ (length (● scheduler ready))
          (+ (length (● scheduler timers)) (length (● scheduler waiters)))))
 
-    (define (start-main (scheduler Scheduler) (body Funcref)) (→ Unit) (! mut host)
-      (dispatch-in scheduler
-                   (lambda ()
-                     ((ann (unsafe-cast body) (Fn → I32 ! tasks host)))
-                     (unit)))
-      (unit))
-
     (expose make-scheduler "tasks:create")
-    (expose start-main "tasks:start-main")
     (expose tasks-turn "tasks:turn")
     (expose tasks-wake! "tasks:wake")
     (expose tasks-close! "tasks:close")

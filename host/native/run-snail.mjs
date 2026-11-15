@@ -28,21 +28,13 @@ import {createAsyncFiles} from './async-files.mjs';
 // of store/ beside it, read when a task first reads each; the engine serves
 // a linked program's.
 
-// The status: the last `main`'s result when it is 0 to 255, and 1
-// otherwise. A WASI exit in a `main` is its own status, and ends the
-// program before its tasks run. A task that traps or exits fails the run,
-// status 1, while its siblings go on. A trap or a failure of the host is
-// status 2, told as `snail: MESSAGE`. crates/snail/src/program.rs keeps
-// the same protocol on wasmtime, and the compiled compiler is run by it
-// too: a compile that fails, or needs an input, exits with status 1.
-
-function resultStatus(value) {
-  if (value === undefined) return 0;
-  if ((typeof value === 'number' || typeof value === 'bigint') && value >= 0 && value <= 255) {
-    return Number(value);
-  }
-  return 1;
-}
+// The status: 0 when every task finishes. A WASI exit is its own status,
+// and one in the first turn ends the program before its other tasks run.
+// A task that traps or exits after the first turn fails the run, status
+// 1. A trap in the first turn, or a failure of the host, is status 2,
+// told as `snail: MESSAGE`. crates/snail/src/program.rs keeps the same
+// protocol on wasmtime, and the compiled compiler is run by it too: a
+// compile that fails, or needs an input, exits with status 1.
 
 // Node's WASI keeps an exit's status where only `start` reads it, and a
 // program is a reactor, so its `proc_exit` throws an Exit instead.
@@ -84,7 +76,7 @@ async function run(filename, arguments_) {
     program = await loadProgram(resolve(filename), wasi, host, () => tasks);
     program.wasi = () => freshWasi();
     program.entry = tasks;
-    status = resultStatus(runInitializers(program, tasks));
+    startProgram(program, tasks);
     await tasks.drive().catch(report);
     if (failed) status = 1;
   } catch (error) {
@@ -129,17 +121,12 @@ function engineModule() {
 const isManifest = filename => filename.endsWith('.manifest.datum');
 
 // The program's main, or the engine's, whose first task links the program
-// and runs each of its mains in order, keeping the last one's result,
-// `engine:status`: its first turn runs that task, whose files are read
-// at once, so a WASI exit in a main is the program's status here too.
-// Work dispatched by any initializer belongs to this runtime and may
-// outlive the program's main invocation: its tasks run once every main
-// has returned.
-function runInitializers(program, tasks) {
-  if (!program.loader) return runMain(program.exports, tasks);
-  tasks.call('engine:start');
+// and starts its main. Either way main is a task, and the first turn runs
+// here, so a trap in it fails the start.
+function startProgram(program, tasks) {
+  if (program.loader) tasks.call('engine:start');
+  else runMain(program.exports, tasks);
   tasks.call('tasks:turn', BigInt(Date.now()));
-  return Number(tasks.call('engine:status'));
 }
 
 // ---- The program on the main thread ----

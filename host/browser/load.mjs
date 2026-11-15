@@ -375,15 +375,11 @@ export function wasmImports(program, memory = () => (program().loader ?? program
   };
 }
 
-// Runs an explicit main, under the owned scheduler when the program links
-// tasks. Linking a library never executes source code.
+// Starts the program's main as the first task of the run's scheduler, which
+// the run's turns then run. Linking a library never executes source code.
 export function runMain(exports, tasks) {
-  if (exports['tasks:start-main'] && exports['main:body']) {
-    tasks.startMain(exports['main:body']);
-    return 0;
-  }
   if (!exports.main) throw new Error('the program has no main function');
-  return exports.main();
+  exports.main(tasks.owner);
 }
 
 // ---- Host commands ----

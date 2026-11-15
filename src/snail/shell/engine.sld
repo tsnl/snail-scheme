@@ -5,7 +5,6 @@
    linked-content-store
    read-object
    Engine make-engine run-manifest
-   program-status
    engine-turn
    engine-wake
    engine-close-tasks
@@ -143,7 +142,6 @@
     (record Engine
       ((scheduler Scheduler)
        (runtime (Option Module))
-       (status I64)
        (files (Array String))
        (answers (List (Pair I64 (Option Bytes))))
        (held Bytes)))
@@ -152,7 +150,6 @@
       (new Engine
         (scheduler (make-scheduler))
         (runtime (None))
-        (status 0)
         (files (make-array 0 ""))
         (answers (Nil))
         (held #u8())))
@@ -180,12 +177,14 @@
         ((Nil) (panic "the manifest has no program"))
         ((Cons (Pair _ program) (Nil))
          (match (module-export program "main:body")
-           ((Ok body) (start-main (● engine scheduler) body))
+           ((Ok body) (start-program (● engine scheduler) body))
            ((Err _) (panic "the program has no main function"))))
         ((Cons _ rest) (run-main engine rest))))
 
-    (define (program-status (engine Engine)) (→ I64)
-      (● engine status))
+    ;; The program's main:body is its entry's start at its `snail-scheme`
+    ;; type, which takes the scheduler to run main on: here the engine's.
+    (define (start-program (scheduler Scheduler) (body Funcref)) (→ Unit) (! mut host)
+      ((ann (unsafe-cast body) (Fn Scheduler → Unit ! mut host)) scheduler))
 
     ;; Each library linked against the runtime and the libraries before it,
     ;; in program order. The local list supplies each import explicitly.

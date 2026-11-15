@@ -4294,15 +4294,20 @@
           (None)
           (Some (declaration-callees (● m declarations)))))
 
-    (define (emit-main! (m Module) (name String)) (→ Unit) (! mut)
-      (push-function! m "$main.body"
-                      (wat "func" (id "$main.body") (wat "export" (wat-string "main:body"))
-                           (evidence-param m) (wat "result" (Word "i32"))
-                           (wat "return_call" (id (wasm-id name)) (wat "local.get" (id "$ev")))))
-      (push-function! m "$main"
-                      (wat "func" (id "$main") (wat "export" (wat-string "main"))
-                           (wat "result" (Word "i32"))
-                           (wat "return_call" (id "$main.body") (evidence-none m)))))
+    ;; The entry's start takes the scheduler that main runs on. `main` is
+    ;; it as the host calls it; `main:body` is it at its `snail-scheme`
+    ;; type, which takes the evidence first, for an engine that links the
+    ;; program to call through a Funcref.
+
+    (define (emit-main! (m Module) (start String)) (→ Unit) (! mut)
+      (match (definition-of m start)
+        ((Some definition)
+         (push! (● m exports)
+                (wat "export" (wat-string "main")
+                     (wat "func" (id (exposed-function m start (● definition type))))))
+         (push! (● m exports)
+                (wat "export" (wat-string "main:body") (wat "func" (id (function-id m start))))))
+        ((None) (panic "internal error: the entry's start has no definition"))))
 
     (define (export-definition! (m Module) (name String)) (→ Unit) (! mut)
       (match (definition-of m name)

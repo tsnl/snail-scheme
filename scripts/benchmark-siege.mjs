@@ -10,7 +10,7 @@ for (const [name, path] of [['baseline', baseline], ['current', current]]) {
   const bytes = await readFile(path), wasi = new WASI({version: 'preview1', args: [], env: {}, preopens: {}});
   const {instance} = await WebAssembly.instantiate(bytes, wasi.getImportObject());
   wasi.initialize(instance);
-  assert.equal(instance.exports.main(), 0);
+  assert.equal(runMain(instance.exports), -1n);
   modules.push({name, bytes: bytes.length, run: instance.exports.simulate});
 }
 const samples = [];
@@ -35,3 +35,11 @@ const median = variant => samples.filter(row => row.variant === variant)
 console.log(JSON.stringify({node: process.version, colonies: count.toString(), checksum: checksum.toString(),
   modules: modules.map(({name, bytes}) => ({name, bytes})), baseline_ms: median('baseline'),
   current_ms: median('current'), ratio: median('current') / median('baseline'), samples}));
+
+// Main is the scheduler's first task, and its first turn runs it; a
+// benchmark's main dispatches nothing, so that turn leaves no task live.
+function runMain(exports) {
+  const scheduler = exports['tasks:create']();
+  exports.main(scheduler);
+  return exports['tasks:turn'](scheduler, 0n);
+}

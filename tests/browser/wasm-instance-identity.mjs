@@ -16,14 +16,17 @@ const expected = await readFile(join(root, 'tests/programs/wasm-instance-identit
 const page = `<!doctype html><title>Instance identity</title><pre></pre>
 <script type="module">
 import {createWasi, linkProgram, programExports, runMain, wasmImports} from './load.mjs';
+import {createTasks, taskExports} from './tasks.mjs';
 const output = document.querySelector('pre');
 try {
   const wasi = createWasi({print: (fd, line) => { output.textContent += line + '\\n'; }});
   const read = async file => new Uint8Array(await (await fetch(file)).arrayBuffer());
   let program;
   const host = {'snail.runtime.wasm': wasmImports(() => program)};
-  program = await linkProgram(read, './wasm-instance-identity.manifest.datum', wasi, host);
-  runMain(programExports(program));
+  const tasks = createTasks(() => program && taskExports(program));
+  program = await linkProgram(read, './wasm-instance-identity.manifest.datum', wasi, host, () => tasks);
+  runMain(programExports(program), tasks);
+  try { await tasks.drive(); } finally { tasks.close(); }
 } catch (error) { document.body.dataset.error = String(error); }
 document.body.dataset.finished = 'true';
 </script>`;
@@ -32,7 +35,8 @@ document.body.dataset.finished = 'true';
 const server = createServer(async (request, response) => {
   const path = decodeURIComponent(new URL(request.url, 'http://page').pathname);
   const file = path === '/' ? ['text/html', Buffer.from(page)]
-    : path === '/load.mjs' ? ['text/javascript', await readFile(join(root, 'host/browser/load.mjs'))]
+    : path === '/load.mjs' || path === '/tasks.mjs'
+      ? ['text/javascript', await readFile(join(root, 'host/browser', path))]
     : await readFile(join(output, path)).then(bytes => [path.endsWith('.datum') ? 'text/plain' : 'application/wasm', bytes], () => null);
   response.writeHead(file ? 200 : 404, file ? {'content-type': file[0]} : {});
   response.end(file?.[1]);

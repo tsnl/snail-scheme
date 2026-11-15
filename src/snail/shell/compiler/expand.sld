@@ -842,8 +842,10 @@
 
     ;; Only the root program's own main is an entry. An imported function
     ;; called main remains an ordinary function, with no startup behavior.
-    ;; A build for a target starts main under the target's handlers: the
-    ;; entry's start calls the target library's `provide` with main.
+    ;; A build for a target starts main through the target library: the
+    ;; entry's start takes the host's scheduler and calls the target's
+    ;; `start` with it and main, which runs main as the scheduler's first
+    ;; task, under the target's handlers.
     (define (with-entry (cx Context)) (→ Context) (! fs compile generator)
       (match (find (lambda (item)
                      (match item ((Define "main:main" _) #t) (_ #f))) (● cx items))
@@ -859,31 +861,34 @@
         ((Lambda params _) (not (null? params)))
         (_ #f)))
 
-    ;; `(define (start) (provide (lambda () (main))))`, under a name no
-    ;; source can write.
+    ;; `(define (started scheduler) (start scheduler (lambda () (main) (unit))))`,
+    ;; under a name no source can write. The thunk is Unit whatever main
+    ;; returns, so the checker's entry check is what rejects a wrong main.
     (define (with-target-entry (cx Context) (main String) (library (List String)) (loc Loc))
       (→ Context)
       (! fs compile generator)
       (expanding cx ((exports (load-library library loc)))
-                 (let* ((start (string-append main " started"))
-                        (thunk (expr (Lambda (Nil)
-                                             (expr (App (expr (Var main (Nil) (Nil)) loc) (Nil))
-                                                   loc))
-                                     loc))
-                        (provide (expr (Var (target-provide exports library loc) (Nil) (Nil)) loc)))
-                   (add-item (add-item cx
-                                       (Define start
-                                         (expr (Lambda (Nil) (expr (App provide (list thunk)) loc))
+                 (let* ((local (fresh cx "scheduler"))
+                        (var (lambda (name) (expr (Var name (Nil) (Nil)) loc)))
+                        (start (var (target-start exports library loc)))
+                        (run (expr (Seq (expr (App (var main) (Nil)) loc) (expr (Lit (DUnit)) loc))
+                                   loc))
+                        (call
+                         (App start (list (var (● local first)) (expr (Lambda (Nil) run) loc))))
+                        (started (string-append main " started")))
+                   (add-item (add-item (● local second)
+                                       (Define started
+                                         (expr (Lambda (list (● local first)) (expr call loc))
                                                loc)))
-                             (Entry main start loc)))))
+                             (Entry main started loc)))))
 
-    (define (target-provide (exports Exports) (library (List String)) (loc Loc)) (→ String)
+    (define (target-start (exports Exports) (library (List String)) (loc Loc)) (→ String)
       (! compile)
-      (match (assoc-ref exports "provide")
+      (match (assoc-ref exports "start")
         ((Some (Global global)) global)
         (_ (compile-error loc
                           (string-append "the target library " (string-join library ".")
-                                         " exports no function provide")))))
+                                         " exports no function start")))))
 
     ;; Each declaration is a section of imports, exports or definitions, or a
     ;; `cond-expand` choosing more declarations.
@@ -2765,8 +2770,7 @@
                                    (let ((effect (new Effect (name id)
                                                       (operations operations)
                                                       (control control)
-                                                      (defaults (effect-defaults snail loc))
-                                                      (around-main (around-main? clauses)))))
+                                                      (defaults (effect-defaults snail loc)))))
                                      (new Pair
                                        (first (map (lambda (record) (● record expand)) snail))
                                        (second (Context-program-set cx
@@ -2830,25 +2834,15 @@
         (_ (compile-error (syntax-loc type)
                           "an operation has a function type with a closed row; its effect is implied"))))
 
-    ;; The clauses after an effect's operations: `default` clauses, and
-    ;; `(around-main)`, which says the host handles the effect around a
-    ;; program's body.
+    ;; The clauses after an effect's operations, each a `default`.
 
     (define (default-clauses (clauses (List Syntax))) (→ (List Syntax)) (! compile)
-      (filter (lambda (clause)
-                (match clause
-                  ((Form (Cons (Ident "default" _ _) _) _) #t)
-                  ((Form (Cons (Ident "around-main" _ _) (Nil)) _) #f)
-                  (_ (compile-error (syntax-loc clause)
-                                    "expected a default clause or (around-main)"))))
-              clauses))
-
-    (define (around-main? (clauses (List Syntax))) (→ Bool)
-      (any? (lambda (clause)
-              (match clause
-                ((Form (Cons (Ident "around-main" _ _) (Nil)) _) #t)
-                (_ #f)))
-            clauses))
+      (for-each (lambda (clause)
+                  (match clause
+                    ((Form (Cons (Ident "default" _ _) _) _) (unit))
+                    (_ (compile-error (syntax-loc clause) "expected a default clause"))))
+                clauses)
+      clauses)
 
     ;; Every default the clauses give, at most one per operation.
 

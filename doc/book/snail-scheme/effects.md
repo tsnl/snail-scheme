@@ -714,9 +714,10 @@ default to it, at its entry
 (`tests/programs/error-default-unperformed.sld`). A default is a lambda or
 a function's name, and an operation has at most one.
 
-A control operation has no default. An effect declared with `(around-main)`
-says the runtime supplies a delimiter around the root entry. `tasks` uses
-this facility: `main` runs as a scheduled task and can yield or wait.
+A control operation has no default. Its handler comes from the program or
+its target: the target's `start` runs `main` as the first task of the
+host's scheduler, so `main` can yield or wait
+([targets](scripts.md#targets-and-capabilities)).
 Loading a library runs no source initializer: top-level definitions bind
 functions. Each call performs only the effects in its signature.
 
