@@ -12,6 +12,7 @@
   - [Libraries](snail-scheme/libraries.md)
   - [HTTP protocol](snail-scheme/http.md)
   - [Projects and targets](snail-scheme/projects.md)
+  - [Proposed scripts and builds](snail-scheme/scripts.md)
   - [Compiler architecture](snail-scheme/compilers.md)
   - [Application model](snail-scheme/applications.md)
   - [Development toolchain](snail-scheme/toolchain.md)
