@@ -195,12 +195,13 @@
     ;; request; a trap or a failure of the host is status 2 and must not
     ;; consume a partial file.
     ;; Nested producer compiles have their own scratch.
+    ;; Stage 0 compiles every program for Node's target, (snail target node).
     (define (run-compiler-into root command mode directories source output generated)
       (let ((request (path-join generated "request.datum")))
         (let loop ()
           (when (file-link-status request) (delete-file request))
           (let ((result (capture-process
-                         (append command (list mode source output generated) directories))))
+                         (append command (list mode "node" source output generated) directories))))
             (cond ((zero? (caddr result))
                    (when (file-link-status request)
                      (error 'snail "compiler succeeded with a pending input request"))
@@ -798,6 +799,7 @@
                                   (let* ((request (path-join directory "request.datum"))
                                          (command (append (chez-compiler root)
                                                           (list "wat"
+                                                                "node"
                                                                 (path-join root
                                                                            "tests/artifacts/native.sld")
                                                                 (path-join directory "output.wat")

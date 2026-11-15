@@ -879,15 +879,18 @@
         ((TFun _ _ (TRow labels _)) (filter (lambda (label) (not (string=? label effect))) labels))
         (_ (Nil))))
 
-    ;; Definitions contain functions. Entry names the
-    ;; root program's optional main; libraries have no startup phase. An
-    ;; exposed function is exported under `symbol` through a host adapter.
+    ;; Definitions contain functions. Entry names the root program's
+    ;; optional main, and `start`, what the host calls: main itself, or the
+    ;; wrapper that runs it under its target's handlers. Libraries have no
+    ;; startup phase. An exposed function is exported under `symbol`
+    ;; through a host adapter.
     (enum Item
       (Define
         ((name String)
          (value Expr)))
       (Entry
        ((name String)
+        (start String)
         (loc Loc)))
       (Expose
        ((name String)

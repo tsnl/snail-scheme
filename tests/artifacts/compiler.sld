@@ -50,13 +50,30 @@
   (→ Unit)
   (! mut fs reader:compile)
   (write-module (string-append output "/program.wasm")
-                (● (source->wat directories source generate (inputs #u8(65 0 255))) text))
+                (● (source->wat directories
+                                source
+                                generate
+                                (inputs #u8(65 0 255))
+                                (Some (list "snail" "target" "node")))
+                   text))
   (write-build (string-append output "/first")
-               (source->modules directories source generate (inputs #u8(65 0 255))))
+               (source->modules directories
+                                source
+                                generate
+                                (inputs #u8(65 0 255))
+                                (Some (list "snail" "target" "node"))))
   (write-build (string-append output "/unchanged")
-               (source->modules directories source generate (inputs #u8(65 0 255))))
+               (source->modules directories
+                                source
+                                generate
+                                (inputs #u8(65 0 255))
+                                (Some (list "snail" "target" "node"))))
   (write-build (string-append output "/changed")
-               (source->modules directories source generate (inputs #u8(90 0 255)))))
+               (source->modules directories
+                                source
+                                generate
+                                (inputs #u8(90 0 255))
+                                (Some (list "snail" "target" "node")))))
 
 (define (main) (→ Unit) (! mut fs)
 

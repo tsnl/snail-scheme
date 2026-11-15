@@ -549,7 +549,7 @@
     (define (root-item (state State) (item Item)) (→ (Pair (List String) State))
       (match item
         ((Expose name _ _) (new Pair (first (Nil)) (second (requested state name))))
-        ((Entry name _) (new Pair (first (Nil)) (second (requested state name))))
+        ((Entry _ start _) (new Pair (first (Nil)) (second (requested state start))))
         ((Define name value)
          (if (null? (● (scheme-of state name) vars))
              (match (● state owner)

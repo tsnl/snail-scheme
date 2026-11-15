@@ -2572,17 +2572,28 @@
 
     ;; A program's body runs as its first task when it links the scheduler,
     ;; under the handler of every effect declared `around-main`, so the
-    ;; body may perform those besides what the host implements.
+    ;; body may perform those besides what the host implements. What the
+    ;; host calls is `start`, main under its target's handlers, so its row
+    ;; is the one left to the host.
 
-    (define (check-entry (ck Checker) (name String) (loc Loc)) (→ Checker) (! compile)
+    (define (check-entry (ck Checker) (name String) (start String) (loc Loc)) (→ Checker)
+      (! compile)
       (match (global-scheme ck name)
         ((Some (Scheme (Nil) (Nil) type))
          (match (resolve-type (solution ck) type)
-           ((TFun (Nil) (TCon "Unit" (Nil)) row) (check-body-effects ck row loc))
+           ((TFun (Nil) (TCon "Unit" (Nil)) _) (check-body-effects ck (start-row ck start) loc))
            (_
             (compile-error loc "main must be a function taking no arguments and returning Unit"))))
         (_ (compile-error loc
                           "main must be a monomorphic function taking no arguments and returning Unit"))))
+
+    (define (start-row (ck Checker) (start String)) (→ Type)
+      (match (global-scheme ck start)
+        ((Some scheme)
+         (match (resolve-type (solution ck) (● scheme type))
+           ((TFun _ _ row) row)
+           (_ (panic "internal error: an entry's start is not a function"))))
+        ((None) (panic "internal error: an entry's start has no type"))))
 
     (define (check-body-effects (ck Checker) (row Type) (loc Loc)) (→ Checker) (! compile)
       (check-effects-with ck row loc (lambda (effect) (● effect around-main))))
@@ -2705,7 +2716,7 @@
       (fold-left (lambda (ck item)
                    (match item
                      ((Expose name _ loc) (check-exposed ck name loc))
-                     ((Entry name loc) (check-entry ck name loc))
+                     ((Entry name start loc) (check-entry ck name start loc))
                      (_ ck)))
                  ck items))
 
@@ -2726,7 +2737,7 @@
       (let* ((exposed (concatenate (map (lambda (item)
                                           (match item
                                             ((Expose name _ _) (list name))
-                                            ((Entry name _) (list name))
+                                            ((Entry name start _) (list name start))
                                             (_ (Nil))))
                                         items)))
              (groups (each-recovered
@@ -2772,7 +2783,7 @@
       (match item
         ((Define name value) (Cons name (expr-references value)))
         ((Expose name _ _) (list name))
-        ((Entry name _) (list name))))
+        ((Entry name start _) (list name start))))
 
     (define (unannotated-groups (ck Checker) (items (List Item))) (→ (List (List Item)))
       (definition-groups

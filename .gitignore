@@ -12,8 +12,10 @@
 /tests/apps/*/build/
 
 # Cargo names its output `target` relative to wherever the build ran, so
-# ignore the name anywhere rather than listing each crate and each caller.
+# ignore the name anywhere rather than listing each crate and each caller,
+# except the target libraries, (snail target NAME).
 target/
+!/src/snail/target/
 
 # Scratch from a local experiment, which nothing in the tree references.
 /wasm-native/

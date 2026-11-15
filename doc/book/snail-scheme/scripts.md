@@ -233,7 +233,7 @@ Each step is a pull request that passes every check on its own.
    - The shared build flags, `--target` and `--release`.
    - The output path comes from the script's path, and the toolchain
      runtime from linking `(snail shell assembler)`.
-   - `snailc` and `-o` go; `snail-scheme wat FILE` prints a script's text.
+   - `snailc` and `-o` go; `snail-scheme wat --target TARGET FILE` prints a script's text.
    - Each `--target` supplying its handlers comes in step 5.
 4. **Constant arrays, then pure foreign functions in `snail-scheme`.** Done:
    - Constant arrays: done, `(constant-array TYPE (VALUE ...))`, a table of
@@ -245,10 +245,18 @@ Each step is a pull request that passes every check on its own.
    - Float printing: done, in `(snail core base)`. Nothing parsed reals at
      run time, so the runtime's parser is gone.
 5. **Targets as handler libraries.**
+   - The target reaches every compile: done. `--target NAME` names the
+     library `(snail target NAME)`, and the program's entry starts `main`
+     under its `provide`, which handles nothing yet. A `project.datum`
+     program builds for `node`, a browser target for `browser`, and stage 0
+     compiles for `node`.
+   - Tasks from the target: `main` runs as the scheduler's first task under
+     the target's `start`, and `around-main` and `tasks:start-main` go.
+   - Each capability's `default` moves into the targets that provide it, and
+     every exposed function is wrapped as `main` is; a capability left
+     unhandled fails the build.
+   - `default` goes.
    - `host` becomes `unsafe-extern`, which every `extern` declares.
-   - A handler library per target, injected into every entry; a capability
-     left unhandled fails the build.
-   - `default` and `around-main` go.
 6. **Release builds fully linked,** with `wasm-opt` from Binaryen.
 7. **Applications become scripts.**
    - Prototype the page's top level as a task.
