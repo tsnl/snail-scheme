@@ -61,8 +61,8 @@
     ;; What a build runs besides the compiler: `root` holds the standard
     ;; libraries (src/), the browser host's files and the native runner,
     ;; `runtime` is the runtime module a program is linked with, `toolchain`
-    ;; the one a `(runtime toolchain)` program is, whose services include
-    ;; the assembler, and `node` runs producers.
+    ;; the one a program that links the assembler is, whose services
+    ;; include it, and `node` runs producers.
     (record Tools
       ((root String)
        (runtime String)
@@ -209,9 +209,13 @@
           (● builder project)
           (string-append (● builder project) "/" (● path text))))
 
+    ;; The project's library roots, then the standard libraries' directory,
+    ;; unless a root is it, as the repository's own src/ is.
+
     (define (library-directories (builder Builder) (roots (List ProjectPath))) (→ (List String))
-      (append (map (lambda (root) (in-project builder root)) roots)
-              (list (string-append (● (● builder tools) root) "/src"))))
+      (let ((directories (map (lambda (root) (in-project builder root)) roots))
+            (standard (string-append (● (● builder tools) root) "/src")))
+        (if (member? standard directories) directories (append directories (list standard)))))
 
     (define (root-target (targets (List Target)) (file String) (name String))
       (→ Target)
@@ -539,17 +543,13 @@
 
     ;; ---- Programs ----
 
-    ;; The runtime a target links with: the toolchain's for a program that
-    ;; says `(runtime toolchain)`, the plain one otherwise.
+    ;; The runtime a program links with: the toolchain's, whose services
+    ;; include the assembler, for a program that links (snail shell
+    ;; assembler), and the plain one otherwise.
 
-    (define (target-runtime (builder Builder) (target Target)) (→ String)
+    (define (program-runtime (builder Builder) (modules (List (Pair String Bytes)))) (→ String)
       (let ((tools (● builder tools)))
-        (if (any? (lambda (build)
-                    (match build
-                      ((ProgramTarget program)
-                       (and (● program toolchain?) (string=? (● program name) (● target name))))
-                      ((BrowserTarget _) #f)))
-                  (● (● builder description) builds))
+        (if (any? (lambda (module) (string=? (● module first) "snail.shell.assembler")) modules)
             (● tools toolchain)
             (● tools runtime))))
 
@@ -633,9 +633,12 @@
           object)))
 
     ;; The generation's view of an object: a link up to the project's
-    ;; store, four directories above store/sha256/AB/, or a copy.
+    ;; store, or a copy. The generation of the target `name` lies beside
+    ;; build/NAME, so the link climbs out of store/sha256/AB/ and the
+    ;; generation, then one directory for each of NAME's slashes.
 
-    (define (view-object (builder Builder) (directory String) (object Object)) (→ Unit)
+    (define (view-object (builder Builder) (name String) (directory String) (object Object))
+      (→ Unit)
       (! fs building)
       (let* ((digest (● object digest))
              (at (object-path (string-append directory "/store") digest))
@@ -643,9 +646,14 @@
         (expect-done (make-directories (directory-part at)) (string-append "cannot make " at))
         (match (● builder mode)
           ((Debug)
-           (expect-done (make-symbolic-link (object-path "../../../../.snail-store" digest) at)
+           (expect-done (make-symbolic-link (object-path (store-from-generation name) digest) at)
                         (string-append "cannot link " at)))
           ((Release) (copy-into from at (string-append "cannot copy " from))))))
+
+    (define (store-from-generation (name String)) (→ String)
+      (string-append (string-concatenate (map (lambda (part) "../")
+                                              (Cons "" (Cons "" (Cons "" (split-path name))))))
+                     ".snail-store"))
 
     ;; ---- Manifests ----
 
@@ -671,13 +679,13 @@
       (! fs building)
       (let* ((store (project-store builder))
              (token (base-name directory))
-             (runtime (place-object store token (read-bytes (target-runtime builder target))))
+             (runtime (place-object store token (read-bytes (program-runtime builder modules))))
              (placed (map (lambda (module)
                             (new Pair (first (● module first))
                                  (second (place-object store token (● module second)))))
                           modules))
              (files (map (lambda (link) (place-link store token link)) (distinct-links links))))
-        (for-each (lambda (object) (view-object builder directory object))
+        (for-each (lambda (object) (view-object builder (● target name) directory object))
                   (Cons runtime (append (map (lambda (module) (● module second)) placed) files)))
         (write-file (string-append directory "/" (manifest-name (● target name)))
                     (manifest-text runtime placed files))))
@@ -685,8 +693,11 @@
     (define (distinct-links (links (List LinkedFile))) (→ (List LinkedFile))
       (delete-duplicates (lambda (a b) (string=? (● a digest) (● b digest))) links))
 
+    ;; The manifest of the target `target`, named for the last part of its
+    ;; name: a script's is named for the script.
+
     (define (manifest-name (target String)) (→ String)
-      (string-append target ".manifest.datum"))
+      (string-append (base-name target) ".manifest.datum"))
 
     ;; One entry a line: `(runtime "DIGEST" SIZE)`, then `(module "LIBRARY"
     ;; "DIGEST" SIZE)` for each library in program order, then `(file
@@ -924,18 +935,21 @@
 
     ;; ---- Generations ----
 
-    ;; A new generation for the target `name` in the project's build
-    ;; directory, holding only its ownership marker. The output link there,
-    ;; if any, must be one a build published.
+    ;; A new generation for the target `name` beside its output link,
+    ;; build/NAME, holding only its ownership marker. A script's target is
+    ;; named for its path, so its link and generation may lie below build/.
+    ;; The output link, if any, must be one a build published.
 
     (define (prepare-generation (builder Builder) (name String)) (→ String) (! fs clock building)
-      (let ((build (string-append (● builder project) "/build")))
+      (let* ((build (string-append (● builder project) "/build"))
+             (output (string-append build "/" name))
+             (beside (directory-part output)))
         (when (kind-is? build (SymbolicLink))
           (fail-build (string-append "project build directory cannot be a symbolic link: " build)))
-        (expect-done (make-directories build) (string-append "cannot make " build))
-        (check-output (string-append build "/" name) name)
-        (let ((directory (fresh-directory (string-append build "/" (● builder prefix))
-                                          (string-append "-" name)
+        (expect-done (make-directories beside) (string-append "cannot make " beside))
+        (check-output output name)
+        (let ((directory (fresh-directory (string-append beside "/" (● builder prefix))
+                                          (string-append "-" (base-name name))
                                           (monotonic-nanoseconds))))
           (write-file (string-append directory "/.snail-target") name)
           directory)))

@@ -1,17 +1,27 @@
-Usage: snail-scheme build [--release] PROJECT BUILD-TARGET
+Usage: snail-scheme build --target TARGET [--release] FILE
+       snail-scheme run --target TARGET [--release] FILE [ARGUMENT ...]
+       snail-scheme wat FILE
+       snail-scheme build [--release] PROJECT BUILD-TARGET
        snail-scheme run PROJECT RUN-TARGET [ARGUMENT ...]
        snail-scheme lsp
        snail-scheme format [--width N] [--check | --write] [FILE ...]
 
-build reads PROJECT/project.datum and publishes the named target into
-PROJECT/build/TARGET. Each output directory is a link to a completed
-generation; earlier generations remain until explicitly removed. --release
-requests full optimization. Browser targets package their program, browser
-runtime and public directory. Put index.html in public; no page is generated.
+build compiles the script FILE for TARGET: node, wasmtime or browser. Its
+workspace is the nearest folder above it that holds src/, where every
+import resolves. The output, build/PATH in the workspace, where PATH is
+FILE's path there without its extension, is a link to a completed
+generation: the program's manifest and a store/ view of its modules and
+linked files, links into build/.snail-store, or copies with --release.
+A browser build adds the browser host and the public/ folder beside FILE.
 
-run builds the named run-target's program and executes that completed generation
-in the current directory. Configured arguments precede ARGUMENTs. The command
-becomes the application process, retaining terminal IO, exit status and signals.
+run builds FILE as build does, then becomes its program in the current
+directory, with the ARGUMENTs, retaining terminal IO, exit status and
+signals: on Node for node, on build/snail run-wasm for wasmtime.
+
+wat prints the WebAssembly text of FILE's whole program.
+
+The PROJECT forms build and run a target of PROJECT/project.datum, until
+applications become scripts.
 
 lsp serves the Language Server Protocol on standard input and output for
 the folder an editor opens: diagnostics from each saved build, formatting,
@@ -21,8 +31,5 @@ editors/zed and editors/vscode.
 format prints standard input formatted, or with --check fails for each FILE
 not formatted, or with --write formats each FILE in place, at --width
 columns (100 by default).
-
-In this repository, `snail-scheme run . snailc ACTION ...` compiles a single
-source file outside any project: wat, compile -o OUTPUT, or run.
 
   -h, --help       Show this help.

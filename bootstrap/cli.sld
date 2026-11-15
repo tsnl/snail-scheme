@@ -2,11 +2,19 @@
 ;; which ./snail-scheme runs on Node, after the repository's root and the
 ;; runtime modules programs are linked with, plain and the toolchain's:
 ;;
+;;   build --target TARGET [--release] FILE
+;;     builds the script FILE for TARGET, node, wasmtime or browser, into
+;;     build/PATH of its workspace, PATH being FILE's there without its
+;;     extension, publishes it, and prints where its output is;
+;;   run --target TARGET [--release] FILE [ARGUMENT ...]
+;;     builds the script as `build` does, then becomes it, with the
+;;     arguments, in the caller's directory;
+;;   wat FILE
+;;     prints the WebAssembly text of the script's whole program;
 ;;   build [--release] PROJECT BUILD-TARGET
-;;     builds a target, publishes it, and prints where its output is;
 ;;   run PROJECT RUN-TARGET [ARGUMENT ...]
-;;     builds a run target's program, publishes it, and becomes it, with the
-;;     run's arguments and then these, in the caller's directory;
+;;     build and run a target of the project.datum in PROJECT, as until
+;;     project files go;
 ;;   lsp
 ;;     serves the Language Server Protocol on standard input and output,
 ;;     (snail shell lsp), for the project the editor opens, as ./snail-scheme lsp
@@ -37,12 +45,20 @@
  (snail shell lsp)
  (only (snail shell format) format-source format-width)
  (only (snail shell compiler driver) compile-arguments)
+ (only (snail shell compiler) source->wat)
+ (only (snail shell compiler inputs) no-inputs)
+ (only (snail shell compiler read) compiling Failed Requested diagnostics->string Loc)
  (snail shell process))
 
 ;; ---- Requests ----
 
-;; What one invocation asks for. A build's `target` is a build target, a
-;; run's a run target.
+;; What one invocation asks for: a script, or a target of a project.
+(enum Request
+  (ScriptRequest ((script Script)))
+  (ProjectRequest ((job Job))))
+
+;; A project's target. A build's `target` is a build target, a run's a run
+;; target.
 (record Job
   ((tools Tools)
    (run? Bool)
@@ -52,15 +68,21 @@
    (arguments (List String))))
 
 (define (usage) (→ String)
-  "usage: snail-scheme build [--release] PROJECT BUILD-TARGET | snail-scheme run PROJECT RUN-TARGET [ARGUMENT ...]")
+  "usage: snail-scheme build|run --target node|wasmtime|browser [--release] FILE [ARGUMENT ...] | snail-scheme build [--release] PROJECT BUILD-TARGET | snail-scheme run PROJECT RUN-TARGET [ARGUMENT ...]")
 
-(define (request (arguments (List String))) (→ Job)
+;; A request names a target with --target exactly when it is a script's.
+
+(define (request (arguments (List String))) (→ Request) (! fs)
   (match arguments
     ((Cons _ (Cons root (Cons runtime (Cons toolchain (Cons action rest)))))
-     (let ((tools (tools-of root runtime toolchain)))
-       (cond ((string=? action "build") (build-request tools rest))
-             ((string=? action "run") (run-request tools rest))
-             (else (panic (usage))))))
+     (let ((tools (tools-of root runtime toolchain))
+           (run? (cond ((string=? action "build") #f)
+                       ((string=? action "run") #t)
+                       (else (panic (usage))))))
+       (match (build-flags rest (None) (Debug))
+         ((Pair (Some flags) rest) (ScriptRequest (script-request tools run? flags rest)))
+         ((Pair (None) _)
+          (ProjectRequest (if run? (run-request tools rest) (build-request tools rest)))))))
     (_ (panic (usage)))))
 
 (define (tools-of (root String) (runtime String) (toolchain String)) (→ Tools)
@@ -91,6 +113,181 @@
        (target target)
        (arguments (Nil))))
     (_ (panic (usage)))))
+
+;; ---- Scripts ----
+
+;; Where a script's program runs: on Node, on the native executable, or in
+;; a page.
+(enum Platform
+  (Node)
+  (Wasmtime)
+  (Browser))
+
+;; The flags every building command takes, parsed here alone.
+(record BuildFlags
+  ((platform Platform)
+   (mode Mode)))
+
+;; A script to build, and to run when `run?`: `file`, in `workspace`, the
+;; nearest folder above it that holds src/, where every import resolves.
+(record Script
+  ((tools Tools)
+   (run? Bool)
+   (flags BuildFlags)
+   (workspace String)
+   (file String)
+   (arguments (List String))))
+
+;; The leading build flags, and what follows them; no flags when no
+;; --target is among them.
+
+(define (build-flags (arguments (List String)) (platform (Option Platform)) (mode Mode))
+  (→ (Pair (Option BuildFlags) (List String)))
+  (match arguments
+    ((Cons "--target" (Cons name rest)) (build-flags rest (Some (platform-named name)) mode))
+    ((Cons "--release" rest) (build-flags rest platform (Release)))
+    (_ (new Pair
+         (first (match platform
+                  ((Some platform) (Some (new BuildFlags (platform platform) (mode mode))))
+                  ((None) (None))))
+         (second arguments)))))
+
+(define (platform-named (name String)) (→ Platform)
+  (cond ((string=? name "node") (Node))
+        ((string=? name "wasmtime") (Wasmtime))
+        ((string=? name "browser") (Browser))
+        (else
+         (panic (string-append "unknown target " name ": expected node, wasmtime or browser")))))
+
+(define (script-request (tools Tools) (run? Bool) (flags BuildFlags) (arguments (List String)))
+  (→ Script)
+  (! fs)
+  (match arguments
+    ((Cons file rest)
+     (let ((file (resolved file)))
+       (unless (file-exists? file) (panic (string-append "there is no script at " file)))
+       (new Script
+         (tools tools)
+         (run? run?)
+         (flags flags)
+         (workspace (workspace-of file (directory-of file)))
+         (file file)
+         (arguments rest))))
+    ((Nil) (panic (usage)))))
+
+;; The nearest folder above `file` that holds src/.
+
+(define (workspace-of (file String) (directory String)) (→ String) (! fs)
+  (cond ((file-exists? (string-append directory "/src")) directory)
+        ((string=? directory "") (panic (string-append "no folder above " file " holds src/")))
+        (else (workspace-of file (directory-of directory)))))
+
+(define (directory-of (path String)) (→ String)
+  (let loop ((index (- (string-length path) 1)))
+    (cond ((< index 0) "")
+          ((char=? (string-ref path index) #\/) (substring path 0 index))
+          (else (loop (- index 1))))))
+
+;; The script's path in its workspace, and without its extension, the
+;; name of its build: build/NAME holds its output.
+
+(define (script-path (script Script)) (→ String)
+  (let ((workspace (● script workspace)) (file (● script file)))
+    (substring file (+ (string-length workspace) 1) (string-length file))))
+
+(define (script-name (script Script)) (→ String)
+  (let ((path (script-path script)))
+    (let loop ((index (- (string-length path) 1)))
+      (cond ((< index 0) path)
+            ((char=? (string-ref path index) #\/) path)
+            ((char=? (string-ref path index) #\.) (substring path 0 index))
+            (else (loop (- index 1)))))))
+
+;; The one build target a script is: a page's, with the public/ folder
+;; beside the script if there is one, or a program's.
+
+(define (script-project (script Script)) (→ Project) (! fs)
+  (let* ((loc (new Loc (file (● script file)) (line 1) (column 1)))
+         (path (lambda (text) (new ProjectPath (text text) (loc loc))))
+         (entry (SourceEntry (path (script-path script))))
+         (name (script-name script))
+         (roots (list (path "src"))))
+    (new Project
+      (builds (list (match (● (● script flags) platform)
+                      ((Browser)
+                       (BrowserTarget (new BrowserBuild
+                                        (name name)
+                                        (entry entry)
+                                        (libraries roots)
+                                        (public (script-public script path))
+                                        (loc loc))))
+                      (_
+                       (ProgramTarget (new ProgramBuild
+                                        (name name)
+                                        (entry entry)
+                                        (libraries roots)
+                                        (loc loc)))))))
+      (runs (Nil)))))
+
+(define (script-public (script Script) (path (Fn String → ProjectPath))) (→ (Option ProjectPath))
+  (! fs)
+  (let ((public (string-append (directory-of (script-path script)) "/public")))
+    (if (file-exists? (string-append (● script workspace) "/" public))
+        (Some (path public))
+        (None))))
+
+;; Builds the script and publishes it; answers its generation.
+
+(define (build-script (script Script)) (→ String) (! mut fs clock process)
+  (publish-build (build-project (● script tools)
+                                (● script workspace)
+                                (script-project script)
+                                (list (script-name script))
+                                (● (● script flags) mode)
+                                (scratch (● script tools))
+                                ".snail-")
+                 (script-name script)))
+
+;; The script built, then this process, replaced by its program. A page
+;; has nothing to run here, so it is refused before it is built.
+
+(define (run-script (script Script)) (→ Unit) (! mut fs clock process)
+  (let ((tools (● script tools)))
+    (match (● (● script flags) platform)
+      ((Node) (become (● tools node)
+                      (Cons "--no-warnings"
+                            (Cons (string-append (● tools root) "/host/native/run-snail.mjs")
+                                  (Cons (built-manifest script) (● script arguments))))))
+      ((Wasmtime) (become (string-append (● tools root) "/build/snail")
+                          (Cons "run-wasm" (Cons (built-manifest script) (● script arguments)))))
+      ((Browser) (panic "a page is not run here: build it, then serve its output")))))
+
+(define (built-manifest (script Script)) (→ String) (! mut fs clock process)
+  (string-append (build-script script) "/" (manifest-name (script-name script))))
+
+(define (become (program String) (arguments (List String))) (→ Unit) (! process)
+  (let ((error (exec (new Command (program program) (arguments arguments) (directory ".")))))
+    (panic (string-append "cannot run " program ": " (● error code)))))
+
+;; The script's whole program as WebAssembly text. A generated library
+;; needs a build to run its producer, so here it fails.
+
+(define (print-wat (tools Tools) (file String)) (→ Unit) (! mut fs output-port)
+  (let* ((file (resolved file)) (workspace (workspace-of file (directory-of file))))
+    (match (compiling (lambda ()
+                        (source->wat (delete-duplicates string=?
+                                                        (list (string-append workspace "/src")
+                                                              (string-append (● tools root)
+                                                                             "/src")))
+                                     file
+                                     (lambda (loading forms)
+                                       (panic "wat does not run producers: build the script"))
+                                     (no-inputs))))
+      ((Ok program) (write-string (● program text)))
+      ((Err (Failed diagnostics)) (panic (diagnostics->string diagnostics)))
+      ((Err (Requested _)) (panic "wat does not run producers: build the script")))))
+
+;; ---- Projects ----
 
 (define (run-request (tools Tools) (arguments (List String))) (→ Job)
   (match arguments
@@ -139,21 +336,25 @@
 (define (build-and-publish (job Job) (description Project) (target String))
   (→ String)
   (! mut fs clock process)
-  (match (build-project (● job tools)
-                        (● job project)
-                        description
-                        (list target)
-                        (● job mode)
-                        (scratch job)
-                        ".snail-")
+  (publish-build (build-project (● job tools)
+                                (● job project)
+                                description
+                                (list target)
+                                (● job mode)
+                                (scratch (● job tools))
+                                ".snail-")
+                 target))
+
+(define (publish-build (built (Result Candidate Failure)) (target String)) (→ String) (! fs)
+  (match built
     ((Err failure) (panic (failure->string failure)))
     ((Ok candidate)
      (match (publish-project candidate)
        ((Err message) (panic message))
        ((Ok _) (generation-of candidate target))))))
 
-(define (scratch (job Job)) (→ String)
-  (string-append (● (● job tools) root) "/build/snail-run"))
+(define (scratch (tools Tools)) (→ String)
+  (string-append (● tools root) "/build/snail-run"))
 
 (define (generation-of (candidate Candidate) (target String)) (→ String)
   (match (find (lambda (output) (string=? (● output name) target))
@@ -173,17 +374,12 @@
     ((Some run)
      (let* ((name (● (● run program) name))
             (generation (build-and-publish job description name))
-            (tools (● job tools))
-            (error (exec (new Command (program (● tools node))
-                              (arguments (append (list "--no-warnings"
-                                                       (string-append (● tools root)
-                                                                      "/host/native/run-snail.mjs")
-                                                       (string-append generation
-                                                                      "/"
-                                                                      (manifest-name name)))
-                                                 (append (● run arguments) (● job arguments))))
-                              (directory ".")))))
-       (panic (string-append "cannot run " (● tools node) ": " (● error code)))))))
+            (tools (● job tools)))
+       (become (● tools node)
+               (append (list "--no-warnings"
+                             (string-append (● tools root) "/host/native/run-snail.mjs")
+                             (string-append generation "/" (manifest-name name)))
+                       (append (● run arguments) (● job arguments))))))))
 
 ;; ---- Formatting ----
 
@@ -294,9 +490,19 @@
 
 ;; ---- The invocation ----
 
-;; A build or a run.
+;; A build or a run, of a script or a project's target.
 
-(define (invoke (job Job)) (→ Unit) (! mut fs clock process output-port)
+(define (invoke (request Request)) (→ Unit) (! mut fs clock process output-port)
+  (match request
+    ((ScriptRequest script)
+     (if (● script run?)
+         (run-script script)
+         (begin
+           (build-script script)
+           (write-line (string-append (● script workspace) "/build/" (script-name script))))))
+    ((ProjectRequest job) (invoke-project job))))
+
+(define (invoke-project (job Job)) (→ Unit) (! mut fs clock process output-port)
   (match (read-project (● job project))
     ((Err failure) (panic (failure->string failure)))
     ((Ok description)
@@ -316,5 +522,7 @@
      (format-command (format-request arguments)))
     ((Cons _ (Cons root (Cons runtime (Cons toolchain (Cons "lsp" (Nil))))))
      (serve-language (tools-of root runtime toolchain)))
+    ((Cons _ (Cons root (Cons runtime (Cons toolchain (Cons "wat" (Cons file (Nil)))))))
+     (print-wat (tools-of root runtime toolchain) file))
     (arguments (invoke (request arguments))))
   (unit))

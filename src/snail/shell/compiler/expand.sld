@@ -1447,9 +1447,9 @@
     (define (expand-top-level (cx Context) (env Env) (forms (List Syntax)))
       (→ Context)
       (! fs compile generator)
-      (expanding cx ((scanned (each (lambda (cx form) (scan-top-level cx env form)) forms)))
-                 (let* ((pending (concatenate scanned))
-                        (signatures
+      (expanding cx ((scanned (each (lambda (cx form) (scan-top-level cx env form)) forms))
+                     (pending (with-statements env (concatenate scanned))))
+                 (let* ((signatures
                          (fold-left (lambda (table entry) (with-signature cx table entry))
                                     (empty-table)
                                     pending)))
@@ -1457,6 +1457,54 @@
                                                 pending)))
                               (check-buildable-records cx pending)
                               (expand-bodies cx (concatenate bodies))))))
+
+    ;; A script's statements, the root program's top-level expressions, are
+    ;; the body of its entry, `main`, in order: a function of no parameters
+    ;; whose type is inferred, so the effects the statements perform are the
+    ;; program's, declared nowhere. Each statement's value is dropped, and
+    ;; the entry answers unit. A library's top level has no statements.
+
+    (define (with-statements (cx Context) (env Env) (pending (List Pending)))
+      (→ (Pair (List Pending) Context))
+      (! compile)
+      (match (filter statement? pending)
+        ((Cons first _)
+         (if (string=? (● cx prefix) "main")
+             (let* ((loc (syntax-loc (● first form))) (name (Ident "main" (None) loc)))
+               (when (any? defines-main? pending)
+                 (compile-error loc "a script with statements defines no main: they are its entry"))
+               (new Pair
+                 (first (append (filter (lambda (entry) (not (statement? entry))) pending)
+                                (list (script-entry env name pending loc))))
+                 (second (bind-top cx env name (Global (unique-name cx name))))))
+             (new Pair (first pending) (second cx))))
+        ((Nil) (new Pair (first pending) (second cx)))))
+
+    (define (statement? (entry Pending)) (→ Bool)
+      (string=? (● entry keyword) "expression"))
+
+    (define (defines-main? (entry Pending)) (→ Bool)
+      (match (● entry definition)
+        ((Some definition) (match (● definition name) ((Ident "main" _ _) #t) (_ #f)))
+        ((None) #f)))
+
+    (define (script-entry (env Env) (name Syntax) (pending (List Pending)) (loc Loc)) (→ Pending)
+      (new Pending
+        (keyword "define")
+        (form (Form (list (Ident "define" (None) loc) name) loc))
+        (env env)
+        (definition
+          (Some (new Definition
+                  (name name)
+                  (parameters (Some (Nil)))
+                  (header (new DefinitionHeader
+                            (result (None))
+                            (effects (Nil))
+                            (variables (Nil))
+                            (constraints (Nil))))
+                  (body (append (map (lambda (entry) (● entry form)) (filter statement? pending))
+                                (list (Atom (DUnit) loc))))
+                  (loc loc))))))
 
     ;; A body that fails leaves the context as it was before it, and the
     ;; bodies after it are expanded all the same, so one compile reports
@@ -1645,7 +1693,7 @@
              (second cx)))
           (("expression")
            (compile-error (syntax-loc form)
-                          "top-level expressions are not allowed; put runtime work in main"))
+                          "a library's top level has no statements; only a script's does"))
           (else (new Pair (first (Nil)) (second cx))))))
 
     (define (expose-item (cx Context) (env Env) (form Syntax)) (→ Item) (! compile)

@@ -1,28 +1,27 @@
 # Development toolchain
 
-A project build keeps each library as its own module, with the runtime as a
-separate instance, all objects of the project's store and named by the
-target's manifest ([output directories](projects.md#output-directories)). Debug
+A build keeps each library as its own module, with the runtime as a
+separate instance, all objects of the workspace's store and named by the
+build's manifest ([output directories](projects.md#output-directories)). Debug
 and release builds have that one shape; `--release` copies the objects into
 the output instead of linking to them, and runs no function-body optimizer.
-`snailc` and stage 0 still link a single program into one module.
+Stage 0 still links a single program into one module.
 
 | Command | Build |
 | --- | --- |
 | `snail-scheme build`, `snail-scheme run`, `snail-scheme lsp` | Debug: a module per library, linked to the store |
 | `snail-scheme build --release`, `make site` | Release: a module per library, copied from the store |
-| `snailc compile` | One linked module |
 
-The public commands operate on projects. A single source file goes through
-`snailc` (`tools/snailc.sld`), a program target of the repository's own
-project that compiles with the compiler inside it:
-`./snail-scheme run . snailc run [-I DIR] SOURCE [ARGUMENT ...]` and
-`wat SOURCE` run it or print its text, and `compile -o FILE SOURCE` writes a
-runnable Wasm file and its WAT, without project publication guarantees. It
-links with the toolchain runtime, as a target asks with `(runtime toolchain)`
-among its program options, since it assembles and links in-process. What
-needs a project's build, a `generate-library` producer or the files a program
-links, it refuses.
+A script, a single source file, is built and run with an explicit target,
+`node`, `wasmtime` or `browser`
+([scripts](scripts.md)): `./snail-scheme run --target node FILE [ARGUMENT ...]`
+builds it into `build/PATH`, PATH being its path in its workspace without
+the extension, and runs it, and `./snail-scheme wat FILE` prints its whole
+program's text. Its statements, in order, are its entry, whose effects are
+inferred. A program links with the toolchain runtime, whose services
+include the assembler, exactly when it links `(snail shell assembler)`.
+`wat` runs no producer, so a script that reaches a `generate-library`
+recipe must be built instead.
 
 Compiler contributors also have `build/snail`, which Cargo builds from
 `crates/snail`: a native executable that embeds wasmtime. Its subcommands
