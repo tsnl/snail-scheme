@@ -12,7 +12,6 @@ pub mod assembler;
 mod datum;
 mod host;
 mod io;
-mod math;
 mod paths;
 
 // ---- Module initialization ----
