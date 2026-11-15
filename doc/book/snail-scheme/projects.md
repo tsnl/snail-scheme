@@ -36,6 +36,8 @@ over the same project ([editors](toolchain.md#editors)). Each application's
 output is under `build/TARGET`; application directories have no separate project
 description. Test fixtures retain their own projects.
 
+A single script needs no project:
+`snail-scheme build --target node FILE` builds it ([scripts](scripts.md)).
 `snail-scheme build [--release] PROJECT BUILD-TARGET` publishes one selected target and
 its required artifacts. `snail-scheme run PROJECT RUN-TARGET [ARGUMENT ...]` builds and
 runs a named program, and `snail-scheme lsp` answers an editor for the project it

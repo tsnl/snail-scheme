@@ -73,13 +73,22 @@ What a platform offers is split into capability effects, one for each service,
 such as `output-port`, `input-port`, the page's document, sockets or processes.
 There is no marker effect for a platform as a whole.
 
-A target is a set of implicit handlers, one for each capability it provides.
-The build wraps the script in its target's handlers, as the host wraps a program
-in the task scheduler today, so the script performs `write-string` and the
-target's `output-port` handler answers. Any effect left in the row after those
-handlers is a build error naming each capability the target lacks. An effect the
-program handles itself, such as the compiler's `compile`, never reaches the
-target.
+An entry's inferred effect row, the script's or an exposed function's, is
+what it requires, as a dependency-injection interface: nothing in the program
+handles those effects. A target is a library of handlers, one for each
+capability it provides, `(snail target node)` for instance, and the build
+injects them into every entry, as evidence passed to it, so the script
+performs `write-string` and the target's `output-port` handler answers. Any
+effect left in the row after those handlers is a build error naming each
+capability the target lacks. An effect the program handles itself, such as
+the compiler's `compile`, never reaches the target.
+
+The handlers answer by calling the host: every `extern` declares
+`unsafe-extern`, a marker effect with no operations, in its type, so no
+foreign call looks pure. It is the one effect the runtime itself provides.
+The handful of foreign functions that are pure today, the math functions,
+Unicode tables and float printing, move into `snail-scheme` code first, so no
+declaration claims purity across the boundary.
 
 Code meant for several targets asks only for the capabilities it uses. A library
 that writes text needs `output-port`, not "Node", so any target whose handlers
@@ -148,37 +157,36 @@ That path cannot collide, and it is stable, which is what future caching needs.
 
 ## Output: modules, a manifest and the store
 
-Every build has the same shape, debug or release:
-
-- **One module per library.** Debug and release both keep a module for each
-  library. Caching then works the same way in both. A release ships several
-  files in any case.
-- **A manifest**, `main.manifest.datum`, naming every file the program needs:
-  its modules in link order, the runtime, and each linked file. Each entry gives
-  a path and the object's digest.
-- **One store**, `build/.snail-store/sha256/ab/abcdef…`, shared by every build in the
-  workspace. An object is named for the SHA-256 of its bytes and sharded by the
-  first two hex digits. It is written once and never rewritten.
+- **A debug build keeps one module per library,** linked when the program
+  starts, with the runtime as an instance of its own.
+- **A release build is fully linked:** the runtime and every library fused
+  into one module, then optimized with Binaryen's `wasm-opt`, which can
+  inline the runtime's functions into the program. Calls into the runtime
+  are then ordinary calls.
+- **A manifest**, `main.manifest.datum`, names every object the program
+  needs by digest and size: `(runtime "DIGEST" SIZE)`, `(module "LIBRARY"
+  "DIGEST" SIZE)` for each library in link order, `(file "DIGEST" SIZE)`
+  for each linked file.
+- **One store**, `build/.snail-store/sha256/ab/abcdef…`, shared by every
+  build in the workspace. An object is named for the SHA-256 of its bytes and
+  sharded by the first two hex digits. It is written once and never rewritten.
 
 Nothing reclaims the store. Delete `build/` and rebuild from time to time. A
 `snail-scheme gc` command can come later if it is needed.
 
-The output folder holds the manifest and a view of it: each path the manifest
-names is a relative symbolic link to its object in the store, or, for a debug
-build's linked file, to the file itself. The folder can therefore be served or
-run as it is, as `python3 -m http.server --directory build/src/apps/siegework/main`
-serves a browser program. The manifest is the record; the links are derived
-from it and rewritten by each build.
+The output folder holds the manifest and a view of the objects it names at
+the same paths under its own `store/`: relative links into the store in a debug
+build, copies in a release build. The folder can therefore be served or run as
+it is, as `python3 -m http.server --directory build/src/apps/siegework/main`
+serves a browser program.
 
 ## Linked files
 
 `link-file` loses its path restrictions. A path may leave the library's
 directory, including into a producer's output.
 
-- In a release build, the linked file is copied into the store, and the manifest
-  names its digest.
-- In a debug build, the manifest gives the file's own path. A copy-on-write copy
-  would be better, later.
+- Every build places the linked file in the store, and the manifest names its
+  digest; a debug build's view links to it, a release build's copies it.
 
 ## Embedding another build
 
@@ -220,19 +228,28 @@ Each step is a pull request that passes every check on its own.
    - All builds share the sharded `build/.snail-store/`, and each writes its
      `.manifest.datum`.
    - Targets still come from `project.datum`.
-3. **Scripts and `run`/`build FILE`.**
-   - Top-level statements, and resolution under `src/`.
-   - The shared build flags. Each `--target` supplies implicit handlers for
-     its capabilities, which replace the libraries' `default`s, and a
-     capability left unhandled fails the build.
-   - The output path comes from the script's path.
-   - `snailc` and `-o` go.
-4. **Applications become scripts.**
+3. **Scripts and `run`/`build FILE`.** Done, but for targets' handlers:
+   - Top-level statements, and resolution under the workspace's `src/`.
+   - The shared build flags, `--target` and `--release`.
+   - The output path comes from the script's path, and the toolchain
+     runtime from linking `(snail shell assembler)`.
+   - `snailc` and `-o` go; `snail-scheme wat FILE` prints a script's text.
+   - Each `--target` supplying its handlers comes in step 5.
+4. **Constant arrays, then pure foreign functions in `snail-scheme`.**
+   - Top-level tables of primitives compiled to immutable Wasm globals.
+   - The math functions, Unicode tables and float printing in `snail-scheme`.
+5. **Targets as handler libraries.**
+   - `host` becomes `unsafe-extern`, which every `extern` declares.
+   - A handler library per target, injected into every entry; a capability
+     left unhandled fails the build.
+   - `default` and `around-main` go.
+6. **Release builds fully linked,** with `wasm-opt` from Binaryen.
+7. **Applications become scripts.**
    - Prototype the page's top level as a task.
    - Move Siegework and Hearsay to `src/apps/NAME/main.scm`, with a winit-style
      helper.
    - Remove the `Application` class.
-5. **Embedding, then no project file.**
+8. **Embedding, then no project file.**
    - Producers call the compiler, and `link-file` is loosened.
    - Port the `artifact-bundle` tests, then delete `artifact.sld`, `plan.sld`,
      `project.sld` and the root `project.datum`.

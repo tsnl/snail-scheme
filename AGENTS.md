@@ -35,8 +35,8 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   that form to the same mutable record slots. Stage 0's one product is the
   stage 1 command line, `bootstrap/cli.sld`, built by `scripts/bootstrap`,
   which also holds the engine that links every per-library program; the
-  command line builds everything else (`snailc` and the book's
-  highlighter) as targets of the root project. Every project build writes
+  command line builds everything else: scripts, run as
+  `./snail-scheme run --target node FILE`, and the root project's targets. Every project build writes
   one module per library into the sharded store `build/.snail-store` and
   names them in `TARGET.manifest.datum`.
   The test harness also compiles through stage 0's driver.

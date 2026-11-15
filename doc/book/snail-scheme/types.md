@@ -383,8 +383,7 @@ package's data, and the library reads it when it needs it:
 - **Shipped by content.** The build places the file as an object of the
   program's store, at `STORE/sha256/AB/DIGEST`, where DIGEST is the
   SHA-256 of its bytes in hex and AB its first two digits, in every build
-  that produces one. `snailc`, which builds
-  outside a project, refuses a program that links files. A program's store
+  that produces one. A program's store
   is `store/` beside its module or its `NAME.manifest.datum`, which lists
   each object with its size. The name is
   never a path or a library's: libraries that link the same bytes ship one

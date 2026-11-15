@@ -43,12 +43,12 @@ present() {
 
 case ${1:-} in
   -h|--help) cat "$root/scripts/snail-help.txt"; exit 0 ;;
-  build|run|lsp|format) ;;
-  *) printf 'snail-scheme: expected build, run, lsp or format; use --help\n' >&2; exit 2 ;;
+  build|run|wat|lsp|format) ;;
+  *) printf 'snail-scheme: expected build, run, wat, lsp or format; use --help\n' >&2; exit 2 ;;
 esac
 
 # The command line is a `snail-scheme` program (bootstrap/cli.sld). A
-# program it runs, such as tools/snailc.sld, finds the repository and the
+# program it builds finds the repository and the
 # runtime programs link with in the environment.
 tools=$(tools) || exit 1
 { read -r cli && read -r runtime && read -r toolchain; } <<TOOLS
