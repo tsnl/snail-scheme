@@ -11,6 +11,8 @@
   (export
    program->wat
    program->wat-for
+   program-target
+   run-target-compiler
    run-compiler
    chez-compiler
    cli-compiler
@@ -73,12 +75,17 @@
     ;; wasmtime) under SNAIL_ENGINE=wasmtime, unless it is one of the
     ;; programs that need Node's processes, signals or sockets, and for
     ;; (snail target node) otherwise. A program built for Node imports
-    ;; Node's host modules, so Node runs it.
+    ;; Node's host modules, so Node runs it. A page's program builds for
+    ;; (snail target browser), whose host its test emulates.
     (define (program-target root source)
-      (if (and (wasmtime-engine?)
-               (not (member source (map (lambda (path) (path-join root path)) node-programs))))
-          "wasmtime"
-          "node"))
+      (let ((named?
+             (lambda (paths) (member source (map (lambda (path) (path-join root path)) paths)))))
+        (cond ((named? browser-programs) "browser")
+              ((and (wasmtime-engine?) (not (named? node-programs))) "wasmtime")
+              (else "node"))))
+
+    (define browser-programs
+      '("tests/app-runtime/main.sld"))
 
     (define node-programs
       '("tests/programs/http-exchange.sld"
@@ -162,18 +169,7 @@
 
     ;; The text of a program built for (snail target TARGET).
     (define (program->wat-for root target directories source)
-      (with-private-directory root
-                              (lambda (directory)
-                                (let ((output (path-join directory "output.wat")))
-                                  (run-compiler-for root
-                                                    (selected-compiler root)
-                                                    "wat"
-                                                    target
-                                                    directories
-                                                    source
-                                                    output
-                                                    directory)
-                                  (read-file output)))))
+      (run-target-compiler root (selected-compiler root) "wat" target directories source))
 
     ;; The program's text with the files it links, (TEXT (NAME . PATH) ...),
     ;; for a caller that links the text itself and places the files.
@@ -195,16 +191,20 @@
     ;; gives each unit its own output directory. Compiles running at once in
     ;; one checkout, as the suite's do, never share a file.
     (define (run-compiler root command mode directories source)
+      (run-target-compiler root command mode "node" directories source))
+
+    (define (run-target-compiler root command mode target directories source)
       (with-private-directory root
                               (lambda (directory)
                                 (let ((output (path-join directory "output.wat")))
-                                  (run-compiler-into root
-                                                     command
-                                                     mode
-                                                     directories
-                                                     source
-                                                     output
-                                                     directory)
+                                  (run-compiler-for root
+                                                    command
+                                                    mode
+                                                    target
+                                                    directories
+                                                    source
+                                                    output
+                                                    directory)
                                   (read-file output)))))
 
     ;; Programs resolve ordinary libraries under src/. The Chez loader has

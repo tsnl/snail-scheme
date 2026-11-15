@@ -1,6 +1,6 @@
 ;; The page's screen, as host/browser/host.mjs provides it: one import per
-;; drawing command, each taking scalars. (snail shell app)'s `screen` effect
-;; defaults to these.
+;; drawing command, each taking scalars. (snail shell app)'s
+;; `provide-screen` answers `screen` with these.
 (define-library (snail runtime browser screen)
   (export
    frame-begin

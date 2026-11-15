@@ -131,9 +131,10 @@ the host, such as `provide-fs` in `(snail core io)`, and a target's
 | `screen` | `(snail shell app)` | — | — | — | ✓ |
 | `assembler` | `(snail shell assembler)` | — | ✓ | ✓ | — |
 
-Today the targets' handlers cover the rows from `output-port` to `tcp`
-and `udp`; the page's capabilities still answer through their library's
-`default`, until they move into `browser`.
+Every capability in the table but `dom`, `fetch` and `assembler` is
+answered by its target's handlers. The page's interface installs `dom` and
+`fetch` itself, with `with-page-dom` and `with-page-fetch`
+(`(snail shell ui page)`), and a tool installs its assembler.
 
 The table states the rule the build checks, so changing what a host provides
 means changing this table and the target's handlers together. It replaces
@@ -281,7 +282,10 @@ Each step is a pull request that passes every check on its own.
      `provide-process`, `provide-signals`, `provide-tcp` and `provide-udp`.
      Under `SNAIL_ENGINE=wasmtime` a test program builds for `wasmtime`
      unless stage 0's `node-programs` names it.
-   - The page's capabilities move into `browser`.
+   - The page's capabilities move into `browser`: done. `events`,
+     `storage` and `screen` have no `default`, and `browser` installs
+     `provide-events`, `provide-storage` and `provide-screen`. Stage 0's
+     `browser-programs` names the tests that build for it.
    - A capability left unhandled fails the build.
    - `default` goes.
    - `host` becomes `unsafe-extern`, which every `extern` declares.

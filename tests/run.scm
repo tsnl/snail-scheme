@@ -336,7 +336,13 @@
 (define (emitted root command what program)
   (guard (failure
           (#t (report "host agreement" (string-append what " failed") (error-text failure))))
-    (run-compiler root command "wat" (standard-directories root) (path-join root program))))
+    (let ((source (path-join root program)))
+      (run-target-compiler root
+                           command
+                           "wat"
+                           (program-target root source)
+                           (standard-directories root)
+                           source))))
 
 ;; The compiled compiler and its source on Chez must emit the same text
 ;; for the same program; `make bootstrap` checks the compiler itself. The
