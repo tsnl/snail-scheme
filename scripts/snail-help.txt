@@ -1,6 +1,6 @@
 Usage: snail-scheme build --target TARGET [--release] FILE
        snail-scheme run --target TARGET [--release] FILE [ARGUMENT ...]
-       snail-scheme wat FILE
+       snail-scheme wat --target node|wasmtime|browser FILE
        snail-scheme build [--release] PROJECT BUILD-TARGET
        snail-scheme run PROJECT RUN-TARGET [ARGUMENT ...]
        snail-scheme lsp

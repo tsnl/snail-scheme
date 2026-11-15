@@ -23,23 +23,33 @@
 
     ;; ---- Compilation ----
 
-    ;; `MODE SOURCE OUTPUT GENERATED DIRECTORY ...`, the one compile.
+    ;; `MODE TARGET SOURCE OUTPUT GENERATED DIRECTORY ...`, the one compile.
+    ;; TARGET names the target library, (snail target TARGET), whose
+    ;; handlers the program's entry runs under.
 
     (define (compile-arguments (arguments (List String))) (→ Unit) (! mut fs)
       (match arguments
-        ((Cons mode (Cons source (Cons output (Cons generated directories))))
-         (match (compiling (lambda () (compile-mode mode source output generated directories)))
+        ((Cons mode (Cons target (Cons source (Cons output (Cons generated directories)))))
+         (match (compiling (lambda ()
+                             (compile-mode mode
+                                           (Some (list "snail" "target" target))
+                                           source
+                                           output
+                                           generated
+                                           directories)))
            ((Ok _) (unit))
            ((Err (Requested request))
             (publish-request generated request)
             (panic "compiler requires an input"))
            ((Err (Failed diagnostics)) (panic (diagnostics->string diagnostics)))))
-        (_ (panic "usage: compile wat|modules SOURCE OUTPUT GENERATED [DIRECTORY ...]"))))
+        (_ (panic
+            "usage: compile wat|modules node|wasmtime|browser SOURCE OUTPUT GENERATED [DIRECTORY ...]"))))
 
     ;; Writes what `mode` asks for: a module for each library, or the whole
     ;; program.
 
     (define (compile-mode (mode String)
+                          (target (Option (List String)))
                           (source String)
                           (output String)
                           (generated String)
@@ -51,10 +61,10 @@
         (if (string=? mode "modules")
             (write-modules output
                            generated
-                           (source->modules directories source generate (no-inputs)))
+                           (source->modules directories source generate (no-inputs) target))
             (write-program output
                            generated
-                           (source->wat directories source generate (no-inputs))))))
+                           (source->wat directories source generate (no-inputs) target)))))
 
     (define (write-program (output String) (generated String) (program WholeProgram))
       (→ Unit)

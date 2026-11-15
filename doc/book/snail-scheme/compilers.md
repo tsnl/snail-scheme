@@ -30,7 +30,7 @@ when the program loads; stage 0 links the complete program with
 the Rust scalar services into one module. The same checking and preparation
 contracts serve both.
 Start with `examples/fibonacci.sld`, inspect its output with
-`./snail-scheme wat examples/fibonacci.sld`, then follow the passes
+`./snail-scheme wat --target node examples/fibonacci.sld`, then follow the passes
 below.
 
 ## The passes

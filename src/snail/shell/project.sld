@@ -46,10 +46,13 @@
 
     ;; A program links with the runtime whose services include the
     ;; assembler exactly when it links (snail shell assembler).
+    ;; `platform` is the target library its program runs under, such as
+    ;; (snail target node).
     (record ProgramBuild
       ((name String)
        (entry ProjectEntry)
        (libraries (List ProjectPath))
+       (platform (List String))
        (loc Loc)))
 
     (record BrowserBuild
@@ -194,6 +197,7 @@
                                      (name name)
                                      (entry path)
                                      (libraries roots)
+                                     (platform (list "snail" "target" "node"))
                                      (loc declaration))))))))
           ((Cons form rest)
            (match form
