@@ -14,8 +14,6 @@ mod host;
 mod io;
 mod math;
 mod paths;
-mod text;
-mod unicode;
 
 // ---- Module initialization ----
 

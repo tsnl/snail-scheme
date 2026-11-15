@@ -1,6 +1,6 @@
-//! Unicode 16.0 casing exceptions and decimal digits.
-//! Generated against Rust's native casing by a generator that now lives only
-//! in the repository history (scripts/generate-unicode).
+//! Unicode 17.0 casing exceptions and decimal digits, which Rust's native
+//! casing lacks or answers differently; main.rs reads every scalar through
+//! them. Generated once by scripts/generate-unicode, now in the history.
 //! Unicode data © 2024 Unicode, Inc.; https://www.unicode.org/license.txt
 
 // Regenerate the exceptions when Rust changes its Unicode baseline.
@@ -10,7 +10,7 @@ const _: () = assert!(
 
 // ---- Uppercase ----
 
-pub(crate) fn uppercase(character: char) -> char {
+pub fn uppercase(character: char) -> char {
     match character {
         '\u{1f80}' => '\u{1f88}',
         '\u{1f81}' => '\u{1f89}',
@@ -81,7 +81,7 @@ pub(crate) fn uppercase(character: char) -> char {
 
 // ---- Lowercase ----
 
-pub(crate) fn lowercase(character: char) -> char {
+pub fn lowercase(character: char) -> char {
     match character {
         '\u{130}' => '\u{69}',
         '\u{a7ce}' => '\u{a7ce}',
@@ -126,7 +126,7 @@ pub(crate) fn lowercase(character: char) -> char {
 
 // ---- Fold character ----
 
-pub(crate) fn fold_character(character: char) -> char {
+pub fn fold_character(character: char) -> char {
     match character {
         '\u{b5}' => '\u{3bc}',
         '\u{17f}' => '\u{73}',
@@ -369,9 +369,9 @@ pub(crate) fn fold_character(character: char) -> char {
 
 // The pinned full mappings and native fallback contain one through three
 // scalars. The generator checks this bound; NUL remains an ordinary scalar.
-pub(crate) struct Folded {
-    pub(crate) scalars: [char; 3],
-    pub(crate) len: usize,
+pub struct Folded {
+    pub scalars: [char; 3],
+    pub len: usize,
 }
 
 fn collect_folded(mapped: impl Iterator<Item = char>) -> Folded {
@@ -387,7 +387,7 @@ fn collect_folded(mapped: impl Iterator<Item = char>) -> Folded {
     result
 }
 
-pub(crate) fn full_fold(character: char) -> Folded {
+pub fn full_fold(character: char) -> Folded {
     let exception = match character {
         '\u{b5}' => "\u{3bc}",
         '\u{df}' => "\u{73}\u{73}",
@@ -721,7 +721,7 @@ pub(crate) fn full_fold(character: char) -> Folded {
 
 // ---- Decimal digits ----
 
-pub(crate) fn digit_value(character: char) -> Option<u8> {
+pub fn digit_value(character: char) -> Option<u8> {
     const STARTS: &[u32] = &[
         0x30, 0x660, 0x6f0, 0x7c0, 0x966, 0x9e6, 0xa66, 0xae6, 0xb66, 0xbe6, 0xc66, 0xce6, 0xd66,
         0xde6, 0xe50, 0xed0, 0xf20, 0x1040, 0x1090, 0x17e0, 0x1810, 0x1946, 0x19d0, 0x1a80, 0x1a90,

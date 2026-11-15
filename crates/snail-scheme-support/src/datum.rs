@@ -63,11 +63,3 @@ pub extern "C" fn text_character(index: u32) -> u32 {
             .ok_or_else(|| "real text character index out of range".into())
     }))
 }
-
-#[unsafe(export_name = "snail:datum/whitespace")]
-pub extern "C" fn whitespace(code: u32) -> i32 {
-    i32::from(
-        checked(char::from_u32(code).ok_or_else(|| "invalid Unicode scalar".into()))
-            .is_whitespace(),
-    )
-}
