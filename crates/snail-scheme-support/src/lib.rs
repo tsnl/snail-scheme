@@ -1,15 +1,13 @@
 //! Scalar host services linked into `snail-scheme`'s Wasm programs.
 //!
 //! Managed values remain in compiled `snail-scheme`. Rust owns streams behind scalar
-//! IDs and synchronous text-conversion and path-reply scratch; it never holds
-//! guest GC roots.
+//! IDs and path-reply scratch; it never holds guest GC roots.
 
 // Ordinary cargo tests exercise helpers independently of a Wasm engine.
 #![cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
 
 #[cfg(feature = "assembler")]
 pub mod assembler;
-mod datum;
 mod host;
 mod io;
 mod paths;
@@ -97,63 +95,11 @@ pub extern "C" fn monotonic() -> i64 {
     i64::try_from(elapsed.as_nanos()).unwrap_or(i64::MAX)
 }
 
-// ---- Floating-point text ----
-
-fn parse_float(text: &str) -> Option<f64> {
-    if text.eq_ignore_ascii_case("+inf.0") {
-        Some(f64::INFINITY)
-    } else if text.eq_ignore_ascii_case("-inf.0") {
-        Some(f64::NEG_INFINITY)
-    } else if text.eq_ignore_ascii_case("+nan.0") || text.eq_ignore_ascii_case("-nan.0") {
-        Some(f64::NAN)
-    } else if text.contains(['.', 'e', 'E']) {
-        text.parse().ok()
-    } else {
-        None
-    }
-}
-
-fn float_text(number: f64) -> String {
-    if number.is_nan() {
-        "+nan.0".into()
-    } else if number == f64::INFINITY {
-        "+inf.0".into()
-    } else if number == f64::NEG_INFINITY {
-        "-inf.0".into()
-    } else {
-        finite_float_text(number)
-    }
-}
-
-fn finite_float_text(number: f64) -> String {
-    let mut text = format!("{number:?}");
-    // Match the bootstrap writer's explicit positive exponent. Both spellings
-    // read identically, but compiler output is compared byte for byte.
-    if let Some(index) = text.find('e') {
-        if text.as_bytes()[index + 1] != b'-' {
-            text.insert(index + 1, '+');
-        }
-    }
-    text
-}
-
 // ---- Tests ----
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn floating_text_preserves_sign_exponents_and_nonfinite_values() {
-        assert_eq!(float_text(-0.0), "-0.0");
-        assert_eq!(float_text(f64::INFINITY), "+inf.0");
-        assert_eq!(float_text(9.223372036854776e18), "9.223372036854776e+18");
-        assert_eq!(float_text(1.25e-18), "1.25e-18");
-        assert!(parse_float("+nan.0").unwrap().is_nan());
-        assert_eq!(parse_float("3"), None);
-        assert_eq!(parse_float("3.5"), Some(3.5));
-        assert_eq!(parse_float("+INF.0"), Some(f64::INFINITY));
-    }
 
     #[test]
     fn the_monotonic_clock_starts_near_zero_and_never_runs_back() {
