@@ -876,17 +876,252 @@
       (define (show (value F32)) (→ String)
         (f64->string (f32->f64 value))))
 
-    ;; Copy the runtime's scratch text before returning. string-generate calls
-    ;; only this private reader, so no user conversion can overwrite it.
-    (extern real-text "snail.core.support" "snail:datum/real-text" (Fn F64 → I32))
-    (extern text-character
-            "snail.core.support"
-            "snail:datum/text-character"
-            (Fn I32 → Char))
+    ;; ---- Printing reals ----
+
+    ;; A double prints as the shortest decimal that reads back as it, and
+    ;; the nearest such when several are as short, laid out as Rust's `{:?}`
+    ;; lays it out: positionally from 1e-4 up to 1e16, with at least one
+    ;; fractional digit, and in scientific notation otherwise, its exponent
+    ;; signed so the text reads the same in every host ("1e+22", "5e-324").
 
     (define (f64->string (value F64)) (→ String)
-      (string-generate (i32->i64 (real-text value))
-                       (lambda (index) (text-character (i64->i32 index)))))
+      (cond ((not (= value value)) "+nan.0")
+            ((= value (/ 1.0 0.0)) "+inf.0")
+            ((= value (/ -1.0 0.0)) "-inf.0")
+            (else (string-append (if (< (f64->bits value) 0) "-" "")
+                                 (magnitude-text (bits->f64 (i64-and (f64->bits value)
+                                                                     9223372036854775807)))))))
+
+    (define (magnitude-text (value F64)) (→ String)
+      (cond ((= value 0.0) "0.0")
+            ((or (< value 1e-4) (>= value 1e16)) (scientific (shortest-digits value)))
+            (else (positional (shortest-digits value)))))
+
+    ;; 0.d1 d2 ... dn × 10^exponent, d1 nonzero.
+    (record Decimal
+      ((digits String)
+       (exponent I64)))
+
+    (define (positional (decimal Decimal)) (→ String)
+      (let* ((digits (● decimal digits))
+             (n (string-length digits))
+             (k (● decimal exponent)))
+        (cond ((<= k 0) (string-append "0." (make-string (negate k) #\0) digits))
+              ((< k n) (string-append (substring digits 0 k) "." (substring digits k n)))
+              (else (string-append digits (make-string (- k n) #\0) ".0")))))
+
+    (define (scientific (decimal Decimal)) (→ String)
+      (let* ((digits (● decimal digits))
+             (n (string-length digits))
+             (power (- (● decimal exponent) 1)))
+        (string-append (substring digits 0 1)
+                       (if (> n 1) (string-append "." (substring digits 1 n)) "")
+                       (if (< power 0) "e-" "e+")
+                       (i64->string (abs power)))))
+
+    ;; ---- Printing reals: the shortest digits ----
+
+    ;; The double is mant × 2^exp, and its rounding interval reaches minus
+    ;; below and plus above in the same units: half the gaps to its
+    ;; neighbours, the lower half as large for a power of two. The ends
+    ;; round to the double itself when its mantissa is even.
+    (record Decoded
+      ((mant I64)
+       (minus I64)
+       (plus I64)
+       (exp I64)
+       (inclusive Bool)))
+
+    (define (decode-real (value F64)) (→ Decoded)
+      (let* ((bits (f64->bits value))
+             (biased (i64-and (i64-shift-right bits 52) 2047))
+             (fraction (i64-and bits 4503599627370495))
+             (mant (if (= biased 0) (i64-shift-left fraction 1) (i64-or fraction 4503599627370496)))
+             (even (= (i64-and mant 1) 0))
+             (exp (- biased 1075)))
+        (cond ((= biased 0) (new Decoded (mant mant) (minus 1) (plus 1) (exp exp) (inclusive even)))
+              ((= fraction 0)
+               (new Decoded
+                 (mant (i64-shift-left mant 2))
+                 (minus 1)
+                 (plus 2)
+                 (exp (- exp 2))
+                 (inclusive even)))
+              (else
+               (new Decoded
+                 (mant (i64-shift-left mant 1))
+                 (minus 1)
+                 (plus 1)
+                 (exp (- exp 1))
+                 (inclusive even))))))
+
+    ;; Steele and White's free-format digits, as Dragon4 and Rust's flt2dec
+    ;; produce them: with mant, minus and plus scaled so the first digit is
+    ;; mant / scale, each step emits a digit and stops once the digits so
+    ;; far, or one more than the last, fall inside the interval. Exact
+    ;; arithmetic on big naturals keeps every step a decision, not a guess.
+    (record Bounds
+      ((mant (List I64))
+       (minus (List I64))
+       (plus (List I64))
+       (scale (List I64))))
+
+    (define (shortest-digits (value F64)) (→ Decimal)
+      (let* ((decoded (decode-real value))
+             (k (estimate-exponent (+ (● decoded mant) (● decoded plus)) (● decoded exp)))
+             (rounding (if (● decoded inclusive) 1 0))
+             (bounds (scaled-bounds decoded k)))
+        (if (< (big-compare (● bounds scale) (big-add (● bounds mant) (● bounds plus) 0)) rounding)
+            (next-digit bounds rounding (+ k 1) (Nil))
+            (next-digit (bounds-times-ten bounds) rounding k (Nil)))))
+
+    ;; About log10 of mant × 2^exp, rounded down, and at most one too small:
+    ;; 1292913986 / 2^32 is just under log10 2.
+    (define (estimate-exponent (mant I64) (exp I64)) (→ I64)
+      (i64-shift-right (* (+ (bit-length (- mant 1)) exp) 1292913986) 32))
+
+    (define (bit-length (n I64)) (→ I64)
+      (if (= n 0) 0 (+ 1 (bit-length (i64-shift-right/logical n 1)))))
+
+    ;; mant, minus and plus over scale, as naturals, divided by 10^k.
+    (define (scaled-bounds (decoded Decoded) (k I64)) (→ Bounds)
+      (let* ((exp (● decoded exp))
+             (natural (lambda (n) (big-shift (big n) (max exp 0))))
+             (bounds (new Bounds
+                       (mant (natural (● decoded mant)))
+                       (minus (natural (● decoded minus)))
+                       (plus (natural (● decoded plus)))
+                       (scale (big-shift (big 1) (max (negate exp) 0))))))
+        (if (>= k 0)
+            (Bounds-scale-set bounds (big-times-ten-to (● bounds scale) k))
+            (new Bounds
+              (mant (big-times-ten-to (● bounds mant) (negate k)))
+              (minus (big-times-ten-to (● bounds minus) (negate k)))
+              (plus (big-times-ten-to (● bounds plus) (negate k)))
+              (scale (● bounds scale))))))
+
+    (define (bounds-times-ten (bounds Bounds)) (→ Bounds)
+      (new Bounds
+        (mant (big-times-small (● bounds mant) 10 0))
+        (minus (big-times-small (● bounds minus) 10 0))
+        (plus (big-times-small (● bounds plus) 10 0))
+        (scale (● bounds scale))))
+
+    ;; `digits` so far, the last first. Rounding down leaves the digits
+    ;; inside the interval when mant is below minus; rounding up does when
+    ;; scale − mant is below plus. When both do, the nearer wins, a tie
+    ;; rounding up.
+    (define (next-digit (bounds Bounds) (rounding I64) (k I64) (digits (List I64))) (→ Decimal)
+      (let* ((step (divide-digit (● bounds mant) (● bounds scale)))
+             (mant (● step rest))
+             (digits (Cons (● step digit) digits))
+             (down (< (big-compare mant (● bounds minus)) rounding))
+             (up (< (big-compare (● bounds scale) (big-add mant (● bounds plus) 0)) rounding)))
+        (cond ((and up (or (not down) (>= (big-compare (big-shift mant 1) (● bounds scale)) 0)))
+               (decimal-of (round-up-digits digits) k (+ (length digits) 1)))
+              ((or down up) (decimal-of digits k (length digits)))
+              (else
+               (next-digit (bounds-times-ten (Bounds-mant-set bounds mant)) rounding k digits)))))
+
+    ;; One more than the digits, the last first: a carry past the first
+    ;; digit makes them 1 and zeros, one longer.
+    (define (round-up-digits (digits (List I64))) (→ (List I64))
+      (match digits
+        ((Nil) (list 1))
+        ((Cons digit rest)
+         (if (= digit 9) (Cons 0 (round-up-digits rest)) (Cons (+ digit 1) rest)))))
+
+    ;; Digits that grew past `count` carried into a new first digit.
+    (define (decimal-of (digits (List I64)) (k I64) (count I64)) (→ Decimal)
+      (new Decimal
+        (digits (list->string (map (lambda (digit) (integer->char (+ digit 48))) (reverse digits))))
+        (exponent (if (> (length digits) count) (+ k 1) k))))
+
+    ;; The digit mant / scale, below 10, and the remainder, by subtracting
+    ;; 8, 4, 2 and 1 times scale where they fit.
+    (record Quotient
+      ((digit I64)
+       (rest (List I64))))
+
+    (define (divide-digit (mant (List I64)) (scale (List I64))) (→ Quotient)
+      (fold-left (lambda (division bit)
+                   (let ((part (big-shift scale bit)))
+                     (if (>= (big-compare (● division rest) part) 0)
+                         (new Quotient
+                           (digit (+ (● division digit) (i64-shift-left 1 bit)))
+                           (rest (big-sub (● division rest) part 0)))
+                         division)))
+                 (new Quotient (digit 0) (rest mant))
+                 (list 3 2 1 0)))
+
+    ;; ---- Printing reals: big naturals ----
+
+    ;; A natural as base-2^32 limbs, the least significant first, with no
+    ;; zero limb on top: zero has none. Every limb is an I64 below 2^32, so
+    ;; a limb times a factor below 2^31, plus a carry, fits in an I64.
+
+    (define (big (n I64)) (→ (List I64))
+      (if (= n 0) (Nil) (Cons (i64-and n 4294967295) (big (i64-shift-right/logical n 32)))))
+
+    (define (big-add (a (List I64)) (b (List I64)) (carry I64)) (→ (List I64))
+      (match a
+        ((Nil) (if (= carry 0) b (big-add b (big carry) 0)))
+        ((Cons x a-rest)
+         (match b
+           ((Nil) (big-add b a carry))
+           ((Cons y b-rest)
+            (let ((sum (+ (+ x y) carry)))
+              (Cons (i64-and sum 4294967295) (big-add a-rest b-rest (i64-shift-right sum 32)))))))))
+
+    ;; a − b, for a >= b.
+    (define (big-sub (a (List I64)) (b (List I64)) (borrow I64)) (→ (List I64))
+      (match a
+        ((Nil) (Nil))
+        ((Cons x a-rest)
+         (let* ((y (match b ((Nil) 0) ((Cons y _) y)))
+                (difference (- (- x y) borrow))
+                (rest (big-sub a-rest
+                               (match b ((Nil) (Nil)) ((Cons _ b-rest) b-rest))
+                               (if (< difference 0) 1 0)))
+                (limb (if (< difference 0) (+ difference 4294967296) difference)))
+           (if (and (= limb 0) (null? rest)) (Nil) (Cons limb rest))))))
+
+    (define (big-times-small (a (List I64)) (factor I64) (carry I64)) (→ (List I64))
+      (match a
+        ((Nil) (big carry))
+        ((Cons x rest)
+         (let ((product (+ (* x factor) carry)))
+           (Cons (i64-and product 4294967295)
+                 (big-times-small rest factor (i64-shift-right product 32)))))))
+
+    (define (big-times-ten-to (a (List I64)) (k I64)) (→ (List I64))
+      (if (>= k 9)
+          (big-times-ten-to (big-times-small a 1000000000 0) (- k 9))
+          (big-times-small a (fold-left (lambda (power _) (* power 10)) 1 (iota k)) 0)))
+
+    ;; a × 2^bits: whole limbs of zeros below, then a shift within a limb.
+    (define (big-shift (a (List I64)) (bits I64)) (→ (List I64))
+      (if (null? a)
+          a
+          (append (map (lambda (_) 0) (iota (quotient bits 32)))
+                  (big-times-small a (i64-shift-left 1 (modulo bits 32)) 0))))
+
+    ;; -1, 0 or 1 as a is below, equal to or above b.
+    (define (big-compare (a (List I64)) (b (List I64))) (→ I64)
+      (let ((count-a (length a))
+            (count-b (length b)))
+        (cond ((< count-a count-b) -1)
+              ((> count-a count-b) 1)
+              (else (compare-limbs (reverse a) (reverse b))))))
+
+    (define (compare-limbs (a (List I64)) (b (List I64))) (→ I64)
+      (match a
+        ((Nil) 0)
+        ((Cons x a-rest)
+         (match b
+           ((Nil) 0)
+           ((Cons y b-rest)
+            (cond ((< x y) -1) ((> x y) 1) (else (compare-limbs a-rest b-rest))))))))
 
     ;; ---- Representing values ----
 
