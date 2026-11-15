@@ -5,11 +5,11 @@
 (define-library (snail shell compiler core)
   (export
    Type
-   TCon
-   TFun
-   TRow
-   TVar
-   TRigid
+   T-con
+   T-fun
+   T-row
+   T-var
+   T-rigid
    empty-row
    fn-arrow
    callable-kind
@@ -43,9 +43,9 @@
    builtin-type?
    core-keywords
    Evidence
-   EvInstance
-   EvParam
-   EvHole
+   Ev-instance
+   Ev-param
+   Ev-hole
    Expr
    Term
    Lit
@@ -54,26 +54,26 @@
    App
    New
    Initializer
-   FieldRead
+   Field-read
    If
    Let
    Seq
    Match
    Ann
    Handle
-   BoxAny
+   Box-any
    Downcast
    Clause
    Pattern
-   PWild
-   PVar
-   PLit
-   PCon
+   P-wild
+   P-var
+   P-lit
+   P-con
    lambda-expr?
    expr-references
    expr-reference-types
    expr-children
-   DataType
+   Data-type
    Case
    Field
    Class
@@ -84,7 +84,7 @@
    output-arguments
    row-variable
    Instance
-   Instance-methods-set
+   instance-methods-set
    Import
    Effect
    operation-latent
@@ -106,7 +106,7 @@
    Expose
    item-definitions
    Program
-   Program-items-set
+   program-items-set
    empty-program
    primitive-global
    program-value
@@ -141,27 +141,27 @@
 
     ;; ---- Types ----
 
-    ;; `TCon` names a builtin or declared type by its unique name. A row is a
+    ;; `T-con` names a builtin or declared type by its unique name. A row is a
     ;; set of effect labels, kept sorted, with an optional tail: a type
     ;; variable standing for more labels. Metavariables exist only inside the
     ;; checker, which binds their cells.
     (enum Type
-      (TCon
+      (T-con
        ((name String)
         (args (List Type))))
-      (TFun
+      (T-fun
        ((params (List Type))
         (result Type)
         (row Type)))
-      (TRow
+      (T-row
        ((labels (List String))
         (tail (Option Type))))
-      (TVar
+      (T-var
        ((id I64)))
-      (TRigid
+      (T-rigid
        ((name String))))
 
-    (define (empty-row) (→ Type) (TRow (Nil) (None)))
+    (define (empty-row) (→ Type) (T-row (Nil) (None)))
 
     ;; The signature a callable holds; any other type is its own.
 
@@ -178,22 +178,22 @@
 
     (define (callable-kind (type Type)) (→ (Option String))
       (match type
-        ((TFun _ _ _) (Some "Fn"))
+        ((T-fun _ _ _) (Some "Fn"))
         (_ (None))))
 
     (define (callable-arrow (type Type)) (→ (Option Type))
       (match type
-        ((TFun _ _ _) (Some type))
+        ((T-fun _ _ _) (Some type))
         (_ (None))))
 
     ;; Writing a field changes storage; reading it has no mutation effect.
 
-    (define (mut-row) (→ Type) (TRow (list "mut") (None)))
+    (define (mut-row) (→ Type) (T-row (list "Mut") (None)))
 
     ;; The type of an expression the checker has not yet seen. The checker
     ;; rebuilds every expression, so no later pass meets it.
 
-    (define (unchecked) (→ Type) (TCon "unchecked" (Nil)))
+    (define (unchecked) (→ Type) (T-con "unchecked" (Nil)))
 
     (record Constraint
       ((class String)
@@ -316,17 +316,17 @@
 
     (define (optional-any-type? (type Type)) (→ Bool)
       (match type
-        ((TCon "snail.core.base:Option" (Cons (TCon "Any" (Nil)) (Nil))) #t)
+        ((T-con "snail.core.base:Option" (Cons (T-con "Any" (Nil)) (Nil))) #t)
         (_ #f)))
 
     (define (type->string (type Type)) (→ String)
       (match type
-        ((TFun params result row) (arrow->string "Fn" params result row))
-        ((TCon name (Nil)) (short-name name))
-        ((TCon name args) (string-append "(" (short-name name) (types->string args) ")"))
-        ((TRow _ _) (string-append "{" (row->string type) " }"))
-        ((TVar id) (string-append "?" (i64->string id)))
-        ((TRigid name) name)))
+        ((T-fun params result row) (arrow->string "Fn" params result row))
+        ((T-con name (Nil)) (short-name name))
+        ((T-con name args) (string-append "(" (short-name name) (types->string args) ")"))
+        ((T-row _ _) (string-append "{" (row->string type) " }"))
+        ((T-var id) (string-append "?" (i64->string id)))
+        ((T-rigid name) name)))
 
     (define (arrow->string (kind String) (params (List Type)) (result Type) (row Type)) (→ String)
       (string-append "(" kind (types->string params) " → " (type->string result)
@@ -348,8 +348,8 @@
 
     (define (row-parts (row Type) (labels (List String))) (→ (Pair (List String) (Option Type)))
       (match row
-        ((TRow more (Some tail)) (row-parts tail (label-union labels more)))
-        ((TRow more (None)) (new Pair (first (label-union labels more)) (second (None))))
+        ((T-row more (Some tail)) (row-parts tail (label-union labels more)))
+        ((T-row more (None)) (new Pair (first (label-union labels more)) (second (None))))
         (_ (new Pair (first labels) (second (Some row))))))
 
     ;; (snail core base)'s type with no values. A control operation that
@@ -357,17 +357,17 @@
 
     (define (never-type? (type Type)) (→ Bool)
       (match type
-        ((TCon "snail.core.base:Never" (Nil)) #t)
+        ((T-con "snail.core.base:Never" (Nil)) #t)
         (_ #f)))
 
     (define (string-type? (type Type)) (→ Bool)
       (match type
-        ((TCon "String" (Nil)) #t)
+        ((T-con "String" (Nil)) #t)
         (_ #f)))
 
     (define (bytes-type? (type Type)) (→ Bool)
       (match type
-        ((TCon "Vector" (Cons (TCon "U8" (Nil)) (Nil))) #t)
+        ((T-con "Vector" (Cons (T-con "U8" (Nil)) (Nil))) #t)
         (_ #f)))
 
     (define (buffer-type? (type Type)) (→ Bool)
@@ -388,10 +388,10 @@
     (define (type-capacity-left (type Type) (remaining I64)) (→ I64)
       (if (<= remaining 0) -1
           (match type
-            ((TCon _ args) (types-capacity-left args (- remaining 1)))
-            ((TFun params result row)
+            ((T-con _ args) (types-capacity-left args (- remaining 1)))
+            ((T-fun params result row)
              (types-capacity-left (Cons result (Cons row params)) (- remaining 1)))
-            ((TRow _ (Some tail)) (type-capacity-left tail (- remaining 1)))
+            ((T-row _ (Some tail)) (type-capacity-left tail (- remaining 1)))
             (_ (- remaining 1)))))
 
     (define (types-capacity-left (types (List Type)) (remaining I64)) (→ I64)
@@ -403,13 +403,13 @@
 
     (define (type-key (type Type)) (→ String)
       (match type
-        ((TCon name (Nil)) name)
-        ((TCon name args) (string-append name "<" (string-join (map type-key args) ",") ">"))
-        ((TFun params result _)
+        ((T-con name (Nil)) name)
+        ((T-con name args) (string-append name "<" (string-join (map type-key args) ",") ">"))
+        ((T-fun params result _)
          (string-append "fn<" (string-join (map type-key params) ",") "->" (type-key result) ">"))
-        ((TRow _ _) "row")
-        ((TRigid name) name)
-        ((TVar id) (string-append "?" (i64->string id)))))
+        ((T-row _ _) "row")
+        ((T-rigid name) name)
+        ((T-var id) (string-append "?" (i64->string id)))))
 
     ;; The first part of a solved type whose effects `type-key`, and so an
     ;; Any's TypeId, would hide: a function or a row argument that may
@@ -419,12 +419,12 @@
 
     (define (hidden-effects (type Type)) (→ (Option Type))
       (match type
-        ((TFun params result row)
+        ((T-fun params result row)
          (if (empty-row? row) (first-hidden-effects (Cons result params)) (Some type)))
-        ((TCon _ args) (first-hidden-effects args))
-        ((TRow _ _) (if (empty-row? type) (None) (Some type)))
-        ((TRigid _) (Some type))
-        ((TVar _) (panic "internal error: an unsolved type in a conversion"))))
+        ((T-con _ args) (first-hidden-effects args))
+        ((T-row _ _) (if (empty-row? type) (None) (Some type)))
+        ((T-rigid _) (Some type))
+        ((T-var _) (panic "internal error: an unsolved type in a conversion"))))
 
     (define (first-hidden-effects (types (List Type))) (→ (Option Type))
       (match types
@@ -443,31 +443,31 @@
 
     (define (type=? (a Type) (b Type)) (→ Bool)
       (match a
-        ((TCon name args)
+        ((T-con name args)
          (match b
-           ((TCon other others) (and (string=? name other) (types=? args others)))
+           ((T-con other others) (and (string=? name other) (types=? args others)))
            (_ #f)))
-        ((TFun params result row)
+        ((T-fun params result row)
          (match b
-           ((TFun others other-result other-row)
+           ((T-fun others other-result other-row)
             (and (types=? params others) (type=? result other-result) (type=? row other-row)))
            (_ #f)))
-        ((TRow labels tail)
+        ((T-row labels tail)
          (match b
-           ((TRow others other-tail)
+           ((T-row others other-tail)
             (and (= (length labels) (length others))
                  (every? (lambda (label) (member? label others)) labels)
                  (match tail
                    ((Some tail) (match other-tail ((Some other) (type=? tail other)) ((None) #f)))
                    ((None) (match other-tail ((Some _) #f) ((None) #t))))))
            (_ #f)))
-        ((TVar id)
+        ((T-var id)
          (match b
-           ((TVar other) (= id other))
+           ((T-var other) (= id other))
            (_ #f)))
-        ((TRigid name)
+        ((T-rigid name)
          (match b
-           ((TRigid other) (string=? name other))
+           ((T-rigid other) (string=? name other))
            (_ #f)))))
 
     (define (types=? (as (List Type)) (bs (List Type))) (→ Bool)
@@ -501,19 +501,19 @@
 
     (define (substitute (substitution Substitution) (type Type)) (→ Type)
       (match type
-        ((TRigid name)
+        ((T-rigid name)
          (match (assoc-ref substitution name)
            ((Some replacement) replacement)
            ((None) type)))
-        ((TCon name args) (TCon name (map (lambda (arg) (substitute substitution arg)) args)))
-        ((TFun params result row)
-         (TFun (map (lambda (param) (substitute substitution param)) params)
-               (substitute substitution result)
-               (substitute substitution row)))
-        ((TRow labels (Some tail))
+        ((T-con name args) (T-con name (map (lambda (arg) (substitute substitution arg)) args)))
+        ((T-fun params result row)
+         (T-fun (map (lambda (param) (substitute substitution param)) params)
+                (substitute substitution result)
+                (substitute substitution row)))
+        ((T-row labels (Some tail))
          (match (substitute substitution tail)
-           ((TRow more rest) (TRow (label-union labels more) rest))
-           (other (TRow labels (Some other)))))
+           ((T-row more rest) (T-row (label-union labels more) rest))
+           (other (T-row labels (Some other)))))
         (_ type)))
 
     (define (substitute-constraint (substitution Substitution) (constraint Constraint))
@@ -529,13 +529,13 @@
     ;; enclosing definition's own requirement at `index`. Holes exist only
     ;; while checking.
     (enum Evidence
-      (EvInstance
+      (Ev-instance
        ((instance String)
         (types (List Type))
         (subs (List Evidence))))
-      (EvParam
+      (Ev-param
        ((index I64)))
-      (EvHole
+      (Ev-hole
        ((id I64))))
 
     ;; ---- Expressions ----
@@ -569,7 +569,7 @@
         (fields (List Initializer))))
       ;; A nominal field selection. Checking records its resolved accessor
       ;; expression in the solution; zonking removes this surface operation.
-      (FieldRead
+      (Field-read
        ((record Expr)
         (label String)
         (resolution (Option I64))))
@@ -594,7 +594,7 @@
        ((effect String)
         (implementations (List (Pair String Expr)))
         (body Expr)))
-      (BoxAny ((expr Expr)))
+      (Box-any ((expr Expr)))
       (Downcast
        ((expr Expr)
         (target Type))))
@@ -609,15 +609,15 @@
        (body Expr)))
 
     (enum Pattern
-      (PWild
+      (P-wild
        ((type Type)))
-      (PVar
+      (P-var
        ((name String)
         (type Type)))
-      (PLit
+      (P-lit
        ((value Datum)
         (type Type)))
-      (PCon
+      (P-con
        ((constructor String)
         (args (List Pattern))
         (type Type))))
@@ -637,14 +637,14 @@
         ((Lambda _ body ) (list body))
         ((App callee args) (Cons callee args))
         ((New callee fields) (Cons callee (map (lambda (field) (● field value)) fields)))
-        ((FieldRead record _ _) (list record))
+        ((Field-read record _ _) (list record))
         ((If test then otherwise) (list test then otherwise))
         ((Let _ value body) (list value body))
         ((Seq first rest) (list first rest))
         ((Match scrutinee clauses) (Cons scrutinee (map (lambda (record) (● record body)) clauses)))
 
         ((Ann inner _) (list inner))
-        ((BoxAny inner) (list inner))
+        ((Box-any inner) (list inner))
         ((Downcast inner _) (list inner))
         ((Handle _ implementations body)
          (append (map (lambda (record) (● record second)) implementations) (list body)))))
@@ -683,7 +683,7 @@
     ;; ---- Declared entities ----
 
     ;; A record is a data type with one case named after it.
-    (record DataType
+    (record Data-type
       ((name String)
        (params (List String))
        (cases (List Case))
@@ -754,29 +754,29 @@
     (define (match-type (vars (List String)) (pattern Type) (type Type) (bindings Substitution))
       (→ (Option Substitution))
       (match pattern
-        ((TRigid name)
+        ((T-rigid name)
          (if (member? name vars)
              (match (assoc-ref bindings name)
                ((None) (Some (Cons (new Pair (first name) (second type)) bindings)))
                ((Some bound) (if (type=? bound type) (Some bindings) (None))))
              (if (type=? pattern type) (Some bindings) (None))))
-        ((TCon name args)
+        ((T-con name args)
          (match type
-           ((TCon other others)
+           ((T-con other others)
             (if (string=? name other) (match-types vars args others bindings) (None)))
            (_ (None))))
-        ((TFun params result _)
+        ((T-fun params result _)
          (match type
-           ((TFun others other-result _)
+           ((T-fun others other-result _)
             (match-types vars (Cons result params) (Cons other-result others) bindings))
            (_ (None))))
         (_ (None))))
 
-    ;; The variable a row ends with, as `e` in `(! log e)`, if any.
+    ;; The variable a row ends with, as `e` in `(! Log e)`, if any.
 
     (define (row-variable (row Type)) (→ (List String))
       (match row
-        ((TRow _ (Some (TRigid name))) (list name))
+        ((T-row _ (Some (T-rigid name))) (list name))
         (_ (Nil))))
 
     ;; Each method maps to the top-level definition that implements it.
@@ -801,7 +801,7 @@
     ;; the performer's handlers.
     ;; An effect: its operations, those among them that are control
     ;; operations, the defaults its declaration gives, and whether the host
-    ;; handles it around a program's body, as `tasks` is handled, since a
+    ;; handles it around a program's body, as `Tasks` is handled, since a
     ;; program's statements run as its first task, so the body may perform
     ;; it although no default could.
     (record Effect
@@ -874,7 +874,8 @@
 
     (define (operation-latent (effect String) (scheme Scheme)) (→ (List String))
       (match (● scheme type)
-        ((TFun _ _ (TRow labels _)) (filter (lambda (label) (not (string=? label effect))) labels))
+        ((T-fun _ _ (T-row labels _))
+         (filter (lambda (label) (not (string=? label effect))) labels))
         (_ (Nil))))
 
     ;; Definitions contain functions. Entry names the
@@ -912,7 +913,7 @@
     ;; program's items divide into one run per library.
     (record Program
       ((values (Table Value))
-       (types (Table DataType))
+       (types (Table Data-type))
        (classes (Table Class))
        (instances (Table (List Instance)))
        (effects (Table Effect))
@@ -935,7 +936,7 @@
     ;; Types, classes and effects are looked up by names the expander
     ;; resolved, so each lookup succeeds.
 
-    (define (program-type (program Program) (name String)) (→ DataType)
+    (define (program-type (program Program) (name String)) (→ Data-type)
       (match (table-ref (● program types) name)
         ((Some data) data)
         ((None) (panic (string-append "internal error: no type " name)))))
@@ -960,7 +961,7 @@
                                     (others (List Instance))
                                     (loc Loc))
       (→ Unit)
-      (! compile)
+      (! Compile)
       (let ((class (program-class program (● instance class))))
         (for-each (lambda (other)
                     (when (and (not (string=? (● instance name) (● other name)))
@@ -977,10 +978,10 @@
 
     (define (head-overlaps? (a Type) (b Type)) (→ Bool)
       (match a
-        ((TCon name args)
+        ((T-con name args)
          (match b
-           ((TCon other others) (and (string=? name other) (heads-overlap? args others)))
-           ((TRigid _) #t)
+           ((T-con other others) (and (string=? name other) (heads-overlap? args others)))
+           ((T-rigid _) #t)
            (_ #f)))
         (_ #t)))
 
@@ -994,7 +995,7 @@
                                        (evidence (List Evidence)))
       (→ (List Type))
       (match evidence
-        ((Cons (EvInstance id arguments _) _)
+        ((Cons (Ev-instance id arguments _) _)
          (match (find (lambda (instance) (string=? (● instance name) id))
                       (class-instances program class))
            ((Some instance)
@@ -1008,22 +1009,22 @@
     ;; one it was given.
 
     (define (program-with-value (program Program) (name String) (value Value)) (→ Program)
-      (Program-values-set program (table-set (● program values) name value)))
+      (program-values-set program (table-set (● program values) name value)))
 
-    (define (program-with-type (program Program) (data DataType)) (→ Program)
-      (Program-types-set program (table-set (● program types) (● data name) data)))
+    (define (program-with-type (program Program) (data Data-type)) (→ Program)
+      (program-types-set program (table-set (● program types) (● data name) data)))
 
     (define (program-with-class (program Program) (class Class)) (→ Program)
-      (Program-classes-set program (table-set (● program classes) (● class name) class)))
+      (program-classes-set program (table-set (● program classes) (● class name) class)))
 
     (define (program-with-instance (program Program) (instance Instance)) (→ Program)
       (let ((class (● instance class)))
-        (Program-instances-set program (table-set (● program instances) class
+        (program-instances-set program (table-set (● program instances) class
                                                   (append (class-instances program class)
                                                           (list instance))))))
 
     (define (program-with-effect (program Program) (effect Effect)) (→ Program)
-      (Program-effects-set program
+      (program-effects-set program
                            (table-set (● program effects) (● effect name) effect)))
 
     (define (program-items (program Program)) (→ (List Item))
@@ -1035,7 +1036,7 @@
     ;; counted in the other's run.
 
     (define (program-with-library (program Program) (name String) (items (List Item))) (→ Program)
-      (Program-libraries-set (Program-items-set program (append items (● program items)))
+      (program-libraries-set (program-items-set program (append items (● program items)))
                              (Cons (new Pair (first name) (second (length items)))
                                    (● program libraries))))
 
@@ -1132,11 +1133,11 @@
                          (visiting (List String)))
       (→ String)
       (match type
-        ((TRigid name)
+        ((T-rigid name)
          (match (list-index (lambda (param) (string=? param name)) params)
            ((Some index) (string-append "#" (i64->string (+ index 1))))
            ((None) "#?")))
-        ((TCon name args)
+        ((T-con name args)
          (string-append name "<"
                         (string-concatenate (map (lambda (arg)
                                                    (string-append
@@ -1150,14 +1151,14 @@
                             (string-concatenate
                              (map (lambda (case) (case-schema program case visiting))
                                   (● (program-type program name) cases))))))
-        ((TFun arguments result row)
+        ((T-fun arguments result row)
          (string-append "Fn("
                         (string-join (map (lambda (argument)
                                             (type-schema program argument params visiting))
                                           arguments) ",")
                         "→" (type-schema program result params visiting)
                         (type-schema program row params visiting) ")"))
-        ((TRow _ _)
+        ((T-row _ _)
          (let ((parts (row-parts type (Nil))))
            (string-append "!(" (string-join (● parts first) ",")
                           (match (● parts second)
@@ -1177,14 +1178,14 @@
       (string-concatenate
        (map (lambda (instance)
               (match (● instance types)
-                ((Cons (TCon name _) (Nil))
+                ((Cons (T-con name _) (Nil))
                  (if (table-contains? (● program types) name)
                      (data-schema program (program-type program name))
                      ""))
                 (_ "")))
             (class-instances program "snail.shell.wire:Serialize"))))
 
-    (define (data-schema (program Program) (data DataType)) (→ String)
+    (define (data-schema (program Program) (data Data-type)) (→ String)
       (string-append
        "(" (● data name)
        (string-concatenate
@@ -1291,7 +1292,7 @@
             (else search)))
 
     (define (lower (search Search) (node I64) (number I64)) (→ Search)
-      (Search-low-set search
+      (search-low-set search
                       (table-set (● search low)
                                  (node-key node)
                                  (min (node-low search node) number))))
@@ -1302,10 +1303,10 @@
       (let loop ((search search) (component (Nil)))
         (match (● search stack)
           ((Cons top rest)
-           (let ((search (Search-open-set (Search-stack-set search rest)
+           (let ((search (search-open-set (search-stack-set search rest)
                                           (table-set (● search open) (node-key top) #f))))
              (if (= top node)
-                 (Search-components-set search
+                 (search-components-set search
                                         (Cons (Cons top component) (● search components)))
                  (loop search (Cons top component)))))
           ((Nil) (panic "internal error: empty search stack")))))
@@ -1351,20 +1352,20 @@
       ;; when all involved Wasm layouts remain identical.
       (define (identity-fixture (label String) (field Type)) (→ Program)
         (program-with-type (empty-program)
-                           (new DataType (name "test:Payload") (params (Nil))
+                           (new Data-type (name "test:Payload") (params (Nil))
                                 (cases
                                  (list (new Case (name "test:Payload") (type "test:Payload") (tag 0)
                                             (fields (list (new Field (name label) (type field)))))))
                                 (enum? #f))))
 
       (define (test-type-identities) (→ Unit)
-        (let* ((i64 (TCon "I64" (Nil))) (payload (TCon "test:Payload" (Nil)))
-               (callback (TFun (list payload) payload (empty-row)))
+        (let* ((i64 (T-con "I64" (Nil))) (payload (T-con "test:Payload" (Nil)))
+               (callback (T-fun (list payload) payload (empty-row)))
                (old (identity-fixture "before" i64))
                (changed (identity-fixture "after" i64))
-               (pure (identity-fixture "call" (TFun (Nil) i64 (empty-row))))
+               (pure (identity-fixture "call" (T-fun (Nil) i64 (empty-row))))
                (effectful
-                (identity-fixture "call" (TFun (Nil) i64 (TRow (list "test:Log") (None))))))
+                (identity-fixture "call" (T-fun (Nil) i64 (T-row (list "test:Log") (None))))))
           (expect (= (any-type-id old callback) (any-type-id changed callback)) #f)
           (expect (= (any-type-id pure callback) (any-type-id effectful callback)) #f)))
 
@@ -1384,19 +1385,19 @@
       ;; A total function hides nothing; an effectful one is found at any
       ;; depth of the type, and a type variable may be one.
       (define test-hidden-effects
-        (lambda () (let* ((i64 (TCon "I64" (Nil)))
-                          (total (TFun (Nil) i64 (empty-row)))
-                          (logging (TFun (Nil) i64 (TRow (list "t:Log") (None))))
-                          (open (TFun (Nil) i64 (TRow (Nil) (Some (TRigid "e"))))))
-                     (expect (hidden-effects (TCon "List" (list total))) (None))
-                     (expect (hidden-effects (TFun (list total) i64 (empty-row))) (None))
+        (lambda () (let* ((i64 (T-con "I64" (Nil)))
+                          (total (T-fun (Nil) i64 (empty-row)))
+                          (logging (T-fun (Nil) i64 (T-row (list "t:Log") (None))))
+                          (open (T-fun (Nil) i64 (T-row (Nil) (Some (T-rigid "e"))))))
+                     (expect (hidden-effects (T-con "List" (list total))) (None))
+                     (expect (hidden-effects (T-fun (list total) i64 (empty-row))) (None))
                      (expect (hidden-effects logging) (Some logging))
                      (expect (hidden-effects open) (Some open))
-                     (expect (hidden-effects (TCon "List" (list logging))) (Some logging))
-                     (expect (hidden-effects (TFun (list logging) i64 (empty-row))) (Some logging))
-                     (expect (hidden-effects (TCon "Task" (list (TRow (list "t:Log") (None)))))
-                             (Some (TRow (list "t:Log") (None))))
-                     (expect (hidden-effects (TCon "Task" (list (empty-row)))) (None))
-                     (expect (hidden-effects (TCon "Holder" (list (TRigid "A"))))
-                             (Some (TRigid "A"))))))))
+                     (expect (hidden-effects (T-con "List" (list logging))) (Some logging))
+                     (expect (hidden-effects (T-fun (list logging) i64 (empty-row))) (Some logging))
+                     (expect (hidden-effects (T-con "Task" (list (T-row (list "t:Log") (None)))))
+                             (Some (T-row (list "t:Log") (None))))
+                     (expect (hidden-effects (T-con "Task" (list (empty-row)))) (None))
+                     (expect (hidden-effects (T-con "Holder" (list (T-rigid "A"))))
+                             (Some (T-rigid "A"))))))))
    (else)))

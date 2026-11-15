@@ -12,7 +12,7 @@
 (define (checked (n I64)) (→ I64) (! Fail)
   (if (< n 0) (absurd (fail (string-append "negative: " (show n)))) n))
 
-(define (total (items (List I64))) (→ I64) (! Fail output-port)
+(define (total (items (List I64))) (→ I64) (! Fail Output-port)
   (fold-left (lambda (sum item)
                (let ((value (checked item)))
                  (write-line (string-append "added " (show value)))
@@ -20,7 +20,7 @@
              0
              items))
 
-(define (run (items (List I64))) (→ String) (! output-port)
+(define (run (items (List I64))) (→ String) (! Output-port)
   (handle Fail ((fail (lambda (message) (string-append "failed: " message))))
     (show (total items))))
 
@@ -32,18 +32,18 @@
 (define (emit-all (items (List I64))) (→ Unit) (! Emit Fail)
   (for-each (lambda (item) (emit (checked item))) items))
 
-(define (sum-emitted (items (List I64))) (→ I64) (! Fail output-port)
+(define (sum-emitted (items (List I64))) (→ I64) (! Fail Output-port)
   (handle Emit ((emit (lambda (value resume)
                         (write-line (string-append "emitted " (show value)))
                         (+ value (resume (unit))))))
     (emit-all items)
     0))
 
-(define (run-emitted (items (List I64))) (→ String) (! output-port)
+(define (run-emitted (items (List I64))) (→ String) (! Output-port)
   (handle Fail ((fail (lambda (message) (string-append "failed: " message))))
     (show (sum-emitted items))))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   ;; ANCHOR_END: fail
 
   (write-line (run (list 1 2 3)))

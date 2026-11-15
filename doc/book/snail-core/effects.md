@@ -48,7 +48,7 @@ through instantiation.
 {{#include ../../../tests/programs/effects-basic.sld:rows}}
 ```
 
-`write-line` performs `output-port`, so `report` does too. A total function may
+`write-line` performs `Output-port`, so `report` does too. A total function may
 not call it. `tests/programs/error-effect.sld`:
 
 ```scheme
@@ -61,9 +61,9 @@ fails to compile:
 {{#include ../../../tests/programs/error-effect.err}}
 ```
 
-`mut` covers writes to object fields and mutable sequence operations.
-Reading a record field is pure. `(snail core io)` declares `input-port`, `output-port`, `fs` and `clock`, and other
-libraries declare their own, such as `tcp` in `(snail shell socket)`. A
+`Mut` covers writes to object fields and mutable sequence operations.
+Reading a record field is pure. `(snail core io)` declares `Input-port`, `Output-port`, `Fs` and `Clock`, and other
+libraries declare their own, such as `Tcp` in `(snail shell socket)`. A
 program declares more with `effect`, in the [next section](#handlers). Traps
 and non-termination are not tracked: a total function may still panic or
 loop forever.
@@ -82,7 +82,7 @@ gets the row its body performs:
 squared 49
 ```
 
-`report-square` performs `output-port`, through `report`. A call requires its
+`report-square` performs `Output-port`, through `report`. A call requires its
 callee's effects to fit the row of the code around it, so a total function
 could call `square` but not `report-square`.
 
@@ -112,7 +112,7 @@ cost every caller that work for nothing.
 Some signatures have no body to hold them to. An instance method keeps its
 class method's row, which one instance may need less of than another:
 in `tests/programs/declared-effects.sld`, the `Bool` instance of
-`announce` performs nothing and keeps `! output-port`. A default is held to
+`announce` performs nothing and keeps `! Output-port`. A default is held to
 its row all the same ([defaults](#defaults-in-snail-scheme)). `extern`
 declarations, class method signatures and definitions whose value is not
 a lambda are not compared either. A signature that a macro writes is held to each
@@ -135,7 +135,7 @@ squared 4
 squared 9
 ```
 
-Here `e` is `output-port`; with a total `action`, `repeat` is total. `map` in
+Here `e` is `Output-port`; with a total `action`, `repeat` is total. `map` in
 `(snail core base)` has the same shape:
 `(∀ (A B e) (Fn (Fn A → B ! e) (List A) → (List B) ! e))`.
 
@@ -147,7 +147,7 @@ A row with a tail fits a larger row with the same tail: `e` fits
 two unrelated tails never fit each other
 (`tests/programs/error-effect-row-tail.sld`).
 The [effects tutorial](tutorials/effects.md) shows a function that adds
-`output-port` around its argument's row.
+`Output-port` around its argument's row.
 
 ### Subsumption
 
@@ -166,8 +166,8 @@ Rows widen through the parts of a type that only hand values out:
   parameters. A function that accepts any printing thunk fits where only
   pure thunks will be passed.
 - An enum's type arguments widen, since an enum's fields are never
-  written: `(List (Fn → Unit ! output-port))` fits
-  `(List (Fn → Unit ! output-port Log))`.
+  written: `(List (Fn → Unit ! Output-port))` fits
+  `(List (Fn → Unit ! Output-port Log))`.
 - A record's type arguments must be equal. Its fields can be written, so
   a pair widened to hold printing functions could have one written into
   it that a reader of the original pair would call as pure
@@ -182,7 +182,7 @@ still being inferred is unified, as everywhere else.
 
 ### Local mutation
 
-A function whose signature has no `mut` may still mutate storage that it
+A function whose signature has no `Mut` may still mutate storage that it
 allocates and that nothing keeps after it returns:
 
 ```scheme
@@ -198,7 +198,7 @@ outside can hold mutable storage: not its parameters, not its result, and
 not any name it reads, including effect operations. Holding storage means
 being an array, `Any`, a mutable aggregate or a callable that can reach
 mutable storage. Every record is mutable, so the proof is deliberately
-conservative. Allocation and field reads do not perform `mut`. A helper defined elsewhere that mutates its argument is
+conservative. Allocation and field reads do not perform `Mut`. A helper defined elsewhere that mutates its argument is
 therefore rejected even when the argument is local; define it inside the
 function. `unsafe-total` runs a thunk and discards all its effects without a
 check, for the cases this rule rejects; each use says in a comment why
@@ -207,7 +207,7 @@ nothing escapes. A `gc` effect, "may allocate traced memory", is proposed in
 
 ### Defaults from the host
 
-`input-port`, `output-port`, `fs` and `clock` need no handler. Each operation has a
+`Input-port`, `Output-port`, `Fs` and `Clock` need no handler. Each operation has a
 [default](#defaults-in-snail-scheme) implementation that reaches host services
 through `extern` imports. An operation performed where no handler of its
 effect is in scope calls that implementation. That is why the programs above call
@@ -218,26 +218,26 @@ its externs beside its effects, since core imports nothing; a shell
 library imports a `(snail runtime …)` library, which declares the host's
 imports and nothing else, under the prefix `host-`. For example, `(snail
 runtime browser screen)` declares the page's drawing commands, and
-`(snail shell app)`'s `screen` effect defaults each operation to one. An
+`(snail shell app)`'s `Screen` effect defaults each operation to one. An
 interface's imports take and answer scalars, and the shell builds its own
 values from them, as `(snail shell socket)` builds a `Connection` from a
 handle ([the native boundary](../runtimes/networking.md#wasm-boundary)).
 
 A handler can
-still replace them: `tests/programs/files.sld` handles `fs` to answer
+still replace them: `tests/programs/files.sld` handles `Fs` to answer
 `file-exists?` and `list-directory` from memory. Such a handler may leave
 the rest of its row polymorphic, as any can:
-`tests/programs/effects-host-handler-row.sld` handles `clock` for a body
-of row `(clock e)`, answering through `output-port`, and is itself of row
+`tests/programs/effects-host-handler-row.sld` handles `Clock` for a body
+of row `(clock e)`, answering through `Output-port`, and is itself of row
 `(output-port e)`. An effect without a
 default must be handled: performing it where no handler is in scope is an
 error (`tests/programs/error-unhandled.sld`).
 
-`host` is the row of code that may run anything the host implements, such
-as a program's entry function and its task scheduler. It admits `mut` and
-effects with host defaults. It is a builtin effect, like `mut`, imported
+`Host` is the row of code that may run anything the host implements, such
+as a program's entry function and its task scheduler. It admits `Mut` and
+effects with host defaults. It is a builtin effect, like `Mut`, imported
 from `(snail core forms)`; no handler implements it, and a function whose
-row names it can be called only where `host` is in the row too. Work closed
+row names it can be called only where `Host` is in the row too. Work closed
 over its handlers performs it ([below](#closing-over-handlers)).
 
 ## Handlers
@@ -252,7 +252,7 @@ caller its effect:
 {{#include ../../../tests/programs/effects-handlers.sld:declare}}
 ```
 
-`log`'s type is `(Fn String → Unit)`, and calling it adds `Log` to the row,
+`Log`'s type is `(Fn String → Unit)`, and calling it adds `Log` to the row,
 so `total`'s row is `Log`. `Log` has no default, so something must say what
 logging means before `total` can run. Effects take no type parameters, and
 operations are monomorphic ([notable omissions](omissions.md)): a handler
@@ -287,7 +287,7 @@ Using the [built-in function types](types.md#functions):
 ```
 
 These forms are illustrative extensions, not accepted syntax today. The
-local instance supplies an anonymous concrete provider whose `ask` method
+local instance supplies an anonymous concrete provider whose `Ask` method
 captures `name`. Its method is checked against `(Fn → T)`. `greet` receives
 the selected provider as an implicit argument; compilation makes `welcome`'s
 supplied argument explicit. Its captured string is runtime data, while its
@@ -458,7 +458,7 @@ the job performs the effects of its selected provider implementations.
 Providing an implementation may discharge a capability requirement, but
 observable effects of that implementation still count. Passing or retaining
 a provider cannot make external mutation or host IO pure. Compiler-owned
-`mut` and `host`, confinement of local mutation, and foreign calls need
+`Mut` and `Host`, confinement of local mutation, and foreign calls need
 explicit rules in the transition system. Constructing or returning a deferred
 callable may be pure; its invocation requirements remain in the returned
 type and are checked separately. A list of missing providers alone does not
@@ -642,7 +642,7 @@ order
   total 7
 ```
 
-`indented`'s implementation of `log` performs `log`, which reaches the
+`indented`'s implementation of `Log` performs `Log`, which reaches the
 printing handler around it. Were it to reach its own handler, it would call
 itself forever. Its row shows the rule: the handler removes the body's
 `Log`, and its implementation adds `Log` back, for the handler outside. Of
@@ -667,9 +667,9 @@ hello, memory
 ```
 
 `greeting` is the same in both runs. `from-disk`'s implementation calls
-`read-file`, which performs `fs`; by the rule above that goes to the
+`read-file`, which performs `Fs`; by the rule above that goes to the
 handlers outside `from-disk`'s, here the host, so `from-disk`'s row names
-`fs`. `from-memory`'s does not: the test touches no file system at all.
+`Fs`. `from-memory`'s does not: the test touches no file system at all.
 
 ### Handlers may hold state
 
@@ -715,7 +715,7 @@ default to it, at its entry
 a function's name, and an operation has at most one.
 
 A control operation has no default. An effect declared with `(around-main)`
-says the runtime supplies a delimiter around the root entry. `tasks` uses
+says the runtime supplies a delimiter around the root entry. `Tasks` uses
 this facility: `main` runs as a scheduled task and can yield or wait.
 Loading a library runs no source initializer: top-level definitions bind
 functions. Each call performs only the effects in its signature.
@@ -875,9 +875,9 @@ first log: a thunk
 ```
 
 The caller of `inherit-handlers` is charged the thunk's row, as if it
-ran the thunk there. The function it makes performs `host` instead: the
+ran the thunk there. The function it makes performs `Host` instead: the
 captured handlers answer the effects the row declares, and what remains,
-`mut` and the effects the host implements, happens when it runs. So pure
+`Mut` and the effects the host implements, happens when it runs. So pure
 code cannot call it (`tests/programs/error-inherit-pure.sld`), and one type
 serves work of every row, as the steps of a scheduler need. A step is a
 thunk that resumes:
@@ -977,8 +977,8 @@ A yield returns through each frame between the operation and its handler,
 so every frame on that path must expect it. A control row cannot reach a
 `vector-generate` or `string-generate` callback, which a WAT loop calls; an
 `unsafe-total` thunk, whose row the call discards; dispatched work, which
-runs later under its task's own handler of `tasks`, and so may yield to
-`tasks` alone; a procedure closed over its handlers, which may run after
+runs later under its task's own handler of `Tasks`, and so may yield to
+`Tasks` alone; a procedure closed over its handlers, which may run after
 their handles have returned; or the
 implementation of an operation declared without `ctl`, the subject of the
 next section. Each is
@@ -1001,11 +1001,11 @@ kind, converts to `Any`
 Suppose a program puts one handler of an effect `Io`, say for its sockets,
 around everything it does, and runs each task under a scheduler of its own:
 a handler of a control effect, `Async`, whose implementation of `await`
-keeps the task's `resume` until its data arrives. `Io`'s operation `fetch`,
+keeps the task's `resume` until its data arrives. `Io`'s operation `Fetch`,
 a read, must wait for data, and the wait must suspend the task that read,
 not the whole program.
 
-The implementation of `fetch` cannot just perform `await`. It runs outside
+The implementation of `Fetch` cannot just perform `await`. It runs outside
 its own handler, where no task's scheduler is in scope. And the
 implementation of an ordinary operation may not perform a control operation
 its type does not name at all
@@ -1023,34 +1023,34 @@ its type does not name at all
 
 An ordinary operation's type may name effects besides its own, its
 **latent row**: those its implementations perform where it is performed.
-`tests/programs/control-latent.sld` has `fetch` name `Async`:
+`tests/programs/control-latent.sld` has `Fetch` name `Async`:
 
 ```scheme
 {{#include ../../../tests/programs/control-latent.sld:effects}}
 ```
 
-Performing `fetch` charges the caller `Io` and `Async`, so the call may
-suspend. An implementation of `fetch` may perform `Async`, and those
-operations go to the handlers **in scope where `fetch` was performed**, not
+Performing `Fetch` charges the caller `Io` and `Async`, so the call may
+suspend. An implementation of `Fetch` may perform `Async`, and those
+operations go to the handlers **in scope where `Fetch` was performed**, not
 to those outside the `Io` handler. Its other operations go to the handlers
 outside `Io`'s, as for any implementation. A yield leaves the
 implementation through the performer, and `resume` comes back into it.
-After that, its latent operations still go to the handlers where `fetch`
+After that, its latent operations still go to the handlers where `Fetch`
 was performed, as the resume left them: the task's own handler,
 re-installed, and beyond it the handlers in scope where the task was
-resumed. Resumed inside another task, `fetch` still waits on its own
+resumed. Resumed inside another task, `Fetch` still waits on its own
 task's handler, and logs to the log around the resume
 (`tests/programs/control-latent-resumed.sld`).
 
 ### A way to avoid sneaking effects into callers
 
 The rule is a way to avoid sneaking effects into callers. The caller of
-`fetch` is charged `Async` in its own type, so it can see that `fetch` may
-wait, and it must provide the `Async` handler that `fetch` waits on.
-Whatever `fetch` does to its caller, the caller's type says.
+`Fetch` is charged `Async` in its own type, so it can see that `Fetch` may
+wait, and it must provide the `Async` handler that `Fetch` waits on.
+Whatever `Fetch` does to its caller, the caller's type says.
 
-Suppose instead that `fetch`'s `await` went to an `Async` handler outside
-the `Io` handler, where the caller cannot see it. Then `fetch` would suspend
+Suppose instead that `Fetch`'s `await` went to an `Async` handler outside
+the `Io` handler, where the caller cannot see it. Then `Fetch` would suspend
 more than its caller. It would also suspend the caller's own scheduler,
 whose type says it never waits because it handles `Async` itself, and
 everything between that scheduler and the outer handler. `Async` would
@@ -1107,14 +1107,14 @@ done with 212
 done with 412
 ```
 
-Each `fetch` asks the task that performed it for its id, and its `await`
+Each `Fetch` asks the task that performed it for its id, and its `await`
 suspends that task alone.
 
 Can an `Io` handler whose implementation performs `await` be installed
 where no `Async` handler is in scope at all? Yes: this one is, at the top
-level of the program. The `Async` that `fetch` performs is resolved where
-`fetch` is called, so a later `handle Async` inside the `Io` handler, here
-each task's, is what lets code call `fetch`. Calling `fetch` where no
+level of the program. The `Async` that `Fetch` performs is resolved where
+`Fetch` is called, so a later `handle Async` inside the `Io` handler, here
+each task's, is what lets code call `Fetch`. Calling `Fetch` where no
 `Async` handler is in scope is still an error, as for any unhandled effect
 (`tests/programs/error-control-latent-unhandled.sld`).
 
@@ -1168,7 +1168,7 @@ done at 1006
 - No latent row names its operation's own effect.
 
 The runtime's own tasks follow this pattern. `(snail shell task)` runs
-each task under its own handler of `tasks`, whose control operations hand
+each task under its own handler of `Tasks`, whose control operations hand
 the rest of the task to a scheduler written in Snail Scheme, and a host
-operation's default awaits a ticket on the caller's `tasks`
+operation's default awaits a ticket on the caller's `Tasks`
 ([task operations](../runtimes/tasks.md)).

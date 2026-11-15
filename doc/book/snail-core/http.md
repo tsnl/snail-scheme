@@ -19,9 +19,9 @@ module rejects, including chunked decoding and absolute-form targets.
 ```
 
 `Ok None` means the supplied prefix needs more bytes. `Ok (Some parsed)` contains
-a `RequestHead` and the offset of the first body byte. Bytes after that offset
+a `Request-head` and the offset of the first body byte. Bytes after that offset
 are not inspected, so binary content or a large body cannot invalidate a short
-head. The exchange reader reports EOF before a complete head as `TruncatedHead`,
+head. The exchange reader reports EOF before a complete head as `Truncated-head`,
 including an empty connection. The parser itself does not establish body receipt.
 An incomplete prefix is not a certificate of valid syntax: some errors are
 decided once a complete head is available.
@@ -71,8 +71,8 @@ arithmetic or body allocation. Duplicate or comma-list lengths and combined
 Transfer-Encoding/Content-Length are malformed. Other transfer codings and every
 Expect field are unsupported, decided before a caller waits for any body.
 
-`HttpError` distinguishes `Malformed`, `Unsupported`, `HeadTooLarge`,
-`BodyTooLarge` and `InvalidResponse`. The reason/feature strings are diagnostics;
+`Http-error` distinguishes `Malformed`, `Unsupported`, `Head-too-large`,
+`Body-too-large` and `Invalid-response`. The reason/feature strings are diagnostics;
 the codec does not choose HTTP error responses. Public records remain ordinary
 constructible Snail Scheme values. The parser guarantees its own outputs, rather than
 making a claim about records created elsewhere.
@@ -84,7 +84,7 @@ making a claim about records created elsewhere.
 ;; Result ResponseParts HttpError
 ```
 
-The `head` and `body` fields of a `ResponseParts` are separate immutable byte vectors.
+The `head` and `body` fields of a `Response-parts` are separate immutable byte vectors.
 This avoids copying a representation into one combined response buffer and
 leaves a clear boundary for future streaming. No bytes are written by this call.
 
@@ -135,7 +135,7 @@ Import `(snail shell http exchange)` and call `serve-one` with an exclusively us
 ;;       → (Result Unit (ExchangeError E)) ! tcp e))
 ```
 
-`Request` contains `head : RequestHead` and `body : Bytes`. The callback returns
+`Request` contains `head : Request-head` and `body : Bytes`. The callback returns
 `Response`, containing `status : I32`, `headers : List Header` and `body : Bytes`,
 or an application error of its chosen type `E`. It may suspend for other effects;
 the surrounding computation retains those requirements. The callback receives
@@ -152,9 +152,9 @@ rules. No handler call occurs before the complete request body arrives.
 Each write offers at most twice the previous accepted count, capped at 65,536;
 this bounds slice copying even when an intercepted write makes tiny progress.
 
-`ExchangeError E` distinguishes protocol failure (`HttpError`), transport failure
-(`SocketError`), `TruncatedHead`, `TruncatedBody` with expected/received counts,
-and `ApplicationFailure E`. Every returned failure closes the connection while
+`Exchange-error E` distinguishes protocol failure (`Http-error`), transport failure
+(`Socket-error`), `Truncated-head`, `Truncated-body` with expected/received counts,
+and `Application-failure E`. Every returned failure closes the connection while
 preserving the original error if close also fails. Empty successful reads or
 invalid write counts report transport `EIO`, rather than looping without progress.
 Protocol/application errors do not generate automatic HTTP error responses.

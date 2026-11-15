@@ -4,10 +4,10 @@
 (define-library (snail shell ide palette)
   (export State initial visible? finding? cancel
           Context Entry Mode Commands Files Searching Creating Creation
-          Search SearchPhase Debouncing Fetching Finished
-          Message Idle Query KeyPressed Pick FindNext Dismiss Reconnected
-          Command CommandResult
-          Outcome InvokeNamed OpenPath OpenSavedHit SelectDraftHit CreatedPath Dismissed
+          Search Search-phase Debouncing Fetching Finished
+          Message Idle Query Key-pressed Pick Find-next Dismiss Reconnected
+          Command Command-result
+          Outcome Invoke-named Open-path Open-saved-hit Select-draft-hit Created-path Dismissed
           Step open update reconcile view find-view current-match)
   (import
    (snail core base)
@@ -33,14 +33,14 @@
       ((commands (List Entry))
        (paths (List String))))
 
-    (enum SearchPhase
+    (enum Search-phase
       (Debouncing)
       (Fetching)
       (Finished ((result (Result search-Results Failure)))))
 
     (record Search
       ((source search-Source)
-       (phase SearchPhase)))
+       (phase Search-phase)))
 
     (record Creation
       ((directory Bool)
@@ -67,14 +67,14 @@
        (panel (Option Panel))))
 
     (enum Outcome
-      (InvokeNamed ((name String)))
-      (OpenPath ((path String)))
-      (OpenSavedHit ((hit Hit)))
-      (SelectDraftHit ((draft search-Draft)
-                       (hit Occurrence)
-                       (length I64)))
-      (CreatedPath ((path String)
-                    (directory Bool)))
+      (Invoke-named ((name String)))
+      (Open-path ((path String)))
+      (Open-saved-hit ((hit Hit)))
+      (Select-draft-hit ((draft search-Draft)
+                         (hit Occurrence)
+                         (length I64)))
+      (Created-path ((path String)
+                     (directory Bool)))
       (Dismissed))
 
     (enum Action
@@ -84,17 +84,17 @@
     (enum Message
       (Idle)
       (Query ((text String)))
-      (KeyPressed ((key String)
-                   (modifiers I32)))
+      (Key-pressed ((key String)
+                    (modifiers I32)))
       (Pick ((generation I64)
              (action Action)))
-      (FindNext ((backwards Bool)))
+      (Find-next ((backwards Bool)))
       (Dismiss)
       (Reconnected))
 
-    (type CommandResult (Fn State → Step))
+    (type Command-result (Fn State → Step))
 
-    (type Command (Fn → CommandResult ! tasks dom fetch))
+    (type Command (Fn → Command-result ! Tasks Dom Fetch))
 
     (record Step
       ((state State)
@@ -142,8 +142,8 @@
       (match message
         ((Idle) (stay state))
         ((Query text) (queried state text))
-        ((KeyPressed key modifiers) (pressed state context key modifiers))
-        ((FindNext backwards) (find-next state context backwards))
+        ((Key-pressed key modifiers) (pressed state context key modifiers))
+        ((Find-next backwards) (find-next state context backwards))
         ((Pick generation action)
          (if (and (= generation (● state generation)) (visible? state))
              (match action
@@ -168,8 +168,8 @@
             (match draft
               ((Some draft)
                (if (search-same-draft? old draft) (stay state)
-                   (queried (State-panel-set state
-                                             (Some (Panel-mode-set panel
+                   (queried (state-panel-set state
+                                             (Some (panel-mode-set panel
                                                                    (Searching
                                                                     (new Search
                                                                       (source
@@ -204,7 +204,7 @@
 
     (define (reset-mode (mode Mode)) (→ Mode)
       (match mode
-        ((Searching search) (Searching (Search-phase-set search (Debouncing))))
+        ((Searching search) (Searching (search-phase-set search (Debouncing))))
         ((Creating (Creation directory _ _))
          (Creating (new Creation (directory directory) (pending #f) (problem ""))))
         (_ mode)))
@@ -217,7 +217,7 @@
 
     (define (mode-set (state State) (mode Mode)) (→ State)
       (match (● state panel)
-        ((Some panel) (State-panel-set state (Some (Panel-mode-set panel mode))))
+        ((Some panel) (state-panel-set state (Some (panel-mode-set panel mode))))
         ((None) state)))
 
     (define (pressed (state State) (context Context) (key String) (modifiers I32)) (→ Step)
@@ -239,7 +239,7 @@
                  (else
                   (let* ((back (or (string=? key "ArrowUp") (= modifiers (shift-key))))
                          (at (max 0 (min (- count 1) (+ (● panel selected) (if back -1 1))))))
-                    (stay (State-panel-set state (Some (Panel-selected-set panel at)))))))))))
+                    (stay (state-panel-set state (Some (panel-selected-set panel at)))))))))))
 
     ;; Local find keeps its input and results while navigation reveals a match.
 
@@ -255,7 +255,7 @@
                   (new Step
                     (state (new State
                              (generation (+ 1 (● state generation)))
-                             (panel (Some (Panel-selected-set panel at)))))
+                             (panel (Some (panel-selected-set panel at)))))
                     (outcome (Some outcome)) (commands (Nil))))
                  (_ (stay state))))))
         ((None) (stay state))))
@@ -331,7 +331,7 @@
         ((Some (Panel (Creating (Creation directory #t _)) path _))
          (if (= generation (● state generation))
              (match result
-               ((Ok _) (selected state (CreatedPath path directory)))
+               ((Ok _) (selected state (Created-path path directory)))
                ((Err failure)
                 (stay (mode-set state
                                 (Creating (new Creation
@@ -366,12 +366,12 @@
         (match (● panel mode)
           ((Commands)
            (map (lambda (entry) (new Choice (label (● entry name)) (detail (● entry keys))
-                                     (action (Choose (InvokeNamed (● entry name))))))
+                                     (action (Choose (Invoke-named (● entry name))))))
                 (filter (lambda (entry) (matches? query (● entry name)))
                         (● context commands))))
           ((Files)
            (map
-            (lambda (path) (new Choice (label path) (detail "") (action (Choose (OpenPath path)))))
+            (lambda (path) (new Choice (label path) (detail "") (action (Choose (Open-path path)))))
             (take (filter (lambda (path) (matches? query path)) (● context paths)) 200)))
           ((Creating (Creation directory pending _))
            (if (or pending (string=? query "")) (Nil)
@@ -392,13 +392,13 @@
          (map (lambda (hit)
                 (let ((point (● hit point)))
                   (new Choice (label (location (● point file) (● point line) (● point column)))
-                       (detail (● hit snippet)) (action (Choose (OpenSavedHit hit))))))
+                       (detail (● hit snippet)) (action (Choose (Open-saved-hit hit))))))
               (● results hits)))
         ((search-DraftResults draft hits _)
          (map (lambda (hit)
                 (new Choice
                   (label (location (● draft path) (● hit line) (● hit column)))
-                  (detail (● hit snippet)) (action (Choose (SelectDraftHit draft hit size)))))
+                  (detail (● hit snippet)) (action (Choose (Select-draft-hit draft hit size)))))
               hits))))
 
     ;; ---- View ----
@@ -412,7 +412,7 @@
                                 (Attr "role" "search") (Attr "aria-label" "Find in current file")
                                 (On "keydown" (list (Key)) (Chords (find-chords))
                                     (lambda (event)
-                                      (KeyPressed (● event key) (● event modifiers)))))
+                                      (Key-pressed (● event key) (● event modifiers)))))
                           (list (find-input panel)
                                 (Element "span"
                                          (list (Attr "id" "find-count") (Attr "role" "status"))
@@ -420,8 +420,8 @@
                                 (find-button "Previous match (Shift+Enter)"
                                              "↑"
                                              (= count 0)
-                                             (FindNext #t))
-                                (find-button "Next match (Enter)" "↓" (= count 0) (FindNext #f))
+                                             (Find-next #t))
+                                (find-button "Next match (Enter)" "↓" (= count 0) (Find-next #f))
                                 (find-button "Close find (Escape)" "×" #f (Dismiss)))))))
         ((None) (Nil))))
 
@@ -431,7 +431,7 @@
                      (Attr "aria-label" "Find in current file")
                      (Attr "aria-describedby" "find-count")
                      (Attr "autocomplete" "off") (Attr "spellcheck" "false")
-                     (StringProperty "value" (● panel query))
+                     (String-property "value" (● panel query))
                      (On "input" (list (Value)) (Allow) (lambda (event) (Query (● event value)))))
                (Nil)))
 
@@ -439,7 +439,7 @@
       (→ (Html Message))
       (Element "button"
                (list (Attr "title" title) (Attr "aria-label" title)
-                     (FlagProperty "disabled" disabled)
+                     (Flag-property "disabled" disabled)
                      (On "mousedown" (Nil) (Always) (lambda (event) (Idle)))
                      (On "click" (Nil) (Allow) (lambda (event) message)))
                (list (Text label))))
@@ -515,19 +515,19 @@
                      (Attr "aria-activedescendant"
                            (if (< selected 0) "" (string-append "command-result-" (show selected))))
                      (Attr "autocomplete" "off") (Attr "spellcheck" "false")
-                     (FlagProperty "readOnly" (creation-pending? panel))
-                     (StringProperty "value" (● panel query))
+                     (Flag-property "readOnly" (creation-pending? panel))
+                     (String-property "value" (● panel query))
                      (On "input" (list (Value)) (Allow)
                          (lambda (event) (Query (● event value))))
                      (On "keydown" (list (Key)) (Chords (panel-chords))
-                         (lambda (event) (KeyPressed (● event key) (● event modifiers)))))
+                         (lambda (event) (Key-pressed (● event key) (● event modifiers)))))
                (Nil)))
 
     (define (panel-results (panel Panel) (choices (List Choice)) (selected I64) (generation I64))
       (→ (Html Message))
       (Element "div"
                (list (Attr "id" "command-results") (Attr "role" "listbox")
-                     (NumberProperty "scrollTop" (i64->f64 (max 0 (- (* selected 30) 180)))))
+                     (Number-property "scrollTop" (i64->f64 (max 0 (- (* selected 30) 180)))))
                (if (null? choices)
                    (list (Element "p" (list (Attr "class" "palette-empty") (Attr "role" "status"))
                                   (list (Text (panel-empty panel)))))
@@ -572,7 +572,7 @@
                      (Attr "role" "option") (Attr "aria-selected" (if selected "true" "false"))
                      (Attr "tabindex" "-1")
                      (Attr "data-command"
-                           (match (● choice action) ((Choose (InvokeNamed name)) name) (_ "")))
+                           (match (● choice action) ((Choose (Invoke-named name)) name) (_ "")))
                      (On "mousedown" (Nil) (Always) (lambda (event) (Idle)))
                      (On "click"
                          (Nil)

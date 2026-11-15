@@ -27,26 +27,26 @@
    ((value I64)))
   (Waiting
    ((deadline I64)
-    (next (Fn I64 → Task ! Clock output-port)))))
+    (next (Fn I64 → Task ! Clock Output-port)))))
 
-(define (start (body (Fn → I64 ! Clock Async output-port))) (→ Task) (! Clock output-port)
+(define (start (body (Fn → I64 ! Clock Async Output-port))) (→ Task) (! Clock Output-port)
   (handle Async ((await (lambda (deadline resume) (Waiting deadline resume))))
     (Done (body))))
 
-(define (job) (→ I64) (! Clock Async output-port)
+(define (job) (→ I64) (! Clock Async Output-port)
   (let ((woke (sleep-until (+ (now) 5))))
     (write-line (string-append "woke at " (show woke)))
     (sleep-until (+ woke 1))))
 
 ;; Wakes each sleeper at its deadline, after its handler has returned.
-(define (drive (task Task)) (→ Unit) (! Clock output-port)
+(define (drive (task Task)) (→ Unit) (! Clock Output-port)
   (match task
     ((Done value) (write-line (string-append "done at " (show value))))
     ((Waiting deadline next)
      (write-line (string-append "waiting until " (show deadline)))
      (drive (next deadline)))))
 
-(define (main) (→ Unit) (! Clock output-port)
+(define (main) (→ Unit) (! Clock Output-port)
   (drive (start job))
   ;; A handler replaces the defaults: this clock never waits.
   (drive (handle Clock

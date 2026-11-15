@@ -77,14 +77,14 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   forward instead of returning a Boolean and repeatedly checking the same raw
   data. Keep unsafe assumptions explicit at the boundary that introduces them.
 - Prefer threading pass state through functions and returning the new value.
-  A signature without `! mut` proves that the function does not mutate its
+  A signature without `! Mut` proves that the function does not mutate its
   arguments. Field reads are pure; callers still share mutable objects.
-  Use `! mut` for mutation that belongs to a
+  Use `! Mut` for mutation that belongs to a
   boundary — the runtime, a host, a cache with one owner — not for the
   convenience of a pass that could carry its state. When threading would
   nest a function six deep, name the sequence with a local binding form, as
   `learning` does in `src/snail/shell/compiler/check.sld`, rather than
-  reaching for a cell. The checker went from 58 `! mut` signatures to none
+  reaching for a cell. The checker went from 58 `! Mut` signatures to none
   at no cost in speed; the count per module is worth watching.
 - Prefer cohesive single-file modules with named sections. A large file can
   explain one subject well; extract a file only for a substantial new subject.

@@ -1,6 +1,6 @@
 (import
  (snail core base)
- (only (snail core forms) host)
+ (only (snail core forms) Host)
  (except (snail core io) write)
  (snail shell task)
  (snail shell socket)
@@ -51,21 +51,21 @@
 (define (token (connection Connection)) (→ Stream) (fixture-convert (● connection token) Stream))
 
 (define (read-stream (connection Connection) (maximum I32))
-  (→ (Result (Option Bytes) SocketError))
-  (! mut)
+  (→ (Result (Option Bytes) Socket-error))
+  (! Mut)
   (let* ((state (token connection)) (start (● state cursor))
          (end (min (vector-length (● state input))
                    (+ start (min (i32->i64 maximum) (● state read-size))))))
-    (cond ((string=? (● state fault) "read") (Err (new SocketError (code "TEST_READ"))))
+    (cond ((string=? (● state fault) "read") (Err (new Socket-error (code "TEST_READ"))))
           ((string=? (● state fault) "oversize-read")
            (Ok (Some (make-vector (+ (i32->i64 maximum) 1) (i32->u8 0)))))
           ((= start (vector-length (● state input))) (Ok (None)))
           (else (set! (● state cursor) end)
                 (Ok (Some (subvector (● state input) start end)))))))
 
-(define (write-stream (connection Connection) (bytes Bytes)) (→ (Result I32 SocketError)) (! mut)
+(define (write-stream (connection Connection) (bytes Bytes)) (→ (Result I32 Socket-error)) (! Mut)
   (let* ((state (token connection)) (count (min (vector-length bytes) (● state write-size))))
-    (cond ((string=? (● state fault) "write") (Err (new SocketError (code "TEST_WRITE"))))
+    (cond ((string=? (● state fault) "write") (Err (new Socket-error (code "TEST_WRITE"))))
           ((string=? (● state fault) "oversize-write")
            (Ok (i64->i32 (+ (vector-length bytes) 1))))
           ((string=? (● state fault) "negative-write") (Ok -1))
@@ -76,24 +76,24 @@
                  (Cons (subvector bytes 0 count) (● state output)))
            (Ok (i64->i32 count))))))
 
-(define (finish-stream (connection Connection) (grace I32)) (→ (Result Unit SocketError)) (! mut)
+(define (finish-stream (connection Connection) (grace I32)) (→ (Result Unit Socket-error)) (! Mut)
   (let ((state (token connection)))
     (assert (= grace 250))
     (if (string=? (● state fault) "finish")
-        (Err (new SocketError (code "TEST_FINISH")))
+        (Err (new Socket-error (code "TEST_FINISH")))
         (begin (set! (● state ended) 1) (Ok (unit))))))
 
-(define (close-stream (connection Connection)) (→ (Result Unit SocketError)) (! mut)
+(define (close-stream (connection Connection)) (→ (Result Unit Socket-error)) (! Mut)
   (set! (● (token connection) ended) 2)
-  (Err (new SocketError (code "TEST_CLOSE"))))
+  (Err (new Socket-error (code "TEST_CLOSE"))))
 
 (define (run (state Stream) (handler (Fn Request → (Result Response String) ! e)))
-  (→ (Result Unit (ExchangeError String)))
-  (! tcp tasks e)
+  (→ (Result Unit (Exchange-error String)))
+  (! Tcp Tasks e)
   (∀ (e))
   (serve-one (new Connection (token (Any state))) 250 handler))
 
-(define (echo (request Request)) (→ (Result Response String)) (! tasks)
+(define (echo (request Request)) (→ (Result Response String)) (! Tasks)
   (sleep 1)
   (Ok (new Response (status 200) (headers (Nil)) (body (● request body)))))
 
@@ -101,20 +101,20 @@
   (→ String)
   (text (vector-concatenate (reverse (● state output)))))
 
-(define (success? (result (Result Unit (ExchangeError String))))
+(define (success? (result (Result Unit (Exchange-error String))))
   (→ Bool)
   (match result ((Ok _) #t) ((Err _) #f)))
 
 (define (request) (→ Bytes)
   (ascii "POST /echo HTTP/1.1\r\nHost: test\r\nContent-Length: 4\r\n\r\nbodyignored pipeline"))
 
-(define (main) (→ Unit) (! host mut output-port tasks)
+(define (main) (→ Unit) (! Host Mut Output-port Tasks)
 
   ;; A program waits on sockets from a task, which the scheduler runs once
   ;; main returns.
   (dispatch
    (lambda ()
-     (handle tcp
+     (handle Tcp
          ((listen (lambda (_) (panic "unexpected listen")))
           (connect (lambda (_) (panic "unexpected connect")))
           (accept (lambda (_) (panic "unexpected accept")))
@@ -138,7 +138,7 @@
        ;; before the server chooses how to answer it.
        (let* ((state (stream (request) 7 5 ""))
               (connection (new Connection (token (Any state)))))
-         (match (ann (read-request connection) (Result Request (ExchangeError String)))
+         (match (ann (read-request connection) (Result Request (Exchange-error String)))
            ((Err _) (panic "read-request failed"))
            ((Ok received)
             (assert (string=? (● (● received head) target) "/echo"))
@@ -156,13 +156,13 @@
        ;; A failure from either half leaves the connection to the caller.
        (let ((state (stream (ascii "GET / HTTP/1.1\r\n") 100 100 "")))
          (assert (match (ann (read-request (new Connection (token (Any state))))
-                             (Result Request (ExchangeError String)))
-                   ((Err (TruncatedHead)) #t)
+                             (Result Request (Exchange-error String)))
+                   ((Err (Truncated-head)) #t)
                    (_ #f)))
          (assert (= (● state ended) 0)))
        (let* ((state (stream (request) 100 100 ""))
               (connection (new Connection (token (Any state)))))
-         (match (ann (read-request connection) (Result Request (ExchangeError String)))
+         (match (ann (read-request connection) (Result Request (Exchange-error String)))
            ((Err _) (panic "read-request failed"))
            ((Ok received)
             (assert (match (ann (respond connection
@@ -172,8 +172,8 @@
                                            (status 99)
                                            (headers (Nil))
                                            (body #u8())))
-                                (Result Unit (ExchangeError String)))
-                      ((Err (ProtocolFailure _)) #t)
+                                (Result Unit (Exchange-error String)))
+                      ((Err (Protocol-failure _)) #t)
                       (_ #f)))
             (assert (= (● state ended) 0))
             (assert (string=? (output state) "")))))
@@ -181,8 +181,8 @@
        (let* ((state (stream (ascii "GET / HTTP/1.1\r\nHost: test\r\r\n\r\n") 100 100 ""))
               (connection (new Connection (token (Any state)))))
          (assert
-          (match (ann (read-request connection) (Result Request (ExchangeError String)))
-            ((Err (ProtocolFailure _)) #t)
+          (match (ann (read-request connection) (Result Request (Exchange-error String)))
+            ((Err (Protocol-failure _)) #t)
             (_ #f)))
          (assert
           (success? (respond connection
@@ -218,7 +218,7 @@
        (for-each
         (lambda (input)
           (let ((state (stream input 1 65536 "")))
-            (assert (match (run state echo) ((Err (ProtocolFailure _)) #t) (_ #f)))
+            (assert (match (run state echo) ((Err (Protocol-failure _)) #t) (_ #f)))
             (assert (= (● state ended) 2))
             (assert (string=? (output state) ""))))
         (list (ascii "GET / HTTP/1.1\r\nHost: test\r\r\n\r\n")
@@ -256,7 +256,7 @@
          (assert (<= (● state offered) (+ 131072 (* 2 10100)))))
        (write-line "tiny writes keep copying linear")
        (let ((state (stream (ascii "GET / HTTP/1.1\r\n") 100 100 "")))
-         (assert (match (run state echo) ((Err (TruncatedHead)) #t) (_ #f)))
+         (assert (match (run state echo) ((Err (Truncated-head)) #t) (_ #f)))
          (assert (= (● state ended) 2)))
        (let ((state
               (stream (ascii "POST / HTTP/1.1\r\nHost: test\r\nContent-Length: 4\r\n\r\nxy")
@@ -264,14 +264,14 @@
                       100
                       "")))
          (assert (match (run state echo)
-                   ((Err (TruncatedBody expected received))
+                   ((Err (Truncated-body expected received))
                     (and (= expected 4) (= received 2)))
                    (_ #f)))
          (assert (= (● state ended) 2)))
        (write-line "truncated input closes")
        (let ((state (stream (request) 100 100 "")))
          (assert (match (run state (lambda (_) (Err "application")))
-                   ((Err (ApplicationFailure error)) (string=? error "application"))
+                   ((Err (Application-failure error)) (string=? error "application"))
                    (_ #f)))
          (assert (= (● state ended) 2))
          (assert (string=? (output state) "")))
@@ -284,21 +284,21 @@
                               (headers
                                (list (new Header (name "Content-Length") (value "5"))))
                               (body #u8())))))
-            ((Err (ProtocolFailure _)) #t) (_ #f)))
+            ((Err (Protocol-failure _)) #t) (_ #f)))
          (assert (= (● state ended) 2))
          (assert (string=? (output state) "")))
        (write-line "returned failures preserve primary error")
        (for-each
         (lambda (fault)
           (let ((state (stream (request) 100 100 fault)))
-            (assert (match (run state echo) ((Err (TransportFailure _)) #t) (_ #f)))
+            (assert (match (run state echo) ((Err (Transport-failure _)) #t) (_ #f)))
             (assert (= (● state ended) 2))))
         (list "read" "write" "finish" "oversize-read" "oversize-write" "negative-write"))
        (for-each
         (lambda (sizes)
           (let ((state (stream (request) (● sizes first) (● sizes second) "")))
             (assert (match (run state echo)
-                      ((Err (TransportFailure error)) (string=? (● error code) "EIO"))
+                      ((Err (Transport-failure error)) (string=? (● error code) "EIO"))
                       (_ #f)))
             (assert (= (● state ended) 2))))
         (list (new Pair (first 0) (second 100)) (new Pair (first 100) (second 0))))

@@ -13,7 +13,7 @@
   (→ I64)
   (function 7))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
 
   (write-line (repr (map (lambda (function) (function 5)) (handlers))))
   (let ((function (lambda (value) (code value))))

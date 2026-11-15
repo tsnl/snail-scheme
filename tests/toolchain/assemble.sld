@@ -17,7 +17,7 @@
           ((string=? (substring text start (+ start (string-length part))) part) #t)
           (else (loop (+ start 1))))))
 
-(define (main) (→ Unit) (! fs output-port)
+(define (main) (→ Unit) (! Fs Output-port)
 
   (match (command-line)
     ((Cons _ (Cons text (Cons module (Cons runtime (Cons linked (Nil))))))

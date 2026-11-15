@@ -32,19 +32,19 @@
     (yield first)
     (count-from name (+ first 1) (- count 1))))
 
-(record Pair-of-steps
+(record pair-of-steps
   ((left Step)
    (right Step)))
 
 ;; Both generators take their first step under one log.
-(define (begin-both) (→ Pair-of-steps) (! output-port)
+(define (begin-both) (→ pair-of-steps) (! Output-port)
   (handle Log ((log (lambda (line) (write-line (string-append "first log: " line)))))
-    (new Pair-of-steps (left (start (lambda () (count-from "a" 1 3))))
+    (new pair-of-steps (left (start (lambda () (count-from "a" 1 3))))
          (right (start (lambda () (count-from "b" 10 2)))))))
 
 ;; The rest alternates between them, long after their handlers returned,
 ;; under another log: each resumed step logs to the handler in scope here.
-(define (alternate (this Step) (other Step)) (→ Unit) (! Log output-port)
+(define (alternate (this Step) (other Step)) (→ Unit) (! Log Output-port)
   (match this
     ((Done)
      (match other
@@ -76,16 +76,16 @@
         (loop (+ index 1))))
     (Finished)))
 
-(define (drain (step Asking) (scale I64)) (→ Unit) (! output-port)
+(define (drain (step Asking) (scale I64)) (→ Unit) (! Output-port)
   (match step
     ((Finished) (write-line "finished"))
     ((Gave value next)
      (write-line (string-append "gave " (show value)))
      (drain (handle Ask ((ask (lambda (resume) (resume scale)))) (next (unit))) (* scale 10)))))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   (match (begin-both)
-    ((Pair-of-steps left right)
+    ((pair-of-steps left right)
      (handle Log ((log (lambda (line) (write-line (string-append "second log: " line)))))
        (alternate left right))))
   (drain (handle Ask ((ask (lambda (resume) (resume 1)))) (scaled 3)) 2)

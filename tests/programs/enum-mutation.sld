@@ -5,18 +5,18 @@
 (record Radius
   ((value I64)))
 (enum Shape (Circle ((radius Radius))) (Empty))
-(record LinkData
+(record Link-data
   ((value I64)
    (next (Option Chain))))
-(enum Chain (Link ((data LinkData))) (End))
+(enum Chain (Link ((data Link-data))) (End))
 
 (define (cycle) (→ Chain)
   (unsafe-total (lambda ()
-                  (let* ((data (new LinkData (value 3) (next (None)))) (link (Link data)))
+                  (let* ((data (new Link-data (value 3) (next (None)))) (link (Link data)))
                     (set! (● data next) (Some link))
                     link))))
 
-(define (main) (→ Unit) (! mut output-port)
+(define (main) (→ Unit) (! Mut Output-port)
   (let* ((circle (Circle (new Radius (value 4)))) (alias circle))
     (match alias
       ((Circle radius) (set! (● radius value) 9))

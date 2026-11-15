@@ -6,7 +6,7 @@
   ((key I64)
    (index I64)))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   (let ((sorted (list-sort < (reverse (iota 30000)))))
     (write-line (show (length sorted)))
     (write-line (show (fold-left + 0 sorted)))

@@ -17,12 +17,12 @@
       ((log (lambda (message) (unit))))
     (action)))
 
-(define (loudly (action (Fn → A ! Log output-port e))) (→ A) (! output-port e) (∀ (A e))
+(define (loudly (action (Fn → A ! Log Output-port e))) (→ A) (! Output-port e) (∀ (A e))
   (handle Log
       ((log (lambda (message) (write-line (string-append "log: " message)))))
     (action)))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
 
   (display (loudly (lambda () (work 21))))
   (newline)

@@ -11,10 +11,10 @@
  (lpc catalog)
  (lpc wardrobe))
 
-(define (missing (paths (List String))) (→ (List String)) (! fs)
+(define (missing (paths (List String))) (→ (List String)) (! Fs)
   (filter (lambda (path) (not (file-exists? path))) paths))
 
-(define (report (title String) (paths (List String))) (→ Unit) (! output-port fs)
+(define (report (title String) (paths (List String))) (→ Unit) (! Output-port Fs)
   (write-line (string-append title
                              ": "
                              (show (length paths))
@@ -26,7 +26,8 @@
 (define (outfit) (→ Outfit)
   (new Outfit
     (hair
-     (Some (new Hair (style (new HairStyle (name "bob"))) (color (new HairColor (name "ginger"))))))
+     (Some
+      (new Hair (style (new Hair-style (name "bob"))) (color (new Hair-color (name "ginger"))))))
     (torso (Some (new Worn (garment (Longsleeve)) (dye (new Dye (name "teal"))))))
     (legs (Some (new Worn (garment (Pants)) (dye (new Dye (name "navy"))))))
     (feet (Some (new Worn (garment (Shoes)) (dye (new Dye (name "brown"))))))))
@@ -65,7 +66,7 @@
                     " frames"))
     ((None) "untextured")))
 
-(define (main) (→ Unit) (! fs output-port)
+(define (main) (→ Unit) (! Fs Output-port)
 
   (report "bodies"
           (concatenate
@@ -89,12 +90,13 @@
                                      (● (hair-sheet build style (list-ref (hair-colors) 0)) path))
                                    (list (Male) (Female))))
                             (hair-styles))))
-  (write-line (string-append "female: " (describe (dress (Female) (HumanFemale) (olive) (outfit)))))
   (write-line
-   (string-append "male in navy pants: " (describe (dress (Male) (HumanMale) (olive) (outfit)))))
+   (string-append "female: " (describe (dress (Female) (Human-female) (olive) (outfit)))))
+  (write-line
+   (string-append "male in navy pants: " (describe (dress (Male) (Human-male) (olive) (outfit)))))
   (write-line (string-append "male in green pants: "
                              (describe (dress (Male)
-                                              (HumanMale)
+                                              (Human-male)
                                               (olive)
                                               (new Outfit (hair (None))
                                                    (torso (None))
@@ -104,7 +106,7 @@
                                                    (feet (None)))))))
   (write-line (string-append "shoes on the torso: "
                              (describe (dress (Female)
-                                              (HumanFemale)
+                                              (Human-female)
                                               (olive)
                                               (new Outfit (hair (None))
                                                    (torso (Some (new Worn
@@ -112,7 +114,7 @@
                                                                   (dye (new Dye (name "brown"))))))
                                                    (legs (None))
                                                    (feet (None)))))))
-  (match (dress (Female) (HumanFemale) (olive) (outfit))
+  (match (dress (Female) (Human-female) (olive) (outfit))
     ((Some who)
      (for-each (lambda (sheet)
                  (write-line (string-append "  "
@@ -124,7 +126,7 @@
      (write-line (string-append "same character, same fingerprint: "
                                 (if (same-fingerprint? (Some who)
                                                        (dress (Female)
-                                                              (HumanFemale)
+                                                              (Human-female)
                                                               (olive)
                                                               (outfit)))
                                     "yes"
@@ -132,7 +134,7 @@
      (write-line (string-append "another skin, another fingerprint: "
                                 (if (same-fingerprint? (Some who)
                                                        (dress (Female)
-                                                              (HumanFemale)
+                                                              (Human-female)
                                                               (new Skin (name "light"))
                                                               (outfit)))
                                     "no"

@@ -6,7 +6,7 @@
 
 (define (s) (→ String) "hello")
 
-(define (main) (→ Unit) (! mut output-port)
+(define (main) (→ Unit) (! Mut Output-port)
   (define a (make-vector 3 0))
 
   (display (vector-ref (v) 3))

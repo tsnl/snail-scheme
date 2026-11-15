@@ -11,7 +11,7 @@
 ;; So does the list library, however long the list.
 (define (make-numbers) (→ (List I64)) (iota 1000000))
 
-(define (main) (→ Unit) (! mut output-port)
+(define (main) (→ Unit) (! Mut Output-port)
 
   (let ((counter (new Counter (value 0))) (text (make-text)) (numbers (make-numbers)))
     (let loop ((index 0))

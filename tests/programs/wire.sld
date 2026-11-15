@@ -34,7 +34,7 @@
 
 (define (copy) (→ (List Shape)) (ann (deserialize (serialize (shapes))) (List Shape)))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   (display (vector-length (bytes)))
   (newline)
   (display (tree-sum (ann (deserialize (bytes)) (Tree I64))))

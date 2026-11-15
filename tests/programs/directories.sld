@@ -10,7 +10,7 @@
 (define (at (name String)) (→ String)
   (string-append (root) "/" name))
 
-(define (answer (describe (Fn T → String)) (result (Result T FileError))) (→ String) (∀ (T))
+(define (answer (describe (Fn T → String)) (result (Result T File-error))) (→ String) (∀ (T))
   (match result
     ((Ok value)
      (let ((text (describe value))) (if (string=? text "") "ok" (string-append "ok " text))))
@@ -19,17 +19,17 @@
 (define (done (value Unit)) (→ String)
   "")
 
-(define (report (label String) (text String)) (→ Unit) (! output-port)
+(define (report (label String) (text String)) (→ Unit) (! Output-port)
   (write-line (string-append label " -> " text)))
 
-(define (kind-name (kind FileKind)) (→ String)
+(define (kind-name (kind File-kind)) (→ String)
   (match kind
-    ((RegularFile) "file")
+    ((Regular-file) "file")
     ((Directory) "directory")
-    ((SymbolicLink) "link")
-    ((OtherKind) "other")))
+    ((Symbolic-link) "link")
+    ((Other-kind) "other")))
 
-(define (status-text (status FileStatus)) (→ String)
+(define (status-text (status File-status)) (→ String)
   (match (● status kind)
     ((Directory) "directory")
     (kind (string-append (kind-name kind) " of " (show (● status size)) " bytes, modified "
@@ -38,7 +38,7 @@
 (define (names (entries (List String))) (→ String)
   (string-append "(" (string-join entries " ") ")"))
 
-(define (main) (→ Unit) (! clock fs output-port)
+(define (main) (→ Unit) (! Clock Fs Output-port)
   ;; A run removes what an earlier one may have left.
   (remove-tree (root))
   ;; ---- Making directories ----
@@ -112,7 +112,7 @@
   (let* ((first (monotonic-nanoseconds)) (second (monotonic-nanoseconds)))
     (report "clock never runs back" (show (>= second first))))
   (report "clock from a handler"
-          (show (handle clock
+          (show (handle Clock
                     ((monotonic-nanoseconds (lambda () 42)))
                   (monotonic-nanoseconds))))
   (unit))

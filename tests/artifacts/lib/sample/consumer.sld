@@ -8,7 +8,7 @@
    (sample generic))
   (begin
 
-    (define (client-bundle) (→ ArtifactBundle)
+    (define (client-bundle) (→ Artifact-bundle)
       (generic-bundle (ann 7 I64)))
 
     ))

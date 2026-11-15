@@ -1,4 +1,4 @@
-;; The page's document for the `dom` effect: `with-page-dom` binds each
+;; The page's document for the `Dom` effect: `with-page-dom` binds each
 ;; operation to the browser host's document (host/browser/dom.mjs), which
 ;; keeps the interface's nodes and listeners in tables by handle, under the
 ;; container the page gives it. Deliveries come from the page's event queue
@@ -20,8 +20,8 @@
 
     ;; ---- Handling ----
 
-    (define (with-page-dom (work (Fn → T ! dom e))) (→ T) (! events e) (∀ (T e))
-      (handle dom
+    (define (with-page-dom (work (Fn → T ! Dom e))) (→ T) (! Events e) (∀ (T e))
+      (handle Dom
           ((document-root (lambda () (new Node (handle (host-root)))))
            (create-element
             (lambda (tag) (new Node (handle (host-create-element (string->utf8 tag))))))
@@ -83,14 +83,14 @@
 
     ;; ---- Window applications ----
 
-    (define (page-installation-status) (→ InstallationStatus)
+    (define (page-installation-status) (→ Installation-status)
       (case (host-installation-status)
-        ((1) (InstallAvailable)) ((2) (AppInstalled)) (else (InstallUnavailable))))
+        ((1) (Install-available)) ((2) (App-installed)) (else (Install-unavailable))))
 
-    (define (page-install) (→ InstallResult) (! tasks)
+    (define (page-install) (→ Install-result) (! Tasks)
       (case (through-host host-start-install host-finish-install)
-        ((0) (InstallAccepted)) ((1) (InstallDismissed)) ((2) (InstallNotAvailable))
-        ((3) (GestureRequired)) ((5) (InstallAlreadyInstalled)) (else (InstallFailed))))
+        ((0) (Install-accepted)) ((1) (Install-dismissed)) ((2) (Install-not-available))
+        ((3) (Gesture-required)) ((5) (Install-already-installed)) (else (Install-failed))))
 
     ;; ---- Deliveries ----
 
@@ -108,17 +108,17 @@
     ;; The next delivery, skipping the display frames and resizes an
     ;; interface has no use for.
 
-    (define (page-delivery) (→ Delivery) (! events tasks)
+    (define (page-delivery) (→ Delivery) (! Events Tasks)
       (let ((kind (poll-event)))
         (cond ((= kind 0) (wait-event) (page-delivery))
               ((= kind (fired-kind)) (Fired (new Listener (id (event-field 0))) (fired-event)))
               ((= kind (woken-kind)) (Woken))
               ((= kind (hidden-kind)) (Hidden))
-              ((= kind (save-kind)) (SaveRequested))
+              ((= kind (save-kind)) (Save-requested))
               ((= kind (reload-kind)) (Closed))
               (else (page-delivery)))))
 
-    (define (fired-event) (→ Event) (! events)
+    (define (fired-event) (→ Event) (! Events)
       (new Event (value (host-reply (host-event-text 0)))
            (key (host-reply (host-event-text 1)))
            (modifiers (event-field 1))

@@ -136,9 +136,9 @@ try {
   await mkdir(join(app, 'src/sample'), {recursive: true});
   await writeFile(banner, 'linked');
   await writeFile(join(app, 'src/sample/banner.sld'), `(define-library (sample banner) (export print-banner)
-    (import (snail core base) (snail core io) (only (snail shell task) tasks) (snail shell resource))
+    (import (snail core base) (snail core io) (only (snail shell task) Tasks) (snail shell resource))
     (begin (define (banner) (→ Resource) (link-file "banner.txt"))
-      (define (print-banner) (→ Unit) (! output-port resource tasks)
+      (define (print-banner) (→ Unit) (! Output-port Resource Tasks)
         (write-line (list->string (map (lambda (byte) (i32->char (u8->i32 byte)))
                                       (vector->list (read-resource (banner)))))))))`);
   // Startup belongs to the explicit Application entry. Relinking calls that
@@ -150,12 +150,12 @@ try {
    (only (snail shell resource) resource)
    (prefix (snail shell application) application:)
    (sample banner))`,
-    '(type CounterApplication (SceneApplication Counter))', `(record CounterApplication ())
-    (instance (application:Application (! mut screen events storage tasks page resource output-port) CounterApplication)
-      (define (start (entry (application:Entry CounterApplication)))
-        (→ Unit) (! mut screen events storage tasks page resource output-port)
+    '(type CounterApplication (SceneApplication Counter))', `(record Counter-application ())
+    (instance (application:Application (! Mut Screen Events Storage Tasks Page Resource Output-port) Counter-application)
+      (define (start (entry (application:Entry Counter-application)))
+        (→ Unit) (! Mut Screen Events Storage Tasks Page Resource Output-port)
         (print-banner)
-        (application:start (ann (new application:Entry) (application:Entry (SceneApplication Counter))))))`);
+        (application:start (ann (new application:Entry) (application:Entry (Scene-application Counter))))))`);
   await until(() => printed('linked'), 'the linked file read by the explicit application entry');
   await browser.evaluate('globalThis.stayed = true');
   await writeFile(banner, 'linked again');

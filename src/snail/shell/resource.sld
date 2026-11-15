@@ -3,7 +3,7 @@
 ;; the file beside the library's source to the library as a dependency. The build ships the
 ;; file beside the payload, and the program holds a Resource, a handle. A
 ;; host reads a file only when the program asks for it, by
-;; `read-resource`, which performs `resource` and waits for the host as a
+;; `read-resource`, which performs `Resource` and waits for the host as a
 ;; task does, since a page can only fetch the file.
 ;;
 ;; A Resource can only come from `link-file`: the type is exported without
@@ -12,29 +12,29 @@
   (export
    Resource
    link-file
-   resource
+   Resource
    read-resource)
   (import
    (snail core base)
    (prefix (snail runtime resource) host-)
    (only (snail core forms) link-handle)
-   (only (snail shell task) tasks through-host))
+   (only (snail shell task) Tasks through-host))
   (begin
 
     ;; ---- Resources ----
 
     ;; The closure resolves this instance's linker symbol when the resource
     ;; is read. Constructing it does not fetch the file.
-    (record LinkedResource
+    (record Linked-resource
       ((handle (Fn → I32))))
 
-    (type Resource LinkedResource)
+    (type Resource Linked-resource)
 
     ;; Constructor identifiers keep their definition scope, so the template
     ;; constructs a Resource where the user cannot name its constructor.
     (define-syntax link-file
       (syntax-rules ()
-        ((_ path) (new LinkedResource (handle (lambda () (link-handle path)))))))
+        ((_ path) (new Linked-resource (handle (lambda () (link-handle path)))))))
 
     ;; ---- Reading ----
 
@@ -42,14 +42,14 @@
     ;; file, an object of the program's store, the first time a task asks
     ;; for it, and the task waits until it has; a handler can serve it
     ;; otherwise.
-    (effect resource
-      ((resource-bytes (Fn I32 → Bytes ! tasks)))
+    (effect Resource
+      ((resource-bytes (Fn I32 → Bytes ! Tasks)))
       (default ((resource-bytes host-bytes))))
 
     ;; The host holds the bytes from `finish` until its next `finish`, and
     ;; nothing between the two calls lets another task run.
 
-    (define (host-bytes (handle I32)) (→ Bytes) (! tasks)
+    (define (host-bytes (handle I32)) (→ Bytes) (! Tasks)
       (through-host (lambda (ticket) (host-read ticket handle))
                     (lambda (ticket)
                       (vector-generate (i32->i64 (host-finish ticket))
@@ -57,7 +57,7 @@
 
     ;; The file's bytes, as they were when the host first read them.
 
-    (define (read-resource (linked Resource)) (→ Bytes) (! resource tasks)
+    (define (read-resource (linked Resource)) (→ Bytes) (! Resource Tasks)
       (resource-bytes ((● linked handle))))
 
     ))

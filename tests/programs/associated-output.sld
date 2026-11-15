@@ -2,9 +2,9 @@
  (snail core base)
  (snail core io))
 
-(typeclass (Add e A B)
+(typeclass (Add E A B)
   (type Output)
-  (declare (add (left A) (right B)) (→ Output) (! e)))
+  (declare (add (left A) (right B)) (→ Output) (! E)))
 
 (instance (Add (!) I64 F64)
   (type Output F64)
@@ -75,7 +75,7 @@
   (define (identity (value I64)) (→ I64)
     value))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
 
   (display (sum (ann 1 I64) 2.5))
   (newline)

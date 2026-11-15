@@ -1,10 +1,10 @@
 # Native networking and processes
 
-`(snail shell socket)` provides concrete, interceptable `tcp` and `udp` effects. The Node
+`(snail shell socket)` provides concrete, interceptable `Tcp` and `Udp` effects. The Node
 program runner binds them to `host/native/tcp.mjs` and `host/native/udp.mjs` through
 `host/native/socket-imports.mjs`: an operation that waits starts there and waits for its
 ticket ([waiting on the host](tasks.md#waiting-on-the-host)), so its latent row names
-`tasks`. [Child processes](#child-processes) follow the
+`Tasks`. [Child processes](#child-processes) follow the
 same model, through `host/native/process.mjs` and `host/native/process-imports.mjs`. Static and separately linked programs use the
 same binding. The [HTTP library](../snail-core/http.md) implements one complete
 request/response exchange over TCP. Browser sockets are not implemented.
@@ -13,8 +13,8 @@ remaining work.
 
 ## Snail Scheme API
 
-Import `(snail shell socket)` and include `tcp` or `udp` in the effect row of code using it.
-Every operation returns `Result` with a `SocketError` whose `code` is a string
+Import `(snail shell socket)` and include `Tcp` or `Udp` in the effect row of code using it.
+Every operation returns `Result` with a `Socket-error` whose `code` is a string
 such as `"EBADF"`, `"EINVAL"` or a native network error code. Nothing
 cancels a waiting task: it resumes when its operation settles. When the run
 ends, the host aborts the operations still outstanding, and the tasks
@@ -24,8 +24,8 @@ An `Endpoint` is an IPv4 address and a port, and only `(endpoint address
 port)` makes one, from dotted text: four decimal octets from 0 to 255
 without leading zeros, and a port from 0 to 65,535, or `EINVAL`. The type
 is exported without its constructor, so holding an `Endpoint` is evidence
-that both are usable, and no host checks them again. `Endpoint-address`
-gives the dotted text and `Endpoint-port` the port. Hostnames are outside
+that both are usable, and no host checks them again. `endpoint-address`
+gives the dotted text and `endpoint-port` the port. Hostnames are outside
 this API. TCP operations are:
 
 | Operation | Success value |
@@ -48,7 +48,7 @@ UDP operations are:
 
 | Operation | Success value |
 | --- | --- |
-| `bind endpoint` | `UdpSocket`; `(● socket port)` is the actual bound port. |
+| `bind endpoint` | `Udp-socket`; `(● socket port)` is the actual bound port. |
 | `send socket peer bytes` | `I32` count of the entire datagram accepted locally, including zero; never a partial prefix. |
 | `receive socket maximum` | `Datagram` with an `Endpoint` peer and immutable bytes. |
 | `close-udp socket` | `Unit`. |
@@ -61,7 +61,7 @@ selects a free port; a send to port 0 fails with `EINVAL` before it reaches
 the host. UDP does not guarantee
 delivery, order or uniqueness.
 
-`Listener`, `Connection` and `UdpSocket` carry an opaque `Any` token belonging to their
+`Listener`, `Connection` and `Udp-socket` carry an opaque `Any` token belonging to their
 handler. They are reusable values that stay within their instance. Closing
 revokes all aliases; closing the same native token again succeeds. Native
 token types stay private to the library. A different handler's token reaching
@@ -69,7 +69,7 @@ the native binding reports `EBADF` instead of being cast to an integer handle.
 TCP and UDP owners may issue the same numeric handle, but their private token
 types differ. Tokens must remain with the runtime that issued them.
 
-A replacement `handle tcp` supplies eight operations; `handle udp` supplies four.
+A replacement `handle Tcp` supplies eight operations; `handle Udp` supplies four.
 They may create endpoint values with their own tokens. For example, a test
 can put a record with a mutable `Bytes` field in a connection token, or a
 mutable `Datagram` field in a UDP token, accessed through operation arguments. Like any handler, the replacement
@@ -198,7 +198,7 @@ created handle. No native cleanup record retains a managed wrapper.
 
 ## Native UDP owner
 
-`host/native/udp.mjs` owns IPv4 datagram sockets behind the `udp` effect. It is tested
+`host/native/udp.mjs` owns IPv4 datagram sockets behind the `Udp` effect. It is tested
 against real loopback sockets, including forced asynchronous native sends.
 It uses Node's [synchronous numeric bind](https://nodejs.org/api/dgram.html#socketbindsyncoptions),
 available from 26.4. Binding is a nonblocking local operation, so it needs no
@@ -247,10 +247,10 @@ delivery protocol and retains no managed wrapper.
 
 ## Child processes
 
-`(snail shell process)` provides the `process` effect: child processes with
-their standard streams piped to the program. Import it and include `process`
+`(snail shell process)` provides the `Process` effect: child processes with
+their standard streams piped to the program. Import it and include `Process`
 in the effect row of code using it. Every operation returns `Result` with a
-`ProcessError` whose `code` is a string such as `"EBADF"` or a native error
+`Process-error` whose `code` is a string such as `"EBADF"` or a native error
 code. As for sockets, nothing cancels a waiting task.
 
 | Operation | Success value |
@@ -263,7 +263,7 @@ code. As for sockets, nothing cancels a waiting task.
 | `wait-exit process` | `(Exited code)`, or `(Signaled name)` with the signal's name, such as `"SIGTERM"`. |
 | `close-process process` | `Unit`. |
 | `run (Command …) input` | `(Captured exit stdout stderr)`, once the command has run to its end with `input`, a `Bytes`, as its standard input. |
-| `exec (Command …)` | Nothing: the command replaces the program. It returns a `ProcessError`, not a `Result`, and only when the command could not start. |
+| `exec (Command …)` | Nothing: the command replaces the program. It returns a `Process-error`, not a `Result`, and only when the command could not start. |
 
 A `Command`'s program is found on `PATH` when it has no slash, as execvp
 finds it: in the first entry holding a regular file the process may
@@ -302,7 +302,7 @@ program and report failures as `spawn` does
 
 ### Termination
 
-The `signals` effect, also in `(snail shell process)`, has one operation,
+The `Signals` effect, also in `(snail shell process)`, has one operation,
 `(termination)`, which waits for SIGINT or SIGTERM and returns
 `(Interrupt)` or `(Terminate)`. A program opts in by waiting: a signal that
 arrives while tasks wait in `termination` is the result of every such wait,
@@ -386,4 +386,4 @@ with the socket owners when a program ends, so no child outlives a program
 that ends normally. Only the child is killed: a process it started, as a
 shell does for a command it does not `exec`, is the child's to end. No native record retains a managed wrapper. The browser has
 no processes and no `snail.runtime.native.process` imports, so a program performing
-`process` links only on the native runner.
+`Process` links only on the native runner.

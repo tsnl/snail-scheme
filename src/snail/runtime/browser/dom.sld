@@ -4,7 +4,7 @@
 ;; NUL, which no attribute or property name holds. A string coming back
 ;; crosses a scalar at a time: the call answers how many, and
 ;; `reply-scalar` reads each, until the next call that answers a string.
-;; (snail shell dom page) implements the `dom` effect over these.
+;; (snail shell dom page) implements the `Dom` effect over these.
 (define-library (snail runtime browser dom)
   (export
    root

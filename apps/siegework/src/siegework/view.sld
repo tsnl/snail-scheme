@@ -53,7 +53,7 @@
     ;; by h, as an item standing in the host's coordinates.
     (define (part (mesh Mesh) (paint Paint) (x F32) (y F32) (z F32) (w F32) (d F32) (h F32))
       (→ Item)
-      (Item-glow-set
+      (item-glow-set
        (item mesh
              (new Vec3 (x x) (y (- z (/ h 2.0))) (z (negate y)))
              (new Vec3 (x w) (y h) (z d))
@@ -66,7 +66,7 @@
 
     ;; A flat w by d square at height z.
     (define (flat (paint Paint) (x F32) (y F32) (z F32) (w F32) (d F32)) (→ Item)
-      (Item-glow-set (item (Tile)
+      (item-glow-set (item (Tile)
                            (new Vec3 (x x) (y z) (z (negate y)))
                            (new Vec3 (x w) (y 1.0) (z d))
                            0.0
@@ -79,7 +79,7 @@
              (let* ((p (● it position))
                     (s (● it scale))
                     (moved (new Vec3 (x (* kx (● p x))) (y (* ky (● p y))) (z (* kz (● p z))))))
-               (Item-from-set (Item-scale-set (Item-position-set it moved)
+               (item-from-set (item-scale-set (item-position-set it moved)
                                               (new Vec3 (x (* kx (● s x)))
                                                    (y (* ky (● s y)))
                                                    (z (* kz (● s z)))))
@@ -89,8 +89,8 @@
     ;; Turns parts by `yaw` about their origin and moves them to `origin`.
     (define (place (parts (List Item)) (origin Vec3) (yaw F32)) (→ (List Item))
       (map (lambda (it)
-             (Item-yaw-set
-              (Item-from-set (Item-position-set it (turned (● it position) origin yaw))
+             (item-yaw-set
+              (item-from-set (item-position-set it (turned (● it position) origin yaw))
                              (turned (● it from) origin yaw))
               (+ yaw (● it yaw))))
            parts))
@@ -103,7 +103,7 @@
 
     ;; Parts that move from one place to another over the coming tick.
     (define (travel (parts (List Item)) (from Vec3) (to Vec3) (yaw F32)) (→ (List Item))
-      (map (lambda (pair) (Item-from-set (● pair second) (● (● pair first) position)))
+      (map (lambda (pair) (item-from-set (● pair second) (● (● pair first) position)))
            (zip (place parts from yaw) (place parts to yaw))))
 
     (define (cell-point (cell Cell) (height F32)) (→ Vec3)
@@ -242,7 +242,7 @@
     ;; The world's base beneath the map, with a cream rim.
     (define (base-items) (→ (List Item))
       (let* ((size (i64->f32 (map-size))) (middle (- (/ size 2.0) 0.5)))
-        (list (Item-glow-set
+        (list (item-glow-set
                (item (Box)
                      (new Vec3 (x middle) (y -0.7) (z middle))
                      (new Vec3 (x size) (y 0.69) (z size))
@@ -350,7 +350,7 @@
 
     ;; An unpowered building loses its color and glow.
     (define (unpowered (parts (List Item))) (→ (List Item))
-      (map (lambda (it) (Item-glow-set (Item-color-set it (● (shadow) color)) 0.0)) parts))
+      (map (lambda (it) (item-glow-set (item-color-set it (● (shadow) color)) 0.0)) parts))
 
     (define (building-items (world World) (building Building)) (→ (List Item))
       (let ((parts (building-parts (● building kind) (● building level))))
@@ -411,7 +411,7 @@
       (let* ((a (cell-point from (- (wire-height) (/ thickness 2.0))))
              (b (cell-point to (- (wire-height) (/ thickness 2.0))))
              (dx (- (● b x) (● a x))) (dz (- (● b z) (● a z))))
-        (Item-glow-set (item (Box)
+        (item-glow-set (item (Box)
                              (between a b 0.5)
                              (new Vec3
                                (x (sqrt (+ (* dx dx) (* dz dz))))
@@ -457,7 +457,7 @@
       (let ((other (new Cell (x (+ (● cell x) dx)) (y (+ (● cell y) dy)))))
         (if (and (in-bounds? other) (vector-ref cells (cell-index other)))
             (None)
-            (Some (Item-glow-set (item (Tile)
+            (Some (item-glow-set (item (Tile)
                                        (new Vec3 (x (+ (i64->f32 (● cell x))
                                                        (+ (* 0.5 (i64->f32 dx))
                                                           (if (= dx 0) 0.0 lane))))
@@ -548,7 +548,7 @@
         (map (lambda (index)
                (let ((now (pulse-fraction tick index length))
                      (next (pulse-fraction (+ tick 1) index length)))
-                 (Item-from-set (Item-glow-set (item (Octahedron)
+                 (item-from-set (item-glow-set (item (Octahedron)
                                                      (between a b next)
                                                      (new Vec3 (x 0.16) (y 0.16) (z 0.16))
                                                      0.0

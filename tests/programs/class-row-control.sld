@@ -7,8 +7,8 @@
 (effect Gen
   ((ctl next (Fn → Unit))))
 
-(typeclass (Store e S)
-  (declare (fetch-object (left S) (right String)) (→ String) (! e)))
+(typeclass (Store E S)
+  (declare (fetch-object (left S) (right String)) (→ String) (! E)))
 
 (record Loud
   ((name String)))
@@ -18,7 +18,7 @@
     (next)
     name))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
 
   (handle Gen
       ((next (lambda (resume)

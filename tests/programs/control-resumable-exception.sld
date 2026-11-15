@@ -21,11 +21,11 @@
   (fold-left (lambda (total c) (+ (* total 10) (digit c))) 0 (string->list text)))
 
 ;; Each bad digit counts as the default, and parsing goes on.
-(define (parse-with (text String) (default I64)) (→ I64) (! output-port)
+(define (parse-with (text String) (default I64)) (→ I64) (! Output-port)
   (handle Fail ((fail (lambda (message resume) (write-line message) (resume default))))
     (number text)))
 
-;; The resumed part of the body performs `log`, a control operation of a
+;; The resumed part of the body performs `Log`, a control operation of a
 ;; handler outside the one that resumed it: the yield leaves the resumed
 ;; frames, the inner handler and its implementation, reaches the log's
 ;; handler, and comes back through all of them when that resumes.
@@ -35,12 +35,12 @@
     (log (string-append "value " (show value)))
     value))
 
-(define (logged (body (Fn → I64 ! Log))) (→ I64) (! output-port)
+(define (logged (body (Fn → I64 ! Log))) (→ I64) (! Output-port)
   (handle Log ((log
                 (lambda (line resume) (write-line (string-append "log: " line)) (resume (unit)))))
     (body)))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
 
   (display (parse-with "123" 0))
   (newline)

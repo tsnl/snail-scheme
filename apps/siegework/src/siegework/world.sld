@@ -21,22 +21,22 @@
    raise-cost
    raise-duration
    Work
-   Work-progress-set
+   work-progress-set
    remaining-work
    rush-price
    work-refund
    Building
-   Building-level-set
-   Building-health-set
-   Building-aim-set
-   Building-work-set
+   building-level-set
+   building-health-set
+   building-aim-set
+   building-work-set
    built?
    building-reach
    invested
    Hub
-   Hub-health-set
-   Hub-slots-set
-   Hub-work-set
+   hub-health-set
+   hub-slots-set
+   hub-work-set
    hub-health
    hub-reach
    maximum-slots
@@ -44,19 +44,19 @@
    slot-duration
    hub-cell?
    Crystal
-   Crystal-reserve-set
+   crystal-reserve-set
    Nest
-   Nest-health-set
+   nest-health-set
    nest-health
    Behavior
    Minion
    Raider
    Beast
    Enemy
-   Enemy-cell-set
-   Enemy-previous-set
-   Enemy-health-set
-   Enemy-aggro-set
+   enemy-cell-set
+   enemy-previous-set
+   enemy-health-set
+   enemy-aggro-set
    Dig
    rock-health
    Alert
@@ -68,32 +68,32 @@
    Lost
    Resigned
    Ledger
-   Ledger-kills-set
-   Ledger-lost-set
+   ledger-kills-set
+   ledger-lost-set
    Node
    Wire
    Network
    Reveal
    World
-   World-tick-set
-   World-started-set
-   World-outcome-set
-   World-hub-set
-   World-buildings-set
-   World-nests-set
-   World-enemies-set
-   World-shots-set
-   World-digs-set
-   World-alerts-set
-   World-routes-set
-   World-ledger-set
-   World-next-order-set
+   world-tick-set
+   world-started-set
+   world-outcome-set
+   world-hub-set
+   world-buildings-set
+   world-nests-set
+   world-enemies-set
+   world-shots-set
+   world-digs-set
+   world-alerts-set
+   world-routes-set
+   world-ledger-set
+   world-next-order-set
    starting-energy
    new-world
    playing?
    opening?
    fresh-id
-   building
+   Building
    building-at
    put-building
    remove-building
@@ -390,7 +390,7 @@
     ;; ground around it already unveiled.
     (define (new-world (seed I64)) (→ World)
       (let ((world (first-world seed)))
-        (World-reveal-set world (Reveal-tick-set (● world reveal) -1000))))
+        (world-reveal-set world (reveal-tick-set (● world reveal) -1000))))
 
     (define (first-world (seed I64)) (→ World)
       (let ((land (new-land (land-seed seed))) (cells (* (map-size) (map-size))))
@@ -453,7 +453,7 @@
     (define (fresh-id (world World)) (→ (Pair I64 World))
       (new Pair
         (first (● world next-id))
-        (second (World-next-id-set world (+ (● world next-id) 1)))))
+        (second (world-next-id-set world (+ (● world next-id) 1)))))
 
     ;; ---- Lookups and replacements ----
 
@@ -464,13 +464,13 @@
       (find (lambda (b) (cell=? (● b cell) cell)) (● world buildings)))
 
     (define (put-building (world World) (building Building)) (→ World)
-      (World-buildings-set world
+      (world-buildings-set world
                            (map
                             (lambda (b) (if (= (● b id) (● building id)) building b))
                             (● world buildings))))
 
     (define (remove-building (world World) (id I64)) (→ World)
-      (rewire (World-buildings-set world
+      (rewire (world-buildings-set world
                                    (filter (lambda (b) (not (= (● b id) id)))
                                            (● world buildings)))))
 
@@ -478,7 +478,7 @@
       (find (lambda (crystal) (cell=? (● crystal cell) cell)) (● world crystals)))
 
     (define (put-crystal (world World) (crystal Crystal)) (→ World)
-      (World-crystals-set world
+      (world-crystals-set world
                           (map (lambda (c)
                                  (if (cell=? (● c cell) (● crystal cell)) crystal c))
                                (● world crystals))))
@@ -492,24 +492,24 @@
 
     ;; Opening rock changes every route and may clear wires and shots.
     (define (open-rock (world World) (cell Cell)) (→ World)
-      (rewire (World-routes-set
-               (World-opened-set world (vector-set (● world opened) (cell-index cell) #t))
+      (rewire (world-routes-set
+               (world-opened-set world (vector-set (● world opened) (cell-index cell) #t))
                (Nil))))
 
     ;; Spending and earning keep energy and the ledger in step; a refund is
     ;; negative spending.
     (define (spend (world World) (amount I64)) (→ World)
-      (World-ledger-set (World-energy-set world (- (● world energy) amount))
-                        (Ledger-spent-set (● world ledger)
+      (world-ledger-set (world-energy-set world (- (● world energy) amount))
+                        (ledger-spent-set (● world ledger)
                                           (+ (● (● world ledger) spent) amount))))
 
     (define (earn (world World) (amount I64)) (→ World)
-      (World-ledger-set (World-energy-set world (+ (● world energy) amount))
-                        (Ledger-produced-set (● world ledger)
+      (world-ledger-set (world-energy-set world (+ (● world energy) amount))
+                        (ledger-produced-set (● world ledger)
                                              (+ (● (● world ledger) produced) amount))))
 
     (define (structures-changed (world World)) (→ World)
-      (World-structure-version-set world (+ (● world structure-version) 1)))
+      (world-structure-version-set world (+ (● world structure-version) 1)))
 
     ;; ---- Wires and power ----
 
@@ -624,7 +624,7 @@
            (for-each (lambda (node) (light! seen (● node cell) (● node reach))) nodes)
            seen))))
 
-    (define (light! (seen (Vector Bool)) (center Cell) (radius I64)) (→ Unit) (! mut)
+    (define (light! (seen (Vector Bool)) (center Cell) (radius I64)) (→ Unit) (! Mut)
       (let ((offsets (map (lambda (i) (- i radius)) (iota (+ 1 (* 2 radius))))))
         (for-each (lambda (dy)
                     (for-each (lambda (dx)
@@ -648,7 +648,7 @@
     (define (rewire (world World)) (→ World)
       (let* ((nodes (list->vector (Cons (hub-node world) (building-nodes world))))
              (spanned (span nodes (links world nodes))))
-        (explore (structures-changed (World-visible-set (World-network-set world
+        (explore (structures-changed (world-visible-set (world-network-set world
                                                                            (new Network
                                                                              (wires
                                                                               (● spanned second))
@@ -663,8 +663,8 @@
                             (iota (vector-length visible)))))
         (if (null? fresh)
             world
-            (World-explored-version-set
-             (World-reveal-set (World-explored-set world
+            (world-explored-version-set
+             (world-reveal-set (world-explored-set world
                                                    (vector-generate (vector-length visible)
                                                                     (lambda (index)
                                                                       (or
@@ -695,10 +695,10 @@
     (define (uncover (world World)) (→ World)
       (let ((everything (make-vector (* (map-size) (map-size)) #t)) (reveal (● world reveal)))
         (structures-changed
-         (World-explored-version-set (World-reveal-set (World-visible-set (World-explored-set world
+         (world-explored-version-set (world-reveal-set (world-visible-set (world-explored-set world
                                                                                               everything)
                                                                           everything)
-                                                       (Reveal-tick-set reveal -1000))
+                                                       (reveal-tick-set reveal -1000))
                                      (+ (● world explored-version) 1)))))
 
     ))

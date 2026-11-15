@@ -79,7 +79,7 @@ which the engine runs: `(snail shell engine)`, a Snail Scheme program stage 0
 builds to `build/engine/engine.wasm` (`bootstrap/engine.sld`), which both
 hosts start with the manifest in `SNAIL_MANIFEST`, or at
 `SNAIL_ENGINE_MODULE`. The engine reads the runtime and each module from
-the store the manifest names, by digest, through its `linked-content-store`
+the store the manifest names, by digest, through its `Linked-content-store`
 effect, which this entry handles by reading files. It links them through
 the Wasm primitives of `(snail shell wasm)`, the runtime first and each
 library's module after those it imports from, names the runtime

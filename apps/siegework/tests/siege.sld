@@ -27,7 +27,7 @@
     ((Lost) "lost")
     ((Resigned) "resigned")))
 
-(define (report (name String) (world World)) (→ Unit) (! output-port)
+(define (report (name String) (world World)) (→ Unit) (! Output-port)
   (write-line (string-append name
                              ": tick "
                              (show (● world tick))
@@ -91,7 +91,7 @@
   (let ((world (run (try (try world (Build (Turret) (offset world -3 0) #f))
                          (Build (Turret) (offset world 3 0) #f))
                     100)))
-    (World-enemies-set world
+    (world-enemies-set world
                        (list (new Enemy (id 999)
                                   (behavior (Minion))
                                   (rank 0)
@@ -111,7 +111,7 @@
        ((None) "nothing")))
     ((None) "gone")))
 
-(define (watch (world World) (ticks I64)) (→ Unit) (! output-port)
+(define (watch (world World) (ticks I64)) (→ Unit) (! Output-port)
   (if (> ticks 0)
       (let ((next (advance world)))
         (for-each (lambda (shot)
@@ -139,7 +139,7 @@
                     (string-append "aims at " (show (● cell x)) "," (show (● cell y))))
                    ((None) "has not fired"))))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   (define lost (run (started (new-world 1)) 6000))
   (define defended (defend (started (new-world 1)) 1000))
   (write-line

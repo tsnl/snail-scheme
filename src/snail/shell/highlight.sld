@@ -14,13 +14,13 @@
    Blank
    Comment
    Punctuation
-   StringLiteral
-   CharacterLiteral
-   NumberLiteral
-   BooleanLiteral
+   String-literal
+   Character-literal
+   Number-literal
+   Boolean-literal
    Keyword
-   TypeName
-   DefinedName
+   Type-name
+   Defined-name
    Identifier
    Invalid
    class-name
@@ -34,26 +34,26 @@
          make-source
          source-text
          Whitespace
-         LineComment
-         BlockComment
-         DatumComment
+         Line-comment
+         Block-comment
+         Datum-comment
          atmosphere-at
          Atmosphere
          Lexeme
-         ListOpen
-         ListClose
-         QuoteMark
-         BytesOpen
-         StringLexeme
-         CharacterLexeme
-         TokenLexeme
-         EndOfText
+         List-open
+         List-close
+         Quote-mark
+         Bytes-open
+         String-lexeme
+         Character-lexeme
+         Token-lexeme
+         End-of-text
          lexeme-at
-         BooleanToken
-         IntegerToken
-         FloatToken
-         NameToken
-         InvalidToken
+         Boolean-token
+         Integer-token
+         Float-token
+         Name-token
+         Invalid-token
          token-kind)
    (only (snail shell compiler core) core-keywords))
   (begin
@@ -70,13 +70,13 @@
       (Blank)
       (Comment)
       (Punctuation)
-      (StringLiteral)
-      (CharacterLiteral)
-      (NumberLiteral)
-      (BooleanLiteral)
+      (String-literal)
+      (Character-literal)
+      (Number-literal)
+      (Boolean-literal)
       (Keyword)
-      (TypeName)
-      (DefinedName)
+      (Type-name)
+      (Defined-name)
       (Identifier)
       (Invalid))
 
@@ -86,13 +86,13 @@
         ((Blank) "whitespace")
         ((Comment) "comment")
         ((Punctuation) "punctuation")
-        ((StringLiteral) "string")
-        ((CharacterLiteral) "character")
-        ((NumberLiteral) "number")
-        ((BooleanLiteral) "boolean")
+        ((String-literal) "string")
+        ((Character-literal) "character")
+        ((Number-literal) "number")
+        ((Boolean-literal) "boolean")
         ((Keyword) "keyword")
-        ((TypeName) "type")
-        ((DefinedName) "definition")
+        ((Type-name) "type")
+        ((Defined-name) "definition")
         ((Identifier) "identifier")
         ((Invalid) "invalid")))
 
@@ -154,7 +154,7 @@
     (define (next-token (source Source) (index I64) (naming Naming))
       (→ (Option (Pair Token Naming)))
       (match (atmosphere-at source index)
-        ((Some (Pair (DatumComment) end))
+        ((Some (Pair (Datum-comment) end))
          (Some (new Pair
                  (first (new Token (start index) (end (datum-end source end)) (class (Comment))))
                  (second naming))))
@@ -164,7 +164,7 @@
                  (second naming))))
         ((None)
          (match (lexeme-at source index)
-           ((Pair (EndOfText) _) (None))
+           ((Pair (End-of-text) _) (None))
            ((Pair lexeme end)
             (let ((classified (lexeme-class source index end lexeme naming)))
               (Some (new Pair
@@ -180,30 +180,30 @@
     (define (lexeme-class (source Source) (start I64) (end I64) (lexeme Lexeme) (naming Naming))
       (→ (Pair Class Naming))
       (match lexeme
-        ((ListOpen _)
+        ((List-open _)
          (new Pair
            (first (Punctuation))
            (second (match naming ((Defining) (Defining)) (_ (Opened))))))
-        ((ListClose _) (new Pair (first (Punctuation)) (second (Plain))))
-        ((QuoteMark) (new Pair (first (Punctuation)) (second naming)))
-        ((BytesOpen) (new Pair (first (Punctuation)) (second (Plain))))
-        ((StringLexeme _) (new Pair (first (StringLiteral)) (second (Plain))))
-        ((CharacterLexeme) (new Pair (first (CharacterLiteral)) (second (Plain))))
-        ((TokenLexeme) (token-class (source-text source start end) naming))
+        ((List-close _) (new Pair (first (Punctuation)) (second (Plain))))
+        ((Quote-mark) (new Pair (first (Punctuation)) (second naming)))
+        ((Bytes-open) (new Pair (first (Punctuation)) (second (Plain))))
+        ((String-lexeme _) (new Pair (first (String-literal)) (second (Plain))))
+        ((Character-lexeme) (new Pair (first (Character-literal)) (second (Plain))))
+        ((Token-lexeme) (token-class (source-text source start end) naming))
         ;; `next-token` stops at the end of the text.
-        ((EndOfText) (new Pair (first (Blank)) (second naming)))))
+        ((End-of-text) (new Pair (first (Blank)) (second naming)))))
 
     (define (token-class (text String) (naming Naming)) (→ (Pair Class Naming))
       (match (token-kind text)
-        ((BooleanToken _) (new Pair (first (BooleanLiteral)) (second (Plain))))
-        ((IntegerToken) (new Pair (first (NumberLiteral)) (second (Plain))))
-        ((FloatToken) (new Pair (first (NumberLiteral)) (second (Plain))))
-        ((InvalidToken _) (new Pair (first (Invalid)) (second (Plain))))
-        ((NameToken) (name-class text naming))))
+        ((Boolean-token _) (new Pair (first (Boolean-literal)) (second (Plain))))
+        ((Integer-token) (new Pair (first (Number-literal)) (second (Plain))))
+        ((Float-token) (new Pair (first (Number-literal)) (second (Plain))))
+        ((Invalid-token _) (new Pair (first (Invalid)) (second (Plain))))
+        ((Name-token) (name-class text naming))))
 
     (define (name-class (name String) (naming Naming)) (→ (Pair Class Naming))
       (match naming
-        ((Defining) (new Pair (first (DefinedName)) (second (Plain))))
+        ((Defining) (new Pair (first (Defined-name)) (second (Plain))))
         ((Opened)
          (if (member? name (defining-forms))
              (new Pair (first (Keyword)) (second (Defining)))
@@ -214,7 +214,7 @@
     (define (plain-name-class (name String)) (→ Class)
       (let ((first (string-ref name 0)))
         (cond ((member? name (keywords)) (Keyword))
-              ((and (not (char<? first #\A)) (not (char<? #\Z first))) (TypeName))
+              ((and (not (char<? first #\A)) (not (char<? #\Z first))) (Type-name))
               (else (Identifier)))))
 
     ;; ---- Display ranges ----
@@ -255,11 +255,11 @@
              (lexeme (lexeme-at source start))
              (end (● lexeme second)))
         (match (● lexeme first)
-          ((EndOfText) start)
-          ((ListClose _) start)
-          ((QuoteMark) (datum-end source end))
-          ((ListOpen _) (items-end source end))
-          ((BytesOpen) (items-end source end))
+          ((End-of-text) start)
+          ((List-close _) start)
+          ((Quote-mark) (datum-end source end))
+          ((List-open _) (items-end source end))
+          ((Bytes-open) (items-end source end))
           (_ end))))
 
     ;; The index after the closing bracket of a list whose items start at
@@ -267,14 +267,14 @@
     (define (items-end (source Source) (index I64)) (→ I64)
       (let* ((start (atmosphere-end source index)) (lexeme (lexeme-at source start)))
         (match (● lexeme first)
-          ((EndOfText) start)
-          ((ListClose _) (● lexeme second))
+          ((End-of-text) start)
+          ((List-close _) (● lexeme second))
           (_ (items-end source (datum-end source start))))))
 
     ;; Skips atmosphere as the reader does, with the data `#;` comments out.
     (define (atmosphere-end (source Source) (index I64)) (→ I64)
       (match (atmosphere-at source index)
-        ((Some (Pair (DatumComment) end)) (atmosphere-end source (datum-end source end)))
+        ((Some (Pair (Datum-comment) end)) (atmosphere-end source (datum-end source end)))
         ((Some (Pair _ end)) (atmosphere-end source end))
         ((None) index)))
 

@@ -9,7 +9,7 @@
    (siegework hud))
   (begin
 
-    (type Siegework (SceneApplication Game))
+    (type Siegework (Scene-application Game))
 
     (define-page-state Game)
 

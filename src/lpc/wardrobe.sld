@@ -24,8 +24,8 @@
     ;; ---- Outfits ----
 
     (record Hair
-      ((style HairStyle)
-       (color HairColor))
+      ((style Hair-style)
+       (color Hair-color))
       (deriving Serialize Deserialize))
 
     (record Worn

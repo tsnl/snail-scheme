@@ -14,7 +14,7 @@
 ;; An empty vector's element type comes from its signature.
 (define (empty) (→ (Vector I64)) (vector))
 
-(define (main) (→ Unit) (! mut output-port)
+(define (main) (→ Unit) (! Mut Output-port)
   (let ((lengths (make-vector 3 (new Meters (value 1)))))
     (vector-set! lengths 2 (new Meters (value 7)))
     (write-line (show (+ (● (vector-ref lengths 0) value) (● (vector-ref lengths 2) value)))))

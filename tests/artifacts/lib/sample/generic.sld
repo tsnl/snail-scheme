@@ -5,7 +5,7 @@
    (snail shell artifact))
   (begin
 
-    (define (generic-bundle (ignored A)) (→ ArtifactBundle) (∀ (A))
+    (define (generic-bundle (ignored A)) (→ Artifact-bundle) (∀ (A))
       (artifact-bundle "client"))
 
     ))

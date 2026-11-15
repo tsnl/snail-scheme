@@ -1,6 +1,6 @@
 (import
  (snail core base)
- (only (snail core forms) host)
+ (only (snail core forms) Host)
  (rename (snail core io) (write write-value))
  (snail shell task)
  (snail shell socket))
@@ -13,7 +13,7 @@
        ((Some checked) checked)
        ((None) (panic "fixture payload has the wrong type"))))))
 
-(define (require (result (Result T SocketError))) (→ T) (∀ (T))
+(define (require (result (Result T Socket-error))) (→ T) (∀ (T))
   (match result
     ((Ok value) value)
     ((Err error) (panic (● error code)))))
@@ -21,7 +21,7 @@
 (record Buffer
   ((bytes Bytes)))
 
-(define (main) (→ Unit) (! host mut output-port tasks)
+(define (main) (→ Unit) (! Host Mut Output-port Tasks)
 
   ;; A program waits on sockets from a task, which the scheduler runs once
   ;; main returns.
@@ -29,10 +29,10 @@
   ;; handler's captures. A dispatched task inherits this handler across waits.
   (dispatch
    (lambda ()
-     (handle tcp
+     (handle Tcp
          ((listen
            (lambda (endpoint)
-             (Ok (new Listener (token (Any endpoint)) (port (Endpoint-port endpoint))))))
+             (Ok (new Listener (token (Any endpoint)) (port (endpoint-port endpoint))))))
           (connect
            (lambda (_) (Ok (new Connection (token (Any (new Buffer (bytes #u8()))))))))
           (accept (lambda (_) (Ok (new Connection (token (Any (new Buffer (bytes #u8()))))))))

@@ -15,7 +15,7 @@
 (define (sum (items (List I64))) (→ I64)
   (fold-left (lambda (total item) (+ total item)) 0 items))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   (display (sum-until-negative (list 1 2 3 -4 5)))
   (newline)
   (display (sum (list 1 2 3 -4 5)))

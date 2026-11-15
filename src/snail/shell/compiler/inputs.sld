@@ -1,10 +1,10 @@
 ;; What a build supplies to its compiles, and the requests a compile makes
-;; for what it was not supplied. A request is the `compile` effect's `need`
+;; for what it was not supplied. A request is the `Compile` effect's `need`
 ;; (snail shell compiler read): a resident caller is sent its record, and a
 ;; process caller finds its datum, which this library prints and parses.
 (define-library (snail shell compiler inputs)
   (export
-   ArtifactFiles
+   Artifact-files
    Generated
    Inputs
    no-inputs
@@ -35,7 +35,7 @@
     ;; An immutable snapshot of a completed target's files: relative paths
     ;; with their bytes, in path order. The host loads the files before
     ;; expansion starts; every use reads that same snapshot.
-    (type ArtifactFiles (List (Pair String Bytes)))
+    (type Artifact-files (List (Pair String Bytes)))
 
     ;; What a producer wrote, beside the text its key hashes. A lookup
     ;; compares that text, so producers whose keys collide are never
@@ -47,16 +47,16 @@
     ;; Everything one build supplies to the compiles it runs: each completed
     ;; target's files by target name, and each producer's output by its key.
     (record Inputs
-      ((artifacts (Table ArtifactFiles))
+      ((artifacts (Table Artifact-files))
        (generated (Table Generated))))
 
     (define (no-inputs) (→ Inputs) (new Inputs (artifacts (empty-table)) (generated (empty-table))))
 
-    (define (supply-artifact (inputs Inputs) (name String) (files ArtifactFiles)) (→ Inputs)
-      (Inputs-artifacts-set inputs (table-set (● inputs artifacts) name files)))
+    (define (supply-artifact (inputs Inputs) (name String) (files Artifact-files)) (→ Inputs)
+      (inputs-artifacts-set inputs (table-set (● inputs artifacts) name files)))
 
     (define (supply-generated (inputs Inputs) (text String) (bytes Bytes)) (→ Inputs)
-      (Inputs-generated-set inputs
+      (inputs-generated-set inputs
                             (table-set (● inputs generated)
                                        (producer-key text)
                                        (new Generated (text text) (bytes bytes)))))
@@ -90,41 +90,41 @@
     ;; after the call runs: the entry point's handler takes the request and
     ;; hands it to its caller.
 
-    (define (request-input (request CompilerRequest)) (→ A) (! compile) (∀ (A))
+    (define (request-input (request Compiler-request)) (→ A) (! Compile) (∀ (A))
       (absurd (need request)))
 
     ;; A process caller finds a request as a datum in the compile's
     ;; generated directory once the compiler has exited with status 1.
 
-    (define (publish-request (directory String) (request CompilerRequest)) (→ Unit) (! fs)
+    (define (publish-request (directory String) (request Compiler-request)) (→ Unit) (! Fs)
       (write-file (string-append directory "/request.datum") (request->string request)))
 
-    (define (request->string (request CompilerRequest)) (→ String)
+    (define (request->string (request Compiler-request)) (→ String)
       (match request
-        ((GenerateInput key) (string-append "(generate " (quoted key) ")\n"))
-        ((ArtifactInput name source)
+        ((Generate-input key) (string-append "(generate " (quoted key) ")\n"))
+        ((Artifact-input name source)
          (string-append "(artifact " (quoted name) " " (quoted (● source file)) " "
                         (i64->string (● source line))
                         " "
                         (i64->string (● source column))
                         ")\n"))))
 
-    (define (parse-request (text String) (filename String)) (→ CompilerRequest) (! compile)
+    (define (parse-request (text String) (filename String)) (→ Compiler-request) (! Compile)
       (match (read-text text filename)
-        ((Cons (Form (Cons (Ident "generate" _ _) (Cons (Atom (DString key) _) (Nil))) loc) (Nil))
+        ((Cons (Form (Cons (Ident "generate" _ _) (Cons (Atom (D-string key) _) (Nil))) loc) (Nil))
          (unless (generated-key? key)
            (compile-error loc "expected a nonempty decimal generator key"))
-         (GenerateInput key))
+         (Generate-input key))
         ((Cons (Form (Cons (Ident "artifact" _ _)
-                           (Cons (Atom (DString name) _)
-                                 (Cons (Atom (DString file) _)
-                                       (Cons (Atom (DInt line) _)
-                                             (Cons (Atom (DInt column) _) (Nil))))))
+                           (Cons (Atom (D-string name) _)
+                                 (Cons (Atom (D-string file) _)
+                                       (Cons (Atom (D-int line) _)
+                                             (Cons (Atom (D-int column) _) (Nil))))))
                      loc)
                (Nil))
          (unless (and (> line 0) (> column 0))
            (compile-error loc "artifact source positions start at one"))
-         (ArtifactInput name (new Loc (file file) (line line) (column column))))
+         (Artifact-input name (new Loc (file file) (line line) (column column))))
         (_ (compile-error (new Loc (file filename) (line 1) (column 1))
                           "expected exactly one generate or artifact compiler request"))))
 
@@ -134,7 +134,7 @@
                    (string->list key))))
 
     (define (quoted (text String)) (→ String)
-      (datum->string (DString text)))
+      (datum->string (D-string text)))
 
     ;; ---- Producer programs ----
 
@@ -154,20 +154,20 @@
                               (loading (List String))
                               (forms (List Syntax)))
       (→ Bytes)
-      (! fs compile)
+      (! Fs Compile)
       (let* ((key (producer-key (producer-text directories forms)))
              (output (string-append directory "/" key ".syntax")))
         (if (file-exists? output)
             (read-bytes output)
             (begin (print-producer (string-append directory "/" key ".sld") loading forms)
-                   (request-input (GenerateInput key))))))
+                   (request-input (Generate-input key))))))
 
     ;; Prints the producer `forms` as the program at `path`, beginning with
     ;; the libraries `loading` when it was reached.
 
     (define (print-producer (path String) (loading (List String)) (forms (List Syntax)))
       (→ Unit)
-      (! fs)
+      (! Fs)
       (write-file path (string-append (generating-line loading) "\n" (program-text forms))))
 
     ;; The text of the producer printed at `path`, as `producer-text` gave
@@ -175,7 +175,7 @@
 
     (define (printed-producer-text (directories (List String)) (path String))
       (→ String)
-      (! fs compile)
+      (! Fs Compile)
       (producer-text directories (● (generating-stack (read-source-file path)) second)))
 
     (define (generating-line (loading (List String))) (→ String)
@@ -191,7 +191,7 @@
     ;; diagnostic about the file as a whole, so a resident caller reports
     ;; it and builds again once the file is back.
 
-    (define (read-source-file (path String)) (→ (List Syntax)) (! fs compile)
+    (define (read-source-file (path String)) (→ (List Syntax)) (! Fs Compile)
       (if (file-exists? path)
           (read-text (read-file path) path)
           (compile-error (new Loc (file path) (line 0) (column 0)) "no such file or directory")))
@@ -202,15 +202,15 @@
 
     (define (generating-stack (forms (List Syntax)))
       (→ (Pair (List String) (List Syntax)))
-      (! compile)
+      (! Compile)
       (match forms
         ((Cons (Form (Cons (Ident "generating" _ _) keys) _) rest)
          (new Pair (first (map loading-key keys)) (second rest)))
         (_ (new Pair (first (Nil)) (second forms)))))
 
-    (define (loading-key (key Syntax)) (→ String) (! compile)
+    (define (loading-key (key Syntax)) (→ String) (! Compile)
       (match key
-        ((Atom (DString text) _) text)
+        ((Atom (D-string text) _) text)
         (_ (compile-error (syntax-loc key) "expected a library key string"))))
 
     )
@@ -231,11 +231,11 @@
 
       (define test-inputs
         (lambda ()
-          (let ((request (ArtifactInput "client\"\n"
-                                        (new Loc (file "source\\name.sld") (line 12) (column 7)))))
+          (let ((request (Artifact-input "client\"\n"
+                                         (new Loc (file "source\\name.sld") (line 12) (column 7)))))
             (expect (parse-request (request->string request) "request.datum") request)
             (expect (parse-request "(generate \"123456\")" "request.datum")
-                    (GenerateInput "123456")))
+                    (Generate-input "123456")))
           (for-each (lambda (text)
                       (expect
                        (if (string-contains (input-error text) "input.datum:")

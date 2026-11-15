@@ -1,5 +1,5 @@
 ;; The standard prelude: core forms, derived syntax, numeric classes, text,
-;; collections and mutable heap objects. Writes perform `mut`; reads are pure.
+;; collections and mutable heap objects. Writes perform `Mut`; reads are pure.
 (define-library (snail core base)
   (export
    ●
@@ -13,7 +13,7 @@
    effect
    handle
    expose
-   Any U8 I32 I64 F32 F64 Bool Char Unit String Vector Bytes Fn mut
+   Any U8 I32 I64 F32 F64 Bool Char Unit String Vector Bytes Fn Mut
    u8->i32 i32->u8
    let* letrec cond case when unless and or do
    not unit panic unsafe-total
@@ -149,31 +149,31 @@
 
     ;; ---- Numbers ----
 
-    (typeclass (Num e T)
-      (declare (+ (left T) (right T)) (→ T) (! e))
-      (declare (- (left T) (right T)) (→ T) (! e))
-      (declare (* (left T) (right T)) (→ T) (! e))
-      (declare (negate (value T)) (→ T) (! e)))
+    (typeclass (Num E T)
+      (declare (+ (left T) (right T)) (→ T) (! E))
+      (declare (- (left T) (right T)) (→ T) (! E))
+      (declare (* (left T) (right T)) (→ T) (! E))
+      (declare (negate (value T)) (→ T) (! E)))
 
-    (typeclass (Ord e T)
-      (declare (= (left T) (right T)) (→ Bool) (! e))
-      (declare (< (left T) (right T)) (→ Bool) (! e))
-      (declare (<= (left T) (right T)) (→ Bool) (! e))
-      (declare (> (left T) (right T)) (→ Bool) (! e))
-      (declare (>= (left T) (right T)) (→ Bool) (! e)))
+    (typeclass (Ord E T)
+      (declare (= (left T) (right T)) (→ Bool) (! E))
+      (declare (< (left T) (right T)) (→ Bool) (! E))
+      (declare (<= (left T) (right T)) (→ Bool) (! E))
+      (declare (> (left T) (right T)) (→ Bool) (! E))
+      (declare (>= (left T) (right T)) (→ Bool) (! E)))
 
-    (typeclass (Integral e T)
-      (declare (quotient (numerator T) (denominator T)) (→ T) (! e))
-      (declare (remainder (numerator T) (denominator T)) (→ T) (! e))
-      (declare (modulo (numerator T) (denominator T)) (→ T) (! e)))
+    (typeclass (Integral E T)
+      (declare (quotient (numerator T) (denominator T)) (→ T) (! E))
+      (declare (remainder (numerator T) (denominator T)) (→ T) (! E))
+      (declare (modulo (numerator T) (denominator T)) (→ T) (! E)))
 
-    (typeclass (Fractional e T)
-      (declare (/ (left T) (right T)) (→ T) (! e))
-      (declare (sqrt (value T)) (→ T) (! e))
-      (declare (floor (value T)) (→ T) (! e))
-      (declare (ceiling (value T)) (→ T) (! e))
-      (declare (round (value T)) (→ T) (! e))
-      (declare (truncate (value T)) (→ T) (! e)))
+    (typeclass (Fractional E T)
+      (declare (/ (left T) (right T)) (→ T) (! E))
+      (declare (sqrt (value T)) (→ T) (! E))
+      (declare (floor (value T)) (→ T) (! E))
+      (declare (ceiling (value T)) (→ T) (! E))
+      (declare (round (value T)) (→ T) (! E))
+      (declare (truncate (value T)) (→ T) (! E)))
 
     (instance (Num (!) U8)
       (define (+ (a U8) (b U8)) (→ U8)
@@ -678,14 +678,14 @@
 
     ;; Local cursors give generation a sequential input without exposing
     ;; mutable storage outside these total conversions.
-    (record (ListCursor A)
+    (record (List-cursor A)
       ((remaining (List A))))
 
     (define (list->vector (items (List T)))
       (→ (Vector T))
       (! e)
       (∀ (T e))
-      (unsafe-total (ann (lambda () (let ((cursor (new ListCursor (remaining items))))
+      (unsafe-total (ann (lambda () (let ((cursor (new List-cursor (remaining items))))
                                       (vector-generate (length items)
                                                        (lambda (index)
                                                          (match (● cursor remaining)
@@ -695,9 +695,9 @@
                                                            ((Nil)
                                                             (panic
                                                              "list->vector: too few items")))))))
-                         (Fn → (Vector T) ! mut e))))
+                         (Fn → (Vector T) ! Mut e))))
 
-    (record (VectorCursor A)
+    (record (Vector-cursor A)
       ((vectors (List (Vector A)))
        (offset I64)))
 
@@ -705,7 +705,7 @@
       (→ (Vector T))
       (! e)
       (∀ (T e))
-      (unsafe-total (ann (lambda () (let ((cursor (new VectorCursor (vectors vectors) (offset 0))))
+      (unsafe-total (ann (lambda () (let ((cursor (new Vector-cursor (vectors vectors) (offset 0))))
                                       (vector-generate
                                        (fold-left
                                         (lambda (total items) (+ total (vector-length items)))
@@ -726,7 +726,7 @@
                                                       (next)))))
                                              ((Nil)
                                               (panic "vector-concatenate: too few elements"))))))))
-                         (Fn → (Vector T) ! mut e))))
+                         (Fn → (Vector T) ! Mut e))))
 
     ;; ---- Characters and text ----
 
@@ -802,8 +802,8 @@
 
     ;; ---- Showing values ----
 
-    (typeclass (Show e T)
-      (declare (show (value T)) (→ String) (! e)))
+    (typeclass (Show E T)
+      (declare (show (value T)) (→ String) (! E)))
 
     (define (i64->string (n I64)) (→ String)
       (cond ((= n 0) "0")

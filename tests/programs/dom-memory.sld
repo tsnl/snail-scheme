@@ -4,12 +4,12 @@
  (snail shell dom)
  (snail shell dom memory))
 
-;; The document in memory, driven through the `dom` effect: building a
+;; The document in memory, driven through the `Dom` effect: building a
 ;; tree, moving a node within it, replacing an element's text, typed
 ;; properties read back, listeners made and dropped, and removing a
 ;; subtree. The trace has a line per operation; the tree prints as HTML.
 
-(define (build) (→ String) (! dom)
+(define (build) (→ String) (! Dom)
   (let* ((root (document-root))
          (list-node (create-element "ul"))
          (first (create-element "li"))
@@ -44,7 +44,7 @@
                      "] "
                      (show (● keys id))))))
 
-(define (main) (→ Unit) (! mut output-port)
+(define (main) (→ Unit) (! Mut Output-port)
 
   (define result (→ (Pair String Document)) (with-memory-dom (Nil) build))
   (define removed (→ Document)

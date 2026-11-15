@@ -32,7 +32,7 @@
 
     (define (search-project (root String) (paths (List String)) (query Query))
       (→ Results)
-      (! fs tasks)
+      (! Fs Tasks)
       (let loop ((paths paths) (hits (ann (Nil) (List Hit))) (skipped 0) (budget 4000000))
         (cond
          ((> (length hits) 200) (new Results (hits (take hits 200)) (skipped skipped) (limited #t)))

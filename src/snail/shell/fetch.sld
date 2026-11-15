@@ -1,21 +1,21 @@
 ;; Requests to a server and the streams of events it sends, as an effect,
 ;; so an interface's commands can ask and a test can answer for the
-;; server. The browser host binds it to the page's `fetch` and
+;; server. The browser host binds it to the page's `Fetch` and
 ;; `EventSource` ((snail shell fetch page)).
 (define-library (snail shell fetch)
   (export
    Header
    Reply
    Stream
-   StreamEvent
-   fetch
+   Stream-event
+   Fetch
    request
    stream-open
    stream-next
    stream-close)
   (import
    (snail core base)
-   (only (snail shell task) tasks))
+   (only (snail shell task) Tasks))
   (begin
 
     ;; ---- Requests ----
@@ -35,7 +35,7 @@
 
     ;; An event a stream heard: its kind, the name the server gave it, or
     ;; "message" when it gave none, and its data.
-    (record StreamEvent
+    (record Stream-event
       ((kind String)
        (data String)))
 
@@ -52,8 +52,8 @@
     ;; task at a time waits on a stream, so a program reading events keeps
     ;; one command waiting on it, and issues the next from the update that
     ;; handles the event.
-    (effect fetch
-      ((request (Fn String String (List Header) String → (Result Reply String) ! tasks))
+    (effect Fetch
+      ((request (Fn String String (List Header) String → (Result Reply String) ! Tasks))
        (stream-open (Fn String (List String) → Stream))
-       (stream-next (Fn Stream → (Option StreamEvent) ! tasks))
+       (stream-next (Fn Stream → (Option Stream-event) ! Tasks))
        (stream-close (Fn Stream → Unit))))))

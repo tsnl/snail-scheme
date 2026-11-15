@@ -2,8 +2,8 @@
  (snail core base)
  (snail core io))
 
-(define (use-wrapper (wrap (Fn (Fn String → Unit ! output-port)
-                               → (Fn String → Unit ! output-port))))
-  (→ Unit) (! output-port)
+(define (use-wrapper (wrap (Fn (Fn String → Unit ! Output-port)
+                               → (Fn String → Unit ! Output-port))))
+  (→ Unit) (! Output-port)
   ((wrap write-line) "effect"))
-(define (main) (→ Unit) (! output-port) (use-wrapper cache))
+(define (main) (→ Unit) (! Output-port) (use-wrapper cache))

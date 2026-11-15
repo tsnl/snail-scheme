@@ -16,7 +16,7 @@
 
 (define (nan) (→ F64) (sqrt -1.0))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   (display (overflow))
   (newline)
   (display (multiply))

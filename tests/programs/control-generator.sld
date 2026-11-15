@@ -35,7 +35,7 @@
        (yield (* value depth))
        (+ (+ left-sum value) (walk right (+ depth 1)))))))
 
-(define (show-all (values (List I64))) (→ Unit) (! output-port)
+(define (show-all (values (List I64))) (→ Unit) (! Output-port)
   (write-line (string-join (map show values) " ")))
 
 ;; Yields inside `if`, inside a `match` clause, and in a let's value.
@@ -79,7 +79,7 @@
     (body)
     (Nil)))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   (show-all (collect (lambda () (walk (tree) 1))))
   (show-all (collect (lambda () (classify (list 1 -2 3 -4 -5)))))
   (show-all (collect (lambda () (add3 (f 1) (begin (yield 2) 200) (g 3)))))

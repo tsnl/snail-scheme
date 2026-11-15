@@ -194,7 +194,7 @@ head, so the instances of one class may perform different effects:
 ```
 
 A use performs what its instance's head says. Reading a `Directory`
-prints, so `fetch-twice` at a `Directory` performs `output-port`; at a `Table`
+prints, so `fetch-twice` at a `Directory` performs `Output-port`; at a `Table`
 it is total, and a total function may call it. The row is found from the
 types, not matched: the types choose the instance, which must be the only
 one for them whatever rows the others write, and its row is charged to the
@@ -212,8 +212,8 @@ decide:
 {{#include ../../../tests/programs/classes-effects.sld:logged}}
 ```
 
-Fetching from a `(Logged Table)` performs `log`, and from a
-`(Logged Directory)`, `log` and `output-port`. Ordinary class rows may name control
+Fetching from a `(Logged Table)` performs `Log`, and from a
+`(Logged Directory)`, `Log` and `Output-port`. Ordinary class rows may name control
 effects; specialization and control lowering preserve them.
 
 Arithmetic and comparison are the classes `Num`, `Ord`, `Integral` and
@@ -223,7 +223,7 @@ instances use `(!)`, so arithmetic remains pure.
 
 `Repr` is a pure class with one type parameter: `(Repr T)` supplies
 `(repr value) → String`. `(snail core io)`'s `write` prints that
-representation through `output-port`. Records and enums can generate instances
+representation through `Output-port`. Records and enums can generate instances
 with `(deriving Repr)`; see [current ports](libraries.md#current-input-and-output-ports).
 
 ### Associated output types
@@ -231,9 +231,9 @@ with `(deriving Repr)`; see [current ports](libraries.md#current-input-and-outpu
 A class can declare ordinary associated types. Each instance defines them:
 
 ```scheme
-(typeclass (Add e A B)
+(typeclass (Add E A B)
   (type Output)
-  (declare (add (left A) (right B)) (→ Output) (! e)))
+  (declare (add (left A) (right B)) (→ Output) (! E)))
 
 (instance (Add (!) I64 F64)
   (type Output F64)
@@ -363,14 +363,14 @@ package's data, and the library reads it when it needs it:
 ```scheme
 (import
  (snail core base)
- (only (snail shell task) tasks)
+ (only (snail shell task) Tasks)
  (snail shell resource))
 
 
 (define (hero) (→ Resource) (link-file "art/hero.png"))
 
 
-(define (hero-bytes) (→ Bytes) (! resource tasks)
+(define (hero-bytes) (→ Bytes) (! Resource Tasks)
   (read-resource (hero)))
 ```
 
@@ -383,7 +383,7 @@ package's data, and the library reads it when it needs it:
 - **Shipped by content.** The build places the file as an object of the
   program's store, at `STORE/sha256/DIGEST`, where DIGEST is the SHA-256
   of its bytes in hex, in every build that produces one: project program
-  and browser targets, `scripts/snail-tool run` and `compile`, and the
+  and browser targets, `scripts/snail-tool run` and `Compile`, and the
   development loop. A linked program's store is `store/` beside
   `program.wasm`; a per-library build's `modules.json` names its store,
   relative to itself, and lists each object with its size. The name is
@@ -398,14 +398,14 @@ package's data, and the library reads it when it needs it:
   names a file and nothing more. The type is exported without its
   constructor, so a program cannot make one from a string: holding a
   `Resource` is evidence that its file ships. `(read-resource r)` returns the
-  file's `Bytes` and performs `resource`, an effect with host defaults on
-  Node, in the browser and on wasmtime. It is not `fs`: a page has no
+  file's `Bytes` and performs `Resource`, an effect with host defaults on
+  Node, in the browser and on wasmtime. It is not `Fs`: a page has no
   filesystem, and a program with none still reads its own files.
 
 **A file is read when the program asks for it.** A host reads nothing a
 module links when it instantiates the module. `read-resource` waits for the
 host as a task does (`through-host` in `(snail shell task)`), so it performs
-`tasks` and runs in a task. The first read of a file reads it, Node and
+`Tasks` and runs in a task. The first read of a file reads it, Node and
 wasmtime from the payload's directory and the browser by fetching beside the
 page's module, and later reads of it from the same module return the same
 bytes. A file the program never reads is never fetched, so a library may link

@@ -14,7 +14,7 @@
   ((count I64)))
 
 ;; Receiver evaluation happens once for the entire path.
-(define (visit (calls Calls) (scene Scene)) (→ Scene) (! mut)
+(define (visit (calls Calls) (scene Scene)) (→ Scene) (! Mut)
   (set! (● calls count) (+ (● calls count) 1))
   scene)
 
@@ -23,7 +23,7 @@
   (let ((select (lambda (record) (● record x))))
     (select point)))
 
-(define (main) (→ Unit) (! mut output-port)
+(define (main) (→ Unit) (! Mut Output-port)
 
   ;; Both child fields refer to independently mutable objects.
   (let ((scene (new Scene (position (new Point (x 1) (y 2))) (target (new Point (x 3) (y 4))))))

@@ -3,7 +3,7 @@
  (snail core io)
  (snail core table))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   (define table
     (fold-left (lambda (table i) (table-set table (string-append "key" (show i)) (* i i)))
                (empty-table)

@@ -305,7 +305,7 @@ A revision names no device or inode, which Rust's standard library gives WASI
 only as unstable API. A file replaced by another with the same bytes is the
 same revision, and saving over it loses nothing.
 
-WASI preview1 cannot read or set permission bits, so its `modes` effect does,
+WASI preview1 cannot read or set permission bits, so its `Modes` effect does,
 on Node (`host/native/run-snail.mjs`). `tests/programs/project-files.sld`
 drives it.
 
@@ -330,7 +330,7 @@ reach this API.
 | `POST /api/run/start?target=...` | Start an accepted run target; empty body, 204 acknowledgement. |
 | `POST /api/run/stop?target=...` | Stop a retained run target, including a removed name; empty body, 204 acknowledgement. |
 | `POST /api/run/restart?target=...` | Fresh attempt for an accepted run target; empty body, 204 acknowledgement. |
-| `GET /api/events` | SSE: current compiler `status` (`phase`, attempt `id`, `diagnostics`), current `runs` array, then `files` invalidation; subsequent changes to each. |
+| `GET /api/events` | SSE: current compiler `status` (`phase`, attempt `id`, `diagnostics`), current `runs` array, then `Files` invalidation; subsequent changes to each. |
 | `GET /api/status` | One JSON snapshot of the whole session, below. |
 
 Reconnect obtains both current snapshots and an unconditional file invalidation;
@@ -478,7 +478,7 @@ palette, buttons and keyboard dispatch command names through the application loo
 `(snail shell ui shortcuts)` separately maps complete key chords to those names,
 checking duplicate chords and unknown commands when the mappings are built.
 Dispatch schedules an invocation against the current model. Asynchronous work
-runs as commands, and each answers the IDE's common `CommandResult` in a
+runs as commands, and each answers the IDE's common `Command-result` in a
 `Finished` message: a pure transition against current display data. File
 reads, saves and searches retain the evidence specific to their own results,
 so a transition that arrives late accepts nothing stale. Ignoring a reply
@@ -495,7 +495,7 @@ launcher and API boundary, not the implementation of IDE behavior.
 
 `(snail shell ide palette)` owns its query, selection, search and creation
 phases, input messages, command results and view. The parent embeds it through one
-`PaletteEvent` and handles concrete outcomes such as opening a path or invoking
+`Palette-event` and handles concrete outcomes such as opening a path or invoking
 a named command. It passes command names and key labels, paths, and the current
 draft where needed; the component never receives the IDE model. `map-html` in
 `(snail shell ui)` wraps component messages when embedding its view.
@@ -606,7 +606,7 @@ Drafts and conflicts suppress it. This is an editor observation, not proof of
 the compiler's exact filesystem snapshot; the watcher rejects observed
 supersession without claiming an atomic filesystem revision. Columns count
 Unicode scalars in the original file, as the editor's offsets do, over LF
-display text, including CRLF files; the page's `dom` binding converts offsets
+display text, including CRLF files; the page's `Dom` binding converts offsets
 to the textarea's UTF-16. Generated scratch and external library
 locations remain messages rather than being mapped to another file. The compiler
 provides source points, which navigation preserves. For display only,

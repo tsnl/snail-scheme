@@ -4,7 +4,7 @@
  (control catch)
  (control search))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   ;; The yield leaves `signal-negative`'s module, crosses this one, and is
   ;; caught in `first-signal`'s, in a build linked from one module per
   ;; library as in a whole-program build; `all-signals` resumes it there.

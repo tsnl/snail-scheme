@@ -43,8 +43,8 @@
          diagnostics->string
          compiling
          Failed
-         GenerateInput
-         ArtifactInput)
+         Generate-input
+         Artifact-input)
    (snail shell compiler inputs)
    (only (snail shell compiler sha256) sha256 bytes->hex))
   (begin
@@ -215,11 +215,11 @@
 
     (define (provide-input! root directories generated request)
       (match request
-        ((GenerateInput key)
+        ((Generate-input key)
          (when (file-exists? (path-join generated (string-append key ".syntax")))
            (error 'snail "compiler requested an already provided generated library" key))
          (produce! root directories generated key))
-        ((ArtifactInput name loc)
+        ((Artifact-input name loc)
          (error 'snail (string-append (loc->string loc)
                                       ": artifact-bundle requires a project build resolver: "
                                       name)))))
@@ -815,7 +815,7 @@
                                                                 (path-join root "src")))))
                                     (expect (caddr (capture-process command)) 256)
                                     (expect (match (published-request request)
-                                              ((ArtifactInput "client" _) #t) (_ #f)) #t)
+                                              ((Artifact-input "client" _) #t) (_ #f)) #t)
                                     (delete-file request)
                                     (create-directory request)
                                     (let ((failed (capture-process command)))

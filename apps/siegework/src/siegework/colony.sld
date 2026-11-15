@@ -23,9 +23,9 @@
    check
    Task
    Owner
-   OfHub
-   OfBuilding
-   tasks
+   Of-hub
+   Of-building
+   Tasks
    work
    produce)
   (import
@@ -52,54 +52,54 @@
 
     (enum Rejection
       (Finished)
-      (NotStarted)
-      (OutsideMap)
+      (Not-started)
+      (Outside-map)
       (Unseen)
-      (NotOpen)
+      (Not-open)
       (Occupied)
-      (NeedsCrystal)
-      (CrystalSite)
+      (Needs-crystal)
+      (Crystal-site)
       (Depleted)
-      (OutOfReach)
-      (CannotAfford)
-      (NothingThere)
-      (HubOnly)
+      (Out-of-reach)
+      (Cannot-afford)
+      (Nothing-there)
+      (Hub-only)
       (Unfinished)
       (Busy)
       (Idle)
-      (MaximumLevel)
-      (FullHealth))
+      (Maximum-level)
+      (Full-health))
 
     (define (rejection-text (rejection Rejection)) (→ String)
       (match rejection
         ((Finished) "The game is over.")
-        ((NotStarted) "Start with an extractor on a crystal.")
-        ((OutsideMap) "That is outside the map.")
+        ((Not-started) "Start with an extractor on a crystal.")
+        ((Outside-map) "That is outside the map.")
         ((Unseen) "Nothing powered can see there.")
-        ((NotOpen) "Only open ground can be built on.")
+        ((Not-open) "Only open ground can be built on.")
         ((Occupied) "Something is already there.")
-        ((NeedsCrystal) "Extractors go on crystals.")
-        ((CrystalSite) "Crystals take only extractors.")
+        ((Needs-crystal) "Extractors go on crystals.")
+        ((Crystal-site) "Crystals take only extractors.")
         ((Depleted) "That crystal is exhausted.")
-        ((OutOfReach) "No powered building can wire to it.")
-        ((CannotAfford) "Not enough energy.")
-        ((NothingThere) "There is nothing to change there.")
-        ((HubOnly) "The hub cannot be scavenged.")
+        ((Out-of-reach) "No powered building can wire to it.")
+        ((Cannot-afford) "Not enough energy.")
+        ((Nothing-there) "There is nothing to change there.")
+        ((Hub-only) "The hub cannot be scavenged.")
         ((Unfinished) "Finish building it first.")
         ((Busy) "It is already working.")
         ((Idle) "There is no work to change.")
-        ((MaximumLevel) "It is fully upgraded.")
-        ((FullHealth) "The hub is undamaged.")))
+        ((Maximum-level) "It is fully upgraded.")
+        ((Full-health) "The hub is undamaged.")))
 
     ;; Whether an order refused for this reason may still succeed on the same
     ;; cell once energy, work in progress or the network catch up, rather
     ;; than never applying there.
     (define (later? (rejection Rejection)) (→ Bool)
       (match rejection
-        ((NotStarted) #t)
+        ((Not-started) #t)
         ((Unseen) #t)
-        ((OutOfReach) #t)
-        ((CannotAfford) #t)
+        ((Out-of-reach) #t)
+        ((Cannot-afford) #t)
         ((Unfinished) #t)
         ((Busy) #t)
         (_ #f)))
@@ -112,7 +112,7 @@
       (if (playing? world)
           (match (apply-order world action)
             ((Ok next)
-             (if (or (● world started) (opening-order? action)) (Ok next) (Err (NotStarted))))
+             (if (or (● world started) (opening-order? action)) (Ok next) (Err (Not-started))))
             ((Err rejection) (Err rejection)))
           (Err (Finished))))
 
@@ -124,7 +124,7 @@
         ((Cancel cell) (with-owner world cell cancel))
         ((Scavenge cell) (with-owner world cell scavenge))
         ((Repair) (repair world))
-        ((Resign) (Ok (uncover (World-outcome-set world (Resigned)))))))
+        ((Resign) (Ok (uncover (world-outcome-set world (Resigned)))))))
 
     (define (opening-order? (action Action)) (→ Bool)
       (match action
@@ -140,7 +140,7 @@
 
     (define (pay (world World) (price I64) (apply (Fn World → World)))
       (→ (Result World Rejection))
-      (if (< (● world energy) price) (Err (CannotAfford)) (Ok (apply (spend world price)))))
+      (if (< (● world energy) price) (Err (Cannot-afford)) (Ok (apply (spend world price)))))
 
     ;; ---- Building ----
 
@@ -148,14 +148,14 @@
     ;; when it is an extractor, and a powered building that can wire to it.
     (define (build (world World) (kind Kind) (cell Cell) (rush Bool)) (→ (Result World Rejection))
       (let ((extractor? (match kind ((Extractor) #t) (_ #f))) (crystal (crystal-at world cell)))
-        (cond ((not (in-bounds? cell)) (Err (OutsideMap)))
+        (cond ((not (in-bounds? cell)) (Err (Outside-map)))
               ((not (visible? world cell)) (Err (Unseen)))
-              ((match (ground-at (● world land) cell) ((Open) #f) (_ #t)) (Err (NotOpen)))
+              ((match (ground-at (● world land) cell) ((Open) #f) (_ #t)) (Err (Not-open)))
               ((occupied? world cell) (Err (Occupied)))
-              ((and extractor? (null-option? crystal)) (Err (NeedsCrystal)))
-              ((and (not extractor?) (not (null-option? crystal))) (Err (CrystalSite)))
+              ((and extractor? (null-option? crystal)) (Err (Needs-crystal)))
+              ((and (not extractor?) (not (null-option? crystal))) (Err (Crystal-site)))
               ((and extractor? (exhausted? crystal)) (Err (Depleted)))
-              ((not (in-reach? world kind cell)) (Err (OutOfReach)))
+              ((not (in-reach? world kind cell)) (Err (Out-of-reach)))
               (else (place world kind cell (and rush (● world started)))))))
 
     ;; The colony's first extractor is ready at once, so a new game starts
@@ -199,7 +199,7 @@
       (match (fresh-id world)
         ((Pair id world)
          (if ready
-             (rewire (World-started-set (add-building world
+             (rewire (world-started-set (add-building world
                                                       (new Building (id id)
                                                            (kind kind)
                                                            (cell cell)
@@ -208,7 +208,7 @@
                                                            (work (None))
                                                            (aim (None))))
                                         #t))
-             (structures-changed (World-next-order-set (add-building world
+             (structures-changed (world-next-order-set (add-building world
                                                                      (new Building (id id)
                                                                           (kind kind)
                                                                           (cell cell)
@@ -220,7 +220,7 @@
                                                        (+ (● world next-order) 1)))))))
 
     (define (add-building (world World) (building Building)) (→ World)
-      (World-buildings-set world (append (● world buildings) (list building))))
+      (world-buildings-set world (append (● world buildings) (list building))))
 
     ;; ---- Owners ----
 
@@ -228,27 +228,27 @@
     ;; the current world. Upgrades, rushes, cancellations and scavenging name
     ;; any cell of the hub or of a building.
     (enum Owner
-      (OfHub)
-      (OfBuilding ((building Building))))
+      (Of-hub)
+      (Of-building ((building Building))))
 
     (define (with-owner (world World)
                         (cell Cell)
                         (order (Fn World Owner → (Result World Rejection))))
       (→ (Result World Rejection))
-      (cond ((hub-cell? (● world hub) cell) (order world (OfHub)))
+      (cond ((hub-cell? (● world hub) cell) (order world (Of-hub)))
             (else (match (building-at world cell)
-                    ((Some b) (order world (OfBuilding b)))
-                    ((None) (Err (NothingThere)))))))
+                    ((Some b) (order world (Of-building b)))
+                    ((None) (Err (Nothing-there)))))))
 
     (define (owner-work (world World) (owner Owner)) (→ (Option Work))
       (match owner
-        ((OfHub) (● (● world hub) work))
-        ((OfBuilding b) (● b work))))
+        ((Of-hub) (● (● world hub) work))
+        ((Of-building b) (● b work))))
 
     (define (set-owner-work (world World) (owner Owner) (work (Option Work))) (→ World)
       (match owner
-        ((OfHub) (World-hub-set world (Hub-work-set (● world hub) work)))
-        ((OfBuilding b) (put-building world (Building-work-set b work)))))
+        ((Of-hub) (world-hub-set world (hub-work-set (● world hub) work)))
+        ((Of-building b) (put-building world (building-work-set b work)))))
 
     ;; ---- Upgrades ----
 
@@ -263,17 +263,17 @@
 
     (define (upgrade-work (world World) (owner Owner)) (→ (Result Work Rejection))
       (match owner
-        ((OfHub) (let ((slots (● (● world hub) slots)))
-                   (cond ((not (null-option? (● (● world hub) work))) (Err (Busy)))
-                         ((>= slots (maximum-slots)) (Err (MaximumLevel)))
-                         (else (Ok (new-work world (slot-cost slots) (slot-duration slots)))))))
-        ((OfBuilding b) (let ((level (● b level)) (kind (● b kind)))
-                          (cond ((not (built? b)) (Err (Unfinished)))
-                                ((not (null-option? (● b work))) (Err (Busy)))
-                                ((>= level (maximum-level)) (Err (MaximumLevel)))
-                                (else (Ok (new-work world
-                                                    (raise-cost kind level)
-                                                    (raise-duration kind level)))))))))
+        ((Of-hub) (let ((slots (● (● world hub) slots)))
+                    (cond ((not (null-option? (● (● world hub) work))) (Err (Busy)))
+                          ((>= slots (maximum-slots)) (Err (Maximum-level)))
+                          (else (Ok (new-work world (slot-cost slots) (slot-duration slots)))))))
+        ((Of-building b) (let ((level (● b level)) (kind (● b kind)))
+                           (cond ((not (built? b)) (Err (Unfinished)))
+                                 ((not (null-option? (● b work))) (Err (Busy)))
+                                 ((>= level (maximum-level)) (Err (Maximum-level)))
+                                 (else (Ok (new-work world
+                                                     (raise-cost kind level)
+                                                     (raise-duration kind level)))))))))
 
     ;; ---- Rushing and cancelling ----
 
@@ -292,11 +292,11 @@
 
     (define (drop-work (world World) (owner Owner)) (→ World)
       (match owner
-        ((OfBuilding b)
+        ((Of-building b)
          (if (built? b)
              (set-owner-work world owner (None))
              (remove-building world (● b id))))
-        ((OfHub) (set-owner-work world owner (None)))))
+        ((Of-hub) (set-owner-work world owner (None)))))
 
     ;; ---- Scavenging and repair ----
 
@@ -304,22 +304,22 @@
     ;; paid for its levels.
     (define (scavenge (world World) (owner Owner)) (→ (Result World Rejection))
       (match owner
-        ((OfHub) (Err (HubOnly)))
-        ((OfBuilding b) (cond ((not (built? b)) (Err (Unfinished)))
-                              ((not (null-option? (● b work))) (Err (Busy)))
-                              (else
-                               (Ok (remove-building (spend world (- 0 (quotient (invested b) 5)))
-                                                    (● b id))))))))
+        ((Of-hub) (Err (Hub-only)))
+        ((Of-building b) (cond ((not (built? b)) (Err (Unfinished)))
+                               ((not (null-option? (● b work))) (Err (Busy)))
+                               (else
+                                (Ok (remove-building (spend world (- 0 (quotient (invested b) 5)))
+                                                     (● b id))))))))
 
     ;; Repair restores the hub to full health, at one energy for each two
     ;; health it lacks.
     (define (repair (world World)) (→ (Result World Rejection))
       (let* ((hub (● world hub)) (missing (- (hub-health) (● hub health))))
         (if (= missing 0)
-            (Err (FullHealth))
+            (Err (Full-health))
             (pay world
                  (repair-price hub)
-                 (lambda (world) (World-hub-set world (Hub-health-set hub (hub-health))))))))
+                 (lambda (world) (world-hub-set world (hub-health-set hub (hub-health))))))))
 
     (define (repair-price (hub Hub)) (→ I64)
       (quotient (+ (- (hub-health) (● hub health)) 1) 2))
@@ -353,20 +353,20 @@
     (define (queued (world World)) (→ (List (Pair Owner Work)))
       (insertion-sort (lambda (a b) (< (● (● a second) order) (● (● b second) order)))
                       (append (match (● (● world hub) work)
-                                ((Some work) (list (new Pair (first (OfHub)) (second work))))
+                                ((Some work) (list (new Pair (first (Of-hub)) (second work))))
                                 ((None) (Nil)))
                               (filter-map (lambda (b)
                                             (match (● b work)
                                               ((Some work)
                                                (Some
-                                                (new Pair (first (OfBuilding b)) (second work))))
+                                                (new Pair (first (Of-building b)) (second work))))
                                               ((None) (None))))
                                           (● world buildings)))))
 
     (define (supplied? (world World) (owner Owner)) (→ Bool)
       (match owner
-        ((OfHub) #t)
-        ((OfBuilding b)
+        ((Of-hub) #t)
+        ((Of-building b)
          (if (built? b)
              (powered? world (● b id))
              (in-reach? world (● b kind) (● b cell))))))
@@ -378,7 +378,7 @@
                  (tasks world)))
 
     (define (progress (world World) (task Task)) (→ World)
-      (let ((work (Work-progress-set (● task work) (+ (● (● task work) progress) 1))))
+      (let ((work (work-progress-set (● task work) (+ (● (● task work) progress) 1))))
         (if (> (remaining-work work) 0)
             (set-owner-work world (● task owner) (Some work))
             (finish world (● task owner)))))
@@ -387,13 +387,13 @@
     ;; building a level and its full health.
     (define (finish (world World) (owner Owner)) (→ World)
       (match owner
-        ((OfHub)
+        ((Of-hub)
          (let ((hub (● world hub)))
-           (World-hub-set world (Hub-work-set (Hub-slots-set hub (+ (● hub slots) 1)) (None)))))
-        ((OfBuilding b)
+           (world-hub-set world (hub-work-set (hub-slots-set hub (+ (● hub slots) 1)) (None)))))
+        ((Of-building b)
          (rewire (put-building world
-                               (Building-health-set
-                                (Building-work-set (Building-level-set b (+ (● b level) 1))
+                               (building-health-set
+                                (building-work-set (building-level-set b (+ (● b level) 1))
                                                    (None))
                                 (kind-health (● b kind))))))))
 
@@ -421,7 +421,7 @@
          (let ((amount (min (● crystal reserve)
                             (* (● crystal rate) (● extractor level)))))
            (earn
-            (put-crystal world (Crystal-reserve-set crystal (- (● crystal reserve) amount)))
+            (put-crystal world (crystal-reserve-set crystal (- (● crystal reserve) amount)))
             amount)))
         ((None) world)))
 

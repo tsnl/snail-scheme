@@ -39,7 +39,7 @@
           (tiles? rest (● token end) end)))
     ((Nil) (= index end))))
 
-(define (show-tokens (text String)) (→ Unit) (! output-port)
+(define (show-tokens (text String)) (→ Unit) (! Output-port)
   (let* ((chars (string->vector text)) (tokens (highlight-tokens text)))
     (unless (and (tiles? tokens 0 (vector-length chars))
                  (string=?
@@ -56,7 +56,7 @@
                                                  tokens)
                                             " ")))))
 
-(define (show-reading (text String)) (→ Unit) (! output-port)
+(define (show-reading (text String)) (→ Unit) (! Output-port)
   (show-tokens text)
   (write-line (string-append "  read: " (reading text))))
 
@@ -67,7 +67,7 @@
     ((Err (Failed diagnostics)) (diagnostics->string diagnostics))
     ((Err (Requested _)) "the reader asked for an input")))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   ;; ---- Samples ----
 
   ;; A definition's name, a comment, a number and the core forms.
@@ -76,7 +76,7 @@
   (show-reading "(define (adder (n I64)) (→ (Fn I64 → I64)) (lambda (x) (+ n x)))")
   (show-reading "(record Point ((x F64)) (deriving Show)) (match p ((Point x) x) (_ 0))")
   (show-reading
-   "(effect ask ((ctl ask (Fn → I64)))) (handle ask ((ask (lambda (resume) (resume 1)))) body)")
+   "(effect Ask ((ctl ask (Fn → I64)))) (handle Ask ((ask (lambda (resume) (resume 1)))) body)")
   ;; Block comments nest.
   (show-reading "#| outer #| inner |# still outer |#x")
   ;; Escapes stay inside their string; `#\` takes the character after it,

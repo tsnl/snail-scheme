@@ -4,27 +4,27 @@
   (export
    Funcref
    Module
-   LoadError
-   LinkFailed
-   MissingExport
+   Load-error
+   Link-failed
+   Missing-export
    load-error-message
    module-export
    unsafe-cast
-   wasm
+   Wasm
    Compiled
    compile-bytes
-   ImportKind
-   FunctionImport
-   TableImport
-   MemoryImport
-   GlobalImport
+   Import-kind
+   Function-import
+   Table-import
+   Memory-import
+   Global-import
    Import
    module-imports
    Provider
-   ExportOf
-   HostProvided
-   HostIfProvided
-   ConstantOf
+   Export-of
+   Host-provided
+   Host-if-provided
+   Constant-of
    Unprovided
    link-module
    loading-program
@@ -39,7 +39,7 @@
 
     ;; ---- Host operations ----
 
-    (effect wasm
+    (effect Wasm
       ((argument-character (Fn Char → Unit))
        (argument-end (Fn → Unit))
        (compile (Fn Bytes → I32))
@@ -79,7 +79,7 @@
 
                 (call-export host-call-export))))
 
-    (define (send-argument (text String)) (→ Unit) (! wasm)
+    (define (send-argument (text String)) (→ Unit) (! Wasm)
       (let loop ((index 0))
         (when (< index (string-length text))
           (argument-character (string-ref text index))
@@ -88,20 +88,20 @@
 
     ;; ---- Errors ----
 
-    (enum LoadError
+    (enum Load-error
 
-      (LinkFailed
+      (Link-failed
        ((name String)))
-      (MissingExport
+      (Missing-export
        ((name String)))
 
       )
 
-    (define (load-error-message (error LoadError)) (→ String)
+    (define (load-error-message (error Load-error)) (→ String)
       (match error
-        ((LinkFailed name)
+        ((Link-failed name)
          (string-append "the module " name " imports what nothing provides at its type"))
-        ((MissingExport name) (string-append "nothing is exported as " name))))
+        ((Missing-export name) (string-append "nothing is exported as " name))))
 
     ;; ---- Modules ----
 
@@ -111,11 +111,11 @@
 
     ;; The function the module exports as `name`.
 
-    (define (module-export (module Module) (name String)) (→ (Result Funcref LoadError)) (! wasm)
+    (define (module-export (module Module) (name String)) (→ (Result Funcref Load-error)) (! Wasm)
       (send-argument name)
       (if (exports-function? (● module handle))
           (begin (send-argument name) (Ok (export-function (● module handle))))
-          (Err (MissingExport name))))
+          (Err (Missing-export name))))
 
     ;; ---- Linking by hand ----
 
@@ -127,40 +127,40 @@
 
     ;; The module `bytes` hold, or none when they are not one.
 
-    (define (compile-bytes (bytes Bytes)) (→ (Option Compiled)) (! wasm)
+    (define (compile-bytes (bytes Bytes)) (→ (Option Compiled)) (! Wasm)
       (let ((handle (compile bytes)))
         (if (< handle 0) (None) (Some (new Compiled (handle handle))))))
 
-    (enum ImportKind
-      (FunctionImport)
-      (TableImport)
-      (MemoryImport)
-      (GlobalImport))
+    (enum Import-kind
+      (Function-import)
+      (Table-import)
+      (Memory-import)
+      (Global-import))
 
     ;; An import: the module and field it names, and what it must be.
     (record Import
       ((from String)
        (name String)
-       (kind ImportKind)))
+       (kind Import-kind)))
 
-    (define (module-imports (compiled Compiled)) (→ (List Import)) (! wasm)
+    (define (module-imports (compiled Compiled)) (→ (List Import)) (! Wasm)
       (map (lambda (index) (import-of (● compiled handle) (i64->i32 index)))
            (iota (i32->i64 (import-count (● compiled handle))))))
 
-    (define (import-of (module I32) (index I32)) (→ Import) (! wasm)
+    (define (import-of (module I32) (index I32)) (→ Import) (! Wasm)
       (let ((kind (import-at module index)))
         (new Import (from (held-string 0)) (name (held-string 1)) (kind (kind-of kind)))))
 
-    (define (kind-of (code I32)) (→ ImportKind)
-      (cond ((= code 0) (FunctionImport))
-            ((= code 1) (TableImport))
-            ((= code 2) (MemoryImport))
-            ((= code 3) (GlobalImport))
+    (define (kind-of (code I32)) (→ Import-kind)
+      (cond ((= code 0) (Function-import))
+            ((= code 1) (Table-import))
+            ((= code 2) (Memory-import))
+            ((= code 3) (Global-import))
             (else (panic "the host answered an unknown kind of import"))))
 
     ;; A name the host holds, a character at a time.
 
-    (define (held-string (which I32)) (→ String) (! wasm)
+    (define (held-string (which I32)) (→ String) (! Wasm)
       (string-generate (i32->i64 (held-length which))
                        (lambda (index) (held-char which (i64->i32 index)))))
 
@@ -173,12 +173,12 @@
     ;; instance lacks or a function the host lacks, provides nothing, and
     ;; the link fails unless another is given for the import.
     (enum Provider
-      (ExportOf
+      (Export-of
        ((instance Module)
         (export String)))
-      (HostProvided)
-      (HostIfProvided)
-      (ConstantOf
+      (Host-provided)
+      (Host-if-provided)
+      (Constant-of
        ((value I32)))
       (Unprovided))
 
@@ -195,28 +195,28 @@
     ;; starts still ends the program.
 
     (define (link-module (name String) (compiled Compiled) (providers (List Provider)))
-      (→ (Result Module LoadError))
-      (! wasm)
+      (→ (Result Module Load-error))
+      (! Wasm)
       (prepare-link (● compiled handle))
       (for-each provide providers)
       (let ((handle (link-prepared)))
-        (if (< handle 0) (Err (LinkFailed name)) (Ok (new Module (handle handle))))))
+        (if (< handle 0) (Err (Link-failed name)) (Ok (new Module (handle handle))))))
 
-    (define (provide (provider Provider)) (→ Unit) (! wasm)
+    (define (provide (provider Provider)) (→ Unit) (! Wasm)
       (match provider
-        ((ExportOf instance export)
+        ((Export-of instance export)
          (send-argument export)
          (provide-export (● instance handle))
          (unit))
-        ((HostProvided) (provide-host) (unit))
-        ((HostIfProvided) (unless (provide-host) (provide-missing)))
-        ((ConstantOf value) (provide-constant value))
+        ((Host-provided) (provide-host) (unit))
+        ((Host-if-provided) (unless (provide-host) (provide-missing)))
+        ((Constant-of value) (provide-constant value))
         ((Unprovided) (provide-missing))))
 
     ;; Bind the program's runtime for staging bytes and reporting errors.
     ;; Handle zero continues to identify the loader, whose own runtime stays
     ;; separate from the program it runs.
-    (define (bind-runtime (runtime Module)) (→ Unit) (! wasm)
+    (define (bind-runtime (runtime Module)) (→ Unit) (! Wasm)
       (runtime-instance (● runtime handle)))
 
     ;; Calls the function the instance exports as `name`, of no argument or
@@ -224,11 +224,11 @@
     ;; `argument`, answering its result, or 0 when it answers nothing.
 
     (define (run-export (instance Module) (name String) (argument I64))
-      (→ (Result I64 LoadError))
-      (! wasm)
+      (→ (Result I64 Load-error))
+      (! Wasm)
       (send-argument name)
       (if (exports-function? (● instance handle))
           (begin (send-argument name) (Ok (call-export (● instance handle) argument)))
-          (Err (MissingExport name))))
+          (Err (Missing-export name))))
 
     ))

@@ -3,4 +3,4 @@
 
 (record Cell
   ((value I64)))
-(define (main) (→ Unit) (! mut) (Cell-value-replace! (new Cell (value 1)) 2) (unit))
+(define (main) (→ Unit) (! Mut) (cell-value-replace! (new Cell (value 1)) 2) (unit))

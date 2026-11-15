@@ -19,23 +19,23 @@
 (define (at (name String)) (→ String)
   (string-append (root) "/" name))
 
-(define (put (name String) (text String)) (→ Unit) (! fs)
+(define (put (name String) (text String)) (→ Unit) (! Fs)
   (write-file (at name) text))
 
-(define (builds) (→ (List BuildDirectory))
-  (list (new BuildDirectory (epoch 4)
+(define (builds) (→ (List Build-directory))
+  (list (new Build-directory (epoch 4)
              (directory (at "g4"))
              (files (list (new Pair (first "index.html") (second "i4"))
                           (new Pair (first "modules.json") (second "m4"))
                           (new Pair (first "style.css") (second "s4"))))
              (milliseconds 120))
-        (new BuildDirectory
+        (new Build-directory
           (epoch 3)
           (directory (at "g3"))
           (files (list (new Pair (first "index.html") (second "i3"))))
           (milliseconds 90))))
 
-(define (latest) (→ BuildDirectory)
+(define (latest) (→ Build-directory)
   (match (builds)
     ((Cons build _) build)
     ((Nil) (panic "no build"))))
@@ -43,7 +43,7 @@
 (define (reloading) (→ Reloading)
   (new Reloading (host (at "host")) (program (at "reload.wasm"))))
 
-(define (show-response (label String) (response Response)) (→ Unit) (! output-port)
+(define (show-response (label String) (response Response)) (→ Unit) (! Output-port)
   (write-line (string-append label
                              " -> "
                              (show (● response status))
@@ -58,10 +58,10 @@
                                ((Ok text) text)
                                ((Err _) "not text")))))
 
-(define (request (label String) (path (List String))) (→ Unit) (! fs output-port)
+(define (request (label String) (path (List String))) (→ Unit) (! Fs Output-port)
   (show-response label (bundle-response "/site/" (reloading) (builds) path)))
 
-(define (main) (→ Unit) (! fs output-port)
+(define (main) (→ Unit) (! Fs Output-port)
   (remove-tree (root))
   (make-directories (at "g3/modules"))
   (make-directories (at "g4/modules"))
@@ -107,8 +107,8 @@
   (show-response "/ before a build" (bundle-response "/site/" (reloading) (Nil) (Nil)))
   (show-response "/.snail/reload.mjs before a build"
                  (bundle-response "/site/" (reloading) (Nil) (list ".snail" "reload.mjs")))
-  (write-line (bundle-event "/site/" (BuildUnderway) (None)))
-  (write-line (bundle-event "/site/" (BuildPublished) (Some (latest))))
-  (write-line (bundle-event "/site/" (BuildFailed "a \"quoted\" message") (Some (latest))))
+  (write-line (bundle-event "/site/" (Build-underway) (None)))
+  (write-line (bundle-event "/site/" (Build-published) (Some (latest))))
+  (write-line (bundle-event "/site/" (Build-failed "a \"quoted\" message") (Some (latest))))
   (remove-tree (root))
   (unit))

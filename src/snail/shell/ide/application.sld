@@ -5,15 +5,15 @@
 ;; effects; host/ide/ide.sld supplies the page.
 (define-library (snail shell ide application)
   (export Ide Msg initial update ui-update view window kept restored Connect Boot
-          DispatchCommand Typed Open PaletteEvent Finished
-          Command CommandResult Step Recovery TabbedRecovery read-recovery
+          Dispatch-command Typed Open Palette-event Finished
+          Command Command-result Step Recovery Tabbed-recovery read-recovery
           Buffer
           Snapshot buffer-at dirty? conflict?)
   (import
    (snail core base)
-   (only (snail core forms) host)
+   (only (snail core forms) Host)
    (only (snail shell text) string-upcase string-downcase)
-   (only (snail shell task) tasks)
+   (only (snail shell task) Tasks)
    (snail shell dom)
    (snail shell fetch)
    (snail shell json)
@@ -147,7 +147,7 @@
     ;; Makes the change in the field, so the page can undo it, and answers
     ;; whether the field took it; one it did not take leaves the selection.
 
-    (define (apply-change (field Node) (change Change)) (→ Bool) (! dom)
+    (define (apply-change (field Node) (change Change)) (→ Bool) (! Dom)
       (let ((taken (or (and (= (● change start) (● change end))
                             (string=? (● change text) ""))
                        (insert-text field
@@ -350,7 +350,7 @@
     ;; A pane owns an ordered set of tabs and one selected path, never text.
     ;; Every tab refers to the shared buffers. The selected path is in tabs,
     ;; or absent exactly when tabs is empty.
-    (record EditorPane
+    (record Editor-pane
       ((id I64)
        (path (Option String))
        (scroll F64)
@@ -430,13 +430,13 @@
     (define (halves (area Area) (direction String) (ratio F64)) (→ (Pair Area Area))
       (if (string=? direction "column")
           (let ((first (* (● area height) ratio)))
-            (new Pair (first (Area-height-set area first))
+            (new Pair (first (area-height-set area first))
                  (second (new Area (left (● area left))
                               (top (+ (● area top) first))
                               (width (● area width))
                               (height (- (● area height) first))))))
           (let ((first (* (● area width) ratio)))
-            (new Pair (first (Area-width-set area first))
+            (new Pair (first (area-width-set area first))
                  (second (new Area (left (+ (● area left) first))
                               (top (● area top))
                               (width (- (● area width) first))
@@ -517,7 +517,7 @@
            (observation (Unobserved))))
 
     ;; The compiler's status as the status bar shows it: its words, its state for
-    ;; styling (`starting`, `building`, `built` or `failed`), and the attempt
+    ;; styling (`starting`, `Building`, `built` or `failed`), and the attempt
     ;; it reports.
     (record Status
       ((text String)
@@ -550,7 +550,7 @@
     ;; Keep the selected run while it remains in the complete server snapshot.
 
     (define (runs-received (runs Runs) (list (List Run))) (→ Runs)
-      (Runs-selected-set (Runs-runs-set runs list) (chosen list (● runs selected))))
+      (runs-selected-set (runs-runs-set runs list) (chosen list (● runs selected))))
 
     (define (chosen (runs (List Run)) (selected String)) (→ String)
       (if (any? (lambda (run) (string=? (● run target) selected)) runs)
@@ -619,12 +619,12 @@
       (Reveal ((pane I64)
                (generation I64)
                (index I64)))
-      (SearchPoint ((pane I64)
-                    (hit Hit))))
+      (Search-point ((pane I64)
+                     (hit Hit))))
 
     ;; Where a drag began: the files' edge or a split's divider.
     (enum Grip
-      (FilesEdge)
+      (Files-edge)
       (Divider ((split I64))))
 
     ;; A drag under way: of the files' edge, within the page's width, or of a
@@ -646,7 +646,7 @@
        (listing I64)
        (buffers (List Buffer))
        (reads I64)
-       (panes (List EditorPane))
+       (panes (List Editor-pane))
        (layout Layout)
        (active I64)
        (next I64)
@@ -657,7 +657,7 @@
        (palette palette-State)
        (auto-open Bool)
        (status Status)
-       (server (Option ServerState))
+       (server (Option Server-state))
        (generation I64)
        (diagnostics (List Diagnostic))
        (runs Runs)
@@ -670,7 +670,7 @@
            (listing 0)
            (buffers (Nil))
            (reads 0)
-           (panes (list (new EditorPane (id 0) (path (None)) (scroll 0.0) (tabs (Nil)))))
+           (panes (list (new Editor-pane (id 0) (path (None)) (scroll 0.0) (tabs (Nil)))))
            (layout (Leaf 0))
            (active 0)
            (next 1)
@@ -696,7 +696,7 @@
 
     (define (buffer-set (model Ide) (buffer Buffer)) (→ Ide)
       (let ((path (● buffer path)))
-        (Ide-buffers-set model
+        (ide-buffers-set model
                          (match (buffer-at model path)
                            ((Some _)
                             (map (lambda (old) (if (string=? (● old path) path) buffer old))
@@ -706,7 +706,7 @@
     ;; Remove a buffer and every tab that refers to it, choosing adjacent tabs.
 
     (define (buffer-removed (model Ide) (path String)) (→ Ide)
-      (Ide-panes-set (Ide-buffers-set model
+      (ide-panes-set (ide-buffers-set model
                                       (filter
                                        (lambda (buffer) (not (string=? (● buffer path) path)))
                                        (● model buffers)))
@@ -714,25 +714,25 @@
                             (pane-closed pane path))
                           (● model panes))))
 
-    (define (shows? (pane EditorPane) (path String)) (→ Bool)
+    (define (shows? (pane Editor-pane) (path String)) (→ Bool)
       (match (● pane path)
         ((Some shown) (string=? shown path))
         ((None) #f)))
 
-    (define (pane-opening (pane EditorPane) (path String)) (→ EditorPane)
+    (define (pane-opening (pane Editor-pane) (path String)) (→ Editor-pane)
       (if (shows? pane path) pane
-          (new EditorPane (id (● pane id)) (path (Some path)) (scroll 0.0)
+          (new Editor-pane (id (● pane id)) (path (Some path)) (scroll 0.0)
                (tabs (if (member? path (● pane tabs)) (● pane tabs)
                          (append (● pane tabs) (list path)))))))
 
-    (define (pane-closed (pane EditorPane) (path String)) (→ EditorPane)
+    (define (pane-closed (pane Editor-pane) (path String)) (→ Editor-pane)
       (let ((tabs (filter (lambda (other) (not (string=? other path))) (● pane tabs))))
         (if (shows? pane path)
-            (new EditorPane (id (● pane id))
+            (new Editor-pane (id (● pane id))
                  (path (tab-after-closing (● pane tabs) path (None)))
                  (scroll 0.0)
                  (tabs tabs))
-            (EditorPane-tabs-set pane tabs))))
+            (editor-pane-tabs-set pane tabs))))
 
     (define (tab-after-closing (tabs (List String)) (path String) (previous (Option String)))
       (→ (Option String))
@@ -743,13 +743,13 @@
              (match rest ((Cons next _) (Some next)) ((Nil) previous))
              (tab-after-closing rest path (Some first))))))
 
-    (define (pane-of (model Ide) (id I64)) (→ EditorPane)
+    (define (pane-of (model Ide) (id I64)) (→ Editor-pane)
       (match (find (lambda (pane) (= (● pane id) id)) (● model panes))
         ((Some pane) pane)
-        ((None) (new EditorPane (id id) (path (None)) (scroll 0.0) (tabs (Nil))))))
+        ((None) (new Editor-pane (id id) (path (None)) (scroll 0.0) (tabs (Nil))))))
 
-    (define (pane-set (model Ide) (changed EditorPane)) (→ Ide)
-      (Ide-panes-set model
+    (define (pane-set (model Ide) (changed Editor-pane)) (→ Ide)
+      (ide-panes-set model
                      (map (lambda (pane) (if (= (● pane id) (● changed id)) changed pane))
                           (● model panes))))
 
@@ -802,10 +802,10 @@
         ((None) (Unobserved))))
 
     (define (observation-set (model Ide) (index I64) (observation Observation)) (→ Ide)
-      (Ide-diagnostics-set model
+      (ide-diagnostics-set model
                            (map-indexed (lambda (at diagnostic)
                                           (if (= at index)
-                                              (Diagnostic-observation-set diagnostic observation)
+                                              (diagnostic-observation-set diagnostic observation)
                                               diagnostic))
                                         (● model diagnostics))))
 
@@ -840,7 +840,7 @@
     ;; result arrives.
     (enum Msg
       (Boot)
-      (RefreshFailed)
+      (Refresh-failed)
       (Nothing)
       (Connect)
       (Open ((path String)))
@@ -857,11 +857,11 @@
       (Scrolled ((pane I64)
                  (top F64)))
       (Close ((pane I64)))
-      (SelectTab ((pane I64)
-                  (path String)))
-      (DispatchCommand ((name String)))
-      (PaletteEvent ((message palette-Message)))
-      (ToggleFolder ((path String)))
+      (Select-tab ((pane I64)
+                   (path String)))
+      (Dispatch-command ((name String)))
+      (Palette-event ((message palette-Message)))
+      (Toggle-folder ((path String)))
       (Grab ((grip Grip)))
       (Dragged ((x F64)
                 (y F64)))
@@ -870,7 +870,7 @@
                  (modifiers I32)))
       (Choose ((target String)))
       (Control ((action String)))
-      (Finished ((result CommandResult))))
+      (Finished ((result Command-result))))
 
     ;; A step is the next editor and the commands it starts. A command
     ;; performs its effects and returns its result as a transition, which
@@ -880,21 +880,21 @@
       ((model Ide)
        (commands (List Command))))
 
-    (type Command (Fn → CommandResult ! tasks dom fetch))
+    (type Command (Fn → Command-result ! Tasks Dom Fetch))
 
-    (type CommandResult (Fn Ide → Step))
+    (type Command-result (Fn Ide → Step))
 
     ;; The update `run-ui` runs: each command answers its result as a
     ;; message, under the loop's handlers.
 
     (define (ui-update (model Ide) (message Msg))
-      (→ (Pair Ide (List (Fn → Msg ! tasks dom fetch e))))
+      (→ (Pair Ide (List (Fn → Msg ! Tasks Dom Fetch e))))
       (∀ (e))
       (match (update model message)
         ((Step next commands)
          (new Pair (first next) (second (map command-message commands))))))
 
-    (define (command-message (command Command)) (→ (Fn → Msg ! tasks dom fetch e)) (∀ (e))
+    (define (command-message (command Command)) (→ (Fn → Msg ! Tasks Dom Fetch e)) (∀ (e))
       (lambda () (Finished (command))))
 
     (define (stay (model Ide)) (→ Step)
@@ -919,7 +919,7 @@
                                                         "snailGeneration")))
                                   (lambda (current)
                                     (booted current generation))))))))
-        ((RefreshFailed) (stay (Ide-refreshing-set model #f)))
+        ((Refresh-failed) (stay (ide-refreshing-set model #f)))
         ((Nothing) (stay model))
         ((Connect) (connecting model))
         ((Open path) (opening (search-invalidated model) path (Focus (● model active))))
@@ -928,50 +928,50 @@
         ((Pressed pane key text start end) (pressed model pane key text start end))
         ((Focused pane)
          (stay
-          (Ide-active-set (if (= pane (● model active)) model (search-invalidated model)) pane)))
+          (ide-active-set (if (= pane (● model active)) model (search-invalidated model)) pane)))
         ((Scrolled pane top)
-         (stay (pane-set model (EditorPane-scroll-set (pane-of model pane) top))))
-        ((Close pane) (invoked (Ide-active-set model pane) closing))
-        ((SelectTab pane path)
-         (opening (search-invalidated (Ide-active-set model pane)) path (Focus pane)))
-        ((DispatchCommand name)
+         (stay (pane-set model (editor-pane-scroll-set (pane-of model pane) top))))
+        ((Close pane) (invoked (ide-active-set model pane) closing))
+        ((Select-tab pane path)
+         (opening (search-invalidated (ide-active-set model pane)) path (Focus pane)))
+        ((Dispatch-command name)
          (new Step (model model)
               (commands (list (lambda ()
                                 (lambda (current)
                                   (run-command current name)))))))
-        ((PaletteEvent message) (palette-message model message))
-        ((ToggleFolder path) (stay (Ide-expanded-set model (toggled (● model expanded) path))))
+        ((Palette-event message) (palette-message model message))
+        ((Toggle-folder path) (stay (ide-expanded-set model (toggled (● model expanded) path))))
         ((Grab grip)
          (new Step
            (model model)
            (commands
             (list (lambda () (grabbed grip))))))
         ((Dragged x y) (stay (dragged model x y)))
-        ((Dropped) (stay (Ide-drag-set model (None))))
+        ((Dropped) (stay (ide-drag-set model (None))))
         ((Shortcut key modifiers) (shortcut model key modifiers))
-        ((Choose target) (stay (Ide-runs-set model (Runs-selected-set (● model runs) target))))
+        ((Choose target) (stay (ide-runs-set model (runs-selected-set (● model runs) target))))
         ((Control action) (controlling model action))
         ((Finished result) (result model))))
 
     (define (booted (model Ide) (generation String)) (→ Step)
       (refresh-if-needed (if (string=? (● model editor) "")
-                             (Ide-editor-set model generation) model)))
+                             (ide-editor-set model generation) model)))
 
     (define (connected (model Ide) (stream Stream)) (→ Step)
-      (new Step (model (Ide-events-set model (Some stream))) (commands (list (hear stream)))))
+      (new Step (model (ide-events-set model (Some stream))) (commands (list (hear stream)))))
 
-    (define (stream-heard (model Ide) (stream Stream) (event StreamEvent)) (→ Step)
+    (define (stream-heard (model Ide) (stream Stream) (event Stream-event)) (→ Step)
       (if (current-stream? model stream) (heard model stream event) (stay model)))
 
     (define (refused (model Ide) (failure Failure)) (→ Step)
-      (stay (Ide-status-set model (failed-status model (● failure message)))))
+      (stay (ide-status-set model (failed-status model (● failure message)))))
 
     (define (fullscreen-finished (model Ide) (accepted Bool)) (→ Step)
       (if accepted (stay model)
           (notice model "Fullscreen needs an explicit click or is unavailable in this browser.")))
 
     (define (began-drag (model Ide) (drag Drag)) (→ Step)
-      (stay (Ide-drag-set model (Some drag))))
+      (stay (ide-drag-set model (Some drag))))
 
     ;; ---- Events ----
 
@@ -986,7 +986,7 @@
 
     (define (connecting (model Ide)) (→ Step)
       (let ((old (● model events)))
-        (new Step (model (Ide-status-set (Ide-events-set model (None))
+        (new Step (model (ide-status-set (ide-events-set model (None))
                                          (new Status
                                            (text "Connecting…")
                                            (state "starting")
@@ -1017,7 +1017,7 @@
     ;; The next event is heard after this one. Bad messages leave the last
     ;; complete snapshot intact and make the protocol failure visible.
 
-    (define (heard (model Ide) (stream Stream) (event StreamEvent)) (→ Step)
+    (define (heard (model Ide) (stream Stream) (event Stream-event)) (→ Step)
       (then (new Step (model model) (commands (list (hear stream))))
             (lambda (model)
               (cond ((string=? (● event kind) "open") (reconnected model))
@@ -1026,9 +1026,9 @@
                        ((Some state) (then (received model state) refresh-if-needed))
                        ((None)
                         (stay
-                         (Ide-status-set model (failed-status model "Invalid server snapshot"))))))
+                         (ide-status-set model (failed-status model "Invalid server snapshot"))))))
                     (else
-                     (stay (Ide-status-set model
+                     (stay (ide-status-set model
                                            (failed-status model
                                                           "Connection lost; reconnecting…"))))))))
 
@@ -1039,7 +1039,7 @@
     ;; Only a new build report resets diagnostic evidence; process output and
     ;; repeated snapshots cannot revive a diagnostic invalidated by a save.
 
-    (define (received (model Ide) (state ServerState)) (→ Step)
+    (define (received (model Ide) (state Server-state)) (→ Step)
       (let* ((old (● model server))
              (new-server (match old
                            ((Some previous) (not (string=? (● previous instance)
@@ -1058,7 +1058,7 @@
                                              (build->json (● state build))))))
                                      ((None) #t))))
              (model (received-build model (● state build) fresh))
-             (model (Ide-server-set (Ide-runs-set model (runs-received (● model runs)
+             (model (ide-server-set (ide-runs-set model (runs-received (● model runs)
                                                                        (● state runs)))
                                     (Some state))))
         (cond (files (listing model))
@@ -1066,9 +1066,9 @@
               (else (stay model)))))
 
     (define (received-build (model Ide) (build Build) (fresh Bool)) (→ Ide)
-      (Ide-status-set
+      (ide-status-set
        (if fresh
-           (Ide-diagnostics-set (Ide-generation-set model (+ (● model generation) 1))
+           (ide-diagnostics-set (ide-generation-set model (+ (● model generation) 1))
                                 (map diagnostic-of (● build diagnostics)))
            model)
        (compiler-status build)))
@@ -1081,18 +1081,18 @@
       (match (● model server)
         ((Some state)
          (cond ((not (string=? (● state editor-problem) ""))
-                (stay (Ide-status-set model
+                (stay (ide-status-set model
                                       (failed-status model (string-append "IDE update failed: "
                                                                           (● state
                                                                              editor-problem))))))
                ((and (not (string=? (● model editor) "")) (not (● model refreshing))
                      (not (string=? (● model editor) (● state editor))))
-                (refreshing (Ide-editor-set model (● state editor))))
+                (refreshing (ide-editor-set model (● state editor))))
                (else (stay model))))
         ((None) (stay model))))
 
     (define (refreshing (model Ide)) (→ Step)
-      (new Step (model (Ide-refreshing-set model #t))
+      (new Step (model (ide-refreshing-set model #t))
            (commands (list (lambda () (refresh-page) stay)))))
 
     ;; ---- Files ----
@@ -1101,7 +1101,7 @@
 
     (define (listing (model Ide)) (→ Step)
       (let ((sequence (+ (● model listing) 1)))
-        (then (reading-all (Ide-listing-set model sequence))
+        (then (reading-all (ide-listing-set model sequence))
               (lambda (model)
                 (new Step (model model)
                      (commands (list (lambda ()
@@ -1122,7 +1122,7 @@
       (if (= sequence (● model listing))
           (match result
             ((Ok project)
-             (let ((model (Ide-project-set model project)))
+             (let ((model (ide-project-set model project)))
                (match (● project files)
                  ((Cons first _)
                   (if (● model auto-open)
@@ -1132,7 +1132,7 @@
                       (stay model)))
                  ((Nil) (stay model)))))
             ((Err failure)
-             (stay (Ide-status-set model (failed-status model (● failure message))))))
+             (stay (ide-status-set model (failed-status model (● failure message))))))
           (stay model)))
 
     ;; Opening shows the file's buffer in the active pane at once, made empty
@@ -1140,7 +1140,7 @@
     ;; diagnostic's point is to be found in it.
 
     (define (opening (model Ide) (path String) (follow Follow)) (→ Step)
-      (let* ((model (Ide-auto-open-set model #f))
+      (let* ((model (ide-auto-open-set model #f))
              (model (match (buffer-at model path)
                       ((Some _) model)
                       ((None) (buffer-set model (new-buffer path)))))
@@ -1150,7 +1150,7 @@
           ((Some buffer)
            (match follow
              ((Reveal _ _ _) (reading model path follow))
-             ((SearchPoint _ _) (reading model path follow))
+             ((Search-point _ _) (reading model path follow))
              (_ (if (loaded? buffer)
                     (new Step (model model) (commands (followed model path follow
                                                                 (● (● model palette) generation)
@@ -1180,7 +1180,7 @@
               (not (= navigation (● (● model palette) generation)))) (Nil)
               (match follow
                 ((Stay) (Nil))
-                ((SearchPoint pane hit) (search-followed model pane hit confirmed))
+                ((Search-point pane hit) (search-followed model pane hit confirmed))
                 ((Focus pane) (if (showing? model pane path) (list (focusing model pane)) (Nil)))
                 ((Reveal pane generation index)
                  (if (showing? model pane path)
@@ -1227,7 +1227,7 @@
     (define (tab-id (pane I64) (path String)) (→ String)
       (string-append "tab-" (show pane) ":" path))
 
-    (define (reveal-tab (pane I64) (path String)) (→ Unit) (! dom)
+    (define (reveal-tab (pane I64) (path String)) (→ Unit) (! Dom)
       (match (new Pair (first (element-by-id (string-append "tabs-" (show pane))))
                   (second (element-by-id (tab-id pane path))))
         ((Pair (Some strip) (Some tab))
@@ -1263,7 +1263,7 @@
             ((None) (unit)))
           stay)))
 
-    (define (scrolled-to (pane I64) (top F64)) (→ Unit) (! dom)
+    (define (scrolled-to (pane I64) (top F64)) (→ Unit) (! Dom)
       (match (element-by-id (scroller-id pane))
         ((Some scroller) (set-number-property scroller "scrollTop" top))
         ((None) (unit))))
@@ -1290,7 +1290,7 @@
                                 (follow follow))))
                (new Step
                  (model
-                  (buffer-set (Ide-reads-set model sequence) (Buffer-read-set buffer sequence)))
+                  (buffer-set (ide-reads-set model sequence) (buffer-read-set buffer sequence)))
                  (commands (list (lambda ()
                                    (let ((reply (file-reply
                                                  (api "GET"
@@ -1338,13 +1338,13 @@
     ;; The draft follows disk unless it has changes of its own.
 
     (define (snapshot-read (model Ide) (buffer Buffer) (snapshot Snapshot)) (→ Ide)
-      (let* ((observed (Buffer-observed-set buffer (Some (● snapshot revision))))
+      (let* ((observed (buffer-observed-set buffer (Some (● snapshot revision))))
              (loaded (if (dirty? buffer)
                          observed
-                         (Buffer-baseline-set (Buffer-text-set observed (● snapshot text))
+                         (buffer-baseline-set (buffer-text-set observed (● snapshot text))
                                               (Some snapshot)))))
         (buffer-set model
-                    (Buffer-problem-set loaded
+                    (buffer-problem-set loaded
                                         (if (conflict? loaded)
                                             "Changed on disk. Your draft is kept; Reload discards it."
                                             "")))))
@@ -1355,14 +1355,14 @@
     (define (read-failed (model Ide) (buffer Buffer) (failure Failure)) (→ Ide)
       (if (= (● failure status) 404)
           (let ((gone
-                 (Buffer-problem-set (Buffer-observed-set buffer (None))
+                 (buffer-problem-set (buffer-observed-set buffer (None))
                                      (● failure message))))
             (if (dirty? gone)
                 (buffer-set model
-                            (Buffer-problem-set gone
+                            (buffer-problem-set gone
                                                 "Deleted on disk. Your draft is kept; copy it before reloading."))
                 (buffer-removed model (● buffer path))))
-          (buffer-set model (Buffer-problem-set buffer (● failure message)))))
+          (buffer-set model (buffer-problem-set buffer (● failure message)))))
 
     ;; A read ties the diagnostic at its file to the revision it found, when
     ;; that is the diagnostic that was there when it was asked, and reads had
@@ -1394,7 +1394,7 @@
       (match (pane-buffer model pane)
         ((Some buffer)
          (if (loaded? buffer)
-             (let ((edited (Buffer-text-set buffer text)))
+             (let ((edited (buffer-text-set buffer text)))
                (if (and (not (dirty? edited)) (conflict? edited))
                    (reading (buffer-set model edited) (● edited path) (Stay))
                    (stay (buffer-set model edited))))
@@ -1444,9 +1444,9 @@
                                 ((Some index) (observation-set model index (Invalidated)))
                                 ((None) model)))
                        (pane (pane-of model (● model active))))
-                  (new Step (model (buffer-set (Ide-reads-set model sequence)
-                                               (Buffer-failure-set
-                                                (Buffer-read-set (Buffer-saving-set buffer #t)
+                  (new Step (model (buffer-set (ide-reads-set model sequence)
+                                               (buffer-failure-set
+                                                (buffer-read-set (buffer-saving-set buffer #t)
                                                                  sequence)
                                                 "")))
                        (commands (list (lambda () (saved-text pane buffer baseline))))))))
@@ -1456,9 +1456,9 @@
     ;; A source is formatted first, in the pane's field; formatting that fails
     ;; does not keep an incomplete draft from being saved.
 
-    (define (saved-text (pane EditorPane) (buffer Buffer) (baseline Snapshot))
-      (→ CommandResult)
-      (! dom fetch tasks)
+    (define (saved-text (pane Editor-pane) (buffer Buffer) (baseline Snapshot))
+      (→ Command-result)
+      (! Dom Fetch Tasks)
       (let* ((path (● buffer path))
              (text
               (if (source-file? path)
@@ -1480,7 +1480,7 @@
     ;; field's input brings to the buffer too; or the text as it was, when the
     ;; field did not take it.
 
-    (define (formatted-in (pane EditorPane) (path String) (text String)) (→ String) (! dom)
+    (define (formatted-in (pane Editor-pane) (path String) (text String)) (→ String) (! Dom)
       (let* ((shown (display-text text)) (formatted (format-source shown (format-width))))
         (if (or (string=? shown formatted) (not (reformatted pane path shown formatted)))
             text
@@ -1488,9 +1488,9 @@
 
     ;; The change keeps the caret's line, and the field its scroll.
 
-    (define (reformatted (pane EditorPane) (path String) (shown String) (formatted String))
+    (define (reformatted (pane Editor-pane) (path String) (shown String) (formatted String))
       (→ Bool)
-      (! dom)
+      (! Dom)
       (match (element-by-id (field-id (● pane id)))
         ((Some field)
          (if (current-field? field path shown)
@@ -1503,7 +1503,7 @@
              #f))
         ((None) #f)))
 
-    (define (current-field? (field Node) (path String) (text String)) (→ Bool) (! dom)
+    (define (current-field? (field Node) (path String) (text String)) (→ Bool) (! Dom)
       (and (string=? (string-property field "snailPath") path)
            (string=? (string-property field "value") text)))
 
@@ -1514,13 +1514,13 @@
       (match (buffer-at model path)
         ((Some buffer)
          (reading (buffer-set model
-                              (Buffer-saving-set
+                              (buffer-saving-set
                                (match result
                                  ((Ok snapshot)
-                                  (Buffer-observed-set (Buffer-baseline-set buffer (Some snapshot))
+                                  (buffer-observed-set (buffer-baseline-set buffer (Some snapshot))
                                                        (Some (● snapshot revision))))
                                  ((Err failure)
-                                  (Buffer-failure-set buffer
+                                  (buffer-failure-set buffer
                                                       (if (= (● failure status) 409)
                                                           "Changed on disk; save rejected. Your draft is kept."
                                                           (● failure message)))))
@@ -1534,7 +1534,7 @@
         ((Some buffer)
          (if (and (loaded? buffer) (source-file? (● buffer path)))
              (let ((pane (pane-of model (● model active))) (path (● buffer path)))
-               (new Step (model (buffer-set model (Buffer-failure-set buffer "")))
+               (new Step (model (buffer-set model (buffer-failure-set buffer "")))
                     (commands (list (lambda ()
                                       (let* ((shown
                                               (display-text (● buffer text)))
@@ -1560,7 +1560,7 @@
                (if taken
                    model
                    (buffer-set model
-                               (Buffer-failure-set buffer "The page refused the formatted text."))))
+                               (buffer-failure-set buffer "The page refused the formatted text."))))
               ((None) model))))
 
     ;; Reload discards a draft, once the person agrees, then reads disk. The
@@ -1587,9 +1587,9 @@
       (match (buffer-at model path)
         ((Some buffer)
          (reading (buffer-set model
-                              (Buffer-failure-set (match (● buffer baseline)
+                              (buffer-failure-set (match (● buffer baseline)
                                                     ((Some baseline)
-                                                     (Buffer-text-set buffer
+                                                     (buffer-text-set buffer
                                                                       (● baseline text)))
                                                     ((None) buffer))
                                                   ""))
@@ -1597,7 +1597,7 @@
                   (Stay)))
         ((None) (stay model))))
 
-    (define (building) (→ CommandResult) (! fetch tasks)
+    (define (building) (→ Command-result) (! Fetch Tasks)
       (match (api "POST" "/api/build" (Nil) "")
         ((Ok _) stay)
         ((Err failure) (lambda (current) (refused current failure)))))
@@ -1611,17 +1611,17 @@
       (let* ((active (● model active))
              (pane (● model next))
              (split (Split (+ pane 1) direction 0.5 (Leaf active) (Leaf pane)))
-             (model (Ide-panes-set model
+             (model (ide-panes-set model
                                    (append (● model panes)
                                            (list
                                             (pane-split (pane-of model active) pane)))))
-             (model (Ide-layout-set model (leaf-replaced (● model layout) active split))))
+             (model (ide-layout-set model (leaf-replaced (● model layout) active split))))
         (new Step
-          (model (Ide-next-set (Ide-active-set model pane) (+ pane 2)))
+          (model (ide-next-set (ide-active-set model pane) (+ pane 2)))
           (commands (list (focusing model pane))))))
 
-    (define (pane-split (pane EditorPane) (id I64)) (→ EditorPane)
-      (new EditorPane (id id) (path (● pane path)) (scroll 0.0)
+    (define (pane-split (pane Editor-pane) (id I64)) (→ Editor-pane)
+      (new Editor-pane (id id) (path (● pane path)) (scroll 0.0)
            (tabs (match (● pane path) ((Some path) (list path)) ((None) (Nil))))))
 
     ;; Closing the last view of a draft asks before discarding it. A reply
@@ -1682,15 +1682,15 @@
         (match (sibling (● model layout) active)
           ((Some beside)
            (let* ((next (first-leaf beside))
-                  (model (Ide-layout-set model (without-leaf (● model layout) active)))
-                  (model (Ide-panes-set model
+                  (model (ide-layout-set model (without-leaf (● model layout) active)))
+                  (model (ide-panes-set model
                                         (filter (lambda (pane) (not (= (● pane id) active)))
                                                 (● model panes)))))
              (new Step
-               (model (Ide-active-set model next))
+               (model (ide-active-set model next))
                (commands (list (focusing model next))))))
           ((None)
-           (let ((empty (pane-set model (EditorPane-path-set (pane-of model active) (None)))))
+           (let ((empty (pane-set model (editor-pane-path-set (pane-of model active) (None)))))
              (new Step (model empty) (commands (list (focusing empty active)))))))))
 
     (define (toggled (paths (List String)) (path String)) (→ (List String))
@@ -1700,16 +1700,16 @@
 
     ;; A drag measures what it divides as it begins.
 
-    (define (grabbed (grip Grip)) (→ CommandResult) (! dom)
+    (define (grabbed (grip Grip)) (→ Command-result) (! Dom)
       (match grip
-        ((FilesEdge)
+        ((Files-edge)
          (let ((drag (Resizing (● (measured "workbench") width))))
            (lambda (current) (began-drag current drag))))
         ((Divider split)
          (let ((drag (Dividing split (measured "panes"))))
            (lambda (current) (began-drag current drag))))))
 
-    (define (measured (id String)) (→ Measure) (! dom)
+    (define (measured (id String)) (→ Measure) (! Dom)
       (match (element-by-id id)
         ((Some node) (measure node))
         ((None)
@@ -1727,11 +1727,11 @@
 
     (define (dragged (model Ide) (x F64) (y F64)) (→ Ide)
       (match (● model drag)
-        ((Some (Resizing width)) (Ide-files-width-set model (max 120.0 (min (* width 0.7) x))))
+        ((Some (Resizing width)) (ide-files-width-set model (max 120.0 (min (* width 0.7) x))))
         ((Some (Dividing split box))
          (match (division-of (● model layout) split)
            ((Some division)
-            (Ide-layout-set model (ratio-set (● model layout) split (pointed division box x y))))
+            (ide-layout-set model (ratio-set (● model layout) split (pointed division box x y))))
            ((None) model)))
         ((None) model)))
 
@@ -1819,7 +1819,7 @@
                                          (name "toggle-files")
                                          (action (lambda (model)
                                                    (stay
-                                                    (Ide-files-shown-set model
+                                                    (ide-files-shown-set model
                                                                          (not
                                                                           (●
                                                                            model
@@ -1885,7 +1885,7 @@
       (if (and (palette-finding? (● model palette)) (string=? key "Escape") (= modifiers 0))
           (palette-message model (palette-Dismiss))
           (match (shortcut-matching (shortcuts) (new Chord (key key) (modifiers modifiers)))
-            ((Some name) (update model (DispatchCommand name)))
+            ((Some name) (update model (Dispatch-command name)))
             ((None) (stay model)))))
 
     (define (invoked (model Ide) (run (Fn Ide → Step))) (→ Step)
@@ -1897,7 +1897,7 @@
     (define (palette-open (model Ide) (mode palette-Mode)) (→ Step)
       (palette-step model (palette-open-component (● model palette) mode)))
 
-    (define (navigation-current? (navigation I64)) (→ Bool) (! dom)
+    (define (navigation-current? (navigation I64)) (→ Bool) (! Dom)
       (match (element-by-id "workbench")
         ((Some node) (string=? (string-property node "snailNavigation") (show navigation)))
         ((None) #f)))
@@ -1947,7 +1947,7 @@
       (match step
         ((palette-Step state outcome commands)
          (then
-          (new Step (model (Ide-palette-set model state)) (commands (map palette-command commands)))
+          (new Step (model (ide-palette-set model state)) (commands (map palette-command commands)))
           (lambda (next)
             (match outcome
               ((Some chosen) (palette-chosen next chosen))
@@ -1958,10 +1958,10 @@
 
     (define (palette-chosen (model Ide) (chosen palette-Outcome)) (→ Step)
       (match chosen
-        ((palette-InvokeNamed name) (update-message model (DispatchCommand name)))
+        ((palette-InvokeNamed name) (update-message model (Dispatch-command name)))
         ((palette-OpenPath path) (opening model path (Focus (● model active))))
         ((palette-OpenSavedHit hit)
-         (opening model (● (● hit point) file) (SearchPoint (● model active) hit)))
+         (opening model (● (● hit point) file) (Search-point (● model active) hit)))
         ((palette-SelectDraftHit draft hit size) (draft-followed model draft hit size))
         ((palette-CreatedPath path directory)
          (then (listing model)
@@ -1981,7 +1981,7 @@
         ((None) (notice model "Open a file to search its current text."))))
 
     (define (search-invalidated (model Ide)) (→ Ide)
-      (Ide-palette-set model (palette-cancel (● model palette))))
+      (ide-palette-set model (palette-cancel (● model palette))))
 
     (define (draft-followed (model Ide) (draft search-Draft) (hit Occurrence) (size I64)) (→ Step)
       (match (current-draft model)
@@ -2045,12 +2045,12 @@
         (model model)
         (commands (list toggle-fullscreen))))
 
-    (define (toggle-fullscreen) (→ CommandResult) (! dom tasks)
+    (define (toggle-fullscreen) (→ Command-result) (! Dom Tasks)
       (let ((accepted (set-fullscreen (not (fullscreen?)))))
         (lambda (current) (fullscreen-finished current accepted))))
 
     (define (notice (model Ide) (text String)) (→ Step)
-      (stay (Ide-status-set model
+      (stay (ide-status-set model
                             (new Status
                               (text text)
                               (state "notice")
@@ -2065,18 +2065,18 @@
                                   current
                                   result))))))))
 
-    (define (installation-finished (model Ide) (result InstallResult)) (→ Step)
+    (define (installation-finished (model Ide) (result Install-result)) (→ Step)
       (notice model
               (match result
-                ((InstallAccepted)
+                ((Install-accepted)
                  "Installation accepted; your browser will finish installing the app.")
-                ((InstallDismissed) "Installation dismissed.")
-                ((InstallAlreadyInstalled) "This app is already installed.")
-                ((GestureRequired)
+                ((Install-dismissed) "Installation dismissed.")
+                ((Install-already-installed) "This app is already installed.")
+                ((Gesture-required)
                  "Open the palette and click install-app to confirm installation.")
-                ((InstallFailed)
+                ((Install-failed)
                  "The browser could not open its installation prompt. Try its Install App menu.")
-                ((InstallNotAvailable)
+                ((Install-not-available)
                  "Use your browser’s Install App or Add to Dock menu if available."))))
 
     ;; ---- Controlling runs ----
@@ -2091,7 +2091,7 @@
             (stay model)
             (let ((target (● runs selected)))
               (new Step
-                (model (Ide-runs-set model (Runs-problem-set (Runs-pending-set runs #t) "")))
+                (model (ide-runs-set model (runs-problem-set (runs-pending-set runs #t) "")))
                 (commands (list (lambda ()
                                   (let ((reply (api "POST"
                                                     (string-append
@@ -2110,12 +2110,12 @@
 
     (define (controlled (model Ide) (action String) (target String) (result (Result Json Failure)))
       (→ Step)
-      (let ((runs (Runs-pending-set (● model runs) #f)))
-        (stay (Ide-runs-set model
+      (let ((runs (runs-pending-set (● model runs) #f)))
+        (stay (ide-runs-set model
                             (match result
                               ((Ok _) runs)
                               ((Err failure)
-                               (Runs-problem-set runs
+                               (runs-problem-set runs
                                                  (string-append action
                                                                 " "
                                                                 target
@@ -2254,7 +2254,7 @@
                (list (Attr "id" id)
                      (Attr "class" class)
                      (Attr "title" title)
-                     (FlagProperty "disabled" disabled)
+                     (Flag-property "disabled" disabled)
                      (On "mousedown" (Nil) (Always) (lambda (event) (Nothing)))
                      (On "click" (Nil) (Allow) (lambda (event) message)))
                (list (Text label))))
@@ -2262,8 +2262,8 @@
     (define (view (model Ide)) (→ (Html Msg))
       (Element "div"
                (list (Attr "id" "workbench") (Attr "class" "ide")
-                     (StringProperty "snailNavigation"
-                                     (show (● (● model palette) generation))))
+                     (String-property "snailNavigation"
+                                      (show (● (● model palette) generation))))
                (append (list (layout-view model)
                              (diagnostics-view model)
                              (runs-view (● model runs))
@@ -2278,30 +2278,30 @@
                              "Toggle files (Cmd/Ctrl+B)"
                              "☰"
                              #f
-                             (DispatchCommand "toggle-files"))
+                             (Dispatch-command "toggle-files"))
                        (tool "commands"
                              "tool"
                              "Commands (Cmd/Ctrl+Shift+P or F1)"
                              ">_"
                              #f
-                             (DispatchCommand "command-palette"))
+                             (Dispatch-command "command-palette"))
                        (Element "span"
                                 (list (Attr "id" "status") (Attr "class" "status")
                                       (Attr "role" "status") (Attr "title" (● status text))
                                       (Attr "data-state" (● status state))
                                       (Attr "data-attempt" (● status attempt))
-                                      (StringProperty "textContent" (● status text)))
+                                      (String-property "textContent" (● status text)))
                                 (Nil))))))
 
     (define (palette-view (model Ide)) (→ (List (Html Msg)))
       (if (and (palette-visible? (● model palette)) (not (palette-finding? (● model palette))))
-          (map (lambda (html) (map-html PaletteEvent html))
+          (map (lambda (html) (map-html Palette-event html))
                (palette-view-component (● model palette) (palette-context model)))
           (Nil)))
 
     (define (find-view (model Ide) (pane I64)) (→ (List (Html Msg)))
       (if (and (= pane (● model active)) (palette-finding? (● model palette)))
-          (map (lambda (html) (map-html PaletteEvent html))
+          (map (lambda (html) (map-html Palette-event html))
                (palette-find-view (● model palette) (palette-context model)))
           (Nil)))
 
@@ -2337,7 +2337,7 @@
                                     (On "pointerdown"
                                         (Nil)
                                         (Always)
-                                        (lambda (event) (Grab (FilesEdge)))))
+                                        (lambda (event) (Grab (Files-edge)))))
                               (Nil))
                      (Element "section"
                               (list (Attr "id" "panes")
@@ -2440,10 +2440,10 @@
     (define (folder-view (model Ide) (name String) (entries (List Tree)) (path String))
       (→ (Html Msg))
       (Element "details"
-               (list (FlagProperty "open" (member? path (● model expanded))))
+               (list (Flag-property "open" (member? path (● model expanded))))
                (list (Element "summary"
                               (list
-                               (On "click" (Nil) (Always) (lambda (event) (ToggleFolder path))))
+                               (On "click" (Nil) (Always) (lambda (event) (Toggle-folder path))))
                               (list (Text name)))
                      (tree-view model entries path))))
 
@@ -2545,7 +2545,7 @@
                                (editor-view model pane buffer)
                                (problem-view buffer)) (find-view model id)))))
 
-    (define (tabs-view (model Ide) (pane EditorPane)) (→ (Html Msg))
+    (define (tabs-view (model Ide) (pane Editor-pane)) (→ (Html Msg))
       (Element "div" (list (Attr "id" (string-append "tabs-" (show (● pane id))))
                            (Attr "class" "pane-tabs") (Attr "role" "tablist")
                            (Attr "aria-label" "Open files"))
@@ -2555,7 +2555,7 @@
                                   (list (Text "Choose a file"))))
                    (map (lambda (path) (tab-view model pane path)) (● pane tabs)))))
 
-    (define (tab-view (model Ide) (pane EditorPane) (path String)) (→ (Html Msg))
+    (define (tab-view (model Ide) (pane Editor-pane) (path String)) (→ (Html Msg))
       (let ((selected (shows? pane path)))
         (Element "button"
                  (list (Keyed path) (Attr "id" (tab-id (● pane id) path))
@@ -2564,7 +2564,7 @@
                        (Attr "aria-selected" (if selected "true" "false"))
                        (Attr "aria-controls" (scroller-id (● pane id)))
                        (Attr "title" path)
-                       (On "click" (Nil) (Allow) (lambda (event) (SelectTab (● pane id) path))))
+                       (On "click" (Nil) (Allow) (lambda (event) (Select-tab (● pane id) path))))
                  (list (Element "span" (list (Attr "class" (if selected "pane-title" "tab-title")))
                                 (list (Text (pane-title (buffer-at model path)))))))))
 
@@ -2582,13 +2582,13 @@
                               (else "")))
                        ((None) ""))))
         (Element "div"
-                 (list (Attr "class" "pane-problem") (FlagProperty "hidden" (string=? problem "")))
+                 (list (Attr "class" "pane-problem") (Flag-property "hidden" (string=? problem "")))
                  (list (Text problem)))))
 
     ;; One scroller holds the gutter, the highlight and marks, and the field,
     ;; which is as big as its text, so they scroll together.
 
-    (define (editor-view (model Ide) (pane EditorPane) (buffer (Option Buffer))) (→ (Html Msg))
+    (define (editor-view (model Ide) (pane Editor-pane) (buffer (Option Buffer))) (→ (Html Msg))
       (let* ((id (● pane id))
              (text (match buffer
                      ((Some found) (display-text (● found text)))
@@ -2602,7 +2602,7 @@
         (Element "div"
                  (list (Attr "id" (scroller-id id))
                        (Attr "class" "editor")
-                       (NumberProperty "scrollTop" (● pane scroll))
+                       (Number-property "scrollTop" (● pane scroll))
                        (On "scroll"
                            (list (Scroll))
                            (Allow)
@@ -2638,15 +2638,15 @@
                                                  ((Some found)
                                                   (if (● found saving) "true" "false"))
                                                  ((None) "false")))
-                             (FlagProperty "disabled"
-                                           (match buffer
-                                             ((Some found) (not (loaded? found)))
-                                             ((None) #t)))
-                             (StringProperty "value" text)
-                             (StringProperty "snailPath"
-                                             (match buffer
-                                               ((Some found) (● found path))
-                                               ((None) "")))
+                             (Flag-property "disabled"
+                                            (match buffer
+                                              ((Some found) (not (loaded? found)))
+                                              ((None) #t)))
+                             (String-property "value" text)
+                             (String-property "snailPath"
+                                              (match buffer
+                                                ((Some found) (● found path))
+                                                ((None) "")))
                              (On "input"
                                  (list (Value))
                                  (Allow)
@@ -2672,7 +2672,7 @@
                (list (Attr "id" "diagnostics")
                      (Attr "class" "diagnostics")
                      (Attr "role" "status")
-                     (FlagProperty "hidden" (null? (● model diagnostics))))
+                     (Flag-property "hidden" (null? (● model diagnostics))))
                (map-indexed (lambda (index diagnostic) (diagnostic-view model index diagnostic))
                             (● model diagnostics))))
 
@@ -2722,10 +2722,10 @@
                  (list (Attr "id" "runs")
                        (Attr "class" "runs")
                        (Attr "aria-label" "Applications")
-                       (FlagProperty "hidden"
-                                     (and (null? (● runs runs))
-                                          (not pending)
-                                          (string=? problem ""))))
+                       (Flag-property "hidden"
+                                      (and (null? (● runs runs))
+                                           (not pending)
+                                           (string=? problem ""))))
                  (list (Element "div"
                                 (list (Attr "class" "run-toolbar"))
                                 (list (Element "label"
@@ -2763,7 +2763,7 @@
                        (Element "p"
                                 (list (Attr "id" "run-problem")
                                       (Attr "role" "alert")
-                                      (FlagProperty "hidden" (string=? problem "")))
+                                      (Flag-property "hidden" (string=? problem "")))
                                 (list (Text problem)))
                        (Element "div"
                                 (list (Attr "class" "run-output"))
@@ -2784,7 +2784,7 @@
       (Element "option"
                (list (Keyed (● run target))
                      (Attr "value" (● run target))
-                     (FlagProperty "selected" (string=? (● run target) selected)))
+                     (Flag-property "selected" (string=? (● run target) selected)))
                (list
                 (Text (string-append (● run target) (if (● run available) "" " (removed)"))))))
 
@@ -2792,7 +2792,7 @@
       (Element "button"
                (list (Attr "id" id)
                      (Attr "class" "tool")
-                     (FlagProperty "disabled" disabled)
+                     (Flag-property "disabled" disabled)
                      (On "click" (Nil) (Allow) (lambda (event) (Control action))))
                (list (Text label))))
 
@@ -2844,7 +2844,7 @@
                                         (shortcut-chords (shortcuts))))
                         (lambda (event) (Shortcut (● event key) (● event modifiers))))
                     (On "online" (Nil) (Allow) (lambda (event) (Connect)))
-                    (On "snail-refresh-failed" (Nil) (Allow) (lambda (event) (RefreshFailed))))
+                    (On "snail-refresh-failed" (Nil) (Allow) (lambda (event) (Refresh-failed))))
               (if (any? dirty? (● model buffers))
                   (list (On "beforeunload" (Nil) (Always) (lambda (event) (Nothing))))
                   (Nil))))
@@ -2881,29 +2881,29 @@
        (files-width F64))
       (deriving Serialize Deserialize))
 
-    (record SavedTabs
+    (record Saved-tabs
       ((pane I64)
        (paths (List String)))
       (deriving Serialize Deserialize))
 
-    (record TabbedRecovery
+    (record Tabbed-recovery
       ((previous Recovery)
-       (tabs (List SavedTabs)))
+       (tabs (List Saved-tabs)))
       (deriving Serialize Deserialize))
 
     ;; Read the legacy tag through its encoder, without copying a schema hash.
     ;; Both shapes use the same draft payload; only tab membership is new.
 
-    (define (read-recovery (bytes Bytes)) (→ TabbedRecovery)
+    (define (read-recovery (bytes Bytes)) (→ Tabbed-recovery)
       (if (case-id=? (recovery-tag bytes) (recovery-tag (serialize (● (kept (initial)) previous))))
-          (new TabbedRecovery (previous (deserialize bytes)) (tabs (Nil)))
+          (new Tabbed-recovery (previous (deserialize bytes)) (tabs (Nil)))
           (deserialize bytes)))
 
     (define (recovery-tag (bytes Bytes)) (→ I32)
       (unsafe-total (lambda () (decode-case-id (new Decoder (bytes bytes) (position 0))))))
 
-    (define (kept (model Ide)) (→ TabbedRecovery)
-      (new TabbedRecovery
+    (define (kept (model Ide)) (→ Tabbed-recovery)
+      (new Tabbed-recovery
         (previous (new Recovery (version 1) (drafts (map kept-buffer (● model buffers)))
                        (panes (map (lambda (pane)
                                      (new Pane
@@ -2916,7 +2916,7 @@
                        (next (● model next))
                        (closed (Nil))
                        (files-shown (● model files-shown)) (files-width (● model files-width))))
-        (tabs (map (lambda (pane) (new SavedTabs (pane (● pane id)) (paths (● pane tabs))))
+        (tabs (map (lambda (pane) (new Saved-tabs (pane (● pane id)) (paths (● pane tabs))))
                    (● model panes)))))
 
     (define (kept-buffer (buffer Buffer)) (→ Draft)
@@ -2925,26 +2925,26 @@
                        ((Some baseline) (json->string (file->json baseline)))
                        ((None) "")))))
 
-    (define (restored (saved TabbedRecovery)) (→ Ide)
+    (define (restored (saved Tabbed-recovery)) (→ Ide)
       (let ((save (● saved previous)))
         (unless (= (● save version) 1)
           (panic "unsupported IDE recovery version; saved drafts are retained"))
-        (let* ((model (Ide-buffers-set (initial) (map restored-buffer (● save drafts))))
-               (model (Ide-auto-open-set model #f))
-               (model (Ide-panes-set model
+        (let* ((model (ide-buffers-set (initial) (map restored-buffer (● save drafts))))
+               (model (ide-auto-open-set model #f))
+               (model (ide-panes-set model
                                      (map (lambda (pane) (restored-pane pane (● saved tabs)))
                                           (● save panes))))
-               (model (Ide-layout-set model (● save layout)))
-               (model (Ide-active-set model (● save active)))
-               (model (Ide-next-set model (● save next)))
-               (model (Ide-files-shown-set model (● save files-shown))))
-          (Ide-files-width-set model (● save files-width)))))
+               (model (ide-layout-set model (● save layout)))
+               (model (ide-active-set model (● save active)))
+               (model (ide-next-set model (● save next)))
+               (model (ide-files-shown-set model (● save files-shown))))
+          (ide-files-width-set model (● save files-width)))))
 
-    (define (restored-pane (pane Pane) (groups (List SavedTabs))) (→ EditorPane)
+    (define (restored-pane (pane Pane) (groups (List Saved-tabs))) (→ Editor-pane)
       (let ((tabs (match (find (lambda (group) (= (● group pane) (● pane id))) groups)
                     ((Some group) (● group paths))
                     ((None) (match (● pane path) ((Some path) (list path)) ((None) (Nil)))))))
-        (new EditorPane
+        (new Editor-pane
           (id (● pane id))
           (path (● pane path))
           (scroll (● pane scroll))

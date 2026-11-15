@@ -1,6 +1,6 @@
 (import
  (snail core base)
- (only (snail core forms) host)
+ (only (snail core forms) Host)
  (snail core io)
  (snail shell dom)
  (snail shell dom memory)
@@ -28,7 +28,7 @@
   (→ palette-State)
   (state (palette-update before context message)))
 
-(define (check (ok Bool) (label String)) (→ Unit) (! output-port)
+(define (check (ok Bool) (label String)) (→ Unit) (! Output-port)
   (if ok (write-line label) (panic label)))
 
 (define (requested? (step palette-Step)) (→ Bool)
@@ -41,7 +41,7 @@
     ((palette-Step _ outcome commands) (match outcome ((None) #t) (_ #f)))))
 
 (define (result (path String)) (→ (Result search-Results Failure))
-  (Ok (search-SavedResults (new SearchResults
+  (Ok (search-SavedResults (new Search-results
                              (hits (list (new Hit
                                            (point (new Point (file path) (line 2) (column 3)))
                                            (revision "revision")
@@ -63,7 +63,7 @@
 
 (define (reply (path String)) (→ Reply)
   (new Reply (status 200) (body (json->string
-                                 (search->json (new SearchResults
+                                 (search->json (new Search-results
                                                  (hits (list (new Hit
                                                                (point (new Point
                                                                         (file path)
@@ -78,16 +78,16 @@
 ;; A logical timer advances immediately; HTTP responses are fixed values.
 (define (execute (step palette-Step) (reply Reply))
   (→ (Pair palette-State palette-CommandResult))
-  (! dom fetch)
+  (! Dom Fetch)
   (match step
     ((palette-Step state _ (Cons command rest))
-     (handle tasks
+     (handle Tasks
          ((yield (lambda (resume) (resume (unit))))
           (sleep (lambda (delay resume) (resume (unit))))
           (await (lambda (ticket resume) (panic "unexpected wait")))
           (ticket (lambda () 0))
           (current-scheduler (lambda () (panic "logical timer cannot dispatch"))))
-       (handle fetch
+       (handle Fetch
            ((request (lambda (method url headers body) (Ok reply)))
             (stream-open (lambda (url kinds) (panic "stream")))
             (stream-next (lambda (stream) (panic "stream")))
@@ -99,7 +99,7 @@
   (→ palette-State)
   (state (result before)))
 
-(define (run) (→ Unit) (! dom fetch output-port)
+(define (run) (→ Unit) (! Dom Fetch Output-port)
   (let* ((start (state (palette-open (palette-initial)
                                      (palette-Searching
                                       (new palette-Search (source (search-SavedProject))
@@ -171,11 +171,11 @@
     (check (no-outcome? ((● write second) (palette-cancel writing)))
            "cancelled creation cannot navigate")))
 
-(define (main) (→ Unit) (! host mut output-port tasks)
+(define (main) (→ Unit) (! Host Mut Output-port Tasks)
 
   (dispatch
    (lambda ()
-     (handle fetch
+     (handle Fetch
          ((request (lambda (method url headers body) (panic "unexpected request")))
           (stream-open (lambda (url kinds) (panic "stream")))
           (stream-next (lambda (stream) (panic "stream")))

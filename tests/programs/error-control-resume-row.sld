@@ -4,7 +4,7 @@
 
 ;; The handler is deep and resuming rebases it, so each later yield runs
 ;; the implementation under the handlers where `resume` was called. Its
-;; `log` then needs a Log handler there, so `resume` performs the handle's
+;; `Log` then needs a Log handler there, so `resume` performs the handle's
 ;; context row, Log here, and a Step that stores it must say so.
 (effect Gen
   ((ctl yield (Fn I64 → I64))))

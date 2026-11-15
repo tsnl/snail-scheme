@@ -1,1 +1,1 @@
-error-unperformed-effect.sld:6:1: double declares the effect mut but never performs it
+error-unperformed-effect.sld:6:1: double declares the effect Mut but never performs it

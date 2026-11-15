@@ -22,15 +22,15 @@ const description = (args = 'configured', includeApp = true) => `(
   ${includeApp ? `(run-target app (run main (args ("${args}"))))` : ''}
   (run-target side (run other)))`;
 const program = message => `(import (snail core base) (snail core io) (snail shell task))
-  (define (main) (→ Unit) (! output-port tasks)
+  (define (main) (→ Unit) (! Output-port Tasks)
     (write-line "${message}") (for-each write-line (command-line)) (sleep 600000))`;
 const slow = `(generate-library (slow)
     (import (snail core base) (snail core io) (snail shell syntax))
     (library-syntax (list "slow") (list "message") (list (list "snail" "core" "base"))
       (list (form "define" (list (form "message" (Nil))
-        (form "→" (list (SymbolSyntax "String")))
-        (StringSyntax (read-file "${gate}")))))))`;
-const slowProgram = '(import (snail core base) (snail core io) (snail shell task) (slow)) (define (main) (→ Unit) (! output-port tasks) (write-line (message)) (for-each write-line (command-line)) (sleep 600000))';
+        (form "→" (list (Symbol-syntax "String")))
+        (String-syntax (read-file "${gate}")))))))`;
+const slowProgram = '(import (snail core base) (snail core io) (snail shell task) (slow)) (define (main) (→ Unit) (! Output-port Tasks) (write-line (message)) (for-each write-line (command-line)) (sleep 600000))';
 function pipe() {
   fs.rmSync(gate, {force: true});
   assert.equal(spawnSync('mkfifo', [gate]).status, 0);
@@ -144,7 +144,7 @@ async function throughTheService() {
     await service.until(async () => await pid('app') !== restartPid, 'a restarted app'); await ready('app', 'newest\n'); dead(restartPid);
     assert.equal((await run('app')).attempt.build, accepted.published.id);
 
-    write('main.sld', '(import (snail core base) (snail core io)) (define (main) (→ Unit) (! output-port) (write-line "done"))');
+    write('main.sld', '(import (snail core base) (snail core io)) (define (main) (→ Unit) (! Output-port) (write-line "done"))');
     accepted = await service.settled(accepted.id); await ready('app', 'done\n'); await stopped('app');
     const exitedPid = await pid('app');
     assert.equal((await control('start', 'app')).status, 204); await delay(50);

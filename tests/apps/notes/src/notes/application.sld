@@ -1,5 +1,5 @@
 (define-library (notes application)
-  (export NotesApplication)
+  (export Notes-application)
   (import
    (snail core base)
    (snail shell task)
@@ -57,22 +57,22 @@
 
     (define (update (model Notes) (message Message)) (→ (Pair Notes (List (Command Message))))
       (match message
-        ((Typed text) (new Pair (first (Notes-draft-set model text)) (second (Nil))))
+        ((Typed text) (new Pair (first (notes-draft-set model text)) (second (Nil))))
         ((Pressed key at) (pressed model key at))
         ((Add) (added model))
         ((Bullet) (new Pair (first model) (second (list bullet))))
         ((Clear) (new Pair (first model) (second (list clear))))
-        ((Cleared) (new Pair (first (Notes-notes-set model (Nil))) (second (Nil))))
-        ((Added count) (new Pair (first (Notes-added-set model count)) (second (Nil))))
+        ((Cleared) (new Pair (first (notes-notes-set model (Nil))) (second (Nil))))
+        ((Added count) (new Pair (first (notes-added-set model count)) (second (Nil))))
         ((Remove id)
-         (new Pair (first (Notes-notes-set model
+         (new Pair (first (notes-notes-set model
                                            (filter (lambda (note) (not (= (● note id) id)))
                                                    (● model notes))))
               (second (Nil))))
         ((Load) (new Pair (first model) (second (list load))))
         ((Loaded text)
          (new Pair
-           (first (Notes-server-set model (Server-greeting-set (● model server) text)))
+           (first (notes-server-set model (server-greeting-set (● model server) text)))
            (second (Nil))))
         ((Share)
          (new Pair
@@ -80,7 +80,7 @@
            (second (list (lambda () (share (● model notes) (● model next)))))))
         ((Shared text)
          (new Pair
-           (first (Notes-server-set model (Server-shared-set (● model server) text)))
+           (first (notes-server-set model (server-shared-set (● model server) text)))
            (second (Nil))))
         ((Listen)
          (new Pair (first model)
@@ -100,21 +100,21 @@
                                   (Pressed "" 0))))))
             (else (new Pair (first model) (second (Nil))))))
 
-    (define (clear) (→ Message) (! dom)
+    (define (clear) (→ Message) (! Dom)
       (if (confirm "Remove every note?") (Cleared) (Pressed "" 0)))
 
     (define (heard (model Notes) (text String)) (→ Notes)
       (let ((server (● model server)))
-        (Notes-server-set model
-                          (Server-heard-set server (append (● server heard) (list text))))))
+        (notes-server-set model
+                          (server-heard-set server (append (● server heard) (list text))))))
 
     ;; ---- The server ----
 
-    (define (load) (→ Message) (! fetch tasks)
+    (define (load) (→ Message) (! Fetch Tasks)
       (Loaded (replied (request "GET" "/api/greeting" (Nil) ""))))
 
     ;; The notes, a line each, sent with the next id the server should expect.
-    (define (share (notes (List Note)) (next I64)) (→ Message) (! fetch tasks)
+    (define (share (notes (List Note)) (next I64)) (→ Message) (! Fetch Tasks)
       (Shared (replied (request "POST"
                                 "/api/notes"
                                 (list (new Header (name "Content-Type") (value "text/plain"))
@@ -128,7 +128,7 @@
         ((Err why) (string-append "failed: " why))))
 
     ;; The next event, which the update that hears it waits past.
-    (define (hear (stream Stream)) (→ Message) (! fetch tasks)
+    (define (hear (stream Stream)) (→ Message) (! Fetch Tasks)
       (match (stream-next stream)
         ((Some event)
          (Heard stream (string-append (● event kind) ":" (● event data))))
@@ -154,14 +154,14 @@
                               (Added count))))))))
 
     ;; Does `act` to the draft field, if the view still shows it.
-    (define (with-draft (act (Fn Node → Unit ! dom))) (→ Unit) (! dom)
+    (define (with-draft (act (Fn Node → Unit ! Dom))) (→ Unit) (! Dom)
       (match (element-by-id "draft")
         ((Some node) (act node))
         ((None) (unit))))
 
     ;; The field's input event, which inserting fires, carries the new draft;
     ;; the command's own answer leaves it as it is.
-    (define (bullet) (→ Message) (! dom)
+    (define (bullet) (→ Message) (! Dom)
       (with-draft (lambda (node) (insert-text node 0 0 "- ") (unit)))
       (Pressed "" 0))
 
@@ -171,7 +171,7 @@
                (list (Element "input"
                               (list (Attr "id" "draft")
                                     (Attr "placeholder" "A note")
-                                    (StringProperty "value" (● model draft))
+                                    (String-property "value" (● model draft))
                                     (On "input"
                                         (list (Value))
                                         (Allow)
@@ -245,7 +245,7 @@
                 (Chords (list (new Chord (key "Escape") (modifiers 0))))
                 (lambda (event) (Typed "")))))
 
-    (type NotesApplication (InterfaceApplication Notes))
+    (type Notes-application (Interface-application Notes))
 
     (define-page-state Notes)
 

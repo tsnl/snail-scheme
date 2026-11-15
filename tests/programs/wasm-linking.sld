@@ -62,37 +62,37 @@
         110 103 0 0 3 3 2 0 0 7 15 2 4 109 97 105 110 0 3 4 102 97 105 108 0 4 10 17 2 10 0 16 0
         35 0 65 34 106 106 11 4 0 16 2 11))
 
-(define (compiled (name String) (bytes Bytes)) (→ Compiled) (! wasm)
+(define (compiled (name String) (bytes Bytes)) (→ Compiled) (! Wasm)
   (match (compile-bytes bytes)
     ((Some module) module)
     ((None) (panic (string-append name " is not a module")))))
 
-(define (kind-name (kind ImportKind)) (→ String)
+(define (kind-name (kind Import-kind)) (→ String)
   (match kind
-    ((FunctionImport) "function")
-    ((TableImport) "table")
-    ((MemoryImport) "memory")
-    ((GlobalImport) "global")))
+    ((Function-import) "function")
+    ((Table-import) "table")
+    ((Memory-import) "memory")
+    ((Global-import) "global")))
 
-(define (show-import (import Import)) (→ Unit) (! output-port)
+(define (show-import (import Import)) (→ Unit) (! Output-port)
   (write-line (string-append (● import from) " " (● import name) " "
                              (kind-name (● import kind)))))
 
-(define (show-run (instance Module) (name String)) (→ Unit) (! wasm output-port)
+(define (show-run (instance Module) (name String)) (→ Unit) (! Wasm Output-port)
   (match (run-export instance name 0)
     ((Ok answer) (write-line (string-append name " answers " (show answer))))
     ((Err error) (write-line (load-error-message error)))))
 
 (define (providers (one Module) (export String) (missing Provider)) (→ (List Provider))
-  (list (ExportOf one "limit") (ExportOf one export) (HostProvided) missing))
+  (list (Export-of one "limit") (Export-of one export) (Host-provided) missing))
 
-(define (main) (→ Unit) (! output-port wasm)
+(define (main) (→ Unit) (! Output-port Wasm)
   (let ((one (compiled "one" (one-bytes))) (two (compiled "two" (two-bytes))))
     (write-line (string-append "one imports " (show (length (module-imports one)))))
     (for-each show-import (module-imports two))
     (match (link-module "one" one (Nil))
       ((Ok linked-one)
-       (match (link-module "two" two (providers linked-one "one" (ConstantOf 5)))
+       (match (link-module "two" two (providers linked-one "one" (Constant-of 5)))
          ((Ok linked-two)
           (show-run linked-two "main")
           (show-run linked-two "fail")
@@ -103,7 +103,7 @@
        (match (link-module "two again" two (providers linked-one "nothing" (Unprovided)))
          ((Ok _) (write-line "linked without its provider"))
          ((Err error) (write-line (load-error-message error))))
-       (match (link-module "two short" two (list (ExportOf linked-one "limit")))
+       (match (link-module "two short" two (list (Export-of linked-one "limit")))
          ((Ok _) (write-line "linked with an import unprovided"))
          ((Err error) (write-line (load-error-message error)))))
       ((Err error) (write-line (load-error-message error)))))

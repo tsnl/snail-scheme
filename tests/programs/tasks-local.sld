@@ -1,15 +1,15 @@
 (import
  (snail core base)
- (only (snail core forms) host)
+ (only (snail core forms) Host)
  (snail core io)
  (snail shell task))
 
-(record TaskValue
+(record Task-value
   ((value I64)))
 
-(define (main) (→ Unit) (! host mut output-port tasks)
+(define (main) (→ Unit) (! Host Mut Output-port Tasks)
 
-  (let ((cell (new TaskValue (value 0))))
+  (let ((cell (new Task-value (value 0))))
     (dispatch
      (lambda ()
        (set! (● cell value) 42)

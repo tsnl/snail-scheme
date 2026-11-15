@@ -1,17 +1,17 @@
 (import
  (snail core base)
  (snail core io)
- (only (snail core forms) host)
+ (only (snail core forms) Host)
  (snail shell task)
  (prefix (snail shell async-files) file-))
 
-(define (check (ok Bool) (label String)) (→ Unit) (! output-port)
+(define (check (ok Bool) (label String)) (→ Unit) (! Output-port)
   (if ok (write-line label) (panic label)))
 
 (define (success (result (Result Bytes file-FileError)) (size I64)) (→ Bool)
   (match result ((Ok bytes) (= (vector-length bytes) size)) (_ #f)))
 
-(define (cases (directory String)) (→ Unit) (! mut tasks file-files output-port host)
+(define (cases (directory String)) (→ Unit) (! Mut Tasks file-files Output-port Host)
   (let ((path (string-append directory "/bytes")))
     (check (match (file-read-file path 4)
              ((Ok bytes) (and (= (vector-length bytes) 4)
@@ -32,7 +32,7 @@
     (sleep 5)
     (write-line "timer progresses")))
 
-(define (main) (→ Unit) (! host mut fs output-port file-files tasks)
+(define (main) (→ Unit) (! Host Mut Fs Output-port file-files Tasks)
 
   (let ((directory (list-ref (command-line) 1)))
     (make-directories directory)

@@ -16,7 +16,7 @@
     ((Exited code) (string-append "exited " (show code)))
     ((Signaled name) (string-append "signaled " name))))
 
-(define (report (result (Result Captured ProcessError))) (→ Unit) (! output-port)
+(define (report (result (Result Captured Process-error))) (→ Unit) (! Output-port)
   (match result
     ((Ok captured)
      (write-line (exit-text (● captured exit)))
@@ -24,7 +24,7 @@
      (write-string (text (● captured stderr))))
     ((Err error) (write-line (● error code)))))
 
-(define (main) (→ Unit) (! output-port process)
+(define (main) (→ Unit) (! Output-port Process)
   (report (run (new Command
                  (program "/bin/sh")
                  (arguments (list "-c" "cat; echo err >&2; exit 3"))

@@ -3,8 +3,8 @@
 
 ;; A generic function performs the row its requirement gives the class, so
 ;; its signature names it.
-(typeclass (Store e S)
-  (declare (fetch-object (left S) (right String)) (→ String) (! e)))
+(typeclass (Store E S)
+  (declare (fetch-object (left S) (right String)) (→ String) (! E)))
 
 (define (fetch-twice (store S) (name String))
   (→ String)

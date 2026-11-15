@@ -13,26 +13,26 @@
 
 (define (assert (condition Bool)) (→ Unit) (unless condition (panic "HTTP assertion failed")))
 
-(define (kind (error HttpError)) (→ String)
+(define (kind (error Http-error)) (→ String)
   (match error
     ((Malformed _) "malformed")
     ((Unsupported _) "unsupported")
-    ((HeadTooLarge) "head-limit")
-    ((BodyTooLarge) "body-limit")
-    ((InvalidResponse _) "response")))
+    ((Head-too-large) "head-limit")
+    ((Body-too-large) "body-limit")
+    ((Invalid-response _) "response")))
 
 (define (reject-head (source String) (expected String)) (→ Unit)
   (match (parse-request-head (ascii source))
     ((Err error) (assert (string=? (kind error) expected)))
     ((Ok _) (panic "accepted invalid head"))))
 
-(define (parsed (bytes Bytes)) (→ ParsedHead)
+(define (parsed (bytes Bytes)) (→ Parsed-head)
   (match (parse-request-head bytes)
     ((Ok value) (match value ((Some head) head) ((None) (panic "incomplete test head"))))
     ((Err _) (panic "rejected test head"))))
 
 (define (encoded (method String) (status I32) (headers (List Header)) (bytes Bytes))
-  (→ ResponseParts)
+  (→ Response-parts)
   (match (encode-response method status headers bytes)
     ((Ok response) response)
     ((Err _) (panic "rejected test response"))))
@@ -79,7 +79,7 @@
     ((Ok head) (text head))
     ((Err error) (string-append "error " (kind error)))))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   (let* ((source
           "POST /a%2Fb?x=1&x=2 HTTP/1.1\r\nHost: example.test:8080\r\nContent-Length: 3\r\nX-Test: first\r\nx-TEST:\tsecond \t\r\n\r\n")
          (bytes (ascii source))

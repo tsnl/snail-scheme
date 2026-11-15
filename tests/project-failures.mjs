@@ -46,9 +46,9 @@ async function throughTheCommandLine() {
     (import (snail core base) (snail core io) (snail shell syntax))
     (library-syntax (list "generated" "flag") (list "value") (list (list "snail" "core" "base"))
       (list (form "define" (list (form "value" (Nil))
-        (form "→" (list (SymbolSyntax "String")))
+        (form "→" (list (Symbol-syntax "String")))
           (if (string=? (read-file "${project}/flag.txt") "valid")
-            (StringSyntax "ok") (SymbolSyntax "unknown-generated-name")))))))`);
+            (String-syntax "ok") (Symbol-syntax "unknown-generated-name")))))))`);
   await build('main');
   const published = fs.readlinkSync(join(project, 'build/main'));
   assert.deepEqual(inventory(), [published, 'main']);

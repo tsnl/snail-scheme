@@ -12,11 +12,11 @@
 (define (apply-twice (f (Fn I64 → I64)) (value I64)) (→ I64)
   (f (f value)))
 
-(define (main) (→ Unit) (! mut output-port)
+(define (main) (→ Unit) (! Mut Output-port)
   (let* ((point (new Point (x 1) (y 2)))
          (scene (new Scene (point point)))
          (alias scene)
-         (copied (Scene-point-set scene (new Point (x 10) (y 20)))))
+         (copied (scene-point-set scene (new Point (x 10) (y 20)))))
     (set! (● alias point x) 3)
     (display (● point x))
     (display (● copied point x))

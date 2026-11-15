@@ -8,16 +8,16 @@
 (record Resource
   ((id I64)))
 
-(define (captured-callback) (→ (Fn I64 → I64 ! mut output-port))
+(define (captured-callback) (→ (Fn I64 → I64 ! Mut Output-port))
   (let ((resource (new Resource (id 90))))
     (unsafe-effectful-cache (lambda (key) (+ key (● resource id))))))
 
 ;; A cached function may call itself while it computes a miss.
 (record Reentry
-  ((callback (Option (Fn I64 → I64 ! mut)))
+  ((callback (Option (Fn I64 → I64 ! Mut)))
    (entered Bool)))
 
-(define (reentrant-test) (→ Unit) (! mut output-port)
+(define (reentrant-test) (→ Unit) (! Mut Output-port)
   (let* ((state (new Reentry (callback (None)) (entered #f)))
          (memo (unsafe-effectful-lru-cache 2
                                            (lambda (key)
@@ -34,7 +34,7 @@
     (write-line (show (memo 10)))
     (write-line (show (memo 10)))))
 
-(define (extra-tests) (→ Unit) (! mut output-port)
+(define (extra-tests) (→ Unit) (! Mut Output-port)
   ;; Growing and colliding buckets preserve every cached object.
   (let ((memo (cache (lambda (key) (new Cell (value key))))))
     (for-each (lambda (index) (set! (● (memo (* index 8)) value) (+ index 100))) (iota 128))
@@ -70,7 +70,7 @@
     (write-line (show (memo 1)))
     (write-line (show (memo 2)))))
 
-(define (main) (→ Unit) (! mut output-port)
+(define (main) (→ Unit) (! Mut Output-port)
   (let ((one (cache one)) (bounded (lru-cache 2 bounded))
         (pair-cell (cache pair-cell)) (snapshot (cache snapshot))
         (float-cell (cache float-cell)))

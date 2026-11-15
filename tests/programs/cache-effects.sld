@@ -18,7 +18,7 @@
 (define (choose-here (n I64)) (→ I64) (!)
   (handle Choose ((choose (lambda (resume) (resume n)))) (choose)))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   (let ((memo (memoize-pure square)) (bounded (lru-cache 2 choose-here)))
     (write-line (show (memo 4)))
     (write-line (show (bounded 7)))

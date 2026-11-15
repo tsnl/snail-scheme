@@ -39,7 +39,7 @@
 (define (empty) (→ I32)
   (note-bytes 0 #u8()))
 
-(define (updated) (→ I32) (! mut)
+(define (updated) (→ I32) (! Mut)
   (let ((bytes #u8(1 0)))
     (vector-set! bytes 1 (ann 2 U8))
     (note-bytes 9 bytes)))

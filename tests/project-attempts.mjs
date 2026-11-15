@@ -18,7 +18,7 @@ const project = join(parent, 'project'), gate = join(parent, 'gate');
 const write = (name, text) => { const path = join(project, name); fs.mkdirSync(join(path, '..'), {recursive: true}); fs.writeFileSync(path, text); };
 const description = path => `((build-target server (program (entry "main.sld") (library-roots ("."))))
   (build-target client (browser (entry "client.sld") (public "${path}"))))`;
-const program = message => `(import (snail core base) (snail core io)) (define (main) (→ Unit) (! output-port) (write-line "${message}"))`;
+const program = message => `(import (snail core base) (snail core io)) (define (main) (→ Unit) (! Output-port) (write-line "${message}"))`;
 function execute(directory) {
   const result = spawnSync(process.execPath, ['--no-warnings', join(root, 'host/native/run-snail.mjs'), join(directory, 'modules.json')], {encoding: 'utf8'});
   assert.equal(result.status, 0, result.stderr);
@@ -127,10 +127,10 @@ async function throughTheService() {
       (import (snail core base) (snail core io) (snail shell syntax))
       (library-syntax (list "slow") (list "message") (list (list "snail" "core" "base"))
         (list (form "define" (list (form "message" (Nil))
-          (form "→" (list (SymbolSyntax "String")))
-          (StringSyntax (read-file "${gate}")))))))`);
+          (form "→" (list (Symbol-syntax "String")))
+          (String-syntax (read-file "${gate}")))))))`);
     write('next-public/index.html', '<!doctype html><title>before</title>');
-    write('main.sld', '(import (snail core base) (snail core io) (slow)) (define (main) (→ Unit) (! output-port) (write-line (message)))');
+    write('main.sld', '(import (snail core base) (snail core io) (slow)) (define (main) (→ Unit) (! Output-port) (write-line (message)))');
     write('project.datum', description('next-public'));
     writer = await fsp.open(gate, 'w'); // The producer has reached its blocking read.
     const blocked = await service.status();

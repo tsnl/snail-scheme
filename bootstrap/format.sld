@@ -9,9 +9,9 @@
 ;; ---- Requests ----
 
 (enum Input
-  (StandardInput)
-  (CheckFiles ((paths (List String))))
-  (WriteFiles ((paths (List String)))))
+  (Standard-input)
+  (Check-files ((paths (List String))))
+  (Write-files ((paths (List String)))))
 
 (record Request
   ((width I64)
@@ -31,16 +31,16 @@
 
 (define (input-of (arguments (List String))) (→ Input)
   (match arguments
-    ((Nil) (StandardInput))
-    ((Cons "--check" (Cons path rest)) (CheckFiles (Cons path rest)))
-    ((Cons "--write" (Cons path rest)) (WriteFiles (Cons path rest)))
+    ((Nil) (Standard-input))
+    ((Cons "--check" (Cons path rest)) (Check-files (Cons path rest)))
+    ((Cons "--write" (Cons path rest)) (Write-files (Cons path rest)))
     (_ (panic "usage: format-scheme [--width COLUMNS] [--write|--check FILE ...]"))))
 
 ;; ---- Input and output ----
 
 ;; Read scalars, not lines, so EOF does not invent a final newline.
 
-(define (read-input) (→ String) (! input-port)
+(define (read-input) (→ String) (! Input-port)
   (let loop ((characters (Nil)))
     (match (read-char)
       ((None) (list->string (reverse characters)))
@@ -49,7 +49,7 @@
 ;; Every changed path, in order. Check mode leaves files alone; write mode
 ;; leaves already formatted files alone, including their timestamps.
 
-(define (format-files (width I64) (write? Bool) (paths (List String))) (→ (List String)) (! fs)
+(define (format-files (width I64) (write? Bool) (paths (List String))) (→ (List String)) (! Fs)
   (let loop ((paths paths) (changed (Nil)))
     (match paths
       ((Nil) (reverse changed))
@@ -64,20 +64,20 @@
 ;; Collect all changed files before reporting, rather than stopping at the
 ;; first one. Panic prints to stderr and exits with status 1, as other tools do.
 
-(define (check-files (width I64) (paths (List String))) (→ Unit) (! fs)
+(define (check-files (width I64) (paths (List String))) (→ Unit) (! Fs)
   (match (format-files width #f paths)
     ((Nil) (unit))
     (changed
      (panic (string-join (map (lambda (path) (string-append path ": needs formatting")) changed)
                          "\n")))))
 
-(define (perform (request Request)) (→ Unit) (! input-port output-port fs)
+(define (perform (request Request)) (→ Unit) (! Input-port Output-port Fs)
   (match (● request input)
-    ((StandardInput) (write-string (format-source (read-input) (● request width))))
-    ((CheckFiles paths) (check-files (● request width) paths))
-    ((WriteFiles paths) (format-files (● request width) #t paths) (unit))))
+    ((Standard-input) (write-string (format-source (read-input) (● request width))))
+    ((Check-files paths) (check-files (● request width) paths))
+    ((Write-files paths) (format-files (● request width) #t paths) (unit))))
 
-(define (main) (→ Unit) (! fs input-port output-port)
+(define (main) (→ Unit) (! Fs Input-port Output-port)
   (match (command-line)
     ((Cons _ arguments) (perform (request arguments)))
     (_ (panic "format-scheme: missing command line")))

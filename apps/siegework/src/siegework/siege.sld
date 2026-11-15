@@ -16,7 +16,7 @@
    settle
    judge
    enemy-period
-   AttackKind
+   Attack-kind
    Regular
    Raid
    Heavy
@@ -54,7 +54,7 @@
 
     (define (maximum-enemies) (→ I64) 128)
 
-    (enum AttackKind
+    (enum Attack-kind
       (Regular)
       (Raid)
       (Heavy))
@@ -68,7 +68,7 @@
     (define (regular? (tick I64)) (→ Bool)
       (and (>= tick (first-wave)) (= (remainder (- tick (first-wave)) (wave-interval)) 0)))
 
-    (define (attack-kind (tick I64)) (→ AttackKind)
+    (define (attack-kind (tick I64)) (→ Attack-kind)
       (cond ((heavy? tick) (Heavy))
             ((raid? tick) (Raid))
             (else (Regular))))
@@ -154,7 +154,7 @@
 
     ;; Each enemy leaves its nest by one of three lanes.
     (define (spawn-one (world World)
-                       (kind AttackKind)
+                       (kind Attack-kind)
                        (size I64)
                        (index I64)
                        (rank I64)
@@ -175,7 +175,7 @@
 
     ;; A boss leads a heavy attack with ordinary escorts. Lanes that pass
     ;; rock beyond the nest breed raiders instead of minions.
-    (define (wave-behavior (world World) (nest Nest) (kind AttackKind) (index I64) (lane I64))
+    (define (wave-behavior (world World) (nest Nest) (kind Attack-kind) (index I64) (lane I64))
       (→ Behavior)
       (match kind
         ((Heavy) (if (= index 0) (Beast) (lane-behavior world nest lane)))
@@ -200,7 +200,7 @@
                 (health (spawn-health world behavior rank))
                 (burrower
                  (= (remainder (+ (remainder (● world seed) 10) (remainder id 10)) 10) 0)))
-           (World-enemies-set world (append (● world enemies)
+           (world-enemies-set world (append (● world enemies)
                                             (list (new Enemy (id id)
                                                        (behavior behavior)
                                                        (rank rank)
@@ -259,7 +259,7 @@
         ((Some route) (new Pair (first (● route field)) (second world)))
         ((None) (let ((field (distance-field (passable world burrower) (goal-cells world goal))))
                   (new Pair (first field)
-                       (second (World-routes-set world
+                       (second (world-routes-set world
                                                  (take
                                                   (Cons (new Route
                                                           (goal goal)
@@ -313,18 +313,18 @@
 
     ;; What an engaged enemy strikes.
     (enum Struck
-      (StruckHub)
-      (StruckBuilding ((building Building))))
+      (Struck-hub)
+      (Struck-building ((building Building))))
 
     ;; An enemy stops beside its target and strikes it. One heading for the
     ;; hub stops beside the hub, or beside any finished building it meets.
     (define (engagement (world World) (enemy Enemy)) (→ (Option Struck))
       (let ((cell (● enemy cell)))
         (match (target-building world enemy)
-          ((Some b) (if (beside? cell (● b cell)) (Some (StruckBuilding b)) (None)))
-          ((None) (cond ((beside-hub? world cell) (Some (StruckHub)))
+          ((Some b) (if (beside? cell (● b cell)) (Some (Struck-building b)) (None)))
+          ((None) (cond ((beside-hub? world cell) (Some (Struck-hub)))
                         (else (match (beside-buildings world cell)
-                                ((Cons b _) (Some (StruckBuilding b)))
+                                ((Cons b _) (Some (Struck-building b)))
                                 ((Nil) (None)))))))))
 
     (define (engaged? (world World) (enemy Enemy)) (→ Bool)
@@ -373,10 +373,10 @@
                    (● world enemies))))
 
     (define (step (world World) (crowd (Vector I64)) (enemy Enemy)) (→ World)
-      (let ((enemy (Enemy-previous-set enemy (● enemy cell))))
+      (let ((enemy (enemy-previous-set enemy (● enemy cell))))
         (match (heading world crowd enemy)
           ((Pair (Some cell) world)
-           (put-enemy world (if (walkable? world cell) (Enemy-cell-set enemy cell) enemy)))
+           (put-enemy world (if (walkable? world cell) (enemy-cell-set enemy cell) enemy)))
           ((Pair (None) world) (put-enemy world enemy)))))
 
     ;; The next cell toward the enemy's target, if it is not engaged, with
@@ -400,7 +400,7 @@
          0))
 
     (define (put-enemy (world World) (enemy Enemy)) (→ World)
-      (World-enemies-set world
+      (world-enemies-set world
                          (map (lambda (e) (if (= (● e id) (● enemy id)) enemy e))
                               (● world enemies))))
 
@@ -438,8 +438,8 @@
                           amount))
             (others (filter (lambda (d) (not (cell=? (● d cell) cell))) (● world digs))))
         (if (<= remaining 0)
-            (open-rock (World-digs-set world others) cell)
-            (World-digs-set world (Cons (new Dig (cell cell) (remaining remaining)) others)))))
+            (open-rock (world-digs-set world others) cell)
+            (world-digs-set world (Cons (new Dig (cell cell) (remaining remaining)) others)))))
 
     ;; ---- Turrets ----
 
@@ -486,7 +486,7 @@
 
     (define (hit-enemy (world World) (turret Building) (enemy Enemy)) (→ World)
       (let ((wounded
-             (Enemy-health-set enemy (- (● enemy health) (damage turret (● enemy cell))))))
+             (enemy-health-set enemy (- (● enemy health) (damage turret (● enemy cell))))))
         (shoot
          (put-enemy world (if (> (● wounded health) 0) (provoke world wounded turret) wounded))
          turret (● enemy cell))))
@@ -500,23 +500,23 @@
         ((Some _) enemy)
         ((None)
          (if (mainland? (● world land) (● turret cell))
-             (Enemy-aggro-set enemy (Some (● turret id)))
+             (enemy-aggro-set enemy (Some (● turret id)))
              enemy))))
 
     ;; A destroyed nest changes the structures: its crystal shows instead.
     (define (hit-nest (world World) (turret Building) (nest Nest)) (→ World)
       (let* ((health (max 0 (- (● nest health) (damage turret (● nest cell)))))
-             (world (World-nests-set world
+             (world (world-nests-set world
                                      (map (lambda (n)
                                             (if (= (● n front) (● nest front))
-                                                (Nest-health-set n health)
+                                                (nest-health-set n health)
                                                 n))
                                           (● world nests)))))
         (shoot (if (= health 0) (structures-changed world) world) turret (● nest cell))))
 
     ;; A shot leaves a tracer and turns the turret's guns to where it went.
     (define (shoot (world World) (turret Building) (cell Cell)) (→ World)
-      (World-buildings-set (World-shots-set world
+      (world-buildings-set (world-shots-set world
                                             (Cons
                                              (new Shot
                                                (from (● turret cell))
@@ -525,7 +525,7 @@
                                              (● world shots)))
                            (map (lambda (b)
                                   (if (= (● b id) (● turret id))
-                                      (Building-aim-set b (Some cell))
+                                      (building-aim-set b (Some cell))
                                       b))
                                 (● world buildings))))
 
@@ -539,24 +539,24 @@
 
     (define (strike-one (world World) (enemy Enemy)) (→ World)
       (match (engagement world enemy)
-        ((Some (StruckHub)) (damage-hub world (rank-damage (● enemy rank))))
-        ((Some (StruckBuilding b)) (damage-building world b (rank-damage (● enemy rank))))
+        ((Some (Struck-hub)) (damage-hub world (rank-damage (● enemy rank))))
+        ((Some (Struck-building b)) (damage-building world b (rank-damage (● enemy rank))))
         ((None) world)))
 
     (define (damage-building (world World) (b Building) (amount I64)) (→ World)
-      (alert (put-building world (Building-health-set b (max 0 (- (● b health) amount))))
+      (alert (put-building world (building-health-set b (max 0 (- (● b health) amount))))
              (● b cell)))
 
     (define (damage-hub (world World) (amount I64)) (→ World)
       (let ((hub (● world hub)))
-        (alert (World-hub-set world (Hub-health-set hub (max 0 (- (● hub health) amount))))
+        (alert (world-hub-set world (hub-health-set hub (max 0 (- (● hub health) amount))))
                (● hub cell))))
 
     ;; At most four alerts: a new one replaces any within four cells and any
     ;; older than eight seconds.
     (define (alert (world World) (cell Cell)) (→ World)
       (let ((tick (● world tick)))
-        (World-alerts-set world (Cons (new Alert (cell cell) (tick tick))
+        (world-alerts-set world (Cons (new Alert (cell cell) (tick tick))
                                       (take (filter (lambda (a)
                                                       (and (<= (- tick (● a tick)) 80)
                                                            (not (within? (● a cell) cell 4))))
@@ -572,24 +572,24 @@
              (world (count-losses world
                                   (- (length (● world enemies)) (length alive))
                                   (- (length (● world buildings)) (length standing))))
-             (world (World-shots-set (World-enemies-set world alive)
+             (world (world-shots-set (world-enemies-set world alive)
                                      (filter (lambda (s) (> (+ (● s tick) 4) (● world tick)))
                                              (● world shots)))))
         (if (= (length standing) (length (● world buildings)))
             world
-            (rewire (World-buildings-set world standing)))))
+            (rewire (world-buildings-set world standing)))))
 
     (define (count-losses (world World) (kills I64) (lost I64)) (→ World)
       (let ((ledger (● world ledger)))
-        (World-ledger-set world
-                          (Ledger-lost-set (Ledger-kills-set ledger (+ (● ledger kills) kills))
+        (world-ledger-set world
+                          (ledger-lost-set (ledger-kills-set ledger (+ (● ledger kills) kills))
                                            (+ (● ledger lost) lost)))))
 
     ;; Destroying every nest wins, even on the tick the hub falls. Either way
     ;; the whole map is uncovered for inspection.
     (define (judge (world World)) (→ World)
-      (cond ((null? (living-nests world)) (uncover (World-outcome-set world (Won))))
-            ((= (● (● world hub) health) 0) (uncover (World-outcome-set world (Lost))))
+      (cond ((null? (living-nests world)) (uncover (world-outcome-set world (Won))))
+            ((= (● (● world hub) health) 0) (uncover (world-outcome-set world (Lost))))
             (else world)))
 
     ))
