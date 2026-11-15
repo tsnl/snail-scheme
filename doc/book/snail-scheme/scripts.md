@@ -96,30 +96,44 @@ include an output port can run it. A capability's library declares only the
 effect and its operations; how a target answers them belongs to the target's
 handlers, not to a `default` in the library.
 
-There are three targets:
+There are three hosts' targets, and one they share, each a library under
+`src/snail/target/`:
 
-- `node`, the program on Node (`host/native`);
+- `portable`, the capabilities every host has, on which the others build;
+- `node`, the program on Node (`host/native`), the `wasmtime` target's
+  capabilities and Node's own;
 - `wasmtime`, the program on the native executable `build/snail run-wasm`
-  (`crates/snail`);
-- `browser`, the program in a page (`host/browser`).
+  (`crates/snail`), the portable ones and the local machine's;
+- `browser`, the program in a page (`host/browser`), the portable ones and
+  the page's.
 
-| Capability | Library | `node` | `wasmtime` | `browser` |
-| --- | --- | --- | --- | --- |
-| `output-port` | `(snail core io)` | stdout | stdout | the console |
-| `input-port` | `(snail core io)` | stdin | stdin | — |
-| `fs` | `(snail core io)` | ✓ | ✓ | — |
-| `clock` | `(snail core io)` | ✓ | ✓ | ✓ |
-| `tasks` | `(snail shell task)` | ✓ | ✓ | ✓ |
-| `resource` | `(snail shell resource)` | ✓ | ✓ | ✓ |
-| `wasm` | `(snail shell wasm)` | ✓ | ✓ | ✓ |
-| `files` | `(snail shell async-files)` | ✓ | ✓ | — |
-| `process`, `signals` | `(snail shell process)` | ✓ | — | — |
-| `tcp`, `udp` | `(snail shell socket)` | ✓ | — | — |
-| `dom` | `(snail shell dom)` | — | — | ✓ |
-| `page`, `events`, `storage` | `(snail shell page)` | — | — | ✓ |
-| `fetch` | `(snail shell fetch)` | — | — | ✓ |
-| `screen` | `(snail shell app)` | — | — | ✓ |
-| `assembler` | `(snail shell assembler)` | ✓ | ✓ | — |
+A target exports `provide`, which runs a thunk under its handlers, and
+`start`, which runs `main` as the first task of the host's scheduler inside
+`provide`. A capability's library exports the handler that answers it on
+the host, such as `provide-fs` in `(snail core io)`, and a target's
+`provide` installs those it has.
+
+| Capability | Library | `portable` | `node` | `wasmtime` | `browser` |
+| --- | --- | --- | --- | --- | --- |
+| `output-port` | `(snail core io)` | stdout | stdout | stdout | the console |
+| `clock` | `(snail core io)` | ✓ | ✓ | ✓ | ✓ |
+| `resource` | `(snail shell resource)` | ✓ | ✓ | ✓ | ✓ |
+| `wasm` | `(snail shell wasm)` | ✓ | ✓ | ✓ | ✓ |
+| `tasks` | `(snail shell task)` | ✓ | ✓ | ✓ | ✓ |
+| `input-port` | `(snail core io)` | — | stdin | stdin | — |
+| `fs` | `(snail core io)` | — | ✓ | ✓ | — |
+| `files` | `(snail shell async-files)` | — | ✓ | ✓ | — |
+| `process`, `signals` | `(snail shell process)` | — | ✓ | — | — |
+| `tcp`, `udp` | `(snail shell socket)` | — | ✓ | — | — |
+| `dom` | `(snail shell dom)` | — | — | — | ✓ |
+| `page`, `events`, `storage` | `(snail shell page)` | — | — | — | ✓ |
+| `fetch` | `(snail shell fetch)` | — | — | — | ✓ |
+| `screen` | `(snail shell app)` | — | — | — | ✓ |
+| `assembler` | `(snail shell assembler)` | — | ✓ | ✓ | — |
+
+Today the targets' handlers cover the rows from `output-port` to `files`;
+the others still answer through their library's `default`, until each
+moves into its target.
 
 The table states the rule the build checks, so changing what a host provides
 means changing this table and the target's handlers together. It replaces
@@ -255,9 +269,18 @@ Each step is a pull request that passes every check on its own.
      first task inside `provide`. Every host calls `main(scheduler)` and
      then turns; `around-main`, `tasks:start-main` and `engine:status` are
      gone, and `main`'s result is no longer a status.
-   - Each capability's `default` moves into the targets that provide it, and
-     every exposed function is wrapped as `main` is; a capability left
-     unhandled fails the build.
+   - The portable capabilities move into the targets: done. `output-port`,
+     `input-port`, `fs`, `clock`, `files`, `resource` and `wasm` have no
+     `default`; their libraries export `provide-NAME` handlers, and the
+     targets install them. The root program's exposed functions run inside
+     `provide` too, through a wrapper, unless a signature shows only `mut`
+     and `host`; a library's own exposures run unwrapped. Stage 0 builds a
+     test for another target with `program->wat-for`.
+   - Node's capabilities, processes, signals and sockets, move into
+     `node`, and the harness names the programs that need Node, instead of
+     reading their imports.
+   - The page's capabilities move into `browser`.
+   - A capability left unhandled fails the build.
    - `default` goes.
    - `host` becomes `unsafe-extern`, which every `extern` declares.
 6. **Release builds fully linked,** with `wasm-opt` from Binaryen.

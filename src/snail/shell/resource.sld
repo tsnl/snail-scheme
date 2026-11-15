@@ -13,6 +13,7 @@
    Resource
    link-file
    resource
+   provide-resource
    read-resource)
   (import
    (snail core base)
@@ -38,13 +39,15 @@
 
     ;; ---- Reading ----
 
-    ;; A linked file's bytes, by handle. By default the host reads the
-    ;; file, an object of the program's store, the first time a task asks
-    ;; for it, and the task waits until it has; a handler can serve it
-    ;; otherwise.
+    ;; A linked file's bytes, by handle. Under `provide-resource` the host
+    ;; reads the file, an object of the program's store, the first time a
+    ;; task asks for it, and the task waits until it has; a handler can
+    ;; serve it otherwise.
     (effect resource
-      ((resource-bytes (Fn I32 → Bytes ! tasks)))
-      (default ((resource-bytes host-bytes))))
+      ((resource-bytes (Fn I32 → Bytes ! tasks))))
+
+    (define (provide-resource (work (Fn → T ! resource e))) (→ T) (! e) (∀ (T e))
+      (handle resource ((resource-bytes host-bytes)) (work)))
 
     ;; The host holds the bytes from `finish` until its next `finish`, and
     ;; nothing between the two calls lets another task run.

@@ -10,6 +10,7 @@
 (define-library (snail stage0 build)
   (export
    program->wat
+   program->wat-for
    run-compiler
    chez-compiler
    cli-compiler
@@ -135,7 +136,22 @@
           (cli-command root (current-cli root) #f)))
 
     (define (program->wat root directories source)
-      (run-compiler root (selected-compiler root) "wat" directories source))
+      (program->wat-for root "node" directories source))
+
+    ;; The text of a program built for (snail target TARGET).
+    (define (program->wat-for root target directories source)
+      (with-private-directory root
+                              (lambda (directory)
+                                (let ((output (path-join directory "output.wat")))
+                                  (run-compiler-for root
+                                                    (selected-compiler root)
+                                                    "wat"
+                                                    target
+                                                    directories
+                                                    source
+                                                    output
+                                                    directory)
+                                  (read-file output)))))
 
     ;; The program's text with the files it links, (TEXT (NAME . PATH) ...),
     ;; for a caller that links the text itself and places the files.
@@ -195,13 +211,17 @@
     ;; request; a trap or a failure of the host is status 2 and must not
     ;; consume a partial file.
     ;; Nested producer compiles have their own scratch.
-    ;; Stage 0 compiles every program for Node's target, (snail target node).
+    ;; Stage 0 compiles a program for Node's target, (snail target node),
+    ;; unless a test asks for another.
     (define (run-compiler-into root command mode directories source output generated)
+      (run-compiler-for root command mode "node" directories source output generated))
+
+    (define (run-compiler-for root command mode target directories source output generated)
       (let ((request (path-join generated "request.datum")))
         (let loop ()
           (when (file-link-status request) (delete-file request))
           (let ((result (capture-process
-                         (append command (list mode "node" source output generated) directories))))
+                         (append command (list mode target source output generated) directories))))
             (cond ((zero? (caddr result))
                    (when (file-link-status request)
                      (error 'snail "compiler succeeded with a pending input request"))

@@ -840,22 +840,59 @@
                                                    (● cx prefix)
                                                    (● cx items)))))
 
-    ;; Only the root program's own main is an entry. An imported function
-    ;; called main remains an ordinary function, with no startup behavior.
-    ;; A build for a target starts main through the target library: the
-    ;; entry's start takes the host's scheduler and calls the target's
-    ;; `start` with it and main, which runs main as the scheduler's first
-    ;; task, under the target's handlers.
+    ;; ---- Entries ----
+
+    ;; Only the root program's own main and exposed functions are entries:
+    ;; an imported function called main remains an ordinary function. A
+    ;; build for a target runs them through the target library. Main's
+    ;; start takes the host's scheduler and calls the target's `start` with
+    ;; it and main, which runs main as the scheduler's first task under the
+    ;; target's handlers, and an exposed function runs inside the target's
+    ;; `provide`.
+
     (define (with-entry (cx Context)) (→ Context) (! fs compile generator)
+      (match (new Pair (first (● cx target)) (second (entry-loc cx)))
+        ((Pair (Some library) (Some loc))
+         (expanding cx ((exports (load-library library loc)))
+                    (with-target-exposures
+                     (with-target-main cx (target-function exports library "start" loc))
+                     (target-function exports library "provide" loc))))
+        (_ (with-plain-main cx))))
+
+    (define (root-main (cx Context)) (→ (Option Item))
+      (find (lambda (item) (match item ((Define "main:main" _) #t) (_ #f))) (● cx items)))
+
+    (define (entry-loc (cx Context)) (→ (Option Loc))
       (match (find (lambda (item)
-                     (match item ((Define "main:main" _) #t) (_ #f))) (● cx items))
-        ((Some (Define name value))
-         (match (if (takes-arguments? value) (None) (● cx target))
-           ((Some library) (with-target-entry cx name library (● value loc)))
-           ((None) (add-item cx (Entry name name (● value loc))))))
+                     (match item ((Define "main:main" _) #t) ((Expose _ _ _) #t) (_ #f)))
+                   (● cx items))
+        ((Some (Define _ value)) (Some (● value loc)))
+        ((Some (Expose _ _ loc)) (Some loc))
+        (_ (None))))
+
+    (define (target-function (exports Exports) (library (List String)) (name String) (loc Loc))
+      (→ String)
+      (! compile)
+      (match (assoc-ref exports name)
+        ((Some (Global global)) global)
+        (_ (compile-error loc
+                          (string-append "the target library " (string-join library ".")
+                                         " exports no function " name)))))
+
+    (define (with-plain-main (cx Context)) (→ Context)
+      (match (root-main cx)
+        ((Some (Define name value)) (add-item cx (Entry name name (● value loc))))
         (_ cx)))
 
     ;; A main with parameters is no entry; the checker says so, unwrapped.
+    (define (with-target-main (cx Context) (start String)) (→ Context)
+      (match (root-main cx)
+        ((Some (Define name value))
+         (if (takes-arguments? value)
+             (with-plain-main cx)
+             (with-started-main cx name start (● value loc))))
+        (_ cx)))
+
     (define (takes-arguments? (value Expr)) (→ Bool)
       (match (● value term)
         ((Lambda params _) (not (null? params)))
@@ -864,31 +901,73 @@
     ;; `(define (started scheduler) (start scheduler (lambda () (main) (unit))))`,
     ;; under a name no source can write. The thunk is Unit whatever main
     ;; returns, so the checker's entry check is what rejects a wrong main.
-    (define (with-target-entry (cx Context) (main String) (library (List String)) (loc Loc))
-      (→ Context)
-      (! fs compile generator)
-      (expanding cx ((exports (load-library library loc)))
-                 (let* ((local (fresh cx "scheduler"))
-                        (var (lambda (name) (expr (Var name (Nil) (Nil)) loc)))
-                        (start (var (target-start exports library loc)))
-                        (run (expr (Seq (expr (App (var main) (Nil)) loc) (expr (Lit (DUnit)) loc))
-                                   loc))
-                        (call
-                         (App start (list (var (● local first)) (expr (Lambda (Nil) run) loc))))
-                        (started (string-append main " started")))
-                   (add-item (add-item (● local second)
-                                       (Define started
-                                         (expr (Lambda (list (● local first)) (expr call loc))
-                                               loc)))
-                             (Entry main started loc)))))
+    (define (with-started-main (cx Context) (main String) (start String) (loc Loc)) (→ Context)
+      (let* ((local (fresh cx "scheduler"))
+             (var (lambda (name) (expr (Var name (Nil) (Nil)) loc)))
+             (run (expr (Seq (expr (App (var main) (Nil)) loc) (expr (Lit (DUnit)) loc)) loc))
+             (call (App (var start) (list (var (● local first)) (expr (Lambda (Nil) run) loc))))
+             (started (string-append main " started")))
+        (add-item (add-item (● local second)
+                            (Define started
+                              (expr (Lambda (list (● local first)) (expr call loc)) loc)))
+                  (Entry main started loc))))
 
-    (define (target-start (exports Exports) (library (List String)) (loc Loc)) (→ String)
-      (! compile)
-      (match (assoc-ref exports "start")
-        ((Some (Global global)) global)
-        (_ (compile-error loc
-                          (string-append "the target library " (string-join library ".")
-                                         " exports no function start")))))
+    ;; Each exposure, in its order, through the target's `provide`.
+    (define (with-target-exposures (cx Context) (provide String)) (→ Context)
+      (let ((exposure? (lambda (item) (match item ((Expose _ _ _) #t) (_ #f)))))
+        (fold-left (lambda (cx item) (with-exposure cx provide item))
+                   (Context-items-set cx (filter (lambda (item) (not (exposure? item)))
+                                                 (● cx items)))
+                   (reverse (filter exposure? (● cx items))))))
+
+    ;; `(define (exposed argument ...) (provide (lambda () (f argument ...))))`,
+    ;; under a name no source can write, exposed in f's place.
+    (define (with-exposure (cx Context) (provide String) (item Item)) (→ Context)
+      (match item
+        ((Expose name symbol loc)
+         (match (exposed-arity cx name)
+           ((Some arity)
+            (expanding cx ((params (each (lambda (cx index) (fresh cx "argument")) (iota arity))))
+                       (let* ((var (lambda (name) (expr (Var name (Nil) (Nil)) loc)))
+                              (call (expr (App (var name) (map var params)) loc))
+                              (body (App (var provide) (list (expr (Lambda (Nil) call) loc))))
+                              (exposed (string-append name " exposed")))
+                         (add-item (add-item (add-value cx exposed (Defined (None) (None)))
+                                             (Define exposed (expr (Lambda params (expr body loc))
+                                                                   loc)))
+                                   (Expose exposed symbol loc)))))
+           ((None) (add-item cx item))))
+        (_ (panic "internal error: expected an exposure"))))
+
+    ;; How many arguments the host passes the definition `name`, when it
+    ;; needs the target's handlers: one whose signature performs only `mut`
+    ;; and `host` needs none, and an exposure of anything but a definition
+    ;; is the checker's to reject.
+    (define (exposed-arity (cx Context) (name String)) (→ (Option I64))
+      (if (host-signature? (program-value (● cx program) name))
+          (None)
+          (match (find (lambda (item)
+                         (match item ((Define defined _) (string=? defined name)) (_ #f)))
+                       (append (● cx items) (● (● cx program) items)))
+            ((Some (Define _ value)) (lambda-arity value))
+            (_ (None)))))
+
+    (define (host-signature? (value (Option Value))) (→ Bool)
+      (match value
+        ((Some (Defined (Some scheme) _))
+         (match (fn-arrow (● scheme type))
+           ((TFun _ _ (TRow labels (None)))
+            (every? (lambda (label) (member? label (list "mut" "host"))) labels))
+           (_ #f)))
+        (_ #f)))
+
+    (define (lambda-arity (value Expr)) (→ (Option I64))
+      (match (● value term)
+        ((Lambda params _) (Some (length params)))
+        ((Ann inner _) (lambda-arity inner))
+        (_ (None))))
+
+    ;; ---- Library sections ----
 
     ;; Each declaration is a section of imports, exports or definitions, or a
     ;; `cond-expand` choosing more declarations.

@@ -11,6 +11,7 @@
    module-export
    unsafe-cast
    wasm
+   provide-wasm
    Compiled
    compile-bytes
    ImportKind
@@ -58,26 +59,31 @@
        (link-prepared (Fn → I32))
        (provide-constant (Fn I32 → Unit))
 
-       (call-export (Fn I32 I64 → I64)))
-      (default ((argument-character host-argument-character)
-                (argument-end host-argument-end)
-                (compile host-compile)
-                (runtime-instance host-bind-runtime)
+       (call-export (Fn I32 I64 → I64))))
 
-                (exports-function? host-has-export)
-                (export-function host-export-function)
-                (import-count host-import-count)
-                (import-at host-import-at)
-                (held-length host-held-length)
-                (held-char host-held-char)
-                (prepare-link host-prepare-link)
-                (provide-export host-provide-export)
-                (provide-host host-provide-host)
-                (provide-missing host-provide-missing)
-                (link-prepared host-link-prepared)
-                (provide-constant host-provide-constant)
+    ;; The host's own engine: the page's or Node's WebAssembly, or wasmtime.
+    (define (provide-wasm (work (Fn → T ! wasm e))) (→ T) (! e) (∀ (T e))
+      (handle wasm
+          ((argument-character host-argument-character)
+           (argument-end host-argument-end)
+           (compile host-compile)
+           (runtime-instance host-bind-runtime)
 
-                (call-export host-call-export))))
+           (exports-function? host-has-export)
+           (export-function host-export-function)
+           (import-count host-import-count)
+           (import-at host-import-at)
+           (held-length host-held-length)
+           (held-char host-held-char)
+           (prepare-link host-prepare-link)
+           (provide-export host-provide-export)
+           (provide-host host-provide-host)
+           (provide-missing host-provide-missing)
+           (link-prepared host-link-prepared)
+           (provide-constant host-provide-constant)
+
+           (call-export host-call-export))
+        (work)))
 
     (define (send-argument (text String)) (→ Unit) (! wasm)
       (let loop ((index 0))
