@@ -5,8 +5,8 @@ describes what ships today. This chapter takes the cheapest path to the end
 state: `snail-scheme` behaves like an interpreter first and a compiler second.
 
 ```sh
-./snail-scheme run src/apps/siegework/main.scm
-./snail-scheme build --release src/apps/siegework/main.scm
+./snail-scheme run --target node src/apps/fibonacci/main.scm
+./snail-scheme build --target browser --release src/apps/siegework/main.scm
 ```
 
 There is no project file, no target registry, no planner and no development
@@ -21,7 +21,7 @@ measurements ask for it.
 | Build and run targets, `args` | The script, and arguments on the command line |
 | `library-roots` | The workspace's `src/` |
 | `(entry ((lib) Type))` and the `Application` class | Top-level statements in the script |
-| `(runtime toolchain)` | The platform, inferred from the script's effects |
+| `(runtime toolchain)` | `--target`, checked against the script's capability effects |
 | `artifact-bundle`, the planner (`project/plan.sld`) | A `generate-library` producer that calls the compiler |
 | `snail-scheme watch`, the reload client, relinking | Nothing, for now |
 | `snailc`, `-o` | `snail-scheme run FILE` and `build FILE` |
@@ -64,25 +64,42 @@ already drives the application's loop as a task, so the script's top level runs
 as a task, and `run-app` waits for events through the task effect. Siegework is
 the prototype.
 
-## Platforms
+## Targets and capabilities
 
-The effect row the checker infers for a script decides the runtime it links with.
-Each platform has an effect, such as one for the page and one for Node. A script
-whose row mentions the page's effect is a browser program. Its build includes the
-browser host. A script whose row mentions the assembler's services links with the
-toolchain runtime. A script with neither runs on either host.
+Each build names its runtime target explicitly, with `--target`, such as
+`--target node` or `--target browser`. Nothing infers a target.
 
-Code meant for several platforms is polymorphic over a platform effect and leaves
-the choice to the script that calls it. The names and the exact set of platform
-effects are still to be decided.
+What a platform offers is split into capability effects, one for each service,
+such as `output-port`, `input-port`, the page's document, sockets or processes.
+There is no marker effect for a platform as a whole. A target provides a set of
+capabilities. The effect row the checker infers for the script must fit within
+that set, or the build fails and names each capability the target lacks. A script
+whose row uses the assembler's services links with the toolchain runtime.
+
+Code meant for several targets asks only for the capabilities it uses. A library
+that writes text needs `output-port`, not "Node", so any target that provides an
+output port can run it. The exact set of capability effects, and which target
+provides which, are still to be decided.
 
 ## Commands
 
-- `snail-scheme run [--release] FILE [ARGUMENT ...]` builds `FILE` exactly as
-  `build` does, then runs it. Its output stays on disk, so a failure can be
-  diagnosed, and future caching needs no new path.
-- `snail-scheme build [--release] FILE` builds `FILE`.
+Every command that builds takes the same build flags, parsed in one place and
+documented once:
+
+- `--target TARGET`, required: the runtime target.
+- `--release`: a release build. Without it, the build is a debug build.
+
+The commands:
+
+- `snail-scheme build FLAGS FILE` builds `FILE`.
+- `snail-scheme run FLAGS FILE [ARGUMENT ...]` builds `FILE` exactly as `build`
+  does, then runs it. Its output stays on disk, so a failure can be diagnosed, and
+  future caching needs no new path.
 - `snail-scheme lsp` and `snail-scheme format` are unchanged.
+
+A producer that calls the compiler passes the same flags, as a record, so a
+build embedded through a generated library is configured the way the command
+line configures one.
 
 No command takes an output path. A build of `src/apps/siegework/main.scm` writes
 under `build/src/apps/siegework/main`, the script's path without its extension.
@@ -159,8 +176,9 @@ Each step is a pull request that passes every check on its own.
      `.manifest.datum`.
    - Targets still come from `project.datum`.
 3. **Scripts and `run`/`build FILE`.**
-   - Top-level statements, resolution under `src/`, and the platform inferred
-     from the effect row.
+   - Top-level statements, and resolution under `src/`.
+   - The shared build flags, with `--target` checked against the capability
+     effects the script uses.
    - The output path comes from the script's path.
    - `snailc` and `-o` go.
 4. **Applications become scripts.**
