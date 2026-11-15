@@ -3,7 +3,7 @@
 //! The subcommands are internal to the build driver and the tests:
 //!
 //! - `snail run-wasm PROGRAM ARGUMENT ...` runs a compiled program, one
-//!   linked module or a per-library build's modules.json, as
+//!   linked module or a per-library build's manifest, as
 //!   host/native/run-snail.mjs does on Node, when it needs no sockets or
 //!   processes (`program.rs`, with `links.rs` for the files it links and
 //!   `modules.rs` for linking modules). The command line,

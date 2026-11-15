@@ -3,6 +3,6 @@
 # repository's highlight-book target (tools/highlight-book.sld), built
 # first, in about 0.3 s.
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-program=$root/build/highlight-book/program.wasm
+program=$root/build/highlight-book/highlight-book.manifest.datum
 "$root/snail-scheme" build "$root" highlight-book >/dev/null || exit 1
 exec "${NODE:-node}" --no-warnings "$root/host/native/run-snail.mjs" "$program" "$@"

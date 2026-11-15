@@ -381,12 +381,12 @@ package's data, and the library reads it when it needs it:
   climbs out is an error. A file that is missing fails the build with the
   library and the path.
 - **Shipped by content.** The build places the file as an object of the
-  program's store, at `STORE/sha256/DIGEST`, where DIGEST is the SHA-256
-  of its bytes in hex, in every build that produces one: project program
-  and browser targets and the development loop. `snailc`, which builds
-  outside a project, refuses a program that links files. A linked program's store is `store/` beside
-  `program.wasm`; a per-library build's `modules.json` names its store,
-  relative to itself, and lists each object with its size. The name is
+  program's store, at `STORE/sha256/AB/DIGEST`, where DIGEST is the
+  SHA-256 of its bytes in hex and AB its first two digits, in every build
+  that produces one. `snailc`, which builds
+  outside a project, refuses a program that links files. A program's store
+  is `store/` beside its module or its `NAME.manifest.datum`, which lists
+  each object with its size. The name is
   never a path or a library's: libraries that link the same bytes ship one
   object, an object is written once and never rewritten, and a file's name
   changes exactly when its bytes do. The module itself records what it

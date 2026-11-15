@@ -76,7 +76,7 @@ const native = {listen: tcp.listen, connect: tcp.connect, accept: tcp.accept, re
 const timeout = setTimeout(() => { throw new Error('socket boundary test timed out'); }, 30_000);
 
 try {
-  if (filename.endsWith('.json')) {
+  if (filename.endsWith('.manifest.datum')) {
     program = await linkProgram(file => readFile(resolve(dirname(filename), file)), filename, wasi, host);
   } else {
     const runtime = await instantiate(await WebAssembly.compile(await readFile(filename)), {...wasi.getImportObject(), ...host});

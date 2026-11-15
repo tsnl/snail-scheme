@@ -7,7 +7,7 @@
   <div id="interface"></div>
   <script type="module">
     import {startInterface} from './ui.mjs';
-    startInterface({url: './program.wasm', container: document.getElementById('interface'), storageKey: 'requests'})
+    startInterface({container: document.getElementById('interface'), storageKey: 'requests'})
       .then(app => { window.application = app; document.body.dataset.ready = 'true'; })
       .catch(error => { document.body.dataset.error = error.message; });
   </script>

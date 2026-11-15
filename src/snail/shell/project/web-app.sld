@@ -1,15 +1,11 @@
-;; The default identity is the resolved start_url. A dev server exposes
-;; the manifest at the stable application mount, outside build generations.
-;; An explicit id would resolve against the origin, not this directory.
+;; The default identity is the resolved start_url. An explicit id would
+;; resolve against the origin, not this directory.
 ;; A project's own public/manifest.webmanifest replaces this default whole.
 (define-library (snail shell project web-app)
-  (export web-app-manifest with-web-app stable-web-app
+  (export web-app-manifest with-web-app
           PageMetadata
-          PageBase
           WebManifest
           ModuleMap
-          ReloadData
-          ModuleScript
           insert-metadata)
   (import
    (snail core base)
@@ -44,15 +40,13 @@
 
     ;; ---- Page metadata ----
 
-    ;; The only markup the packager adds. Callers describe elements; this
-    ;; renderer owns quoting and HTML encoding. Reload data uses an attribute,
-    ;; so a path containing </script> cannot terminate a raw-text element.
+    ;; The only markup the packager adds: the web-app manifest's link and the
+    ;; program manifest's name. Callers describe elements; this renderer owns
+    ;; quoting and HTML encoding, so a path containing </script> cannot
+    ;; terminate an element.
     (enum PageMetadata
-      (PageBase ((url String)))
       (WebManifest ((url String)))
-      (ModuleMap ((url String)))
-      (ReloadData ((text String)))
-      (ModuleScript ((url String))))
+      (ModuleMap ((url String))))
 
     (define (attribute-text (text String)) (→ String)
       (string-concatenate
@@ -72,7 +66,6 @@
 
     (define (metadata-text (item PageMetadata)) (→ String)
       (match item
-        ((PageBase url) (element-start "base" (list (new Pair (first "href") (second url)))))
         ((WebManifest url)
          (element-start "link" (list (new Pair (first "id") (second "snail-web-app"))
                                      (new Pair (first "rel") (second "manifest"))
@@ -80,17 +73,7 @@
         ((ModuleMap url)
          (element-start "meta"
                         (list (new Pair (first "name") (second "snail-modules"))
-                              (new Pair (first "content") (second url)))))
-        ((ReloadData text)
-         (element-start "meta"
-                        (list (new Pair (first "id") (second "snail-manifest"))
-                              (new Pair (first "content") (second text)))))
-        ((ModuleScript url)
-         (string-append (element-start "script" (list (new Pair (first "type") (second "module"))
-                                                      (new Pair (first "src") (second url))))
-                        "</script>"))))
-
-    (define (default-link) (→ String) (metadata-text (WebManifest "./manifest.webmanifest")))
+                              (new Pair (first "content") (second url)))))))
 
     ;; Keep user HTML byte-for-byte around one parsed insertion boundary.
     ;; Existing head attributes stay on their element. Missing heads are
@@ -104,23 +87,12 @@
                        (if (● head second) added (string-append "<head>" added))
                        (substring text at (string-length text)))))
 
-    (define (with-web-app (text String) (development Bool)) (→ String)
-      (insert-metadata text (Cons (WebManifest "./manifest.webmanifest")
-                                  (if development (list (ModuleMap "./modules.json")) (Nil)))))
+    ;; A page links its web-app manifest and names the program's manifest,
+    ;; beside it, which the browser host links the program from.
 
-    ;; Only the builder-owned first link is replaced. A pinned executable
-    ;; base must never pin the app's installation identity to one generation.
-
-    (define (stable-web-app (text String) (mount String)) (→ String)
-      (let ((start (● (head-boundary text) first)))
-        (if (text-at? text start (default-link))
-            (string-append (substring text 0 start)
-                           (metadata-text
-                            (WebManifest (string-append mount "manifest.webmanifest")))
-                           (substring text
-                                      (+ start (string-length (default-link)))
-                                      (string-length text)))
-            text)))
+    (define (with-web-app (text String) (program String)) (→ String)
+      (insert-metadata text (list (WebManifest "./manifest.webmanifest")
+                                  (ModuleMap (string-append "./" program)))))
 
     ;; ---- Document prefix ----
 

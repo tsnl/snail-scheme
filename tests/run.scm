@@ -152,7 +152,7 @@
   (guard (failure (#t (report "toolchain assembler" "test failed" (error-text failure))))
     (let* ((directory (path-join root "build/tests/toolchain"))
            (wat (path-join directory "fibonacci.wat"))
-           (manifest (path-join directory "modules.json"))
+           (manifest (path-join directory "program.manifest.datum"))
            (tool (build-toolchain-tool root
                                        (path-join root "tests/toolchain/assemble.sld")
                                        (path-join directory "assemble.wasm")
@@ -167,10 +167,10 @@
         (call-with-replacing-output-file manifest
                                          (lambda (port)
                                            (write-string
-                                            (string-append "{\"runtime\":{\"digest\":\""
+                                            (string-append "((runtime \""
                                                            (car runtime)
-                                                           "\"},\"modules\":[{\"name\":\"program\",\"digest\":\""
-                                                           (car module) "\"}],\"files\":[]}")
+                                                           "\" 0) (module \"program\" \""
+                                                           (car module) "\" 0))")
                                             port))))
       (let ((expected
              "assembled the program\nlinked the program after a failed link\nbroken text names its line and column\n"))
@@ -481,7 +481,7 @@
   (let ((output (path-join root "build/tests/linked/async-files")))
     (build-modules root (standard-directories root)
                    (path-join root "tests/async-files/main.sld") output)
-    (check-async-files root (path-join output "modules.json") "linked")))
+    (check-async-files root (path-join output "program.manifest.datum") "linked")))
 
 (define (compile-socket-boundary root)
   (let ((text (program->wat root
@@ -610,7 +610,7 @@
                       (map (lambda (library) (path-join root library)) (suite-libraries suite))
                       (standard-directories root))
                      (path-join root suite (string-append name ".sld")) output)
-      (let ((printed (run-wasm root (path-join output "modules.json")))
+      (let ((printed (run-wasm root (path-join output "program.manifest.datum")))
             (expected (read-file (path-join root suite (string-append name ".out")))))
         (or (equal? printed expected)
             (report name
@@ -624,7 +624,7 @@
                      (standard-directories root)
                      (path-join root "tests/app-runtime/main.sld")
                      output)
-      (check-app-runtime root (path-join output "modules.json")))))
+      (check-app-runtime root (path-join output "program.manifest.datum")))))
 
 (define (run-linked-cases root)
   (let ((checks (append (map (lambda (entry)
@@ -645,7 +645,7 @@
                    (standard-directories root)
                    (path-join root "tests/socket-boundary/main.sld")
                    output)
-    (check-socket-boundary root (path-join output "modules.json"))))
+    (check-socket-boundary root (path-join output "program.manifest.datum"))))
 
 (define (run-linked-host-boundary root)
   (let ((output (path-join root "build/tests/linked/host-boundary")))
@@ -653,7 +653,7 @@
                    (cons (path-join root "tests/host-boundary") (standard-directories root))
                    (path-join root "tests/host-boundary/main.sld")
                    output)
-    (run-host-boundary root (path-join output "modules.json"))))
+    (run-host-boundary root (path-join output "program.manifest.datum"))))
 
 ;; ---- Checks in parallel ----
 

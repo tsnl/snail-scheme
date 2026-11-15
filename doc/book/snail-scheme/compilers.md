@@ -25,9 +25,10 @@ compiler is itself a linked Wasm program. Most passes thread state through
 pure functions. The emitter uses a locally owned mutable `Module` to collect
 Wasm declarations and intern types. Neither representation requires `Ref`.
 
-Static builds compile the complete program and link Rust scalar services
-into one module. Development builds compile individual libraries and link
-them when loaded. The same checking and preparation contracts serve both.
+Project builds compile each library to a module of its own and link them
+when the program loads; stage 0 and `snailc` link the complete program with
+the Rust scalar services into one module. The same checking and preparation
+contracts serve both.
 Start with `examples/fibonacci.sld`, inspect its output with
 `./snail-scheme run . snailc wat examples/fibonacci.sld`, then follow the passes
 below.
@@ -445,8 +446,8 @@ module imports its handle under that name. Each build binds the current linked
 files during expansion. A missing file fails with the library and path;
 changed bytes bind a new digest. Every build compiles all libraries and
 places every linked file as an
-object of the build's store, `store/sha256/DIGEST` beside a linked program
-or the store a project's development builds share, checking that the bytes
+object of a store, `store/sha256/AB/DIGEST` beside a linked program or the
+project's store, `build/.snail-store`, checking that the bytes
 it copies have the digest the compile read; a file edited during the build
 fails it, and the next build compiles against the new bytes. Modules and
 objects are named for their contents, so a generation's digest takes only

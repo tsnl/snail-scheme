@@ -8,9 +8,6 @@
                 (entry ((hearsay application) Hearsay))
                 (library-roots ("apps/hearsay/src"))
                 (public "apps/hearsay/public")))
- (build-target engine
-               (program
-                (entry "tools/engine.sld")))
  (build-target highlight-book
                (program
                 (entry "tools/highlight-book.sld")))

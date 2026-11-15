@@ -1,14 +1,17 @@
 # Development toolchain
 
-`snail-scheme` can link a program statically or link its libraries when it starts.
-Static builds compile the whole program and link the Rust runtime into one
-module. `--release` remains a build mode but runs no function-body optimizer. Development builds keep each library as its own module, with the runtime
-as a separate instance.
+A project build keeps each library as its own module, with the runtime as a
+separate instance, all objects of the project's store and named by the
+target's manifest ([output directories](projects.md#output-directories)). Debug
+and release builds have that one shape; `--release` copies the objects into
+the output instead of linking to them, and runs no function-body optimizer.
+`snailc` and stage 0 still link a single program into one module.
 
 | Command | Build |
 | --- | --- |
-| `snail-scheme build`, `snail-scheme run`, `make site`, `snailc` | Static; `--release` does not invoke an optimizer |
-| `snail-scheme lsp` | Separate development modules |
+| `snail-scheme build`, `snail-scheme run`, `snail-scheme lsp` | Debug: a module per library, linked to the store |
+| `snail-scheme build --release`, `make site` | Release: a module per library, copied from the store |
+| `snailc compile` | One linked module |
 
 The public commands operate on projects. A single source file goes through
 `snailc` (`tools/snailc.sld`), a program target of the repository's own
@@ -27,7 +30,7 @@ are internal to the driver and the tests:
 
 | Subcommand | Does |
 | --- | --- |
-| `build/snail run-wasm PROGRAM ARGUMENT ...` | Runs a compiled program, one linked module, its `.cwasm`, or a per-library `modules.json`, which the engine links (`build/engine/program.wasm`), as `host/native/run-snail.mjs` does, with the same exit statuses; a call to sockets, processes, file modes or watches traps. The command line's `compile` is one such program. |
+| `build/snail run-wasm PROGRAM ARGUMENT ...` | Runs a compiled program, one linked module, its `.cwasm`, or a per-library build's `NAME.manifest.datum`, which the engine in the command line links (`build/bootstrap/snail-scheme.wasm`, or its `.cwasm`), as `host/native/run-snail.mjs` does, with the same exit statuses; a call to sockets or processes traps. The command line's `compile` is one such program. |
 | `build/snail precompile MODULE OUTPUT` | Writes the module's machine code as a `.cwasm` file, which `run-wasm` loads in place of the module. |
 | `build/snail assemble INPUT.wat OUTPUT.wasm` | Assembles text with `wat`. |
 | `build/snail link INPUT.wat RUNTIME.wasm OUTPUT.wasm` | Assembles and statically links with `wasm-fuse`, using the same Rust backend as compiled tools. |
@@ -235,15 +238,11 @@ manifest gives a standalone window, the application name, theme colors, and
 to replace the default entirely, including its icons and display mode; it is
 served unchanged. The builder links the manifest from UTF-8 `index.html` pages.
 
-During development, the page's scripts remain pinned to their build, while its
-web manifest is linked at `/TARGET/manifest.webmanifest`. Its relative
-`start_url` and `scope` resolve at the stable target mount, and the default identity
-is that resolved start URL (no explicit `id` is emitted), so installing it
-never pins the launch URL to a reclaimed generation. Static bundles use a
-relative manifest link and work under a deployment subdirectory. Keep the same
-host and port for a local installed app. HTTPS or a loopback origin is needed
-for browser installation; the development server must remain running. These
-manifests do not add offline caching or a service worker.
+The web manifest's relative `start_url` and `scope` resolve at the output
+directory, and the default identity is that resolved start URL (no explicit
+`id` is emitted). A bundle's relative manifest link works under a deployment
+subdirectory. HTTPS or a loopback origin is needed for browser installation.
+These manifests do not add offline caching or a service worker.
 
 ## Code highlighting
 
