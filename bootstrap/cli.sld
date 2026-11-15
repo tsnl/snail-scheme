@@ -55,9 +55,10 @@
 (define (request (arguments (List String))) (→ Job) (! mut)
   (match arguments
     ((Cons _ (Cons root (Cons runtime (Cons action rest))))
-     (let ((tools (new Tools (root root) (runtime runtime) (node (match (environment-variable "NODE")
-                                        ((Some node) node)
-                                        ((None) "node"))))))
+     (let ((tools
+            (new Tools (root root) (runtime runtime) (node (match (environment-variable "NODE")
+                                                             ((Some node) node)
+                                                             ((None) "node"))))))
        (cond ((string=? action "build") (build-request tools (Debug) (TextErrors) rest))
              ((string=? action "run") (run-request tools (TextErrors) rest))
              ((string=? action "resident") (resident-request tools rest))
@@ -71,7 +72,14 @@
     ((Cons "--error-format=json" rest) (build-request tools mode (JsonErrors) rest))
     ((Cons "--error-format=text" rest) (build-request tools mode (TextErrors) rest))
     ((Cons project (Cons target (Nil)))
-     (new Job (tools tools) (run? #f) (mode mode) (error-format format) (project (project-path format project)) (target target) (arguments (Nil))))
+     (new Job
+       (tools tools)
+       (run? #f)
+       (mode mode)
+       (error-format format)
+       (project (project-path format project))
+       (target target)
+       (arguments (Nil))))
     (_ (report-error format (usage)))))
 
 (define (run-request (tools Tools) (format ErrorFormat) (arguments (List String))) (→ Job) (! mut)
@@ -79,12 +87,27 @@
     ((Cons "--error-format=json" rest) (run-request tools (JsonErrors) rest))
     ((Cons "--error-format=text" rest) (run-request tools (TextErrors) rest))
     ((Cons project (Cons target rest))
-     (new Job (tools tools) (run? #t) (mode (Debug)) (error-format format) (project (project-path format project)) (target target) (arguments rest)))
+     (new Job
+       (tools tools)
+       (run? #t)
+       (mode (Debug))
+       (error-format format)
+       (project (project-path format project))
+       (target target)
+       (arguments rest)))
     (_ (report-error format (usage)))))
 
 (define (resident-request (tools Tools) (arguments (List String))) (→ Job)
   (match arguments
-    ((Cons project (Nil)) (new Job (tools tools) (run? #f) (mode (Development)) (error-format (TextErrors)) (project (resolved project)) (target "") (arguments (Nil))))
+    ((Cons project (Nil))
+     (new Job
+       (tools tools)
+       (run? #f)
+       (mode (Development))
+       (error-format (TextErrors))
+       (project (resolved project))
+       (target "")
+       (arguments (Nil))))
     (_ (panic "usage: snail resident PROJECT"))))
 
 (define (project-path (format ErrorFormat) (argument String)) (→ String) (! mut)
@@ -143,7 +166,7 @@
 (define (scratch (job Job)) (→ String)
   (string-append (● (● job tools) root) "/build/snail-run"))
 
-(define (report-failure (format ErrorFormat) (failure Failure)) (→ A) (! mut) (∀ A)
+(define (report-failure (format ErrorFormat) (failure Failure)) (→ A) (! mut) (∀ (A))
   (match failure
     ((CompileFailure diagnostics) (report-diagnostics format diagnostics))
     ((BuildFailure message) (report-error format message))))
@@ -176,7 +199,8 @@
                                                        (string-append generation "/program.wasm"))
                                                  (append (● run arguments) (● job arguments))))
                               (directory ".")))))
-       (report-error (● job error-format) (string-append "cannot run " (● tools node) ": " (● error code)))))))
+       (report-error (● job error-format)
+                     (string-append "cannot run " (● tools node) ": " (● error code)))))))
 
 ;; ---- The resident builder ----
 

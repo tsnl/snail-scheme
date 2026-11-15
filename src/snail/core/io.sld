@@ -634,7 +634,7 @@
     (define (error-terminal?) (→ Bool)
       (= (support-error-terminal) 1))
 
-    (define (exit (status I32)) (→ A) (! mut) (∀ A)
+    (define (exit (status I32)) (→ A) (! mut) (∀ (A))
       (support-exit status)
       (panic "internal error: process exit returned"))
 

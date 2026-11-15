@@ -475,20 +475,11 @@ and assembled anew. Publishing installs the completed candidate atomically;
 a failed or discarded attempt leaves the previously accepted generation
 available.
 
-A build's failures reach the service as `{severity, message, source}`;
-`source` is null or `{file, line, column}`. Lines and Unicode scalar columns start at one. IO and
-producer-input requests have no source record; internal no-location sentinels
-are unlocated. A failing dependency reports its own origin. Printed
-producer programs report their actual scratch source, while decoded generated
-syntax retains the recipe location already established by expansion. No source
-mapping is invented. The command-line driver exits with status 1 and prints
-each diagnostic with an `ERROR` label and `FILE:LINE:COLUMN: MESSAGE`, or
-`FILE: MESSAGE` for the file as a whole. With `--error-format=json`, it emits
-the structured records as JSON lines on stderr; see [diagnostic output](toolchain.md).
-A reply carries every
-diagnostic of the failed compile, which reports each failed body of the
-library that failed to expand, or each failed definition and statement of
-the library that failed to check. These operations are implemented and tested.
+Command-line diagnostics use colored `ERROR` labels followed by
+`FILE:LINE:COLUMN: MESSAGE`, or `FILE: MESSAGE` for a whole file, and exit
+with status 1. `--error-format=json` writes one structured diagnostic per
+stderr line using the resident builder's `{severity, message, source}` schema.
+See [diagnostic output](toolchain.md) for the formats and color policy.
 
 ## Supporting modules
 
