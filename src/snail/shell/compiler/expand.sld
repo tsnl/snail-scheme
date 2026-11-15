@@ -219,6 +219,7 @@
     (record Context
       ((directories (List String))
        (inputs Inputs)
+       (target (Option (List String)))
        (recipe (Option Recipe))
        (prefix String)
        (loading (List String))
@@ -244,6 +245,7 @@
     (define (resumed (outer Context) (inner Context)) (→ Context)
       (new Context (directories (● outer directories))
            (inputs (● outer inputs))
+           (target (● outer target))
            (recipe (● outer recipe))
            (prefix (● outer prefix))
            (loading (● outer loading))
@@ -354,11 +356,13 @@
 
     (define (new-context (directories (List String))
                          (inputs Inputs)
+                         (target (Option (List String)))
                          (artifacts ArtifactSource))
       (→ Context)
       (new Context
         (directories directories)
         (inputs inputs)
+        (target target)
         (recipe (None))
         (prefix "")
         (loading (Nil))
@@ -838,11 +842,48 @@
 
     ;; Only the root program's own main is an entry. An imported function
     ;; called main remains an ordinary function, with no startup behavior.
-    (define (with-entry (cx Context)) (→ Context)
+    ;; A build for a target starts main under the target's handlers: the
+    ;; entry's start calls the target library's `provide` with main.
+    (define (with-entry (cx Context)) (→ Context) (! fs compile generator)
       (match (find (lambda (item)
                      (match item ((Define "main:main" _) #t) (_ #f))) (● cx items))
-        ((Some (Define name value)) (add-item cx (Entry name (● value loc))))
+        ((Some (Define name value))
+         (match (if (takes-arguments? value) (None) (● cx target))
+           ((Some library) (with-target-entry cx name library (● value loc)))
+           ((None) (add-item cx (Entry name name (● value loc))))))
         (_ cx)))
+
+    ;; A main with parameters is no entry; the checker says so, unwrapped.
+    (define (takes-arguments? (value Expr)) (→ Bool)
+      (match (● value term)
+        ((Lambda params _) (not (null? params)))
+        (_ #f)))
+
+    ;; `(define (start) (provide (lambda () (main))))`, under a name no
+    ;; source can write.
+    (define (with-target-entry (cx Context) (main String) (library (List String)) (loc Loc))
+      (→ Context)
+      (! fs compile generator)
+      (expanding cx ((exports (load-library library loc)))
+                 (let* ((start (string-append main " started"))
+                        (thunk (expr (Lambda (Nil)
+                                             (expr (App (expr (Var main (Nil) (Nil)) loc) (Nil))
+                                                   loc))
+                                     loc))
+                        (provide (expr (Var (target-provide exports library loc) (Nil) (Nil)) loc)))
+                   (add-item (add-item cx
+                                       (Define start
+                                         (expr (Lambda (Nil) (expr (App provide (list thunk)) loc))
+                                               loc)))
+                             (Entry main start loc)))))
+
+    (define (target-provide (exports Exports) (library (List String)) (loc Loc)) (→ String)
+      (! compile)
+      (match (assoc-ref exports "provide")
+        ((Some (Global global)) global)
+        (_ (compile-error loc
+                          (string-append "the target library " (string-join library ".")
+                                         " exports no function provide")))))
 
     ;; Each declaration is a section of imports, exports or definitions, or a
     ;; `cond-expand` choosing more declarations.
@@ -897,12 +938,13 @@
     (define (expand-program (directories (List String))
                             (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
                             (inputs Inputs)
+                            (target (Option (List String)))
                             (path String))
       (→ ExpandedProgram)
       (! fs compile)
       (handle generator ((run-generator generate))
         (expanded-program
-         (expand-source (new-context directories inputs (Supplied)) path))))
+         (expand-source (new-context directories inputs target (Supplied)) path))))
 
     (define (expand-source (cx Context) (path String)) (→ Context) (! fs compile generator)
       (let* ((source (generating-stack (read-source-file path)))
@@ -1083,6 +1125,7 @@
       (handle generator ((run-generator unsupplied-producer))
         (match (● (expand-source (new-context directories
                                               inputs
+                                              (None)
                                               (Discovering (Nil)))
                                  path) artifacts)
           ((Discovering uses) (reverse uses))
@@ -4511,7 +4554,7 @@
 
       (define callable-signature
         (lambda (text)
-          (let* ((cx (new-context (Nil) (no-inputs) (Supplied)))
+          (let* ((cx (new-context (Nil) (no-inputs) (None) (Supplied)))
                  (imports (fold-left (lambda (table entry)
                                        (table-set table (● entry first) (● entry second)))
                                      (empty-table) (core-library)))
@@ -4641,6 +4684,7 @@
                 (expand-program (list root)
                                 (lambda (loading forms) (panic "unexpected producer"))
                                 (no-inputs)
+                                (None)
                                 (string-append root "/main.sld"))))
 
       (define link-error
@@ -4671,6 +4715,7 @@
                                                   (lambda (loading forms)
                                                     (panic "unexpected producer"))
                                                   (no-inputs)
+                                                  (None)
                                                   (string-append root "/main.sld")) program)))
                   (expect (primitive-scheme program "array-ref")
                           (list (list "A") "(Fn (Array A) I64 → A)"))
@@ -4705,6 +4750,7 @@
                                                  (lambda (loading forms)
                                                    (panic "unexpected producer"))
                                                  (no-inputs)
+                                                 (None)
                                                  (string-append root "/main.sld"))))
                        (first (expand)))
                   (expect (every? own-run? (expansion-runs first)) #t)

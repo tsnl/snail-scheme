@@ -1,9 +1,9 @@
 # A trusted compiler's success, failure and input-request outcomes. Arguments
-# after the scenario match compile MODE SOURCE OUTPUT GENERATED DIRECTORY ...
+# after the scenario match compile MODE TARGET SOURCE OUTPUT GENERATED DIRECTORY ...
 set -eu
 scenario=$1
-output=$4
-generated=$5
+output=$5
+generated=$6
 case "$scenario" in
   stderr)
     printf 'generate 123\n' >&2

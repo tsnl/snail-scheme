@@ -158,12 +158,14 @@
                ((ProgramTarget program)
                 (new Target (name (● program name))
                      (browser? #f)
+                     (platform (● program platform))
                      (entry (entry-source builder #f (● program entry)))
                      (directories (library-directories builder (● program libraries)))
                      (loc (● program loc))))
                ((BrowserTarget browser)
                 (new Target (name (● browser name))
                      (browser? #t)
+                     (platform (list "snail" "target" "browser"))
                      (entry (entry-source builder #t (● browser entry)))
                      (directories (library-directories builder (● browser libraries)))
                      (loc (● browser loc))))))
@@ -503,7 +505,8 @@
                                      (● target entry)
                                      (lambda (loading forms)
                                        (generated-syntax working directories loading forms))
-                                     (● progress inputs))))))
+                                     (● progress inputs)
+                                     (Some (● target platform)))))))
 
     (define (write-program (builder Builder) (target Target) (directory String) (checked Checked))
       (→ Program)
@@ -574,7 +577,8 @@
                                                                   directories
                                                                   loading
                                                                   forms))
-                                              inputs)))))
+                                              inputs
+                                              (Some (list "snail" "target" "node")))))))
         (match (link (● program text)
                      (read-bytes runtime))
           ((Ok bytes) (write-bytes output bytes))

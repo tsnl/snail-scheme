@@ -152,6 +152,14 @@
                   ((None) (None))))
          (second arguments)))))
 
+(define (platform-library (platform Platform)) (→ (List String))
+  (list "snail"
+        "target"
+        (match platform
+          ((Node) "node")
+          ((Wasmtime) "wasmtime")
+          ((Browser) "browser"))))
+
 (define (platform-named (name String)) (→ Platform)
   (cond ((string=? name "node") (Node))
         ((string=? name "wasmtime") (Wasmtime))
@@ -226,6 +234,7 @@
                                         (name name)
                                         (entry entry)
                                         (libraries roots)
+                                        (platform (platform-library (● (● script flags) platform)))
                                         (loc loc)))))))
       (runs (Nil)))))
 
@@ -272,7 +281,13 @@
 ;; The script's whole program as WebAssembly text. A generated library
 ;; needs a build to run its producer, so here it fails.
 
-(define (print-wat (tools Tools) (file String)) (→ Unit) (! mut fs output-port)
+(define (print-wat (tools Tools) (arguments (List String))) (→ Unit) (! mut fs output-port)
+  (match (build-flags arguments (None) (Debug))
+    ((Pair (Some flags) (Cons file (Nil))) (print-script-wat tools flags file))
+    (_ (panic "usage: snail-scheme wat --target node|wasmtime|browser FILE"))))
+
+(define (print-script-wat (tools Tools) (flags BuildFlags) (file String)) (→ Unit)
+  (! mut fs output-port)
   (let* ((file (resolved file)) (workspace (workspace-of file (directory-of file))))
     (match (compiling (lambda ()
                         (source->wat (delete-duplicates string=?
@@ -282,7 +297,8 @@
                                      file
                                      (lambda (loading forms)
                                        (panic "wat does not run producers: build the script"))
-                                     (no-inputs))))
+                                     (no-inputs)
+                                     (Some (platform-library (● flags platform))))))
       ((Ok program) (write-string (● program text)))
       ((Err (Failed diagnostics)) (panic (diagnostics->string diagnostics)))
       ((Err (Requested _)) (panic "wat does not run producers: build the script")))))
@@ -522,7 +538,7 @@
      (format-command (format-request arguments)))
     ((Cons _ (Cons root (Cons runtime (Cons toolchain (Cons "lsp" (Nil))))))
      (serve-language (tools-of root runtime toolchain)))
-    ((Cons _ (Cons root (Cons runtime (Cons toolchain (Cons "wat" (Cons file (Nil)))))))
-     (print-wat (tools-of root runtime toolchain) file))
+    ((Cons _ (Cons root (Cons runtime (Cons toolchain (Cons "wat" arguments)))))
+     (print-wat (tools-of root runtime toolchain) arguments))
     (arguments (invoke (request arguments))))
   (unit))

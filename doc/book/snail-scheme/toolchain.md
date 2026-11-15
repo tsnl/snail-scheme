@@ -16,7 +16,7 @@ A script, a single source file, is built and run with an explicit target,
 `node`, `wasmtime` or `browser`
 ([scripts](scripts.md)): `./snail-scheme run --target node FILE [ARGUMENT ...]`
 builds it into `build/PATH`, PATH being its path in its workspace without
-the extension, and runs it, and `./snail-scheme wat FILE` prints its whole
+the extension, and runs it, and `./snail-scheme wat --target TARGET FILE` prints its whole
 program's text. Its statements, in order, are its entry, whose effects are
 inferred. A program links with the toolchain runtime, whose services
 include the assembler, exactly when it links `(snail shell assembler)`.

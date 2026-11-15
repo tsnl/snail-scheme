@@ -60,7 +60,7 @@ try {
     await assert.rejects(execute(join(root, 'snail-scheme'), ['build', '--target', 'node', join(outside, 'lost.scm')]),
       /no folder above .*lost\.scm holds src\//);
   } finally { await rm(outside, {recursive: true, force: true}); }
-  assert.match((await command('wat', 'apps/hello/main.scm')).stdout, /^\(module/);
+  assert.match((await command('wat', '--target', 'node', 'apps/hello/main.scm')).stdout, /^\(module/);
   console.log('scripts passed');
 } finally {
   await rm(workspace, {recursive: true, force: true});

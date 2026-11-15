@@ -55,6 +55,7 @@
     (record Target
       ((name String)
        (browser? Bool)
+       (platform (List String))
        (entry String)
        (directories (List String))
        (loc Loc)))
@@ -703,6 +704,8 @@
             (map-indexed (lambda (index entry)
                            (new Target (name (● entry first))
                                 (browser? (● entry second))
+                                (platform
+                                 (list "snail" "target" (if (● entry second) "browser" "node")))
                                 (entry (string-append directory "/" (● entry first) ".sld"))
                                 (directories directories)
                                 (loc
