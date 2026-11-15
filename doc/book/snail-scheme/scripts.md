@@ -122,9 +122,12 @@ Every build has the same shape, debug or release:
 Nothing reclaims the store. Delete `build/` and rebuild from time to time. A
 `snail-scheme gc` command can come later if it is needed.
 
-**Still to decide:** what sits in the output folder besides the manifest. One
-option is a materialized view, with each manifest path linked to its object, so
-the folder can be served or run as it is.
+The output folder holds the manifest and a view of it: each path the manifest
+names is a relative symbolic link to its object in the store, or, for a debug
+build's linked file, to the file itself. The folder can therefore be served or
+run as it is, as `python3 -m http.server --directory build/src/apps/siegework/main`
+serves a browser program. The manifest is the record; the links are derived
+from it and rewritten by each build.
 
 ## Linked files
 
