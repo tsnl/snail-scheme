@@ -11,7 +11,7 @@
   <script type="module">
     import {startApplication} from './host.mjs';
     const overlay = document.getElementById('overlay');
-    startApplication({url: './program.wasm', canvas: document.getElementById('view'), overlay, storageKey: 'hearsay'})
+    startApplication({canvas: document.getElementById('view'), overlay, storageKey: 'hearsay'})
       .then(() => { document.body.dataset.ready = 'true'; })
       .catch(error => { document.body.dataset.error = error.message; overlay.textContent = error.message; });
   </script>

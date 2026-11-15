@@ -1,9 +1,9 @@
 # Bootstrap and self-hosting
 
 The compiler is a `snail-scheme` program that compiles itself, inside the
-command line, `bootstrap/cli.sld`, the one program stage zero builds.
-Everything else, the engine, `snailc` and the book's
-highlighter, the command line builds as targets of the repository's
+command line, `bootstrap/cli.sld`, the one program stage zero builds, which
+also holds the engine that runs per-library programs. Everything else,
+`snailc` and the book's highlighter among them, the command line builds as targets of the repository's
 `project.datum`, as `clang` builds `lli`. Chez Scheme
 runs that same source for stage zero through a deliberately small host
 adapter. This does not make `snail-scheme` an R6RS or R7RS implementation:
@@ -84,14 +84,16 @@ input, having written its `request.datum` first.
 `host/native/run-snail.mjs` does on Node, for one that needs of its host
 only WASI, the files it links and loading modules
 (`crates/snail/src/program.rs`).
-PROGRAM is one linked module, or the `modules.json` of a per-library build,
-which the engine runs: `(snail shell engine)`, the root project's `engine`
-target (`tools/engine.sld`), published at `build/engine/program.wasm`
-(`./snail-scheme build . engine`, which `make test` runs first), which both
-hosts start with the manifest in `SNAIL_MANIFEST`, or at
-`SNAIL_ENGINE_MODULE`. The engine reads the runtime and each module from
-the store the manifest names, by digest, through its `linked-content-store`
-effect, which this entry handles by reading files. It links them through
+PROGRAM is one linked module, or the `NAME.manifest.datum` of a per-library
+build, which the engine runs: `(snail shell engine)`, which the command line
+holds ("The engine" in `bootstrap/cli.sld`), so the program stage 0 builds is
+also what runs every per-library program. Both hosts start it, from
+`build/bootstrap/snail-scheme.wasm` or `SNAIL_ENGINE_MODULE`, with the
+manifest in `SNAIL_MANIFEST`, and call its `engine:` exports in place of its
+`main`; a host decides by being given a manifest. The engine reads the
+manifest with the compiler's reader, and the runtime and each module from
+`store/` beside it, by digest, through its `linked-content-store` effect,
+which the command line handles by reading files. It links them through
 the Wasm primitives of `(snail shell wasm)`, the runtime first and each
 library's module after those it imports from, names the runtime
 `snail.core.support` so the host stages Bytes in its memory, calls the root program
@@ -103,7 +105,8 @@ which links the program and calls its entry, and then reads
 as one through its `engine:turn`, `engine:wake`, `engine:close-tasks`,
 `engine:running` and `engine:live`, which the host calls in place of
 `tasks:*`. A file a
-linked module links is an object of `store/` beside it, read by the host
+linked module links is an object of `store/` beside it, at
+`sha256/AB/DIGEST`, read by the host
 when a task first asks for it, which wakes the task's ticket between turns
 (`links.rs`).
 WASI gets PROGRAM and the arguments, the environment with `SNAIL_CWD`

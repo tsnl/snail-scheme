@@ -78,7 +78,7 @@ async function application(options = {}) {
   const wasi = createWasi({print() {}});
   const imports = {...runtime.imports, 'snail.runtime.browser.screen': screen, 'snail.test': {marker: () => -9}};
   let program;
-  if (path.endsWith('.json')) {
+  if (path.endsWith('.manifest.datum')) {
     program = await linkProgram(file => readFile(resolve(dirname(path), file)), path, wasi, imports);
 
   } else {
@@ -284,11 +284,11 @@ async function checkUnpresentedReturn() {
 // A library may not take a name the host provides: the program's modules
 // would import that library in place of the host's interface.
 async function checkReservedName() {
-  if (!path.endsWith('.json')) return;
+  if (!path.endsWith('.manifest.datum')) return;
   const renamed = async file => {
     const bytes = await readFile(resolve(dirname(path), file));
     if (resolve(dirname(path), file) !== path) return bytes;
-    return new TextEncoder().encode(new TextDecoder().decode(bytes).replace(/"name": ?"[^"]+"/, '"name": "snail.runtime.wasm"'));
+    return new TextEncoder().encode(new TextDecoder().decode(bytes).replace(/\(module "[^"]+"/, '(module "snail.runtime.wasm"'));
   };
   await assert.rejects(linkProgram(renamed, path, createWasi({print() {}}), {}),
     /no library may be linked as snail\.runtime\.wasm, which the host provides/);

@@ -1,30 +1,23 @@
 // One loader and replacement transaction for every browser application.
 // Engines supply device imports and reset their presentation before each run.
-import {createWasi, instantiate, linkedFileImports, linkProgram} from './load.mjs';
+import {createWasi, linkProgram} from './load.mjs';
 import {applicationEntry, HIDDEN} from './runtime.mjs';
 
 export const running = [];
 
+// The page's program is linked from its manifest, which the build names
+// in the page (a `snail-modules` meta element), or from `url`.
 export async function startPage(application, url) {
   Object.assign(application, {program: null, errors: []});
-  const modules = document.querySelector('meta[name="snail-modules"]')?.content;
-  if (modules) await linkApplication(application, modules, fetchRead(modules));
-  else await instantiateApplication(application, url);
+  const manifest = document.querySelector('meta[name="snail-modules"]')?.content ?? url;
+  if (!manifest) throw new Error('the page names no program manifest');
+  await linkApplication(application, manifest, fetchRead(manifest));
   application.reset();
   application.startup = startCold(application);
   running.push(application);
   addEventListener('visibilitychange', () => { if (document.hidden) application.runtime.send(HIDDEN); });
   await application.startup;
   return application;
-}
-
-async function instantiateApplication(application, url) {
-  const wasi = createWasi({print: printer(application)});
-  const module = await WebAssembly.compileStreaming(fetch(url));
-  const linked = linkedFileImports(fetchRead(url), module, () => application.runtime.execution.tasks);
-  const instance = await instantiate(module, {...wasi.getImportObject(), ...application.imports, ...linked});
-  wasi.initialize(instance);
-  application.program = instance;
 }
 
 async function linkApplication(application, manifest, read) {

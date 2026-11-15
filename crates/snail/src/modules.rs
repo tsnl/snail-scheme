@@ -4,27 +4,26 @@
 //! The engine ((snail shell engine)) links a program compiled one library at
 //! a time through them.
 //!
-//! A per-library build is named by its modules.json, which `build-modules`
-//! in host/chez/snail/stage0/build.sld writes beside the modules:
-//! `{"store": STORE, "runtime": OBJECT, "modules": [{"name": LIBRARY, ...OBJECT}, ...], "files": [OBJECT, ...]}`,
-//! where an OBJECT is `{"digest": DIGEST, "size": SIZE}` naming a file of the
-//! store, the libraries in program order; `snail imports` reads it.
+//! A program is named by its manifest, NAME.manifest.datum, which every
+//! build writes beside store/: a list of `(runtime "DIGEST" SIZE)`, then
+//! `(module "LIBRARY" "DIGEST" SIZE)` for each library in program order,
+//! then `(file "DIGEST" SIZE)` for each file it links, each object at
+//! store/sha256/AB/DIGEST (`object_path`); `snail imports` reads it.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use serde_json::Value;
 use wasmtime::{Caller, Extern, ExternType, Func};
 use wasmtime::{Instance, Linker, Module, Val, ValType};
 use wasmtime::{Trap, bail, format_err};
 
 use crate::engine::run_export;
+use crate::links::object_path;
 use crate::program::{Host, NODE_ONLY};
 
 // ---- The manifest ----
 
-/// A modules.json, its objects resolved in its store, `store/` beside the
-/// manifest unless it says otherwise: the runtime and each library's
+/// A manifest, its objects resolved in store/ beside it: the runtime and each library's
 /// module, which `snail imports` reads; the engine links them.
 pub struct Manifest {
     pub runtime: PathBuf,
@@ -43,11 +42,9 @@ impl Manifest {
         let text = std::fs::read_to_string(path)
             .map_err(|error| format_err!("cannot read {}: {error}", path.display()))?;
         let directory = path.parent().unwrap_or(Path::new(""));
-        let json = serde_json::from_str(&text).ok();
-        let manifest = json.and_then(|json| Manifest::described(&json, directory));
-        let manifest = manifest.ok_or_else(|| {
-            format_err!("{} is not the modules.json of a program", path.display())
-        })?;
+        let manifest = entries(&text).and_then(|entries| Manifest::described(&entries, directory));
+        let manifest = manifest
+            .ok_or_else(|| format_err!("{} is not the manifest of a program", path.display()))?;
         if let Some(library) = manifest
             .libraries
             .iter()
@@ -61,25 +58,26 @@ impl Manifest {
         Ok(manifest)
     }
 
-    // The manifest `json` describes, its objects in the store it names in
-    // `directory`, if it describes one.
-    fn described(json: &Value, directory: &Path) -> Option<Manifest> {
-        let store = directory.join(json["store"].as_str().unwrap_or("store/"));
-        let object = |value: &Value| Some(store.join("sha256").join(value["digest"].as_str()?));
-        let library = |entry: &Value| {
-            let name = entry["name"].as_str()?.to_string();
-            Some(Library {
-                name,
-                file: object(entry)?,
-            })
+    // The manifest `entries` describe, its objects in store/ in
+    // `directory`, if they describe one: one runtime, and each module.
+    fn described(entries: &[Vec<String>], directory: &Path) -> Option<Manifest> {
+        let store = directory.join("store");
+        let [kind, runtime, _] = entries.first()?.as_slice() else {
+            return None;
         };
-        let libraries = json["modules"]
-            .as_array()?
-            .iter()
-            .map(library)
-            .collect::<Option<_>>()?;
-        Some(Manifest {
-            runtime: object(&json["runtime"])?,
+        let mut libraries = Vec::new();
+        for entry in &entries[1..] {
+            match entry.as_slice() {
+                [kind, name, digest, _] if kind == "module" => libraries.push(Library {
+                    name: name.clone(),
+                    file: object_path(&store, digest),
+                }),
+                [kind, _, _] if kind == "file" => {}
+                _ => return None,
+            }
+        }
+        (kind == "runtime").then(|| Manifest {
+            runtime: object_path(&store, runtime),
             libraries,
         })
     }
@@ -91,6 +89,77 @@ impl Manifest {
             .chain(libraries)
             .collect()
     }
+}
+
+// ---- Reading a manifest ----
+
+// A manifest's one datum, a list of entries, each a list of strings and
+// integers, which read as their text; None if it is anything else.
+fn entries(text: &str) -> Option<Vec<Vec<String>>> {
+    let mut tokens = tokens(text)?.into_iter();
+    let mut entries = Vec::new();
+    (tokens.next()? == Token::Open).then_some(())?;
+    loop {
+        match tokens.next()? {
+            Token::Close => return tokens.next().is_none().then_some(entries),
+            Token::Open => entries.push(entry(&mut tokens)?),
+            Token::Atom(_) => return None,
+        }
+    }
+}
+
+fn entry(tokens: &mut impl Iterator<Item = Token>) -> Option<Vec<String>> {
+    let mut items = Vec::new();
+    loop {
+        match tokens.next()? {
+            Token::Close => return Some(items),
+            Token::Atom(text) => items.push(text),
+            Token::Open => return None,
+        }
+    }
+}
+
+#[derive(PartialEq)]
+enum Token {
+    Open,
+    Close,
+    Atom(String),
+}
+
+// Parentheses, strings with \" and \\ escapes, and bare atoms; a ; begins
+// a comment to the end of its line.
+fn tokens(text: &str) -> Option<Vec<Token>> {
+    let mut tokens = Vec::new();
+    let mut chars = text.chars().peekable();
+    while let Some(char) = chars.next() {
+        match char {
+            '(' => tokens.push(Token::Open),
+            ')' => tokens.push(Token::Close),
+            ';' => while chars.next_if(|char| *char != '\n').is_some() {},
+            '"' => {
+                let mut string = String::new();
+                loop {
+                    match chars.next()? {
+                        '"' => break,
+                        '\\' => string.push(chars.next()?),
+                        char => string.push(char),
+                    }
+                }
+                tokens.push(Token::Atom(string));
+            }
+            char if char.is_whitespace() => {}
+            char => {
+                let mut atom = String::from(char);
+                while let Some(char) =
+                    chars.next_if(|char| !char.is_whitespace() && !"()\";".contains(*char))
+                {
+                    atom.push(char);
+                }
+                tokens.push(Token::Atom(atom));
+            }
+        }
+    }
+    Some(tokens)
 }
 
 // ---- The platform ----
@@ -622,55 +691,50 @@ mod tests {
     fn build(name: &str, runtime_text: &str) -> PathBuf {
         let runtime_file = PathBuf::from(module_file(&format!("{name}-runtime"), runtime_text));
         let directory = runtime_file.with_extension("build");
-        let objects = directory.join("store").join("sha256");
-        std::fs::create_dir_all(&objects).unwrap();
-        std::fs::rename(&runtime_file, objects.join("runtime")).unwrap();
-        std::fs::write(objects.join("lib"), wat::parse_str(LIBRARY).unwrap()).unwrap();
-        std::fs::write(objects.join("main"), wat::parse_str(MAIN).unwrap()).unwrap();
-        let manifest = r#"{"runtime": {"digest": "runtime", "size": 0}, "modules": [{"name": "lib", "digest": "lib", "size": 0}, {"name": "main", "digest": "main", "size": 0}], "files": []}"#;
-        std::fs::write(directory.join("modules.json"), manifest).unwrap();
-        directory.join("modules.json")
+        let store = directory.join("store");
+        for (digest, bytes) in [
+            ("runtime", std::fs::read(&runtime_file).unwrap()),
+            ("lib", wat::parse_str(LIBRARY).unwrap()),
+            ("main", wat::parse_str(MAIN).unwrap()),
+        ] {
+            let path = object_path(&store, digest);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, bytes).unwrap();
+        }
+        let manifest = r#"((runtime "runtime" 0) ; the runtime first
+ (module "lib" "lib" 0) (module "main" "main" 0))"#;
+        std::fs::write(directory.join("program.manifest.datum"), manifest).unwrap();
+        directory.join("program.manifest.datum")
     }
 
     #[test]
     fn a_manifest_names_its_files_beside_it() {
         let manifest = build("manifest", &runtime(0));
         let read = Manifest::read(&manifest).unwrap();
-        let objects = manifest.parent().unwrap().join("store/").join("sha256");
+        let store = manifest.parent().unwrap().join("store");
         assert_eq!(
             read.files(),
             [
-                objects.join("runtime"),
-                objects.join("lib"),
-                objects.join("main")
+                object_path(&store, "runtime"),
+                object_path(&store, "lib"),
+                object_path(&store, "main")
             ]
         );
         assert_eq!(read.libraries[0].name, "lib");
     }
 
     #[test]
-    fn a_manifest_names_the_store_its_objects_are_in() {
-        let manifest = build("store", &runtime(0));
-        let text = std::fs::read_to_string(&manifest).unwrap();
-        std::fs::write(
-            &manifest,
-            text.replace(
-                r#"{"runtime""#,
-                r#"{"store": "../.snail-store/", "runtime""#,
-            ),
-        )
-        .unwrap();
-        let read = Manifest::read(&manifest).unwrap();
-        let store = manifest.parent().unwrap().join("../.snail-store/");
-        assert_eq!(read.runtime, store.join("sha256").join("runtime"));
-    }
-
-    #[test]
     fn what_is_not_a_manifest_is_refused() {
         let manifest = build("invalid", &runtime(0));
-        std::fs::write(&manifest, r#"{"runtime": {"digest": "runtime"}}"#).unwrap();
-        let error = Manifest::read(&manifest).err().unwrap().to_string();
-        assert!(error.ends_with("modules.json is not the modules.json of a program"));
+        for text in [
+            r#"((module "lib" "lib" 0))"#,
+            r#"((runtime "runtime"))"#,
+            "(runtime",
+        ] {
+            std::fs::write(&manifest, text).unwrap();
+            let error = Manifest::read(&manifest).err().unwrap().to_string();
+            assert!(error.ends_with("program.manifest.datum is not the manifest of a program"));
+        }
     }
 
     #[test]
@@ -679,7 +743,7 @@ mod tests {
         let text = std::fs::read_to_string(&manifest).unwrap();
         std::fs::write(
             &manifest,
-            text.replace(r#""name": "lib""#, r#""name": "snail.runtime.wasm""#),
+            text.replace(r#"(module "lib""#, r#"(module "snail.runtime.wasm""#),
         )
         .unwrap();
         let error = Manifest::read(&manifest).err().unwrap().to_string();

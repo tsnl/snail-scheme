@@ -14,10 +14,10 @@ import {createAsyncFiles} from './async-files.mjs';
 
 // ---- One reactor initialization and one program invocation ----
 //
-// A program is one linked module, or a modules.json naming the modules of a
+// A program is one linked module, or a manifest naming the modules of a
 // program compiled one library at a time, which the engine links
-// ((snail shell engine), the root project's `engine` target, published at
-// build/engine/program.wasm, or where
+// ((snail shell engine), which the command line holds:
+// build/bootstrap/snail-scheme.wasm, or where
 // SNAIL_ENGINE_MODULE says): this host starts the engine with the manifest
 // in SNAIL_MANIFEST, and the engine reads the objects from the store,
 // links them through the Wasm primitives of load.mjs, runs each main, and
@@ -65,7 +65,7 @@ function exiting(wasi) {
 async function run(filename, arguments_) {
   const freshWasi = (env = {}) => exiting(new WASI({version: 'preview1', args: [filename, ...arguments_],
     env: {...process.env, SNAIL_CWD: process.cwd(), ...env}, preopens: {'/': '/'}}));
-  const wasi = freshWasi(filename.endsWith('.json') ? {SNAIL_MANIFEST: resolve(filename)} : {});
+  const wasi = freshWasi(isManifest(filename) ? {SNAIL_MANIFEST: resolve(filename)} : {});
   let program, failed = false, status = 0;
   const tcp = createTcp(), udp = createUdp(), processes = createProcesses();
   const termination = createTermination();
@@ -112,9 +112,9 @@ async function run(filename, arguments_) {
 // whose memory stages the Bytes the host's services read.
 async function loadProgram(filename, wasi, host, tasks) {
   const read = file => readFile(resolve(dirname(filename), file));
-  const module = await WebAssembly.compile(await readFile(filename.endsWith('.json') ? engineModule() : filename));
+  const engine = isManifest(filename);
+  const module = await WebAssembly.compile(await readFile(engine ? engineModule() : filename));
   const program = {runtime: null, exports: null, host, linked: new Map()};
-  const engine = filename.endsWith('.json');
   const instance = await (engine ? instantiate(module, {...wasi.getImportObject(), ...host})
     : WebAssembly.instantiate(module, {...wasi.getImportObject(), ...host, ...linkedFileImports(read, module, tasks)}));
   wasi.initialize(instance);
@@ -123,8 +123,10 @@ async function loadProgram(filename, wasi, host, tasks) {
 }
 
 function engineModule() {
-  return process.env.SNAIL_ENGINE_MODULE ?? fileURLToPath(new URL('../../build/engine/program.wasm', import.meta.url));
+  return process.env.SNAIL_ENGINE_MODULE ?? fileURLToPath(new URL('../../build/bootstrap/snail-scheme.wasm', import.meta.url));
 }
+
+const isManifest = filename => filename.endsWith('.manifest.datum');
 
 // The program's main, or the engine's, whose first task links the program
 // and runs each of its mains in order, keeping the last one's result,
@@ -134,7 +136,7 @@ function engineModule() {
 // outlive the program's main invocation: its tasks run once every main
 // has returned.
 function runInitializers(program, tasks) {
-  if (!program.exports['engine:start']) return runMain(program.exports, tasks);
+  if (!program.loader) return runMain(program.exports, tasks);
   tasks.call('engine:start');
   tasks.call('tasks:turn', BigInt(Date.now()));
   return Number(tasks.call('engine:status'));

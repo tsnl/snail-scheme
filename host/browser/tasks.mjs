@@ -15,7 +15,7 @@
 export function taskExports(program) {
   const exports = program.names ? program.linked.get('snail.shell.task')?.exports
     : program.exports ?? program.runtime.exports;
-  if (exports?.['engine:turn']) return engineTasks(exports);
+  if (program.loader && exports?.['engine:turn']) return engineTasks(exports);
   return exports?.['tasks:turn'] ? exports : null;
 }
 

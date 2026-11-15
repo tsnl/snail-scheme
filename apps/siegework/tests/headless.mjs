@@ -10,7 +10,7 @@ import {promisify} from 'node:util';
 import assert from 'node:assert/strict';
 import {screenImports} from '../../../host/browser/host.mjs';
 import {createRuntime, applicationEntry} from '../../../host/browser/runtime.mjs';
-import {createWasi, instantiate} from '../../../host/browser/load.mjs';
+import {createWasi, linkProgram} from '../../../host/browser/load.mjs';
 
 const ELAPSED = 11, PRESS = 9, POINTER_UP = 5, POINTER_MOVE = 4, POINTER_DOWN = 3, KEY_DOWN = 1, KEY_UP = 2;
 const SUGGESTED = 5;
@@ -30,12 +30,11 @@ const target = host => [host.frames.at(-1).camera.target[0], host.frames.at(-1).
 
 // The project's actual package. The smaller application-runtime fixture
 // exercises this same lifecycle under both static and dynamic linking.
-async function instantiateGame(path, host, saved) {
+async function instantiateGame(directory, host, saved) {
   const runtime = createRuntime({seed: 7, load: async () => saved});
   const wasi = createWasi({print: (fd, line) => console.log(line)});
-  const program = await instantiate(await WebAssembly.compile(await readFile(path)),
-    {...wasi.getImportObject(), ...runtime.imports, 'snail.runtime.browser.screen': host.imports});
-  wasi.initialize(program);
+  const program = await linkProgram(file => readFile(join(directory, file)), 'siegework.manifest.datum', wasi,
+    {...runtime.imports, 'snail.runtime.browser.screen': host.imports}, () => runtime.execution.tasks);
   await runtime.start(applicationEntry(program)).ready.promise;
   return runtime;
 }
@@ -57,7 +56,7 @@ const tap = async (game, x, y) => { await send(game, POINTER_DOWN, 1, x, y, 0); 
 
 const root = resolve(process.argv[2]);
 const built = await promisify(execFile)(join(root, 'snail-scheme'), ['build', root, 'siegework']);
-const path = join(built.stdout.trim(), 'program.wasm');
+const path = built.stdout.trim();
 const host = screen();
 const game = await instantiateGame(path, host);
 const first = host.frames.at(-1);

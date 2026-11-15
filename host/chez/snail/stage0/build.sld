@@ -51,9 +51,8 @@
     ;; ---- Running programs ----
 
     ;; The command that runs a compiled program, one linked module or the
-    ;; modules.json of a per-library build, which the engine links
-    ;; (tools/engine.sld, which `./snail-scheme build . engine` builds into
-    ;; build/engine, where both runners look for it). Node runs it,
+    ;; manifest of a per-library build, which the engine links (the
+    ;; command line holds it, where both runners look for it). Node runs it,
     ;; unless SNAIL_ENGINE=wasmtime asks for build/snail, whose `run-wasm`
     ;; runs a program that needs of its host only WASI, the files it links
     ;; and loading modules, and drives its tasks. A program that imports
@@ -621,10 +620,14 @@
                   (loop (cons (cons (car entry) (cadr entry)) links))))))))
 
     ;; Each file is an object of the store beside the payload in
-    ;; `directory`, at store/sha256/DIGEST, where its host reads it when
-    ;; the program first asks.
+    ;; `directory`, at store/sha256/AB/DIGEST, sharded by the digest's
+    ;; first two hex digits, where its host reads it when the program
+    ;; first asks.
     (define (place-links! links directory)
       (for-each (lambda (link) (place-object! directory (file-bytes (cdr link)))) links))
+
+    (define (object-path directory digest)
+      (path-join directory "store" "sha256" (substring digest 0 2) digest))
 
     ;; Places `bytes` as an object of the store beside the payload in
     ;; `directory`, unless it is there, answering (DIGEST . SIZE) as a
@@ -632,7 +635,7 @@
     ;; directly, so both hosts use the same digest algorithm.
     (define (place-object! directory bytes)
       (let* ((digest (bytes->hex (sha256 (list->vector (bytevector->u8-list bytes)))))
-             (to (path-join directory "store" "sha256" digest)))
+             (to (object-path directory digest)))
         (create-directory* (path-directory to))
         (unless (file-exists? to) (write-bytes! to bytes))
         (cons digest (bytevector-length bytes))))
@@ -641,8 +644,8 @@
 
     ;; A program linked when it runs: each library's module, assembled but
     ;; not optimized, the runtime, and the files it links, all objects of
-    ;; store/ in `output`, and modules.json naming them, the modules in
-    ;; program order, for the loader in host/browser/load.mjs. Each
+    ;; store/ in `output`, and program.manifest.datum naming them, the
+    ;; modules in program order, for the loader in host/browser/load.mjs. Each
     ;; module's NAME.wasm stays beside its text, for a program that loads
     ;; one by path.
     (define (build-modules root directories source output)
@@ -667,7 +670,8 @@
                                                                           (string-append name
                                                                                          ".wasm"))))))
                             names)))
-          (write-file (path-join output "modules.json") (modules-json runtime modules links))
+          (write-file (path-join output "program.manifest.datum")
+                      (manifest-text runtime modules links))
           (place-links! links output)
           output)))
 
@@ -689,33 +693,23 @@
                       (substring rest (+ end 1) (string-length rest))))
               (reverse lines)))))
 
-    ;; The manifest: the store beside it, the runtime, each module by name,
-    ;; and each linked file, every object by digest with its size.
-    (define (modules-json runtime modules links)
-      (string-append "{\"store\": \"store/\", \"runtime\": " (object-json runtime)
-                     ", \"modules\": ["
-                     (joined (map (lambda (module)
-                                    (string-append "{\"name\": \"" (car module) "\", "
-                                                   (object-members (cdr module)) "}"))
-                                  modules))
-                     "], \"files\": ["
-                     (joined (map (lambda (link)
-                                    (object-json (cons (car link) (file-size (cdr link)))))
-                                  links))
-                     "]}\n"))
-
-    ;; An object as a manifest names it, (DIGEST . SIZE).
-    (define (object-json object)
-      (string-append "{" (object-members object) "}"))
-
-    (define (object-members object)
-      (string-append "\"digest\": \"" (car object) "\", \"size\": " (number->string (cdr object))))
-
-    (define (joined items)
-      (let loop ((items items) (out ""))
-        (if (null? items)
-            out
-            (loop (cdr items) (string-append out (if (string=? out "") "" ", ") (car items))))))
+    ;; The manifest: the runtime, each module by name, and each linked
+    ;; file, every object by digest with its size, an entry a line, as
+    ;; the project builder writes one.
+    (define (manifest-text runtime modules links)
+      (call-with-string-output-port
+       (lambda (port)
+         (write-string "(" port)
+         (write (list 'runtime (car runtime) (cdr runtime)) port)
+         (for-each (lambda (module)
+                     (write-string "\n " port)
+                     (write (list 'module (car module) (cadr module) (cddr module)) port))
+                   modules)
+         (for-each (lambda (link)
+                     (write-string "\n " port)
+                     (write (list 'file (car link) (file-size (cdr link))) port))
+                   links)
+         (write-string ")\n" port))))
 
     ;; ---- Programs that assemble ----
 
@@ -769,7 +763,7 @@
                                       (expect object (cons digest size))
                                       (expect (place-object! directory bytes) object)
                                       (expect
-                                       (file-bytes (path-join directory "store/sha256" digest))
+                                       (file-bytes (object-path directory digest))
                                        bytes))))))
 
       (define (request-failure thunk)

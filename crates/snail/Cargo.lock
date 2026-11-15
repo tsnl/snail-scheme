@@ -1137,7 +1137,6 @@ version = "0.1.0"
 dependencies = [
  "io-uring",
  "libc",
- "serde_json",
  "snail-scheme-support",
  "wasmparser 0.254.2",
  "wasmtime",

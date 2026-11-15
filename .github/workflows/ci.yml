@@ -89,9 +89,9 @@ jobs:
       - name: Test native host
         shell: nix-shell --run "bash -euo pipefail {0}"
         run: cargo test --manifest-path crates/snail/Cargo.toml --offline
-      - name: Bootstrap the command line and build the engine
+      - name: Bootstrap the command line
         shell: nix-shell --run "bash -euo pipefail {0}"
-        run: ./snail-scheme build . engine >/dev/null
+        run: ./scripts/bootstrap >/dev/null
       - name: Test snail-scheme
         shell: nix-shell --run "bash -euo pipefail {0}"
         run: make test

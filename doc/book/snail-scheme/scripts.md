@@ -156,7 +156,7 @@ Every build has the same shape, debug or release:
 - **A manifest**, `main.manifest.datum`, naming every file the program needs:
   its modules in link order, the runtime, and each linked file. Each entry gives
   a path and the object's digest.
-- **One store**, `build/store/sha256/ab/abcdef…`, shared by every build in the
+- **One store**, `build/.snail-store/sha256/ab/abcdef…`, shared by every build in the
   workspace. An object is named for the SHA-256 of its bytes and sharded by the
   first two hex digits. It is written once and never rewritten.
 
@@ -213,10 +213,11 @@ Each step is a pull request that passes every check on its own.
 1. **Drop `watch`.** Done: the development service, `development.sld`,
    `(snail shell project bundle)`, the reload client, relinking and file
    watching (`(snail shell watch)`) are gone, with their tests and chapters.
-2. **The store and manifests.**
+2. **The store and manifests.** Done, with the engine moved into the command
+   line, since every program is now linked one library at a time:
    - Every build keeps a module per library, and the `Debug` and `Development`
      modes merge.
-   - All builds share the sharded `build/store/`, and each writes its
+   - All builds share the sharded `build/.snail-store/`, and each writes its
      `.manifest.datum`.
    - Targets still come from `project.datum`.
 3. **Scripts and `run`/`build FILE`.**

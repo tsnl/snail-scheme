@@ -8,7 +8,7 @@
 //! "snail.runtime.resource", starting the read under a ticket of (snail
 //! shell task), and then finishing the ticket for the file's length and
 //! reading the bytes held until the next finish. This host reads the file
-//! from the program's store, `STORE/sha256/DIGEST`, when the read starts, the
+//! from the program's store, `STORE/sha256/AB/DIGEST` (`object_path`), when the read starts, the
 //! first time it is asked for, and wakes the ticket between turns
 //! (program.rs's `drive`), since a ticket may not wake before its task
 //! waits on it. A file that cannot be read traps the task that finishes it.
@@ -22,12 +22,21 @@ use crate::program::Host;
 
 // ---- Reading ----
 
+/// Where the store at `store` keeps the object `digest`: under sha256/,
+/// sharded by the digest's first two hex digits, as every build writes it.
+pub fn object_path(store: &Path, digest: &str) -> PathBuf {
+    store
+        .join("sha256")
+        .join(digest.get(..2).unwrap_or(digest))
+        .join(digest)
+}
+
 /// The files a program links, by handle, a file's position among the names
 /// its modules link; what each read answers, by ticket; and the bytes the
 /// last finish holds.
 #[derive(Default)]
 pub struct Files {
-    objects: PathBuf,
+    store: PathBuf,
     names: Vec<String>,
     read: Vec<Option<Vec<u8>>>,
     answers: HashMap<i64, Result<usize, String>>,
@@ -40,7 +49,7 @@ impl Files {
     /// tasks ask for them.
     pub fn new(store: &Path, names: &[String]) -> Files {
         Files {
-            objects: store.join("sha256"),
+            store: store.to_path_buf(),
             names: names.to_vec(),
             read: vec![None; names.len()],
             ..Files::default()
@@ -58,7 +67,7 @@ impl Files {
             Some(_) => Ok(index),
             None => {
                 let name = &self.names[index];
-                std::fs::read(self.objects.join(name))
+                std::fs::read(object_path(&self.store, name))
                     .map(|bytes| {
                         self.read[index] = Some(bytes);
                         index
@@ -199,7 +208,7 @@ mod tests {
         let directory =
             std::env::temp_dir().join(format!("snail-test-{}-{name}", std::process::id()));
         for (file, bytes) in files {
-            let path = directory.join("sha256").join(file);
+            let path = object_path(&directory, file);
             std::fs::create_dir_all(path.parent().unwrap()).unwrap();
             std::fs::write(path, bytes).unwrap();
         }
@@ -237,7 +246,7 @@ mod tests {
     #[test]
     fn a_file_is_read_when_first_asked_for_and_kept() {
         let directory = payload("lazy", &[(GREETING, b"hello")]);
-        let file = directory.join("sha256").join(GREETING);
+        let file = object_path(&directory, GREETING);
         let mut files = Files::new(&directory, &names());
         std::fs::write(&file, "later").unwrap();
         files.start(1, 0).unwrap();

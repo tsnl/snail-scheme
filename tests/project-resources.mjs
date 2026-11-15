@@ -4,29 +4,32 @@
 //   node tests/project-resources.mjs ROOT
 //
 // A library links two files beside its source. A program target and a
-// browser target each place them at store/sha256/DIGEST in their output;
-// the program prints the bytes of one, read in a task, natively and
-// through the browser host's loader fetching the page's files over HTTP,
-// which never fetches the file the program does not read.
+// browser target each place them in the project's store, build/.snail-store,
+// and view them at store/sha256/AB/DIGEST in their output, a link in a debug
+// build and a copy in a release one; the program prints the bytes of one,
+// read in a task, natively and through the browser host's loader fetching
+// the page's files over HTTP, which never fetches the file the program does
+// not read.
 import assert from 'node:assert/strict';
 import {execFile} from 'node:child_process';
 import {createHash} from 'node:crypto';
-import {mkdir, mkdtemp, readFile, readdir, rm, writeFile} from 'node:fs/promises';
+import {lstat, mkdir, mkdtemp, readFile, rm, writeFile} from 'node:fs/promises';
 import {createServer} from 'node:http';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {promisify} from 'node:util';
-import {createWasi, instantiate, linkedFileImports, runMain} from '../host/browser/load.mjs';
+import {createWasi, linkProgram, objectPath, programExports, runMain} from '../host/browser/load.mjs';
 import {createTasks, taskExports} from '../host/browser/tasks.mjs';
 
 const execute = promisify(execFile), root = process.argv[2];
 const project = await mkdtemp(join(tmpdir(), 'snail-project-resources-'));
-const build = target => execute(join(root, 'snail-scheme'), ['build', project, target]);
+const build = (target, ...flags) => execute(join(root, 'snail-scheme'), ['build', ...flags, project, target]);
 const run = path => execute(process.execPath, ['--no-warnings', join(root, 'host/native/run-snail.mjs'), path]);
 const write = async (name, contents) => { await mkdir(join(project, name, '..'), {recursive: true}); await writeFile(join(project, name), contents); };
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 const hero = Buffer.from([1, 2, 3, 255]), villain = Buffer.from([7]);
-const resource = (directory, bytes) => readFile(join(directory, 'store', 'sha256', digest(bytes)));
+const resource = (directory, bytes) => readFile(join(directory, objectPath(digest(bytes))));
+const viewed = async (directory, bytes) => (await lstat(join(directory, objectPath(digest(bytes))))).isSymbolicLink() ? 'link' : 'copy';
 
 // The browser host fetches a static page's files relative to its module,
 // so serve the output as a page's server would and read through it. The
@@ -40,20 +43,19 @@ async function pageOutput(directory) {
     catch { response.writeHead(404).end(); }
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  const base = `http://127.0.0.1:${server.address().port}/program.wasm`, lines = [];
+  const base = `http://127.0.0.1:${server.address().port}/page.manifest.datum`, lines = [];
   try {
     const read = async file => {
       const response = await fetch(new URL(file, base));
       if (!response.ok) throw new Error(`${response.status} fetching ${file}`);
       return new Uint8Array(await response.arrayBuffer());
     };
-    const module = await WebAssembly.compile(await read('program.wasm'));
     const wasi = createWasi({print: (fd, line) => lines.push(line)});
-    let instance;
-    const tasks = createTasks(() => instance && taskExports({exports: instance.exports}));
-    instance = await instantiate(module, {...wasi.getImportObject(), ...linkedFileImports(read, module, () => tasks)});
-    wasi.initialize(instance);
-    runMain(instance.exports, tasks);
+    let program;
+    const tasks = createTasks(() => program && taskExports(program));
+    program = await linkProgram(read, 'page.manifest.datum', wasi, {}, () => tasks);
+    // The program's module has its main; the task library's starts it.
+    runMain({...taskExports(program), ...programExports(program)}, tasks);
     try { await tasks.drive(); }
     finally { tasks.close(); }
     return {output: lines.join('\n'), fetched};
@@ -74,15 +76,21 @@ try {
 
   await build('cli');
   assert.deepEqual(await resource(join(project, 'build/cli'), hero), hero, 'the program target places the file');
-  assert.deepEqual((await readdir(join(project, 'build/cli/store/sha256'))).sort(), [digest(hero), digest(villain)].sort());
-  assert.equal((await run(join(project, 'build/cli/program.wasm'))).stdout, '1,2,3,255\n', 'the native host reads it when the task asks');
+  assert.deepEqual(await resource(join(project, 'build/cli'), villain), villain);
+  assert.equal(await viewed(join(project, 'build/cli'), hero), 'link', 'a debug build links to the store');
+  assert.deepEqual(await readFile(join(project, 'build/.snail-store', objectPath(digest(hero)).replace(/^store\//, ''))), hero,
+                   'the project store holds it');
+  assert.equal((await run(join(project, 'build/cli/cli.manifest.datum'))).stdout, '1,2,3,255\n', 'the native host reads it when the task asks');
+  await build('cli', '--release');
+  assert.equal(await viewed(join(project, 'build/cli'), hero), 'copy', 'a release build copies it');
+  assert.equal((await run(join(project, 'build/cli/cli.manifest.datum'))).stdout, '1,2,3,255\n');
 
   await build('page');
   assert.deepEqual(await resource(join(project, 'build/page'), hero), hero, 'the browser target places the file');
   const page = await pageOutput(join(project, 'build/page'));
   assert.equal(page.output, '1,2,3,255', 'the browser host fetches it beside the module');
-  assert.ok(page.fetched.includes(`/store/sha256/${digest(hero)}`), page.fetched.join(' '));
-  assert.ok(!page.fetched.includes(`/store/sha256/${digest(villain)}`), 'a file the program never reads is never fetched');
+  assert.ok(page.fetched.includes(`/${objectPath(digest(hero))}`), page.fetched.join(' '));
+  assert.ok(!page.fetched.includes(`/${objectPath(digest(villain))}`), 'a file the program never reads is never fetched');
 
   await rm(join(project, 'src/assets/art/hero.bin'));
   await assert.rejects(build('cli'), /sprites\.sld:\d+:\d+: the library assets\.sprites links art\/hero\.bin, but there is no file at /);

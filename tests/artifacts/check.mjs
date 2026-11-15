@@ -6,6 +6,7 @@ import {createHash} from 'node:crypto';
 import {mkdir, readFile, writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {objectPath} from '../../host/browser/load.mjs';
 
 const [runtimePath, directory, expectedPath] = process.argv.slice(2);
 const runner = fileURLToPath(new URL('../../host/native/run-snail.mjs', import.meta.url));
@@ -15,16 +16,18 @@ const expected = await readFile(expectedPath, 'utf8');
 // does, answering how the manifest names it.
 async function object(output, path) {
   const bytes = await readFile(path), digest = createHash('sha256').update(bytes).digest('hex');
-  await mkdir(join(output, 'store/sha256'), {recursive: true});
-  await writeFile(join(output, 'store/sha256', digest), bytes);
+  await mkdir(join(output, objectPath(digest), '..'), {recursive: true});
+  await writeFile(join(output, objectPath(digest)), bytes);
   return {digest, size: bytes.length};
 }
 
 async function execute(output, names, wanted) {
-  const manifest = join(output, 'modules.json');
+  const manifest = join(output, 'program.manifest.datum');
   const runtime = await object(output, runtimePath);
   const modules = await Promise.all(names.map(async name => ({name, ...await object(output, join(output, name + '.wasm'))})));
-  await writeFile(manifest, JSON.stringify({store: 'store/', runtime, modules, files: []}));
+  const entries = [`(runtime "${runtime.digest}" ${runtime.size})`,
+    ...modules.map(module => `(module "${module.name}" "${module.digest}" ${module.size})`)];
+  await writeFile(manifest, `(${entries.join('\n ')})\n`);
   const result = spawnSync(process.execPath, ['--no-warnings', runner, manifest], {encoding: 'utf8'});
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout + result.stderr, wanted);
