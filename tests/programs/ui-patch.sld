@@ -50,7 +50,7 @@
   (Element "li" (list (Keyed name)) (list (Text name))))
 
 (define (main) (→ Unit) (! host mut output-port tasks)
-  (dispatch-local
+  (dispatch
    (lambda ()
      (let ((result (with-memory-dom (list (Fire "next" "click" (no-event))
                                           (Fire "next" "click" (no-event))

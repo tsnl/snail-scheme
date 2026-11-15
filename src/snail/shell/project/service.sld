@@ -210,7 +210,7 @@
     (define (develop (setup Setup))
       (→ Unit)
       (! mut tcp process fs modes hints output-port signals clock host tasks)
-      (dispatch-local (lambda () (start setup))))
+      (dispatch (lambda () (start setup))))
 
     ;; Listens, starts the resident, announces the editor's URL and the
     ;; applications', and dispatches every other task.
@@ -225,14 +225,14 @@
              (owner (make-mailbox))
              (disk (make-mailbox))
              (requests (make-mailbox)))
-        (dispatch-local (lambda () (scan-disk setup owner disk)))
-        (dispatch-local (lambda () (tick disk)))
-        (dispatch-local (lambda () (write-requests resident requests)))
-        (dispatch-local (lambda () (read-replies resident owner (Nil))))
-        (dispatch-local (lambda () (await-resident resident owner (Nil))))
-        (dispatch-local (lambda () (accept-connections setup listener owner disk)))
-        (dispatch-local (lambda () (accept-applications setup applications owner)))
-        (dispatch-local (lambda () (mailbox-post owner (Step (wait-for-signal)))))
+        (dispatch (lambda () (scan-disk setup owner disk)))
+        (dispatch (lambda () (tick disk)))
+        (dispatch (lambda () (write-requests resident requests)))
+        (dispatch (lambda () (read-replies resident owner (Nil))))
+        (dispatch (lambda () (await-resident resident owner (Nil))))
+        (dispatch (lambda () (accept-connections setup listener owner disk)))
+        (dispatch (lambda () (accept-applications setup applications owner)))
+        (dispatch (lambda () (mailbox-post owner (Step (wait-for-signal)))))
         (mailbox-post owner (Step (ResidentStarted)))
         (write-line (string-append "editing " (● setup project) " at " (origin setup) "/"))
         (write-line (string-append "serving its browser targets at "
@@ -542,9 +542,9 @@
 
     (define (arm (host Host)) (→ Host) (! mut host tasks)
       (let ((serial (+ (● host serial) 1)) (owner (● host owner)))
-        (dispatch-local (lambda ()
-                          (sleep 40)
-                          (mailbox-post owner (Fired serial))))
+        (dispatch (lambda ()
+                    (sleep 40)
+                    (mailbox-post owner (Fired serial))))
         (Host-serial-set host serial)))
 
     ;; ---- Run targets ----
@@ -559,7 +559,7 @@
         ((Some run) (mailbox-post (● run inbox) (Want wanted)) host)
         ((None)
          (let ((inbox (make-mailbox)) (setup (● host setup)) (owner (● host owner)))
-           (dispatch-local (lambda () (supervise (new-supervisor setup owner inbox name))))
+           (dispatch (lambda () (supervise (new-supervisor setup owner inbox name))))
            (mailbox-post inbox (Want wanted))
            (Host-runs-set host
                           (append (● host runs)
@@ -926,7 +926,7 @@
         ((Some child) (close-process child) (unit))
         ((None) (unit)))
       (let ((owner (● host owner)))
-        (dispatch-local (lambda () (sleep 2000) (mailbox-post owner (Overdue)))))
+        (dispatch (lambda () (sleep 2000) (mailbox-post owner (Overdue)))))
       (resumed
        (Host-waiting-set (Host-connections-set (Host-stopping-set (Host-clients-set host (Nil))
                                                                   (Some rest))
@@ -1060,7 +1060,7 @@
         ((Cons root rest)
          (match (watch-tree root excluded)
            ((Some watch)
-            (dispatch-local (lambda () (relay-hints watch disk)))
+            (dispatch (lambda () (relay-hints watch disk)))
             (Cons watch (watch-roots rest excluded disk)))
            ((None) (watch-roots rest excluded disk))))))
 
@@ -1449,7 +1449,7 @@
         ((Some process) (send-signal process (Terminate)) (unit))
         ((None) (unit)))
       (let ((inbox (● supervisor inbox)) (serial (● child serial)))
-        (dispatch-local (lambda () (sleep 2000) (mailbox-post inbox (Late serial)))))
+        (dispatch (lambda () (sleep 2000) (mailbox-post inbox (Late serial)))))
       (Supervisor-child-set supervisor (Some (Child-stopping-set child #t))))
 
     (define (late (supervisor Supervisor) (serial I64)) (→ Supervisor) (! process)
@@ -1478,9 +1478,9 @@
                            (directory ".")))
           ((Ok process)
            (close-input process)
-           (dispatch-local (lambda () (forward-output process inbox serial (Stdout))))
-           (dispatch-local (lambda () (forward-output process inbox serial (Stderr))))
-           (dispatch-local
+           (dispatch (lambda () (forward-output process inbox serial (Stdout))))
+           (dispatch (lambda () (forward-output process inbox serial (Stderr))))
+           (dispatch
             (lambda () (mailbox-post inbox (Ended serial (wait-exit process)))))
            (Supervisor-child-set supervisor
                                  (Some (new Child (serial serial)
@@ -1612,9 +1612,9 @@
         (match (accept listener)
           ((Ok connection)
            (mailbox-post owner (Connected id connection))
-           (dispatch-local (lambda ()
-                             (serve-connection setup owner disk id connection)
-                             (mailbox-post owner (Disconnected id))))
+           (dispatch (lambda ()
+                       (serve-connection setup owner disk id connection)
+                       (mailbox-post owner (Disconnected id))))
            (loop (+ id 1)))
           ((Err _) (unit)))))
 
@@ -1980,9 +1980,9 @@
         (match (accept listener)
           ((Ok connection)
            (mailbox-post owner (Connected id connection))
-           (dispatch-local (lambda ()
-                             (serve-application setup listener owner id connection)
-                             (mailbox-post owner (Disconnected id))))
+           (dispatch (lambda ()
+                       (serve-application setup listener owner id connection)
+                       (mailbox-post owner (Disconnected id))))
            (loop (+ id 1)))
           ((Err _) (unit)))))
 
@@ -2127,7 +2127,7 @@
                         (Host-editor-problem-set host (● error code))))
           ((Ok child)
            (close-input child)
-           (dispatch-local (lambda () (await-editor setup (● host owner) child)))
+           (dispatch (lambda () (await-editor setup (● host owner) child)))
            (Host-editor-process-set (Host-editor-again-set host #f) (Some child))))))
 
     ;; Drain both pipes while the compiler runs, so neither can block it.
@@ -2137,7 +2137,7 @@
       (→ Unit)
       (! mut tasks process fs host)
       (let ((errors (make-mailbox)))
-        (dispatch-local (lambda () (mailbox-post errors (editor-output child (Stderr) ""))))
+        (dispatch (lambda () (mailbox-post errors (editor-output child (Stderr) ""))))
         (editor-output child (Stdout) "")
         (let ((exit (wait-exit child)) (error (mailbox-receive errors)))
           (close-process child)

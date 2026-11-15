@@ -37,14 +37,14 @@
                                   (background-poll) ; Resize.
                                   (background-poll) ; Frame.
                                   (background-ready) ; Acknowledge presentation explicitly.
-                                  (dispatch-local (lambda () (sleep 100000)))
+                                  (dispatch (lambda () (sleep 100000)))
                                   (unit))))
 (expose background-main "background_main")
 
 (define (unpresented-main (scheduler Scheduler) (context PageRun)) (→ I64) (! mut host events)
   (start-page context scheduler (lambda ()
                                   (background-boot 2)
-                                  (dispatch-local (lambda () (sleep 100000)))
+                                  (dispatch (lambda () (sleep 100000)))
                                   (unit))))
 (expose unpresented-main "unpresented_main")
 
@@ -161,11 +161,11 @@
     (! mut host screen events storage tasks page)
     (handle Marker
         ((marker (lambda () 17)))
-      (dispatch-local (lambda ()
-                        (yield)
-                        (unless (= (marker) 17)
-                          (panic "a child lost its inherited handler"))
-                        (sleep 100000)))
+      (dispatch (lambda ()
+                  (yield)
+                  (unless (= (marker) 17)
+                    (panic "a child lost its inherited handler"))
+                  (sleep 100000)))
       (start (ann (new Entry) (Entry (SceneApplication Counter)))))))
 
 (define-page-entry TestApplication)

@@ -3420,7 +3420,7 @@
           (("lru-cache" "unsafe-effectful-lru-cache")
            (list (cached-function m type (arg 0) (arg 1) #t)))
           (("unit") (list (wat "i32.const" (int 0))))
-          (("inherit-handlers" "inherit-handlers-1") (list (inherited fn type (arg 0))))
+          (("inherit-handlers") (list (inherited fn type (arg 0))))
           (("unsafe-cast") (list (funcref-closure m type (arg 0))))
 
           (("panic") (list (wat* "call" (Cons (id (panic-helper m)) code)) (wat "unreachable")))

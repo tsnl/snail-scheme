@@ -1,6 +1,7 @@
-// An owned browser model polls its futures after a generic wake. Hold
-// server replies so input, replacement, late replies and reload happen
-// while real host I/O is pending, rather than relying on timer ordering.
+// A browser interface's requests run as commands whose replies come back
+// as messages. Hold server replies so input, replacement, late replies and
+// reload happen while real host I/O is pending, rather than relying on
+// timer ordering.
 import assert from 'node:assert/strict';
 import {execFile} from 'node:child_process';
 import {cp, mkdtemp, readFile, rm} from 'node:fs/promises';
@@ -11,9 +12,9 @@ import {promisify} from 'node:util';
 import {openBrowser, until, sleep} from './chromium.mjs';
 
 const [root, screenshot] = process.argv.slice(2);
-const directory = await mkdtemp(join(tmpdir(), 'snail-ui-futures-'));
+const directory = await mkdtemp(join(tmpdir(), 'snail-ui-requests-'));
 const app = join(directory, 'app');
-await cp(join(root, 'tests/apps/futures'), app, {recursive: true, filter: path => basename(path) !== 'build'});
+await cp(join(root, 'tests/apps/requests'), app, {recursive: true, filter: path => basename(path) !== 'build'});
 const built = (await promisify(execFile)(join(root, 'snail'), ['build', app, 'site'])).stdout.trim();
 const waiting = [];
 const types = {'.html': 'text/html', '.mjs': 'text/javascript', '.wasm': 'application/wasm'};
@@ -33,7 +34,7 @@ const browser = await openBrowser();
 const url = `http://127.0.0.1:${server.address().port}/`;
 const shown = id => browser.evaluate(`document.getElementById('${id}')?.textContent`);
 const click = id => browser.evaluate(`document.getElementById('${id}').click()`);
-const ready = () => until(() => browser.evaluate('document.body.dataset.error || document.body.dataset.ready'), 'the reactor');
+const ready = () => until(() => browser.evaluate('document.body.dataset.error || document.body.dataset.ready'), 'the interface');
 const request = async () => {
   await click('load');
   await until(() => waiting.length > 0, 'the request on the server');
@@ -43,31 +44,31 @@ try {
   await browser.navigate(url);
   assert.equal(await ready(), 'true');
   assert.equal(await shown('result'), 'idle');
-  // The shared save timer reaches an idle reactor too. A hard navigation
+  // The shared save timer reaches an idle interface too. A hard navigation
   // restores only its durable snapshot, independently of graceful refresh.
   await click('click');
   await until(async () => await shown('clicks') === '1', 'the value to save');
   await until(() => browser.evaluate(`import('./storage.mjs').then(({loadSave}) =>
-    loadSave('futures')).then(bytes => bytes !== undefined)`), 'the periodic reactor save');
+    loadSave('requests')).then(bytes => bytes !== undefined)`), 'the periodic save');
   await browser.navigate(url);
   assert.equal(await ready(), 'true');
   assert.equal(await shown('clicks'), '1', 'the periodic snapshot restored');
   const old = await request();
   assert.equal(await shown('result'), 'loading');
   await click('click');
-  await until(async () => await shown('clicks') === '2', 'input while the future is pending');
+  await until(async () => await shown('clicks') === '2', 'input while the request is pending');
   await click('cancel');
-  await until(async () => await shown('result') === 'canceled', 'receiver cancellation');
+  await until(async () => await shown('result') === 'canceled', 'cancellation');
   const next = await request();
   next.end('new result');
-  await until(async () => await shown('result') === 'new result', 'the completion wake');
+  await until(async () => await shown('result') === 'new result', 'the reply');
   old.end('obsolete result');
   await until(() => browser.evaluate(`performance.getEntriesByName(location.origin + '/api/text').length === 2`), 'the late host reply');
   await sleep(100);
-  assert.equal(await shown('result'), 'new result', 'a canceled receiver cannot install a late result');
+  assert.equal(await shown('result'), 'new result', 'a canceled request cannot install a late result');
 
-  // A graceful refresh checkpoints the owned model, drops its pending
-  // future and closes its producer. The next instance restores only Save.
+  // A graceful refresh checkpoints the model and forgets its pending
+  // request. The next instance restores only Save.
   const interrupted = await request();
   await browser.evaluate('void application.refresh()');
   await until(async () => await shown('result') === 'interrupted', 'the pending request restored as interrupted');
@@ -85,7 +86,7 @@ try {
   final.end('restored and responsive');
   await until(async () => await shown('result') === 'restored and responsive', 'work after restoration');
   if (screenshot) await browser.screenshot(screenshot);
-  console.log('UI futures handle input, completion, cancellation, late replies, periodic saves and checkpoint restoration');
+  console.log('UI requests handle input, replies, cancellation, late replies, periodic saves and checkpoint restoration');
 } finally {
   for (const response of waiting) response.end();
   browser.close();

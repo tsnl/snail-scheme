@@ -22,8 +22,8 @@
 (define (main) (→ Unit) (! host mut output-port tasks)
 
   (let ((mailbox (make-mailbox)))
-    (dispatch-local (lambda () (consume mailbox 4)))
-    (dispatch-local (lambda () (produce mailbox "first")))
-    (dispatch-local (lambda () (produce mailbox "second")))
+    (dispatch (lambda () (consume mailbox 4)))
+    (dispatch (lambda () (produce mailbox "first")))
+    (dispatch (lambda () (produce mailbox "second")))
     (write-line "main returns"))
   (unit))

@@ -134,7 +134,7 @@
   (Fire target "click" (no-event)))
 
 (define (main) (→ Unit) (! host mut output-port tasks)
-  (dispatch-local
+  (dispatch
    (lambda ()
      (let ((result
             (with-memory-dom

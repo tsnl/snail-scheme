@@ -21,7 +21,7 @@
 (define (main) (→ Unit) (! host mut output-port tcp tasks)
   ;; A program waits on sockets from a task, which the scheduler runs once
   ;; main returns.
-  (dispatch-local
+  (dispatch
    (lambda ()
      (let* ((listener (require (listen (require (endpoint "127.0.0.1" 0)))))
             (client
@@ -84,7 +84,7 @@
              (require (connect (require (endpoint "127.0.0.1" (● listener port))))))
             (server (require (accept listener))))
        (require (close-listener listener))
-       (dispatch-local (lambda () (require (finish-connection server 1000))))
+       (dispatch (lambda () (require (finish-connection server 1000))))
        (require (finish-connection client 1000))
        (write-line "finished"))))
   (unit))
