@@ -3,6 +3,6 @@
  (snail core io))
 
 (define (main) (→ Unit) (! output-port)
-  (let ((items (ann (vector) (Vector I64))))
+  (let ((items (ann (array) (Array I64))))
     (write-line "before")
-    (write (vector-ref items 0))))
+    (write (array-ref items 0))))

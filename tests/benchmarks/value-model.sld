@@ -34,19 +34,19 @@
         (fold-left (lambda (total point) (+ total (+ (● point x) (● point y)))) 0 items)
         (build (- left 1) (Cons (new Point (x left) (y left)) items)))))
 
-(define (vectors (count I64)) (→ I64) (! mut)
-  (let ((values (make-vector count 0)))
+(define (arrays (count I64)) (→ I64) (! mut)
+  (let ((values (make-array count 0)))
     (let fill ((index 0))
       (when (< index count)
-        (vector-set! values index index)
+        (array-set! values index index)
         (fill (+ index 1))))
     (let sum ((index 0) (total 0))
       (if (= index count) total
-          (sum (+ index 1) (+ total (vector-ref values index)))))))
+          (sum (+ index 1) (+ total (array-ref values index)))))))
 
 (expose scalar "scalar")
 (expose records "records")
 (expose record-list "record_list")
-(expose vectors "vectors")
+(expose arrays "arrays")
 
 (define (main) (→ Unit) (unit))

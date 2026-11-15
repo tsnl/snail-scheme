@@ -237,7 +237,7 @@
             "expose"
             "case-id"
             "downcast"
-            "constant-vector"
+            "constant-array"
             "artifact-files" "link-handle"))
 
     (define (builtin-types) (→ (List (Pair String I64)))
@@ -252,8 +252,8 @@
             (new Pair (first "Char") (second 0))
             (new Pair (first "Unit") (second 0))
             (new Pair (first "String") (second 0))
-            (new Pair (first "Vector") (second 1))
-            (new Pair (first "ConstantVector") (second 1))
+            (new Pair (first "Array") (second 1))
+            (new Pair (first "ConstantArray") (second 1))
             (new Pair (first "Fn") (second 0))
             ))
 
@@ -274,20 +274,20 @@
         ("Char" #t)
         ("Unit" #t)
         ("String" #t)
-        ("Vector" #t)
-        ("ConstantVector" #t)
+        ("Array" #t)
+        ("ConstantArray" #t)
         ("Fn" #t)
         (_ #f)))
 
     ;; Unique names look like `snail.core.base:map`; diagnostics show the source
-    ;; name. Text is scanned as a vector of characters, which both hosts index
+    ;; name. Text is scanned as an array of characters, which both hosts index
     ;; in constant time.
 
     (define (short-name (name String)) (→ String)
-      (let ((chars (string->vector name)))
-        (let loop ((index (- (vector-length chars) 1)))
+      (let ((chars (string->array name)))
+        (let loop ((index (- (array-length chars) 1)))
           (cond ((< index 0) name)
-                ((char=? (vector-ref chars index) #\:)
+                ((char=? (array-ref chars index) #\:)
                  (substring name (+ index 1) (string-length name)))
                 (else (loop (- index 1)))))))
 
@@ -307,10 +307,10 @@
     ;; The library that defines a global: its name up to the first colon.
 
     (define (name-owner (name String)) (→ String)
-      (let ((chars (string->vector name)))
+      (let ((chars (string->array name)))
         (let loop ((index 0))
-          (cond ((= index (vector-length chars)) "")
-                ((char=? (vector-ref chars index) #\:) (substring name 0 index))
+          (cond ((= index (array-length chars)) "")
+                ((char=? (array-ref chars index) #\:) (substring name 0 index))
                 (else (loop (+ index 1)))))))
 
     ;; The host can hold an opaque Any or null, without constructing a GC
@@ -369,7 +369,7 @@
 
     (define (bytes-type? (type Type)) (→ Bool)
       (match type
-        ((TCon "Vector" (Cons (TCon "U8" (Nil)) (Nil))) #t)
+        ((TCon "Array" (Cons (TCon "U8" (Nil)) (Nil))) #t)
         (_ #f)))
 
     (define (buffer-type? (type Type)) (→ Bool)
@@ -1080,9 +1080,9 @@
     ;; FNV-1a over the code points.
 
     (define (fnv-1a (text String)) (→ I64)
-      (vector-fold (lambda (hash c) (fnv-step hash (char->integer c)))
-                   (fnv-offset)
-                   (string->vector text)))
+      (array-fold (lambda (hash c) (fnv-step hash (char->integer c)))
+                  (fnv-offset)
+                  (string->array text)))
 
     ;; A TypeId is a hash as a signed 32-bit value, which Wasm's i32 holds.
 
@@ -1172,7 +1172,7 @@
     ;; ---- Strongly connected components ----
 
     ;; Tarjan's algorithm over a graph whose nodes are numbered from 0: node
-    ;; i leads to the nodes in `(vector-ref edges i)`. The search starts
+    ;; i leads to the nodes in `(array-ref edges i)`. The search starts
     ;; from each node in turn and follows edges in order. Each component
     ;; lists its nodes in the order the search reached them, and comes after
     ;; every component it leads to.
@@ -1183,7 +1183,7 @@
     ;; number a node leads back to, and `open` holds the nodes on the stack.
     ;; Nodes are dense small integers, so a key is just the decimal text.
     (record Search
-      ((edges (Vector (List I64)))
+      ((edges (Array (List I64)))
        (index (Table I64))
        (low (Table I64))
        (open (Table Bool))
@@ -1191,7 +1191,7 @@
        (count I64)
        (components (List (List I64)))))
 
-    (define (strong-components (edges (Vector (List I64)))) (→ (List (List I64)))
+    (define (strong-components (edges (Array (List I64)))) (→ (List (List I64)))
       (let ((search (fold-left
                      (lambda (search node) (if (reached? search node) search (visit search node)))
                      (new Search
@@ -1202,7 +1202,7 @@
                        (stack (Nil))
                        (count 0)
                        (components (Nil)))
-                     (iota (vector-length edges)))))
+                     (iota (array-length edges)))))
         (reverse (● search components))))
 
     (define (node-key (node I64)) (→ String)
@@ -1241,7 +1241,7 @@
                            (count (+ number 1))
                            (components (● search components))))
              (followed (fold-left (lambda (search next) (follow search node next))
-                                  entered (vector-ref (● search edges) node))))
+                                  entered (array-ref (● search edges) node))))
         (if (= (node-low followed node) number) (pop-component followed node) followed)))
 
     ;; Lowers `node`'s link through its edge to `next`, visiting `next`

@@ -44,10 +44,10 @@
 
     (define (decode-byte (decoder Decoder)) (→ U8) (! mut)
       (let ((position (● decoder position)))
-        (when (>= position (vector-length (● decoder bytes)))
+        (when (>= position (array-length (● decoder bytes)))
           (panic "wire data ended early"))
         (set! (● decoder position) (+ position 1))
-        (vector-ref (● decoder bytes) position)))
+        (array-ref (● decoder bytes) position)))
 
     ;; The encoder and its buffer are local to this call.
 
@@ -56,7 +56,7 @@
        (lambda ()
          (let ((encoder (new Encoder (bytes (Nil)))))
            (encode value encoder)
-           (list->vector (reverse (● encoder bytes)))))))
+           (list->array (reverse (● encoder bytes)))))))
 
     ;; Panics if the bytes were not written for this type. The decoder's
     ;; position is local to this call.
@@ -65,7 +65,7 @@
       (unsafe-total
        (lambda ()
          (let* ((decoder (new Decoder (bytes bytes) (position 0))) (value (decode decoder)))
-           (unless (= (● decoder position) (vector-length bytes))
+           (unless (= (● decoder position) (array-length bytes))
              (panic "wire data has trailing bytes"))
            value))))
 
@@ -186,21 +186,21 @@
     (instance (Deserialize String)
       (define (decode (decoder Decoder)) (→ String) (! mut)
         (let ((count (decode-unsigned decoder)))
-          (vector->string (decode-elements decoder
-                                           count
-                                           (lambda (decoder)
-                                             (integer->char
-                                              (decode-unsigned decoder))))))))
+          (array->string (decode-elements decoder
+                                          count
+                                          (lambda (decoder)
+                                            (integer->char
+                                             (decode-unsigned decoder))))))))
 
-    (instance (Serialize (Vector T))
+    (instance (Serialize (Array T))
       (⊨ (Serialize T))
-      (define (encode (value (Vector T)) (encoder Encoder)) (→ Unit) (! mut)
-        (encode-unsigned encoder (vector-length value))
-        (vector-for-each (lambda (item) (encode item encoder)) value)))
+      (define (encode (value (Array T)) (encoder Encoder)) (→ Unit) (! mut)
+        (encode-unsigned encoder (array-length value))
+        (array-for-each (lambda (item) (encode item encoder)) value)))
 
-    (instance (Deserialize (Vector T))
+    (instance (Deserialize (Array T))
       (⊨ (Deserialize T))
-      (define (decode (decoder Decoder)) (→ (Vector T)) (! mut)
+      (define (decode (decoder Decoder)) (→ (Array T)) (! mut)
         (decode-elements decoder (decode-unsigned decoder) decode)))
 
     (instance (Serialize (List T))
@@ -213,18 +213,18 @@
       (⊨ (Deserialize T))
       (define (decode (decoder Decoder)) (→ (List T)) (! mut)
 
-        (vector->list (decode-elements decoder (decode-unsigned decoder) decode))))
+        (array->list (decode-elements decoder (decode-unsigned decoder) decode))))
 
-    ;; The elements are decoded in index order, as `vector-generate` asks
+    ;; The elements are decoded in index order, as `array-generate` asks
     ;; for them; no array is needed, whose elements would have to be unboxed.
 
     (define (decode-elements (decoder Decoder)
                              (count I64)
                              (decode-one (Fn Decoder → T ! mut)))
-      (→ (Vector T))
+      (→ (Array T))
       (! mut)
       (∀ (T))
-      (vector-generate count (lambda (index) (decode-one decoder))))
+      (array-generate count (lambda (index) (decode-one decoder))))
 
     (instance (Serialize (Option T))
       (⊨ (Serialize T))

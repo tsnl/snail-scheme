@@ -19,7 +19,7 @@
 (define (read-all (child Process) (stream Stream)) (→ String) (! process tasks)
   (let loop ((bytes #u8()))
     (match (require (read-output child stream 4096))
-      ((Some chunk) (loop (vector-append bytes chunk)))
+      ((Some chunk) (loop (array-append bytes chunk)))
       ((None) (match (utf8->string bytes)
                 ((Ok text) text)
                 ((Err _) (panic "the output is not UTF-8")))))))

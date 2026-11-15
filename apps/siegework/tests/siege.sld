@@ -42,9 +42,9 @@
                              ", lost "
                              (show (● (● world ledger) lost))
                              ", opened rock "
-                             (show (vector-fold (lambda (n open) (if open (+ n 1) n))
-                                                0
-                                                (● world opened)))
+                             (show (array-fold (lambda (n open) (if open (+ n 1) n))
+                                               0
+                                               (● world opened)))
                              ", " (outcome-text (● world outcome)))))
 
 (define (attack-text (tick I64)) (→ String)
@@ -155,9 +155,9 @@
    (string-append "next attack after tick 5000: " (attack-text (next-attack-tick 5000))))
   (report "undefended" lost)
   (write-line (string-append "the lost colony's whole map is uncovered: "
-                             (show (vector-fold (lambda (all seen) (and all seen))
-                                                #t
-                                                (● lost explored)))))
+                             (show (array-fold (lambda (all seen) (and all seen))
+                                               #t
+                                               (● lost explored)))))
   (report "defended" defended)
   (report "defended" (defend defended 2000))
   (watch (flanked (started (new-world 1))) 40)

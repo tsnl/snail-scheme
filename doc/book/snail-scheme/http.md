@@ -84,7 +84,7 @@ making a claim about records created elsewhere.
 ;; Result ResponseParts HttpError
 ```
 
-The `head` and `body` fields of a `ResponseParts` are separate immutable byte vectors.
+The `head` and `body` fields of a `ResponseParts` are separate immutable byte arrays.
 This avoids copying a representation into one combined response buffer and
 leaves a clear boundary for future streaming. No bytes are written by this call.
 
@@ -144,7 +144,7 @@ the request, not the connection.
 The reader scans incoming bytes once for the head delimiter and parses the
 completed head once. It collects exactly the declared body length, including any
 prefix that arrived with the head. Fragment lists are copied once into the final
-vectors; one-byte fragmentation does not repeatedly copy the accumulated input.
+arrays; one-byte fragmentation does not repeatedly copy the accumulated input.
 Unneeded pipelined bytes are discarded. The serializer validates the complete
 response before any output, then the writer sends head and body separately,
 advancing by each accepted count. HEAD and bodyless statuses use the codec's

@@ -4,8 +4,8 @@
    expect
    generated-library-bytes)
   (import
-   (except (chezscheme) list->vector)
-   (only (snail core base) list->vector)
+   (chezscheme)
+   (only (snail core base) list->array)
    (snail stage0 system))
   (begin
 
@@ -18,9 +18,9 @@
 
     ;; The bytes a producer writes for the library `text` holds, in the
     ;; encoding src/snail/shell/syntax.sld defines: lists, symbols, strings
-    ;; and integers, as a vector of byte values, stage 0's Bytes.
+    ;; and integers, as an array of byte values, stage 0's Bytes.
     (define (generated-library-bytes text)
-      (list->vector (encoded (read (open-input-string text)))))
+      (list->array (encoded (read (open-input-string text)))))
 
     (define (encoded datum)
       (cond ((list? datum)

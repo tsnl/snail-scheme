@@ -21,7 +21,7 @@
                                                     15))))))
 
 (define (bytes-text (bytes Bytes)) (→ String)
-  (string-join (map (lambda (byte) (hex-digits (u8->i32 byte) 2)) (vector->list bytes)) " "))
+  (string-join (map (lambda (byte) (hex-digits (u8->i32 byte) 2)) (array->list bytes)) " "))
 
 (define (decoded-text (result (Result String Utf8Error))) (→ String)
   (match result

@@ -1,4 +1,4 @@
-;; SHA-256, as FIPS 180-4 defines it, over a whole byte vector, and digests
+;; SHA-256, as FIPS 180-4 defines it, over a whole byte array, and digests
 ;; as the lowercase hex Node's `digest('hex')` writes. The compiler names a
 ;; file it links by this digest, so stage 0 computes it too, and both hosts
 ;; must agree on every word: a word is an I64 holding an unsigned 32-bit
@@ -22,13 +22,13 @@
     ;; Words written as the standard prints them: eight lowercase hex
     ;; digits each, one space after every word.
 
-    (define (hex-words (text String)) (→ (Vector I64))
-      (vector-generate (quotient (string-length text) 9)
-                       (lambda (word)
-                         (fold-left (lambda (value digit)
-                                      (+ (* value 16)
-                                         (hex-value (string-ref text (+ (* word 9) digit)))))
-                                    0 (iota 8)))))
+    (define (hex-words (text String)) (→ (Array I64))
+      (array-generate (quotient (string-length text) 9)
+                      (lambda (word)
+                        (fold-left (lambda (value digit)
+                                     (+ (* value 16)
+                                        (hex-value (string-ref text (+ (* word 9) digit)))))
+                                   0 (iota 8)))))
 
     (define (hex-value (char Char)) (→ I64)
       (let ((code (char->integer char)))
@@ -39,13 +39,13 @@
     ;; §5.3.3: the first 32 bits of the fractional parts of the square
     ;; roots of the first eight primes.
 
-    (define (initial-state) (→ (Vector I64))
+    (define (initial-state) (→ (Array I64))
       (hex-words "6a09e667 bb67ae85 3c6ef372 a54ff53a 510e527f 9b05688c 1f83d9ab 5be0cd19 "))
 
     ;; §4.2.2: the first 32 bits of the fractional parts of the cube roots
     ;; of the first 64 primes.
 
-    (define (round-constants) (→ (Vector I64))
+    (define (round-constants) (→ (Array I64))
       (hex-words
        (string-append "428a2f98 71374491 b5c0fbcf e9b5dba5 3956c25b 59f111f1 923f82a4 ab1c5ed5 "
                       "d807aa98 12835b01 243185be 550c7dc3 72be5d74 80deb1fe 9bdc06a7 c19bf174 "
@@ -94,15 +94,15 @@
     ;; only the last one or two, which the padding reaches, are made.
 
     (define (tail-blocks (message Bytes)) (→ Bytes)
-      (let* ((length (vector-length message))
+      (let* ((length (array-length message))
              (start (* 64 (quotient length 64)))
              (total (if (< (- length start) 56) 64 128)))
-        (vector-generate total
-                         (lambda (index)
-                           (cond ((< (+ start index) length) (vector-ref message (+ start index)))
-                                 ((= (+ start index) length) (i32->u8 128))
-                                 ((< index (- total 8)) (i32->u8 0))
-                                 (else (length-byte length (- (- total 1) index))))))))
+        (array-generate total
+                        (lambda (index)
+                          (cond ((< (+ start index) length) (array-ref message (+ start index)))
+                                ((= (+ start index) length) (i32->u8 128))
+                                ((< index (- total 8)) (i32->u8 0))
+                                (else (length-byte length (- (- total 1) index))))))))
 
     ;; Byte `place` of the message's length in bits, counting from the
     ;; least significant.
@@ -117,55 +117,55 @@
     (define (block-word (bytes Bytes) (start I64) (word I64)) (→ I64)
       (fold-left (lambda (value index)
                    (+ (* value 256)
-                      (i32->i64 (u8->i32 (vector-ref bytes (+ start (+ (* 4 word) index)))))))
+                      (i32->i64 (u8->i32 (array-ref bytes (+ start (+ (* 4 word) index)))))))
                  0 (iota 4)))
 
     ;; §6.2.2 step 1: the block's sixteen words, then 48 more, each from
     ;; four earlier ones. The array is local to this call.
 
-    (define (schedule (bytes Bytes) (start I64)) (→ (Vector I64))
+    (define (schedule (bytes Bytes) (start I64)) (→ (Array I64))
       (unsafe-total (lambda ()
-                      (let ((words (make-vector 64 (ann 0 I64))))
+                      (let ((words (make-array 64 (ann 0 I64))))
                         (do ((t 0 (+ t 1))) ((= t 64) words)
-                          (vector-set! words t (if (< t 16)
-                                                   (block-word bytes start t)
-                                                   (wrap
-                                                    (+ (+ (small-sigma1 (vector-ref words (- t 2)))
-                                                          (vector-ref words (- t 7)))
-                                                       (+ (small-sigma0 (vector-ref words (- t 15)))
-                                                          (vector-ref words (- t 16))))))))))))
+                          (array-set! words t (if (< t 16)
+                                                  (block-word bytes start t)
+                                                  (wrap
+                                                   (+ (+ (small-sigma1 (array-ref words (- t 2)))
+                                                         (array-ref words (- t 7)))
+                                                      (+ (small-sigma0 (array-ref words (- t 15)))
+                                                         (array-ref words (- t 16))))))))))))
 
     ;; §6.2.2 steps 2 to 4: 64 rounds over eight working words, which are
     ;; then added to the state.
 
-    (define (compress (constants (Vector I64)) (state (Vector I64)) (words (Vector I64)))
-      (→ (Vector I64))
+    (define (compress (constants (Array I64)) (state (Array I64)) (words (Array I64)))
+      (→ (Array I64))
       (let rounds ((t 0)
-                   (a (vector-ref state 0))
-                   (b (vector-ref state 1))
-                   (c (vector-ref state 2))
-                   (d (vector-ref state 3))
-                   (e (vector-ref state 4))
-                   (f (vector-ref state 5))
-                   (g (vector-ref state 6))
-                   (h (vector-ref state 7)))
+                   (a (array-ref state 0))
+                   (b (array-ref state 1))
+                   (c (array-ref state 2))
+                   (d (array-ref state 3))
+                   (e (array-ref state 4))
+                   (f (array-ref state 5))
+                   (g (array-ref state 6))
+                   (h (array-ref state 7)))
         (if (= t 64)
-            (let ((working (list->vector (list a b c d e f g h))))
-              (vector-generate 8
-                               (lambda (index)
-                                 (wrap (+ (vector-ref state index) (vector-ref working index))))))
+            (let ((working (list->array (list a b c d e f g h))))
+              (array-generate 8
+                              (lambda (index)
+                                (wrap (+ (array-ref state index) (array-ref working index))))))
             (let ((t1 (+ (+ (+ h (big-sigma1 e)) (choose e f g))
-                         (+ (vector-ref constants t) (vector-ref words t))))
+                         (+ (array-ref constants t) (array-ref words t))))
                   (t2 (+ (big-sigma0 a) (majority a b c))))
               (rounds (+ t 1) (wrap (+ t1 t2)) a b c (wrap (+ d t1)) e f g)))))
 
     ;; The state after each 64-byte block of `bytes`, from `state`.
 
-    (define (compress-blocks (constants (Vector I64))
-                             (state (Vector I64))
+    (define (compress-blocks (constants (Array I64))
+                             (state (Array I64))
                              (bytes Bytes)
                              (blocks I64))
-      (→ (Vector I64))
+      (→ (Array I64))
       (fold-left (lambda (state block) (compress constants state (schedule bytes (* 64 block))))
                  state (iota blocks)))
 
@@ -177,21 +177,21 @@
       (let* ((constants (round-constants)) (tail (tail-blocks message))
              (state (compress-blocks constants (compress-blocks constants (initial-state)
                                                                 message
-                                                                (quotient (vector-length message)
+                                                                (quotient (array-length message)
                                                                           64))
                                      tail
-                                     (quotient (vector-length tail) 64))))
-        (vector-generate 32
-                         (lambda (index)
-                           (i32->u8 (i64->i32 (i64-and (i64-shift-right/logical
-                                                        (vector-ref state (quotient index 4))
-                                                        (* 8 (- 3 (remainder index 4))))
-                                                       255)))))))
+                                     (quotient (array-length tail) 64))))
+        (array-generate 32
+                        (lambda (index)
+                          (i32->u8 (i64->i32 (i64-and (i64-shift-right/logical
+                                                       (array-ref state (quotient index 4))
+                                                       (* 8 (- 3 (remainder index 4))))
+                                                      255)))))))
 
     (define (bytes->hex (bytes Bytes)) (→ String)
-      (string-generate (* 2 (vector-length bytes))
+      (string-generate (* 2 (array-length bytes))
                        (lambda (index)
-                         (let ((byte (i32->i64 (u8->i32 (vector-ref bytes (quotient index 2))))))
+                         (let ((byte (i32->i64 (u8->i32 (array-ref bytes (quotient index 2))))))
                            (string-ref "0123456789abcdef"
                                        (if (= (remainder index 2) 0)
                                            (quotient byte 16)
@@ -226,6 +226,6 @@
 
       (define hex
         (lambda (text) (bytes->hex
-                        (sha256 (list->vector
+                        (sha256 (list->array
                                  (map (lambda (char) (i32->u8 (i64->i32 (char->integer char))))
                                       (string->list text)))))))))))

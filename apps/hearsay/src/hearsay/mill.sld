@@ -218,14 +218,14 @@
        (shift I64)
        (coins I64)
        (stories (List Story))
-       (copies (Vector (List Copy)))
-       (quiet (Vector I64))
+       (copies (Array (List Copy)))
+       (quiet (Array I64))
        (liabilities (List Liability))
        (outcome Outcome))
       (deriving Serialize Deserialize))
 
     (define (copies-of (mill Mill) (person I64)) (→ (List Copy))
-      (vector-ref (● mill copies) person))
+      (array-ref (● mill copies) person))
 
     (define (story (mill Mill) (id I64)) (→ Story)
       (list-ref (● mill stories) id))
@@ -235,9 +235,9 @@
 
     (define (hear (mill Mill) (person I64) (copy Copy)) (→ Mill)
       (Mill-copies-set mill
-                       (vector-set (● mill copies)
-                                   person
-                                   (append (copies-of mill person) (list copy)))))
+                       (array-set (● mill copies)
+                                  person
+                                  (append (copies-of mill person) (list copy)))))
 
     ;; Starts a new story at its first listener.
     (define (tell (mill Mill)
@@ -335,7 +335,7 @@
        (path (List I64))))
 
     (define (quiet? (mill Mill) (person I64)) (→ Bool)
-      (>= (vector-ref (● mill quiet) person) (● mill shift)))
+      (>= (array-ref (● mill quiet) person) (● mill shift)))
 
     ;; Crossing into another audience grows a story by 1, up to 3.
     (define (grow (intensity I64) (from I64) (to I64)) (→ I64)
@@ -464,8 +464,8 @@
                        (shift 1)
                        (coins 10)
                        (stories (Nil))
-                       (copies (make-vector (person-count) (Nil)))
-                       (quiet (make-vector (person-count) 0))
+                       (copies (make-array (person-count) (Nil)))
+                       (quiet (make-array (person-count) 0))
                        (liabilities (Nil))
                        (outcome (Playing)))))
         (match scenario
@@ -604,8 +604,8 @@
     (define (pay (mill Mill) (person I64)) (→ Mill)
       (let ((paid (Mill-coins-set mill (- (● mill coins) 2))))
         (Mill-liabilities-set
-         (Mill-quiet-set (Mill-copies-set paid (vector-set (● paid copies) person (Nil)))
-                         (vector-set (● paid quiet) person (+ (● mill shift) 3)))
+         (Mill-quiet-set (Mill-copies-set paid (array-set (● paid copies) person (Nil)))
+                         (array-set (● paid quiet) person (+ (● mill shift) 3)))
          (append (● mill liabilities) (list (Paid person (● mill shift)))))))
 
     (define (lie (mill Mill) (trait Trait) (person I64)) (→ Mill)

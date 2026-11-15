@@ -8,7 +8,7 @@ with the Unicode `→` separator.
 
 Top-level definitions bind functions. Construct values inside those functions
 and pass shared state explicitly. There are no global value initializers or
-implicit caches. Vectors have a fixed length and mutable elements.
+implicit caches. Arrays have a fixed length and mutable elements.
 
 This is one language, with no R7RS compatibility layer, `call/cc` or
 `dynamic-wind`. The compiler emits WasmGC and compiles itself; a small Chez

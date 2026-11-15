@@ -1,7 +1,7 @@
 ;; Syntax a program builds for the compiler. A `generate-library` recipe
 ;; returns the `define-library` form of the library it generates as Syntax,
 ;; and its producer writes that form as bytes the compiler decodes, so no
-;; text is printed or parsed in between and a byte vector travels as the
+;; text is printed or parsed in between and a byte array travels as the
 ;; bytes it holds. Syntax here has no locations: the compiler places every
 ;; generated form at the recipe.
 (define-library (snail shell syntax)
@@ -78,9 +78,9 @@
     ;; decodes this.
 
     (define (syntax->bytes (syntax Syntax)) (→ Bytes)
-      (vector-concatenate (reverse (encode syntax (Nil)))))
+      (array-concatenate (reverse (encode syntax (Nil)))))
 
-    ;; The pieces of `syntax` before `pieces`, last first. A byte vector is
+    ;; The pieces of `syntax` before `pieces`, last first. A byte array is
     ;; its own piece, so its bytes are copied only when the pieces join.
 
     (define (encode (syntax Syntax) (pieces (List Bytes))) (→ (List Bytes))
@@ -94,21 +94,21 @@
         ((FloatSyntax text) (Cons (text-piece 2 text) pieces))
         ((StringSyntax value) (Cons (text-piece 3 value) pieces))
         ((CharSyntax c) (Cons (counted 4 (char->integer c)) pieces))
-        ((BooleanSyntax value) (Cons (list->vector (list (i32->u8 (if value 6 5)))) pieces))
-        ((BytesSyntax bytes) (Cons bytes (Cons (counted 7 (vector-length bytes)) pieces)))))
+        ((BooleanSyntax value) (Cons (list->array (list (i32->u8 (if value 6 5)))) pieces))
+        ((BytesSyntax bytes) (Cons bytes (Cons (counted 7 (array-length bytes)) pieces)))))
 
     ;; A tag and one count.
 
     (define (counted (tag I32) (count I64)) (→ Bytes)
-      (list->vector (Cons (i32->u8 tag) (count-bytes count))))
+      (list->array (Cons (i32->u8 tag) (count-bytes count))))
 
     ;; A tag and a text.
 
     (define (text-piece (tag I32) (text String)) (→ Bytes)
-      (list->vector (Cons (i32->u8 tag) (append (count-bytes (string-length text))
-                                                (concatenate
-                                                 (map (lambda (c) (count-bytes (char->integer c)))
-                                                      (string->list text)))))))
+      (list->array (Cons (i32->u8 tag) (append (count-bytes (string-length text))
+                                               (concatenate
+                                                (map (lambda (c) (count-bytes (char->integer c)))
+                                                     (string->list text)))))))
 
     (define (count-bytes (count I64)) (→ (List U8))
       (if (< count 128)

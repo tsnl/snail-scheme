@@ -5,28 +5,28 @@
 Scalars are `U8`, `I32`, `I64`, `F32`, `F64`, `Bool`, `Char` and `Unit`.
 `Any` explicitly packages an eligible value; `downcast` attempts to recover its
 exact type ([explicit Any](#explicit-any)).
-`String` is a sequence of Unicode scalars. `(Vector T)` has a fixed runtime
-length and mutable elements. Besides it there is only `(ConstantVector T)`, a
-table of scalars nothing can write ([below](#constant-vectors)); there is no
-`Array`, `MutVector`, type-level lengths or dependent types.
-Primitives occupy unboxed slots; records, enum cases and nested vectors occupy
-reference slots. `Bytes` is an alias for `(Vector U8)`, stored packed.
+`String` is a sequence of Unicode scalars. `(Array T)` has a fixed runtime
+length and mutable elements. Besides it there is only `(ConstantArray T)`, a
+table of scalars nothing can write ([below](#constant-arrays)); there is no
+`MutArray`, type-level lengths or dependent types.
+Primitives occupy unboxed slots; records, enum cases and nested arrays occupy
+reference slots. `Bytes` is an alias for `(Array U8)`, stored packed.
 
-`(vector)` constructs an empty vector; `make-vector`, `vector-generate` and
-`list->vector` construct fixed-length vectors. `vector-ref` reads an element
-and `vector-set!` replaces it. Every alias observes writes. Indices and copy
+`(array)` constructs an empty array; `make-array`, `array-generate` and
+`list->array` construct fixed-length arrays. `array-ref` reads an element
+and `array-set!` replaces it. Every alias observes writes. Indices and copy
 ranges are checked at their full integer width before conversion to Wasm indices.
 There are no push, pop, resize or capacity operations.
 
-`vector-copy`, `subvector` and `vector-append` create fresh mutable vectors and
-copy their elements shallowly. `vector-set` is the copying replacement operation;
-`vector-copy!` overwrites a destination range and supports overlap. Iteration
-visits the vector's fixed extent; callbacks may change its elements.
-String/vector conversions copy character storage in both directions, so changing
-the vector cannot change the string. Use lists to accumulate values of an
+`array-copy`, `subarray` and `array-append` create fresh mutable arrays and
+copy their elements shallowly. `array-set` is the copying replacement operation;
+`array-copy!` overwrites a destination range and supports overlap. Iteration
+visits the array's fixed extent; callbacks may change its elements.
+String/array conversions copy character storage in both directions, so changing
+the array cannot change the string. Use lists to accumulate values of an
 unknown count, then convert once when indexed access is needed.
 
-A byte vector literal, `#u8(137 80 78 71)`, embeds exactly those bytes. Use
+A byte array literal, `#u8(137 80 78 71)`, embeds exactly those bytes. Use
 [linked files](#linked-files) for external assets. A library producer may read a
 linked resource and emit a byte literal when embedding is appropriate; the
 reader performs no file inclusion.
@@ -73,19 +73,19 @@ Local bindings remain monomorphic. Put explicit quantifiers on reusable
 generic functions. A library is checked before its importers, so callers do
 not decide its exported definitions' types.
 
-### Constant vectors
+### Constant arrays
 
-`(constant-vector TYPE (VALUE ...))` is a table of literals of a scalar type,
+`(constant-array TYPE (VALUE ...))` is a table of literals of a scalar type,
 `U8`, `I32`, `I64`, `Bool` or `Char`, each checked against it
-where it is written. Its type is `(ConstantVector TYPE)`, which has no setter,
+where it is written. Its type is `(ConstantArray TYPE)`, which has no setter,
 so the table is built once in its module, when a use first reaches it, and
-every use shares it. `constant-vector-ref` and `constant-vector-length` read
-it as `vector-ref` and `vector-length` read a vector, and
-`constant-vector->vector` copies it into a vector of its own.
+every use shares it. `constant-array-ref` and `constant-array-length` read
+it as `array-ref` and `array-length` read an array, and
+`constant-array->array` copies it into an array of its own.
 
 ```scheme
-(define (powers) (→ (ConstantVector I32)) (constant-vector I32 (1 10 100 1000)))
-(constant-vector-ref (powers) 2) ; 100
+(define (powers) (→ (ConstantArray I32)) (constant-array I32 (1 10 100 1000)))
+(constant-array-ref (powers) 2) ; 100
 ```
 
 A table is shared through a function, as any value is
@@ -93,7 +93,7 @@ A table is shared through a function, as any value is
 nothing. A table is a data segment of its elements, so it may be as large as
 its data. A float table is a table of the floats' bits, an `I64` table read
 through `bits->f64`, since only the assembler knows a float literal's bits. The program
-`tests/programs/constant-vectors.sld` exercises each element type.
+`tests/programs/constant-arrays.sld` exercises each element type.
 
 ## Functions at top level
 
@@ -357,7 +357,7 @@ A function export may infer its concrete signature. Its effect row stays availab
 for instance solving rather than being generalized; ordinary value-type variables
 still generalize, so an unannotated generic identity function cannot be exposed.
 The host must respect the declared `snail-scheme` types: Wasm representation checks do not
-prove nominal identity or permit treating a `String` as a `Vector Char`.
+prove nominal identity or permit treating a `String` as an `Array Char`.
 
 An exposed `(Option Any)` crosses as `null` for `None` or the opaque `Any`
 payload for `Some`. The wrapper converts at the boundary; internal Options

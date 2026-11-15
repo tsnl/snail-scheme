@@ -52,28 +52,23 @@
    char->integer integer->char char=? char<? char-whitespace? char-numeric? char-alphabetic?
    string string-length string-ref string-append substring string=? string<? make-string
    string->list list->string string-join string-concatenate string-generate string-index
-   string->vector vector->string
-   vector-length
-   vector-ref
-   make-vector
-   vector-generate
-   vector-set
-   vector-append
-   vector-concatenate
-   subvector
-   vector-map vector-for-each vector-fold vector->list list->vector
-   vector vector-set! vector-copy vector-copy!
-   constant-vector constant-vector-length constant-vector-ref constant-vector->vector
+   string->array array->string
+   array-length
+   array-ref
+   make-array
+   array-generate
+   array-set
+   array-append
+   array-concatenate
+   subarray
+   array-map array-for-each array-fold array->list list->array
+   array array-set! array-copy array-copy!
+   constant-array constant-array-length constant-array-ref constant-array->array
    set!
    )
   (import
    (except (chezscheme) define set! case map fold-left fold-right find
-           char-whitespace? char-numeric? char-alphabetic?
-           vector make-vector vector-length vector-ref vector-set! vector-copy vector-copy!
-           vector-append vector-map vector-for-each vector->list list->vector)
-   (prefix
-    (only (chezscheme) make-vector vector-length vector-ref vector-set! vector-copy! list->vector)
-    raw:)
+           char-whitespace? char-numeric? char-alphabetic?)
    (snail stage0 forms))
 
 
@@ -251,92 +246,92 @@
             ((char=? (string-ref text index) char) (Some index))
             (else (loop (+ index 1))))))
 
-  ;; ---- Vectors ----
+  ;; ---- Arrays ----
 
-  ;; Native vectors have the same fixed length and shared mutable slots.
-  (define (vector) (raw:make-vector 0))
-  (define (make-vector size value) (raw:make-vector size value))
-  (define (vector-length items) (raw:vector-length items))
+  ;; Chez vectors have the same fixed length and shared mutable slots.
+  (define (array) (make-vector 0))
+  (define (make-array size value) (make-vector size value))
+  (define (array-length items) (vector-length items))
 
-  (define (vector-range items start count)
-    (unless (and (<= 0 start (vector-length items))
-                 (<= 0 count (- (vector-length items) start)))
-      (panic "vector: index out of range")))
+  (define (array-range items start count)
+    (unless (and (<= 0 start (array-length items))
+                 (<= 0 count (- (array-length items) start)))
+      (panic "array: index out of range")))
 
-  (define (vector-ref items index)
-    (vector-range items index 1)
-    (raw:vector-ref items index))
+  (define (array-ref items index)
+    (array-range items index 1)
+    (vector-ref items index))
 
-  (define (vector-set! items index value)
-    (vector-range items index 1)
-    (raw:vector-set! items index value))
-
-
+  (define (array-set! items index value)
+    (array-range items index 1)
+    (vector-set! items index value))
 
 
 
-  (define (vector-generate count f)
-    (let ((items (make-vector count #f)))
+
+
+  (define (array-generate count f)
+    (let ((items (make-array count #f)))
       (do ((index 0 (+ index 1))) ((= index count) items)
-        (vector-set! items index (f index)))))
+        (array-set! items index (f index)))))
 
-  (define (vector-copy! to at from start count)
-    (vector-range to at count)
-    (vector-range from start count)
-    (raw:vector-copy! from start to at count))
+  (define (array-copy! to at from start count)
+    (array-range to at count)
+    (array-range from start count)
+    (vector-copy! from start to at count))
 
-  (define (subvector items start end)
-    (vector-range items start (- end start))
-    (vector-generate (- end start) (lambda (index) (vector-ref items (+ start index)))))
+  (define (subarray items start end)
+    (array-range items start (- end start))
+    (array-generate (- end start) (lambda (index) (array-ref items (+ start index)))))
 
-  (define (vector-copy items) (subvector items 0 (vector-length items)))
+  (define (array-copy items) (subarray items 0 (array-length items)))
 
-  (define (vector-set items index value)
-    (let ((copy (vector-copy items))) (vector-set! copy index value) copy))
+  (define (array-set items index value)
+    (let ((copy (array-copy items))) (array-set! copy index value) copy))
 
-  (define (vector-append left right)
-    (let ((size (vector-length left)))
-      (vector-generate (+ size (vector-length right))
-                       (lambda (index) (if (< index size) (vector-ref left index)
-                                           (vector-ref right (- index size)))))))
+  (define (array-append left right)
+    (let ((size (array-length left)))
+      (array-generate (+ size (array-length right))
+                      (lambda (index) (if (< index size) (array-ref left index)
+                                          (array-ref right (- index size)))))))
 
-  (define (vector-concatenate vectors)
-    (let ((all (make-vector
-                (fold-left (lambda (total items) (+ total (vector-length items))) 0 vectors) #f)))
+  (define (array-concatenate arrays)
+    (let ((all (make-array
+                (fold-left (lambda (total items) (+ total (array-length items))) 0 arrays) #f)))
       (fold-left (lambda (offset items)
-                   (vector-copy! all offset items 0 (vector-length items))
-                   (+ offset (vector-length items))) 0 vectors)
+                   (array-copy! all offset items 0 (array-length items))
+                   (+ offset (array-length items))) 0 arrays)
       all))
 
-  (define (vector-map f items)
-    (vector-generate (vector-length items) (lambda (index) (f (vector-ref items index)))))
+  (define (array-map f items)
+    (array-generate (array-length items) (lambda (index) (f (array-ref items index)))))
 
-  (define (vector-for-each f items)
+  (define (array-for-each f items)
     (let loop ((index 0))
-      (when (< index (vector-length items)) (f (vector-ref items index)) (loop (+ index 1)))))
+      (when (< index (array-length items)) (f (array-ref items index)) (loop (+ index 1)))))
 
-  (define (vector-fold f initial items)
+  (define (array-fold f initial items)
     (let loop ((index 0) (result initial))
-      (if (< index (vector-length items))
-          (loop (+ index 1) (f result (vector-ref items index))) result)))
+      (if (< index (array-length items))
+          (loop (+ index 1) (f result (array-ref items index))) result)))
 
-  (define (vector->list items)
-    (let loop ((index (- (vector-length items) 1)) (result '()))
-      (if (< index 0) result (loop (- index 1) (cons (vector-ref items index) result)))))
+  (define (array->list items)
+    (let loop ((index (- (array-length items) 1)) (result '()))
+      (if (< index 0) result (loop (- index 1) (cons (array-ref items index) result)))))
 
-  (define (list->vector items) (raw:list->vector items))
+  (define (list->array items) (list->vector items))
 
-  ;; A constant vector is a vector nothing writes; the type, erased here,
-  ;; is what forbids writing it. A quoted vector is made once, as code
+  ;; A constant array is an array nothing writes; the type, erased here,
+  ;; is what forbids writing it. A quoted array is made once, as code
   ;; loads, so every evaluation shares it, as compiled code does.
-  (define-syntax constant-vector
+  (define-syntax constant-array
     (syntax-rules () ((_ type (value ...)) (quote #(value ...)))))
-  (define (constant-vector-length items) (vector-length items))
-  (define (constant-vector-ref items index) (vector-ref items index))
-  (define (constant-vector->vector items) (vector-copy items))
+  (define (constant-array-length items) (array-length items))
+  (define (constant-array-ref items index) (array-ref items index))
+  (define (constant-array->array items) (array-copy items))
 
-  (define (string->vector text) (list->vector (string->list text)))
-  (define (vector->string chars) (list->string (vector->list chars)))
+  (define (string->array text) (list->array (string->list text)))
+  (define (array->string chars) (list->string (array->list chars)))
   (define (take items count)
     (if (or (= count 0) (null? items)) '() (cons (car items) (take (cdr items) (- count 1)))))
   (define (list-drop items count)
@@ -388,28 +383,28 @@
           (head #f) (tail #f))
       (define (touch entry)
         (unless (or (= capacity 0) (eq? entry head))
-          (let ((newer (raw:vector-ref entry 2)) (older (raw:vector-ref entry 3)))
-            (when newer (raw:vector-set! newer 3 older))
-            (if older (raw:vector-set! older 2 newer) (set! tail newer))
-            (raw:vector-set! entry 2 #f)
-            (raw:vector-set! entry 3 head)
-            (when head (raw:vector-set! head 2 entry))
+          (let ((newer (vector-ref entry 2)) (older (vector-ref entry 3)))
+            (when newer (vector-set! newer 3 older))
+            (if older (vector-set! older 2 newer) (set! tail newer))
+            (vector-set! entry 2 #f)
+            (vector-set! entry 3 head)
+            (when head (vector-set! head 2 entry))
             (set! head entry))))
       (define (publish arguments value)
         ;; User code can reenter: find again after it returns.
         (let ((found (hashtable-ref entries arguments #f)))
-          (if found (begin (raw:vector-set! found 1 value) (touch found))
-              (let ((entry (raw:list->vector (list arguments value #f head))))
+          (if found (begin (vector-set! found 1 value) (touch found))
+              (let ((entry (list->vector (list arguments value #f head))))
                 (hashtable-set! entries arguments entry)
-                (if head (raw:vector-set! head 2 entry) (set! tail entry))
+                (if head (vector-set! head 2 entry) (set! tail entry))
                 (set! head entry)
                 (when (and (> capacity 0) (> (hashtable-size entries) capacity))
-                  (hashtable-delete! entries (raw:vector-ref tail 0))
-                  (set! tail (raw:vector-ref tail 2))
-                  (if tail (raw:vector-set! tail 3 #f) (set! head #f)))))))
+                  (hashtable-delete! entries (vector-ref tail 0))
+                  (set! tail (vector-ref tail 2))
+                  (if tail (vector-set! tail 3 #f) (set! head #f)))))))
       (lambda arguments
         (let ((entry (hashtable-ref entries arguments #f)))
-          (if entry (begin (touch entry) (raw:vector-ref entry 1))
+          (if entry (begin (touch entry) (vector-ref entry 1))
               (let ((value (apply f arguments))) (publish arguments value) value))))))
 
   ;; Stage zero erases types; the source checker establishes the safe names'
@@ -426,14 +421,14 @@
 
   (define (test-cache)
     (let* ((calls 0)
-           (work (lambda args (set! calls (+ calls 1)) (raw:list->vector (list calls))))
+           (work (lambda args (set! calls (+ calls 1)) (list->vector (list calls))))
            (memo (cache work)) (alias memo) (other (cache work)))
       (let ((first (memo 1 "a")))
         (unless (eq? first (alias 1 (make-string 1 #\a))) (error 'cache "string key miss"))
         (when (eq? first (other 1 "a")) (error 'cache "separate wrappers shared state")))
-      (let ((key (raw:make-vector 1 0)))
+      (let ((key (make-vector 1 0)))
         (let ((first (memo key)))
-          (raw:vector-set! key 0 1)
+          (vector-set! key 0 1)
           (unless (eq? first (memo key)) (error 'cache "identity key changed"))))
       (unless (eq? (memo (None)) (memo (None))) (error 'cache "enum singleton mismatch"))
       (when (eq? (memo 0.0) (memo -0.0)) (error 'cache "lost signed zero"))

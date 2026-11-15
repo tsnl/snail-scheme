@@ -76,8 +76,8 @@
        (biome Biome)
        (hub Cell)
        (starter Cell)
-       (ground (Vector Ground))
-       (mainland (Vector Bool))
+       (ground (Array Ground))
+       (mainland (Array Bool))
        (sites (List Site))
        (fronts (List Cell))))
 
@@ -94,10 +94,10 @@
         ((Archipelago) "Archipelago")))
 
     (define (ground-at (land Land) (cell Cell)) (→ Ground)
-      (vector-ref (● land ground) (cell-index cell)))
+      (array-ref (● land ground) (cell-index cell)))
 
     (define (mainland? (land Land) (cell Cell)) (→ Bool)
-      (vector-ref (● land mainland) (cell-index cell)))
+      (array-ref (● land mainland) (cell-index cell)))
 
     ;; Seeds are 1 to 65535; any integer maps into that range.
     (define (land-seed (seed I64)) (→ I64)
@@ -111,9 +111,9 @@
                    (list 0 1 2)))
              (ground (passes hub
                              fronts
-                             (vector-generate (* (map-size) (map-size))
-                                              (lambda (index)
-                                                (first-ground biome seed (index-cell index))))))
+                             (array-generate (* (map-size) (map-size))
+                                             (lambda (index)
+                                               (first-ground biome seed (index-cell index))))))
              (starter (starter-cell seed hub)))
         (new Land (seed seed)
              (biome biome)
@@ -126,10 +126,10 @@
              (fronts fronts))))
 
     ;; The cells joined to the hub through ground that `crosses?` accepts.
-    (define (joined (ground (Vector Ground)) (hub Cell) (crosses? (Fn Ground → Bool)))
-      (→ (Vector Bool))
-      (vector-map (lambda (steps) (>= steps 0))
-                  (distance-field (vector-map crosses? ground) (list hub))))
+    (define (joined (ground (Array Ground)) (hub Cell) (crosses? (Fn Ground → Bool)))
+      (→ (Array Bool))
+      (array-map (lambda (steps) (>= steps 0))
+                 (distance-field (array-map crosses? ground) (list hub))))
 
     ;; ---- Hashing ----
 
@@ -282,10 +282,10 @@
 
     ;; Each front in turn opens the blocked cells on the way to the hub that
     ;; crosses fewest of them, so a front already joined opens nothing.
-    (define (passes (hub Cell) (fronts (List Cell)) (ground (Vector Ground))) (→ (Vector Ground))
+    (define (passes (hub Cell) (fronts (List Cell)) (ground (Array Ground))) (→ (Array Ground))
       (fold-left (lambda (ground front)
                    (open-cells ground
-                               (crossing-path (vector-map walkable? ground) (list hub) front)))
+                               (crossing-path (array-map walkable? ground) (list hub) front)))
                  ground
                  fronts))
 
@@ -295,8 +295,8 @@
         ((Ice) #t)
         (_ #f)))
 
-    (define (open-cells (ground (Vector Ground)) (cells (List Cell))) (→ (Vector Ground))
-      (fold-left (lambda (ground cell) (vector-set ground (cell-index cell) (Open))) ground cells))
+    (define (open-cells (ground (Array Ground)) (cells (List Cell))) (→ (Array Ground))
+      (fold-left (lambda (ground cell) (array-set ground (cell-index cell) (Open))) ground cells))
 
     ;; ---- Crystal sites ----
 
@@ -312,7 +312,7 @@
     ;; it; a few across the map; and one near most fronts, so following an
     ;; attack back to its nest leads to richer ground. A cell holds at most
     ;; one site; the first listed keeps it.
-    (define (crystal-sites (seed I64) (hub Cell) (fronts (List Cell)) (ground (Vector Ground)))
+    (define (crystal-sites (seed I64) (hub Cell) (fronts (List Cell)) (ground (Array Ground)))
       (→ (List Site))
       (let* ((site? (site-cell? ground
                                 (joined ground hub (lambda (g) (match g ((Rock) #f) (_ #t))))
@@ -330,11 +330,11 @@
 
     ;; Open ground the hub can wire toward, at least five cells from every
     ;; front.
-    (define (site-cell? (ground (Vector Ground)) (wired (Vector Bool)) (fronts (List Cell)))
+    (define (site-cell? (ground (Array Ground)) (wired (Array Bool)) (fronts (List Cell)))
       (→ (Fn Cell → Bool))
       (lambda (cell)
-        (and (match (vector-ref ground (cell-index cell)) ((Open) #t) (_ #f))
-             (vector-ref wired (cell-index cell))
+        (and (match (array-ref ground (cell-index cell)) ((Open) #t) (_ #f))
+             (array-ref wired (cell-index cell))
              (not (any? (lambda (front) (within? cell front 4)) fronts)))))
 
     (define (site (cell (Option Cell)) (rate I64)) (→ (List Site))

@@ -219,7 +219,7 @@
     ;; Characters outside Wasm's identifier set are replaced.
 
     (define (mangle (text String)) (→ String)
-      (vector->string (vector-map mangle-char (string->vector text))))
+      (array->string (array-map mangle-char (string->array text))))
 
     (define (mangle-char (c Char)) (→ Char)
       (cond ((char=? c #\space) #\_)
@@ -253,9 +253,9 @@
     (define (wat-hash (hash I64) (tree Wat)) (→ I64)
       (match tree
         ((Word text)
-         (vector-fold (lambda (h c) (fnv-step h (char->integer c)))
-                      (fnv-step hash 32)
-                      (string->vector text)))
+         (array-fold (lambda (h c) (fnv-step h (char->integer c)))
+                     (fnv-step hash 32)
+                     (string->array text)))
         ((Node items) (fold-left wat-hash (fnv-step hash 40) items))))
 
     (define (wat=? (a Wat) (b Wat)) (→ Bool)
@@ -347,7 +347,7 @@
            (("String") (Reference (array-type m (Scalar "i32"))))
            (("Any") (Reference (any-type m)))
            (("Funcref") (Scalar "funcref"))
-           (("Vector" "ConstantVector")
+           (("Array" "ConstantArray")
             (Reference (array-type m (element-rep m (first-type args)))))
            (else (if (tag-enum? m name) (Scalar "i32") (Reference (data-type m type))))))
         ((TFun params result _)
@@ -668,7 +668,7 @@
         ((DString text) (string-literal (● fn module) text))
         ((DBytes bytes) (bytes-literal (● fn module) bytes))
         ((DUnit) (wat "i32.const" (int 0)))
-        ((DConstants element values) (constant-vector-literal (● fn module) element values))
+        ((DConstants element values) (constant-array-literal (● fn module) element values))
         ((DInt n) (wat (string-append (rep-key (fn-rep fn type)) ".const") (int n)))
         ((DFloat text)
          (wat (string-append (rep-key (fn-rep fn type)) ".const") (Word (float-text text))))))
@@ -702,7 +702,7 @@
     ;; A byte literal is a passive data segment, one byte per byte, so large
     ;; data such as images costs no more than its size. `array.new_data` is
     ;; not a constant instruction, so each evaluation copies the segment into
-    ;; a fresh mutable vector on every evaluation.
+    ;; a fresh mutable array on every evaluation.
 
     (define (bytes-literal (m Module) (bytes Bytes)) (→ Wat) (! mut)
       (let ((text (bytes-wat-string bytes)))
@@ -714,17 +714,17 @@
                            (id (array-type m (Scalar "i8")))
                            (id segment)
                            (wat "i32.const" (int 0))
-                           (wat "i32.const" (int (vector-length bytes)))))))))
+                           (wat "i32.const" (int (array-length bytes)))))))))
 
-    ;; ---- Constant vectors ----
+    ;; ---- Constant arrays ----
 
-    ;; A constant vector is built once in a module, and every use shares it,
-    ;; since its type has no setter: it has a vector's representation, and
-    ;; reads and copies are a vector's. Its table is a passive data segment
+    ;; A constant array is built once in a module, and every use shares it,
+    ;; since its type has no setter: it has an array's representation, and
+    ;; reads and copies are an array's. Its table is a passive data segment
     ;; of its elements, little-endian at their width, read into an array the
     ;; first time a use reaches it, so a table of any size costs its bytes.
 
-    (define (constant-vector-literal (m Module) (element String) (values (List Datum))) (→ Wat)
+    (define (constant-array-literal (m Module) (element String) (values (List Datum))) (→ Wat)
       (! mut)
       (let ((key (datum->string (DConstants element values))))
         (memoize! m
@@ -757,14 +757,14 @@
 
     (define (table-bytes (element String) (values (List Datum))) (→ Bytes)
       (let ((width (cond ((string=? element "U8") 1) ((string=? element "I64") 8) (else 4)))
-            (integers (list->vector (map table-integer values))))
-        (vector-generate (* width (vector-length integers))
-                         (lambda (index)
-                           (let ((n (vector-ref integers (quotient index width)))
-                                 (byte (remainder index width)))
-                             (i32->u8
-                              (i64->i32 (word-byte (if (< byte 4) (low-word n) (high-word n))
-                                                   (remainder byte 4)))))))))
+            (integers (list->array (map table-integer values))))
+        (array-generate (* width (array-length integers))
+                        (lambda (index)
+                          (let ((n (array-ref integers (quotient index width)))
+                                (byte (remainder index width)))
+                            (i32->u8
+                             (i64->i32 (word-byte (if (< byte 4) (low-word n) (high-word n))
+                                                  (remainder byte 4)))))))))
 
     (define (table-integer (value Datum)) (→ I64)
       (match value
@@ -789,11 +789,11 @@
 
     (define (bytes-wat-string (bytes Bytes)) (→ String)
       (string-append "\""
-                     (string-generate (* 3 (vector-length bytes))
+                     (string-generate (* 3 (array-length bytes))
                                       (lambda (index)
-                                        (let ((byte (i32->i64 (u8->i32 (vector-ref bytes
-                                                                                   (quotient index
-                                                                                             3))))))
+                                        (let ((byte (i32->i64 (u8->i32 (array-ref bytes
+                                                                                  (quotient index
+                                                                                            3))))))
                                           (match (remainder index 3)
                                             (0 #\\)
                                             (1 (hex-char (quotient byte 16)))
@@ -1224,9 +1224,9 @@
                                        (wat "i32.const" (int (● case tag))))))
                       (wat "global.get" (id global)))))))
 
-    ;; ---- Vectors ----
+    ;; ---- Arrays ----
 
-    ;; A vector is an array of its exact, permanent length, every slot
+    ;; An array is an array of its exact, permanent length, every slot
     ;; initialized, including reference elements. Strings remain separate
     ;; values; conversions copy their character data.
     (define (sequence-element (type Type)) (→ Type)
@@ -1257,32 +1257,32 @@
   (if (i64.gt_u (local.get $length) (i64.const 2147483647)) (then unreachable))
   (i32.wrap_i64 (local.get $length)))" (Nil)))
 
-    (define (vector-storage-bindings (m Module) (element Type))
+    (define (array-storage-bindings (m Module) (element Type))
       (→ (List (Pair String String))) (! mut)
       (list (new Pair (first "array") (second (array-type m (element-rep m element))))
             (new Pair (first "element") (second (wat->text (rep->wat (rep m element)))))
             (new Pair (first "range") (second (range-helper m)))
             (new Pair
               (first "read")
-              (second (wat->text (array-read m element (wat "local.get" (Word "$vector"))
+              (second (wat->text (array-read m element (wat "local.get" (Word "$array"))
                                              (wat "local.get" (Word "$index"))))))))
 
-    (define (vector-read-helper (m Module) (element Type)) (→ String) (! mut)
-      (template-helper! m "vector-read" (type-key element)
-                        "(func {id} (param $vector (ref null {array})) (param $at i64) (result {element})
+    (define (array-read-helper (m Module) (element Type)) (→ String) (! mut)
+      (template-helper! m "array-read" (type-key element)
+                        "(func {id} (param $array (ref null {array})) (param $at i64) (result {element})
   (local $index i32)
-  (local.set $index (call {range} (array.len (local.get $vector)) (local.get $at) (i64.const 1)))
+  (local.set $index (call {range} (array.len (local.get $array)) (local.get $at) (i64.const 1)))
   {read})"
-                        (vector-storage-bindings m element)))
+                        (array-storage-bindings m element)))
 
-    (define (vector-write-helper (m Module) (element Type)) (→ String) (! mut)
-      (template-helper! m "vector-write" (type-key element)
-                        "(func {id} (param $vector (ref null {array})) (param $at i64) (param $value {element}) (result i32)
+    (define (array-write-helper (m Module) (element Type)) (→ String) (! mut)
+      (template-helper! m "array-write" (type-key element)
+                        "(func {id} (param $array (ref null {array})) (param $at i64) (param $value {element}) (result i32)
   (local $index i32)
-  (local.set $index (call {range} (array.len (local.get $vector)) (local.get $at) (i64.const 1)))
-  (array.set {array} (local.get $vector) (local.get $index) (local.get $value))
+  (local.set $index (call {range} (array.len (local.get $array)) (local.get $at) (i64.const 1)))
+  (array.set {array} (local.get $array) (local.get $index) (local.get $value))
   (i32.const 0))"
-                        (vector-storage-bindings m element)))
+                        (array-storage-bindings m element)))
 
     (define (sequence-slice-helper (m Module) (type Type)) (→ String) (! mut)
       (template-helper! m "sequence-slice" (type-key type)
@@ -1294,24 +1294,24 @@
                               (new Pair (first "slice")
                                    (second (slice-helper m (sequence-type m type)))))))
 
-    (define (vector-replace-helper (m Module) (element Type)) (→ String) (! mut)
-      (template-helper! m "vector-replace" (type-key element)
-                        "(func {id} (param $vector (ref null {array})) (param $index i64) (param $value {element}) (result (ref null {array}))
-  (drop (call {range} (array.len (local.get $vector)) (local.get $index) (i64.const 1)))
-  (return_call {set} (local.get $vector) (local.get $index) (local.get $value)))"
+    (define (array-replace-helper (m Module) (element Type)) (→ String) (! mut)
+      (template-helper! m "array-replace" (type-key element)
+                        "(func {id} (param $array (ref null {array})) (param $index i64) (param $value {element}) (result (ref null {array}))
+  (drop (call {range} (array.len (local.get $array)) (local.get $index) (i64.const 1)))
+  (return_call {set} (local.get $array) (local.get $index) (local.get $value)))"
                         (Cons (new Pair (first "set")
                                    (second (set-helper m (array-type m (element-rep m element))
                                                        (rep m element))))
-                              (vector-storage-bindings m element))))
+                              (array-storage-bindings m element))))
 
-    (define (vector-copy-into-helper (m Module) (element Type)) (→ String) (! mut)
-      (template-helper! m "vector-copy-into" (type-key element)
+    (define (array-copy-into-helper (m Module) (element Type)) (→ String) (! mut)
+      (template-helper! m "array-copy-into" (type-key element)
                         "(func {id} (param $to (ref null {array})) (param $at i64) (param $from (ref null {array})) (param $start i64) (param $count i64) (result i32)
   (drop (call {range} (array.len (local.get $to)) (local.get $at) (local.get $count)))
   (drop (call {range} (array.len (local.get $from)) (local.get $start) (local.get $count)))
   (array.copy {array} {array} (local.get $to) (i32.wrap_i64 (local.get $at)) (local.get $from) (i32.wrap_i64 (local.get $start)) (i32.wrap_i64 (local.get $count)))
   (i32.const 0))"
-                        (vector-storage-bindings m element)))
+                        (array-storage-bindings m element)))
 
     ;; ---- Fields ----
 
@@ -3496,37 +3496,37 @@
           (("bool->i32" "char->i32" "i32->char" "u8->i32") code)
           (("i32->u8") (list (wat "i32.and" (arg 0) (wat "i32.const" (int 255)))))
           (("i32->bool") (list (wat "i32.ne" (arg 0) (wat "i32.const" (int 0)))))
-          (("string->vector" "vector->string" "vector-copy" "constant-vector->vector")
+          (("string->array" "array->string" "array-copy" "constant-array->array")
            (list (wat "call" (id (copy-helper m (sequence type))) (arg 0))))
-          (("string-length" "vector-length" "constant-vector-length")
+          (("string-length" "array-length" "constant-array-length")
            (list (wat "i64.extend_i32_u" (wat "array.len" (arg 0)))))
           (("string-ref")
            (list (wat "array.get" (id (sequence (first-type types))) (arg 0) (index (arg 1)))))
-          (("vector-ref" "constant-vector-ref")
+          (("array-ref" "constant-array-ref")
            (list (wat "call"
-                      (id (vector-read-helper m (sequence-element (first-type types))))
+                      (id (array-read-helper m (sequence-element (first-type types))))
                       (arg 0)
                       (arg 1))))
-          (("vector-set!")
-           (list (wat "call" (id (vector-write-helper m (sequence-element (first-type types))))
+          (("array-set!")
+           (list (wat "call" (id (array-write-helper m (sequence-element (first-type types))))
                       (arg 0) (arg 1) (arg 2))))
-          (("vector") (list (wat "array.new_fixed" (id (sequence type)) (int 0))))
-          (("make-string" "make-vector")
+          (("array") (list (wat "array.new_fixed" (id (sequence type)) (int 0))))
+          (("make-string" "make-array")
            (list (wat "array.new" (id (sequence type)) (arg 1)
                       (wat "call" (id (size-helper m)) (arg 0)))))
-          (("string-append" "vector-append")
+          (("string-append" "array-append")
            (list (wat "call" (id (append-helper m (sequence type))) (arg 0) (arg 1))))
-          (("substring" "subvector")
+          (("substring" "subarray")
            (list (wat "call" (id (sequence-slice-helper m type)) (arg 0) (arg 1) (arg 2))))
-          (("vector-set")
-           (list (wat "call" (id (vector-replace-helper m (sequence-element type)))
+          (("array-set")
+           (list (wat "call" (id (array-replace-helper m (sequence-element type)))
                       (arg 0) (arg 1) (arg 2))))
-          (("vector-copy!")
-           (list (wat "call" (id (vector-copy-into-helper m (sequence-element (first-type types))))
+          (("array-copy!")
+           (list (wat "call" (id (array-copy-into-helper m (sequence-element (first-type types))))
                       (arg 0) (arg 1) (arg 2) (arg 3) (arg 4))))
           (("string=?") (list (wat* "call" (Cons (id (string-equal-helper m)) code))))
           (("string-compare") (list (wat* "call" (Cons (id (string-compare-helper m)) code))))
-          (("vector-generate" "string-generate")
+          (("array-generate" "string-generate")
            (list (wat* "call"
                        (Cons (id (generate-helper m (sequence type) (list-ref types 1)))
                              (append code (list (● fn evidence)))))))
@@ -4100,7 +4100,7 @@
     ;; stage reserves four bytes per slot: count+1 safely holds either layout.
 
     (define (stage-helper (m Module) (bytes? Bool)) (→ String) (! mut)
-      (let ((type (if bytes? (TCon "Vector" (list (TCon "U8" (Nil)))) (TCon "String" (Nil))))
+      (let ((type (if bytes? (TCon "Array" (list (TCon "U8" (Nil)))) (TCon "String" (Nil))))
             (stage (import! m
                             (new Import (module "snail.core.support") (symbol "snail:io/stage"))
                             (list (Scalar "i32"))
@@ -4196,15 +4196,15 @@
       (let* ((named (fold-left (lambda (table definition)
                                  (table-set table (type-definition-name definition) definition))
                                (empty-table) definitions))
-             (names (list->vector (list-sort string<? (map type-definition-name definitions))))
+             (names (list->array (list-sort string<? (map type-definition-name definitions))))
              (numbers
-              (fold-left (lambda (table index) (table-set table (vector-ref names index) index))
+              (fold-left (lambda (table index) (table-set table (array-ref names index) index))
                          (empty-table)
-                         (iota (vector-length names)))))
+                         (iota (array-length names)))))
         (map (lambda (component)
-               (group-wat named (map (lambda (index) (vector-ref names index)) component)))
+               (group-wat named (map (lambda (index) (array-ref names index)) component)))
              (strong-components
-              (vector-map (lambda (name) (type-edges named numbers name)) names)))))
+              (array-map (lambda (name) (type-edges named numbers name)) names)))))
 
     (define (type-definition-name (definition Wat)) (→ String)
       (match definition

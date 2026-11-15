@@ -121,7 +121,7 @@
     (define (write-message (json Json)) (→ Unit) (! output-port)
       (let ((text (json->string json)))
         (write-string (string-append "Content-Length: "
-                                     (show (vector-length (string->utf8 text)))
+                                     (show (array-length (string->utf8 text)))
                                      "\r\n\r\n"
                                      text))))
 
@@ -196,10 +196,10 @@
 
     (define (uri->path (uri String)) (→ (Option String))
       (if (has-prefix? uri "file://")
-          (match (utf8->string (list->vector (percent-decoded (string->list (substring uri
-                                                                                       7
-                                                                                       (string-length
-                                                                                        uri))))))
+          (match (utf8->string (list->array (percent-decoded (string->list (substring uri
+                                                                                      7
+                                                                                      (string-length
+                                                                                       uri))))))
             ((Ok path) (Some path))
             ((Err _) (None)))
           (None)))
@@ -211,10 +211,10 @@
          (match (new Pair (first (hex-value high)) (second (hex-value low)))
            ((Pair (Some high) (Some low))
             (Cons (i32->u8 (+ (* high 16) low)) (percent-decoded rest)))
-           (_ (append (vector->list (string->utf8 "%"))
+           (_ (append (array->list (string->utf8 "%"))
                       (percent-decoded (Cons high (Cons low rest)))))))
         ((Cons char rest)
-         (append (vector->list (string->utf8 (make-string 1 char))) (percent-decoded rest)))))
+         (append (array->list (string->utf8 (make-string 1 char))) (percent-decoded rest)))))
 
     (define (hex-value (char Char)) (→ (Option I32))
       (let ((code (char->i32 char)))
@@ -227,7 +227,7 @@
 
     (define (path->uri (path String)) (→ String)
       (string-append "file://"
-                     (string-concatenate (map uri-byte (vector->list (string->utf8 path))))))
+                     (string-concatenate (map uri-byte (array->list (string->utf8 path))))))
 
     (define (uri-byte (byte U8)) (→ String)
       (let ((code (u8->i32 byte)))
@@ -258,41 +258,41 @@
     (define (code-units (char Char)) (→ I64)
       (if (>= (char->i32 char) 65536) 2 1))
 
-    (define (line-start (chars (Vector Char)) (line I64)) (→ I64)
+    (define (line-start (chars (Array Char)) (line I64)) (→ I64)
       (let loop ((index 0) (line line))
         (cond ((<= line 0) index)
-              ((>= index (vector-length chars)) index)
-              ((char=? (vector-ref chars index) #\newline) (loop (+ index 1) (- line 1)))
+              ((>= index (array-length chars)) index)
+              ((char=? (array-ref chars index) #\newline) (loop (+ index 1) (- line 1)))
               (else (loop (+ index 1) line)))))
 
     ;; The index of a position's character, at most the end of its line.
 
-    (define (position->index (chars (Vector Char)) (line I64) (units I64)) (→ I64)
+    (define (position->index (chars (Array Char)) (line I64) (units I64)) (→ I64)
       (let loop ((index (line-start chars line)) (left units))
         (cond ((<= left 0) index)
-              ((>= index (vector-length chars)) index)
-              ((char=? (vector-ref chars index) #\newline) index)
-              (else (loop (+ index 1) (- left (code-units (vector-ref chars index))))))))
+              ((>= index (array-length chars)) index)
+              ((char=? (array-ref chars index) #\newline) index)
+              (else (loop (+ index 1) (- left (code-units (array-ref chars index))))))))
 
-    (define (index->position (chars (Vector Char)) (index I64)) (→ Json)
+    (define (index->position (chars (Array Char)) (index I64)) (→ Json)
       (let loop ((at 0) (line 0) (units 0))
-        (cond ((or (>= at index) (>= at (vector-length chars)))
+        (cond ((or (>= at index) (>= at (array-length chars)))
                (object
                 (list (field "line" (JsonInteger line)) (field "character" (JsonInteger units)))))
-              ((char=? (vector-ref chars at) #\newline) (loop (+ at 1) (+ line 1) 0))
-              (else (loop (+ at 1) line (+ units (code-units (vector-ref chars at))))))))
+              ((char=? (array-ref chars at) #\newline) (loop (+ at 1) (+ line 1) 0))
+              (else (loop (+ at 1) line (+ units (code-units (array-ref chars at))))))))
 
-    (define (loc->index (chars (Vector Char)) (loc Loc)) (→ I64)
-      (min (vector-length chars)
+    (define (loc->index (chars (Array Char)) (loc Loc)) (→ I64)
+      (min (array-length chars)
            (+ (line-start chars (- (● loc line) 1)) (max 0 (- (● loc column) 1)))))
 
-    (define (index->loc (chars (Vector Char)) (file String) (index I64)) (→ Loc)
+    (define (index->loc (chars (Array Char)) (file String) (index I64)) (→ Loc)
       (let loop ((at 0) (line 1) (column 1))
         (cond ((>= at index) (new Loc (file file) (line line) (column column)))
-              ((char=? (vector-ref chars at) #\newline) (loop (+ at 1) (+ line 1) 1))
+              ((char=? (array-ref chars at) #\newline) (loop (+ at 1) (+ line 1) 1))
               (else (loop (+ at 1) line (+ column 1))))))
 
-    (define (range (chars (Vector Char)) (start I64) (end I64)) (→ Json)
+    (define (range (chars (Array Char)) (start I64) (end I64)) (→ Json)
       (object (list (field "start" (index->position chars start))
                     (field "end" (index->position chars end)))))
 
@@ -300,7 +300,7 @@
     ;; name, literal or bracketed datum that starts there.
 
     (define (loc-range (text String) (loc Loc)) (→ Json)
-      (let* ((chars (string->vector text)) (marked (highlight-range text (loc->index chars loc))))
+      (let* ((chars (string->array text)) (marked (highlight-range text (loc->index chars loc))))
         (range chars (● marked first) (● marked second))))
 
     ;; ---- Diagnostics ----
@@ -370,7 +370,7 @@
     (define (report->json (text String) (report Report)) (→ Json)
       (object (list (field "range" (match (● report loc)
                                      ((Some loc) (loc-range text loc))
-                                     ((None) (range (string->vector text) 0 0))))
+                                     ((None) (range (string->array text) 0 0))))
                     (field "severity" (JsonInteger 1))
                     (field "source" (JsonString "snail-scheme"))
                     (field "message" (JsonString (● report message))))))
@@ -431,16 +431,16 @@
     ;; may have moved another token to the point the use was at.
 
     (define (use-at (names Index) (path String) (text String) (index I64)) (→ (Option Use))
-      (let* ((chars (string->vector text)) (start (name-start chars index)))
+      (let* ((chars (string->array text)) (start (name-start chars index)))
         (match (table-ref (● names uses) (loc-key (index->loc chars path start)))
           ((Some use)
-           (if (written-at? chars start (string->vector (source-name (● use name))))
+           (if (written-at? chars start (string->array (source-name (● use name))))
                (Some use)
                (None)))
           ((None) (None)))))
 
-    (define (name-start (chars (Vector Char)) (index I64)) (→ I64)
-      (if (and (> index 0) (not (delimiter? (vector-ref chars (- index 1)))))
+    (define (name-start (chars (Array Char)) (index I64)) (→ I64)
+      (if (and (> index 0) (not (delimiter? (array-ref chars (- index 1)))))
           (name-start chars (- index 1))
           index))
 
@@ -648,14 +648,14 @@
                (JsonArray (Nil))
                (JsonArray
                 (list (object (list (field "range"
-                                           (range (string->vector text) 0 (string-length text)))
+                                           (range (string->array text) 0 (string-length text)))
                                     (field "newText" (JsonString formatted)))))))))
         ((None) (JsonNull))))
 
     (define (requested-use (server Server) (params Json)) (→ (Option Use))
       (match (requested server params)
         ((Some document)
-         (let ((chars (string->vector (● document text))))
+         (let ((chars (string->array (● document text))))
            (use-at (● server names)
                    (● document path)
                    (● document text)
@@ -701,25 +701,25 @@
     ;; the name itself, the first token in the form that is written as it.
 
     (define (name-range (text String) (loc Loc) (name String)) (→ Json)
-      (let* ((chars (string->vector text))
+      (let* ((chars (string->array text))
              (form (highlight-range text (loc->index chars loc)))
-             (written (string->vector name)))
+             (written (string->array name)))
         (match (find (lambda (start) (written-at? chars start written))
                      (map (lambda (offset) (+ (● form first) offset))
                           (iota (max 0 (- (● form second) (● form first))))))
-          ((Some start) (range chars start (+ start (vector-length written))))
+          ((Some start) (range chars start (+ start (array-length written))))
           ((None) (range chars (● form first) (● form second))))))
 
     ;; Whether the token at `start` is `written`, delimited on both sides.
 
-    (define (written-at? (chars (Vector Char)) (start I64) (written (Vector Char))) (→ Bool)
-      (let ((end (+ start (vector-length written))))
-        (and (<= end (vector-length chars))
-             (or (= start 0) (delimiter? (vector-ref chars (- start 1))))
-             (or (= end (vector-length chars)) (delimiter? (vector-ref chars end)))
+    (define (written-at? (chars (Array Char)) (start I64) (written (Array Char))) (→ Bool)
+      (let ((end (+ start (array-length written))))
+        (and (<= end (array-length chars))
+             (or (= start 0) (delimiter? (array-ref chars (- start 1))))
+             (or (= end (array-length chars)) (delimiter? (array-ref chars end)))
              (every? (lambda (offset)
-                       (char=? (vector-ref chars (+ start offset)) (vector-ref written offset)))
-                     (iota (vector-length written))))))
+                       (char=? (array-ref chars (+ start offset)) (array-ref written offset)))
+                     (iota (array-length written))))))
 
     ;; ---- Colours ----
 
@@ -776,7 +776,7 @@
     ;; moves it and adds no span.
 
     (define (spans (text String)) (→ (List Span))
-      (let ((chars (string->vector text)))
+      (let ((chars (string->array text)))
         (let loop ((tokens (highlight-tokens text))
                    (cursor (new Cursor (at 0) (line 0) (column 0)))
                    (out (Nil)))
@@ -786,8 +786,8 @@
              (let ((walked (token-spans chars cursor token)))
                (loop rest (● walked first) (append (reverse (● walked second)) out))))))))
 
-    (define (step (chars (Vector Char)) (cursor Cursor)) (→ Cursor)
-      (let ((char (vector-ref chars (● cursor at))))
+    (define (step (chars (Array Char)) (cursor Cursor)) (→ Cursor)
+      (let ((char (array-ref chars (● cursor at))))
         (if (char=? char #\newline)
             (new Cursor (at (+ (● cursor at) 1)) (line (+ (● cursor line) 1)) (column 0))
             (new Cursor (at (+ (● cursor at) 1)) (line (● cursor line))
@@ -796,7 +796,7 @@
     ;; The token's pieces, a line each, and the cursor at its end. A
     ;; newline ends a piece and is in none.
 
-    (define (token-spans (chars (Vector Char)) (start Cursor) (token Token))
+    (define (token-spans (chars (Array Char)) (start Cursor) (token Token))
       (→ (Pair Cursor (List Span)))
       (let ((type (token-type (● token class)))
             (modifiers (match (● token class) ((DefinedName) 1) (_ 0))))
@@ -804,7 +804,7 @@
           (let ((piece (lambda () (spanned from cursor type modifiers out))))
             (cond
              ((>= (● cursor at) (● token end)) (new Pair (first cursor) (second (reverse (piece)))))
-             ((char=? (vector-ref chars (● cursor at)) #\newline)
+             ((char=? (array-ref chars (● cursor at)) #\newline)
               (let ((next (step chars cursor))) (loop next next (piece))))
              (else (loop from (step chars cursor) out)))))))
 

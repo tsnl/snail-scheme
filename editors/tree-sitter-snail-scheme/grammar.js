@@ -10,7 +10,7 @@
 //   block comments, which nest, and `#;`, which comments out
 //   the datum after it.
 // - A list opens with `(` or `[` and closes with the same kind of bracket;
-//   `#u8(` opens a byte vector; `'` quotes the datum after it.
+//   `#u8(` opens a byte array; `'` quotes the datum after it.
 // - A string runs to the first quote no backslash escapes, across lines.
 // - `#\` takes the character after it, whatever it is, then runs on to a
 //   delimiter, as in `#\space`.

@@ -101,7 +101,7 @@
       ((targets (List Target))
        (roots (List Target))
        (scratch String)
-       (steps (Vector Step))
+       (steps (Array Step))
        (order (List I64))))
 
     ;; A phase's identity: a target is built once, and a producer runs
@@ -128,7 +128,7 @@
                      (targets targets)
                      (roots roots)
                      (scratch scratch)
-                     (steps (list->vector (Nil)))
+                     (steps (list->array (Nil)))
                      (order (Nil)))
                    inputs))
 
@@ -156,27 +156,27 @@
       (let* ((steps (● plan steps)) (ready (ready-nodes steps (● plan order))))
         (new Pair
           (first
-           (map (lambda (node) (new Pair (first node) (second (● (vector-ref steps node) phase))))
+           (map (lambda (node) (new Pair (first node) (second (● (array-ref steps node) phase))))
                 ready))
           (second (Plan-steps-set plan
                                   (fold-left (lambda (steps node)
-                                               (vector-set steps
-                                                           node
-                                                           (Step-emitted-set (vector-ref steps node)
-                                                                             #t)))
+                                               (array-set steps
+                                                          node
+                                                          (Step-emitted-set (array-ref steps node)
+                                                                            #t)))
                                              steps ready))))))
 
     ;; Whether a later wave has phases to hand out, once the producers this
     ;; one ran have refined the plan.
 
     (define (phases-left? (plan Plan)) (→ Bool)
-      (any? (lambda (step) (not (● step emitted))) (vector->list (● plan steps))))
+      (any? (lambda (step) (not (● step emitted))) (array->list (● plan steps))))
 
-    (define (ready-nodes (steps (Vector Step)) (order (List I64))) (→ (List I64))
+    (define (ready-nodes (steps (Array Step)) (order (List I64))) (→ (List I64))
       (match order
         ((Nil) (Nil))
         ((Cons node rest)
-         (let ((step (vector-ref steps node)))
+         (let ((step (array-ref steps node)))
            (cond ((● step emitted) (ready-nodes steps rest))
                  ((known? (● step needs)) (Cons node (ready-nodes steps rest)))
                  (else (Nil)))))))
@@ -201,7 +201,7 @@
        (inputs Inputs)
        (scratch String)
        (nodes (Table I64))
-       (steps (Vector Step))
+       (steps (Array Step))
        (visited (Table Bool))))
 
     (define (plan-growth (plan Plan) (inputs Inputs)) (→ Growth)
@@ -209,9 +209,9 @@
         (new Growth (targets (● plan targets)) (inputs inputs) (scratch (● plan scratch))
              (nodes (fold-left (lambda (nodes node)
                                  (table-set nodes
-                                            (phase-key (● (vector-ref steps node) phase))
+                                            (phase-key (● (array-ref steps node) phase))
                                             node))
-                               (empty-table) (iota (vector-length steps))))
+                               (empty-table) (iota (array-length steps))))
              (steps steps) (visited (empty-table)))))
 
     ;; Visits `phase` depth first and returns its node. A phase new to the
@@ -228,7 +228,7 @@
                (revisit (mark-visited growth key) node)))
           ((None)
            (learn (add-phase (mark-visited growth key) key phase)
-                  (vector-length (● growth steps)))))))
+                  (array-length (● growth steps)))))))
 
     (define (revisit (growth Growth) (node I64)) (→ (Pair I64 Growth)) (! fs compile)
       (match (● (step-at growth node) needs)
@@ -279,24 +279,24 @@
       (Growth-steps-set (Growth-nodes-set growth
                                           (table-set (● growth nodes)
                                                      key
-                                                     (vector-length (● growth steps))))
-                        (vector-append (● growth steps)
-                                       (list->vector (list (new Step
-                                                             (phase phase)
-                                                             (needs (Known (Nil)))
-                                                             (emitted #f)))))))
+                                                     (array-length (● growth steps))))
+                        (array-append (● growth steps)
+                                      (list->array (list (new Step
+                                                           (phase phase)
+                                                           (needs (Known (Nil)))
+                                                           (emitted #f)))))))
 
     (define (mark-visited (growth Growth) (key String)) (→ Growth)
       (Growth-visited-set growth (table-set (● growth visited) key #t)))
 
     (define (step-at (growth Growth) (node I64)) (→ Step)
-      (vector-ref (● growth steps) node))
+      (array-ref (● growth steps) node))
 
     (define (with-needs (growth Growth) (node I64) (needs Needs)) (→ Growth)
       (Growth-steps-set growth
-                        (vector-set (● growth steps)
-                                    node
-                                    (Step-needs-set (step-at growth node) needs))))
+                        (array-set (● growth steps)
+                                   node
+                                   (Step-needs-set (step-at growth node) needs))))
 
     (define (node-of (growth Growth) (phase Phase)) (→ I64)
       (match (table-ref (● growth nodes) (phase-key phase))
@@ -425,7 +425,7 @@
     ;; component of more than one node, or a node that needs itself, is a
     ;; cycle, which no order runs.
 
-    (define (checked-order (targets (List Target)) (steps (Vector Step))) (→ (List I64)) (! compile)
+    (define (checked-order (targets (List Target)) (steps (Array Step))) (→ (List I64)) (! compile)
       (let* ((edges (step-edges steps))
              (components (strong-components edges)))
         (for-each (lambda (component)
@@ -433,15 +433,15 @@
                   components)
         (concatenate components)))
 
-    ;; Each step's edges, the nodes it needs. A pure helper, as `vector-map`'s
+    ;; Each step's edges, the nodes it needs. A pure helper, as `array-map`'s
     ;; procedure must be.
 
-    (define (step-edges (steps (Vector Step))) (→ (Vector (List I64)))
-      (vector-map (lambda (step) (needs-nodes (● step needs))) steps))
+    (define (step-edges (steps (Array Step))) (→ (Array (List I64)))
+      (array-map (lambda (step) (needs-nodes (● step needs))) steps))
 
-    (define (cyclic? (edges (Vector (List I64))) (component (List I64))) (→ Bool)
+    (define (cyclic? (edges (Array (List I64))) (component (List I64))) (→ Bool)
       (match component
-        ((Cons node (Nil)) (member? node (vector-ref edges node)))
+        ((Cons node (Nil)) (member? node (array-ref edges node)))
         (_ #t)))
 
     ;; A cycle through a target names the targets around it, from the one
@@ -450,8 +450,8 @@
     ;; reports one, at the producer planned first.
 
     (define (cycle-error (targets (List Target))
-                         (steps (Vector Step))
-                         (edges (Vector (List I64)))
+                         (steps (Array Step))
+                         (edges (Array (List I64)))
                          (component (List I64)))
       (→ A)
       (! compile)
@@ -459,13 +459,13 @@
       (match (first-declared targets steps component)
         ((Some start)
          (let ((path (cycle-path edges component start)))
-           (compile-error (● (step-built (vector-ref steps start)) loc)
+           (compile-error (● (step-built (array-ref steps start)) loc)
                           (string-append "artifact dependency cycle: "
                                          (string-join (path-targets steps path) " -> ")
                                          (path-producers steps path)))))
         ((None)
          (let ((producer
-                (step-producer (vector-ref steps (fold-left min (vector-length steps) component)))))
+                (step-producer (array-ref steps (fold-left min (array-length steps) component)))))
            (compile-error (● producer loc)
                           (string-append "library import cycle through "
                                          (string-join (● producer library) ".")))))))
@@ -473,12 +473,12 @@
     ;; The member of `component` that builds the target declared first, if
     ;; any member builds one.
 
-    (define (first-declared (targets (List Target)) (steps (Vector Step)) (component (List I64)))
+    (define (first-declared (targets (List Target)) (steps (Array Step)) (component (List I64)))
       (→ (Option I64))
       (match (find (lambda (target)
-                     (any? (lambda (node) (builds? (vector-ref steps node) target)) component))
+                     (any? (lambda (node) (builds? (array-ref steps node) target)) component))
                    targets)
-        ((Some target) (find (lambda (node) (builds? (vector-ref steps node) target)) component))
+        ((Some target) (find (lambda (node) (builds? (array-ref steps node) target)) component))
         ((None) (None))))
 
     (define (builds? (step Step) (target Target)) (→ Bool)
@@ -504,7 +504,7 @@
     ;; The way around the cycle from `start` back to it, through members of
     ;; `component`, following each node's needs in order.
 
-    (define (cycle-path (edges (Vector (List I64))) (component (List I64)) (start I64))
+    (define (cycle-path (edges (Array (List I64))) (component (List I64)) (start I64))
       (→ (List I64))
       (match (path-back edges component start (list start))
         ((Some path) path)
@@ -512,13 +512,13 @@
 
     ;; `path` holds the nodes so far, latest first.
 
-    (define (path-back (edges (Vector (List I64)))
+    (define (path-back (edges (Array (List I64)))
                        (component (List I64))
                        (start I64)
                        (path (List I64)))
       (→ (Option (List I64)))
       (let ((needs (match path
-                     ((Cons node _) (vector-ref edges node))
+                     ((Cons node _) (array-ref edges node))
                      ((Nil) (Nil)))))
         (if (member? start needs)
             (Some (reverse (Cons start path)))
@@ -531,9 +531,9 @@
                                 (None)))))
                        (None) needs))))
 
-    (define (path-targets (steps (Vector Step)) (path (List I64))) (→ (List String))
+    (define (path-targets (steps (Array Step)) (path (List I64))) (→ (List String))
       (concatenate (map (lambda (node)
-                          (match (step-target (vector-ref steps node))
+                          (match (step-target (array-ref steps node))
                             ((Some target) (list (● target name)))
                             ((None) (Nil))))
                         path)))
@@ -541,9 +541,9 @@
     ;; " through the producer of (generated assets)", naming each producer
     ;; on the path, or nothing.
 
-    (define (path-producers (steps (Vector Step)) (path (List I64))) (→ String)
+    (define (path-producers (steps (Array Step)) (path (List I64))) (→ String)
       (let ((producers (concatenate (map (lambda (node)
-                                           (match (● (vector-ref steps node) phase)
+                                           (match (● (array-ref steps node) phase)
                                              ((ProducePhase producer)
                                               (list (string-append "the producer of ("
                                                                    (string-join
@@ -604,7 +604,7 @@
                                             (list "build server"
                                                   "produce generated.assets"
                                                   "build client"))
-                                    (expect (● (vector-ref (● cold steps) 0) needs)
+                                    (expect (● (array-ref (● cold steps) 0) needs)
                                             (Waiting (list 1) (list 1)))
                                     (expect (● cold order) (list 2 1 0))
                                     (expect (wave-names (● wave first))
@@ -617,7 +617,7 @@
                                                   "produce generated.assets"
                                                   "build client"
                                                   "build admin"))
-                                    (expect (● (vector-ref (● warm steps) 0) needs)
+                                    (expect (● (array-ref (● warm steps) 0) needs)
                                             (Known (list 1 3 2)))
                                     (expect (● warm order) (list 2 1 3 0))
                                     (expect (wave-names (● next first))
@@ -680,7 +680,7 @@
 
       (define step-names
         (lambda (plan)
-          (map (lambda (step) (phase-name (● step phase))) (vector->list (● plan steps)))))
+          (map (lambda (step) (phase-name (● step phase))) (array->list (● plan steps)))))
 
       (define wave-names
         (lambda (wave) (map (lambda (entry) (phase-name (● entry second))) wave)))

@@ -13,7 +13,7 @@
     ((_) (bundle "does-not-exist"))))
 
 (define (print-bytes (bytes Bytes)) (→ Unit) (! output-port)
-  (vector-for-each (lambda (byte) (display (u8->i32 byte)) (display ",")) bytes)
+  (array-for-each (lambda (byte) (display (u8->i32 byte)) (display ",")) bytes)
   (newline))
 
 (define (required (bundle ArtifactBundle) (name String)) (→ Bytes)

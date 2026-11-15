@@ -259,8 +259,8 @@
           (Ok (success answer))))
 
     (define (held-bytes (position I32)) (→ Bytes)
-      (vector-generate (i32->i64 (host-held-length position))
-                       (lambda (index) (i32->u8 (host-held-byte position (i64->i32 index))))))
+      (array-generate (i32->i64 (host-held-length position))
+                      (lambda (index) (i32->u8 (host-held-byte position (i64->i32 index))))))
 
     ;; Error codes and signal names are ASCII.
 

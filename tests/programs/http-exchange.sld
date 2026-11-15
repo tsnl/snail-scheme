@@ -20,12 +20,12 @@
   (unless condition (panic "HTTP exchange assertion failed")))
 
 (define (ascii (text String)) (→ Bytes)
-  (vector-generate (string-length text)
-                   (lambda (index) (i32->u8 (char->i32 (string-ref text index))))))
+  (array-generate (string-length text)
+                  (lambda (index) (i32->u8 (char->i32 (string-ref text index))))))
 
 (define (text (bytes Bytes)) (→ String)
-  (string-generate (vector-length bytes)
-                   (lambda (index) (i32->char (u8->i32 (vector-ref bytes index))))))
+  (string-generate (array-length bytes)
+                   (lambda (index) (i32->char (u8->i32 (array-ref bytes index))))))
 
 (record Stream
   ((input Bytes)
@@ -54,26 +54,26 @@
   (→ (Result (Option Bytes) SocketError))
   (! mut)
   (let* ((state (token connection)) (start (● state cursor))
-         (end (min (vector-length (● state input))
+         (end (min (array-length (● state input))
                    (+ start (min (i32->i64 maximum) (● state read-size))))))
     (cond ((string=? (● state fault) "read") (Err (new SocketError (code "TEST_READ"))))
           ((string=? (● state fault) "oversize-read")
-           (Ok (Some (make-vector (+ (i32->i64 maximum) 1) (i32->u8 0)))))
-          ((= start (vector-length (● state input))) (Ok (None)))
+           (Ok (Some (make-array (+ (i32->i64 maximum) 1) (i32->u8 0)))))
+          ((= start (array-length (● state input))) (Ok (None)))
           (else (set! (● state cursor) end)
-                (Ok (Some (subvector (● state input) start end)))))))
+                (Ok (Some (subarray (● state input) start end)))))))
 
 (define (write-stream (connection Connection) (bytes Bytes)) (→ (Result I32 SocketError)) (! mut)
-  (let* ((state (token connection)) (count (min (vector-length bytes) (● state write-size))))
+  (let* ((state (token connection)) (count (min (array-length bytes) (● state write-size))))
     (cond ((string=? (● state fault) "write") (Err (new SocketError (code "TEST_WRITE"))))
           ((string=? (● state fault) "oversize-write")
-           (Ok (i64->i32 (+ (vector-length bytes) 1))))
+           (Ok (i64->i32 (+ (array-length bytes) 1))))
           ((string=? (● state fault) "negative-write") (Ok -1))
           (else
            (set! (● state offered)
-                 (+ (● state offered) (vector-length bytes)))
+                 (+ (● state offered) (array-length bytes)))
            (set! (● state output)
-                 (Cons (subvector bytes 0 count) (● state output)))
+                 (Cons (subarray bytes 0 count) (● state output)))
            (Ok (i64->i32 count))))))
 
 (define (finish-stream (connection Connection) (grace I32)) (→ (Result Unit SocketError)) (! mut)
@@ -99,7 +99,7 @@
 
 (define (output (state Stream))
   (→ String)
-  (text (vector-concatenate (reverse (● state output)))))
+  (text (array-concatenate (reverse (● state output)))))
 
 (define (success? (result (Result Unit (ExchangeError String))))
   (→ Bool)
@@ -126,7 +126,7 @@
        ;; Every read size splits the delimiter/body differently. Writes accept
        ;; short prefixes; all app state lives in this handler's opaque token.
        (let loop ((size 1))
-         (when (<= size (vector-length (request)))
+         (when (<= size (array-length (request)))
            (let ((state (stream (request) size 3 "")))
              (assert (success? (run state echo)))
              (assert (= (● state ended) 1))
@@ -222,26 +222,26 @@
             (assert (= (● state ended) 2))
             (assert (string=? (output state) ""))))
         (list (ascii "GET / HTTP/1.1\r\nHost: test\r\r\n\r\n")
-              (make-vector (head-limit) (i32->u8 65))
+              (make-array (head-limit) (i32->u8 65))
               (ascii "POST / HTTP/1.1\r\nHost: test\r\nContent-Length: 8388609\r\n\r\n")
               (ascii
                "POST / HTTP/1.1\r\nHost: test\r\nTransfer-Encoding: chunked\r\n\r\n")))
        (write-line "bounded heads and declared bodies")
-       (let* ((body (vector-generate 131073
-                                     (lambda (index)
-                                       (i32->u8 (i64->i32 (modulo index 251))))))
+       (let* ((body (array-generate 131073
+                                    (lambda (index)
+                                      (i32->u8 (i64->i32 (modulo index 251))))))
               (head
                (ascii "POST / HTTP/1.1\r\nHost: test\r\nContent-Length: 131073\r\n\r\n"))
-              (state (stream (vector-append head body) 65536 113 "")))
+              (state (stream (array-append head body) 65536 113 "")))
          (assert (success? (run state echo)))
-         (let ((bytes (vector-concatenate (reverse (● state output))))
+         (let ((bytes (array-concatenate (reverse (● state output))))
                (offset
                 (string-length
                  "HTTP/1.1 200 \r\nConnection: close\r\nContent-Length: 131073\r\n\r\n")))
-           (assert (= (vector-length bytes) (+ 131073 offset)))
+           (assert (= (array-length bytes) (+ 131073 offset)))
            (let loop ((index 0))
              (when (< index 131073)
-               (assert (= (vector-ref bytes (+ offset index)) (vector-ref body index)))
+               (assert (= (array-ref bytes (+ offset index)) (array-ref body index)))
                (loop (+ index 1))))))
        (write-line "binary body across transfer bounds")
        (let ((state (stream (ascii "GET / HTTP/1.1\r\nHost: test\r\n\r\n") 100 1 "")))
@@ -252,7 +252,7 @@
                   (Ok (new Response
                         (status 200)
                         (headers (Nil))
-                        (body (make-vector 10000 (i32->u8 7)))))))))
+                        (body (make-array 10000 (i32->u8 7)))))))))
          (assert (<= (● state offered) (+ 131072 (* 2 10100)))))
        (write-line "tiny writes keep copying linear")
        (let ((state (stream (ascii "GET / HTTP/1.1\r\n") 100 100 "")))

@@ -374,10 +374,10 @@
 
     (define (embedded-names (plan Plan) (node I64)) (→ (List String))
       (let ((steps (● plan steps)))
-        (match (● (vector-ref steps node) needs)
+        (match (● (array-ref steps node) needs)
           ((Known nodes)
            (concatenate (map (lambda (need)
-                               (match (● (vector-ref steps need) phase)
+                               (match (● (array-ref steps need) phase)
                                  ((BuildPhase target) (list (● target name)))
                                  (_ (Nil))))
                              nodes)))
@@ -611,7 +611,7 @@
           (let ((writing (string-append to ".writing." token)))
             (write-bytes writing bytes)
             (expect-done (rename-file writing to) (string-append "cannot place " to))))
-        (new Object (digest digest) (size (vector-length bytes)))))
+        (new Object (digest digest) (size (array-length bytes)))))
 
     ;; An object as a manifest names it.
     (record Object

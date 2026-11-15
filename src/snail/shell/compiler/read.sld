@@ -1,4 +1,4 @@
-;; Text to located syntax. The reader is a recursive descent over a vector
+;; Text to located syntax. The reader is a recursive descent over an array
 ;; of characters; a position is just an index, and line and column are
 ;; recovered from a table of line starts only when a location is needed.
 ;; Its lexical rules, the "Lexemes" section, are exported, and
@@ -98,9 +98,9 @@
       (DBytes ((value Bytes)))
       (DBool ((value Bool)))
       (DUnit)
-      ;; A constant vector's elements, all literals of the scalar type
+      ;; A constant array's elements, all literals of the scalar type
       ;; `element` names. Only the expander makes one, from
-      ;; `(constant-vector TYPE (VALUE ...))`; the reader never does.
+      ;; `(constant-array TYPE (VALUE ...))`; the reader never does.
       (DConstants ((element String) (values (List Datum)))))
 
     ;; An identifier a macro template introduces carries a mark: a key unique
@@ -139,13 +139,13 @@
         ((DBytes value)
          (string-append "#u8("
                         (string-join (map (lambda (byte) (i64->string (i32->i64 (u8->i32 byte))))
-                                          (vector->list value))
+                                          (array->list value))
                                      " ")
                         ")"))
         ((DBool value) (if value "#t" "#f"))
         ((DUnit) "(unit)")
         ((DConstants element values)
-         (string-append "(constant-vector " element " ("
+         (string-append "(constant-array " element " ("
                         (string-join (map datum->string values) " ") "))"))))
 
     ;; A string as a literal the reader reads back.
@@ -181,10 +181,10 @@
            (_ #f)))))
 
     (define (bytes=? (a Bytes) (b Bytes)) (→ Bool)
-      (and (= (vector-length a) (vector-length b))
+      (and (= (array-length a) (array-length b))
            (let loop ((index 0))
-             (or (= index (vector-length a))
-                 (and (= (u8->i32 (vector-ref a index)) (u8->i32 (vector-ref b index)))
+             (or (= index (array-length a))
+                 (and (= (u8->i32 (array-ref a index)) (u8->i32 (array-ref b index)))
                       (loop (+ index 1)))))))
 
     (define (eq-bool? (a Bool) (b Bool)) (→ Bool)
@@ -327,34 +327,34 @@
 
     (record Source
       ((file String)
-       (chars (Vector Char))
-       (line-starts (Vector I64))))
+       (chars (Array Char))
+       (line-starts (Array I64))))
 
     (define (make-source (file String) (text String)) (→ Source)
-      (let ((chars (string->vector text)))
+      (let ((chars (string->array text)))
         (let loop ((index 0) (starts (list 0)))
           (cond
-           ((= index (vector-length chars))
-            (new Source (file file) (chars chars) (line-starts (list->vector (reverse starts)))))
-           ((char=? (vector-ref chars index) #\newline)
+           ((= index (array-length chars))
+            (new Source (file file) (chars chars) (line-starts (list->array (reverse starts)))))
+           ((char=? (array-ref chars index) #\newline)
             (loop (+ index 1) (Cons (+ index 1) starts)))
            (else (loop (+ index 1) starts))))))
 
     (define (source-text (source Source) (start I64) (end I64)) (→ String)
-      (vector->string (subvector (● source chars) start end)))
+      (array->string (subarray (● source chars) start end)))
 
     ;; Binary search for the last line that starts at or before `index`.
 
     (define (source-loc (source Source) (index I64)) (→ Loc)
       (let ((starts (● source line-starts)))
-        (let search ((low 0) (high (- (vector-length starts) 1)))
+        (let search ((low 0) (high (- (array-length starts) 1)))
           (if (= low high)
               (new Loc
                 (file (● source file))
                 (line (+ low 1))
-                (column (+ (- index (vector-ref starts low)) 1)))
+                (column (+ (- index (array-ref starts low)) 1)))
               (let ((middle (quotient (+ (+ low high) 1) 2)))
-                (if (<= (vector-ref starts middle) index)
+                (if (<= (array-ref starts middle) index)
                     (search middle high)
                     (search low (- middle 1))))))))
 
@@ -365,13 +365,13 @@
 
     (define (peek (source Source) (index I64)) (→ Char)
       (let ((chars (● source chars)))
-        (if (< index (vector-length chars)) (vector-ref chars index) (integer->char 0))))
+        (if (< index (array-length chars)) (array-ref chars index) (integer->char 0))))
 
     (define (char-is? (source Source) (index I64) (char Char)) (→ Bool)
       (and (not (at-end? source index)) (char=? (peek source index) char)))
 
     (define (at-end? (source Source) (index I64)) (→ Bool)
-      (>= index (vector-length (● source chars))))
+      (>= index (array-length (● source chars))))
 
     (define (delimiter? (source Source) (index I64)) (→ Bool)
       (let ((c (peek source index)))
@@ -473,7 +473,7 @@
       (cond ((at-end? source index) (new Pair (first (StringLexeme #f)) (second index)))
             ((char-is? source index #\") (new Pair (first (StringLexeme #t)) (second (+ index 1))))
             ((char-is? source index #\\)
-             (string-lexeme source (min (+ index 2) (vector-length (● source chars)))))
+             (string-lexeme source (min (+ index 2) (array-length (● source chars)))))
             (else (string-lexeme source (+ index 1)))))
 
     ;; `#\` takes the character after it, whatever it is, so `#\(` and `#\ `
@@ -482,7 +482,7 @@
     (define (character-end (source Source) (index I64)) (→ I64)
       (if (at-end? source index) index (token-end source (+ index 1))))
 
-    ;; `#u8(` opens a byte vector, as in R7RS.
+    ;; `#u8(` opens a byte array, as in R7RS.
 
     (define (bytes-opening? (source Source) (index I64)) (→ Bool)
       (and (char-is? source index #\#)
@@ -539,7 +539,7 @@
 
     ;; The bytes of `#u8(...)`, each an integer from 0 to 255. Images make
     ;; literals of millions of bytes, so they gather a chunk at a time into
-    ;; packed vectors, which are joined at the closing parenthesis.
+    ;; packed arrays, which are joined at the closing parenthesis.
 
     (define (read-bytes (source Source) (index I64) (loc Loc) (chunks (List Bytes)))
       (→ (Pair Syntax I64))
@@ -547,9 +547,9 @@
       (let* ((chunk (read-byte-chunk source index loc))
              (bytes (● chunk first))
              (next (● chunk second)))
-        (if (< (vector-length bytes) (byte-chunk))
+        (if (< (array-length bytes) (byte-chunk))
             (new Pair
-              (first (Atom (DBytes (vector-concatenate (reverse (Cons bytes chunks)))) loc))
+              (first (Atom (DBytes (array-concatenate (reverse (Cons bytes chunks)))) loc))
               (second next))
             (read-bytes source next loc (Cons bytes chunks)))))
 
@@ -562,10 +562,10 @@
       (let loop ((index index) (bytes (Nil)) (count 0))
         (let ((start (skip-atmosphere source index)))
           (cond
-           ((= count (byte-chunk)) (new Pair (first (list->vector (reverse bytes))) (second start)))
-           ((at-end? source start) (compile-error loc "unclosed byte vector"))
+           ((= count (byte-chunk)) (new Pair (first (list->array (reverse bytes))) (second start)))
+           ((at-end? source start) (compile-error loc "unclosed byte array"))
            ((char-is? source start #\))
-            (new Pair (first (list->vector (reverse bytes))) (second (+ start 1))))
+            (new Pair (first (list->array (reverse bytes))) (second (+ start 1))))
            (else (let ((end (token-end source start)))
                    (loop end (Cons (byte-token source start end) bytes) (+ count 1))))))))
 
@@ -574,11 +574,11 @@
         (cond ((and (= index end) (< start end) (<= value 255)) (i32->u8 (i64->i32 value)))
               ((or (= index end)
                    (> value 255)
-                   (not (char-numeric? (vector-ref (● source chars) index))))
+                   (not (char-numeric? (array-ref (● source chars) index))))
                (compile-error (source-loc source start) "a byte is an integer from 0 to 255"))
               (else (loop (+ index 1)
                           (+ (* value 10)
-                             (digit-value (vector-ref (● source chars) index))))))))
+                             (digit-value (array-ref (● source chars) index))))))))
 
     (define (read-quote (source Source) (index I64) (loc Loc)) (→ (Pair Syntax I64)) (! compile)
       (let ((quoted (read-datum source index)))
@@ -644,7 +644,7 @@
       (let loop ((index start) (value 0))
         (cond ((and (= index end) (= start end)) (compile-error loc "invalid hexadecimal escape"))
               ((= index end) (integer->char value))
-              (else (match (hex-digit (vector-ref (● source chars) index))
+              (else (match (hex-digit (array-ref (● source chars) index))
                       ((Some digit) (loop (+ index 1) (+ (* value 16) digit)))
                       ((None) (compile-error loc "invalid hexadecimal escape")))))))
 
@@ -775,13 +775,13 @@
     ;; ---- Generated syntax ----
 
     ;; One form in the encoding src/snail/shell/syntax.sld describes, every part
-    ;; placed at `loc`, the recipe that produced it. A byte vector is cut
+    ;; placed at `loc`, the recipe that produced it. A byte array is cut
     ;; from the bytes as they are, and a number must read as it would in
     ;; text.
 
     (define (decode-syntax (bytes Bytes) (loc Loc)) (→ Syntax) (! compile)
       (let ((decoded (decode-form bytes 0 loc)))
-        (if (= (● decoded second) (vector-length bytes))
+        (if (= (● decoded second) (array-length bytes))
             (● decoded first)
             (malformed loc "bytes follow the library"))))
 
@@ -834,8 +834,8 @@
       (let* ((count (decode-count bytes index loc))
              (start (● count second))
              (end (+ start (● count first))))
-        (if (<= end (vector-length bytes))
-            (new Pair (first (Atom (DBytes (subvector bytes start end)) loc)) (second end))
+        (if (<= end (array-length bytes))
+            (new Pair (first (Atom (DBytes (subarray bytes start end)) loc)) (second end))
             (malformed loc "it ends early"))))
 
     ;; Seven bits to a byte, low bits first. Five bytes bound a count well
@@ -849,8 +849,8 @@
                 (else (loop (+ index 1) (+ value (* (- byte 128) scale)) (* scale 128)))))))
 
     (define (byte-at (bytes Bytes) (index I64) (loc Loc)) (→ I64) (! compile)
-      (if (< index (vector-length bytes))
-          (i32->i64 (u8->i32 (vector-ref bytes index)))
+      (if (< index (array-length bytes))
+          (i32->i64 (u8->i32 (array-ref bytes index)))
           (malformed loc "it ends early")))
 
     (define (scalar (code I64) (loc Loc)) (→ Char) (! compile)
@@ -956,16 +956,16 @@
       (define test-decode-syntax
         (lambda () (let ((loc (new Loc (file "recipe.sld") (line 3) (column 4)))
                          (bytes
-                          (list->vector
+                          (list->array
                            (list 0 7 1 1 102 3 1 187 7 2 2 45 55 2 3 49 46 53 4 97 6 7 2 0 200))))
                      (expect (syntax->string (decode-syntax bytes loc))
                              "(f \"λ\" -7 1.5 #\\a #t #u8(0 200))")
                      (expect (loc->string (syntax-loc (decode-syntax bytes loc))) "recipe.sld:3:4")
                      (expect
                       (compile-failure
-                       (lambda () (decode-syntax (list->vector (list 0 2 1 1 102)) loc)))
+                       (lambda () (decode-syntax (list->array (list 0 2 1 1 102)) loc)))
                       "recipe.sld:3:4: malformed generated syntax: it ends early")
                      (expect (compile-failure
-                              (lambda () (decode-syntax (list->vector (list 2 1 120)) loc)))
+                              (lambda () (decode-syntax (list->array (list 2 1 120)) loc)))
                              "recipe.sld:3:4: malformed generated syntax: the number x does not read as one"))))))
    (else)))

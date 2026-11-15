@@ -115,7 +115,7 @@
     (define (code-token (next I64) (token Token)) (→ Step)
       (new Step (next next) (mode (Code)) (token (Some token))))
 
-    ;; `#(` opens a vector, `#|` a block comment, and `#;` comments out the
+    ;; `#(` opens an array, `#|` a block comment, and `#;` comments out the
     ;; next datum; `#\` starts a character,
     ;; whatever character follows it.
 
@@ -553,16 +553,16 @@
        (token Token)
        (indent I64)))
 
-    (define (placed-tokens (lines (List Line))) (→ (Vector Placed))
-      (list->vector (concatenate (map-indexed (lambda (index line)
-                                                (let ((indent (indentation (● line text))))
-                                                  (map (lambda (token)
-                                                         (new Placed
-                                                           (line index)
-                                                           (token token)
-                                                           (indent indent)))
-                                                       (● line tokens))))
-                                              lines))))
+    (define (placed-tokens (lines (List Line))) (→ (Array Placed))
+      (list->array (concatenate (map-indexed (lambda (index line)
+                                               (let ((indent (indentation (● line text))))
+                                                 (map (lambda (token)
+                                                        (new Placed
+                                                          (line index)
+                                                          (token token)
+                                                          (indent indent)))
+                                                      (● line tokens))))
+                                             lines))))
 
     (define (token-offset (token Token)) (→ I64)
       (match token
@@ -575,43 +575,43 @@
     ;; The index after the expression that starts at token `index`, if one
     ;; starts there and ends.
 
-    (define (expression-end (tokens (Vector Placed)) (index I64)) (→ (Option I64))
-      (if (>= index (vector-length tokens))
+    (define (expression-end (tokens (Array Placed)) (index I64)) (→ (Option I64))
+      (if (>= index (array-length tokens))
           (None)
-          (match (● (vector-ref tokens index) token)
+          (match (● (array-ref tokens index) token)
             ((Prefix _) (expression-end tokens (+ index 1)))
             ((Open _ _) (list-end tokens (+ index 1) 1))
             ((Close _) (None))
             (_ (Some (+ index 1))))))
 
-    (define (list-end (tokens (Vector Placed)) (index I64) (depth I64)) (→ (Option I64))
+    (define (list-end (tokens (Array Placed)) (index I64) (depth I64)) (→ (Option I64))
       (cond ((= depth 0) (Some index))
-            ((>= index (vector-length tokens)) (None))
-            (else (match (● (vector-ref tokens index) token)
+            ((>= index (array-length tokens)) (None))
+            (else (match (● (array-ref tokens index) token)
                     ((Open _ _) (list-end tokens (+ index 1) (+ depth 1)))
                     ((Close _) (list-end tokens (+ index 1) (- depth 1)))
                     (_ (list-end tokens (+ index 1) depth))))))
 
-    (define (skip-expressions (tokens (Vector Placed)) (index I64) (count I64)) (→ (Option I64))
+    (define (skip-expressions (tokens (Array Placed)) (index I64) (count I64)) (→ (Option I64))
       (if (= count 0)
           (Some index)
           (match (expression-end tokens index)
             ((Some next) (skip-expressions tokens next (- count 1)))
             ((None) (None)))))
 
-    (define (open-at? (tokens (Vector Placed)) (index I64)) (→ Bool)
-      (and (< index (vector-length tokens))
-           (match (● (vector-ref tokens index) token)
+    (define (open-at? (tokens (Array Placed)) (index I64)) (→ Bool)
+      (and (< index (array-length tokens))
+           (match (● (array-ref tokens index) token)
              ((Open _ _) #t)
              (_ #f))))
 
     ;; The name right after the parenthesis at token `index`.
 
-    (define (form-name (tokens (Vector Placed)) (index I64)) (→ (Option String))
-      (if (and (open-at? tokens index) (< (+ index 1) (vector-length tokens)))
+    (define (form-name (tokens (Array Placed)) (index I64)) (→ (Option String))
+      (if (and (open-at? tokens index) (< (+ index 1) (array-length tokens)))
           (match (new Pair
-                   (first (vector-ref tokens index))
-                   (second (vector-ref tokens (+ index 1))))
+                   (first (array-ref tokens index))
+                   (second (array-ref tokens (+ index 1))))
             ((Pair (Placed line (Open offset _) _) (Placed next-line (Atom next-offset name) _))
              (if (and (= line next-line) (= next-offset (+ offset 1))) (Some name) (None)))
             (_ (None)))
@@ -625,7 +625,7 @@
     ;; Each list from token `index` on starts its own line, up to the first
     ;; element that is not a list.
 
-    (define (break-entries (tokens (Vector Placed)) (index I64) (breaks (List Placed))) (→ Found)
+    (define (break-entries (tokens (Array Placed)) (index I64) (breaks (List Placed))) (→ Found)
       (if (open-at? tokens index)
           (let ((breaks (break-before tokens index breaks)))
             (match (expression-end tokens index)
@@ -633,9 +633,9 @@
               ((None) (new Found (breaks breaks) (ended #f)))))
           (new Found (breaks breaks) (ended #t))))
 
-    (define (break-before (tokens (Vector Placed)) (index I64) (breaks (List Placed)))
+    (define (break-before (tokens (Array Placed)) (index I64) (breaks (List Placed)))
       (→ (List Placed))
-      (let ((placed (vector-ref tokens index)))
+      (let ((placed (array-ref tokens index)))
         (if (<= (token-offset (● placed token)) (● placed indent))
             breaks
             (Cons placed breaks))))
@@ -643,7 +643,7 @@
     ;; A record's field list starts its own line, and so does each field
     ;; after the first.
 
-    (define (break-record-declaration (tokens (Vector Placed)) (index I64) (breaks (List Placed)))
+    (define (break-record-declaration (tokens (Array Placed)) (index I64) (breaks (List Placed)))
       (→ (List Placed))
       (match (skip-expressions tokens (+ index 1) 2)
         ((Some fields)
@@ -652,7 +652,7 @@
              breaks))
         ((None) breaks)))
 
-    (define (break-fields (tokens (Vector Placed)) (index I64) (breaks (List Placed)))
+    (define (break-fields (tokens (Array Placed)) (index I64) (breaks (List Placed)))
       (→ (List Placed))
       (if (open-at? tokens index)
           (match (expression-end tokens index)
@@ -660,7 +660,7 @@
             ((None) breaks))
           breaks))
 
-    (define (break-record (tokens (Vector Placed)) (index I64) (breaks (List Placed)))
+    (define (break-record (tokens (Array Placed)) (index I64) (breaks (List Placed)))
       (→ (List Placed))
       (match (skip-expressions tokens (+ index 1) 4)
         ((Some fields) (● (break-entries tokens fields breaks) breaks))
@@ -671,15 +671,15 @@
     ;; and a record type's fields. An import that does not end stops the
     ;; search, since everything after it is part of it.
 
-    (define (declaration-breaks (tokens (Vector Placed))) (→ (List Placed))
+    (define (declaration-breaks (tokens (Array Placed))) (→ (List Placed))
       (let loop ((index 0) (breaks (Nil)))
-        (if (>= index (vector-length tokens))
+        (if (>= index (array-length tokens))
             (reverse breaks)
             (match (form-name tokens index)
               ((Some "import")
                (match (break-entries tokens (+ index 2) breaks)
                  ((Found found #t)
-                  (loop (or-else (expression-end tokens index) (vector-length tokens)) found))
+                  (loop (or-else (expression-end tokens index) (array-length tokens)) found))
                  ((Found found #f) (reverse found))))
               ((Some "record") (loop (+ index 2) (break-record-declaration tokens index breaks)))
               ((Some "define-record-type") (loop (+ index 2) (break-record tokens index breaks)))
