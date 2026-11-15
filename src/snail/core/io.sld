@@ -254,7 +254,7 @@
                               (let ((code (port-read port)))
                                 (if (= code -1) (None) (Some (i32->char code))))))))
           (port-close port)
-          (vector->string chars))))
+          (array->string chars))))
 
     ;; The whole file as bytes, for binary files such as images.
 
@@ -273,27 +273,27 @@
     (define (chunk-size) (→ I64) 4096)
 
     (define (drain (next (Fn → (Option T) ! e)))
-      (→ (Vector T))
+      (→ (Array T))
       (! e)
       (∀ (T e))
       (let loop ((chunks (Nil)))
         (let ((chunk (next-chunk next)))
-          (if (< (vector-length chunk) (chunk-size))
-              (vector-concatenate (reverse (Cons chunk chunks)))
+          (if (< (array-length chunk) (chunk-size))
+              (array-concatenate (reverse (Cons chunk chunks)))
               (loop (Cons chunk chunks))))))
 
     ;; Up to `chunk-size` items, fewer only at the end.
 
     (define (next-chunk (next (Fn → (Option T) ! e)))
-      (→ (Vector T))
+      (→ (Array T))
       (! e)
       (∀ (T e))
       (let loop ((items (Nil)) (count 0))
         (if (= count (chunk-size))
-            (list->vector (reverse items))
+            (list->array (reverse items))
             (match (next)
               ((Some item) (loop (Cons item items) (+ count 1)))
-              ((None) (list->vector (reverse items)))))))
+              ((None) (list->array (reverse items)))))))
 
     (define (write-file (path String) (text String)) (→ Unit) (! fs)
       (let ((port (open-output path)))
@@ -305,8 +305,8 @@
     (define (write-bytes (path String) (bytes Bytes)) (→ Unit) (! fs)
       (let ((port (open-output path)))
         (let loop ((index 0))
-          (when (< index (vector-length bytes))
-            (port-write-byte port (u8->i32 (vector-ref bytes index)))
+          (when (< index (array-length bytes))
+            (port-write-byte port (u8->i32 (array-ref bytes index)))
             (loop (+ index 1))))
         (port-close port)))
 

@@ -41,7 +41,7 @@
 
 (define (updated) (→ I32) (! mut)
   (let ((bytes #u8(1 0)))
-    (vector-set! bytes 1 (ann 2 U8))
+    (array-set! bytes 1 (ann 2 U8))
     (note-bytes 9 bytes)))
 
 (define (discard (handover (Option Any))) (→ Unit)
@@ -73,7 +73,7 @@
     ((Err _) #u8())))
 
 (define (inspect-bytes (bytes Bytes)) (→ I32)
-  (u8->i32 (vector-ref bytes 2)))
+  (u8->i32 (array-ref bytes 2)))
 
 (expose managed "managed")
 (expose result-number "result-number")

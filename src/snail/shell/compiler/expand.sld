@@ -3519,7 +3519,7 @@
                          (second cx))))
            (_ (compile-error loc "expected (ann expression type)"))))
         (("handle") (expand-handle cx env items loc))
-        (("constant-vector") (expand-constant-vector cx env items loc))
+        (("constant-array") (expand-constant-array cx env items loc))
         (("downcast")
          (match items
            ((Cons _ (Cons type (Cons value (Nil))))
@@ -3766,16 +3766,16 @@
         ((Some (Constructor case _)) (case-type-id (● cx program) case))
         (_ (compile-error (syntax-loc constructor) "not a constructor"))))
 
-    ;; ---- Constant vectors ----
+    ;; ---- Constant arrays ----
 
-    ;; `(constant-vector TYPE (VALUE ...))`: a table of literals of a scalar
+    ;; `(constant-array TYPE (VALUE ...))`: a table of literals of a scalar
     ;; type, which the backend builds once, as data, and every use shares.
     ;; A float table is a table of its bits, an I64 table read through
     ;; bits->f64: only the assembler knows a float literal's bits.
     ;; Each value is checked against the type here, so the table is known
     ;; whole before it is typed.
 
-    (define (expand-constant-vector (cx Context) (env Env) (items (List Syntax)) (loc Loc))
+    (define (expand-constant-array (cx Context) (env Env) (items (List Syntax)) (loc Loc))
       (→ (Pair Expr Context))
       (! compile)
       (match items
@@ -3787,7 +3787,7 @@
                                                 values)))
                           loc))
              (second cx))))
-        (_ (compile-error loc "expected (constant-vector TYPE (VALUE ...))"))))
+        (_ (compile-error loc "expected (constant-array TYPE (VALUE ...))"))))
 
     (define (constant-element (cx Context) (env Env) (type Syntax)) (→ String) (! compile)
       (match (resolve-type cx env type)
@@ -3799,7 +3799,7 @@
 
     (define (not-a-constant-element (type Syntax)) (→ A) (! compile) (∀ (A))
       (compile-error (syntax-loc type)
-                     "a constant vector holds U8, I32, I64, Bool or Char"))
+                     "a constant array holds U8, I32, I64, Bool or Char"))
 
     ;; A value as the table holds it: an integer in its type's range, a
     ;; Boolean, or a character.
@@ -4142,7 +4142,7 @@
          (match (resolve cx scope syntax)
            ((Some (Local name)) (PVar name (unchecked)))
            (_ (panic "internal error: unbound pattern variable"))))
-        ((Atom (DBytes _) loc) (compile-error loc "a byte vector cannot be a pattern"))
+        ((Atom (DBytes _) loc) (compile-error loc "a byte array cannot be a pattern"))
         ((Atom value _) (PLit value (unchecked)))
         ((Form (Cons head args) _)
          (PCon (pattern-constructor cx env head)
@@ -4498,8 +4498,8 @@
       (define test-callable-signatures
         (lambda () (expect (callable-signature "(→ Unit)")
                            (TFun (Nil) (TCon "Unit" (Nil)) (empty-row)))
-                (expect (callable-signature "(I64 (Vector String) → Bool ! mut)")
-                        (TFun (list (TCon "I64" (Nil)) (TCon "Vector" (list (TCon "String" (Nil)))))
+                (expect (callable-signature "(I64 (Array String) → Bool ! mut)")
+                        (TFun (list (TCon "I64" (Nil)) (TCon "Array" (list (TCon "String" (Nil)))))
                               (TCon "Bool" (Nil)) (mut-row)))
                 (for-each (lambda (source)
                             (expect
@@ -4672,13 +4672,13 @@
                                                     (panic "unexpected producer"))
                                                   (no-inputs)
                                                   (string-append root "/main.sld")) program)))
-                  (expect (primitive-scheme program "vector-ref")
-                          (list (list "A") "(Fn (Vector A) I64 → A)"))
-                  (expect (primitive-scheme program "vector-generate")
+                  (expect (primitive-scheme program "array-ref")
+                          (list (list "A") "(Fn (Array A) I64 → A)"))
+                  (expect (primitive-scheme program "array-generate")
                           (list (list "A" "e")
-                                "(Fn I64 (Fn I64 → A ! e) → (Vector A) ! e)"))
-                  (expect (primitive-scheme program "vector-ref")
-                          (list (list "A") "(Fn (Vector A) I64 → A)"))
+                                "(Fn I64 (Fn I64 → A ! e) → (Array A) ! e)"))
+                  (expect (primitive-scheme program "array-ref")
+                          (list (list "A") "(Fn (Array A) I64 → A)"))
                   (expect (primitive-scheme program "inherit-handlers")
                           (list (list "A" "e")
                                 "(Fn (Fn → A ! e) → (Fn → A ! host) ! e)"))

@@ -115,6 +115,6 @@
   (unit))
 
 (define (compiled (bytes (List I32))) (→ Compiled) (! wasm)
-  (match (compile-bytes (list->vector (map i32->u8 bytes)))
+  (match (compile-bytes (list->array (map i32->u8 bytes)))
     ((Some module) module)
     ((None) (panic "invalid fixture binary"))))

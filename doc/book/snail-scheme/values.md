@@ -34,7 +34,7 @@ with that field replaced, sharing the values of the others. Use `set!` on a
 ## Sharing
 
 Sharing a value preserves its identity. There is no general `Clone` class or
-implicit deep copy. Construct a new record or copy a vector when independent
+implicit deep copy. Construct a new record or copy an array when independent
 mutable state is needed.
 
 Factories construct fresh values. Bind a result once and pass it to its users
@@ -69,7 +69,7 @@ source activation.
 
 Every nominal aggregate is a WasmGC object. A field contains one scalar or one
 managed reference; nested records are never flattened into their owners. An
-enum case stores its tag before its fields. Vectors are WasmGC arrays with
+enum case stores its tag before its fields. Arrays are WasmGC arrays with
 fixed runtime lengths, of any element type. An `Any` pairs its type's TypeId
 with the value, boxed when it is a scalar. A closure is a struct of its code
 followed by its captures. No object carries a header beyond these fields, and

@@ -57,7 +57,7 @@ handler. Installations and their outer bindings belong to a computation.
 Suspending and resuming a computation preserves those bindings. Reusing
 handler code does not duplicate a control delimiter or permit two resumes
 of one continuation: a second resume panics. Newly dispatched tasks inherit
-the current ordinary bindings. Each task has its own binding vector; the
+the current ordinary bindings. Each task has its own binding array; the
 reusable implementations may be shared. This preserves the dispatched closure's declared effects.
 It does not establish rules for cloning future control delimiters.
 

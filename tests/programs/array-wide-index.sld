@@ -4,4 +4,4 @@
 
 (define (main) (→ Unit) (! output-port)
   (write-line "before")
-  (write (vector-ref (make-vector 1 1) 4294967296)))
+  (write (array-ref (make-array 1 1) 4294967296)))

@@ -18,11 +18,11 @@
    (lambda ()
      (write-line (greeting-text))
      (let ((bytes (read-resource (image))))
-       (display (vector-length bytes))
+       (display (array-length bytes))
        (newline)
        (display
         (string-join
-         (map (lambda (index) (show (u8->i32 (vector-ref bytes index)))) (iota 8))
+         (map (lambda (index) (show (u8->i32 (array-ref bytes index)))) (iota 8))
          " "))
        (newline))))
   (unit))

@@ -2,5 +2,5 @@
  (snail core base))
 
 (define (main) (→ Unit) (! mut)
-  (vector-set! (constant-vector I32 (1)) 0 2)
+  (array-set! (constant-array I32 (1)) 0 2)
   (unit))

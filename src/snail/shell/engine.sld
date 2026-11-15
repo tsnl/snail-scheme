@@ -144,7 +144,7 @@
       ((scheduler Scheduler)
        (runtime (Option Module))
        (status I64)
-       (files (Vector String))
+       (files (Array String))
        (answers (List (Pair I64 (Option Bytes))))
        (held Bytes)))
 
@@ -153,7 +153,7 @@
         (scheduler (make-scheduler))
         (runtime (None))
         (status 0)
-        (files (make-vector 0 ""))
+        (files (make-array 0 ""))
         (answers (Nil))
         (held #u8())))
 
@@ -170,8 +170,8 @@
         (bind-runtime runtime)
         (set! (● engine runtime) (Some runtime))
         (set! (● engine files)
-              (list->vector (map (lambda (object) (object-file manifest (● object digest)))
-                                 (● manifest files))))
+              (list->array (map (lambda (object) (object-file manifest (● object digest)))
+                                (● manifest files))))
         (run-main engine (link-libraries manifest runtime (● manifest modules) (Nil)))))
 
     (define (run-main (engine Engine) (libraries (List (Pair String Module))))
@@ -308,7 +308,7 @@
     ;; scheduler, after installing the bytes.
     (define (resource-read (engine Engine) (ticket I64) (handle I32))
       (→ Unit) (! mut host linked-content-store)
-      (let ((file (vector-ref (● engine files) (i32->i64 handle))))
+      (let ((file (array-ref (● engine files) (i32->i64 handle))))
         (dispatch-in (● engine scheduler)
                      (lambda ()
                        (let ((bytes (read-object file)))
@@ -329,9 +329,9 @@
       (match (take-answer engine ticket)
         ((Some (Some bytes))
          (set! (● engine held) bytes)
-         (i64->i32 (vector-length bytes)))
+         (i64->i32 (array-length bytes)))
         ((Some (None)) (panic "cannot read a linked file: the store does not have it"))
         ((None) (panic "a ticket was finished before its read completed"))))
 
     (define (resource-byte (engine Engine) (index I32)) (→ I32)
-      (u8->i32 (vector-ref (● engine held) (i32->i64 index))))))
+      (u8->i32 (array-ref (● engine held) (i32->i64 index))))))

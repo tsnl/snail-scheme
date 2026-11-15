@@ -11,24 +11,24 @@
   (match result ((Ok value) value) ((Err error) (panic (● error code)))))
 
 (define (ascii (text String)) (→ Bytes)
-  (vector-generate (string-length text)
-                   (lambda (index) (i32->u8 (char->i32 (string-ref text index))))))
+  (array-generate (string-length text)
+                  (lambda (index) (i32->u8 (char->i32 (string-ref text index))))))
 
 (define (text (bytes Bytes)) (→ String)
-  (string-generate (vector-length bytes)
-                   (lambda (index) (i32->char (u8->i32 (vector-ref bytes index))))))
+  (string-generate (array-length bytes)
+                   (lambda (index) (i32->char (u8->i32 (array-ref bytes index))))))
 
 (define (write-all (connection Connection) (bytes Bytes)) (→ Unit) (! tcp tasks)
   (let loop ((offset 0))
-    (when (< offset (vector-length bytes))
-      (let ((count (require (write connection (subvector bytes offset (vector-length bytes))))))
+    (when (< offset (array-length bytes))
+      (let ((count (require (write connection (subarray bytes offset (array-length bytes))))))
         (unless (> count 0) (panic "write did not progress"))
         (loop (+ offset (i32->i64 count)))))))
 
 (define (read-all (connection Connection)) (→ Bytes) (! tcp tasks)
   (let loop ((chunks (ann (Nil) (List Bytes))))
     (match (require (read connection 65536))
-      ((None) (vector-concatenate (reverse chunks)))
+      ((None) (array-concatenate (reverse chunks)))
       ((Some bytes) (loop (Cons bytes chunks))))))
 
 (define (echo (request Request)) (→ (Result Response String)) (! tasks)
@@ -56,7 +56,7 @@
        (write-all client
                   (ascii
                    "POST /echo HTTP/1.1\r\nHost: test\r\nContent-Length: 4\r\n\r\nbody"))
-       (write-all client (make-vector 131073 (i32->u8 88)))
+       (write-all client (make-array 131073 (i32->u8 88)))
        (let ((response (read-all client)))
          (require (finish-connection client 2000))
          (unless (string=? (text response)

@@ -52,8 +52,8 @@
     (define (host-bytes (handle I32)) (→ Bytes) (! tasks)
       (through-host (lambda (ticket) (host-read ticket handle))
                     (lambda (ticket)
-                      (vector-generate (i32->i64 (host-finish ticket))
-                                       (lambda (index) (host-byte (i64->i32 index)))))))
+                      (array-generate (i32->i64 (host-finish ticket))
+                                      (lambda (index) (host-byte (i64->i32 index)))))))
 
     ;; The file's bytes, as they were when the host first read them.
 

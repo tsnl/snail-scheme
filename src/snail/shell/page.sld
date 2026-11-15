@@ -98,7 +98,7 @@
         (if (< count 0)
             (None)
             (Some
-             (vector-generate (i32->i64 count) (lambda (index) (loaded-byte (i64->i32 index))))))))
+             (array-generate (i32->i64 count) (lambda (index) (loaded-byte (i64->i32 index))))))))
 
     ;; ---- The root task ----
 

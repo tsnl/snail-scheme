@@ -251,7 +251,7 @@
     ;; Walkers cross open ground, ice and opened rock; burrowers also cross
     ;; intact rock, which they dig through. Nobody crosses water. Each route is a
     ;; distance field toward a goal, kept until the terrain changes.
-    (define (route-field (world World) (goal Cell) (burrower Bool)) (→ (Pair (Vector I64) World))
+    (define (route-field (world World) (goal Cell) (burrower Bool)) (→ (Pair (Array I64) World))
       (match (find (lambda (route)
                      (and (cell=? (● route goal) goal)
                           (eq-bool? (● route burrower) burrower)))
@@ -282,14 +282,14 @@
                          (iota 9)))
             (list goal))))
 
-    (define (passable (world World) (burrower Bool)) (→ (Vector Bool))
-      (vector-generate (* (map-size) (map-size))
-                       (lambda (index)
-                         (let ((cell (index-cell index)))
-                           (match (ground-at (● world land) cell)
-                             ((Rock) (or burrower (opened? world cell)))
-                             ((Water) #f)
-                             (_ #t))))))
+    (define (passable (world World) (burrower Bool)) (→ (Array Bool))
+      (array-generate (* (map-size) (map-size))
+                      (lambda (index)
+                        (let ((cell (index-cell index)))
+                          (match (ground-at (● world land) cell)
+                            ((Rock) (or burrower (opened? world cell)))
+                            ((Water) #f)
+                            (_ #t))))))
 
     ;; ---- Movement ----
 
@@ -345,22 +345,22 @@
 
     ;; The neighbor one step closer to the goal with the fewest enemies on
     ;; it, so crowds spread across parallel lanes.
-    (define (next-cell (world World) (field (Vector I64)) (crowd (Vector I64)) (cell Cell))
+    (define (next-cell (world World) (field (Array I64)) (crowd (Array I64)) (cell Cell))
       (→ (Option Cell))
-      (let ((here (vector-ref field (cell-index cell))))
+      (let ((here (array-ref field (cell-index cell))))
         (nearest
-         (filter (lambda (n) (and (> here 0) (= (vector-ref field (cell-index n)) (- here 1))))
+         (filter (lambda (n) (and (> here 0) (= (array-ref field (cell-index n)) (- here 1))))
                  (neighbors cell))
-         (lambda (n) (vector-ref crowd (cell-index n))))))
+         (lambda (n) (array-ref crowd (cell-index n))))))
 
-    (define (crowding (world World)) (→ (Vector I64))
+    (define (crowding (world World)) (→ (Array I64))
       (unsafe-total
        (lambda ()
-         (let ((counts (make-vector (* (map-size) (map-size)) 0)))
+         (let ((counts (make-array (* (map-size) (map-size)) 0)))
            (for-each (lambda (e)
-                       (vector-set! counts
-                                    (cell-index (● e cell))
-                                    (+ 1 (vector-ref counts (cell-index (● e cell))))))
+                       (array-set! counts
+                                   (cell-index (● e cell))
+                                   (+ 1 (array-ref counts (cell-index (● e cell))))))
                      (● world enemies))
            counts))))
 
@@ -372,7 +372,7 @@
                    world
                    (● world enemies))))
 
-    (define (step (world World) (crowd (Vector I64)) (enemy Enemy)) (→ World)
+    (define (step (world World) (crowd (Array I64)) (enemy Enemy)) (→ World)
       (let ((enemy (Enemy-previous-set enemy (● enemy cell))))
         (match (heading world crowd enemy)
           ((Pair (Some cell) world)
@@ -381,7 +381,7 @@
 
     ;; The next cell toward the enemy's target, if it is not engaged, with
     ;; the world holding the route it used.
-    (define (heading (world World) (crowd (Vector I64)) (enemy Enemy))
+    (define (heading (world World) (crowd (Array I64)) (enemy Enemy))
       (→ (Pair (Option Cell) World))
       (if (engaged? world enemy)
           (new Pair (first (None)) (second world))

@@ -108,7 +108,7 @@
 
     (define (state-key (state S)) (→ String) (∀ (S)) (⊨ (Serialize S))
       (let ((bytes (serialize state)))
-        (string-generate (vector-length bytes)
-                         (lambda (index) (i32->char (u8->i32 (vector-ref bytes index)))))))
+        (string-generate (array-length bytes)
+                         (lambda (index) (i32->char (u8->i32 (array-ref bytes index)))))))
 
     ))

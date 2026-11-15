@@ -43,10 +43,10 @@
    string-compare
    make-string
    string-generate
-   string->vector vector->string
-   vector-length vector-ref vector-append subvector make-vector vector-set vector-generate
-   constant-vector-length constant-vector-ref constant-vector->vector
-   vector vector-set! vector-copy vector-copy!
+   string->array array->string
+   array-length array-ref array-append subarray make-array array-set array-generate
+   constant-array-length constant-array-ref constant-array->array
+   array array-set! array-copy array-copy!
    set!)
   (import
    (snail core forms))
@@ -199,31 +199,31 @@
     (primitive string-compare (Fn String String → I32))
     (primitive make-string (Fn I64 Char → String))
     (primitive string-generate (∀ (e) (Fn I64 (Fn I64 → Char ! e) → String ! e)))
-    (primitive string->vector (Fn String → (Vector Char)))
-    (primitive vector->string (Fn (Vector Char) → String))
+    (primitive string->array (Fn String → (Array Char)))
+    (primitive array->string (Fn (Array Char) → String))
 
-    ;; ---- Vectors ----
+    ;; ---- Arrays ----
 
-    ;; A constant vector is a table of scalars built once: nothing can write
+    ;; A constant array is a table of scalars built once: nothing can write
     ;; it, so every use shares it. Its elements are read, or copied into a
-    ;; vector of their own.
-    (primitive constant-vector-length (∀ (A) (Fn (ConstantVector A) → I64)))
-    (primitive constant-vector-ref (∀ (A) (Fn (ConstantVector A) I64 → A)))
-    (primitive constant-vector->vector (∀ (A) (Fn (ConstantVector A) → (Vector A))))
+    ;; array of their own.
+    (primitive constant-array-length (∀ (A) (Fn (ConstantArray A) → I64)))
+    (primitive constant-array-ref (∀ (A) (Fn (ConstantArray A) I64 → A)))
+    (primitive constant-array->array (∀ (A) (Fn (ConstantArray A) → (Array A))))
 
-    ;; A vector shares its mutable slots.
-    (primitive vector (∀ (A) (Fn → (Vector A))))
-    (primitive vector-length (∀ (A) (Fn (Vector A) → I64)))
-    (primitive vector-ref (∀ (A) (Fn (Vector A) I64 → A)))
-    (primitive vector-append (∀ (A) (Fn (Vector A) (Vector A) → (Vector A))))
-    (primitive subvector (∀ (A) (Fn (Vector A) I64 I64 → (Vector A))))
-    (primitive make-vector (∀ (A) (Fn I64 A → (Vector A))))
-    (primitive vector-set (∀ (A) (Fn (Vector A) I64 A → (Vector A))))
-    (primitive vector-generate (∀ (A e) (Fn I64 (Fn I64 → A ! e) → (Vector A) ! e)))
+    ;; An array shares its mutable slots.
+    (primitive array (∀ (A) (Fn → (Array A))))
+    (primitive array-length (∀ (A) (Fn (Array A) → I64)))
+    (primitive array-ref (∀ (A) (Fn (Array A) I64 → A)))
+    (primitive array-append (∀ (A) (Fn (Array A) (Array A) → (Array A))))
+    (primitive subarray (∀ (A) (Fn (Array A) I64 I64 → (Array A))))
+    (primitive make-array (∀ (A) (Fn I64 A → (Array A))))
+    (primitive array-set (∀ (A) (Fn (Array A) I64 A → (Array A))))
+    (primitive array-generate (∀ (A e) (Fn I64 (Fn I64 → A ! e) → (Array A) ! e)))
 
-    (primitive vector-set! (∀ (A) (Fn (Vector A) I64 A → Unit ! mut)))
-    (primitive vector-copy (∀ (A) (Fn (Vector A) → (Vector A))))
-    (primitive vector-copy! (∀ (A) (Fn (Vector A) I64 (Vector A) I64 I64 → Unit ! mut)))
+    (primitive array-set! (∀ (A) (Fn (Array A) I64 A → Unit ! mut)))
+    (primitive array-copy (∀ (A) (Fn (Array A) → (Array A))))
+    (primitive array-copy! (∀ (A) (Fn (Array A) I64 (Array A) I64 I64 → Unit ! mut)))
 
     ;; `set!` writes a place: a declared field, `(● record count)`, which
     ;; the checker resolves directly.

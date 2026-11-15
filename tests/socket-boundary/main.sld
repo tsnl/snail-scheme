@@ -95,12 +95,12 @@
 
 (define (read-count (answer Any)) (→ I32)
   (match (require (fixture-convert answer (Result (Option Bytes) SocketError)))
-    ((Some bytes) (i64->i32 (vector-length bytes)))
+    ((Some bytes) (i64->i32 (array-length bytes)))
     ((None) -1)))
 
 (define (read-byte (answer Any) (index I32)) (→ I32)
   (match (require (fixture-convert answer (Result (Option Bytes) SocketError)))
-    ((Some bytes) (u8->i32 (vector-ref bytes (i32->i64 index))))
+    ((Some bytes) (u8->i32 (array-ref bytes (i32->i64 index))))
     ((None) -1)))
 
 (define (bad-read? (answer Any)) (→ Bool)
@@ -216,10 +216,10 @@
 
 (define (packet-port (answer Any)) (→ I32) (Endpoint-port (● (datagram answer) peer)))
 
-(define (packet-size (answer Any)) (→ I32) (i64->i32 (vector-length (● (datagram answer) bytes))))
+(define (packet-size (answer Any)) (→ I32) (i64->i32 (array-length (● (datagram answer) bytes))))
 
 (define (packet-byte (answer Any) (index I32)) (→ I32)
-  (u8->i32 (vector-ref (● (datagram answer) bytes) (i32->i64 index))))
+  (u8->i32 (array-ref (● (datagram answer) bytes) (i32->i64 index))))
 
 (define (stop-udp (socket UdpSocket)) (→ Unit) (! udp) (require (close-udp socket)))
 

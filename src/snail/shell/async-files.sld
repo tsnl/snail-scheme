@@ -49,8 +49,8 @@
       (let ((answer (host-finish id)))
         (if (< answer 0)
             (Err (failure answer))
-            (Ok (vector-generate (i32->i64 answer)
-                                 (lambda (index) (i32->u8 (host-byte (i64->i32 index)))))))))
+            (Ok (array-generate (i32->i64 answer)
+                                (lambda (index) (i32->u8 (host-byte (i64->i32 index)))))))))
 
     (define (failure (code I32)) (→ FileError)
       (cond ((= code -1) (Unavailable))

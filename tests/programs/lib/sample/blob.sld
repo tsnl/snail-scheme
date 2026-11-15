@@ -1,6 +1,6 @@
 ;; A generated library made from files its recipe names, relative to the
 ;; recipe wherever the build runs it: a PNG's bytes, read by the producer
-;; and returned in a byte vector literal, which reaches the compiler as the
+;; and returned in a byte array literal, which reaches the compiler as the
 ;; bytes themselves rather than as text, and the length of a file the
 ;; producer links and reads when it runs.
 (generate-library (sample blob)
@@ -20,5 +20,5 @@
                                (list (form "greeting-length" (Nil))
                                      (form "→" (list (SymbolSyntax "I64")))
                                      (IntegerSyntax
-                                      (vector-length
+                                      (array-length
                                        (read-resource (link-file "data/greeting.txt")))))))))

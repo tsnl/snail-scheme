@@ -287,7 +287,7 @@
                                           "\n"
                                           (program-text forms)))
                           (text (producer-text (list "/project/src" "/root/src") forms))
-                          (output (list->vector (list (i32->u8 1) (i32->u8 2))))
+                          (output (list->array (list (i32->u8 1) (i32->u8 2))))
                           (inputs (supply-generated (no-inputs) text output)))
                      (expect (producer-text (list "/project/src" "/root/src")
                                             (● (generating-stack (read-text printed "printed.sld"))

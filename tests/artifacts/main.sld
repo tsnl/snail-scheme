@@ -20,8 +20,8 @@
   (for-each (lambda (file)
               (display (● file path))
               (display ":")
-              (vector-for-each (lambda (byte) (display (u8->i32 byte)) (display ","))
-                               (● file bytes))
+              (array-for-each (lambda (byte) (display (u8->i32 byte)) (display ","))
+                              (● file bytes))
               (newline))
             (● bundle files)))
 

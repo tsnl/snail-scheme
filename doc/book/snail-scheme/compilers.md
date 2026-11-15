@@ -132,7 +132,7 @@ hidden their structure.
 `wasm.sld` selects one representation per concrete type. Numeric primitives
 and booleans are Wasm scalars. A record is always a GC struct reference;
 its field is one scalar or reference slot. An enum has a tagged base and
-case subtypes. A vector is an exact-sized GC array; its length comes from
+case subtypes. An array is an exact-sized WasmGC array; its length comes from
 the array, and there is no capacity or replaceable storage. No object
 carries a header beyond its fields. There is no inline record flattening or
 reconstruction on field writes.
@@ -148,9 +148,9 @@ still reject null. Linked modules must use the same internal calling convention.
 
 A pure replacement creates a shallow copy of the record with one field
 replaced. A mutable update writes the field in place, after both its receiver
-and its value have run. Vector copies support overlapping ranges. Strings
+and its value have run. Array copies support overlapping ranges. Strings
 remain character arrays; conversions copy storage, and host byte staging
-copies only a vector's live prefix.
+copies only an array's live prefix.
 
 The emitter interns concrete Wasm types before traversing their fields,
 allowing recursive object graphs. Finite budgets diagnose expanding type or

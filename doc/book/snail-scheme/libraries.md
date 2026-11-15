@@ -17,7 +17,7 @@ its `base`, `table` and `io`, so it can compile itself.
 | --- | --- |
 | `(snail core forms)` | The core forms, the builtin types, and the builtin `mut` and `host` effects. The compiler serves it; it has no file. |
 | `(snail core primitive)` | The operations the backend implements, each declared with its type by `(primitive name type)`. `(snail core base)` gives most of them their everyday names. |
-| `(snail core base)` | Forms, numeric classes, `Option`, `Result`, `Pair`, `Never`, lists, vectors, constant vectors, strings, `Show` and `Repr`. |
+| `(snail core base)` | Forms, numeric classes, `Option`, `Result`, `Pair`, `Never`, lists, arrays, constant arrays, strings, `Show` and `Repr`. |
 | `(snail core io)` | The `input-port`, `output-port`, `fs` and `clock` effects: [current textual ports and value representations](#current-input-and-output-ports), files as text or bytes, [directories and names](#files-and-directories), and a monotonic clock; and, as total reads, `command-line`, `environment-variable` and `working-directory`. |
 | `(snail core table)` | Immutable tables from strings to values. |
 
@@ -145,7 +145,7 @@ binding throughout:
 ```
 
 `(display value)` prints the text chosen by its `Show` instance. Scalars have
-standard instances; containers such as `Option`, lists, vectors, `Result`
+standard instances; containers such as `Option`, lists, arrays, `Result`
 and `Pair` require an explicit presentation instance.
 `(write value)` prints its `Repr` representation: strings keep quotes and
 escapes, characters use `#\` notation, and containers represent their
@@ -167,8 +167,8 @@ quotes from disappearing inside a container's printed notation.
 
 `(repr value)` returns the same representation as a `String`, without
 effects. `(snail core base)` supplies `Repr` instances for numeric scalars,
-booleans, characters, strings, `Unit`, lists, vectors, `Option`, `Result`
-and `Pair`. Lists use `(element ...)`, vectors use `#(element ...)`, and
+booleans, characters, strings, `Unit`, lists, arrays, `Option`, `Result`
+and `Pair`. Lists use `(element ...)`, arrays use `#(element ...)`, and
 the other containers name their constructors, such as `(Some "hello")`
 or `(new Pair (first 1) (second "one"))`.
 

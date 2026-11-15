@@ -154,7 +154,7 @@ require a linear bucket search. Mixed keys still benefit from scalar and string
 components. There is no hidden identity field added to user objects.
 
 Raw `Funcref` host handles cannot be keys. Any other value may be a key or a
-result, including functions, `Any` values, mutable records and vectors.
+result, including functions, `Any` values, mutable records and arrays.
 Callbacks whose control operations can escape are rejected for all four
 wrappers.
 

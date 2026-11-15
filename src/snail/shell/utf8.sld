@@ -50,8 +50,8 @@
     ;; range from `low` to `high`.
 
     (define (continuation (bytes Bytes) (index I64) (low I32) (high I32)) (→ (Option I32))
-      (if (< index (vector-length bytes))
-          (let ((byte (u8->i32 (vector-ref bytes index))))
+      (if (< index (array-length bytes))
+          (let ((byte (u8->i32 (array-ref bytes index))))
             (if (and (<= low byte) (<= byte high)) (Some byte) (None)))
           (None)))
 
@@ -60,7 +60,7 @@
     ;; Each continuation adds its low six bits.
 
     (define (sequence-at (bytes Bytes) (index I64)) (→ (Option (Pair Char I64)))
-      (match (lead (u8->i32 (vector-ref bytes index)))
+      (match (lead (u8->i32 (array-ref bytes index)))
         ((None) (None))
         ((Some lead)
          (let loop ((next 1) (code (● lead bits)))
@@ -79,14 +79,14 @@
 
     (define (utf8->string (bytes Bytes)) (→ (Result String Utf8Error))
       (unsafe-total (lambda ()
-                      (let ((chars (make-vector (vector-length bytes) #\space)))
+                      (let ((chars (make-array (array-length bytes) #\space)))
                         (let loop ((index 0) (count 0))
-                          (if (= index (vector-length bytes))
-                              (Ok (vector->string (subvector chars 0 count)))
+                          (if (= index (array-length bytes))
+                              (Ok (array->string (subarray chars 0 count)))
                               (match (sequence-at bytes index)
                                 ((None) (Err (new Utf8Error (offset index))))
                                 ((Some decoded)
-                                 (vector-set! chars count (● decoded first))
+                                 (array-set! chars count (● decoded first))
                                  (loop (● decoded second) (+ count 1))))))))))
 
     ;; ---- Encoding ----
@@ -129,21 +129,21 @@
 
     (define (string->utf8 (text String)) (→ Bytes)
       (unsafe-total (lambda ()
-                      (let* ((codes (vector-map scalar (string->vector text)))
+                      (let* ((codes (array-map scalar (string->array text)))
                              (bytes
-                              (make-vector
-                               (vector-fold (lambda (total code) (+ total (encoded-width code)))
-                                            0
-                                            codes)
+                              (make-array
+                               (array-fold (lambda (total code) (+ total (encoded-width code)))
+                                           0
+                                           codes)
                                (ann 0 U8))))
                         (let loop ((index 0) (offset 0))
-                          (if (= index (vector-length codes))
+                          (if (= index (array-length codes))
                               bytes
-                              (let* ((code (vector-ref codes index)) (width (encoded-width code)))
+                              (let* ((code (array-ref codes index)) (width (encoded-width code)))
                                 (do ((position 0 (+ position 1))) ((= position width))
-                                  (vector-set! bytes
-                                               (+ offset position)
-                                               (encoded-byte code width position)))
+                                  (array-set! bytes
+                                              (+ offset position)
+                                              (encoded-byte code width position)))
                                 (loop (+ index 1) (+ offset width)))))))))
 
     ))

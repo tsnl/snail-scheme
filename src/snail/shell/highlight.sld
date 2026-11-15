@@ -62,7 +62,7 @@
     ;; ---- Classes ----
 
     ;; Punctuation is a list's brackets, a quote mark, and the `#u8(` that
-    ;; opens a byte vector. A defined name is the name a definition
+    ;; opens a byte array. A defined name is the name a definition
     ;; introduces. An invalid token is one the reader rejects outright: `.`
     ;; or an unknown `#` syntax. Inside a literal, the classifier checks no
     ;; more than the lexeme does: escapes, character names and the range of
@@ -246,7 +246,7 @@
     ;; ---- Datum boundaries ----
 
     ;; The index after the datum that `#;` comments out, found as the reader
-    ;; finds it to skip it: a list or byte vector runs to its closing
+    ;; finds it to skip it: a list or byte array runs to its closing
     ;; bracket, a quote mark goes on to the datum it quotes, and anything
     ;; else is one lexeme. Text the reader rejects still ends somewhere: a
     ;; closing bracket with no datum before it ends the comment, and so does
