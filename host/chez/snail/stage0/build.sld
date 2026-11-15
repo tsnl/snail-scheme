@@ -33,10 +33,10 @@
    copy-file!
    report-failure)
   (import
-   (except (chezscheme) list->vector make-vector vector-set!)
+   (chezscheme)
    (snail stage0 system)
    (snail stage0 process)
-   (only (snail core base) match Ok Err list->vector make-vector vector-set!)
+   (only (snail core base) match Ok Err list->array make-array array-set!)
    (only (snail shell compiler read)
          loc->string
          diagnostics->string
@@ -634,7 +634,7 @@
     ;; manifest names it. Chez runs the compiler's SHA-256 implementation
     ;; directly, so both hosts use the same digest algorithm.
     (define (place-object! directory bytes)
-      (let* ((digest (bytes->hex (sha256 (list->vector (bytevector->u8-list bytes)))))
+      (let* ((digest (bytes->hex (sha256 (list->array (bytevector->u8-list bytes)))))
              (to (object-path directory digest)))
         (create-directory* (path-directory to))
         (unless (file-exists? to) (write-bytes! to bytes))
@@ -754,10 +754,10 @@
         (with-private-directory root
                                 (lambda (directory)
                                   (let ((bytes (make-bytevector size))
-                                        (values (make-vector size 0)))
+                                        (values (make-array size 0)))
                                     (do ((i 0 (+ i 1))) ((= i size))
                                       (bytevector-u8-set! bytes i (modulo i 256))
-                                      (vector-set! values i (modulo i 256)))
+                                      (array-set! values i (modulo i 256)))
                                     (let* ((digest (bytes->hex (sha256 values)))
                                            (object (place-object! directory bytes)))
                                       (expect object (cons digest size))

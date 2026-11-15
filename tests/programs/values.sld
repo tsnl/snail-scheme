@@ -52,7 +52,7 @@
               (map (lambda (p) (Point-x-set p 9))
                    (list (new Point (x 1) (y 2)) (new Point (x 3) (y 4))))))
   (newline)
-  (display (vector-fold * 1 (list->vector (list 1 2 3 4 5))))
+  (display (array-fold * 1 (list->array (list 1 2 3 4 5))))
   (newline)
   (display
    (evaluate (Block (list (Evaluate (Number 4)) (Evaluate (Block (list (Evaluate (Number 6)))))))))

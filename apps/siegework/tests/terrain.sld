@@ -19,7 +19,7 @@
     ((Ice) #\=)))
 
 (define (count-ground (land Land) (wanted Ground)) (→ I64)
-  (vector-fold
+  (array-fold
    (lambda (total ground) (if (char=? (ground-char ground) (ground-char wanted)) (+ total 1) total))
    0
    (● land ground)))
@@ -60,8 +60,8 @@
         ((any? (lambda (site) (cell=? (● site cell) cell)) (● land sites)) #\*)
         (else (ground-char (ground-at land cell)))))
 
-(define (steps-from-hub (land Land) (crosses? (Fn Ground → Bool))) (→ (Vector I64))
-  (distance-field (vector-map crosses? (● land ground)) (list (● land hub))))
+(define (steps-from-hub (land Land) (crosses? (Fn Ground → Bool))) (→ (Array I64))
+  (distance-field (array-map crosses? (● land ground)) (list (● land hub))))
 
 (define (walkable? (ground Ground)) (→ Bool)
   (match ground ((Open) #t) ((Ice) #t) (_ #f)))
@@ -69,7 +69,7 @@
 (define (nest-distances (land Land)) (→ String)
   (let ((field (steps-from-hub land walkable?)))
     (string-join
-     (map (lambda (front) (show (vector-ref field (cell-index front)))) (● land fronts))
+     (map (lambda (front) (show (array-ref field (cell-index front)))) (● land fronts))
      " ")))
 
 ;; Every nest can walk to the hub, and every crystal is on open ground the
@@ -77,10 +77,10 @@
 (define (playable? (land Land)) (→ Bool)
   (let ((walk (steps-from-hub land walkable?))
         (wire (steps-from-hub land (lambda (g) (match g ((Rock) #f) (_ #t))))))
-    (and (every? (lambda (front) (>= (vector-ref walk (cell-index front)) 0)) (● land fronts))
+    (and (every? (lambda (front) (>= (array-ref walk (cell-index front)) 0)) (● land fronts))
          (every? (lambda (site)
                    (and (char=? (ground-char (ground-at land (● site cell))) #\.)
-                        (>= (vector-ref wire (cell-index (● site cell))) 0)))
+                        (>= (array-ref wire (cell-index (● site cell))) 0)))
                  (● land sites)))))
 
 (define (biome-count (lands (List Land)) (biome Biome)) (→ String)

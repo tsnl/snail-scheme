@@ -771,8 +771,8 @@
     ;; Bytes go four at a time, little-endian, the last word padded.
 
     (define (send-source (source Source)) (→ Unit) (! screen)
-      (let* ((bytes ((● source bytes))) (count (vector-length bytes))
-             (byte (lambda (index) (if (< index count) (u8->i32 (vector-ref bytes index)) 0))))
+      (let* ((bytes ((● source bytes))) (count (array-length bytes))
+             (byte (lambda (index) (if (< index count) (u8->i32 (array-ref bytes index)) 0))))
         (source-begin (● source key) (i64->i32 count))
         (let loop ((index 0))
           (when (< index count)
@@ -957,7 +957,7 @@
 
     ;; ---- Picking ----
 
-    ;; A ray from `origin` along the unit vector `direction`.
+    ;; A ray from `origin` along the unit array `direction`.
     (record Ray
       ((origin Vec3)
        (direction Vec3)))

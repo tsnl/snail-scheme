@@ -42,7 +42,7 @@ explicit. IDs are values, not array positions or pointers.
 
 (record Document
   ((title String)
-   (paragraphs (Vector EntityId)))
+   (paragraphs (Array EntityId)))
   (deriving Serialize Deserialize))
 
 (define-store Notes
@@ -77,7 +77,7 @@ sorting before order affects a result; storage iteration order is not an input
 to application behavior. A durable document referring to a paragraph must
 check existence and enforce deletion policy in the same write transaction.
 
-Rows are a deliberately limited data subset: scalars, text, vectors, records and
+Rows are a deliberately limited data subset: scalars, text, arrays, records and
 enums composed of supported data. Storage reads and writes must take independent
 snapshots rather than expose shared mutable state. No procedures, resource owners,
 opaque managed values or platform handles. Durable keys/rows additionally need
@@ -175,12 +175,12 @@ Assume `Layout` is ordinary immutable data and `typeset` is a pure function:
      (Some (typeset paragraph width)))))
 
 (define-view (document-layout (id EntityId) (width F32))
-  (→ (Option (Vector (Option Layout))))
+  (→ (Option (Array (Option Layout))))
   (! NotesRead)
   (match (documents-ref id)
     ((None) (None))
     ((Some document)
-     (Some (vector-map (lambda (paragraph-id)
+     (Some (array-map (lambda (paragraph-id)
                          (paragraph-layout paragraph-id width))
                        (Document-paragraphs document))))))
 ```

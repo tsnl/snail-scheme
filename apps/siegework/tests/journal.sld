@@ -125,5 +125,5 @@
                                (show (string=?
                                       (fingerprint (● (replay 3 decoded (● world tick)) first))
                                       (fingerprint world)))))
-    (write-line (string-append "journal of " (show (vector-length bytes)) " bytes")))
+    (write-line (string-append "journal of " (show (array-length bytes)) " bytes")))
   (unit))

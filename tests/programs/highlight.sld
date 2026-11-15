@@ -28,8 +28,8 @@
                                           (string->list text)))
                  "\""))
 
-(define (token-text (chars (Vector Char)) (token Token)) (→ String)
-  (vector->string (subvector chars (● token start) (● token end))))
+(define (token-text (chars (Array Char)) (token Token)) (→ String)
+  (array->string (subarray chars (● token start) (● token end))))
 
 (define (tiles? (tokens (List Token)) (index I64) (end I64)) (→ Bool)
   (match tokens
@@ -40,8 +40,8 @@
     ((Nil) (= index end))))
 
 (define (show-tokens (text String)) (→ Unit) (! output-port)
-  (let* ((chars (string->vector text)) (tokens (highlight-tokens text)))
-    (unless (and (tiles? tokens 0 (vector-length chars))
+  (let* ((chars (string->array text)) (tokens (highlight-tokens text)))
+    (unless (and (tiles? tokens 0 (array-length chars))
                  (string=?
                   (string-concatenate (map (lambda (token) (token-text chars token)) tokens))
                   text))
@@ -82,7 +82,7 @@
   ;; Escapes stay inside their string; `#\` takes the character after it,
   ;; whatever it is.
   (show-reading "\"line\\n quote\\\" slash\\\\ \\x41;\" #\\( #\\space #\\x41 #\\)")
-  ;; Byte vectors, quotes, booleans and numbers; `+x` is a name.
+  ;; Byte arrays, quotes, booleans and numbers; `+x` is a name.
   (show-reading "#u8(0 255) 'x '(a b) #t #false 1.5e3 -7 +x")
   ;; `#;` comments out the datum after it, and two of them two data. A
   ;; commented list runs to its own closing bracket, past the comments, the

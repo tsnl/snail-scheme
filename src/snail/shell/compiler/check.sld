@@ -668,11 +668,11 @@
         ((DBool _) (new Pair (first (TCon "Bool" (Nil))) (second ck)))
         ((DChar _) (new Pair (first (TCon "Char" (Nil))) (second ck)))
         ((DString _) (new Pair (first (TCon "String" (Nil))) (second ck)))
-        ((DBytes _) (new Pair (first (TCon "Vector" (list (TCon "U8" (Nil))))) (second ck)))
+        ((DBytes _) (new Pair (first (TCon "Array" (list (TCon "U8" (Nil))))) (second ck)))
         ((DUnit) (new Pair (first (TCon "Unit" (Nil))) (second ck)))
         ((DConstants element _)
          (new Pair
-           (first (TCon "ConstantVector" (list (TCon element (Nil)))))
+           (first (TCon "ConstantArray" (list (TCon element (Nil)))))
            (second ck)))
         (_ (learning ck ((type (fresh-meta))
                          (then (want (WantLiteral value type loc))))
@@ -1468,8 +1468,8 @@
                 ((Nil) (Nil))))
             rows)))
 
-    (define (useful? (ck Checker) (rows (List (List Pattern))) (vector (List Pattern))) (→ Bool)
-      (match vector
+    (define (useful? (ck Checker) (rows (List (List Pattern))) (array (List Pattern))) (→ Bool)
+      (match array
         ((Nil) (null? rows))
         ((Cons first rest)
          (match (head-of first)
@@ -2899,18 +2899,18 @@
     ;; the groups it refers to. Definitions are numbered in program order.
 
     (define (definition-groups (definitions (List Item))) (→ (List (List Item)))
-      (let* ((nodes (list->vector definitions))
+      (let* ((nodes (list->array definitions))
              (numbers (fold-left (lambda (table index)
                                    (table-set table
-                                              (match (vector-ref nodes index)
+                                              (match (array-ref nodes index)
                                                 ((Define definition-name _)
                                                  definition-name)
                                                 (_ (panic "internal error: expected Define")))
                                               index))
-                                 (empty-table) (iota (vector-length nodes)))))
-        (map (lambda (component) (map (lambda (index) (vector-ref nodes index)) component))
+                                 (empty-table) (iota (array-length nodes)))))
+        (map (lambda (component) (map (lambda (index) (array-ref nodes index)) component))
              (strong-components
-              (vector-map (lambda (definition) (definition-edges numbers definition)) nodes)))))
+              (array-map (lambda (definition) (definition-edges numbers definition)) nodes)))))
 
     ;; The numbers of the definitions `definition` refers to, in order of
     ;; first reference.

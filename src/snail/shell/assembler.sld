@@ -35,12 +35,12 @@
     ;; Neither operation depends on a previous request's input or output.
 
     (define (link (text String) (runtime Bytes)) (→ (Result Bytes String))
-      (result (link-staged (i64->i32 (vector-length runtime))
-                           (vector-append runtime (string->utf8 text)))))
+      (result (link-staged (i64->i32 (array-length runtime))
+                           (array-append runtime (string->utf8 text)))))
 
     (define (result (status I32)) (→ (Result Bytes String))
-      (let ((output (vector-generate (i32->i64 (output-length))
-                                     (lambda (index) (i32->u8 (output-byte (i64->i32 index)))))))
+      (let ((output (array-generate (i32->i64 (output-length))
+                                    (lambda (index) (i32->u8 (output-byte (i64->i32 index)))))))
         (if (= status 0)
             (Ok output)
             (Err (match (utf8->string output)

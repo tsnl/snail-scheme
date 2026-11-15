@@ -25,7 +25,7 @@
 
 (define (tree) (→ (Tree I64)) (Node (Node (Leaf) 1 (Leaf)) 2 (Node (Leaf) 3 (Leaf))))
 
-(define (bytes) (→ (Vector U8)) (serialize (tree)))
+(define (bytes) (→ (Array U8)) (serialize (tree)))
 
 (define (shapes)
   (→ (List Shape))
@@ -35,7 +35,7 @@
 (define (copy) (→ (List Shape)) (ann (deserialize (serialize (shapes))) (List Shape)))
 
 (define (main) (→ Unit) (! output-port)
-  (display (vector-length (bytes)))
+  (display (array-length (bytes)))
   (newline)
   (display (tree-sum (ann (deserialize (bytes)) (Tree I64))))
   (newline)

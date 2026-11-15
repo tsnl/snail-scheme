@@ -54,6 +54,6 @@
                 (directory "."))
               #u8())
     ((Ok captured)
-     (write-line (string-append (show (vector-length (● captured stdout))) " bytes")))
+     (write-line (string-append (show (array-length (● captured stdout))) " bytes")))
     ((Err error) (write-line (● error code))))
   (unit))

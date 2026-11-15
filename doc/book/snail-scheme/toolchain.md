@@ -124,7 +124,7 @@ them together for [Zed](https://zed.dev/).
 ### The grammar
 
 `editors/tree-sitter-snail-scheme` parses the reader's data: lists in `()` or `[]`,
-`#u8(` byte vectors, quotes, strings, and the comments the reader discards,
+`#u8(` byte arrays, quotes, strings, and the comments the reader discards,
 `;` lines, nested `#| |#` blocks and `#;` datum comments. Its external scanner,
 `src/scanner.c`, reads every other token to a delimiter and classifies it as
 `token-kind` in `src/snail/shell/compiler/read.sld` does: a boolean, a number,

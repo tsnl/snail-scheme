@@ -44,7 +44,7 @@
   (read-report "read again" "λ.txt" 64 as-is)
   (write-report "write a NUL" "nul.txt" (string-append "a" (make-string 1 #\null) "b"))
   (read-report "read a NUL" "nul.txt" 64 characters)
-  (write-bytes (at "latin1.txt") (list->vector (list (i32->u8 233))))
+  (write-bytes (at "latin1.txt") (list->array (list (i32->u8 233))))
   (read-report "read Latin-1" "latin1.txt" 64 as-is)
   (make-symbolic-link "λ.txt" (at "link"))
   (read-report "read a link" "link" 64 as-is)

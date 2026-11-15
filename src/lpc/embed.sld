@@ -1,5 +1,5 @@
 ;; Helpers for `generate-library` recipes that turn the LPC packs into
-;; libraries a program compiles in: image files become byte vector literals,
+;; libraries a program compiles in: image files become byte array literals,
 ;; and the packs' JSON palettes become color lists. A recipe runs when its
 ;; library is built and returns the library as syntax, so an image's bytes
 ;; reach the compiler as they are. A palette comes from bytes its recipe

@@ -25,7 +25,7 @@
      (begin (write-line (string-append "rejected: " (rejection-text rejection))) world))))
 
 (define (visible-count (world World)) (→ I64)
-  (vector-fold (lambda (n seen) (if seen (+ n 1) n)) 0 (● world visible)))
+  (array-fold (lambda (n seen) (if seen (+ n 1) n)) 0 (● world visible)))
 
 (define (wire-text (wire Wire)) (→ String)
   (string-append (cell-text (● (● wire from) cell))

@@ -13,7 +13,7 @@
 ;; the checked expression language; emission has no specialization work.
 ;;
 ;; The pass also refuses a control row wherever nothing could carry a
-;; yield: in the callbacks that the WAT loops of vector-generate and
+;; yield: in the callbacks that the WAT loops of array-generate and
 ;; string-generate call, in an unsafe-total thunk, in a procedure closed
 ;; over its handlers, in dispatched work but to `tasks`, and in the
 ;; implementation of an operation declared without ctl.
@@ -219,7 +219,7 @@
       (match (● callee term)
         ((Ann inner _) (application-yields callees inner args))
         ((Var "prim:unsafe-total" _ _) (procedure-yields callees (list-ref args 0)))
-        ((Var "prim:vector-generate" _ _) (procedure-yields callees (list-ref args 1)))
+        ((Var "prim:array-generate" _ _) (procedure-yields callees (list-ref args 1)))
         ((Var "prim:string-generate" _ _) (procedure-yields callees (list-ref args 1)))
         (_ (callee-row callees callee))))
 
@@ -282,8 +282,8 @@
 
     (define (named-restriction (name String)) (→ (Option Restriction))
       (case name
-        (("prim:vector-generate")
-         (Some (new Restriction (position 1) (what "a vector-generate callback") (allowed (Nil)))))
+        (("prim:array-generate")
+         (Some (new Restriction (position 1) (what "an array-generate callback") (allowed (Nil)))))
         (("prim:string-generate")
          (Some (new Restriction (position 1) (what "a string-generate callback") (allowed (Nil)))))
         (("prim:unsafe-total")
@@ -314,10 +314,10 @@
     ;; at, `name<types>`; a restriction names the definition.
 
     (define (generic-name (name String)) (→ String)
-      (let ((chars (string->vector name)))
+      (let ((chars (string->array name)))
         (let loop ((index 0))
-          (cond ((= index (vector-length chars)) name)
-                ((char=? (vector-ref chars index) #\<) (substring name 0 index))
+          (cond ((= index (array-length chars)) name)
+                ((char=? (array-ref chars index) #\<) (substring name 0 index))
                 (else (loop (+ index 1)))))))
 
     ;; A restricted primitive called directly is judged by the procedure it

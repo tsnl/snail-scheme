@@ -9,12 +9,12 @@
    match
    ann
    downcast
-   constant-vector
+   constant-array
    extern
    effect
    handle
    expose
-   Any U8 I32 I64 F32 F64 Bool Char Unit String Vector ConstantVector Bytes Fn mut
+   Any U8 I32 I64 F32 F64 Bool Char Unit String Array ConstantArray Bytes Fn mut
    u8->i32 i32->u8
    let* letrec cond case when unless and or do
    not unit panic unsafe-total
@@ -58,20 +58,20 @@
    char=? char<?
    string string-length string-ref string-append substring string=? string<? make-string
    string->list list->string string-join string-concatenate string-generate string-index
-   string->vector vector->string
-   vector-length
-   vector-ref
-   constant-vector-length
-   constant-vector-ref
-   constant-vector->vector
-   make-vector
-   vector-generate
-   vector-set
-   vector-append
-   vector-concatenate
-   subvector
-   vector-map vector-for-each vector-fold vector->list list->vector
-   vector vector-set! vector-copy vector-copy!
+   string->array array->string
+   array-length
+   array-ref
+   constant-array-length
+   constant-array-ref
+   constant-array->array
+   make-array
+   array-generate
+   array-set
+   array-append
+   array-concatenate
+   subarray
+   array-map array-for-each array-fold array->list list->array
+   array array-set! array-copy array-copy!
    set!)
   (import
    (snail core forms)
@@ -397,7 +397,7 @@
       (if (< a b) b a))
 
     ;; Bytes are packed one per array slot.
-    (type Bytes (Vector U8))
+    (type Bytes (Array U8))
 
     ;; ---- Common data ----
 
@@ -648,89 +648,89 @@
       (let loop ((index (- count 1)) (items (Nil)))
         (if (< index 0) items (loop (- index 1) (Cons index items)))))
 
-    ;; ---- Vectors ----
+    ;; ---- Arrays ----
 
-    (define (vector-map (f (Fn A → B ! e)) (items (Vector A)))
-      (→ (Vector B))
+    (define (array-map (f (Fn A → B ! e)) (items (Array A)))
+      (→ (Array B))
       (! e)
       (∀ (A B e))
-      (vector-generate (vector-length items) (lambda (index) (f (vector-ref items index)))))
+      (array-generate (array-length items) (lambda (index) (f (array-ref items index)))))
 
-    (define (vector-for-each (f (Fn A → Unit ! e)) (items (Vector A)))
+    (define (array-for-each (f (Fn A → Unit ! e)) (items (Array A)))
       (→ Unit)
       (! e)
       (∀ (A e))
       (let loop ((index 0))
-        (when (< index (vector-length items))
-          (f (vector-ref items index))
+        (when (< index (array-length items))
+          (f (array-ref items index))
           (loop (+ index 1)))))
 
-    (define (vector-fold (f (Fn B A → B ! e)) (initial B) (items (Vector A)))
+    (define (array-fold (f (Fn B A → B ! e)) (initial B) (items (Array A)))
       (→ B)
       (! e)
       (∀ (A B e))
       (let loop ((index 0) (result initial))
-        (if (< index (vector-length items))
-            (loop (+ index 1) (f result (vector-ref items index)))
+        (if (< index (array-length items))
+            (loop (+ index 1) (f result (array-ref items index)))
             result)))
 
-    (define (vector->list (items (Vector T)))
+    (define (array->list (items (Array T)))
       (→ (List T))
       (∀ (T))
-      (let loop ((index (- (vector-length items) 1)) (result (Nil)))
-        (if (< index 0) result (loop (- index 1) (Cons (vector-ref items index) result)))))
+      (let loop ((index (- (array-length items) 1)) (result (Nil)))
+        (if (< index 0) result (loop (- index 1) (Cons (array-ref items index) result)))))
 
     ;; Local cursors give generation a sequential input without exposing
     ;; mutable storage outside these total conversions.
     (record (ListCursor A)
       ((remaining (List A))))
 
-    (define (list->vector (items (List T)))
-      (→ (Vector T))
+    (define (list->array (items (List T)))
+      (→ (Array T))
       (! e)
       (∀ (T e))
       (unsafe-total (ann (lambda () (let ((cursor (new ListCursor (remaining items))))
-                                      (vector-generate (length items)
-                                                       (lambda (index)
-                                                         (match (● cursor remaining)
-                                                           ((Cons first rest)
-                                                            (set! (● cursor remaining) rest)
-                                                            first)
-                                                           ((Nil)
-                                                            (panic
-                                                             "list->vector: too few items")))))))
-                         (Fn → (Vector T) ! mut e))))
+                                      (array-generate (length items)
+                                                      (lambda (index)
+                                                        (match (● cursor remaining)
+                                                          ((Cons first rest)
+                                                           (set! (● cursor remaining) rest)
+                                                           first)
+                                                          ((Nil)
+                                                           (panic
+                                                            "list->array: too few items")))))))
+                         (Fn → (Array T) ! mut e))))
 
-    (record (VectorCursor A)
-      ((vectors (List (Vector A)))
+    (record (ArrayCursor A)
+      ((arrays (List (Array A)))
        (offset I64)))
 
-    (define (vector-concatenate (vectors (List (Vector T))))
-      (→ (Vector T))
+    (define (array-concatenate (arrays (List (Array T))))
+      (→ (Array T))
       (! e)
       (∀ (T e))
-      (unsafe-total (ann (lambda () (let ((cursor (new VectorCursor (vectors vectors) (offset 0))))
-                                      (vector-generate
+      (unsafe-total (ann (lambda () (let ((cursor (new ArrayCursor (arrays arrays) (offset 0))))
+                                      (array-generate
                                        (fold-left
-                                        (lambda (total items) (+ total (vector-length items)))
+                                        (lambda (total items) (+ total (array-length items)))
                                         0
-                                        vectors)
+                                        arrays)
                                        (lambda (index)
                                          (let next ()
-                                           (match (● cursor vectors)
+                                           (match (● cursor arrays)
                                              ((Cons items rest)
                                               (let ((offset (● cursor offset)))
-                                                (if (< offset (vector-length items))
+                                                (if (< offset (array-length items))
                                                     (begin
                                                       (set! (● cursor offset) (+ offset 1))
-                                                      (vector-ref items offset))
+                                                      (array-ref items offset))
                                                     (begin
-                                                      (set! (● cursor vectors) rest)
+                                                      (set! (● cursor arrays) rest)
                                                       (set! (● cursor offset) 0)
                                                       (next)))))
                                              ((Nil)
-                                              (panic "vector-concatenate: too few elements"))))))))
-                         (Fn → (Vector T) ! mut e))))
+                                              (panic "array-concatenate: too few elements"))))))))
+                         (Fn → (Array T) ! mut e))))
 
     ;; ---- Characters and text ----
 
@@ -766,27 +766,27 @@
         (if (< index 0) chars (loop (- index 1) (Cons (string-ref text index) chars)))))
 
     (define (list->string (chars (List Char))) (→ String)
-      (vector->string (list->vector chars)))
+      (array->string (list->array chars)))
 
     ;; Copies each string once into one array of the total length. The array
     ;; is local to this call.
 
     (define (string-concatenate (texts (List String))) (→ String)
       (unsafe-total (lambda () (let ((chars
-                                      (make-vector (fold-left (lambda (total text)
-                                                                (+ total (string-length text)))
-                                                              0
-                                                              texts)
-                                                   #\space)))
+                                      (make-array (fold-left (lambda (total text)
+                                                               (+ total (string-length text)))
+                                                             0
+                                                             texts)
+                                                  #\space)))
                                  (fold-left (lambda (offset text)
-                                              (vector-copy! chars
-                                                            offset
-                                                            (string->vector text)
-                                                            0
-                                                            (string-length text))
+                                              (array-copy! chars
+                                                           offset
+                                                           (string->array text)
+                                                           0
+                                                           (string-length text))
                                               (+ offset (string-length text)))
                                             0 texts)
-                                 (vector->string chars)))))
+                                 (array->string chars)))))
 
     (define (string-join (texts (List String)) (separator String)) (→ String)
       (match texts
@@ -952,11 +952,11 @@
 
         (string-append "(" (string-join (map repr items) " ") ")")))
 
-    (instance (Repr (Vector T))
+    (instance (Repr (Array T))
       (⊨ (Repr T))
-      (define (repr (items (Vector T))) (→ String)
+      (define (repr (items (Array T))) (→ String)
 
-        (string-append "#(" (string-join (map repr (vector->list items)) " ") ")")))
+        (string-append "#(" (string-join (map repr (array->list items)) " ") ")")))
 
     (instance (Repr (Option T))
       (⊨ (Repr T))

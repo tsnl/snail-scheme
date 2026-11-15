@@ -8,7 +8,7 @@
 
 (record Branch
   ((value I64)
-   (children (Vector (Option Branch)))))
+   (children (Array (Option Branch)))))
 
 (define (ring) (→ Link)
   (unsafe-total
@@ -20,8 +20,8 @@
 (define (tree) (→ Branch)
   (unsafe-total
    (lambda ()
-     (let ((node (new Branch (value 4) (children (make-vector 1 (None))))))
-       (vector-set! (● node children) 0 (Some node))
+     (let ((node (new Branch (value 4) (children (make-array 1 (None))))))
+       (array-set! (● node children) 0 (Some node))
        node))))
 
 (define (main) (→ Unit) (! mut output-port)
@@ -35,10 +35,10 @@
       ((None) (panic "missing cycle"))))
   (let ((first (tree)) (second (tree)))
     (set! (● first value) 8)
-    (match (vector-ref (● first children) 0)
+    (match (array-ref (● first children) 0)
       ((Some child) (write-line (show (● child value))))
       ((None) (panic "missing array cycle")))
-    (match (vector-ref (● second children) 0)
+    (match (array-ref (● second children) 0)
       ((Some child) (write-line (show (● child value))))
       ((None) (panic "missing array cycle"))))
   (unit))

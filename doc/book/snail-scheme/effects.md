@@ -975,7 +975,7 @@ be reachable twice, a cost paid by code that never captures one.
 
 A yield returns through each frame between the operation and its handler,
 so every frame on that path must expect it. A control row cannot reach a
-`vector-generate` or `string-generate` callback, which a WAT loop calls; an
+`array-generate` or `string-generate` callback, which a WAT loop calls; an
 `unsafe-total` thunk, whose row the call discards; dispatched work, which
 runs later under its task's own handler of `tasks`, and so may yield to
 `tasks` alone; a procedure closed over its handlers, which may run after
@@ -984,7 +984,7 @@ implementation of an operation declared without `ctl`, the subject of the
 next section. Each is
 an error after specialization. A generic function used where a control
 operation may be performed is specialized at that row, so its callback rows
-name the effect too: `vector-map`, which calls `vector-generate`, cannot be
+name the effect too: `array-map`, which calls `array-generate`, cannot be
 used in such a body even with a callback that cannot abort.
 
 Nor can a control row pass through `Any`, whose TypeId records no rows: a

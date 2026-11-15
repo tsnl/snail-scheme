@@ -307,7 +307,7 @@
     (record Route
       ((goal Cell)
        (burrower Bool)
-       (field (Vector I64))))
+       (field (Array I64))))
 
     ;; ---- Outcome and ledger ----
 
@@ -347,7 +347,7 @@
     ;; explored now but not `before`, within `radius` of `center`, since
     ;; `tick`.
     (record Reveal
-      ((before (Vector Bool))
+      ((before (Array Bool))
        (center Cell)
        (radius I64)
        (tick I64)))
@@ -369,7 +369,7 @@
        (nests (List Nest))
        (enemies (List Enemy))
        (digs (List Dig))
-       (opened (Vector Bool))
+       (opened (Array Bool))
        (shots (List Shot))
        (alerts (List Alert))
        (routes (List Route))
@@ -377,8 +377,8 @@
        (next-id I64)
        (next-order I64)
        (network Network)
-       (visible (Vector Bool))
-       (explored (Vector Bool))
+       (visible (Array Bool))
+       (explored (Array Bool))
        (reveal Reveal)
        (structure-version I64)
        (explored-version I64)))
@@ -413,7 +413,7 @@
                                          (● land fronts)))
                      (enemies (Nil))
                      (digs (Nil))
-                     (opened (make-vector cells #f))
+                     (opened (make-array cells #f))
                      (shots (Nil))
                      (alerts (Nil))
                      (routes (Nil))
@@ -421,10 +421,10 @@
                      (next-id 1)
                      (next-order 1)
                      (network (new Network (wires (Nil)) (powered (Nil))))
-                     (visible (make-vector cells #f))
-                     (explored (make-vector cells #f))
+                     (visible (make-array cells #f))
+                     (explored (make-array cells #f))
                      (reveal (new Reveal
-                               (before (make-vector cells #f))
+                               (before (make-array cells #f))
                                (center (● land hub))
                                (radius 0)
                                (tick 0)))
@@ -488,12 +488,12 @@
 
     ;; Rock that enemies have dug through for good.
     (define (opened? (world World) (cell Cell)) (→ Bool)
-      (vector-ref (● world opened) (cell-index cell)))
+      (array-ref (● world opened) (cell-index cell)))
 
     ;; Opening rock changes every route and may clear wires and shots.
     (define (open-rock (world World) (cell Cell)) (→ World)
       (rewire (World-routes-set
-               (World-opened-set world (vector-set (● world opened) (cell-index cell) #t))
+               (World-opened-set world (array-set (● world opened) (cell-index cell) #t))
                (Nil))))
 
     ;; Spending and earning keep energy and the ledger in step; a refund is
@@ -538,14 +538,14 @@
        (cost I64)))
 
     ;; Every pair of nodes a wire reaches, each pair once, in node order.
-    (define (links (world World) (nodes (Vector Node))) (→ (List Link))
+    (define (links (world World) (nodes (Array Node))) (→ (List Link))
       (concatenate (map (lambda (i)
                           (filter-map (lambda (k) (link world nodes i (+ k (+ i 1))))
-                                      (iota (- (vector-length nodes) (+ i 1)))))
-                        (iota (vector-length nodes)))))
+                                      (iota (- (array-length nodes) (+ i 1)))))
+                        (iota (array-length nodes)))))
 
-    (define (link (world World) (nodes (Vector Node)) (i I64) (j I64)) (→ (Option Link))
-      (let ((a (vector-ref nodes i)) (b (vector-ref nodes j)))
+    (define (link (world World) (nodes (Array Node)) (i I64) (j I64)) (→ (Option Link))
+      (let ((a (array-ref nodes i)) (b (array-ref nodes j)))
         (if (wire-reaches? world (● a cell) (● a reach) (● b cell) (● b reach))
             (Some (new Link (a i) (b j) (cost (distance-squared (● a cell) (● b cell)))))
             (None))))
@@ -556,15 +556,15 @@
     ;; hub's tree is the powered network, so it reaches exactly what the
     ;; links do, and losing a node may rewire it along links not drawn
     ;; before. Each wire runs from the node it was reached from.
-    (define (span (nodes (Vector Node)) (links (List Link))) (→ (Pair (List Node) (List Wire)))
-      (let loop ((inside (make-vector (vector-length nodes) #f)) (wires (Nil)) (powered (None)))
-        (match (find (lambda (i) (not (vector-ref inside i))) (iota (vector-length nodes)))
+    (define (span (nodes (Array Node)) (links (List Link))) (→ (Pair (List Node) (List Wire)))
+      (let loop ((inside (make-array (array-length nodes) #f)) (wires (Nil)) (powered (None)))
+        (match (find (lambda (i) (not (array-ref inside i))) (iota (array-length nodes)))
           ((Some root)
            (match (grow nodes
                         links
-                        (vector-set inside root #t)
+                        (array-set inside root #t)
                         wires
-                        (list (vector-ref nodes root)))
+                        (list (array-ref nodes root)))
              ((Pair (Pair inside wires) tree)
               (loop inside wires (match powered ((None) (Some (reverse tree))) (_ powered))))))
           ((None)
@@ -573,30 +573,30 @@
              (second (reverse wires)))))))
 
     ;; Adds the shortest link from the tree to a new node until none is left.
-    (define (grow (nodes (Vector Node))
+    (define (grow (nodes (Array Node))
                   (links (List Link))
-                  (inside (Vector Bool))
+                  (inside (Array Bool))
                   (wires (List Wire))
                   (tree (List Node)))
-      (→ (Pair (Pair (Vector Bool) (List Wire)) (List Node)))
+      (→ (Pair (Pair (Array Bool) (List Wire)) (List Node)))
       (match (shortest-crossing links inside)
         ((Some l)
-         (let* ((outward (vector-ref inside (● l a)))
+         (let* ((outward (array-ref inside (● l a)))
                 (from (if outward (● l a) (● l b)))
                 (to (if outward (● l b) (● l a))))
            (grow nodes
                  links
-                 (vector-set inside to #t)
-                 (Cons (new Wire (from (vector-ref nodes from)) (to (vector-ref nodes to))) wires)
-                 (Cons (vector-ref nodes to) tree))))
+                 (array-set inside to #t)
+                 (Cons (new Wire (from (array-ref nodes from)) (to (array-ref nodes to))) wires)
+                 (Cons (array-ref nodes to) tree))))
         ((None) (new Pair (first (new Pair (first inside) (second wires))) (second tree)))))
 
     ;; The first of the shortest links with one end inside, so ties go to
     ;; the older pair.
-    (define (shortest-crossing (links (List Link)) (inside (Vector Bool))) (→ (Option Link))
+    (define (shortest-crossing (links (List Link)) (inside (Array Bool))) (→ (Option Link))
       (fold-left (lambda (best l)
-                   (if (and (not (eq-bool? (vector-ref inside (● l a))
-                                           (vector-ref inside (● l b))))
+                   (if (and (not (eq-bool? (array-ref inside (● l a))
+                                           (array-ref inside (● l b))))
                             (match best ((Some b) (< (● l cost) (● b cost))) ((None) #t)))
                        (Some l)
                        best))
@@ -617,36 +617,36 @@
     ;; ---- Sight ----
 
     ;; Every cell within reach of one of `nodes`.
-    (define (lit-cells (nodes (List Node))) (→ (Vector Bool))
+    (define (lit-cells (nodes (List Node))) (→ (Array Bool))
       (unsafe-total
        (lambda ()
-         (let ((seen (make-vector (* (map-size) (map-size)) #f)))
+         (let ((seen (make-array (* (map-size) (map-size)) #f)))
            (for-each (lambda (node) (light! seen (● node cell) (● node reach))) nodes)
            seen))))
 
-    (define (light! (seen (Vector Bool)) (center Cell) (radius I64)) (→ Unit) (! mut)
+    (define (light! (seen (Array Bool)) (center Cell) (radius I64)) (→ Unit) (! mut)
       (let ((offsets (map (lambda (i) (- i radius)) (iota (+ 1 (* 2 radius))))))
         (for-each (lambda (dy)
                     (for-each (lambda (dx)
                                 (let ((cell
                                        (new Cell (x (+ (● center x) dx)) (y (+ (● center y) dy)))))
                                   (when (and (in-bounds? cell) (within? cell center radius))
-                                    (vector-set! seen (cell-index cell) #t))))
+                                    (array-set! seen (cell-index cell) #t))))
                               offsets))
                   offsets)))
 
     (define (visible? (world World) (cell Cell)) (→ Bool)
-      (vector-ref (● world visible) (cell-index cell)))
+      (array-ref (● world visible) (cell-index cell)))
 
     (define (explored? (world World) (cell Cell)) (→ Bool)
-      (vector-ref (● world explored) (cell-index cell)))
+      (array-ref (● world explored) (cell-index cell)))
 
     ;; ---- Rewiring ----
 
     ;; Recomputes the wires, power and sight after the buildings change. A
     ;; cell once visible stays explored.
     (define (rewire (world World)) (→ World)
-      (let* ((nodes (list->vector (Cons (hub-node world) (building-nodes world))))
+      (let* ((nodes (list->array (Cons (hub-node world) (building-nodes world))))
              (spanned (span nodes (links world nodes))))
         (explore (structures-changed (World-visible-set (World-network-set world
                                                                            (new Network
@@ -659,23 +659,23 @@
     (define (explore (world World)) (→ World)
       (let* ((explored (● world explored)) (visible (● world visible))
              (fresh (filter (lambda (index)
-                              (and (vector-ref visible index) (not (vector-ref explored index))))
-                            (iota (vector-length visible)))))
+                              (and (array-ref visible index) (not (array-ref explored index))))
+                            (iota (array-length visible)))))
         (if (null? fresh)
             world
             (World-explored-version-set
              (World-reveal-set (World-explored-set world
-                                                   (vector-generate (vector-length visible)
-                                                                    (lambda (index)
-                                                                      (or
-                                                                       (vector-ref explored index)
-                                                                       (vector-ref visible
-                                                                                   index)))))
+                                                   (array-generate (array-length visible)
+                                                                   (lambda (index)
+                                                                     (or
+                                                                      (array-ref explored index)
+                                                                      (array-ref visible
+                                                                                 index)))))
                                (reveal-around explored (map index-cell fresh) (● world tick)))
              (+ (● world explored-version) 1)))))
 
     ;; The newly explored cells unveil from their middle outward.
-    (define (reveal-around (before (Vector Bool)) (cells (List Cell)) (tick I64)) (→ Reveal)
+    (define (reveal-around (before (Array Bool)) (cells (List Cell)) (tick I64)) (→ Reveal)
       (let* ((count (length cells))
              (center
               (new Cell
@@ -693,7 +693,7 @@
     ;; A decided game shows the whole map for inspection, at once: the world
     ;; is still, so nothing could unveil.
     (define (uncover (world World)) (→ World)
-      (let ((everything (make-vector (* (map-size) (map-size)) #t)) (reveal (● world reveal)))
+      (let ((everything (make-array (* (map-size) (map-size)) #t)) (reveal (● world reveal)))
         (structures-changed
          (World-explored-version-set (World-reveal-set (World-visible-set (World-explored-set world
                                                                                               everything)

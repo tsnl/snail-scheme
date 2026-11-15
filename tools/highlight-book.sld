@@ -190,25 +190,25 @@
 ;; class's name, doc/highlight.css colors.
 
 (define (code-html (code String)) (→ String)
-  (let ((chars (string->vector code)))
+  (let ((chars (string->array code)))
     (string-concatenate (map (lambda (token) (token-html chars token)) (highlight-tokens code)))))
 
-(define (token-html (chars (Vector Char)) (token Token)) (→ String)
-  (let ((text (escape-html (subvector chars (● token start) (● token end)))))
+(define (token-html (chars (Array Char)) (token Token)) (→ String)
+  (let ((text (escape-html (subarray chars (● token start) (● token end)))))
     (match (● token class)
       ((Blank) text)
       (class (string-append "<span class=\"tok-" (class-name class) "\">" text "</span>")))))
 
 ;; Text as HTML shows it: `&`, `<` and `>` become character references.
 
-(define (escape-html (chars (Vector Char))) (→ String)
+(define (escape-html (chars (Array Char))) (→ String)
   (string-concatenate
    (map (lambda (c)
           (cond ((char=? c #\&) "&amp;")
                 ((char=? c #\<) "&lt;")
                 ((char=? c #\>) "&gt;")
                 (else (list->string (list c)))))
-        (vector->list chars))))
+        (array->list chars))))
 
 ;; ---- The invocation ----
 

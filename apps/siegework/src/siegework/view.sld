@@ -259,7 +259,7 @@
       (concatenate
        (map (lambda (index) (at-cell (index-cell index) (ground-parts world (index-cell index))))
             (filter
-             (lambda (index) (and (vector-ref (● world explored) index) (include? index)))
+             (lambda (index) (and (array-ref (● world explored) index) (include? index)))
              (iota (* (map-size) (map-size)))))))
 
     ;; ---- Buildings ----
@@ -433,12 +433,12 @@
 
     ;; Thin strokes along the edges of a set of cells, shifted by `lane` so
     ;; two outlines on one edge lie side by side.
-    (define (outline-items (cells (Vector Bool)) (paint Paint) (lane F32)) (→ (List Item))
+    (define (outline-items (cells (Array Bool)) (paint Paint) (lane F32)) (→ (List Item))
       (concatenate (map (lambda (index) (edge-strokes cells (index-cell index) paint lane))
-                        (filter (lambda (index) (vector-ref cells index))
+                        (filter (lambda (index) (array-ref cells index))
                                 (iota (* (map-size) (map-size)))))))
 
-    (define (edge-strokes (cells (Vector Bool)) (cell Cell) (paint Paint) (lane F32))
+    (define (edge-strokes (cells (Array Bool)) (cell Cell) (paint Paint) (lane F32))
       (→ (List Item))
       (filter-map
        (lambda (side) (edge-stroke cells cell (● side first) (● side second) paint lane))
@@ -447,7 +447,7 @@
              (new Pair (first 0) (second 1))
              (new Pair (first 0) (second -1)))))
 
-    (define (edge-stroke (cells (Vector Bool))
+    (define (edge-stroke (cells (Array Bool))
                          (cell Cell)
                          (dx I64)
                          (dy I64)
@@ -455,7 +455,7 @@
                          (lane F32))
       (→ (Option Item))
       (let ((other (new Cell (x (+ (● cell x) dx)) (y (+ (● cell y) dy)))))
-        (if (and (in-bounds? other) (vector-ref cells (cell-index other)))
+        (if (and (in-bounds? other) (array-ref cells (cell-index other)))
             (None)
             (Some (Item-glow-set (item (Tile)
                                        (new Vec3 (x (+ (i64->f32 (● cell x))
@@ -893,7 +893,7 @@
       (< (- (● world tick) (● (● world reveal) tick)) 30))
 
     (define (fresh? (world World) (index I64)) (→ Bool)
-      (not (vector-ref (● (● world reveal) before) index)))
+      (not (array-ref (● (● world reveal) before) index)))
 
     (define (terrain-batches (game Game)) (→ (List Batch))
       (let* ((world (● game world)) (reveal (● world reveal)) (unveiling (unveiling? world))

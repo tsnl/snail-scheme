@@ -12,10 +12,10 @@
 
 (define (receive-four (connection Connection)) (→ Bytes) (! tcp tasks)
   (let loop ((bytes #u8()))
-    (if (= (vector-length bytes) 4)
+    (if (= (array-length bytes) 4)
         bytes
-        (match (require (read connection (i64->i32 (- 4 (vector-length bytes)))))
-          ((Some chunk) (loop (vector-append bytes chunk)))
+        (match (require (read connection (i64->i32 (- 4 (array-length bytes)))))
+          ((Some chunk) (loop (array-append bytes chunk)))
           ((None) (panic "unexpected EOF"))))))
 
 (define (main) (→ Unit) (! host mut output-port tcp tasks)
@@ -31,7 +31,7 @@
        (require (close-listener listener))
        (display (require (write client #u8(0 255 128 1))))
        (newline)
-       (write-value (vector->list (receive-four server)))
+       (write-value (array->list (receive-four server)))
        (newline)
        ;; A read takes 1 to 65,536 bytes, and a grace is not negative.
        (for-each (lambda (maximum)

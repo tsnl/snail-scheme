@@ -174,7 +174,7 @@
          ;; Port 0 names no peer, though a socket may bind to it.
          (send (lambda (socket peer bytes)
                  (cond ((= (Endpoint-port peer) 0) (Err (new SocketError (code "EINVAL"))))
-                       ((> (vector-length bytes) (i32->i64 (datagram-limit)))
+                       ((> (array-length bytes) (i32->i64 (datagram-limit)))
                         (Err (new SocketError (code "EMSGSIZE"))))
                        (else (native (lambda (ticket)
                                        (host-start-send ticket
@@ -252,8 +252,8 @@
           (Ok (success answer))))
 
     (define (held-bytes (position I32)) (→ Bytes)
-      (vector-generate (i32->i64 (host-held-length position))
-                       (lambda (index) (i32->u8 (host-held-byte position (i64->i32 index))))))
+      (array-generate (i32->i64 (host-held-length position))
+                      (lambda (index) (i32->u8 (host-held-byte position (i64->i32 index))))))
 
     ;; Error codes and addresses are ASCII.
 
