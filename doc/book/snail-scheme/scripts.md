@@ -131,9 +131,9 @@ the host, such as `provide-fs` in `(snail core io)`, and a target's
 | `screen` | `(snail shell app)` | — | — | — | ✓ |
 | `assembler` | `(snail shell assembler)` | — | ✓ | ✓ | — |
 
-Today the targets' handlers cover the rows from `output-port` to `files`;
-the others still answer through their library's `default`, until each
-moves into its target.
+Today the targets' handlers cover the rows from `output-port` to `tcp`
+and `udp`; the page's capabilities still answer through their library's
+`default`, until they move into `browser`.
 
 The table states the rule the build checks, so changing what a host provides
 means changing this table and the target's handlers together. It replaces
@@ -276,9 +276,11 @@ Each step is a pull request that passes every check on its own.
      `provide` too, through a wrapper, unless a signature shows only `mut`
      and `host`; a library's own exposures run unwrapped. Stage 0 builds a
      test for another target with `program->wat-for`.
-   - Node's capabilities, processes, signals and sockets, move into
-     `node`, and the harness names the programs that need Node, instead of
-     reading their imports.
+   - Node's capabilities move into `node`: done. `process`, `signals`,
+     `tcp` and `udp` have no `default`, and `node` installs
+     `provide-process`, `provide-signals`, `provide-tcp` and `provide-udp`.
+     Under `SNAIL_ENGINE=wasmtime` a test program builds for `wasmtime`
+     unless stage 0's `node-programs` names it.
    - The page's capabilities move into `browser`.
    - A capability left unhandled fails the build.
    - `default` goes.
