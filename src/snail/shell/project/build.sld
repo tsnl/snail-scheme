@@ -47,6 +47,7 @@
          Diagnostics
          diagnostics->string)
    (snail shell compiler inputs)
+   (only (snail shell compiler check) Typed)
    (snail shell project plan)
    (snail shell process)
    (snail shell assembler)
@@ -227,7 +228,9 @@
     ;; holds one, which it compiled. `files` are the digests of its files
     ;; but its modules and linked files, whose names are already digests,
     ;; by relative name. `linked` holds the paths of the files its program
-    ;; links; editing one compiles the library that links it again.
+    ;; links; editing one compiles the library that links it again. A
+    ;; development build keeps its program as checked, whose names the
+    ;; language server answers for; it lives only as long as the candidate.
     (record Output
       ((name String)
        (directory String)
@@ -235,7 +238,8 @@
        (compiled I64)
        (modules I64)
        (files (List (Pair String String)))
-       (linked (List String))))
+       (linked (List String))
+       (typed (Option Typed))))
 
     ;; What a build made and has not published: each target's generation,
     ;; in plan order, which puts the first root first.
@@ -527,11 +531,13 @@
          (absurd (stop failure)))))
 
     ;; What building a target's program left: how many modules it compiled
-    ;; of how many, and the files it links, by their sources' paths.
+    ;; of how many, the files it links, by their sources' paths, and, from a
+    ;; development build, the program as it was checked.
     (record Program
       ((compiled I64)
        (modules I64)
-       (linked (List String))))
+       (linked (List String))
+       (typed (Option Typed))))
 
     (define (program-output (program Program)
                             (name String)
@@ -546,7 +552,8 @@
              (compiled (● program compiled))
              (modules (● program modules))
              (files digests)
-             (linked (● program linked)))))
+             (linked (● program linked))
+             (typed (● program typed)))))
 
     ;; The target's program in its generation, with the files it links: one
     ;; module for a debug or release build, a module per library for a
@@ -576,7 +583,8 @@
                                       links)
                          (new Program (compiled 1)
                               (modules 1)
-                              (linked (map (lambda (record) (● record path)) links)))))))))
+                              (linked (map (lambda (record) (● record path)) links))
+                              (typed (None)))))))))
 
     ;; A browser target's host files and public tree; then the files the
     ;; generation holds.
@@ -704,14 +712,15 @@
     (define (develop-program (builder Builder) (target Target) (directory String)
                              (working String) (progress Progress))
       (→ Program) (! mut fs building)
-      (let* ((built (compiled (lambda ()
-                                (source->modules (● target directories) (● target entry)
-                                                 (lambda (loading forms)
-                                                   (generated-syntax working
-                                                                     (● target directories)
-                                                                     loading
-                                                                     forms))
-                                                 (● progress inputs)))))
+      (let* ((checked (compiled (lambda ()
+                                  (source->checked (● target directories) (● target entry)
+                                                   (lambda (loading forms)
+                                                     (generated-syntax working
+                                                                       (● target directories)
+                                                                       loading
+                                                                       forms))
+                                                   (● progress inputs)))))
+             (built (compiled (lambda () (checked->modules checked))))
              (modules (map assemble-module built))
              (links (concatenate (map (lambda (module) (● module links)) built))))
         (write-modules builder directory modules
@@ -719,7 +728,8 @@
         (new Program
           (compiled (length modules))
           (modules (length modules))
-          (linked (map (lambda (file) (● file path)) links)))))
+          (linked (map (lambda (file) (● file path)) links))
+          (typed (Some (● checked typed))))))
 
     (define (assemble-module (module Built)) (→ Assembled) (! building)
       (let ((text (● module text)))

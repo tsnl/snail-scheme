@@ -1,11 +1,12 @@
 .DEFAULT_GOAL := check
-.PHONY: format check fetch test test-wasmtime test-chez test-browser bootstrap ide site siegework hearsay pages
+.PHONY: format check fetch test test-wasmtime test-chez test-browser bootstrap dev site siegework hearsay pages
 
 CHEZ ?= scheme
 export CHEZ
 NIXFMT ?= nixfmt
 MDBOOK ?= mdbook
-SCHEME_SOURCES = '*.scm' '*.sld' '*.sls'
+# Tree-sitter's queries under editors/zed are written in .scm files too.
+SCHEME_SOURCES = '*.scm' '*.sld' '*.sls' ':(exclude)editors/zed/languages'
 
 # Downloads the Rust crates in each Cargo.lock, which the tests and every
 # build then use offline. Run it once in a new checkout or container.
@@ -30,21 +31,11 @@ test-chez:
 	SNAIL_STAGE0=chez ./scripts/snail-tool dev-tools >/dev/null
 	SNAIL_STAGE0=chez "$(CHEZ)" --script host/chez/load.scm "$(CURDIR)" test
 
-# Live reload and the browser IDE in headless Chromium, which CI does not
-# have; CHROMIUM names the browser.
+# Live reload and browser interfaces in headless Chromium, which CI does
+# not have; CHROMIUM names the browser.
 test-browser:
 	node tests/browser/reload.mjs "$(CURDIR)"
 	node tests/browser/wasm-instance-identity.mjs "$(CURDIR)"
-	node tests/browser/ide.mjs "$(CURDIR)"
-	node tests/browser/ide-highlights.mjs "$(CURDIR)"
-	node tests/browser/ide-palette.mjs "$(CURDIR)"
-	node tests/browser/ide-tabs.mjs "$(CURDIR)"
-	node tests/browser/ide-search.mjs "$(CURDIR)"
-	node tests/browser/ide-create.mjs "$(CURDIR)"
-	node tests/browser/ide-installable.mjs "$(CURDIR)"
-	node tests/browser/ide-install.mjs "$(CURDIR)"
-	node tests/browser/ide-runs.mjs "$(CURDIR)"
-	node tests/browser/ide-refresh.mjs "$(CURDIR)"
 	node tests/browser/ui.mjs "$(CURDIR)"
 	node tests/browser/ui-reload.mjs "$(CURDIR)"
 	node tests/browser/ui-requests.mjs "$(CURDIR)"
@@ -62,8 +53,9 @@ check:
 	git ls-files -z $(SCHEME_SOURCES) | xargs -0 ./scripts/format-scheme --check
 	$(NIXFMT) --check shell.nix
 
-# The native project service and browser editor for the whole repository.
-ide:
+# The development service for the whole repository: each browser target
+# at http://127.0.0.1:8000/NAME/, relinked as its sources change.
+dev:
 	./snail dev .
 
 # The root project names each application, with output in build/NAME.

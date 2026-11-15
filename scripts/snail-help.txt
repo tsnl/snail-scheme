@@ -1,6 +1,7 @@
 Usage: snail build [--release] PROJECT BUILD-TARGET
        snail run PROJECT RUN-TARGET [ARGUMENT ...]
        snail dev [--port PORT] PROJECT
+       snail lsp
 
 build reads PROJECT/project.datum and publishes the named target into
 PROJECT/build/TARGET. Each output directory is a link to a completed
@@ -12,10 +13,13 @@ run builds the named run-target's program and executes that completed generation
 in the current directory. Configured arguments precede ARGUMENTs. The command
 becomes the application process, retaining terminal IO, exit status and signals.
 
-dev keeps one native project compiler running, watches disk and serves an
-editor at http://127.0.0.1:PORT/ (8000 by default, 0 chooses a free port).
-Save writes disk; the shared watcher triggers compilation. External edits
-update clean editor buffers and report conflicts for unsaved buffers.
-Application launching/reloading is not integrated into dev yet.
+dev keeps one native project compiler running, rebuilds every target when
+an input on disk changes, and serves each browser target at
+http://127.0.0.1:PORT/TARGET/ (8000 by default, 0 chooses a free port),
+relinking its open pages into each new build.
+
+lsp serves the Language Server Protocol on standard input and output for
+the folder an editor opens: diagnostics from each saved build, formatting,
+hover and definitions. Zed starts it through editors/zed.
 
   -h, --help       Show this help.

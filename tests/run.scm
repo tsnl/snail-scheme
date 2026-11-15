@@ -436,6 +436,21 @@
     (or (zero? (caddr result))
         (report "project development" "failed" (string-append (car result) (cadr result))))))
 
+;; `snail lsp` answers an editor for a project of its own.
+(define (check-language-server root)
+  (let ((result (capture-process
+                 (list "node" "--no-warnings" (path-join root "tests/lsp.mjs") root))))
+    (or (zero? (caddr result))
+        (report "language server" "failed" (string-append (car result) (cadr result))))))
+
+;; The editors' grammar parses every tracked Scheme file and colors the
+;; reader's keywords.
+(define (check-tree-sitter root)
+  (let ((result (capture-process
+                 (list "node" "--no-warnings" (path-join root "tests/tree-sitter.mjs") root))))
+    (or (zero? (caddr result))
+        (report "tree-sitter grammar" "failed" (string-append (car result) (cadr result))))))
+
 ;; ./snail reuses stage 0's tool list only while nothing its rule reads
 ;; changed, in a root of stubs that builds nothing.
 (define (check-launcher root)
@@ -461,30 +476,6 @@
                  (list "node" "--no-warnings" (path-join root "tests/project-reload.mjs") root))))
     (or (zero? (caddr result))
         (report "project reload" "failed" (string-append (car result) (cadr result))))))
-
-(define (check-development-runs root)
-  (let ((result (capture-process
-                 (list "node" "--no-warnings" (path-join root "tests/development-runs.mjs") root))))
-    (or (zero? (caddr result))
-        (report "development runs" "failed" (string-append (car result) (cadr result))))))
-
-(define (check-project-http root)
-  (let ((result (capture-process
-                 (list "node" "--no-warnings" (path-join root "tests/project-http.mjs") root))))
-    (or (zero? (caddr result))
-        (report "project HTTP" "test failed" (string-append (car result) (cadr result))))))
-
-(define (check-project-search root)
-  (let ((result (capture-process
-                 (list "node" "--no-warnings" (path-join root "tests/project-search.mjs") root))))
-    (or (zero? (caddr result))
-        (report "project search" "test failed" (string-append (car result) (cadr result))))))
-
-(define (check-project-create root)
-  (let ((result (capture-process
-                 (list "node" "--no-warnings" (path-join root "tests/project-create.mjs") root))))
-    (or (zero? (caddr result))
-        (report "project creation" "test failed" (string-append (car result) (cadr result))))))
 
 (define (check-tcp root)
   (let ((result (capture-process (list "node" "--no-warnings" (path-join root "tests/tcp.mjs")))))
@@ -764,12 +755,10 @@
                                   (lambda () (check-project-resources root))
                                   (lambda () (check-project-development root))
                                   (lambda () (check-project-attempts root))
-                                  (lambda () (check-development-runs root))
-                                  (lambda () (check-project-http root))
-                                  (lambda () (check-project-search root))
-                                  (lambda () (check-project-create root))
                                   (lambda () (check-project-bundles root))
                                   (lambda () (check-launcher root))
+                                  (lambda () (check-language-server root))
+                                  (lambda () (check-tree-sitter root))
                                   (lambda () (check-project-reload root))
                                   (lambda () (check-tcp root))
                                   (lambda () (check-udp root))

@@ -11,4 +11,5 @@
                   (embed-library (list "hearsay" "art")
                                  1000
                                  (delete-duplicates string=?
-                                                    (concatenate (map character-paths everyone)))))
+                                                    (concatenate
+                                                     (map character-paths (everyone))))))

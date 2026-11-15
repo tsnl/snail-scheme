@@ -17,7 +17,8 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   `(snail core base)`, `(snail core table)` and `(snail core io)`, so it
   compiles itself.
   Host-specific code lives only under `host/`: `chez/` for stage 0,
-  `native/` for Node, `browser/` for the page, `ide/` for the editor. Rust
+  `native/` for Node, `browser/` for the page. Editor support lives under
+  `editors/`: the tree-sitter grammar and the Zed extension. Rust
   crates live in `crates/`. No program or library may depend on
   JavaScript: hosts beyond Node and the page, such as wasmtime and
   workerd, are the long-term direction
@@ -141,18 +142,19 @@ compiler's source changes; compiler changes must also pass `make test-chez`,
 which runs the source on Chez, and `make bootstrap`, which rebuilds from
 Chez alone.
 Backend changes should execute linked Wasm; compilation alone does not test
-target behavior. `(snail shell format)` is the formatter shared by the IDE
+target behavior. `(snail shell format)` is the formatter shared by `snail lsp`
 and `scripts/format-scheme`; `make test` checks its CLI and every tracked
 Scheme file. Browser changes should be seen running:
 `node tests/browser/page.mjs URL SCREENSHOT` drives headless Chromium.
 
 ## Live reload
 
-Iterate on applications with `./snail dev .`, left running; `make ide`
-opens this same root project for the whole repository. The root
-`project.datum` names the `siegework` and `hearsay` browser targets. It serves
-the browser editor at `http://127.0.0.1:8000/` and each browser target at
-`http://127.0.0.1:8001/TARGET/`, rebuilds every configured target from scratch, and relinks changed modules
+Iterate on applications with `./snail dev .` (`make dev`), left running, and
+edit in any editor; in Zed, install `editors/zed` as a dev extension for
+`snail lsp`'s diagnostics on save, formatting, hover and definitions. The root
+`project.datum` names the `siegework` and `hearsay` browser targets. The
+service serves each browser target at
+`http://127.0.0.1:8000/TARGET/`, rebuilds every configured target from scratch, and relinks changed modules
 into each open page while keeping the running state; point `tests/browser/page.mjs` at the
 target's URL to see an edit land. Each build first runs the producers of the
 `generate-library` recipes it reaches, so Hearsay serves too; its producers run every time. The book's
@@ -164,10 +166,9 @@ rules; what matters when writing code:
   in Save. Escaped closures can retain old code.
 - Libraries are checked one at a time, so an importer's use never decides a
   definition's type: give exported functions typed headers.
-- A program runs as a project's `run-target`, restarted from each accepted
-  build; the editor's Applications panel starts and stops it. Save writes
-  disk; the shared watcher drives compiler and editor updates, and an edit to
-  a file a program links builds again once a build that links it is
+- A program runs with `./snail run . RUN-TARGET`, outside the service. The
+  service's watcher sees every write to disk, whatever made it, and an edit
+  to a file a program links builds again once a build that links it is
   published.
 - Builds in one checkout keep private compiler scratch under `build/snail-run/`.
   Public `snail run` executes its completed project generation in the caller's
@@ -181,6 +182,7 @@ rules; what matters when writing code:
   relinks after the application's loop, a task that `host/browser/runtime.mjs`
   drives, saves, returns its state and settles. `tests/project-bundles.mjs`
   and the other project suites (in `make test`) cover the service, and
-  `tests/browser/reload.mjs` and `tests/browser/ide.mjs` (`make
-  test-browser`, needs `CHROMIUM`) cover the pages. See
+  `tests/browser/reload.mjs` (`make test-browser`, needs `CHROMIUM`) covers
+  the pages. `tests/lsp.mjs` and `tests/tree-sitter.mjs` cover the editor
+  support. See
   [the development toolchain](doc/book/snail-core/toolchain.md).

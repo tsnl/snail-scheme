@@ -20,7 +20,7 @@
    build-toolchain-tool
    build-cli-tools
    build-engine
-   build-editor-tools
+   build-dev-tools
    build-book-tools
    build-format-tools
    bootstrap!
@@ -678,22 +678,15 @@
                   (path-join root "build/engine/engine.wasm")
                   (standard-directories root)))
 
-    ;; The development service adds two programs to the command line's
-    ;; tools, whose `resident` builds for it: the editor's browser bundle
-    ;; and the reload client its browser targets' pages load.
-    (define (build-editor-tools root)
-      (let* ((tools (build-cli-tools root))
-             (project (path-join root "host/ide")))
-        ;; The IDE is an ordinary browser target. Its public assets and
-        ;; program are published together by the native project builder.
-        (run-command (append (program-command root (car tools))
-                             (list root (cadr tools) "build" "--release" project "ide")))
-        (append (list (path-join project "build/ide")
-                      (build-tool root
-                                  (path-join root "host/browser/reload.sld")
-                                  (path-join root "build/ide-tools/reload.wasm")
-                                  (standard-directories root)))
-                tools)))
+    ;; The development service adds one program to the command line's
+    ;; tools, whose `resident` builds for it: the reload client its browser
+    ;; targets' pages load.
+    (define (build-dev-tools root)
+      (cons (build-tool root
+                        (path-join root "host/browser/reload.sld")
+                        (path-join root "build/dev-tools/reload.wasm")
+                        (standard-directories root))
+            (build-cli-tools root)))
 
     ;; The book's highlighter, the preprocessor scripts/highlight-book runs
     ;; while mdbook builds the book.
@@ -703,7 +696,7 @@
                         (path-join root "build/book-tools/highlight-book.wasm")
                         (standard-directories root))))
 
-    ;; The command-line formatter uses the same library as the browser editor.
+    ;; The command-line formatter uses the same library as `snail lsp`.
     (define (build-format-tools root)
       (list (build-tool root
                         (path-join root "bootstrap/format.sld")

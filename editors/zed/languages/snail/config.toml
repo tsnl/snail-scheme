@@ -1,0 +1,13 @@
+name = "Snail Scheme"
+grammar = "snail"
+path_suffixes = ["sld", "sls", "scm", "datum"]
+line_comments = [";; ", "; "]
+block_comment = { start = "#| ", prefix = "", end = " |#", tab_size = 0 }
+autoclose_before = ")]"
+brackets = [
+  { start = "(", end = ")", close = true, newline = false },
+  { start = "[", end = "]", close = true, newline = false },
+  { start = "\"", end = "\"", close = true, newline = false, not_in = ["string", "comment"] },
+]
+word_characters = ["-", "?", "!", "*", "+", "<", ">", "=", "/", ":", ".", "●", "→", "∀", "⊨"]
+tab_size = 2

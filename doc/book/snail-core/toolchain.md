@@ -8,7 +8,7 @@ as a separate instance.
 | Command | Build |
 | --- | --- |
 | `snail build`, `snail run`, `make site`, internal source compile/run | Static; `--release` does not invoke an optimizer |
-| `snail dev`, `make ide` | Separate development modules |
+| `snail dev`, `make dev`, `snail lsp` | Separate development modules |
 
 The public commands operate on projects. Compiler contributors can use
 `./scripts/snail-tool run SOURCE`, `wat SOURCE`, `schema SOURCE` or `bootstrap`.
@@ -108,33 +108,30 @@ references and access each other's GC values.
 
 ## From an edit to a build
 
-`snail dev PROJECT` starts one native development process and prints its editor
-URL. `--port PORT` selects a port (8000 by default; 0 chooses a free one).
-`make ide` runs `snail dev .` for the whole repository: its compiler, IDE,
-libraries and applications share one file tree, and the root `project.datum`
-names the `siegework` and `hearsay` browser targets. The browser owns open
-buffers and drafts; the native service owns disk files, observation and
-compilation.
+`snail dev PROJECT` starts one native development process, which prints its
+URL and serves each browser target at `/NAME/` on it. `--port PORT` selects a
+port (8000 by default; 0 chooses a free one). `make dev` runs `snail dev .`
+for the whole repository, whose root `project.datum` names the `siegework`
+and `hearsay` browser targets. Any editor writes the files; the service owns
+observation and compilation, and the pages relink into each accepted build.
 
 ```text
-editor Save or external writer -> disk -> disk task
-                                           |          |
-                                      resident     editor reads
-                                      builder      saved files
-                                           |
-                                  candidate + diagnostics
-                                           |
-                              reconcile and accept or discard
-                                           |
-                                output links + UI status
-                                           |
-                              affected wanted run targets
+editor or other writer -> disk -> disk task
+                                     |
+                                resident builder
+                                     |
+                            candidate + diagnostics
+                                     |
+                        reconcile and accept or discard
+                                     |
+                      output links + status + page reloads
 ```
 
-Save only writes disk. The disk task triggers compilation regardless of which
-application wrote the file. Manual Build also requests an attempt. Unsaved text
-never enters compilation. Each attempt starts with fresh compilation and diagnostics; an error does
-not display stale diagnostics from the preceding attempt.
+Saving only writes disk. The disk task triggers compilation regardless of which
+program wrote the file. A POST to `/.snail/build` also requests an attempt.
+Unsaved text never enters compilation. Each attempt starts with fresh
+compilation and diagnostics; an error does not display stale diagnostics from
+the preceding attempt.
 
 The cold commands, `snail build` and `snail run`, are a Snail program,
 `bootstrap/cli.sld`, which builds with `(snail shell project build)`: the
@@ -145,7 +142,7 @@ only judge of when they have. Starting Chez and Cargo to find nothing stale
 takes most of a second, so `./snail` keeps stage 0's answer in
 `build/tools-KIND.txt`, stamped with the time stage 0 began, and uses it again
 while every tool it names exists and nothing stage 0's rule reads is newer:
-the `.sld` files under `src/`, `bootstrap/`, `host/ide/` and `host/browser/`,
+the `.sld` files under `src/`, `bootstrap/` and `host/browser/`,
 the runtime crate, `rust-toolchain.toml`, and stage 0's driver, which says where
 the tools go. The check over-approximates the rule, so a false alarm costs only
 stage 0's run, and it takes about 15 ms. `snail run`
@@ -165,10 +162,9 @@ candidate is accepted.
 `(snail shell project service)`. Its tasks each wait on one thing: the owner,
 which holds the step below and everything it leaves to its host, and receives
 every message; the disk task, which holds the latest inventory; a task writing
-the resident's requests and two reading its output; a supervisor for each run
-target, which owns that target's process; and a task for each HTTP connection.
-No cell holds state: each task threads its own through its loop, and tasks
-share only mailboxes. It replaced a service in JavaScript
+the resident's requests and two reading its output; and a task for each HTTP
+connection. No cell holds state: each task threads its own through its loop,
+and tasks share only mailboxes. It replaced a service in JavaScript
 ([#567](https://github.com/tsnl/snail-scheme/issues/567)), whose few cases
 tested in process became scenarios of the step's race tests.
 
@@ -177,8 +173,8 @@ tested in process became scenarios of the step's race tests.
 The disk task's inventories ([`(snail shell watch)`](libraries.md)) cover the
 project, `src/` and `host/browser/`, without the project's `build` and `.git`
 directories or the root's `build`. Exclusions are exact paths, not every folder
-named `build`. It takes one when the step asks it to reconcile, when the editor
-saves, each second, and on a hint from Node's recursive watch of a root, and
+named `build`. It takes one when the step asks it to reconcile, each second,
+and on a hint from Node's recursive watch of a root, and
 reports the paths whose fingerprints changed since the last complete one. A
 file's fingerprint is its size and nanosecond modification time. A directory's
 is its kind alone, so writes inside an excluded directory do not invalidate its
@@ -189,12 +185,11 @@ missed. The caller decides which observed paths affect compilation.
 A path that vanishes while an inventory is taken is left out, as removed. One
 that cannot be read otherwise fails the inventory. The task then keeps the last
 complete one and reports the failure once, when it begins. It answers a
-reconciliation with the failure, so the attempt fails with its message, and
-listing files fails rather than returning stale names. The first inventory
-that succeeds again reports what changed meanwhile, then the recovery, which
-builds. There is no content cache or filesystem snapshot. Metadata polling
-catches ordinary local writes but cannot guarantee detection on filesystems
-that hide changes behind unchanged or coarse metadata.
+reconciliation with the failure, so the attempt fails with its message. The
+first inventory that succeeds again reports what changed meanwhile, then the
+recovery, which builds. There is no content cache or filesystem snapshot.
+Metadata polling catches ordinary local writes but cannot guarantee detection
+on filesystems that hide changes behind unchanged or coarse metadata.
 
 The owner runs serialized project attempts and keeps one current status. It
 writes the resident's requests a line each, and reads its replies, by epoch.
@@ -203,38 +198,25 @@ keeps distinct observed paths only for the active attempt, including paths outsi
 the previous project's public inputs. A reply carries the newly parsed description
 even after a later build failure. The service reconciles disk, tests those paths
 against the new description, and asks the resident to publish only if no observed
-input change, and no Build requested meanwhile, superseded it. Otherwise it discards and
-coalesces a successor, so the attempt that answers a Build began after it. Accepted application files remain available after a failed or discarded build.
+input change, and no build requested meanwhile, superseded it. Otherwise it discards and
+coalesces a successor, so the attempt that answers a build request began after it.
+Accepted application files remain available after a failed or discarded build.
 
 `(snail shell development)` makes these decisions as a pure step. It is a function from the service and one event to the next
 service and the commands its host carries out in order. The events are the
 observer's hints and reconciliations, the resident's replies by epoch, the
-debounce timer, run controls, the resident's exit and closing. The commands
+debounce timer, build requests, the resident's exit and closing. The commands
 are building, reconciling, publishing or discarding a candidate, giving up an
-attempt's directory, arming the timer, launching a run, reclaiming generations
-and notifying.
+attempt's directory, arming the timer, reclaiming generations and notifying.
 `tests/programs/development-step.sld` drives it through those races. The
 owner feeds it each event, and carries out the commands it answers with, in
 order.
 
-The builder also hashes each completed target's sorted relative filenames and
-bytes, including the runtime, artifacts and public files; a module file adds only
-its name, which is the digest of the text it was assembled from. File boundaries
-are length framed; generation directory names and publication bookkeeping are
-excluded.
-The development owner compares that digest and the run's arguments with its last
-issued launch, independently of compilation work. An unchanged child keeps
-its earlier generation and build ID; explicit Restart uses the latest accepted
-generation. Paths observed through command-line arguments therefore still belong
-to the actual run. Native runner/tool changes require restarting the development
-service. [Application processes](applications.md#development-run-targets) define
-the controls and their interaction with acceptance and shutdown.
-
 Source inputs currently include the project description, `.sld` libraries, declared
 entry/public paths, browser runtime assets and the files the latest publication's
 programs link, which the resident names with each target. Ordinary data writes do
-not request builds. Arbitrary producer file reads are not tracked yet: use manual Build for
-those inputs. Unnamed watcher hints do not themselves declare source changes.
+not request builds. Arbitrary producer file reads are not tracked yet: ask for
+a build for those inputs. Unnamed watcher hints do not themselves declare source changes.
 The observer and compiler do not claim an atomic filesystem revision.
 
 Before sending work, the owner reserves `build/.snail-attempt-N`, a name that no
@@ -245,181 +227,160 @@ abandoned private generations, including ones a crashed resident never returned.
 Publication consumes ownership even when some target links moved before failure,
 so those generations must never be swept afterward. The service reclaims the
 generations it published once nothing needs them: it keeps the latest
-publication and the one before it, which a page may still be loading from, and
-an older generation while a run target's process still runs from it, as an
-unchanged child does. What was published before the service started, and
-what a publication that failed part way linked, are not among its
-publications, and stay. Shutdown suppresses
-acceptance and closes observation. It ends the resident's input, so the resident
-finishes the request it is answering and exits, and kills it if it has not 2 s
-later; and it stops each run target's process. Cleanup waits for every exit.
-Arbitrary compiler traps retire this development session; there is no automatic
-crash loop.
-
-## Project file service
-
-`(snail shell project files)` owns one physical project directory and three
-operations: filter the disk task's filenames, read text with a revision, and
-save against that revision. Listing awaits a fresh complete inventory; a failed
-one rejects the request instead of returning stale names. No contents or revisions
-persist in the service. The editor holds
-its unsaved text and the revision of its saved baseline; the disk task
-remains the only source of file-change notifications. Save has no compiler call.
-
-The text subset is valid UTF-8 without NUL, up to 8 MiB, preserving BOM, newline
-bytes and a missing final newline. Listing selects regular files ending in `.sld`,
-`.scm`, `.datum`, `.html`, `.css`, `.js`, `.mjs`, `.json`, `.webmanifest`, `.svg`,
-`.txt` or `.md`, and files named `.gitignore`;
-reading establishes content validity. Other suffixes and extensionless files are
-outside this first editor API. Paths reject traversal and symlinks. `.git` and
-the root `build` directory are excluded; `src/build` remains an ordinary source
-directory. A pipe cannot block the service while it checks for a regular file.
-
-Listing and project search use a fresh [(snail shell gitignore) snapshot](libraries.md#git-ignore-snapshots)
-to hide ignored paths while keeping tracked files visible. A missing Git executable
-or a directory outside a worktree leaves the inventory unfiltered. Rules affect
-discovery; explicit reads, saves, open drafts, compiler inputs and watchers keep
-their existing behavior. An open ignored draft remains under **Open files**.
-Editing `.gitignore` within the project triggers the existing file invalidation
-and refreshes the sidebar. Changes to outside rule files or the Git index take
-effect on the next listing/search request or browser reconnect; those files do
-not have additional watchers.
-
-A revision is the SHA-256 digest of the file's bytes. A read is one version of
-the file if the file's length and modification time stay the same. A save writes
-its text to a fresh directory under `project/build`, compares the current
-revision, preserves ordinary permission bits and renames onto the destination. This
-keeps temporary writes out of source/public trees and compiler inputs. It returns
-evidence for the submitted bytes, even if another writer subsequently changes the
-file. Failed writes or rename leave the old destination intact; saves across a
-nested filesystem mount fail with `EXDEV` instead of copying over the destination.
-
-Reads/saves are bounded synchronous operations, so this service's saves cannot
-interleave. Rename is atomic; comparison plus rename is not. An external writer
-can still race after the final comparison, and pathname checks do not constitute
-a sandbox against a hostile local process. This API makes no crash-durability,
-ACL, extended-attribute or hardlink-preservation promise. It edits existing files;
-creation, rename, deletion, merging and automatic conflict retry are omitted.
-
-A revision names no device or inode, which Rust's standard library gives WASI
-only as unstable API. A file replaced by another with the same bytes is the
-same revision, and saving over it loses nothing.
-
-WASI preview1 cannot read or set permission bits, so its `modes` effect does,
-on Node (`host/native/run-snail.mjs`). `tests/programs/project-files.sld`
-drives it.
+publication and the one before it, which a page may still be loading from.
+What was published before the service started, and what a publication that
+failed part way linked, are not among its publications, and stay. Shutdown
+suppresses acceptance and closes observation. It ends the resident's input, so
+the resident finishes the request it is answering and exits, and kills it if it
+has not 2 s later. Cleanup waits for its exit. Arbitrary compiler traps retire
+this development session; there is no automatic crash loop.
 
 ## Project HTTP service
 
-The service listens on `127.0.0.1`, and prints its editor URL once it does. It
+The service listens on `127.0.0.1` and prints its URL once it does. It
 answers each connection's one request in the connection's own task, through
-the [Snail HTTP library](http.md). It serves a fixed list of trusted editor
-assets, the editor's page, style and program and the browser host's modules
-that run it; it never serves project HTML or arbitrary filesystem paths. The
-project's browser targets are served on a second listener, the
-[applications' origin](applications.md#browser-targets-in-development), whose
-URL the service prints after the editor's and whose pages therefore cannot
-reach this API.
+the [Snail HTTP library](http.md). Its own paths are under `/.snail/`; every
+other path is a browser target's
+([browser targets in development](applications.md#browser-targets-in-development)),
+and `/` lists them.
 
 | Request | Result |
 | --- | --- |
-| `GET /api/project` | Project name, canonical directory and candidate relative filenames. |
-| `GET /api/file?path=...` | `{text, revision}` for one file. |
-| `PUT /api/file?path=...` | UTF-8 `text/plain` plus one strong quoted `If-Match` revision; returns the submitted snapshot or a conflict (409). |
-| `POST /api/build` | Explicit Build, with an empty body. Save never calls this operation. |
-| `POST /api/run/start?target=...` | Start an accepted run target; empty body, 204 acknowledgement. |
-| `POST /api/run/stop?target=...` | Stop a retained run target, including a removed name; empty body, 204 acknowledgement. |
-| `POST /api/run/restart?target=...` | Fresh attempt for an accepted run target; empty body, 204 acknowledgement. |
-| `GET /api/events` | SSE: current compiler `status` (`phase`, attempt `id`, `diagnostics`), current `runs` array, then `files` invalidation; subsequent changes to each. |
-| `GET /api/status` | One JSON snapshot of the whole session, below. |
-
-Reconnect obtains both current snapshots and an unconditional file invalidation;
-there is no event archive or replay cursor. Each run includes its target, availability,
-intent, desired build and observed attempt, with PID, build, phase, exit outcome and
-bounded stdout/stderr tails. Compiler and run frames are sent independently when
-their respective values change: output does not replay compiler diagnostics.
-A stream's connection task writes what the owner sends it, and a frame closes a
-stream with 16 KiB already sent to it unwritten. An idle blocked stream
-stays open until another event or connection closure, within the 64-stream limit.
-File operations remain responsive while the real compiler waits on a source pipe
-in the resident.
-
-The event stream carries what the editor draws. `GET /api/status` answers
-with everything else a client can observe of the session, in one value:
+| `POST /.snail/build` | Asks for an attempt, with an empty body; 202 with the status. |
+| `GET /.snail/status` | The session's status, below. |
+| `GET /.snail/events` | SSE: a `status` event with the status on connection and on each change of it. |
+| `GET /NAME/...` | Browser target `NAME`'s latest build, its pinned builds and its page events. |
 
 ```json
 {"phase": "succeeded", "id": 4, "diagnostics": [],
  "published": {"id": 4, "targets": [{"name": "main", "directory": "/project/build/.snail-attempt-…", "digest": "…", "compiled": 1}]},
- "compiler": {"worker": 1},
- "runs": [{"target": "dev", "desired": null, "attempt": null, "wanted": false, "available": true}]}
+ "compiler": {"worker": 1}}
 ```
 
-`phase`, `id` and `diagnostics` are the stream's `status`: the attempt last
-started, numbered by the epoch, and what it reported. `published` is the
-build the session last accepted, `null` before the first: its epoch, and for
-each target the generation directory its `build/NAME` link names, the digest
-of that generation's files, and how many library modules that build compiled. `compiler` identifies the resident builder by its process ID,
-`worker`, and is `null` once it has exited. `runs` is the stream's `runs`.
+`phase`, `id` and `diagnostics` are the attempt last started, numbered by the
+epoch, and what it reported; each diagnostic has a `message` and a `source`
+point, `{file, line, column}`, or `null`. `published` is the build the session
+last accepted, `null` before the first: its epoch, and for each target the
+generation directory its `build/NAME` link names, the digest of that
+generation's files, and how many library modules that build compiled, with a
+browser target's `url`. The digest hashes the target's sorted relative
+filenames and bytes, including the runtime, artifacts and public files, but a
+module file adds only its name, which is the digest of the text it was
+assembled from; generation names are excluded, so an unchanged build has the
+digest of the last. `compiler` identifies the
+resident builder by its process ID, `worker`, and is `null` once it has exited.
 
-The development loop's tests (`tests/project-http.mjs`,
-`tests/project-attempts.mjs`, `tests/development-runs.mjs`, `tests/project-reload.mjs`,
-`tests/project-development.mjs`, `tests/project-resources.mjs`,
-`tests/browser/ide.mjs` and `tests/browser/ide-runs.mjs`) spawn `snail dev
---port 0` and observe it only through the URL it prints, this snapshot, the
-event stream, the files on disk and process IDs, so nothing they check
-depends on how the service is written; `tests/development-service.mjs` is
-that client. A complete-rebuild case asks for each attempt with
-Build, as the editor does, and reads what each target compiled and its digest
-from the snapshot. The tests of `snail build` and `snail run` likewise see
-only the command's exit status, its output and the build directory. What
-must happen within one turn of the session is a transition of the step, and
+A stream's connection task writes what the owner sends it, and a frame closes a
+stream with 16 KiB already sent to it unwritten. An idle blocked stream
+stays open until another event or connection closure, within the 64-stream
+limit. There is no event archive or replay cursor: a reconnect gets the
+current status.
+
+The development loop's tests (`tests/project-attempts.mjs`,
+`tests/project-reload.mjs`, `tests/project-development.mjs`,
+`tests/project-resources.mjs`, `tests/project-bundles.mjs` and
+`tests/browser/reload.mjs`) spawn `snail dev --port 0` and observe it only
+through the URL it prints, the status, the event stream, the files on disk
+and process IDs, so nothing they check depends on how the service is written;
+`tests/development-service.mjs` is that client. A complete-rebuild case asks
+for each attempt and reads what each target compiled, and its digest, from
+the status. The
+tests of `snail build` and `snail run` likewise see only the command's exit
+status, its output and the build directory. What must happen within one turn
+of the session is a transition of the step, and
 `tests/programs/development-step.sld` tests it as one.
 
-Request bodies are framed by Content-Length alone, as in the
+Requests are framed by Content-Length alone, as in the
 [Snail HTTP library](http.md): a request naming a Transfer-Encoding is
-answered 411 before routing, or 400 if it also gives a Content-Length, so a
-body's size is known from its head. Bodies are limited
-to 8 MiB and decoded strictly as UTF-8.
+answered 411 before routing, or 400 if it also gives a Content-Length. Bodies
+are limited to 8 MiB, and a build request takes none. The service requires
+its exact Host authority, so a page of another site that rebinds a name to
+this address reaches nothing, and answers only reads but for the build
+request. It provides no CORS access. This is not authentication against other
+native processes on the same machine.
 
-The service requires its exact Host authority and rejects a supplied foreign
-Origin or fetch context. Mutations require the exact Origin. It provides no CORS
-access. This boundary keeps other websites from reading or writing project files;
-it is not authentication against other native processes on the same machine.
+Closing closes the listener, every HTTP connection and every event stream,
+then waits for the resident to exit. A fatal compiler or service failure
+closes the session, and `snail dev` exits with status 1 and its message;
+failing to listen ends it before anything starts.
 
-The step admits run controls using the last accepted
-definitions, even while compilation fails. HTTP maps its rejection of unknown
-names, and Start/Restart for removed names, to 404. The 204 response
-acknowledges applying intent; it contains no process snapshot that could overwrite
-a newer SSE observation. A lost response leaves the outcome unknown and must not
-cause automatic retries. Closing an HTTP or event connection does not stop an
-application. Closing the development service does.
+## Editors
 
-Closing closes the listener, every HTTP connection with any request body still
-arriving, and every event stream, then waits for the resident and the run
-targets' processes to exit. A body that finishes after shutdown cannot save. A
-fatal compiler or service failure closes the session, and `snail dev` exits with
-status 1 and its message; failing to listen ends it before anything starts.
+Snail Scheme has no editor of its own. An editor gets what it needs from two
+pieces in the repository: a [tree-sitter](https://tree-sitter.github.io/)
+grammar for what it can tell from the text alone, and `snail lsp`, a
+[Language Server Protocol](https://microsoft.github.io/language-server-protocol/)
+server, for what takes the compiler. `editors/zed` is the extension that puts
+them together for [Zed](https://zed.dev/).
 
-## Browser editor
+### The grammar
 
-The editor is a Snail program, `host/ide/ide.sld`: a
-[document interface](applications.md#document-interfaces) that `snail dev`
-serves with the browser host's `ui.mjs`, built by stage 0 with the other
-development tools. It has a file browser and split panes. All directories start
-collapsed on each page load; opening one keeps its children collapsed until
-opened in turn. Listing updates preserve the folders opened during the session.
-`(snail shell
-format)` runs in the same program for Tab/Enter indentation and
-format-on-save of Scheme files (`.sld`, `.scm` and `.datum`), and `(snail
-shell highlight)` colors them as the [book does](#code-highlighting).
+`editors/tree-sitter-snail` parses the reader's data: lists in `()` or `[]`,
+`#u8(` byte vectors, quotes, strings, and the comments the reader discards,
+`;` lines, nested `#| |#` blocks and `#;` datum comments. Its external scanner,
+`src/scanner.c`, reads every other token to a delimiter and classifies it as
+`token-kind` in `src/snail/shell/compiler/read.sld` does: a boolean, a number,
+a character or a symbol. A token the reader rejects, such as `.` or `#x1F`, is
+a symbol to the grammar, so Chez's own files still parse. The grammar is for
+editors alone; the compiler keeps its reader. The generated parser is
+committed, and `tests/tree-sitter.mjs` (in `make test`) checks that
+`grammar.js` still generates it, runs its corpus and highlight tests, parses
+every tracked Scheme file without an error, and checks that the keywords Zed
+colors are `(snail shell highlight)`'s.
 
-The command-line formatter, `scripts/format-scheme`, runs this same library.
-Stage 0 builds and caches its small Snail program on first use and rebuilds it
-when its sources change. With no arguments it formats stdin to stdout; optional
-`--width COLUMNS` selects a positive width instead of 100. `--check FILE ...`
-reports every file needing formatting on stderr and exits with status 1;
-`--write FILE ...` updates only changed files. `make check`, `make format`,
-Zed's format-on-save, and the browser editor all use this implementation.
+The queries live with the extension, under `editors/zed/languages/snail/`:
+`highlights.scm` colors the core forms, the derived forms and declaration
+words, capitalized type names and the name a definition introduces;
+`brackets.scm`, `indents.scm` and `outline.scm`, which lists a library by
+its name and then its definitions.
+
+### The language server
+
+`snail lsp` is the command line's `lsp`, `(snail shell lsp)`. It reads
+Content-Length framed JSON-RPC on standard input, answers on standard output,
+and serves the project at the root folder the editor opens. It offers:
+
+- **Diagnostics.** Once the editor is ready, and on each save, it builds the
+  project as `snail dev` would, in development mode with scratch under
+  `build/snail-run/`, and discards the candidate, publishing nothing. Each
+  failure is reported on its file, over the range `(snail shell highlight)`
+  derives for its point: the token there, or the datum that starts there. A
+  file is cleared once it builds. A failure with no point, or in a file that
+  does not exist, is reported on `project.datum`. Like `snail dev`'s, a build
+  reads the disk, so diagnostics follow what was saved.
+- **Formatting.** The open text, formatted by `(snail shell format)`, as one
+  edit of the whole document.
+- **Hover and definition.** The last build's checked libraries give each
+  variable's use its type and the binding that introduces it: a top-level
+  definition, perhaps in an imported library, a `let` binding or a lambda's
+  parameter. Hover shows the name, its type and the library it comes from;
+  definition goes to the name in its binding form.
+
+Positions are counted in UTF-16 code units, as the protocol's default
+encoding is. `tests/lsp.mjs` (in `make test`) drives the server through
+each of these on a project of its own.
+
+### Zed
+
+`editors/zed` is a Zed extension: `extension.toml` names the grammar, by
+repository and revision, and the language server, and `languages/snail/`
+holds the language's configuration and queries. Zed runs extensions in a
+wasmtime without its garbage-collection feature and loads only Rust, so the
+extension is a small Rust crate, `src/snail.rs`, compiled to
+`wasm32-wasip2`. It only finds the command: the `snail` binary path the
+user's settings give under `lsp.snail`, then a `snail` on the worktree's
+`PATH`, then the repository's own `./snail` launcher. To try it, choose
+**Install Dev Extension** in Zed's extensions page and pick `editors/zed`.
+
+### The formatter
+
+The command-line formatter, `scripts/format-scheme`, runs the same library as
+the language server. Stage 0 builds and caches its small Snail program on first
+use and rebuilds it when its sources change. With no arguments it formats
+stdin to stdout; optional `--width COLUMNS` selects a positive width instead of
+100. `--check FILE ...` reports every file needing formatting on stderr and
+exits with status 1; `--write FILE ...` updates only changed files.
+`make check`, `make format` and `snail lsp` all use this implementation.
 
 Binding forms are recognized by name: `let`, `let*`, and any name ending in
 `-let` or `-let*`. A user-defined `result-let*` or `retry-let` needs no formatter
@@ -428,12 +389,7 @@ spaces from the form's opening parenthesis. Forms ending in `-let` also use
 named-let layout when a loop name precedes the bindings. This is a formatting
 convention; the formatter does not expand macros or inspect their definitions.
 
-Each pane is one scroller holding its line numbers, its highlighting and its text
-field, which is as big as its text, so they scroll together. Other supported files use ordinary text
-editing. Browser textareas use LF in edited text; the native file API
-preserves exact bytes until saved.
-The browser has no compiler, copied project, directory handles or persistent
-project storage. Closing/reloading a page with drafts asks before discarding them.
+## Browser packaging
 
 Packaging has three steps: copy host and project assets, generate the default
 manifest only when the project has none, and add typed page metadata. The
@@ -443,9 +399,9 @@ page's head boundary, preserving the supplied HTML, head attributes, comments
 and doctype. The reload client's Snail datum text travels in a `meta` element's
 `content` attribute; browser decoding precedes datum parsing. Scheme fixtures
 cover this encoding and page construction; Chromium checks the browser's
-resolved URLs, standards mode and installation decisions.
+resolved URLs and standards mode.
 
-The editor and browser bundles expose a web-app manifest by default. The
+Browser bundles expose a web-app manifest by default. The
 manifest gives a standalone window, the application name, theme colors, and
 192/512-pixel icons. A browser target can provide `public/manifest.webmanifest`
 to replace the default entirely, including its icons and display mode; it is
@@ -461,211 +417,10 @@ host and port for a local installed app. HTTPS or a loopback origin is needed
 for browser installation; the development server must remain running. These
 manifests do not add offline caching or a service worker.
 
-The `install-app` command opens Chrome's installation prompt when the browser
-has offered one. A dismissed offer is consumed; an expired user activation keeps
-it for another explicit click on the command. Other browsers, or a page that has
-not received an offer, get a status message pointing to the browser's installation
-menu. Acceptance and completed installation are separate outcomes. The
-`toggle-fullscreen` command enters or leaves fullscreen independently of installation.
-
-The editor has no top toolbar. Its command palette opens with Command/Ctrl+Shift+P,
-F1, or the `>_` button in the status strip. Type a command name, use arrows or Tab
-to choose, Enter to run, and Escape to return to the editor. Names such as
-`save-buffer`, `format-buffer`, `reload-buffer`, `build-project`, `split-right`,
-`split-down`, `toggle-files`, and `close-editor` name Scheme functions. The
-palette, buttons and keyboard dispatch command names through the application loop.
-`(snail shell ui commands)` holds an ordered vector of names and Scheme actions.
-`(snail shell ui shortcuts)` separately maps complete key chords to those names,
-checking duplicate chords and unknown commands when the mappings are built.
-Dispatch schedules an invocation against the current model. Asynchronous work
-runs as commands, and each answers the IDE's common `CommandResult` in a
-`Finished` message: a pure transition against current display data. File
-reads, saves and searches retain the evidence specific to their own results,
-so a transition that arrives late accepts nothing stale. Ignoring a reply
-withdraws reception; it does not undo external work such as a submitted file
-write. [Commands and late replies](applications.md#commands-and-late-replies)
-describes the loop and what crosses a reload.
-
-The application lives in `(snail shell ide application)`; `host/ide/ide.sld`
-only binds it to the browser page. Scheme scenarios can run its exact update,
-view and command loop over the memory DOM and a controlled fetch handler.
-Chromium checks retain the browser-specific behavior: focus, default keyboard
-actions, undo, cancellation and browser lifecycle. JavaScript is the browser
-launcher and API boundary, not the implementation of IDE behavior.
-
-`(snail shell ide palette)` owns its query, selection, search and creation
-phases, input messages, command results and view. The parent embeds it through one
-`PaletteEvent` and handles concrete outcomes such as opening a path or invoking
-a named command. It passes command names and key labels, paths, and the current
-draft where needed; the component never receives the IDE model. `map-html` in
-`(snail shell ui)` wraps component messages when embedding its view.
-
-The palette’s generation identifies an interaction and its requested navigation.
-Closing, changing a query, reopening, selecting and explicit navigation revoke
-older work, including A→B→A changes. Cancellation withdraws UI authority; it does
-not undo an already submitted file write. A selected saved hit needs a successful
-current read, the same revision, and a clean buffer before moving the caret.
-A draft hit carries the exact path and text searched. Tasks recheck the rendered
-navigation identity and field contents when they touch the DOM. Draft replacement
-by typing, a read or formatting also refreshes an open current-file search.
-
-`(snail shell ide search)` chooses the saved-project HTTP operation or local
-draft search. Both use `(snail shell text search)` for bounded literal matching,
-with scalar coordinates and CRLF handling. `(snail shell project client)` owns
-HTTP failures, URL encoding and decoding into the shared protocol types.
-
-
-Command/Ctrl+P opens `go-to-file`. It filters project paths and open buffers
-by case-insensitive ordered characters; for example, `lnote` finds
-`lib/notes.txt`. Enter opens the selected path in a tab in the active pane,
-keeping its other tabs. A path already open in that pane selects its existing
-tab; a path open in another pane still opens here. The file browser and search
-results use the same tab-opening operation. Tabs share one buffer per path,
-including unsaved edits. Escape returns focus to the editor, and results are
-capped at 200 paths.
-The file picker runs in the browser over the service's file listing.
-
-Command/Ctrl+F opens `search-buffer` over the current file, including unsaved
-text, in a compact find box at the active pane's top-right. It leaves the
-editor reachable. Enter and Shift+Enter (or the arrow buttons) select the next
-or previous whole match, wrapping at either end without closing find. Escape
-closes it and returns focus to the editor; repeating Command/Ctrl+F focuses the
-existing query. Command/Ctrl+Shift+F opens `search-project` over saved project
-files in the command palette. Both searches are literal and case-insensitive.
-Current-file search runs in the browser; project search runs on the service. Project search does not read drafts or replace them: selecting a hit
-opens the existing buffer, and moves its caret only when a fresh read still has
-the hit's revision and the buffer is clean. Otherwise it focuses the file.
-
-`GET /api/search?q=TEXT` uses the editor's fresh file inventory and its existing
-text reader, including its path, symlink, UTF-8 and 8 MiB file restrictions.
-Queries hold 1–128 characters on one line. Results carry paths, SHA-256 revisions,
-1-based scalar lines/columns, and short snippets. Each request scans at most four
-million scalars and returns at most 200 hits; the palette reports limited results
-and skipped unreadable files. The scanner yields between files and scan chunks.
-Typing is debounced, and request numbers reject old successes and failures even
-when a query changes from A to B and back to A, or the palette closes and reopens.
-
-`new-file` and `new-directory` use the palette to enter a project-relative path.
-The parent directory must already exist. Creation refuses existing entries,
-including symlinks, and never truncates them; files use the editor's supported
-text extensions. A new file opens in the editor, ready to type and save. Empty
-directories come from the shared watcher inventory and survive reconnects.
-The API accepts bodyless `POST /api/file?path=PATH` and
-`POST /api/directory?path=PATH`, with the same origin and parent-path checks as
-saves. Successful creation prompts the shared watcher; it does not request a
-build itself. A completion for an obsolete palette cannot change the active file.
-
-Command/Ctrl+S saves, Command/Ctrl+B toggles files, Alt+Shift+F formats,
-and Command/Ctrl+backslash splits right (Shift splits down). Command/Ctrl+W
-closes the selected tab when the browser delivers that key; browsers may reserve
-it to close their own tab or window. Alt+W and the editor's × button provide
-alternatives. Closing the last view of an unsaved buffer asks before discarding
-it; an inactive tab in another pane also retains the shared buffer. Closing a
-tab selects another in its pane. Closing the pane's last tab removes the pane
-if it is split; the last pane stays empty until another file is opened.
-
-The Applications panel selects one run target and provides Start, Stop and Restart.
-It shows requested and observed builds, PID, exit outcome and separate stdout/stderr
-tails. Output is literal text and preserves scroll position; it does not refresh
-files, panes or compiler diagnostic evidence. Removed names remain visible and
-stoppable. Application pages remain ordinary clients of their own server.
-
-Run snapshots arrive only through the current event connection. One command may
-be in flight; its response changes feedback, never the observed process state.
-A lost response reports an unknown outcome without retrying; a response that
-never comes keeps the controls waiting, as requests have no timeout yet. That
-message names its command and target, survives output, selection and reconnect,
-and clears on the next deliberate run command. An empty run catalog does not hide
-pending command feedback. The controls are not a terminal, log archive or debugger.
-
-Each open buffer owns its draft and saved `{text, revision}` baseline. A file read
-updates a clean buffer; a dirty buffer keeps its draft and reports a changed disk
-revision. Saving sends the baseline revision and one captured string. Success
-advances the baseline without replacing later typing; an older in-flight read
-cannot overwrite that evidence. Every completed save refreshes from disk,
-including failures whose writes might have reached the server. There is one save
-in flight per buffer, with no autosave or queued retries. A formatting failure
-still permits saving the original draft, including incomplete code. Explicit
-operation failures remain visible through background reads until the next
-Save, Format or Reload action; reading successfully does not prove saving succeeded.
-
-Reload discards a confirmed draft immediately to its saved baseline, then reads
-disk. A failed read leaves that baseline and an error; later typing is a new draft
-and survives the read. A current file read returning 404 clears a clean/loading buffer;
-a dirty deleted file remains selectable with its text. Saves cannot recreate it.
-The UI handles an empty project and later discovers files through the same
-disk task. A project listing alone never discards a buffer: lists and reads are
-different observations, with independent ordering.
-
-Build status replaces the preceding diagnostic collection at each attempt. The
-page shows messages and compiler-provided locations in a separate panel. A
-location in an editable project file opens that file. A fresh file read after
-the failure binds a red background highlight to that observed revision. Later
-reads withdraw it until the same revision is confirmed; Save invalidates it.
-Drafts and conflicts suppress it. This is an editor observation, not proof of
-the compiler's exact filesystem snapshot; the watcher rejects observed
-supersession without claiming an atomic filesystem revision. Columns count
-Unicode scalars in the original file, as the editor's offsets do, over LF
-display text, including CRLF files; the page's `dom` binding converts offsets
-to the textarea's UTF-16. Generated scratch and external library
-locations remain messages rather than being mapped to another file. The compiler
-provides source points, which navigation preserves. For display only,
-`(snail shell highlight)` derives a lexical range: the containing token, or the
-datum starting at an opening bracket or quote. Forms span nested expressions,
-comments, syntax colors and line breaks; an unfinished form runs to EOF.
-Whitespace, newline and EOF points retain a one-cell mark. These display ranges
-are not compiler-provided source spans.
-Manual Build requests compilation; Save writes disk and leaves scheduling to the
-disk task. `(snail shell project protocol)` defines the typed project, file,
-search, build and run values and their JSON codecs for both hosts. Required
-fields are parsed together; a malformed reply cannot silently become an empty
-project or a stopped run.
-
-`GET /api/events` sends one `snapshot` event on connection and whenever its state
-changes: a server-instance identity, file invalidation counter, build report and
-run observations. The owner serializes publication, so the stream needs neither
-patches nor a replay log. File paths are fetched when the counter changes; they
-are not repeated with every process-output update. Each connection-open event,
-including EventSource's automatic reconnects, refreshes listings and file reads.
-Their new intent numbers reject delayed old replies. The listing itself scans
-the current disk contents.
-
-An exact repeat of a build report keeps its diagnostic observations, including
-invalidation by Save or a changed read. Run output and file counters cannot
-revive that evidence. A new server instance starts new diagnostic observations.
-Going back online replaces the stream too, covering file reads that failed while
-an existing event connection survived.
-
-The IDE itself is an ordinary browser target, `host/ide/project.datum`, with
-its public assets under `host/ide/public/`. The service watches that directory,
-the shared libraries, and the browser host. It builds in a child process while
-continuing to serve requests. Only a complete successful build becomes the
-advertised IDE generation; compilation failures leave the current page usable
-and appear in its status strip. Every script, stylesheet, program and linked
-resource is pinned to the page's immutable generation. Previous generations
-remain available during the service session. The manifest keeps its stable
-root URL.
-
-On a new IDE generation, the shared document-interface host waits for any text
-composition to finish, prevents further input, drains queued input through the
-application loop, and checkpoints its save. Navigation requires a successful
-storage write. IDE recovery uses session storage, separately for each project
-and tab; it retains drafts, their original disk baselines, pane layout and
-per-pane tab order/selection. The tabbed recovery reader also accepts the
-original single-file pane records, preserving drafts saved by older IDE builds.
-It reconstructs server observations and pending operations instead of replaying
-commands. An incompatible save is retained and reported, never silently erased.
-A storage failure resumes the current program from its recovery checkpoint and
-offers a retry. Unsaved-change protection stays active until persistence succeeds.
-The `refresh-ide` command uses this same handover for an explicit refresh.
-
-This is a page refresh with recovery, rather than the scene application's
-in-memory module relink. It does not change the Application lifecycle contract. Changes to the native
-service itself take effect after restarting `snail dev`.
-
 ## Code highlighting
 
-The book and the editor color code with one classifier, `(snail shell highlight)`.
+The book colors code with `(snail shell highlight)`, and editors with the
+[grammar](#the-grammar), which agrees with it.
 It walks text with the compiler reader's own lexical rules, the "Lexemes"
 section of `src/snail/shell/compiler/read.sld`: what starts at an index, where
 it ends, and what a token's text is to the reader, a boolean, a number, a name
@@ -690,8 +445,6 @@ themes; highlight.js skips code of class `nohighlight`, and still highlights
 the book's other blocks. `./scripts/snail-tool book-tools` builds the
 program when it is stale, so `mdbook build` works from a fresh checkout that
 can build the compiler. `tests/highlight-book.mjs` runs the preprocessor on a small book.
-The editor, `host/ide/ide.sld`, draws the same tokens as `tok-` spans for the
-lines in view, read from the start of their top-level form.
 
 Proposed: once the book is itself a Snail Scheme project, the classifier can run
 in a `generate-library` recipe that writes the highlighted pages, and the mdbook
@@ -699,10 +452,10 @@ preprocessor goes away.
 
 ## Application and networking integration
 
-The native service, HTTP API and editor implement [application run controls](applications.md#development-run-targets)
-and replacement after accepted builds, and the service serves each browser
-target's builds to pages that reload as each new one is published
-([below](applications.md#browser-targets-in-development)). Durable
+The native service serves each browser target's builds to pages that reload
+as each new one is published
+([browser targets in development](applications.md#browser-targets-in-development)).
+A program target runs with `snail run`, outside the service. Durable
 state remains [proposed work](applications.md#proposed-application-processes).
 Production `serve` and package installation still need their own contracts;
 neither is a current public command.
@@ -726,16 +479,15 @@ is needed. TLS, HTTP/2 and deployment infrastructure are separate work.
 
 | Boundary | Information crossing it |
 | --- | --- |
-| Editor ↔ development process | File reads/saves, build requests, compiler diagnostics, run controls and current process/output snapshots. |
-| Development process ↔ resident builder | Attempt IDs, project descriptions, results, diagnostics, candidate output identities and their files' digests, as JSON lines. Compiler objects and candidates stay in the resident. |
-| Development process ↔ application process | Entry, arguments, environment, working directory, standard streams, exit status and OS controls. Each process lifetime names its build and run target. |
+| Editor ↔ language server | LSP over standard streams: open text, saves, diagnostics, formatting edits, hovers and definitions. |
+| Development process ↔ resident builder | Attempt IDs, project descriptions, results, diagnostics and candidate output identities, as JSON lines. Compiler objects and candidates stay in the resident. |
 | Browser ↔ application server | Ordinary HTTP. In development, each page's build's manifest and the events of the builds after it. |
 
-A future debugger attaches to a run's process and build. Its inspector endpoint
-expires with that run. `run-snail.mjs` executes Wasm on the process's main
+A future debugger attaches to a program's process and build. Its inspector
+endpoint expires with that process. `run-snail.mjs` executes Wasm on the process's main
 thread, so attachment reaches the program itself. Debug commands use the inspector
-connection rather than compiler requests or parsed stdout. The development
-service stays responsive while an application is paused. Source mappings and
+connection rather than compiler requests or parsed stdout. The editor
+stays responsive while an application is paused. Source mappings and
 breakpoints require a separate compiler/assembler proof; debugger support is
 not implemented. [Editor and debugger work](https://github.com/tsnl/snail-scheme/issues/461)
 tracks these extensions.

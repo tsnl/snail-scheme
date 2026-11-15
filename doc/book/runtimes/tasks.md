@@ -160,7 +160,7 @@ one bytes, distinguishing an exact fit from `TooLarge`; metadata is not
 proof that the subsequent read fits. Other error values are `Unavailable`,
 `InvalidInput`, `NotFound`, `PermissionDenied`, and `Failed`. Reads of a
 changing file are not snapshots. This first capability does not change
-core filesystem operations or the IDE service's non-yielding save transaction.
+core filesystem operations.
 
 On Linux, the Rust host submits open, read and close through `io_uring`,
 with one outstanding kernel request per file operation and at most 64

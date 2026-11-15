@@ -29,8 +29,9 @@ make fetch
 ```
 
 The root `project.datum` describes the whole repository, with `siegework` and
-`hearsay` browser targets. The IDE opens the compiler, libraries, IDE sources
-and applications in one file tree. `make ide` opens this same project.
+`hearsay` browser targets. `./snail dev .` (`make dev`) builds and serves
+them as you edit, and `./snail lsp` serves an editor that opens the
+repository: [`editors/zed`](editors/zed) is a Zed extension for it.
 
 Compiler contributors can also inspect and execute individual source files:
 
@@ -64,18 +65,15 @@ make site
 python3 -m http.server 4191 --directory build/siegework
 ```
 
-While you change it, `./snail dev .` (or `make ide`) serves the
-browser editor at <http://127.0.0.1:8000/> and the game at
-<http://127.0.0.1:8001/siegework/>. Hearsay runs at
-<http://127.0.0.1:8001/hearsay/>. The service reads the root `project.datum`,
-rebuilds only the libraries you edit, and relinks them into the open page,
-which keeps the game and the camera. Saving writes disk, and one shared watcher notifies both
-compiler and editor, including edits made by other tools. The editor keeps
-highlighting, Scheme indentation, format-on-save and split panes. Builds
-publish fresh diagnostics with source points in saved buffers.
+While you change it, `./snail dev .` (or `make dev`) serves the game at
+<http://127.0.0.1:8000/siegework/>. Hearsay runs at
+<http://127.0.0.1:8000/hearsay/>. The service reads the root `project.datum`,
+rebuilds whenever a source changes on disk, whatever wrote it, and relinks
+the changed libraries into the open page, which keeps the game and the
+camera. In Zed, the extension in [`editors/zed`](editors/zed) highlights,
+indents and formats Snail Scheme, and `snail lsp` reports each saved build's
+diagnostics where they arise and gives a name's type and definition.
 
-The Applications panel starts, stops and restarts named program targets. Accepted
-builds replace affected wanted processes; failed builds leave them running.
 The [development workflow](doc/book/snail-core/toolchain.md) still needs
 durable-state reload; the [typed-state API](doc/book/snail-core/state.md)
 remains under review.
@@ -92,7 +90,7 @@ remains under review.
 - [Projects and targets](doc/book/snail-core/projects.md) defines inert descriptions,
   directory outputs and artifact bundles.
 - [The development toolchain](doc/book/snail-core/toolchain.md) explains the native
-  project service and browser editor.
+  project service, the language server and the editor grammar.
 - [GitHub issues](https://github.com/tsnl/snail-scheme/issues) track open work.
 
 [Apache-2.0](LICENSE)

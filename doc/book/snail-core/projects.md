@@ -32,19 +32,19 @@ python3 -m http.server 4191 --directory build/siegework
 
 Snail Scheme uses one root `project.datum` for the whole repository. Its
 `siegework` and `hearsay` targets name entries, library roots and public files
-under `apps/`. Opening the root with `snail dev .` makes the compiler, IDE,
-libraries and applications available in one editor session. Files need not
-belong to a target's import closure to appear in the editor. Each application's
+under `apps/`. `snail dev .` builds and serves both while any of the
+repository's sources change, and an editor opening the root runs `snail lsp`
+over the same project ([editors](toolchain.md#editors)). Each application's
 output is under `build/TARGET`; application directories have no separate project
 description. Test fixtures retain their own projects.
 
 `snail build [--release] PROJECT BUILD-TARGET` publishes one selected target and
 its required artifacts. `snail run PROJECT RUN-TARGET [ARGUMENT ...]` builds and
-runs a named program. `snail dev [--port PORT] PROJECT` retains compiler
-sessions, serves the editor, and serves each browser target's latest builds
-on an origin of their own.
+runs a named program. `snail dev [--port PORT] PROJECT` retains a compiler
+session and serves each browser target's latest builds, and `snail lsp`
+answers an editor for the project it opens.
 The [toolchain](toolchain.md) describes command lifetimes and development,
-including the editor's application controls and the pages' reload. Durable
+including the pages' reload. Durable
 application data remains in progress.
 
 ## Description format

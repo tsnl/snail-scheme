@@ -45,7 +45,6 @@ the runtime interfaces.
 | `(snail shell task)` | The `tasks` effect and its scheduler, written in Snail Scheme: local dispatch, cooperative yield, timer and ticket waits, waiting on the host, and `Mailbox` queues between tasks ([task operations](../runtimes/tasks.md)). |
 | `(snail shell async-files)` | Explicit native `files` capability for bounded asynchronous reads, backed by Linux `io_uring` or Node's asynchronous filesystem APIs ([file reads](../runtimes/tasks.md#native-asynchronous-file-reads)). |
 | `(snail shell process)` | Child processes with piped standard streams, through the `process` effect: `spawn`, reading output, writing and closing input, signals and exit, `run` to run a command to its end, and `exec` to replace the program with one; and `termination`, SIGINT or SIGTERM as a value, through the `signals` effect ([child processes](../runtimes/networking.md#child-processes)). |
-| `(snail shell gitignore)` | Immutable snapshots of ignored disk paths from installed Git, with tracked files preserved ([Git ignore snapshots](#git-ignore-snapshots)). |
 | `(snail shell socket)` | TCP listeners and connections and UDP sockets, through the `tcp` and `udp` effects, each wait by ticket, and `endpoint`, which parses an IPv4 address and a port once ([native networking](../runtimes/networking.md)). |
 | `(snail shell http)`, `(snail shell http exchange)` | An HTTP/1.1 subset: request heads and targets, response and stream heads, and one exchange over a connection ([HTTP protocol](http.md)). |
 | `(snail shell resource)` | Files a library links rather than embeds: `link-file`, the `Resource` handle, and `read-resource`, which a task waits on, through the `resource` effect ([linked files](types.md#linked-files)). |
@@ -68,13 +67,6 @@ the runtime interfaces.
 | `(snail shell fetch page)` | `with-page-fetch`, the handler of `fetch` over the page's `fetch` and `EventSource` (`host/browser/fetch.mjs`). |
 | `(snail shell ui)` | [Document interfaces](applications.md#document-interfaces): `Html` and `Attribute` trees, the keyed reconciler, and `run-ui`, which runs a model, `view` and `update` with commands as tasks, the window's listeners, and messages to start with, commits completed presentations, and saves on request, hiding or close. |
 | `(snail shell ui page)` | The `Interface` class with associated `Message` type, `InterfaceApplication` adapter, and `Command`, the type of its commands. |
-| `(snail shell ui commands)` | An ordered vector of named actions, independent of keyboard policy. `register` rejects duplicate names; `named` retrieves an action. Actions can be Scheme functions with effects. |
-| `(snail shell ui shortcuts)` | Chords mapped to command names. Registration checks duplicate chords and unknown commands; `matching` retrieves a name and `chords` supplies a window listener. |
-| `(snail shell ide application)` | The IDE's model, update, view and commands, runnable over the browser or memory DOM with the same fetch effect. |
-| `(snail shell ide palette)` | Component state, local events, tasks and view for commands, file selection, search and creation. Typed outcomes return to the application. |
-| `(snail shell ide search)` | Saved-project or exact-draft search, retaining the appropriate result provenance. |
-| `(snail shell text search)` | Bounded, case-insensitive literal matching with Unicode scalar coordinates. |
-| `(snail shell project client)` | Typed HTTP replies, failures and URL encoding shared by editor features. |
 
 ### Shell: tools
 
@@ -83,14 +75,14 @@ the runtime interfaces.
 | `(snail shell compiler)`, `(snail shell compiler …)` | The compiler, written in Snail Scheme: its passes from a program's source to WebAssembly text or its wire schemas, with every build checking and emitting the complete dependency closure ([compiler architecture](compilers.md)). |
 | `(snail shell assembler)` | `assemble`, WebAssembly text to a binary module in-process, or the parser's message naming the line and column. Only a tool linked with the toolchain's runtime can use it: the plain runtime leaves the parser out, since a development build copies the runtime whole. |
 | `(snail shell artifact)` | `artifact-bundle`, the files of a named project build, embedded when the compiler expands it ([projects](projects.md)). |
-| `(snail shell format)` | The shared CLI and IDE formatter: conventional Scheme indentation, each import and field on its own line, and each line whose code runs past 100 columns broken, a call before its arguments and a binding form before each binding and body form. Names `let`, `let*`, `*-let` and `*-let*` use binding layout. It never joins lines. |
+| `(snail shell format)` | The formatter `scripts/format-scheme` and `snail lsp` share: conventional Scheme indentation, each import and field on its own line, and each line whose code runs past 100 columns broken, a call before its arguments and a binding form before each binding and body form. Names `let`, `let*`, `*-let` and `*-let*` use binding layout. It never joins lines. |
 | `(snail shell highlight)` | Source text as tokens that tile it, classed for coloring by the compiler reader's lexical rules ([code highlighting](toolchain.md#code-highlighting)). |
 | `(snail shell explore)` | Bounded model checking of a total state machine's invariant. |
-| `(snail shell development)` | The project development service's decisions as a pure `step`, from the service and an event to the next service and the commands its host, `(snail shell project service)`, carries out: attempts by epoch, supersession, publication and run targets ([the development toolchain](toolchain.md)). |
-| `(snail shell project files)` | The text files of one project, as `snail dev`'s editor reads and saves them: `project-text-paths`, `read-project-text`, which gives a text and its revision, the SHA-256 digest of its bytes, and `save-project-text`, which saves only over the revision it names and keeps the file's mode. The `modes` effect, on Node only, reads and sets a file's permission bits ([the development toolchain](toolchain.md)). |
-| `(snail shell project service)` | `snail dev`'s service: `develop` serves one project's editor, builds and run targets on a local port, with tasks for the disk, the resident builder in a child process, each run target's process and each connection, carrying out what the step decides ([the development toolchain](toolchain.md)). |
+| `(snail shell development)` | The project development service's decisions as a pure `step`, from the service and an event to the next service and the commands its host, `(snail shell project service)`, carries out: attempts by epoch, supersession, publication and reclamation ([the development toolchain](toolchain.md)). |
+| `(snail shell project service)` | `snail dev`'s service: `develop` builds one project and serves its status and browser targets on a local port, with tasks for the disk, the resident builder in a child process and each connection, carrying out what the step decides ([the development toolchain](toolchain.md)). |
+| `(snail shell lsp)` | `snail lsp`: `serve-language` answers the Language Server Protocol on standard streams for one project, with diagnostics from each saved build, formatting, and hover and definition from its checked libraries ([editors](toolchain.md#editors)). |
 | `(snail shell project bundle)` | A browser application's development bundle as a server mounts it: `bundle-response` answers for the latest build's page, based in its build and carrying its manifest and the reload client, and for each retained build's files under `.snail/builds/EPOCH/`; `bundle-event` is what its pages hear of a build ([browser targets in development](applications.md#browser-targets-in-development)). |
-| `(snail shell project web-app)` | Default installable web manifests and their page links, shared by browser packaging and the editor; development links retain the stable application mount across generations. |
+| `(snail shell project web-app)` | Default installable web manifests and their page links, shared by browser packaging and `snail dev`; development links retain the stable application mount across generations. |
 | `(snail shell project build)` | A project's build, which `snail build` and `snail run` run: `read-project`, `build-project`, which compiles, links and packages each target into a generation of its own, and `publish-project` ([projects](projects.md)). |
 
 ### Runtime interfaces
@@ -108,7 +100,7 @@ host](effects.md#defaults-from-the-host)).
 | `(snail runtime browser storage)` | Loading and storing the page's checkpoint, read back a byte at a time. |
 | `(snail runtime browser dom)` | The page's document: nodes and listeners as handles, and text as UTF-8 bytes. `(snail shell dom page)` implements `dom` over it. |
 | `(snail runtime browser fetch)` | The page's requests and event streams, staged a part at a time. `(snail shell fetch page)` implements `fetch` over it. |
-| `(snail runtime native files)` | Node's file commands, for permission bits and watch hints. |
+| `(snail runtime native files)` | Node's file commands, for watch hints. |
 | `(snail runtime native socket)` | Node's TCP and UDP sockets as handles, each wait started under its ticket and answered with numbers, and the bytes an answer holds ([the native boundary](../runtimes/networking.md#wasm-boundary)). |
 | `(snail runtime native process)` | Node's child processes and termination signals, answered as the sockets are, with a command sent a character at a time. |
 | `(snail runtime resource)` | A linked file's bytes, read on every host when a task asks for them. |
@@ -119,7 +111,7 @@ There are no `(scheme …)` compatibility libraries or dynamic numeric tower.
 `(list-sort before? items)` in `(snail core base)` sorts an immutable list
 with a pure strict comparator. It is stable: items for which neither
 precedes the other retain their input order. A merge sort bounds comparisons and
-traversal by O(n log n); the compiler, project builder and editor use this
+traversal by O(n log n); the compiler and project builder use this
 same operation. Stage 0 supplies the corresponding stable sort on Chez.
 
 ## Current input and output ports
@@ -252,34 +244,6 @@ time, but Rust's standard library exposes them on WASI only as unstable
 API, so `FileStatus` has none of these yet.
 `(monotonic-nanoseconds)`, of the `clock` effect, reads WASI's monotonic
 clock, from an origin the host chooses; only differences mean anything.
-
-## Git ignore snapshots
-
-`(snail shell gitignore)` is a native library with two operations:
-`read-gitignore directory` returns a `Result (Option IgnoreSnapshot) String`, and
-`ignored? snapshot path` tests a path relative to that project directory. A snapshot
-is an immutable description of existing disk paths; it does not predict ignores
-for files that have not been created. Reading has `mut`, `tasks` and `process`
-effects; membership is pure.
-
-The library asks installed Git for
-`ls-files --others --ignored --exclude-standard --directory -z`, from the worktree
-root with a literal project pathspec. Git supplies nested `.gitignore` rules,
-negation, local/global excludes and the index; tracked files and their parents
-remain visible. Git's repository-relative prefix also handles project roots opened
-through symlinks. NUL framing preserves unusual filenames.
-
-Missing Git or an undiscoverable worktree yields `Ok None`. The library does not
-interpret `.gitignore` in non-Git folders. Once a worktree is found, failures are
-`Err` and no partial snapshot is accepted. Each query owns its process and drains
-both pipes concurrently, yielding while it waits; stdout is bounded to 16 MiB and
-stderr to 64 KiB. This is Snail Scheme over `(snail shell process)`, without IDE types,
-a persistent child, or a second glob matcher.
-
-Repositories embedded within the project, including submodules, keep their
-contents visible according to the outer repository. Opening one as the project
-uses its own rules. Consumers decide when to obtain another snapshot; the library
-has no watcher or mutable cache.
 
 ## Loading WebAssembly
 

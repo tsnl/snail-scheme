@@ -17,5 +17,6 @@ pkgs.mkShell {
     rustup
     nodejs_26
     mdbook
+    tree-sitter
   ];
 }

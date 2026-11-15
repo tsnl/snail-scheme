@@ -174,11 +174,10 @@ gives a field a new value, as when another view of its text changed it,
 the field keeps its selection and scroll as far as the new text reaches.
 
 Browser installation and fullscreen are shared Snail Scheme capabilities. Any
-application using `(snail shell dom)` with the page handler can invoke them;
-the IDE's named commands are one UI for those operations. Every browser target
+application using `(snail shell dom)` with the page handler can invoke them. Every browser target
 also receives the default manifest and icons during packaging, unless it
 supplies its own manifest. An application chooses its own installation button
-or command; the packager does not inject IDE controls into it.
+or command; the packager does not inject controls into it.
 
 The scalar declarations in `(snail runtime browser dom)` define the browser
 boundary. `(snail shell dom page)` converts their results into typed values and
@@ -281,13 +280,6 @@ Its `Save` contains only display data and a click count. The ordinary
 and calls `run-ui`. Its commit callback calls `commit-page` and
 `report-ready`; the checkpoint callback comes from `run-page`.
 
-The IDE's commands answer `Finished` with a `CommandResult`, a transition
-over the current display data. It captures the request's result and
-identity, not an old model. Each transition checks the operation's
-generation, revision or submitted draft before accepting its result. Its
-recovery snapshot excludes event subscriptions; a replacement reconnects
-under its new scheduler.
-
 Only detached `Save` crosses a restart or handover. Mutable fields make
 this an application responsibility: a snapshot must not retain mutable
 model storage that later updates can change. A command still running
@@ -340,10 +332,10 @@ after saving. A public tree holds only regular files and directories
 checkpoint recovery, acceptance and manifest reconciliation.
 
 Each build runs the producers of generated-library recipes first and
-resolves artifact bundles, as every project build does. A program is a
-[run target](#development-run-targets), run again from each accepted build.
+resolves artifact bundles, as every project build does. A program target
+runs with `snail run`, outside the service.
 [The development toolchain](toolchain.md) describes how builds stay this
-fast, and the browser editor that subscribes to the same service.
+fast.
 
 ## Task lifetime
 
@@ -422,71 +414,13 @@ only after acceptance. Missed events reconcile against the next complete
 manifest; a refused build is not retried automatically until the developer
 starts over.
 
-## Native application process owner
+## Browser targets in development
 
-A supervisor task in `(snail shell project service)` owns one ordinary OS child
-for one run target. The development service's HTTP API and editor use it.
-The public `snail run` command executes a cold
-project build with ordinary shell IO.
-
-The owner accepts a latest launch request `{build, entry, args}` or `null` to stop.
-Each non-null request means a fresh attempt. `entry` names the accepted generation
-directly, rather than its mutable build-target link: development entries are
-`modules.json`, cold entries are `program.wasm`. The owner invokes the existing
-runner through `process.execPath` without a shell. It copies arguments and captures
-the caller's working directory when constructed; the environment is inherited.
-Its stdin is EOF. Interactive execution remains available through `snail run`.
-
-Replacement first terminates the old child and awaits its `close` event, including
-captured streams, then re-reads intent. New requests overwrite pending ones; Stop
-can remove a queued replacement while the old child exits. A terminal attempt is
-retained and never retried automatically. SIGTERM has two seconds before SIGKILL;
-the owner still waits for actual cleanup rather than allowing overlapping children.
-Signal failures are reported. OS cleanup or inherited pipes can delay closure;
-this is not a wall-clock shutdown guarantee or process-tree supervisor.
-
-Status separates the desired build from the observed attempt's build, PID, phase,
-exit code/signal and error. It retains only the latest attempt and the last 64 KiB
-of each output stream, decoded for display; truncation can split a UTF-8 character.
-There is no history or ordering guarantee between stdout and stderr. Observers
-receive current snapshots, may request or close synchronously, and must not throw.
-Permanent close prevents late launches, returns one stable cleanup promise and
-removes observers after cleanup.
-
-Start/Restart policy and accepted-build decisions belong to the project service.
-Applications are assumed not to
-spawn additional OS children, and accepted generation files must remain available
-for the child's lifetime. The current project publisher retains those directories.
-
-### Development run targets
-
-`developProject` exposes `startRun`, `stopRun` and `restartRun` for names from the
-last accepted `project.datum`. Targets begin stopped. Start sets run intent and is
-idempotent while that intent remains set, including after exit or failure. Restart
-explicitly requests a fresh attempt from the latest accepted build. Stop clears
-intent immediately; a compilation already in flight cannot restore it.
-
-Acceptance compares the run's selected build target, literal arguments and complete
-output digest against its last issued launch. Changed wanted targets request a
-replacement; unchanged targets keep their child and actual build ID. Only an
-accepted generation supplies this evidence. Failed or superseded builds do not change accepted launch definitions or
-running children. Start remains usable against the last successful build while
-the current compilation fails.
-
-Status includes each run's availability, intent, desired build and observed attempt.
-Removed names stop and retain their owner and last attempt until session shutdown;
-reintroducing a name leaves it stopped. Retaining the owner prevents an old stopping
-child from overlapping a new child with the same name. There is no attempt history
-or automatic crash retry. Closing the development session waits for all owners as
-well as the compiler and file observer.
-
-### Browser targets in development
-
-`snail dev` serves the project's browser targets on a listener of their
-own, the applications' origin: the port after the editor's when `--port`
-names one and it is free, otherwise any. The service prints its URL after
-the editor's, and the status names each published browser target's `url`.
-`/` lists the targets, and `/NAME/` mounts one with
+`snail dev` serves the project's browser targets on its own listener,
+beside its `/.snail/` paths ([the project HTTP
+service](toolchain.md#project-http-service)), and its status names each
+published browser target's `url`. `/` lists the targets, and `/NAME/`
+mounts one with
 `(snail shell project bundle)`:
 
 | Request | Result |
@@ -505,10 +439,9 @@ another's modules, and loading `/NAME/` again gives the newest build. A
 build's files never change. The service keeps
 the latest publication and the one before it, so a page loading as a build
 lands still finds its own. Everything the server adds lives under
-`.snail/`, which a public tree does not use. The origin answers only GET
-and HEAD for its own Host, so a page of another site that rebinds a name to
-the address reads nothing; it is apart from the editor's, so no project
-page can reach the editor's API.
+`.snail/`, which a public tree does not use. A target's paths answer only
+GET and HEAD for the service's own Host, so a page of another site that
+rebinds a name to the address reads nothing.
 
 A page served this way reloads as [above](#hot-reload). Its manifest is
 `(base BASE) (files (FILE DIGEST) ...) (modules (LIBRARY DIGEST) ...)`: the
@@ -530,8 +463,7 @@ changed file, which gives the newest build's page.
 
 ## Proposed durable reload
 
-The process controls above are implemented. Durable application data and browser
-reload remain
+Durable application data and browser reload remain
 [application work](https://github.com/tsnl/snail-scheme/issues/458). Process
 replacement alone preserves no managed state; killing a process cannot promise
 cleanup or a final commit.
@@ -567,5 +499,4 @@ Advertise a bundle only after its server can serve it, as the service names a
 browser target's `url` only once a build of it is published. Multiple
 frontends use separate prefixes and manifests. Production serving omits development endpoints.
 Compilation does not prove client/server API or durable-schema compatibility.
-The editor remains an independent client of development services; application
-browser windows are ordinary clients of their server.
+Application browser windows are ordinary clients of their server.

@@ -161,7 +161,7 @@ function attachInput(canvas, runtime) {
   const send = (kind, a = 0, b = 0, c = 0, d = 0) => runtime.send(kind, a | 0, b | 0, c | 0, d | 0);
   // A key held with Ctrl, Alt or Meta belongs to the browser, so shortcuts
   // such as reloading keep working; Shift travels with the key. Keys typed
-  // into a field, such as the IDE's editor, stay there.
+  // into a field stay there.
   addEventListener('keydown', event => {
     if (event.ctrlKey || event.altKey || event.metaKey) return;
     if (event.target.closest?.('input, textarea, select') || (event.target instanceof HTMLButtonElement && (event.key === 'Enter' || event.key === ' '))) return;

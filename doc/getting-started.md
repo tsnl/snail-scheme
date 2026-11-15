@@ -19,10 +19,12 @@ Whichever you pick, finish with [the first run](#the-first-run).
 | Node.js | 26 | Running programs under WASI, and `snail dev`. |
 | nixfmt | 1.4 | `make check`'s formatting of `shell.nix`. |
 | mdBook | 0.5.4 | `make pages`, the book. |
+| tree-sitter CLI | 0.26.11 | `make test`'s check of the editors' grammar, which also needs a C compiler. |
 | Chromium | | `make test-browser` and `tests/browser/page.mjs`. Set `CHROMIUM` to its path when it isn't `chromium`. |
 
 The first four compile and run programs, including the Scheme formatter used
-by `make check`; the rest format Nix and build or test the site. `CHEZ` can
+by `make check`; the rest format Nix, build or test the site, and test the
+editors' grammar. `CHEZ` can
 name a particular Chez executable; it defaults to `scheme`. The pinned Nix
 environment supplies the version used by CI.
 
@@ -108,10 +110,10 @@ cargo test --manifest-path crates/snail/Cargo.toml --offline
 make test-chez    # the suite with the compiler's source running on Chez
 make bootstrap     # the compiler rebuilt from Chez alone, to a fixpoint
 make test-wasmtime # linked programs on the native Wasmtime host
-make test-browser  # hot reload and the IDE in headless Chromium
+make test-browser  # hot reload and browser interfaces in headless Chromium
 ```
 
 CI runs the first four, and `cargo fmt --check` on both crates. A change to
 the compiler also needs `make test-chez` and `make bootstrap`, and a change
-to the browser host or the IDE `make test-browser`. The [tour](book/snail-core/compilers.md)
+to the browser host `make test-browser`. The [tour](book/snail-core/compilers.md)
 introduces the compiler.

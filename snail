@@ -13,7 +13,7 @@ root=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 # edit made while it builds is newer than the list.
 tools() {
   list=$root/build/tools-$1.txt
-  if [ -f "$list" ] && unchanged "$list" "$1" && present "$list"; then
+  if [ -f "$list" ] && unchanged "$list" && present "$list"; then
     cat "$list"
     return
   fi
@@ -30,11 +30,9 @@ tools() {
 }
 
 unchanged() {
-  [ -z "$(find "$root/src" "$root/bootstrap" "$root/host/ide/ide.sld" "$root/host/browser" \( -name '*.sld' -o -name '*.sls' \) -newer "$1" -print -quit)" ] &&
+  [ -z "$(find "$root/src" "$root/bootstrap" "$root/host/browser" \( -name '*.sld' -o -name '*.sls' \) -newer "$1" -print -quit)" ] &&
     [ -z "$(find "$root/crates/snail-core-support" -path '*/target' -prune -o -newer "$1" -print -quit)" ] &&
-    [ -z "$(find "$root/rust-toolchain.toml" "$root/scripts/snail.scm" "$root/host/chez" -newer "$1" -print -quit)" ] &&
-    { [ "$2" != dev-tools ] ||
-      [ -z "$(find "$root/host/ide/project.datum" "$root/host/ide/public" "$root/host/browser" -newer "$1" -print -quit)" ]; }
+    [ -z "$(find "$root/rust-toolchain.toml" "$root/scripts/snail.scm" "$root/host/chez" -newer "$1" -print -quit)" ]
 }
 
 present() {
@@ -45,22 +43,24 @@ present() {
 
 case ${1:-} in
   -h|--help) cat "$root/scripts/snail-help.txt"; exit 0 ;;
-  # The development service is the command line's `dev`, with the editor's
-  # program and the reload client's; stage 0 names those first.
+  # The development service is the command line's `dev`, with the reload
+  # client's program, which stage 0 names first.
   dev)
     shift
     tools=$(tools dev-tools) || exit 1
-    { read -r editor && read -r client && read -r cli && read -r runtime; } <<TOOLS
+    { read -r client && read -r cli && read -r runtime; } <<TOOLS
 $tools
 TOOLS
-    exec "${NODE:-node}" --no-warnings "$root/host/native/run-snail.mjs" "$cli" "$root" "$runtime" dev "$editor" "$client" "$@" ;;
+    exec "${NODE:-node}" --no-warnings "$root/host/native/run-snail.mjs" "$cli" "$root" "$runtime" dev "$client" "$@" ;;
   # The command line is a Snail program (bootstrap/cli.sld). Stage 0 rebuilds
   # it and the runtime when their sources change, and names them a line each.
-  build|run)
+  # The language server, which an editor starts (editors/zed), is the
+  # command line's `lsp`.
+  build|run|lsp)
     tools=$(tools cli-tools) || exit 1
     { read -r cli && read -r runtime; } <<TOOLS
 $tools
 TOOLS
     exec "${NODE:-node}" --no-warnings "$root/host/native/run-snail.mjs" "$cli" "$root" "$runtime" "$@" ;;
-  *) printf 'snail: expected build, run or dev; use --help\n' >&2; exit 2 ;;
+  *) printf 'snail: expected build, run, dev or lsp; use --help\n' >&2; exit 2 ;;
 esac

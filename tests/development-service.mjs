@@ -1,8 +1,6 @@
-// `snail dev` seen from outside, as its editor sees it: the URL it announces,
-// HTTP (including GET /api/status and the event stream), the files on disk
-// and process ids. Nothing here reaches into the service's JavaScript, so the
-// tests written against it can run unchanged against the Snail service that
-// replaces it.
+// `snail dev` seen from outside: the URL it announces, HTTP (its status at
+// /.snail/status, the stream of it at /.snail/events, and a build asked for
+// at /.snail/build), the files on disk and process ids.
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
 import http from 'node:http';
@@ -13,9 +11,6 @@ export const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 // One deadline covers every wait. It is a liveness backstop for a wedged
 // service, not a bound a working one approaches, even on a loaded machine.
 export const liveness = 60_000;
-
-// Whether a process has gone, for a service's application processes.
-export const dead = pid => assert.throws(() => process.kill(pid, 0), {code: 'ESRCH'});
 
 // ---- The process ----
 
@@ -69,7 +64,7 @@ export function connect(url) {
     }
   }
 
-  const status = async () => (await get('/api/status')).json();
+  const status = async () => (await get('/.snail/status')).json();
 
   // Native HTTP permits deliberately malformed or foreign headers, and a body
   // without a Content-Length, which Node sends chunked.
@@ -87,12 +82,12 @@ export function connect(url) {
     });
   }
 
-  // A run control or Build, as the editor sends one: same origin, no body.
-  const command = path => request(path, 'POST', {Origin: url});
+  // A build asked for, with no body.
+  const command = path => request(path, 'POST');
 
   // The frames one event connection receives, in order, until it ends.
   async function events() {
-    const controller = new AbortController(), response = await fetch(url + '/api/events', {signal: controller.signal});
+    const controller = new AbortController(), response = await fetch(url + '/.snail/events', {signal: controller.signal});
     assert.equal(response.status, 200);
     const seen = [], reader = response.body.getReader(), decoder = new TextDecoder();
     const done = (async () => {
@@ -133,12 +128,12 @@ export function connect(url) {
     return current.id > after && current.phase === phase && current;
   }, `an attempt after ${after} to reach ${phase}`);
 
-  // Build, as the editor asks, and the first attempt after it to reach
-  // `phase`. Build marks the session dirty at once, so an attempt already
-  // running is superseded, and the one settled here began after the request:
-  // it read the disk as the caller left it.
+  // A build asked for, and the first attempt after it to reach `phase`. The
+  // request marks the session dirty at once, so an attempt already running
+  // is superseded, and the one settled here began after the request: it
+  // read the disk as the caller left it.
   async function rebuilt(phase = 'succeeded') {
-    const reply = await command('/api/build');
+    const reply = await command('/.snail/build');
     assert.equal(reply.status, 202);
     return settled(JSON.parse(reply.text).id, phase);
   }

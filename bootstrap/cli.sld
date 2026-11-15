@@ -9,11 +9,14 @@
 ;;     run's arguments and then these, in the caller's directory;
 ;;   resident PROJECT
 ;;     rebuilds every configured target for each development request;
-;;   dev EDITOR CLIENT [--port PORT] PROJECT
+;;   lsp
+;;     serves the Language Server Protocol on standard input and output,
+;;     (snail shell lsp), for the project the editor opens, as ./snail lsp
+;;     does;
+;;   dev CLIENT [--port PORT] PROJECT
 ;;     runs the development service, (snail shell project service), with
-;;     the editor's browser bundle, host/ide built, and the reload
-;;     client's, host/browser/reload.sld built, until it is interrupted,
-;;     as ./snail dev does.
+;;     the reload client's program, host/browser/reload.sld built, until it
+;;     is interrupted, as ./snail dev does;
 ;;
 ;; A failure prints its message and exits with status 1; the outputs of
 ;; earlier builds stay published.
@@ -34,8 +37,8 @@
  (snail shell json read)
  (snail shell project)
  (snail shell project build)
- (only (snail shell project files) modes)
  (snail shell project service)
+ (snail shell lsp)
  (snail shell process))
 
 ;; ---- Requests ----
@@ -56,15 +59,17 @@
 (define (request (arguments (List String))) (→ Job)
   (match arguments
     ((Cons _ (Cons root (Cons runtime (Cons action rest))))
-     (let ((tools
-            (new Tools (root root) (runtime runtime) (node (match (environment-variable "NODE")
-                                                             ((Some node) node)
-                                                             ((None) "node"))))))
+     (let ((tools (tools-of root runtime)))
        (cond ((string=? action "build") (build-request tools rest))
              ((string=? action "run") (run-request tools rest))
              ((string=? action "resident") (resident-request tools rest))
              (else (panic (usage))))))
     (_ (panic (usage)))))
+
+(define (tools-of (root String) (runtime String)) (→ Tools)
+  (new Tools (root root) (runtime runtime) (node (match (environment-variable "NODE")
+                                                   ((Some node) node)
+                                                   ((None) "node")))))
 
 (define (build-request (tools Tools) (arguments (List String))) (→ Job)
   (match arguments
@@ -412,7 +417,7 @@
                       (first "linked")
                       (second (JsonArray (map JsonString (● output linked))))))))
 
-;; A failure's diagnostics as the editor shows them: a compile's, each
+;; A failure's diagnostics as the service reports them: a compile's, each
 ;; naming its source point when it has one, or the build's one.
 
 (define (failure-diagnostics (failure Failure)) (→ (List Json))
@@ -451,23 +456,21 @@
                 ((Some node) node)
                 ((None) "node"))))
     (match arguments
-      ((Cons editor (Cons client (Cons "--port" (Cons port (Cons project (Nil))))))
+      ((Cons client (Cons "--port" (Cons port (Cons project (Nil)))))
        (new Setup
          (root root)
          (cli cli)
          (runtime runtime)
          (node node)
-         (editor editor)
          (client client)
          (project (resolved project))
          (port (port-number port))))
-      ((Cons editor (Cons client (Cons project (Nil))))
+      ((Cons client (Cons project (Nil)))
        (new Setup
          (root root)
          (cli cli)
          (runtime runtime)
          (node node)
-         (editor editor)
          (client client)
          (project (resolved project))
          (port 8000)))
@@ -504,10 +507,12 @@
 
 (define (main)
   (→ Unit)
-  (! host mut clock fs input-port output-port process signals modes tcp tasks hints)
+  (! host mut clock fs input-port output-port process signals tcp tasks hints)
 
   (match (command-line)
     ((Cons cli (Cons root (Cons runtime (Cons "dev" arguments))))
      (develop (dev-setup cli root runtime arguments)))
+    ((Cons _ (Cons root (Cons runtime (Cons "lsp" (Nil)))))
+     (serve-language (tools-of root runtime)))
     (arguments (invoke (request arguments))))
   (unit))

@@ -94,7 +94,7 @@
                 ((equal? (cddr arguments) '("cli-tools"))
                  (print-paths (build-cli-tools (cadr arguments))))
                 ((equal? (cddr arguments) '("dev-tools"))
-                 (print-paths (build-editor-tools (cadr arguments))))
+                 (print-paths (build-dev-tools (cadr arguments))))
                 ((equal? (cddr arguments) '("book-tools"))
                  (print-paths (build-book-tools (cadr arguments))))
                 ((equal? (cddr arguments) '("format-tools"))

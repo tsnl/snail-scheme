@@ -41,15 +41,14 @@ async function throughTheService() {
   write('client.sld', '(import (snail core base)) (define (main) (→ Unit) (unit))');
   write('public/index.html', '<!doctype html><title>first</title>');
   const service = await startDevelopment(root, project), stream = await service.events();
-  const phases = id => [...new Set(stream.seen.filter(event => event.kind === 'snapshot' && event.data.build.id === id).map(event => event.data.build.phase))];
-  const invalidations = () => stream.seen.filter(event => event.kind === 'snapshot').at(-1)?.data.files ?? 0;
+  const phases = id => [...new Set(stream.seen.filter(event => event.kind === 'status' && event.data.id === id).map(event => event.data.phase))];
   let writer = null;
 
   try {
     const first = await service.settled(0);
     assert.equal(server(first).directory, fs.realpathSync(join(project, 'build/server')));
     assert.equal(execute(server(first).directory), 'first\n');
-    const initial = server(first).directory, observed = invalidations();
+    const initial = server(first).directory;
 
     write('main.sld', '(import (snail core base)) (define (main) (→ Unit) (first-missing))');
     const failed = await service.settled(first.id, 'failed');
@@ -74,8 +73,7 @@ async function throughTheService() {
     write('main.sld', program('repaired'));
     let repaired = await service.settled(deleted.id);
     assert.deepEqual(repaired.diagnostics, []);
-    assert.ok(stream.seen.filter(event => event.kind === 'snapshot' && event.data.build.phase === 'building').every(event => event.data.build.diagnostics.length === 0));
-    assert.ok(invalidations() > observed, 'the observer reports the edits to the editor too');
+    assert.ok(stream.seen.filter(event => event.kind === 'status' && event.data.phase === 'building').every(event => event.data.diagnostics.length === 0));
 
     // Artifact context must not overwrite a failing dependency's real source.
     write('main.sld', '(import (snail core base) (snail shell artifact)) (define (main) (→ Unit) (artifact-bundle "client") (unit))');
@@ -96,13 +94,12 @@ async function throughTheService() {
     write('main.sld', program('repaired'));
     repaired = await service.settled(producerFailure.id);
 
-    assert.equal((await service.command('/api/build')).status, 202);
+    assert.equal((await service.command('/.snail/build')).status, 202);
     const reused = await service.settled(repaired.id);
     assert.ok(reused.published.targets.every(target => target.compiled === modules(target)), 'manual builds recompile every module');
     write('data/store.sqlite', 'database data');
     write('store.sqlite-wal', 'journal');
-    assert.equal((await service.get('/api/project')).status, 200); // A listing awaits a fresh reconciliation.
-    await delay(1200);
+    await delay(1200); // The disk is scanned at least once a second.
     assert.equal((await service.status()).id, reused.id, 'data writes and output publication do not schedule builds');
 
     // Retain successfully parsed inputs on failure: creating a missing public
@@ -137,7 +134,8 @@ async function throughTheService() {
     assert.equal(blocked.phase, 'building');
     assert.equal(server(blocked).directory, server(restored).directory);
     write('next-public/index.html', '<!doctype html><title>after</title>');
-    assert.equal((await service.get('/api/project')).status, 200, 'the service answers and reconciles disk while compilation is blocked');
+    await delay(1200); // The disk is scanned at least once a second.
+    assert.equal((await service.status()).phase, 'building', 'the service answers and reconciles disk while compilation is blocked');
     fs.renameSync(gate, join(parent, 'blocked-pipe'));
     fs.writeFileSync(gate, 'next attempt');
     await writer.writeFile('superseded attempt'); await writer.close(); writer = null;
@@ -157,7 +155,7 @@ async function throughTheService() {
     // The service ends its event streams as it begins to close.
     const beforeStop = outputs();
     const acceptedPath = fs.realpathSync(join(project, 'build/server'));
-    pipe(); assert.equal((await service.command('/api/build')).status, 202);
+    pipe(); assert.equal((await service.command('/.snail/build')).status, 202);
     writer = await fsp.open(gate, 'w');
     const inFlight = await service.status();
     assert.equal(inFlight.phase, 'building');
@@ -169,7 +167,7 @@ async function throughTheService() {
     assert.deepEqual(phases(inFlight.id), ['building'], 'closing accepts no reply');
     assert.equal(fs.realpathSync(join(project, 'build/server')), acceptedPath);
     assert.deepEqual(outputs(), beforeStop);
-    await assert.rejects(fetch(service.url + '/api/project'));
+    await assert.rejects(fetch(service.url + '/.snail/status'));
   } finally {
     if (writer) { await writer.writeFile('cleanup'); await writer.close(); }
     await stream.close();

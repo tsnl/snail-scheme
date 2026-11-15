@@ -201,8 +201,9 @@ for (const args of [['--check'], ['--write'], ['--unknown'], ['--width'],
   assert.notEqual(bad.stderr, '');
 }
 
-// The tool used by make check leaves every tracked Scheme source unchanged.
-const files = spawnSync('git', ['ls-files', '-z', '*.scm', '*.sld'], {cwd: root, encoding: 'utf8'});
+// The tool used by make check leaves every tracked Scheme source unchanged,
+// but for the tree-sitter queries Zed reads, which are not Scheme.
+const files = spawnSync('git', ['ls-files', '-z', '*.scm', '*.sld', ':(exclude)editors/zed/languages'], {cwd: root, encoding: 'utf8'});
 assert.equal(files.status, 0, files.stderr);
 const tracked = files.stdout.split('\0').filter(Boolean).map(file => resolve(root, file));
 const checked = run(['--check', ...tracked]);

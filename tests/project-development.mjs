@@ -1,9 +1,9 @@
 // `snail dev` rebuilds every target while its attempts are
 // accepted, superseded or fail, observed from outside
-// (tests/development-service.mjs): /api/status names each published target's
+// (tests/development-service.mjs): /.snail/status names each published target's
 // generation, its digest and how many libraries it compiled, and the
-// generations run from disk. The test asks for each attempt with Build, so
-// each reads the disk as the test left it, but for the saves at the end,
+// generations run from disk. The test asks for each attempt, so each reads
+// the disk as the test left it, but for the saves at the end,
 // which the watcher alone must notice.
 //   node tests/project-development.mjs ROOT
 import assert from 'node:assert/strict';
@@ -69,7 +69,7 @@ async function throughTheService() {
   gateProducer();
   const source = fs.readFileSync(join(project, 'server.sld'), 'utf8');
   const service = await startDevelopment(root, project), stream = await service.events();
-  const phases = id => [...new Set(stream.seen.filter(event => event.kind === 'snapshot' && event.data.build.id === id).map(event => event.data.build.phase))];
+  const phases = id => [...new Set(stream.seen.filter(event => event.kind === 'status' && event.data.id === id).map(event => event.data.phase))];
   let held = null;
 
   try {
@@ -91,7 +91,7 @@ async function throughTheService() {
     const beforeHold = outputs();
     fs.rmSync(gate);
     assert.equal(spawnSync('mkfifo', [gate]).status, 0);
-    const requested = await service.command('/api/build');
+    const requested = await service.command('/.snail/build');
     assert.equal(requested.status, 202);
     held = await service.until(() => {
       try { return fs.openSync(gate, fs.constants.O_WRONLY | fs.constants.O_NONBLOCK); }

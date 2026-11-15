@@ -355,7 +355,7 @@ the extension must not split arbitrary identifier strings after parsing.
 ## Toolchain terms
 
 These names distinguish source organization, compilation and execution.
-Project descriptions, builds and the native `snail dev` editor are implemented.
+Project descriptions, builds, `snail dev` and `snail lsp` are implemented.
 The [application process and persistence workflow](applications.md#proposed-application-processes)
 remains proposed.
 
@@ -367,7 +367,7 @@ remains proposed.
 | Artifact bundle | The complete output of a browser build target, resolved by name during compilation. |
 | Run target | A named command for running a program build with its arguments. |
 | Build attempt | One invocation of project building, with an ID, diagnostics and a success/failure result. |
-| Development session | A running `snail dev`: file watching, persistent compilation and the editor's services. Application control remains planned. |
+| Development session | A running `snail dev`: file watching, persistent compilation and the browser targets' builds and reloads. |
 | Application process | An OS process running a program. A browser frontend is a client of a server process, not a run target. |
 | Runtime | The scheduler and effect bindings executing a program's tasks. It is distinct from compilation and the OS process. |
 | Host | The platform environment, such as Node or a browser, providing APIs to the runtime. |

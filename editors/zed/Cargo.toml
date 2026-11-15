@@ -1,0 +1,15 @@
+[package]
+name = "snail-scheme"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+# Zed builds this crate itself, for wasm32-wasip2, when the extension is
+# installed; see README.md.
+[lib]
+crate-type = ["cdylib"]
+path = "src/snail.rs"
+
+[dependencies]
+zed_extension_api = "0.7.0"

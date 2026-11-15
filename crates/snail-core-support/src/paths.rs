@@ -241,8 +241,9 @@ pub extern "C" fn read_symbolic_link(count: u32) -> i32 {
 
 // ---- Whole texts ----
 
-// A service that reads and saves files for an editor answers each failure,
-// so these take a file's text as one value and fail with a code. Reading
+// A program that reads or writes a text file whole, as the language server
+// reads a project's sources, answers each failure, so these take a file's
+// text as one value and fail with a code. Reading
 // refuses, besides a `PathError`, what is not one version of a text file;
 // Snail Scheme's `TextError` numbers these after `FileError`'s.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -1,5 +1,5 @@
 ;; scripts/format-scheme runs this program, built and cached by stage 0.
-;; The IDE uses the same pure formatter. This boundary only selects input,
+;; `snail lsp` uses the same pure formatter. This boundary only selects input,
 ;; writes changed files, and reports checks through the usual CLI diagnostic.
 (import
  (snail core base)

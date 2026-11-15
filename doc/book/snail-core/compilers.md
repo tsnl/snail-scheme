@@ -489,7 +489,8 @@ available.
 | `src/`, `host/chez/` | Typed language libraries and the explicit Chez adapters. `host/chez/load.scm` permits only the compiler's source closure and stage-zero tools. |
 
 Running project build plans and publication belong to the [project builder](projects.md),
-watching and editor services to the [development toolchain](toolchain.md), and
+watching, the development service and the language server to the
+[development toolchain](toolchain.md), and
 task scheduling and resources to the [runtime](../runtimes/index.md).
 
 ## Following and checking a change

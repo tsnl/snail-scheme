@@ -1,5 +1,6 @@
 #!/bin/sh
-# The IDE's formatter as a command-line tool. Stage 0 builds it when stale.
+# The formatter `snail lsp` uses, as a command-line tool. Stage 0 builds it
+# when stale.
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 formatter=$("$root/scripts/snail-tool" format-tools) || exit 1
 exec "${NODE:-node}" --no-warnings "$root/host/native/run-snail.mjs" "$formatter" "$@"

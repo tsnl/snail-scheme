@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import {chmodSync, statSync} from 'node:fs';
 import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -36,13 +35,6 @@ import {createAsyncFiles} from './async-files.mjs';
 // status 2, told as `snail: MESSAGE`. crates/snail/src/program.rs keeps
 // the same protocol on wasmtime, and the compiled compiler is run by it
 // too: a compile that fails, or needs an input, exits with status 1.
-
-// The `modes` effect of src/snail/shell/project/files.sld: a file's
-// permission bits, which WASI cannot reach. A failure answers -1.
-const modeCommands = {
-  mode([path]) { try { return statSync(path).mode & 0o777; } catch { return -1; } },
-  chmod([path], mode) { try { chmodSync(path, mode); return 0; } catch { return -1; } },
-};
 
 function resultStatus(value) {
   if (value === undefined) return 0;
@@ -85,7 +77,7 @@ async function run(filename, arguments_) {
                 'snail.runtime.native.async-files': asyncFiles.imports,
                 'snail.runtime.native.socket': socketImports(() => program, tasks, tcp, udp),
                 'snail.runtime.native.process': processImports(() => program, tasks, processes, termination),
-                'snail.runtime.native.files': {...commandImports({...modeCommands, ...hints.commands}), ...hints.waits(tasks)}};
+                'snail.runtime.native.files': {...commandImports(hints.commands), ...hints.waits(tasks)}};
   // A task waiting on a timer or a ticket is live work even when no OS
   // handle keeps Node alive.
   const keepAlive = setInterval(() => {}, 60_000);
