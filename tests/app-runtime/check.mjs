@@ -76,7 +76,7 @@ async function application(options = {}) {
     observed.count = panels.flatMap(panel => panel.widgets).find(widget => widget.key === 'count')?.text;
   }});
   const wasi = createWasi({print() {}});
-  const imports = {...runtime.imports, 'snail.runtime.browser.screen': screen, 'snail.test': {marker: () => -9}};
+  const imports = {...runtime.imports, 'snail.runtime.browser.screen': screen};
   let program;
   if (path.endsWith('.manifest.datum')) {
     program = await linkProgram(file => readFile(resolve(dirname(path), file)), path, wasi, imports);
@@ -87,13 +87,7 @@ async function application(options = {}) {
     wasi.initialize(program);
   }
   const entry = applicationEntry(program);
-  // Handlers are evidence on each task's own stack, so nothing dynamic
-  // remains to return to an entry value; only the private reset handler
-  // leaves a trace.
-  function settled() {
-    assert.equal(entry.exports.marker(), -9, 'the private reset handler has been removed');
-  }
-  return {observed, runtime, entry, settled};
+  return {observed, runtime, entry};
 }
 
 async function checkSuspension() {
@@ -125,12 +119,10 @@ async function checkSuspension() {
   const handover = await stopping;
   assert.equal(entry.exports.count(handover.state), 3n, 'the accepted prefix completes before Reload');
   assert.ok(handover.saved.length);
-  app.settled();
   assert.equal(await runtime.start(entry, handover.state).ready.promise, 0);
   await turn();
   assert.equal(observed.count, '4', 'transition input is delivered once after adoption');
   await runtime.stop();
-  app.settled();
 }
 
 async function checkReloadDuringBoot() {
@@ -144,12 +136,10 @@ async function checkReloadDuringBoot() {
   await first.ready.promise;
   const handover = await stopping;
   assert.equal(entry.exports.count(handover.state), 0n, 'input beyond a startup fence waits for the next run');
-  app.settled();
   await runtime.start(entry, handover.state).ready.promise;
   await turn();
   assert.equal(observed.count, '1', 'accepting a fenced startup never discards pending input');
   await runtime.stop();
-  app.settled();
 }
 
 async function checkTrap() {
@@ -164,20 +154,17 @@ async function checkTrap() {
   assert.match(failed.error.message, /presentation trap/);
   assert.equal(entry.exports.count(failed.state), 1n, 'the partially rendered candidate never becomes a checkpoint');
   assert.equal(observed.errors.length, 1);
-  app.settled();
   const frames = observed.frames;
   const handover = await runtime.stop();
   assert.equal(handover.error, null);
   assert.equal(observed.frames, frames, 'checkpoint extraction does not replay the failing view');
   assert.equal(entry.exports.count(handover.state), 1n);
   assert.ok(handover.saved.length);
-  app.settled();
   observed.failFrame = false;
   await runtime.start(entry, handover.state).ready.promise;
   await turn();
   assert.equal(observed.count, '3', 'unread actions survive a trap and are consumed once');
   await runtime.stop();
-  app.settled();
 }
 
 async function checkUpdateTrap() {
@@ -190,13 +177,11 @@ async function checkUpdateTrap() {
   const failure = await run.done;
   assert.ok(failure.error, 'a snail-scheme panic ends the loop\'s task');
   assert.equal(entry.exports.count(failure.state), 1n);
-  app.settled();
   const handover = await runtime.stop();
   await runtime.start(entry, handover.state).ready.promise;
   await turn();
   assert.equal(observed.count, '2', 'the trapping action is consumed and the following action survives');
   await runtime.stop();
-  app.settled();
 }
 
 async function checkRefusal() {
@@ -209,13 +194,11 @@ async function checkRefusal() {
   await assert.rejects(refused.ready.promise, /could not take over/);
   const refusal = await refused.done;
   assert.equal(refusal.state, null);
-  app.settled();
   await runtime.start(entry, previous.state).ready.promise;
   await turn();
   assert.equal(observed.count, '1');
   const rollback = await runtime.stop();
   assert.equal(entry.exports.resizes(rollback.state), 2, 'a rejected candidate cannot donate its synthetic Resize to rollback');
-  app.settled();
 }
 
 async function checkStartupFailures() {
@@ -230,18 +213,15 @@ async function checkStartupFailures() {
   await assert.rejects(retry.ready.promise, /load failed/);
   assert.equal((await retry.done).state, incoming, 'a preboot failure retains the incoming state for rollback');
   await retry.done;
-  rejected.settled();
   const trapped = await application();
   trapped.observed.failFrame = true;
   const first = trapped.runtime.start(trapped.entry);
   await assert.rejects(first.ready.promise, /presentation trap/);
   assert.equal(trapped.entry.exports.count((await first.done).state), 0n, 'the boot checkpoint survives a first-frame trap');
-  trapped.settled();
   trapped.observed.failFrame = false;
   const saved = await trapped.runtime.stop();
   await trapped.runtime.start(trapped.entry, saved.state).ready.promise;
   await trapped.runtime.stop();
-  trapped.settled();
 }
 
 async function checkStorageFailure() {
@@ -251,7 +231,6 @@ async function checkStorageFailure() {
   assert.equal(handover.error, null);
   assert.ok(handover.saved.length, 'migration keeps an owned save even if persistence fails');
   assert.match(app.observed.warnings[0], /disk full/);
-  app.settled();
 }
 
 async function checkRootReturn() {
@@ -269,7 +248,6 @@ async function checkRootReturn() {
   const handover = await app.runtime.stop();
   assert.equal(handover.state, null, 'a root that never adopts the incoming state has no checkpoint');
   assert.equal(live(run), 0, 'stopping discards the remaining child');
-  app.settled();
 }
 
 async function checkUnpresentedReturn() {
@@ -279,7 +257,6 @@ async function checkUnpresentedReturn() {
   assert.equal(live(run), 0, 'children cannot keep an unpresented application alive');
   await assert.rejects(run.ready.promise, /before startup completed/);
   await run.done;
-  app.settled();
 }
 
 // A library may not take a name the host provides: the program's modules
@@ -317,7 +294,6 @@ async function checkProtocolOwnership() {
     assert.equal(run.page, null, 'the host releases its page context after failure');
     assert.equal(live(run), 0);
     loaded.resolve(undefined);
-    app.settled();
   }
   const stored = Promise.withResolvers();
   const saves = [];
@@ -336,7 +312,6 @@ async function checkProtocolOwnership() {
   const handover = await stopping;
   assert.equal(saves.length, 2, 'recovery retries the root checkpoint after the terminal trap');
   assert.deepEqual(handover.saved, saves[0]);
-  app.settled();
 }
 
 await checkQueue();

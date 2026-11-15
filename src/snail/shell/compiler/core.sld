@@ -794,20 +794,14 @@
       ((module String)
        (symbol String)))
 
-    ;; `control` names the operations whose implementations receive the rest
-    ;; of the handled computation as `resume`; the others return to their
-    ;; caller. `defaults` maps operation names to what performs them when no
-    ;; handler is in scope.
-    ;; Each default is an operation's and the global of the `snail-scheme`
-    ;; function the effect's declaration defines for it, which runs under
-    ;; the performer's handlers.
-    ;; An effect: its operations, those among them that are control
-    ;; operations, and the defaults its declaration gives.
+    ;; An effect: its operations, and those among them that are control
+    ;; operations, whose implementations receive the rest of the handled
+    ;; computation as `resume`; the others return to their caller. Only a
+    ;; handler answers one: an effect has no default.
     (record Effect
       ((name String)
        (operations (List String))
-       (control (List String))
-       (defaults (List (Pair String String)))))
+       (control (List String))))
 
     ;; What a unique value name denotes. A definition's scheme is its
     ;; signature's, or none until it is inferred, and `signature` is where

@@ -1868,7 +1868,7 @@
     ;; extends the list for its body; an operation walks it for its effect's
     ;; label and calls that handler's implementation with the list outside
     ;; the node, so the implementation's own operations go to the next
-    ;; handler out, and a list with no such node means the host default.
+    ;; handler out, and a list with no such node is a panic.
     ;; Nothing is global, so a task carries its handlers on its own stack.
     ;; Parent links are immutable. A resumed computation gets fresh nodes,
     ;; so inherited contexts and other suspended work keep their ancestry.
@@ -2145,7 +2145,7 @@
     ;; It walks the evidence for its effect's node and calls that handler's
     ;; implementation with the evidence outside it, which forwards the
     ;; effects its latent row names (see Latent effects); with no node it
-    ;; uses the default. A control operation records a yield at the node
+    ;; panics. A control operation records a yield at the node
     ;; instead (see Control).
 
     (define (performer (m Module) (effect String) (operation String)) (→ String) (! mut)
@@ -2177,8 +2177,8 @@
                                              (handler-search m info operation names params result)))
                                  (wat "unreachable")))))))))
 
-    ;; One step of the walk: the default past the last node, the
-    ;; implementation at the effect's node, else the next node out.
+    ;; One step of the walk: a panic past the last node, the implementation
+    ;; at the effect's node, else the next node out.
 
     (define (handler-search (m Module)
                             (info Effect)
@@ -2190,7 +2190,7 @@
       (! mut)
       (let ((node (wat "local.get" (Word "$node"))) (evidence (evidence-type m)))
         (list
-         (wat "if" (wat "ref.is_null" node) (wat* "then" (default-call m info operation names)))
+         (wat "if" (wat "ref.is_null" node) (wat* "then" (unhandled m operation)))
          (wat "if"
               (wat "i32.eq"
                    (wat "struct.get" (id evidence) (int 0) node)
@@ -2261,26 +2261,18 @@
     (define (node-outside (m Module) (node Wat)) (→ Wat) (! mut)
       (wat "struct.get" (id (evidence-type m)) (int 2) node))
 
-    ;; Past the last node: the `snail-scheme` default, called under the
-    ;; performer's evidence, or a trap.
+    ;; Past the last node: no handler answers the operation. The checker
+    ;; rules this out for what a host calls, whose row its target's
+    ;; handlers cover, so only an unchecked cast reaches it.
 
-    (define (default-call (m Module) (info Effect) (operation String) (names (List String)))
-      (→ (List Wat))
-      (! mut)
-      (let ((arguments (map (lambda (name) (wat "local.get" (id name))) names)))
-        (match (assoc-ref (● info defaults) operation)
-          ((Some function)
-           (list (wat* "return_call"
-                       (Cons (id (function-id m function))
-                             (Cons (wat "local.get" (Word "$ev")) arguments)))))
-          ((None)
-           (list (wat "return"
-                      (wat "call"
-                           (id (panic-helper m))
-                           (string-literal m
-                                           (string-append "unhandled effect operation "
-                                                          (short-name operation))))
-                      (wat "unreachable")))))))
+    (define (unhandled (m Module) (operation String)) (→ (List Wat)) (! mut)
+      (list (wat "return"
+                 (wat "call"
+                      (id (panic-helper m))
+                      (string-literal m
+                                      (string-append "unhandled effect operation "
+                                                     (short-name operation))))
+                 (wat "unreachable"))))
 
     ;; ---- Control ----
 
