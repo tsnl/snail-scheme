@@ -286,8 +286,11 @@ Each step is a pull request that passes every check on its own.
      `storage` and `screen` have no `default`, and `browser` installs
      `provide-events`, `provide-storage` and `provide-screen`. Stage 0's
      `browser-programs` names the tests that build for it.
-   - A capability left unhandled fails the build.
-   - `default` goes.
+   - `default` goes, and a capability left unhandled fails the build: done.
+     An effect declares only its operations. What a host calls, `main`'s
+     start and each exposed function, may leave only `mut` and `host`
+     unhandled, and anything else is an error naming the effect; an
+     operation that reaches no handler at run time panics.
    - `host` becomes `unsafe-extern`, which every `extern` declares.
 6. **Release builds fully linked,** with `wasm-opt` from Binaryen.
 7. **Applications become scripts.**

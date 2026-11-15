@@ -85,13 +85,13 @@ the runtime interfaces.
 
 A `(snail runtime …)` library declares one host interface's Wasm imports as
 externs, and nothing else, so it emits no module of its own. A shell library
-imports it under the prefix `host-` and gives each operation of its effect a
-default that names an extern ([defaults from the
-host](effects.md#defaults-from-the-host)).
+imports it under the prefix `host-` and exports a handler of its effect,
+`provide-NAME`, that answers each operation with an extern, for its
+targets to install ([handlers from the host](effects.md#handlers-from-the-host)).
 
 | Library | Contents |
 | --- | --- |
-| `(snail runtime browser screen)` | The page's drawing commands, one import per command; `(snail shell app)`'s `screen` effect defaults to them. |
+| `(snail runtime browser screen)` | The page's drawing commands, one import per command; `(snail shell app)`'s `provide-screen` answers `screen` with them. |
 | `(snail runtime browser events)` | The page's event queue and its fields, the random seed, the canvas's size and the boot report, and the started and finished wait for the next event. |
 | `(snail runtime browser storage)` | Loading and storing the page's checkpoint, read back a byte at a time. |
 | `(snail runtime browser dom)` | The page's document: nodes and listeners as handles, and text as UTF-8 bytes. `(snail shell dom page)` implements `dom` over it. |
@@ -113,8 +113,8 @@ same operation. Stage 0 supplies the corresponding stable sort on Chez.
 
 The current textual input and output are independent effect bindings.
 `input-port` supplies `(read-char) → (Option Char)`; `output-port` supplies
-`(write-string text) → Unit`. Their defaults use standard input and standard
-output. A handler selects a different stream for its body, including calls
+`(write-string text) → Unit`. The targets' handlers, `provide-input-port` and
+`provide-output-port`, use standard input and standard output. A handler selects a different stream for its body, including calls
 made by that body. When the handler ends, the previous binding applies again.
 This gives current ports the dynamic scope of
 [Scheme's current ports](https://standards.scheme.org/corrected-r7rs/r7rs-Z-H-8.html#node_sec_6.13.1)

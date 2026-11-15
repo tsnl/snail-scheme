@@ -16,14 +16,9 @@
        ((None) (panic "fixture payload has the wrong type"))))))
 
 ;; Each task retains the private handler across its waits on storage and
-;; events. Its default, the host's, lets the runner detect a leaked handler
-;; between turns.
+;; events, and a child inherits it.
 (effect Marker
-  ((marker (Fn → I32)))
-  (default
-    ((marker host-marker))))
-
-(extern host-marker "snail.test" "marker" (Fn → I32))
+  ((marker (Fn → I32))))
 
 ;; The runtime drains children after a normal root return. Explicit reload
 ;; closes that scope after the root has handed over, including this case.
@@ -128,10 +123,6 @@
 (define (other-state) (→ Any)
   (Any (ann 5 I64)))
 
-(define (read-marker) (→ I32) (! Marker)
-  (marker))
-
-(expose read-marker "marker")
 (expose inspect-count "count")
 (expose inspect-resizes "resizes")
 (expose other-state "other")

@@ -221,7 +221,7 @@ receiving.
 ## Waiting on the host
 
 A host operation that completes later, such as a socket read, waits the
-same way. Its default takes a ticket, starts the operation on the host,
+same way. Its target's handler takes a ticket, starts the operation on the host,
 which reads its arguments and returns at once, awaits the ticket, and
 finishes by taking the result the host built for it:
 

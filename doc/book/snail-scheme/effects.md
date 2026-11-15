@@ -112,8 +112,7 @@ cost every caller that work for nothing.
 Some signatures have no body to hold them to. An instance method keeps its
 class method's row, which one instance may need less of than another:
 in `tests/programs/declared-effects.sld`, the `Bool` instance of
-`announce` performs nothing and keeps `! output-port`. A default is held to
-its row all the same ([defaults](#defaults-in-snail-scheme)). `extern`
+`announce` performs nothing and keeps `! output-port`. `extern`
 declarations, class method signatures and definitions whose value is not
 a lambda are not compared either. A signature that a macro writes is held to each
 expansion. Application entries avoid duplicating such signatures: the selected
@@ -205,20 +204,20 @@ check, for the cases this rule rejects; each use says in a comment why
 nothing escapes. A `gc` effect, "may allocate traced memory", is proposed in
 [issue #550](https://github.com/tsnl/snail-scheme/issues/550).
 
-### Defaults from the host
+### Handlers from the host
 
-`input-port`, `output-port`, `fs` and `clock` need no handler. Each operation has a
-[default](#defaults-in-snail-scheme) implementation that reaches host services
-through `extern` imports. An operation performed where no handler of its
-effect is in scope calls that implementation. That is why the programs above call
-`report` from `main` without installing a handler.
+`input-port`, `output-port`, `fs` and `clock` need no handler in the
+program: its target installs one around `main`
+([handlers from the target](#handlers-from-the-target)), whose
+implementations reach host services through `extern` imports. That is why
+the programs above call `report` from `main` without installing a handler.
 
 Every platform effect is declared the same way. `(snail core io)` declares
 its externs beside its effects, since core imports nothing; a shell
 library imports a `(snail runtime …)` library, which declares the host's
 imports and nothing else, under the prefix `host-`. For example, `(snail
 runtime browser screen)` declares the page's drawing commands, and
-`(snail shell app)`'s `screen` effect defaults each operation to one. An
+`(snail shell app)`'s `provide-screen` answers each operation with one. An
 interface's imports take and answer scalars, and the shell builds its own
 values from them, as `(snail shell socket)` builds a `Connection` from a
 handle ([the native boundary](../runtimes/networking.md#wasm-boundary)).
@@ -229,13 +228,12 @@ still replace them: `tests/programs/files.sld` handles `fs` to answer
 the rest of its row polymorphic, as any can:
 `tests/programs/effects-host-handler-row.sld` handles `clock` for a body
 of row `(clock e)`, answering through `output-port`, and is itself of row
-`(output-port e)`. An effect without a
-default must be handled: performing it where no handler is in scope is an
-error (`tests/programs/error-unhandled.sld`).
+`(output-port e)`. An effect that neither the program nor its target
+handles is an error (`tests/programs/error-unhandled.sld`).
 
 `host` is the row of code that may run anything the host implements, such
-as a program's entry function and its task scheduler. It admits `mut` and
-effects with host defaults. It is a builtin effect, like `mut`, imported
+as a program's entry function and its task scheduler. It admits `mut`. It
+is a builtin effect, like `mut`, imported
 from `(snail core forms)`; no handler implements it, and a function whose
 row names it can be called only where `host` is in the row too. Work closed
 over its handlers performs it ([below](#closing-over-handlers)).
@@ -688,36 +686,28 @@ because they cannot capture a one-shot value. Fresh storage allocated
 inside an invocation, and the operation's arguments, belong to that
 invocation (`tests/programs/handler-captures.sld`).
 
-### Defaults in `snail-scheme`
+### Handlers from the target
 
-After its operations, an effect's declaration may give a `default` clause,
-which implements operations in `snail-scheme` as a handler does:
+An effect has no default: only a handler answers an operation. One the
+program does not handle, its target does. A target is a library of
+handlers, such as `(snail target node)`, whose `start` runs `main` as the
+first task of the host's scheduler under them, so `main` can write to the
+console, read files or yield. What the program and its target leave
+unhandled is a build error naming the effect
+([targets](scripts.md#targets-and-capabilities)).
+
+An ordinary operation whose handler answers a value works much like a
+Scheme parameter, with `handle` in the role of `parameterize`:
 
 ```scheme
-{{#include ../../../tests/programs/effects-handlers.sld:default}}
+{{#include ../../../tests/programs/effects-handlers.sld:verbosity}}
 ```
 
 ```text
-shown by default
+shown at level 1
 shown when verbose
 ```
 
-A default runs when no handler of its effect is in scope. An ordinary
-operation with a default works much like a Scheme parameter, with `handle`
-in the role of `parameterize`. A default has its operation's type without
-the operation's own effect, so it performs at most the operation's
-[latent row](#latent-rows), here nothing: a default that writes to the
-console is rejected (`tests/programs/error-default-effect.sld`). It also
-performs at least that row. Every performer is charged the row, so the
-[unused-effect rule](#claiming-only-what-the-body-performs) holds a
-default to it, at its entry
-(`tests/programs/error-default-unperformed.sld`). A default is a lambda or
-a function's name, and an operation has at most one.
-
-A control operation has no default. Its handler comes from the program or
-its target: the target's `start` runs `main` as the first task of the
-host's scheduler, so `main` can yield or wait
-([targets](scripts.md#targets-and-capabilities)).
 Loading a library runs no source initializer: top-level definitions bind
 functions. Each call performs only the effects in its signature.
 
@@ -751,10 +741,8 @@ abandoned operation is never called; there is no `finally` clause
 (`tests/programs/control-early-exit.sld`). An implementation that raises
 again reaches the handler outside it, as an ordinary one does.
 
-A control operation has no default: a default runs where no handler is,
-and nothing there can be handed the rest of a computation
-(`tests/programs/error-control-default.sld`). Its implementation runs
-in the handler's outer context, like an ordinary one.
+Its implementation runs in the handler's outer context, like an ordinary
+one.
 
 ### Operations that never return
 
@@ -1138,26 +1126,14 @@ performed, the inner one, not to the one around the `Notes` handler.
 Without `! Log` in `note`'s type, it would log to the outer one, as any
 implementation does.
 
-### Defaults that perform latent effects
+### Target handlers that perform latent effects
 
-A default runs under the handlers in scope where its operation is
-performed, so it may perform its operation's latent row there
-(`tests/programs/control-default.sld`):
-
-```scheme
-{{#include ../../../tests/programs/control-default.sld:clock}}
-```
-
-`sleep-until`'s default, `wait-for`, awaits on its caller's `Async`
-handler. That program runs a task that sleeps twice under a scheduler that
-wakes each sleeper at its deadline:
-
-```text
-waiting until 1005
-woke at 1005
-waiting until 1006
-done at 1006
-```
+A target installs its handlers once, around `main`, yet a task that `main`
+dispatches performs their operations too. A host operation's type names
+`tasks` in its latent row, as `files`'s
+`(read-file (Fn String I32 → (Result Bytes FileError) ! tasks))` does, so
+its implementation awaits the host's answer on the `tasks` handler where
+the operation is performed: the reading task waits, and the others run.
 
 ### The rules
 
@@ -1170,6 +1146,7 @@ done at 1006
 
 The runtime's own tasks follow this pattern. `(snail shell task)` runs
 each task under its own handler of `tasks`, whose control operations hand
-the rest of the task to a scheduler written in `snail-scheme`, and a host
-operation's default awaits a ticket on the caller's `tasks`
+the rest of the task to a scheduler written in `snail-scheme`, and a
+target's handler of a host operation awaits a ticket on the caller's
+`tasks`
 ([task operations](../runtimes/tasks.md)).

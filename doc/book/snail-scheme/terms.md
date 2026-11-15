@@ -74,7 +74,7 @@ those bytes as a byte literal in its generated library.
 | `(type (Name param ...) type)` | Transparent alias. |
 | `(typeclass (Class param ...) (declare (method ...) ...) ...)` | Class of types with methods. |
 | `(instance (Class type ...) [(⊨ constraint ...)] (define ...) ...)` | Instance. |
-| `(effect Name ((operation type) ...) [(default ((operation implementation) ...))])` | Effect with operations and optional `snail-scheme` defaults, each a lambda or a function's or extern's name. `(ctl operation type)` declares a control operation, which has no default ([effects and handlers](effects.md)). |
+| `(effect Name ((operation type) ...))` | Effect with operations, which only a handler answers: the program's or its target's. `(ctl operation type)` declares a control operation ([effects and handlers](effects.md)). |
 | `(handle Name ((operation implementation) ...) body ...)` | Handles an effect for the extent of `body`; a control operation's implementation also takes `resume`. |
 | `(extern name "module" "symbol" type)` | Wasm import, asserted total. |
 | `(primitive name type)` | An operation the backend implements, bound to the global `prim:name`. Accepted only in `(snail core primitive)`. |

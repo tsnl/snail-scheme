@@ -62,18 +62,16 @@
 
 ;; ANCHOR_END: run-files
 
-;; ANCHOR: default
-;; How much to report: 1 unless a handler says otherwise.
+;; ANCHOR: verbosity
+;; How much to report, as the innermost handler says.
 (effect Verbosity
-  ((verbosity (Fn → I64)))
-  (default
-    ((verbosity (lambda () 1)))))
+  ((verbosity (Fn → I64))))
 
 (define (note (level I64) (message String)) (→ Unit) (! Verbosity output-port)
   (when (<= level (verbosity))
     (write-line message)))
 
-(define (main) (→ Unit) (! Verbosity fs output-port)
+(define (main) (→ Unit) (! fs output-port)
 
   ;; ANCHOR_END: declare
 
@@ -95,9 +93,11 @@
   (write-file "build/greeting.txt" "bonjour")
   (write-line (from-disk (lambda () (greeting "disk"))))
   (write-line (from-memory (lambda () (greeting "memory"))))
-  (note 1 "shown by default")
-  (note 2 "hidden by default")
   (handle Verbosity
-      ((verbosity (lambda () 2)))
-    (note 2 "shown when verbose"))
+      ((verbosity (lambda () 1)))
+    (note 1 "shown at level 1")
+    (note 2 "hidden at level 1")
+    (handle Verbosity
+        ((verbosity (lambda () 2)))
+      (note 2 "shown when verbose")))
   (unit))

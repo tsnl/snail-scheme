@@ -783,18 +783,15 @@
                                    (new Effect
                                      (name "t:Abort")
                                      (operations (list "t:abort"))
-                                     (control (list "t:abort"))
-                                     (defaults (Nil)))
+                                     (control (list "t:abort")))
                                    (new Effect
                                      (name "t:Log")
                                      (operations (list "t:log"))
-                                     (control (Nil))
-                                     (defaults (Nil)))
+                                     (control (Nil)))
                                    (new Effect
                                      (name "t:Io")
                                      (operations (list "t:fetch"))
-                                     (control (Nil))
-                                     (defaults (Nil)))))
+                                     (control (Nil)))))
                        (list (new Pair (first "t:abort") (second (operation "t:Abort" (Nil))))
                              (new Pair (first "t:log") (second (operation "t:Log" (Nil))))
                              (new Pair

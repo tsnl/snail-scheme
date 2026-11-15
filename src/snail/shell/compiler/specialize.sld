@@ -433,55 +433,11 @@
                      (first (new Expr (term (Var target (Nil) (Nil))) (type type) (loc loc)))
                      (second state))))))
            (_ (panic "internal error: a method needs instance evidence"))))
-        ((Some (Operation effect _)) (operation-reference state effect name type loc))
+        ;; An operation, like a builtin, keeps its name: a handler answers
+        ;; it, and nothing else is reached through it.
         (_ (new Pair
              (first (new Expr (term (Var name (Nil) (Nil))) (type type) (loc loc)))
              (second state)))))
-
-    ;; ---- Operations ----
-
-    ;; Performing an operation runs its `snail-scheme` default when no handler
-    ;; is in scope, so a use of the operation reaches the default too, which
-    ;; is copied, or imported from the effect's library, under its own name.
-
-    (define (operation-reference (state State) (effect String) (name String) (type Type) (loc Loc))
-      (→ (Pair Expr State))
-      (new Pair (first (new Expr (term (Var name (Nil) (Nil))) (type type) (loc loc)))
-           (second (reach-operations state (list name) (Nil) loc))))
-
-    ;; Forwarding a latent effect constructs closures for every operation of
-    ;; that effect. Their defaults are reachable even if source names none of
-    ;; those operations directly. Follow the same finite graph as emission.
-    (define (reach-operations (state State) (pending (List String)) (seen (List String)) (loc Loc))
-      (→ State)
-      (match pending
-        ((Nil) state)
-        ((Cons name rest)
-         (if (member? name seen) (reach-operations state rest seen loc)
-             (match (program-value (specialization-program state) name)
-               ((Some (Operation effect scheme))
-                (let* ((state (reach-default state effect name loc))
-                       (forwarded
-                        (forwarded-operations (specialization-program state) effect scheme)))
-                  (reach-operations state (append forwarded rest) (Cons name seen) loc)))
-               (_ (panic "internal error: forwarding names an operation")))))))
-
-    (define (reach-default (state State) (effect String) (operation String) (loc Loc)) (→ State)
-      (match (assoc-ref (● (program-effect (specialization-program state) effect) defaults)
-                        operation)
-        ((Some function)
-         (●
-          (definition-reference state function (Nil) (Nil) (● (scheme-of state function) type) loc)
-          second))
-        ((None) state)))
-
-    (define (forwarded-operations (program Program) (effect String) (scheme Scheme))
-      (→ (List String))
-      (concatenate
-       (map (lambda (label)
-              (match (table-ref (● program effects) label)
-                ((Some info) (● info operations))
-                ((None) (Nil)))) (operation-latent effect scheme))))
 
     (define (instance-method (state State) (instance String) (method String)) (→ String)
       (match (table-ref (● (● state input) instances) instance)
