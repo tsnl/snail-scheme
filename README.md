@@ -25,13 +25,11 @@ Scheme runs its source to start the first bootstrap.
 nix-shell
 make fetch
 ./snail-scheme build . siegework
-./snail-scheme watch .
 ```
 
 The root `project.datum` describes the whole repository, with `siegework` and
-`hearsay` browser targets. `./snail-scheme watch .` (`make watch`) builds and serves
-them as you edit, and `./snail-scheme lsp` serves an editor that opens the
-repository: [`editors/zed`](editors/zed) and [`editors/vscode`](editors/vscode)
+`hearsay` browser targets, and `./snail-scheme lsp` serves an editor that opens
+the repository: [`editors/zed`](editors/zed) and [`editors/vscode`](editors/vscode)
 are extensions for Zed and VS Code.
 
 Single source files, outside any project, go through `snailc`, a program of
@@ -67,18 +65,12 @@ make site
 python3 -m http.server 4191 --directory build/siegework
 ```
 
-While you change it, `./snail-scheme watch .` (or `make watch`) serves the game at
-<http://127.0.0.1:8000/siegework/>. Hearsay runs at
-<http://127.0.0.1:8000/hearsay/>. The service reads the root `project.datum`,
-rebuilds whenever a source changes on disk, whatever wrote it, and relinks
-the changed libraries into the open page, which keeps the game and the
-camera. In Zed, the extension in [`editors/zed`](editors/zed) highlights,
+Rebuild with `./snail-scheme build . siegework` and reload the page to see a
+change; `build/hearsay` serves Hearsay the same way. In Zed, the extension in [`editors/zed`](editors/zed) highlights,
 indents and formats `snail-scheme`, and `snail-scheme lsp` reports each saved build's
 diagnostics where they arise and gives a name's type and definition.
 
-The [development workflow](doc/book/snail-scheme/toolchain.md) still needs
-durable-state reload; the [typed-state API](doc/book/snail-scheme/state.md)
-remains under review.
+The [typed-state API](doc/book/snail-scheme/state.md) remains under review.
 
 ## Reading on
 
@@ -91,8 +83,8 @@ remains under review.
   through the passes, linking and incremental caches.
 - [Projects and targets](doc/book/snail-scheme/projects.md) defines inert descriptions,
   directory outputs and artifact bundles.
-- [The development toolchain](doc/book/snail-scheme/toolchain.md) explains the native
-  project service, the language server and the editor grammar.
+- [The development toolchain](doc/book/snail-scheme/toolchain.md) explains the
+  commands, the language server and the editor grammar.
 - [GitHub issues](https://github.com/tsnl/snail-scheme/issues) track open work.
 
 [Apache-2.0](LICENSE)

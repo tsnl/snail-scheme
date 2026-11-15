@@ -34,7 +34,7 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   compiler reads record fields with `(● record label ...)`; stage 0 maps
   that form to the same mutable record slots. Stage 0's one product is the
   stage 1 command line, `bootstrap/cli.sld`, built by `scripts/bootstrap`;
-  the command line builds everything else (the engine, the reload client,
+  the command line builds everything else (the engine,
   `snailc` and the book's highlighter) as targets of the root project.
   The test harness also compiles through stage 0's driver.
 
@@ -151,42 +151,27 @@ and `snail-scheme format`; `make test` checks its CLI and every tracked
 Scheme file. Browser changes should be seen running:
 `node tests/browser/page.mjs URL SCREENSHOT` drives headless Chromium.
 
-## Live reload
+## Applications
 
-Iterate on applications with `./snail-scheme watch .` (`make watch`), left running, and
-edit in any editor; in Zed, install `editors/zed` as a dev extension for
-`snail-scheme lsp`'s diagnostics on save, formatting, hover and definitions. The root
-`project.datum` names the `siegework` and `hearsay` browser targets. The
-service serves each browser target at
-`http://127.0.0.1:8000/TARGET/`, rebuilds every configured target from scratch, and relinks changed modules
-into each open page while keeping the running state; point `tests/browser/page.mjs` at the
-target's URL to see an edit land. Each build first runs the producers of the
-`generate-library` recipes it reaches, so Hearsay serves too; its producers run every time. The book's
-[application model](doc/book/snail-scheme/applications.md) gives the reload
-rules; what matters when writing code:
+Build an application with `./snail-scheme build . TARGET` and serve its
+output directory, `build/TARGET`, with any static HTTP server; point
+`tests/browser/page.mjs` at it to see a change. Edit in any editor; in Zed,
+install `editors/zed` as a dev extension for `snail-scheme lsp`'s diagnostics
+on save, formatting, hover and definitions. The root `project.datum` names
+the `siegework` and `hearsay` browser targets. Each build first runs the
+producers of the `generate-library` recipes it reaches, so Hearsay builds
+too; its producers run every time. What matters when writing code:
 
-- The application's state crosses a relink, as it is while its type is unchanged
-  and through `save` and `restore` otherwise. Keep what should survive an edit
-  in Save. Escaped closures can retain old code.
+- Keep what should survive a page reload in the application's Save.
 - Libraries are checked one at a time, so an importer's use never decides a
   definition's type: give exported functions typed headers.
-- A program runs with `./snail-scheme run . RUN-TARGET`, outside the service. The
-  service's watcher sees every write to disk, whatever made it, and an edit
-  to a file a program links builds again once a build that links it is
-  published.
+- A program runs with `./snail-scheme run . RUN-TARGET`.
 - Builds in one checkout keep private compiler scratch under `build/snail-run/`.
   Public `snail-scheme run` executes its completed project generation in the caller's
-  working directory after removing build scratch. Rebuilding the compiled
-  compiler or development tools takes an exclusive lock on `build/lock`, so
-  `make test` may run beside a server.
-- The service is `src/snail/shell/project/service.sld`, which carries out the
-  pure step of `src/snail/shell/development.sld`; it mounts each browser
-  target with `(snail shell project bundle)`. The page's reload client is
-  `host/browser/reload.sld`, and `relinkProgram` in `host/browser/load.mjs`
-  relinks after the application's loop, a task that `host/browser/runtime.mjs`
-  drives, saves, returns its state and settles. `tests/project-bundles.mjs`
-  and the other project suites (in `make test`) cover the service, and
-  `tests/browser/reload.mjs` (`make test-browser`, needs `CHROMIUM`) covers
-  the pages. `tests/lsp.mjs` and `tests/tree-sitter.mjs` cover the editor
-  support. See
+  working directory after removing build scratch. Rebuilding the command line
+  takes an exclusive lock on `build/lock`, so `make test` may run beside a
+  build.
+- The project suites (in `make test`) cover builds, and `tests/browser/`
+  (`make test-browser`, needs `CHROMIUM`) covers the pages. `tests/lsp.mjs`
+  and `tests/tree-sitter.mjs` cover the editor support. See
   [the development toolchain](doc/book/snail-scheme/toolchain.md).

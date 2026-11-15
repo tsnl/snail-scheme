@@ -48,7 +48,6 @@ the runtime interfaces.
 | `(snail shell socket)` | TCP listeners and connections and UDP sockets, through the `tcp` and `udp` effects, each wait by ticket, and `endpoint`, which parses an IPv4 address and a port once ([native networking](../runtimes/networking.md)). |
 | `(snail shell http)`, `(snail shell http exchange)` | An HTTP/1.1 subset: request heads and targets, response and stream heads, and one exchange over a connection ([HTTP protocol](http.md)). |
 | `(snail shell resource)` | Files a library links rather than embeds: `link-file`, the `Resource` handle, and `read-resource`, which a task waits on, through the `resource` effect ([linked files](types.md#linked-files)). |
-| `(snail shell watch)` | `inventory`, each path under some directories with a fingerprint of its kind, size and modification time, and `inventory-changes`, the paths two inventories disagree on: what a watcher reconciles when a native watch may have missed an edit. `watch-tree` and `next-hint` are Node's recursive watch of a tree, as hints that something under it changed, which only say when to take the next inventory (the `hints` effect, on Node only). |
 | `(snail shell wasm)` | Explicit WebAssembly linking for the engine ([below](#loading-webassembly)). |
 | `(snail shell engine)` | The engine: `run-manifest` links a program compiled one library at a time from its `modules.json`, through `(snail shell wasm)`, and runs it, reading each object through the `linked-content-store` effect, `read-object : (Fn String → (Option Bytes) ! tasks)`, which each entry program handles once. Linking and each read of a linked file are tasks of the engine's own scheduler, which `engine-turn` and its siblings drive together with the program's. The native entry, `tools/engine.sld`, reads files; it is the root project's `engine` target, and Node and wasmtime start it for a manifest ([the native executable](bootstrap.md#the-native-executable)). |
 
@@ -78,11 +77,8 @@ the runtime interfaces.
 | `(snail shell format)` | The formatter `scripts/format-scheme` and `snail-scheme lsp` share: conventional Scheme indentation, each import and field on its own line, and each line whose code runs past 100 columns broken, a call before its arguments and a binding form before each binding and body form. Names `let`, `let*`, `*-let` and `*-let*` use binding layout. It never joins lines. |
 | `(snail shell highlight)` | Source text as tokens that tile it, classed for coloring by the compiler reader's lexical rules ([code highlighting](toolchain.md#code-highlighting)). |
 | `(snail shell explore)` | Bounded model checking of a total state machine's invariant. |
-| `(snail shell development)` | The project development service's decisions as a pure `step`, from the service and an event to the next service and the commands its host, `(snail shell project service)`, carries out: attempts by epoch, supersession, publication and reclamation ([the development toolchain](toolchain.md)). |
-| `(snail shell project service)` | `snail-scheme watch`'s service: `develop` builds one project and serves its status and browser targets on a local port, with tasks for the disk, the resident builder in a child process and each connection, carrying out what the step decides ([the development toolchain](toolchain.md)). |
 | `(snail shell lsp)` | `snail-scheme lsp`: `serve-language` answers the Language Server Protocol on standard streams for one project, with diagnostics from each saved build, formatting, and hover and definition from its checked libraries ([editors](toolchain.md#editors)). |
-| `(snail shell project bundle)` | A browser application's development bundle as a server mounts it: `bundle-response` answers for the latest build's page, based in its build and carrying its manifest and the reload client, and for each retained build's files under `.snail/builds/EPOCH/`; `bundle-event` is what its pages hear of a build ([browser targets in development](applications.md#browser-targets-in-development)). |
-| `(snail shell project web-app)` | Default installable web manifests and their page links, shared by browser packaging and `snail-scheme watch`; development links retain the stable application mount across generations. |
+| `(snail shell project web-app)` | Default installable web manifests and their page links, for browser packaging. |
 | `(snail shell project build)` | A project's build, which `snail-scheme build` and `snail-scheme run` run: `read-project`, `build-project`, which compiles, links and packages each target into a generation of its own, and `publish-project` ([projects](projects.md)). |
 
 ### Runtime interfaces
@@ -100,7 +96,6 @@ host](effects.md#defaults-from-the-host)).
 | `(snail runtime browser storage)` | Loading and storing the page's checkpoint, read back a byte at a time. |
 | `(snail runtime browser dom)` | The page's document: nodes and listeners as handles, and text as UTF-8 bytes. `(snail shell dom page)` implements `dom` over it. |
 | `(snail runtime browser fetch)` | The page's requests and event streams, staged a part at a time. `(snail shell fetch page)` implements `fetch` over it. |
-| `(snail runtime native files)` | Node's file commands, for watch hints. |
 | `(snail runtime native socket)` | Node's TCP and UDP sockets as handles, each wait started under its ticket and answered with numbers, and the bytes an answer holds ([the native boundary](../runtimes/networking.md#wasm-boundary)). |
 | `(snail runtime native process)` | Node's child processes and termination signals, answered as the sockets are, with a command sent a character at a time. |
 | `(snail runtime resource)` | A linked file's bytes, read on every host when a task asks for them. |

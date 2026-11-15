@@ -11,9 +11,6 @@
  (build-target engine
                (program
                 (entry "tools/engine.sld")))
- (build-target reload-client
-               (program
-                (entry "host/browser/reload.sld")))
  (build-target highlight-book
                (program
                 (entry "tools/highlight-book.sld")))

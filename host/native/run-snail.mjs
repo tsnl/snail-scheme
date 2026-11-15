@@ -3,14 +3,13 @@ import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {WASI} from 'node:wasi';
-import {commandImports, instantiate, linkedFileImports, runMain, wasmImports} from '../browser/load.mjs';
+import {instantiate, linkedFileImports, runMain, wasmImports} from '../browser/load.mjs';
 import {createTasks, taskExports} from '../browser/tasks.mjs';
 import {createTcp} from './tcp.mjs';
 import {createUdp} from './udp.mjs';
 import {socketImports} from './socket-imports.mjs';
 import {createProcesses, createTermination} from './process.mjs';
 import {processImports} from './process-imports.mjs';
-import {createHints} from './hints.mjs';
 import {createAsyncFiles} from './async-files.mjs';
 
 // ---- One reactor initialization and one program invocation ----
@@ -68,7 +67,7 @@ async function run(filename, arguments_) {
     env: {...process.env, SNAIL_CWD: process.cwd(), ...env}, preopens: {'/': '/'}}));
   const wasi = freshWasi(filename.endsWith('.json') ? {SNAIL_MANIFEST: resolve(filename)} : {});
   let program, failed = false, status = 0;
-  const tcp = createTcp(), udp = createUdp(), processes = createProcesses(), hints = createHints();
+  const tcp = createTcp(), udp = createUdp(), processes = createProcesses();
   const termination = createTermination();
   // A task's exit has told its message already.
   const report = error => { failed = true; if (error instanceof Error) console.error(`snail: ${error.message}`); };
@@ -77,8 +76,7 @@ async function run(filename, arguments_) {
   const host = {'snail.runtime.wasm': wasmImports(() => program),
                 'snail.runtime.native.async-files': asyncFiles.imports,
                 'snail.runtime.native.socket': socketImports(() => program, tasks, tcp, udp),
-                'snail.runtime.native.process': processImports(() => program, tasks, processes, termination),
-                'snail.runtime.native.files': {...commandImports(hints.commands), ...hints.waits(tasks)}};
+                'snail.runtime.native.process': processImports(() => program, tasks, processes, termination)};
   // A task waiting on a timer or a ticket is live work even when no OS
   // handle keeps Node alive.
   const keepAlive = setInterval(() => {}, 60_000);
@@ -94,7 +92,7 @@ async function run(filename, arguments_) {
     status = error.code;
   } finally {
     try {
-      tasks.close(); hints.shutdown(); termination.close();
+      tasks.close(); termination.close();
       await Promise.all([tcp.shutdown(), udp.shutdown(), processes.shutdown(), asyncFiles.close()]);
     }
     finally {

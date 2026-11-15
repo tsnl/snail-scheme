@@ -8,8 +8,7 @@
 // A second call reuses the first's answer; an edit to a source, the runtime
 // crate or stage 0, a missing tool, and an edit made while stage 0 runs each
 // ask again; a file that is no input does not; a failure caches nothing;
-// every command shares the answer; and `watch` builds the reload client
-// first.
+// and every command shares the answer.
 import assert from 'node:assert/strict';
 import {execFileSync, spawnSync} from 'node:child_process';
 import {chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs';
@@ -36,12 +35,9 @@ echo bootstrap >> "$root/stage0.calls"
 mkdir -p "$root/build"
 for tool in cli runtime toolchain; do : > "$root/build/$tool.wasm"; echo "$root/build/$tool.wasm"; done
 `;
-// Node records its arguments, and a build of the reload client makes it.
+// Node records its arguments.
 const node = `#!/bin/sh
 echo "$*" >> "${root}/node.calls"
-case "$*" in
-  *" build ${root} reload-client") mkdir -p "${root}/build/reload-client" && : > "${root}/build/reload-client/program.wasm" ;;
-esac
 `;
 
 try {
@@ -49,7 +45,7 @@ try {
   put('scripts/bootstrap', stage0);
   put('node', node);
   for (const name of ['snail-scheme', 'scripts/bootstrap', 'node']) chmodSync(at(name), 0o755);
-  for (const name of ['src/a.sld', 'bootstrap/cli.sld', 'host/browser/reload.sld',
+  for (const name of ['src/a.sld', 'bootstrap/cli.sld',
     'host/browser/host.mjs', 'host/chez/load.scm', 'rust-toolchain.toml',
     'crates/snail-scheme-support/Cargo.toml', 'crates/snail-scheme-support/src/lib.rs']) put(name);
 
@@ -72,7 +68,6 @@ try {
     assert.equal(build(), before + 1);
   }
   touch('host/browser/host.mjs');
-  touch('host/browser/reload.sld');
   assert.equal(build(), 6, 'a file stage 0 does not read is no reason to ask');
 
   rmSync(at('build/cli.wasm'));
@@ -94,25 +89,14 @@ try {
   rmSync(at('stage0.fails'));
   assert.equal(build(), 11, 'a failure keeps no answer');
 
-  const client = at('build/reload-client/program.wasm');
-  const watch = () => {
-    const result = snail('watch', 'project');
-    assert.equal(result.status, 0, result.stderr);
-    return calls('node.calls').filter(line => line.endsWith(` build ${root} reload-client`)).length;
-  };
-  assert.equal(watch(), 1, '`watch` builds the reload client');
-  assert.match(calls('node.calls').at(-1), new RegExp(`${tools} watch ${client} project$`));
-  assert.equal(watch(), 2, 'each time, since the builder judges it');
-  assert.equal(calls('stage0.calls').length, 11, 'without asking stage 0');
-
   for (const command of [['lsp'], ['run', 'project', 'target'], ['format', '--check', 'a.sld']]) {
     const result = snail(...command);
     assert.equal(result.status, 0, result.stderr);
     assert.match(calls('node.calls').at(-1), new RegExp(`${tools} ${command.join(' ')}$`));
   }
   assert.equal(calls('stage0.calls').length, 11, 'every command shares the answer');
-  assert.notEqual(snail('dev').status, 0, 'an unknown command is refused');
-  console.log('launcher: cached tools, inputs, missing tools, edits while building, failures, watch and its client, every command');
+  for (const unknown of ['dev', 'watch']) assert.notEqual(snail(unknown).status, 0, `${unknown} is refused`);
+  console.log('launcher: cached tools, inputs, missing tools, edits while building, failures, every command');
 } finally {
   rmSync(root, {recursive: true, force: true});
 }

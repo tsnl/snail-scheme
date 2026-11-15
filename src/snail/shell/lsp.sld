@@ -3,8 +3,7 @@
 ;; editor opened, whose project.datum names its targets. Zed starts it
 ;; through editors/zed; any editor that speaks the protocol can.
 ;;
-;; It answers from the project's development build, the one `snail-scheme watch`
-;; makes, built in this process when the editor opens the project and each
+;; It answers from the project's development build, built in this process when the editor opens the project and each
 ;; time it saves a file. The build reads the disk, so what it reports is
 ;; what was saved:
 ;;
@@ -585,7 +584,7 @@
 
     ;; ---- Building ----
 
-    ;; Builds every target of the project, as `snail-scheme watch` does, then
+    ;; Builds every target of the project in development mode, then
     ;; publishes what failed and keeps the programs' names. A build that
     ;; failed keeps the names of the last that did not. The generations go
     ;; once their programs are read: the server publishes nothing.

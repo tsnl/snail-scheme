@@ -2,7 +2,7 @@
 
 The compiler is a `snail-scheme` program that compiles itself, inside the
 command line, `bootstrap/cli.sld`, the one program stage zero builds.
-Everything else, the engine, the reload client, `snailc` and the book's
+Everything else, the engine, `snailc` and the book's
 highlighter, the command line builds as targets of the repository's
 `project.datum`, as `clang` builds `lli`. Chez Scheme
 runs that same source for stage zero through a deliberately small host
@@ -121,11 +121,10 @@ failure of the host is status 2, with V8's message after `snail: ` and the
 Wasm frames after it, and so is a run whose tasks all wait on tickets,
 since this host completes no host operations. Node's runner gives the
 same statuses. What a module imports of
-`snail.runtime.native.socket`, `snail.runtime.native.process` or
-`snail.runtime.native.files` is linked to a function that traps when it is
-called, saying the operation runs on Node: the command line imports them
-for `watch` and `run`, and its `compile` calls none, so it compiles here,
-while a program that uses sockets, processes, file modes or watches runs on
+`snail.runtime.native.socket` or `snail.runtime.native.process` is linked to
+a function that traps when it is called, saying the operation runs on Node:
+the command line imports processes for `run`, and its `compile` calls none,
+so it compiles here, while a program that uses sockets or processes runs on
 Node.
 
 Node is still the default engine. `SNAIL_ENGINE=wasmtime` runs every compile
