@@ -7,6 +7,7 @@
   (export
    process spawn read-output write-input close-input send-signal wait-exit close-process run exec
    signals termination
+   provide-process provide-signals
    Command
    Process
    Stream Stdout Stderr
@@ -87,51 +88,56 @@
        (wait-exit (Fn Process → (Result Exit ProcessError) ! tasks))
        (close-process (Fn Process → (Result Unit ProcessError)))
        (run (Fn Command Bytes → (Result Captured ProcessError)))
-       (exec (Fn Command → ProcessError)))
-      (default
-        ((spawn (lambda (command)
+       (exec (Fn Command → ProcessError))))
+
+    ;; Node's child processes.
+    (define (provide-process (work (Fn → T ! process e))) (→ T) (! e) (∀ (T e))
+      (handle process
+          ((spawn (lambda (command)
+                    (match (located command)
+                      ((Ok path)
+                       (send-command command path)
+                       (native host-start-spawn spawned))
+                      ((Err error) (Err error)))))
+           ;; A read takes 1 to 65,536 bytes, which the host takes as given.
+           (read-output (lambda (child stream maximum)
+                          (if (and (>= maximum 1) (<= maximum 65536))
+                              (native (lambda (ticket)
+                                        (host-start-read-output ticket
+                                                                (process-handle child)
+                                                                (stream-descriptor stream)
+                                                                maximum))
+                                      held-read)
+                              (Err (new ProcessError (code "EINVAL"))))))
+           (write-input (lambda (child bytes)
+                          (native (lambda (ticket)
+                                    (host-start-write-input ticket (process-handle child) bytes))
+                                  count)))
+           (close-input (lambda (child)
+                          (answered (host-close-input (process-handle child)) done)))
+           (send-signal (lambda (child signal)
+                          (answered (host-send-signal (process-handle child) (signal-number signal))
+                                    done)))
+           (wait-exit (lambda (child)
+                        (native
+                         (lambda (ticket) (host-start-wait-exit ticket (process-handle child)))
+                         held-exit)))
+           (close-process (lambda (child)
+                            (answered (host-close-process (process-handle child)) done)))
+           (run (lambda (command input)
                   (match (located command)
                     ((Ok path)
                      (send-command command path)
-                     (native host-start-spawn spawned))
+                     (answered (host-run input) captured))
                     ((Err error) (Err error)))))
-         ;; A read takes 1 to 65,536 bytes, which the host takes as given.
-         (read-output (lambda (child stream maximum)
-                        (if (and (>= maximum 1) (<= maximum 65536))
-                            (native (lambda (ticket)
-                                      (host-start-read-output ticket
-                                                              (process-handle child)
-                                                              (stream-descriptor stream)
-                                                              maximum))
-                                    held-read)
-                            (Err (new ProcessError (code "EINVAL"))))))
-         (write-input (lambda (child bytes)
-                        (native (lambda (ticket)
-                                  (host-start-write-input ticket (process-handle child) bytes))
-                                count)))
-         (close-input (lambda (child)
-                        (answered (host-close-input (process-handle child)) done)))
-         (send-signal (lambda (child signal)
-                        (answered (host-send-signal (process-handle child) (signal-number signal))
-                                  done)))
-         (wait-exit (lambda (child)
-                      (native (lambda (ticket) (host-start-wait-exit ticket (process-handle child)))
-                              held-exit)))
-         (close-process (lambda (child)
-                          (answered (host-close-process (process-handle child)) done)))
-         (run (lambda (command input)
-                (match (located command)
-                  ((Ok path)
-                   (send-command command path)
-                   (answered (host-run input) captured))
-                  ((Err error) (Err error)))))
-         (exec (lambda (command)
-                 (match (located command)
-                   ((Ok path)
-                    (send-command command path)
-                    (host-exec)
-                    (new ProcessError (code (held-text 0))))
-                   ((Err error) error)))))))
+           (exec (lambda (command)
+                   (match (located command)
+                     ((Ok path)
+                      (send-command command path)
+                      (host-exec)
+                      (new ProcessError (code (held-text 0))))
+                     ((Err error) error)))))
+        (work)))
 
     ;; ---- Termination ----
 
@@ -143,10 +149,14 @@
     ;; during an orderly shutdown still ends the program at once, unless a
     ;; task waits again.
     (effect signals
-      ((termination (Fn → Signal ! tasks)))
-      (default
-        ((termination (lambda ()
-                        (received-signal (through-host host-start-termination host-finish)))))))
+      ((termination (Fn → Signal ! tasks))))
+
+    ;; Node's termination signals.
+    (define (provide-signals (work (Fn → T ! signals e))) (→ T) (! e) (∀ (T e))
+      (handle signals
+          ((termination (lambda ()
+                          (received-signal (through-host host-start-termination host-finish)))))
+        (work)))
 
     ;; Only SIGINT (2) and SIGTERM (15) are delivered to `termination`.
 
