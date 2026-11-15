@@ -29,7 +29,7 @@ Static builds compile the complete program and link Rust scalar services
 into one module. Development builds compile individual libraries and link
 them when loaded. The same checking and preparation contracts serve both.
 Start with `examples/fibonacci.sld`, inspect its output with
-`./scripts/snail-tool wat examples/fibonacci.sld`, then follow the passes
+`./snail-scheme run . snailc wat examples/fibonacci.sld`, then follow the passes
 below.
 
 ## The passes
@@ -479,10 +479,10 @@ available.
 
 | Path | Responsibility |
 | --- | --- |
-| `src/snail/shell/compiler/driver.sld`, `bootstrap/compile.sld` | Typed source invocation shared by both hosts: a compile that fails, or that needs an input after publishing its request, exits with status 1. `bootstrap/compile.sld` is the compiled compiler, an ordinary program. |
+| `src/snail/shell/compiler/driver.sld` | Typed source invocation shared by both hosts, `compile-arguments`: a compile that fails, or that needs an input after publishing its request, exits with status 1. The command line's `compile` action and Chez's `compile` mode call it; `tools/snailc.sld` calls it in-process. |
 | `host/chez/load.scm` | Chez's unwind boundary, which turns a failure into the same status. |
 | `crates/snail/` | `build/snail`, a native executable embedding wasmtime, which runs programs that need only WASI, linked files and module loading by `run-snail.mjs`'s protocol, the compiled compiler among them, when `SNAIL_ENGINE=wasmtime`; it precompiles the compiler to a `.cwasm`. See [the bootstrap](bootstrap.md#the-native-executable). |
-| `host/chez/snail/stage0/build.sld` | Bootstrap, standalone generated libraries, tool builds and the native assembler/linker entry point. Each compile has private scratch; rebuilding shared tools holds `build/lock`. |
+| `host/chez/snail/stage0/build.sld` | The bootstrap of the command line, standalone generated libraries, the test harness's compiles and the native assembler/linker entry point. Each compile has private scratch; rebuilding the command line holds `build/lock`. |
 | `host/chez/snail/stage0/process.sls` | Synchronous tool capture through private output files and a constant shell script with positional arguments. The parent reaps before reading or deleting files; stdin is EOF. The host boundary uses Chez process and file primitives. |
 | `crates/snail-scheme-support/` | Rust scalar services: math, Unicode, float text, console and file IO, directory and path operations, the monotonic clock, panics. External resources use explicit handles; managed references remain engine-traced. Its `assembler` feature builds the toolchain's runtime, which tools written in `snail-scheme` link (`build-toolchain-tool`), with in-process assembly and static linking for `(snail shell assembler)`, shared by the native executable. |
 | `host/native/run-snail.mjs` | Node/WASI program execution, the compiled compiler's included, on Node's main thread, plus module loading; it drives the program's task scheduler through `host/browser/tasks.mjs`, as the page does. A trap is status 2 and a WASI exit its own, as on wasmtime. |

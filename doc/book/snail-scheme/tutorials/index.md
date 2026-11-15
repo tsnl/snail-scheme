@@ -4,7 +4,7 @@ Small complete programs, each run by the repository's test suite with the
 output shown. Run one with
 
 ```sh
-./scripts/snail-tool run examples/fibonacci.sld
+./snail-scheme run . snailc run examples/fibonacci.sld
 ```
 
 - [`snail-scheme` in ten minutes](tour.md): the whole language at a glance, as

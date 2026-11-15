@@ -1,6 +1,5 @@
 #!/bin/sh
-# The formatter `snail-scheme lsp` uses, as a command-line tool. Stage 0 builds it
-# when stale.
+# The repository's formatter, the one `snail-scheme lsp` formats with, as
+# the command line's `format`.
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-formatter=$("$root/scripts/snail-tool" format-tools) || exit 1
-exec "${NODE:-node}" --no-warnings "$root/host/native/run-snail.mjs" "$formatter" "$@"
+exec "$root/snail-scheme" format "$@"

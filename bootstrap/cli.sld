@@ -1,6 +1,6 @@
-;; The `snail-scheme` command line, which stage 0 builds (`scripts/snail-tool
-;; cli-tools`) and ./snail-scheme runs on Node, after the repository's root and the
-;; runtime module programs are linked with:
+;; The `snail-scheme` command line, stage 0's one product (scripts/bootstrap),
+;; which ./snail-scheme runs on Node, after the repository's root and the
+;; runtime modules programs are linked with, plain and the toolchain's:
 ;;
 ;;   build [--release] PROJECT BUILD-TARGET
 ;;     builds a target, publishes it, and prints where its output is;
@@ -17,6 +17,13 @@
 ;;     runs the development service, (snail shell project service), with
 ;;     the reload client's program, host/browser/reload.sld built, until it
 ;;     is interrupted, as ./snail-scheme watch does;
+;;   format [--width COLUMNS] [--check|--write FILE ...]
+;;     formats standard input to standard output, or reports or rewrites
+;;     each file (snail shell format) would change, as ./snail-scheme
+;;     format does;
+;;   compile MODE SOURCE OUTPUT GENERATED [DIRECTORY ...]
+;;     makes one compile, (snail shell compiler driver): the interface stage
+;;     0 bootstraps this program through and its test harness compiles with.
 ;;
 ;; A failure prints its message and exits with status 1; the outputs of
 ;; earlier builds stay published.
@@ -39,6 +46,8 @@
  (snail shell project build)
  (snail shell project service)
  (snail shell lsp)
+ (only (snail shell format) format-source format-width)
+ (only (snail shell compiler driver) compile-arguments)
  (snail shell process))
 
 ;; ---- Requests ----
@@ -58,18 +67,22 @@
 
 (define (request (arguments (List String))) (→ Job)
   (match arguments
-    ((Cons _ (Cons root (Cons runtime (Cons action rest))))
-     (let ((tools (tools-of root runtime)))
+    ((Cons _ (Cons root (Cons runtime (Cons toolchain (Cons action rest)))))
+     (let ((tools (tools-of root runtime toolchain)))
        (cond ((string=? action "build") (build-request tools rest))
              ((string=? action "run") (run-request tools rest))
              ((string=? action "resident") (resident-request tools rest))
              (else (panic (usage))))))
     (_ (panic (usage)))))
 
-(define (tools-of (root String) (runtime String)) (→ Tools)
-  (new Tools (root root) (runtime runtime) (node (match (environment-variable "NODE")
-                                                   ((Some node) node)
-                                                   ((None) "node")))))
+(define (tools-of (root String) (runtime String) (toolchain String)) (→ Tools)
+  (new Tools
+    (root root)
+    (runtime runtime)
+    (toolchain toolchain)
+    (node (match (environment-variable "NODE")
+            ((Some node) node)
+            ((None) "node")))))
 
 (define (build-request (tools Tools) (arguments (List String))) (→ Job)
   (match arguments
@@ -449,9 +462,10 @@
 ;; ---- The development service ----
 
 ;; The service's setup, from `watch`'s arguments after the command line's
-;; own: its path, the root and the runtime.
+;; own: its path, the root and the runtimes.
 
-(define (watch-setup (cli String) (root String) (runtime String) (arguments (List String)))
+(define (watch-setup (cli String) (root String) (runtime String) (toolchain String)
+                     (arguments (List String)))
   (→ Setup)
   (let ((node (match (environment-variable "NODE")
                 ((Some node) node)
@@ -462,6 +476,7 @@
          (root root)
          (cli cli)
          (runtime runtime)
+         (toolchain toolchain)
          (node node)
          (client client)
          (project (resolved project))
@@ -471,6 +486,7 @@
          (root root)
          (cli cli)
          (runtime runtime)
+         (toolchain toolchain)
          (node node)
          (client client)
          (project (resolved project))
@@ -488,6 +504,77 @@
                                  digits)))
           (if (<= number 65535) number (panic "port must be an integer from 0 to 65535")))
         (panic "port must be an integer from 0 to 65535"))))
+
+;; ---- Formatting ----
+
+;; What `format` reads and where it answers: standard input to standard
+;; output, or files, each reported or rewritten if formatting changes it.
+(enum FormatInput
+  (StandardInput)
+  (CheckFiles ((paths (List String))))
+  (WriteFiles ((paths (List String)))))
+
+(record FormatRequest
+  ((width I64)
+   (input FormatInput)))
+
+(define (format-request (arguments (List String))) (→ FormatRequest)
+  (match arguments
+    ((Cons "--width" (Cons columns rest))
+     (match (string->i64 columns)
+       ((Some width)
+        (if (> width 0) (new FormatRequest (width width) (input (format-input rest))) (bad-width)))
+       ((None) (bad-width))))
+    (_ (new FormatRequest (width (format-width)) (input (format-input arguments))))))
+
+(define (bad-width) (→ FormatRequest)
+  (panic "snail-scheme format: --width takes a positive number of columns"))
+
+(define (format-input (arguments (List String))) (→ FormatInput)
+  (match arguments
+    ((Nil) (StandardInput))
+    ((Cons "--check" (Cons path rest)) (CheckFiles (Cons path rest)))
+    ((Cons "--write" (Cons path rest)) (WriteFiles (Cons path rest)))
+    (_ (panic "usage: snail-scheme format [--width COLUMNS] [--write|--check FILE ...]"))))
+
+;; Scalars, not lines, so the end of input invents no final newline.
+
+(define (read-input) (→ String) (! input-port)
+  (let loop ((characters (Nil)))
+    (match (read-char)
+      ((None) (list->string (reverse characters)))
+      ((Some char) (loop (Cons char characters))))))
+
+;; Every changed path, in order. Checking leaves files alone; writing
+;; leaves formatted files alone, timestamps and all.
+
+(define (format-files (width I64) (write? Bool) (paths (List String))) (→ (List String)) (! fs)
+  (let loop ((paths paths) (changed (Nil)))
+    (match paths
+      ((Nil) (reverse changed))
+      ((Cons path rest)
+       (let* ((before (read-file path)) (after (format-source before width)))
+         (if (string=? before after)
+             (loop rest changed)
+             (begin
+               (when write? (write-file path after))
+               (loop rest (Cons path changed)))))))))
+
+;; Every file that needs formatting is reported, not just the first, and
+;; then the command fails as any does, with status 1.
+
+(define (check-files (width I64) (paths (List String))) (→ Unit) (! fs)
+  (match (format-files width #f paths)
+    ((Nil) (unit))
+    (changed
+     (panic (string-join (map (lambda (path) (string-append path ": needs formatting")) changed)
+                         "\n")))))
+
+(define (format-command (request FormatRequest)) (→ Unit) (! input-port output-port fs)
+  (match (● request input)
+    ((StandardInput) (write-string (format-source (read-input) (● request width))))
+    ((CheckFiles paths) (check-files (● request width) paths))
+    ((WriteFiles paths) (format-files (● request width) #t paths) (unit))))
 
 ;; ---- The invocation ----
 
@@ -511,9 +598,12 @@
   (! host mut clock fs input-port output-port process signals tcp tasks hints)
 
   (match (command-line)
-    ((Cons cli (Cons root (Cons runtime (Cons "watch" arguments))))
-     (develop (watch-setup cli root runtime arguments)))
-    ((Cons _ (Cons root (Cons runtime (Cons "lsp" (Nil)))))
-     (serve-language (tools-of root runtime)))
+    ((Cons _ (Cons _ (Cons _ (Cons _ (Cons "compile" arguments))))) (compile-arguments arguments))
+    ((Cons _ (Cons _ (Cons _ (Cons _ (Cons "format" arguments)))))
+     (format-command (format-request arguments)))
+    ((Cons cli (Cons root (Cons runtime (Cons toolchain (Cons "watch" arguments)))))
+     (develop (watch-setup cli root runtime toolchain arguments)))
+    ((Cons _ (Cons root (Cons runtime (Cons toolchain (Cons "lsp" (Nil))))))
+     (serve-language (tools-of root runtime toolchain)))
     (arguments (invoke (request arguments))))
   (unit))

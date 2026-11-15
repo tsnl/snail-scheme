@@ -1,6 +1,6 @@
 ;; `snail-scheme` in ten minutes. Every line of this file runs:
 ;;
-;;   ./scripts/snail-tool run examples/tour.sld
+;;   ./snail-scheme run . snailc run examples/tour.sld
 ;;
 ;; prints what `examples/tour.out` holds, and the test suite checks it.
 (import

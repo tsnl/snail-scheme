@@ -6,7 +6,8 @@
 // It answers initialize with what it does; reports a project's failures
 // once the editor is ready and again on each save, at their places, and
 // clears a file once it is fixed; reports a failure of the project itself
-// on project.datum; formats the open text; gives a name's type where it is
+// on project.datum; formats the open text; colours it with semantic
+// tokens, a line at a time; gives a name's type where it is
 // used, and where it is defined, in another file or in the same one, but
 // not once the open text no longer spells it there; counts
 // positions in UTF-16 code units; and exits when told to.
@@ -134,6 +135,11 @@ try {
     documentFormattingProvider: true,
     hoverProvider: true,
     definitionProvider: true,
+    semanticTokensProvider: {
+      legend: {tokenTypes: ['comment', 'string', 'number', 'keyword', 'type', 'function'],
+                tokenModifiers: ['declaration']},
+      full: true,
+    },
   });
   send({method: 'textDocument/didOpen',
         params: {textDocument: {uri: uri('main.sld'), languageId: 'snail-scheme', version: 1, text: program}}});
@@ -169,6 +175,32 @@ try {
     range: range(0, 0, 9, 0),
     newText: messy.replace('\n(write-line (show n))', '\n    (write-line (show n))'),
   }]);
+  changed(program);
+
+  // ---- Colours ----
+
+  // A block comment over two lines is a token on each; after the snail,
+  // columns count it as two units. Names used are not coloured.
+  const coloured = '#| one\ntwo |#\n(define (f) (→ String) "🐌" 7)\n';
+  changed(coloured);
+  const {data} = await ask('textDocument/semanticTokens/full', {textDocument: {uri: uri('main.sld')}});
+  const tokens = [];
+  for (let index = 0, line = 0, column = 0; index < data.length; index += 5) {
+    const [dLine, dColumn, length, type, modifiers] = data.slice(index, index + 5);
+    line += dLine;
+    column = dLine === 0 ? column + dColumn : dColumn;
+    tokens.push([line, column, length, ['comment', 'string', 'number', 'keyword', 'type', 'function'][type], modifiers]);
+  }
+  assert.deepEqual(tokens, [
+    [0, 0, 6, 'comment', 0],
+    [1, 0, 6, 'comment', 0],
+    [2, 1, 6, 'keyword', 0],
+    [2, 9, 1, 'function', 1],
+    [2, 13, 1, 'keyword', 0],
+    [2, 15, 6, 'type', 0],
+    [2, 23, 4, 'string', 0],
+    [2, 28, 1, 'number', 0],
+  ]);
   changed(program);
 
   // ---- Diagnostics ----

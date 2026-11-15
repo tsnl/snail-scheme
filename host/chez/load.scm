@@ -1,6 +1,11 @@
 ;; Load the compiler's explicit stage-zero closure as native Chez libraries.
 ;; The .sld envelope belongs to `snail-scheme`; Chez executes only its erased
-;; compiler bodies, never an arbitrary application's source.
+;; compiler bodies, never an arbitrary application's source. Three entries:
+;;
+;;   ROOT bootstrap   builds the stage 1 command line (scripts/bootstrap);
+;;   ROOT compile ... one compile with the compiler's source, the command
+;;                    line's `compile` interface;
+;;   ROOT test ...    the test suite, tests/run.scm.
 (import
  (chezscheme))
 
@@ -102,19 +107,19 @@
                  (exit 1)])
   (cond [(string=? mode "compile")
          (load-compiler-library '(snail shell compiler driver))
-         (command-line (cons "snail-compiler" (cdddr (command-line))))
          (eval '(import
                  (snail shell compiler driver)))
-         (eval '(compile-command-line))]
+         (eval `(compile-arguments ',(cdddr (command-line))))]
         [(string=? mode "test")
          (let* ([entry (string-append root "/tests/run.scm")]
                 [imports (call-with-input-file entry read)])
            (for-each (lambda (spec) (load-compiler-library (import-name spec))) (cdr imports))
            (command-line (cons "snail-tests" (cons root (cdddr (command-line)))))
            (load entry))]
-        [(string=? mode "tool")
+        [(string=? mode "bootstrap")
          (load-compiler-library '(snail stage0 build))
-         (command-line (cons "snail-tool" (cons root (cdddr (command-line)))))
-         (load (string-append root "/scripts/snail.scm"))]
+         (eval '(import
+                 (snail stage0 build)))
+         (eval `(bootstrap ,root))]
         [else (error 'bootstrap "unknown stage-zero entry" mode)])
   )

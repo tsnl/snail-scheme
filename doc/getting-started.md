@@ -90,13 +90,14 @@ From the checkout:
 
 ```sh
 make fetch
-./scripts/snail-tool run examples/fibonacci.sld
+./snail-scheme run . snailc run examples/fibonacci.sld
 ```
 
 `make fetch` downloads the Rust crates in each `Cargo.lock` once; builds and
-tests then run offline. The first run bootstraps the compiler, which takes
-a source compilation with Chez followed by self-compilation. The compiled
-compiler rebuilds itself whenever its source changes. The example prints
+tests then run offline. The first run bootstraps the command line, which
+takes a source compilation with Chez followed by self-compilation, and then
+the command line builds `snailc`, the single-file compiler. The command line
+rebuilds itself whenever its source changes. The example prints
 `832040`. Runtime work belongs in its `main` function; libraries contain
 functions, types and pure compile-time values.
 

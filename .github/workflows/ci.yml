@@ -60,17 +60,17 @@ jobs:
             cargo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('shell.nix', 'npins/**', 'rust-toolchain.toml', 'crates/*/Cargo.*') }}-
       # Only an exact source/toolchain match may reuse the bootstrap. Never
       # restore the CPU-specific .cwasm or generated test outputs.
-      - name: Restore bootstrapped compiler
+      - name: Restore the bootstrapped command line
         id: compiler-cache
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
-          path: build/compiler/snailc.wasm
-          key: compiler-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('shell.nix', 'npins/**', 'rust-toolchain.toml', 'bootstrap/**', 'scripts/**', 'host/chez/**', 'host/native/**', 'host/browser/**', 'src/snail/core/**', 'src/snail/shell/compiler.sld', 'src/snail/shell/compiler/**', 'crates/*/Cargo.*', 'crates/*/src/**') }}
-      - name: Mark the exact compiler cache current
+          path: build/bootstrap/snail-scheme.wasm
+          key: cli-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('shell.nix', 'npins/**', 'rust-toolchain.toml', 'bootstrap/**', 'scripts/bootstrap', 'host/chez/**', 'host/native/**', 'src/**', 'crates/*/Cargo.*', 'crates/*/src/**') }}
+      - name: Mark the exact command line cache current
         if: steps.compiler-cache.outputs.cache-hit == 'true'
         # Checkout gives unchanged sources new mtimes. The exact content key
-        # above proves this compiler is current for those sources.
-        run: touch build/compiler/snailc.wasm
+        # above proves this command line is current for those sources.
+        run: touch build/bootstrap/snail-scheme.wasm
       - name: Install pinned Rust and fetch locked dependencies
         shell: nix-shell --run "bash -euo pipefail {0}"
         run: |
@@ -89,9 +89,9 @@ jobs:
       - name: Test native host
         shell: nix-shell --run "bash -euo pipefail {0}"
         run: cargo test --manifest-path crates/snail/Cargo.toml --offline
-      - name: Build compiler and development tools
+      - name: Bootstrap the command line and build the engine
         shell: nix-shell --run "bash -euo pipefail {0}"
-        run: ./scripts/snail-tool watch-tools >/dev/null
+        run: ./snail-scheme build . engine >/dev/null
       - name: Test snail-scheme
         shell: nix-shell --run "bash -euo pipefail {0}"
         run: make test

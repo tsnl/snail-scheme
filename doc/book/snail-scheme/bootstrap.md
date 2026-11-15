@@ -1,6 +1,10 @@
 # Bootstrap and self-hosting
 
-The compiler is a `snail-scheme` program that compiles itself. Chez Scheme
+The compiler is a `snail-scheme` program that compiles itself, inside the
+command line, `bootstrap/cli.sld`, the one program stage zero builds.
+Everything else, the engine, the reload client, `snailc` and the book's
+highlighter, the command line builds as targets of the repository's
+`project.datum`, as `clang` builds `lli`. Chez Scheme
 runs that same source for stage zero through a deliberately small host
 adapter. This does not make `snail-scheme` an R6RS or R7RS implementation:
 only the compiler's explicit source closure has an erased host equivalent.
@@ -40,17 +44,25 @@ both outputs run.
 
 ## Stages and checks
 
-1. A working previous compiled compiler produces stage one. For a clean
-   bootstrap, Chez executes the source to produce it instead.
-2. Stage one compiles the source to stage two.
-3. Stage two compiles the source again to stage three.
+`scripts/bootstrap` builds the command line into
+`build/bootstrap/snail-scheme.wasm`, linked with the toolchain runtime, whose
+services include the assembler, and prints it and the two runtimes, plain
+and the toolchain's, a line each, which `./snail-scheme` caches in
+`build/tools.txt`.
+
+1. A working previous command line produces stage one. For a clean
+   bootstrap, Chez executes the compiler's source to produce it instead.
+2. Stage one compiles the command line's source to stage two.
+3. Stage two compiles it again to stage three.
 4. Stages two and three must have exactly identical Wasm text.
 5. When Chez produced stage one, stages one and two must also have exactly
    identical text: the source host and compiled compiler ran the same input.
 
-`make bootstrap` removes the old compiler output and starts from Chez.
-`./scripts/snail-tool bootstrap` can reuse a working compiled compiler.
-Ordinary tool invocations rebuild stale compiler sources automatically.
+`make bootstrap` removes the old command line and starts from Chez.
+`./scripts/bootstrap` can reuse a working one: when the compiler's own
+sources are older than it, an edit elsewhere under `src/` or `bootstrap/`
+cannot change the compiler inside it, so one compile by it is the
+fixpoint's output; an edit to the compiler runs the whole fixpoint.
 Set `CHEZ` to the Chez `scheme` executable when it is not on `PATH`.
 
 `make test` exercises compiler units and linked programs with the compiled
@@ -63,11 +75,9 @@ no Chibi test or bootstrap path.
 
 `crates/snail` builds `build/snail`, a native executable that embeds
 [wasmtime](https://wasmtime.dev) 48 and runs compiled programs without
-Node, the compiled compiler among them. The compiler needs nothing else:
-the Rust runtime is merged into `snailc.wasm`, so its only imports are 21
-`wasi_snapshot_preview1` functions. It is an ordinary program,
-`bootstrap/compile.sld`, which makes one compile from its command line. A
-compile that fails exits with status 1, and so does one that needs an
+Node, the command line among them. A compile is the command line's
+`compile` action, which stage 0 runs for the bootstrap and the test
+harness: one that fails exits with status 1, and so does one that needs an
 input, having written its `request.datum` first.
 
 `build/snail run-wasm PROGRAM ARGUMENT ...` runs a compiled program as
@@ -75,8 +85,9 @@ input, having written its `request.datum` first.
 only WASI, the files it links and loading modules
 (`crates/snail/src/program.rs`).
 PROGRAM is one linked module, or the `modules.json` of a per-library build,
-which the engine runs: `(snail shell engine)`, a `snail-scheme` program stage 0
-builds to `build/engine/engine.wasm` (`bootstrap/engine.sld`), which both
+which the engine runs: `(snail shell engine)`, the root project's `engine`
+target (`tools/engine.sld`), published at `build/engine/program.wasm`
+(`./snail-scheme build . engine`, which `make test` runs first), which both
 hosts start with the manifest in `SNAIL_MANIFEST`, or at
 `SNAIL_ENGINE_MODULE`. The engine reads the runtime and each module from
 the store the manifest names, by digest, through its `linked-content-store`
@@ -109,10 +120,13 @@ happened, and a nonzero answer fails a run that succeeded. A trap or a
 failure of the host is status 2, with V8's message after `snail: ` and the
 Wasm frames after it, and so is a run whose tasks all wait on tickets,
 since this host completes no host operations. Node's runner gives the
-same statuses. A module that imports
+same statuses. What a module imports of
 `snail.runtime.native.socket`, `snail.runtime.native.process` or
-`snail.runtime.native.files` is refused before it is compiled: a program
-that uses sockets, processes, file modes or watches runs on Node.
+`snail.runtime.native.files` is linked to a function that traps when it is
+called, saying the operation runs on Node: the command line imports them
+for `watch` and `run`, and its `compile` calls none, so it compiles here,
+while a program that uses sockets, processes, file modes or watches runs on
+Node.
 
 Node is still the default engine. `SNAIL_ENGINE=wasmtime` runs every compile
 on `build/snail` instead, the bootstrap's stages included, and every program
@@ -125,8 +139,8 @@ engine, and `make bootstrap` builds it first.
 
 `build/snail precompile MODULE OUTPUT` writes Cranelift's machine code for
 a module as a `.cwasm` file, which `run-wasm` loads in place of compiling
-the module: the driver keeps `build/compiler/snailc.cwasm` beside the
-compiler, which saves each compile about 0.7 s. The file belongs to one
+the module: the driver keeps `build/bootstrap/snail-scheme.cwasm` beside the
+command line, which saves each compile most of a second. The file belongs to one
 wasmtime version, configuration and CPU, so it is a build output and is
 never committed.
 

@@ -275,36 +275,20 @@
    ((string=? (substring text from (+ from (string-length pattern))) pattern) from)
    (else (text-index text pattern (+ from 1)))))
 
-;; The production formatter's CLI contracts, including the repository's
-;; formatting gate, run on the same engine as the rest of this suite.
-(define (compile-formatter root)
-  (guard (failure (#t (report "formatter" "compile failed" (error-text failure))))
-    (let ((text
-           (program->wat root
-                         (standard-directories root)
-                         (path-join root "bootstrap/format.sld"))))
-      (lambda () (check-formatter root text)))))
+;; The formatter's contracts, `./snail-scheme format`, including the
+;; repository's formatting gate.
+(define (check-formatter root)
+  (let ((result (capture-process (list "node" (path-join root "tests/format-scheme.mjs") root))))
+    (or (zero? (caddr result))
+        (report "formatter" "CLI regression" (string-append (car result) (cadr result))))))
 
-(define (check-formatter root text)
-  (guard (failure (#t (report "formatter" "check failed" (error-text failure))))
-    (let ((program (path-join root "build/tests/formatter/format.wasm")))
-      (create-directory* (path-join root "build/tests/formatter"))
-      (link-wat root text program)
-      (let ((result (capture-process
-                     (append (list "node" (path-join root "tests/format-scheme.mjs") root)
-                             (program-command root program)))))
-        (or (zero? (caddr result))
-            (report "formatter"
-                    "CLI regression"
-                    (string-append (car result) (cadr result))))))))
-
-;; The book's preprocessor, bootstrap/highlight-book.sld, run on a small
+;; The book's preprocessor, tools/highlight-book.sld, run on a small
 ;; book, turns each `scheme` block into spans and leaves the rest as it was.
 (define (compile-book-highlighter root)
   (guard (failure (#t (report "book highlighter" "compile failed" (error-text failure))))
     (let ((text (program->wat root
                               (standard-directories root)
-                              (path-join root "bootstrap/highlight-book.sld"))))
+                              (path-join root "tools/highlight-book.sld"))))
       (lambda () (check-book-highlighter root text)))))
 
 (define (check-book-highlighter root text)
@@ -343,9 +327,24 @@
            (report "compiler run" "a trap must be status 2" (cadr trapped)))
           (else #t))))
 
+;; What a command would print and its status, (STDOUT STDERR STATUS): `wat`
+;; prints the program's text, and `run` builds the program and runs it.
 (define (tool-run root command program)
-  (capture-process
-   (list (path-join root "scripts/snail-tool") command (path-join root program))))
+  (let ((source (path-join root program))
+        (output (path-join root (string-append "build/tests/command-line/" (path-last program)
+                                               ".wasm"))))
+    (guard (failure (#t (list "" (error-text failure) 1)))
+      (if (string=? command "wat")
+          (list (program->wat root (standard-directories root) source) "" 0)
+          (begin
+            (build-program root (standard-directories root) source output (build-runtime root #f))
+            (capture-process (program-command root output)))))))
+
+;; The text one compiler command emits for a program, or #f with a report.
+(define (emitted root command what program)
+  (guard (failure
+          (#t (report "host agreement" (string-append what " failed") (error-text failure))))
+    (run-compiler root command "wat" (standard-directories root) (path-join root program))))
 
 ;; The compiled compiler and its source on Chez must emit the same text
 ;; for the same program; `make bootstrap` checks the compiler itself. The
@@ -359,15 +358,10 @@
   (for-all (lambda (program) (check-host-agreement-on root program)) host-agreement-programs))
 
 (define (check-host-agreement-on root program)
-  (let* ((tool (path-join root "scripts/snail-tool"))
-         (source (path-join root program))
-         (compiled (capture-process (list tool "wat" source)))
-         (interpreted (capture-process (list "env" "SNAIL_STAGE0=chez" tool "wat" source))))
-    (cond ((not (zero? (caddr compiled)))
-           (report "host agreement" "the compiled compiler failed" (cadr compiled)))
-          ((not (zero? (caddr interpreted)))
-           (report "host agreement" "the source on Chez failed" (cadr interpreted)))
-          ((not (equal? (car compiled) (car interpreted)))
+  (let ((compiled (emitted root (cli-compiler root #f) "the compiled compiler" program))
+        (interpreted (emitted root (chez-compiler root) "the source on Chez" program)))
+    (cond ((not (and compiled interpreted)) #f)
+          ((not (equal? compiled interpreted))
            (report "host agreement"
                    (string-append "the two hosts emit different text for " program)
                    ""))
@@ -378,16 +372,12 @@
 ;; uses is deterministic by the spec; only NaN payloads could differ.
 ;; The application fixture exercises classes, effects, tasks and serialization.
 (define (check-engine-agreement root)
-  (let* ((tool (path-join root "scripts/snail-tool"))
-         (wat (list "wat" (path-join root "tests/app-runtime/main.sld")))
-         (v8 (capture-process (append (list "env" "SNAIL_STAGE0=" "SNAIL_ENGINE=node" tool) wat)))
-         (wasmtime (capture-process
-                    (append (list "env" "SNAIL_STAGE0=" "SNAIL_ENGINE=wasmtime" tool) wat))))
+  (let* ((program "tests/app-runtime/main.sld")
+         (v8 (emitted root (cli-compiler root #f) "the compiler on V8" program))
+         (wasmtime (emitted root (cli-compiler root #t) "the compiler on wasmtime" program)))
     (cond
-     ((not (zero? (caddr v8))) (report "engine agreement" "the compiler on V8 failed" (cadr v8)))
-     ((not (zero? (caddr wasmtime)))
-      (report "engine agreement" "the compiler on wasmtime failed" (cadr wasmtime)))
-     ((not (equal? (car v8) (car wasmtime)))
+     ((not (and v8 wasmtime)) #f)
+     ((not (equal? v8 wasmtime))
       (report "engine agreement"
               "V8 and wasmtime emit different text for the application fixture"
               ""))
@@ -443,13 +433,19 @@
     (or (zero? (caddr result))
         (report "language server" "failed" (string-append (car result) (cadr result))))))
 
-;; The editors' grammar parses every tracked Scheme file and colors the
-;; reader's keywords.
+;; Zed's grammar parses every tracked Scheme file.
 (define (check-tree-sitter root)
   (let ((result (capture-process
                  (list "node" "--no-warnings" (path-join root "tests/tree-sitter.mjs") root))))
     (or (zero? (caddr result))
         (report "tree-sitter grammar" "failed" (string-append (car result) (cadr result))))))
+
+;; VS Code's extension starts the language server for the language's files.
+(define (check-vscode root)
+  (let ((result (capture-process
+                 (list "node" "--no-warnings" (path-join root "tests/vscode.mjs") root))))
+    (or (zero? (caddr result))
+        (report "vscode extension" "failed" (string-append (car result) (cadr result))))))
 
 ;; ./snail-scheme reuses stage 0's tool list only while nothing its rule reads
 ;; changed, in a root of stubs that builds nothing.
@@ -759,6 +755,7 @@
                                   (lambda () (check-launcher root))
                                   (lambda () (check-language-server root))
                                   (lambda () (check-tree-sitter root))
+                                  (lambda () (check-vscode root))
                                   (lambda () (check-project-reload root))
                                   (lambda () (check-tcp root))
                                   (lambda () (check-udp root))
@@ -774,7 +771,7 @@
                                   (compile-app-runtime root)
                                   (lambda () (check-siegework root))
                                   (compile-toolchain-assembler root)
-                                  (compile-formatter root)
+                                  (lambda () (check-formatter root))
                                   (compile-book-highlighter root))
                             '())))
          (results (append (run-checks cases)

@@ -2,6 +2,7 @@ Usage: snail-scheme build [--release] PROJECT BUILD-TARGET
        snail-scheme run PROJECT RUN-TARGET [ARGUMENT ...]
        snail-scheme watch [--port PORT] PROJECT
        snail-scheme lsp
+       snail-scheme format [--width N] [--check | --write] [FILE ...]
 
 build reads PROJECT/project.datum and publishes the named target into
 PROJECT/build/TARGET. Each output directory is a link to a completed
@@ -20,6 +21,14 @@ relinking its open pages into each new build.
 
 lsp serves the Language Server Protocol on standard input and output for
 the folder an editor opens: diagnostics from each saved build, formatting,
-hover and definitions. Zed starts it through editors/zed.
+hover, definitions and colours. Zed and VS Code start it through
+editors/zed and editors/vscode.
+
+format prints standard input formatted, or with --check fails for each FILE
+not formatted, or with --write formats each FILE in place, at --width
+columns (100 by default).
+
+In this repository, `snail-scheme run . snailc ACTION ...` compiles a single
+source file outside any project: wat, compile -o OUTPUT, or run.
 
   -h, --help       Show this help.

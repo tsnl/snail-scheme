@@ -23,7 +23,7 @@ Import sets may use `only`, `except`, `prefix` and `rename`.
   (write-line (show (fibonacci 30))))
 ```
 
-`src/` is always on the search path. `./scripts/snail-tool run -I DIR program.sld` adds more.
+`src/` is always on the search path. `./snail-scheme run . snailc run -I DIR program.sld` adds more.
 
 A library file may instead hold a `generate-library` recipe: a program whose
 value is the library's `define-library` form, as a `Syntax` from
@@ -195,7 +195,7 @@ include an independent-process confirmation. Reproduce after building the
 compiler:
 
 ```sh
-./scripts/snail-tool compile -o build/function-cache.wasm tests/benchmarks/function-cache.sld
+./snail-scheme run . snailc compile -o build/function-cache.wasm tests/benchmarks/function-cache.sld
 taskset -c 2 node --no-warnings --expose-gc scripts/benchmark-cache.mjs build/function-cache.wasm
 ```
 

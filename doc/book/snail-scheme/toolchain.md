@@ -7,15 +7,19 @@ as a separate instance.
 
 | Command | Build |
 | --- | --- |
-| `snail-scheme build`, `snail-scheme run`, `make site`, internal source compile/run | Static; `--release` does not invoke an optimizer |
+| `snail-scheme build`, `snail-scheme run`, `make site`, `snailc` | Static; `--release` does not invoke an optimizer |
 | `snail-scheme watch`, `make watch`, `snail-scheme lsp` | Separate development modules |
 
-The public commands operate on projects. Compiler contributors can use
-`./scripts/snail-tool run SOURCE`, `wat SOURCE`, `schema SOURCE` or `bootstrap`.
-`./scripts/snail-tool compile -o FILE SOURCE` writes a runnable Wasm file and its
-compiler-generated WAT; it does not provide project publication guarantees.
-Source-level `run` uses a private build directory by default and removes it when
-the process finishes.
+The public commands operate on projects. A single source file goes through
+`snailc` (`tools/snailc.sld`), a program target of the repository's own
+project that compiles with the compiler inside it:
+`./snail-scheme run . snailc run [-I DIR] SOURCE [ARGUMENT ...]` and
+`wat SOURCE` run it or print its text, and `compile -o FILE SOURCE` writes a
+runnable Wasm file and its WAT, without project publication guarantees. It
+links with the toolchain runtime, as a target asks with `(runtime toolchain)`
+among its program options, since it assembles and links in-process. What
+needs a project's build, a `generate-library` producer or the files a program
+links, it refuses.
 
 Compiler contributors also have `build/snail`, which Cargo builds from
 `crates/snail`: a native executable that embeds wasmtime. Its subcommands
@@ -23,7 +27,7 @@ are internal to the driver and the tests:
 
 | Subcommand | Does |
 | --- | --- |
-| `build/snail run-wasm PROGRAM ARGUMENT ...` | Runs a compiled program, one linked module, its `.cwasm`, or a per-library `modules.json`, which the engine links (`build/engine/engine.wasm`), as `host/native/run-snail.mjs` does, with the same exit statuses, unless it imports sockets, processes, file modes or watches. The compiled compiler is one such program. |
+| `build/snail run-wasm PROGRAM ARGUMENT ...` | Runs a compiled program, one linked module, its `.cwasm`, or a per-library `modules.json`, which the engine links (`build/engine/program.wasm`), as `host/native/run-snail.mjs` does, with the same exit statuses; a call to sockets, processes, file modes or watches traps. The command line's `compile` is one such program. |
 | `build/snail precompile MODULE OUTPUT` | Writes the module's machine code as a `.cwasm` file, which `run-wasm` loads in place of the module. |
 | `build/snail assemble INPUT.wat OUTPUT.wasm` | Assembles text with `wat`. |
 | `build/snail link INPUT.wat RUNTIME.wasm OUTPUT.wasm` | Assembles and statically links with `wasm-fuse`, using the same Rust backend as compiled tools. |
@@ -133,18 +137,19 @@ Unsaved text never enters compilation. Each attempt starts with fresh
 compilation and diagnostics; an error does not display stale diagnostics from
 the preceding attempt.
 
-The cold commands, `snail-scheme build` and `snail-scheme run`, are a `snail-scheme` program,
+Every command is a `snail-scheme` program, the command line
 `bootstrap/cli.sld`, which builds with `(snail shell project build)`: the
 compiler and linker run inside it through `(snail shell assembler)`, and
-Node runs producers. Stage 0 rebuilds the
-program when its sources change (`scripts/snail-tool cli-tools`), and is the
-only judge of when they have. Starting Chez and Cargo to find nothing stale
-takes most of a second, so `./snail-scheme` keeps stage 0's answer in
-`build/tools-KIND.txt`, stamped with the time stage 0 began, and uses it again
-while every tool it names exists and nothing stage 0's rule reads is newer:
-the `.sld` files under `src/`, `bootstrap/` and `host/browser/`,
-the runtime crate, `rust-toolchain.toml`, and stage 0's driver, which says where
-the tools go. The check over-approximates the rule, so a false alarm costs only
+Node runs producers. Stage 0, `scripts/bootstrap`, rebuilds it when its
+sources change ([the bootstrap](bootstrap.md)), and is the only judge of
+when they have. Starting Chez and Cargo to find nothing stale takes most of
+a second, so `./snail-scheme` keeps stage 0's answer in `build/tools.txt`,
+stamped with the time stage 0 began, and uses it again while every path it
+names exists and nothing stage 0's rule reads is newer: the `.sld` files
+under `src/` and `bootstrap/`, the runtime crate, `rust-toolchain.toml`,
+`scripts/bootstrap` and `host/chez/`. Before `watch`, it builds the root
+project's `reload-client` target, which takes about 0.3 s, and passes it
+to the service. The check over-approximates the rule, so a false alarm costs only
 stage 0's run, and it takes about 15 ms. `snail-scheme run`
 publishes the run's program and then becomes it through `exec`, so the
 process the caller started is the program's, with its arguments, standard
@@ -324,15 +329,13 @@ a character or a symbol. A token the reader rejects, such as `.` or `#x1F`, is
 a symbol to the grammar, so Chez's own files still parse. The grammar is for
 editors alone; the compiler keeps its reader. The generated parser is
 committed, and `tests/tree-sitter.mjs` (in `make test`) checks that
-`grammar.js` still generates it, runs its corpus and highlight tests, parses
-every tracked Scheme file without an error, and checks that the keywords Zed
-colors are `(snail shell highlight)`'s.
+`grammar.js` still generates it, runs its corpus tests and parses every
+tracked Scheme file without an error.
 
-The queries live with the extension, under `editors/zed/languages/snail-scheme/`:
-`highlights.scm` colors the core forms, the derived forms and declaration
-words, capitalized type names and the name a definition introduces;
-`brackets.scm`, `indents.scm` and `outline.scm`, which lists a library by
-its name and then its definitions.
+The grammar colours nothing: the server does. Zed requires a grammar for a
+language, and its queries live with the extension, under
+`editors/zed/languages/snail-scheme/`: `brackets.scm`, `indents.scm` and
+`outline.scm`, which lists a library by its name and then its definitions.
 
 ### The language server
 
@@ -355,6 +358,12 @@ and serves the project at the root folder the editor opens. It offers:
   definition, perhaps in an imported library, a `let` binding or a lambda's
   parameter. Hover shows the name, its type and the library it comes from;
   definition goes to the name in its binding form.
+- **Colours.** Semantic tokens for the whole open text, from
+  `(snail shell highlight)`'s classes: comments, strings and characters,
+  numbers, keywords and booleans, type names, and the name a definition
+  introduces, as a `function` with the `declaration` modifier. Other names
+  and punctuation are left to the editor. A token that spans lines is split
+  at each line's end, since a client need not accept one that does not.
 
 Positions are counted in UTF-16 code units, as the protocol's default
 encoding is. `tests/lsp.mjs` (in `make test`) drives the server through
@@ -371,12 +380,30 @@ extension is a small Rust crate, `src/snail_scheme.rs`, compiled to
 settings give under `lsp.snail-scheme`, then a `snail-scheme` on the
 worktree's `PATH`, then the repository's own `./snail-scheme` launcher. To try it, choose
 **Install Dev Extension** in Zed's extensions page and pick `editors/zed`.
+Zed colours with the server's semantic tokens once a setting asks:
+
+```json
+"languages": {"snail-scheme": {"semantic_tokens": "full"}}
+```
+
+### VS Code
+
+`editors/vscode` is a VS Code extension of a few lines of JavaScript,
+`extension.js`, on `vscode-languageclient`. It contributes the
+`snail-scheme` language for the files Zed's extension claims, with
+`language-configuration.json` for comments and brackets, and no TextMate
+grammar: the server's semantic tokens colour the text. It starts the
+command the `snail-scheme.path` setting names, else the workspace's
+`./snail-scheme` launcher, else `snail-scheme` on `PATH`, with `lsp`. To try
+it, run `npm ci --prefix editors/vscode`, then choose **Developer: Install
+Extension from Location…** and pick `editors/vscode`. `tests/vscode.mjs`
+(in `make test`) loads it with stand-ins for both modules.
 
 ### The formatter
 
-The command-line formatter, `scripts/format-scheme`, runs the same library as
-the language server. Stage 0 builds and caches its small `snail-scheme` program on first
-use and rebuilds it when its sources change. With no arguments it formats
+The command-line formatter, `snail-scheme format` (and `scripts/format-scheme`,
+which runs it), runs the same library as the language server, in the same
+program. With no arguments it formats
 stdin to stdout; optional `--width COLUMNS` selects a positive width instead of
 100. `--check FILE ...` reports every file needing formatting on stderr and
 exits with status 1; `--write FILE ...` updates only changed files.
@@ -419,8 +446,8 @@ manifests do not add offline caching or a service worker.
 
 ## Code highlighting
 
-The book colors code with `(snail shell highlight)`, and editors with the
-[grammar](#the-grammar), which agrees with it.
+The book colors code with `(snail shell highlight)`, and so do editors,
+through the [language server](#the-language-server).
 It walks text with the compiler reader's own lexical rules, the "Lexemes"
 section of `src/snail/shell/compiler/read.sld`: what starts at an index, where
 it ends, and what a token's text is to the reader, a boolean, a number, a name
@@ -437,13 +464,13 @@ what `#;` comments out as a comment.
 
 mdbook runs `scripts/highlight-book` as a preprocessor, which `book.toml`
 registers after the `links` preprocessor has included the examples. It is a
-`snail-scheme` program, `bootstrap/highlight-book.sld`, which reads the book as mdbook
+`snail-scheme` program, `tools/highlight-book.sld`, which reads the book as mdbook
 writes it, JSON on its standard input, and writes it back. It replaces each fenced block whose language is `scheme` with a
 `<pre><code class="nohighlight">` of `tok-` spans, one per token but
 whitespace, which `doc/highlight.css` colors for mdbook's light and dark
 themes; highlight.js skips code of class `nohighlight`, and still highlights
-the book's other blocks. `./scripts/snail-tool book-tools` builds the
-program when it is stale, so `mdbook build` works from a fresh checkout that
+the book's other blocks. The script builds the root project's
+`highlight-book` target first, so `mdbook build` works from a fresh checkout that
 can build the compiler. `tests/highlight-book.mjs` runs the preprocessor on a small book.
 
 Proposed: once the book is itself a `snail-scheme` project, the classifier can run

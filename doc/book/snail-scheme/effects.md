@@ -27,7 +27,7 @@ Every example is part of a program under `tests/programs/`, which
 `make test` runs, and the output shown is that program's. Run one with
 
 ```sh
-./scripts/snail-tool run tests/programs/effects-basic.sld
+./snail-scheme run . snailc run tests/programs/effects-basic.sld
 ```
 
 ## Basic effects

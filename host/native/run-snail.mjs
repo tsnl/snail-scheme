@@ -17,7 +17,8 @@ import {createAsyncFiles} from './async-files.mjs';
 //
 // A program is one linked module, or a modules.json naming the modules of a
 // program compiled one library at a time, which the engine links
-// ((snail shell engine), built to build/engine/engine.wasm, or where
+// ((snail shell engine), the root project's `engine` target, published at
+// build/engine/program.wasm, or where
 // SNAIL_ENGINE_MODULE says): this host starts the engine with the manifest
 // in SNAIL_MANIFEST, and the engine reads the objects from the store,
 // links them through the Wasm primitives of load.mjs, runs each main, and
@@ -124,7 +125,7 @@ async function loadProgram(filename, wasi, host, tasks) {
 }
 
 function engineModule() {
-  return process.env.SNAIL_ENGINE_MODULE ?? fileURLToPath(new URL('../../build/engine/engine.wasm', import.meta.url));
+  return process.env.SNAIL_ENGINE_MODULE ?? fileURLToPath(new URL('../../build/engine/program.wasm', import.meta.url));
 }
 
 // The program's main, or the engine's, whose first task links the program

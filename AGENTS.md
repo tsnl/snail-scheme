@@ -32,7 +32,11 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   libraries outside that closure; adding a dependency is a deliberate edit
   to the loader. Test support has its own allowance in test mode. The
   compiler reads record fields with `(● record label ...)`; stage 0 maps
-  that form to the same mutable record slots.
+  that form to the same mutable record slots. Stage 0's one product is the
+  stage 1 command line, `bootstrap/cli.sld`, built by `scripts/bootstrap`;
+  the command line builds everything else (the engine, the reload client,
+  `snailc` and the book's highlighter) as targets of the root project.
+  The test harness also compiles through stage 0's driver.
 
 - Every record is a heap object and every field is mutable. Primitive
   numbers and booleans remain unboxed. Keep ordinary compiler passes pure
@@ -137,13 +141,13 @@ Relevant checks are `make test`, `make check`,
 `cargo fmt --manifest-path crates/snail-scheme-support/Cargo.toml --all -- --check`, and the
 same two for `crates/snail`. Changes to the native
 executable or to how compiles and programs run must also pass
-`make test-wasmtime`. The driver rebuilds the compiled compiler whenever the
-compiler's source changes; compiler changes must also pass `make test-chez`,
+`make test-wasmtime`. Stage 0 rebuilds the command line whenever its
+source changes; compiler changes must also pass `make test-chez`,
 which runs the source on Chez, and `make bootstrap`, which rebuilds from
 Chez alone.
 Backend changes should execute linked Wasm; compilation alone does not test
 target behavior. `(snail shell format)` is the formatter shared by `snail-scheme lsp`
-and `scripts/format-scheme`; `make test` checks its CLI and every tracked
+and `snail-scheme format`; `make test` checks its CLI and every tracked
 Scheme file. Browser changes should be seen running:
 `node tests/browser/page.mjs URL SCREENSHOT` drives headless Chromium.
 

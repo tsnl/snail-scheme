@@ -44,10 +44,14 @@
        ((library (List String))
         (name String))))
 
+    ;; A program that assembles and links others, as the command line and
+    ;; tools/snailc.sld do, says `(runtime toolchain)`: it links with the
+    ;; runtime whose services include the assembler.
     (record ProgramBuild
       ((name String)
        (entry ProjectEntry)
        (libraries (List ProjectPath))
+       (toolchain? Bool)
        (loc Loc)))
 
     (record BrowserBuild
@@ -174,7 +178,8 @@
       (! compile)
       (let loop ((forms forms) (entry (ann (None) (Option ProjectEntry)))
                  (libraries (ann (None) (Option (List ProjectPath))))
-                 (public (ann (None) (Option ProjectPath))))
+                 (public (ann (None) (Option ProjectPath)))
+                 (toolchain (ann (None) (Option Bool))))
         (match forms
           ((Nil)
            (match entry
@@ -192,22 +197,40 @@
                                      (name name)
                                      (entry path)
                                      (libraries roots)
+                                     (toolchain? (match toolchain ((Some yes) yes) ((None) #f)))
                                      (loc declaration))))))))
           ((Cons form rest)
            (match form
              ((Form (Cons (Ident key _ _) (Cons value (Nil))) loc)
               (cond
                ((string=? key "entry")
-                (loop rest (unique-field key loc entry (parse-entry value)) libraries public))
+                (loop rest
+                      (unique-field key loc entry (parse-entry value))
+                      libraries
+                      public
+                      toolchain))
                ((string=? key "library-roots")
                 (loop rest
                       entry
                       (unique-field key loc libraries (map parse-path (literal-list value)))
-                      public))
+                      public
+                      toolchain))
                ((and browser? (string=? key "public"))
-                (loop rest entry libraries (unique-field key loc public (parse-path value))))
+                (loop rest
+                      entry
+                      libraries
+                      (unique-field key loc public (parse-path value))
+                      toolchain))
+               ((and (not browser?) (string=? key "runtime"))
+                (loop rest entry libraries public
+                      (unique-field key loc toolchain (parse-runtime value))))
                (else (compile-error loc (string-append "unknown build option " key)))))
              (_ (compile-error (syntax-loc form) "expected a (key value) build option")))))))
+
+    (define (parse-runtime (syntax Syntax)) (→ Bool) (! compile)
+      (match syntax
+        ((Ident "toolchain" _ _) #t)
+        (_ (compile-error (syntax-loc syntax) "expected (runtime toolchain)"))))
 
     (define (parse-build (name String) (syntax Syntax) (declaration Loc))
       (→ BuildTarget)
@@ -353,6 +376,14 @@
                       (expect name "Printer"))
                      (_ (expect "source" "application"))))
                   (_ (expect "missing application" "application")))
+                (expect (map (lambda (target)
+                               (match target
+                                 ((ProgramTarget program) (● program toolchain?))
+                                 ((BrowserTarget _) 'browser)))
+                             (● (parse-project
+                                 "((build-target tool (program (entry \"t.sld\") (runtime toolchain))) (build-target plain (program (entry \"p.sld\"))))"
+                                 "tools.datum") builds))
+                        '(#t #f))
                 (expect (● (parse-project "()" "project.datum") builds) '())
                 (let* ((project
                         (parse-project
@@ -397,6 +428,10 @@
                              "reserved .snail-*")
                             ("((build-target a:b (program (entry \"x\"))))" "one path component")
                             ("((build-target x (program)))" "requires an entry")
+                            ("((build-target x (program (entry \"x\") (runtime plain))))"
+                             "expected (runtime toolchain)")
+                            ("((build-target x (browser (entry \"x\") (runtime toolchain))))"
+                             "unknown build option runtime")
                             ("((build-target x (program (entry \"x\") (entry \"y\"))))"
                              "duplicate option entry")
                             ("((build-target x (program (entry \"x\") (library-roots ()) (library-roots ()))))"

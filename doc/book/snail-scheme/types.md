@@ -383,8 +383,8 @@ package's data, and the library reads it when it needs it:
 - **Shipped by content.** The build places the file as an object of the
   program's store, at `STORE/sha256/DIGEST`, where DIGEST is the SHA-256
   of its bytes in hex, in every build that produces one: project program
-  and browser targets, `scripts/snail-tool run` and `compile`, and the
-  development loop. A linked program's store is `store/` beside
+  and browser targets and the development loop. `snailc`, which builds
+  outside a project, refuses a program that links files. A linked program's store is `store/` beside
   `program.wasm`; a per-library build's `modules.json` names its store,
   relative to itself, and lists each object with its size. The name is
   never a path or a library's: libraries that link the same bytes ship one

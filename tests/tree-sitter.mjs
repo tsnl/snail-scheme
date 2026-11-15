@@ -5,10 +5,11 @@
 //
 // - the committed parser is the one grammar.js generates: generating again
 //   gives the same grammar.json and node-types.json;
-// - its corpus and highlight tests pass (`tree-sitter test`);
-// - every tracked Scheme file parses without an error or a missing node;
-// - the keywords Zed colors are (snail shell highlight)'s, which begin with
-//   the compiler's core forms.
+// - its corpus tests pass (`tree-sitter test`);
+// - every tracked Scheme file parses without an error or a missing node.
+//
+// Zed takes the grammar for brackets, indentation and the outline; colours
+// come from `snail-scheme lsp`'s semantic tokens.
 //
 // It needs the tree-sitter CLI and a C compiler, which shell.nix provides.
 import assert from 'node:assert/strict';
@@ -24,17 +25,6 @@ const run = (args, cwd) => {
   const result = spawnSync('tree-sitter', args, {cwd, encoding: 'utf8'});
   assert.equal(result.status, 0, `tree-sitter ${args.join(' ')}\n${result.stdout}${result.stderr}`);
   return result.stdout;
-};
-
-// The strings in a file from `header` up to `end`: the keywords a
-// definition lists, up to the next definition, or a query names, up to the
-// blank line after it.
-const listed = (file, header, end) => {
-  const text = readFileSync(join(root, file), 'utf8');
-  const start = text.indexOf(header);
-  assert.ok(start >= 0, `${file} has ${header}`);
-  const stop = text.indexOf(end, start + header.length);
-  return [...text.slice(start, stop).matchAll(/"((?:[^"\\]|\\.)*)"/g)].map(match => match[1]);
 };
 
 try {
@@ -57,12 +47,6 @@ try {
   const failures = parsed.stdout.split('\n').filter(line => /ERROR|MISSING/.test(line));
   assert.deepEqual(failures, [], `files the grammar does not parse:\n${failures.join('\n')}`);
   assert.ok(files.length > 100, `parsed only ${files.length} files`);
-
-  const colored = listed('editors/zed/languages/snail-scheme/highlights.scm', '((symbol) @keyword', '\n\n');
-  const keywords = [...listed('src/snail/shell/compiler/core.sld', '(define (core-keywords)', '(define'),
-                    ...listed('src/snail/shell/highlight.sld', '(define (keywords)', '(define')];
-  assert.deepEqual([...colored].sort(), [...keywords].sort(),
-                   'highlights.scm colors other keywords than (snail shell highlight)');
 } finally {
   rmSync(scratch, {recursive: true, force: true});
 }

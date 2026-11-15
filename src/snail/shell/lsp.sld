@@ -13,7 +13,9 @@
 ;; - definition: where a name used is defined, a global's definition or
 ;;   the form that binds a local;
 ;; - formatting: the open text as (snail shell format) formats it, which
-;;   needs no build.
+;;   needs no build;
+;; - colours: the open text's tokens as (snail shell highlight) classes
+;;   them, which needs no build either.
 ;;
 ;; The server does one thing at a time: a request that arrives during a
 ;; build waits for it. Only messages from the editor drive it, and it ends
@@ -30,7 +32,19 @@
    (snail shell utf8)
    (only (snail shell text) string-downcase)
    (only (snail shell format) format-source format-width)
-   (only (snail shell highlight) highlight-range)
+   (only (snail shell highlight)
+         Class
+         Comment
+         StringLiteral
+         CharacterLiteral
+         NumberLiteral
+         BooleanLiteral
+         Keyword
+         TypeName
+         DefinedName
+         Token
+         highlight-tokens
+         highlight-range)
    (only (snail shell compiler read)
          Loc
          SourceDiagnostic
@@ -491,6 +505,9 @@
             ((string=? method "textDocument/definition")
              (respond id (definition server params))
              server)
+            ((string=? method "textDocument/semanticTokens/full")
+             (respond id (colours server params))
+             server)
             (else (refuse id -32601 (string-append "snail-scheme lsp does not answer " method))
                   server)))
 
@@ -520,7 +537,10 @@
                                                        (field "save" (JsonBool #t)))))
                                   (field "documentFormattingProvider" (JsonBool #t))
                                   (field "hoverProvider" (JsonBool #t))
-                                  (field "definitionProvider" (JsonBool #t)))))
+                                  (field "definitionProvider" (JsonBool #t))
+                                  (field "semanticTokensProvider"
+                                         (object (list (field "legend" (legend))
+                                                       (field "full" (JsonBool #t))))))))
              (field "serverInfo" (object (list (field "name" (JsonString "snail-scheme"))))))))
 
     ;; The folder opened: the first workspace folder, the root URI, or the
@@ -700,4 +720,122 @@
              (or (= end (vector-length chars)) (delimiter? (vector-ref chars end)))
              (every? (lambda (offset)
                        (char=? (vector-ref chars (+ start offset)) (vector-ref written offset)))
-                     (iota (vector-length written))))))))
+                     (iota (vector-length written))))))
+
+    ;; ---- Colours ----
+
+    ;; Each token (snail shell highlight) classes, as the protocol's
+    ;; semantic tokens: a type from the legend, by its index, and whether the
+    ;; token declares the name. Names used, brackets and blanks take the
+    ;; editor's plain colour.
+
+    (define (legend) (→ Json)
+      (object (list (field "tokenTypes"
+                           (JsonArray (map JsonString
+                                           (list "comment" "string" "number" "keyword" "type"
+                                                 "function"))))
+                    (field "tokenModifiers" (JsonArray (list (JsonString "declaration")))))))
+
+    (define (token-type (class Class)) (→ (Option I64))
+      (match class
+        ((Comment) (Some 0))
+        ((StringLiteral) (Some 1))
+        ((CharacterLiteral) (Some 1))
+        ((NumberLiteral) (Some 2))
+        ((BooleanLiteral) (Some 3))
+        ((Keyword) (Some 3))
+        ((TypeName) (Some 4))
+        ((DefinedName) (Some 5))
+        (_ (None))))
+
+    ;; A token's piece on one line, since a client need not take a token
+    ;; that spans lines: where it starts, in UTF-16 units, its length, its
+    ;; type and modifiers.
+    (record Span
+      ((line I64)
+       (column I64)
+       (length I64)
+       (type I64)
+       (modifiers I64)))
+
+    ;; Where a walk of the text has reached: an index, and the line and
+    ;; UTF-16 column it is at.
+    (record Cursor
+      ((at I64)
+       (line I64)
+       (column I64)))
+
+    (define (colours (server Server) (params Json)) (→ Json)
+      (match (requested server params)
+        ((Some document)
+         (object
+          (list (field "data" (JsonArray (map JsonInteger (encoded (spans (● document text)))))))))
+        ((None) (JsonNull))))
+
+    ;; The tokens tile the text, so walking each one's characters in turn
+    ;; keeps the cursor at the next one's start; a token with no colour
+    ;; moves it and adds no span.
+
+    (define (spans (text String)) (→ (List Span))
+      (let ((chars (string->vector text)))
+        (let loop ((tokens (highlight-tokens text))
+                   (cursor (new Cursor (at 0) (line 0) (column 0)))
+                   (out (Nil)))
+          (match tokens
+            ((Nil) (reverse out))
+            ((Cons token rest)
+             (let ((walked (token-spans chars cursor token)))
+               (loop rest (● walked first) (append (reverse (● walked second)) out))))))))
+
+    (define (step (chars (Vector Char)) (cursor Cursor)) (→ Cursor)
+      (let ((char (vector-ref chars (● cursor at))))
+        (if (char=? char #\newline)
+            (new Cursor (at (+ (● cursor at) 1)) (line (+ (● cursor line) 1)) (column 0))
+            (new Cursor (at (+ (● cursor at) 1)) (line (● cursor line))
+                 (column (+ (● cursor column) (code-units char)))))))
+
+    ;; The token's pieces, a line each, and the cursor at its end. A
+    ;; newline ends a piece and is in none.
+
+    (define (token-spans (chars (Vector Char)) (start Cursor) (token Token))
+      (→ (Pair Cursor (List Span)))
+      (let ((type (token-type (● token class)))
+            (modifiers (match (● token class) ((DefinedName) 1) (_ 0))))
+        (let loop ((from start) (cursor start) (out (Nil)))
+          (let ((piece (lambda () (spanned from cursor type modifiers out))))
+            (cond
+             ((>= (● cursor at) (● token end)) (new Pair (first cursor) (second (reverse (piece)))))
+             ((char=? (vector-ref chars (● cursor at)) #\newline)
+              (let ((next (step chars cursor))) (loop next next (piece))))
+             (else (loop from (step chars cursor) out)))))))
+
+    (define (spanned (from Cursor)
+                     (to Cursor)
+                     (type (Option I64))
+                     (modifiers I64)
+                     (out (List Span)))
+      (→ (List Span))
+      (let ((length (- (● to column) (● from column))))
+        (match type
+          ((Some type)
+           (if (and (= (● to line) (● from line)) (> length 0))
+               (Cons (new Span (line (● from line)) (column (● from column)) (length length)
+                          (type type) (modifiers modifiers))
+                     out)
+               out))
+          ((None) out))))
+
+    ;; Five numbers a span: its line and column relative to the span before,
+    ;; the column only on the same line, then its length, type and modifiers.
+
+    (define (encoded (spans (List Span))) (→ (List I64))
+      (let loop ((spans spans) (line 0) (column 0) (out (Nil)))
+        (match spans
+          ((Nil) (reverse out))
+          ((Cons span rest)
+           (let ((same (= (● span line) line)))
+             (loop rest (● span line) (● span column)
+                   (append (reverse (list (- (● span line) line)
+                                          (if same (- (● span column) column) (● span column))
+                                          (● span length) (● span type) (● span modifiers)))
+                           out)))))))))

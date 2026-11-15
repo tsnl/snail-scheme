@@ -31,14 +31,16 @@ make fetch
 The root `project.datum` describes the whole repository, with `siegework` and
 `hearsay` browser targets. `./snail-scheme watch .` (`make watch`) builds and serves
 them as you edit, and `./snail-scheme lsp` serves an editor that opens the
-repository: [`editors/zed`](editors/zed) is a Zed extension for it.
+repository: [`editors/zed`](editors/zed) and [`editors/vscode`](editors/vscode)
+are extensions for Zed and VS Code.
 
-Compiler contributors can also inspect and execute individual source files:
+Single source files, outside any project, go through `snailc`, a program of
+the root project:
 
 ```sh
-./scripts/snail-tool run examples/fibonacci.sld
-./scripts/snail-tool compile -o build/fibonacci.wasm examples/fibonacci.sld
-./scripts/snail-tool wat examples/effects.sld
+./snail-scheme run . snailc run examples/fibonacci.sld
+./snail-scheme run . snailc compile -o build/fibonacci.wasm examples/fibonacci.sld
+./snail-scheme run . snailc wat examples/effects.sld
 ```
 
 Chibi Scheme, Rust and Node 26.4 or later are required. `shell.nix` provides

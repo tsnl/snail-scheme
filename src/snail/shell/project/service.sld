@@ -47,14 +47,15 @@
     ;; ---- Setup ----
 
     ;; What the service runs with: the repository's root; the command
-    ;; line's program and the runtime it links programs with, which the
-    ;; resident runs as; Node, which runs them; the reload client's program,
+    ;; line's program and the runtimes it links programs with, plain and
+    ;; the toolchain's, which the resident runs as; Node, which runs them; the reload client's program,
     ;; which browser targets' pages load; the project, absolute; and the
     ;; port to listen on, 0 for any.
     (record Setup
       ((root String)
        (cli String)
        (runtime String)
+       (toolchain String)
        (node String)
        (client String)
        (project String)
@@ -926,6 +927,7 @@
                                           (● setup cli)
                                           (● setup root)
                                           (● setup runtime)
+                                          (● setup toolchain)
                                           "resident"
                                           (● setup project)))
                          (directory ".")))

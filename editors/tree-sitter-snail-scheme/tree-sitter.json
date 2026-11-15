@@ -11,8 +11,7 @@
         "sls",
         "scm",
         "datum"
-      ],
-      "highlights": "../zed/languages/snail-scheme/highlights.scm"
+      ]
     }
   ],
   "metadata": {

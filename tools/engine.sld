@@ -1,5 +1,5 @@
-;; The native engine, which stage 0 builds (`scripts/snail-tool cli-tools`)
-;; and host/native/run-snail.mjs and `snail run-wasm` start to run a
+;; The native engine, the root project's `engine` target, which
+;; host/native/run-snail.mjs and `snail run-wasm` start to run a
 ;; program compiled one library at a time: SNAIL_MANIFEST names its
 ;; modules.json. Its store is files, read where the manifest says, and the
 ;; host turns the engine's scheduler and the program's through the exports

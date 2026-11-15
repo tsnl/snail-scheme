@@ -1,25 +1,25 @@
 #!/bin/sh
 root=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
-# The tools a command runs, a path a line, as stage 0 names them. Stage 0
-# rebuilds whichever is stale under build/lock and is the only judge of
-# which is; it starts Chez and Cargo, so it takes most of a second even
-# when nothing is. Its answer is kept in build/tools-KIND.txt, and used
-# again while every tool it names is there and no file its rule reads is
-# newer: the .sld files under src/ and the tools' own directories, the
-# runtime crate and the pinned toolchain, and stage 0's driver, which says
-# where the tools go. That over-approximates the rule, so a false alarm
-# costs only stage 0's run. The list takes the time stage 0 began, so an
-# edit made while it builds is newer than the list.
+# The command line and the two runtimes it runs with, a path a line, as
+# stage 0 (scripts/bootstrap) names them. Stage 0 rebuilds the command
+# line under build/lock when its source has changed and is the only judge
+# of whether it has; it starts Chez and Cargo, so it takes most of a
+# second even when nothing has. Its answer is kept in build/tools.txt, and
+# used again while every path it names is there and no file its rule reads
+# is newer: the .sld files under src/ and bootstrap/, the runtime crate and
+# the pinned toolchain, and stage 0 itself. That over-approximates the
+# rule, so a false alarm costs only stage 0's run. The list takes the time
+# stage 0 began, so an edit made while it builds is newer than the list.
 tools() {
-  list=$root/build/tools-$1.txt
+  list=$root/build/tools.txt
   if [ -f "$list" ] && unchanged "$list" && present "$list"; then
     cat "$list"
     return
   fi
   mkdir -p "$root/build"
-  began=$(mktemp "$root/build/tools-$1.XXXXXX") || return 1
-  if answer=$("$root/scripts/snail-tool" "$1"); then
+  began=$(mktemp "$root/build/tools.XXXXXX") || return 1
+  if answer=$("$root/scripts/bootstrap"); then
     printf '%s\n' "$answer" > "$began.list" && touch -r "$began" "$began.list" && mv "$began.list" "$list"
     rm -f "$began"
     printf '%s\n' "$answer"
@@ -30,9 +30,9 @@ tools() {
 }
 
 unchanged() {
-  [ -z "$(find "$root/src" "$root/bootstrap" "$root/host/browser" \( -name '*.sld' -o -name '*.sls' \) -newer "$1" -print -quit)" ] &&
+  [ -z "$(find "$root/src" "$root/bootstrap" \( -name '*.sld' -o -name '*.sls' \) -newer "$1" -print -quit)" ] &&
     [ -z "$(find "$root/crates/snail-scheme-support" -path '*/target' -prune -o -newer "$1" -print -quit)" ] &&
-    [ -z "$(find "$root/rust-toolchain.toml" "$root/scripts/snail.scm" "$root/host/chez" -newer "$1" -print -quit)" ]
+    [ -z "$(find "$root/rust-toolchain.toml" "$root/scripts/bootstrap" "$root/host/chez" -newer "$1" -print -quit)" ]
 }
 
 present() {
@@ -41,26 +41,31 @@ present() {
   done < "$1"
 }
 
+# Runs the command line. The final step execs it instead, so a signal sent
+# to `snail-scheme`, such as a test stopping `watch`, reaches it.
+cli() {
+  "${NODE:-node}" --no-warnings "$root/host/native/run-snail.mjs" "$cli" "$root" "$runtime" "$toolchain" "$@"
+}
+
 case ${1:-} in
   -h|--help) cat "$root/scripts/snail-help.txt"; exit 0 ;;
-  # The development service is the command line's `watch`, with the reload
-  # client's program, which stage 0 names first.
-  watch)
-    shift
-    tools=$(tools watch-tools) || exit 1
-    { read -r client && read -r cli && read -r runtime; } <<TOOLS
-$tools
-TOOLS
-    exec "${NODE:-node}" --no-warnings "$root/host/native/run-snail.mjs" "$cli" "$root" "$runtime" watch "$client" "$@" ;;
-  # The command line is a `snail-scheme` program (bootstrap/cli.sld). Stage 0 rebuilds
-  # it and the runtime when their sources change, and names them a line each.
-  # The language server, which an editor starts (editors/zed), is the
-  # command line's `lsp`.
-  build|run|lsp)
-    tools=$(tools cli-tools) || exit 1
-    { read -r cli && read -r runtime; } <<TOOLS
-$tools
-TOOLS
-    exec "${NODE:-node}" --no-warnings "$root/host/native/run-snail.mjs" "$cli" "$root" "$runtime" "$@" ;;
-  *) printf 'snail-scheme: expected build, run, watch or lsp; use --help\n' >&2; exit 2 ;;
+  build|run|watch|lsp|format) ;;
+  *) printf 'snail-scheme: expected build, run, watch, lsp or format; use --help\n' >&2; exit 2 ;;
 esac
+
+# The command line is a `snail-scheme` program (bootstrap/cli.sld). A
+# program it runs, such as tools/snailc.sld, finds the repository and the
+# runtime programs link with in the environment.
+tools=$(tools) || exit 1
+{ read -r cli && read -r runtime && read -r toolchain; } <<TOOLS
+$tools
+TOOLS
+export SNAIL_ROOT="$root" SNAIL_RUNTIME="$runtime"
+# The pages `watch` serves load the reload client, the repository's
+# reload-client target, which it builds first, in about 0.3 s.
+if [ "$1" = watch ]; then
+  shift
+  cli build "$root" reload-client >/dev/null || exit 1
+  set -- watch "$root/build/reload-client/program.wasm" "$@"
+fi
+exec "${NODE:-node}" --no-warnings "$root/host/native/run-snail.mjs" "$cli" "$root" "$runtime" "$toolchain" "$@"

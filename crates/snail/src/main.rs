@@ -6,8 +6,8 @@
 //!   linked module or a per-library build's modules.json, as
 //!   host/native/run-snail.mjs does on Node, when it needs no sockets or
 //!   processes (`program.rs`, with `links.rs` for the files it links and
-//!   `modules.rs` for linking modules). The compiled compiler,
-//!   `build/compiler/snailc.wasm`, is one such program.
+//!   `modules.rs` for linking modules). The command line,
+//!   `build/bootstrap/snail-scheme.wasm`, is one such program.
 //! - `snail precompile MODULE OUTPUT` writes Cranelift's machine code for a
 //!   module as a `.cwasm` file, which `run-wasm` loads in place of
 //!   compiling the module again (`engine.rs`).

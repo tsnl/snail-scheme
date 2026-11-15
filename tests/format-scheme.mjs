@@ -1,5 +1,5 @@
-// CLI regressions for the shared `snail-scheme` formatter. The main suite supplies a
-// freshly compiled program command; with only ROOT, exercise the shell launcher.
+// CLI regressions for the shared `snail-scheme` formatter, `./snail-scheme
+// format`, or the command given after ROOT.
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
 import {mkdtempSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync} from 'node:fs';
@@ -7,7 +7,7 @@ import {tmpdir} from 'node:os';
 import {join, resolve} from 'node:path';
 
 const [root, ...supplied] = process.argv.slice(2);
-const command = supplied.length ? supplied : [join(resolve(root), 'scripts/format-scheme')];
+const command = supplied.length ? supplied : [join(resolve(root), 'snail-scheme'), 'format'];
 function run(args = [], input = '', cwd = root) {
   const result = spawnSync(command[0], [...command.slice(1), ...args], {
     input, cwd, encoding: 'utf8', timeout: 120_000, maxBuffer: 16 * 1024 * 1024,

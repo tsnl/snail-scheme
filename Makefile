@@ -16,9 +16,10 @@ fetch:
 
 # The formatter's tests, the compiler's unit tests, the examples and test
 # programs, both games' tests, Siegework headless, and the development service.
-# Build shared tools before the service tests' startup deadlines begin.
+# Bootstrap the command line and build the engine that runs per-library
+# programs before the service tests' startup deadlines begin.
 test:
-	./scripts/snail-tool watch-tools >/dev/null
+	./snail-scheme build . engine >/dev/null
 	"$(CHEZ)" --script host/chez/load.scm "$(CURDIR)" test
 
 # The suite with every compile on the native executable's wasmtime instead of
@@ -28,7 +29,7 @@ test-wasmtime:
 
 # The suite with the compiler's source running on Chez instead of as Wasm.
 test-chez:
-	SNAIL_STAGE0=chez ./scripts/snail-tool watch-tools >/dev/null
+	./snail-scheme build . engine >/dev/null
 	SNAIL_STAGE0=chez "$(CHEZ)" --script host/chez/load.scm "$(CURDIR)" test
 
 # Live reload and browser interfaces in headless Chromium, which CI does
@@ -40,10 +41,11 @@ test-browser:
 	node tests/browser/ui-reload.mjs "$(CURDIR)"
 	node tests/browser/ui-requests.mjs "$(CURDIR)"
 
-# Rebuilds the compiler from its source on Chez, then to a fixpoint.
+# Rebuilds the command line from the compiler's source on Chez, then to a
+# fixpoint.
 bootstrap:
-	rm -rf build/compiler
-	./scripts/snail-tool bootstrap
+	rm -rf build/bootstrap
+	./scripts/bootstrap
 
 format:
 	git ls-files -z $(SCHEME_SOURCES) | xargs -0 ./scripts/format-scheme --write
