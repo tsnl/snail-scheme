@@ -3519,6 +3519,7 @@
                          (second cx))))
            (_ (compile-error loc "expected (ann expression type)"))))
         (("handle") (expand-handle cx env items loc))
+        (("constant-vector") (expand-constant-vector cx env items loc))
         (("downcast")
          (match items
            ((Cons _ (Cons type (Cons value (Nil))))
@@ -3764,6 +3765,65 @@
       (match (program-value (● cx program) (pattern-constructor cx env constructor))
         ((Some (Constructor case _)) (case-type-id (● cx program) case))
         (_ (compile-error (syntax-loc constructor) "not a constructor"))))
+
+    ;; ---- Constant vectors ----
+
+    ;; `(constant-vector TYPE (VALUE ...))`: a table of literals of a scalar
+    ;; type, which the backend builds once, as data, and every use shares.
+    ;; A float table is a table of its bits, an I64 table read through
+    ;; bits->f64: only the assembler knows a float literal's bits.
+    ;; Each value is checked against the type here, so the table is known
+    ;; whole before it is typed.
+
+    (define (expand-constant-vector (cx Context) (env Env) (items (List Syntax)) (loc Loc))
+      (→ (Pair Expr Context))
+      (! compile)
+      (match items
+        ((Cons _ (Cons type (Cons (Form values _) (Nil))))
+         (let ((element (constant-element cx env type)))
+           (new Pair
+             (first (expr (Lit (DConstants element
+                                           (map (lambda (value) (constant-value element value))
+                                                values)))
+                          loc))
+             (second cx))))
+        (_ (compile-error loc "expected (constant-vector TYPE (VALUE ...))"))))
+
+    (define (constant-element (cx Context) (env Env) (type Syntax)) (→ String) (! compile)
+      (match (resolve-type cx env type)
+        ((TCon name (Nil))
+         (if (member? name (list "U8" "I32" "I64" "Bool" "Char"))
+             name
+             (not-a-constant-element type)))
+        (_ (not-a-constant-element type))))
+
+    (define (not-a-constant-element (type Syntax)) (→ A) (! compile) (∀ (A))
+      (compile-error (syntax-loc type)
+                     "a constant vector holds U8, I32, I64, Bool or Char"))
+
+    ;; A value as the table holds it: an integer in its type's range, a
+    ;; Boolean, or a character.
+
+    (define (constant-value (element String) (value Syntax)) (→ Datum) (! compile)
+      (match value
+        ((Atom (DInt n) loc)
+         (cond ((string=? element "U8") (in-range n 0 255 element loc))
+               ((string=? element "I32") (in-range n -2147483648 2147483647 element loc))
+               ((string=? element "I64") (DInt n))
+               (else (not-a-constant-value element loc))))
+        ((Atom (DBool b) loc)
+         (if (string=? element "Bool") (DBool b) (not-a-constant-value element loc)))
+        ((Atom (DChar c) loc)
+         (if (string=? element "Char") (DChar c) (not-a-constant-value element loc)))
+        (_ (not-a-constant-value element (syntax-loc value)))))
+
+    (define (in-range (n I64) (low I64) (high I64) (element String) (loc Loc)) (→ Datum) (! compile)
+      (if (and (<= low n) (<= n high))
+          (DInt n)
+          (compile-error loc (string-append (i64->string n) " is not a " element))))
+
+    (define (not-a-constant-value (element String) (loc Loc)) (→ A) (! compile) (∀ (A))
+      (compile-error loc (string-append "expected a literal " element)))
 
     ;; ---- Deriving ----
 

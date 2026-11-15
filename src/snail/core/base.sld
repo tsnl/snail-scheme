@@ -9,11 +9,12 @@
    match
    ann
    downcast
+   constant-vector
    extern
    effect
    handle
    expose
-   Any U8 I32 I64 F32 F64 Bool Char Unit String Vector Bytes Fn mut
+   Any U8 I32 I64 F32 F64 Bool Char Unit String Vector ConstantVector Bytes Fn mut
    u8->i32 i32->u8
    let* letrec cond case when unless and or do
    not unit panic unsafe-total
@@ -60,6 +61,9 @@
    string->vector vector->string
    vector-length
    vector-ref
+   constant-vector-length
+   constant-vector-ref
+   constant-vector->vector
    make-vector
    vector-generate
    vector-set

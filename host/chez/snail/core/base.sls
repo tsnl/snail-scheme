@@ -63,6 +63,7 @@
    subvector
    vector-map vector-for-each vector-fold vector->list list->vector
    vector vector-set! vector-copy vector-copy!
+   constant-vector constant-vector-length constant-vector-ref constant-vector->vector
    set!
    )
   (import
@@ -324,6 +325,15 @@
       (if (< index 0) result (loop (- index 1) (cons (vector-ref items index) result)))))
 
   (define (list->vector items) (raw:list->vector items))
+
+  ;; A constant vector is a vector nothing writes; the type, erased here,
+  ;; is what forbids writing it. A quoted vector is made once, as code
+  ;; loads, so every evaluation shares it, as compiled code does.
+  (define-syntax constant-vector
+    (syntax-rules () ((_ type (value ...)) (quote #(value ...)))))
+  (define (constant-vector-length items) (vector-length items))
+  (define (constant-vector-ref items index) (vector-ref items index))
+  (define (constant-vector->vector items) (vector-copy items))
 
   (define (string->vector text) (list->vector (string->list text)))
   (define (vector->string chars) (list->string (vector->list chars)))

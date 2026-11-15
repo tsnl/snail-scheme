@@ -17,7 +17,7 @@ its `base`, `table` and `io`, so it can compile itself.
 | --- | --- |
 | `(snail core forms)` | The core forms, the builtin types, and the builtin `mut` and `host` effects. The compiler serves it; it has no file. |
 | `(snail core primitive)` | The operations the backend implements, each declared with its type by `(primitive name type)`. `(snail core base)` gives most of them their everyday names. |
-| `(snail core base)` | Forms, numeric classes, `Option`, `Result`, `Pair`, `Never`, lists, vectors, arrays, strings, `Show` and `Repr`. |
+| `(snail core base)` | Forms, numeric classes, `Option`, `Result`, `Pair`, `Never`, lists, vectors, constant vectors, strings, `Show` and `Repr`. |
 | `(snail core io)` | The `input-port`, `output-port`, `fs` and `clock` effects: [current textual ports and value representations](#current-input-and-output-ports), files as text or bytes, [directories and names](#files-and-directories), and a monotonic clock; and, as total reads, `command-line`, `environment-variable` and `working-directory`. |
 | `(snail core table)` | Immutable tables from strings to values. |
 

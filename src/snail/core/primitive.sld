@@ -45,6 +45,7 @@
    string-generate
    string->vector vector->string
    vector-length vector-ref vector-append subvector make-vector vector-set vector-generate
+   constant-vector-length constant-vector-ref constant-vector->vector
    vector vector-set! vector-copy vector-copy!
    set!)
   (import
@@ -202,6 +203,13 @@
     (primitive vector->string (Fn (Vector Char) → String))
 
     ;; ---- Vectors ----
+
+    ;; A constant vector is a table of scalars built once: nothing can write
+    ;; it, so every use shares it. Its elements are read, or copied into a
+    ;; vector of their own.
+    (primitive constant-vector-length (∀ (A) (Fn (ConstantVector A) → I64)))
+    (primitive constant-vector-ref (∀ (A) (Fn (ConstantVector A) I64 → A)))
+    (primitive constant-vector->vector (∀ (A) (Fn (ConstantVector A) → (Vector A))))
 
     ;; A vector shares its mutable slots.
     (primitive vector (∀ (A) (Fn → (Vector A))))
