@@ -11,7 +11,7 @@ SCHEME_SOURCES = '*.scm' '*.sld' '*.sls' ':(exclude)editors/zed/languages'
 # Downloads the Rust crates in each Cargo.lock, which the tests and every
 # build then use offline. Run it once in a new checkout or container.
 fetch:
-	cargo fetch --locked --manifest-path crates/snail-core-support/Cargo.toml
+	cargo fetch --locked --manifest-path crates/snail-scheme-support/Cargo.toml
 	cargo fetch --locked --manifest-path crates/snail/Cargo.toml
 
 # The formatter's tests, the compiler's unit tests, the examples and test

@@ -31,7 +31,7 @@ tools() {
 
 unchanged() {
   [ -z "$(find "$root/src" "$root/bootstrap" "$root/host/browser" \( -name '*.sld' -o -name '*.sls' \) -newer "$1" -print -quit)" ] &&
-    [ -z "$(find "$root/crates/snail-core-support" -path '*/target' -prune -o -newer "$1" -print -quit)" ] &&
+    [ -z "$(find "$root/crates/snail-scheme-support" -path '*/target' -prune -o -newer "$1" -print -quit)" ] &&
     [ -z "$(find "$root/rust-toolchain.toml" "$root/scripts/snail.scm" "$root/host/chez" -newer "$1" -print -quit)" ]
 }
 
@@ -52,7 +52,7 @@ case ${1:-} in
 $tools
 TOOLS
     exec "${NODE:-node}" --no-warnings "$root/host/native/run-snail.mjs" "$cli" "$root" "$runtime" watch "$client" "$@" ;;
-  # The command line is a Snail program (bootstrap/cli.sld). Stage 0 rebuilds
+  # The command line is a `snail-scheme` program (bootstrap/cli.sld). Stage 0 rebuilds
   # it and the runtime when their sources change, and names them a line each.
   # The language server, which an editor starts (editors/zed), is the
   # command line's `lsp`.

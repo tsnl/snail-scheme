@@ -50,11 +50,11 @@ jobs:
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: |
-            crates/snail-core-support/target
+            crates/snail-scheme-support/target
             crates/snail/target
             build/native-snail
-            build/wasm-snail-core-support
-            build/wasm-snail-core-support-toolchain
+            build/wasm-snail-scheme-support
+            build/wasm-snail-scheme-support-toolchain
           key: cargo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('shell.nix', 'npins/**', 'rust-toolchain.toml', 'crates/*/Cargo.*') }}-${{ hashFiles('crates/*/src/**') }}
           restore-keys: |
             cargo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('shell.nix', 'npins/**', 'rust-toolchain.toml', 'crates/*/Cargo.*') }}-
@@ -81,18 +81,18 @@ jobs:
         shell: nix-shell --run "bash -euo pipefail {0}"
         run: |
           make check
-          cargo fmt --manifest-path crates/snail-core-support/Cargo.toml --all -- --check
+          cargo fmt --manifest-path crates/snail-scheme-support/Cargo.toml --all -- --check
           cargo fmt --manifest-path crates/snail/Cargo.toml --all -- --check
       - name: Test Rust support
         shell: nix-shell --run "bash -euo pipefail {0}"
-        run: cargo test --manifest-path crates/snail-core-support/Cargo.toml --offline --all-features
+        run: cargo test --manifest-path crates/snail-scheme-support/Cargo.toml --offline --all-features
       - name: Test native host
         shell: nix-shell --run "bash -euo pipefail {0}"
         run: cargo test --manifest-path crates/snail/Cargo.toml --offline
       - name: Build compiler and development tools
         shell: nix-shell --run "bash -euo pipefail {0}"
         run: ./scripts/snail-tool watch-tools >/dev/null
-      - name: Test Snail
+      - name: Test snail-scheme
         shell: nix-shell --run "bash -euo pipefail {0}"
         run: make test
       - name: Retain build evidence

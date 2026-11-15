@@ -1,4 +1,4 @@
-//! `snail`: Snail Scheme's compiled Wasm on an embedded wasmtime engine.
+//! `snail`: `snail-scheme`'s compiled Wasm on an embedded wasmtime engine.
 //!
 //! The subcommands are internal to the build driver and the tests:
 //!
@@ -62,7 +62,7 @@ fn dispatch(arguments: &[String]) -> u8 {
 
 // ---- Stack ----
 
-// Compiler passes may recurse with source syntax depth. Snail Scheme loops
+// Compiler passes may recurse with source syntax depth. `snail-scheme` loops
 // use Wasm tail calls and do not consume one native frame per iteration.
 // Wasm runs on the calling thread's native stack, which must hold the Wasm
 // limit (engine::WASM_STACK) and the host frames beneath it, so every

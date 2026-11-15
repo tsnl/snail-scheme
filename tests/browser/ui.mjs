@@ -5,7 +5,7 @@
 // arrives by a command's wake, and the command focuses the field it finds
 // by id. Another command inserts text into the field as typing would,
 // which the page can undo, and Tab inserts at a caret past an astral
-// scalar, an offset of 2 to the page and 1 to Snail. Escape on the window
+// scalar, an offset of 2 to the page and 1 to `snail-scheme`. Escape on the window
 // clears the draft. The page asks its server for a greeting as it starts,
 // shares its notes with headers and a body, and hears a stream of events
 // until the server ends it. Clearing the notes asks first. Persistence and

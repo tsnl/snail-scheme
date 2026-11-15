@@ -1,4 +1,4 @@
-// CLI regressions for the shared Snail formatter. The main suite supplies a
+// CLI regressions for the shared `snail-scheme` formatter. The main suite supplies a
 // freshly compiled program command; with only ROOT, exercise the shell launcher.
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';

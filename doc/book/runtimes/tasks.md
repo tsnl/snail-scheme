@@ -1,7 +1,7 @@
 # Task operations
 
 `(snail shell task)` defines the `tasks` effect and the scheduler that
-handles it, both in Snail Scheme:
+handles it, both in `snail-scheme`:
 
 | Operation | Meaning |
 | --- | --- |
@@ -46,7 +46,7 @@ Libraries have no runtime initializers or implicit scheduler globals.
 
 The operations are not actors: there are no request/reply protocols or
 supervisors. A task's id names it to the host, which reports a trap under
-it, and to an application, whose loop is a task ([applications](../snail-core/applications.md#task-lifetime)).
+it, and to an application, whose loop is a task ([applications](../snail-scheme/applications.md#task-lifetime)).
 
 ## How a task runs
 
@@ -77,7 +77,7 @@ parent's handlers after the parent returns, and at every resumption:
 there is no global handler state to save or restore. A waiting task
 holds no stack either. Its handle returned when it waited, through each
 frame of the work, which saved the rest of itself in the resumption
-([control handlers](../snail-core/effects.md#control-handlers)).
+([control handlers](../snail-scheme/effects.md#control-handlers)).
 
 ## Scheduling
 
@@ -188,7 +188,7 @@ after completion; no managed object is shared with the kernel.
 
 A `Mailbox` is how tasks hand each other values. Messages are received in
 the order they were posted. Its queue of messages and the wakers of the
-tasks waiting for one are Snail Scheme data in its fields: tasks share a
+tasks waiting for one are `snail-scheme` data in its fields: tasks share a
 mailbox, so its contents are the one piece of state this library cannot
 thread through a single task. A post queues its message and wakes every
 waiting task, and each takes a message for itself when it runs; one that

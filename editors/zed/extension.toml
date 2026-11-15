@@ -1,14 +1,14 @@
 id = "snail-scheme"
-name = "Snail Scheme"
-description = "Snail Scheme: syntax from its tree-sitter grammar, and diagnostics, formatting, hover and definitions from `snail-scheme lsp`."
+name = "snail-scheme"
+description = "snail-scheme, a statically-typed Scheme successor: syntax from its tree-sitter grammar, and diagnostics, formatting, hover and definitions from `snail-scheme lsp`."
 version = "0.1.0"
 schema_version = 1
-authors = ["Snail Scheme contributors"]
+authors = ["snail-scheme contributors"]
 repository = "https://github.com/tsnl/snail-scheme"
 
 [language_servers.snail-scheme]
-name = "Snail Scheme"
-languages = ["Snail Scheme"]
+name = "snail-scheme"
+languages = ["snail-scheme"]
 
 # Zed fetches the grammar from the repository at `rev` and compiles
 # editors/tree-sitter-snail-scheme/src. Move `rev` to a commit that has a grammar

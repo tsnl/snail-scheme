@@ -239,7 +239,7 @@
       (Special ((distinguished I64)))
       (LetRule))
 
-    ;; Conventional Scheme indentation and Snail Scheme's forms. Binding names
+    ;; Conventional Scheme indentation and `snail-scheme`'s forms. Binding names
     ;; follow the let/-let and let*/-let* convention below, without a table entry.
 
     (define (known-rule (name String)) (→ (Option Rule))

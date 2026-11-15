@@ -1,4 +1,4 @@
-# Working on Snail Scheme
+# Working on `snail-scheme`
 
 `CLAUDE.md` is a symlink to this file; edit `AGENTS.md`.
 
@@ -6,14 +6,14 @@ Make the implementation educational to read. Follow the program from located
 syntax through resolved IR, WasmGC, and the Rust scalar services.
 Keep each pass's inputs, outputs, and decisions visible in its module.
 
-- Snail Scheme is a statically typed Scheme descendant. Its macros expand
+- `snail-scheme` is a statically-typed Scheme successor. Its macros expand
   into one typed language; it does not implement R7RS or a separate dynamic
   Scheme compatibility layer.
   Every library that ships lives under `src/`, with paths matching library
   names and `.sld` sources: the core under `src/snail/core/`, the shell built
   on it under `src/snail/shell/` (#566),
   and the compiler among them at
-  `src/snail/shell/compiler/`, written in Snail Scheme importing only
+  `src/snail/shell/compiler/`, written in `snail-scheme` importing only
   `(snail core base)`, `(snail core table)` and `(snail core io)`, so it
   compiles itself.
   Host-specific code lives only under `host/`: `chez/` for stage 0,
@@ -23,7 +23,7 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   JavaScript: hosts beyond Node and the page, such as wasmtime and
   workerd, are the long-term direction
   ([Runtimes](doc/book/runtimes/index.md#direction)). Surface macros expand away before checking. See
-  [the language chapters](doc/book/snail-core/index.md).
+  [the language chapters](doc/book/snail-scheme/index.md).
 
 - Stage 0 loads an explicit library closure through `host/chez/load.scm`:
   the host's `base`, `table`, `io` and `forms`, the build driver, and the
@@ -98,7 +98,7 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   Keep unit tests in a final `Tests` section of their implementation module.
   Each tested compiler module exports one `test-<module>` entry point under
   the `snail-tests` feature; test cases and helpers stay private. Test
-  Snail Scheme libraries with programs and their expected output. Keep
+  `snail-scheme` libraries with programs and their expected output. Keep
   integration fixtures, runners, and shared assertion support in `tests/`.
 - Target **ten lines of logic per function**. Name complete operations, not
   fragments introduced to meet a count. Exhaustive dispatch, data definitions,
@@ -122,7 +122,7 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   such as integer overflow and the order of table keys.
 - Update the relevant [book chapter](doc/book/SUMMARY.md) when contracts or
   module responsibilities change; the
-  [compiler tour](doc/book/snail-core/compilers.md) lives there. Track open
+  [compiler tour](doc/book/snail-scheme/compilers.md) lives there. Track open
   work in [GitHub issues](https://github.com/tsnl/snail-scheme/issues).
   Keep proposed APIs explicitly distinct from implemented behavior. Do not
   duplicate the book in proposal documents or progress trackers.
@@ -133,8 +133,8 @@ a failure as many times as a fix needs; pushing to see what breaks spends
 that time for a worse report. Push when a change is verified, not to find out.
 
 Relevant checks are `make test`, `make check`,
-`cargo test --manifest-path crates/snail-core-support/Cargo.toml --offline`, and
-`cargo fmt --manifest-path crates/snail-core-support/Cargo.toml --all -- --check`, and the
+`cargo test --manifest-path crates/snail-scheme-support/Cargo.toml --offline`, and
+`cargo fmt --manifest-path crates/snail-scheme-support/Cargo.toml --all -- --check`, and the
 same two for `crates/snail`. Changes to the native
 executable or to how compiles and programs run must also pass
 `make test-wasmtime`. The driver rebuilds the compiled compiler whenever the
@@ -158,7 +158,7 @@ service serves each browser target at
 into each open page while keeping the running state; point `tests/browser/page.mjs` at the
 target's URL to see an edit land. Each build first runs the producers of the
 `generate-library` recipes it reaches, so Hearsay serves too; its producers run every time. The book's
-[application model](doc/book/snail-core/applications.md) gives the reload
+[application model](doc/book/snail-scheme/applications.md) gives the reload
 rules; what matters when writing code:
 
 - The application's state crosses a relink, as it is while its type is unchanged
@@ -185,4 +185,4 @@ rules; what matters when writing code:
   `tests/browser/reload.mjs` (`make test-browser`, needs `CHROMIUM`) covers
   the pages. `tests/lsp.mjs` and `tests/tree-sitter.mjs` cover the editor
   support. See
-  [the development toolchain](doc/book/snail-core/toolchain.md).
+  [the development toolchain](doc/book/snail-scheme/toolchain.md).

@@ -105,7 +105,7 @@ functions, types and pure compile-time values.
 ```sh
 make test          # the formatter, the compiler, the programs and the games
 make check         # formatting
-cargo test --manifest-path crates/snail-core-support/Cargo.toml --offline
+cargo test --manifest-path crates/snail-scheme-support/Cargo.toml --offline
 cargo test --manifest-path crates/snail/Cargo.toml --offline
 make test-chez    # the suite with the compiler's source running on Chez
 make bootstrap     # the compiler rebuilt from Chez alone, to a fixpoint
@@ -115,5 +115,5 @@ make test-browser  # hot reload and browser interfaces in headless Chromium
 
 CI runs the first four, and `cargo fmt --check` on both crates. A change to
 the compiler also needs `make test-chez` and `make bootstrap`, and a change
-to the browser host `make test-browser`. The [tour](book/snail-core/compilers.md)
+to the browser host `make test-browser`. The [tour](book/snail-scheme/compilers.md)
 introduces the compiler.

@@ -1,4 +1,4 @@
-// Snail Scheme's syntax for editors, following the compiler's reader
+// `snail-scheme`'s syntax for editors, following the compiler's reader
 // (src/snail/shell/compiler/read.sld, "Lexemes"). The reader decides what a
 // program means; this grammar only has to agree with it on where each datum
 // and each comment starts and ends, so editors can color, indent, match

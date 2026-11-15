@@ -1,4 +1,4 @@
-name = "Snail Scheme"
+name = "snail-scheme"
 grammar = "snail_scheme"
 path_suffixes = ["sld", "sls", "scm", "datum"]
 line_comments = [";; ", "; "]

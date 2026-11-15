@@ -103,7 +103,7 @@
     ;; does, from its machine code. The native executable stays an opt-in
     ;; because wasmtime's collector makes a compile 9 to 37 times slower
     ;; than on V8 (see "The native executable" in
-    ;; doc/book/snail-core/bootstrap.md).
+    ;; doc/book/snail-scheme/bootstrap.md).
     (define (compiler-command root program)
       (if (wasmtime-engine?)
           (list (snail-binary root) "run-wasm" program)
@@ -335,7 +335,7 @@
       (rebuild-if-stale! root (compiler-path root)
                          (map (lambda (path) (path-join root path))
                               '("host/chez"
-                                "crates/snail-core-support/src/assembler.rs"
+                                "crates/snail-scheme-support/src/assembler.rs"
                                 "bootstrap/compile.sld"
                                 "src/snail/shell/compiler.sld"
                                 "src/snail/shell/compiler"
@@ -460,15 +460,15 @@
     (define (build-runtime root assembler?)
       (let ((target (path-join root
                                (if assembler?
-                                   "build/wasm-snail-core-support-toolchain"
-                                   "build/wasm-snail-core-support"))))
+                                   "build/wasm-snail-scheme-support-toolchain"
+                                   "build/wasm-snail-scheme-support"))))
         (apply run-tool "CARGO" "cargo" (string-append "+" (pinned-channel root))
                "rustc" "--crate-type=cdylib" "--quiet" "--offline" "--release"
                "--target" "wasm32-wasip1"
-               "--manifest-path" (path-join root "crates/snail-core-support/Cargo.toml")
+               "--manifest-path" (path-join root "crates/snail-scheme-support/Cargo.toml")
                "--target-dir" target
                (if assembler? '("--features" "assembler") '()))
-        (path-join target "wasm32-wasip1/release/snail_core_support.wasm")))
+        (path-join target "wasm32-wasip1/release/snail_scheme_support.wasm")))
 
     ;; rustup resolves a toolchain from the working directory, which belongs
     ;; to whoever ran the command: building a project in another directory
@@ -657,7 +657,7 @@
 
     ;; ---- Development tools ----
 
-    ;; The `snail-scheme` command line, a Snail program that builds projects with
+    ;; The `snail-scheme` command line, a `snail-scheme` program that builds projects with
     ;; the compiler inside it, linked with the toolchain's runtime, which
     ;; assembles a development build's modules; the runtime it links
     ;; programs with; and the engine that runs a development build.

@@ -346,7 +346,7 @@
        (size I64)
        (modified I64)))
 
-    ;; A code as the runtime answers it. crates/snail-core-support/src/paths.rs gives
+    ;; A code as the runtime answers it. crates/snail-scheme-support/src/paths.rs gives
     ;; each FileError its number, in this order.
 
     (define (path-result (code I32)) (→ (Result I32 FileError))
@@ -547,7 +547,7 @@
     ;; is not followed. The text is one version of the file, which kept its
     ;; length and modification time while it was read. Unlike read-file,
     ;; each failure is a value, so a service can answer it.
-    ;; crates/snail-core-support/src/paths.rs numbers the refusals after
+    ;; crates/snail-scheme-support/src/paths.rs numbers the refusals after
     ;; FileError's codes.
 
     (define (read-text-file (path String) (limit I64)) (→ (Result String TextError)) (! fs)

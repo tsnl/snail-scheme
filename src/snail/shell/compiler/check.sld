@@ -2584,7 +2584,7 @@
       (check-effects-with ck row loc (lambda (effect) (● effect around-main))))
 
     ;; The host may retain values, holding managed references opaquely. The
-    ;; trusted host respects Snail Scheme types and implements the declared
+    ;; trusted host respects `snail-scheme` types and implements the declared
     ;; effects.
     ;; What is exposed is a definition's code: a foreign function, a
     ;; constructor or an operation has none.

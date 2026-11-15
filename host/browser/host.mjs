@@ -1,5 +1,5 @@
-// The browser host for a Snail Scheme application built with (snail shell app). It owns no
-// game rules: DOM listeners queue events; the loop runs as a Snail Scheme task,
+// The browser host for a `snail-scheme` application built with (snail shell app). It owns no
+// game rules: DOM listeners queue events; the loop runs as a `snail-scheme` task,
 // presents through the `screen` effect, and waits on storage by ticket.
 
 import {createRenderer} from './renderer.mjs';

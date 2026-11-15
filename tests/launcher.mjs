@@ -50,7 +50,7 @@ try {
   for (const name of ['snail-scheme', 'scripts/snail-tool', 'node']) chmodSync(at(name), 0o755);
   for (const name of ['src/a.sld', 'bootstrap/cli.sld', 'host/browser/reload.sld',
     'host/browser/host.mjs', 'host/chez/driver.sld', 'scripts/snail.scm', 'rust-toolchain.toml',
-    'crates/snail-core-support/Cargo.toml', 'crates/snail-core-support/src/lib.rs']) put(name);
+    'crates/snail-scheme-support/Cargo.toml', 'crates/snail-scheme-support/src/lib.rs']) put(name);
 
   const snail = (...args) => spawnSync(at('snail-scheme'), args, {env: {...process.env, NODE: at('node')}, encoding: 'utf8'});
   const build = () => {
@@ -63,7 +63,7 @@ try {
   assert.match(calls('node.calls')[0], new RegExp(`${at('build/cli.wasm')} ${root} ${at('build/runtime.wasm')} build project target$`));
   assert.equal(build(), 1, 'the second reuses its answer');
 
-  for (const input of ['src/a.sld', 'host/browser/reload.sld', 'crates/snail-core-support/src/lib.rs', 'rust-toolchain.toml', 'host/chez/driver.sld']) {
+  for (const input of ['src/a.sld', 'host/browser/reload.sld', 'crates/snail-scheme-support/src/lib.rs', 'rust-toolchain.toml', 'host/chez/driver.sld']) {
     const before = calls('stage0.calls').length;
     touch(input);
     assert.equal(build(), before + 1, `an edit to ${input} asks again`);

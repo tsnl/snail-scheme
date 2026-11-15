@@ -26,7 +26,7 @@ after dispatch without letting the runtime exit early.
 
 ## Values in tasks
 
-Every value may be shared ([values](../snail-core/values.md)). Capturing a
+Every value may be shared ([values](../snail-scheme/values.md)). Capturing a
 value in a closure, or dispatching that closure as a task, keeps the value
 reachable from there, and the engine's collector reclaims it once nothing
 reaches it. A resource outside the managed heap has an explicit close
@@ -65,7 +65,7 @@ Waits are control operations of `tasks`: the scheduler retains a one-shot
 resumption and later makes it ready, when a timer passes or the host
 wakes its ticket. Like every `ctl` operation they compile to evidence
 passing, with a one-shot, first-class `resume` (see
-[control handlers](../snail-core/effects.md#control-handlers)), and never
+[control handlers](../snail-scheme/effects.md#control-handlers)), and never
 reach the host, which only drives the scheduler
 ([task operations](tasks.md)). Ordinary handlers remain tail-resumptive:
 their result returns once to the operation caller.
@@ -94,5 +94,5 @@ useful during browser hot reload. They are an application protocol on top of tas
 not the definition of a task. Reload waits for the old computation to
 settle before relinking its modules.
 
-The [typed state proposal](../snail-core/state.md) would replace application handover
+The [typed state proposal](../snail-scheme/state.md) would replace application handover
 with durable records and disposable views; that API remains under review.

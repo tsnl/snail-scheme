@@ -1,12 +1,12 @@
-// Zed's extension for Snail Scheme. The language itself is data:
+// Zed's extension for `snail-scheme`. The language itself is data:
 // extension.toml names the tree-sitter grammar in
 // editors/tree-sitter-snail-scheme, and languages/snail-scheme/ holds its
 // queries. This code answers the one question Zed asks in code: how to start
-// the language server, `snail-scheme lsp`, which is a Snail program
+// the language server, `snail-scheme lsp`, which is a `snail-scheme` program
 // (src/snail/shell/lsp.sld).
 //
 // Zed's extension host loads a component without WasmGC, so the extension
-// cannot be compiled from Snail Scheme; it stays this small.
+// cannot be compiled from `snail-scheme`; it stays this small.
 
 use zed_extension_api::{self as zed, settings::LspSettings, LanguageServerId, Result, Worktree};
 
@@ -34,7 +34,7 @@ fn command(worktree: &Worktree) -> Result<zed::Command> {
         .or_else(|| worktree.which("snail-scheme"))
         .or_else(|| worktree_launcher(worktree))
         .ok_or_else(|| {
-            "no `snail-scheme` launcher: open the Snail Scheme repository, put its \
+            "no `snail-scheme` launcher: open the snail-scheme repository, put its \
              `snail-scheme` on PATH, or set lsp.snail-scheme.binary.path"
                 .to_string()
         })?;

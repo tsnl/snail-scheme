@@ -1,5 +1,5 @@
 ;; Load the compiler's explicit stage-zero closure as native Chez libraries.
-;; The .sld envelope belongs to Snail Scheme; Chez executes only its erased
+;; The .sld envelope belongs to `snail-scheme`; Chez executes only its erased
 ;; compiler bodies, never an arbitrary application's source.
 (import
  (chezscheme))
@@ -55,7 +55,7 @@
   (if (memq (car specification) '(only except rename prefix for))
       (import-name (cadr specification)) specification))
 
-;; Snail lets a definition shadow an imported name. R6RS libraries require
+;; `snail-scheme` lets a definition shadow an imported name. R6RS libraries require
 ;; the unused import to be excluded explicitly, so establish that boundary
 ;; once while translating the library envelope.
 (define (defined-names forms)

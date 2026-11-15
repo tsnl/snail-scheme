@@ -1,9 +1,9 @@
-# Snail-Scheme
+# `snail-scheme`
 
-Snail-Core is a typed functional language with Scheme syntax that compiles to
-WasmGC. It has structs, enums, pattern matching, typeclasses with generic
+**`snail-scheme` is a statically-typed Scheme successor.** It compiles to
+WasmGC, and has structs, enums, pattern matching, typeclasses with generic
 instances, Koka-style effect rows with handlers, and wire types with stable
-schema identities. The compiler is written in Snail-Core and compiles itself; Chibi
+schema identities. The compiler is written in `snail-scheme` and compiles itself; Chibi
 Scheme runs its source to start the first bootstrap.
 
 ```scheme
@@ -54,7 +54,7 @@ the source changes.
 
 ## Siegework
 
-[Siegework](apps/siegework) is a colony game written in Snail-Core: explore a
+[Siegework](apps/siegework) is a colony game written in `snail-scheme`: explore a
 seeded map, wire an energy network across it, and destroy three nests
 before their attacks destroy your hub. It runs in the browser with WebGPU.
 **[Play it online](https://tsnl.github.io/snail-scheme/play/siegework/)**,
@@ -71,11 +71,11 @@ While you change it, `./snail-scheme watch .` (or `make watch`) serves the game 
 rebuilds whenever a source changes on disk, whatever wrote it, and relinks
 the changed libraries into the open page, which keeps the game and the
 camera. In Zed, the extension in [`editors/zed`](editors/zed) highlights,
-indents and formats Snail Scheme, and `snail-scheme lsp` reports each saved build's
+indents and formats `snail-scheme`, and `snail-scheme lsp` reports each saved build's
 diagnostics where they arise and gives a name's type and definition.
 
-The [development workflow](doc/book/snail-core/toolchain.md) still needs
-durable-state reload; the [typed-state API](doc/book/snail-core/state.md)
+The [development workflow](doc/book/snail-scheme/toolchain.md) still needs
+durable-state reload; the [typed-state API](doc/book/snail-scheme/state.md)
 remains under review.
 
 ## Reading on
@@ -83,13 +83,13 @@ remains under review.
 - [The book](https://tsnl.github.io/snail-scheme/) gathers the guides below
   with the player's guide and tutorials; `make pages` builds it with the
   game into `build/pages`.
-- [The language chapters](doc/book/snail-core/index.md) describe terms, types,
+- [The language chapters](doc/book/snail-scheme/index.md) describe terms, types,
   macros and the standard library as implemented.
-- [The compiler architecture](doc/book/snail-core/compilers.md) follows a program
+- [The compiler architecture](doc/book/snail-scheme/compilers.md) follows a program
   through the passes, linking and incremental caches.
-- [Projects and targets](doc/book/snail-core/projects.md) defines inert descriptions,
+- [Projects and targets](doc/book/snail-scheme/projects.md) defines inert descriptions,
   directory outputs and artifact bundles.
-- [The development toolchain](doc/book/snail-core/toolchain.md) explains the native
+- [The development toolchain](doc/book/snail-scheme/toolchain.md) explains the native
   project service, the language server and the editor grammar.
 - [GitHub issues](https://github.com/tsnl/snail-scheme/issues) track open work.
 

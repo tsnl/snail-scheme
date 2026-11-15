@@ -796,7 +796,7 @@
     ;; of the handled computation as `resume`; the others return to their
     ;; caller. `defaults` maps operation names to what performs them when no
     ;; handler is in scope.
-    ;; Each default is an operation's and the global of the Snail Scheme
+    ;; Each default is an operation's and the global of the `snail-scheme`
     ;; function the effect's declaration defines for it, which runs under
     ;; the performer's handlers.
     ;; An effect: its operations, those among them that are control
