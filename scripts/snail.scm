@@ -7,7 +7,7 @@
 ;; ---- Requests ----
 
 (define usage
-  "usage: scripts/snail-tool compile|run|wat|schema [--release] [-I DIR] [-o OUTPUT] SOURCE [ARGUMENT ...] | scripts/snail-tool bootstrap")
+  "usage: scripts/snail-tool compile|run|wat|schema [--error-format=text|json] [--release] [-I DIR] [-o OUTPUT] SOURCE [ARGUMENT ...] | scripts/snail-tool bootstrap")
 
 ;; Returns an association list of the options, the source and its arguments.
 (define (request arguments)
@@ -16,12 +16,17 @@
   (let loop ((rest (cdr arguments)) (options (list (cons 'action (car arguments)))))
     (cond ((null? rest) (error 'snail usage))
           ((string=? (car rest) "--release") (loop (cdr rest) options))
+          ((member (car rest) '("--error-format=text" "--error-format=json"))
+           (compiler-error-format (substring (car rest) 15 (string-length (car rest))))
+           (loop (cdr rest) options))
           ((member (car rest) '("-I" "-o"))
            (when (null? (cdr rest)) (error 'snail usage))
            (loop (cddr rest)
                  (cons
                   (cons (if (string=? (car rest) "-I") 'library 'output) (absolute (cadr rest)))
                   options)))
+          ((and (> (string-length (car rest)) 0) (char=? (string-ref (car rest) 0) #\-))
+           (error 'snail (string-append "unknown option " (car rest))))
           (else (append options
                         (list (cons 'source (absolute (car rest)))
                               (cons 'arguments (cdr rest))))))))
@@ -89,7 +94,7 @@
   0)
 
 (let ((arguments (command-line)))
-  (exit (guard (failure (#t (report-failure "snail" failure)))
+  (exit (guard (failure (#t (report-failure failure)))
           (cond ((equal? (cddr arguments) '("bootstrap")) (bootstrap! (cadr arguments)) 0)
                 ((equal? (cddr arguments) '("cli-tools"))
                  (print-paths (build-cli-tools (cadr arguments))))

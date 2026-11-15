@@ -1,5 +1,5 @@
-Usage: snail build [--release] PROJECT BUILD-TARGET
-       snail run PROJECT RUN-TARGET [ARGUMENT ...]
+Usage: snail build [--release] [--error-format=text|json] PROJECT BUILD-TARGET
+       snail run [--error-format=text|json] PROJECT RUN-TARGET [ARGUMENT ...]
        snail dev [--port PORT] PROJECT
 
 build reads PROJECT/project.datum and publishes the named target into
@@ -19,3 +19,10 @@ update clean editor buffers and report conflicts for unsaved buffers.
 Application launching/reloading is not integrated into dev yet.
 
   -h, --help       Show this help.
+  --error-format=text|json
+                   Render build/run diagnostics on stderr as text (default)
+                   or one JSON object per diagnostic. Place before PROJECT.
+                   Does not change successful stdout or application output.
+
+Text diagnostics use ERROR/WARNING/INFO labels and … for notes, with terminal color.
+NO_COLOR disables color; FORCE_COLOR=1 forces it and FORCE_COLOR=0 disables it.

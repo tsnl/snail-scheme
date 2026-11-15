@@ -475,6 +475,12 @@ and assembled anew. Publishing installs the completed candidate atomically;
 a failed or discarded attempt leaves the previously accepted generation
 available.
 
+Command-line diagnostics use colored `ERROR` labels followed by
+`FILE:LINE:COLUMN: MESSAGE`, or `FILE: MESSAGE` for a whole file, and exit
+with status 1. `--error-format=json` writes one structured diagnostic per
+stderr line using the resident builder's `{severity, message, source}` schema.
+See [diagnostic output](toolchain.md) for the formats and color policy.
+
 ## Supporting modules
 
 | Path | Responsibility |
