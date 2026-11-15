@@ -28,7 +28,7 @@ the runtime interfaces.
 
 | Library | Contents |
 | --- | --- |
-| `(snail shell math)` | Elementary functions on `F64`. |
+| `(snail shell math)` | Elementary functions on `F64`, ported from fdlibm as Rust's libm crate carries it, and equal to libm's bit for bit. |
 | `(snail shell text)` | Unicode character properties, case mapping and decimal digit values, read from the constant arrays of `(snail shell text unicode)`, which `make unicode-tables` generates from Rust's Unicode properties. |
 | `(snail shell random)` | A deterministic generator as a value. |
 | `(snail shell utf8)` | `string->utf8`, and `utf8->string`, which rejects ill-formed bytes as a fatal `TextDecoder` does, giving the offset of the first bad sequence. |
