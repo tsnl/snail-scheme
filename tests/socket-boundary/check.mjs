@@ -13,6 +13,8 @@ import {createTcp} from '../../host/native/tcp.mjs';
 import {createUdp} from '../../host/native/udp.mjs';
 import {socketImports} from '../../host/native/socket-imports.mjs';
 import {createAsyncFiles} from '../../host/native/async-files.mjs';
+import {createProcesses, createTermination} from '../../host/native/process.mjs';
+import {processImports} from '../../host/native/process-imports.mjs';
 
 let program, api, tasks, driving = null, requestTable = null;
 const tcp = createTcp(), udp = createUdp(), reported = [];
@@ -20,10 +22,12 @@ const tcp = createTcp(), udp = createUdp(), reported = [];
 const requests = new Map();
 // The imports outlive each run of tasks, which cancelling replaces.
 const current = {start: (...args) => tasks.start(...args), finish: ticket => tasks.finish(ticket)};
-// The Node target installs Node's file reads too, which this test leaves
-// unused.
+// The Node target installs Node's file reads and processes too, which this
+// test leaves unused.
+const processes = createProcesses(), termination = createTermination();
 const host = {'snail.runtime.native.socket': socketImports(() => program, current, tcp, udp),
-              'snail.runtime.native.async-files': createAsyncFiles(current).imports};
+              'snail.runtime.native.async-files': createAsyncFiles(current).imports,
+              'snail.runtime.native.process': processImports(() => program, current, processes, termination)};
 const wasi = createWasi({print: (_, line) => reported.push(line)}), filename = resolve(process.argv[2]);
 
 // Each run of tasks gets its own table of requests.
@@ -218,8 +222,8 @@ try {
   assert.deepEqual(reported, []);
 } finally {
   tasks.close();
-  await tcp.shutdown();
-  await udp.shutdown();
+  termination.close();
+  await Promise.all([tcp.shutdown(), udp.shutdown(), processes.shutdown()]);
   clearTimeout(timeout);
 }
 console.log('socket boundary: typed TCP/UDP results, staging and aborts');

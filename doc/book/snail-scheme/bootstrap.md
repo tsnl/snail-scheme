@@ -132,10 +132,15 @@ Node.
 
 Node is still the default engine. `SNAIL_ENGINE=wasmtime` runs every compile
 on `build/snail` instead, the bootstrap's stages included, and every program
-the driver runs that imports neither of those modules: `program-command`
-in `host/chez/snail/stage0/build.sld` asks `build/snail imports PROGRAM`,
-which reads the import sections without compiling them, and runs the rest
-on Node. Stage 0 also uses this executable for assembly and static linking,
+the driver runs that imports neither of those modules. A test program builds
+for the engine that runs it: for `(snail target wasmtime)` under
+`SNAIL_ENGINE=wasmtime`, unless `node-programs` in
+`host/chez/snail/stage0/build.sld` names it as one that needs Node's
+processes, signals or sockets, and for `(snail target node)` otherwise.
+A program built for Node imports those modules, since its target installs
+their handlers, so `program-command` asks `build/snail imports PROGRAM`,
+which reads the import sections without compiling them, and runs it on
+Node. Stage 0 also uses this executable for assembly and static linking,
 so the driver builds it with Cargo when stale regardless of the selected
 engine, and `make bootstrap` builds it first.
 

@@ -69,6 +69,28 @@
             (path-join root "host/native/run-snail.mjs")
             program))
 
+    ;; A program builds for the engine that runs it: for (snail target
+    ;; wasmtime) under SNAIL_ENGINE=wasmtime, unless it is one of the
+    ;; programs that need Node's processes, signals or sockets, and for
+    ;; (snail target node) otherwise. A program built for Node imports
+    ;; Node's host modules, so Node runs it.
+    (define (program-target root source)
+      (if (and (wasmtime-engine?)
+               (not (member source (map (lambda (path) (path-join root path)) node-programs))))
+          "wasmtime"
+          "node"))
+
+    (define node-programs
+      '("tests/programs/http-exchange.sld"
+        "tests/programs/http-sockets.sld"
+        "tests/programs/process-exec.sld"
+        "tests/programs/process-run.sld"
+        "tests/programs/process.sld"
+        "tests/programs/tcp.sld"
+        "tests/programs/udp.sld"
+        "tests/socket-boundary/main.sld"
+        "tests/termination/main.sld"))
+
     ;; The host modules only Node provides; `run-wasm` links each function
     ;; of one as a trap (crates/snail/src/program.rs).
     (define node-hosted-modules
@@ -600,13 +622,14 @@
         (create-directory* (path-directory output))
         (let ((links (with-private-directory root
                                              (lambda (directory)
-                                               (run-compiler-into root
-                                                                  (selected-compiler root)
-                                                                  "wat"
-                                                                  directories
-                                                                  source
-                                                                  wat
-                                                                  directory)
+                                               (run-compiler-for root
+                                                                 (selected-compiler root)
+                                                                 "wat"
+                                                                 (program-target root source)
+                                                                 directories
+                                                                 source
+                                                                 wat
+                                                                 directory)
                                                (read-links directory)))))
           (link-wat-file root wat output runtime)
           (place-links! links (path-directory output))
@@ -673,13 +696,14 @@
       (create-directory* output)
       (let* ((links (with-private-directory root
                                             (lambda (generated)
-                                              (run-compiler-into root
-                                                                 (selected-compiler root)
-                                                                 "modules"
-                                                                 directories
-                                                                 source
-                                                                 output
-                                                                 generated)
+                                              (run-compiler-for root
+                                                                (selected-compiler root)
+                                                                "modules"
+                                                                (program-target root source)
+                                                                directories
+                                                                source
+                                                                output
+                                                                generated)
                                               (read-links generated))))
              (names (read-lines (path-join output "modules"))))
         (for-each (lambda (name) (assemble root (path-join output name))) names)
