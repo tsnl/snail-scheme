@@ -33,8 +33,10 @@ handles it, both in `snail-scheme`:
 ```
 
 The host creates one explicit `Scheduler` for a program and passes it to
-`start-main`, turns, wakes and closure. The root `main` runs as its first
-task and may yield, sleep or await like any other task. A child starts when
+the program's `main` export, turns, wakes and closure. That export is the
+entry's start, which calls its target library's `start` with the scheduler
+and the root `main`, so `main` runs as the scheduler's first task and may
+yield, sleep or await like any other task. A child starts when
 the parent yields or returns. Every task runs until it finishes: nothing
 cancels one. Tasks that should stop early agree on it between themselves,
 for example through a mailbox or a flag in a record they share. A trap

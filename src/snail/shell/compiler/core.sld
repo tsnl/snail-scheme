@@ -802,16 +802,12 @@
     ;; function the effect's declaration defines for it, which runs under
     ;; the performer's handlers.
     ;; An effect: its operations, those among them that are control
-    ;; operations, the defaults its declaration gives, and whether the host
-    ;; handles it around a program's body, as `tasks` is handled, since a
-    ;; program's statements run as its first task, so the body may perform
-    ;; it although no default could.
+    ;; operations, and the defaults its declaration gives.
     (record Effect
       ((name String)
        (operations (List String))
        (control (List String))
-       (defaults (List (Pair String String)))
-       (around-main Bool)))
+       (defaults (List (Pair String String)))))
 
     ;; What a unique value name denotes. A definition's scheme is its
     ;; signature's, or none until it is inferred, and `signature` is where

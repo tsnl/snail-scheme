@@ -492,7 +492,6 @@
 (expose read-file-resource "resource:read")
 (expose resource-finish "resource:finish")
 (expose resource-byte "resource:byte")
-(expose program-status "engine:status")
 (expose close-program "engine:close")
 
 (define (start-engine (engine Engine)) (→ Unit) (! mut host fs wasm)

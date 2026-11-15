@@ -30,7 +30,7 @@ if (memory) {
   const wasi = new WASI({version: 'preview1', args: [], env: {}, preopens: {}});
   const {instance} = await WebAssembly.instantiate(bytes, wasi.getImportObject());
   wasi.initialize(instance);
-  assert.equal(instance.exports.main(), 0);
+  assert.equal(runMain(instance.exports), -1n);
   for (let repeat = 0; repeat < 4; ++repeat) {
     globalThis.gc();
     assert.equal(instance.exports[name](count), expected(count));
@@ -45,7 +45,7 @@ for (const [name, file] of [['baseline', baseline], ['current', current]]) {
   const wasi = new WASI({version: 'preview1', args: [], env: {}, preopens: {}});
   const {instance} = await WebAssembly.instantiate(bytes, wasi.getImportObject());
   wasi.initialize(instance);
-  assert.equal(instance.exports.main(), 0);
+  assert.equal(runMain(instance.exports), -1n);
   modules.push({name, bytes: bytes.length, exports: instance.exports});
 }
 console.log(JSON.stringify({node: process.version, v8: process.versions.v8,
@@ -74,4 +74,12 @@ for (const [name, size, expected] of cases) {
   console.log(JSON.stringify({case: name, count: count.toString(), checksum: expected(count).toString(),
     baseline_ms: median('baseline'), current_ms: median('current'),
     ratio: median('current') / median('baseline'), samples: rows}));
+}
+
+// Main is the scheduler's first task, and its first turn runs it; a
+// benchmark's main dispatches nothing, so that turn leaves no task live.
+function runMain(exports) {
+  const scheduler = exports['tasks:create']();
+  exports.main(scheduler);
+  return exports['tasks:turn'](scheduler, 0n);
 }

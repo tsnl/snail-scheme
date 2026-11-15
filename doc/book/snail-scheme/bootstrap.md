@@ -100,8 +100,8 @@ library's module after those it imports from, names the runtime
 `main`, and serves the files the program links, each
 read in a task of its own that wakes the reading task's ticket. Linking is
 the engine's first task: the host turns the engine once after its `main`,
-which links the program and calls its entry, and then reads
-`engine:status`. The engine's own scheduler and the program's are turned
+which links the program and calls its entry's start, `main:body`, with
+the engine's scheduler. The engine's own scheduler and the program's are turned
 as one through its `engine:turn`, `engine:wake`, `engine:close-tasks`,
 `engine:running` and `engine:live`, which the host calls in place of
 `tasks:*`. A file a
@@ -111,13 +111,13 @@ when a task first asks for it, which wakes the task's ticket between turns
 (`links.rs`).
 WASI gets PROGRAM and the arguments, the environment with `SNAIL_CWD`
 naming the working directory, and the host's `/` preopened; then
-`_initialize`, and
-`main`, and then the program's tasks, driven until none is live
+`_initialize`; then `main` with a new scheduler, which starts the
+program's `main` as its first task, or the engine's `engine:start`; then
+the first turn; and then the program's tasks, driven until none is live
 ([driving the scheduler](../runtimes/scheduling.md)).
-The `main`'s result, the engine's `engine:status` for a manifest, is the
-status when it is 0 to 255, and 1 otherwise, and 1 when a task trapped or
-exited; a WASI exit in a `main` is its own status, and ends the program
-before its tasks run.
+The status is 0, or 1 when a task trapped or exited after the first turn;
+a WASI exit in the first turn is its own status, and ends the program
+before its other tasks run.
 `close-resources`, or the runtime's `snail:io/close-all`, runs whatever
 happened, and a nonzero answer fails a run that succeeded. A trap or a
 failure of the host is status 2, with V8's message after `snail: ` and the

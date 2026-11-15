@@ -8,13 +8,13 @@
 //! with SNAIL_CWD, and `/` (engine.rs). The protocol:
 //!
 //! 1. instantiate, then call `_initialize`;
-//! 2. call each module's `main` in program order: the last one's result is
-//!    the exit status when it is 0 to 255, and 1 otherwise, while a WASI
-//!    exit ends the program with its own status;
-//! 3. drive the program's tasks, when it links (snail shell task), until
-//!    none is live: a task that traps is told, and a task that panics tells
-//!    its message and exits; either fails the run, status 1, and ends driving;
-//!    reachable queued work is disposed during close;
+//! 2. create the scheduler and call `main` with it, which starts the
+//!    program's main as its first task, and run the first turn: a WASI exit
+//!    there ends the program with its own status;
+//! 3. drive the program's tasks until none is live: a task that traps is
+//!    told, and a task that panics tells its message and exits; either
+//!    fails the run, status 1, and ends driving; reachable queued work is
+//!    disposed during close;
 //! 4. close queued work, let go of the scheduler, and close the program's
 //!    resources whatever happened, `close-resources` or the runtime's
 //!    `snail:io/close-all`; failing to close them makes a successful run's
@@ -100,7 +100,7 @@ fn execute(path: &str, arguments: &[String]) -> wasmtime::Result<u8> {
     let mut store = Store::new(&engine, host);
     let program = link_module(&mut store, &mut linker, &payload.module)?;
     store.data_mut().entry = Entry::create(&mut store, program.runtime, payload.engine)?;
-    let ran = start(&mut store, &program);
+    let ran = start(&mut store);
     let closed = close(&mut store, &program);
     settle(ran, closed)
 }
@@ -145,49 +145,26 @@ fn close(store: &mut Store<Host>, program: &Linked) -> wasmtime::Result<i32> {
     Ok(if children != 0 { children as i32 } else { own })
 }
 
-// A source program has one explicit main. The engine links a program in
-// its first turn and schedules that main under the same owned scheduler.
-fn start(store: &mut Store<Host>, program: &Linked) -> wasmtime::Result<u8> {
-    let status = if engine_entry(&*store) {
-        entry_call(&mut *store, "engine:start", &[])?;
-        entry_task(&mut *store, "turn", &[Val::I64(now())])?;
-        u8::try_from(entry_call(&mut *store, "engine:status", &[])?).unwrap_or(1)
+// A source program has one explicit main, which takes the scheduler and
+// starts the program's main as its first task. The engine links a program
+// in its first task and starts that main under the same scheduler. The
+// first turn runs here, so a trap in it fails the start, status 2.
+fn start(store: &mut Store<Host>) -> wasmtime::Result<u8> {
+    let main = if engine_entry(&*store) {
+        "engine:start"
     } else {
-        match main_status(&mut *store, &program.runtime) {
-            Ok(result) => result,
-            Err(error) => return exit_status(Err(error)),
-        }
+        "main"
     };
+    let started = entry_call(&mut *store, main, &[])
+        .and_then(|_| entry_task(&mut *store, "turn", &[Val::I64(now())]));
+    if let Err(error) = started {
+        return exit_status(Err(error));
+    }
     match drive(store) {
         Ok(true) => Ok(1),
-        Ok(false) => Ok(status),
+        Ok(false) => Ok(0),
         Err(error) => exit_status(Err(error)),
     }
-}
-
-// What `main` answers, as run-snail.mjs reads it: nothing is 0, an
-// integer from 0 to 255 is itself, and any other value is 1.
-fn main_status(
-    mut store: impl AsContextMut<Data = Host>,
-    instance: &Instance,
-) -> wasmtime::Result<u8> {
-    if store.as_context().data().entry.is_some() {
-        if let Some(body) = instance.get_func(&mut store, "main:body") {
-            entry_call(&mut store, "tasks:start-main", &[Val::FuncRef(Some(body))])?;
-            return Ok(0);
-        }
-    }
-    let main = instance
-        .get_func(&mut store, "main")
-        .ok_or_else(|| format_err!("the module exports no function main"))?;
-    let mut results = vec![Val::I32(0); main.ty(&store).results().len()];
-    main.call(&mut store, &[], &mut results)?;
-    Ok(match results.first() {
-        None => 0,
-        Some(Val::I32(result)) => u8::try_from(*result).unwrap_or(1),
-        Some(Val::I64(result)) => u8::try_from(*result).unwrap_or(1),
-        Some(_) => 1,
-    })
 }
 
 // A failure to close resources fails a run that succeeded; when the run
@@ -527,39 +504,13 @@ mod tests {
     use crate::engine::precompile;
     use crate::engine::tests::module_file;
 
-    // A program importing `imports` whose main is `main` and whose
-    // resources close with `close`.
-    fn program(imports: &str, main: &str, close: i32) -> String {
-        tasks_program(imports, main, close, "")
-    }
-
-    // The same, with more items, such as a scheduler's turn.
-    fn tasks_program(imports: &str, main: &str, close: i32, items: &str) -> String {
-        let closed = if items.is_empty() {
-            ""
-        } else {
-            "(if (i32.ne (global.get $closed) (i32.const 1)) (then unreachable))"
-        };
-        format!(
-            r#"(module {imports}
-                 (import "wasi_snapshot_preview1" "proc_exit" (func $exit (param i32)))
-                 (memory (export "memory") 1)
-                 (func (export "_initialize"))
-                 (func (export "main") (result i32) {main})
-                 (func (export "close-resources") (result i32) {closed} (i32.const {close}))
-                 {items})"#
-        )
-    }
-
-    // What one turn of a test scheduler does.
-    enum Turn {
-        Answer(i64),
-        Trap,
-        Exit(i32),
-    }
-
-    // A turn that does each of `turns` in turn, and then answers -1.
-    fn turns(turns: &[Turn]) -> String {
+    // A program importing `imports` whose main is `main`, whose turns do
+    // each of `turns` in turn and then answer -1, and whose resources close
+    // with `close`. The scheduler counts its turns, and closing it checks
+    // that the run took the turns it should have: none when main fails,
+    // and otherwise the first turn and then each until the one that ends
+    // driving, the turn answering -1 after the last when none does.
+    fn program(imports: &str, main: &str, close: i32, turns: &[Turn]) -> String {
         let cases: String = turns
             .iter()
             .enumerate()
@@ -575,50 +526,69 @@ mod tests {
         let expected = turns
             .iter()
             .position(|turn| matches!(turn, Turn::Trap | Turn::Exit(_) | Turn::Answer(-2)))
-            .map_or(turns.len() + 1, |index| index + 1);
+            .map_or(turns.len().max(1) + 1, |index| index + 1);
         format!(
-            r#"(type $state (struct (field (mut i32))))
-               (global $closed (mut i32) (i32.const 0))
-               (func (export "tasks:create") (result (ref $state)) (struct.new $state (i32.const 0)))
-               (func (export "tasks:close") (param $state (ref $state))
-                 (if (i32.ne (struct.get $state 0 (local.get $state)) (i32.const {expected})) (then unreachable))
-                 (global.set $closed (i32.add (global.get $closed) (i32.const 1))))
-               (func (export "tasks:turn") (param $state (ref $state)) (param $now i64) (result i64) (local $n i32)
-                 (local.set $n (struct.get $state 0 (local.get $state)))
-                 (struct.set $state 0 (local.get $state) (i32.add (local.get $n) (i32.const 1)))
-                 {cases}
-                 (i64.const -1))"#
+            r#"(module {imports}
+                 (import "wasi_snapshot_preview1" "proc_exit" (func $exit (param i32)))
+                 (memory (export "memory") 1)
+                 (type $state (struct (field (mut i32))))
+                 (global $closed (mut i32) (i32.const 0))
+                 (func (export "_initialize"))
+                 (func (export "main") (param $state (ref $state)) (result i32) {main})
+                 (func (export "close-resources") (result i32)
+                   (if (i32.ne (global.get $closed) (i32.const 1)) (then unreachable))
+                   (i32.const {close}))
+                 (func (export "tasks:create") (result (ref $state)) (struct.new $state (i32.const 0)))
+                 (func (export "tasks:close") (param $state (ref $state))
+                   (if (i32.and (i32.ne (struct.get $state 0 (local.get $state)) (i32.const {expected}))
+                                (i32.ne (struct.get $state 0 (local.get $state)) (i32.const 0)))
+                     (then unreachable))
+                   (global.set $closed (i32.add (global.get $closed) (i32.const 1))))
+                 (func (export "tasks:turn") (param $state (ref $state)) (param $now i64) (result i64) (local $n i32)
+                   (local.set $n (struct.get $state 0 (local.get $state)))
+                   (struct.set $state 0 (local.get $state) (i32.add (local.get $n) (i32.const 1)))
+                   {cases}
+                   (i64.const -1)))"#
         )
     }
 
-    fn status(name: &str, main: &str, close: i32) -> u8 {
-        run(&module_file(name, &program("", main, close)), &[])
+    // What one turn of a test scheduler does.
+    enum Turn {
+        Answer(i64),
+        Trap,
+        Exit(i32),
+    }
+
+    fn status(name: &str, main: &str, close: i32, turns: &[Turn]) -> u8 {
+        run(&module_file(name, &program("", main, close, turns)), &[])
     }
 
     #[test]
-    fn mains_result_is_the_status_when_it_is_a_byte() {
-        assert_eq!(status("three", "(i32.const 3)", 0), 3);
-        assert_eq!(status("large", "(i32.const 300)", 0), 1);
-        assert_eq!(status("negative", "(i32.const -1)", 0), 1);
+    fn a_run_whose_tasks_finish_is_status_0() {
+        assert_eq!(status("finishes", "(i32.const 0)", 0, &[]), 0);
     }
 
     #[test]
     fn a_wasi_exit_is_its_own_status() {
+        let exits = "(call $exit (i32.const 7)) (i32.const 0)";
+        assert_eq!(status("exits", exits, 0, &[]), 7);
         assert_eq!(
-            status("exits", "(call $exit (i32.const 7)) (i32.const 0)", 0),
+            status("exits-first", "(i32.const 0)", 0, &[Turn::Exit(7)]),
             7
         );
     }
 
     #[test]
-    fn a_trap_is_status_2() {
-        assert_eq!(status("traps", "(unreachable)", 0), 2);
+    fn a_trap_in_main_or_the_first_turn_is_status_2() {
+        assert_eq!(status("traps", "(unreachable)", 0, &[]), 2);
+        assert_eq!(status("traps-first", "(i32.const 0)", 0, &[Turn::Trap]), 2);
     }
 
     #[test]
     fn unclosed_resources_fail_only_a_successful_run() {
-        assert_eq!(status("unclosed-run", "(i32.const 0)", 1), 1);
-        assert_eq!(status("unclosed-failure", "(i32.const 4)", 1), 4);
+        assert_eq!(status("unclosed-run", "(i32.const 0)", 1, &[]), 1);
+        let exits = "(call $exit (i32.const 4)) (i32.const 0)";
+        assert_eq!(status("unclosed-failure", exits, 1, &[]), 4);
     }
 
     // A program may import sockets it never uses, as the command line's
@@ -627,10 +597,10 @@ mod tests {
     fn a_program_that_calls_sockets_traps() {
         let imports =
             r#"(import "snail.runtime.native.socket" "start-read" (func $read (param i64)))"#;
-        let unused = module_file("sockets-unused", &program(imports, "(i32.const 0)", 0));
+        let unused = module_file("sockets-unused", &program(imports, "(i32.const 0)", 0, &[]));
         assert_eq!(run(&unused, &[]), 0);
         let called = "(call $read (i64.const 0)) (i32.const 0)";
-        let file = module_file("sockets", &program(imports, called, 0));
+        let file = module_file("sockets", &program(imports, called, 0, &[]));
         assert_eq!(run(&file, &[]), 2);
     }
 
@@ -639,14 +609,18 @@ mod tests {
     #[test]
     fn a_precompiled_program_runs_as_its_module_does() {
         let precompiled = |name: &str, imports: &str, main: &str| {
-            let source = module_file(name, &program(imports, main, 0));
+            let source = module_file(name, &program(imports, main, 0, &[]));
             let output = source.replace(".wasm", ".cwasm");
             assert_eq!(precompile(&source, &output), 0);
             output
         };
         assert_eq!(
             run(
-                &precompiled("precompiled-program", "", "(i32.const 3)"),
+                &precompiled(
+                    "precompiled-program",
+                    "",
+                    "(call $exit (i32.const 3)) (i32.const 0)"
+                ),
                 &[]
             ),
             3
@@ -665,25 +639,25 @@ mod tests {
     fn tasks_are_driven_until_none_is_live() {
         let file = module_file(
             "turns",
-            &tasks_program(
+            &program(
                 "",
-                "(i32.const 3)",
+                "(i32.const 0)",
                 0,
-                &turns(&[Turn::Answer(0), Turn::Answer(2), Turn::Answer(0)]),
+                &[Turn::Answer(0), Turn::Answer(2), Turn::Answer(0)],
             ),
         );
-        assert_eq!(run(&file, &[]), 3);
+        assert_eq!(run(&file, &[]), 0);
     }
 
     #[test]
     fn a_trapped_task_ends_driving_before_close() {
         let file = module_file(
             "trapped",
-            &tasks_program(
+            &program(
                 "",
                 "(i32.const 0)",
                 0,
-                &turns(&[Turn::Answer(0), Turn::Trap, Turn::Answer(0)]),
+                &[Turn::Answer(0), Turn::Trap, Turn::Answer(0)],
             ),
         );
         assert_eq!(run(&file, &[]), 1);
@@ -695,21 +669,22 @@ mod tests {
     fn a_task_that_exits_ends_driving_before_close() {
         let file = module_file(
             "exited",
-            &tasks_program(
+            &program(
                 "",
                 "(i32.const 0)",
                 0,
-                &turns(&[Turn::Answer(0), Turn::Exit(7), Turn::Answer(0)]),
+                &[Turn::Answer(0), Turn::Exit(7), Turn::Answer(0)],
             ),
         );
         assert_eq!(run(&file, &[]), 1);
     }
 
+    // The first turn's answer is not read: driving turns again.
     #[test]
     fn tasks_waiting_on_tickets_end_the_run() {
         let file = module_file(
             "stuck",
-            &tasks_program("", "(i32.const 0)", 0, &turns(&[Turn::Answer(-2)])),
+            &program("", "(i32.const 0)", 0, &[Turn::Answer(0), Turn::Answer(-2)]),
         );
         assert_eq!(run(&file, &[]), 2);
     }
@@ -717,7 +692,7 @@ mod tests {
     #[test]
     fn imports_are_read_without_compiling() {
         let imports = r#"(import "snail.runtime.native.socket" "open" (func (result i32)))"#;
-        let file = module_file("imports", &program(imports, "(i32.const 0)", 0));
+        let file = module_file("imports", &program(imports, "(i32.const 0)", 0, &[]));
         let read = program_imports(Path::new(&file)).unwrap();
         assert_eq!(
             read.into_iter().collect::<Vec<_>>(),
