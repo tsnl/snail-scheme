@@ -29,7 +29,7 @@ the runtime interfaces.
 | Library | Contents |
 | --- | --- |
 | `(snail shell math)` | Elementary functions on `F64`. |
-| `(snail shell text)` | Unicode character properties, case mapping and decimal digit values from the runtime's tables. |
+| `(snail shell text)` | Unicode character properties, case mapping and decimal digit values, read from the constant arrays of `(snail shell text unicode)`, which `make unicode-tables` generates from Rust's Unicode properties. |
 | `(snail shell random)` | A deterministic generator as a value. |
 | `(snail shell utf8)` | `string->utf8`, and `utf8->string`, which rejects ill-formed bytes as a fatal `TextDecoder` does, giving the offset of the first bad sequence. |
 | `(snail shell compiler sha256)` | `sha256` over bytes, giving the 32-byte digest, and `bytes->hex`, the lowercase hex Node's `digest('hex')` writes; the compiler names linked files with it, the same on stage 0 as in Wasm. |
