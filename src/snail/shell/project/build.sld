@@ -100,7 +100,7 @@
     (define (fail-build (message String)) (→ A) (! Building) (∀ (A))
       (absurd (stop (Build-failure message))))
 
-    (define (attempt (work (Fn → T ! Building e))) (→ (Result T Failure)) (! e) (∀ (T e))
+    (define (attempt (work (Fn → T ! Building E))) (→ (Result T Failure)) (! E) (∀ (T E))
       (handle Building
           ((stop (lambda (failure) (Err failure))))
         (Ok (work))))
@@ -109,10 +109,10 @@
     ;; supplies every input a phase needs before it runs, so a compile that
     ;; asks for one names a need the planner missed.
 
-    (define (compiled (work (Fn → T ! Compile e)))
+    (define (compiled (work (Fn → T ! Compile E)))
       (→ T)
-      (! Building e)
-      (∀ (T e))
+      (! Building E)
+      (∀ (T E))
       (match (compiling work)
         ((Ok value) value)
         ((Err (Failed diagnostics)) (absurd (stop (Compile-failure diagnostics))))
@@ -271,7 +271,7 @@
     ;; published generations; no compiler state survives this invocation.
     (define (build-project (tools Tools) (directory String) (project Project)
                            (names (List String)) (mode Mode) (scratch String) (prefix String))
-      (→ (Result Candidate Failure)) (! Mut Fs Clock Process)
+      (→ (Result Candidate Failure)) (! Mut Fs Clock Processes)
       (match (attempt (lambda () (fresh-scratch scratch)))
         ((Err failure) (Err failure))
         ((Ok working)
@@ -291,7 +291,7 @@
       (fresh-directory (string-append scratch "/build-") "" (monotonic-nanoseconds)))
 
     (define (build-roots (builder Builder) (names (List String)))
-      (→ (Result Candidate Failure)) (! Mut Fs Clock Process)
+      (→ (Result Candidate Failure)) (! Mut Fs Clock Processes)
       (match (attempt (lambda () (plan-roots builder names)))
         ((Err failure) (Err failure))
         ((Ok plan)
@@ -330,7 +330,7 @@
 
     (define (run-waves (builder Builder) (plan Plan) (progress Progress))
       (→ Progress)
-      (! Mut Fs Clock Process)
+      (! Mut Fs Clock Processes)
       (let* ((wave (next-phases plan))
              (plan (● wave second))
              (progress (fold-left (lambda (progress entry) (run-phase builder plan entry progress))
@@ -352,7 +352,7 @@
 
     (define (run-phase (builder Builder) (plan Plan) (entry (Pair I64 Phase)) (progress Progress))
       (→ Progress)
-      (! Mut Fs Clock Process)
+      (! Mut Fs Clock Processes)
       (if (failed? progress)
           progress
           (match (attempt (lambda () (phase-work builder plan entry progress)))
@@ -361,7 +361,7 @@
 
     (define (phase-work (builder Builder) (plan Plan) (entry (Pair I64 Phase)) (progress Progress))
       (→ Progress)
-      (! Mut Fs Clock Process Building)
+      (! Mut Fs Clock Processes Building)
       (let ((progress (supply-embedded builder (embedded-names plan (● entry first)) progress)))
         (match (● entry second)
           ((Produce-phase producer)
@@ -516,10 +516,10 @@
     ;; `work`'s value; when it fails, `directory` goes before the failure
     ;; does.
 
-    (define (removing (directory String) (work (Fn → T ! Building e)))
+    (define (removing (directory String) (work (Fn → T ! Building E)))
       (→ T)
-      (! Fs Building e)
-      (∀ (T e))
+      (! Fs Building E)
+      (∀ (T E))
       (match (attempt work)
         ((Ok value) value)
         ((Err failure)
@@ -590,10 +590,10 @@
 
     ;; `work` in a directory of its own in the build's scratch, removed after.
 
-    (define (in-working (builder Builder) (node I64) (work (Fn String → T ! Fs e)))
+    (define (in-working (builder Builder) (node I64) (work (Fn String → T ! Fs E)))
       (→ T)
-      (! Fs e)
-      (∀ (T e))
+      (! Fs E)
+      (∀ (T E))
       (let ((working (in-scratch builder (string-append "phase-" (show node)))))
         (make-directories working)
         (let ((result (work working)))
@@ -795,7 +795,7 @@
     ;; Runs a command to its end, and stops the build with what it wrote to
     ;; stderr unless it exits with status 0.
 
-    (define (run-command (command Command) (name String)) (→ Unit) (! Process Building)
+    (define (run-command (command Command) (name String)) (→ Unit) (! Processes Building)
       (match (run command #u8())
         ((Err error) (fail-build (string-append "cannot run " name ": " (● error code))))
         ((Ok captured)
@@ -824,7 +824,7 @@
 
     (define (produce (builder Builder) (node I64) (producer Producer) (inputs Inputs))
       (→ Inputs)
-      (! Mut Fs Process Building)
+      (! Mut Fs Processes Building)
       (in-working builder
                   node
                   (lambda (working)
@@ -843,7 +843,7 @@
 
     (define (run-producer (builder Builder) (program String) (output String))
       (→ Unit)
-      (! Fs Process Building)
+      (! Fs Processes Building)
       (let ((tools (● builder tools)))
         (run-command (new Command (program (● tools node))
                           (arguments (list "--no-warnings"

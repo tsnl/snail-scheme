@@ -58,15 +58,15 @@
 
 ;; An expected row still being inferred names a value's effects and stays
 ;; open for what the rest of the call performs.
-(define (each-then (actions (List (Fn → Unit ! Output-port e))) (after (Fn → Unit ! e)))
+(define (each-then (actions (List (Fn → Unit ! Output-port E))) (after (Fn → Unit ! E)))
   (→ Unit)
-  (! Output-port e)
-  (∀ (e))
+  (! Output-port E)
+  (∀ (E))
   (for-each (lambda (action) (action)) actions)
   (after))
 
 ;; A row with a tail widens with more labels before the same tail.
-(define (widen-tail (action (Fn → A ! e))) (→ (Fn → A ! Output-port e)) (∀ (A e))
+(define (widen-tail (action (Fn → A ! E))) (→ (Fn → A ! Output-port E)) (∀ (A E))
   action)
 
 (define (main) (→ Unit) (! Mut Output-port)

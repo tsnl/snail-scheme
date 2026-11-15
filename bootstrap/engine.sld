@@ -15,7 +15,7 @@
 ;; The store is files: an object is read at once, and one that is not
 ;; there is none.
 
-(define (with-files (body (Fn → A ! Linked-content-store e))) (→ A) (! Fs e) (∀ (A e))
+(define (with-files (body (Fn → A ! Linked-content-store E))) (→ A) (! Fs E) (∀ (A E))
   (handle Linked-content-store
       ((read-object (lambda (path)
                       (if (file-exists? path)

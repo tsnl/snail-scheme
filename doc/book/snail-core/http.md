@@ -15,7 +15,7 @@ module rejects, including chunked decoding and absolute-form targets.
 
 ```scheme
 (parse-request-head bytes)
-;; Result (Option ParsedHead) HttpError
+;; Result (Option Parsed-head) Http-error
 ```
 
 `Ok None` means the supplied prefix needs more bytes. `Ok (Some parsed)` contains
@@ -42,7 +42,7 @@ all matching values. It expects the normalized names produced by the parser.
 
 ```scheme
 (parse-target (● head target))
-;; Result Target HttpError
+;; Result Target Http-error
 ```
 
 `parse-target` decodes an origin-form target as `new URL` and
@@ -81,7 +81,7 @@ making a claim about records created elsewhere.
 
 ```scheme
 (encode-response method status headers representation)
-;; Result ResponseParts HttpError
+;; Result Response-parts Http-error
 ```
 
 The `head` and `body` fields of a `Response-parts` are separate immutable byte vectors.
@@ -110,7 +110,7 @@ close appropriately; successful encoding is not delivery.
 
 ```scheme
 (encode-stream-head status headers)
-;; Result Bytes HttpError
+;; Result Bytes Http-error
 ```
 
 A stream's head has no Content-Length: its body is every byte written after
@@ -132,7 +132,7 @@ Import `(snail shell http exchange)` and call `serve-one` with an exclusively us
 ;; (∀ (E e)
 ;;   (Fn Connection I32
 ;;       (Fn Request → (Result Response E) ! e)
-;;       → (Result Unit (ExchangeError E)) ! tcp e))
+;;       → (Result Unit (Exchange-error E)) ! tcp e))
 ```
 
 `Request` contains `head : Request-head` and `body : Bytes`. The callback returns

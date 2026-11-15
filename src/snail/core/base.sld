@@ -373,23 +373,23 @@
 
     (define (abs (x T))
       (→ T)
-      (! e)
-      (∀ (T e))
-      (⊨ (Num e T) (Ord e T))
+      (! E)
+      (∀ (T E))
+      (⊨ (Num E T) (Ord E T))
       (if (< x (- x x)) (negate x) x))
 
     (define (min (a T) (b T))
       (→ T)
-      (! e)
-      (∀ (T e))
-      (⊨ (Ord e T))
+      (! E)
+      (∀ (T E))
+      (⊨ (Ord E T))
       (if (< b a) b a))
 
     (define (max (a T) (b T))
       (→ T)
-      (! e)
-      (∀ (T e))
-      (⊨ (Ord e T))
+      (! E)
+      (∀ (T E))
+      (⊨ (Ord E T))
       (if (< a b) b a))
 
     ;; Bytes are packed one per array slot.
@@ -450,48 +450,48 @@
     (define (concatenate (lists (List (List T)))) (→ (List T)) (∀ (T))
       (fold-right append (Nil) lists))
 
-    (define (map (f (Fn A → B ! e)) (items (List A)))
+    (define (map (f (Fn A → B ! E)) (items (List A)))
       (→ (List B))
-      (! e)
-      (∀ (A B e))
+      (! E)
+      (∀ (A B E))
       (reverse (fold-left (lambda (mapped item) (Cons (f item) mapped)) (Nil) items)))
 
-    (define (map-indexed (f (Fn I64 A → B ! e)) (items (List A)))
+    (define (map-indexed (f (Fn I64 A → B ! E)) (items (List A)))
       (→ (List B))
-      (! e)
-      (∀ (A B e))
+      (! E)
+      (∀ (A B E))
       (let loop ((items items) (index 0) (mapped (Nil)))
         (match items
           ((Nil) (reverse mapped))
           ((Cons item rest) (loop rest (+ index 1) (Cons (f index item) mapped))))))
 
-    (define (for-each (f (Fn A → Unit ! e)) (items (List A)))
+    (define (for-each (f (Fn A → Unit ! E)) (items (List A)))
       (→ Unit)
-      (! e)
-      (∀ (A e))
+      (! E)
+      (∀ (A E))
       (match items
         ((Nil) (unit))
         ((Cons item rest) (f item) (for-each f rest))))
 
-    (define (filter (keep? (Fn A → Bool ! e)) (items (List A)))
+    (define (filter (keep? (Fn A → Bool ! E)) (items (List A)))
       (→ (List A))
-      (! e)
-      (∀ (A e))
+      (! E)
+      (∀ (A E))
       (reverse
        (fold-left (lambda (kept item) (if (keep? item) (Cons item kept) kept)) (Nil) items)))
 
-    (define (fold-left (f (Fn B A → B ! e)) (initial B) (items (List A)))
+    (define (fold-left (f (Fn B A → B ! E)) (initial B) (items (List A)))
       (→ B)
-      (! e)
-      (∀ (A B e))
+      (! E)
+      (∀ (A B E))
       (match items
         ((Nil) initial)
         ((Cons item rest) (fold-left f (f initial item) rest))))
 
-    (define (fold-right (f (Fn A B → B ! e)) (initial B) (items (List A)))
+    (define (fold-right (f (Fn A B → B ! E)) (initial B) (items (List A)))
       (→ B)
-      (! e)
-      (∀ (A B e))
+      (! E)
+      (∀ (A B E))
       (fold-left (lambda (result item) (f item result)) initial (reverse items)))
 
     (define (list-tail (items (List T)) (index I64))
@@ -510,43 +510,43 @@
         ((Cons item _) item)
         ((Nil) (panic "list-ref: index out of range"))))
 
-    (define (any? (test (Fn A → Bool ! e)) (items (List A)))
+    (define (any? (test (Fn A → Bool ! E)) (items (List A)))
       (→ Bool)
-      (! e)
-      (∀ (A e))
+      (! E)
+      (∀ (A E))
       (match items
         ((Nil) #f)
         ((Cons item rest) (if (test item) #t (any? test rest)))))
 
-    (define (every? (test (Fn A → Bool ! e)) (items (List A)))
+    (define (every? (test (Fn A → Bool ! E)) (items (List A)))
       (→ Bool)
-      (! e)
-      (∀ (A e))
+      (! E)
+      (∀ (A E))
       (match items
         ((Nil) #t)
         ((Cons item rest) (if (test item) (every? test rest) #f))))
 
-    (define (find (test (Fn A → Bool ! e)) (items (List A)))
+    (define (find (test (Fn A → Bool ! E)) (items (List A)))
       (→ (Option A))
-      (! e)
-      (∀ (A e))
+      (! E)
+      (∀ (A E))
       (match items
         ((Nil) (None))
         ((Cons item rest) (if (test item) (Some item) (find test rest)))))
 
     (define (member? (value A) (items (List A)))
       (→ Bool)
-      (! e)
-      (∀ (A e))
-      (⊨ (Ord e A))
+      (! E)
+      (∀ (A E))
+      (⊨ (Ord E A))
       (any? (lambda (item) (= item value)) items))
 
     ;; Keeps the first of each group of equal items.
 
-    (define (delete-duplicates (same? (Fn A A → Bool ! e)) (items (List A)))
+    (define (delete-duplicates (same? (Fn A A → Bool ! E)) (items (List A)))
       (→ (List A))
-      (! e)
-      (∀ (A e))
+      (! E)
+      (∀ (A E))
       (reverse (fold-left (lambda (kept item)
                             (if (any? (lambda (other) (same? other item)) kept)
                                 kept
@@ -574,10 +574,10 @@
     ;; A stable merge sort: contiguous halves keep their order, and the
     ;; merge takes the left item first when neither precedes the other.
 
-    (define (list-sort (before? (Fn T T → Bool ! e)) (items (List T)))
+    (define (list-sort (before? (Fn T T → Bool ! E)) (items (List T)))
       (→ (List T))
-      (! e)
-      (∀ (T e))
+      (! E)
+      (∀ (T E))
       (let ((half (quotient (length items) 2)))
         (if (= half 0)
             items
@@ -585,8 +585,8 @@
                           (list-sort before? (take items half))
                           (list-sort before? (list-drop items half))))))
 
-    (define (merge-sorted (before? (Fn T T → Bool ! e)) (left (List T)) (right (List T)))
-      (→ (List T)) (! e) (∀ (T e))
+    (define (merge-sorted (before? (Fn T T → Bool ! E)) (left (List T)) (right (List T)))
+      (→ (List T)) (! E) (∀ (T E))
       ;; The merge is linear in the list length, but uses constant stack.
       ;; Equal elements come from the left run first, preserving stability.
       (let loop ((left left) (right right) (reversed (Nil)))
@@ -605,10 +605,10 @@
         ((Cons item (Nil)) (Some item))
         ((Cons _ rest) (last rest))))
 
-    (define (list-index (test (Fn A → Bool ! e)) (items (List A)))
+    (define (list-index (test (Fn A → Bool ! E)) (items (List A)))
       (→ (Option I64))
-      (! e)
-      (∀ (A e))
+      (! E)
+      (∀ (A E))
       (let loop ((items items) (index 0))
         (match items
           ((Nil) (None))
@@ -618,9 +618,9 @@
 
     (define (assoc-ref (entries (List (Pair K V))) (key K))
       (→ (Option V))
-      (! e)
-      (∀ (K V e))
-      (⊨ (Ord e K))
+      (! E)
+      (∀ (K V E))
+      (⊨ (Ord E K))
       (match entries
         ((Nil) (None))
         ((Cons entry rest)
@@ -646,25 +646,25 @@
 
     ;; ---- Vectors ----
 
-    (define (vector-map (f (Fn A → B ! e)) (items (Vector A)))
+    (define (vector-map (f (Fn A → B ! E)) (items (Vector A)))
       (→ (Vector B))
-      (! e)
-      (∀ (A B e))
+      (! E)
+      (∀ (A B E))
       (vector-generate (vector-length items) (lambda (index) (f (vector-ref items index)))))
 
-    (define (vector-for-each (f (Fn A → Unit ! e)) (items (Vector A)))
+    (define (vector-for-each (f (Fn A → Unit ! E)) (items (Vector A)))
       (→ Unit)
-      (! e)
-      (∀ (A e))
+      (! E)
+      (∀ (A E))
       (let loop ((index 0))
         (when (< index (vector-length items))
           (f (vector-ref items index))
           (loop (+ index 1)))))
 
-    (define (vector-fold (f (Fn B A → B ! e)) (initial B) (items (Vector A)))
+    (define (vector-fold (f (Fn B A → B ! E)) (initial B) (items (Vector A)))
       (→ B)
-      (! e)
-      (∀ (A B e))
+      (! E)
+      (∀ (A B E))
       (let loop ((index 0) (result initial))
         (if (< index (vector-length items))
             (loop (+ index 1) (f result (vector-ref items index)))
@@ -683,8 +683,8 @@
 
     (define (list->vector (items (List T)))
       (→ (Vector T))
-      (! e)
-      (∀ (T e))
+      (! E)
+      (∀ (T E))
       (unsafe-total (ann (lambda () (let ((cursor (new List-cursor (remaining items))))
                                       (vector-generate (length items)
                                                        (lambda (index)
@@ -695,7 +695,7 @@
                                                            ((Nil)
                                                             (panic
                                                              "list->vector: too few items")))))))
-                         (Fn → (Vector T) ! Mut e))))
+                         (Fn → (Vector T) ! Mut E))))
 
     (record (Vector-cursor A)
       ((vectors (List (Vector A)))
@@ -703,8 +703,8 @@
 
     (define (vector-concatenate (vectors (List (Vector T))))
       (→ (Vector T))
-      (! e)
-      (∀ (T e))
+      (! E)
+      (∀ (T E))
       (unsafe-total (ann (lambda () (let ((cursor (new Vector-cursor (vectors vectors) (offset 0))))
                                       (vector-generate
                                        (fold-left
@@ -726,7 +726,7 @@
                                                       (next)))))
                                              ((Nil)
                                               (panic "vector-concatenate: too few elements"))))))))
-                         (Fn → (Vector T) ! Mut e))))
+                         (Fn → (Vector T) ! Mut E))))
 
     ;; ---- Characters and text ----
 

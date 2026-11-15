@@ -9,7 +9,7 @@
   ((ctl yield (Fn I64 → I64))))
 
 (effect Run
-  ((run (∀ (e) (Fn (Fn → Unit ! e) → Unit)))))
+  ((run (∀ (E) (Fn (Fn → Unit ! E) → Unit)))))
 
 (define (go) (→ I64)
   (handle Run ((run (lambda (thunk) (thunk))))

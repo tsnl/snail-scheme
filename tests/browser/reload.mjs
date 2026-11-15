@@ -72,7 +72,7 @@ try {
   await browser.evaluate(`[...document.querySelectorAll('[role="status"] button')].find(b => b.textContent.startsWith('Start over')).click()`);
   await until(async () => await text('count') === '0', 'the fresh start');
   // A consumed failing event is dropped; unread actions cross to the fix.
-  const increment = '(Counter-count-set counter (+ (● counter count) 1))';
+  const increment = '(counter-count-set counter (+ (● counter count) 1))';
   await edit(source, increment, '(panic "update trap")', '"fixed"', '"ready to trap"');
   await until(async () => await text('greeting') === 'ready to trap', 'the trapping update');
   await browser.evaluate(`document.querySelector('[data-key="add"]').click()`);
@@ -138,22 +138,22 @@ try {
   await writeFile(join(app, 'src/sample/banner.sld'), `(define-library (sample banner) (export print-banner)
     (import (snail core base) (snail core io) (only (snail shell task) Tasks) (snail shell resource))
     (begin (define (banner) (→ Resource) (link-file "banner.txt"))
-      (define (print-banner) (→ Unit) (! Output-port Resource Tasks)
+      (define (print-banner) (→ Unit) (! Output-port Resources Tasks)
         (write-line (list->string (map (lambda (byte) (i32->char (u8->i32 byte)))
                                       (vector->list (read-resource (banner)))))))))`);
   // Startup belongs to the explicit Application entry. Relinking calls that
   // entry again; merely importing the library performs no source effects.
   await edit(source, '(snail shell wire))', `(snail shell wire)
    (snail core io)
-   (only (snail shell task) tasks)
-   (only (snail shell page) page)
-   (only (snail shell resource) resource)
+   (only (snail shell task) Tasks)
+   (only (snail shell page) Page)
+   (only (snail shell resource) Resources)
    (prefix (snail shell application) application:)
    (sample banner))`,
-    '(type CounterApplication (SceneApplication Counter))', `(record Counter-application ())
-    (instance (application:Application (! Mut Screen Events Storage Tasks Page Resource Output-port) Counter-application)
+    '(type Counter-application (Scene-application Counter))', `(record Counter-application ())
+    (instance (application:Application (! Mut Screen Events Storage Tasks Page Resources Output-port) Counter-application)
       (define (start (entry (application:Entry Counter-application)))
-        (→ Unit) (! Mut Screen Events Storage Tasks Page Resource Output-port)
+        (→ Unit) (! Mut Screen Events Storage Tasks Page Resources Output-port)
         (print-banner)
         (application:start (ann (new application:Entry) (application:Entry (Scene-application Counter))))))`);
   await until(() => printed('linked'), 'the linked file read by the explicit application entry');

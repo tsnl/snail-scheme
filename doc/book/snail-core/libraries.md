@@ -44,11 +44,11 @@ the runtime interfaces.
 | --- | --- |
 | `(snail shell task)` | The `Tasks` effect and its scheduler, written in Snail Scheme: local dispatch, cooperative yield, timer and ticket waits, waiting on the host, and `Mailbox` queues between tasks ([task operations](../runtimes/tasks.md)). |
 | `(snail shell async-files)` | Explicit native `Files` capability for bounded asynchronous reads, backed by Linux `io_uring` or Node's asynchronous filesystem APIs ([file reads](../runtimes/tasks.md#native-asynchronous-file-reads)). |
-| `(snail shell process)` | Child processes with piped standard streams, through the `Process` effect: `spawn`, reading output, writing and closing input, signals and exit, `run` to run a command to its end, and `exec` to replace the program with one; and `termination`, SIGINT or SIGTERM as a value, through the `Signals` effect ([child processes](../runtimes/networking.md#child-processes)). |
+| `(snail shell process)` | Child processes with piped standard streams, through the `Processes` effect: `spawn`, reading output, writing and closing input, signals and exit, `run` to run a command to its end, and `exec` to replace the program with one; and `termination`, SIGINT or SIGTERM as a value, through the `Signals` effect ([child processes](../runtimes/networking.md#child-processes)). |
 | `(snail shell gitignore)` | Immutable snapshots of ignored disk paths from installed Git, with tracked files preserved ([Git ignore snapshots](#git-ignore-snapshots)). |
 | `(snail shell socket)` | TCP listeners and connections and UDP sockets, through the `Tcp` and `Udp` effects, each wait by ticket, and `endpoint`, which parses an IPv4 address and a port once ([native networking](../runtimes/networking.md)). |
 | `(snail shell http)`, `(snail shell http exchange)` | An HTTP/1.1 subset: request heads and targets, response and stream heads, and one exchange over a connection ([HTTP protocol](http.md)). |
-| `(snail shell resource)` | Files a library links rather than embeds: `link-file`, the `Resource` handle, and `read-resource`, which a task waits on, through the `Resource` effect ([linked files](types.md#linked-files)). |
+| `(snail shell resource)` | Files a library links rather than embeds: `link-file`, the `Resource` handle, and `read-resource`, which a task waits on, through the `Resources` effect ([linked files](types.md#linked-files)). |
 | `(snail shell watch)` | `inventory`, each path under some directories with a fingerprint of its kind, size and modification time, and `inventory-changes`, the paths two inventories disagree on: what a watcher reconciles when a native watch may have missed an edit. `watch-tree` and `next-hint` are Node's recursive watch of a tree, as hints that something under it changed, which only say when to take the next inventory (the `Hints` effect, on Node only). |
 | `(snail shell wasm)` | Explicit WebAssembly linking for the engine ([below](#loading-webassembly)). |
 | `(snail shell engine)` | The engine: `run-manifest` links a program compiled one library at a time from its `modules.json`, through `(snail shell wasm)`, and runs it, reading each object through the `Linked-content-store` effect, `read-object : (Fn String → (Option Bytes) ! Tasks)`, which each entry program handles once. Linking and each read of a linked file are tasks of the engine's own scheduler, which `engine-turn` and its siblings drive together with the program's. The native entry, `bootstrap/engine.sld`, reads files; stage 0 builds it, and Node and wasmtime start it for a manifest ([the native executable](bootstrap.md#the-native-executable)). |
@@ -259,7 +259,7 @@ clock, from an origin the host chooses; only differences mean anything.
 `read-gitignore directory` returns a `Result (Option Ignore-snapshot) String`, and
 `ignored? snapshot path` tests a path relative to that project directory. A snapshot
 is an immutable description of existing disk paths; it does not predict ignores
-for files that have not been created. Reading has `Mut`, `Tasks` and `Process`
+for files that have not been created. Reading has `Mut`, `Tasks` and `Processes`
 effects; membership is pure.
 
 The library asks installed Git for

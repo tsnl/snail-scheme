@@ -13,7 +13,7 @@
 
 (define (image) (→ Resource) (link-file "data/./pixel.png"))
 
-(define (main) (→ Unit) (! Host Mut Output-port Resource Tasks)
+(define (main) (→ Unit) (! Host Mut Output-port Resources Tasks)
   (dispatch
    (lambda ()
      (write-line (greeting-text))

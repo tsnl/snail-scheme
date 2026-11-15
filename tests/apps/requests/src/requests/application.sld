@@ -42,8 +42,8 @@
                (result (Result String String)))))
 
     (define (update (model Model) (message Msg))
-      (→ (Pair Model (List (Fn → Msg ! Fetch Tasks e))))
-      (∀ (e))
+      (→ (Pair Model (List (Fn → Msg ! Fetch Tasks E))))
+      (∀ (E))
       (match message
         ((Load)
          (let ((request (+ (● model request) 1)))
@@ -60,7 +60,7 @@
                                       (Showing (match result ((Ok text) text) ((Err why) why))))
                    model)))))
 
-    (define (stay (model Model)) (→ (Pair Model (List (Fn → Msg ! Fetch Tasks e)))) (∀ (e))
+    (define (stay (model Model)) (→ (Pair Model (List (Fn → Msg ! Fetch Tasks E)))) (∀ (E))
       (new Pair (first model) (second (Nil))))
 
     (define (load-text) (→ (Result String String)) (! Fetch Tasks)

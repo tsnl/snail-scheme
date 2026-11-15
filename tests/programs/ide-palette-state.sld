@@ -41,13 +41,13 @@
     ((palette-Step _ outcome commands) (match outcome ((None) #t) (_ #f)))))
 
 (define (result (path String)) (→ (Result search-Results Failure))
-  (Ok (search-SavedResults (new Search-results
-                             (hits (list (new Hit
-                                           (point (new Point (file path) (line 2) (column 3)))
-                                           (revision "revision")
-                                           (snippet "text"))))
-                             (skipped 0)
-                             (limited #f)))))
+  (Ok (search-Saved-results (new Search-results
+                              (hits (list (new Hit
+                                            (point (new Point (file path) (line 2) (column 3)))
+                                            (revision "revision")
+                                            (snippet "text"))))
+                              (skipped 0)
+                              (limited #f)))))
 
 (define (click (html (Html palette-Message))) (→ (List palette-Message))
   (match html
@@ -77,7 +77,7 @@
 ;; Execute the real returned command, but choose when to apply its result.
 ;; A logical timer advances immediately; HTTP responses are fixed values.
 (define (execute (step palette-Step) (reply Reply))
-  (→ (Pair palette-State palette-CommandResult))
+  (→ (Pair palette-State palette-Command-result))
   (! Dom Fetch)
   (match step
     ((palette-Step state _ (Cons command rest))
@@ -95,14 +95,14 @@
          (new Pair (first state) (second (command))))))
     (other (panic "expected one command"))))
 
-(define (accept (before palette-State) (result palette-CommandResult))
+(define (accept (before palette-State) (result palette-Command-result))
   (→ palette-State)
   (state (result before)))
 
 (define (run) (→ Unit) (! Dom Fetch Output-port)
   (let* ((start (state (palette-open (palette-initial)
                                      (palette-Searching
-                                      (new palette-Search (source (search-SavedProject))
+                                      (new palette-Search (source (search-Saved-project))
                                            (phase (palette-Debouncing)))))))
          (a1 (execute (palette-update start (context) (palette-Query "a")) (reply "unused")))
          (b (execute (palette-update (● a1 first) (context) (palette-Query "b")) (reply "unused")))
@@ -121,8 +121,9 @@
           (execute (palette-update
                     (state (palette-open (palette-initial)
                                          (palette-Searching
-                                          (new palette-Search (source (search-CurrentDraft (draft)))
-                                               (phase (palette-Debouncing))))))
+                                          (new palette-Search
+                                            (source (search-Current-draft (draft)))
+                                            (phase (palette-Debouncing))))))
                     (context) (palette-Query "before")) (reply "unused")))
          (draft-panel (● draft-work first))
          (replaced (state (palette-reconcile draft-panel
@@ -135,13 +136,13 @@
                                                                   (pending #f)
                                                                   (problem "")))))
                          (palette-Query "new.sld")))
-         (write (execute (palette-update creation (context) (palette-KeyPressed "Enter" 0))
+         (write (execute (palette-update creation (context) (palette-Key-pressed "Enter" 0))
                          (new Reply (status 200) (body "{}"))))
          (writing (● write first)))
     (check (not (requested? ((● a1 second) (● a2 first)))) "old debounce is ignored")
     (check (not (requested? ((● a2 second) pending))) "one request per generation")
-    (match (palette-update stale (context) (palette-KeyPressed "Enter" 0))
-      ((palette-Step next (Some (palette-OpenSavedHit hit)) commands)
+    (match (palette-update stale (context) (palette-Key-pressed "Enter" 0))
+      ((palette-Step next (Some (palette-Open-saved-hit hit)) commands)
        (check (and (string=? (● (● hit point) file) "new.sld")
                    (not (palette-visible? next))
                    (> (● next generation) (● stale generation)))
@@ -164,7 +165,7 @@
     (check (> (● replaced generation) (● draft-panel generation))
            "draft replacement starts a new search")
     (check (not (requested? ((● draft-work second) replaced))) "old draft debounce is ignored")
-    (check (not (requested? (palette-update writing (context) (palette-KeyPressed "Enter" 0))))
+    (check (not (requested? (palette-update writing (context) (palette-Key-pressed "Enter" 0))))
            "creation cannot be submitted twice")
     (check (= (● (send writing (palette-Query "changed")) generation) (● writing generation))
            "pending creation keeps its submitted path")

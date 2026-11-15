@@ -112,7 +112,7 @@
         ((None) #f)))
 
     (define (find-mode? (mode Mode)) (→ Bool)
-      (match mode ((Searching (Search (search-CurrentDraft _) _)) #t) (_ #f)))
+      (match mode ((Searching (Search (search-Current-draft _) _)) #t) (_ #f)))
 
     (define (cancel (state State)) (→ State)
       (new State (generation (+ 1 (● state generation))) (panel (None))))
@@ -153,7 +153,7 @@
         ((Dismiss) (selected state (Dismissed)))
         ((Reconnected)
          (match (● state panel)
-           ((Some (Panel (Searching (Search (search-SavedProject) _)) query _))
+           ((Some (Panel (Searching (Search (search-Saved-project) _)) query _))
             (queried state query))
            (_ (stay state))))))
 
@@ -164,7 +164,7 @@
       (match (● state panel)
         ((Some panel)
          (match (● panel mode)
-           ((Searching (Search (search-CurrentDraft old) _))
+           ((Searching (Search (search-Current-draft old) _))
             (match draft
               ((Some draft)
                (if (search-same-draft? old draft) (stay state)
@@ -173,7 +173,7 @@
                                                                    (Searching
                                                                     (new Search
                                                                       (source
-                                                                       (search-CurrentDraft draft))
+                                                                       (search-Current-draft draft))
                                                                       (phase (Debouncing)))))))
                             (● panel query))))
               ((None) (selected state (Dismissed)))))
@@ -388,13 +388,13 @@
 
     (define (search-choices (results search-Results) (size I64)) (→ (List Choice))
       (match results
-        ((search-SavedResults results)
+        ((search-Saved-results results)
          (map (lambda (hit)
                 (let ((point (● hit point)))
                   (new Choice (label (location (● point file) (● point line) (● point column)))
                        (detail (● hit snippet)) (action (Choose (Open-saved-hit hit))))))
               (● results hits)))
-        ((search-DraftResults draft hits _)
+        ((search-Draft-results draft hits _)
          (map (lambda (hit)
                 (new Choice
                   (label (location (● draft path) (● hit line) (● hit column)))
@@ -499,8 +499,8 @@
         ((Files) "Go to file…")
         ((Searching (Search source _))
          (match source
-           ((search-SavedProject) "Search saved text…")
-           ((search-CurrentDraft _) "Search current file…")))
+           ((search-Saved-project) "Search saved text…")
+           ((search-Current-draft _) "Search current file…")))
         ((Creating (Creation directory _ _))
          (if directory "New directory path…" "New file path…"))))
 
@@ -553,8 +553,8 @@
         ((Searching (Search source phase))
          (string-append
           (match source
-            ((search-SavedProject) "Saved text · ignores case · drafts stay unchanged")
-            ((search-CurrentDraft _) "Current draft · ignores case · includes unsaved text"))
+            ((search-Saved-project) "Saved text · ignores case · drafts stay unchanged")
+            ((search-Current-draft _) "Current draft · ignores case · includes unsaved text"))
           (match phase
             ((Finished (Ok results)) (search-summary results))
             (_ ""))))
@@ -588,14 +588,14 @@
 
     (define (search-summary (results search-Results)) (→ String)
       (match results
-        ((search-SavedResults results)
+        ((search-Saved-results results)
          (string-append (limit-notice (● results limited))
                         (if (> (● results skipped) 0)
                             (string-append " · "
                                            (show (● results skipped))
                                            " files skipped")
                             "")))
-        ((search-DraftResults _ _ limited) (limit-notice limited))))
+        ((search-Draft-results _ _ limited) (limit-notice limited))))
 
     (define (limit-notice (limited Bool)) (→ String)
       (if limited " · Results limited; narrow your query" ""))

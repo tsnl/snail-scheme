@@ -16,13 +16,13 @@
   (define (add (a I64) (b I64)) (→ I64)
     (+ a b)))
 
-(define (sum (a A) (b B)) (→ (Add.Output e A B)) (! e) (∀ (A B e)) (⊨ (Add e A B)) (add a b))
+(define (sum (a A) (b B)) (→ (Add.Output E A B)) (! E) (∀ (A B E)) (⊨ (Add E A B)) (add a b))
 
 (define (twice (a A))
   (→ A)
-  (! e)
-  (∀ (A e))
-  (⊨ (Add e A A (type Output A)))
+  (! E)
+  (∀ (A E))
+  (⊨ (Add E A A (type Output A)))
   (add a a))
 
 ;; An output of an earlier prerequisite becomes a later prerequisite's input.

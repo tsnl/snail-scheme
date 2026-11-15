@@ -10,7 +10,7 @@
    atan
    atan2
    exp
-   Log
+   log
    expt)
   (import
    (snail core base))

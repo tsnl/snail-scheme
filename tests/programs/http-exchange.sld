@@ -87,10 +87,10 @@
   (set! (● (token connection) ended) 2)
   (Err (new Socket-error (code "TEST_CLOSE"))))
 
-(define (run (state Stream) (handler (Fn Request → (Result Response String) ! e)))
+(define (run (state Stream) (handler (Fn Request → (Result Response String) ! E)))
   (→ (Result Unit (Exchange-error String)))
-  (! Tcp Tasks e)
-  (∀ (e))
+  (! Tcp Tasks E)
+  (∀ (E))
   (serve-one (new Connection (token (Any state))) 250 handler))
 
 (define (echo (request Request)) (→ (Result Response String)) (! Tasks)

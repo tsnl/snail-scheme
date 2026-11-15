@@ -72,7 +72,7 @@ try {
   await write('src/assets/art/hero.bin', hero);
   await write('src/assets/art/villain.bin', villain);
   await write('main.sld', `(import (snail core base) (snail core io) (only (snail shell task) Tasks) (snail shell resource) (assets sprites))
-(define (main) (→ Unit) (! Output-port Resource Tasks)
+(define (main) (→ Unit) (! Output-port Resources Tasks)
   (write-line (string-join (map (lambda (byte) (show (u8->i32 byte))) (vector->list (read-resource (hero)))) ",")))\n`);
   await write('public/index.html', '<!doctype html><title>Resources</title>');
   await write('project.datum', `((build-target cli (program (entry "main.sld") (library-roots ("src"))))

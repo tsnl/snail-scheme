@@ -8,7 +8,7 @@
   value)
 (define (duplicate (function (Fn I64 → I64))) (→ (Pair (Fn I64 → I64) (Fn I64 → I64)))
   (new Pair (first function) (second function)))
-(define (invoke (function (Fn → Unit ! e))) (→ Unit) (! e) (∀ (e))
+(define (invoke (function (Fn → Unit ! E))) (→ Unit) (! E) (∀ (E))
   (function))
 
 (define (main) (→ Unit) (! Output-port)

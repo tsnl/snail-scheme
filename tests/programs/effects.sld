@@ -12,12 +12,12 @@
   (log (string-append "working on " (show n)))
   (* n 2))
 
-(define (quietly (action (Fn → A ! Log e))) (→ A) (! e) (∀ (A e))
+(define (quietly (action (Fn → A ! Log E))) (→ A) (! E) (∀ (A E))
   (handle Log
       ((log (lambda (message) (unit))))
     (action)))
 
-(define (loudly (action (Fn → A ! Log Output-port e))) (→ A) (! Output-port e) (∀ (A e))
+(define (loudly (action (Fn → A ! Log Output-port E))) (→ A) (! Output-port E) (∀ (A E))
   (handle Log
       ((log (lambda (message) (write-line (string-append "log: " message)))))
     (action)))

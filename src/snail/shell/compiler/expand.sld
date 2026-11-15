@@ -280,10 +280,10 @@
     ;; `step` over each item in order, threading the context and collecting
     ;; the values, so a sequence of steps is itself one step.
 
-    (define (each (cx Context) (step (Fn Context A → (Pair B Context) ! e)) (items (List A)))
+    (define (each (cx Context) (step (Fn Context A → (Pair B Context) ! E)) (items (List A)))
       (→ (Pair (List B) Context))
-      (! e)
-      (∀ (A B e))
+      (! E)
+      (∀ (A B E))
       (let ((done (fold-left (lambda (done item)
                                (match (step (● done second) item)
                                  ((Pair value cx)
@@ -1301,7 +1301,7 @@
                   (match items
                     ((Cons (Form binders _) (Nil))
                      (map (lambda (item) (expect-ident item "a quantified variable")) binders))
-                    (_ (compile-error (syntax-loc form) "expected (∀ (variable ...))")))))
+                    (_ (compile-error (syntax-loc form) "expected (∀ (Variable ...))")))))
              (unless (= (length variables)
                         (length (delete-duplicates string=? (ident-names variables))))
                (compile-error (syntax-loc form) "duplicate quantified variable"))
@@ -2950,7 +2950,7 @@
               (new Scheme (vars (● requirements vars)) (constraints (● requirements constraints))
                    (type (resolve-type cx (● requirements env) type))))
              (_ (compile-error loc
-                               "expected (∀ (variable ...) [(⊨ constraint ...)] Type)")))))
+                               "expected (∀ (Variable ...) [(⊨ Constraint ...)] Type)")))))
         (_ (mono-scheme (resolve-type cx env syntax)))))
 
     (define (resolve-requirements (cx Context)
@@ -4578,13 +4578,13 @@
                   (expect (primitive-scheme program "vector-ref")
                           (list (list "A") "(Fn (Vector A) I64 → A)"))
                   (expect (primitive-scheme program "vector-generate")
-                          (list (list "A" "e")
-                                "(Fn I64 (Fn I64 → A ! e) → (Vector A) ! e)"))
+                          (list (list "A" "E")
+                                "(Fn I64 (Fn I64 → A ! E) → (Vector A) ! E)"))
                   (expect (primitive-scheme program "vector-ref")
                           (list (list "A") "(Fn (Vector A) I64 → A)"))
                   (expect (primitive-scheme program "inherit-handlers")
-                          (list (list "A" "e")
-                                "(Fn (Fn → A ! e) → (Fn → A ! Host) ! e)"))
+                          (list (list "A" "E")
+                                "(Fn (Fn → A ! E) → (Fn → A ! Host) ! E)"))
                   (expect (map (lambda (record) (● record first))
                                (library-items program (program-items program)))
                           (list "main")))))

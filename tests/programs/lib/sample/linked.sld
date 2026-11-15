@@ -12,7 +12,7 @@
 
     (define (greeting) (→ Resource) (link-file "data/greeting.txt"))
 
-    (define (greeting-text) (→ String) (! Resource Tasks)
+    (define (greeting-text) (→ String) (! Resources Tasks)
       (list->string
        (map (lambda (byte) (i32->char (u8->i32 byte))) (vector->list (read-resource (greeting))))))
 

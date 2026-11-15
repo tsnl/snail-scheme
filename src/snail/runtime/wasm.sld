@@ -8,7 +8,7 @@
   (export
    argument-character
    argument-end
-   Compile
+   compile
    bind-runtime
    has-export
    export-function

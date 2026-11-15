@@ -3,7 +3,7 @@
 ;; the file beside the library's source to the library as a dependency. The build ships the
 ;; file beside the payload, and the program holds a Resource, a handle. A
 ;; host reads a file only when the program asks for it, by
-;; `read-resource`, which performs `Resource` and waits for the host as a
+;; `read-resource`, which performs `Resources` and waits for the host as a
 ;; task does, since a page can only fetch the file.
 ;;
 ;; A Resource can only come from `link-file`: the type is exported without
@@ -12,7 +12,7 @@
   (export
    Resource
    link-file
-   Resource
+   Resources
    read-resource)
   (import
    (snail core base)
@@ -42,7 +42,7 @@
     ;; file, an object of the program's store, the first time a task asks
     ;; for it, and the task waits until it has; a handler can serve it
     ;; otherwise.
-    (effect Resource
+    (effect Resources
       ((resource-bytes (Fn I32 → Bytes ! Tasks)))
       (default ((resource-bytes host-bytes))))
 
@@ -57,7 +57,7 @@
 
     ;; The file's bytes, as they were when the host first read them.
 
-    (define (read-resource (linked Resource)) (→ Bytes) (! Resource Tasks)
+    (define (read-resource (linked Resource)) (→ Bytes) (! Resources Tasks)
       (resource-bytes ((● linked handle))))
 
     ))

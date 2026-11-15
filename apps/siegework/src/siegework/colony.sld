@@ -25,7 +25,7 @@
    Owner
    Of-hub
    Of-building
-   Tasks
+   tasks
    work
    produce)
   (import
