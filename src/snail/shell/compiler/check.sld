@@ -187,15 +187,15 @@
 
     (define (unify (ck Checker) (expected Type) (actual Type) (loc Loc)) (→ Checker) (! compile)
       (learning ck ((agreed (unify? expected actual)))
-                (if agreed
-                    ck
-                    (compile-error loc
-                                   (string-append "type mismatch: expected "
-                                                  (type->string
-                                                   (resolve-type (solution ck) expected))
-                                                  ", found "
-                                                  (type->string
-                                                   (resolve-type (solution ck) actual)))))))
+                (if agreed ck (type-mismatch ck expected actual loc))))
+
+    (define (type-mismatch (ck Checker) (expected Type) (actual Type) (loc Loc))
+      (→ T) (! compile) (∀ (T))
+      (compile-error loc
+                     (string-append "type mismatch: expected "
+                                    (type->string (resolve-type (solution ck) expected))
+                                    ", found "
+                                    (type->string (resolve-type (solution ck) actual)))))
 
     ;; Unification both answers and learns, so it hands back both. A failed
     ;; attempt may still have bound metavariables along the way; the caller
@@ -329,7 +329,8 @@
         ((Some type) type)
         ((None) (panic "internal error: closed row"))))
 
-    ;; Calls require inclusion, while stored function types remain invariant.
+    ;; Calls require inclusion, and so does a function value where it fits
+    ;; a wider type ("Subsumption"); a stored type itself never widens.
     ;; Unknown latent effects stay as obligations until class resolution has
     ;; supplied their lower bounds. Neither pure nor the whole caller row is
     ;; a valid early guess for an unresolved callback or destructor.
@@ -428,6 +429,131 @@
 
     (define (total? (solution Solution) (row Type)) (→ Bool)
       (null? (● (flatten-row solution row) first)))
+
+    ;; ---- Subsumption ----
+
+    ;; A value fits a type that allows at least the effects its own type
+    ;; does: a function that performs fewer effects runs wherever more are
+    ;; allowed. Only rows may differ, so no value's representation changes
+    ;; and fitting converts nothing. A function's result and row may widen
+    ;; and its parameters narrow. An enum's arguments may widen, since its
+    ;; fields are never written. A record's must be equal: what one reads
+    ;; through a widened record, another could have written through a
+    ;; narrower one. A type or row not yet solved is unified, as before.
+
+    (define (subsume? (ck Checker) (expected Type) (actual Type) (loc Loc))
+      (→ (Pair Bool Checker)) (! compile)
+      (match (new Pair (first (prune (solution ck) expected)) (second (prune (solution ck) actual)))
+        ((Pair (TFun params result row) (TFun others other-result other-row))
+         (subsume-function? ck params result row others other-result other-row loc))
+        ((Pair (TCon name args) (TCon other others))
+         (cond ((not (and (string=? name other) (= (length args) (length others))))
+                (new Pair (first #f) (second ck)))
+               ((null? args) (new Pair (first #t) (second ck)))
+               ((covariant-enum? (program-of ck) name (Nil)) (all-subsumed? ck args others loc))
+               (else (unify-all? ck args others))))
+        ((Pair expected actual) (unify? ck expected actual))))
+
+    ;; The expected function's arguments flow into the value's parameters,
+    ;; and the value's result out to the expected one.
+
+    (define (subsume-function? (ck Checker) (params (List Type)) (result Type) (row Type)
+                               (others (List Type)) (other-result Type) (other-row Type)
+                               (loc Loc))
+      (→ (Pair Bool Checker)) (! compile)
+      (if (not (= (length params) (length others)))
+          (new Pair (first #f) (second ck))
+          (learning ck ((parameters (all-subsumed? others params loc)))
+                    (if (not parameters)
+                        (new Pair (first #f) (second ck))
+                        (learning ck ((results (subsume? result other-result loc)))
+                                  (if (not results)
+                                      (new Pair (first #f) (second ck))
+                                      (includes-row? ck row other-row loc)))))))
+
+    (define (all-subsumed? (ck Checker) (expected (List Type)) (actual (List Type)) (loc Loc))
+      (→ (Pair Bool Checker)) (! compile)
+      (fold-left (lambda (done pair)
+                   (if (● done first)
+                       (subsume? (● done second) (● pair first) (● pair second) loc)
+                       done))
+                 (new Pair (first #t) (second ck)) (zip expected actual)))
+
+    ;; The expected row includes the value's when it names the value's
+    ;; labels and its tail covers the value's tail. A value whose row is
+    ;; still open is unified, as before. An expected row still open grows
+    ;; to name the value's labels and stays open, so the code it belongs
+    ;; to may still perform more. Neither case waits: the inclusion holds
+    ;; or fails here.
+
+    (define (includes-row? (ck Checker) (expected Type) (actual Type) (loc Loc))
+      (→ (Pair Bool Checker)) (! compile)
+      (cond ((or (meta? (prune (solution ck) expected))
+                 (meta-tail? (● (flatten-row (solution ck) actual) second)))
+             (unify? ck expected actual))
+            ((excluded? (solution ck) expected actual) (new Pair (first #f) (second ck)))
+            (else (propagate-inclusion ck actual expected loc))))
+
+    ;; Whether no solution of the expected row's tail could include the
+    ;; value's row: a label it lacks, or a rigid tail it does not share.
+
+    (define (excluded? (solution Solution) (expected Type) (actual Type)) (→ Bool)
+      (let ((source (flatten-row solution actual)) (target (flatten-row solution expected)))
+        (and (not (meta-tail? (● target second)))
+             (or (not (null? (label-difference (● source first) (● target first))))
+                 (match (● source second)
+                   ((Some (TRigid _)) (not (same-tail? (● source second) (● target second))))
+                   (_ #f))))))
+
+    ;; An enum widens with its arguments when each of its parameters occurs
+    ;; only where a wider type still fits: a function's result or row, or a
+    ;; widening argument. The enums being examined are assumed to widen,
+    ;; which holds when every one of them is shown to under the assumption.
+
+    (define (covariant-enum? (program Program) (name String) (visiting (List String))) (→ Bool)
+      (match (table-ref (● program types) name)
+        ((Some data)
+         (and (● data enum?)
+              (every? (lambda (case)
+                        (every? (lambda (field)
+                                  (every? (lambda (param)
+                                            (positive-only? program param (● field type) #t
+                                                            (Cons name visiting)))
+                                          (● data params)))
+                                (● case fields)))
+                      (● data cases))))
+        ((None) #f)))
+
+    ;; Whether every occurrence of `param` in `type` is positive, when
+    ;; `type` itself is at a positive place if `positive`.
+
+    (define (positive-only? (program Program) (param String) (type Type) (positive Bool)
+                            (visiting (List String)))
+      (→ Bool)
+      (match type
+        ((TRigid name) (or positive (not (string=? name param))))
+        ((TFun params result row)
+         (and (every? (lambda (type) (positive-only? program param type (not positive) visiting))
+                      params)
+              (positive-only? program param result positive visiting)
+              (positive-only? program param row positive visiting)))
+        ((TRow _ (Some tail)) (positive-only? program param tail positive visiting))
+        ((TCon name args)
+         (if (or (member? name visiting) (covariant-enum? program name visiting))
+             (every? (lambda (type) (positive-only? program param type positive visiting)) args)
+             (every? (lambda (type) (not (mentions? param type))) args)))
+        (_ #t)))
+
+    (define (mentions? (param String) (type Type)) (→ Bool)
+      (match type
+        ((TRigid name) (string=? name param))
+        ((TFun params result row)
+         (or (any? (lambda (type) (mentions? param type)) params)
+             (mentions? param result)
+             (mentions? param row)))
+        ((TRow _ (Some tail)) (mentions? param tail))
+        ((TCon _ args) (any? (lambda (type) (mentions? param type)) args))
+        (_ #f)))
 
     ;; ---- Instantiation ----
 
@@ -826,9 +952,16 @@
         ((Pair (Some (TFun _ (TCon result args) _)) (Some type))
          (match (prune (solution ck) type)
            ((TCon target _) (if (string=? target result)
-                                (unify ck type (TCon result args) loc) ck))
+                                (fit-result ck type (TCon result args) loc) ck))
            (_ ck)))
         (_ ck)))
+
+    ;; A call's result meets the expected type as any value does.
+
+    (define (fit-result (ck Checker) (expected Type) (result Type) (loc Loc))
+      (→ Checker) (! compile)
+      (learning ck ((fits (subsume? expected result loc)))
+                (if fits ck (type-mismatch ck expected result loc))))
 
     (define (infer-arguments (ck Checker) (callee Expr) (args (List Expr)) (row Type))
       (→ (Pair (List Expr) Checker))
@@ -895,11 +1028,15 @@
         (other (compile-error loc (string-append "not a function: " (type->string other))))))
 
     ;; Checking a value never changes its representation. Any is boxed and
-    ;; extracted explicitly; all ordinary type boundaries unify.
+    ;; extracted explicitly; every other boundary subsumes, which differs
+    ;; from unifying only in rows ("Subsumption").
 
     (define (fit (ck Checker) (expected Type) (expr Expr) (row Type) (loc Loc))
       (→ (Pair Expr Checker)) (! compile)
-      (new Pair (first expr) (second (unify ck expected (● expr type) loc))))
+      (learning ck ((fits (subsume? expected (● expr type) loc)))
+                (if fits
+                    (new Pair (first expr) (second ck))
+                    (type-mismatch ck expected (● expr type) loc))))
 
     ;; A function's own name is visible in its body, with a monomorphic type.
 
