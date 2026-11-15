@@ -4,10 +4,10 @@
 (define-library (snail shell ui page)
   (export
    Command
-   PageState
+   Page-state
    define-page-state
    Interface
-   InterfaceApplication
+   Interface-application
    interface-initialize
    interface-update
    interface-view
@@ -17,7 +17,7 @@
    interface-restore)
   (import
    (snail core base)
-   (only (snail core forms) host)
+   (only (snail core forms) Host)
    (snail shell application)
    (snail shell task)
    (snail shell page)
@@ -30,7 +30,7 @@
 
     ;; ---- Interfaces ----
 
-    (type (Command M) (Fn → M ! tasks dom fetch))
+    (type (Command M) (Fn → M ! Tasks Dom Fetch))
 
     (typeclass (Interface Model)
       (type Message)
@@ -43,21 +43,21 @@
       (declare (interface-save (value Model)) (→ Bytes))
       (declare (interface-restore (bytes Bytes)) (→ Model)))
 
-    (record (InterfaceApplication Model)
+    (record (Interface-application Model)
       ())
 
-    (instance (Application (! mut host events storage tasks page) (InterfaceApplication Model))
-      (⊨ (Interface Model) (PageState Model))
-      (define (start (entry (Entry (InterfaceApplication Model))))
+    (instance (Application (! Mut Host Events Storage Tasks Page) (Interface-application Model))
+      (⊨ (Interface Model) (Page-state Model))
+      (define (start (entry (Entry (Interface-application Model))))
         (→ Unit)
-        (! mut host events storage tasks page)
+        (! Mut Host Events Storage Tasks Page)
 
         (run-page (lambda () (initial-interface entry)) interface-save interface-restore
                   present-interface)))
 
-    (define (initial-interface (entry (Entry (InterfaceApplication Model))))
+    (define (initial-interface (entry (Entry (Interface-application Model))))
       (→ Model)
-      (! events)
+      (! Events)
       (∀ (Model))
       (⊨ (Interface Model))
       (interface-initialize (random-seed)))
@@ -67,11 +67,11 @@
     ;; The update's pair is rebuilt because a record's type never widens;
     ;; its commands widen as they move into the new one.
 
-    (define (present-interface (model Model) (save (Fn Model → Unit ! events storage tasks)))
+    (define (present-interface (model Model) (save (Fn Model → Unit ! Events Storage Tasks)))
       (→ Unit)
-      (! mut host events storage tasks page)
+      (! Mut Host Events Storage Tasks Page)
       (∀ (Model))
-      (⊨ (Interface Model) (PageState Model))
+      (⊨ (Interface Model) (Page-state Model))
       (with-page-dom
        (lambda ()
          (with-page-fetch

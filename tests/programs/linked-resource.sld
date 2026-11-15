@@ -6,7 +6,7 @@
 
 (define (asset) (→ Resource) (link-file "linked-resource.txt"))
 
-(define (main) (→ Unit) (! output-port resource tasks)
+(define (main) (→ Unit) (! Output-port Resources Tasks)
   (write-line "before")
   (let ((bytes (read-resource (asset))))
     (display (vector-length bytes)) (newline)

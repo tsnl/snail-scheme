@@ -1,17 +1,17 @@
 (import
- (only (snail core forms) host)
+ (only (snail core forms) Host)
  (snail core base)
- (only (snail shell task) tasks)
+ (only (snail shell task) Tasks)
  (rename (snail core io) (write write-value))
  (only (snail shell task) dispatch)
  (snail shell socket))
 
-(define (require (result (Result T SocketError))) (→ T) (∀ (T))
+(define (require (result (Result T Socket-error))) (→ T) (∀ (T))
   (match result
     ((Ok value) value)
     ((Err error) (panic (● error code)))))
 
-(define (main) (→ Unit) (! host mut output-port tcp udp tasks)
+(define (main) (→ Unit) (! Host Mut Output-port Tcp Udp Tasks)
   ;; A program waits on sockets from a task, which the scheduler runs once
   ;; main returns.
   (dispatch
@@ -21,7 +21,7 @@
             (peer (require (endpoint "127.0.0.1" (● second port))))
             (listener (require (listen (require (endpoint "127.0.0.1" 0))))))
        ;; Owner-local handle numbers can coincide. Their token types cannot.
-       (match (close-udp (new UdpSocket (token (● listener token)) (port 0)))
+       (match (close-udp (new Udp-socket (token (● listener token)) (port 0)))
          ((Err error) (write-line (● error code)))
          ((Ok _) (panic "TCP token used as UDP")))
        (require (close-listener listener))
@@ -34,8 +34,8 @@
        (let ((packet (require (receive second 4))))
          (write-value (vector->list (● packet bytes)))
          (newline)
-         (display (and (string=? (Endpoint-address (● packet peer)) "127.0.0.1")
-                       (= (Endpoint-port (● packet peer)) (● first port))))
+         (display (and (string=? (endpoint-address (● packet peer)) "127.0.0.1")
+                       (= (endpoint-port (● packet peer)) (● first port))))
          (newline))
        (require (send first peer #u8(1 2)))
        (match (receive second 1)

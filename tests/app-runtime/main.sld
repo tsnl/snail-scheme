@@ -1,6 +1,6 @@
 (import
  (snail core base)
- (only (snail core forms) host)
+ (only (snail core forms) Host)
  (snail shell task)
  (snail shell app)
  (snail shell application)
@@ -28,10 +28,10 @@
 ;; The runtime drains children after a normal root return. Explicit reload
 ;; closes that scope after the root has handed over, including this case.
 ;; Each root is a task, as the shared page loop is.
-(extern background-boot "snail.runtime.browser.events" "boot" (Fn I32 → Unit ! events))
-(extern background-ready "snail.runtime.browser.events" "ready" (Fn → Unit ! events))
-(extern background-poll "snail.runtime.browser.events" "poll" (Fn → I32 ! events))
-(define (background-main (scheduler Scheduler) (context PageRun)) (→ I64) (! mut host events)
+(extern background-boot "snail.runtime.browser.events" "boot" (Fn I32 → Unit ! Events))
+(extern background-ready "snail.runtime.browser.events" "ready" (Fn → Unit ! Events))
+(extern background-poll "snail.runtime.browser.events" "poll" (Fn → I32 ! Events))
+(define (background-main (scheduler Scheduler) (context Page-run)) (→ I64) (! Mut Host Events)
   (start-page context scheduler (lambda ()
                                   (background-boot 2)
                                   (background-poll) ; Resize.
@@ -41,7 +41,7 @@
                                   (unit))))
 (expose background-main "background_main")
 
-(define (unpresented-main (scheduler Scheduler) (context PageRun)) (→ I64) (! mut host events)
+(define (unpresented-main (scheduler Scheduler) (context Page-run)) (→ I64) (! Mut Host Events)
   (start-page context scheduler (lambda ()
                                   (background-boot 2)
                                   (dispatch (lambda () (sleep 100000)))
@@ -49,23 +49,23 @@
 (expose unpresented-main "unpresented_main")
 
 ;; Tasks beside the loop cannot enter its protocol: each of these traps.
-(define (child-load) (→ Unit) (! storage tasks)
+(define (child-load) (→ Unit) (! Storage Tasks)
   (load-save)
   (unit))
-(define (child-store) (→ Unit) (! storage tasks)
+(define (child-store) (→ Unit) (! Storage Tasks)
   (store-save #u8(20)))
-(define (child-event) (→ Unit) (! events tasks)
+(define (child-event) (→ Unit) (! Events Tasks)
   (next-event)
   (unit))
-(define (child-boot) (→ Unit) (! events)
+(define (child-boot) (→ Unit) (! Events)
   (background-boot 99))
 
-(define (child-commit) (→ Unit) (! mut events page)
+(define (child-commit) (→ Unit) (! Mut Events Page)
   (commit-page (new Counter (count 999) (resizes 0))))
 
-(define (spawn-child (scheduler Scheduler) (context PageRun) (which I32))
-  (→ Unit) (! mut host storage events)
-  (handle page ((current-page (lambda () context)))
+(define (spawn-child (scheduler Scheduler) (context Page-run) (which I32))
+  (→ Unit) (! Mut Host Storage Events)
+  (handle Page ((current-page (lambda () context)))
     (dispatch-in scheduler
                  (lambda ()
                    (match which
@@ -91,10 +91,10 @@
 
 (define (step (counter Counter) (input Input)) (→ Counter)
   (match input
-    ((Press 1 _) (Counter-count-set counter (+ (● counter count) 1)))
+    ((Press 1 _) (counter-count-set counter (+ (● counter count) 1)))
     ((Press 2 _) (panic "a deliberate update trap"))
-    ((Elapsed elapsed) (Counter-count-set counter (+ (● counter count) (i32->i64 elapsed))))
-    ((Resize _ _) (Counter-resizes-set counter (+ (● counter resizes) 1)))
+    ((Elapsed elapsed) (counter-count-set counter (+ (● counter count) (i32->i64 elapsed))))
+    ((Resize _ _) (counter-resizes-set counter (+ (● counter resizes) 1)))
     (_ counter)))
 
 (define (draw (counter Counter)) (→ Frame)
@@ -110,7 +110,7 @@
     (pictures (Nil))))
 
 (define (panels (counter Counter)) (→ (List Panel))
-  (list (new Panel (key "counter") (place (At (TopLeft) 0))
+  (list (new Panel (key "counter") (place (At (Top-left) 0))
              (widgets (list (label "count" (i64->string (● counter count))))))))
 
 (define (save-counter (counter Counter)) (→ Save)
@@ -152,13 +152,13 @@
   (define (scene-restore (bytes Bytes)) (→ Counter)
     (restore-counter (deserialize bytes))))
 
-(record TestApplication
+(record Test-application
   ())
 
-(instance (Application (! mut host screen events storage tasks page) TestApplication)
-  (define (start (entry (Entry TestApplication)))
+(instance (Application (! Mut Host Screen Events Storage Tasks Page) Test-application)
+  (define (start (entry (Entry Test-application)))
     (→ Unit)
-    (! mut host screen events storage tasks page)
+    (! Mut Host Screen Events Storage Tasks Page)
     (handle Marker
         ((marker (lambda () 17)))
       (dispatch (lambda ()
@@ -166,6 +166,6 @@
                   (unless (= (marker) 17)
                     (panic "a child lost its inherited handler"))
                   (sleep 100000)))
-      (start (ann (new Entry) (Entry (SceneApplication Counter)))))))
+      (start (ann (new Entry) (Entry (Scene-application Counter)))))))
 
-(define-page-entry TestApplication)
+(define-page-entry Test-application)

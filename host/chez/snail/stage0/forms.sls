@@ -61,9 +61,10 @@
 
   (meta scheme-define (joined-name name field suffix)
         (datum->syntax name
-                       (string->symbol (string-append (symbol->string (syntax->datum name)) "-"
-                                                      (symbol->string (syntax->datum field))
-                                                      suffix))))
+                       (string->symbol
+                        (string-append (string-downcase (symbol->string (syntax->datum name))) "-"
+                                       (symbol->string (syntax->datum field))
+                                       suffix))))
   (meta scheme-define (field-name field)
         (syntax-case field () [(name . rest) #'name]))
   (meta scheme-define (field-definitions name field index)
@@ -288,7 +289,7 @@
                    (string=? (● value label) "ordered"))
         (error 'test-forms "named construction changed evaluation order")))
     (let* ([record (new Counter (label "before") (value 1))] [alias record]
-           [changed (Counter-label-set record "after")])
+           [changed (counter-label-set record "after")])
       (set! (● alias value) 2)
       (unless (and (= (● record value) 2) (= (● changed value) 1)
                    (= (typed-sum 20 22) 42)

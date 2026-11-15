@@ -11,10 +11,10 @@
  (snail shell json)
  (snail shell compiler sha256))
 
-(define (digest (bytes Bytes)) (→ Unit) (! output-port)
+(define (digest (bytes Bytes)) (→ Unit) (! Output-port)
   (write-line (string-append (show (vector-length bytes)) " " (bytes->hex (sha256 bytes)))))
 
-(define (main) (→ Unit) (! fs output-port)
+(define (main) (→ Unit) (! Fs Output-port)
   (digest (string->utf8 ""))
   (digest (string->utf8 "abc"))
   (digest (string->utf8 "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"))
@@ -28,9 +28,9 @@
   (digest (string->utf8 "λ € 😀"))
   (let ((image (read-bytes "tests/programs/data/pixel.png")))
     (digest image)
-    (let ((frame (string->utf8 (json->string (JsonArray (list (JsonString "pixel.png")
-                                                              (JsonInteger
-                                                               (vector-length image))))))))
+    (let ((frame (string->utf8 (json->string (Json-array (list (Json-string "pixel.png")
+                                                               (Json-integer
+                                                                (vector-length image))))))))
       (write-line (bytes->hex (sha256 (vector-append frame image))))))
   (write-line (bytes->hex #u8(0 1 15 16 127 128 254 255)))
   (unit))

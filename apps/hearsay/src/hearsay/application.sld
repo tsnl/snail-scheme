@@ -10,7 +10,7 @@
     (define (view (shell Shell)) (→ Frame)
       (view-shell shell art))
 
-    (type Hearsay (SceneApplication Shell))
+    (type Hearsay (Scene-application Shell))
 
     (define-page-state Shell)
 

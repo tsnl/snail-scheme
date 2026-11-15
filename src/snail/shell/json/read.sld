@@ -31,7 +31,7 @@
 
     (define (json-member (value Json) (name String)) (→ (Option Json))
       (match value
-        ((JsonObject members) (assoc-ref members name))
+        ((Json-object members) (assoc-ref members name))
         (_ (None))))
 
     ;; ---- Values ----
@@ -49,9 +49,9 @@
       (cond ((at? chars index #\{) (read-members chars (skip-space chars (+ index 1)) (Nil)))
             ((at? chars index #\[) (read-items chars (skip-space chars (+ index 1)) (Nil)))
             ((at? chars index #\") (read-string-value chars (+ index 1)))
-            ((at? chars index #\t) (read-word chars index "true" (JsonBool #t)))
-            ((at? chars index #\f) (read-word chars index "false" (JsonBool #f)))
-            ((at? chars index #\n) (read-word chars index "null" (JsonNull)))
+            ((at? chars index #\t) (read-word chars index "true" (Json-bool #t)))
+            ((at? chars index #\f) (read-word chars index "false" (Json-bool #f)))
+            ((at? chars index #\n) (read-word chars index "null" (Json-null)))
             (else (read-integer chars index))))
 
     (define (read-word (chars (Vector Char)) (index I64) (word String) (value Json))
@@ -70,7 +70,7 @@
         (match (if (any? (lambda (char) (at? chars end char)) (list #\. #\e #\E))
                    (None)
                    (string->i64 (vector->string (subvector chars index end))))
-          ((Some number) (Some (new Pair (first (JsonInteger number)) (second end))))
+          ((Some number) (Some (new Pair (first (Json-integer number)) (second end))))
           ((None) (None)))))
 
     (define (digits-end (chars (Vector Char)) (index I64)) (→ I64)
@@ -84,13 +84,13 @@
     (define (read-items (chars (Vector Char)) (index I64) (items (List Json)))
       (→ (Option (Pair Json I64)))
       (if (and (null? items) (at? chars index #\]))
-          (Some (new Pair (first (JsonArray (Nil))) (second (+ index 1))))
+          (Some (new Pair (first (Json-array (Nil))) (second (+ index 1))))
           (match (read-value chars index)
             ((Some (Pair item end))
              (let ((next (skip-space chars end)) (items (Cons item items)))
                (cond ((at? chars next #\,) (read-items chars (skip-space chars (+ next 1)) items))
                      ((at? chars next #\])
-                      (Some (new Pair (first (JsonArray (reverse items))) (second (+ next 1)))))
+                      (Some (new Pair (first (Json-array (reverse items))) (second (+ next 1)))))
                      (else (None)))))
             ((None) (None)))))
 
@@ -99,14 +99,14 @@
     (define (read-members (chars (Vector Char)) (index I64) (members (List (Pair String Json))))
       (→ (Option (Pair Json I64)))
       (if (and (null? members) (at? chars index #\}))
-          (Some (new Pair (first (JsonObject (Nil))) (second (+ index 1))))
+          (Some (new Pair (first (Json-object (Nil))) (second (+ index 1))))
           (match (read-member chars index)
             ((Some (Pair member end))
              (let ((next (skip-space chars end)) (members (Cons member members)))
                (cond
                 ((at? chars next #\,) (read-members chars (skip-space chars (+ next 1)) members))
                 ((at? chars next #\})
-                 (Some (new Pair (first (JsonObject (reverse members))) (second (+ next 1)))))
+                 (Some (new Pair (first (Json-object (reverse members))) (second (+ next 1)))))
                 (else (None)))))
             ((None) (None)))))
 
@@ -129,7 +129,7 @@
 
     (define (read-string-value (chars (Vector Char)) (index I64)) (→ (Option (Pair Json I64)))
       (match (read-string chars index (Nil))
-        ((Some (Pair text end)) (Some (new Pair (first (JsonString text)) (second end))))
+        ((Some (Pair text end)) (Some (new Pair (first (Json-string text)) (second end))))
         ((None) (None))))
 
     ;; A string's text after its opening quote, and the index after its

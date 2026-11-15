@@ -7,7 +7,7 @@
 (define (small) (→ (List I64)) (iota 170))
 (define (array) (→ (Vector I64)) (vector-copy (vector-generate 511 (lambda (index) index))))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   (write-line (show (total)))
   (write-line (show (length (small))))
   (write-line (show (vector-ref (array) 510))))

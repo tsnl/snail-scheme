@@ -11,7 +11,7 @@
 (define (apply-n (f (Fn I64 → I64)) (n I64) (x I64)) (→ I64)
   (if (= n 0) x (apply-n f (- n 1) (f x))))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   (display (even? 10000001))
   (newline)
   (display (apply-n (lambda (x) (+ x 2)) 5000000 0))

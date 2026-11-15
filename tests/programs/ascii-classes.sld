@@ -2,7 +2,7 @@
  (snail core base)
  (snail core io))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   (for-each (lambda (number)
               (let ((char (integer->char number)))
                 (write-line (string-append (show (char-whitespace? char)) " "

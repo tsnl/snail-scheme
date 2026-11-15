@@ -26,7 +26,7 @@
 (define (run (played Played) (ticks I64)) (→ Played)
   (if (= ticks 0)
       played
-      (run (Played-world-set played (advance (● played world))) (- ticks 1))))
+      (run (played-world-set played (advance (● played world))) (- ticks 1))))
 
 (define (offset (world World) (dx I64) (dy I64)) (→ Cell)
   (let ((hub (● (● world hub) cell)))
@@ -88,7 +88,7 @@
 (define (cell-text (cell Cell)) (→ String)
   (string-append (show (● cell x)) "." (show (● cell y))))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
 
   (let ()
     (define start (new Played (world (new-world 3)) (journal (Nil))))

@@ -9,5 +9,5 @@
 
 (define main
   (lambda ()
-    (write-line (show (Point-x (new Point (x 1)))))
+    (write-line (show (point-x (new Point (x 1)))))
     (unit)))

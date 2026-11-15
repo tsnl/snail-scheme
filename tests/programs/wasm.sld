@@ -82,7 +82,7 @@
         124
         11))
 
-(define (use-adder (module Module)) (→ Unit) (! wasm output-port)
+(define (use-adder (module Module)) (→ Unit) (! Wasm Output-port)
   (match (module-export module "add")
     ((Ok function)
      (let ((add (ann (unsafe-cast function) (Fn I64 I64 → I64))))
@@ -100,7 +100,7 @@
         2 29 1 18 115 110 97 105 108 46 99 111 114 101 46 115 117 112 112 111 114 116
         6 109 101 109 111 114 121 0 0))
 
-(define (main) (→ Unit) (! output-port wasm)
+(define (main) (→ Unit) (! Output-port Wasm)
   (let ((adder (compiled (adder))) (mislinked (compiled (mislinked))))
     (match (link-module "adder" adder (Nil))
       ((Ok module)
@@ -109,12 +109,12 @@
          ((Ok _) (write-line "subtract is exported"))
          ((Err error) (write-line (load-error-message error)))))
       ((Err error) (write-line (load-error-message error))))
-    (match (link-module "mislinked" mislinked (list (ExportOf (loading-program) "memory")))
+    (match (link-module "mislinked" mislinked (list (Export-of (loading-program) "memory")))
       ((Ok _) (write-line "linked incompatible import"))
       ((Err error) (write-line (load-error-message error)))))
   (unit))
 
-(define (compiled (bytes (List I32))) (→ Compiled) (! wasm)
+(define (compiled (bytes (List I32))) (→ Compiled) (! Wasm)
   (match (compile-bytes (list->vector (map i32->u8 bytes)))
     ((Some module) module)
     ((None) (panic "invalid fixture binary"))))

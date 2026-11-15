@@ -19,7 +19,7 @@
     ((Ok world) world)
     ((Err rejection) (panic (rejection-text rejection)))))
 
-(define (report (world World)) (→ Unit) (! output-port)
+(define (report (world World)) (→ Unit) (! Output-port)
   (let ((ledger (● world ledger)))
     (write-line (string-join (list (string-append "tick " (show (● world tick)))
                                    (string-append "energy " (show (● world energy)))
@@ -37,7 +37,7 @@
     ((Some crystal) (● crystal reserve))
     ((None) 0)))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
 
   (let ()
     (define world (new-world 3))
@@ -64,7 +64,7 @@
     (define world (order world (Scavenge (new Cell (x 39) (y 46)))))
     (report world)
     (write-line (string-append "buildings " (show (length (● world buildings)))))
-    (define damaged (World-hub-set world (Hub-health-set (● world hub) 421)))
+    (define damaged (world-hub-set world (hub-health-set (● world hub) 421)))
     (define repaired (order damaged (Repair)))
     (write-line
      (string-append "repair restores the hub from 421 to " (show (● (● repaired hub) health))

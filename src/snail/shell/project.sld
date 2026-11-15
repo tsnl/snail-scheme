@@ -5,16 +5,16 @@
 (define-library (snail shell project)
   (export
    Project
-   ProjectPath
-   ProjectEntry
-   SourceEntry
-   ApplicationEntry
-   BuildTarget
-   ProgramTarget
-   BrowserTarget
-   ProgramBuild
-   BrowserBuild
-   RunTarget
+   Project-path
+   Project-entry
+   Source-entry
+   Application-entry
+   Build-target
+   Program-target
+   Browser-target
+   Program-build
+   Browser-build
+   Run-target
    target-name
    target-loc
    find-target
@@ -27,58 +27,58 @@
     ;; ---- Descriptions ----
 
     (record Project
-      ((builds (List BuildTarget))
-       (runs (List RunTarget))))
+      ((builds (List Build-target))
+       (runs (List Run-target))))
 
     ;; A nonempty project-relative path, with no escaping or empty components.
     ;; The spelling "." is allowed for a directory, but not an entry file.
-    (record ProjectPath
+    (record Project-path
       ((text String)
        (loc Loc)))
 
     ;; A source program remains useful for scripts and compiler tooling.
     ;; An application entry selects an exported concrete type in a library.
-    (enum ProjectEntry
-      (SourceEntry ((path ProjectPath)))
-      (ApplicationEntry
+    (enum Project-entry
+      (Source-entry ((path Project-path)))
+      (Application-entry
        ((library (List String))
         (name String))))
 
-    (record ProgramBuild
+    (record Program-build
       ((name String)
-       (entry ProjectEntry)
-       (libraries (List ProjectPath))
+       (entry Project-entry)
+       (libraries (List Project-path))
        (loc Loc)))
 
-    (record BrowserBuild
+    (record Browser-build
       ((name String)
-       (entry ProjectEntry)
-       (libraries (List ProjectPath))
-       (public (Option ProjectPath))
+       (entry Project-entry)
+       (libraries (List Project-path))
+       (public (Option Project-path))
        (loc Loc)))
 
-    (enum BuildTarget
-      (ProgramTarget ((program ProgramBuild)))
-      (BrowserTarget ((browser BrowserBuild))))
+    (enum Build-target
+      (Program-target ((program Program-build)))
+      (Browser-target ((browser Browser-build))))
 
     ;; A resolved run contains a program, never a browser or unchecked name.
-    (record RunTarget
+    (record Run-target
       ((name String)
-       (program ProgramBuild)
+       (program Program-build)
        (arguments (List String))
        (loc Loc)))
 
-    (define (target-name (target BuildTarget)) (→ String)
+    (define (target-name (target Build-target)) (→ String)
       (match target
-        ((ProgramTarget program) (● program name))
-        ((BrowserTarget browser) (● browser name))))
+        ((Program-target program) (● program name))
+        ((Browser-target browser) (● browser name))))
 
-    (define (target-loc (target BuildTarget)) (→ Loc)
+    (define (target-loc (target Build-target)) (→ Loc)
       (match target
-        ((ProgramTarget program) (● program loc))
-        ((BrowserTarget browser) (● browser loc))))
+        ((Program-target program) (● program loc))
+        ((Browser-target browser) (● browser loc))))
 
-    (define (find-target (builds (List BuildTarget)) (name String)) (→ (Option BuildTarget))
+    (define (find-target (builds (List Build-target)) (name String)) (→ (Option Build-target))
       (find (lambda (build) (string=? (target-name build) name)) builds))
 
     ;; ---- Literal names and paths ----
@@ -93,7 +93,7 @@
         (and (>= (string-length name) (string-length prefix))
              (string=? (substring name 0 (string-length prefix)) prefix))))
 
-    (define (parse-name (syntax Syntax)) (→ String) (! compile)
+    (define (parse-name (syntax Syntax)) (→ String) (! Compile)
       (match syntax
         ((Ident name _ loc)
          (if (and (not (string=? name ".."))
@@ -105,12 +105,12 @@
                             "a target name must be one path component outside the reserved .snail-* names")))
         (_ (compile-error (syntax-loc syntax) "expected a literal target name"))))
 
-    (define (literal-string (syntax Syntax)) (→ String) (! compile)
+    (define (literal-string (syntax Syntax)) (→ String) (! Compile)
       (match syntax
-        ((Atom (DString text) _) text)
+        ((Atom (D-string text) _) text)
         (_ (compile-error (syntax-loc syntax) "expected a literal string"))))
 
-    (define (literal-list (syntax Syntax)) (→ (List Syntax)) (! compile)
+    (define (literal-list (syntax Syntax)) (→ (List Syntax)) (! Compile)
       (match syntax
         ((Form items _) items)
         (_ (compile-error (syntax-loc syntax) "expected a literal list"))))
@@ -123,27 +123,27 @@
                    (or (= end (string-length text)) (loop (+ end 1) (+ end 1)))))
             (loop start (+ end 1)))))
 
-    (define (parse-path (syntax Syntax)) (→ ProjectPath) (! compile)
+    (define (parse-path (syntax Syntax)) (→ Project-path) (! Compile)
       (let ((text (literal-string syntax)) (loc (syntax-loc syntax)))
         (unless (and (> (string-length text) 0)
                      (every? path-character? (string->list text))
                      (or (string=? text ".") (path-components? text)))
           (compile-error loc
                          "expected a project-relative path using /, without empty, . or .. components, backslash, colon or NUL"))
-        (new ProjectPath (text text) (loc loc))))
+        (new Project-path (text text) (loc loc))))
 
-    (define (entry-path (syntax Syntax)) (→ ProjectPath) (! compile)
+    (define (entry-path (syntax Syntax)) (→ Project-path) (! Compile)
       (let ((path (parse-path syntax)))
         (when (string=? (● path text) ".")
           (compile-error (● path loc)
                          "an entry must name a file, not the project directory"))
         path))
 
-    (define (parse-entry (syntax Syntax)) (→ ProjectEntry) (! compile)
+    (define (parse-entry (syntax Syntax)) (→ Project-entry) (! Compile)
       (match syntax
-        ((Atom (DString _) _) (SourceEntry (entry-path syntax)))
+        ((Atom (D-string _) _) (Source-entry (entry-path syntax)))
         ((Form (Cons (Form (Cons part parts) _) (Cons name (Nil))) _)
-         (ApplicationEntry (map parse-name (Cons part parts)) (parse-name name)))
+         (Application-entry (map parse-name (Cons part parts)) (parse-name name)))
         (_ (compile-error (syntax-loc syntax)
                           "expected an entry path string or ((library name) ApplicationType)"))))
 
@@ -151,7 +151,7 @@
 
     (define (duplicate (kind String) (name String) (here Loc) (previous Loc))
       (→ A)
-      (! compile)
+      (! Compile)
       (∀ (A))
       (compile-error here
                      (string-append "duplicate "
@@ -163,18 +163,18 @@
 
     (define (unique-field (name String) (loc Loc) (previous (Option T)) (value T))
       (→ (Option T))
-      (! compile)
+      (! Compile)
       (∀ (T))
       (match previous
         ((Some _) (compile-error loc (string-append "duplicate option " name)))
         ((None) (Some value))))
 
     (define (build-fields (browser? Bool) (name String) (declaration Loc) (forms (List Syntax)))
-      (→ BuildTarget)
-      (! compile)
-      (let loop ((forms forms) (entry (ann (None) (Option ProjectEntry)))
-                 (libraries (ann (None) (Option (List ProjectPath))))
-                 (public (ann (None) (Option ProjectPath))))
+      (→ Build-target)
+      (! Compile)
+      (let loop ((forms forms) (entry (ann (None) (Option Project-entry)))
+                 (libraries (ann (None) (Option (List Project-path))))
+                 (public (ann (None) (Option Project-path))))
         (match forms
           ((Nil)
            (match entry
@@ -182,17 +182,17 @@
              ((Some path)
               (let ((roots (match libraries ((Some paths) paths) ((None) (Nil)))))
                 (if browser?
-                    (BrowserTarget (new BrowserBuild
-                                     (name name)
-                                     (entry path)
-                                     (libraries roots)
-                                     (public public)
-                                     (loc declaration)))
-                    (ProgramTarget (new ProgramBuild
-                                     (name name)
-                                     (entry path)
-                                     (libraries roots)
-                                     (loc declaration))))))))
+                    (Browser-target (new Browser-build
+                                      (name name)
+                                      (entry path)
+                                      (libraries roots)
+                                      (public public)
+                                      (loc declaration)))
+                    (Program-target (new Program-build
+                                      (name name)
+                                      (entry path)
+                                      (libraries roots)
+                                      (loc declaration))))))))
           ((Cons form rest)
            (match form
              ((Form (Cons (Ident key _ _) (Cons value (Nil))) loc)
@@ -210,8 +210,8 @@
              (_ (compile-error (syntax-loc form) "expected a (key value) build option")))))))
 
     (define (parse-build (name String) (syntax Syntax) (declaration Loc))
-      (→ BuildTarget)
-      (! compile)
+      (→ Build-target)
+      (! Compile)
       (match syntax
         ((Form (Cons (Ident kind _ _) forms) loc)
          (unless (or (string=? kind "program") (string=? kind "browser"))
@@ -221,7 +221,7 @@
 
     ;; ---- Runs and declarations ----
 
-    (define (run-arguments (forms (List Syntax))) (→ (List String)) (! compile)
+    (define (run-arguments (forms (List Syntax))) (→ (List String)) (! Compile)
       (let loop ((forms forms) (arguments (ann (None) (Option (List String)))))
         (match forms
           ((Nil) (match arguments ((Some values) values) ((None) (Nil))))
@@ -230,22 +230,22 @@
                  (unique-field "args" loc arguments (map literal-string (literal-list value)))))
           ((Cons form _) (compile-error (syntax-loc form) "expected (args (STRING ...))")))))
 
-    (define (resolve-program (builds (List BuildTarget)) (syntax Syntax))
-      (→ ProgramBuild)
-      (! compile)
+    (define (resolve-program (builds (List Build-target)) (syntax Syntax))
+      (→ Program-build)
+      (! Compile)
       (let ((name (parse-name syntax)) (loc (syntax-loc syntax)))
         (match (find-target builds name)
-          ((Some (ProgramTarget program)) program)
-          ((Some (BrowserTarget _))
+          ((Some (Program-target program)) program)
+          ((Some (Browser-target _))
            (compile-error loc "a run target must reference a program build"))
           ((None) (compile-error loc (string-append "unknown build target " name))))))
 
-    (define (parse-run (builds (List BuildTarget)) (name String) (syntax Syntax) (declaration Loc))
-      (→ RunTarget)
-      (! compile)
+    (define (parse-run (builds (List Build-target)) (name String) (syntax Syntax) (declaration Loc))
+      (→ Run-target)
+      (! Compile)
       (match syntax
         ((Form (Cons (Ident "run" _ _) (Cons target forms)) _)
-         (new RunTarget
+         (new Run-target
            (name name)
            (program (resolve-program builds target))
            (arguments (run-arguments forms))
@@ -255,8 +255,8 @@
     ;; The reader's syntax already retains forward references. Collect builds,
     ;; then resolve runs directly; no second declaration tree is needed.
 
-    (define (collect-builds (declarations (List Syntax))) (→ (List BuildTarget)) (! compile)
-      (let loop ((rest declarations) (builds (ann (Nil) (List BuildTarget))))
+    (define (collect-builds (declarations (List Syntax))) (→ (List Build-target)) (! Compile)
+      (let loop ((rest declarations) (builds (ann (Nil) (List Build-target))))
         (match rest
           ((Nil) (reverse builds))
           ((Cons (Form (Cons (Ident "build-target" _ _) (Cons name (Cons build (Nil)))) loc) tail)
@@ -269,10 +269,10 @@
           ((Cons form _)
            (compile-error (syntax-loc form) "expected a build-target or run-target declaration")))))
 
-    (define (collect-runs (declarations (List Syntax)) (builds (List BuildTarget)))
-      (→ (List RunTarget))
-      (! compile)
-      (let loop ((rest declarations) (runs (ann (Nil) (List RunTarget))))
+    (define (collect-runs (declarations (List Syntax)) (builds (List Build-target)))
+      (→ (List Run-target))
+      (! Compile)
+      (let loop ((rest declarations) (runs (ann (Nil) (List Run-target))))
         (match rest
           ((Nil) (reverse runs))
           ((Cons (Form (Cons (Ident "build-target" _ _) _) _) tail) (loop tail runs))
@@ -286,7 +286,7 @@
                ((None) (loop tail (Cons target runs))))))
           ((Cons form _) (compile-error (syntax-loc form) "expected a run-target declaration")))))
 
-    (define (parse-project (text String) (file String)) (→ Project) (! compile)
+    (define (parse-project (text String) (file String)) (→ Project) (! Compile)
       (match (read-text text file)
         ((Cons (Form declarations _) (Nil))
          (let ((builds (collect-builds declarations)))
@@ -330,9 +330,9 @@
                              '("." "src"))
                      (expect (loc->string (● (● run program) loc)) "project.datum:3:1")
                      (match (car (● project builds))
-                       ((BrowserTarget browser)
+                       ((Browser-target browser)
                         (match (● browser entry)
-                          ((SourceEntry path) (expect (● path text) "client.sld"))
+                          ((Source-entry path) (expect (● path text) "client.sld"))
                           (_ (expect "application" "source")))
                         (match (● browser public)
                           ((Some path) (expect (● path text) "public"))
@@ -346,9 +346,9 @@
                 (match (car (● (parse-project
                                 "((build-target app (program (entry ((example output-port) Printer)))))"
                                 "typed.datum") builds))
-                  ((ProgramTarget program)
+                  ((Program-target program)
                    (match (● program entry)
-                     ((ApplicationEntry library name)
+                     ((Application-entry library name)
                       (expect library '("example" "output-port"))
                       (expect name "Printer"))
                      (_ (expect "source" "application"))))

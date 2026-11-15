@@ -32,7 +32,7 @@
 (define (sum (items (List T)) (zero T)) (→ T) (∀ (T)) (⊨ (Num (!) T))
   (fold-left + zero items))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
 
   (write-line (describe (list 1 2 3)))
   (write-line (describe (list (Some #t) (None))))

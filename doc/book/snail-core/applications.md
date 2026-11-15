@@ -5,13 +5,13 @@ contract:
 
 ```scheme
 (record (Entry A) ())
-(typeclass (Application e A)
-  (declare (start (entry (Entry A))) (→ Unit) (! e)))
+(typeclass (Application E A)
+  (declare (start (entry (Entry A))) (→ Unit) (! E)))
 ```
 
 `Entry` is an empty type witness. Selecting an application does not require
 constructing its state: `start` creates that state and runs the program. A
-console application can implement the class directly, perform `output-port` and task
+console application can implement the class directly, perform `Output-port` and task
 effects, and return when it is done. Custom handlers and background tasks belong
 inside `start`. There is no reset binder or separate declaration of entry effects.
 
@@ -34,7 +34,7 @@ available for scripts and tooling.
 
 Engines express richer contracts as ordinary classes. `Scene State` and
 `Interface Model` provide scene and document callbacks; the generic
-`SceneApplication State` and `InterfaceApplication Model` adapters implement
+`Scene-application State` and `Interface-application Model` adapters implement
 `Application`. These are ordinary instances, not a compiler-specific superclass
 rule. Each engine calls its class methods directly; it has no second API for
 supplying those same methods as callbacks. Both engines use `run-page` for boot,
@@ -58,7 +58,7 @@ expressed through effects rather than additional `Application` methods.
 An application library exports an alias and implements the engine's class:
 
 ```scheme
-(type GameApplication (SceneApplication Game))
+(type GameApplication (Scene-application Game))
 (define-page-state Game)
 (instance (Scene Game)
   (define scene-initialize (lambda (seed width height) (new-game seed width height)))
@@ -69,17 +69,17 @@ An application library exports an alias and implements the engine's class:
   (define scene-restore (lambda (bytes) (restore-game (deserialize bytes)))))
 ```
 
-`define-page-state` supplies ordinary `PageState` evidence for packing and
+`define-page-state` supplies ordinary `Page-state` evidence for packing and
 unpacking this concrete state at the host's opaque `Any` boundary. It preserves
 the compiler's checks on reification; it does not permit hidden effectful values
 to cross that boundary. Serialization is
 chosen explicitly by the application; these examples use `(snail shell wire)`.
 
-The scene engine performs `mut`, `screen`, `events`, `storage` and `tasks`.
+The scene engine performs `Mut`, `Screen`, `Events`, `Storage` and `Tasks`.
 `next-event` drains the host queue, then waits by ticket when it is empty.
-`FrameEvent` carries elapsed milliseconds; `InputEvent` carries an `Input`.
-`Hidden` and `SaveRequested` save without stopping, and `Reload` saves and returns.
-A shared five-second host timer supplies `SaveRequested` to either engine, so
+`Frame-event` carries elapsed milliseconds; `Input-event` carries an `Input`.
+`Hidden` and `Save-requested` save without stopping, and `Reload` saves and returns.
+A shared five-second host timer supplies `Save-requested` to either engine, so
 saving does not require animation frames. Snail rearms it after each save.
 
 Only a complete successful presentation commits the next state. A trap leaves
@@ -128,11 +128,11 @@ canvas, in the shape Elm gave them:
 
 | Function | Meaning |
 | --- | --- |
-| `view : Model -> (Html M)` | A tree of elements and texts. An element's attributes, typed properties (`StringProperty`, `NumberProperty`, `FlagProperty`) and listeners (`On`) are plain data; a listener holds a function from what its event carried to a message `M`. |
-| `update : Model M -> (Pair Model (List (Fn → M ! tasks e)))` | The next model, and the commands the message starts: work run as tasks, each answering a message. |
+| `view : Model -> (Html M)` | A tree of elements and texts. An element's attributes, typed properties (`String-property`, `Number-property`, `Flag-property`) and listeners (`On`) are plain data; a listener holds a function from what its event carried to a message `M`. |
+| `update : Model M -> (Pair Model (List (Fn → M ! Tasks e)))` | The next model, and the commands the message starts: work run as tasks, each answering a message. |
 
 `run-ui model start update view window commit checkpoint` shows the view in the
-document's root through the `dom` effect of `(snail shell dom)`, updates
+document's root through the `Dom` effect of `(snail shell dom)`, updates
 it with each message in `start`, as when it must ask its server before
 anything else happens, then handles one delivery at a time until the
 document closes, and answers the last model. The window is no node of the
@@ -186,7 +186,7 @@ task completions; `host/browser/install.mjs` retains the browser's opaque offer
 and calls its native APIs. Scheme code owns application behavior, and Chromium
 tests cover the browser decisions that the memory DOM cannot make.
 
-The same `dom` effect exposes browser window capabilities. `installation-status`
+The same `Dom` effect exposes browser window capabilities. `installation-status`
 reports an available installation offer, an installed/standalone app, or no offer.
 `install-app` awaits a single-use offer and returns accepted, dismissed,
 unavailable, expired activation, failed, or already installed. Acceptance does not
@@ -198,7 +198,7 @@ requests use task tickets, with no suspended Wasm stack. Stopping a generation
 releases its wait even if the browser dialog remains open. The memory handler
 reports unavailable installation and refuses fullscreen.
 
-`with-memory-dom` from `(snail shell dom memory)` handles `dom` over a
+`with-memory-dom` from `(snail shell dom memory)` handles `Dom` over a
 document in memory, delivering a script of cues (events fired at elements
 by their `id` or at the window, and the page hidden), and answers the
 document it left, as HTML and as a trace of every operation.
@@ -210,7 +210,7 @@ test`.
 ordinary `Application` implementation:
 
 ```scheme
-(type NotesApplication (InterfaceApplication Notes))
+(type Notes-application (Interface-application Notes))
 (define-page-state Notes)
 (instance (Interface Notes)
   (type Message NoteMessage)
@@ -228,7 +228,7 @@ window listeners returns `(Nil)` from `interface-window`; one without startup
 messages returns `(Nil)` from `interface-messages`. Initialization takes the seed
 alone, and update's commands are `(Command Message)`,
 which may wait on tasks, reach the document, and ask the server through
-the `fetch` effect of `(snail shell fetch)`. `request method url headers
+the `Fetch` effect of `(snail shell fetch)`. `request method url headers
 body` answers the server's reply, its status and body, or why there was
 none. A stream is the server-sent events of the kinds it names at a URL:
 `stream-next` waits for the next, its kind and data, and answers none once
@@ -281,7 +281,7 @@ Its `Save` contains only display data and a click count. The ordinary
 and calls `run-ui`. Its commit callback calls `commit-page` and
 `report-ready`; the checkpoint callback comes from `run-page`.
 
-The IDE's commands answer `Finished` with a `CommandResult`, a transition
+The IDE's commands answer `Finished` with a `Command-result`, a transition
 over the current display data. It captures the request's result and
 identity, not an old model. Each transition checks the operation's
 generation, revision or submitted draft before accepting its result. Its
@@ -348,7 +348,7 @@ fast, and the browser editor that subscribes to the same service.
 ## Task lifetime
 
 The loop is a task of the program's [scheduler](../runtimes/tasks.md).
-The host creates a scheduler and a `PageRun` context, then passes both to
+The host creates a scheduler and a `Page-run` context, then passes both to
 `app_main`. It dispatches the entry through `start-page`, which answers its id.
 The host turns that scheduler until the root returns or fails. `(snail shell page)`
 exposes `app_done` to distinguish a successful return from suspension or an

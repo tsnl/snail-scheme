@@ -1,5 +1,5 @@
 (import
- (only (snail core forms) host)
+ (only (snail core forms) Host)
  (snail core base)
  (snail core io)
  (snail shell task)
@@ -36,24 +36,24 @@
   (Done ((what String))))
 
 (type (Command M)
-      (Fn → M ! dom tasks))
+      (Fn → M ! Dom Tasks))
 
 (define (update (model Model) (message Msg)) (→ (Pair Model (List (Command Msg))))
   (match message
     ((Begin) (new Pair (first model) (second (list began))))
-    ((Typed text) (new Pair (first (Model-text-set model text)) (second (Nil))))
+    ((Typed text) (new Pair (first (model-text-set model text)) (second (Nil))))
     ((Indent) (new Pair (first model) (second (list indent))))
     ((Late) (new Pair (first model) (second (list late))))
     ((Ask) (new Pair (first model) (second (list ask))))
-    ((Hide) (new Pair (first (Model-shown-set model #f)) (second (list missing))))
+    ((Hide) (new Pair (first (model-shown-set model #f)) (second (list missing))))
     ((Save) (new Pair (first (logged model "saved")) (second (Nil))))
     ((Online) (new Pair (first (logged model "online")) (second (Nil))))
     ((Done what) (new Pair (first (logged model what)) (second (Nil))))))
 
 (define (logged (model Model) (what String)) (→ Model)
-  (Model-log-set model (append (● model log) (list what))))
+  (model-log-set model (append (● model log) (list what))))
 
-(define (indent) (→ Msg) (! dom)
+(define (indent) (→ Msg) (! Dom)
   (match (element-by-id "text")
     ((Some node)
      (let ((took (insert-text node 0 0 "  ")))
@@ -69,7 +69,7 @@
                             (show (● (measure node) line-height))))))
     ((None) (Done "no field"))))
 
-(define (late) (→ Msg) (! dom tasks)
+(define (late) (→ Msg) (! Dom Tasks)
   (match (element-by-id "text")
     ((Some node)
      (yield)
@@ -81,10 +81,10 @@
                             (show (string-length (string-property node "value")))))))
     ((None) (Done "no field"))))
 
-(define (ask) (→ Msg) (! dom)
+(define (ask) (→ Msg) (! Dom)
   (if (confirm "Hide the field?") (Hide) (Done "kept")))
 
-(define (missing) (→ Msg) (! dom)
+(define (missing) (→ Msg) (! Dom)
   (match (element-by-id "text")
     ((Some node) (Done "still there"))
     ((None) (Done "field gone"))))
@@ -96,7 +96,7 @@
                        (list (Element "textarea"
                                       (list (Keyed "text")
                                             (Attr "id" "text")
-                                            (StringProperty "value" (● model text))
+                                            (String-property "value" (● model text))
                                             (On "input"
                                                 (list (Value))
                                                 (Allow)
@@ -133,19 +133,19 @@
 (define (clicked (target String)) (→ Cue)
   (Fire target "click" (no-event)))
 
-(define (main) (→ Unit) (! host mut output-port tasks)
+(define (main) (→ Unit) (! Host Mut Output-port Tasks)
   (dispatch
    (lambda ()
      (let ((result
             (with-memory-dom
-             (list (Fire "text" "input" (Event-value-set (no-event) "(car x)"))
+             (list (Fire "text" "input" (event-value-set (no-event) "(car x)"))
                    (clicked "indent")
-                   (FireWindow "keydown"
-                               (Event-modifiers-set (Event-key-set (no-event) "s")
-                                                    (control-key)))
+                   (Fire-window "keydown"
+                                (event-modifiers-set (event-key-set (no-event) "s")
+                                                     (control-key)))
                    (clicked "late")
                    (clicked "hide")
-                   (FireWindow "online" (no-event)))
+                   (Fire-window "online" (no-event)))
              (lambda ()
                (run-ui (new Model (text "") (shown #t) (log (Nil)))
                        (list (Begin))

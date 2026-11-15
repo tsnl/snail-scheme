@@ -6,7 +6,7 @@
 ;; Files through the host, with a path whose scalars are not all ASCII.
 (define (path) (→ String) "build/tests/files-λ😀.txt")
 
-(define (main) (→ Unit) (! fs output-port)
+(define (main) (→ Unit) (! Fs Output-port)
   (write-file (path) "first line\nsecond λ line\n")
   (display (file-exists? (path)))
   (newline)
@@ -16,7 +16,7 @@
   ;; can list a directory from memory: three scalars with a NUL between two
   ;; names.
   (write-line
-   (show (handle fs
+   (show (handle Fs
              ((path-exists (lambda (name) (if (string=? name "λ/😀 name") 1 0)))
               (open-input (lambda (name) 0))
               (open-output (lambda (name) 0))

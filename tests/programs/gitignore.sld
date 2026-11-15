@@ -4,12 +4,12 @@
  (snail shell gitignore)
  (snail shell process)
  (snail shell task)
- (only (snail core forms) host)
+ (only (snail core forms) Host)
  (snail shell utf8))
 
 ;; Build an independent worktree so this repository's own excludes and index
 ;; cannot decide the answers. No commits or user identity are needed.
-(define (git (directory String) (arguments (List String))) (→ String) (! process)
+(define (git (directory String) (arguments (List String))) (→ String) (! Processes)
   (match (run (new Command (program "git") (arguments arguments) (directory directory)) #u8())
     ((Ok result)
      (match (● result exit)
@@ -20,16 +20,16 @@
        (_ (panic "Git fixture setup failed"))))
     ((Err error) (panic (● error code)))))
 
-(define (snapshot (directory String)) (→ IgnoreSnapshot) (! mut host tasks process)
+(define (snapshot (directory String)) (→ Ignore-snapshot) (! Mut Host Tasks Processes)
   (match (read-gitignore directory)
     ((Ok (Some value)) value)
     ((Ok (None)) (panic "Git fixture unavailable"))
     ((Err message) (panic message))))
 
-(define (report (rules IgnoreSnapshot) (path String)) (→ Unit) (! output-port)
+(define (report (rules Ignore-snapshot) (path String)) (→ Unit) (! Output-port)
   (write-line (string-append path ": " (if (ignored? rules path) "ignored" "visible"))))
 
-(define (main) (→ Unit) (! host mut fs output-port process tasks)
+(define (main) (→ Unit) (! Host Mut Fs Output-port Processes Tasks)
 
   (define repository (git "." (list "rev-parse" "--show-toplevel")))
   (define root (string-append (substring repository 0 (- (string-length repository) 1))

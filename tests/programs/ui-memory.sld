@@ -1,5 +1,5 @@
 (import
- (only (snail core forms) host)
+ (only (snail core forms) Host)
  (snail core base)
  (snail core io)
  (snail shell task)
@@ -33,9 +33,9 @@
   (Saved ((count I64))))
 
 (define (update (model Model) (message Msg))
-  (→ (Pair Model (List (Fn → Msg ! output-port tasks))))
+  (→ (Pair Model (List (Fn → Msg ! Output-port Tasks))))
   (match message
-    ((Typed text) (new Pair (first (Model-draft-set model text)) (second (Nil))))
+    ((Typed text) (new Pair (first (model-draft-set model text)) (second (Nil))))
     ((Add)
      (let ((items
             (append (● model items) (list (new Item (id (● model next)) (text (● model draft)))))))
@@ -45,20 +45,20 @@
          (second (list (lambda ()
                          (yield)
                          (Saved (length items))))))))
-    ((Reverse) (new Pair (first (Model-items-set model (reverse (● model items)))) (second (Nil))))
+    ((Reverse) (new Pair (first (model-items-set model (reverse (● model items)))) (second (Nil))))
     ((Remove id)
-     (new Pair (first (Model-items-set model
+     (new Pair (first (model-items-set model
                                        (filter (lambda (item) (not (= (● item id) id)))
                                                (● model items))))
           (second (Nil))))
-    ((Saved count) (new Pair (first (Model-saved-set model count)) (second (Nil))))))
+    ((Saved count) (new Pair (first (model-saved-set model count)) (second (Nil))))))
 
 (define (view (model Model)) (→ (Html Msg))
   (Element "main"
            (Nil)
            (list (Element "input"
                           (list (Attr "id" "draft")
-                                (StringProperty "value" (● model draft))
+                                (String-property "value" (● model draft))
                                 (On "input"
                                     (list (Value))
                                     (Allow)
@@ -84,7 +84,7 @@
                                 (On "click" (Nil) (Allow) (lambda (event) (Remove (● item id)))))
                           (list (Text "x"))))))
 
-(define (checkpoint (model Model)) (→ Unit) (! output-port)
+(define (checkpoint (model Model)) (→ Unit) (! Output-port)
   (write-line (string-append "checkpoint: "
                              (string-join (map (lambda (record) (● record text)) (● model items))
                                           ", ")
@@ -92,7 +92,7 @@
                              (show (● model saved)))))
 
 (define (typed (text String)) (→ Cue)
-  (Fire "draft" "input" (Event-value-set (no-event) text)))
+  (Fire "draft" "input" (event-value-set (no-event) text)))
 
 (define (clicked (target String)) (→ Cue)
   (Fire target "click" (no-event)))
@@ -108,7 +108,7 @@
         (clicked "reverse")
         (clicked "remove-1")))
 
-(define (main) (→ Unit) (! host mut output-port tasks)
+(define (main) (→ Unit) (! Host Mut Output-port Tasks)
   (dispatch
    (lambda ()
      (let ((result

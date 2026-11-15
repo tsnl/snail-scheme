@@ -10,7 +10,7 @@ const execute = promisify(execFile), root = process.argv[2];
 const project = await mkdtemp(join(tmpdir(), 'snail-run-project-'));
 const caller = await mkdtemp(join(tmpdir(), 'snail-run-caller-'));
 const source = finish => `(import (snail core base) (snail core io))
-  (define (main) (→ Unit) (! input-port output-port fs)
+  (define (main) (→ Unit) (! Input-port Output-port Fs)
     (for-each write-line (command-line))
   (write-line (match (read-line) ((Some line) line) ((None) "EOF")))
   (write-file "run-cwd.txt" "caller")
@@ -44,7 +44,7 @@ try {
 
   // A character read flushes an unterminated prompt, then shares stdin with lines.
   await writeFile(join(project, 'main.sld'), `(import (snail core base) (snail core io))
-    (define (main) (→ Unit) (! input-port output-port)
+    (define (main) (→ Unit) (! Input-port Output-port)
       (write-string "prompt> ")
     (write (read-char)) (newline)
     (write (read-line)) (newline)
@@ -67,7 +67,7 @@ try {
   }
 
   // The original CLI PID is now the application; no signal forwarding exists.
-  await writeFile(join(project, 'main.sld'), '(import (snail core base) (snail core io)) (define (main) (→ Unit) (! input-port output-port) (write-line "ready") (read-line) (unit))');
+  await writeFile(join(project, 'main.sld'), '(import (snail core base) (snail core io)) (define (main) (→ Unit) (! Input-port Output-port) (write-line "ready") (read-line) (unit))');
   for (const signal of ['SIGINT', 'SIGTERM']) {
     const waiting = run('app'), stopped = assert.rejects(waiting, {signal});
     await ready(waiting.child);

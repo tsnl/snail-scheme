@@ -15,14 +15,14 @@
 
 (define (excluded) (→ (List String)) (list (at "build")))
 
-(define (take (ignored Unit)) (→ Inventory) (! fs)
+(define (take (ignored Unit)) (→ Inventory) (! Fs)
   (match (inventory (list (at "src") (at "build") (at "missing")) (excluded))
     ((Ok taken) taken)
     ((Err message) (panic message))))
 
 ;; Saves as an atomic save does: writes beside the file, then renames over
 ;; it.
-(define (save (name String) (text String)) (→ Unit) (! fs)
+(define (save (name String) (text String)) (→ Unit) (! Fs)
   (write-file (at (string-append name ".next")) text)
   (match (rename-file (at (string-append name ".next")) (at name))
     ((Ok _) (unit))
@@ -44,11 +44,11 @@
     ((Cons first rest)
      (if (string<? name first) (Cons name names) (Cons first (insert rest name))))))
 
-(define (report (label String) (before Inventory) (after Inventory)) (→ Inventory) (! output-port)
+(define (report (label String) (before Inventory) (after Inventory)) (→ Inventory) (! Output-port)
   (write-line (string-append label " -> " (changes before after)))
   after)
 
-(define (main) (→ Unit) (! fs output-port)
+(define (main) (→ Unit) (! Fs Output-port)
   (remove-tree (root))
   (make-directories (at "src/lib"))
   (make-directories (at "build"))

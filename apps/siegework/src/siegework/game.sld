@@ -27,26 +27,26 @@
    game-camera
    heading-angle
    Command
-   BuildAt
-   UpgradeAt
-   RushAt
-   CancelAt
-   ScavengeAt
-   RepairHub
-   ToggleRush
-   CloseCard
+   Build-at
+   Upgrade-at
+   Rush-at
+   Cancel-at
+   Scavenge-at
+   Repair-hub
+   Toggle-rush
+   Close-card
    Locate
    Home
    Turn
-   OpenMenu
+   Open-menu
    Resume
-   AskRestart
-   AskResign
-   ConfirmResign
-   NewMap
+   Ask-restart
+   Ask-resign
+   Confirm-resign
+   New-map
    Hand
-   ShowResults
-   InspectMap
+   Show-results
+   Inspect-map
    press-code)
   (import
    (snail core base)
@@ -88,7 +88,7 @@
     ;; `orders` is the journal of accepted orders, newest first. `epoch`
     ;; counts the games played since the page loaded, so a view of a new game
     ;; never reuses what was drawn for the last. Time arrives with each
-    ;; display frame: `clock` counts every millisecond, for animating the
+    ;; display frame: `Clock` counts every millisecond, for animating the
     ;; controls; `shown` counts the milliseconds the world has been shown
     ;; running, for its decorations, however long it waits for its first
     ;; order; and `phase` counts those since the world's last tick, for
@@ -196,14 +196,14 @@
              (orders (reverse (● game orders)))
              (paused (paused? game))
              (left-handed (● game left-handed))
-             (view (View-turned-at-set (View-turned-from-set view (● view heading))
+             (view (view-turned-at-set (view-turned-from-set view (● view heading))
                                        (negate (turn-milliseconds)))))))
 
     ;; The host reports the screen's size after restoring.
     (define (game-restore (save Save)) (→ Game)
       (match (replay (● save seed) (● save orders) (● save tick))
         ((Pair world orders)
-         (Game-view-set (game-around world
+         (game-view-set (game-around world
                                      (reverse orders)
                                      0
                                      (if (● save paused) (Paused) (Closed))
@@ -246,7 +246,7 @@
     (define (shifted (game Game) (right F32) (up F32)) (→ View)
       (let* ((view (● game view)) (angle (f32->f64 (heading-angle game)))
              (c (f64->f32 (cos angle))) (s (f64->f32 (sin angle))) (limit (i64->f32 (map-size))))
-        (View-z-set (View-x-set view
+        (view-z-set (view-x-set view
                                 (clamp (+ (● view x)
                                           (* 0.70710677 (- (* right (- c s)) (* up (+ c s)))))
                                        0.0
@@ -269,7 +269,7 @@
     ;; at 30 degrees, as dragging does.
     (define (move-camera (game Game) (milliseconds I64)) (→ Game)
       (let ((speed (* (* 0.009 (● (● game view) scale)) (i64->f32 milliseconds))))
-        (Game-view-set game
+        (game-view-set game
                        (shifted game
                                 (* speed (held-axis game (key-right) 100 (key-left) 97))
                                 (* (* 2.0 speed) (held-axis game (key-up) 119 (key-down) 115))))))
@@ -279,7 +279,7 @@
     ;; where the ground is seen at 30 degrees.
     (define (pan (game Game) (dx I32) (dy I32)) (→ Game)
       (let ((unit (/ (* 18.0 (● (● game view) scale)) (i32->f32 (max 1 (● game height))))))
-        (Game-view-set game
+        (game-view-set game
                        (shifted game
                                 (* (negate unit) (i32->f32 dx))
                                 (* (* 2.0 unit) (i32->f32 dy))))))
@@ -287,20 +287,20 @@
     ;; Starts a quarter turn from wherever the current one has eased to.
     (define (turn (game Game) (quarters I64)) (→ Game)
       (let ((view (● game view)))
-        (Game-view-set game
-                       (View-turned-at-set (View-turned-from-set
-                                            (View-heading-set view (+ (● view heading) quarters))
+        (game-view-set game
+                       (view-turned-at-set (view-turned-from-set
+                                            (view-heading-set view (+ (● view heading) quarters))
                                             (● view heading))
                                            (● game clock)))))
 
     (define (zoom (game Game) (factor F32)) (→ Game)
       (let ((view (● game view)))
-        (Game-view-set game (View-scale-set view (clamp (* (● view scale) factor) 0.4 6.0)))))
+        (game-view-set game (view-scale-set view (clamp (* (● view scale) factor) 0.4 6.0)))))
 
     (define (look-at (game Game) (cell Cell)) (→ Game)
       (let ((view (● game view)))
-        (Game-view-set game
-                       (View-z-set (View-x-set view (i64->f32 (● cell x)))
+        (game-view-set game
+                       (view-z-set (view-x-set view (i64->f32 (● cell x)))
                                    (i64->f32 (● cell y))))))
 
     ;; The cell under a pixel, if the pointer is over the map.
@@ -317,26 +317,26 @@
     ;; What the HUD's buttons and the keys ask for. Orders carry the cell
     ;; they act on.
     (enum Command
-      (BuildAt ((kind Kind) (cell Cell)))
-      (UpgradeAt ((cell Cell)))
-      (RushAt ((cell Cell)))
-      (CancelAt ((cell Cell)))
-      (ScavengeAt ((cell Cell)))
-      (RepairHub)
-      (ToggleRush)
-      (CloseCard)
+      (Build-at ((kind Kind) (cell Cell)))
+      (Upgrade-at ((cell Cell)))
+      (Rush-at ((cell Cell)))
+      (Cancel-at ((cell Cell)))
+      (Scavenge-at ((cell Cell)))
+      (Repair-hub)
+      (Toggle-rush)
+      (Close-card)
       (Locate ((cell Cell)))
       (Home)
       (Turn ((quarters I64)))
-      (OpenMenu)
+      (Open-menu)
       (Resume)
-      (AskRestart)
-      (AskResign)
-      (ConfirmResign)
-      (NewMap)
+      (Ask-restart)
+      (Ask-resign)
+      (Confirm-resign)
+      (New-map)
       (Hand ((left Bool)))
-      (ShowResults)
-      (InspectMap))
+      (Show-results)
+      (Inspect-map))
 
     ;; A command as a button's action and argument: a cell travels as its
     ;; index.
@@ -344,13 +344,13 @@
       (let ((at (lambda (action cell)
                   (new Pair (first action) (second (i64->i32 (cell-index cell)))))))
         (match command
-          ((BuildAt (Extractor) cell) (at 1 cell))
-          ((BuildAt (Pylon) cell) (at 2 cell))
-          ((BuildAt (Turret) cell) (at 3 cell))
-          ((UpgradeAt cell) (at 4 cell))
-          ((RushAt cell) (at 5 cell))
-          ((CancelAt cell) (at 6 cell))
-          ((ScavengeAt cell) (at 7 cell))
+          ((Build-at (Extractor) cell) (at 1 cell))
+          ((Build-at (Pylon) cell) (at 2 cell))
+          ((Build-at (Turret) cell) (at 3 cell))
+          ((Upgrade-at cell) (at 4 cell))
+          ((Rush-at cell) (at 5 cell))
+          ((Cancel-at cell) (at 6 cell))
+          ((Scavenge-at cell) (at 7 cell))
           ((Locate cell) (at 8 cell))
           ((Turn quarters) (new Pair (first 10) (second (i64->i32 quarters))))
           ((Hand left) (new Pair (first 11) (second (if left 1 0))))
@@ -358,18 +358,18 @@
 
     (define (plain-code (command Command)) (→ I32)
       (match command
-        ((RepairHub) 0)
-        ((ToggleRush) 1)
-        ((CloseCard) 2)
+        ((Repair-hub) 0)
+        ((Toggle-rush) 1)
+        ((Close-card) 2)
         ((Home) 3)
-        ((OpenMenu) 4)
+        ((Open-menu) 4)
         ((Resume) 5)
-        ((AskRestart) 6)
-        ((AskResign) 7)
-        ((ConfirmResign) 8)
-        ((NewMap) 9)
-        ((ShowResults) 10)
-        ((InspectMap) 11)
+        ((Ask-restart) 6)
+        ((Ask-resign) 7)
+        ((Confirm-resign) 8)
+        ((New-map) 9)
+        ((Show-results) 10)
+        ((Inspect-map) 11)
         (_ 12)))
 
     ;; The command a button reported, if it names one. A cell must lie on
@@ -385,66 +385,66 @@
     (define (parse-code (action I32) (argument I32)) (→ (Option Command))
       (let ((cell (index-cell (i32->i64 argument))))
         (case action
-          ((1) (Some (BuildAt (Extractor) cell)))
-          ((2) (Some (BuildAt (Pylon) cell)))
-          ((3) (Some (BuildAt (Turret) cell)))
-          ((4) (Some (UpgradeAt cell)))
-          ((5) (Some (RushAt cell)))
-          ((6) (Some (CancelAt cell)))
-          ((7) (Some (ScavengeAt cell)))
+          ((1) (Some (Build-at (Extractor) cell)))
+          ((2) (Some (Build-at (Pylon) cell)))
+          ((3) (Some (Build-at (Turret) cell)))
+          ((4) (Some (Upgrade-at cell)))
+          ((5) (Some (Rush-at cell)))
+          ((6) (Some (Cancel-at cell)))
+          ((7) (Some (Scavenge-at cell)))
           ((8) (Some (Locate cell)))
           ((10) (Some (Turn (i32->i64 argument))))
           ((11) (Some (Hand (= argument 1))))
           (else (find (lambda (command) (= (plain-code command) (- action 20)))
-                      (list (RepairHub)
-                            (ToggleRush)
-                            (CloseCard)
+                      (list (Repair-hub)
+                            (Toggle-rush)
+                            (Close-card)
                             (Home)
-                            (OpenMenu)
+                            (Open-menu)
                             (Resume)
-                            (AskRestart)
-                            (AskResign)
-                            (ConfirmResign)
-                            (NewMap)
-                            (ShowResults)
-                            (InspectMap)))))))
+                            (Ask-restart)
+                            (Ask-resign)
+                            (Confirm-resign)
+                            (New-map)
+                            (Show-results)
+                            (Inspect-map)))))))
 
     ;; Gives an order to the world and journals it; a rejection is shown
     ;; instead.
     (define (order (game Game) (action Action)) (→ Game)
       (match (command (● game world) action)
         ((Ok (Pair world entry))
-         (Game-message-set
-          (Game-orders-set (Game-world-set game world) (Cons entry (● game orders)))
+         (game-message-set
+          (game-orders-set (game-world-set game world) (Cons entry (● game orders)))
           ""))
-        ((Err rejection) (Game-message-set game (rejection-text rejection)))))
+        ((Err rejection) (game-message-set game (rejection-text rejection)))))
 
     (define (perform (game Game) (command Command)) (→ Game)
       (match command
-        ((BuildAt kind cell) (order game (Build kind cell (● game rush))))
-        ((UpgradeAt cell) (order game (Upgrade cell)))
-        ((RushAt cell) (order game (Rush cell)))
-        ((CancelAt cell) (order game (Cancel cell)))
-        ((ScavengeAt cell) (order game (Scavenge cell)))
-        ((RepairHub) (order game (Repair)))
-        ((ToggleRush) (Game-rush-set game (not (● game rush))))
-        ((CloseCard) (Game-message-set (Game-selected-set game (None)) ""))
-        ((Locate cell) (Game-selected-set (look-at game cell) (Some cell)))
+        ((Build-at kind cell) (order game (Build kind cell (● game rush))))
+        ((Upgrade-at cell) (order game (Upgrade cell)))
+        ((Rush-at cell) (order game (Rush cell)))
+        ((Cancel-at cell) (order game (Cancel cell)))
+        ((Scavenge-at cell) (order game (Scavenge cell)))
+        ((Repair-hub) (order game (Repair)))
+        ((Toggle-rush) (game-rush-set game (not (● game rush))))
+        ((Close-card) (game-message-set (game-selected-set game (None)) ""))
+        ((Locate cell) (game-selected-set (look-at game cell) (Some cell)))
         ((Home) (look-at game (● (● (● game world) hub) cell)))
         ((Turn quarters) (turn game quarters))
         (_ (perform-menu game command))))
 
     (define (perform-menu (game Game) (command Command)) (→ Game)
       (match command
-        ((OpenMenu) (Game-menu-set game (if (playing? (● game world)) (Paused) (Results))))
-        ((Resume) (Game-menu-set game (Closed)))
-        ((AskRestart) (Game-menu-set game (Restarting)))
-        ((AskResign) (Game-menu-set game (Resigning)))
-        ((ConfirmResign) (Game-menu-set (order game (Resign)) (Results)))
-        ((NewMap) (restart game))
-        ((Hand left) (Game-left-handed-set game left))
-        ((ShowResults) (Game-menu-set game (Results)))
-        ((InspectMap) (Game-menu-set game (Closed)))
+        ((Open-menu) (game-menu-set game (if (playing? (● game world)) (Paused) (Results))))
+        ((Resume) (game-menu-set game (Closed)))
+        ((Ask-restart) (game-menu-set game (Restarting)))
+        ((Ask-resign) (game-menu-set game (Resigning)))
+        ((Confirm-resign) (game-menu-set (order game (Resign)) (Results)))
+        ((New-map) (restart game))
+        ((Hand left) (game-left-handed-set game left))
+        ((Show-results) (game-menu-set game (Results)))
+        ((Inspect-map) (game-menu-set game (Closed)))
         (_ game)))
 
     ;; A new map from a seed derived from this one, for the same hand.
@@ -464,29 +464,29 @@
       (match (● game selected)
         ((Some cell)
          (case key
-           ((49) (Some (BuildAt (Pylon) cell)))
-           ((50) (Some (BuildAt (Turret) cell)))
-           ((51) (Some (BuildAt (Extractor) cell)))
+           ((49) (Some (Build-at (Pylon) cell)))
+           ((50) (Some (Build-at (Turret) cell)))
+           ((51) (Some (Build-at (Extractor) cell)))
            ((52) (Some (rush-key game cell)))
-           ((53) (Some (CloseCard)))
-           ((117) (Some (UpgradeAt cell)))
+           ((53) (Some (Close-card)))
+           ((117) (Some (Upgrade-at cell)))
            ((114) (Some (rush-key game cell)))
-           ((99) (Some (CancelAt cell)))
-           ((120) (Some (ScavengeAt cell)))
+           ((99) (Some (Cancel-at cell)))
+           ((120) (Some (Scavenge-at cell)))
            (else (view-command key))))
         ((None) (view-command key))))
 
     ;; Rushing acts on the selected work, or else makes new buildings rushed.
     (define (rush-key (game Game) (cell Cell)) (→ Command)
-      (if (working? (● game world) cell) (RushAt cell) (ToggleRush)))
+      (if (working? (● game world) cell) (Rush-at cell) (Toggle-rush)))
 
     (define (view-command (key I32)) (→ (Option Command))
       (case key
-        ((102) (Some (RepairHub)))
+        ((102) (Some (Repair-hub)))
         ((104) (Some (Home)))
         ((113) (Some (Turn -1)))
         ((101) (Some (Turn 1)))
-        ((112) (Some (OpenMenu)))
+        ((112) (Some (Open-menu)))
         (else (None))))
 
     (define (working? (world World) (cell Cell)) (→ Bool)
@@ -500,26 +500,26 @@
     ;; the results to the map, then the selection.
     (define (escape (game Game)) (→ Game)
       (match (● game menu)
-        ((Closed) (perform game (CloseCard)))
-        ((Restarting) (Game-menu-set game (Paused)))
-        ((Resigning) (Game-menu-set game (Paused)))
-        (_ (Game-menu-set game (Closed)))))
+        ((Closed) (perform game (Close-card)))
+        ((Restarting) (game-menu-set game (Paused)))
+        ((Resigning) (game-menu-set game (Paused)))
+        (_ (game-menu-set game (Closed)))))
 
     ;; A key is held until released, so held keys pan. One pressed with
     ;; Shift is only held: Shift with WASD or the arrows pans as the key
     ;; alone does, and Shift with any other key does nothing. While a
     ;; dialog is open only it and the pause key answer.
     (define (key-press (game Game) (key I32) (shift Bool)) (→ Game)
-      (let ((game (Game-held-set game
+      (let ((game (game-held-set game
                                  (if (held? game key)
                                      (● game held)
                                      (Cons key (● game held))))))
         (cond (shift game)
               ((= key (key-escape)) (escape game))
               ((= key 112)
-               (if (paused? game) (Game-menu-set game (Closed)) (perform game (OpenMenu))))
+               (if (paused? game) (game-menu-set game (Closed)) (perform game (Open-menu))))
               ((match (● game menu) ((Closed) #f) (_ #t)) game)
-              ((or (= key (key-enter)) (= key (key-space))) (Game-selected-set game (● game hover)))
+              ((or (= key (key-enter)) (= key (key-space))) (game-selected-set game (● game hover)))
               (else (match (key-command game key)
                       ((Some command) (perform game command))
                       ((None) game))))))
@@ -532,43 +532,43 @@
     ;; after a long frame. The results open once when the game is decided.
     (define (pass (game Game) (milliseconds I64)) (→ Game)
       (let ((game
-             (move-camera (Game-clock-set game (+ (● game clock) milliseconds)) milliseconds)))
+             (move-camera (game-clock-set game (+ (● game clock) milliseconds)) milliseconds)))
         (cond ((still? game) game)
               ((● (● game world) started)
-               (catch-up (Game-phase-set (Game-shown-set game (+ (● game shown) milliseconds))
+               (catch-up (game-phase-set (game-shown-set game (+ (● game shown) milliseconds))
                                          (+ (● game phase) milliseconds))
                          3))
-              (else (Game-shown-set game (+ (● game shown) milliseconds))))))
+              (else (game-shown-set game (+ (● game shown) milliseconds))))))
 
     (define (catch-up (game Game) (allowed I64)) (→ Game)
       (cond ((< (● game phase) (tick-milliseconds)) game)
             ((or (= allowed 0) (still? game))
-             (Game-phase-set game (min (● game phase) (- (tick-milliseconds) 1))))
+             (game-phase-set game (min (● game phase) (- (tick-milliseconds) 1))))
             (else
-             (catch-up (advance-world (Game-phase-set game (- (● game phase) (tick-milliseconds))))
+             (catch-up (advance-world (game-phase-set game (- (● game phase) (tick-milliseconds))))
                        (- allowed 1)))))
 
     (define (advance-world (game Game)) (→ Game)
       (let ((world (advance (● game world))))
-        (Game-world-set (if (and (playing? (● game world)) (not (playing? world)))
-                            (Game-menu-set game (Results))
+        (game-world-set (if (and (playing? (● game world)) (not (playing? world)))
+                            (game-menu-set game (Results))
                             game)
                         world)))
 
     ;; Hovering over a building's button previews it on the selected cell.
     (define (hover (game Game) (action I32) (argument I32)) (→ Game)
-      (Game-preview-set game
+      (game-preview-set game
                         (match (parse-press action argument)
-                          ((Some (BuildAt kind _)) (Some kind))
+                          ((Some (Build-at kind _)) (Some kind))
                           (_ (None)))))
 
     (define (update-game (game Game) (input Input)) (→ Game)
       (match input
         ((Elapsed milliseconds) (pass game (i32->i64 milliseconds)))
-        ((KeyDown key shift) (key-press game key shift))
-        ((KeyUp key) (Game-held-set game (filter (lambda (k) (not (= k key))) (● game held))))
+        ((Key-down key shift) (key-press game key shift))
+        ((Key-up key) (game-held-set game (filter (lambda (k) (not (= k key))) (● game held))))
         ((Wheel pixels) (zoom game (+ 1.0 (* 0.001 (i32->f32 pixels)))))
-        ((Resize width height) (Game-height-set (Game-width-set game width) height))
+        ((Resize width height) (game-height-set (game-width-set game width) height))
         ((Press action argument)
          (match (parse-press action argument)
            ((Some command) (perform game command))
@@ -576,15 +576,15 @@
         ((Hover action argument) (hover game action argument))
         (_ (match (recognize (● game gestures) input)
              ((Pair gestures meanings)
-              (fold-left gesture (Game-gestures-set game gestures) meanings))))))
+              (fold-left gesture (game-gestures-set game gestures) meanings))))))
 
     ;; Pointing hovers, a tap selects the cell beneath it, dragging pans and
     ;; pinching zooms. A tap with another button clears the selection.
     (define (gesture (game Game) (meaning Gesture)) (→ Game)
       (match meaning
-        ((Point x y) (Game-hover-set game (pick game x y)))
+        ((Point x y) (game-hover-set game (pick game x y)))
         ((Tap x y button) (let ((cell (pick game x y)))
-                            (Game-message-set (Game-selected-set (Game-hover-set game cell)
+                            (game-message-set (game-selected-set (game-hover-set game cell)
                                                                  (if (= button 0) cell (None)))
                                               "")))
         ((Drag dx dy) (pan game dx dy))

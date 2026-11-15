@@ -24,7 +24,7 @@
        (vector-set! (● node children) 0 (Some node))
        node))))
 
-(define (main) (→ Unit) (! mut output-port)
+(define (main) (→ Unit) (! Mut Output-port)
   (let ((first (ring)) (second (ring)))
     (set! (● first value) 9)
     (match (● first next)

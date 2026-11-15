@@ -4,11 +4,11 @@
 (define-library (snail shell http)
   (export
    Header
-   RequestHead
-   ParsedHead
-   ResponseParts
+   Request-head
+   Parsed-head
+   Response-parts
    Target
-   HttpError Malformed Unsupported HeadTooLarge BodyTooLarge InvalidResponse
+   Http-error Malformed Unsupported Head-too-large Body-too-large Invalid-response
    head-limit
    body-limit
    parse-request-head
@@ -27,17 +27,17 @@
       ((name String)
        (value String)))
 
-    (record RequestHead
+    (record Request-head
       ((method String)
        (target String)
        (headers (List Header))
        (body-length I64)))
 
-    (record ParsedHead
-      ((request RequestHead)
+    (record Parsed-head
+      ((request Request-head)
        (end I64)))
 
-    (record ResponseParts
+    (record Response-parts
       ((head Bytes)
        (body Bytes)))
 
@@ -48,12 +48,12 @@
       ((path (List String))
        (query (List (Pair String String)))))
 
-    (enum HttpError
+    (enum Http-error
       (Malformed ((reason String)))
       (Unsupported ((feature String)))
-      (HeadTooLarge)
-      (BodyTooLarge)
-      (InvalidResponse ((reason String))))
+      (Head-too-large)
+      (Body-too-large)
+      (Invalid-response ((reason String))))
 
     (define (head-limit) (→ I64) 16384)
 
@@ -103,9 +103,9 @@
     ;; Inspect only the bounded head prefix. Binary body bytes after the empty
     ;; line are not syntax, and even a large supplied body cannot enlarge it.
 
-    (define (head-end (bytes Bytes)) (→ (Result (Option I64) HttpError))
+    (define (head-end (bytes Bytes)) (→ (Result (Option I64) Http-error))
       (let loop ((index 0))
-        (cond ((= index (head-limit)) (Err (HeadTooLarge)))
+        (cond ((= index (head-limit)) (Err (Head-too-large)))
               ((= index (vector-length bytes)) (Ok (None)))
               (else
                (let ((byte (u8->i32 (vector-ref bytes index)))
@@ -154,7 +154,7 @@
                     ((uri-char? char) (loop (+ index 1)))
                     (else #f))))))
 
-    (define (request-line (line String)) (→ (Result (Pair String String) HttpError))
+    (define (request-line (line String)) (→ (Result (Pair String String) Http-error))
       (match (string-index line #\space)
         ((None) (Err (Malformed "request line")))
         ((Some first)
@@ -168,7 +168,7 @@
                               (substring rest (+ second 1) (string-length rest)))))))))
 
     (define (request-target (method String) (target String) (version String))
-      (→ (Result (Pair String String) HttpError))
+      (→ (Result (Pair String String) Http-error))
       (cond ((or (not (token? method)) (= (string-length target) 0))
              (Err (Malformed "method or target")))
             ((not (and (= (string-length version) 8) (string=? (substring version 0 5) "HTTP/")
@@ -182,7 +182,7 @@
             ((not (target? target)) (Err (Malformed "request target")))
             (else (Ok (new Pair (first method) (second target))))))
 
-    (define (request-headers (lines (List String))) (→ (Result (List Header) HttpError))
+    (define (request-headers (lines (List String))) (→ (Result (List Header) Http-error))
       (let loop ((lines lines) (headers (Nil)))
         (match lines
           ((Nil) (Ok (reverse headers)))
@@ -207,7 +207,7 @@
 
     ;; The check precedes arithmetic, including for thousands of digits.
 
-    (define (decimal (text String) (maximum I64) (excessive HttpError)) (→ (Result I64 HttpError))
+    (define (decimal (text String) (maximum I64) (excessive Http-error)) (→ (Result I64 Http-error))
       (if (= (string-length text) 0)
           (Err (Malformed "empty decimal"))
           (let loop ((index 0) (value 0))
@@ -223,7 +223,7 @@
            (every? (lambda (char) (or (letter? char) (digit? char) (contains-char? ".-_" char)))
                    (string->list name))))
 
-    (define (host-value (text String)) (→ (Result Unit HttpError))
+    (define (host-value (text String)) (→ (Result Unit Http-error))
       (if (and (> (string-length text) 0) (= (string-ref text 0) #\[))
           (Err (Unsupported "IPv6 Host literal"))
           (match (string-index text #\:)
@@ -237,7 +237,7 @@
                    ((Err error) (Err error))
                    ((Ok _) (Ok (unit)))))))))
 
-    (define (content-length (headers (List Header))) (→ (Result I64 HttpError))
+    (define (content-length (headers (List Header))) (→ (Result I64 Http-error))
       (let ((lengths (header-values headers "content-length"))
             (codings (header-values headers "transfer-encoding")))
         (cond ((and (not (null? lengths)) (not (null? codings)))
@@ -247,11 +247,11 @@
               (else (match lengths
                       ((Nil) (Ok 0))
                       ((Cons value rest)
-                       (if (null? rest) (decimal value (body-limit) (BodyTooLarge))
+                       (if (null? rest) (decimal value (body-limit) (Body-too-large))
                            (Err (Malformed "duplicate Content-Length")))))))))
 
     (define (framed-request (line (Pair String String)) (headers (List Header)))
-      (→ (Result RequestHead HttpError))
+      (→ (Result Request-head Http-error))
       (match (header-values headers "host")
         ((Cons host rest)
          (if (not (null? rest))
@@ -262,14 +262,14 @@
                          ((Err error) (Err error))
                          ((Ok count)
                           (Ok
-                           (new RequestHead
+                           (new Request-head
                              (method (● line first))
                              (target (● line second))
                              (headers headers)
                              (body-length count)))))))))
         ((Nil) (Err (Malformed "missing Host")))))
 
-    (define (complete-head (lines (List String))) (→ (Result RequestHead HttpError))
+    (define (complete-head (lines (List String))) (→ (Result Request-head Http-error))
       (match lines
         ((Nil) (Err (Malformed "missing request line")))
         ((Cons first rest)
@@ -279,7 +279,7 @@
                         ((Err error) (Err error))
                         ((Ok headers) (framed-request line headers))))))))
 
-    (define (parse-request-head (bytes Bytes)) (→ (Result (Option ParsedHead) HttpError))
+    (define (parse-request-head (bytes Bytes)) (→ (Result (Option Parsed-head) Http-error))
       (match (head-end bytes)
         ((Err error) (Err error))
         ((Ok end) (match end
@@ -287,7 +287,7 @@
                     ((Some end) (match (complete-head (head-lines bytes end))
                                   ((Err error) (Err error))
                                   ((Ok request)
-                                   (Ok (Some (new ParsedHead (request request) (end end)))))))))))
+                                   (Ok (Some (new Parsed-head (request request) (end end)))))))))))
 
     ;; ---- Request targets ----
 
@@ -321,7 +321,7 @@
     ;; form encoding `+` is a space, decided before decoding, so `%2B` is
     ;; still a plus.
 
-    (define (percent-decode (text String) (form Bool)) (→ (Result String HttpError))
+    (define (percent-decode (text String) (form Bool)) (→ (Result String Http-error))
       (let loop ((index 0) (bytes (Nil)))
         (if (= index (string-length text))
             (match (utf8->string (list->vector (reverse bytes)))
@@ -346,7 +346,7 @@
              (if final (Cons "" (list-drop segments 1)) (list-drop segments 1)))
             (else (Cons segment segments))))
 
-    (define (path-segments (text String)) (→ (Result (List String) HttpError))
+    (define (path-segments (text String)) (→ (Result (List String) Http-error))
       (let loop ((pieces (split-on text #\/)) (segments (Nil)))
         (match pieces
           ((Nil) (Ok (reverse segments)))
@@ -358,7 +358,7 @@
     ;; The first `=` separates a name from its value; with none, the value
     ;; is empty.
 
-    (define (query-pair (piece String)) (→ (Result (Pair String String) HttpError))
+    (define (query-pair (piece String)) (→ (Result (Pair String String) Http-error))
       (let* ((length (string-length piece))
              (equals (match (string-index piece #\=) ((Some index) index) ((None) length))))
         (match (percent-decode (substring piece 0 equals) #t)
@@ -370,7 +370,7 @@
     ;; The URL standard's form decoding, which URLSearchParams applies: `&`
     ;; separates pairs, and empty pieces are skipped.
 
-    (define (query-pairs (text String)) (→ (Result (List (Pair String String)) HttpError))
+    (define (query-pairs (text String)) (→ (Result (List (Pair String String)) Http-error))
       (let loop ((pieces (filter (lambda (piece) (> (string-length piece) 0)) (split-on text #\&)))
                  (pairs (Nil)))
         (match pieces
@@ -383,7 +383,7 @@
     ;; The path runs to the first `?`, and the query follows it. A target
     ;; with no `/` first is not origin-form, as the head parser decides too.
 
-    (define (parse-target (text String)) (→ (Result Target HttpError))
+    (define (parse-target (text String)) (→ (Result Target Http-error))
       (if (or (= (string-length text) 0) (not (= (string-ref text 0) #\/)))
           (Err (Unsupported "request target form"))
           (let* ((length (string-length text))
@@ -400,7 +400,7 @@
       (member? name (list "content-length" "transfer-encoding" "connection" "trailer" "upgrade")))
 
     (define (response-fields (headers (List Header)) (remaining I64))
-      (→ (Result (List String) HttpError))
+      (→ (Result (List String) Http-error))
       (let loop ((headers headers) (remaining remaining) (lines (Nil)))
         (match headers
           ((Nil) (Ok (reverse lines)))
@@ -408,12 +408,12 @@
            (let ((name (● header name)) (value (● header value)))
              (cond ((or (> (string-length name) remaining)
                         (> (string-length value) (- (- remaining (string-length name)) 4)))
-                    (Err (HeadTooLarge)))
+                    (Err (Head-too-large)))
                    ((or (not (token? name)) (not (field-value? value)))
-                    (Err (InvalidResponse "header name or value")))
+                    (Err (Invalid-response "header name or value")))
                    (else (let ((name (lower-ascii name)))
                            (if (controlled-header? name)
-                               (Err (InvalidResponse "application framing header"))
+                               (Err (Invalid-response "application framing header"))
                                (loop rest
                                      (- (- (- remaining (string-length name)) (string-length value))
                                         4)
@@ -438,7 +438,7 @@
     ;; character is ASCII, which response-fields established, so each is
     ;; one byte.
 
-    (define (head-bytes (prefix String) (headers (List Header))) (→ (Result Bytes HttpError))
+    (define (head-bytes (prefix String) (headers (List Header))) (→ (Result Bytes Http-error))
       (match (response-fields headers (- (- (head-limit) (string-length prefix)) 2))
         ((Err error) (Err error))
         ((Ok fields)
@@ -447,15 +447,16 @@
                                 (lambda (index) (i32->u8 (char->i32 (string-ref head index))))))))))
 
     (define (encode-response (method String) (status I32) (headers (List Header)) (bytes Bytes))
-      (→ (Result ResponseParts HttpError))
+      (→ (Result Response-parts Http-error))
       (cond ((or (not (token? method)) (< status 200) (> status 599))
-             (Err (InvalidResponse "method or final status")))
+             (Err (Invalid-response "method or final status")))
             ((and (string=? method "CONNECT") (< status 300)) (Err (Unsupported "CONNECT tunnel")))
             (else
              (match (head-bytes (response-prefix status (vector-length bytes)) headers)
                ((Err error) (Err error))
                ((Ok head)
-                (Ok (new ResponseParts (head head) (body (response-body method status bytes)))))))))
+                (Ok
+                 (new Response-parts (head head) (body (response-body method status bytes)))))))))
 
     ;; ---- Streaming responses ----
 
@@ -465,9 +466,9 @@
     ;; stream, and neither does HEAD, which the caller answers with
     ;; encode-response instead.
 
-    (define (encode-stream-head (status I32) (headers (List Header))) (→ (Result Bytes HttpError))
+    (define (encode-stream-head (status I32) (headers (List Header))) (→ (Result Bytes Http-error))
       (if (or (< status 200) (> status 599) (member? status (list 204 205 304)))
-          (Err (InvalidResponse "streaming status"))
+          (Err (Invalid-response "streaming status"))
           (head-bytes (status-lines status) headers)))
 
     ))

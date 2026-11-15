@@ -24,7 +24,7 @@
 (define (upper) (→ String) (string-upcase "λß"))
 (define (digit) (→ (Option I64)) (char-digit-value #\٣))
 
-(define (main) (→ Unit) (! mut output-port)
+(define (main) (→ Unit) (! Mut Output-port)
   (let ((first (prepared)) (second (prepared)))
     (set! (● first left value) 12)
     (write-line (show (● first right value)))

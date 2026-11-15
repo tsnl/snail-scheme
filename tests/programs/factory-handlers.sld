@@ -79,7 +79,7 @@
 (define (folded-alias) (→ I64) (once-alias))
 
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   (write-line (show (folded-ordinary)))
   (write-line (show (ordinary)))
   (write-line (show (folded-resumed)))

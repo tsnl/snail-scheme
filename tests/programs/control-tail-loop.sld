@@ -26,7 +26,7 @@
         ((= (remainder n 1000) 0) (sparse (- n 1) (+ total (tick n))))
         (else (sparse (- n 1) (+ total 1)))))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   (display (handle Tick ((tick (lambda (n resume) (resume (* n 2)))))
              (count-down 100000 0)))
   (newline)

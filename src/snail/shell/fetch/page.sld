@@ -1,4 +1,4 @@
-;; The page's `fetch` and `EventSource` for the `fetch` effect:
+;; The page's `Fetch` and `EventSource` for the `Fetch` effect:
 ;; `with-page-fetch` binds each operation to the browser host
 ;; (host/browser/fetch.mjs). A request or a stream's next event waits by
 ;; ticket in the task that asked, so a command's request never holds up
@@ -16,8 +16,8 @@
 
     ;; ---- Handling ----
 
-    (define (with-page-fetch (work (Fn → T ! fetch e))) (→ T) (! e) (∀ (T e))
-      (handle fetch
+    (define (with-page-fetch (work (Fn → T ! Fetch E))) (→ T) (! E) (∀ (T E))
+      (handle Fetch
           ((request page-request)
            (stream-open (lambda (url kinds)
                           (new Stream
@@ -37,7 +37,7 @@
 
     (define (page-request (method String) (url String) (headers (List Header)) (body String))
       (→ (Result Reply String))
-      (! tasks)
+      (! Tasks)
       (host-request-method (string->utf8 method))
       (host-request-url (string->utf8 url))
       (for-each (lambda (header)
@@ -53,15 +53,15 @@
     ;; NUL between each. The wait answers -1 once the stream is closed, and
     ;; otherwise leaves the next event's kind and data, a NUL between them.
 
-    (define (page-stream-next (stream Stream)) (→ (Option StreamEvent)) (! tasks)
+    (define (page-stream-next (stream Stream)) (→ (Option Stream-event)) (! Tasks)
       (let ((count (through-host (lambda (ticket) (host-stream-start ticket (● stream id)))
                                  host-stream-finish)))
         (if (< count 0) (None) (Some (stream-event (host-reply))))))
 
-    (define (stream-event (text String)) (→ StreamEvent)
+    (define (stream-event (text String)) (→ Stream-event)
       (match (string-index text #\null)
         ((Some end)
-         (new StreamEvent
+         (new Stream-event
            (kind (substring text 0 end))
            (data (substring text (+ end 1) (string-length text)))))
         ((None) (panic "internal error: a stream's event has no kind"))))

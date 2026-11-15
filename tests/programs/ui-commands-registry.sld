@@ -14,7 +14,7 @@
 (define (invoke (command (Option (Fn I64 → I64))) (value I64)) (→ I64)
   (match command ((Some run) (run value)) ((None) -1)))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   (match (command-register (entries))
     ((Ok registry)
      (write-line (show (invoke (command-named registry "add") 4)))

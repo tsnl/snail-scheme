@@ -2,7 +2,7 @@
  (snail core base)
  (snail core io))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   (let ((boxed
          (Any (let ((number 40)) (ann (lambda (x) (+ number x)) (Fn I64 → I64))))))
     (match (downcast (Fn I64 → I64) boxed)

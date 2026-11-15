@@ -1,5 +1,5 @@
 (define-library (counter application)
-  (export CounterApplication)
+  (export Counter-application)
   (import
    (snail core base)
    (snail shell app)
@@ -23,7 +23,7 @@
 
     (define (step (counter Counter) (input Input)) (→ Counter)
       (match input
-        ((Press 1 _) (Counter-count-set counter (+ (● counter count) 1)))
+        ((Press 1 _) (counter-count-set counter (+ (● counter count) 1)))
         ((Resize width height)
          (new Counter (count (● counter count)) (width width) (height height)))
         (_ counter)))
@@ -48,7 +48,7 @@
         (pictures (Nil))))
 
     (define (panels (counter Counter)) (→ (List Panel))
-      (list (new Panel (key "counter") (place (At (TopLeft) 0))
+      (list (new Panel (key "counter") (place (At (Top-left) 0))
                  (widgets (list (label "greeting" (greeting))
                                 (label "count" (i64->string (● counter count)))
                                 (button "add" "Add" (add-action)))))))
@@ -59,7 +59,7 @@
     (define (restore (saved Save)) (→ Counter)
       (new Counter (count (● saved count)) (width 0) (height 0)))
 
-    (type CounterApplication (SceneApplication Counter))
+    (type Counter-application (Scene-application Counter))
 
     (define-page-state Counter)
 

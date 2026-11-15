@@ -1,22 +1,22 @@
 (import
  (snail core base)
- (only (snail core forms) host)
+ (only (snail core forms) Host)
  (snail core io)
- (only (snail shell task) tasks dispatch)
+ (only (snail shell task) Tasks dispatch)
  (snail shell utf8)
  (snail shell process))
 
-(define (require (result (Result T ProcessError))) (→ T) (∀ (T))
+(define (require (result (Result T Process-error))) (→ T) (∀ (T))
   (match result
     ((Ok value) value)
     ((Err error) (panic (● error code)))))
 
-(define (shell (script String)) (→ Process) (! process tasks)
+(define (shell (script String)) (→ Process) (! Processes Tasks)
   (require
    (spawn (new Command (program "/bin/sh") (arguments (list "-c" script)) (directory ".")))))
 
 ;; A stream's bytes up to its end, as text.
-(define (read-all (child Process) (stream Stream)) (→ String) (! process tasks)
+(define (read-all (child Process) (stream Stream)) (→ String) (! Processes Tasks)
   (let loop ((bytes #u8()))
     (match (require (read-output child stream 4096))
       ((Some chunk) (loop (vector-append bytes chunk)))
@@ -29,15 +29,15 @@
     ((Exited code) (string-append "exited " (show code)))
     ((Signaled name) (string-append "signaled " name))))
 
-(define (report-error (result (Result T ProcessError)))
+(define (report-error (result (Result T Process-error)))
   (→ Unit)
-  (! output-port)
+  (! Output-port)
   (∀ (T))
   (match result
     ((Err error) (write-line (● error code)))
     ((Ok _) (panic "the operation succeeded"))))
 
-(define (main) (→ Unit) (! host mut output-port process tasks)
+(define (main) (→ Unit) (! Host Mut Output-port Processes Tasks)
 
   ;; A program waits on processes from a task, which the scheduler runs once
   ;; main returns.

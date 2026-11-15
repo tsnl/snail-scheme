@@ -21,7 +21,7 @@
 
 ;; ANCHOR: quietly
 ;; Runs `action`, discarding what it logs.
-(define (quietly (action (Fn → A ! Log e))) (→ A) (! e) (∀ (A e))
+(define (quietly (action (Fn → A ! Log E))) (→ A) (! E) (∀ (A E))
   (handle Log
       ((log (lambda (message) (unit))))
     (action)))
@@ -33,7 +33,7 @@
 ;; ANCHOR: indented
 ;; Indents what `action` logs: each implementation passes the line on to
 ;; the Log handler outside this one.
-(define (indented (action (Fn → A ! Log e))) (→ A) (! Log e) (∀ (A e))
+(define (indented (action (Fn → A ! Log E))) (→ A) (! Log E) (∀ (A E))
   (handle Log
       ((log (lambda (message) (log (string-append "  " message)))))
     (action)))
@@ -49,13 +49,13 @@
 
 ;; Files from the disk, under `build/`. `read-file` performs fs, which
 ;; goes to the handlers outside this one: here, the host.
-(define (from-disk (action (Fn → A ! Files e))) (→ A) (! fs e) (∀ (A e))
+(define (from-disk (action (Fn → A ! Files E))) (→ A) (! Fs E) (∀ (A E))
   (handle Files
       ((load (lambda (name) (read-file (string-append "build/" name)))))
     (action)))
 
 ;; A test double: files from memory, with no file system at all.
-(define (from-memory (action (Fn → A ! Files e))) (→ A) (! e) (∀ (A e))
+(define (from-memory (action (Fn → A ! Files E))) (→ A) (! E) (∀ (A E))
   (handle Files
       ((load (lambda (name) (if (string=? name "greeting.txt") "hello" ""))))
     (action)))
@@ -69,11 +69,11 @@
   (default
     ((verbosity (lambda () 1)))))
 
-(define (note (level I64) (message String)) (→ Unit) (! Verbosity output-port)
+(define (note (level I64) (message String)) (→ Unit) (! Verbosity Output-port)
   (when (<= level (verbosity))
     (write-line message)))
 
-(define (main) (→ Unit) (! Verbosity fs output-port)
+(define (main) (→ Unit) (! Verbosity Fs Output-port)
 
   ;; ANCHOR_END: declare
 

@@ -1,10 +1,10 @@
 (import
  (snail core base)
- (only (snail core forms) host))
+ (only (snail core forms) Host))
 
 (define main
   (lambda ()
     ;; No handler implements a builtin effect.
-    (handle host ()
+    (handle Host ()
       (unit))
     (unit)))

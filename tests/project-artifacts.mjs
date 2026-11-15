@@ -50,8 +50,8 @@ async function producerCycles() {
     (begin (write-file "${join(directory, `${name.replace('/', '-')}.ran`)}" "ran")
       (library-syntax (list "${name.replace('/', '" "')}") (list "value") (list (list "snail" "core" "base") ${output})
         (list (form "define" (list (form "value" (Nil))
-              (form "→" (list (SymbolSyntax "String")))
-              (StringSyntax "${name}")))))))`;
+              (form "→" (list (Symbol-syntax "String")))
+              (String-syntax "${name}")))))))`;
   try {
     await write('project.datum', `((build-target knot (program (entry "knot.sld") (library-roots ("src"))))
       (build-target late (program (entry "late.sld") (library-roots ("src")))))`);

@@ -20,7 +20,7 @@
 
 ;; An in-order walk that reports each value it passes, so the output shows
 ;; where the walk stopped.
-(define (walk (wanted (Fn I64 → Bool)) (tree Tree)) (→ Unit) (! Found output-port)
+(define (walk (wanted (Fn I64 → Bool)) (tree Tree)) (→ Unit) (! Found Output-port)
   (match tree
     ((Leaf) (unit))
     ((Node left value right)
@@ -29,7 +29,7 @@
      (when (wanted value) (found value))
      (walk wanted right))))
 
-(define (first-where (wanted (Fn I64 → Bool))) (→ I64) (! output-port)
+(define (first-where (wanted (Fn I64 → Bool))) (→ I64) (! Output-port)
   (handle Found ((found (lambda (value resume) value)))
     (walk wanted (tree))
     -1))
@@ -44,14 +44,14 @@
 
 ;; A procedure held across the operation stays in the frame that held it,
 ;; which nothing resumes, so it never runs.
-(define (guarded (items (List I64))) (→ I64) (! output-port)
+(define (guarded (items (List I64))) (→ I64) (! Output-port)
   (handle Found ((found (lambda (value resume) value)))
     (let ((cleanup (lambda () (write-line "cleanup ran"))))
       (for-each (lambda (item) (when (< item 0) (found item))) items)
       (cleanup)
       0)))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   (write-line (string-append "first above 6: " (show (first-where (lambda (value) (> value 6))))))
   (write-line
    (string-append "first above 20: " (show (first-where (lambda (value) (> value 20))))))

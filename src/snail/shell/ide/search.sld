@@ -1,8 +1,8 @@
 ;; Search saved project files on the service or the exact current draft here.
 ;; A draft result carries its text, never an invented saved-file revision.
 (define-library (snail shell ide search)
-  (export Draft Source SavedProject CurrentDraft
-          Results SavedResults DraftResults run same-draft?)
+  (export Draft Source Saved-project Current-draft
+          Results Saved-results Draft-results run same-draft?)
   (import
    (snail core base)
    (snail shell task)
@@ -19,14 +19,14 @@
        (text String)))
 
     (enum Source
-      (SavedProject)
-      (CurrentDraft ((draft Draft))))
+      (Saved-project)
+      (Current-draft ((draft Draft))))
 
     (enum Results
-      (SavedResults ((results SearchResults)))
-      (DraftResults ((draft Draft)
-                     (hits (List Occurrence))
-                     (limited Bool))))
+      (Saved-results ((results Search-results)))
+      (Draft-results ((draft Draft)
+                      (hits (List Occurrence))
+                      (limited Bool))))
 
     (define (same-draft? (first Draft) (second Draft)) (→ Bool)
       (and (string=? (● first path) (● second path))
@@ -34,21 +34,21 @@
 
     ;; ---- Searching ----
 
-    (define (run (source Source) (text String)) (→ (Result Results Failure)) (! tasks fetch)
+    (define (run (source Source) (text String)) (→ (Result Results Failure)) (! Tasks Fetch)
       (match (parse-query text)
         ((Err message) (Err (new Failure (status 400) (message message))))
         ((Ok query)
          (match source
-           ((SavedProject)
+           ((Saved-project)
             (match (search-reply
                     (api "GET" (string-append "/api/search?q=" (url-component text)) (Nil) ""))
-              ((Ok results) (Ok (SavedResults results)))
+              ((Ok results) (Ok (Saved-results results)))
               ((Err failure) (Err failure))))
-           ((CurrentDraft draft) (Ok (search-draft draft query)))))))
+           ((Current-draft draft) (Ok (search-draft draft query)))))))
 
-    (define (search-draft (draft Draft) (query Query)) (→ Results) (! tasks)
+    (define (search-draft (draft Draft) (query Query)) (→ Results) (! Tasks)
       (let* ((text (● draft text))
              (end (min 4000000 (string-length text)))
              (hits (scan query text end 201)))
-        (DraftResults draft (take hits 200)
-                      (or (> (length hits) 200) (< end (string-length text))))))))
+        (Draft-results draft (take hits 200)
+                       (or (> (length hits) 200) (< end (string-length text))))))))

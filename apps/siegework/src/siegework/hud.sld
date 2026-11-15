@@ -40,7 +40,7 @@
       (let ((code (press-code command)))
         (match rejection
           ((Some why)
-           (Button (Look-tone-set (Look-help-set look-of (rejection-text why))
+           (Button (look-tone-set (look-help-set look-of (rejection-text why))
                                   (if (later? why) (Warning) (Muted)))
                    text caption (● code first) (● code second) (Disabled) -1.0))
           ((None)
@@ -65,10 +65,10 @@
                 -1.0)))
 
     (define (side (game Game)) (→ Corner)
-      (if (● game left-handed) (TopLeft) (TopRight)))
+      (if (● game left-handed) (Top-left) (Top-right)))
 
     (define (far-side (game Game)) (→ Corner)
-      (if (● game left-handed) (TopRight) (TopLeft)))
+      (if (● game left-handed) (Top-right) (Top-left)))
 
     (define (seconds (ticks I64)) (→ String)
       (string-append (show (quotient (+ ticks 9) 10)) "s"))
@@ -122,7 +122,7 @@
                                    (if decided "results" "pause")
                                    (if decided "Results" "Pause"))
                              "P"
-                             (if decided (ShowResults) (OpenMenu)))
+                             (if decided (Show-results) (Open-menu)))
                             (plain-button (face "turn-left" "turn-left" "Turn left") "Q" (Turn -1))
                             (plain-button (face "turn-right" "turn-right" "Turn right")
                                           "E"
@@ -149,7 +149,7 @@
             (build-button game cell (Extractor))
             (upgrade-button game cell)
             (rush-button game cell)
-            (plain-button (face "close" "close" "Close") "5" (CloseCard))))
+            (plain-button (face "close" "close" "Close") "5" (Close-card))))
 
     (define (kind-icon (kind Kind)) (→ String)
       (match kind
@@ -174,7 +174,7 @@
               (tone (if (opening-move? (● game world) kind) (Suggested) (Plain))) (badge ""))
          (kind-key kind)
          (show price)
-         (BuildAt kind cell)
+         (Build-at kind cell)
          (check (● game world) (Build kind cell (● game rush))))))
 
     ;; What the next level of the selected building, or the hub's next build
@@ -185,7 +185,7 @@
                       (match (upgrade-cost (● game world) cell)
                         ((Some cost) (show cost))
                         ((None) ""))
-                      (UpgradeAt cell) (check (● game world) (Upgrade cell))))
+                      (Upgrade-at cell) (check (● game world) (Upgrade cell))))
 
     (define (upgrade-cost (world World) (cell Cell)) (→ (Option I64))
       (cond ((hub-cell? (● world hub) cell)
@@ -206,14 +206,14 @@
          (command-button (face "rush" "rush" "Rush: finish the work now")
                          "4"
                          (show (rush-price work))
-                         (RushAt cell)
+                         (Rush-at cell)
                          (check (● game world) (Rush cell))))
         ((None)
          (toggle-button
           (face "rush-orders" "rush" "Rush new buildings: ready at once for five times the price")
           "4"
           "×5"
-          (ToggleRush)
+          (Toggle-rush)
           (● game rush)))))
 
     (define (cell-work (world World) (cell Cell)) (→ (Option Work))
@@ -236,21 +236,21 @@
                       (match (cell-work (● game world) cell)
                         ((Some w) (string-append "+" (show (work-refund w))))
                         ((None) ""))
-                      (CancelAt cell) (check (● game world) (Cancel cell))))
+                      (Cancel-at cell) (check (● game world) (Cancel cell))))
 
     (define (scavenge-button (game Game) (cell Cell)) (→ Widget)
       (command-button (face "scavenge" "scavenge" "Scavenge: remove it for a fifth of its cost") "X"
                       (match (building-at (● game world) cell)
                         ((Some b) (string-append "+" (show (quotient (invested b) 5))))
                         ((None) ""))
-                      (ScavengeAt cell) (check (● game world) (Scavenge cell))))
+                      (Scavenge-at cell) (check (● game world) (Scavenge cell))))
 
     (define (repair-button (game Game)) (→ Widget)
       (let ((world (● game world)))
         (command-button (face "repair" "repair" "Repair the hub to full health")
                         "F"
                         (show (repair-price (● world hub)))
-                        (RepairHub)
+                        (Repair-hub)
                         (check world (Repair)))))
 
     ;; ---- Queue ----
@@ -287,18 +287,18 @@
 
     (define (task-cell (world World) (task Task)) (→ Cell)
       (match (● task owner)
-        ((OfHub) (● (● world hub) cell))
-        ((OfBuilding b) (● b cell))))
+        ((Of-hub) (● (● world hub) cell))
+        ((Of-building b) (● b cell))))
 
     (define (task-icon (task Task)) (→ String)
       (match (● task owner)
-        ((OfHub) "slots")
-        ((OfBuilding b) (if (built? b) "upgrade" (kind-icon (● b kind))))))
+        ((Of-hub) "slots")
+        ((Of-building b) (if (built? b) "upgrade" (kind-icon (● b kind))))))
 
     (define (task-help (task Task)) (→ String)
       (string-append (match (● task owner)
-                       ((OfHub) "Build slot")
-                       ((OfBuilding b)
+                       ((Of-hub) "Build slot")
+                       ((Of-building b)
                         (string-append (kind-name (● b kind))
                                        (if (built? b) " upgrade" ""))))
                      (cond ((not (● task supplied)) ", unpowered")
@@ -400,12 +400,12 @@
       (match (● game menu)
         ((Closed) (Nil))
         ((Paused) (list (pause-dialog game)))
-        ((Restarting) (list (confirm-dialog "restart" "Restart on a new map?" "Restart" (NewMap))))
+        ((Restarting) (list (confirm-dialog "restart" "Restart on a new map?" "Restart" (New-map))))
         ((Resigning)
          (list (confirm-dialog "resign"
                                "Resign this colony? The map is revealed."
                                "Resign"
-                               (ConfirmResign))))
+                               (Confirm-resign))))
         ((Results) (list (results-dialog game)))))
 
     (define (pause-dialog (game Game)) (→ Panel)
@@ -414,10 +414,10 @@
                           (plain-button (face "resume" "" "Resume") "Resume" (Resume))
                           (plain-button (face "restart" "" "Restart on a new map")
                                         "Restart…"
-                                        (AskRestart))
+                                        (Ask-restart))
                           (plain-button (face "resign" "" "Resign this colony")
                                         "Resign…"
-                                        (AskResign))
+                                        (Ask-resign))
                           (toggle-button (face "right-handed" "" "Controls on the right")
                                          "Right-handed"
                                          ""
@@ -431,7 +431,7 @@
 
     (define (confirm-dialog (key String) (question String) (answer String) (command Command))
       (→ Panel)
-      (new Panel (key key) (place (Dialog (● (press-code (OpenMenu)) first)))
+      (new Panel (key key) (place (Dialog (● (press-code (Open-menu)) first)))
            (widgets (list (label (string-append key "-title") question)
                           (plain-button (new Look
                                           (key (string-append "accept-" key))
@@ -441,12 +441,12 @@
                                           (badge ""))
                                         answer
                                         command)
-                          (plain-button (face "back" "" "Back to the menu") "Back" (OpenMenu))))))
+                          (plain-button (face "back" "" "Back to the menu") "Back" (Open-menu))))))
 
     ;; Time, combat, energy, buildings, nests and the seed, from the world.
     (define (results-dialog (game Game)) (→ Panel)
       (let* ((world (● game world)) (ledger (● world ledger)))
-        (new Panel (key "results") (place (Dialog (● (press-code (InspectMap)) first)))
+        (new Panel (key "results") (place (Dialog (● (press-code (Inspect-map)) first)))
              (widgets (list (label "results-title"
                                    (match (● world outcome)
                                      ((Won) "Victory")
@@ -478,10 +478,10 @@
                                     "\n"))
                             (plain-button (face "inspect" "" "Look over the map")
                                           "Map"
-                                          (InspectMap))
+                                          (Inspect-map))
                             (plain-button (face "new-map" "" "Start a new map")
                                           "New map"
-                                          (NewMap)))))))
+                                          (New-map)))))))
 
     ;; ---- HUD ----
 

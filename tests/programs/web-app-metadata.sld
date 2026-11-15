@@ -3,11 +3,11 @@
  (snail core io)
  (snail shell project web-app))
 
-(define (check (name String) (actual String) (expected String)) (→ Unit) (! output-port)
+(define (check (name String) (actual String) (expected String)) (→ Unit) (! Output-port)
   (unless (string=? actual expected) (panic (string-append name ": " actual)))
   (write-line name))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   (check "implicit head"
          (with-web-app "<!doctype html><title>App</title>" #f)
          "<!doctype html><head><link id=\"snail-web-app\" rel=\"manifest\" href=\"./manifest.webmanifest\"><title>App</title>")
@@ -24,21 +24,21 @@
          "<!-- before --><!DOCTYPE html SYSTEM \"a>b\">\n<!-- after --><head><link id=\"snail-web-app\" rel=\"manifest\" href=\"/one/manifest.webmanifest\"></head>")
   (check "metadata is escaped attribute data"
          (insert-metadata "<head data-kept=\"yes\"><base href=\"original\"></head>"
-                          (list (PageBase "/one/.snail/builds/2/")
-                                (ReloadData "(file \"😀 </script> & other\")")
-                                (ModuleScript "/one/.snail/reload.mjs")))
+                          (list (Page-base "/one/.snail/builds/2/")
+                                (Reload-data "(file \"😀 </script> & other\")")
+                                (Module-script "/one/.snail/reload.mjs")))
          "<head data-kept=\"yes\"><base href=\"/one/.snail/builds/2/\"><meta id=\"snail-manifest\" content=\"(file &quot;😀 &lt;/script> &amp; other&quot;)\"><script type=\"module\" src=\"/one/.snail/reload.mjs\"></script><base href=\"original\"></head>")
   (let ((bom (make-string 1 (i32->char 65279))))
     (check "BOM retained"
            (insert-metadata (string-append bom "\n<!doctype html><body>body</body>")
-                            (list (PageBase "/")))
+                            (list (Page-base "/")))
            (string-append bom "\n<!doctype html><head><base href=\"/\"><body>body</body>")))
   (check "carriage returns survive HTML parsing"
-         (insert-metadata "<head></head>" (list (ReloadData (make-string 1 #\return))))
+         (insert-metadata "<head></head>" (list (Reload-data (make-string 1 #\return))))
          "<head><meta id=\"snail-manifest\" content=\"&#13;\"></head>")
   (check "implicit head contents stay in the head"
          (insert-metadata
           "<!doctype html><noscript><meta name=\"x\" content=\"a\"></noscript><title>Test</title>"
-          (list (PageBase "/")))
+          (list (Page-base "/")))
          "<!doctype html><head><base href=\"/\"><noscript><meta name=\"x\" content=\"a\"></noscript><title>Test</title>")
   (unit))

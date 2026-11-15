@@ -4,12 +4,12 @@
 (define-library (snail shell json)
   (export
    Json
-   JsonNull
-   JsonBool
-   JsonInteger
-   JsonString
-   JsonArray
-   JsonObject
+   Json-null
+   Json-bool
+   Json-integer
+   Json-string
+   Json-array
+   Json-object
    json->string)
   (import
    (snail core base))
@@ -25,12 +25,12 @@
     ;; object puts names such as "0" and "42" first, in numeric order, so
     ;; an object keyed by numbers is written as an array of records.
     (enum Json
-      (JsonNull)
-      (JsonBool ((value Bool)))
-      (JsonInteger ((value I64)))
-      (JsonString ((value String)))
-      (JsonArray ((items (List Json))))
-      (JsonObject ((members (List (Pair String Json))))))
+      (Json-null)
+      (Json-bool ((value Bool)))
+      (Json-integer ((value I64)))
+      (Json-string ((value String)))
+      (Json-array ((items (List Json))))
+      (Json-object ((members (List (Pair String Json))))))
 
     ;; ---- Strings ----
 
@@ -85,12 +85,12 @@
 
     (define (value-pieces (value Json) (pieces (List String))) (→ (List String))
       (match value
-        ((JsonNull) (Cons "null" pieces))
-        ((JsonBool flag) (Cons (if flag "true" "false") pieces))
-        ((JsonInteger number) (Cons (i64->string number) pieces))
-        ((JsonString text) (string-pieces text pieces))
-        ((JsonArray items) (Cons "]" (separated value-pieces items (Cons "[" pieces))))
-        ((JsonObject members) (Cons "}" (separated member-pieces members (Cons "{" pieces))))))
+        ((Json-null) (Cons "null" pieces))
+        ((Json-bool flag) (Cons (if flag "true" "false") pieces))
+        ((Json-integer number) (Cons (i64->string number) pieces))
+        ((Json-string text) (string-pieces text pieces))
+        ((Json-array items) (Cons "]" (separated value-pieces items (Cons "[" pieces))))
+        ((Json-object members) (Cons "}" (separated member-pieces members (Cons "{" pieces))))))
 
     (define (member-pieces (member (Pair String Json)) (pieces (List String))) (→ (List String))
       (value-pieces (● member second) (Cons ":" (string-pieces (● member first) pieces))))

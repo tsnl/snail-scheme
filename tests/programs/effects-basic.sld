@@ -15,21 +15,21 @@
   (* n n))
 
 ;; Writes to the output-port, and its type says so.
-(define (report (label String) (n I64)) (→ Unit) (! output-port)
+(define (report (label String) (n I64)) (→ Unit) (! Output-port)
   (write-line (string-append label " " (show n))))
 
 ;; ANCHOR_END: rows
 
 ;; ANCHOR: inferred
 ;; No signature: the row, output-port, is inferred from the body.
-(define (report-square (n I64)) (→ Unit) (! output-port)
+(define (report-square (n I64)) (→ Unit) (! Output-port)
   (report "squared" (square n)))
 
 ;; ANCHOR_END: inferred
 
 ;; ANCHOR: polymorphic
 ;; Calls `action` on 1 to `count`, performing whatever `action` performs.
-(define (repeat (count I64) (action (Fn I64 → Unit ! e))) (→ Unit) (! e) (∀ (e))
+(define (repeat (count I64) (action (Fn I64 → Unit ! E))) (→ Unit) (! E) (∀ (E))
   (let loop ((i 1))
     (when (<= i count)
       (action i)
@@ -39,12 +39,12 @@
 
 ;; ANCHOR: local
 ;; Mutation is explicit even when the scratch never leaves this function.
-(define (sum-of-squares (count I64)) (→ I64) (! mut)
+(define (sum-of-squares (count I64)) (→ I64) (! Mut)
   (let ((total (new Total (value 0))))
     (repeat count (lambda (i) (set! (● total value) (+ (● total value) (square i)))))
     (● total value)))
 
-(define (main) (→ Unit) (! mut output-port)
+(define (main) (→ Unit) (! Mut Output-port)
 
   (report-square 7)
   (repeat 3 report-square)

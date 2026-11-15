@@ -7,7 +7,7 @@
 ;; nothing it declares has a body.
 ;;
 ;; A generic type quantifies its variables in the order they first occur,
-;; A for a type and e for the rest of a row. `mut` marks operations on
+;; A for a type and e for the rest of a row. `Mut` marks operations on
 ;; mutable storage; everything else is total, though some can trap.
 (define-library (snail core primitive)
   (export
@@ -61,7 +61,7 @@
     ;; type. It constructs a closure that calls the exported code.
     (primitive unit (Fn → Unit))
     (primitive panic (∀ (A) (Fn String → A)))
-    (primitive unsafe-total (∀ (A e) (Fn (Fn → A ! e) → A)))
+    (primitive unsafe-total (∀ (A E) (Fn (Fn → A ! E) → A)))
     (primitive unsafe-cast (∀ (A) (Fn Funcref → A)))
 
     ;; ---- Memoized functions ----
@@ -81,13 +81,13 @@
     ;; is called: the function it makes runs the thunk under those handlers,
     ;; wherever it is called. The caller is charged the thunk's row, as
     ;; dispatching is. The handlers answer the effects
-    ;; the row declares; what remains, `mut` and the effects the host
-    ;; implements, happens when the function runs, so it performs `host`,
+    ;; the row declares; what remains, `Mut` and the effects the host
+    ;; implements, happens when the function runs, so it performs `Host`,
     ;; which only code that may run anything the host implements, such as a
     ;; scheduler, can perform. The thunk may not yield to a control effect,
     ;; since the handles it would yield to may have returned by then.
     (primitive inherit-handlers
-               (∀ (A e) (Fn (Fn → A ! e) → (Fn → A ! host) ! e)))
+               (∀ (A E) (Fn (Fn → A ! E) → (Fn → A ! Host) ! E)))
 
     ;; ---- Integers ----
 
@@ -197,7 +197,7 @@
     (primitive string=? (Fn String String → Bool))
     (primitive string-compare (Fn String String → I32))
     (primitive make-string (Fn I64 Char → String))
-    (primitive string-generate (∀ (e) (Fn I64 (Fn I64 → Char ! e) → String ! e)))
+    (primitive string-generate (∀ (E) (Fn I64 (Fn I64 → Char ! E) → String ! E)))
     (primitive string->vector (Fn String → (Vector Char)))
     (primitive vector->string (Fn (Vector Char) → String))
 
@@ -211,12 +211,12 @@
     (primitive subvector (∀ (A) (Fn (Vector A) I64 I64 → (Vector A))))
     (primitive make-vector (∀ (A) (Fn I64 A → (Vector A))))
     (primitive vector-set (∀ (A) (Fn (Vector A) I64 A → (Vector A))))
-    (primitive vector-generate (∀ (A e) (Fn I64 (Fn I64 → A ! e) → (Vector A) ! e)))
+    (primitive vector-generate (∀ (A E) (Fn I64 (Fn I64 → A ! E) → (Vector A) ! E)))
 
-    (primitive vector-set! (∀ (A) (Fn (Vector A) I64 A → Unit ! mut)))
+    (primitive vector-set! (∀ (A) (Fn (Vector A) I64 A → Unit ! Mut)))
     (primitive vector-copy (∀ (A) (Fn (Vector A) → (Vector A))))
-    (primitive vector-copy! (∀ (A) (Fn (Vector A) I64 (Vector A) I64 I64 → Unit ! mut)))
+    (primitive vector-copy! (∀ (A) (Fn (Vector A) I64 (Vector A) I64 I64 → Unit ! Mut)))
 
     ;; `set!` writes a place: a declared field, `(● record count)`, which
     ;; the checker resolves directly.
-    (primitive set! (∀ (A) (Fn A A → Unit ! mut)))))
+    (primitive set! (∀ (A) (Fn A A → Unit ! Mut)))))

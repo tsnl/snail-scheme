@@ -1,10 +1,10 @@
 (import
- (only (snail core forms) host)
+ (only (snail core forms) Host)
  (snail core base)
  (snail core io)
  (snail shell task))
 
-(define (main) (→ Unit) (! host mut output-port tasks)
+(define (main) (→ Unit) (! Host Mut Output-port Tasks)
   ;; A program's statements run as its first task, so they may yield, sleep
   ;; and wait like any task's: a child dispatched first runs when the body
   ;; yields, and the body resumes after it.

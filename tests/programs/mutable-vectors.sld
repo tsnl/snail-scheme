@@ -5,7 +5,7 @@
 (record Box
   ((value I64)))
 
-(define (main) (→ Unit) (! mut output-port)
+(define (main) (→ Unit) (! Mut Output-port)
   (let* ((items (vector-generate 9 (lambda (index) index))) (alias items))
     (write (vector->list alias)) (newline)
     (vector-set! alias 0 90)

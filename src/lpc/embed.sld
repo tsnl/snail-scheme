@@ -25,7 +25,7 @@
                                 (fallback Syntax))
       (→ (List Syntax))
       (list (form "define"
-                  (list (form name (list (form "key" (list (SymbolSyntax "String")))))
+                  (list (form name (list (form "key" (list (Symbol-syntax "String")))))
                         (form "→" (list result))
                         (form "cond"
                               (append (map lookup-clause entries)
@@ -33,8 +33,8 @@
 
     ;; `((string=? key "K") VALUE)`.
     (define (lookup-clause (entry (Pair String Syntax))) (→ Syntax)
-      (ListSyntax
-       (list (form "string=?" (list (SymbolSyntax "key") (StringSyntax (● entry first))))
+      (List-syntax
+       (list (form "string=?" (list (Symbol-syntax "key") (String-syntax (● entry first))))
              (● entry second))))
 
     ;; ---- Images ----
@@ -44,12 +44,12 @@
     ;; other path. The paths' files are read now, as bytes.
     (define (embed-library (name (List String)) (first-key I32) (paths (List String)))
       (→ Syntax)
-      (! fs)
+      (! Fs)
       (library-syntax name
                       (list "art")
                       (list (list "snail" "core" "base") (list "snail" "shell" "app"))
                       (append
-                       (lookup-definitions "art" (form "Option" (list (SymbolSyntax "Source")))
+                       (lookup-definitions "art" (form "Option" (list (Symbol-syntax "Source")))
                                            (map-indexed
                                             (lambda (index path) (art-entry first-key index path))
                                             paths)
@@ -61,19 +61,19 @@
       (new Pair (first path)
            (second (form "Some"
                          (list (form "Source"
-                                     (list (IntegerSyntax (+ (i32->i64 first-key) index))
+                                     (list (Integer-syntax (+ (i32->i64 first-key) index))
                                            (image-name index))))))))
 
     (define (image-name (index I64)) (→ Syntax)
-      (SymbolSyntax (string-append "image-" (show index))))
+      (Symbol-syntax (string-append "image-" (show index))))
 
     ;; An image is a thunk of its bytes, so they are copied out of their
     ;; data segment only when the host asks for them.
-    (define (image-definitions (index I64) (path String)) (→ (List Syntax)) (! fs)
+    (define (image-definitions (index I64) (path String)) (→ (List Syntax)) (! Fs)
       (list (form "define"
-                  (list (ListSyntax (list (image-name index)))
-                        (form "→" (list (SymbolSyntax "Bytes")))
-                        (BytesSyntax (read-bytes path))))))
+                  (list (List-syntax (list (image-name index)))
+                        (form "→" (list (Symbol-syntax "Bytes")))
+                        (Bytes-syntax (read-bytes path))))))
 
     ;; ---- Palettes ----
 
@@ -84,7 +84,7 @@
     (define (ramps-library (name (List String)) (json Bytes)) (→ Syntax)
       (library-syntax name (list "ramp") (list (list "snail" "core" "base"))
                       (lookup-definitions "ramp"
-                                          (form "List" (list (SymbolSyntax "I32")))
+                                          (form "List" (list (Symbol-syntax "I32")))
                                           (map ramp-entry (json-ramps (palette-text json)))
                                           (form "Nil" (Nil)))))
 
@@ -97,7 +97,8 @@
     (define (ramp-entry (ramp (Pair String (List I32)))) (→ (Pair String Syntax))
       (new Pair (first (● ramp first))
            (second (form "list"
-                         (map (lambda (color) (IntegerSyntax (i32->i64 color))) (● ramp second))))))
+                         (map (lambda (color) (Integer-syntax (i32->i64 color)))
+                              (● ramp second))))))
 
     ;; The quoted strings of the file in order: each key is followed by its
     ;; colors, so a string that is not a color starts the next ramp.

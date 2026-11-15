@@ -41,13 +41,13 @@
 
     (define (build-heads (build Build)) (→ (List Head))
       (match build
-        ((Female) (list (HumanFemale) (HumanFemale) (HumanFemale) (HumanFemaleElderly)))
-        (_ (list (HumanMale) (HumanMale) (HumanMale) (HumanMaleElderly)))))
+        ((Female) (list (Human-female) (Human-female) (Human-female) (Human-female-elderly)))
+        (_ (list (Human-male) (Human-male) (Human-male) (Human-male-elderly)))))
 
     (define (elderly? (head Head)) (→ Bool)
       (match head
-        ((HumanMaleElderly) #t)
-        ((HumanFemaleElderly) #t)
+        ((Human-male-elderly) #t)
+        ((Human-female-elderly) #t)
         (_ #f)))
 
     (define (human-skins)
@@ -55,8 +55,8 @@
       (map (lambda (%field0) (new Skin (name %field0)))
            (list "light" "amber" "olive" "taupe" "bronze" "brown" "black")))
 
-    (define (cuts) (→ (List HairStyle))
-      (map (lambda (%field0) (new HairStyle (name %field0)))
+    (define (cuts) (→ (List Hair-style))
+      (map (lambda (%field0) (new Hair-style (name %field0)))
            (list "bob"
                  "buzzcut"
                  "curly_short"
@@ -66,8 +66,8 @@
                  "cowlick"
                  "bangs_bun")))
 
-    (define (hair-shades (head Head)) (→ (List HairColor))
-      (map (lambda (%field0) (new HairColor (name %field0)))
+    (define (hair-shades (head Head)) (→ (List Hair-color))
+      (map (lambda (%field0) (new Hair-color (name %field0)))
            (if (elderly? head)
                (list "gray" "white")
                (list "black" "dark_brown" "chestnut" "blonde" "ginger"))))
@@ -153,19 +153,19 @@
     ;; The favor ledger's rivals, by fixer: Vee, and otherwise Kit.
     (define (rival (who I64)) (→ Character)
       (if (= who (vee))
-          (dressed (Female) (HumanFemale) (new Skin (name "bronze"))
+          (dressed (Female) (Human-female) (new Skin (name "bronze"))
                    (new Outfit
                      (hair (Some (new Hair
-                                   (style (new HairStyle (name "high_ponytail")))
-                                   (color (new HairColor (name "raven"))))))
+                                   (style (new Hair-style (name "high_ponytail")))
+                                   (color (new Hair-color (name "raven"))))))
                      (torso (Some (new Worn (garment (Tunic)) (dye (new Dye (name "purple"))))))
                      (legs (Some (new Worn (garment (Leggings)) (dye (new Dye (name "black"))))))
                      (feet (Some (new Worn (garment (Boots)) (dye (new Dye (name "black"))))))))
-          (dressed (Male) (HumanMale) (new Skin (name "light"))
+          (dressed (Male) (Human-male) (new Skin (name "light"))
                    (new Outfit
                      (hair (Some (new Hair
-                                   (style (new HairStyle (name "spiked")))
-                                   (color (new HairColor (name "carrot"))))))
+                                   (style (new Hair-style (name "spiked")))
+                                   (color (new Hair-color (name "carrot"))))))
                      (torso (Some (new Worn (garment (Tabard)) (dye (new Dye (name "red"))))))
                      (legs (Some (new Worn (garment (Pants)) (dye (new Dye (name "green"))))))
                      (feet (Some (new Worn (garment (Shoes)) (dye (new Dye (name "black"))))))))))

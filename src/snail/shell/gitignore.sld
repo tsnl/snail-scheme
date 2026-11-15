@@ -3,12 +3,12 @@
 ;; stay visible. This is a native library, not a portable pattern parser.
 (define-library (snail shell gitignore)
   (export
-   IgnoreSnapshot
+   Ignore-snapshot
    read-gitignore
    ignored?)
   (import
    (snail core base)
-   (only (snail core forms) host)
+   (only (snail core forms) Host)
    (snail core table)
    (snail shell process)
    (snail shell task)
@@ -22,7 +22,7 @@
     ;; The project prefix comes from Git, so symlinked project roots work too.
     ;; Callers ask about project-relative paths. A snapshot describes disk
     ;; at the time of the query; it does not predict ignores for new files.
-    (record IgnoreSnapshot
+    (record Ignore-snapshot
       ((prefix String)
        (paths (Table Unit))))
 
@@ -30,8 +30,8 @@
     ;; Once a repository is found, failures are errors, never partial results.
 
     (define (read-gitignore (directory String))
-      (→ (Result (Option IgnoreSnapshot) String))
-      (! mut host tasks process)
+      (→ (Result (Option Ignore-snapshot) String))
+      (! Mut Host Tasks Processes)
       (match (git-output directory (list "rev-parse" "--is-inside-work-tree" "--show-prefix"))
         ((Err message) (Err message))
         ((Ok (None)) (Ok (None)))
@@ -82,8 +82,8 @@
     ;; Its trailing slash must go too, or Git repeats that prefix failure.
 
     (define (query-ignored (directory String) (prefix String))
-      (→ (Result (Option IgnoreSnapshot) String))
-      (! mut host tasks process)
+      (→ (Result (Option Ignore-snapshot) String))
+      (! Mut Host Tasks Processes)
       (match (git-output directory (list "-C" (back-to-root prefix) "--literal-pathspecs"
                                          "ls-files" "--others" "--ignored" "--exclude-standard"
                                          "--directory"
@@ -101,7 +101,7 @@
               ((Ok paths) (parse-paths prefix paths))))
            (_ (Err (git-failure result)))))))
 
-    (define (ignored? (snapshot IgnoreSnapshot) (relative String)) (→ Bool)
+    (define (ignored? (snapshot Ignore-snapshot) (relative String)) (→ Bool)
       (let* ((path (string-append (● snapshot prefix) relative))
              (paths (● snapshot paths)))
         (or (table-contains? paths path)
@@ -115,10 +115,10 @@
     ;; NUL framing preserves spaces, newlines, backslashes and Unicode.
     ;; Parse once into membership evidence; a truncated record is an error.
 
-    (define (parse-paths (prefix String) (text String)) (→ (Result (Option IgnoreSnapshot) String))
+    (define (parse-paths (prefix String) (text String)) (→ (Result (Option Ignore-snapshot) String))
       (let loop ((start 0) (at 0) (paths (empty-table)))
         (cond ((= at (string-length text))
-               (if (= start at) (Ok (Some (new IgnoreSnapshot (prefix prefix) (paths paths))))
+               (if (= start at) (Ok (Some (new Ignore-snapshot (prefix prefix) (paths paths))))
                    (Err "gitignore: truncated path record")))
               ((char=? (string-ref text at) #\null)
                (loop (+ at 1) (+ at 1)
@@ -143,7 +143,7 @@
 
     (define (git-output (directory String) (arguments (List String)))
       (→ (Result (Option Captured) String))
-      (! mut host tasks process)
+      (! Mut Host Tasks Processes)
       (match (spawn (new Command (program "git") (arguments arguments) (directory directory)))
         ((Err error)
          (if (string=? (● error code) "ENOENT") (Ok (None))
@@ -154,7 +154,7 @@
 
     (define (collect-git (child Process))
       (→ (Result (Option Captured) String))
-      (! mut host tasks process)
+      (! Mut Host Tasks Processes)
       (let ((errors (make-mailbox)))
         (dispatch
          (lambda () (mailbox-post errors (read-pipe child (Stderr) 65536 (Nil)))))
@@ -175,7 +175,7 @@
 
     (define (read-pipe (child Process) (stream Stream) (remaining I64) (chunks (List Bytes)))
       (→ (Result Bytes String))
-      (! tasks process)
+      (! Tasks Processes)
       (match (read-output child stream 65536)
         ((Err error)
          (close-process child)

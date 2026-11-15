@@ -7,7 +7,7 @@
 
 (define (bytes) (→ (Vector U8)) (vector-generate 300 (lambda (i) (i32->u8 (i64->i32 i)))))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   (display (vector-ref (bytes) 255))
   (newline)
   (display (vector-ref (bytes) 256))

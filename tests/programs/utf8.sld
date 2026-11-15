@@ -23,7 +23,7 @@
 (define (bytes-text (bytes Bytes)) (→ String)
   (string-join (map (lambda (byte) (hex-digits (u8->i32 byte) 2)) (vector->list bytes)) " "))
 
-(define (decoded-text (result (Result String Utf8Error))) (→ String)
+(define (decoded-text (result (Result String Utf8-error))) (→ String)
   (match result
     ((Ok text)
      (string-join
@@ -31,7 +31,7 @@
       " "))
     ((Err error) (string-append "error at " (show (● error offset))))))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   ;; Each width's first and last scalar, the surrogates around them, the
   ;; byte order mark, and a code beyond U+10FFFF.
   (for-each (lambda (code)

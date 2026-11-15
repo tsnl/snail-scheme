@@ -5,7 +5,7 @@
 ;; now, and a guide explains the game the first time.
 (define-library (hearsay ledger-screen)
   (export
-   LedgerScreen
+   Ledger-screen
    new-ledger-screen
    update-ledger-screen
    view-ledger-screen
@@ -26,7 +26,7 @@
     ;; not be done. The choices are worked out after every command rather
     ;; than every frame, because judging one means trying it. `guide` is the
     ;; guide's open page, if any.
-    (record LedgerScreen
+    (record Ledger-screen
       ((seed I64)
        (ledger Ledger)
        (message (List String))
@@ -38,8 +38,8 @@
        (guide (Option I64)))
       (deriving Serialize Deserialize))
 
-    (define (new-ledger-screen (seed I64)) (→ LedgerScreen)
-      (refresh (new LedgerScreen
+    (define (new-ledger-screen (seed I64)) (→ Ledger-screen)
+      (refresh (new Ledger-screen
                  (seed seed)
                  (ledger (new-ledger seed))
                  (message (Nil))
@@ -50,13 +50,13 @@
                  (promises (Nil))
                  (guide (None)))))
 
-    (define (refresh (screen LedgerScreen)) (→ LedgerScreen)
+    (define (refresh (screen Ledger-screen)) (→ Ledger-screen)
       (let* ((ledger (● screen ledger))
-             (screen (LedgerScreen-vee-offers-set screen (offer-choices ledger (vee))))
-             (screen (LedgerScreen-kit-offers-set screen (offer-choices ledger (kit))))
-             (screen (LedgerScreen-contacts-set screen (contact-choices ledger)))
-             (screen (LedgerScreen-jobs-set screen (job-choices ledger))))
-        (LedgerScreen-promises-set screen (promise-choices ledger))))
+             (screen (ledger-screen-vee-offers-set screen (offer-choices ledger (vee))))
+             (screen (ledger-screen-kit-offers-set screen (offer-choices ledger (kit))))
+             (screen (ledger-screen-contacts-set screen (contact-choices ledger)))
+             (screen (ledger-screen-jobs-set screen (job-choices ledger))))
+        (ledger-screen-promises-set screen (promise-choices ledger))))
 
     ;; ---- Actions ----
 
@@ -70,7 +70,7 @@
     (define (action-new) (→ I32) 6)
     (define (action-kit-offers) (→ I32) 7)
 
-    (define (group-choices (screen LedgerScreen) (group I32)) (→ (List Choice))
+    (define (group-choices (screen Ledger-screen) (group I32)) (→ (List Choice))
       (cond ((= group (action-vee-offers)) (● screen vee-offers))
             ((= group (action-contacts)) (● screen contacts))
             ((= group (action-jobs)) (● screen jobs))
@@ -78,40 +78,40 @@
             ((= group (action-kit-offers)) (● screen kit-offers))
             (else (Nil))))
 
-    (define (command-at (screen LedgerScreen) (group I32) (index I32)) (→ (Option Command))
+    (define (command-at (screen Ledger-screen) (group I32) (index I32)) (→ (Option Command))
       (let ((choices (group-choices screen group)))
         (if (and (>= index 0) (< (i32->i64 index) (length choices)))
             (Some (● (list-ref choices (i32->i64 index)) command))
             (None))))
 
     ;; The end of a round needs no message: the board shows what it did.
-    (define (run (screen LedgerScreen) (command Command)) (→ LedgerScreen)
+    (define (run (screen Ledger-screen) (command Command)) (→ Ledger-screen)
       (match (ledger-act (● screen ledger) command)
         ((Ok result)
-         (refresh (LedgerScreen-message-set (LedgerScreen-ledger-set screen (● result first))
-                                            (match command
-                                              ((EndRound) (Nil))
-                                              (_ (● result second))))))
-        ((Err message) (LedgerScreen-message-set screen (list message)))))
+         (refresh (ledger-screen-message-set (ledger-screen-ledger-set screen (● result first))
+                                             (match command
+                                               ((End-round) (Nil))
+                                               (_ (● result second))))))
+        ((Err message) (ledger-screen-message-set screen (list message)))))
 
-    (define (press (screen LedgerScreen) (action I32) (argument I32)) (→ LedgerScreen)
+    (define (press (screen Ledger-screen) (action I32) (argument I32)) (→ Ledger-screen)
       (cond ((guide-action? action)
-             (LedgerScreen-guide-set screen
-                                     (turn-guide (● screen guide) (guide-pages) action)))
-            ((= action (action-end)) (run screen (EndRound)))
+             (ledger-screen-guide-set screen
+                                      (turn-guide (● screen guide) (guide-pages) action)))
+            ((= action (action-end)) (run screen (End-round)))
             ((= action (action-new)) (new-ledger-screen (+ (● screen seed) 1)))
             (else (match (command-at screen action argument)
                     ((Some command) (run screen command))
                     ((None) screen)))))
 
-    (define (update-ledger-screen (screen LedgerScreen) (input Input)) (→ LedgerScreen)
+    (define (update-ledger-screen (screen Ledger-screen) (input Input)) (→ Ledger-screen)
       (match input
         ((Press action argument) (press screen action argument))
         (_ screen)))
 
     ;; The scene is empty; its pictures are the rivals' portraits for the
     ;; HUD, from the sheets `art` gives.
-    (define (view-ledger-screen (screen LedgerScreen) (art (Fn String → (Option Source))))
+    (define (view-ledger-screen (screen Ledger-screen) (art (Fn String → (Option Source))))
       (→ Frame)
       (empty-frame
        (map (lambda (who) (walk-picture art (rival-picture who) (rival who))) (list (vee) (kit)))))
@@ -134,7 +134,7 @@
     ;; Your coins, standing, record and markers. The dial fills as rounds
     ;; end.
     (define (standings-panel (ledger Ledger)) (→ Panel)
-      (new Panel (key "standings") (place (At (TopLeft) 0))
+      (new Panel (key "standings") (place (At (Top-left) 0))
            (widgets (list (label "title" "Favor ledger")
                           (Dial (look "round")
                                 (ledger-header ledger)
@@ -146,9 +146,9 @@
     ;; A rival beside their portrait: their coins, standing, record, markers
     ;; and the job they are after, then their offers while the game is on.
     ;; Vee's column is left of Kit's.
-    (define (rival-panel (screen LedgerScreen) (who I64)) (→ Panel)
+    (define (rival-panel (screen Ledger-screen) (who I64)) (→ Panel)
       (let ((ledger (● screen ledger)) (vee? (= who (vee))))
-        (new Panel (key (if vee? "vee" "kit")) (place (At (TopRight) (if vee? 1 0)))
+        (new Panel (key (if vee? "vee" "kit")) (place (At (Top-right) (if vee? 1 0)))
              (widgets (append (list (portrait "portrait" (rival-picture who) 2)
                                     (section-heading "name" (fixer-name who))
                                     (label "stats" (fixer-stats ledger who))
@@ -167,7 +167,7 @@
 
     ;; What needs doing now: the result once the game is over, a promise
     ;; falling due, a job you can do, or else how to work toward one.
-    (define (hint (screen LedgerScreen)) (→ Widget)
+    (define (hint (screen Ledger-screen)) (→ Widget)
       (let ((ledger (● screen ledger)))
         (cond ((ledger-over? ledger)
                (toned "hint"
@@ -190,22 +190,22 @@
 
     ;; Your standing, what to do, the jobs and your promises down the left;
     ;; the contacts and the news beside them; each rival on the right.
-    (define (playing-panels (screen LedgerScreen)) (→ (List Panel))
+    (define (playing-panels (screen Ledger-screen)) (→ (List Panel))
       (let ((ledger (● screen ledger)))
         (list (standings-panel ledger)
-              (new Panel (key "hint") (place (At (TopLeft) 0)) (widgets (list (hint screen))))
-              (new Panel (key "jobs") (place (At (TopLeft) 0))
+              (new Panel (key "hint") (place (At (Top-left) 0)) (widgets (list (hint screen))))
+              (new Panel (key "jobs") (place (At (Top-left) 0))
                    (widgets (section "jobs"
                                      "Jobs: one marker per ability"
                                      "No jobs open."
                                      (choice-buttons (● screen jobs) (action-jobs) "job"))))
-              (new Panel (key "promises") (place (At (TopLeft) 0))
+              (new Panel (key "promises") (place (At (Top-left) 0))
                    (widgets (section "promises" "Promises" "None yet."
                                      (append (choice-buttons (● screen promises)
                                                              (action-promises)
                                                              "promise")
                                              (line-labels "owed" (owed-lines ledger))))))
-              (new Panel (key "contacts") (place (At (TopLeft) 1))
+              (new Panel (key "contacts") (place (At (Top-left) 1))
                    (widgets (append
                              (section "contacts"
                                       "Contacts: meet a want, get a marker"
@@ -218,8 +218,8 @@
               (news-panel screen) (rival-panel screen (vee)) (rival-panel screen (kit)))))
 
     ;; What the last command said, and what the last end of round did.
-    (define (news-panel (screen LedgerScreen)) (→ Panel)
-      (new Panel (key "news") (place (At (TopLeft) 1))
+    (define (news-panel (screen Ledger-screen)) (→ Panel)
+      (new Panel (key "news") (place (At (Top-left) 1))
            (widgets (append (line-labels "message" (● screen message))
                             (section "last-round"
                                      "Last end of round"
@@ -227,12 +227,12 @@
                                      (line-labels "last-round"
                                                   (● (● screen ledger) last-round)))))))
 
-    (define (final-panels (screen LedgerScreen)) (→ (List Panel))
+    (define (final-panels (screen Ledger-screen)) (→ (List Panel))
       (list (standings-panel (● screen ledger))
-            (new Panel (key "hint") (place (At (TopLeft) 0)) (widgets (list (hint screen))))
+            (new Panel (key "hint") (place (At (Top-left) 0)) (widgets (list (hint screen))))
             (new Panel
               (key "contacts")
-              (place (At (TopLeft) 1))
+              (place (At (Top-left) 1))
               (widgets (list (button "new" "New game" (action-new)))))
             (news-panel screen)
             (rival-panel screen (vee)) (rival-panel screen (kit))))
@@ -270,7 +270,7 @@
                  (extras (Nil)))))
 
     ;; `first` are panels to show before the screen's own.
-    (define (ledger-screen-hud (screen LedgerScreen) (first (List Panel))) (→ (List Panel))
+    (define (ledger-screen-hud (screen Ledger-screen) (first (List Panel))) (→ (List Panel))
       (concatenate
        (list first
              (if (ledger-over? (● screen ledger))

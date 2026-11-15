@@ -3,7 +3,7 @@
 ;; the whole decode, nothing is replaced, and a byte order mark stays text.
 (define-library (snail shell utf8)
   (export
-   Utf8Error
+   Utf8-error
    utf8->string
    string->utf8)
   (import
@@ -14,7 +14,7 @@
 
     ;; The offset of the first byte of the first ill-formed sequence: its
     ;; lead, or the stray continuation or invalid byte that stands alone.
-    (record Utf8Error
+    (record Utf8-error
       ((offset I64)))
 
     ;; ---- Decoding ----
@@ -77,14 +77,14 @@
     ;; A text has at most as many scalars as its bytes, so one array of
     ;; that length, local to this call, holds them all.
 
-    (define (utf8->string (bytes Bytes)) (→ (Result String Utf8Error))
+    (define (utf8->string (bytes Bytes)) (→ (Result String Utf8-error))
       (unsafe-total (lambda ()
                       (let ((chars (make-vector (vector-length bytes) #\space)))
                         (let loop ((index 0) (count 0))
                           (if (= index (vector-length bytes))
                               (Ok (vector->string (subvector chars 0 count)))
                               (match (sequence-at bytes index)
-                                ((None) (Err (new Utf8Error (offset index))))
+                                ((None) (Err (new Utf8-error (offset index))))
                                 ((Some decoded)
                                  (vector-set! chars count (● decoded first))
                                  (loop (● decoded second) (+ count 1))))))))))

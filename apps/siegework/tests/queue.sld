@@ -12,7 +12,7 @@
 (define (run (world World) (ticks I64)) (→ World)
   (if (= ticks 0) world (run (advance world) (- ticks 1))))
 
-(define (order (world World) (action Action)) (→ World) (! output-port)
+(define (order (world World) (action Action)) (→ World) (! Output-port)
   (match (act world action)
     ((Ok world) world)
     ((Err rejection)
@@ -20,8 +20,8 @@
 
 (define (owner-text (world World) (owner Owner)) (→ String)
   (match owner
-    ((OfHub) "hub slot")
-    ((OfBuilding b)
+    ((Of-hub) "hub slot")
+    ((Of-building b)
      (string-append (kind-name (● b kind))
                     " "
                     (show (● (● b cell) x))
@@ -37,13 +37,13 @@
                    (show (● work duration))
                    (if (● task active) " active" ""))))
 
-(define (report (world World)) (→ Unit) (! output-port)
+(define (report (world World)) (→ Unit) (! Output-port)
   (write-line
    (string-append "tick " (show (● world tick)) ", energy " (show (● world energy))
                   ", slots " (show (● (● world hub) slots)) ": "
                   (string-join (map (lambda (task) (task-text world task)) (tasks world)) "; "))))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
 
   (let ()
     (define world (new-world 3))

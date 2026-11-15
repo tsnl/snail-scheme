@@ -31,10 +31,10 @@
 ;; replacement expression can inspect the record's fields.
 (record Job
   ((at Point)
-   (work (Fn → Unit ! output-port))))
+   (work (Fn → Unit ! Output-port))))
 
 (define (flip (job Job)) (→ Job)
-  (Job-at-set job (new Point (x (● (● job at) y)) (y (● (● job at) x)))))
+  (job-at-set job (new Point (x (● (● job at) y)) (y (● (● job at) x)))))
 
 (define (nearest (points (List Point))) (→ Point)
   (fold-left (lambda (best point) (if (< (● point x) (● best x)) point best))
@@ -69,7 +69,7 @@
 (define (build) (→ Segment) (! Ask)
   (new Segment (from (new Point (x (ask)) (y 0))) (to (new Point (x 0) (y (ask)))) (label "asked")))
 
-(define (main) (→ Unit) (! mut output-port)
+(define (main) (→ Unit) (! Mut Output-port)
 
   ;; Nested construction, a chain of accessors, and a nested pattern.
   (let ((segment (new Segment
@@ -85,7 +85,7 @@
   ;; A pure replacement creates a new outer record and shares other fields.
   (let* ((segment
           (new Segment (from (new Point (x 0) (y 0))) (to (new Point (x 1) (y 1))) (label "unit")))
-         (moved (Segment-to-set segment (new Point (x 5) (y 5)))))
+         (moved (segment-to-set segment (new Point (x 5) (y 5)))))
     (write-line (show-segment segment))
     (write-line (show-segment moved)))
   (match (flip

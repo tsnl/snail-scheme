@@ -38,7 +38,7 @@ below.
 
 `read.sld` turns text into atoms, identifiers and forms, each carrying a
 `Loc`. The reader's token boundaries are also used by syntax highlighting.
-It decodes generated-library syntax directly from bytes. The `compile`
+It decodes generated-library syntax directly from bytes. The `Compile`
 effect carries either diagnostics or a typed request for a missing input;
 `compiling` handles that boundary for each compiler entry.
 
@@ -93,7 +93,7 @@ unknown. The checker also defers unused-effect decisions until those rows
 have enough information. This avoids either closing a callback row too early
 or granting effects absent from its implementation.
 
-Explicit `(Any value)` and `(downcast T boxed)` become `BoxAny` and
+Explicit `(Any value)` and `(downcast T boxed)` become `Box-any` and
 `Downcast` terms. Packaging preserves type identity; extraction returns `Some`
 only for the requested type, and `None` on mismatch. Neither inserts conversions
 at unrelated boundaries or performs an effect.
@@ -263,7 +263,7 @@ The engine uses `(snail shell wasm)` to link a program from its manifest.
 `compile-bytes` compiles a module, `module-imports` lists its imports, and
 `link-module` accepts one explicit `Provider` per import in order. A provider
 is an instance's export, a host service, a constant function, or a function
-that fails if called. Missing or incompatible providers return `LinkFailed`.
+that fails if called. Missing or incompatible providers return `Link-failed`.
 Linking runs `_initialize` when present; the engine starts `main` separately.
 
 `module-export` returns an untyped `Funcref`. `unsafe-cast` wraps it in an `Fn`
@@ -318,7 +318,7 @@ producer with the libraries loading when it was reached:
 
 ```scheme
 (record Generated ((text String) (bytes Bytes)))
-(record Inputs ((artifacts (Table ArtifactFiles)) (generated (Table Generated))))
+(record Inputs ((artifacts (Table Artifact-files)) (generated (Table Generated))))
 ```
 
 `artifacts` maps target names to ordered file snapshots, each a
@@ -392,10 +392,10 @@ stack ever miss a cycle.
 
 The compiler cannot start a producer or build another project target. A pass
 that needs an input it was not supplied performs `need`, an operation of the
-`compile` effect in `(snail shell compiler read)`, with its `CompilerRequest`.
+`Compile` effect in `(snail shell compiler read)`, with its `Compiler-request`.
 The operation answers `Never`, so nothing after it runs and its yields save no
 frames. Each signature on the way from the request to an entry point names
-`compile`, and each entry point handles it with `compiling`, which turns the
+`Compile`, and each entry point handles it with `compiling`, which turns the
 compile into a `Result`, here `(Err (Requested request))`, as it does a
 source error into `(Err (Failed diagnostics))`. Artifact expansion and request
 signaling have no filesystem effects; library loading and generated-source IO
@@ -404,7 +404,7 @@ still do.
 Discovery records artifact uses instead of asking for their files. The plan
 has already supplied every producer's output; reaching a missing one is an
 internal error. Discovery therefore cannot request inputs and needs no
-separate request handler. Source diagnostics propagate through `compile` to
+separate request handler. Source diagnostics propagate through `Compile` to
 the project builder's handler.
 
 Standalone source builds service generated-library requests and reject artifact
@@ -428,7 +428,7 @@ created exclusively, so stale files cannot become inputs. Stderr carries only
 diagnostics. Standalone builds have no artifact resolver or reply accumulation.
 
 The project builder, `(snail shell project build)`, calls the compiler in its
-own process and handles `compile` around each compile (`compiled`): a `fail`
+own process and handles `Compile` around each compile (`compiled`): a `fail`
 stops the build with its diagnostics, and a request is an internal error,
 since the builder plans the build first, so a request names an input the plan
 missed. No request file is written or parsed, and nothing traps.

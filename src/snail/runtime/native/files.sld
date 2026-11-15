@@ -1,8 +1,8 @@
 ;; File commands Node runs for a program, as host/native/run-snail.mjs
 ;; provides them: a command is a name and string arguments sent a character
 ;; at a time, then a number, and a watcher's next hint is a started and
-;; finished host operation. (snail shell project files)'s `modes` and
-;; (snail shell watch)'s `hints` default to these.
+;; finished host operation. (snail shell project files)'s `Modes` and
+;; (snail shell watch)'s `Hints` default to these.
 (define-library (snail runtime native files)
   (export
    start-hint

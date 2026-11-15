@@ -28,7 +28,7 @@
     ;; ---- Widgets ----
 
     (define (toned (key String) (tone Tone) (text String)) (→ Widget)
-      (Label (Look-tone-set (look key) tone) text))
+      (Label (look-tone-set (look key) tone) text))
 
     ;; A section's title.
     (define (section-heading (key String) (text String)) (→ Widget)
@@ -58,9 +58,9 @@
       (→ Widget)
       (match refusal
         ((Some why)
-         (Button (Look-help-set (look key) why) text caption action argument (Disabled) -1.0))
+         (Button (look-help-set (look key) why) text caption action argument (Disabled) -1.0))
         ((None)
-         (Button (Look-help-set (look key) help) text caption action argument (Enabled) -1.0))))
+         (Button (look-help-set (look key) help) text caption action argument (Enabled) -1.0))))
 
     ;; ---- Guide pages ----
 

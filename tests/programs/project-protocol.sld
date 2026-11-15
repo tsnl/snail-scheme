@@ -13,8 +13,8 @@
 (define (parse (text String)) (→ Json)
   (match (string->json text) ((Some json) json) ((None) (panic "invalid test JSON"))))
 
-(define (state) (→ ServerState)
-  (new ServerState (instance "server-λ") (files 9)
+(define (state) (→ Server-state)
+  (new Server-state (instance "server-λ") (files 9)
        (build (new Build
                 (phase "failed")
                 (id 3)
@@ -37,7 +37,7 @@
        (editor "read-only-generation/")
        (editor-problem "")))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
 
   (match (read-event (json->string (state->json (state))))
     ((Some received)

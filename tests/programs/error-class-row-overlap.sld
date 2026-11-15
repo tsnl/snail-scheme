@@ -4,14 +4,14 @@
 
 ;; Rows are found from an instance's types, not matched, so two instances
 ;; for one type overlap whatever rows they write.
-(typeclass (Store e S)
-  (declare (fetch-object (left S) (right String)) (→ String) (! e)))
+(typeclass (Store E S)
+  (declare (fetch-object (left S) (right String)) (→ String) (! E)))
 
 (record Loud
   ((name String)))
 
-(instance (Store (! output-port) Loud)
-  (define (fetch-object (loud Loud) (name String)) (→ String) (! output-port)
+(instance (Store (! Output-port) Loud)
+  (define (fetch-object (loud Loud) (name String)) (→ String) (! Output-port)
     (write-line name)
     name))
 

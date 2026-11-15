@@ -5,20 +5,20 @@
 ;; host/chez/snail/stage0/process.sls, has the same name; Chez never sees src/.
 (define-library (snail shell process)
   (export
-   process spawn read-output write-input close-input send-signal wait-exit close-process run exec
-   signals termination
+   Processes spawn read-output write-input close-input send-signal wait-exit close-process run exec
+   Signals termination
    Command
    Process
    Stream Stdout Stderr
    Signal Terminate Kill Interrupt
    Exit Exited Signaled
    Captured
-   ProcessError)
+   Process-error)
   (import
    (snail core base)
    (only (snail core io) environment-variable)
    (prefix (snail runtime native process) host-)
-   (only (snail shell task) tasks through-host))
+   (only (snail shell task) Tasks through-host))
   (begin
 
     ;; ---- Public values ----
@@ -63,7 +63,7 @@
        (stdout Bytes)
        (stderr Bytes)))
 
-    (record ProcessError
+    (record Process-error
       ((code String)))
 
     ;; Spawning starts the child with its three standard streams piped to
@@ -78,16 +78,16 @@
     ;; command, as execve does: the command takes over this process and its
     ;; standard streams, and nothing of the program runs after. It returns
     ;; only when it cannot, with why.
-    (effect process
-      ((spawn (Fn Command → (Result Process ProcessError) ! tasks))
-       (read-output (Fn Process Stream I32 → (Result (Option Bytes) ProcessError) ! tasks))
-       (write-input (Fn Process Bytes → (Result I32 ProcessError) ! tasks))
-       (close-input (Fn Process → (Result Unit ProcessError)))
-       (send-signal (Fn Process Signal → (Result Unit ProcessError)))
-       (wait-exit (Fn Process → (Result Exit ProcessError) ! tasks))
-       (close-process (Fn Process → (Result Unit ProcessError)))
-       (run (Fn Command Bytes → (Result Captured ProcessError)))
-       (exec (Fn Command → ProcessError)))
+    (effect Processes
+      ((spawn (Fn Command → (Result Process Process-error) ! Tasks))
+       (read-output (Fn Process Stream I32 → (Result (Option Bytes) Process-error) ! Tasks))
+       (write-input (Fn Process Bytes → (Result I32 Process-error) ! Tasks))
+       (close-input (Fn Process → (Result Unit Process-error)))
+       (send-signal (Fn Process Signal → (Result Unit Process-error)))
+       (wait-exit (Fn Process → (Result Exit Process-error) ! Tasks))
+       (close-process (Fn Process → (Result Unit Process-error)))
+       (run (Fn Command Bytes → (Result Captured Process-error)))
+       (exec (Fn Command → Process-error)))
       (default
         ((spawn (lambda (command)
                   (match (located command)
@@ -104,7 +104,7 @@
                                                               (stream-descriptor stream)
                                                               maximum))
                                     held-read)
-                            (Err (new ProcessError (code "EINVAL"))))))
+                            (Err (new Process-error (code "EINVAL"))))))
          (write-input (lambda (child bytes)
                         (native (lambda (ticket)
                                   (host-start-write-input ticket (process-handle child) bytes))
@@ -130,7 +130,7 @@
                    ((Ok path)
                     (send-command command path)
                     (host-exec)
-                    (new ProcessError (code (held-text 0))))
+                    (new Process-error (code (held-text 0))))
                    ((Err error) error)))))))
 
     ;; ---- Termination ----
@@ -142,8 +142,8 @@
     ;; as it always has. A wait ends with its signal, so a second signal
     ;; during an orderly shutdown still ends the program at once, unless a
     ;; task waits again.
-    (effect signals
-      ((termination (Fn → Signal ! tasks)))
+    (effect Signals
+      ((termination (Fn → Signal ! Tasks)))
       (default
         ((termination (lambda ()
                         (received-signal (through-host host-start-termination host-finish)))))))
@@ -157,12 +157,12 @@
 
     ;; Private to the native binding: a token from another handler crosses
     ;; as handle 0, which the host refuses with EBADF.
-    (record NativeProcess
+    (record Native-process
       ((handle I32)))
 
     (define (process-handle (child Process)) (→ I32)
       (let ((token (● child token)))
-        (match (downcast NativeProcess token)
+        (match (downcast Native-process token)
           ((Some native) (● native handle))
           ((None) 0))))
 
@@ -203,7 +203,7 @@
     ;; child takes it. With no PATH, nothing is found. Finding it here gives
     ;; spawn, run and exec one rule, and the host runs the path it is given.
 
-    (define (located (command Command)) (→ (Result String ProcessError))
+    (define (located (command Command)) (→ (Result String Process-error))
       (let ((program (● command program)))
         (match (string-index program #\/)
           ((Some _) (Ok program))
@@ -211,7 +211,7 @@
            (match (find (lambda (path) (executable? (● command directory) path))
                         (candidates program))
              ((Some path) (Ok path))
-             ((None) (Err (new ProcessError (code "ENOENT")))))))))
+             ((None) (Err (new Process-error (code "ENOENT")))))))))
 
     ;; Where each entry of PATH, in order, would hold `program`.
 
@@ -248,14 +248,14 @@
     ;; (snail runtime native process).
 
     (define (native (start (Fn I64 → Unit)) (success (Fn I32 → T)))
-      (→ (Result T ProcessError))
-      (! tasks)
+      (→ (Result T Process-error))
+      (! Tasks)
       (∀ (T))
       (through-host start (lambda (ticket) (answered (host-finish ticket) success))))
 
-    (define (answered (answer I32) (success (Fn I32 → T))) (→ (Result T ProcessError)) (∀ (T))
+    (define (answered (answer I32) (success (Fn I32 → T))) (→ (Result T Process-error)) (∀ (T))
       (if (< answer 0)
-          (Err (new ProcessError (code (held-text 0))))
+          (Err (new Process-error (code (held-text 0))))
           (Ok (success answer))))
 
     (define (held-bytes (position I32)) (→ Bytes)
@@ -269,7 +269,7 @@
                        (lambda (index) (i32->char (host-held-byte position (i64->i32 index))))))
 
     (define (spawned (handle I32)) (→ Process)
-      (new Process (token (Any (new NativeProcess (handle handle)))) (id (host-held-number))))
+      (new Process (token (Any (new Native-process (handle handle)))) (id (host-held-number))))
 
     (define (held-read (answer I32)) (→ (Option Bytes))
       (if (= answer 0) (None) (Some (held-bytes 0))))

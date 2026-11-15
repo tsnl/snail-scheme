@@ -4,10 +4,10 @@
 ;; starting again cannot install an older reply; the request itself runs
 ;; to completion.
 (define-library (requests application)
-  (export RequestsApplication)
+  (export Requests-application)
   (import
    (snail core base)
-   (only (snail core forms) host)
+   (only (snail core forms) Host)
    (snail shell task)
    (snail shell dom)
    (snail shell fetch)
@@ -42,28 +42,28 @@
                (result (Result String String)))))
 
     (define (update (model Model) (message Msg))
-      (→ (Pair Model (List (Fn → Msg ! fetch tasks e))))
-      (∀ (e))
+      (→ (Pair Model (List (Fn → Msg ! Fetch Tasks E))))
+      (∀ (E))
       (match message
         ((Load)
          (let ((request (+ (● model request) 1)))
            (new Pair
-             (first (Model-request-set (Model-display-set model (Waiting)) request))
+             (first (model-request-set (model-display-set model (Waiting)) request))
              (second (list (lambda () (Loaded request (load-text))))))))
         ((Cancel)
-         (stay (Model-request-set (Model-display-set model (Showing "canceled"))
+         (stay (model-request-set (model-display-set model (Showing "canceled"))
                                   (+ (● model request) 1))))
-        ((Click) (stay (Model-clicks-set model (+ (● model clicks) 1))))
+        ((Click) (stay (model-clicks-set model (+ (● model clicks) 1))))
         ((Loaded request result)
          (stay (if (= request (● model request))
-                   (Model-display-set model
+                   (model-display-set model
                                       (Showing (match result ((Ok text) text) ((Err why) why))))
                    model)))))
 
-    (define (stay (model Model)) (→ (Pair Model (List (Fn → Msg ! fetch tasks e)))) (∀ (e))
+    (define (stay (model Model)) (→ (Pair Model (List (Fn → Msg ! Fetch Tasks E)))) (∀ (E))
       (new Pair (first model) (second (Nil))))
 
-    (define (load-text) (→ (Result String String)) (! fetch tasks)
+    (define (load-text) (→ (Result String String)) (! Fetch Tasks)
       (match (request "GET" "/api/text" (Nil) "")
         ((Ok reply) (Ok (● reply body)))
         ((Err why) (Err why))))
@@ -107,15 +107,15 @@
                             (display display)))
            (clicks (● saved clicks)) (request 0)))
 
-    (record RequestsApplication
+    (record Requests-application
       ())
 
     (define-page-state Save)
 
-    (instance (Application (! mut host events storage tasks page) RequestsApplication)
-      (define (start (entry (Entry RequestsApplication)))
+    (instance (Application (! Mut Host Events Storage Tasks Page) Requests-application)
+      (define (start (entry (Entry Requests-application)))
         (→ Unit)
-        (! mut host events storage tasks page)
+        (! Mut Host Events Storage Tasks Page)
 
         (run-page (lambda () (new Save (display (Showing "idle")) (clicks 0)))
                   serialize
@@ -124,9 +124,9 @@
 
     ;; Save is detached recovery data: a replacement starts with no request
     ;; outstanding.
-    (define (present (saved Save) (checkpoint (Fn Save → Unit ! events storage tasks)))
+    (define (present (saved Save) (checkpoint (Fn Save → Unit ! Events Storage Tasks)))
       (→ Unit)
-      (! mut host events storage tasks page)
+      (! Mut Host Events Storage Tasks Page)
       (with-page-dom
        (lambda ()
          (with-page-fetch
@@ -139,6 +139,6 @@
                     (lambda (model) (checkpoint (save model))))
             (unit))))))
 
-    (define (commit (saved Save)) (→ Unit) (! mut events page)
+    (define (commit (saved Save)) (→ Unit) (! Mut Events Page)
       (commit-page saved)
       (report-ready))))

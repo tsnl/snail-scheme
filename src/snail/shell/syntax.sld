@@ -7,14 +7,14 @@
 (define-library (snail shell syntax)
   (export
    Syntax
-   ListSyntax
-   SymbolSyntax
-   IntegerSyntax
-   FloatSyntax
-   StringSyntax
-   CharSyntax
-   BooleanSyntax
-   BytesSyntax
+   List-syntax
+   Symbol-syntax
+   Integer-syntax
+   Float-syntax
+   String-syntax
+   Char-syntax
+   Boolean-syntax
+   Bytes-syntax
    form
    library-syntax
    syntax->bytes
@@ -22,8 +22,8 @@
   (import
    (snail core base)
    (snail core io)
-   (only (snail shell task) tasks)
-   (only (snail shell resource) resource))
+   (only (snail shell task) Tasks)
+   (only (snail shell resource) Resources))
   (begin
 
     ;; ---- Syntax ----
@@ -31,19 +31,19 @@
     ;; A float keeps the text the reader would read, with a point or an
     ;; exponent, as the compiler's literals do.
     (enum Syntax
-      (ListSyntax ((items (List Syntax))))
-      (SymbolSyntax ((name String)))
-      (IntegerSyntax ((value I64)))
-      (FloatSyntax ((text String)))
-      (StringSyntax ((value String)))
-      (CharSyntax ((value Char)))
-      (BooleanSyntax ((value Bool)))
-      (BytesSyntax ((value Bytes))))
+      (List-syntax ((items (List Syntax))))
+      (Symbol-syntax ((name String)))
+      (Integer-syntax ((value I64)))
+      (Float-syntax ((text String)))
+      (String-syntax ((value String)))
+      (Char-syntax ((value Char)))
+      (Boolean-syntax ((value Bool)))
+      (Bytes-syntax ((value Bytes))))
 
     ;; `(head item ...)`.
 
     (define (form (head String) (items (List Syntax))) (→ Syntax)
-      (ListSyntax (Cons (SymbolSyntax head) items)))
+      (List-syntax (Cons (Symbol-syntax head) items)))
 
     ;; The form a recipe returns: `(define-library (name ...) (export ...)
     ;; (import (library ...) ...) (begin definition ...))`.
@@ -53,10 +53,10 @@
                             (imports (List (List String)))
                             (definitions (List Syntax)))
       (→ Syntax)
-      (let ((library-name (lambda (parts) (ListSyntax (map SymbolSyntax parts)))))
+      (let ((library-name (lambda (parts) (List-syntax (map Symbol-syntax parts)))))
         (form "define-library"
               (list (library-name name)
-                    (form "export" (map SymbolSyntax exports))
+                    (form "export" (map Symbol-syntax exports))
                     (form "import" (map library-name imports))
                     (form "begin" definitions)))))
 
@@ -85,17 +85,17 @@
 
     (define (encode (syntax Syntax) (pieces (List Bytes))) (→ (List Bytes))
       (match syntax
-        ((ListSyntax items)
+        ((List-syntax items)
          (fold-left (lambda (pieces item) (encode item pieces))
                     (Cons (counted 0 (length items)) pieces)
                     items))
-        ((SymbolSyntax name) (Cons (text-piece 1 name) pieces))
-        ((IntegerSyntax value) (Cons (text-piece 2 (i64->string value)) pieces))
-        ((FloatSyntax text) (Cons (text-piece 2 text) pieces))
-        ((StringSyntax value) (Cons (text-piece 3 value) pieces))
-        ((CharSyntax c) (Cons (counted 4 (char->integer c)) pieces))
-        ((BooleanSyntax value) (Cons (list->vector (list (i32->u8 (if value 6 5)))) pieces))
-        ((BytesSyntax bytes) (Cons bytes (Cons (counted 7 (vector-length bytes)) pieces)))))
+        ((Symbol-syntax name) (Cons (text-piece 1 name) pieces))
+        ((Integer-syntax value) (Cons (text-piece 2 (i64->string value)) pieces))
+        ((Float-syntax text) (Cons (text-piece 2 text) pieces))
+        ((String-syntax value) (Cons (text-piece 3 value) pieces))
+        ((Char-syntax c) (Cons (counted 4 (char->integer c)) pieces))
+        ((Boolean-syntax value) (Cons (list->vector (list (i32->u8 (if value 6 5)))) pieces))
+        ((Bytes-syntax bytes) (Cons bytes (Cons (counted 7 (vector-length bytes)) pieces)))))
 
     ;; A tag and one count.
 
@@ -122,8 +122,8 @@
     ;; driver names as the producer's argument. The expression runs in a
     ;; task, so it may read the files its recipe links with `read-resource`.
 
-    (define (write-generated-library (library (Fn → Syntax ! fs resource tasks)))
-      (→ Unit) (! fs resource tasks)
+    (define (write-generated-library (library (Fn → Syntax ! Fs Resources Tasks)))
+      (→ Unit) (! Fs Resources Tasks)
       (match (command-line)
         ((Cons _ (Cons path _)) (write-bytes path (syntax->bytes (library))))
         (_ (panic "a producer writes its library to the path given as its argument"))))

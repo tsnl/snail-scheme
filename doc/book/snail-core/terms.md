@@ -19,7 +19,7 @@ Import sets may use `only`, `except`, `prefix` and `rename`.
 (define (fibonacci (n I64)) (→ I64)
   (if (< n 2) n (+ (fibonacci (- n 1)) (fibonacci (- n 2)))))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   (write-line (show (fibonacci 30))))
 ```
 
@@ -37,12 +37,12 @@ value is the library's `define-library` form, as a `Syntax` from
   (library-syntax (list "sample" "table")
                   (list "squares")
                   (list (list "snail" "core" "base"))
-                  (list (form "define" (list (SymbolSyntax "squares")
-                                             (form "list" (map (lambda (i) (IntegerSyntax (* i i))) (iota 6))))))))
+                  (list (form "define" (list (Symbol-syntax "squares")
+                                             (form "list" (map (lambda (i) (Integer-syntax (* i i))) (iota 6))))))))
 ```
 
 The program writes the syntax as bytes that the compiler decodes, so no text
-is printed or parsed in between, and a `BytesSyntax` reaches the compiler
+is printed or parsed in between, and a `Bytes-syntax` reaches the compiler
 as the bytes it holds. Construct syntax explicitly with `(snail shell syntax)`.
 Every generated form is located at the recipe.
 
@@ -51,6 +51,35 @@ library uses: `(link-file "data/table.txt")` declares a packaged resource,
 and `read-resource` reads its bytes when the producer runs. A producer can emit
 those bytes as a byte literal in its generated library.
 `tests/programs/lib/sample/blob.sld` demonstrates this flow.
+
+## Names
+
+Hyphens separate words. Types, aliases, constructors, enum cases, typeclasses,
+effects and their parameters capitalize only the first letter of their name;
+subsequent words are lowercase. Functions, operations, macros, local values,
+fields and library paths use lowercase names.
+
+| Kind | Examples |
+| --- | --- |
+| Types and cases | `Request-head`, `Source-diagnostic`, `Not-found` |
+| Typeclasses and effects | `Serialize`, `Output-port`, `Mut` |
+| Type and effect-row parameters | `T`, `Element`, `E` |
+| Functions and fields | `read-file`, `body-length`, `source-text` |
+| Libraries and files | `(snail shell async-files)`, `async-files.sld` |
+
+Acronyms are words: `Http-error`, `Tcp`, `Io`. Numeric designators remain
+intact, as in `I64`, `U8` and `Utf8-error`. Predicates retain `?`, mutation
+retains `!`, and conversions retain `->`: `empty?`, `vector-set!`,
+`i64->string`. Pure record replacements are lowercase value names such as
+`request-head-method-set`; reads and writes use field paths.
+
+A capability and the objects it operates on need distinct names. `Processes`
+performs process operations and `Process` names a process handle; `Resources`
+reads packaged files and `Resource` names a packaged resource. Imported names
+retain this spelling after their import prefix. Foreign symbols and protocol
+keys retain their specified spelling, while Rust and JavaScript use their own
+identifier conventions. Capitalization is a source convention, not a new
+binding namespace or reader rule.
 
 ## Forms
 
@@ -68,11 +97,11 @@ those bytes as a byte literal in its generated library.
 | `(lru-cache capacity function)` | The same wrapper with a least-recently-used entry limit. |
 | `(Any expression)` | Boxes an unrestricted value with its concrete type. |
 | `(downcast Type boxed)` | Returns `Some` of the payload if its type matches, or `None`. |
-| `(record (Name param ...) ((field type) ...))` | Mutable heap record type. |
+| `(record (Name Param ...) ((field type) ...))` | Mutable heap record type. |
 | `(new Name (field expression) ...)` | Construct a record; every field exactly once, evaluated in written order. |
-| `(enum (Name param ...) (Case [((field type) ...)]) ...)` | Tagged sum. |
-| `(type (Name param ...) type)` | Transparent alias. |
-| `(typeclass (Class param ...) (declare (method ...) ...) ...)` | Class of types with methods. |
+| `(enum (Name Param ...) (Case [((field type) ...)]) ...)` | Tagged sum. |
+| `(type (Name Param ...) type)` | Transparent alias. |
+| `(typeclass (Class Param ...) (declare (method ...) ...) ...)` | Class of types with methods. |
 | `(instance (Class type ...) [(⊨ constraint ...)] (define ...) ...)` | Instance. |
 | `(effect Name ((operation type) ...) [(default ((operation implementation) ...))])` | Effect with operations and optional Snail Scheme defaults, each a lambda or a function's or extern's name. `(ctl operation type)` declares a control operation, which has no default ([effects and handlers](effects.md)). |
 | `(handle Name ((operation implementation) ...) body ...)` | Handles an effect for the extent of `body`; a control operation's implementation also takes `resume`. |

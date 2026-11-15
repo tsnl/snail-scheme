@@ -39,7 +39,7 @@
 (effect Runner
   ((run-step (Fn (Fn Unit → Step ! Log) → Step))))
 
-(define (show-step (step Step)) (→ Unit) (! output-port)
+(define (show-step (step Step)) (→ Unit) (! Output-port)
   (match step
     ((Done) (write-line "done"))
     ((Yielded value next)
@@ -47,7 +47,7 @@
      (show-step (handle Log ((log (lambda (line) (write-line (string-append "finishing: " line)))))
                   (next (unit)))))))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   ;; The first step under one log, the second inside the runner's
   ;; implementation, and the rest under another.
   (let ((first (handle Log ((log (lambda (line) (write-line (string-append "start: " line)))))

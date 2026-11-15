@@ -151,7 +151,7 @@ async function throughTheService() {
     // participate in that decision; the compiler checks artifact bytes itself.
     const description = libraries => `((build-target server (program (entry "main.sld") (library-roots ("${libraries}")))))`;
     const library = value => `(define-library (sample message) (export message) (import (snail core base)) (begin (define (message) (→ String) "${value}")))`;
-    write('main.sld', '(import (snail core base) (snail core io) (sample message)) (define (main) (→ Unit) (! output-port) (write-line (message)))');
+    write('main.sld', '(import (snail core base) (snail core io) (sample message)) (define (main) (→ Unit) (! Output-port) (write-line (message)))');
     write('one/sample/message.sld', library('one'));
     write('two/sample/message.sld', library('two'));
     for (const name of ['one', 'two']) {
@@ -166,8 +166,8 @@ async function throughTheService() {
       (import (snail core base) (snail core io) (snail shell syntax))
       (library-syntax (list "sample" "message") (list "message") (list (list "snail" "core" "base"))
         (list (form "define" (list (form "message" (Nil))
-          (form "→" (list (SymbolSyntax "String")))
-          (StringSyntax (read-file "${project}/message.txt")))))))`);
+          (form "→" (list (Symbol-syntax "String")))
+          (String-syntax (read-file "${project}/message.txt")))))))`);
     assert.equal(execute(target(await service.rebuilt(), 'server').directory), 'generated first\n');
     write('message.txt', 'generated second');
     assert.equal(execute(target(await service.rebuilt(), 'server').directory), 'generated second\n');
@@ -176,7 +176,7 @@ async function throughTheService() {
     // and exceed the filesystem limit for an otherwise valid source filename.
     const longName = 'x'.repeat(200);
     write(`two/${longName}.sld`, `(define-library (${longName}) (export message) (import (snail core base)) (begin (define (message) (→ String) "long name")))`);
-    write('main.sld', `(import (snail core base) (snail core io) (${longName})) (define (main) (→ Unit) (! output-port) (write-line (message)))`);
+    write('main.sld', `(import (snail core base) (snail core io) (${longName})) (define (main) (→ Unit) (! Output-port) (write-line (message)))`);
     assert.equal(execute(target(await service.rebuilt(), 'server').directory), 'long name\n');
 
     // A save that renames a new file over the source, as `sed -i` and many
@@ -186,7 +186,7 @@ async function throughTheService() {
     // touches it.
     for (const name of ['renamed once', 'renamed twice']) {
       const before = (await service.status()).id;
-      write('next.sld', `(import (snail core base) (snail core io)) (define (main) (→ Unit) (! output-port) (write-line "${name}"))`, parent);
+      write('next.sld', `(import (snail core base) (snail core io)) (define (main) (→ Unit) (! Output-port) (write-line "${name}"))`, parent);
       fs.renameSync(join(parent, 'next.sld'), join(project, 'main.sld'));
       assert.equal(execute(target(await service.settled(before), 'server').directory), `${name}\n`);
     }

@@ -7,12 +7,12 @@
 ;; of one, and the file keeps its mode.
 (define-library (snail shell project files)
   (export
-   modes
-   ProjectText
-   FileRefusal
-   ChangedOnDisk
-   NotServed
-   DiskFailed
+   Modes
+   Project-text
+   File-refusal
+   Changed-on-disk
+   Not-served
+   Disk-failed
    text-limit
    project-text-paths
    project-directory-paths
@@ -36,19 +36,19 @@
     ;; A file's text and its revision: the lowercase hex SHA-256 digest of
     ;; its bytes. Two versions with the same bytes are one revision, since
     ;; saving over either loses nothing.
-    (record ProjectText
+    (record Project-text
       ((text String)
        (revision String)))
 
     ;; Why a request was refused: the file is not the revision the request
     ;; names, or the service does not serve the path or the text, or the
     ;; filesystem failed.
-    (enum FileRefusal
-      (ChangedOnDisk)
-      (NotServed
+    (enum File-refusal
+      (Changed-on-disk)
+      (Not-served
        ((message String)))
-      (DiskFailed
-       ((error FileError))))
+      (Disk-failed
+       ((error File-error))))
 
     ;; The most bytes a text file served may hold: 8 MiB.
 
@@ -69,22 +69,22 @@
     ;; nor under the build output at the project's root. A backslash or
     ;; NUL is refused, so the path
     ;; means the same on every host. Constructing one is the check.
-    (record ProjectPath
+    (record Project-path
       ((path String)
        (parts (List String))))
 
     ;; Text requests additionally require an extension the editor serves.
 
-    (define (served-path (path String)) (→ (Option ProjectPath))
+    (define (served-path (path String)) (→ (Option Project-path))
       (if (text-file-name? path) (project-path path) (None)))
 
-    (define (project-path (path String)) (→ (Option ProjectPath))
+    (define (project-path (path String)) (→ (Option Project-path))
       (let ((parts (split-at-slashes path)))
         (if (and (every? ordinary-part? parts)
                  (not (under-build? parts))
                  (not (contains? path #\null))
                  (not (contains? path #\\)))
-            (Some (new ProjectPath (path path) (parts parts)))
+            (Some (new Project-path (path path) (parts parts)))
             (None))))
 
     (define (ordinary-part? (part String)) (→ Bool)
@@ -125,26 +125,26 @@
       (let ((start (- (string-length text) (string-length suffix))))
         (and (>= start 0) (string=? (substring text start (string-length text)) suffix))))
 
-    (define (absolute (root String) (file ProjectPath)) (→ String)
+    (define (absolute (root String) (file Project-path)) (→ String)
       (string-append root "/" (● file path)))
 
     ;; The project's root must still be a directory, and each directory on
     ;; the way to the file a directory itself, not a link, so a path cannot
     ;; leave the project.
 
-    (define (check-parents (root String) (file ProjectPath)) (→ (Result Unit FileRefusal)) (! fs)
+    (define (check-parents (root String) (file Project-path)) (→ (Result Unit File-refusal)) (! Fs)
       (match (followed-status root)
         ((Ok status)
          (match (● status kind)
            ((Directory) (check-directories root (● file parts)))
-           (_ (Err (NotServed "the project root must remain a directory")))))
-        ((Err error) (Err (DiskFailed error)))))
+           (_ (Err (Not-served "the project root must remain a directory")))))
+        ((Err error) (Err (Disk-failed error)))))
 
     ;; Every part but the last names a directory.
 
     (define (check-directories (directory String) (parts (List String)))
-      (→ (Result Unit FileRefusal))
-      (! fs)
+      (→ (Result Unit File-refusal))
+      (! Fs)
       (match parts
         ((Cons name (Cons next rest))
          (let ((inner (string-append directory "/" name)))
@@ -152,8 +152,8 @@
              ((Ok status)
               (match (● status kind)
                 ((Directory) (check-directories inner (Cons next rest)))
-                (_ (Err (NotServed "project paths cannot traverse symlinks or non-directories")))))
-             ((Err error) (Err (DiskFailed error))))))
+                (_ (Err (Not-served "project paths cannot traverse symlinks or non-directories")))))
+             ((Err error) (Err (Disk-failed error))))))
         (_ (Ok (unit)))))
 
     ;; ---- Listing ----
@@ -163,14 +163,14 @@
     ;; project, and in order.
 
     (define (project-text-paths (root String) (paths (List String)))
-      (→ (Result (List String) FileRefusal))
-      (! fs)
+      (→ (Result (List String) File-refusal))
+      (! Fs)
       (match (followed-status root)
         ((Ok status)
          (match (● status kind)
            ((Directory) (Ok (list-sort string<? (served-among root paths))))
-           (_ (Err (NotServed "the project root must remain a directory")))))
-        ((Err error) (Err (DiskFailed error)))))
+           (_ (Err (Not-served "the project root must remain a directory")))))
+        ((Err error) (Err (Disk-failed error)))))
 
     (define (served-among (root String) (paths (List String))) (→ (List String))
       (let ((prefix (string-append root "/")))
@@ -183,7 +183,7 @@
 
     ;; The served path that `path` names, if it is under `prefix`.
 
-    (define (served-under (prefix String) (path String)) (→ (Option ProjectPath))
+    (define (served-under (prefix String) (path String)) (→ (Option Project-path))
       (let ((length (string-length prefix)))
         (if (and (>= (string-length path) length) (string=? (substring path 0 length) prefix))
             (served-path (substring path length (string-length path)))
@@ -212,62 +212,64 @@
     ;; directory. Both scalar operations create exclusively, so a racing
     ;; writer cannot have its file or symbolic link replaced.
 
-    (define (create-project-file (root String) (path String)) (→ (Result Unit FileRefusal)) (! fs)
+    (define (create-project-file (root String) (path String)) (→ (Result Unit File-refusal)) (! Fs)
       (create-entry root (served-path path) #f))
 
     (define (create-project-directory (root String) (path String))
-      (→ (Result Unit FileRefusal))
-      (! fs)
+      (→ (Result Unit File-refusal))
+      (! Fs)
       (create-entry root (project-path path) #t))
 
-    (define (create-entry (root String) (found (Option ProjectPath)) (directory Bool))
-      (→ (Result Unit FileRefusal))
-      (! fs)
+    (define (create-entry (root String) (found (Option Project-path)) (directory Bool))
+      (→ (Result Unit File-refusal))
+      (! Fs)
       (match found
-        ((None) (Err (NotServed "invalid project path or unsupported text extension")))
+        ((None) (Err (Not-served "invalid project path or unsupported text extension")))
         ((Some path)
          (match (check-parents root path)
            ((Err refusal) (Err refusal))
            ((Ok _)
             (match (if directory
                        (make-directory (absolute root path))
-                       (write-text-file (absolute root path) "" (CreateNew)))
+                       (write-text-file (absolute root path) "" (Create-new)))
               ((Ok _) (Ok (unit)))
-              ((Err error) (Err (DiskFailed error)))))))))
+              ((Err error) (Err (Disk-failed error)))))))))
 
     ;; ---- Reading ----
 
     ;; The text of the file at `path`, relative to the project at `root`.
 
     (define (read-project-text (root String) (path String))
-      (→ (Result ProjectText FileRefusal))
-      (! fs)
+      (→ (Result Project-text File-refusal))
+      (! Fs)
       (match (served-path path)
         ((Some file) (snapshot root file))
-        ((None) (Err (NotServed "invalid project text path")))))
+        ((None) (Err (Not-served "invalid project text path")))))
 
-    (define (snapshot (root String) (file ProjectPath)) (→ (Result ProjectText FileRefusal)) (! fs)
+    (define (snapshot (root String) (file Project-path))
+      (→ (Result Project-text File-refusal))
+      (! Fs)
       (match (check-parents root file)
         ((Ok _) (current-text root file))
         ((Err refusal) (Err refusal))))
 
-    (define (current-text (root String) (file ProjectPath))
-      (→ (Result ProjectText FileRefusal))
-      (! fs)
+    (define (current-text (root String) (file Project-path))
+      (→ (Result Project-text File-refusal))
+      (! Fs)
       (match (read-text-file (absolute root file) (text-limit))
         ((Ok text)
          (if (contains? text #\null)
-             (Err (NotServed "text files cannot contain NUL bytes"))
-             (Ok (new ProjectText (text text) (revision (revision text))))))
+             (Err (Not-served "text files cannot contain NUL bytes"))
+             (Ok (new Project-text (text text) (revision (revision text))))))
         ((Err error) (Err (text-refusal error)))))
 
-    (define (text-refusal (error TextError)) (→ FileRefusal)
+    (define (text-refusal (error Text-error)) (→ File-refusal)
       (match error
-        ((ReadFailed error) (DiskFailed error))
-        ((NotRegularFile) (NotServed "expected a regular project file"))
-        ((TooLong) (NotServed "text files may contain at most 8 MiB"))
-        ((NotText) (NotServed "expected valid UTF-8 text"))
-        ((ChangedWhileRead) (ChangedOnDisk))))
+        ((Read-failed error) (Disk-failed error))
+        ((Not-regular-file) (Not-served "expected a regular project file"))
+        ((Too-long) (Not-served "text files may contain at most 8 MiB"))
+        ((Not-text) (Not-served "expected valid UTF-8 text"))
+        ((Changed-while-read) (Changed-on-disk))))
 
     ;; ---- Saving ----
 
@@ -278,12 +280,12 @@
     ;; the service can race that check.
 
     (define (save-project-text (root String) (path String) (expected String) (text String))
-      (→ (Result ProjectText FileRefusal))
-      (! fs modes)
+      (→ (Result Project-text File-refusal))
+      (! Fs Modes)
       (match (new Pair (first (served-path path)) (second (text-problem text)))
-        ((Pair _ (Some message)) (Err (NotServed message)))
+        ((Pair _ (Some message)) (Err (Not-served message)))
         ((Pair (Some file) (None)) (save-checked root file expected text))
-        ((Pair (None) (None)) (Err (NotServed "invalid project text path")))))
+        ((Pair (None) (None)) (Err (Not-served "invalid project text path")))))
 
     (define (text-problem (text String)) (→ (Option String))
       (cond ((contains? text #\null) (Some "expected well-formed text without NUL"))
@@ -291,9 +293,9 @@
              (Some "text files may contain at most 8 MiB"))
             (else (None))))
 
-    (define (save-checked (root String) (file ProjectPath) (expected String) (text String))
-      (→ (Result ProjectText FileRefusal))
-      (! fs modes)
+    (define (save-checked (root String) (file Project-path) (expected String) (text String))
+      (→ (Result Project-text File-refusal))
+      (! Fs Modes)
       (match (staging root)
         ((Ok directory)
          (let ((saved (save-staged root file expected text (string-append directory "/contents"))))
@@ -305,67 +307,67 @@
     ;; no longer one the service serves, has changed as much as one with
     ;; other bytes.
 
-    (define (expect (root String) (file ProjectPath) (expected String))
-      (→ (Result Unit FileRefusal))
-      (! fs)
+    (define (expect (root String) (file Project-path) (expected String))
+      (→ (Result Unit File-refusal))
+      (! Fs)
       (match (snapshot root file)
         ((Ok current)
-         (if (string=? (● current revision) expected) (Ok (unit)) (Err (ChangedOnDisk))))
-        ((Err (DiskFailed (NotFound))) (Err (ChangedOnDisk)))
-        ((Err (DiskFailed (NotADirectory))) (Err (ChangedOnDisk)))
-        ((Err (NotServed _)) (Err (ChangedOnDisk)))
+         (if (string=? (● current revision) expected) (Ok (unit)) (Err (Changed-on-disk))))
+        ((Err (Disk-failed (Not-found))) (Err (Changed-on-disk)))
+        ((Err (Disk-failed (Not-a-directory))) (Err (Changed-on-disk)))
+        ((Err (Not-served _)) (Err (Changed-on-disk)))
         ((Err refusal) (Err refusal))))
 
     ;; Writes the text to `staged`, gives it the file's mode once the
     ;; revision is checked, and renames it over the file.
 
     (define (save-staged (root String)
-                         (file ProjectPath)
+                         (file Project-path)
                          (expected String)
                          (text String)
                          (staged String))
-      (→ (Result ProjectText FileRefusal))
-      (! fs modes)
-      (match (write-text-file staged text (CreateNew))
+      (→ (Result Project-text File-refusal))
+      (! Fs Modes)
+      (match (write-text-file staged text (Create-new))
         ((Ok _)
          (match (expect root file expected)
            ((Ok _) (replace (absolute root file) staged text))
            ((Err refusal) (Err refusal))))
-        ((Err error) (Err (DiskFailed error)))))
+        ((Err error) (Err (Disk-failed error)))))
 
     (define (replace (path String) (staged String) (text String))
-      (→ (Result ProjectText FileRefusal))
-      (! fs modes)
+      (→ (Result Project-text File-refusal))
+      (! Fs Modes)
       (match (file-mode path)
         ((Some mode)
          (if (set-file-mode staged mode)
              (match (rename-file staged path)
-               ((Ok _) (Ok (new ProjectText (text text) (revision (revision text)))))
-               ((Err error) (Err (DiskFailed error))))
-             (Err (DiskFailed (OtherError)))))
-        ((None) (Err (DiskFailed (OtherError))))))
+               ((Ok _) (Ok (new Project-text (text text) (revision (revision text)))))
+               ((Err error) (Err (Disk-failed error))))
+             (Err (Disk-failed (Other-error)))))
+        ((None) (Err (Disk-failed (Other-error))))))
 
     ;; A directory of this save's own under the build output, which builds
     ;; and the listing leave out, so a partial save is never a source.
 
-    (define (staging (root String)) (→ (Result String FileRefusal)) (! fs)
+    (define (staging (root String)) (→ (Result String File-refusal)) (! Fs)
       (let ((build (string-append root "/build")))
         (match (file-status build)
           ((Ok status)
            (match (● status kind)
              ((Directory) (fresh-directory build 0))
-             (_ (Err (NotServed "project build output must be a directory, not a link")))))
+             (_ (Err (Not-served "project build output must be a directory, not a link")))))
           ((Err _)
            (match (make-directories build)
              ((Ok _) (fresh-directory build 0))
-             ((Err error) (Err (DiskFailed error))))))))
+             ((Err error) (Err (Disk-failed error))))))))
 
-    (define (fresh-directory (build String) (number I64)) (→ (Result String FileRefusal)) (! fs)
+    (define (fresh-directory (build String) (number I64)) (→ (Result String File-refusal)) (! Fs)
       (let ((directory (string-append build "/.snail-edit-" (show number))))
         (match (make-directory directory)
           ((Ok _) (Ok directory))
-          ((Err (AlreadyExists)) (fresh-directory build (+ number 1)))
-          ((Err error) (Err (DiskFailed error))))))
+          ((Err (Already-exists)) (fresh-directory build (+ number 1)))
+          ((Err error) (Err (Disk-failed error))))))
 
     ;; ---- Modes ----
 
@@ -373,7 +375,7 @@
     ;; save keeps the mode of the file it replaces. A command is a name and
     ;; a path, each sent a character at a time, and a number; the host
     ;; answers with a number, -1 for a failure. Only Node implements it.
-    (effect modes
+    (effect Modes
       ((mode-character (Fn Char → Unit))
        (mode-end (Fn → Unit))
        (mode-command (Fn I32 → I32)))
@@ -381,22 +383,22 @@
                 (mode-end host-argument-end)
                 (mode-command host-command))))
 
-    (define (mode-command-on (name String) (path String) (number I32)) (→ I32) (! modes)
+    (define (mode-command-on (name String) (path String) (number I32)) (→ I32) (! Modes)
       (send-mode-text name)
       (send-mode-text path)
       (mode-command number))
 
-    (define (send-mode-text (text String)) (→ Unit) (! modes)
+    (define (send-mode-text (text String)) (→ Unit) (! Modes)
       (for-each mode-character (string->list text))
       (mode-end))
 
     ;; The permission bits of the file at `path`, following links.
 
-    (define (file-mode (path String)) (→ (Option I32)) (! modes)
+    (define (file-mode (path String)) (→ (Option I32)) (! Modes)
       (let ((mode (mode-command-on "mode" path 0)))
         (if (< mode 0) (None) (Some mode))))
 
-    (define (set-file-mode (path String) (mode I32)) (→ Bool) (! modes)
+    (define (set-file-mode (path String) (mode I32)) (→ Bool) (! Modes)
       (= (mode-command-on "chmod" path mode) 0))
 
     ))

@@ -12,7 +12,7 @@ const root = process.argv[2];
 const project = await mkdtemp(join(tmpdir(), 'snail-project-'));
 const build = target => execute(join(root, 'snail'), ['build', project, target]);
 const output = target => join(project, 'build', target);
-const source = '(import (snail core base) (snail core io) (greeting))\n(define (main) (→ Unit) (! output-port) (display (greeting)))\n';
+const source = '(import (snail core base) (snail core io) (greeting))\n(define (main) (→ Unit) (! Output-port) (display (greeting)))\n';
 const description = publicPath => `((build-target cli (program (entry "main.sld") (library-roots ("src"))))
  (build-target page (browser (entry "main.sld") (library-roots ("src")) (public "${publicPath}")))
  (build-target occupied (program (entry "main.sld") (library-roots ("src"))))
@@ -96,8 +96,8 @@ try {
     (import (snail core base) (snail core io) (snail shell application) (snail shell task))
     (begin
       (record Printer ()) (record Missing ()) (record (Generic A) ())
-      (instance (Application (! output-port tasks) Printer)
-        (define (start (entry (Entry Printer))) (→ Unit) (! output-port tasks) (yield) (write-line "typed entry")))))`);
+      (instance (Application (! Output-port Tasks) Printer)
+        (define (start (entry (Entry Printer))) (→ Unit) (! Output-port Tasks) (yield) (write-line "typed entry")))))`);
   const selected = type => `((build-target selected
     (program (entry ((typed entry) ${type})) (library-roots ("src")))))`;
   await writeFile(join(project, 'project.datum'), selected('Printer'));

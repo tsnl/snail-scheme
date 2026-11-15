@@ -11,7 +11,8 @@
                                               (list (form "squares" (Nil))
                                                     (form "→"
                                                           (list (form "List"
-                                                                      (list (SymbolSyntax "I64")))))
+                                                                      (list
+                                                                       (Symbol-syntax "I64")))))
                                                     (form "list"
-                                                          (map (lambda (i) (IntegerSyntax (* i i)))
+                                                          (map (lambda (i) (Integer-syntax (* i i)))
                                                                (iota 6))))))))

@@ -25,7 +25,7 @@
 
 ;; ANCHOR_END: collect
 
-(define (show-all (values (List I64))) (→ Unit) (! output-port)
+(define (show-all (values (List I64))) (→ Unit) (! Output-port)
   (write-line (string-join (map show values) " ")))
 
 ;; ANCHOR_END: run-collect
@@ -70,7 +70,7 @@
     ((Yielded value next)
      (Cons value (interleave other (next (unit)))))))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   ;; ANCHOR: run-collect
   (show-all (collect (lambda () (range 1 5))))
   (write-line (repr (first-above 3 (lambda () (range 1 5)))))

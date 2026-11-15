@@ -12,16 +12,16 @@
   (syntax-rules ()
     ((_) (bundle "does-not-exist"))))
 
-(define (print-bytes (bytes Bytes)) (→ Unit) (! output-port)
+(define (print-bytes (bytes Bytes)) (→ Unit) (! Output-port)
   (vector-for-each (lambda (byte) (display (u8->i32 byte)) (display ",")) bytes)
   (newline))
 
-(define (required (bundle ArtifactBundle) (name String)) (→ Bytes)
+(define (required (bundle Artifact-bundle) (name String)) (→ Bytes)
   (match (artifact-ref bundle name)
     ((Some bytes) bytes)
     ((None) (panic "missing artifact"))))
 
-(define (client) (→ ArtifactBundle) (client-snapshot))
+(define (client) (→ Artifact-bundle) (client-snapshot))
 
 (define main
   (lambda ()

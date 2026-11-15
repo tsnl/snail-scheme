@@ -22,7 +22,7 @@
   (define g (lambda (z) (+ y z)))
   (g 1))
 
-(define (main) (→ Unit) (! mut output-port)
+(define (main) (→ Unit) (! Mut Output-port)
 
   (let ((counter (new Counter (count 0))))
     (display (my-or #f (t)))

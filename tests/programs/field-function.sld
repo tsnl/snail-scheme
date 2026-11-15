@@ -6,10 +6,10 @@
 (record Point
   ((x I64)))
 
-(define (Point-x (point Point)) (→ I64)
+(define (point-x (point Point)) (→ I64)
   (● point x))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
 
-  (write-line (show (Point-x (new Point (x 1)))))
+  (write-line (show (point-x (new Point (x 1)))))
   (unit))

@@ -1,7 +1,7 @@
 ;; The page's requests and event streams, as host/browser/ui.mjs provides
 ;; them: a request is staged a part at a time and then started, and its reply
 ;; is read back a scalar at a time. (snail shell fetch page) implements the
-;; `fetch` effect over these.
+;; `Fetch` effect over these.
 (define-library (snail runtime browser fetch)
   (export
    request-method

@@ -3,7 +3,7 @@
  (snail core io)
  (prefix (sample geometry) geo:))
 
-(define (main) (→ Unit) (! mut output-port)
+(define (main) (→ Unit) (! Mut Output-port)
 
   (let ((temporary (new geo:Point (x 1) (y 0))) (other (new geo:Point (x 2) (y 0))))
     (display (geo:distance-squared (new geo:Point (x 0) (y 0)) (new geo:Point (x 3) (y 4))))
