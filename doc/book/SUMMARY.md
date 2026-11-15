@@ -13,7 +13,6 @@
   - [HTTP protocol](snail-core/http.md)
   - [Projects and targets](snail-core/projects.md)
   - [Compiler architecture](snail-core/compilers.md)
-  - [Migration measurements](snail-core/migration-performance.md)
   - [Application model](snail-core/applications.md)
   - [Development toolchain](snail-core/toolchain.md)
   - [Proposed typed state](snail-core/state.md)

@@ -3,7 +3,7 @@
  (snail core base)
  (only (snail shell task) tasks)
  (rename (snail core io) (write write-value))
- (only (snail shell task) dispatch-local)
+ (only (snail shell task) dispatch)
  (snail shell socket))
 
 (define (require (result (Result T SocketError))) (→ T) (∀ (T))
@@ -14,7 +14,7 @@
 (define (main) (→ Unit) (! host mut output-port tcp udp tasks)
   ;; A program waits on sockets from a task, which the scheduler runs once
   ;; main returns.
-  (dispatch-local
+  (dispatch
    (lambda ()
      (let* ((first (require (bind (require (endpoint "127.0.0.1" 0)))))
             (second (require (bind (require (endpoint "127.0.0.1" 0)))))

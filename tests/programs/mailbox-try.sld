@@ -18,6 +18,6 @@
     (mailbox-post mailbox "first")
     (mailbox-post mailbox "second")
     (write-line (tried mailbox))
-    (dispatch-local (lambda () (write-line (mailbox-receive mailbox))))
-    (dispatch-local (lambda () (write-line (tried mailbox)))))
+    (dispatch (lambda () (write-line (mailbox-receive mailbox))))
+    (dispatch (lambda () (write-line (tried mailbox)))))
   (unit))

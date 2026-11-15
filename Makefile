@@ -47,7 +47,7 @@ test-browser:
 	node tests/browser/ide-refresh.mjs "$(CURDIR)"
 	node tests/browser/ui.mjs "$(CURDIR)"
 	node tests/browser/ui-reload.mjs "$(CURDIR)"
-	node tests/browser/ui-futures.mjs "$(CURDIR)"
+	node tests/browser/ui-requests.mjs "$(CURDIR)"
 
 # Rebuilds the compiler from its source on Chez, then to a fixpoint.
 bootstrap:

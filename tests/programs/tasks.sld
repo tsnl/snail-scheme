@@ -15,8 +15,8 @@
 
 (define (main) (→ Unit) (! host mut output-port tasks)
   (handle Label ((label (lambda () "first")))
-    (dispatch-local child))
+    (dispatch child))
   (handle Label ((label (lambda () "second")))
-    (dispatch-local child))
+    (dispatch child))
   (write-line "main returns")
   (unit))

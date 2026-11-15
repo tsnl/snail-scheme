@@ -1,6 +1,6 @@
 // Chromium test driver: send the DOM events a person uses in the palette.
 // The registry and invocation live in (snail shell ide application); behavioral
-// tests run that library through run-reactor in tests/programs/ide-application.sld.
+// tests run that library through run-ui in tests/programs/ide-application.sld.
 import {until} from './chromium.mjs';
 
 export async function command(browser, name, {userGesture = false} = {}) {

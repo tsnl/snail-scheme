@@ -109,7 +109,7 @@
         (clicked "remove-1")))
 
 (define (main) (→ Unit) (! host mut output-port tasks)
-  (dispatch-local
+  (dispatch
    (lambda ()
      (let ((result
             (with-memory-dom (script)

@@ -3,7 +3,6 @@
  (only (snail core forms) host)
  (snail core io)
  (snail shell task)
- (snail shell future)
  (snail shell dom)
  (snail shell dom memory)
  (snail shell fetch)
@@ -17,13 +16,6 @@
 
 ;; Files are supplied by the service. Selection and fuzzy filtering run in
 ;; the IDE, and the selected path is read through the ordinary buffer flow.
-(define (snapshot (session Session)) (→ Ide)
-  (● session ide))
-
-(define (finished (session Session)) (→ Ide) (! mut)
-  (close-session! session)
-  (● session ide))
-
 (define (recovered (bytes Bytes)) (→ Unit) (! output-port)
   (let ((model (restored (read-recovery bytes))))
     (write-line (string-join (● (list-ref (● model panes) 0) tabs) ","))
@@ -32,7 +24,7 @@
       ((None) (panic "draft lost during recovery")))))
 
 (define (main) (→ Unit) (! host mut output-port tasks)
-  (dispatch-local
+  (dispatch
    (lambda ()
      (let ((state (new Requests (events #f) (requests (Nil)))))
        (let ((result
@@ -63,15 +55,13 @@
                        (Fire "command-query" "keydown" (Event-key-set (no-event) "Enter"))
                        (Fire "text-0" "input" (Event-value-set (no-event) "draft notes")))
                  (lambda ()
-                   (finished (run-reactor (begin-session (initial))
-                                          (list (Connect))
-                                          (lambda (model message)
-                                            (update-session model message))
-                                          (lambda (model) (session-view model))
-                                          (lambda (model) (session-window model))
-                                          (lambda (model) (snapshot model))
-                                          (lambda (model) (unit))
-                                          (lambda (model) (unit)))))))))
+                   (run-ui (initial)
+                           (list (Connect))
+                           (lambda (model message) (ui-update model message))
+                           (lambda (model) (view model))
+                           (lambda (model) (window model))
+                           (lambda (model) (unit))
+                           (lambda (model) (unit))))))))
          (for-each write-line (● state requests))
          ;; The new envelope retains tab order; the original wire record
          ;; upgrades to one tab per pane and keeps the same unsaved draft.

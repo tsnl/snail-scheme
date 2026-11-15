@@ -6,7 +6,7 @@
   (export
    tasks yield sleep await ticket current-scheduler
    Scheduler make-scheduler dispatch-in start-main
-   dispatch-local dispatch-task through-host
+   dispatch through-host
    tasks-turn tasks-wake! tasks-close! tasks-running tasks-live
    Mailbox make-mailbox mailbox-post mailbox-receive mailbox-try-receive)
   (import
@@ -28,7 +28,7 @@
 
     ;; ---- Queues ----
 
-    ;; Items join the back and leave the front.
+    ;; A mailbox's messages join the back and leave the front.
     (record (Queue T)
       ((front (List T))
        (back (List T))))
@@ -71,45 +71,35 @@
     ;; its ticket among the waiters.
     (record Pending
       ((key I64)
-       (id I64)
-       (next Run)))
+       (task Runnable)))
 
     ;; ---- The scheduler ----
 
-    ;; A stopped task belongs to exactly one queue. The counters bound each
-    ;; turn to its initial ready work and let the host detect an idle or
-    ;; completed scheduler.
+    ;; A stopped task is in exactly one list: the ready tasks, newest first;
+    ;; the timers, by deadline; or the waiters. The running task is in
+    ;; none. Tickets and task ids count from 1 in each scheduler, and the
+    ;; host addresses every wake to its own scheduler.
     (record Scheduler
-      ((ready (Queue Runnable))
+      ((ready (List Runnable))
        (timers (List Pending))
        (waiters (List Pending))
-       (ready-count I64)
-       (live I64)
        (running I64)
        (last-task I64)
-       (now I64)
        (last-ticket I64)
        (closed Bool)))
 
     (define (make-scheduler) (→ Scheduler)
       (new Scheduler
-        (ready (empty-queue))
+        (ready (Nil))
         (timers (Nil))
         (waiters (Nil))
-        (ready-count 0)
-        (live 0)
         (running 0)
         (last-task 0)
-        (now 0)
         (last-ticket 0)
         (closed #f)))
 
-    (define (add-live! (scheduler Scheduler) (change I64)) (→ Unit) (! mut)
-      (set! (● scheduler live) (+ (● scheduler live) change)))
-
     (define (push-ready! (scheduler Scheduler) (task Runnable)) (→ Unit) (! mut)
-      (set! (● scheduler ready) (enqueue (● scheduler ready) task))
-      (set! (● scheduler ready-count) (+ (● scheduler ready-count) 1)))
+      (set! (● scheduler ready) (Cons task (● scheduler ready))))
 
     ;; ---- Dispatching ----
 
@@ -134,14 +124,10 @@
         (set! (● scheduler last-ticket) ticket)
         ticket))
 
-    (define (dispatch-local (work (Fn → Unit ! tasks e)))
+    (define (dispatch (work (Fn → Unit ! tasks e)))
       (→ Unit) (! tasks mut host e) (∀ (e))
-      (dispatch-task work)
+      (dispatch-in (current-scheduler) work)
       (unit))
-
-    (define (dispatch-task (work (Fn → Unit ! tasks e)))
-      (→ I64) (! tasks mut host e) (∀ (e))
-      (dispatch-in (current-scheduler) work))
 
     (define (dispatch-in (scheduler Scheduler) (work (Fn → Unit ! tasks e)))
       (→ I64) (! mut host e) (∀ (e))
@@ -149,7 +135,6 @@
         (panic "cannot dispatch to a closed scheduler"))
       (let ((id (+ (● scheduler last-task) 1)))
         (set! (● scheduler last-task) id)
-        (add-live! scheduler 1)
         (push-ready! scheduler
                      (new Runnable
                        (id id)
@@ -159,49 +144,46 @@
     ;; ---- Turns ----
 
     ;; 0 means ready work, -1 completed, -2 waiting only on tickets, and a
-    ;; positive answer is the delay until the earliest timer. Waking merely
-    ;; queues a task: it never invokes one synchronously.
+    ;; positive answer is the delay until the earliest timer. A turn takes
+    ;; the ready list whole, so a task readied during the turn, by yielding
+    ;; or by a wake, runs in the next one, and tasks that yield to each
+    ;; other cannot keep the host from its events. Waking merely queues a
+    ;; task: it never invokes one synchronously.
     (define (tasks-turn (scheduler Scheduler) (now I64)) (→ I64) (! mut host)
       (if (● scheduler closed) -1
-          (begin
-            (when (= (● scheduler last-ticket) 0)
-              (set! (● scheduler last-ticket) (* now 1000)))
-            (set! (● scheduler now) now)
-            (run-ready! scheduler (● scheduler ready-count))
+          (let ((batch (reverse (● scheduler ready))))
+            (set! (● scheduler ready) (Nil))
+            (run-batch! scheduler now batch)
             (set! (● scheduler timers) (wake-due! scheduler now (● scheduler timers)))
             (outlook scheduler now))))
 
-    (define (run-ready! (scheduler Scheduler) (count I64)) (→ Unit) (! mut host)
-      (when (> count 0)
-        (match (dequeue (● scheduler ready))
-          ((None) (unit))
-          ((Some (Pair (Runnable id run) rest))
-           (set! (● scheduler ready) rest)
-           (set! (● scheduler ready-count) (- (● scheduler ready-count) 1))
-           (add-live! scheduler -1)
+    ;; Once the scheduler closes, the rest of the batch is forgotten.
+    (define (run-batch! (scheduler Scheduler) (now I64) (batch (List Runnable)))
+      (→ Unit) (! mut host)
+      (match batch
+        ((Nil) (unit))
+        ((Cons (Runnable id run) rest)
+         (unless (● scheduler closed)
            (set! (● scheduler running) id)
-           (record! scheduler id (run))
+           (record! scheduler now id (run))
            (set! (● scheduler running) 0)
-           (run-ready! scheduler (- count 1))))))
+           (run-batch! scheduler now rest)))))
 
-    ;; A task that stops after its scheduler has closed is forgotten.
-    (define (record! (scheduler Scheduler) (id I64) (step Step)) (→ Unit) (! mut)
+    ;; A task that stops after its scheduler has closed is forgotten. A
+    ;; sleeper's deadline counts from the turn it slept in.
+    (define (record! (scheduler Scheduler) (now I64) (id I64) (step Step)) (→ Unit) (! mut)
       (unless (● scheduler closed)
         (match step
           ((Finished) (unit))
-          ((Yielded next)
-           (add-live! scheduler 1)
-           (push-ready! scheduler (new Runnable (id id) (next next))))
+          ((Yielded next) (push-ready! scheduler (new Runnable (id id) (next next))))
           ((Sleeping delay next)
-           (add-live! scheduler 1)
            (set! (● scheduler timers)
                  (insert-timer
-                  (new Pending (key (+ (● scheduler now) delay)) (id id) (next next))
+                  (new Pending (key (+ now delay)) (task (new Runnable (id id) (next next))))
                   (● scheduler timers))))
           ((Waiting ticket next)
-           (add-live! scheduler 1)
            (set! (● scheduler waiters)
-                 (Cons (new Pending (key ticket) (id id) (next next))
+                 (Cons (new Pending (key ticket) (task (new Runnable (id id) (next next))))
                        (● scheduler waiters)))))))
 
     (define (insert-timer (timer Pending) (timers (List Pending))) (→ (List Pending))
@@ -218,19 +200,18 @@
         ((Nil) (Nil))
         ((Cons first rest)
          (if (<= (● first key) now)
-             (match first
-               ((Pending _ id next)
-                (push-ready! scheduler (new Runnable (id id) (next next)))
-                (wake-due! scheduler now rest)))
+             (begin
+               (push-ready! scheduler (● first task))
+               (wake-due! scheduler now rest))
              (Cons first rest)))))
 
     (define (outlook (scheduler Scheduler) (now I64)) (→ I64)
-      (cond ((> (● scheduler ready-count) 0) 0)
-            ((= (● scheduler live) 0) -1)
-            (else
-             (match (● scheduler timers)
-               ((Nil) -2)
-               ((Cons first _) (- (● first key) now))))))
+      (match (● scheduler ready)
+        ((Cons _ _) 0)
+        ((Nil)
+         (match (● scheduler timers)
+           ((Cons first _) (- (● first key) now))
+           ((Nil) (if (null? (● scheduler waiters)) -1 -2))))))
 
     ;; ---- Waking and closing ----
 
@@ -249,9 +230,7 @@
         ((Nil) (new Pair (first (None)) (second (Nil))))
         ((Cons first rest)
          (if (= (● first key) ticket)
-             (match first
-               ((Pending _ id next)
-                (new Pair (first (Some (new Runnable (id id) (next next)))) (second rest))))
+             (new Pair (first (Some (● first task))) (second rest))
              (match (without ticket rest)
                ((Pair found others) (new Pair (first found) (second (Cons first others)))))))))
 
@@ -259,17 +238,17 @@
     ;; then finishes, and a late wake sees closed.
     (define (tasks-close! (scheduler Scheduler)) (→ Unit) (! mut)
       (set! (● scheduler closed) #t)
-      (set! (● scheduler ready) (empty-queue))
+      (set! (● scheduler ready) (Nil))
       (set! (● scheduler timers) (Nil))
-      (set! (● scheduler waiters) (Nil))
-      (set! (● scheduler ready-count) 0)
-      (set! (● scheduler live) 0))
+      (set! (● scheduler waiters) (Nil)))
 
     (define (tasks-running (scheduler Scheduler)) (→ I64)
       (● scheduler running))
 
+    ;; The stopped tasks, which a closed scheduler has none of.
     (define (tasks-live (scheduler Scheduler)) (→ I64)
-      (● scheduler live))
+      (+ (length (● scheduler ready))
+         (+ (length (● scheduler timers)) (length (● scheduler waiters)))))
 
     (define (start-main (scheduler Scheduler) (body Funcref)) (→ Unit) (! mut host)
       (dispatch-in scheduler
@@ -301,42 +280,44 @@
 
     ;; ---- Mailboxes ----
 
-    ;; Each queued receiver has a delivery cell and names the scheduler on
-    ;; which it awaits. Nothing suspends while a queue is updated or a
-    ;; delivery is installed.
+    ;; A mailbox queues messages and keeps the wakers of the tasks waiting
+    ;; for one, newest first. A post wakes every waiting task, and each
+    ;; takes a message for itself when it runs; one that finds none waits
+    ;; again. A message is never handed to a task that may not run, as on a
+    ;; closed scheduler, so none is lost. The price is fairness: a task
+    ;; that asks before a woken one runs takes the message first.
+
+    ;; A waker only queues its task, so any code may call it at any time:
+    ;; another task, a sender, or code between turns. A call after its task
+    ;; was woken, or once its scheduler has closed, wakes nothing.
+    (type Waker (Fn → Unit ! mut))
+
     (record (Mailbox T)
       ((messages (Queue T))
-       (receivers (Queue (Receiver T)))))
-
-    (record (Delivery T)
-      ((message (Option T))))
-
-    (record (Receiver T)
-      ((scheduler Scheduler)
-       (ticket I64)
-       (delivery (Delivery T))))
+       (receivers (List Waker))))
 
     (define (make-mailbox) (→ (Mailbox T)) (∀ (T))
-      (new Mailbox (messages (empty-queue)) (receivers (empty-queue))))
+      (new Mailbox (messages (empty-queue)) (receivers (Nil))))
 
     (define (mailbox-post (mailbox (Mailbox T)) (message T))
       (→ Unit) (! mut) (∀ (T))
-      (match (dequeue (● mailbox receivers))
-        ((None) (set! (● mailbox messages) (enqueue (● mailbox messages) message)))
-        ((Some (Pair receiver rest))
-         (set! (● mailbox receivers) rest)
-         (if (tasks-wake! (● receiver scheduler) (● receiver ticket))
-             (set! (● receiver delivery message) (Some message))
-             (mailbox-post mailbox message)))))
+      (let ((receivers (reverse (● mailbox receivers))))
+        (set! (● mailbox messages) (enqueue (● mailbox messages) message))
+        (set! (● mailbox receivers) (Nil))
+        (for-each (lambda (wake) (wake)) receivers)))
 
-    ;; Waking above only queues work. The delivery is installed before the
-    ;; sender can suspend, so the receiver never observes an empty delivery.
-    ;; A stale receiver is removed and the message tries the next receiver.
+    ;; Taking a ticket does not suspend, so no post comes between finding
+    ;; the queue empty and waiting.
     (define (mailbox-receive (mailbox (Mailbox T)))
       (→ T) (! mut tasks) (∀ (T))
       (match (mailbox-try-receive mailbox)
         ((Some message) message)
-        ((None) (wait-in-line mailbox))))
+        ((None)
+         (let ((id (ticket)) (scheduler (current-scheduler)))
+           (set! (● mailbox receivers)
+                 (Cons (lambda () (tasks-wake! scheduler id) (unit)) (● mailbox receivers)))
+           (await id))
+         (mailbox-receive mailbox))))
 
     (define (mailbox-try-receive (mailbox (Mailbox T)))
       (→ (Option T)) (! mut) (∀ (T))
@@ -344,19 +325,4 @@
         ((None) (None))
         ((Some (Pair message rest))
          (set! (● mailbox messages) rest)
-         (Some message))))
-
-    (define (wait-in-line (mailbox (Mailbox T)))
-      (→ T) (! mut tasks) (∀ (T))
-      (let* ((delivery (new Delivery (message (None))))
-             (id (ticket)))
-        (set! (● mailbox receivers)
-              (enqueue (● mailbox receivers)
-                       (new Receiver
-                         (scheduler (current-scheduler))
-                         (ticket id)
-                         (delivery delivery))))
-        (await id)
-        (match (● delivery message)
-          ((Some message) message)
-          ((None) (panic "a receiver woke without its message")))))))
+         (Some message))))))
