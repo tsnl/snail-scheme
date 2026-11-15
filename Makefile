@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := check
-.PHONY: format check fetch test test-wasmtime test-chez test-browser bootstrap site siegework hearsay pages
+.PHONY: format check fetch test test-wasmtime test-chez test-browser bootstrap unicode-tables generated-unicode site siegework hearsay pages
 
 CHEZ ?= scheme
 export CHEZ
@@ -52,6 +52,19 @@ format:
 check:
 	git ls-files -z $(SCHEME_SOURCES) | xargs -0 ./scripts/format-scheme --check
 	$(NIXFMT) --check shell.nix
+	$(MAKE) generated-unicode
+	cmp build/unicode.sld src/snail/shell/text/unicode.sld
+
+# (snail shell text)'s tables, generated from Rust's Unicode properties
+# into build/unicode.sld, which `check` compares with the checked-in copy.
+unicode-tables: generated-unicode
+	cp build/unicode.sld src/snail/shell/text/unicode.sld
+
+generated-unicode:
+	mkdir -p build
+	cargo run -q --offline --manifest-path crates/snail-scheme-support/Cargo.toml \
+	  --example unicode-tables > build/unicode-tables.sld
+	./snail-scheme format < build/unicode-tables.sld > build/unicode.sld
 
 # The root project names each application, with output in build/NAME.
 site: siegework hearsay
