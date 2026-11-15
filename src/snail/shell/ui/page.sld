@@ -62,20 +62,10 @@
       (⊨ (Interface Model))
       (interface-initialize (random-seed)))
 
-    ;; The loop's row includes publishing and saving its model. Commands
-    ;; retain their narrower public contract and run under the same handlers.
-
-    (define (widen-commands (commands (List (Command M))))
-      (→ (List (Fn → M ! mut host page events storage tasks dom fetch)))
-      (∀ (M))
-      (match commands
-        ((Cons command rest) (Cons (lambda () (command)) (widen-commands rest)))
-        ((Nil) (Nil))))
-
-    (define (interface-save-callback (save (Fn S → Unit ! events storage tasks)))
-      (→ (Fn S → Unit ! mut host page events storage tasks dom fetch))
-      (∀ (S))
-      (lambda (model) (save model)))
+    ;; The loop's row includes publishing and saving its model. Commands and
+    ;; the save keep their narrower contracts and fit the loop as they are.
+    ;; The update's pair is rebuilt because a record's type never widens;
+    ;; its commands widen as they move into the new one.
 
     (define (present-interface (model Model) (save (Fn Model → Unit ! events storage tasks)))
       (→ Unit)
@@ -89,11 +79,10 @@
             (run-ui model (interface-messages model)
                     (lambda (model message)
                       (match (interface-update model message)
-                        ((Pair next commands)
-                         (new Pair (first next) (second (widen-commands commands))))))
+                        ((Pair next commands) (new Pair (first next) (second commands)))))
                     interface-view interface-window
                     (lambda (model) (commit-page model) (report-ready))
-                    (interface-save-callback save))
+                    save)
             (unit))))))
 
     ))
