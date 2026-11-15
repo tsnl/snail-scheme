@@ -6,8 +6,9 @@ Scalars are `U8`, `I32`, `I64`, `F32`, `F64`, `Bool`, `Char` and `Unit`.
 `Any` explicitly packages an eligible value; `downcast` attempts to recover its
 exact type ([explicit Any](#explicit-any)).
 `String` is a sequence of Unicode scalars. `(Vector T)` has a fixed runtime
-length and mutable elements. There is one vector type, with no `Array`,
-`MutVector`, type-level lengths, dependent types or immutability checks.
+length and mutable elements. Besides it there is only `(ConstantVector T)`, a
+table of scalars nothing can write ([below](#constant-vectors)); there is no
+`Array`, `MutVector`, type-level lengths or dependent types.
 Primitives occupy unboxed slots; records, enum cases and nested vectors occupy
 reference slots. `Bytes` is an alias for `(Vector U8)`, stored packed.
 
@@ -71,6 +72,28 @@ does not change that type. Integer arithmetic wraps.
 Local bindings remain monomorphic. Put explicit quantifiers on reusable
 generic functions. A library is checked before its importers, so callers do
 not decide its exported definitions' types.
+
+### Constant vectors
+
+`(constant-vector TYPE (VALUE ...))` is a table of literals of a scalar type,
+`U8`, `I32`, `I64`, `Bool` or `Char`, each checked against it
+where it is written. Its type is `(ConstantVector TYPE)`, which has no setter,
+so the table is built once in its module, when a use first reaches it, and
+every use shares it. `constant-vector-ref` and `constant-vector-length` read
+it as `vector-ref` and `vector-length` read a vector, and
+`constant-vector->vector` copies it into a vector of its own.
+
+```scheme
+(define (powers) (→ (ConstantVector I32)) (constant-vector I32 (1 10 100 1000)))
+(constant-vector-ref (powers) 2) ; 100
+```
+
+A table is shared through a function, as any value is
+([functions at top level](#functions-at-top-level)), and calling it allocates
+nothing. A table is a data segment of its elements, so it may be as large as
+its data. A float table is a table of the floats' bits, an `I64` table read
+through `bits->f64`, since only the assembler knows a float literal's bits. The program
+`tests/programs/constant-vectors.sld` exercises each element type.
 
 ## Functions at top level
 

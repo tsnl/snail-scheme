@@ -237,6 +237,7 @@
             "expose"
             "case-id"
             "downcast"
+            "constant-vector"
             "artifact-files" "link-handle"))
 
     (define (builtin-types) (→ (List (Pair String I64)))
@@ -252,6 +253,7 @@
             (new Pair (first "Unit") (second 0))
             (new Pair (first "String") (second 0))
             (new Pair (first "Vector") (second 1))
+            (new Pair (first "ConstantVector") (second 1))
             (new Pair (first "Fn") (second 0))
             ))
 
@@ -273,6 +275,7 @@
         ("Unit" #t)
         ("String" #t)
         ("Vector" #t)
+        ("ConstantVector" #t)
         ("Fn" #t)
         (_ #f)))
 

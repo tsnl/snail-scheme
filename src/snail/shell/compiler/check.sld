@@ -670,6 +670,10 @@
         ((DString _) (new Pair (first (TCon "String" (Nil))) (second ck)))
         ((DBytes _) (new Pair (first (TCon "Vector" (list (TCon "U8" (Nil))))) (second ck)))
         ((DUnit) (new Pair (first (TCon "Unit" (Nil))) (second ck)))
+        ((DConstants element _)
+         (new Pair
+           (first (TCon "ConstantVector" (list (TCon element (Nil)))))
+           (second ck)))
         (_ (learning ck ((type (fresh-meta))
                          (then (want (WantLiteral value type loc))))
                      (new Pair (first type) (second ck))))))

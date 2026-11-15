@@ -347,7 +347,8 @@
            (("String") (Reference (array-type m (Scalar "i32"))))
            (("Any") (Reference (any-type m)))
            (("Funcref") (Scalar "funcref"))
-           (("Vector") (Reference (array-type m (element-rep m (first-type args)))))
+           (("Vector" "ConstantVector")
+            (Reference (array-type m (element-rep m (first-type args)))))
            (else (if (tag-enum? m name) (Scalar "i32") (Reference (data-type m type))))))
         ((TFun params result _)
          (Reference
@@ -667,6 +668,7 @@
         ((DString text) (string-literal (● fn module) text))
         ((DBytes bytes) (bytes-literal (● fn module) bytes))
         ((DUnit) (wat "i32.const" (int 0)))
+        ((DConstants element values) (constant-vector-literal (● fn module) element values))
         ((DInt n) (wat (string-append (rep-key (fn-rep fn type)) ".const") (int n)))
         ((DFloat text)
          (wat (string-append (rep-key (fn-rep fn type)) ".const") (Word (float-text text))))))
@@ -713,6 +715,73 @@
                            (id segment)
                            (wat "i32.const" (int 0))
                            (wat "i32.const" (int (vector-length bytes)))))))))
+
+    ;; ---- Constant vectors ----
+
+    ;; A constant vector is built once in a module, and every use shares it,
+    ;; since its type has no setter: it has a vector's representation, and
+    ;; reads and copies are a vector's. Its table is a passive data segment
+    ;; of its elements, little-endian at their width, read into an array the
+    ;; first time a use reaches it, so a table of any size costs its bytes.
+
+    (define (constant-vector-literal (m Module) (element String) (values (List Datum))) (→ Wat)
+      (! mut)
+      (let ((key (datum->string (DConstants element values))))
+        (memoize! m
+                  (string-append "constants:" key)
+                  (lambda () (integer-table m element values key)))))
+
+    (define (integer-table (m Module) (element String) (values (List Datum)) (key String)) (→ Wat)
+      (! mut)
+      (let ((array (array-type m (element-rep m (TCon element (Nil)))))
+            (segment (keyed-id "constants" key))
+            (global (keyed-id "table" key)))
+        (push! (● m data)
+               (wat "data" (id segment) (Word (bytes-wat-string (table-bytes element values)))))
+        (push! (● m globals)
+               (wat "global" (id global) (wat "mut" (ref-wat array)) (wat "ref.null" (id array))))
+        (wat "block"
+             (wat "result" (ref-wat array))
+             (wat "if" (wat "ref.is_null" (wat "global.get" (id global)))
+                  (wat "then"
+                       (wat "global.set" (id global)
+                            (wat "array.new_data" (id array) (id segment)
+                                 (wat "i32.const" (int 0))
+                                 (wat "i32.const" (int (length values)))))))
+             (wat "global.get" (id global)))))
+
+    ;; Each element's bytes, least significant first, at its width in the
+    ;; array: one for U8, eight for I64, four otherwise. A negative value is
+    ;; its two's complement, taken a 32-bit word at a time, so no step
+    ;; leaves the range both hosts compute alike.
+
+    (define (table-bytes (element String) (values (List Datum))) (→ Bytes)
+      (let ((width (cond ((string=? element "U8") 1) ((string=? element "I64") 8) (else 4)))
+            (integers (list->vector (map table-integer values))))
+        (vector-generate (* width (vector-length integers))
+                         (lambda (index)
+                           (let ((n (vector-ref integers (quotient index width)))
+                                 (byte (remainder index width)))
+                             (i32->u8
+                              (i64->i32 (word-byte (if (< byte 4) (low-word n) (high-word n))
+                                                   (remainder byte 4)))))))))
+
+    (define (table-integer (value Datum)) (→ I64)
+      (match value
+        ((DInt n) n)
+        ((DBool b) (if b 1 0))
+        ((DChar c) (char->integer c))
+        (_ (panic "internal error: an integer table holds integers"))))
+
+    (define (low-word (n I64)) (→ I64)
+      (modulo n 4294967296))
+
+    (define (high-word (n I64)) (→ I64)
+      (modulo (quotient (- n (low-word n)) 4294967296) 4294967296))
+
+    (define (word-byte (word I64) (index I64)) (→ I64)
+      (let loop ((word word) (index index))
+        (if (= index 0) (remainder word 256) (loop (quotient word 256) (- index 1)))))
 
     ;; Every byte is a two-digit escape, so the text is three characters per
     ;; byte, generated in one pass: images make literals of millions of
@@ -3427,13 +3496,13 @@
           (("bool->i32" "char->i32" "i32->char" "u8->i32") code)
           (("i32->u8") (list (wat "i32.and" (arg 0) (wat "i32.const" (int 255)))))
           (("i32->bool") (list (wat "i32.ne" (arg 0) (wat "i32.const" (int 0)))))
-          (("string->vector" "vector->string" "vector-copy")
+          (("string->vector" "vector->string" "vector-copy" "constant-vector->vector")
            (list (wat "call" (id (copy-helper m (sequence type))) (arg 0))))
-          (("string-length" "vector-length")
+          (("string-length" "vector-length" "constant-vector-length")
            (list (wat "i64.extend_i32_u" (wat "array.len" (arg 0)))))
           (("string-ref")
            (list (wat "array.get" (id (sequence (first-type types))) (arg 0) (index (arg 1)))))
-          (("vector-ref")
+          (("vector-ref" "constant-vector-ref")
            (list (wat "call"
                       (id (vector-read-helper m (sequence-element (first-type types))))
                       (arg 0)
