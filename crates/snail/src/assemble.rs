@@ -1,6 +1,6 @@
 //! Stage 0's file boundary for the same assembler/linker compiled tools use.
 
-use snail_core_support::assembler::{assemble, link};
+use snail_scheme_support::assembler::{assemble, link};
 
 pub fn run(input: &str, output: &str, runtime: Option<&str>) -> u8 {
     match write_module(input, output, runtime) {

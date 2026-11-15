@@ -47,6 +47,7 @@
          Diagnostics
          diagnostics->string)
    (snail shell compiler inputs)
+   (only (snail shell compiler check) Typed)
    (snail shell project plan)
    (snail shell process)
    (snail shell assembler)
@@ -60,11 +61,13 @@
 
     ;; What a build runs besides the compiler: `root` holds the standard
     ;; libraries (src/), the browser host's files and the native runner,
-    ;; `runtime` is the runtime module a program is linked with, and `node`
-    ;; runs producers. Assembly and linking use the toolchain runtime.
+    ;; `runtime` is the runtime module a program is linked with, `toolchain`
+    ;; the one a `(runtime toolchain)` program is, whose services include
+    ;; the assembler, and `node` runs producers.
     (record Tools
       ((root String)
        (runtime String)
+       (toolchain String)
        (node String)))
 
     ;; Debug and release both link the program into one module, without
@@ -227,7 +230,9 @@
     ;; holds one, which it compiled. `files` are the digests of its files
     ;; but its modules and linked files, whose names are already digests,
     ;; by relative name. `linked` holds the paths of the files its program
-    ;; links; editing one compiles the library that links it again.
+    ;; links; editing one compiles the library that links it again. A
+    ;; development build keeps its program as checked, whose names the
+    ;; language server answers for; it lives only as long as the candidate.
     (record Output
       ((name String)
        (directory String)
@@ -235,7 +240,8 @@
        (compiled I64)
        (modules I64)
        (files (List (Pair String String)))
-       (linked (List String))))
+       (linked (List String))
+       (typed (Option Typed))))
 
     ;; What a build made and has not published: each target's generation,
     ;; in plan order, which puts the first root first.
@@ -527,11 +533,13 @@
          (absurd (stop failure)))))
 
     ;; What building a target's program left: how many modules it compiled
-    ;; of how many, and the files it links, by their sources' paths.
+    ;; of how many, the files it links, by their sources' paths, and, from a
+    ;; development build, the program as it was checked.
     (record Program
       ((compiled I64)
        (modules I64)
-       (linked (List String))))
+       (linked (List String))
+       (typed (Option Typed))))
 
     (define (program-output (program Program)
                             (name String)
@@ -546,7 +554,8 @@
              (compiled (● program compiled))
              (modules (● program modules))
              (files digests)
-             (linked (● program linked)))))
+             (linked (● program linked))
+             (typed (● program typed)))))
 
     ;; The target's program in its generation, with the files it links: one
     ;; module for a debug or release build, a module per library for a
@@ -566,6 +575,7 @@
                       ((Development) (develop-program builder target directory working progress))
                       (_
                        (let ((links (link-program builder
+                                                  (target-runtime builder target)
                                                   (● target entry)
                                                   (● target directories)
                                                   (● progress inputs)
@@ -576,7 +586,8 @@
                                       links)
                          (new Program (compiled 1)
                               (modules 1)
-                              (linked (map (lambda (record) (● record path)) links)))))))))
+                              (linked (map (lambda (record) (● record path)) links))
+                              (typed (None)))))))))
 
     ;; A browser target's host files and public tree; then the files the
     ;; generation holds.
@@ -605,11 +616,26 @@
 
     ;; ---- Programs ----
 
+    ;; The runtime a target links with: the toolchain's for a program that
+    ;; says `(runtime toolchain)`, the plain one otherwise.
+
+    (define (target-runtime (builder Builder) (target Target)) (→ String)
+      (let ((tools (● builder tools)))
+        (if (any? (lambda (build)
+                    (match build
+                      ((ProgramTarget program)
+                       (and (● program toolchain?) (string=? (● program name) (● target name))))
+                      ((BrowserTarget _) #f)))
+                  (● (● builder description) builds))
+            (● tools toolchain)
+            (● tools runtime))))
+
     ;; The program at `entry`, compiled in this process to one module and
     ;; linked with the runtime into `output`; the files it links ship beside
     ;; it. The compile's own files stay in `working`.
 
     (define (link-program (builder Builder)
+                          (runtime String)
                           (entry String)
                           (directories (List String))
                           (inputs Inputs)
@@ -627,7 +653,7 @@
                                                                   forms))
                                               inputs)))))
         (match (link (● program text)
-                     (read-bytes (● (● builder tools) runtime)))
+                     (read-bytes runtime))
           ((Ok bytes) (write-bytes output bytes))
           ((Err message) (fail-build (string-append "cannot link program: " message))))
         (● program links)))
@@ -704,22 +730,24 @@
     (define (develop-program (builder Builder) (target Target) (directory String)
                              (working String) (progress Progress))
       (→ Program) (! mut fs building)
-      (let* ((built (compiled (lambda ()
-                                (source->modules (● target directories) (● target entry)
-                                                 (lambda (loading forms)
-                                                   (generated-syntax working
-                                                                     (● target directories)
-                                                                     loading
-                                                                     forms))
-                                                 (● progress inputs)))))
+      (let* ((checked (compiled (lambda ()
+                                  (source->checked (● target directories) (● target entry)
+                                                   (lambda (loading forms)
+                                                     (generated-syntax working
+                                                                       (● target directories)
+                                                                       loading
+                                                                       forms))
+                                                   (● progress inputs)))))
+             (built (compiled (lambda () (checked->modules checked))))
              (modules (map assemble-module built))
              (links (concatenate (map (lambda (module) (● module links)) built))))
-        (write-modules builder directory modules
+        (write-modules builder (target-runtime builder target) directory modules
                        (place-links (project-store builder) (base-name directory) links))
         (new Program
           (compiled (length modules))
           (modules (length modules))
-          (linked (map (lambda (file) (● file path)) links)))))
+          (linked (map (lambda (file) (● file path)) links))
+          (typed (Some (● checked typed))))))
 
     (define (assemble-module (module Built)) (→ Assembled) (! building)
       (let ((text (● module text)))
@@ -740,6 +768,7 @@
     ;; naming them, in link order, with the files the program links.
 
     (define (write-modules (builder Builder)
+                           (runtime-path String)
                            (directory String)
                            (modules (List Assembled))
                            (files (List (Pair String I64))))
@@ -747,7 +776,7 @@
       (! fs building)
       (let ((store (project-store builder))
             (token (base-name directory))
-            (runtime (read-bytes (● (● builder tools) runtime))))
+            (runtime (read-bytes runtime-path)))
         (for-each (lambda (module)
                     (place-object store token (● module digest) (● module bytes)))
                   modules)
@@ -833,6 +862,7 @@
                       (place-links (string-append working "/store")
                                    "producer"
                                    (link-program builder
+                                                 (● (● builder tools) runtime)
                                                  (● producer source)
                                                  (● producer directories)
                                                  inputs

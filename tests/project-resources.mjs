@@ -9,7 +9,7 @@
 // through the browser host's loader fetching the page's files over HTTP,
 // which never fetches the file the program does not read. A development
 // build places the file in the store its generations share, seen from
-// outside `snail dev` (tests/development-service.mjs): once the file is
+// outside `snail-scheme watch` (tests/development-service.mjs): once the file is
 // edited, the next Build compiles the library that links it and its
 // importer, whose manifest names the new bytes under their own digest.
 import assert from 'node:assert/strict';
@@ -26,7 +26,7 @@ import {startDevelopment} from './development-service.mjs';
 
 const execute = promisify(execFile), root = process.argv[2];
 const project = await mkdtemp(join(tmpdir(), 'snail-project-resources-'));
-const build = target => execute(join(root, 'snail'), ['build', project, target]);
+const build = target => execute(join(root, 'snail-scheme'), ['build', project, target]);
 const run = path => execute(process.execPath, ['--no-warnings', join(root, 'host/native/run-snail.mjs'), path]);
 const write = async (name, contents) => { await mkdir(join(project, name, '..'), {recursive: true}); await writeFile(join(project, name), contents); };
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');

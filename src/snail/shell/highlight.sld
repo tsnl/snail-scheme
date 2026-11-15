@@ -5,9 +5,10 @@
 ;; between data. Text the reader would reject still classifies: a string the
 ;; text ends inside is a string to the end. Every character belongs to one
 ;; token, so the tokens tile the text. The book's preprocessor
-;; (bootstrap/highlight-book.sld) and the IDE (host/ide/ide.sld) both color
-;; with these tokens. The IDE also derives display ranges for compiler
-;; points with the same lexical boundaries.
+;; (tools/highlight-book.sld) colors with these tokens, and `snail-scheme lsp`
+;; (snail shell lsp) derives the range an editor marks for a compiler point
+;; with the same lexical boundaries, and colours an editor's open text with
+;; them as semantic tokens.
 (define-library (snail shell highlight)
   (export
    Class

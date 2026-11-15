@@ -13,16 +13,18 @@ Whichever you pick, finish with [the first run](#the-first-run).
 
 | Tool | CI's version | Used for |
 | --- | --- | --- |
-| Git, a POSIX shell and GNU Make | | The checkout, `./snail` and the Makefile. |
+| Git, a POSIX shell and GNU Make | | The checkout, `./snail-scheme` and the Makefile. |
 | Chez Scheme | 10.4.1 | Running the compiler's source for the first bootstrap, and the build scripts. |
 | Rustup | Rust 1.95.0 | The runtime services linked into every program, and the assembler/linker. `rust-toolchain.toml` names the version and the `wasm32-wasip1` target, which rustup installs on first use. |
-| Node.js | 26 | Running programs under WASI, and `snail dev`. |
+| Node.js | 26 | Running programs under WASI, and `snail-scheme watch`. |
 | nixfmt | 1.4 | `make check`'s formatting of `shell.nix`. |
 | mdBook | 0.5.4 | `make pages`, the book. |
+| tree-sitter CLI | 0.26.11 | `make test`'s check of the editors' grammar, which also needs a C compiler. |
 | Chromium | | `make test-browser` and `tests/browser/page.mjs`. Set `CHROMIUM` to its path when it isn't `chromium`. |
 
 The first four compile and run programs, including the Scheme formatter used
-by `make check`; the rest format Nix and build or test the site. `CHEZ` can
+by `make check`; the rest format Nix, build or test the site, and test the
+editors' grammar. `CHEZ` can
 name a particular Chez executable; it defaults to `scheme`. The pinned Nix
 environment supplies the version used by CI.
 
@@ -88,13 +90,14 @@ From the checkout:
 
 ```sh
 make fetch
-./scripts/snail-tool run examples/fibonacci.sld
+./snail-scheme run . snailc run examples/fibonacci.sld
 ```
 
 `make fetch` downloads the Rust crates in each `Cargo.lock` once; builds and
-tests then run offline. The first run bootstraps the compiler, which takes
-a source compilation with Chez followed by self-compilation. The compiled
-compiler rebuilds itself whenever its source changes. The example prints
+tests then run offline. The first run bootstraps the command line, which
+takes a source compilation with Chez followed by self-compilation, and then
+the command line builds `snailc`, the single-file compiler. The command line
+rebuilds itself whenever its source changes. The example prints
 `832040`. Runtime work belongs in its `main` function; libraries contain
 functions, types and pure compile-time values.
 
@@ -103,15 +106,15 @@ functions, types and pure compile-time values.
 ```sh
 make test          # the formatter, the compiler, the programs and the games
 make check         # formatting
-cargo test --manifest-path crates/snail-core-support/Cargo.toml --offline
+cargo test --manifest-path crates/snail-scheme-support/Cargo.toml --offline
 cargo test --manifest-path crates/snail/Cargo.toml --offline
 make test-chez    # the suite with the compiler's source running on Chez
 make bootstrap     # the compiler rebuilt from Chez alone, to a fixpoint
 make test-wasmtime # linked programs on the native Wasmtime host
-make test-browser  # hot reload and the IDE in headless Chromium
+make test-browser  # hot reload and browser interfaces in headless Chromium
 ```
 
 CI runs the first four, and `cargo fmt --check` on both crates. A change to
 the compiler also needs `make test-chez` and `make bootstrap`, and a change
-to the browser host or the IDE `make test-browser`. The [tour](book/snail-core/compilers.md)
+to the browser host `make test-browser`. The [tour](book/snail-scheme/compilers.md)
 introduces the compiler.

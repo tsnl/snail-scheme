@@ -1,5 +1,5 @@
 ;; Filesystem and process boundaries for the contributor tools. No program
-;; compiled by Snail imports this host library.
+;; compiled by `snail-scheme` imports this host library.
 (library (snail stage0 system)
   (export create-directory create-directory* delete-file-hierarchy path-directory path-normalize
           make-path file-link-status modification-nanoseconds file-size symbolic-link-file

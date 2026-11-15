@@ -35,8 +35,8 @@ use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use wasmtime::{
-    AnyRef, AsContext, AsContextMut, Engine, Instance, Linker, Module, OwnedRooted, RootScope,
-    Rooted, Store, Val, bail, format_err,
+    AnyRef, AsContext, AsContextMut, Engine, ExternType, Instance, Linker, Module, OwnedRooted,
+    RootScope, Rooted, Store, Val, bail, format_err,
 };
 use wasmtime_wasi::I32Exit;
 use wasmtime_wasi::p1::{self, WasiP1Ctx};
@@ -76,7 +76,8 @@ pub fn run(path: &str, arguments: &[String]) -> u8 {
 }
 
 // One linked module is the program; a manifest is run by the engine
-// ((snail shell engine), at SNAIL_ENGINE_MODULE or build/engine/engine.wasm
+// ((snail shell engine), at SNAIL_ENGINE_MODULE or build/engine/program.wasm,
+// the root project's `engine` target,
 // beside this executable's build), started with the manifest in
 // SNAIL_MANIFEST, which links the program's objects through the Wasm
 // primitives of modules.rs, runs each main, serves the files it links, and
@@ -88,6 +89,7 @@ fn execute(path: &str, arguments: &[String]) -> wasmtime::Result<u8> {
     let names = links::linked_names([&payload.module]);
     let files = Files::new(&payload.store, &names);
     let mut linker = host_linker(&engine, &names)?;
+    define_node_only(&mut linker, &payload.module)?;
     let host = Host {
         wasi: wasi(path, arguments, &payload.environment)?,
         files,
@@ -377,7 +379,7 @@ impl Payload {
     }
 }
 
-// The engine's module: SNAIL_ENGINE_MODULE, or build/engine/engine.wasm
+// The engine's module: SNAIL_ENGINE_MODULE, or build/engine/program.wasm
 // in the build directory this executable was built into.
 fn engine_module() -> wasmtime::Result<PathBuf> {
     if let Some(path) = std::env::var_os("SNAIL_ENGINE_MODULE") {
@@ -388,7 +390,7 @@ fn engine_module() -> wasmtime::Result<PathBuf> {
         .ancestors()
         .find(|directory| directory.file_name().is_some_and(|name| name == "build"))
         .ok_or_else(|| format_err!("the engine's module is not found: set SNAIL_ENGINE_MODULE"))?;
-    Ok(build.join("engine").join("engine.wasm"))
+    Ok(build.join("engine").join("program.wasm"))
 }
 
 fn is_manifest(path: &Path) -> bool {
@@ -422,32 +424,34 @@ pub const NODE_ONLY: [&str; 3] = [
     "snail.runtime.native.files",
 ];
 
-/// The module in `file`, compiled, unless it imports what only Node
-/// provides; its import section is read first, so a refused module costs
-/// no compile. A `.cwasm` file is machine code `snail precompile` wrote,
-/// as the compiled compiler's is, and its imports are read once it loads.
+/// The module in `file`, compiled. A `.cwasm` file is machine code
+/// `snail precompile` wrote, as the command line's is.
 pub fn compile_module(engine: &Engine, file: &Path) -> wasmtime::Result<Module> {
     if is_precompiled(file) {
-        let module = load(engine, file)?;
-        refuse_node_only(file, module.imports().map(|import| import.module()))?;
-        return Ok(module);
+        return load(engine, file);
     }
-    let bytes = read(file)?;
-    refuse_node_only(file, import_modules(&bytes)?.iter().map(String::as_str))?;
-    Module::new(engine, &bytes)
+    Module::new(engine, read(file)?)
 }
 
-fn refuse_node_only<'a>(
-    file: &Path,
-    mut imported: impl Iterator<Item = &'a str>,
-) -> wasmtime::Result<()> {
-    match imported.find(|module| NODE_ONLY.contains(module)) {
-        Some(node) => bail!(
-            "{} imports {node}: a program that uses sockets, processes, file modes or watches runs on Node",
-            file.display()
-        ),
-        None => Ok(()),
+/// Each function `module` imports of what only Node provides, as one that
+/// traps when it is called, saying so: the command line imports sockets
+/// and processes for `watch` and `run`, and its `compile` calls neither,
+/// so it compiles here. Stage 0 runs a program that does call them on
+/// Node, having asked `snail imports`; a module loaded while the program
+/// runs gets the same stand-ins (modules.rs).
+fn define_node_only(linker: &mut Linker<Host>, module: &Module) -> wasmtime::Result<()> {
+    for import in module.imports() {
+        if !NODE_ONLY.contains(&import.module()) {
+            continue;
+        }
+        if let ExternType::Func(ty) = import.ty() {
+            let missing = format!("{} {} runs on Node", import.module(), import.name());
+            linker.func_new(import.module(), import.name(), ty, move |_, _, _| {
+                Err(format_err!("{missing}"))
+            })?;
+        }
     }
+    Ok(())
 }
 
 fn read(file: &Path) -> wasmtime::Result<Vec<u8>> {
@@ -600,17 +604,16 @@ mod tests {
         assert_eq!(status("unclosed-failure", "(i32.const 4)", 1), 4);
     }
 
+    // A program may import sockets it never uses, as the command line's
+    // compile does; one that calls them traps.
     #[test]
-    fn a_program_that_uses_sockets_is_refused() {
-        let imports = r#"(import "snail.runtime.native.socket" "start-read" (func (param i64)))"#;
-        let file = module_file("sockets", &program(imports, "(i32.const 0)", 0));
-        let engine = engine().unwrap();
-        let error = compile_module(&engine, Path::new(&file))
-            .unwrap_err()
-            .to_string();
-        assert!(error.ends_with(
-            "imports snail.runtime.native.socket: a program that uses sockets, processes, file modes or watches runs on Node"
-        ));
+    fn a_program_that_calls_sockets_traps() {
+        let imports =
+            r#"(import "snail.runtime.native.socket" "start-read" (func $read (param i64)))"#;
+        let unused = module_file("sockets-unused", &program(imports, "(i32.const 0)", 0));
+        assert_eq!(run(&unused, &[]), 0);
+        let called = "(call $read (i64.const 0)) (i32.const 0)";
+        let file = module_file("sockets", &program(imports, called, 0));
         assert_eq!(run(&file, &[]), 2);
     }
 
@@ -631,9 +634,14 @@ mod tests {
             ),
             3
         );
-        let sockets = r#"(import "snail.runtime.native.socket" "start-read" (func (param i64)))"#;
-        let refused = precompiled("precompiled-sockets", sockets, "(i32.const 0)");
-        assert_eq!(run(&refused, &[]), 2);
+        let sockets =
+            r#"(import "snail.runtime.native.socket" "start-read" (func $read (param i64)))"#;
+        let called = precompiled(
+            "precompiled-sockets",
+            sockets,
+            "(call $read (i64.const 0)) (i32.const 0)",
+        );
+        assert_eq!(run(&called, &[]), 2);
     }
 
     #[test]

@@ -4,7 +4,7 @@
  (snail shell wasm))
 
 ;; Link a module from bytes and call its export through an Fn closure.
-;; Its function takes evidence first, as a Snail Scheme function does.
+;; Its function takes evidence first, as a `snail-scheme` function does.
 ;; The bytes encode the nullable internal reference ABI. Evidence holds
 ;; its label, its handler, the evidence outside it, and the copy and origin
 ;; links resumptions use; a type of another shape is not interchangeable.

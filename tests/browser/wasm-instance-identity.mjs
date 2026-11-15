@@ -12,8 +12,8 @@ import {openBrowser, until} from './chromium.mjs';
 const [root, screenshot] = process.argv.slice(2);
 const directory = await mkdtemp(join(tmpdir(), 'snail-wasm-instance-identity-'));
 const binary = join(directory, 'test.wasm');
-await promisify(execFile)(join(root, 'scripts/snail-tool'),
-  ['compile', '-o', binary, join(root, 'tests/programs/wasm-instance-identity.sld')]);
+await promisify(execFile)(join(root, 'snail-scheme'),
+  ['run', root, 'snailc', 'compile', '-o', binary, join(root, 'tests/programs/wasm-instance-identity.sld')]);
 const expected = await readFile(join(root, 'tests/programs/wasm-instance-identity.out'), 'utf8');
 const page = `<!doctype html><title>Instance identity</title><pre></pre>
 <script type="module">

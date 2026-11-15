@@ -8,7 +8,7 @@ set -euo pipefail
 
 # What the devcontainer runs once it is created, if anything.
 bash -c "$(node -p "require('./.devcontainer/devcontainer.json').postCreateCommand ?? 'true'")"
-cargo test --offline --manifest-path crates/snail-core-support/Cargo.toml
-output=$(./scripts/snail-tool run examples/fibonacci.sld)
+cargo test --offline --manifest-path crates/snail-scheme-support/Cargo.toml
+output=$(./snail-scheme run . snailc run examples/fibonacci.sld)
 [ "$output" = "$(cat examples/fibonacci.out)" ] || { echo "fibonacci printed: $output" >&2; exit 1; }
 timeout 120 node tests/browser/page.mjs about:blank "$(mktemp -d)/page.png" 1

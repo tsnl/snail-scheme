@@ -7,4 +7,19 @@
                (browser
                 (entry ((hearsay application) Hearsay))
                 (library-roots ("apps/hearsay/src"))
-                (public "apps/hearsay/public"))))
+                (public "apps/hearsay/public")))
+ (build-target engine
+               (program
+                (entry "tools/engine.sld")))
+ (build-target reload-client
+               (program
+                (entry "host/browser/reload.sld")))
+ (build-target highlight-book
+               (program
+                (entry "tools/highlight-book.sld")))
+ (build-target snailc
+               (program
+                (entry "tools/snailc.sld")
+                (runtime toolchain)))
+ (run-target snailc
+             (run snailc)))

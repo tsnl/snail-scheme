@@ -1,6 +1,6 @@
 // A project build that fails reports the error it met and keeps nothing it
 // made: the generations it created are discarded, and the outputs of earlier
-// builds stay published, as `snail build` shows from outside.
+// builds stay published, as `snail-scheme build` shows from outside.
 //   node tests/project-failures.mjs ROOT
 import assert from 'node:assert/strict';
 import {execFile} from 'node:child_process';
@@ -12,7 +12,7 @@ import {promisify} from 'node:util';
 const execute = promisify(execFile), root = process.argv[2];
 const project = fs.mkdtempSync(join(tmpdir(), 'snail-failures-project-'));
 const write = (name, text) => { const path = join(project, name); fs.mkdirSync(join(path, '..'), {recursive: true}); fs.writeFileSync(path, text); };
-const build = target => execute(join(root, 'snail'), ['build', project, target], {timeout: 120_000, killSignal: 'SIGKILL'});
+const build = target => execute(join(root, 'snail-scheme'), ['build', project, target], {timeout: 120_000, killSignal: 'SIGKILL'});
 const inventory = () => fs.readdirSync(join(project, 'build')).sort();
 
 async function throughTheCommandLine() {

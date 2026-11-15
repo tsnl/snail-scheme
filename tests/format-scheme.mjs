@@ -1,5 +1,5 @@
-// CLI regressions for the shared Snail formatter. The main suite supplies a
-// freshly compiled program command; with only ROOT, exercise the shell launcher.
+// CLI regressions for the shared `snail-scheme` formatter, `./snail-scheme
+// format`, or the command given after ROOT.
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
 import {mkdtempSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync} from 'node:fs';
@@ -7,7 +7,7 @@ import {tmpdir} from 'node:os';
 import {join, resolve} from 'node:path';
 
 const [root, ...supplied] = process.argv.slice(2);
-const command = supplied.length ? supplied : [join(resolve(root), 'scripts/format-scheme')];
+const command = supplied.length ? supplied : [join(resolve(root), 'snail-scheme'), 'format'];
 function run(args = [], input = '', cwd = root) {
   const result = spawnSync(command[0], [...command.slice(1), ...args], {
     input, cwd, encoding: 'utf8', timeout: 120_000, maxBuffer: 16 * 1024 * 1024,
@@ -201,8 +201,9 @@ for (const args of [['--check'], ['--write'], ['--unknown'], ['--width'],
   assert.notEqual(bad.stderr, '');
 }
 
-// The tool used by make check leaves every tracked Scheme source unchanged.
-const files = spawnSync('git', ['ls-files', '-z', '*.scm', '*.sld'], {cwd: root, encoding: 'utf8'});
+// The tool used by make check leaves every tracked Scheme source unchanged,
+// but for the tree-sitter queries Zed reads, which are not Scheme.
+const files = spawnSync('git', ['ls-files', '-z', '*.scm', '*.sld', ':(exclude)editors/zed/languages'], {cwd: root, encoding: 'utf8'});
 assert.equal(files.status, 0, files.stderr);
 const tracked = files.stdout.split('\0').filter(Boolean).map(file => resolve(root, file));
 const checked = run(['--check', ...tracked]);

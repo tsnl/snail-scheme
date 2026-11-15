@@ -1,4 +1,4 @@
-// Real Wasm, Snail Scheme tasks and loopback sockets in both linking modes.
+// Real Wasm, `snail-scheme` tasks and loopback sockets in both linking modes.
 // Native spies place aborts and failures at the native boundaries, not in
 // a model. Cancelling closes the run of tasks, as reloading or ending a
 // program does: every outstanding operation is aborted.

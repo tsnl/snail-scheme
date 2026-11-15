@@ -1,4 +1,4 @@
-//! `snail`: Snail Scheme's compiled Wasm on an embedded wasmtime engine.
+//! `snail`: `snail-scheme`'s compiled Wasm on an embedded wasmtime engine.
 //!
 //! The subcommands are internal to the build driver and the tests:
 //!
@@ -6,8 +6,8 @@
 //!   linked module or a per-library build's modules.json, as
 //!   host/native/run-snail.mjs does on Node, when it needs no sockets or
 //!   processes (`program.rs`, with `links.rs` for the files it links and
-//!   `modules.rs` for linking modules). The compiled compiler,
-//!   `build/compiler/snailc.wasm`, is one such program.
+//!   `modules.rs` for linking modules). The command line,
+//!   `build/bootstrap/snail-scheme.wasm`, is one such program.
 //! - `snail precompile MODULE OUTPUT` writes Cranelift's machine code for a
 //!   module as a `.cwasm` file, which `run-wasm` loads in place of
 //!   compiling the module again (`engine.rs`).
@@ -62,7 +62,7 @@ fn dispatch(arguments: &[String]) -> u8 {
 
 // ---- Stack ----
 
-// Compiler passes may recurse with source syntax depth. Snail Scheme loops
+// Compiler passes may recurse with source syntax depth. `snail-scheme` loops
 // use Wasm tail calls and do not consume one native frame per iteration.
 // Wasm runs on the calling thread's native stack, which must hold the Wasm
 // limit (engine::WASM_STACK) and the host frames beneath it, so every

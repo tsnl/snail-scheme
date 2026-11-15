@@ -1,5 +1,5 @@
 ;; Located syntax to the core program. The expander is the only pass that knows
-;; Snail Scheme's binding forms. It loads libraries, resolves every identifier to a
+;; `snail-scheme`'s binding forms. It loads libraries, resolves every identifier to a
 ;; binding, runs `syntax-rules` macros, records declared entities in the
 ;; program tables, and emits core expressions with unique names.
 (define-library (snail shell compiler expand)
@@ -859,8 +859,8 @@
         (_
          (compile-error (syntax-loc declaration) "expected import, export, begin or cond-expand"))))
 
-    ;; The declarations of the first clause whose requirement holds. Snail Scheme's
-    ;; only feature is `snail-core`.
+    ;; The declarations of the first clause whose requirement holds. `snail-scheme`'s
+    ;; only feature is `snail-scheme`.
 
     (define (cond-expand-sections (clauses (List Syntax)))
       (→ (List (Pair String (List Syntax))))
@@ -876,7 +876,7 @@
 
     (define (feature? (requirement Syntax)) (→ Bool)
       (match requirement
-        ((Ident name _ _) (or (string=? name "snail-core") (string=? name "else")))
+        ((Ident name _ _) (or (string=? name "snail-scheme") (string=? name "else")))
         ((Form (Cons (Ident "and" _ _) items) _) (every? feature? items))
         ((Form (Cons (Ident "or" _ _) items) _) (any? feature? items))
         ((Form (Cons (Ident "not" _ _) (Cons item (Nil))) _) (not (feature? item)))
@@ -2650,7 +2650,7 @@
         (_ #t)))
 
     ;; Operations perform their effect. A `default` clause after them names
-    ;; Snail Scheme implementations, whose definitions expand with the
+    ;; `snail-scheme` implementations, whose definitions expand with the
     ;; library's bodies, in the steps this returns.
 
     (define (declare-effect (cx Context) (env Env) (form Syntax))
@@ -2773,7 +2773,7 @@
           (compile-error loc "an operation has at most one default"))
         defaults))
 
-    ;; One Snail Scheme default: its operation, the global that holds its
+    ;; One `snail-scheme` default: its operation, the global that holds its
     ;; definition, and the step that expands it.
     (record DefaultDefinition
       ((operation String)
@@ -4646,7 +4646,7 @@
                                         (● source second)))
                           (list (new Pair (first "walk/sample/top.sld")
                                      (second
-                                      "(define-library (sample top) (export) (cond-expand ((not snail-core) (import (sample never))) (else (import (sample made)))) (begin))"))
+                                      "(define-library (sample top) (export) (cond-expand ((not snail-scheme) (import (sample never))) (else (import (sample made)))) (begin))"))
                                 (new Pair (first "walk/sample/made.sld")
                                      (second
                                       "(generate-library (sample made) (import (snail core base) (sample helper)) (unit))"))

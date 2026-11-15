@@ -15,7 +15,7 @@ const source = finish => `(import (snail core base) (snail core io))
   (write-line (match (read-line) ((Some line) line) ((None) "EOF")))
   (write-file "run-cwd.txt" "caller")
   ${finish})`;
-const run = (name, args = []) => execute(join(root, 'snail'), ['run', project, name, ...args],
+const run = (name, args = []) => execute(join(root, 'snail-scheme'), ['run', project, name, ...args],
   {cwd: caller, timeout: 120_000, killSignal: 'SIGKILL'});
 
 async function ready(child, marker = 'ready\n') {

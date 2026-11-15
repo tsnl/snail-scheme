@@ -1711,9 +1711,9 @@
     ;; A Funcref becomes a closure that holds it, whose code casts it to the
     ;; Wasm type of a function of the expected type and calls it. The cast is
     ;; the only check: the engine traps if the function's Wasm type differs,
-    ;; and nothing compares Snail Scheme types, which is what makes the cast unsafe.
-    ;; That type is a Snail Scheme function's, which takes the evidence first,
-    ;; so the held function is one another module compiled from Snail Scheme.
+    ;; and nothing compares `snail-scheme` types, which is what makes the cast unsafe.
+    ;; That type is a `snail-scheme` function's, which takes the evidence first,
+    ;; so the held function is one another module compiled from `snail-scheme`.
 
     (define (funcref-closure (m Module) (type Type) (reference Wat)) (→ Wat) (! mut)
       (match type
@@ -2192,7 +2192,7 @@
     (define (node-outside (m Module) (node Wat)) (→ Wat) (! mut)
       (wat "struct.get" (id (evidence-type m)) (int 2) node))
 
-    ;; Past the last node: the Snail Scheme default, called under the
+    ;; Past the last node: the `snail-scheme` default, called under the
     ;; performer's evidence, or a trap.
 
     (define (default-call (m Module) (info Effect) (operation String) (names (List String)))
@@ -2233,7 +2233,7 @@
     ;; built for the rest. A call whose value flows straight out needs
     ;; no test, so a tail call stays a tail call. Nothing reads a
     ;; inactive slot, since every caller tests first and leaves too. The
-    ;; record is clear whenever Snail Scheme code runs outside a yield, so
+    ;; record is clear whenever `snail-scheme` code runs outside a yield, so
     ;; none is live while the host runs between calls.
 
     ;; Where a yield leaves the code being emitted, with zero or null: a

@@ -1,6 +1,6 @@
-;; The `snail` command line, which stage 0 builds (`scripts/snail-tool
-;; cli-tools`) and ./snail runs on Node, after the repository's root and the
-;; runtime module programs are linked with:
+;; The `snail-scheme` command line, stage 0's one product (scripts/bootstrap),
+;; which ./snail-scheme runs on Node, after the repository's root and the
+;; runtime modules programs are linked with, plain and the toolchain's:
 ;;
 ;;   build [--release] PROJECT BUILD-TARGET
 ;;     builds a target, publishes it, and prints where its output is;
@@ -9,11 +9,21 @@
 ;;     run's arguments and then these, in the caller's directory;
 ;;   resident PROJECT
 ;;     rebuilds every configured target for each development request;
-;;   dev EDITOR CLIENT [--port PORT] PROJECT
+;;   lsp
+;;     serves the Language Server Protocol on standard input and output,
+;;     (snail shell lsp), for the project the editor opens, as ./snail-scheme lsp
+;;     does;
+;;   watch CLIENT [--port PORT] PROJECT
 ;;     runs the development service, (snail shell project service), with
-;;     the editor's browser bundle, host/ide built, and the reload
-;;     client's, host/browser/reload.sld built, until it is interrupted,
-;;     as ./snail dev does.
+;;     the reload client's program, host/browser/reload.sld built, until it
+;;     is interrupted, as ./snail-scheme watch does;
+;;   format [--width COLUMNS] [--check|--write FILE ...]
+;;     formats standard input to standard output, or reports or rewrites
+;;     each file (snail shell format) would change, as ./snail-scheme
+;;     format does;
+;;   compile MODE SOURCE OUTPUT GENERATED [DIRECTORY ...]
+;;     makes one compile, (snail shell compiler driver): the interface stage
+;;     0 bootstraps this program through and its test harness compiles with.
 ;;
 ;; A failure prints its message and exits with status 1; the outputs of
 ;; earlier builds stay published.
@@ -34,8 +44,10 @@
  (snail shell json read)
  (snail shell project)
  (snail shell project build)
- (only (snail shell project files) modes)
  (snail shell project service)
+ (snail shell lsp)
+ (only (snail shell format) format-source format-width)
+ (only (snail shell compiler driver) compile-arguments)
  (snail shell process))
 
 ;; ---- Requests ----
@@ -51,20 +63,26 @@
    (arguments (List String))))
 
 (define (usage) (→ String)
-  "usage: snail build [--release] PROJECT BUILD-TARGET | snail run PROJECT RUN-TARGET [ARGUMENT ...]")
+  "usage: snail-scheme build [--release] PROJECT BUILD-TARGET | snail-scheme run PROJECT RUN-TARGET [ARGUMENT ...]")
 
 (define (request (arguments (List String))) (→ Job)
   (match arguments
-    ((Cons _ (Cons root (Cons runtime (Cons action rest))))
-     (let ((tools
-            (new Tools (root root) (runtime runtime) (node (match (environment-variable "NODE")
-                                                             ((Some node) node)
-                                                             ((None) "node"))))))
+    ((Cons _ (Cons root (Cons runtime (Cons toolchain (Cons action rest)))))
+     (let ((tools (tools-of root runtime toolchain)))
        (cond ((string=? action "build") (build-request tools rest))
              ((string=? action "run") (run-request tools rest))
              ((string=? action "resident") (resident-request tools rest))
              (else (panic (usage))))))
     (_ (panic (usage)))))
+
+(define (tools-of (root String) (runtime String) (toolchain String)) (→ Tools)
+  (new Tools
+    (root root)
+    (runtime runtime)
+    (toolchain toolchain)
+    (node (match (environment-variable "NODE")
+            ((Some node) node)
+            ((None) "node")))))
 
 (define (build-request (tools Tools) (arguments (List String))) (→ Job)
   (match arguments
@@ -108,7 +126,7 @@
        (project (resolved project))
        (target "")
        (arguments (Nil))))
-    (_ (panic "usage: snail resident PROJECT"))))
+    (_ (panic "usage: snail-scheme resident PROJECT"))))
 
 ;; A path made absolute against the working directory, without empty or
 ;; "." components, and with each ".." taking the component before it.
@@ -192,7 +210,7 @@
 
 ;; ---- The resident builder ----
 
-;; `snail resident PROJECT` builds for the development service,
+;; `snail-scheme resident PROJECT` builds for the development service,
 ;; (snail shell project service), which writes it one request a line and
 ;; reads one reply a line, each a JSON object:
 ;;
@@ -412,7 +430,7 @@
                       (first "linked")
                       (second (JsonArray (map JsonString (● output linked))))))))
 
-;; A failure's diagnostics as the editor shows them: a compile's, each
+;; A failure's diagnostics as the service reports them: a compile's, each
 ;; naming its source point when it has one, or the build's one.
 
 (define (failure-diagnostics (failure Failure)) (→ (List Json))
@@ -443,35 +461,37 @@
 
 ;; ---- The development service ----
 
-;; The service's setup, from `dev`'s arguments after the command line's
-;; own: its path, the root and the runtime.
+;; The service's setup, from `watch`'s arguments after the command line's
+;; own: its path, the root and the runtimes.
 
-(define (dev-setup (cli String) (root String) (runtime String) (arguments (List String))) (→ Setup)
+(define (watch-setup (cli String) (root String) (runtime String) (toolchain String)
+                     (arguments (List String)))
+  (→ Setup)
   (let ((node (match (environment-variable "NODE")
                 ((Some node) node)
                 ((None) "node"))))
     (match arguments
-      ((Cons editor (Cons client (Cons "--port" (Cons port (Cons project (Nil))))))
+      ((Cons client (Cons "--port" (Cons port (Cons project (Nil)))))
        (new Setup
          (root root)
          (cli cli)
          (runtime runtime)
+         (toolchain toolchain)
          (node node)
-         (editor editor)
          (client client)
          (project (resolved project))
          (port (port-number port))))
-      ((Cons editor (Cons client (Cons project (Nil))))
+      ((Cons client (Cons project (Nil)))
        (new Setup
          (root root)
          (cli cli)
          (runtime runtime)
+         (toolchain toolchain)
          (node node)
-         (editor editor)
          (client client)
          (project (resolved project))
          (port 8000)))
-      (_ (panic "usage: snail dev [--port PORT] PROJECT")))))
+      (_ (panic "usage: snail-scheme watch [--port PORT] PROJECT")))))
 
 (define (port-number (text String)) (→ I32)
   (let ((digits (string->list text)))
@@ -484,6 +504,77 @@
                                  digits)))
           (if (<= number 65535) number (panic "port must be an integer from 0 to 65535")))
         (panic "port must be an integer from 0 to 65535"))))
+
+;; ---- Formatting ----
+
+;; What `format` reads and where it answers: standard input to standard
+;; output, or files, each reported or rewritten if formatting changes it.
+(enum FormatInput
+  (StandardInput)
+  (CheckFiles ((paths (List String))))
+  (WriteFiles ((paths (List String)))))
+
+(record FormatRequest
+  ((width I64)
+   (input FormatInput)))
+
+(define (format-request (arguments (List String))) (→ FormatRequest)
+  (match arguments
+    ((Cons "--width" (Cons columns rest))
+     (match (string->i64 columns)
+       ((Some width)
+        (if (> width 0) (new FormatRequest (width width) (input (format-input rest))) (bad-width)))
+       ((None) (bad-width))))
+    (_ (new FormatRequest (width (format-width)) (input (format-input arguments))))))
+
+(define (bad-width) (→ FormatRequest)
+  (panic "snail-scheme format: --width takes a positive number of columns"))
+
+(define (format-input (arguments (List String))) (→ FormatInput)
+  (match arguments
+    ((Nil) (StandardInput))
+    ((Cons "--check" (Cons path rest)) (CheckFiles (Cons path rest)))
+    ((Cons "--write" (Cons path rest)) (WriteFiles (Cons path rest)))
+    (_ (panic "usage: snail-scheme format [--width COLUMNS] [--write|--check FILE ...]"))))
+
+;; Scalars, not lines, so the end of input invents no final newline.
+
+(define (read-input) (→ String) (! input-port)
+  (let loop ((characters (Nil)))
+    (match (read-char)
+      ((None) (list->string (reverse characters)))
+      ((Some char) (loop (Cons char characters))))))
+
+;; Every changed path, in order. Checking leaves files alone; writing
+;; leaves formatted files alone, timestamps and all.
+
+(define (format-files (width I64) (write? Bool) (paths (List String))) (→ (List String)) (! fs)
+  (let loop ((paths paths) (changed (Nil)))
+    (match paths
+      ((Nil) (reverse changed))
+      ((Cons path rest)
+       (let* ((before (read-file path)) (after (format-source before width)))
+         (if (string=? before after)
+             (loop rest changed)
+             (begin
+               (when write? (write-file path after))
+               (loop rest (Cons path changed)))))))))
+
+;; Every file that needs formatting is reported, not just the first, and
+;; then the command fails as any does, with status 1.
+
+(define (check-files (width I64) (paths (List String))) (→ Unit) (! fs)
+  (match (format-files width #f paths)
+    ((Nil) (unit))
+    (changed
+     (panic (string-join (map (lambda (path) (string-append path ": needs formatting")) changed)
+                         "\n")))))
+
+(define (format-command (request FormatRequest)) (→ Unit) (! input-port output-port fs)
+  (match (● request input)
+    ((StandardInput) (write-string (format-source (read-input) (● request width))))
+    ((CheckFiles paths) (check-files (● request width) paths))
+    ((WriteFiles paths) (format-files (● request width) #t paths) (unit))))
 
 ;; ---- The invocation ----
 
@@ -504,10 +595,15 @@
 
 (define (main)
   (→ Unit)
-  (! host mut clock fs input-port output-port process signals modes tcp tasks hints)
+  (! host mut clock fs input-port output-port process signals tcp tasks hints)
 
   (match (command-line)
-    ((Cons cli (Cons root (Cons runtime (Cons "dev" arguments))))
-     (develop (dev-setup cli root runtime arguments)))
+    ((Cons _ (Cons _ (Cons _ (Cons _ (Cons "compile" arguments))))) (compile-arguments arguments))
+    ((Cons _ (Cons _ (Cons _ (Cons _ (Cons "format" arguments)))))
+     (format-command (format-request arguments)))
+    ((Cons cli (Cons root (Cons runtime (Cons toolchain (Cons "watch" arguments)))))
+     (develop (watch-setup cli root runtime toolchain arguments)))
+    ((Cons _ (Cons root (Cons runtime (Cons toolchain (Cons "lsp" (Nil))))))
+     (serve-language (tools-of root runtime toolchain)))
     (arguments (invoke (request arguments))))
   (unit))

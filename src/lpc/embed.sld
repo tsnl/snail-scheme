@@ -56,13 +56,16 @@
                                            (form "None" (Nil)))
                        (concatenate (map-indexed image-definitions paths)))))
 
-    ;; Path P gives `(Some (Source KEY image-I))`.
+    ;; Path P gives `(Some (new Source (key KEY) (bytes image-I)))`.
     (define (art-entry (first-key I32) (index I64) (path String)) (→ (Pair String Syntax))
       (new Pair (first path)
            (second (form "Some"
-                         (list (form "Source"
-                                     (list (IntegerSyntax (+ (i32->i64 first-key) index))
-                                           (image-name index))))))))
+                         (list (form "new"
+                                     (list (SymbolSyntax "Source")
+                                           (form "key"
+                                                 (list (IntegerSyntax (+ (i32->i64 first-key)
+                                                                         index))))
+                                           (form "bytes" (list (image-name index))))))))))
 
     (define (image-name (index I64)) (→ Syntax)
       (SymbolSyntax (string-append "image-" (show index))))

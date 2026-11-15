@@ -46,7 +46,7 @@
 
     ;; `JSON.stringify`'s escapes: the quote and the backslash, the five
     ;; controls with short forms, and every other control as \u and four
-    ;; lowercase hex digits. A surrogate escapes the same way: a Snail
+    ;; lowercase hex digits. A surrogate escapes the same way: a `snail-scheme`
     ;; String holds scalars, so a surrogate Char, which only `i32->char`
     ;; makes, is always alone, and JavaScript escapes a lone surrogate.
     ;; Everything else, DEL, U+2028 and U+2029 among it, is written as it is.

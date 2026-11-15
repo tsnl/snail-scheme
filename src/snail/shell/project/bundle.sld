@@ -14,8 +14,8 @@
 ;; under .snail/, which a public tree does not use.
 ;;
 ;; (snail shell project service) mounts each browser target at /NAME/ on
-;; an origin apart from the editor's; an application with a server of its
-;; own can mount its bundle at /.
+;; its one origin; an application with a server of its own can mount its
+;; bundle at /.
 (define-library (snail shell project bundle)
   (export
    BuildDirectory
@@ -25,7 +25,6 @@
    BuildPublished
    BuildFailed
    bundle-response
-   bundle-file
    bundle-event)
   (import
    (snail shell project web-app)

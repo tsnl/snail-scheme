@@ -1,0 +1,25 @@
+{
+  "grammars": [
+    {
+      "name": "snail_scheme",
+      "camelcase": "SnailScheme",
+      "title": "snail-scheme",
+      "scope": "source.snail-scheme",
+      "path": ".",
+      "file-types": [
+        "sld",
+        "sls",
+        "scm",
+        "datum"
+      ]
+    }
+  ],
+  "metadata": {
+    "version": "0.1.0",
+    "license": "Apache-2.0",
+    "description": "snail-scheme's syntax, as its reader reads it",
+    "links": {
+      "repository": "https://github.com/tsnl/snail-scheme"
+    }
+  }
+}
