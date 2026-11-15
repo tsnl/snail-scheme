@@ -8,8 +8,8 @@
 ;;
 ;; A debug or release build links each program into one module. A
 ;; development build compiles every target library afresh and assembles
-;; each module in-process (snail shell assembler). The resident compiler
-;; carries no checked code or emitted modules between builds.
+;; each module in-process (snail shell assembler). The compiler carries
+;; no checked code or emitted modules between builds.
 ;;
 ;; The compiler, assembler and linker run in this program. Node runs
 ;; producers through `run` (snail shell process). A build that fails removes

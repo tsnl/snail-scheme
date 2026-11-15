@@ -23,7 +23,7 @@ measurements ask for it.
 | `(entry ((lib) Type))` and the `Application` class | Top-level statements in the script |
 | `(runtime toolchain)` | The `assembler` capability, handled by the target |
 | `artifact-bundle`, the planner (`project/plan.sld`) | A `generate-library` producer that calls the compiler |
-| `snail-scheme watch`, the reload client, relinking | Nothing, for now |
+| `snail-scheme watch`, the reload client, relinking | Nothing, for now (removed) |
 | `snailc`, `-o` | `snail-scheme run FILE` and `build FILE` |
 
 ## The workspace
@@ -106,7 +106,6 @@ There are three targets:
 | `files` | `(snail shell async-files)` | ✓ | ✓ | — |
 | `process`, `signals` | `(snail shell process)` | ✓ | — | — |
 | `tcp`, `udp` | `(snail shell socket)` | ✓ | — | — |
-| `hints` | `(snail shell watch)` | ✓ | — | — |
 | `dom` | `(snail shell dom)` | — | — | ✓ |
 | `page`, `events`, `storage` | `(snail shell page)` | — | — | ✓ |
 | `fetch` | `(snail shell fetch)` | — | — | ✓ |
@@ -204,16 +203,16 @@ That is accepted for now.
 
 - Reuse between builds, and sharing work between a producer and its consumer.
 - Cycle detection across producers.
-- `snail-scheme watch` and live reload. They come back only if they are needed.
+- `snail-scheme watch` and live reload, removed. They come back only if they are needed.
 - Reclaiming the store.
 
 ## Delivery
 
 Each step is a pull request that passes every check on its own.
 
-1. **Drop `watch`.** Remove the development service, `development.sld`,
-   `(snail shell project bundle)`, the reload client and `relinkProgram`, with
-   their tests and chapters.
+1. **Drop `watch`.** Done: the development service, `development.sld`,
+   `(snail shell project bundle)`, the reload client, relinking and file
+   watching (`(snail shell watch)`) are gone, with their tests and chapters.
 2. **The store and manifests.**
    - Every build keeps a module per library, and the `Debug` and `Development`
      modes merge.

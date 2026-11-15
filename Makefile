@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := check
-.PHONY: format check fetch test test-wasmtime test-chez test-browser bootstrap watch site siegework hearsay pages
+.PHONY: format check fetch test test-wasmtime test-chez test-browser bootstrap site siegework hearsay pages
 
 CHEZ ?= scheme
 export CHEZ
@@ -15,9 +15,9 @@ fetch:
 	cargo fetch --locked --manifest-path crates/snail/Cargo.toml
 
 # The formatter's tests, the compiler's unit tests, the examples and test
-# programs, both games' tests, Siegework headless, and the development service.
+# programs, both games' tests, Siegework headless, and the project builds.
 # Bootstrap the command line and build the engine that runs per-library
-# programs before the service tests' startup deadlines begin.
+# programs first.
 test:
 	./snail-scheme build . engine >/dev/null
 	"$(CHEZ)" --script host/chez/load.scm "$(CURDIR)" test
@@ -32,13 +32,11 @@ test-chez:
 	./snail-scheme build . engine >/dev/null
 	SNAIL_STAGE0=chez "$(CHEZ)" --script host/chez/load.scm "$(CURDIR)" test
 
-# Live reload and browser interfaces in headless Chromium, which CI does
+# Browser interfaces in headless Chromium, which CI does
 # not have; CHROMIUM names the browser.
 test-browser:
-	node tests/browser/reload.mjs "$(CURDIR)"
 	node tests/browser/wasm-instance-identity.mjs "$(CURDIR)"
 	node tests/browser/ui.mjs "$(CURDIR)"
-	node tests/browser/ui-reload.mjs "$(CURDIR)"
 	node tests/browser/ui-requests.mjs "$(CURDIR)"
 
 # Rebuilds the command line from the compiler's source on Chez, then to a
@@ -54,11 +52,6 @@ format:
 check:
 	git ls-files -z $(SCHEME_SOURCES) | xargs -0 ./scripts/format-scheme --check
 	$(NIXFMT) --check shell.nix
-
-# The development service for the whole repository: each browser target
-# at http://127.0.0.1:8000/NAME/, relinked as its sources change.
-watch:
-	./snail-scheme watch .
 
 # The root project names each application, with output in build/NAME.
 site: siegework hearsay

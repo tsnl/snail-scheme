@@ -51,6 +51,5 @@ isolation.
 `spawn-instance` starts another instance of the same program, from one of
 its entry points, on a new worker. The host that started the program
 supervises every instance. A child runs under its host's defaults and
-inherits no handlers, because handlers are closures. On a reload, every
-child is stopped and the shared memory is discarded before the program
-relinks.
+inherits no handlers, because handlers are closures. When the program
+stops, every child is stopped and the shared memory is discarded.

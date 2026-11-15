@@ -86,8 +86,7 @@ Only a complete successful presentation commits the next state. A trap leaves
 the preceding checkpoint available through `app_state`. The engine reports
 readiness explicitly after its first complete frame. Since elapsed time is
 input, the application decides how its simulation advances. Each task keeps its
-handlers across waits. Reload lets the root save and return, then closes the
-remaining tasks before relinking. Libraries have no runtime initialization;
+handlers across waits. Libraries have no runtime initialization;
 application state is created by the running entry.
 
 Frames are built from batches of items. The host keeps a batch until its
@@ -254,12 +253,9 @@ program starts. `tests/apps/notes` is the example, and
 `tests/browser/ui.mjs` drives it in Chromium against a server of its
 own.
 
-Both `ui.mjs` and the scene's `host.mjs` delegate loading and replacement to
-`host/browser/application.mjs`. Document applications support development modules,
-periodic saves and live reload through the same transaction as scenes.
-`tests/browser/ui-reload.mjs` covers saved state, direct model handover and rollback
-after a rejected view. Listener identities are never reused after replacement,
-so queued events from an old document cannot invoke a new listener.
+Both `ui.mjs` and the scene's `host.mjs` delegate loading to
+`host/browser/application.mjs`. Document applications support development modules
+and periodic saves as scenes do.
 
 ### Commands and late replies
 
@@ -295,48 +291,6 @@ snapshot and can request again. `tests/programs/ui-checkpoint-wait.sld`
 runs a command that finishes while a checkpoint waits, over the memory
 DOM.
 
-<a id="live-reload"></a>
-
-## Hot reload
-
-This section describes the current browser handover. The
-[proposed durable reload workflow](#proposed-application-processes) would
-carry server and browser data across code replacement through durable
-records instead.
-
-`snail-scheme watch PROJECT` builds each browser target one library at a time, and
-builds it again whenever the project, the standard library or the browser
-host changes, compiling every configured target from current sources. Each page it
-serves ([below](#browser-targets-in-development)) relinks the modules that
-changed, and those after them, without reloading. Each invocation gets a fresh
-scheduler and page context; the application's explicit snapshot crosses to the
-new program:
-
-- as it is, when an explicit `(downcast Save saved)` returns `Some`;
-- through `save` and `restore` when its layout changed. That is the
-  contract a page reload already relies on, so an application whose save
-  is a journal, as Siegework's is, replays the journal under the new code;
-- not at all when the save cannot be restored either: the old program
-  keeps running, and the page offers to start the new one over.
-
-A failed build is shown over the page, and the old program keeps running.
-A changed [linked file](types.md#linked-files) compiles again the library
-that links it, whose module names the new bytes' digest, so the page relinks
-from that module and reads the new file; a file whose digest is unchanged is
-not fetched again. An edit to the file builds again once a published build
-links it. A changed
-stylesheet is fetched again; a changed page or host script reloads the page
-after saving. A public tree holds only regular files and directories
-([projects](projects.md)). The
-[event and reload boundaries](#event-and-reload-boundaries) below define
-checkpoint recovery, acceptance and manifest reconciliation.
-
-Each build runs the producers of generated-library recipes first and
-resolves artifact bundles, as every project build does. A program target
-runs with `snail-scheme run`, outside the service.
-[The development toolchain](toolchain.md) describes how builds stay this
-fast.
-
 ## Task lifetime
 
 The loop is a task of the program's [scheduler](../runtimes/tasks.md).
@@ -351,7 +305,7 @@ any task fails the run and closes the scheduler; `tasks:running` identifies
 the failing task for the report. Normal root completion after initial presentation
 lets children finish: the host turns until no task is live. Root failure
 or return before that acceptance boundary closes the scheduler, forgetting
-the remaining tasks. Explicit reload waits for the root's checkpoint
+the remaining tasks. Stopping waits for the root's checkpoint
 handover before closing it. Repeated stop requests share one handover
 result. This is application lifecycle policy; a task finishing does not
 stop its children.
@@ -370,7 +324,7 @@ input or saved bytes change. A child can use task waits and separately bound
 I/O, but cannot replace the application's checkpoint while its loop saves.
 Read-only seed and canvas dimensions remain available to all tasks.
 
-## Event and reload boundaries
+## Event and save boundaries
 
 `host/browser/runtime.mjs` owns an invocation's queue and storage bindings;
 `application.mjs` owns loading and the replacement transaction. `host.mjs` retains
@@ -388,14 +342,11 @@ owned snapshot for migration. GPU drawing currently uses synchronous screen
 bindings. No import suspends Wasm, so the linear-memory stack of the Rust
 scalar services is never left mid-call.
 
-Reload fences the old queue with `Reload`. Its accepted prefix finishes, the root
-saves and returns, and the runtime closes the remaining tasks. New input
-waits for the replacement. The engine explicitly acknowledges its first completed
-presentation: a scene handles resize and a zero-time frame, while a document
-presents its initial model and startup messages. Until that acknowledgement,
-the old program and handover remain available for rollback. Cold startup, including a retry, finishes before
-a relink may stop it. A live migration never silently discards incompatible
-state; only a cold start may retry without an incompatible saved value.
+Stopping fences the queue with `Reload`. Its accepted prefix finishes, the root
+saves and returns, and the runtime closes the remaining tasks. The engine
+explicitly acknowledges its first completed presentation: a scene handles resize
+and a zero-time frame, while a document presents its initial model and startup
+messages.
 
 After a trap, `app_state` exposes the last complete checkpoint. Serializing it
 runs the old entry in handover-only mode: the shared page lifecycle saves it
@@ -405,65 +356,13 @@ failure also retains its owner so a source fix can resume it.
 A closure kept in the state can retain old code; applications storing functions
 must reconstruct them through save/restore when changing their implementation.
 There are no global value caches to migrate. Keep state that must survive
-replacement in the application's Save; retiring a module runs no code.
-
-The reload client (`host/browser/reload.sld`, bound by `reload-client.mjs`) compares
-manifests and relinks from the first changed module. It serializes relinks and
-keeps only the latest waiting build. A build becomes the page's current build
-only after acceptance. Missed events reconcile against the next complete
-manifest; a refused build is not retried automatically until the developer
-starts over.
-
-## Browser targets in development
-
-`snail-scheme watch` serves the project's browser targets on its own listener,
-beside its `/.snail/` paths ([the project HTTP
-service](toolchain.md#project-http-service)), and its status names each
-published browser target's `url`. `/` lists the targets, and `/NAME/`
-mounts one with
-`(snail shell project bundle)`:
-
-| Request | Result |
-| --- | --- |
-| `/NAME/` | The latest build's `index.html`, with `<base href="/NAME/.snail/builds/EPOCH/">` first, or after its doctype, then the build's manifest and the reload client. |
-| `/NAME/.snail/builds/EPOCH/PATH` | `PATH` of that build's generation, while it is retained; 404 after. |
-| `/NAME/.snail/builds/.snail-store/sha256/DIGEST` | An object of the store the builds share, where a manifest's `../.snail-store/` resolves; cached for good. |
-| `/NAME/.snail/events` | An event stream that tells the target's pages of its builds. |
-| `/NAME/.snail/reload.mjs`, `reload.wasm` | The reload client, from the browser host and the development tools. |
-| `/NAME/PATH` | `PATH` of the latest build's generation. |
-
-The base pins a page to its build: its scripts, styles and `modules.json`
-resolve under that build, and the modules that names in the store beside
-the builds, by digest, so a page never links one build's manifest with
-another's modules, and loading `/NAME/` again gives the newest build. A
-build's files never change. The service keeps
-the latest publication and the one before it, so a page loading as a build
-lands still finds its own. Everything the server adds lives under
-`.snail/`, which a public tree does not use. A target's paths answer only
-GET and HEAD for the service's own Host, so a page of another site that
-rebinds a name to the address reads nothing.
-
-A page served this way reloads as [above](#hot-reload). Its manifest is
-`(base BASE) (files (FILE DIGEST) ...) (modules (LIBRARY DIGEST) ...)`: the
-build's base, the digest of each of its files but `modules.json`, and each
-module, in program order, with the digest of its bytes, which names the
-object holding it. The events stream carries `(building M)` while an
-attempt is under way, `(built MILLISECONDS M)` when one is published and
-`(failed MESSAGE M)` when one fails, each with the manifest `M` of the
-target's latest published build; a stream's first event is the current
-one, so a page that reconnects hears of the build it missed. The client,
-`host/browser/reload.sld`, compares each manifest with the one its page
-was built from: it relinks the program from the first module that changed,
-reading the new build's `modules.json` under its base, so the program's
-later reads come from that build too; it fetches a changed stylesheet again
-from the new base; and it reloads the page, after saving, for any other
-changed file, which gives the newest build's page.
+a page reload in the application's Save.
 
 <a id="proposed-application-processes"></a>
 
-## Proposed durable reload
+## Proposed durable state
 
-Durable application data and browser reload remain
+Durable application data remains
 [application work](https://github.com/tsnl/snail-scheme/issues/458). Process
 replacement alone preserves no managed state; killing a process cannot promise
 cleanup or a final commit.
@@ -484,19 +383,3 @@ and output directories, and independent browser stores separately named. One
 concrete server database binding is sufficient; browser storage needs its own
 transaction and commit proof. The existing save/restore implementation remains
 until the replacement is reviewed and tested.
-
-### Delivering new browser code
-
-The HTTP bundle helper, `(snail shell project bundle)`, serves a build's files
-and pins a page's assets to its build: a request for B never returns C's bytes
-([above](#browser-targets-in-development)), and gives each page its build's
-manifest; the service's events give a page that reconnects the latest one.
-Proposed: keep the server origin stable across restarts, and when B is
-unavailable, reconcile and retry using the latest manifest. Network failures and
-incompatible stored data are distinct; neither permits clearing data silently.
-
-Advertise a bundle only after its server can serve it, as the service names a
-browser target's `url` only once a build of it is published. Multiple
-frontends use separate prefixes and manifests. Production serving omits development endpoints.
-Compilation does not prove client/server API or durable-schema compatibility.
-Application browser windows are ordinary clients of their server.

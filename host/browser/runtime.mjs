@@ -80,9 +80,8 @@ export function applicationEntry(program) {
           tasks: taskExports(program)};
 }
 
-// Imports stay attached to the application: kept library instances retain
-// these functions on relink. Async operations capture their invocation before
-// awaiting.
+// Imports stay attached to the application. Async operations capture their
+// invocation before awaiting.
 export function createRuntime({size = () => [960, 640], seed = 1, load = async () => undefined,
                                store = async () => {}, frames = null, initial = () => [[RESIZE, ...size()], [FRAME, 0]], reportError = () => {}, warn = console.warn} = {}) {
   let current = null, stopping = null;

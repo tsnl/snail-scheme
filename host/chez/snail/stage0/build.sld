@@ -1,7 +1,7 @@
 ;; Stage 0's driver. Its one product is the stage 1 command line,
 ;; bootstrap/cli.sld, which `bootstrap` builds from its source and checks
-;; to a fixpoint ("Bootstrap"); everything else, the engine, the reload
-;; client and every tool, the command line builds as an ordinary target of
+;; to a fixpoint ("Bootstrap"); everything else, the engine and every
+;; tool, the command line builds as an ordinary target of
 ;; the repository's project. The test harness (tests/run.scm) also compiles
 ;; with these functions, so they take any source: a compile runs the
 ;; command line's `compile MODE SOURCE OUTPUT GENERATED DIRECTORY ...`, or
@@ -69,10 +69,10 @@
             (path-join root "host/native/run-snail.mjs")
             program))
 
-    ;; The host modules only Node provides; `run-wasm` refuses a program
-    ;; that imports one (crates/snail/src/program.rs).
+    ;; The host modules only Node provides; `run-wasm` links each function
+    ;; of one as a trap (crates/snail/src/program.rs).
     (define node-hosted-modules
-      '("snail.runtime.native.socket" "snail.runtime.native.process" "snail.runtime.native.files"))
+      '("snail.runtime.native.socket" "snail.runtime.native.process"))
 
     (define (node-hosted? imports)
       (and (pair? imports)

@@ -355,7 +355,7 @@ the extension must not split arbitrary identifier strings after parsing.
 ## Toolchain terms
 
 These names distinguish source organization, compilation and execution.
-Project descriptions, builds, `snail-scheme watch` and `snail-scheme lsp` are implemented.
+Project descriptions, builds and `snail-scheme lsp` are implemented.
 The [application process and persistence workflow](applications.md#proposed-application-processes)
 remains proposed.
 
@@ -367,7 +367,6 @@ remains proposed.
 | Artifact bundle | The complete output of a browser build target, resolved by name during compilation. |
 | Run target | A named command for running a program build with its arguments. |
 | Build attempt | One invocation of project building, with an ID, diagnostics and a success/failure result. |
-| Development session | A running `snail-scheme watch`: file watching, persistent compilation and the browser targets' builds and reloads. |
 | Application process | An OS process running a program. A browser frontend is a client of a server process, not a run target. |
 | Runtime | The scheduler and effect bindings executing a program's tasks. It is distinct from compilation and the OS process. |
 | Host | The platform environment, such as Node or a browser, providing APIs to the runtime. |
@@ -377,9 +376,9 @@ remains proposed.
 
 **Incremental compilation** reuses compiler work. **Restart** starts a fresh
 application process; the application can reconstruct working state from
-persisted data. **Hot reload** (also called live reload) replaces
-running code while preserving application data under a stated contract.
-Today's browser uses state handover; the proposal uses durable typed tables
-and disposable cached views, recomputed on demand after ordinary startup.
+persisted data. **Hot reload** (also called live reload) would replace
+running code while preserving application data under a stated contract; it is
+not implemented. The proposal uses durable typed tables and disposable cached
+views, recomputed on demand after ordinary startup.
 Recompiling does not by itself preserve application state, and
 moving execution into a worker does not supply a preservation contract.

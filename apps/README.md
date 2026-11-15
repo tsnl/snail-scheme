@@ -7,11 +7,8 @@ From the repository root, `./snail-scheme build --release . NAME` selects an app
 and packages it with the shared browser host from `host/browser` into
 `build/NAME`. `make site` builds both applications this way.
 
-`./snail-scheme watch .` builds both applications one library at a time into `build`,
-and serves them at <http://127.0.0.1:8000/siegework/> and
-<http://127.0.0.1:8000/hearsay/>. It relinks
-each rebuilt module into the open page, keeping its state. Hearsay's art comes
-from `generate-library` recipes; its producers run in every build.
+Any static HTTP server serves an application's output directory. Hearsay's art
+comes from `generate-library` recipes; its producers run in every build.
 
 | Application | Purpose |
 | --- | --- |
