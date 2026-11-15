@@ -21,7 +21,7 @@ measurements ask for it.
 | Build and run targets, `args` | The script, and arguments on the command line |
 | `library-roots` | The workspace's `src/` |
 | `(entry ((lib) Type))` and the `Application` class | Top-level statements in the script |
-| `(runtime toolchain)` | `--target`, checked against the script's capability effects |
+| `(runtime toolchain)` | The `assembler` capability, handled by the target |
 | `artifact-bundle`, the planner (`project/plan.sld`) | A `generate-library` producer that calls the compiler |
 | `snail-scheme watch`, the reload client, relinking | Nothing, for now |
 | `snailc`, `-o` | `snail-scheme run FILE` and `build FILE` |
@@ -71,15 +71,57 @@ Each build names its runtime target explicitly, with `--target`, such as
 
 What a platform offers is split into capability effects, one for each service,
 such as `output-port`, `input-port`, the page's document, sockets or processes.
-There is no marker effect for a platform as a whole. A target provides a set of
-capabilities. The effect row the checker infers for the script must fit within
-that set, or the build fails and names each capability the target lacks. A script
-whose row uses the assembler's services links with the toolchain runtime.
+There is no marker effect for a platform as a whole.
+
+A target is a set of implicit handlers, one for each capability it provides.
+The build wraps the script in its target's handlers, as the host wraps a program
+in the task scheduler today, so the script performs `write-string` and the
+target's `output-port` handler answers. Any effect left in the row after those
+handlers is a build error naming each capability the target lacks. An effect the
+program handles itself, such as the compiler's `compile`, never reaches the
+target.
 
 Code meant for several targets asks only for the capabilities it uses. A library
-that writes text needs `output-port`, not "Node", so any target that provides an
-output port can run it. The exact set of capability effects, and which target
-provides which, are still to be decided.
+that writes text needs `output-port`, not "Node", so any target whose handlers
+include an output port can run it. A capability's library declares only the
+effect and its operations; how a target answers them belongs to the target's
+handlers, not to a `default` in the library.
+
+There are three targets:
+
+- `node`, the program on Node (`host/native`);
+- `wasmtime`, the program on the native executable `build/snail run-wasm`
+  (`crates/snail`);
+- `browser`, the program in a page (`host/browser`).
+
+| Capability | Library | `node` | `wasmtime` | `browser` |
+| --- | --- | --- | --- | --- |
+| `output-port` | `(snail core io)` | stdout | stdout | the console |
+| `input-port` | `(snail core io)` | stdin | stdin | — |
+| `fs` | `(snail core io)` | ✓ | ✓ | — |
+| `clock` | `(snail core io)` | ✓ | ✓ | ✓ |
+| `tasks` | `(snail shell task)` | ✓ | ✓ | ✓ |
+| `resource` | `(snail shell resource)` | ✓ | ✓ | ✓ |
+| `wasm` | `(snail shell wasm)` | ✓ | ✓ | ✓ |
+| `files` | `(snail shell async-files)` | ✓ | ✓ | — |
+| `process`, `signals` | `(snail shell process)` | ✓ | — | — |
+| `tcp`, `udp` | `(snail shell socket)` | ✓ | — | — |
+| `hints` | `(snail shell watch)` | ✓ | — | — |
+| `dom` | `(snail shell dom)` | — | — | ✓ |
+| `page`, `events`, `storage` | `(snail shell page)` | — | — | ✓ |
+| `fetch` | `(snail shell fetch)` | — | — | ✓ |
+| `screen` | `(snail shell app)` | — | — | ✓ |
+| `assembler` | `(snail shell assembler)` | ✓ | ✓ | — |
+
+The table states the rule the build checks, so changing what a host provides
+means changing this table and the target's handlers together. It replaces
+today's trapping stand-ins: a program that uses `tcp` fails to build for
+`wasmtime` instead of trapping when it connects.
+
+The assembler is a capability too, `assembler`, which `node` and `wasmtime`
+provide. Its handler lives in the runtime that includes the assembler's services,
+so a script whose row has `assembler` links with that runtime, and any other
+links with the smaller one.
 
 ## Commands
 
@@ -180,8 +222,9 @@ Each step is a pull request that passes every check on its own.
    - Targets still come from `project.datum`.
 3. **Scripts and `run`/`build FILE`.**
    - Top-level statements, and resolution under `src/`.
-   - The shared build flags, with `--target` checked against the capability
-     effects the script uses.
+   - The shared build flags. Each `--target` supplies implicit handlers for
+     its capabilities, which replace the libraries' `default`s, and a
+     capability left unhandled fails the build.
    - The output path comes from the script's path.
    - `snailc` and `-o` go.
 4. **Applications become scripts.**
