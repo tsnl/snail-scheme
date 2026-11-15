@@ -23,7 +23,7 @@ Import sets may use `only`, `except`, `prefix` and `rename`.
   (write-line (show (fibonacci 30))))
 ```
 
-`src/` is always on the search path. `./snail-scheme run . snailc run -I DIR program.sld` adds more.
+A script's imports resolve under the `src/` of its workspace, the nearest folder above it that holds one, then the standard libraries'.
 
 A library file may instead hold a `generate-library` recipe: a program whose
 value is the library's `define-library` form, as a `Syntax` from
@@ -191,13 +191,16 @@ as much. These are scalar-key microbenchmarks, not compiler-wide or object-key
 performance claims. The LRU capacity fits every key, so eviction pressure is not
 measured. Forced GC runs outside timing, and eventual collection of discarded
 tables is not measured. [Raw samples and artifact hashes](measurements/function-cache-20261113.json)
-include an independent-process confirmation. Reproduce after building the
-compiler:
+include an independent-process confirmation. They were taken with one
+linked module from `snailc`, since removed:
 
 ```sh
 ./snail-scheme run . snailc compile -o build/function-cache.wasm tests/benchmarks/function-cache.sld
 taskset -c 2 node --no-warnings --expose-gc scripts/benchmark-cache.mjs build/function-cache.wasm
 ```
+
+Once release builds link a program into one module,
+`./snail-scheme build --target node --release` makes that module again.
 
 ## Proposed surface design
 

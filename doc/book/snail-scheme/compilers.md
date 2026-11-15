@@ -26,11 +26,11 @@ pure functions. The emitter uses a locally owned mutable `Module` to collect
 Wasm declarations and intern types. Neither representation requires `Ref`.
 
 Project builds compile each library to a module of its own and link them
-when the program loads; stage 0 and `snailc` link the complete program with
+when the program loads; stage 0 links the complete program with
 the Rust scalar services into one module. The same checking and preparation
 contracts serve both.
 Start with `examples/fibonacci.sld`, inspect its output with
-`./snail-scheme run . snailc wat examples/fibonacci.sld`, then follow the passes
+`./snail-scheme wat examples/fibonacci.sld`, then follow the passes
 below.
 
 ## The passes
@@ -458,7 +458,7 @@ a browser cache them for good.
 
 | Path | Responsibility |
 | --- | --- |
-| `src/snail/shell/compiler/driver.sld` | Typed source invocation shared by both hosts, `compile-arguments`: a compile that fails, or that needs an input after publishing its request, exits with status 1. The command line's `compile` action and Chez's `compile` mode call it; `tools/snailc.sld` calls it in-process. |
+| `src/snail/shell/compiler/driver.sld` | Typed source invocation shared by both hosts, `compile-arguments`: a compile that fails, or that needs an input after publishing its request, exits with status 1. The command line's `compile` action and Chez's `compile` mode call it; the command line's `wat` uses the same compiler. |
 | `host/chez/load.scm` | Chez's unwind boundary, which turns a failure into the same status. |
 | `crates/snail/` | `build/snail`, a native executable embedding wasmtime, which runs programs that need only WASI, linked files and module loading by `run-snail.mjs`'s protocol, the compiled compiler among them, when `SNAIL_ENGINE=wasmtime`; it precompiles the compiler to a `.cwasm`. See [the bootstrap](bootstrap.md#the-native-executable). |
 | `host/chez/snail/stage0/build.sld` | The bootstrap of the command line, standalone generated libraries, the test harness's compiles and the native assembler/linker entry point. Each compile has private scratch; rebuilding the command line holds `build/lock`. |

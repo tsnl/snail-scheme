@@ -32,13 +32,13 @@ The root `project.datum` describes the whole repository, with `siegework` and
 the repository: [`editors/zed`](editors/zed) and [`editors/vscode`](editors/vscode)
 are extensions for Zed and VS Code.
 
-Single source files, outside any project, go through `snailc`, a program of
-the root project:
+A script is a source file run as it is, for an explicit target; its imports
+resolve under the `src/` of the nearest folder above it that holds one:
 
 ```sh
-./snail-scheme run . snailc run examples/fibonacci.sld
-./snail-scheme run . snailc compile -o build/fibonacci.wasm examples/fibonacci.sld
-./snail-scheme run . snailc wat examples/effects.sld
+./snail-scheme run --target node examples/fibonacci.sld
+./snail-scheme build --target wasmtime --release examples/fibonacci.sld
+./snail-scheme wat examples/effects.sld
 ```
 
 Chibi Scheme, Rust and Node 26.4 or later are required. `shell.nix` provides

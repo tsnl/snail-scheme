@@ -10,10 +10,4 @@
                 (public "apps/hearsay/public")))
  (build-target highlight-book
                (program
-                (entry "tools/highlight-book.sld")))
- (build-target snailc
-               (program
-                (entry "tools/snailc.sld")
-                (runtime toolchain)))
- (run-target snailc
-             (run snailc)))
+                (entry "tools/highlight-book.sld"))))

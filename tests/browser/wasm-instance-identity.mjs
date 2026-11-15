@@ -2,42 +2,38 @@
 // Chromium with the browser's real scalar imports and WebAssembly instances.
 import assert from 'node:assert/strict';
 import {execFile} from 'node:child_process';
-import {mkdtemp, readFile, rm} from 'node:fs/promises';
+import {readFile} from 'node:fs/promises';
 import {createServer} from 'node:http';
-import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {promisify} from 'node:util';
 import {openBrowser, until} from './chromium.mjs';
 
 const [root, screenshot] = process.argv.slice(2);
-const directory = await mkdtemp(join(tmpdir(), 'snail-wasm-instance-identity-'));
-const binary = join(directory, 'test.wasm');
-await promisify(execFile)(join(root, 'snail-scheme'),
-  ['run', root, 'snailc', 'compile', '-o', binary, join(root, 'tests/programs/wasm-instance-identity.sld')]);
+const {stdout} = await promisify(execFile)(join(root, 'snail-scheme'),
+  ['build', '--target', 'node', join(root, 'tests/programs/wasm-instance-identity.sld')]);
+const output = stdout.trim();
 const expected = await readFile(join(root, 'tests/programs/wasm-instance-identity.out'), 'utf8');
 const page = `<!doctype html><title>Instance identity</title><pre></pre>
 <script type="module">
-import {createWasi, instantiate, wasmImports, runMain} from './load.mjs';
+import {createWasi, linkProgram, programExports, runMain, wasmImports} from './load.mjs';
 const output = document.querySelector('pre');
 try {
   const wasi = createWasi({print: (fd, line) => { output.textContent += line + '\\n'; }});
-  const program = {runtime: null, host: {}};
-  program.host['snail.runtime.wasm'] = wasmImports(() => program);
-  const module = await WebAssembly.compile(await (await fetch('./test.wasm')).arrayBuffer());
-  const instance = await instantiate(module, {...wasi.getImportObject(), ...program.host});
-  program.runtime = instance;
-  wasi.initialize(instance);
-  runMain(instance.exports);
+  const read = async file => new Uint8Array(await (await fetch(file)).arrayBuffer());
+  let program;
+  const host = {'snail.runtime.wasm': wasmImports(() => program)};
+  program = await linkProgram(read, './wasm-instance-identity.manifest.datum', wasi, host);
+  runMain(programExports(program));
 } catch (error) { document.body.dataset.error = String(error); }
 document.body.dataset.finished = 'true';
 </script>`;
-const files = new Map([
-  ['/', ['text/html', Buffer.from(page)]],
-  ['/load.mjs', ['text/javascript', await readFile(join(root, 'host/browser/load.mjs'))]],
-  ['/test.wasm', ['application/wasm', await readFile(binary)]],
-]);
-const server = createServer((request, response) => {
-  const file = files.get(request.url);
+// The page, the loader, and the build's manifest and store, read as the
+// program asks for them.
+const server = createServer(async (request, response) => {
+  const path = decodeURIComponent(new URL(request.url, 'http://page').pathname);
+  const file = path === '/' ? ['text/html', Buffer.from(page)]
+    : path === '/load.mjs' ? ['text/javascript', await readFile(join(root, 'host/browser/load.mjs'))]
+    : await readFile(join(output, path)).then(bytes => [path.endsWith('.datum') ? 'text/plain' : 'application/wasm', bytes], () => null);
   response.writeHead(file ? 200 : 404, file ? {'content-type': file[0]} : {});
   response.end(file?.[1]);
 });
@@ -54,5 +50,4 @@ try {
   browser.close();
   server.closeAllConnections();
   await new Promise(resolve => server.close(resolve));
-  await rm(directory, {recursive: true, force: true});
 }

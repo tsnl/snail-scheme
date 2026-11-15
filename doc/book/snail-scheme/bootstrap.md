@@ -3,8 +3,8 @@
 The compiler is a `snail-scheme` program that compiles itself, inside the
 command line, `bootstrap/cli.sld`, the one program stage zero builds, which
 also holds the engine that runs per-library programs. Everything else,
-`snailc` and the book's highlighter among them, the command line builds as targets of the repository's
-`project.datum`, as `clang` builds `lli`. Chez Scheme
+scripts and the book's highlighter among them, the command line builds, as
+`clang` builds `lli`. Chez Scheme
 runs that same source for stage zero through a deliberately small host
 adapter. This does not make `snail-scheme` an R6RS or R7RS implementation:
 only the compiler's explicit source closure has an erased host equivalent.

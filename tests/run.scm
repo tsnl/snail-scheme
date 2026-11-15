@@ -395,6 +395,12 @@
     (or (zero? (caddr result))
         (report "project run" "failed" (string-append (car result) (cadr result))))))
 
+(define (check-scripts root)
+  (let ((result (capture-process
+                 (list "node" "--no-warnings" (path-join root "tests/scripts.mjs") root))))
+    (or (zero? (caddr result))
+        (report "scripts" "failed" (string-append (car result) (cadr result))))))
+
 (define (check-project-failures root)
   (let ((result (capture-process
                  (list "node" "--no-warnings" (path-join root "tests/project-failures.mjs") root))))
@@ -719,6 +725,7 @@
                                   (lambda () (check-host-agreement root))
                                   (lambda () (check-project-builds root))
                                   (lambda () (check-project-run root))
+                                  (lambda () (check-scripts root))
                                   (lambda () (check-project-failures root))
                                   (lambda () (check-project-artifacts root))
                                   (lambda () (check-project-resources root))
