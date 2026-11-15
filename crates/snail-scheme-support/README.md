@@ -35,10 +35,11 @@ The crate is what lies beneath `(snail core …)`, and it can shrink:
   about 900 lines, move once `snail-scheme` has load and store primitives on
   memory 0 to call WASI through externs itself. Those primitives generalize
   the shared-memory layer of #553.
-- **Float printing and the transcendental math move into `snail-scheme` too,**
-  so no foreign function is pure and every `extern` can declare
-  `unsafe-extern` ([scripts](../../doc/book/snail-scheme/scripts.md)).
+- **Float printing and parsing move into `snail-scheme` too,** so no foreign
+  function is pure and every `extern` can declare `unsafe-extern`
+  ([scripts](../../doc/book/snail-scheme/scripts.md)).
 
 The Unicode properties and case mapping have moved already: the crate's
 `unicode-tables` example (`make unicode-tables`) writes them as constant
-arrays, `(snail shell text unicode)`, from Rust's Unicode properties.
+arrays, `(snail shell text unicode)`, from Rust's Unicode properties. So has
+the transcendental math, `(snail shell math)`, ported from fdlibm.
