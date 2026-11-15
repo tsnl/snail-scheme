@@ -1,12 +1,12 @@
 // One loader and replacement transaction for every browser application.
 // Engines supply device imports and reset their presentation before each run.
-import {createWasi, instantiate, linkedFileImports, linkProgram, relinkProgram} from './load.mjs';
+import {createWasi, instantiate, linkedFileImports, linkProgram} from './load.mjs';
 import {applicationEntry, HIDDEN} from './runtime.mjs';
 
 export const running = [];
 
 export async function startPage(application, url) {
-  Object.assign(application, {program: null, errors: [], capture: null});
+  Object.assign(application, {program: null, errors: []});
   const modules = document.querySelector('meta[name="snail-modules"]')?.content;
   if (modules) await linkApplication(application, modules, fetchRead(modules));
   else await instantiateApplication(application, url);
@@ -68,56 +68,12 @@ function fetchRead(base) {
 
 // Lines the program writes go to the console. The last twenty it writes to
 // standard error are kept in `errors`, since they explain a trap: a panic
-// prints its message before trapping. While a relink runs, they are also
-// captured for its error.
+// prints its message before trapping.
 function printer(application) {
   return (fd, text) => {
     if (fd !== 2) { console.log(text); return; }
     console.error(text);
     application.errors.push(text);
     application.errors.splice(0, application.errors.length - 20);
-    application.capture?.push(text);
   };
-}
-
-// ---- Relinking ----
-
-// A full page reload first lets every loop save and return.
-export function saveAll() {
-  return Promise.all(running.map(async application => { await application.startup; return application.runtime.stop(); }));
-}
-
-// `manifest` is the modules.json of the build to relink from, which the
-// reload client names; each program reads its files relative to it from
-// then on.
-export async function relinkAll(from, fresh, manifest) {
-  for (const application of running) await relinkApplication(application, from, fresh, manifest);
-}
-
-// No `snail-scheme` stack remains while modules relink. Keep the old program and its
-// immutable handover until the candidate finishes its initial presentation.
-// Rejected migration restarts the old entry; host resources outlive both.
-async function relinkApplication(application, from, fresh, manifest) {
-  await application.startup;
-  const {runtime, program: previous} = application;
-  application.capture = [];
-  const {state, saved} = await runtime.stop();
-  let candidate = null;
-  try {
-    const program = await relinkProgram(previous, from, manifest, fetchRead(manifest));
-    application.reset();
-    candidate = runtime.start(applicationEntry(program), fresh ? null : state, {restore: fresh ? null : saved});
-    await candidate.ready.promise;
-    application.program = program;
-  } catch (error) {
-    if (candidate) await candidate.done;
-    application.reset();
-    const rollback = runtime.start(applicationEntry(previous), state, {restore: saved});
-    // A failed rollback remains the current run. Keep its checkpoint for
-    // the next repair, just as after a cold first-frame failure.
-    try { await rollback.ready.promise; } catch { await rollback.done; }
-    throw new Error(application.capture.join('\n') || error.message);
-  } finally {
-    application.capture = null;
-  }
 }

@@ -417,15 +417,6 @@
     (or (zero? (caddr result))
         (report "project artifacts" "failed" (string-append (car result) (cadr result))))))
 
-(define (check-project-development root)
-  (let ((result (capture-process (list "node"
-                                       "--no-warnings"
-                                       "--max-semi-space-size=384"
-                                       (path-join root "tests/project-development.mjs")
-                                       root))))
-    (or (zero? (caddr result))
-        (report "project development" "failed" (string-append (car result) (cadr result))))))
-
 ;; `snail-scheme lsp` answers an editor for a project of its own.
 (define (check-language-server root)
   (let ((result (capture-process
@@ -454,24 +445,6 @@
                  (list "node" "--no-warnings" (path-join root "tests/launcher.mjs") root))))
     (or (zero? (caddr result))
         (report "launcher" "failed" (string-append (car result) (cadr result))))))
-
-(define (check-project-bundles root)
-  (let ((result (capture-process
-                 (list "node" "--no-warnings" (path-join root "tests/project-bundles.mjs") root))))
-    (or (zero? (caddr result))
-        (report "project bundles" "failed" (string-append (car result) (cadr result))))))
-
-(define (check-project-attempts root)
-  (let ((result (capture-process
-                 (list "node" "--no-warnings" (path-join root "tests/project-attempts.mjs") root))))
-    (or (zero? (caddr result))
-        (report "project attempts" "failed" (string-append (car result) (cadr result))))))
-
-(define (check-project-reload root)
-  (let ((result (capture-process
-                 (list "node" "--no-warnings" (path-join root "tests/project-reload.mjs") root))))
-    (or (zero? (caddr result))
-        (report "project reload" "failed" (string-append (car result) (cadr result))))))
 
 (define (check-tcp root)
   (let ((result (capture-process (list "node" "--no-warnings" (path-join root "tests/tcp.mjs")))))
@@ -749,14 +722,10 @@
                                   (lambda () (check-project-failures root))
                                   (lambda () (check-project-artifacts root))
                                   (lambda () (check-project-resources root))
-                                  (lambda () (check-project-development root))
-                                  (lambda () (check-project-attempts root))
-                                  (lambda () (check-project-bundles root))
                                   (lambda () (check-launcher root))
                                   (lambda () (check-language-server root))
                                   (lambda () (check-tree-sitter root))
                                   (lambda () (check-vscode root))
-                                  (lambda () (check-project-reload root))
                                   (lambda () (check-tcp root))
                                   (lambda () (check-udp root))
                                   (lambda () (check-type-ids root))

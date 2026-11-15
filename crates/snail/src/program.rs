@@ -418,10 +418,9 @@ fn link_module(
 // ---- Programs this host does not run ----
 
 /// The host modules only Node provides.
-pub const NODE_ONLY: [&str; 3] = [
+pub const NODE_ONLY: [&str; 2] = [
     "snail.runtime.native.socket",
     "snail.runtime.native.process",
-    "snail.runtime.native.files",
 ];
 
 /// The module in `file`, compiled. A `.cwasm` file is machine code
@@ -434,8 +433,8 @@ pub fn compile_module(engine: &Engine, file: &Path) -> wasmtime::Result<Module> 
 }
 
 /// Each function `module` imports of what only Node provides, as one that
-/// traps when it is called, saying so: the command line imports sockets
-/// and processes for `watch` and `run`, and its `compile` calls neither,
+/// traps when it is called, saying so: the command line imports processes
+/// for `run`, and its `compile` calls none,
 /// so it compiles here. Stage 0 runs a program that does call them on
 /// Node, having asked `snail imports`; a module loaded while the program
 /// runs gets the same stand-ins (modules.rs).

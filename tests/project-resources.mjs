@@ -7,11 +7,7 @@
 // browser target each place them at store/sha256/DIGEST in their output;
 // the program prints the bytes of one, read in a task, natively and
 // through the browser host's loader fetching the page's files over HTTP,
-// which never fetches the file the program does not read. A development
-// build places the file in the store its generations share, seen from
-// outside `snail-scheme watch` (tests/development-service.mjs): once the file is
-// edited, the next Build compiles the library that links it and its
-// importer, whose manifest names the new bytes under their own digest.
+// which never fetches the file the program does not read.
 import assert from 'node:assert/strict';
 import {execFile} from 'node:child_process';
 import {createHash} from 'node:crypto';
@@ -22,7 +18,6 @@ import {join} from 'node:path';
 import {promisify} from 'node:util';
 import {createWasi, instantiate, linkedFileImports, runMain} from '../host/browser/load.mjs';
 import {createTasks, taskExports} from '../host/browser/tasks.mjs';
-import {startDevelopment} from './development-service.mjs';
 
 const execute = promisify(execFile), root = process.argv[2];
 const project = await mkdtemp(join(tmpdir(), 'snail-project-resources-'));
@@ -30,9 +25,8 @@ const build = target => execute(join(root, 'snail-scheme'), ['build', project, t
 const run = path => execute(process.execPath, ['--no-warnings', join(root, 'host/native/run-snail.mjs'), path]);
 const write = async (name, contents) => { await mkdir(join(project, name, '..'), {recursive: true}); await writeFile(join(project, name), contents); };
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
-const hero = Buffer.from([1, 2, 3, 255]), villain = Buffer.from([7]), edited = Buffer.from([9, 8]);
+const hero = Buffer.from([1, 2, 3, 255]), villain = Buffer.from([7]);
 const resource = (directory, bytes) => readFile(join(directory, 'store', 'sha256', digest(bytes)));
-const shared = (directory, bytes) => readFile(join(directory, '..', '.snail-store', 'sha256', digest(bytes)));
 
 // The browser host fetches a static page's files relative to its module,
 // so serve the output as a page's server would and read through it. The
@@ -94,24 +88,6 @@ try {
   await assert.rejects(build('cli'), /sprites\.sld:\d+:\d+: the library assets\.sprites links art\/hero\.bin, but there is no file at /);
   await write('src/assets/art/hero.bin', hero);
 
-  const service = await startDevelopment(root, project);
-  try {
-    const output = (await service.settled(0)).published.targets.find(target => target.name === 'cli');
-    assert.deepEqual(await shared(output.directory, hero), hero, 'a development build places the file in the shared store');
-    const manifest = JSON.parse(await readFile(join(output.directory, 'modules.json'), 'utf8'));
-    assert.equal(manifest.store, '../.snail-store/');
-    assert.deepEqual(manifest.files.map(file => [file.digest, file.size]).sort(),
-                     [[digest(hero), hero.length], [digest(villain), villain.length]].sort(), 'the manifest names each object with its size');
-    assert.equal((await run(join(output.directory, 'modules.json'))).stdout, '1,2,3,255\n');
-    await write('src/assets/art/hero.bin', edited);
-    const next = (await service.rebuilt()).published.targets.find(target => target.name === 'cli');
-    assert.equal(next.compiled, manifest.modules.length, 'a resource edit recompiles every module');
-    assert.deepEqual(await shared(next.directory, edited), edited, 'the store holds the new bytes');
-    assert.deepEqual(await shared(next.directory, hero), hero, 'and still the old');
-    assert.equal((await run(join(next.directory, 'modules.json'))).stdout, '9,8\n');
-    const {code, signal, stderr} = await service.stop();
-    assert.deepEqual({code, signal}, {code: 0, signal: null}, stderr);
-  } finally { await service.stop(); }
   console.log('project resources passed');
 } finally {
   await rm(project, {recursive: true, force: true});

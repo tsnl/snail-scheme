@@ -10,7 +10,6 @@ instances, which will talk through queues and shared memory
 
 The **host** is the surrounding platform, such as Node or a browser. A runtime
 owns language tasks; an OS process owns its platform execution environment.
-The resident compiler process handles build requests independently of the application runtime.
 The [toolchain terms](../snail-scheme/terms.md#toolchain-terms) keep these boundaries
 distinct in the project and development design.
 
@@ -18,7 +17,7 @@ The [task contract](contract.md) specifies the replacement for
 the actor API. It separates scheduling, handler installations and the
 values tasks hold. The actor request/reply API has been removed. [Task operations](tasks.md)
 run in the CLI and GUI. [Applications](../snail-scheme/applications.md) describes
-checkpoint handover and reload on that runtime.
+checkpoint handover on that runtime.
 [Values](../snail-scheme/values.md) describes sharing, mutation and resources.
 The [socket effects](networking.md) bind typed, interceptable TCP and UDP operations
 to native Node resources, with cancellation and shutdown owned by the runtime, and the

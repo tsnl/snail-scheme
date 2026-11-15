@@ -41,16 +41,10 @@ present() {
   done < "$1"
 }
 
-# Runs the command line. The final step execs it instead, so a signal sent
-# to `snail-scheme`, such as a test stopping `watch`, reaches it.
-cli() {
-  "${NODE:-node}" --no-warnings "$root/host/native/run-snail.mjs" "$cli" "$root" "$runtime" "$toolchain" "$@"
-}
-
 case ${1:-} in
   -h|--help) cat "$root/scripts/snail-help.txt"; exit 0 ;;
-  build|run|watch|lsp|format) ;;
-  *) printf 'snail-scheme: expected build, run, watch, lsp or format; use --help\n' >&2; exit 2 ;;
+  build|run|lsp|format) ;;
+  *) printf 'snail-scheme: expected build, run, lsp or format; use --help\n' >&2; exit 2 ;;
 esac
 
 # The command line is a `snail-scheme` program (bootstrap/cli.sld). A
@@ -61,11 +55,5 @@ tools=$(tools) || exit 1
 $tools
 TOOLS
 export SNAIL_ROOT="$root" SNAIL_RUNTIME="$runtime"
-# The pages `watch` serves load the reload client, the repository's
-# reload-client target, which it builds first, in about 0.3 s.
-if [ "$1" = watch ]; then
-  shift
-  cli build "$root" reload-client >/dev/null || exit 1
-  set -- watch "$root/build/reload-client/program.wasm" "$@"
-fi
+# It execs, so a signal sent to `snail-scheme` reaches the command line.
 exec "${NODE:-node}" --no-warnings "$root/host/native/run-snail.mjs" "$cli" "$root" "$runtime" "$toolchain" "$@"

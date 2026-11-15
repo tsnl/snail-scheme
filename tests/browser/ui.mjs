@@ -8,8 +8,7 @@
 // scalar, an offset of 2 to the page and 1 to `snail-scheme`. Escape on the window
 // clears the draft. The page asks its server for a greeting as it starts,
 // shares its notes with headers and a body, and hears a stream of events
-// until the server ends it. Clearing the notes asks first. Persistence and
-// replacement are exercised together in ui-reload.mjs.
+// until the server ends it. Clearing the notes asks first.
 //
 //   CHROMIUM=... node tests/browser/ui.mjs ROOT [SCREENSHOT]
 import assert from 'node:assert/strict';

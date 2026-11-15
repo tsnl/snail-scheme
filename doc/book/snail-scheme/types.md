@@ -446,6 +446,6 @@ closures may be boxed.
 
 The type identity includes nominal names, arguments, fields, cases, and nested
 function signatures and effect rows. Changed schemas receive changed identities
-across relinks, even if their Wasm layouts match. Downcast also checks the Wasm
+across separately linked modules, even if their Wasm layouts match. Downcast also checks the Wasm
 representation before reading the payload. Type identities are currently 32-bit
 hashes; they are not collision-free structural proofs.

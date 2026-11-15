@@ -1,10 +1,8 @@
 // The JavaScript side of running `snail-scheme`, the same in Node and in a browser:
 // the WASI a module that opens no files needs, the files a program links,
-// linking a program compiled one library at a time and relinking it from a
-// rebuilt library, and how `snail-scheme` passes a host strings and commands. It
-// decides nothing about what a program is for: the browser host (host.mjs),
-// the reload client (reload-client.mjs) and host/native/run-snail.mjs build
-// on it.
+// linking a program compiled one library at a time, and how `snail-scheme`
+// passes a host strings. It decides nothing about what a program is for: the
+// browser host (host.mjs) and host/native/run-snail.mjs build on it.
 
 const encoder = new TextEncoder(), decoder = new TextDecoder();
 
@@ -238,26 +236,6 @@ function moduleImports(program, libraries, module) {
 
 const missingHost = (from, name) => () => { throw new Error(`this host does not provide ${from} ${name}`); };
 
-// ---- Relinking ----
-
-// Links the program again from library `from`, by the modules.json of the
-// build at `manifest`, whose files `read` gives, and whose store the files
-// they link are read from. The modules before `from`
-// cannot import from it, so their instances stay;
-// `from` and every module after it are linked anew, with handles for the
-// files they link. Returns the new program and leaves the old one as it was,
-// so a relink that fails leaves it
-// running.
-export async function relinkProgram(program, from, manifest, read) {
-  const {store, modules} = readModules(await read(manifest));
-  const start = Math.max(0, modules.findIndex(entry => entry.name === from));
-  const kept = modules.slice(0, start).map(entry => [entry.name, program.linked.get(entry.name)]);
-  const next = {...program, read, manifest, store, linked: new Map(kept), names: modules.map(entry => entry.name)};
-  const relinked = await compileModules(objectReader(read, store), modules.slice(start));
-  await linkModules(next, relinked);
-  return next;
-}
-
 // ---- Loading while the program runs ----
 
 // A loader that chooses a module's providers itself lists the imports
@@ -378,23 +356,6 @@ export function runMain(exports, tasks) {
 
 // ---- Host commands ----
 
-// `snail-scheme` passes a host strings a character at a time, each ended by
-// `argument-end`. A command's strings are its name and its arguments:
-// `command` calls the function `commands` has under the name with the
-// arguments and a number, and answers with its result, or 0. The `develop`
-// effect of src/snail/shell/develop.sld and the `page` effect of
-// host/browser/reload.sld are bound this way.
-export function commandImports(commands) {
-  const strings = stagedStrings();
-  return {
-    ...strings.imports,
-    command(number) {
-      const [name, ...args] = strings.take();
-      if (!Object.hasOwn(commands, name)) throw new Error(`this host has no command ${name}`);
-      return commands[name](args, number) ?? 0;
-    },
-  };
-}
 
 // A foreign Bytes argument borrows staging memory: a little-endian u32
 // length at `address` and that many bytes after it. Own its bytes before

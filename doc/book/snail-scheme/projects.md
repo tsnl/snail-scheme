@@ -27,24 +27,19 @@ supply the server and routes; project metadata does not infer them.
 ```sh
 ./snail-scheme build --release . siegework
 python3 -m http.server 4191 --directory build/siegework
-./snail-scheme watch .
 ```
 
 `snail-scheme` uses one root `project.datum` for the whole repository. Its
 `siegework` and `hearsay` targets name entries, library roots and public files
-under `apps/`. `snail-scheme watch .` builds and serves both while any of the
-repository's sources change, and an editor opening the root runs `snail-scheme lsp`
+under `apps/`. An editor opening the root runs `snail-scheme lsp`
 over the same project ([editors](toolchain.md#editors)). Each application's
 output is under `build/TARGET`; application directories have no separate project
 description. Test fixtures retain their own projects.
 
 `snail-scheme build [--release] PROJECT BUILD-TARGET` publishes one selected target and
 its required artifacts. `snail-scheme run PROJECT RUN-TARGET [ARGUMENT ...]` builds and
-runs a named program. `snail-scheme watch [--port PORT] PROJECT` retains a compiler
-session and serves each browser target's latest builds, and `snail-scheme lsp`
-answers an editor for the project it opens.
-The [toolchain](toolchain.md) describes command lifetimes and development,
-including the pages' reload. Durable
+runs a named program, and `snail-scheme lsp` answers an editor for the project it
+opens. The [toolchain](toolchain.md) describes command lifetimes. Durable
 application data remains in progress.
 
 ## Description format
@@ -108,9 +103,7 @@ and have no symlink components, including in the path to the public directory.
 
 The public output is a relative symlink to a completed generation beside it.
 Rebuilds replace that link atomically after compilation and packaging succeed.
-Previous generations remain available to readers: `snail-scheme build` reclaims none,
-and `snail-scheme watch` only those it published once nothing needs them
-([observation and acceptance](toolchain.md#observation-and-acceptance)). Resolve the link once before reading several files as one artifact.
+Previous generations remain available to readers: `snail-scheme build` reclaims none. Resolve the link once before reading several files as one artifact.
 An ordinary file, directory or unrelated link at the output path is rejected
 and never removed by the builder.
 
@@ -175,7 +168,7 @@ embed a target that only its producer's output names, so a phase that waits
 for a producer is planned again once the producer has run, and a cycle it
 closes fails then, before anything after it runs. Missing or non-browser
 targets fail at the using source point. Standalone source commands cannot
-resolve project artifacts; use a project build or `snail-scheme watch`.
+resolve project artifacts; use a project build.
 
 Packaging and enumeration finish before a generation can supply an artifact.
 The inventory contains canonical relative paths sorted by path, including hidden

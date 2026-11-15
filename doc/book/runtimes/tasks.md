@@ -248,7 +248,7 @@ The host sees the scheduler only through five exports of
 | --- | --- |
 | `tasks:turn now` | Run a turn at the host's clock, in milliseconds. Answers 0 when a task is ready, -1 when none is live, -2 when every live task waits on a ticket, and otherwise the milliseconds until the next deadline. |
 | `tasks:wake ticket` | Ready the task waiting on a ticket, answering whether one was. |
-| `tasks:close` | Forget every task, as ending or relinking a program does. |
+| `tasks:close` | Forget every task, as ending a program does. |
 | `tasks:running` | The id of the running task; after a trap, the task that trapped. |
 | `tasks:live` | How many tasks have not finished. |
 
@@ -274,7 +274,7 @@ accepted connection is closed.
 
 Tickets count from 1 in each scheduler. Every wake names its scheduler as
 well as its ticket: a host's through the scheduler it created, and a
-waker's through the scheduler it closes over. A relink starts a new
+waker's through the scheduler it closes over. A restarted run has a new
 scheduler, so a waker that a `Mailbox` in the application's state kept
 from the old one finds that scheduler closed and wakes nothing in the
 new one.

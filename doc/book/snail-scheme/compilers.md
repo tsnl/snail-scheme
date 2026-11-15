@@ -225,9 +225,7 @@ from how an importer happens to use it.
 Every invocation expands current sources, checks every library, specializes
 and emits every reachable function again. There is no compiler Session,
 interface fingerprint, invalidation graph or retained checked-code/Wasm cache.
-The development loop rebuilds all configured targets and runs their producers
-on each attempt. Content-addressed output files still let the browser decide
-which module instances must be relinked.
+Each build rebuilds its targets and runs their producers.
 
 ## Linking
 
@@ -250,12 +248,9 @@ imports. Every rebuild checks and emits the complete dependency closure. The
 engine also checks the WebAssembly type of every import. A value crossing as
 `Any` keeps its nominal type identity for explicit `downcast` checks.
 
-Replacing a library's module means linking it and every module after it
-in program order again (`relinkProgram` in `load.mjs`); the modules before
-it cannot import from it. That
-costs the instantiation of a few modules, and keeps debug code free of the
-indirection that a table of mutable globals, like ELF's global offset
-table, would add to every call across libraries.
+Linking modules in program order keeps debug code free of the indirection
+that a table of mutable globals, like ELF's global offset table, would add to
+every call across libraries.
 
 ### Linking by hand
 
@@ -455,25 +450,8 @@ or the store a project's development builds share, checking that the bytes
 it copies have the digest the compile read; a file edited during the build
 fails it, and the next build compiles against the new bytes. Modules and
 objects are named for their contents, so a generation's digest takes only
-their names, and the browser reload client sees an edited file as a changed
-module, from which it relinks. The bytes under such a name never change, so
-the development server lets a browser cache them for good, and the page's
-loader keeps the bytes it has read, by digest, across relinks.
-
-## The resident builder
-
-`snail-scheme watch` builds with `snail-scheme resident PROJECT`, the command line's `snail-scheme`
-program in a child process ("The resident builder" in `bootstrap/cli.sld`). The
-service writes it one JSON request a line and reads one reply a line: a
-`build` answers the project's description, a candidate with how long the
-build took and each target's generation, digest, how many of its modules it
-compiled and the digest of each file but its modules, which the reload
-client compares, and any diagnostics; the resident holds the candidate until a `publish` or a
-`discard` names it. The resident holds only its current job and unpublished
-candidate; each attempt owns its plan and inputs. Every module is compiled
-and assembled anew. Publishing installs the completed candidate atomically;
-a failed or discarded attempt leaves the previously accepted generation
-available.
+their names. The bytes under such a name never change, so a server can let
+a browser cache them for good.
 
 ## Supporting modules
 
@@ -489,7 +467,7 @@ available.
 | `src/`, `host/chez/` | Typed language libraries and the explicit Chez adapters. `host/chez/load.scm` permits only the compiler's source closure and stage-zero tools. |
 
 Running project build plans and publication belong to the [project builder](projects.md),
-watching, the development service and the language server to the
+the language server to the
 [development toolchain](toolchain.md), and
 task scheduling and resources to the [runtime](../runtimes/index.md).
 

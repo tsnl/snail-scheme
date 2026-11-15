@@ -89,10 +89,10 @@ animate(window, world):
     animate(window, next)
 ```
 
-The existing application's checkpoint and save/restore handover remain
-useful during browser hot reload. They are an application protocol on top of tasks,
-not the definition of a task. Reload waits for the old computation to
-settle before relinking its modules.
+The existing application's checkpoint and save/restore handover keep a page's
+state across a page reload. They are an application protocol on top of tasks,
+not the definition of a task. Stopping waits for the old computation to
+settle.
 
 The [typed state proposal](../snail-scheme/state.md) would replace application handover
 with durable records and disposable views; that API remains under review.
