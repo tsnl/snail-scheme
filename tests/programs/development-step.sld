@@ -7,8 +7,8 @@
 ;; deliver: edits that coalesce or supersede an attempt, replies that are
 ;; late or for another epoch, a disk that cannot be read, publication
 ;; that partly fails, closing and the resident's exit with an attempt in
-;; flight, and run targets wanted across publications. Each line is an
-;; event and the commands the step answers with.
+;; flight, and generations kept while a page may still load them. Each line
+;; is an event and the commands the step answers with.
 
 ;; ---- A project ----
 
@@ -19,35 +19,31 @@
 (define (description) (→ Description)
   (new Description (entries (list "main.sld"))
        (publics (list "public"))
-       (browsers (Nil))
-       (runs (list (new RunDefinition (name "app") (build "server") (arguments (list "--port")))))))
+       (browsers (Nil))))
 
-(define (candidate (digest String)) (→ Candidate)
+(define (candidate (suffix String)) (→ Candidate)
   (new Candidate (description (description))
        (generations (list
                      (new Generation
                        (name "server")
-                       (directory (string-append "/r/apps/p/build/s-" digest))
-                       (digest digest)
+                       (directory (string-append "/r/apps/p/build/s-" suffix))
                        (files (Nil))
                        (linked (Nil)))))
        (milliseconds 0)))
 
-(define (succeeded (digest String)) (→ Reply)
+(define (succeeded (suffix String)) (→ Reply)
   (new Reply
     (description (Some (description)))
-    (candidate (Some (candidate digest)))
+    (candidate (Some (candidate suffix)))
     (diagnostics (Nil))))
 
-;; A build into generation `name`, whose files have the digest given, as a
-;; build of an unchanged program does into a new generation.
-(define (built-in (name String) (digest String)) (→ Reply)
+;; A build into generation `name`, as every build makes a new one.
+(define (built-in (name String)) (→ Reply)
   (new Reply (description (Some (description)))
        (candidate (Some (new Candidate (description (description))
                              (generations (list (new Generation (name "server")
                                                      (directory
                                                       (string-append "/r/apps/p/build/" name))
-                                                     (digest digest)
                                                      (files (Nil))
                                                      (linked (Nil)))))
                              (milliseconds 0))))
@@ -71,26 +67,6 @@
                                             (line 1)
                                             (column 2)))))))))
 
-;; A publication whose description has no run targets.
-(define (without-runs) (→ Reply)
-  (let ((bare (new Description
-                (entries (list "main.sld"))
-                (publics (Nil))
-                (browsers (Nil))
-                (runs (Nil)))))
-    (new Reply (description (Some bare))
-         (candidate (Some
-                     (new Candidate
-                       (description bare)
-                       (generations (list (new Generation
-                                            (name "server")
-                                            (directory "/r/apps/p/build/s-x")
-                                            (digest "x")
-                                            (files (Nil))
-                                            (linked (Nil)))))
-                       (milliseconds 0))))
-         (diagnostics (Nil)))))
-
 ;; A build whose program links the file at `path`.
 (define (linking (path String)) (→ Reply)
   (new Reply (description (Some (description)))
@@ -98,7 +74,6 @@
                              (generations (list (new Generation
                                                   (name "server")
                                                   (directory "/r/apps/p/build/s-l")
-                                                  (digest "l")
                                                   (files (Nil))
                                                   (linked (list path)))))
                              (milliseconds 0))))
@@ -130,9 +105,6 @@
     ((DiscardReplied epoch) (string-append "discarded " (show epoch)))
     ((TimerFired) "timer")
     ((RequestBuild) "build requested")
-    ((StartRun name) (string-append "start " name))
-    ((StopRun name) (string-append "stop " name))
-    ((RestartRun name) (string-append "restart " name))
     ((Close) "close")))
 
 (define (command->string (command Command)) (→ String)
@@ -144,16 +116,6 @@
     ((Abandon epoch) (string-append "abandon " (show epoch)))
     ((Release epoch) (string-append "release " (show epoch)))
     ((Arm) "arm")
-    ((Launch name request)
-     (match request
-       ((Some request)
-        (string-append "launch " name " from build " (show (● request build)) " at "
-                       (● request entry)))
-       ((None) (string-append "launch " name " nothing"))))
-    ((Refuse refusal)
-     (match refusal
-       ((UnknownRunTarget name) (string-append "refuse unknown " name))
-       ((ServiceClosed) "refuse closed")))
     ((Notify snapshot) (snapshot->string snapshot))
     ((Reclaim directories) (string-append "reclaim " (string-join directories " ")))
     ((Shutdown) "shutdown")
@@ -172,14 +134,7 @@
                  (match (● snapshot publications)
                    ((Cons published _)
                     (string-append " published " (show (● published id))))
-                   ((Nil) ""))
-                 (string-concatenate (map run->string (● snapshot runs)))))
-
-(define (run->string (run RunStatus)) (→ String)
-  (string-append " run "
-                 (● run name)
-                 (if (● run wanted) " wanted" "")
-                 (if (● run available) " available" "")))
+                   ((Nil) ""))))
 
 (define (phase->string (phase Phase)) (→ String)
   (match phase
@@ -293,7 +248,7 @@
                   (TimerFired)))
   (scenario "closing with an attempt in flight abandons it, and nothing after"
             (append (started)
-                    (list (Close) (BuildReplied 1 (succeeded "a")) (StartRun "app") (Close))))
+                    (list (Close) (BuildReplied 1 (succeeded "a")) (Close))))
   (scenario "closing while publishing releases"
             (append (started)
                     (list (BuildReplied 1 (succeeded "a")) (Reconciled (Ok (unit))) (Close))))
@@ -306,41 +261,13 @@
                   (ResidentExited "SIGKILL")
                   (Reconciled (Ok (unit)))
                   (TimerFired)))
-  (scenario "run targets follow what is wanted and what is published"
-            (append (first-published)
-                    (list (StartRun "app")
-                          (StartRun "app")
-                          (Touched (list "/r/apps/p/main.sld"))
-                          (TimerFired)
-                          (BuildReplied 2 (succeeded "b"))
-                          (Reconciled (Ok (unit)))
-                          (PublishReplied 2 (None))
-                          (Touched (list "/r/apps/p/main.sld"))
-                          (TimerFired)
-                          (BuildReplied 3 (succeeded "b"))
-                          (Reconciled (Ok (unit)))
-                          (PublishReplied 3 (None))
-                          (RestartRun "app")
-                          (StopRun "app")
-                          (StartRun "nope")
-                          (StartRun "app")
-                          (Touched (list "/r/apps/p/project.datum"))
-                          (TimerFired)
-                          (BuildReplied 4 (without-runs))
-                          (Reconciled (Ok (unit)))
-                          (PublishReplied 4 (None))
-                          (StartRun "app")
-                          (StopRun "app"))))
-  (scenario "generations stay while recent or while a run runs from one"
+  (scenario "generations stay while they are the latest two published"
             (concatenate
              (list (started)
-                   (list (BuildReplied 1 (built-in "g1" "a"))
+                   (list (BuildReplied 1 (built-in "g1"))
                          (Reconciled (Ok (unit)))
-                         (PublishReplied 1 (None))
-                         (StartRun "app"))
-                   (rebuilt 2 (built-in "g2" "a"))
-                   (rebuilt 3 (built-in "g3" "a"))
-                   (list (StopRun "app") (StartRun "app"))
-                   (rebuilt 4 (built-in "g4" "b"))
-                   (rebuilt 5 (built-in "g5" "b")))))
+                         (PublishReplied 1 (None)))
+                   (rebuilt 2 (built-in "g2"))
+                   (rebuilt 3 (built-in "g3"))
+                   (rebuilt 4 (built-in "g4")))))
   (unit))

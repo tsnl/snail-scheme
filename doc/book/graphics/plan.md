@@ -2,14 +2,14 @@
 
 **Proposed.** Applications send `Frame` values to
 `host/browser/renderer.mjs`, a fixed JavaScript renderer. This design replaces
-it with two layers written in Snail Scheme: a `gpu` effect that is a thin wrapper
+it with two layers written in `snail-scheme`: a `gpu` effect that is a thin wrapper
 around WebGPU, and `(snail shell graphics ...)` libraries of pipelines and
 packers on top of it. Delivery is tracked in
 [the graphics issue](https://github.com/tsnl/snail-scheme/issues/463).
 
 Device requests, decoding, pipeline creation and readbacks need only ordinary
 handlers and the runtime's waits. Those waits are an ordinary effect,
-scheduled in Snail Scheme ([task operations](../runtimes/tasks.md)), so nothing
+scheduled in `snail-scheme` ([task operations](../runtimes/tasks.md)), so nothing
 here depends on an engine extension.
 
 ## WebGPU through an effect
@@ -70,7 +70,7 @@ application decides what to pack, when to copy, and how to stitch passes
 together. A higher-level operation such as drawing a sphere is a helper that
 prepares the buffers a pipeline expects, not a call into a renderer.
 
-**The ABI is not stable, on purpose.** A pipeline's interface is a Snail Scheme
+**The ABI is not stable, on purpose.** A pipeline's interface is a `snail-scheme`
 record deriving `Pod`, and it changes when the pipeline does. Nothing is hidden
 behind a renderer object: every pass, buffer and layout is a value the
 application can read, replace or extend.
@@ -117,7 +117,7 @@ G-buffer fills the default 32. Texture heaps start uncompressed; a later
 ## Design choices
 
 - Images are decoded by the host behind `decode-image`, a host operation
-  that waits, rather than in Snail Scheme.
+  that waits, rather than in `snail-scheme`.
 - `update` stays total: prefetching happens from `view`.
 - Open: shader sources as S-expression files compiled by `generate-library`
-  recipes, the default here, or as S-expressions built in Snail Scheme code.
+  recipes, the default here, or as S-expressions built in `snail-scheme` code.

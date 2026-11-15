@@ -1,10 +1,11 @@
-;; One compiler invocation, shared by the Chez and Wasm entry programs. A
+;; One compiler invocation, shared by stage 0's Chez entry and the
+;; `snail-scheme` command line's `compile` action (bootstrap/cli.sld). A
 ;; compile that fails prints its diagnostic and exits with status 1; one
 ;; that needs an input publishes its request beside the libraries its
 ;; producers generate, then exits the same way.
 (define-library (snail shell compiler driver)
   (export
-   compile-command-line)
+   compile-arguments)
   (import
    (snail core base)
    (snail core io)
@@ -22,19 +23,21 @@
 
     ;; ---- Compilation ----
 
-    (define (compile-command-line) (→ Unit) (! mut fs)
-      (match (command-line)
-        ((Cons _ (Cons mode (Cons source (Cons output (Cons generated directories)))))
+    ;; `MODE SOURCE OUTPUT GENERATED DIRECTORY ...`, the one compile.
+
+    (define (compile-arguments (arguments (List String))) (→ Unit) (! mut fs)
+      (match arguments
+        ((Cons mode (Cons source (Cons output (Cons generated directories))))
          (match (compiling (lambda () (compile-mode mode source output generated directories)))
            ((Ok _) (unit))
            ((Err (Requested request))
             (publish-request generated request)
             (panic "compiler requires an input"))
            ((Err (Failed diagnostics)) (panic (diagnostics->string diagnostics)))))
-        (_ (panic "usage: compile wat|modules|schema SOURCE OUTPUT GENERATED [DIRECTORY ...]"))))
+        (_ (panic "usage: compile wat|modules SOURCE OUTPUT GENERATED [DIRECTORY ...]"))))
 
-    ;; Writes what `mode` asks for: the program's schemas, a module for each
-    ;; library, or the whole program.
+    ;; Writes what `mode` asks for: a module for each library, or the whole
+    ;; program.
 
     (define (compile-mode (mode String)
                           (source String)
@@ -45,15 +48,13 @@
       (! mut fs compile)
       (let ((generate
              (lambda (loading forms) (generated-syntax generated directories loading forms))))
-        (cond ((string=? mode "schema")
-               (write-file output (source->schemas directories source generate (no-inputs))))
-              ((string=? mode "modules")
-               (write-modules output
-                              generated
-                              (source->modules directories source generate (no-inputs))))
-              (else (write-program output
-                                   generated
-                                   (source->wat directories source generate (no-inputs)))))))
+        (if (string=? mode "modules")
+            (write-modules output
+                           generated
+                           (source->modules directories source generate (no-inputs)))
+            (write-program output
+                           generated
+                           (source->wat directories source generate (no-inputs))))))
 
     (define (write-program (output String) (generated String) (program WholeProgram))
       (→ Unit)

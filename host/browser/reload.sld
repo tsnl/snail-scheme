@@ -1,4 +1,4 @@
-;; The reload client: the part of a page that `snail dev` adds
+;; The reload client: the part of a page that `snail-scheme watch` adds
 ;; ((snail shell project bundle)). It compares the manifest of the build
 ;; the page runs with the one each of the server's events carries, and
 ;; decides what the page does: fetch a style sheet again, relink the

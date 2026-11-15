@@ -318,7 +318,7 @@
                                     (opening-step game)
                                     (Link (face "how-to-play"
                                                 ""
-                                                "The rules and controls, in the Snail-Scheme book")
+                                                "The rules and controls, in the snail-scheme book")
                                           "How to play"
                                           (guide-url))))))
           (Nil)))

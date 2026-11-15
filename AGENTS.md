@@ -1,4 +1,4 @@
-# Working on Snail Scheme
+# Working on `snail-scheme`
 
 `CLAUDE.md` is a symlink to this file; edit `AGENTS.md`.
 
@@ -6,23 +6,24 @@ Make the implementation educational to read. Follow the program from located
 syntax through resolved IR, WasmGC, and the Rust scalar services.
 Keep each pass's inputs, outputs, and decisions visible in its module.
 
-- Snail Scheme is a statically typed Scheme descendant. Its macros expand
+- `snail-scheme` is a statically-typed Scheme successor. Its macros expand
   into one typed language; it does not implement R7RS or a separate dynamic
   Scheme compatibility layer.
   Every library that ships lives under `src/`, with paths matching library
   names and `.sld` sources: the core under `src/snail/core/`, the shell built
   on it under `src/snail/shell/` (#566),
   and the compiler among them at
-  `src/snail/shell/compiler/`, written in Snail Scheme importing only
+  `src/snail/shell/compiler/`, written in `snail-scheme` importing only
   `(snail core base)`, `(snail core table)` and `(snail core io)`, so it
   compiles itself.
   Host-specific code lives only under `host/`: `chez/` for stage 0,
-  `native/` for Node, `browser/` for the page, `ide/` for the editor. Rust
+  `native/` for Node, `browser/` for the page. Editor support lives under
+  `editors/`: the tree-sitter grammar and the Zed extension. Rust
   crates live in `crates/`. No program or library may depend on
   JavaScript: hosts beyond Node and the page, such as wasmtime and
   workerd, are the long-term direction
   ([Runtimes](doc/book/runtimes/index.md#direction)). Surface macros expand away before checking. See
-  [the language chapters](doc/book/snail-core/index.md).
+  [the language chapters](doc/book/snail-scheme/index.md).
 
 - Stage 0 loads an explicit library closure through `host/chez/load.scm`:
   the host's `base`, `table`, `io` and `forms`, the build driver, and the
@@ -31,7 +32,11 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   libraries outside that closure; adding a dependency is a deliberate edit
   to the loader. Test support has its own allowance in test mode. The
   compiler reads record fields with `(● record label ...)`; stage 0 maps
-  that form to the same mutable record slots.
+  that form to the same mutable record slots. Stage 0's one product is the
+  stage 1 command line, `bootstrap/cli.sld`, built by `scripts/bootstrap`;
+  the command line builds everything else (the engine, the reload client,
+  `snailc` and the book's highlighter) as targets of the root project.
+  The test harness also compiles through stage 0's driver.
 
 - Every record is a heap object and every field is mutable. Primitive
   numbers and booleans remain unboxed. Keep ordinary compiler passes pure
@@ -97,7 +102,7 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   Keep unit tests in a final `Tests` section of their implementation module.
   Each tested compiler module exports one `test-<module>` entry point under
   the `snail-tests` feature; test cases and helpers stay private. Test
-  Snail Scheme libraries with programs and their expected output. Keep
+  `snail-scheme` libraries with programs and their expected output. Keep
   integration fixtures, runners, and shared assertion support in `tests/`.
 - Target **ten lines of logic per function**. Name complete operations, not
   fragments introduced to meet a count. Exhaustive dispatch, data definitions,
@@ -121,7 +126,7 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   such as integer overflow and the order of table keys.
 - Update the relevant [book chapter](doc/book/SUMMARY.md) when contracts or
   module responsibilities change; the
-  [compiler tour](doc/book/snail-core/compilers.md) lives there. Track open
+  [compiler tour](doc/book/snail-scheme/compilers.md) lives there. Track open
   work in [GitHub issues](https://github.com/tsnl/snail-scheme/issues).
   Keep proposed APIs explicitly distinct from implemented behavior. Do not
   duplicate the book in proposal documents or progress trackers.
@@ -132,31 +137,32 @@ a failure as many times as a fix needs; pushing to see what breaks spends
 that time for a worse report. Push when a change is verified, not to find out.
 
 Relevant checks are `make test`, `make check`,
-`cargo test --manifest-path crates/snail-core-support/Cargo.toml --offline`, and
-`cargo fmt --manifest-path crates/snail-core-support/Cargo.toml --all -- --check`, and the
+`cargo test --manifest-path crates/snail-scheme-support/Cargo.toml --offline`, and
+`cargo fmt --manifest-path crates/snail-scheme-support/Cargo.toml --all -- --check`, and the
 same two for `crates/snail`. Changes to the native
 executable or to how compiles and programs run must also pass
-`make test-wasmtime`. The driver rebuilds the compiled compiler whenever the
-compiler's source changes; compiler changes must also pass `make test-chez`,
+`make test-wasmtime`. Stage 0 rebuilds the command line whenever its
+source changes; compiler changes must also pass `make test-chez`,
 which runs the source on Chez, and `make bootstrap`, which rebuilds from
 Chez alone.
 Backend changes should execute linked Wasm; compilation alone does not test
-target behavior. `(snail shell format)` is the formatter shared by the IDE
-and `scripts/format-scheme`; `make test` checks its CLI and every tracked
+target behavior. `(snail shell format)` is the formatter shared by `snail-scheme lsp`
+and `snail-scheme format`; `make test` checks its CLI and every tracked
 Scheme file. Browser changes should be seen running:
 `node tests/browser/page.mjs URL SCREENSHOT` drives headless Chromium.
 
 ## Live reload
 
-Iterate on applications with `./snail dev .`, left running; `make ide`
-opens this same root project for the whole repository. The root
-`project.datum` names the `siegework` and `hearsay` browser targets. It serves
-the browser editor at `http://127.0.0.1:8000/` and each browser target at
-`http://127.0.0.1:8001/TARGET/`, rebuilds every configured target from scratch, and relinks changed modules
+Iterate on applications with `./snail-scheme watch .` (`make watch`), left running, and
+edit in any editor; in Zed, install `editors/zed` as a dev extension for
+`snail-scheme lsp`'s diagnostics on save, formatting, hover and definitions. The root
+`project.datum` names the `siegework` and `hearsay` browser targets. The
+service serves each browser target at
+`http://127.0.0.1:8000/TARGET/`, rebuilds every configured target from scratch, and relinks changed modules
 into each open page while keeping the running state; point `tests/browser/page.mjs` at the
 target's URL to see an edit land. Each build first runs the producers of the
 `generate-library` recipes it reaches, so Hearsay serves too; its producers run every time. The book's
-[application model](doc/book/snail-core/applications.md) gives the reload
+[application model](doc/book/snail-scheme/applications.md) gives the reload
 rules; what matters when writing code:
 
 - The application's state crosses a relink, as it is while its type is unchanged
@@ -164,13 +170,12 @@ rules; what matters when writing code:
   in Save. Escaped closures can retain old code.
 - Libraries are checked one at a time, so an importer's use never decides a
   definition's type: give exported functions typed headers.
-- A program runs as a project's `run-target`, restarted from each accepted
-  build; the editor's Applications panel starts and stops it. Save writes
-  disk; the shared watcher drives compiler and editor updates, and an edit to
-  a file a program links builds again once a build that links it is
+- A program runs with `./snail-scheme run . RUN-TARGET`, outside the service. The
+  service's watcher sees every write to disk, whatever made it, and an edit
+  to a file a program links builds again once a build that links it is
   published.
 - Builds in one checkout keep private compiler scratch under `build/snail-run/`.
-  Public `snail run` executes its completed project generation in the caller's
+  Public `snail-scheme run` executes its completed project generation in the caller's
   working directory after removing build scratch. Rebuilding the compiled
   compiler or development tools takes an exclusive lock on `build/lock`, so
   `make test` may run beside a server.
@@ -181,6 +186,7 @@ rules; what matters when writing code:
   relinks after the application's loop, a task that `host/browser/runtime.mjs`
   drives, saves, returns its state and settles. `tests/project-bundles.mjs`
   and the other project suites (in `make test`) cover the service, and
-  `tests/browser/reload.mjs` and `tests/browser/ide.mjs` (`make
-  test-browser`, needs `CHROMIUM`) cover the pages. See
-  [the development toolchain](doc/book/snail-core/toolchain.md).
+  `tests/browser/reload.mjs` (`make test-browser`, needs `CHROMIUM`) covers
+  the pages. `tests/lsp.mjs` and `tests/tree-sitter.mjs` cover the editor
+  support. See
+  [the development toolchain](doc/book/snail-scheme/toolchain.md).

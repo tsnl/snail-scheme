@@ -78,7 +78,7 @@
 
   ;; ---- Forms ----
 
-  ;; Snail Scheme's `case` compares keys with `=`, which on strings is `string=?`.
+  ;; `snail-scheme`'s `case` compares keys with `=`, which on strings is `string=?`.
   (define-syntax case
     (syntax-rules (else)
       ((_ key clause ...) (let ((value key)) (case-clauses value clause ...)))))
@@ -108,7 +108,7 @@
   (define (i64->string n) (number->string n))
 
   ;; Chez's integers are unbounded, so conversions between widths only
-  ;; wrap where Snail Scheme's would: into a byte, or into 32 bits.
+  ;; wrap where `snail-scheme`'s would: into a byte, or into 32 bits.
   (define (u8->i32 n) n)
   (define (i32->u8 n) (modulo n 256))
   (define (i32->i64 n) n)
@@ -165,7 +165,7 @@
   (define (Cons head tail) (cons head tail))
   (define (Nil) '())
 
-  ;; Snail Scheme's `map` takes one list and calls `f` from left to right.
+  ;; `snail-scheme`'s `map` takes one list and calls `f` from left to right.
   (define (map f items)
     (let loop ((items items) (out '()))
       (if (null? items) (reverse out) (loop (cdr items) (cons (f (car items)) out)))))

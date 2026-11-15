@@ -1,0 +1,7 @@
+# Zed compiles the extension with Cargo in this directory, for the component
+# target its extension host loads. The channel is the repository's.
+[toolchain]
+channel = "1.95.0"
+profile = "minimal"
+components = ["rustfmt"]
+targets = ["wasm32-wasip2"]

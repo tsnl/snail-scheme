@@ -1,5 +1,6 @@
-;; The repository's Lisp formatter, shared by scripts/format-scheme and the
-;; IDE. Formatting is a pure operation on text, including unfinished source.
+;; The repository's Lisp formatter, shared by scripts/format-scheme and
+;; `snail-scheme lsp` (snail shell lsp), which formats an editor's open text.
+;; Formatting is a pure operation on text, including unfinished source.
 ;; Formatting first puts each import specification and field declaration on its own line, then indents every line. A line's indentation goes
 ;; under the first argument of a call, under the first expression of the
 ;; line its list's last element starts on, or in by two columns for the body
@@ -7,10 +8,7 @@
 ;; rule for the form's name says. A line whose code runs past the width,
 ;; `format-width` unless the caller says otherwise, is broken before the
 ;; next is indented: a call before its arguments, a binding form before
-;; each binding and body form. Nothing ever joins lines. The IDE
-;; (host/ide/ide.sld) formats on save and indents a line when Tab is
-;; pressed; it colors the text with (snail shell highlight), which follows
-;; the compiler's reader.
+;; each binding and body form. Nothing ever joins lines.
 (define-library (snail shell format)
   (export
    format-source
@@ -241,7 +239,7 @@
       (Special ((distinguished I64)))
       (LetRule))
 
-    ;; Conventional Scheme indentation and Snail Scheme's forms. Binding names
+    ;; Conventional Scheme indentation and `snail-scheme`'s forms. Binding names
     ;; follow the let/-let and let*/-let* convention below, without a table entry.
 
     (define (known-rule (name String)) (→ (Option Rule))

@@ -6,7 +6,6 @@
   (export web-app-manifest with-web-app stable-web-app
           PageMetadata
           PageBase
-          PageMeta
           WebManifest
           ModuleMap
           ReloadData
@@ -50,8 +49,6 @@
     ;; so a path containing </script> cannot terminate a raw-text element.
     (enum PageMetadata
       (PageBase ((url String)))
-      (PageMeta ((name String)
-                 (content String)))
       (WebManifest ((url String)))
       (ModuleMap ((url String)))
       (ReloadData ((text String)))
@@ -76,10 +73,6 @@
     (define (metadata-text (item PageMetadata)) (→ String)
       (match item
         ((PageBase url) (element-start "base" (list (new Pair (first "href") (second url)))))
-        ((PageMeta name content)
-         (element-start "meta"
-                        (list (new Pair (first "name") (second name))
-                              (new Pair (first "content") (second content)))))
         ((WebManifest url)
          (element-start "link" (list (new Pair (first "id") (second "snail-web-app"))
                                      (new Pair (first "rel") (second "manifest"))

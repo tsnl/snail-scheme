@@ -440,7 +440,7 @@
 
     ;; ---- Operations ----
 
-    ;; Performing an operation runs its Snail Scheme default when no handler
+    ;; Performing an operation runs its `snail-scheme` default when no handler
     ;; is in scope, so a use of the operation reaches the default too, which
     ;; is copied, or imported from the effect's library, under its own name.
 

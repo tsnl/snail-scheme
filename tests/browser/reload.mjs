@@ -1,5 +1,5 @@
-// Live reload in a real page: `snail dev` serves a copy of tests/apps/counter
-// on its applications' origin, and headless Chromium adds to the counter
+// Live reload in a real page: `snail-scheme watch` serves a copy of tests/apps/counter
+// on its origin, and headless Chromium adds to the counter
 // while the test edits the source. A new greeting arrives with the count kept, the
 // state passing as it is; a broken edit is shown over the page; a changed
 // state type passes the count through the save; a state and save that

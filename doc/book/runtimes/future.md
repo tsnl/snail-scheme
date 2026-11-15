@@ -4,8 +4,8 @@ Research recorded on 2026-10-24. This page describes future options, not
 shipping features. We ship one WasmGC backend.
 
 Three decisions have been made since. One-shot `ctl` handlers are implemented
-by evidence passing ([effects and handlers](../snail-core/effects.md#control-handlers)),
-and the runtime's tasks are an effect on them, scheduled in Snail Scheme, so
+by evidence passing ([effects and handlers](../snail-scheme/effects.md#control-handlers)),
+and the runtime's tasks are an effect on them, scheduled in `snail-scheme`, so
 no host suspends a Wasm stack ([task operations](tasks.md)).
 And each instance of a program is single-threaded, talking to others only
 through queues and shared memory ([instances](instances.md), proposed). So
@@ -106,9 +106,9 @@ continuation closures on the yielding path. A yielding flag distinguishes
 ordinary return values from suspension. Capture does work along the
 continuation's path, whereas native stack switching can retain the stack
 without rebuilding that path as closures. These are different cost models;
-neither establishes a performance result for Snail Scheme without measurement.
+neither establishes a performance result for `snail-scheme` without measurement.
 
-Koka supports multiple resumptions. Snail Scheme restricts them to one: a
+Koka supports multiple resumptions. `snail-scheme` restricts them to one: a
 second call of `resume` panics. A C
 backend would still need closure conversion, effect lowering, a
 managed-memory strategy, a foreign ABI and a portable runtime.
@@ -120,7 +120,7 @@ Koka explicitly finalizes abandoned resumptions so `finally` clauses run,
 and its `raw ctl` exposes a resume context that must eventually be resumed
 or finalized; the
 [tour](https://github.com/koka-lang/koka/blob/dev/doc/spec/tour.kk.md)
-describes that contract. Snail Scheme has no `finally`: a resumption that is
+describes that contract. `snail-scheme` has no `finally`: a resumption that is
 never called is reclaimed by the collector, and nothing in its frames runs. The related
 [libmprompt](https://github.com/koka-lang/libmprompt) project takes a separate
 native stack-switching approach; it is not the mechanism described above.
@@ -145,7 +145,7 @@ backend is on the implementation path of the task rewrite.
 
 ## Deliberate language limits
 
-Snail Scheme is a statically typed Scheme descendant, not an R7RS
+`snail-scheme` is a statically-typed Scheme successor, not an R7RS
 implementation. `call/cc`, `dynamic-wind`, reusable continuations and a separate
 Scheme compatibility runtime are outside the language. Its implemented
 control model is one-shot delimited effects: a second resume panics, and a
@@ -161,7 +161,7 @@ while waits remain live. Nothing walks language frames: neither GC
 reachability nor a native Rust/JavaScript exception unwinds them.
 
 Foreign callbacks return normally. They copy transient inputs or hand over
-an explicitly owned buffer, settle a registration and enqueue Snail Scheme work.
+an explicitly owned buffer, settle a registration and enqueue `snail-scheme` work.
 They do not capture a foreign stack as part of a continuation. Browser
 operations that need an immediate response, such as event suppression,
 keep that decision in the synchronous adapter.

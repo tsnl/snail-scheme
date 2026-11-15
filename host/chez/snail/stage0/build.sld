@@ -1,29 +1,28 @@
-;; The command-line driver: one source file to a linked, runnable Wasm
-;; program. The compiler runs as a separate program with one interface,
-;; `compile MODE SOURCE OUTPUT GENERATED DIRECTORY ...`: normally as Wasm, built
-;; from its own source by bootstrapping, and on Chez only to start a
-;; bootstrap. The native executable assembles and links through the same
-;; Rust backend compiled tools use.
+;; Stage 0's driver. Its one product is the stage 1 command line,
+;; bootstrap/cli.sld, which `bootstrap` builds from its source and checks
+;; to a fixpoint ("Bootstrap"); everything else, the engine, the reload
+;; client and every tool, the command line builds as an ordinary target of
+;; the repository's project. The test harness (tests/run.scm) also compiles
+;; with these functions, so they take any source: a compile runs the
+;; command line's `compile MODE SOURCE OUTPUT GENERATED DIRECTORY ...`, or
+;; the same interface on Chez, and the native executable assembles and
+;; links through the Rust backend compiled programs use.
 (define-library (snail stage0 build)
   (export
    program->wat
+   run-compiler
+   chez-compiler
+   cli-compiler
    program->linked-wat
    place-links!
    place-object!
    file-bytes
-   program->schemas
    build-program
    build-modules
    link-wat
    build-runtime
-   build-tool
    build-toolchain-tool
-   build-cli-tools
-   build-engine
-   build-editor-tools
-   build-book-tools
-   build-format-tools
-   bootstrap!
+   bootstrap
    standard-directories
    with-private-directory
    program-command
@@ -53,13 +52,13 @@
 
     ;; The command that runs a compiled program, one linked module or the
     ;; modules.json of a per-library build, which the engine links
-    ;; (bootstrap/engine.sld), built first when it is stale. Node runs it,
+    ;; (tools/engine.sld, which `./snail-scheme build . engine` builds into
+    ;; build/engine, where both runners look for it). Node runs it,
     ;; unless SNAIL_ENGINE=wasmtime asks for build/snail, whose `run-wasm`
     ;; runs a program that needs of its host only WASI, the files it links
     ;; and loading modules, and drives its tasks. A program that imports
     ;; sockets or processes stays on Node.
     (define (program-command root program)
-      (when (string-suffix? ".json" program) (build-engine root))
       (if (and (wasmtime-engine?) (not (node-hosted? (program-imports root program))))
           (list (snail-binary root) "run-wasm" program)
           (node-command root program)))
@@ -97,17 +96,22 @@
 
     ;; ---- Compiling ----
 
-    ;; The command that runs the compiled compiler `program`, which is an
-    ;; ordinary program: Node runs it through host/native/run-snail.mjs by
-    ;; default, and with SNAIL_ENGINE=wasmtime, build/snail's `run-wasm`
-    ;; does, from its machine code. The native executable stays an opt-in
-    ;; because wasmtime's collector makes a compile 9 to 37 times slower
-    ;; than on V8 (see "The native executable" in
-    ;; doc/book/snail-core/bootstrap.md).
+    ;; The command that compiles with the command line `program`, which is
+    ;; an ordinary program: its `compile` action, after the root and the two
+    ;; runtimes every action takes. Node runs it through
+    ;; host/native/run-snail.mjs by default, and with SNAIL_ENGINE=wasmtime,
+    ;; build/snail's `run-wasm` does, from its machine code. The native
+    ;; executable stays an opt-in because wasmtime's collector makes a
+    ;; compile 9 to 37 times slower than on V8 (see "The native executable"
+    ;; in doc/book/snail-scheme/bootstrap.md).
     (define (compiler-command root program)
-      (if (wasmtime-engine?)
-          (list (snail-binary root) "run-wasm" program)
-          (node-command root program)))
+      (cli-command root program (wasmtime-engine?)))
+
+    (define (cli-command root program wasmtime?)
+      (append (if wasmtime?
+                  (list (snail-binary root) "run-wasm" program)
+                  (node-command root program))
+              (list root (runtime-path root #f) (runtime-path root #t) "compile")))
 
     ;; Chez compiles the erased source closure to native code. The loader
     ;; admits the compiler and its host boundary, never application libraries.
@@ -115,13 +119,21 @@
       (list (or (getenv "CHEZ") "scheme") "--script"
             (path-join root "host/chez/load.scm") root "compile"))
 
-    ;; The command that runs a compiler. The compiled compiler is rebuilt
-    ;; first when its source has changed, and on wasmtime it runs from its
-    ;; machine code; SNAIL_STAGE0=chez runs the source on Chez instead.
+    ;; The command that runs a compiler. The command line is rebuilt first
+    ;; when its source has changed, and on wasmtime it runs from its machine
+    ;; code; SNAIL_STAGE0=chez runs the compiler's source on Chez instead.
     (define (selected-compiler root)
-      (cond ((equal? (getenv "SNAIL_STAGE0") "chez") (chez-compiler root))
-            ((wasmtime-engine?) (compiler-command root (precompiled-compiler root)))
-            (else (compiler-command root (current-compiler root)))))
+      (if (equal? (getenv "SNAIL_STAGE0") "chez")
+          (chez-compiler root)
+          (cli-compiler root (wasmtime-engine?))))
+
+    ;; The current command line's compile on Node, or on wasmtime from its
+    ;; machine code, whatever SNAIL_ENGINE says: the test harness compares
+    ;; the two, and the compiler's source on Chez, for the same program.
+    (define (cli-compiler root wasmtime?)
+      (if wasmtime?
+          (cli-command root (precompiled-cli root) #t)
+          (cli-command root (current-cli root) #f)))
 
     (define (program->wat root directories source)
       (run-compiler root (selected-compiler root) "wat" directories source))
@@ -140,9 +152,6 @@
                                                      output
                                                      directory)
                                   (cons (read-file output) (read-links directory))))))
-
-    (define (program->schemas root directories source)
-      (run-compiler root (selected-compiler root) "schema" directories source))
 
     ;; Each compile works in a directory of its own, for its output and the
     ;; libraries its producers generate, and removes it when done, as Cargo
@@ -236,7 +245,7 @@
     ;; ---- Generated libraries ----
 
     ;; A `generate-library` recipe becomes a producer program, which
-    ;; bootstrap/compile.sld writes into the compile's directory under the
+    ;; the command line's compile writes into the compile's directory under the
     ;; hash of its text: KEY.sld is the producer, and KEY.syntax the
     ;; library's syntax, which the producer writes to the path it is given.
     ;; A producer may read files the key does not cover, so nothing produced
@@ -322,77 +331,122 @@
 
     ;; ---- Bootstrap ----
 
-    ;; The compiler compiles itself until its output stops changing: stage 1
-    ;; is built by the previous compiler if it can, or else by Chez running
-    ;; the source; stage 2 by stage 1; and stage 2 must reproduce its own text.
-    (define (compiler-path root)
-      (path-join root "build/compiler/snailc.wasm"))
+    ;; The command line compiles itself until its output stops changing:
+    ;; stage 1 is built by the previous command line if it can, or else by
+    ;; Chez running the compiler's source; stage 2 by stage 1; and stage 2
+    ;; must reproduce its own text. It links with the toolchain runtime,
+    ;; whose services include the assembler its builds use.
+    (define (cli-path root)
+      (path-join root "build/bootstrap/snail-scheme.wasm"))
 
-    ;; The compiled compiler, rebuilt when it is older than its own source:
-    ;; its entry program, its modules, the three libraries it imports, and
-    ;; the primitives they are built on.
-    (define (current-compiler root)
-      (rebuild-if-stale! root (compiler-path root)
-                         (map (lambda (path) (path-join root path))
-                              '("host/chez"
-                                "crates/snail-core-support/src/assembler.rs"
-                                "bootstrap/compile.sld"
-                                "src/snail/shell/compiler.sld"
-                                "src/snail/shell/compiler"
-                                "src/snail/core/base.sld"
-                                "src/snail/core/table.sld"
-                                "src/snail/core/io.sld"
-                                "src/snail/core/primitive.sld"))
-                         (lambda () (rebuild-compiler! root))))
+    ;; The compiler's own sources: its entry's driver, its modules, the
+    ;; three libraries it imports and the primitives they are built on, the
+    ;; assembler it links with, and this host.
+    (define (compiler-sources root)
+      (map (lambda (path) (path-join root path))
+           '("host/chez"
+             "crates/snail-scheme-support/src/assembler.rs"
+             "src/snail/shell/compiler.sld"
+             "src/snail/shell/compiler"
+             "src/snail/core/base.sld"
+             "src/snail/core/table.sld"
+             "src/snail/core/io.sld"
+             "src/snail/core/primitive.sld")))
 
-    ;; Stage 0 uses the native assembler/linker regardless of the engine
-    ;; selected for running the resulting modules.
-    (define (bootstrap! root)
+    ;; Everything the command line is built from: its entry, every library
+    ;; under src/, and the runtime it links, built first if it is missing.
+    ;; Cargo is asked again only by `bootstrap`, since every compile asks
+    ;; for the command line.
+    (define (cli-sources root)
+      (unless (file-exists? (runtime-path root #t)) (build-runtime root #t))
+      (cons* (runtime-path root #t)
+             (path-join root "bootstrap")
+             (path-join root "src")
+             (compiler-sources root)))
+
+    ;; The current command line. When the compiler's own sources are older
+    ;; than it, the compiler inside it is the source's, so one compile by it
+    ;; is the fixpoint's output; otherwise the whole fixpoint runs again.
+    (define (current-cli root)
+      (rebuild-if-stale! root (cli-path root) (cli-sources root)
+                         (lambda ()
+                           (if (current? (cli-path root) (compiler-sources root))
+                               (recompile-cli! root)
+                               (rebuild-cli! root)))))
+
+    ;; What scripts/bootstrap prints, a line each: the command line, then
+    ;; the runtime programs link with, then the toolchain's, which the
+    ;; launcher passes it.
+    (define (bootstrap root)
       (snail-binary root)
-      (with-build-lock root (lambda () (rebuild-compiler! root))))
+      (let* ((runtime (build-runtime root #f)) (toolchain (build-runtime root #t)))
+        (for-each (lambda (path) (write-string path) (newline))
+                  (list (current-cli root) runtime toolchain))))
 
-    ;; The current compiler as machine code for build/snail's engine, which
-    ;; saves each compile the most of a second Cranelift takes to compile
-    ;; it. It is rebuilt when the compiler or the executable is newer;
-    ;; `precompile` renames it into place, so a compile never loads half of one.
-    (define (precompiled-compiler root)
-      (let ((module (current-compiler root))
+    ;; The current command line as machine code for build/snail's engine,
+    ;; which saves each compile the most of a second Cranelift takes to
+    ;; compile it. It is rebuilt when the command line or the executable is
+    ;; newer; `precompile` renames it into place, so a compile never loads
+    ;; half of one.
+    (define (precompiled-cli root)
+      (let ((module (current-cli root))
             (binary (snail-binary root))
-            (code (path-join root "build/compiler/snailc.cwasm")))
+            (code (path-join root "build/bootstrap/snail-scheme.cwasm")))
         (rebuild-if-stale! root code (list module binary)
                            (lambda () (run-command (list binary "precompile" module code))))))
 
-    ;; Stage 1 is the source's output for its own entry program, from the
-    ;; previous compiler when one works and from Chez otherwise; stage 2 is
-    ;; stage 1's, and stage 3 is stage 2's. Stage 2 must reproduce its own
-    ;; text. When Chez produced stage 1, both hosts ran the same source on
-    ;; the same input, so stage 1 must be that text as well: the two hosts
+    ;; One compile of the entry by the current command line, linked into
+    ;; place; if that command line cannot, the whole fixpoint instead.
+    (define (recompile-cli! root)
+      (let* ((directory (path-join root "build/bootstrap"))
+             (next (path-join directory "next.wasm"))
+             (text (guard (failure (#t #f))
+                     (run-compiler root (compiler-command root (cli-path root)) "wat"
+                                   (standard-directories root) (cli-entry root)))))
+        (if text
+            (begin (link-cli root text next) (rename-file next (cli-path root)))
+            (rebuild-cli! root))))
+
+    (define (cli-entry root)
+      (path-join root "bootstrap/cli.sld"))
+
+    ;; Writes OUTPUT from the command line's text, keeping the text beside it.
+    (define (link-cli root text output)
+      (let ((wat (string-append output ".wat")))
+        (write-file wat text)
+        (link-wat-file root wat output (build-runtime root #t))))
+
+    ;; Stage 1 is the source's output for the command line, from the
+    ;; previous one when one works and from Chez otherwise; stage 2 is stage
+    ;; 1's, and stage 3 is stage 2's. Stage 2 must reproduce its own text.
+    ;; When Chez produced stage 1, both hosts ran the same source on the
+    ;; same input, so stage 1 must be that text as well: the two hosts
     ;; agree, or the build says where they differ.
-    (define (rebuild-compiler! root)
-      (let* ((directory (path-join root "build/compiler"))
-             (entry (path-join root "bootstrap/compile.sld"))
+    (define (rebuild-cli! root)
+      (let* ((directory (path-join root "build/bootstrap"))
+             (entry (cli-entry root))
              (stage1 (path-join directory "stage1.wasm"))
              (stage2 (path-join directory "stage2.wasm"))
              (stage3 (path-join directory "stage3.wat")) (sources (standard-directories root)))
         (create-directory* directory)
         (let ((first (stage1-text root entry)))
-          (link-wat root (cdr first) stage1)
-          (link-wat root
+          (link-cli root (cdr first) stage1)
+          (link-cli root
                     (run-compiler root (compiler-command root stage1) "wat" sources entry)
                     stage2)
           (write-file stage3 (run-compiler root (compiler-command root stage2) "wat" sources entry))
           (unless (equal? (read-file (string-append stage2 ".wat")) (read-file stage3))
             (error 'snail
-                   "bootstrap: stage 2 does not reproduce its own text; compare build/compiler/stage2.wasm.wat with stage3.wat"))
+                   "bootstrap: stage 2 does not reproduce its own text; compare build/bootstrap/stage2.wasm.wat with stage3.wat"))
           (when (and (car first)
                      (not (equal? (cdr first) (read-file (string-append stage2 ".wat")))))
             (error 'snail
-                   "bootstrap: the source on Chez and its compiled form emit different text; compare build/compiler/stage1.wasm.wat with stage2.wasm.wat"))
-          (rename-file stage2 (compiler-path root)))))
+                   "bootstrap: the source on Chez and its compiled form emit different text; compare build/bootstrap/stage1.wasm.wat with stage2.wasm.wat"))
+          (rename-file stage2 (cli-path root)))))
 
     ;; Whether Chez produced the text, and the text.
     (define (stage1-text root entry)
-      (let* ((previous (compiler-path root)) (sources (standard-directories root))
+      (let* ((previous (cli-path root)) (sources (standard-directories root))
              (reused (and (file-exists? previous)
                           (guard (failure (#t #f))
                             (run-compiler root
@@ -458,17 +512,25 @@
     ;; tools. Separate target directories keep the two artifacts independent;
     ;; Cargo decides whether each needs rebuilding.
     (define (build-runtime root assembler?)
-      (let ((target (path-join root
-                               (if assembler?
-                                   "build/wasm-snail-core-support-toolchain"
-                                   "build/wasm-snail-core-support"))))
+      (let ((target (runtime-target root assembler?)))
         (apply run-tool "CARGO" "cargo" (string-append "+" (pinned-channel root))
                "rustc" "--crate-type=cdylib" "--quiet" "--offline" "--release"
                "--target" "wasm32-wasip1"
-               "--manifest-path" (path-join root "crates/snail-core-support/Cargo.toml")
+               "--manifest-path" (path-join root "crates/snail-scheme-support/Cargo.toml")
                "--target-dir" target
                (if assembler? '("--features" "assembler") '()))
-        (path-join target "wasm32-wasip1/release/snail_core_support.wasm")))
+        (runtime-path root assembler?)))
+
+    ;; Where Cargo puts each runtime, without building it.
+    (define (runtime-target root assembler?)
+      (path-join root
+                 (if assembler?
+                     "build/wasm-snail-scheme-support-toolchain"
+                     "build/wasm-snail-scheme-support")))
+
+    (define (runtime-path root assembler?)
+      (path-join (runtime-target root assembler?)
+                 "wasm32-wasip1/release/snail_scheme_support.wasm"))
 
     ;; rustup resolves a toolchain from the working directory, which belongs
     ;; to whoever ran the command: building a project in another directory
@@ -655,77 +717,11 @@
             out
             (loop (cdr items) (string-append out (if (string=? out "") "" ", ") (car items))))))
 
-    ;; ---- Development tools ----
+    ;; ---- Programs that assemble ----
 
-    ;; The `snail` command line, a Snail program that builds projects with
-    ;; the compiler inside it, linked with the toolchain's runtime, which
-    ;; assembles a development build's modules; the runtime it links
-    ;; programs with; and the engine that runs a development build.
-    (define (build-cli-tools root)
-      (list (build-toolchain-tool root
-                                  (path-join root "bootstrap/cli.sld")
-                                  (path-join root "build/project/cli.wasm")
-                                  (standard-directories root))
-            (build-runtime root #f)
-            (build-engine root)))
-
-    ;; The engine, which host/native/run-snail.mjs and `snail run-wasm`
-    ;; start to run a program compiled one library at a time, at the path
-    ;; both look for it at.
-    (define (build-engine root)
-      (build-tool root
-                  (path-join root "bootstrap/engine.sld")
-                  (path-join root "build/engine/engine.wasm")
-                  (standard-directories root)))
-
-    ;; The development service adds two programs to the command line's
-    ;; tools, whose `resident` builds for it: the editor's browser bundle
-    ;; and the reload client its browser targets' pages load.
-    (define (build-editor-tools root)
-      (let* ((tools (build-cli-tools root))
-             (project (path-join root "host/ide")))
-        ;; The IDE is an ordinary browser target. Its public assets and
-        ;; program are published together by the native project builder.
-        (run-command (append (program-command root (car tools))
-                             (list root (cadr tools) "build" "--release" project "ide")))
-        (append (list (path-join project "build/ide")
-                      (build-tool root
-                                  (path-join root "host/browser/reload.sld")
-                                  (path-join root "build/ide-tools/reload.wasm")
-                                  (standard-directories root)))
-                tools)))
-
-    ;; The book's highlighter, the preprocessor scripts/highlight-book runs
-    ;; while mdbook builds the book.
-    (define (build-book-tools root)
-      (list (build-tool root
-                        (path-join root "bootstrap/highlight-book.sld")
-                        (path-join root "build/book-tools/highlight-book.wasm")
-                        (standard-directories root))))
-
-    ;; The command-line formatter uses the same library as the browser editor.
-    (define (build-format-tools root)
-      (list (build-tool root
-                        (path-join root "bootstrap/format.sld")
-                        (path-join root "build/format-tools/format.wasm")
-                        (standard-directories root))))
-
-    ;; A program the tools run, built from `source` with the libraries in
-    ;; `directories` when it is stale.
-    (define (build-tool root source output directories)
-      (rebuild-if-stale! root
-                         output
-                         (cons (path-join root "host/chez/snail/stage0/build.sld")
-                               (cons source directories))
-                         (lambda ()
-                           (build-program root
-                                          directories
-                                          source
-                                          output
-                                          (build-runtime root #f)))))
-
-    ;; A tool linked with the toolchain's runtime, which it is rebuilt
-    ;; after, as after its sources.
+    ;; A program linked with the toolchain's runtime, which it is rebuilt
+    ;; after, as after its sources: what the test harness builds of the
+    ;; fixtures that assemble and link in-process.
     (define (build-toolchain-tool root source output directories)
       (let ((runtime (build-runtime root #t)))
         (rebuild-if-stale! root

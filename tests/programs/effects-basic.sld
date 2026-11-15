@@ -3,7 +3,7 @@
  (snail core io))
 
 ;; The examples of "Basic effects" in the book's chapter on effects and
-;; handlers, doc/book/snail-core/effects.md, which includes the parts
+;; handlers, doc/book/snail-scheme/effects.md, which includes the parts
 ;; between each ANCHOR and ANCHOR_END.
 
 ;; ANCHOR: rows

@@ -1,0 +1,8 @@
+#!/bin/sh
+# Stage 0: Chez builds the stage 1 command line, bootstrap/cli.sld, from
+# the compiler's source, once its source has changed, and checks it to a
+# fixpoint (host/chez/snail/stage0/build.sld, "Bootstrap"). It prints the
+# command line and the two runtimes it is run with, a line each, which the
+# ./snail-scheme launcher caches. Everything else the command line builds.
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+exec "${CHEZ:-scheme}" --script "$root/host/chez/load.scm" "$root" bootstrap

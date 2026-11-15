@@ -1,4 +1,4 @@
-// What `snail dev` adds to every page of a browser target: the reload
+// What `snail-scheme watch` adds to every page of a browser target: the reload
 // client (reload-client.mjs), fed the page's manifest and the server's
 // events, and given the application host to relink and save programs with.
 // The client's program and the events are beside this script, under the

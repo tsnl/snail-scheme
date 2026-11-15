@@ -11,8 +11,6 @@
    empty-inventory
    inventory
    inventory-changes
-   inventory-files
-   inventory-directories
    hints
    Watch
    watch-tree
@@ -117,27 +115,6 @@
          (filter (lambda (path) (not (same-fingerprint? old updated path))) (table-keys updated))
          (filter (lambda (path) (not (table-contains? updated path))) (table-keys old)))))
 
-    ;; The regular files an inventory found, in no particular order.
-
-    (define (inventory-files (taken Inventory)) (→ (List String))
-      (let ((fingerprints (● taken fingerprints)))
-        (filter (lambda (path)
-                  (match (table-ref fingerprints path)
-                    ((Some print) (and (>= (string-length print) 5)
-                                       (string=? (substring print 0 5) "file ")))
-                    ((None) #f)))
-                (table-keys fingerprints))))
-
-    ;; Real directories only: the inventory never traverses symbolic links.
-
-    (define (inventory-directories (taken Inventory)) (→ (List String))
-      (let ((fingerprints (● taken fingerprints)))
-        (filter (lambda (path)
-                  (match (table-ref fingerprints path)
-                    ((Some print) (string=? print "directory"))
-                    ((None) #f)))
-                (table-keys fingerprints))))
-
     (define (same-fingerprint? (old (Table String)) (updated (Table String)) (path String)) (→ Bool)
       (match (new Pair (first (table-ref old path)) (second (table-ref updated path)))
         ((Pair (Some was) (Some is)) (string=? was is))
@@ -151,8 +128,7 @@
     ;; since a watch can miss a change or be lost: hints only make an
     ;; inventory prompt. Only Node implements them, as WASI has no watch.
     ;; Starting and closing a watch are commands, its root and exclusions
-    ;; sent a character at a time, as `modes` sends paths in
-    ;; (snail shell project files); waiting is by ticket.
+    ;; sent a character at a time; waiting is by ticket.
     (effect hints
       ((hint-character (Fn Char → Unit))
        (hint-end (Fn → Unit))

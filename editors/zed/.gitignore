@@ -1,0 +1,4 @@
+# What `zed: install dev extension` builds and fetches.
+/extension.wasm
+/grammars/
+/target/

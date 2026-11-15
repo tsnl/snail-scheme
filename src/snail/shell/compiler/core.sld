@@ -131,7 +131,6 @@
    type-id
    case-type-id
    any-type-id
-   wire-schemas
    strong-components)
   (import
    (snail core base)
@@ -796,7 +795,7 @@
     ;; of the handled computation as `resume`; the others return to their
     ;; caller. `defaults` maps operation names to what performs them when no
     ;; handler is in scope.
-    ;; Each default is an operation's and the global of the Snail Scheme
+    ;; Each default is an operation's and the global of the `snail-scheme`
     ;; function the effect's declaration defines for it, which runs under
     ;; the performer's handlers.
     ;; An effect: its operations, those among them that are control
@@ -1166,44 +1165,6 @@
                              (string-append "|" (type-schema program tail params visiting))))
                           ")")))
         (_ (panic "internal error: unresolved type in a schema"))))
-
-    ;; ---- Wire schemas ----
-
-    ;; Every data type with a Serialize instance, as text: `(Type (Case
-    ;; type-id (field type) ...) ...)` with full names. Programs that agree on
-    ;; a case's line agree on its encoding.
-
-    (define (wire-schemas (program Program)) (→ String)
-      (string-concatenate
-       (map (lambda (instance)
-              (match (● instance types)
-                ((Cons (TCon name _) (Nil))
-                 (if (table-contains? (● program types) name)
-                     (data-schema program (program-type program name))
-                     ""))
-                (_ "")))
-            (class-instances program "snail.shell.wire:Serialize"))))
-
-    (define (data-schema (program Program) (data DataType)) (→ String)
-      (string-append
-       "(" (● data name)
-       (string-concatenate
-        (map (lambda (case)
-               (string-append "\n  ("
-                              (short-name (● case name))
-                              " "
-                              (i64->string (case-type-id program case))
-                              (string-concatenate
-                               (map (lambda (field)
-                                      (string-append " ("
-                                                     (● field name)
-                                                     " "
-                                                     (type-key (● field type))
-                                                     ")"))
-                                    (● case fields)))
-                              ")"))
-             (● data cases)))
-       ")\n"))
 
     ;; ---- Strongly connected components ----
 

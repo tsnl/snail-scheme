@@ -1,4 +1,0 @@
-#!/bin/sh
-# Internal contributor commands; applications use the project CLI.
-root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-exec "${CHEZ:-scheme}" --script "$root/host/chez/load.scm" "$root" tool "$@"

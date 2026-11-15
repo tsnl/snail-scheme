@@ -1,4 +1,4 @@
-// The book's preprocessor, bootstrap/highlight-book.sld, run as mdbook runs
+// The book's preprocessor, tools/highlight-book.sld, run as mdbook runs
 // it: it supports only the HTML renderer, and given [context, book] on
 // standard input it prints the book with each `scheme` block as the
 // highlighter's spans, leaving every other block and line as it was.
