@@ -2514,8 +2514,7 @@
     ;; `check-lambda`, so `performed` holds what its body performed. An
     ;; instance method has its class's row, which this instance may need
     ;; less of, and a value other than a lambda has no body of its own, so
-    ;; neither is held to it. A default is: its `default` entry is its
-    ;; signature (expand.sld's `snail-defaults`).
+    ;; neither is held to it.
 
     (define (want-performed (ck Checker) (definition Item) (scheme Scheme)) (→ Checker)
       (match definition
@@ -2541,19 +2540,8 @@
                                                        performed)))
            ((Nil) (unit))
            (effects (compile-error loc
-                                   (unperformed-message (definition-label (program-of ck) name)
-                                                        effects)))))
+                                   (unperformed-message (short-name name) effects)))))
         (_ (unit))))
-
-    ;; How an error names a definition: a default by its operation, since
-    ;; its global's name is generated.
-
-    (define (definition-label (program Program) (name String)) (→ String)
-      (match (find (lambda (default) (string=? (● default second) name))
-                   (concatenate
-                    (map (lambda (record) (● record defaults)) (table-values (● program effects)))))
-        ((Some default) (string-append "the default of " (short-name (● default first))))
-        ((None) (short-name name))))
 
     (define (unperformed-message (label String) (effects (List String))) (→ String)
       (let ((one (= (length effects) 1)))
@@ -2620,19 +2608,17 @@
         ((TFun _ _ row) (check-host-effects ck row loc))
         (_ (compile-error loc "an exposed function must be a monomorphic function"))))
 
-    ;; The effects of `row`, which the host calls into, must each be the
-    ;; host's: builtin, or with a default for every operation.
+    ;; What the host calls into may perform only the host's own effects,
+    ;; the builtin `mut` and `host`: the program's handlers and its
+    ;; target's answer every other.
 
     (define (check-host-effects (ck Checker) (row Type) (loc Loc)) (→ Checker) (! compile)
       (for-each (lambda (label)
-                  (unless (or (member? label (list "mut" "host"))
-                              (let ((effect (program-effect (program-of ck) label)))
-                                (= (length (● effect defaults))
-                                   (length (● effect operations)))))
+                  (unless (member? label (list "mut" "host"))
                     (compile-error loc
                                    (string-append "the effect "
                                                   (short-name label)
-                                                  " has no host implementation here"))))
+                                                  " has no handler here, in the program or its target"))))
                 (● (flatten-row (solution ck) row) first))
       ck)
 
