@@ -236,7 +236,9 @@ Each step is a pull request that passes every check on its own.
    - `snailc` and `-o` go; `snail-scheme wat FILE` prints a script's text.
    - Each `--target` supplying its handlers comes in step 5.
 4. **Constant arrays, then pure foreign functions in `snail-scheme`.**
-   - Top-level tables of primitives compiled to immutable Wasm globals.
+   - Constant vectors: done, `(constant-vector TYPE (VALUE ...))`, a table of
+     integer-like scalars built once per module from a data segment
+     ([types](types.md#constant-vectors)).
    - The math functions, Unicode tables and float printing in `snail-scheme`.
 5. **Targets as handler libraries.**
    - `host` becomes `unsafe-extern`, which every `extern` declares.

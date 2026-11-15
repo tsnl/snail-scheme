@@ -17,6 +17,7 @@
    DString
    DChar
    DBytes
+   DConstants
    DBool
    DUnit
    Syntax
@@ -96,7 +97,11 @@
       (DChar ((value Char)))
       (DBytes ((value Bytes)))
       (DBool ((value Bool)))
-      (DUnit))
+      (DUnit)
+      ;; A constant vector's elements, all literals of the scalar type
+      ;; `element` names. Only the expander makes one, from
+      ;; `(constant-vector TYPE (VALUE ...))`; the reader never does.
+      (DConstants ((element String) (values (List Datum)))))
 
     ;; An identifier a macro template introduces carries a mark: a key unique
     ;; to the expansion, the template's identifier, and the number of the
@@ -138,7 +143,10 @@
                                      " ")
                         ")"))
         ((DBool value) (if value "#t" "#f"))
-        ((DUnit) "(unit)")))
+        ((DUnit) "(unit)")
+        ((DConstants element values)
+         (string-append "(constant-vector " element " ("
+                        (string-join (map datum->string values) " ") "))"))))
 
     ;; A string as a literal the reader reads back.
 
@@ -162,7 +170,15 @@
         ((DChar x) (match b ((DChar y) (char=? x y)) (_ #f)))
         ((DBytes x) (match b ((DBytes y) (bytes=? x y)) (_ #f)))
         ((DBool x) (match b ((DBool y) (eq-bool? x y)) (_ #f)))
-        ((DUnit) (match b ((DUnit) #t) (_ #f)))))
+        ((DUnit) (match b ((DUnit) #t) (_ #f)))
+        ((DConstants element values)
+         (match b
+           ((DConstants other others)
+            (and (string=? element other)
+                 (= (length values) (length others))
+                 (every? (lambda (pair) (datum=? (● pair first) (● pair second)))
+                         (zip values others))))
+           (_ #f)))))
 
     (define (bytes=? (a Bytes) (b Bytes)) (→ Bool)
       (and (= (vector-length a) (vector-length b))
