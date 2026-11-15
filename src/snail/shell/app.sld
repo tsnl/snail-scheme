@@ -134,6 +134,7 @@
    Frame
    rgb
    screen
+   provide-screen
    render
    Ray
    pointer-ray
@@ -683,27 +684,32 @@
        (widget-image (Fn I32 I32 I32 I32 I32 I32 → Unit))
        (field (Fn I32 → Unit))
        (text-character (Fn Char → Unit))
-       (hud-end (Fn → Unit)))
-      (default ((frame-begin host-frame-begin)
-                (camera host-camera)
-                (light host-light)
-                (picture-begin host-picture-begin)
-                (layer host-layer)
-                (source-begin host-source-begin)
-                (source-word host-source-word)
-                (swap host-swap)
-                (picture-end host-picture-end)
-                (batch-begin host-batch-begin)
-                (instance host-instance)
-                (surface host-surface)
-                (frame-end host-frame-end)
-                (hud-begin host-hud-begin)
-                (panel-begin host-panel-begin)
-                (widget-begin host-widget-begin)
-                (widget-image host-widget-image)
-                (field host-field)
-                (text-character host-text-character)
-                (hud-end host-hud-end))))
+       (hud-end (Fn → Unit))))
+
+    ;; The page's canvas, through the browser host.
+    (define (provide-screen (work (Fn → T ! screen e))) (→ T) (! e) (∀ (T e))
+      (handle screen
+          ((frame-begin host-frame-begin)
+           (camera host-camera)
+           (light host-light)
+           (picture-begin host-picture-begin)
+           (layer host-layer)
+           (source-begin host-source-begin)
+           (source-word host-source-word)
+           (swap host-swap)
+           (picture-end host-picture-end)
+           (batch-begin host-batch-begin)
+           (instance host-instance)
+           (surface host-surface)
+           (frame-end host-frame-end)
+           (hud-begin host-hud-begin)
+           (panel-begin host-panel-begin)
+           (widget-begin host-widget-begin)
+           (widget-image host-widget-image)
+           (field host-field)
+           (text-character host-text-character)
+           (hud-end host-hud-end))
+        (work)))
 
     (define (render (frame Frame)) (→ Unit) (! screen)
       (frame-begin (● frame background) (● frame motion))
