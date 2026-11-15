@@ -5,7 +5,7 @@
 ;; host/chez/snail/stage0/process.sls, has the same name; Chez never sees src/.
 (define-library (snail shell process)
   (export
-   Process spawn read-output write-input close-input send-signal wait-exit close-process run exec
+   Processes spawn read-output write-input close-input send-signal wait-exit close-process run exec
    Signals termination
    Command
    Process
@@ -78,7 +78,7 @@
     ;; command, as execve does: the command takes over this process and its
     ;; standard streams, and nothing of the program runs after. It returns
     ;; only when it cannot, with why.
-    (effect Process
+    (effect Processes
       ((spawn (Fn Command → (Result Process Process-error) ! Tasks))
        (read-output (Fn Process Stream I32 → (Result (Option Bytes) Process-error) ! Tasks))
        (write-input (Fn Process Bytes → (Result I32 Process-error) ! Tasks))

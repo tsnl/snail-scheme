@@ -139,7 +139,7 @@ asynchronous reads.
 ## Native asynchronous file reads
 
 `(snail shell async-files)` exports the ordinary `Files` effect. Its
-`read-file : String I32 -> Result<Bytes, FileError> ! Files Tasks` reads
+`read-file : String I32 -> Result<Bytes, File-error> ! Files Tasks` reads
 an entire file up to the supplied byte limit. It suspends the calling task
 while other tasks run. A task that has other work meanwhile dispatches the
 read and receives its result through a [mailbox](#mailboxes):

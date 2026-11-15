@@ -247,8 +247,8 @@ delivery protocol and retains no managed wrapper.
 
 ## Child processes
 
-`(snail shell process)` provides the `Process` effect: child processes with
-their standard streams piped to the program. Import it and include `Process`
+`(snail shell process)` provides the `Processes` effect: child processes with
+their standard streams piped to the program. Import it and include `Processes`
 in the effect row of code using it. Every operation returns `Result` with a
 `Process-error` whose `code` is a string such as `"EBADF"` or a native error
 code. As for sockets, nothing cancels a waiting task.
@@ -386,4 +386,4 @@ with the socket owners when a program ends, so no child outlives a program
 that ends normally. Only the child is killed: a process it started, as a
 shell does for a command it does not `exec`, is the child's to end. No native record retains a managed wrapper. The browser has
 no processes and no `snail.runtime.native.process` imports, so a program performing
-`Process` links only on the native runner.
+`Processes` links only on the native runner.

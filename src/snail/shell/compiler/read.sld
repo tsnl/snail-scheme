@@ -245,7 +245,7 @@
       (Failed ((diagnostics Diagnostics)))
       (Requested ((request Compiler-request))))
 
-    (define (compiling (work (Fn → T ! Compile e))) (→ (Result T Stop)) (! e) (∀ (T e))
+    (define (compiling (work (Fn → T ! Compile E))) (→ (Result T Stop)) (! E) (∀ (T E))
       (handle Compile
           ((fail (lambda (diagnostics) (Err (Failed diagnostics))))
            (need (lambda (request) (Err (Requested request)))))
@@ -256,10 +256,10 @@
     ;; an input is no failure of the item: the request goes on to the
     ;; compile's handler, since an implementation runs outside its handle.
 
-    (define (recovering (work (Fn → T ! Compile e)))
+    (define (recovering (work (Fn → T ! Compile E)))
       (→ (Result T Diagnostics))
-      (! Compile e)
-      (∀ (T e))
+      (! Compile E)
+      (∀ (T E))
       (handle Compile
           ((fail (lambda (diagnostics) (Err diagnostics)))
            (need (lambda (request) (absurd (need request)))))
@@ -268,10 +268,10 @@
     ;; What `check` finds wrong in each item, checking every item past one
     ;; that fails, in the items' order.
 
-    (define (failures-of (check (Fn A → Unit ! Compile e)) (items (List A)))
+    (define (failures-of (check (Fn A → Unit ! Compile E)) (items (List A)))
       (→ (List Source-diagnostic))
-      (! Compile e)
-      (∀ (A e))
+      (! Compile E)
+      (∀ (A E))
       (concatenate (map (lambda (item)
                           (match (recovering (lambda () (check item)))
                             ((Ok _) (Nil))

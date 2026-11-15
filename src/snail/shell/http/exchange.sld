@@ -188,10 +188,10 @@
 
     (define (exchange (connection Connection)
                       (grace I32)
-                      (handler (Fn Request → (Result Response E) ! e)))
+                      (handler (Fn Request → (Result Response E) ! Effects)))
       (→ (Result Unit (Exchange-error E)))
-      (! Tcp Tasks e)
-      (∀ (E e))
+      (! Tcp Tasks Effects)
+      (∀ (E Effects))
       (match (read-request connection)
         ((Err error) (Err error))
         ((Ok request)
@@ -210,10 +210,10 @@
 
     (define (serve-one (connection Connection)
                        (grace I32)
-                       (handler (Fn Request → (Result Response E) ! e)))
+                       (handler (Fn Request → (Result Response E) ! Effects)))
       (→ (Result Unit (Exchange-error E)))
-      (! Tcp Tasks e)
-      (∀ (E e))
+      (! Tcp Tasks Effects)
+      (∀ (E Effects))
       (let ((result (exchange connection grace handler)))
         (match result
           ((Err _) (close-connection connection) result)

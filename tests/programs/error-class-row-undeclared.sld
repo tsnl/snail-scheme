@@ -8,6 +8,6 @@
 
 (define (fetch-twice (store S) (name String))
   (→ String)
-  (∀ (e S))
-  (⊨ (Store e S))
+  (∀ (E S))
+  (⊨ (Store E S))
   (string-append (fetch-object store name) (fetch-object store name)))

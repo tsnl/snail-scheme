@@ -26,9 +26,9 @@
     (list (generated:form "define"
                           (list (generated:form "generated-bundle" (Nil))
                                 (generated:form "→"
-                                                (list (generated:SymbolSyntax "Artifact-bundle")))
+                                                (list (generated:Symbol-syntax "Artifact-bundle")))
                                 (generated:form "artifact-bundle"
-                                                (list (generated:StringSyntax "client")))))))))
+                                                (list (generated:String-syntax "client")))))))))
 
 (define (write-module (path String) (text String)) (→ Unit) (! Fs)
   (match (assemble text)
@@ -48,7 +48,7 @@
 ;; has no errors.
 (define (compile-all (source String) (output String) (directories (List String)))
   (→ Unit)
-  (! Mut Fs reader:compile)
+  (! Mut Fs reader:Compile)
   (write-module (string-append output "/program.wasm")
                 (● (source->wat directories source generate (inputs #u8(65 0 255))) text))
   (write-build (string-append output "/first")

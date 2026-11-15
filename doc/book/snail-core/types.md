@@ -40,16 +40,16 @@ with `(→ Result)`. Optional effect, generic-variable and constraint clauses fo
 definition, before its body:
 
 ```scheme
-(define (map-with (function (Fn A → B ! e)) (values (List A)))
+(define (map-with (function (Fn A → B ! E)) (values (List A)))
   (→ (List B))
-  (! e)
-  (∀ (A B e))
+  (! E)
+  (∀ (A B E))
   (map function values))
 (define (sum (zero T) (values (List T)))
   (→ T)
-  (! e)
-  (∀ (T e))
-  (⊨ (Num e T))
+  (! E)
+  (∀ (T E))
+  (⊨ (Num E T))
   (fold-left + zero values))
 ```
 
@@ -241,10 +241,10 @@ A class can declare ordinary associated types. Each instance defines them:
 
 
 (define (sum (a A) (b B))
-  (→ (Add.Output e A B))
-  (! e)
-  (∀ (A B e))
-  (⊨ (Add e A B))
+  (→ (Add.Output E A B))
+  (! E)
+  (∀ (A B E))
+  (⊨ (Add E A B))
   (add a b))
 ```
 
@@ -266,9 +266,9 @@ A requirement can constrain an output with an equality:
 ```scheme
 (define (twice (a A))
   (→ A)
-  (! e)
-  (∀ (A e))
-  (⊨ (Add e A A (type Output A)))
+  (! E)
+  (∀ (A E))
+  (⊨ (Add E A A (type Output A)))
   (add a a))
 ```
 
@@ -370,7 +370,7 @@ package's data, and the library reads it when it needs it:
 (define (hero) (→ Resource) (link-file "art/hero.png"))
 
 
-(define (hero-bytes) (→ Bytes) (! Resource Tasks)
+(define (hero-bytes) (→ Bytes) (! Resources Tasks)
   (read-resource (hero)))
 ```
 
@@ -383,7 +383,7 @@ package's data, and the library reads it when it needs it:
 - **Shipped by content.** The build places the file as an object of the
   program's store, at `STORE/sha256/DIGEST`, where DIGEST is the SHA-256
   of its bytes in hex, in every build that produces one: project program
-  and browser targets, `scripts/snail-tool run` and `Compile`, and the
+  and browser targets, `scripts/snail-tool run` and `compile`, and the
   development loop. A linked program's store is `store/` beside
   `program.wasm`; a per-library build's `modules.json` names its store,
   relative to itself, and lists each object with its size. The name is
@@ -398,7 +398,7 @@ package's data, and the library reads it when it needs it:
   names a file and nothing more. The type is exported without its
   constructor, so a program cannot make one from a string: holding a
   `Resource` is evidence that its file ships. `(read-resource r)` returns the
-  file's `Bytes` and performs `Resource`, an effect with host defaults on
+  file's `Bytes` and performs `Resources`, an effect with host defaults on
   Node, in the browser and on wasmtime. It is not `Fs`: a page has no
   filesystem, and a program with none still reads its own files.
 

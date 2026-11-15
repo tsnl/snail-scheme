@@ -34,9 +34,9 @@
 
 (define (fetch-twice (store S) (name String))
   (→ String)
-  (! e)
-  (∀ (e S))
-  (⊨ (Store e S))
+  (! E)
+  (∀ (E S))
+  (⊨ (Store E S))
   (string-append (fetch-object store name) " / " (fetch-object store name)))
 
 ;; ANCHOR_END: store
@@ -56,15 +56,15 @@
 (effect Ask
   ((ctl ask (Fn String → String))))
 
-(define (fetch-asked (store S) (choose (Fn String → String ! e)))
+(define (fetch-asked (store S) (choose (Fn String → String ! E)))
   (→ String)
-  (! e)
-  (∀ (e S))
-  (⊨ (Store e S))
+  (! E)
+  (∀ (E S))
+  (⊨ (Store E S))
   (let ((name (choose "which?")))
     (string-append (fetch-object store name) " then " (fetch-object store (choose "again?")))))
 
-(define (answering (body (Fn → String ! Ask e))) (→ String) (! e) (∀ (e))
+(define (answering (body (Fn → String ! Ask E))) (→ String) (! E) (∀ (E))
   (handle Ask ((ask (lambda (question resume) (resume (if (string=? question "which?") "a" "b")))))
     (body)))
 
@@ -82,7 +82,7 @@
 ;; ANCHOR_END: logged
 
 ;; The log is printed here; what the inner store performs passes through.
-(define (logging (body (Fn → String ! Log e))) (→ String) (! Output-port e) (∀ (e))
+(define (logging (body (Fn → String ! Log E))) (→ String) (! Output-port E) (∀ (E))
   (handle Log
       ((say (lambda (line) (write-line (string-append "log: " line)))))
     (body)))

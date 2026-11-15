@@ -9,7 +9,7 @@
 
 ;; Build an independent worktree so this repository's own excludes and index
 ;; cannot decide the answers. No commits or user identity are needed.
-(define (git (directory String) (arguments (List String))) (→ String) (! Process)
+(define (git (directory String) (arguments (List String))) (→ String) (! Processes)
   (match (run (new Command (program "git") (arguments arguments) (directory directory)) #u8())
     ((Ok result)
      (match (● result exit)
@@ -20,7 +20,7 @@
        (_ (panic "Git fixture setup failed"))))
     ((Err error) (panic (● error code)))))
 
-(define (snapshot (directory String)) (→ Ignore-snapshot) (! Mut Host Tasks Process)
+(define (snapshot (directory String)) (→ Ignore-snapshot) (! Mut Host Tasks Processes)
   (match (read-gitignore directory)
     ((Ok (Some value)) value)
     ((Ok (None)) (panic "Git fixture unavailable"))
@@ -29,7 +29,7 @@
 (define (report (rules Ignore-snapshot) (path String)) (→ Unit) (! Output-port)
   (write-line (string-append path ": " (if (ignored? rules path) "ignored" "visible"))))
 
-(define (main) (→ Unit) (! Host Mut Fs Output-port Process Tasks)
+(define (main) (→ Unit) (! Host Mut Fs Output-port Processes Tasks)
 
   (define repository (git "." (list "rev-parse" "--show-toplevel")))
   (define root (string-append (substring repository 0 (- (string-length repository) 1))

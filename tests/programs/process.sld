@@ -11,12 +11,12 @@
     ((Ok value) value)
     ((Err error) (panic (● error code)))))
 
-(define (shell (script String)) (→ Process) (! Process Tasks)
+(define (shell (script String)) (→ Process) (! Processes Tasks)
   (require
    (spawn (new Command (program "/bin/sh") (arguments (list "-c" script)) (directory ".")))))
 
 ;; A stream's bytes up to its end, as text.
-(define (read-all (child Process) (stream Stream)) (→ String) (! Process Tasks)
+(define (read-all (child Process) (stream Stream)) (→ String) (! Processes Tasks)
   (let loop ((bytes #u8()))
     (match (require (read-output child stream 4096))
       ((Some chunk) (loop (vector-append bytes chunk)))
@@ -37,7 +37,7 @@
     ((Err error) (write-line (● error code)))
     ((Ok _) (panic "the operation succeeded"))))
 
-(define (main) (→ Unit) (! Host Mut Output-port Process Tasks)
+(define (main) (→ Unit) (! Host Mut Output-port Processes Tasks)
 
   ;; A program waits on processes from a task, which the scheduler runs once
   ;; main returns.

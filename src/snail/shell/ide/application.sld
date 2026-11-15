@@ -888,13 +888,13 @@
     ;; message, under the loop's handlers.
 
     (define (ui-update (model Ide) (message Msg))
-      (→ (Pair Ide (List (Fn → Msg ! Tasks Dom Fetch e))))
-      (∀ (e))
+      (→ (Pair Ide (List (Fn → Msg ! Tasks Dom Fetch E))))
+      (∀ (E))
       (match (update model message)
         ((Step next commands)
          (new Pair (first next) (second (map command-message commands))))))
 
-    (define (command-message (command Command)) (→ (Fn → Msg ! Tasks Dom Fetch e)) (∀ (e))
+    (define (command-message (command Command)) (→ (Fn → Msg ! Tasks Dom Fetch E)) (∀ (E))
       (lambda () (Finished (command))))
 
     (define (stay (model Ide)) (→ Step)
@@ -1772,7 +1772,7 @@
                                                       (palette-open model (palette-Searching
                                                                            (new palette-Search
                                                                              (source
-                                                                              (search-SavedProject))
+                                                                              (search-Saved-project))
                                                                              (phase
                                                                               (palette-Debouncing))))))))
                                        (new command-Command
@@ -1958,12 +1958,12 @@
 
     (define (palette-chosen (model Ide) (chosen palette-Outcome)) (→ Step)
       (match chosen
-        ((palette-InvokeNamed name) (update-message model (Dispatch-command name)))
-        ((palette-OpenPath path) (opening model path (Focus (● model active))))
-        ((palette-OpenSavedHit hit)
+        ((palette-Invoke-named name) (update-message model (Dispatch-command name)))
+        ((palette-Open-path path) (opening model path (Focus (● model active))))
+        ((palette-Open-saved-hit hit)
          (opening model (● (● hit point) file) (Search-point (● model active) hit)))
-        ((palette-SelectDraftHit draft hit size) (draft-followed model draft hit size))
-        ((palette-CreatedPath path directory)
+        ((palette-Select-draft-hit draft hit size) (draft-followed model draft hit size))
+        ((palette-Created-path path directory)
          (then (listing model)
                (lambda (next)
                  (if directory
@@ -1976,7 +1976,7 @@
       (match (current-draft model)
         ((Some draft)
          (palette-open model
-                       (palette-Searching (new palette-Search (source (search-CurrentDraft draft))
+                       (palette-Searching (new palette-Search (source (search-Current-draft draft))
                                                (phase (palette-Debouncing))))))
         ((None) (notice model "Open a file to search its current text."))))
 
@@ -2229,7 +2229,7 @@
     (define (find-mark (model Ide) (pane I64) (text String)) (→ (Html Msg))
       (Element "pre" (list (Attr "class" "marks") (Attr "aria-hidden" "true"))
                (match (palette-current-match (● model palette))
-                 ((Some (palette-SelectDraftHit draft hit size))
+                 ((Some (palette-Select-draft-hit draft hit size))
                   (if (and (= pane (● model active)) (string=? text (● draft text)))
                       (let ((start (source-offset text
                                                   (new Point (file (● draft path))

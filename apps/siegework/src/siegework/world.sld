@@ -93,7 +93,7 @@
    playing?
    opening?
    fresh-id
-   Building
+   building
    building-at
    put-building
    remove-building

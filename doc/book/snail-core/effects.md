@@ -137,7 +137,7 @@ squared 9
 
 Here `e` is `Output-port`; with a total `action`, `repeat` is total. `map` in
 `(snail core base)` has the same shape:
-`(∀ (A B e) (Fn (Fn A → B ! e) (List A) → (List B) ! e))`.
+`(∀ (A B E) (Fn (Fn A → B ! E) (List A) → (List B) ! E))`.
 
 A class may take a row as a parameter too, so that each of its instances
 performs its own ([rows as parameters](types.md#rows-as-parameters)).
@@ -252,7 +252,7 @@ caller its effect:
 {{#include ../../../tests/programs/effects-handlers.sld:declare}}
 ```
 
-`Log`'s type is `(Fn String → Unit)`, and calling it adds `Log` to the row,
+`log`'s type is `(Fn String → Unit)`, and calling it adds `Log` to the row,
 so `total`'s row is `Log`. `Log` has no default, so something must say what
 logging means before `total` can run. Effects take no type parameters, and
 operations are monomorphic ([notable omissions](omissions.md)): a handler
@@ -642,7 +642,7 @@ order
   total 7
 ```
 
-`indented`'s implementation of `Log` performs `Log`, which reaches the
+`indented`'s implementation of `log` performs `Log`, which reaches the
 printing handler around it. Were it to reach its own handler, it would call
 itself forever. Its row shows the rule: the handler removes the body's
 `Log`, and its implementation adds `Log` back, for the handler outside. Of

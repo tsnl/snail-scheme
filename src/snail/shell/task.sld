@@ -105,8 +105,8 @@
 
     ;; The handler holds the scheduler, for the tickets it allocates.
     ;; Inherited handlers keep the dispatcher's other effects.
-    (define (start-task (scheduler Scheduler) (work (Fn → Unit ! Tasks e)))
-      (→ Step) (! Mut Host e) (∀ (e))
+    (define (start-task (scheduler Scheduler) (work (Fn → Unit ! Tasks E)))
+      (→ Step) (! Mut Host E) (∀ (E))
       (handle Tasks
           ((yield (lambda (resume)
                     (Yielded (inherit-handlers (lambda () (resume (unit)))))))
@@ -124,13 +124,13 @@
         (set! (● scheduler last-ticket) ticket)
         ticket))
 
-    (define (dispatch (work (Fn → Unit ! Tasks e)))
-      (→ Unit) (! Tasks Mut Host e) (∀ (e))
+    (define (dispatch (work (Fn → Unit ! Tasks E)))
+      (→ Unit) (! Tasks Mut Host E) (∀ (E))
       (dispatch-in (current-scheduler) work)
       (unit))
 
-    (define (dispatch-in (scheduler Scheduler) (work (Fn → Unit ! Tasks e)))
-      (→ I64) (! Mut Host e) (∀ (e))
+    (define (dispatch-in (scheduler Scheduler) (work (Fn → Unit ! Tasks E)))
+      (→ I64) (! Mut Host E) (∀ (E))
       (when (● scheduler closed)
         (panic "cannot dispatch to a closed scheduler"))
       (let ((id (+ (● scheduler last-task) 1)))

@@ -24,7 +24,7 @@
      (write-string (text (● captured stderr))))
     ((Err error) (write-line (● error code)))))
 
-(define (main) (→ Unit) (! Output-port Process)
+(define (main) (→ Unit) (! Output-port Processes)
   (report (run (new Command
                  (program "/bin/sh")
                  (arguments (list "-c" "cat; echo err >&2; exit 3"))

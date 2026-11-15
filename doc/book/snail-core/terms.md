@@ -52,6 +52,35 @@ and `read-resource` reads its bytes when the producer runs. A producer can emit
 those bytes as a byte literal in its generated library.
 `tests/programs/lib/sample/blob.sld` demonstrates this flow.
 
+## Names
+
+Hyphens separate words. Types, aliases, constructors, enum cases, typeclasses,
+effects and their parameters capitalize only the first letter of their name;
+subsequent words are lowercase. Functions, operations, macros, local values,
+fields and library paths use lowercase names.
+
+| Kind | Examples |
+| --- | --- |
+| Types and cases | `Request-head`, `Source-diagnostic`, `Not-found` |
+| Typeclasses and effects | `Serialize`, `Output-port`, `Mut` |
+| Type and effect-row parameters | `T`, `Element`, `E` |
+| Functions and fields | `read-file`, `body-length`, `source-text` |
+| Libraries and files | `(snail shell async-files)`, `async-files.sld` |
+
+Acronyms are words: `Http-error`, `Tcp`, `Io`. Numeric designators remain
+intact, as in `I64`, `U8` and `Utf8-error`. Predicates retain `?`, mutation
+retains `!`, and conversions retain `->`: `empty?`, `vector-set!`,
+`i64->string`. Pure record replacements are lowercase value names such as
+`request-head-method-set`; reads and writes use field paths.
+
+A capability and the objects it operates on need distinct names. `Processes`
+performs process operations and `Process` names a process handle; `Resources`
+reads packaged files and `Resource` names a packaged resource. Imported names
+retain this spelling after their import prefix. Foreign symbols and protocol
+keys retain their specified spelling, while Rust and JavaScript use their own
+identifier conventions. Capitalization is a source convention, not a new
+binding namespace or reader rule.
+
 ## Forms
 
 | Form | Meaning |

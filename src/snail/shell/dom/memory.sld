@@ -522,10 +522,10 @@
       (! Mut)
       (set! (● state document) (operation (● state document))))
 
-    (define (with-memory-dom (script (List Cue)) (work (Fn → T ! Dom e)))
+    (define (with-memory-dom (script (List Cue)) (work (Fn → T ! Dom E)))
       (→ (Pair T Document))
-      (! Mut e)
-      (∀ (T e))
+      (! Mut E)
+      (∀ (T E))
       (let ((state
              (new Memory (document (empty-document)) (cues script) (woken #f) (inputs (Nil)))))
         (let ((value

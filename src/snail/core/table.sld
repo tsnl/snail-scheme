@@ -98,10 +98,10 @@
 
     ;; Entries in trie order, which depends only on the keys.
 
-    (define (table-fold (f (Fn A (Pair String V) → A ! e)) (initial A) (table (Table V)))
+    (define (table-fold (f (Fn A (Pair String V) → A ! E)) (initial A) (table (Table V)))
       (→ A)
-      (! e)
-      (∀ (V A e))
+      (! E)
+      (∀ (V A E))
       (match table
         ((Empty) initial)
         ((Leaf _ entries) (fold-left f initial entries))

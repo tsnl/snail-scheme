@@ -605,10 +605,10 @@
     ;; `step` over each item in order, threading the checker and collecting
     ;; the values, so a sequence of learning steps is itself one step.
 
-    (define (each (ck Checker) (step (Fn Checker A → (Pair B Checker) ! e)) (items (List A)))
+    (define (each (ck Checker) (step (Fn Checker A → (Pair B Checker) ! E)) (items (List A)))
       (→ (Pair (List B) Checker))
-      (! e)
-      (∀ (A B e))
+      (! E)
+      (∀ (A B E))
       (let ((done (fold-left (lambda (done item)
                                (match (step (● done second) item)
                                  ((Pair value ck)
@@ -770,10 +770,10 @@
     ;; is built from this one, so everything it learns flows back; only its
     ;; scope is discarded.
 
-    (define (within (ck Checker) (inner Checker) (check (Fn Checker → (Pair A Checker) ! e)))
+    (define (within (ck Checker) (inner Checker) (check (Fn Checker → (Pair A Checker) ! E)))
       (→ (Pair A Checker))
-      (! e)
-      (∀ (A e))
+      (! E)
+      (∀ (A E))
       (match (check inner)
         ((Pair value done) (new Pair (first value) (second (resumed ck done))))))
 

@@ -31,7 +31,7 @@
 
     (define (read-gitignore (directory String))
       (→ (Result (Option Ignore-snapshot) String))
-      (! Mut Host Tasks Process)
+      (! Mut Host Tasks Processes)
       (match (git-output directory (list "rev-parse" "--is-inside-work-tree" "--show-prefix"))
         ((Err message) (Err message))
         ((Ok (None)) (Ok (None)))
@@ -83,7 +83,7 @@
 
     (define (query-ignored (directory String) (prefix String))
       (→ (Result (Option Ignore-snapshot) String))
-      (! Mut Host Tasks Process)
+      (! Mut Host Tasks Processes)
       (match (git-output directory (list "-C" (back-to-root prefix) "--literal-pathspecs"
                                          "ls-files" "--others" "--ignored" "--exclude-standard"
                                          "--directory"
@@ -143,7 +143,7 @@
 
     (define (git-output (directory String) (arguments (List String)))
       (→ (Result (Option Captured) String))
-      (! Mut Host Tasks Process)
+      (! Mut Host Tasks Processes)
       (match (spawn (new Command (program "git") (arguments arguments) (directory directory)))
         ((Err error)
          (if (string=? (● error code) "ENOENT") (Ok (None))
@@ -154,7 +154,7 @@
 
     (define (collect-git (child Process))
       (→ (Result (Option Captured) String))
-      (! Mut Host Tasks Process)
+      (! Mut Host Tasks Processes)
       (let ((errors (make-mailbox)))
         (dispatch
          (lambda () (mailbox-post errors (read-pipe child (Stderr) 65536 (Nil)))))
@@ -175,7 +175,7 @@
 
     (define (read-pipe (child Process) (stream Stream) (remaining I64) (chunks (List Bytes)))
       (→ (Result Bytes String))
-      (! Tasks Process)
+      (! Tasks Processes)
       (match (read-output child stream 65536)
         ((Err error)
          (close-process child)

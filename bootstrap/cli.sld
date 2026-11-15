@@ -144,7 +144,7 @@
 
 (define (build-and-publish (job Job) (description Project) (target String))
   (→ String)
-  (! Mut Fs Clock Process)
+  (! Mut Fs Clock Processes)
   (match (build-project (● job tools)
                         (● job project)
                         description
@@ -172,7 +172,7 @@
 ;; The run target's program, built, then this process, replaced by Node
 ;; running it.
 
-(define (run-target (job Job) (description Project)) (→ Unit) (! Mut Fs Clock Process)
+(define (run-target (job Job) (description Project)) (→ Unit) (! Mut Fs Clock Processes)
   (match (find (lambda (run) (string=? (● run name) (● job target)))
                (● description runs))
     ((None) (panic (string-append "unknown project run target " (● job target))))
@@ -222,14 +222,14 @@
   (Publish-request ((epoch I64)))
   (Discard-request ((epoch I64))))
 
-(define (serve (resident Resident)) (→ Unit) (! Mut Fs Clock Process Input-port Output-port)
+(define (serve (resident Resident)) (→ Unit) (! Mut Fs Clock Processes Input-port Output-port)
   (match (read-line)
     ((None) (unit))
     ((Some line) (serve (answer resident (parse-request line))))))
 
 (define (answer (resident Resident) (request Request))
   (→ Resident)
-  (! Mut Fs Clock Process Output-port)
+  (! Mut Fs Clock Processes Output-port)
   (match request
     ((Build-request epoch prefix) (build-for resident epoch prefix))
     ((Publish-request epoch)
@@ -246,7 +246,7 @@
 
 (define (build-for (resident Resident) (epoch I64) (prefix String))
   (→ Resident)
-  (! Mut Fs Clock Process Output-port)
+  (! Mut Fs Clock Processes Output-port)
   (let ((job (● resident job)))
     (match (● resident held)
       ((Some _) (panic "internal error: a build was asked for before the last was decided"))
@@ -490,7 +490,7 @@
 
 ;; A build, a run, or the resident builder.
 
-(define (invoke (job Job)) (→ Unit) (! Mut Fs Clock Process Input-port Output-port)
+(define (invoke (job Job)) (→ Unit) (! Mut Fs Clock Processes Input-port Output-port)
   (match (● job mode)
     ((Development) (serve (new Resident (job job) (held (None)))))
     (_
@@ -505,7 +505,7 @@
 
 (define (main)
   (→ Unit)
-  (! Host Mut Clock Fs Input-port Output-port Process Signals Modes Tcp Tasks Hints)
+  (! Host Mut Clock Fs Input-port Output-port Processes Signals Modes Tcp Tasks Hints)
 
   (match (command-line)
     ((Cons cli (Cons root (Cons runtime (Cons "dev" arguments))))

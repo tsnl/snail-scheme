@@ -8,8 +8,8 @@
  (prefix (snail shell ide search) search-))
 
 (define (run (text String) (query String)) (→ Unit) (! Tasks Fetch Output-port)
-  (match (search-run (search-CurrentDraft (new search-Draft (path "draft.sld") (text text))) query)
-    ((Ok (search-DraftResults draft hits limited))
+  (match (search-run (search-Current-draft (new search-Draft (path "draft.sld") (text text))) query)
+    ((Ok (search-Draft-results draft hits limited))
      (for-each (lambda (hit)
                  (write-line
                   (string-append (show (● hit line)) ":" (show (● hit column))
@@ -28,14 +28,14 @@
           (stream-next (lambda (stream) (panic "stream")))
           (stream-close (lambda (stream) (panic "stream"))))
        (run "😀 a.*Z\r\nÉb a.*z\rEND" "A.*z")
-       (match (search-run (search-CurrentDraft
+       (match (search-run (search-Current-draft
                            (new search-Draft (path "large") (text (make-string 205 #\x))))
                           "x")
-         ((Ok (search-DraftResults _ hits limited))
+         ((Ok (search-Draft-results _ hits limited))
           (write-line (string-append (show (length hits)) " " (show limited))))
          (_ (panic "bounded search")))
        (match (search-run
-               (search-CurrentDraft (new search-Draft (path "draft") (text "anything")))
+               (search-Current-draft (new search-Draft (path "draft") (text "anything")))
                "bad\nquery")
          ((Err _) (write-line "multiline query rejected"))
          (_ (panic "query accepted"))))))

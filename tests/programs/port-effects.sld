@@ -8,8 +8,8 @@
 (record Output
   ((reversed (List String))))
 
-(define (from-text (text String) (action (Fn → A ! Input-port e)))
-  (→ A) (! Mut e) (∀ (A e))
+(define (from-text (text String) (action (Fn → A ! Input-port E)))
+  (→ A) (! Mut E) (∀ (A E))
   (let ((position (new Cursor (index 0))))
     (handle Input-port
         ((read-char (lambda ()
@@ -20,8 +20,8 @@
                                    (Some (string-ref text index))))))))
       (action))))
 
-(define (capture (action (Fn → Unit ! Output-port e)))
-  (→ String) (! Mut e) (∀ (e))
+(define (capture (action (Fn → Unit ! Output-port E)))
+  (→ String) (! Mut E) (∀ (E))
   (let ((chunks (new Output (reversed (Nil)))))
     (handle Output-port
         ((write-string (lambda (text) (set! (● chunks reversed) (Cons text (● chunks reversed))))))

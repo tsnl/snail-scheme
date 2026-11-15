@@ -6,7 +6,7 @@
 ;; another, `Output-port`, with the rest of its row polymorphic (#456). The
 ;; body may perform anything in `e` besides the clock: here it writes too,
 ;; so `e` is `Console`.
-(define (logged-clock (body (Fn → I64 ! Clock e))) (→ I64) (! Output-port e) (∀ (e))
+(define (logged-clock (body (Fn → I64 ! Clock E))) (→ I64) (! Output-port E) (∀ (E))
   (handle Clock
       ((monotonic-nanoseconds (lambda () (write-line "the clock was read") 21)))
     (body)))

@@ -596,5 +596,5 @@
                      (expect (spec-key pure) (type-key pure))
                      (expect (spec-key (T-con "List" (list pure)))
                              (type-key (T-con "List" (list pure))))
-                     (expect (spec-key control) "fn<I64->I64>!gen")
+                     (expect (spec-key control) "fn<I64->I64>!Gen")
                      (expect (spec-key (empty-row)) "row"))))))))

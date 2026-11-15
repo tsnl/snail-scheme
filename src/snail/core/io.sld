@@ -106,7 +106,7 @@
     (define (write-line (text String)) (→ Unit) (! Output-port)
       (write-string (string-append text "\n")))
 
-    (define (display (value T)) (→ Unit) (! Output-port e) (∀ (T e)) (⊨ (Show e T))
+    (define (display (value T)) (→ Unit) (! Output-port E) (∀ (T E)) (⊨ (Show E T))
       (write-string (show value)))
 
     (define (write (value T)) (→ Unit) (! Output-port) (∀ (T)) (⊨ (Repr T))
@@ -272,10 +272,10 @@
     ;; cell.
     (define (chunk-size) (→ I64) 4096)
 
-    (define (drain (next (Fn → (Option T) ! e)))
+    (define (drain (next (Fn → (Option T) ! E)))
       (→ (Vector T))
-      (! e)
-      (∀ (T e))
+      (! E)
+      (∀ (T E))
       (let loop ((chunks (Nil)))
         (let ((chunk (next-chunk next)))
           (if (< (vector-length chunk) (chunk-size))
@@ -284,10 +284,10 @@
 
     ;; Up to `chunk-size` items, fewer only at the end.
 
-    (define (next-chunk (next (Fn → (Option T) ! e)))
+    (define (next-chunk (next (Fn → (Option T) ! E)))
       (→ (Vector T))
-      (! e)
-      (∀ (T e))
+      (! E)
+      (∀ (T E))
       (let loop ((items (Nil)) (count 0))
         (if (= count (chunk-size))
             (list->vector (reverse items))
