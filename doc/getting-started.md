@@ -13,10 +13,10 @@ Whichever you pick, finish with [the first run](#the-first-run).
 
 | Tool | CI's version | Used for |
 | --- | --- | --- |
-| Git, a POSIX shell and GNU Make | | The checkout, `./snail` and the Makefile. |
+| Git, a POSIX shell and GNU Make | | The checkout, `./snail-scheme` and the Makefile. |
 | Chez Scheme | 10.4.1 | Running the compiler's source for the first bootstrap, and the build scripts. |
 | Rustup | Rust 1.95.0 | The runtime services linked into every program, and the assembler/linker. `rust-toolchain.toml` names the version and the `wasm32-wasip1` target, which rustup installs on first use. |
-| Node.js | 26 | Running programs under WASI, and `snail dev`. |
+| Node.js | 26 | Running programs under WASI, and `snail-scheme watch`. |
 | nixfmt | 1.4 | `make check`'s formatting of `shell.nix`. |
 | mdBook | 0.5.4 | `make pages`, the book. |
 | tree-sitter CLI | 0.26.11 | `make test`'s check of the editors' grammar, which also needs a C compiler. |

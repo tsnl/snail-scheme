@@ -43,15 +43,15 @@ present() {
 
 case ${1:-} in
   -h|--help) cat "$root/scripts/snail-help.txt"; exit 0 ;;
-  # The development service is the command line's `dev`, with the reload
+  # The development service is the command line's `watch`, with the reload
   # client's program, which stage 0 names first.
-  dev)
+  watch)
     shift
-    tools=$(tools dev-tools) || exit 1
+    tools=$(tools watch-tools) || exit 1
     { read -r client && read -r cli && read -r runtime; } <<TOOLS
 $tools
 TOOLS
-    exec "${NODE:-node}" --no-warnings "$root/host/native/run-snail.mjs" "$cli" "$root" "$runtime" dev "$client" "$@" ;;
+    exec "${NODE:-node}" --no-warnings "$root/host/native/run-snail.mjs" "$cli" "$root" "$runtime" watch "$client" "$@" ;;
   # The command line is a Snail program (bootstrap/cli.sld). Stage 0 rebuilds
   # it and the runtime when their sources change, and names them a line each.
   # The language server, which an editor starts (editors/zed), is the
@@ -62,5 +62,5 @@ TOOLS
 $tools
 TOOLS
     exec "${NODE:-node}" --no-warnings "$root/host/native/run-snail.mjs" "$cli" "$root" "$runtime" "$@" ;;
-  *) printf 'snail: expected build, run, dev or lsp; use --help\n' >&2; exit 2 ;;
+  *) printf 'snail-scheme: expected build, run, watch or lsp; use --help\n' >&2; exit 2 ;;
 esac

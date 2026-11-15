@@ -1,10 +1,10 @@
 {
   "grammars": [
     {
-      "name": "snail",
-      "camelcase": "Snail",
+      "name": "snail_scheme",
+      "camelcase": "SnailScheme",
       "title": "Snail Scheme",
-      "scope": "source.snail",
+      "scope": "source.snail-scheme",
       "path": ".",
       "file-types": [
         "sld",
@@ -12,7 +12,7 @@
         "scm",
         "datum"
       ],
-      "highlights": "../zed/languages/snail/highlights.scm"
+      "highlights": "../zed/languages/snail-scheme/highlights.scm"
     }
   ],
   "metadata": {

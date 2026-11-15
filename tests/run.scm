@@ -436,7 +436,7 @@
     (or (zero? (caddr result))
         (report "project development" "failed" (string-append (car result) (cadr result))))))
 
-;; `snail lsp` answers an editor for a project of its own.
+;; `snail-scheme lsp` answers an editor for a project of its own.
 (define (check-language-server root)
   (let ((result (capture-process
                  (list "node" "--no-warnings" (path-join root "tests/lsp.mjs") root))))
@@ -451,7 +451,7 @@
     (or (zero? (caddr result))
         (report "tree-sitter grammar" "failed" (string-append (car result) (cadr result))))))
 
-;; ./snail reuses stage 0's tool list only while nothing its rule reads
+;; ./snail-scheme reuses stage 0's tool list only while nothing its rule reads
 ;; changed, in a root of stubs that builds nothing.
 (define (check-launcher root)
   (let ((result (capture-process

@@ -91,7 +91,7 @@ jobs:
         run: cargo test --manifest-path crates/snail/Cargo.toml --offline
       - name: Build compiler and development tools
         shell: nix-shell --run "bash -euo pipefail {0}"
-        run: ./scripts/snail-tool dev-tools >/dev/null
+        run: ./scripts/snail-tool watch-tools >/dev/null
       - name: Test Snail
         shell: nix-shell --run "bash -euo pipefail {0}"
         run: make test

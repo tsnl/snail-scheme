@@ -15,7 +15,7 @@ const [root, screenshot] = process.argv.slice(2);
 const directory = await mkdtemp(join(tmpdir(), 'snail-ui-requests-'));
 const app = join(directory, 'app');
 await cp(join(root, 'tests/apps/requests'), app, {recursive: true, filter: path => basename(path) !== 'build'});
-const built = (await promisify(execFile)(join(root, 'snail'), ['build', app, 'site'])).stdout.trim();
+const built = (await promisify(execFile)(join(root, 'snail-scheme'), ['build', app, 'site'])).stdout.trim();
 const waiting = [];
 const types = {'.html': 'text/html', '.mjs': 'text/javascript', '.wasm': 'application/wasm'};
 const server = createServer(async (request, response) => {

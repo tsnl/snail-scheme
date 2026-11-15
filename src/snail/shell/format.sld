@@ -1,5 +1,5 @@
 ;; The repository's Lisp formatter, shared by scripts/format-scheme and
-;; `snail lsp` (snail shell lsp), which formats an editor's open text.
+;; `snail-scheme lsp` (snail shell lsp), which formats an editor's open text.
 ;; Formatting is a pure operation on text, including unfinished source.
 ;; Formatting first puts each import specification and field declaration on its own line, then indents every line. A line's indentation goes
 ;; under the first argument of a call, under the first expression of the

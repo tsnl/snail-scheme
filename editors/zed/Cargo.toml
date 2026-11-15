@@ -9,7 +9,7 @@ publish = false
 # installed; see README.md.
 [lib]
 crate-type = ["cdylib"]
-path = "src/snail.rs"
+path = "src/snail_scheme.rs"
 
 [dependencies]
 zed_extension_api = "0.7.0"

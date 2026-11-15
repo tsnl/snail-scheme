@@ -1,4 +1,4 @@
-// A document interface in a real page: `snail build` builds a copy of
+// A document interface in a real page: `snail-scheme build` builds a copy of
 // tests/apps/notes, a static server serves it, and headless Chromium types
 // notes, adds them by the button and by Enter, which the listener's chord
 // keeps from its default action, and removes one. The count of notes added
@@ -67,7 +67,7 @@ function serve(directory) {
 const directory = await mkdtemp(join(tmpdir(), 'snail-ui-'));
 const app = join(directory, 'notes');
 await cp(join(root, 'tests/apps/notes'), app, {recursive: true, filter: path => basename(path) !== 'build'});
-const built = (await promisify(execFile)(join(root, 'snail'), ['build', app, 'site'])).stdout.trim();
+const built = (await promisify(execFile)(join(root, 'snail-scheme'), ['build', app, 'site'])).stdout.trim();
 const server = await serve(built);
 const browser = await openBrowser();
 const notes = () => browser.evaluate(`[...document.querySelectorAll('#notes li')].map(item => item.firstChild.data).join(',')`);

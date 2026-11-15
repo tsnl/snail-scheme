@@ -1,5 +1,5 @@
 #!/bin/sh
-# The formatter `snail lsp` uses, as a command-line tool. Stage 0 builds it
+# The formatter `snail-scheme lsp` uses, as a command-line tool. Stage 0 builds it
 # when stale.
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 formatter=$("$root/scripts/snail-tool" format-tools) || exit 1

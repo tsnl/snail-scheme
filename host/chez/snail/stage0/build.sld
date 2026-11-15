@@ -20,7 +20,7 @@
    build-toolchain-tool
    build-cli-tools
    build-engine
-   build-dev-tools
+   build-watch-tools
    build-book-tools
    build-format-tools
    bootstrap!
@@ -657,7 +657,7 @@
 
     ;; ---- Development tools ----
 
-    ;; The `snail` command line, a Snail program that builds projects with
+    ;; The `snail-scheme` command line, a Snail program that builds projects with
     ;; the compiler inside it, linked with the toolchain's runtime, which
     ;; assembles a development build's modules; the runtime it links
     ;; programs with; and the engine that runs a development build.
@@ -681,10 +681,10 @@
     ;; The development service adds one program to the command line's
     ;; tools, whose `resident` builds for it: the reload client its browser
     ;; targets' pages load.
-    (define (build-dev-tools root)
+    (define (build-watch-tools root)
       (cons (build-tool root
                         (path-join root "host/browser/reload.sld")
-                        (path-join root "build/dev-tools/reload.wasm")
+                        (path-join root "build/watch-tools/reload.wasm")
                         (standard-directories root))
             (build-cli-tools root)))
 
@@ -696,7 +696,7 @@
                         (path-join root "build/book-tools/highlight-book.wasm")
                         (standard-directories root))))
 
-    ;; The command-line formatter uses the same library as `snail lsp`.
+    ;; The command-line formatter uses the same library as `snail-scheme lsp`.
     (define (build-format-tools root)
       (list (build-tool root
                         (path-join root "bootstrap/format.sld")

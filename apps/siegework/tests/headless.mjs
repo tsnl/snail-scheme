@@ -56,7 +56,7 @@ const widget = (host, key) => host.widgets.find(entry => entry.key === key);
 const tap = async (game, x, y) => { await send(game, POINTER_DOWN, 1, x, y, 0); await send(game, POINTER_UP, 1, x, y, 0); };
 
 const root = resolve(process.argv[2]);
-const built = await promisify(execFile)(join(root, 'snail'), ['build', root, 'siegework']);
+const built = await promisify(execFile)(join(root, 'snail-scheme'), ['build', root, 'siegework']);
 const path = join(built.stdout.trim(), 'program.wasm');
 const host = screen();
 const game = await instantiateGame(path, host);

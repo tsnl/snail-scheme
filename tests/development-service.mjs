@@ -1,4 +1,4 @@
-// `snail dev` seen from outside: the URL it announces, HTTP (its status at
+// `snail-scheme watch` seen from outside: the URL it announces, HTTP (its status at
 // /.snail/status, the stream of it at /.snail/events, and a build asked for
 // at /.snail/build), the files on disk and process ids.
 import assert from 'node:assert/strict';
@@ -14,10 +14,10 @@ export const liveness = 60_000;
 
 // ---- The process ----
 
-// `snail dev --port PORT PROJECT`, with what it prints and how it ended. A
+// `snail-scheme watch --port PORT PROJECT`, with what it prints and how it ended. A
 // test that fails leaves no service behind: exit sends the ordinary signal.
 export function spawnDevelopment(root, project, port = 0) {
-  const child = spawn(join(root, 'snail'), ['dev', '--port', String(port), project], {stdio: ['ignore', 'pipe', 'pipe']});
+  const child = spawn(join(root, 'snail-scheme'), ['watch', '--port', String(port), project], {stdio: ['ignore', 'pipe', 'pipe']});
   const output = {stdout: '', stderr: ''}, orphan = () => child.kill('SIGTERM');
   for (const stream of ['stdout', 'stderr']) child[stream].on('data', bytes => { output[stream] += bytes; });
   process.once('exit', orphan);
@@ -35,9 +35,9 @@ async function announcement({child, output, exited}) {
     const url = / at (http:\/\/127\.0\.0\.1:\d+)\/\n/.exec(output.stdout)?.[1];
     if (url) announced.resolve(url);
   };
-  const timer = setTimeout(() => announced.reject(new Error('snail dev never announced its URL')), liveness);
+  const timer = setTimeout(() => announced.reject(new Error('snail-scheme watch never announced its URL')), liveness);
   child.stdout.on('data', listen);
-  void exited.then(({code, signal, stderr}) => announced.reject(new Error(`snail dev exited (${signal ?? code}) before announcing its URL: ${stderr}`)));
+  void exited.then(({code, signal, stderr}) => announced.reject(new Error(`snail-scheme watch exited (${signal ?? code}) before announcing its URL: ${stderr}`)));
   try { return await announced.promise; }
   finally { clearTimeout(timer); child.stdout.off('data', listen); }
 }

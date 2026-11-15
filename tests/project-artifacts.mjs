@@ -10,7 +10,7 @@ import {promisify} from 'node:util';
 const execute = promisify(execFile), root = process.argv[2];
 const project = await mkdtemp(join(tmpdir(), 'snail-project-artifacts-'));
 const output = name => join(project, 'build', name);
-const build = name => execute(join(root, 'snail'), ['build', project, name], {maxBuffer: 4 * 1024 * 1024});
+const build = name => execute(join(root, 'snail-scheme'), ['build', project, name], {maxBuffer: 4 * 1024 * 1024});
 const run = path => execute(process.execPath, ['--no-warnings', join(root, 'host/native/run-snail.mjs'), path]);
 const artifact = name => `(import (snail core base) (snail shell artifact))\n(define (main) (→ Unit) (artifact-bundle "${name}") (unit))\n`;
 
@@ -61,7 +61,7 @@ async function producerCycles() {
     await write('late.sld', '(import (snail core base) (g one)) (define (main) (→ Unit) (unit))');
     await write('src/g/one.sld', recipe('g/one', '', '(list "g" "two")'));
     await write('src/g/two.sld', recipe('g/two', '(g one)', ''));
-    const build = name => execute(join(root, 'snail'), ['build', directory, name], {maxBuffer: 4 * 1024 * 1024});
+    const build = name => execute(join(root, 'snail-scheme'), ['build', directory, name], {maxBuffer: 4 * 1024 * 1024});
     await assert.rejects(build('knot'), /library import cycle through sample\.knot/);
     assert.equal(await ran('sample-knot'), false, 'a producer in a cycle never runs');
     await assert.rejects(build('late'), /library import cycle through g\.one/);

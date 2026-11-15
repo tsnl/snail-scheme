@@ -1,4 +1,4 @@
-;; `snail dev`'s service in Snail Scheme: one project's builds and its
+;; `snail-scheme watch`'s service in Snail Scheme: one project's builds and its
 ;; browser targets behind one local port. (snail shell development)'s pure
 ;; `step` decides; this library carries out what it decides, with tasks
 ;; that each wait on one thing:
@@ -8,7 +8,7 @@
 ;; - the disk task, which holds the latest inventory of the project's
 ;;   inputs, takes another when asked, hinted or each second, and reports
 ;;   what changed;
-;; - the resident builder, `snail resident PROJECT`, in a child process,
+;; - the resident builder, `snail-scheme resident PROJECT`, in a child process,
 ;;   with a task writing its requests, one reading its replies and one its
 ;;   standard error and exit;
 ;; - a task for each HTTP connection, which serves a browser target's
@@ -19,7 +19,7 @@
 ;; it: its `status`, `events` for each change of it, and a POST to `build`
 ;; to ask for an attempt. Each browser target is
 ;; at /NAME/, which only reads. An editor needs none of them: it asks
-;; `snail lsp` (snail shell lsp).
+;; `snail-scheme lsp` (snail shell lsp).
 ;;
 ;; No cell holds state: each task threads its own through its loop.
 (define-library (snail shell project service)

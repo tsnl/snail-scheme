@@ -1,4 +1,4 @@
-// `./snail` asks stage 0 for its tools only when something stage 0's rule
+// `./snail-scheme` asks stage 0 for its tools only when something stage 0's rule
 // reads may have changed. The launcher runs here in a root of its own, with
 // stage 0 (scripts/snail-tool) and Node replaced by scripts that count their
 // calls, so nothing is built:
@@ -8,7 +8,7 @@
 // A second call reuses the first's answer; an edit to a source, the runtime
 // crate or stage 0's driver, a missing tool, and an edit made while stage 0
 // runs each ask again; a file that is no input does not; a failure caches
-// nothing; `dev` keeps a list of its own; and `lsp` shares `build`'s.
+// nothing; `watch` keeps a list of its own; and `lsp` shares `build`'s.
 import assert from 'node:assert/strict';
 import {execFileSync, spawnSync} from 'node:child_process';
 import {chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs';
@@ -25,7 +25,7 @@ const put = (name, text = '') => {
 const touch = name => execFileSync('touch', [at(name)]);
 const calls = name => existsSync(at(name)) ? readFileSync(at(name), 'utf8').split('\n').filter(Boolean) : [];
 
-// Stage 0 names two tools for `build` and three for `dev`, making each. It
+// Stage 0 names two tools for `build` and three for `watch`, making each. It
 // can be told to fail, or to edit a source while it runs.
 const stage0 = `#!/bin/sh
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
@@ -35,7 +35,7 @@ echo "$1" >> "$root/stage0.calls"
 mkdir -p "$root/build"
 case $1 in
   cli-tools) set -- cli runtime ;;
-  dev-tools) set -- client cli runtime ;;
+  watch-tools) set -- client cli runtime ;;
 esac
 for tool; do : > "$root/build/$tool.wasm"; echo "$root/build/$tool.wasm"; done
 `;
@@ -44,15 +44,15 @@ echo "$*" >> "${root}/node.calls"
 `;
 
 try {
-  copyFileSync(join(repository, 'snail'), at('snail'));
+  copyFileSync(join(repository, 'snail-scheme'), at('snail-scheme'));
   put('scripts/snail-tool', stage0);
   put('node', node);
-  for (const name of ['snail', 'scripts/snail-tool', 'node']) chmodSync(at(name), 0o755);
+  for (const name of ['snail-scheme', 'scripts/snail-tool', 'node']) chmodSync(at(name), 0o755);
   for (const name of ['src/a.sld', 'bootstrap/cli.sld', 'host/browser/reload.sld',
     'host/browser/host.mjs', 'host/chez/driver.sld', 'scripts/snail.scm', 'rust-toolchain.toml',
     'crates/snail-core-support/Cargo.toml', 'crates/snail-core-support/src/lib.rs']) put(name);
 
-  const snail = (...args) => spawnSync(at('snail'), args, {env: {...process.env, NODE: at('node')}, encoding: 'utf8'});
+  const snail = (...args) => spawnSync(at('snail-scheme'), args, {env: {...process.env, NODE: at('node')}, encoding: 'utf8'});
   const build = () => {
     const result = snail('build', 'project', 'target');
     assert.equal(result.status, 0, result.stderr);
@@ -91,18 +91,18 @@ try {
   rmSync(at('stage0.fails'));
   assert.equal(build(), 11, 'a failure keeps no answer');
 
-  const dev = snail('dev', 'project');
+  const dev = snail('watch', 'project');
   assert.equal(dev.status, 0, dev.stderr);
-  assert.deepEqual(calls('stage0.calls').slice(-1), ['dev-tools'], '`dev` asks for its own tools');
-  assert.match(calls('node.calls').at(-1), / dev .*client\.wasm project$/);
-  snail('dev', 'project');
+  assert.deepEqual(calls('stage0.calls').slice(-1), ['watch-tools'], '`watch` asks for its own tools');
+  assert.match(calls('node.calls').at(-1), / watch .*client\.wasm project$/);
+  snail('watch', 'project');
   assert.equal(calls('stage0.calls').length, 12, 'and keeps them apart from build');
 
   const lsp = snail('lsp');
   assert.equal(lsp.status, 0, lsp.stderr);
   assert.equal(calls('stage0.calls').length, 12, '`lsp` reuses the command line build runs');
   assert.match(calls('node.calls').at(-1), new RegExp(`${at('build/cli.wasm')} ${root} ${at('build/runtime.wasm')} lsp$`));
-  console.log('launcher: cached tools, inputs, missing tools, edits while building, failures, dev and lsp');
+  console.log('launcher: cached tools, inputs, missing tools, edits while building, failures, watch and lsp');
 } finally {
   rmSync(root, {recursive: true, force: true});
 }

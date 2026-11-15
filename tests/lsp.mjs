@@ -1,4 +1,4 @@
-// `snail lsp` speaks the Language Server Protocol over its standard input
+// `snail-scheme lsp` speaks the Language Server Protocol over its standard input
 // and output, for a project of its own made here:
 //
 //   node tests/lsp.mjs ROOT
@@ -52,7 +52,7 @@ const program = `(import
 
 // ---- The server ----
 
-const server = spawn(join(root, 'snail'), ['lsp'], {cwd: project, stdio: ['pipe', 'pipe', 'pipe']});
+const server = spawn(join(root, 'snail-scheme'), ['lsp'], {cwd: project, stdio: ['pipe', 'pipe', 'pipe']});
 let stderr = '';
 server.stderr.on('data', chunk => { stderr += chunk; });
 let pending = Buffer.alloc(0);
@@ -136,7 +136,7 @@ try {
     definitionProvider: true,
   });
   send({method: 'textDocument/didOpen',
-        params: {textDocument: {uri: uri('main.sld'), languageId: 'snail', version: 1, text: program}}});
+        params: {textDocument: {uri: uri('main.sld'), languageId: 'snail-scheme', version: 1, text: program}}});
   send({method: 'initialized', params: {}});
 
   // ---- Names ----
@@ -177,7 +177,7 @@ try {
   assert.deepEqual(await diagnostics('main.sld'), [{
     range: range(7, 34, 7, 46),
     severity: 1,
-    source: 'snail',
+    source: 'snail-scheme',
     message: 'expected 1 arguments, found 2',
   }]);
   edited(program);

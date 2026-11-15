@@ -1,4 +1,4 @@
-// The editors' grammar, editors/tree-sitter-snail, agrees with the reader
+// The editors' grammar, editors/tree-sitter-snail-scheme, agrees with the reader
 // and with itself:
 //
 //   node tests/tree-sitter.mjs ROOT
@@ -18,7 +18,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 
 const root = process.argv[2];
-const grammar = join(root, 'editors/tree-sitter-snail');
+const grammar = join(root, 'editors/tree-sitter-snail-scheme');
 const scratch = mkdtempSync(join(tmpdir(), 'snail-tree-sitter-'));
 const run = (args, cwd) => {
   const result = spawnSync('tree-sitter', args, {cwd, encoding: 'utf8'});
@@ -58,7 +58,7 @@ try {
   assert.deepEqual(failures, [], `files the grammar does not parse:\n${failures.join('\n')}`);
   assert.ok(files.length > 100, `parsed only ${files.length} files`);
 
-  const colored = listed('editors/zed/languages/snail/highlights.scm', '((symbol) @keyword', '\n\n');
+  const colored = listed('editors/zed/languages/snail-scheme/highlights.scm', '((symbol) @keyword', '\n\n');
   const keywords = [...listed('src/snail/shell/compiler/core.sld', '(define (core-keywords)', '(define'),
                     ...listed('src/snail/shell/highlight.sld', '(define (keywords)', '(define')];
   assert.deepEqual([...colored].sort(), [...keywords].sort(),

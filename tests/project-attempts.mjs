@@ -1,4 +1,4 @@
-// Actual disk writes drive `snail dev`'s resident compiler, observed from
+// Actual disk writes drive `snail-scheme watch`'s resident compiler, observed from
 // outside (tests/development-service.mjs). A generated library reads a FIFO
 // outside the observed roots so the test can hold compilation while the
 // service keeps answering, then introduce only a newly configured public-file

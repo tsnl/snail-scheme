@@ -24,13 +24,13 @@ Scheme runs its source to start the first bootstrap.
 ```sh
 nix-shell
 make fetch
-./snail build . siegework
-./snail dev .
+./snail-scheme build . siegework
+./snail-scheme watch .
 ```
 
 The root `project.datum` describes the whole repository, with `siegework` and
-`hearsay` browser targets. `./snail dev .` (`make dev`) builds and serves
-them as you edit, and `./snail lsp` serves an editor that opens the
+`hearsay` browser targets. `./snail-scheme watch .` (`make watch`) builds and serves
+them as you edit, and `./snail-scheme lsp` serves an editor that opens the
 repository: [`editors/zed`](editors/zed) is a Zed extension for it.
 
 Compiler contributors can also inspect and execute individual source files:
@@ -65,13 +65,13 @@ make site
 python3 -m http.server 4191 --directory build/siegework
 ```
 
-While you change it, `./snail dev .` (or `make dev`) serves the game at
+While you change it, `./snail-scheme watch .` (or `make watch`) serves the game at
 <http://127.0.0.1:8000/siegework/>. Hearsay runs at
 <http://127.0.0.1:8000/hearsay/>. The service reads the root `project.datum`,
 rebuilds whenever a source changes on disk, whatever wrote it, and relinks
 the changed libraries into the open page, which keeps the game and the
 camera. In Zed, the extension in [`editors/zed`](editors/zed) highlights,
-indents and formats Snail Scheme, and `snail lsp` reports each saved build's
+indents and formats Snail Scheme, and `snail-scheme lsp` reports each saved build's
 diagnostics where they arise and gives a name's type and definition.
 
 The [development workflow](doc/book/snail-core/toolchain.md) still needs

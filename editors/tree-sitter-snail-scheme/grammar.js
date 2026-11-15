@@ -25,7 +25,7 @@
 // still sees where it ends. So Chez's own syntax, in host/chez/, parses too.
 
 module.exports = grammar({
-  name: 'snail',
+  name: 'snail_scheme',
 
   externals: $ => [$.block_comment, $.symbol, $.number, $.boolean, $.character],
 

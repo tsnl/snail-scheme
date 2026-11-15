@@ -5,10 +5,10 @@
 ;; between data. Text the reader would reject still classifies: a string the
 ;; text ends inside is a string to the end. Every character belongs to one
 ;; token, so the tokens tile the text. The book's preprocessor
-;; (bootstrap/highlight-book.sld) colors with these tokens, and `snail lsp`
+;; (bootstrap/highlight-book.sld) colors with these tokens, and `snail-scheme lsp`
 ;; (snail shell lsp) derives the range an editor marks for a compiler point
 ;; with the same lexical boundaries. Editors color with the tree-sitter
-;; grammar in editors/tree-sitter-snail, whose keywords tests/tree-sitter.mjs
+;; grammar in editors/tree-sitter-snail-scheme, whose keywords tests/tree-sitter.mjs
 ;; checks against `keywords` here.
 (define-library (snail shell highlight)
   (export

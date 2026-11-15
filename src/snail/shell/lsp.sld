@@ -1,9 +1,9 @@
-;; `snail lsp`, the language server editors start: the Language Server
+;; `snail-scheme lsp`, the language server editors start: the Language Server
 ;; Protocol over standard input and output, for one project, the folder the
 ;; editor opened, whose project.datum names its targets. Zed starts it
 ;; through editors/zed; any editor that speaks the protocol can.
 ;;
-;; It answers from the project's development build, the one `snail dev`
+;; It answers from the project's development build, the one `snail-scheme watch`
 ;; makes, built in this process when the editor opens the project and each
 ;; time it saves a file. The build reads the disk, so what it reports is
 ;; what was saved:
@@ -359,7 +359,7 @@
                                      ((Some loc) (loc-range text loc))
                                      ((None) (range (string->vector text) 0 0))))
                     (field "severity" (JsonInteger 1))
-                    (field "source" (JsonString "snail"))
+                    (field "source" (JsonString "snail-scheme"))
                     (field "message" (JsonString (● report message))))))
 
     ;; ---- Names ----
@@ -491,7 +491,8 @@
             ((string=? method "textDocument/definition")
              (respond id (definition server params))
              server)
-            (else (refuse id -32601 (string-append "snail lsp does not answer " method)) server)))
+            (else (refuse id -32601 (string-append "snail-scheme lsp does not answer " method))
+                  server)))
 
     (define (notified (server Server) (method String) (params Json))
       (→ Server)
@@ -520,7 +521,7 @@
                                   (field "documentFormattingProvider" (JsonBool #t))
                                   (field "hoverProvider" (JsonBool #t))
                                   (field "definitionProvider" (JsonBool #t)))))
-             (field "serverInfo" (object (list (field "name" (JsonString "snail"))))))))
+             (field "serverInfo" (object (list (field "name" (JsonString "snail-scheme"))))))))
 
     ;; The folder opened: the first workspace folder, the root URI, or the
     ;; root path, the protocol's names for it from newest to oldest.
@@ -564,7 +565,7 @@
 
     ;; ---- Building ----
 
-    ;; Builds every target of the project, as `snail dev` does, then
+    ;; Builds every target of the project, as `snail-scheme watch` does, then
     ;; publishes what failed and keeps the programs' names. A build that
     ;; failed keeps the names of the last that did not. The generations go
     ;; once their programs are read: the server publishes nothing.

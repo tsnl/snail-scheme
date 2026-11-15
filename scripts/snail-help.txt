@@ -1,7 +1,7 @@
-Usage: snail build [--release] PROJECT BUILD-TARGET
-       snail run PROJECT RUN-TARGET [ARGUMENT ...]
-       snail dev [--port PORT] PROJECT
-       snail lsp
+Usage: snail-scheme build [--release] PROJECT BUILD-TARGET
+       snail-scheme run PROJECT RUN-TARGET [ARGUMENT ...]
+       snail-scheme watch [--port PORT] PROJECT
+       snail-scheme lsp
 
 build reads PROJECT/project.datum and publishes the named target into
 PROJECT/build/TARGET. Each output directory is a link to a completed
@@ -13,7 +13,7 @@ run builds the named run-target's program and executes that completed generation
 in the current directory. Configured arguments precede ARGUMENTs. The command
 becomes the application process, retaining terminal IO, exit status and signals.
 
-dev keeps one native project compiler running, rebuilds every target when
+watch keeps one native project compiler running, rebuilds every target when
 an input on disk changes, and serves each browser target at
 http://127.0.0.1:PORT/TARGET/ (8000 by default, 0 chooses a free port),
 relinking its open pages into each new build.

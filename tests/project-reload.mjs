@@ -1,4 +1,4 @@
-// Run a browser target from snail dev in Node through the browser host's
+// Run a browser target from snail-scheme watch in Node through the browser host's
 // loader and application runtime. The normal suite executes live relinking
 // and state handover even when Chromium is unavailable.
 import assert from 'node:assert/strict';

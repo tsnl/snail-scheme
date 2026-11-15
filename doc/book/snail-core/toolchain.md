@@ -7,8 +7,8 @@ as a separate instance.
 
 | Command | Build |
 | --- | --- |
-| `snail build`, `snail run`, `make site`, internal source compile/run | Static; `--release` does not invoke an optimizer |
-| `snail dev`, `make dev`, `snail lsp` | Separate development modules |
+| `snail-scheme build`, `snail-scheme run`, `make site`, internal source compile/run | Static; `--release` does not invoke an optimizer |
+| `snail-scheme watch`, `make watch`, `snail-scheme lsp` | Separate development modules |
 
 The public commands operate on projects. Compiler contributors can use
 `./scripts/snail-tool run SOURCE`, `wat SOURCE`, `schema SOURCE` or `bootstrap`.
@@ -33,15 +33,15 @@ are internal to the driver and the tests:
 every program that needs no sockets, processes, file modes or watches. The
 [bootstrap chapter](bootstrap.md#the-native-executable) explains why Node stays
 the default. Stage 0 uses the native executable for assembly and linking on
-both engines. The public `./snail` launcher is
-unchanged. One native `snail` that replaces it, running the project builder
+both engines. The public `./snail-scheme` launcher is
+unchanged. One native `snail-scheme` that replaces it, running the project builder
 and programs as well, is proposed in
 [#562](https://github.com/tsnl/snail-scheme/issues/562).
 
 The [project chapter](projects.md) defines `project.datum`, named targets,
 output directories and artifact bundles.
 
-`snail run PROJECT RUN-TARGET [ARGUMENT ...]` builds the referenced program in
+`snail-scheme run PROJECT RUN-TARGET [ARGUMENT ...]` builds the referenced program in
 debug mode and runs that exact completed generation. Configured arguments come
 first; arguments after the target are passed through unchanged. The application
 inherits the caller's working directory, environment and terminal IO.
@@ -108,9 +108,9 @@ references and access each other's GC values.
 
 ## From an edit to a build
 
-`snail dev PROJECT` starts one native development process, which prints its
+`snail-scheme watch PROJECT` starts one native development process, which prints its
 URL and serves each browser target at `/NAME/` on it. `--port PORT` selects a
-port (8000 by default; 0 chooses a free one). `make dev` runs `snail dev .`
+port (8000 by default; 0 chooses a free one). `make watch` runs `snail-scheme watch .`
 for the whole repository, whose root `project.datum` names the `siegework`
 and `hearsay` browser targets. Any editor writes the files; the service owns
 observation and compilation, and the pages relink into each accepted build.
@@ -133,23 +133,23 @@ Unsaved text never enters compilation. Each attempt starts with fresh
 compilation and diagnostics; an error does not display stale diagnostics from
 the preceding attempt.
 
-The cold commands, `snail build` and `snail run`, are a Snail program,
+The cold commands, `snail-scheme build` and `snail-scheme run`, are a Snail program,
 `bootstrap/cli.sld`, which builds with `(snail shell project build)`: the
 compiler and linker run inside it through `(snail shell assembler)`, and
 Node runs producers. Stage 0 rebuilds the
 program when its sources change (`scripts/snail-tool cli-tools`), and is the
 only judge of when they have. Starting Chez and Cargo to find nothing stale
-takes most of a second, so `./snail` keeps stage 0's answer in
+takes most of a second, so `./snail-scheme` keeps stage 0's answer in
 `build/tools-KIND.txt`, stamped with the time stage 0 began, and uses it again
 while every tool it names exists and nothing stage 0's rule reads is newer:
 the `.sld` files under `src/`, `bootstrap/` and `host/browser/`,
 the runtime crate, `rust-toolchain.toml`, and stage 0's driver, which says where
 the tools go. The check over-approximates the rule, so a false alarm costs only
-stage 0's run, and it takes about 15 ms. `snail run`
+stage 0's run, and it takes about 15 ms. `snail-scheme run`
 publishes the run's program and then becomes it through `exec`, so the
 process the caller started is the program's, with its arguments, standard
 streams, working directory, status and signals. Development builds with the
-same program, as `snail resident PROJECT` in a child process, so synchronous
+same program, as `snail-scheme resident PROJECT` in a child process, so synchronous
 compilation and tool IO cannot block the HTTP service or disk observation
 ([the resident builder](compilers.md#the-resident-builder)). The resident
 rebuilds all configured targets on every attempt. Producers run again, once
@@ -158,7 +158,7 @@ The [compiler chapter](compilers.md#separate-compilation) describes this full
 build. The previously published generation remains usable until a successful
 candidate is accepted.
 
-`snail dev` is the same program's `dev`, whose service is
+`snail-scheme watch` is the same program's `watch`, whose service is
 `(snail shell project service)`. Its tasks each wait on one thing: the owner,
 which holds the step below and everything it leaves to its host, and receives
 every message; the disk task, which holds the latest inventory; a task writing
@@ -279,13 +279,13 @@ current status.
 The development loop's tests (`tests/project-attempts.mjs`,
 `tests/project-reload.mjs`, `tests/project-development.mjs`,
 `tests/project-resources.mjs`, `tests/project-bundles.mjs` and
-`tests/browser/reload.mjs`) spawn `snail dev --port 0` and observe it only
+`tests/browser/reload.mjs`) spawn `snail-scheme watch --port 0` and observe it only
 through the URL it prints, the status, the event stream, the files on disk
 and process IDs, so nothing they check depends on how the service is written;
 `tests/development-service.mjs` is that client. A complete-rebuild case asks
 for each attempt and reads what each target compiled, and its digest, from
 the status. The
-tests of `snail build` and `snail run` likewise see only the command's exit
+tests of `snail-scheme build` and `snail-scheme run` likewise see only the command's exit
 status, its output and the build directory. What must happen within one turn
 of the session is a transition of the step, and
 `tests/programs/development-step.sld` tests it as one.
@@ -301,21 +301,21 @@ native processes on the same machine.
 
 Closing closes the listener, every HTTP connection and every event stream,
 then waits for the resident to exit. A fatal compiler or service failure
-closes the session, and `snail dev` exits with status 1 and its message;
+closes the session, and `snail-scheme watch` exits with status 1 and its message;
 failing to listen ends it before anything starts.
 
 ## Editors
 
 Snail Scheme has no editor of its own. An editor gets what it needs from two
 pieces in the repository: a [tree-sitter](https://tree-sitter.github.io/)
-grammar for what it can tell from the text alone, and `snail lsp`, a
+grammar for what it can tell from the text alone, and `snail-scheme lsp`, a
 [Language Server Protocol](https://microsoft.github.io/language-server-protocol/)
 server, for what takes the compiler. `editors/zed` is the extension that puts
 them together for [Zed](https://zed.dev/).
 
 ### The grammar
 
-`editors/tree-sitter-snail` parses the reader's data: lists in `()` or `[]`,
+`editors/tree-sitter-snail-scheme` parses the reader's data: lists in `()` or `[]`,
 `#u8(` byte vectors, quotes, strings, and the comments the reader discards,
 `;` lines, nested `#| |#` blocks and `#;` datum comments. Its external scanner,
 `src/scanner.c`, reads every other token to a delimiter and classifies it as
@@ -328,7 +328,7 @@ committed, and `tests/tree-sitter.mjs` (in `make test`) checks that
 every tracked Scheme file without an error, and checks that the keywords Zed
 colors are `(snail shell highlight)`'s.
 
-The queries live with the extension, under `editors/zed/languages/snail/`:
+The queries live with the extension, under `editors/zed/languages/snail-scheme/`:
 `highlights.scm` colors the core forms, the derived forms and declaration
 words, capitalized type names and the name a definition introduces;
 `brackets.scm`, `indents.scm` and `outline.scm`, which lists a library by
@@ -336,17 +336,17 @@ its name and then its definitions.
 
 ### The language server
 
-`snail lsp` is the command line's `lsp`, `(snail shell lsp)`. It reads
+`snail-scheme lsp` is the command line's `lsp`, `(snail shell lsp)`. It reads
 Content-Length framed JSON-RPC on standard input, answers on standard output,
 and serves the project at the root folder the editor opens. It offers:
 
 - **Diagnostics.** Once the editor is ready, and on each save, it builds the
-  project as `snail dev` would, in development mode with scratch under
+  project as `snail-scheme watch` would, in development mode with scratch under
   `build/snail-run/`, and discards the candidate, publishing nothing. Each
   failure is reported on its file, over the range `(snail shell highlight)`
   derives for its point: the token there, or the datum that starts there. A
   file is cleared once it builds. A failure with no point, or in a file that
-  does not exist, is reported on `project.datum`. Like `snail dev`'s, a build
+  does not exist, is reported on `project.datum`. Like `snail-scheme watch`'s, a build
   reads the disk, so diagnostics follow what was saved.
 - **Formatting.** The open text, formatted by `(snail shell format)`, as one
   edit of the whole document.
@@ -363,13 +363,13 @@ each of these on a project of its own.
 ### Zed
 
 `editors/zed` is a Zed extension: `extension.toml` names the grammar, by
-repository and revision, and the language server, and `languages/snail/`
+repository and revision, and the language server, and `languages/snail-scheme/`
 holds the language's configuration and queries. Zed runs extensions in a
 wasmtime without its garbage-collection feature and loads only Rust, so the
-extension is a small Rust crate, `src/snail.rs`, compiled to
-`wasm32-wasip2`. It only finds the command: the `snail` binary path the
-user's settings give under `lsp.snail`, then a `snail` on the worktree's
-`PATH`, then the repository's own `./snail` launcher. To try it, choose
+extension is a small Rust crate, `src/snail_scheme.rs`, compiled to
+`wasm32-wasip2`. It only finds the command: the binary path the user's
+settings give under `lsp.snail-scheme`, then a `snail-scheme` on the
+worktree's `PATH`, then the repository's own `./snail-scheme` launcher. To try it, choose
 **Install Dev Extension** in Zed's extensions page and pick `editors/zed`.
 
 ### The formatter
@@ -380,7 +380,7 @@ use and rebuilds it when its sources change. With no arguments it formats
 stdin to stdout; optional `--width COLUMNS` selects a positive width instead of
 100. `--check FILE ...` reports every file needing formatting on stderr and
 exits with status 1; `--write FILE ...` updates only changed files.
-`make check`, `make format` and `snail lsp` all use this implementation.
+`make check`, `make format` and `snail-scheme lsp` all use this implementation.
 
 Binding forms are recognized by name: `let`, `let*`, and any name ending in
 `-let` or `-let*`. A user-defined `result-let*` or `retry-let` needs no formatter
@@ -455,7 +455,7 @@ preprocessor goes away.
 The native service serves each browser target's builds to pages that reload
 as each new one is published
 ([browser targets in development](applications.md#browser-targets-in-development)).
-A program target runs with `snail run`, outside the service. Durable
+A program target runs with `snail-scheme run`, outside the service. Durable
 state remains [proposed work](applications.md#proposed-application-processes).
 Production `serve` and package installation still need their own contracts;
 neither is a current public command.

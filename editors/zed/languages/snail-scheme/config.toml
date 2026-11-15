@@ -1,5 +1,5 @@
 name = "Snail Scheme"
-grammar = "snail"
+grammar = "snail_scheme"
 path_suffixes = ["sld", "sls", "scm", "datum"]
 line_comments = [";; ", "; "]
 block_comment = { start = "#| ", prefix = "", end = " |#", tab_size = 0 }

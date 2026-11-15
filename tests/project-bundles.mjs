@@ -1,4 +1,4 @@
-// `snail dev` serving a browser target, from outside
+// `snail-scheme watch` serving a browser target, from outside
 // (tests/development-service.mjs): the service's origin lists the browser
 // targets; /NAME/ is the latest build's page
 // based in that build, with its manifest and the reload client;

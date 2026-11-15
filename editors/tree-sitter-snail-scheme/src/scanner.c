@@ -20,13 +20,13 @@
 
 enum TokenType { BLOCK_COMMENT, SYMBOL, NUMBER, BOOLEAN, CHARACTER };
 
-void *tree_sitter_snail_external_scanner_create(void) { return NULL; }
+void *tree_sitter_snail_scheme_external_scanner_create(void) { return NULL; }
 
-void tree_sitter_snail_external_scanner_destroy(void *payload) {}
+void tree_sitter_snail_scheme_external_scanner_destroy(void *payload) {}
 
-unsigned tree_sitter_snail_external_scanner_serialize(void *payload, char *buffer) { return 0; }
+unsigned tree_sitter_snail_scheme_external_scanner_serialize(void *payload, char *buffer) { return 0; }
 
-void tree_sitter_snail_external_scanner_deserialize(void *payload, const char *buffer,
+void tree_sitter_snail_scheme_external_scanner_deserialize(void *payload, const char *buffer,
                                                     unsigned length) {}
 
 // ---- Characters ----
@@ -171,7 +171,7 @@ static bool after_hash(TSLexer *lexer, Token *token, const bool *valid_symbols) 
   return finish(lexer, token, token_type(token), valid_symbols);
 }
 
-bool tree_sitter_snail_external_scanner_scan(void *payload, TSLexer *lexer,
+bool tree_sitter_snail_scheme_external_scanner_scan(void *payload, TSLexer *lexer,
                                              const bool *valid_symbols) {
   while (whitespace(lexer->lookahead)) lexer->advance(lexer, true);
   if (delimiter(lexer)) return false;

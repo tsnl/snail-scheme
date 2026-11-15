@@ -142,16 +142,16 @@ compiler's source changes; compiler changes must also pass `make test-chez`,
 which runs the source on Chez, and `make bootstrap`, which rebuilds from
 Chez alone.
 Backend changes should execute linked Wasm; compilation alone does not test
-target behavior. `(snail shell format)` is the formatter shared by `snail lsp`
+target behavior. `(snail shell format)` is the formatter shared by `snail-scheme lsp`
 and `scripts/format-scheme`; `make test` checks its CLI and every tracked
 Scheme file. Browser changes should be seen running:
 `node tests/browser/page.mjs URL SCREENSHOT` drives headless Chromium.
 
 ## Live reload
 
-Iterate on applications with `./snail dev .` (`make dev`), left running, and
+Iterate on applications with `./snail-scheme watch .` (`make watch`), left running, and
 edit in any editor; in Zed, install `editors/zed` as a dev extension for
-`snail lsp`'s diagnostics on save, formatting, hover and definitions. The root
+`snail-scheme lsp`'s diagnostics on save, formatting, hover and definitions. The root
 `project.datum` names the `siegework` and `hearsay` browser targets. The
 service serves each browser target at
 `http://127.0.0.1:8000/TARGET/`, rebuilds every configured target from scratch, and relinks changed modules
@@ -166,12 +166,12 @@ rules; what matters when writing code:
   in Save. Escaped closures can retain old code.
 - Libraries are checked one at a time, so an importer's use never decides a
   definition's type: give exported functions typed headers.
-- A program runs with `./snail run . RUN-TARGET`, outside the service. The
+- A program runs with `./snail-scheme run . RUN-TARGET`, outside the service. The
   service's watcher sees every write to disk, whatever made it, and an edit
   to a file a program links builds again once a build that links it is
   published.
 - Builds in one checkout keep private compiler scratch under `build/snail-run/`.
-  Public `snail run` executes its completed project generation in the caller's
+  Public `snail-scheme run` executes its completed project generation in the caller's
   working directory after removing build scratch. Rebuilding the compiled
   compiler or development tools takes an exclusive lock on `build/lock`, so
   `make test` may run beside a server.

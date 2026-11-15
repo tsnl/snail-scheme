@@ -250,7 +250,9 @@ static bool ts_lex(TSLexer *lexer, TSStateId state) {
     case 1:
       if (lookahead == '"') ADVANCE(13);
       if (lookahead == '\\') ADVANCE(5);
-      if (lookahead != 0) ADVANCE(1);
+      if (lookahead != 0 &&
+          lookahead != 0x17f &&
+          lookahead != 0x212a) ADVANCE(1);
       END_STATE();
     case 2:
       if (lookahead == '(') ADVANCE(11);
@@ -263,7 +265,9 @@ static bool ts_lex(TSLexer *lexer, TSStateId state) {
       if (lookahead == 'u') ADVANCE(3);
       END_STATE();
     case 5:
-      if (lookahead != 0) ADVANCE(1);
+      if (lookahead != 0 &&
+          lookahead != 0x17f &&
+          lookahead != 0x212a) ADVANCE(1);
       END_STATE();
     case 6:
       ACCEPT_TOKEN(ts_builtin_sym_end);
@@ -292,7 +296,9 @@ static bool ts_lex(TSLexer *lexer, TSStateId state) {
     case 14:
       ACCEPT_TOKEN(sym_line_comment);
       if (lookahead != 0 &&
-          lookahead != '\n') ADVANCE(14);
+          lookahead != '\n' &&
+          lookahead != 0x17f &&
+          lookahead != 0x212a) ADVANCE(14);
       END_STATE();
     case 15:
       ACCEPT_TOKEN(anon_sym_POUND_SEMI);
@@ -976,11 +982,11 @@ static const bool ts_external_scanner_states[3][EXTERNAL_TOKEN_COUNT] = {
 #ifdef __cplusplus
 extern "C" {
 #endif
-void *tree_sitter_snail_external_scanner_create(void);
-void tree_sitter_snail_external_scanner_destroy(void *);
-bool tree_sitter_snail_external_scanner_scan(void *, TSLexer *, const bool *);
-unsigned tree_sitter_snail_external_scanner_serialize(void *, char *);
-void tree_sitter_snail_external_scanner_deserialize(void *, const char *, unsigned);
+void *tree_sitter_snail_scheme_external_scanner_create(void);
+void tree_sitter_snail_scheme_external_scanner_destroy(void *);
+bool tree_sitter_snail_scheme_external_scanner_scan(void *, TSLexer *, const bool *);
+unsigned tree_sitter_snail_scheme_external_scanner_serialize(void *, char *);
+void tree_sitter_snail_scheme_external_scanner_deserialize(void *, const char *, unsigned);
 
 #ifdef TREE_SITTER_HIDE_SYMBOLS
 #define TS_PUBLIC
@@ -990,7 +996,7 @@ void tree_sitter_snail_external_scanner_deserialize(void *, const char *, unsign
 #define TS_PUBLIC __attribute__((visibility("default")))
 #endif
 
-TS_PUBLIC const TSLanguage *tree_sitter_snail(void) {
+TS_PUBLIC const TSLanguage *tree_sitter_snail_scheme(void) {
   static const TSLanguage language = {
     .abi_version = LANGUAGE_VERSION,
     .symbol_count = SYMBOL_COUNT,
@@ -1017,14 +1023,14 @@ TS_PUBLIC const TSLanguage *tree_sitter_snail(void) {
     .external_scanner = {
       &ts_external_scanner_states[0][0],
       ts_external_scanner_symbol_map,
-      tree_sitter_snail_external_scanner_create,
-      tree_sitter_snail_external_scanner_destroy,
-      tree_sitter_snail_external_scanner_scan,
-      tree_sitter_snail_external_scanner_serialize,
-      tree_sitter_snail_external_scanner_deserialize,
+      tree_sitter_snail_scheme_external_scanner_create,
+      tree_sitter_snail_scheme_external_scanner_destroy,
+      tree_sitter_snail_scheme_external_scanner_scan,
+      tree_sitter_snail_scheme_external_scanner_serialize,
+      tree_sitter_snail_scheme_external_scanner_deserialize,
     },
     .primary_state_ids = ts_primary_state_ids,
-    .name = "snail",
+    .name = "snail_scheme",
     .max_reserved_word_set_size = 0,
     .metadata = {
       .major_version = 0,

@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := check
-.PHONY: format check fetch test test-wasmtime test-chez test-browser bootstrap dev site siegework hearsay pages
+.PHONY: format check fetch test test-wasmtime test-chez test-browser bootstrap watch site siegework hearsay pages
 
 CHEZ ?= scheme
 export CHEZ
@@ -18,7 +18,7 @@ fetch:
 # programs, both games' tests, Siegework headless, and the development service.
 # Build shared tools before the service tests' startup deadlines begin.
 test:
-	./scripts/snail-tool dev-tools >/dev/null
+	./scripts/snail-tool watch-tools >/dev/null
 	"$(CHEZ)" --script host/chez/load.scm "$(CURDIR)" test
 
 # The suite with every compile on the native executable's wasmtime instead of
@@ -28,7 +28,7 @@ test-wasmtime:
 
 # The suite with the compiler's source running on Chez instead of as Wasm.
 test-chez:
-	SNAIL_STAGE0=chez ./scripts/snail-tool dev-tools >/dev/null
+	SNAIL_STAGE0=chez ./scripts/snail-tool watch-tools >/dev/null
 	SNAIL_STAGE0=chez "$(CHEZ)" --script host/chez/load.scm "$(CURDIR)" test
 
 # Live reload and browser interfaces in headless Chromium, which CI does
@@ -55,17 +55,17 @@ check:
 
 # The development service for the whole repository: each browser target
 # at http://127.0.0.1:8000/NAME/, relinked as its sources change.
-dev:
-	./snail dev .
+watch:
+	./snail-scheme watch .
 
 # The root project names each application, with output in build/NAME.
 site: siegework hearsay
 
 siegework:
-	./snail build --release . siegework
+	./snail-scheme build --release . siegework
 
 hearsay:
-	./snail build --release . hearsay
+	./snail-scheme build --release . hearsay
 
 # The GitHub Pages site in build/pages: the book, with Siegework at
 # play/siegework/. Hearsay stays unpublished: its LPC art must be credited

@@ -10,7 +10,7 @@ import {promisify} from 'node:util';
 const execute = promisify(execFile);
 const root = process.argv[2];
 const project = await mkdtemp(join(tmpdir(), 'snail-project-'));
-const build = target => execute(join(root, 'snail'), ['build', project, target]);
+const build = target => execute(join(root, 'snail-scheme'), ['build', project, target]);
 const output = target => join(project, 'build', target);
 const source = '(import (snail core base) (snail core io) (greeting))\n(define (main) (→ Unit) (! output-port) (display (greeting)))\n';
 const description = publicPath => `((build-target cli (program (entry "main.sld") (library-roots ("src"))))

@@ -1,4 +1,4 @@
-// `snail dev` rebuilds every target while its attempts are
+// `snail-scheme watch` rebuilds every target while its attempts are
 // accepted, superseded or fail, observed from outside
 // (tests/development-service.mjs): /.snail/status names each published target's
 // generation, its digest and how many libraries it compiled, and the

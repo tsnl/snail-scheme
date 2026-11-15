@@ -1,5 +1,5 @@
-;; The `snail` command line, which stage 0 builds (`scripts/snail-tool
-;; cli-tools`) and ./snail runs on Node, after the repository's root and the
+;; The `snail-scheme` command line, which stage 0 builds (`scripts/snail-tool
+;; cli-tools`) and ./snail-scheme runs on Node, after the repository's root and the
 ;; runtime module programs are linked with:
 ;;
 ;;   build [--release] PROJECT BUILD-TARGET
@@ -11,12 +11,12 @@
 ;;     rebuilds every configured target for each development request;
 ;;   lsp
 ;;     serves the Language Server Protocol on standard input and output,
-;;     (snail shell lsp), for the project the editor opens, as ./snail lsp
+;;     (snail shell lsp), for the project the editor opens, as ./snail-scheme lsp
 ;;     does;
-;;   dev CLIENT [--port PORT] PROJECT
+;;   watch CLIENT [--port PORT] PROJECT
 ;;     runs the development service, (snail shell project service), with
 ;;     the reload client's program, host/browser/reload.sld built, until it
-;;     is interrupted, as ./snail dev does;
+;;     is interrupted, as ./snail-scheme watch does;
 ;;
 ;; A failure prints its message and exits with status 1; the outputs of
 ;; earlier builds stay published.
@@ -54,7 +54,7 @@
    (arguments (List String))))
 
 (define (usage) (→ String)
-  "usage: snail build [--release] PROJECT BUILD-TARGET | snail run PROJECT RUN-TARGET [ARGUMENT ...]")
+  "usage: snail-scheme build [--release] PROJECT BUILD-TARGET | snail-scheme run PROJECT RUN-TARGET [ARGUMENT ...]")
 
 (define (request (arguments (List String))) (→ Job)
   (match arguments
@@ -113,7 +113,7 @@
        (project (resolved project))
        (target "")
        (arguments (Nil))))
-    (_ (panic "usage: snail resident PROJECT"))))
+    (_ (panic "usage: snail-scheme resident PROJECT"))))
 
 ;; A path made absolute against the working directory, without empty or
 ;; "." components, and with each ".." taking the component before it.
@@ -197,7 +197,7 @@
 
 ;; ---- The resident builder ----
 
-;; `snail resident PROJECT` builds for the development service,
+;; `snail-scheme resident PROJECT` builds for the development service,
 ;; (snail shell project service), which writes it one request a line and
 ;; reads one reply a line, each a JSON object:
 ;;
@@ -448,10 +448,11 @@
 
 ;; ---- The development service ----
 
-;; The service's setup, from `dev`'s arguments after the command line's
+;; The service's setup, from `watch`'s arguments after the command line's
 ;; own: its path, the root and the runtime.
 
-(define (dev-setup (cli String) (root String) (runtime String) (arguments (List String))) (→ Setup)
+(define (watch-setup (cli String) (root String) (runtime String) (arguments (List String)))
+  (→ Setup)
   (let ((node (match (environment-variable "NODE")
                 ((Some node) node)
                 ((None) "node"))))
@@ -474,7 +475,7 @@
          (client client)
          (project (resolved project))
          (port 8000)))
-      (_ (panic "usage: snail dev [--port PORT] PROJECT")))))
+      (_ (panic "usage: snail-scheme watch [--port PORT] PROJECT")))))
 
 (define (port-number (text String)) (→ I32)
   (let ((digits (string->list text)))
@@ -510,8 +511,8 @@
   (! host mut clock fs input-port output-port process signals tcp tasks hints)
 
   (match (command-line)
-    ((Cons cli (Cons root (Cons runtime (Cons "dev" arguments))))
-     (develop (dev-setup cli root runtime arguments)))
+    ((Cons cli (Cons root (Cons runtime (Cons "watch" arguments))))
+     (develop (watch-setup cli root runtime arguments)))
     ((Cons _ (Cons root (Cons runtime (Cons "lsp" (Nil)))))
      (serve-language (tools-of root runtime)))
     (arguments (invoke (request arguments))))

@@ -462,7 +462,7 @@ loader keeps the bytes it has read, by digest, across relinks.
 
 ## The resident builder
 
-`snail dev` builds with `snail resident PROJECT`, the command line's Snail
+`snail-scheme watch` builds with `snail-scheme resident PROJECT`, the command line's Snail
 program in a child process ("The resident builder" in `bootstrap/cli.sld`). The
 service writes it one JSON request a line and reads one reply a line: a
 `build` answers the project's description, a candidate with how long the

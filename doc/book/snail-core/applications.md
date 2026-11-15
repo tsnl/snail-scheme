@@ -304,7 +304,7 @@ This section describes the current browser handover. The
 carry server and browser data across code replacement through durable
 records instead.
 
-`snail dev PROJECT` builds each browser target one library at a time, and
+`snail-scheme watch PROJECT` builds each browser target one library at a time, and
 builds it again whenever the project, the standard library or the browser
 host changes, compiling every configured target from current sources. Each page it
 serves ([below](#browser-targets-in-development)) relinks the modules that
@@ -333,7 +333,7 @@ checkpoint recovery, acceptance and manifest reconciliation.
 
 Each build runs the producers of generated-library recipes first and
 resolves artifact bundles, as every project build does. A program target
-runs with `snail run`, outside the service.
+runs with `snail-scheme run`, outside the service.
 [The development toolchain](toolchain.md) describes how builds stay this
 fast.
 
@@ -416,7 +416,7 @@ starts over.
 
 ## Browser targets in development
 
-`snail dev` serves the project's browser targets on its own listener,
+`snail-scheme watch` serves the project's browser targets on its own listener,
 beside its `/.snail/` paths ([the project HTTP
 service](toolchain.md#project-http-service)), and its status names each
 published browser target's `url`. `/` lists the targets, and `/NAME/`
