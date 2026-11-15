@@ -689,8 +689,13 @@
                                  (second (place-object store token (● module second)))))
                           modules))
              (files (map (lambda (link) (place-link store token link)) (distinct-links links))))
+        ;; Modules may share bytes, as libraries whose code all went to
+        ;; their importers do, and the store holds each object once.
         (for-each (lambda (object) (view-object builder (● target name) directory object))
-                  (Cons runtime (append (map (lambda (module) (● module second)) placed) files)))
+                  (delete-duplicates (lambda (a b) (string=? (● a digest) (● b digest)))
+                                     (Cons runtime
+                                           (append (map (lambda (module) (● module second)) placed)
+                                                   files))))
         (write-file (string-append directory "/" (manifest-name (● target name)))
                     (manifest-text runtime placed files))))
 

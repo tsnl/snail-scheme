@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
-import {createWasi, instantiate, linkProgram, programExports} from '../../host/browser/load.mjs';
+import {createWasi, instantiate, linkedFileImports, linkProgram, programExports, wasmImports} from '../../host/browser/load.mjs';
 
 let program, api, constructors, memory, number = 42;
 const seen = [], errors = [];
@@ -32,7 +32,9 @@ if (filename.endsWith('.manifest.datum')) {
   memory = program.runtime.exports.memory;
 
 } else {
-  const instance = await instantiate(await WebAssembly.compile(await readFile(filename)), {...wasi.getImportObject(), ...host});
+  // The target installs the portable capabilities, which this test leaves unused.
+  const module = await WebAssembly.compile(await readFile(filename));
+  const instance = await instantiate(module, {...wasi.getImportObject(), ...host, ...portable(module)});
   wasi.initialize(instance);
   api = constructors = instance.exports;
   memory = api.memory;
@@ -62,3 +64,10 @@ number = -1;
 assert.equal(api['result-number'](api.managed()), -1);
 assert.equal(api.value(api.inferred(checkpoint, 43n)), 43n, 'a concrete inferred export retains its effects');
 console.log('host boundary: opaque values, typed managed results and staged bytes');
+
+// The imports of the capabilities the target installs and this test leaves
+// unused: the files a program links and the host's WebAssembly.
+function portable(module) {
+  const unread = file => { throw new Error(`this test reads no linked file ${file}`); };
+  return {...linkedFileImports(unread, module), 'snail.runtime.wasm': wasmImports(() => null)};
+}

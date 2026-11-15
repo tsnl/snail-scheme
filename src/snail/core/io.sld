@@ -1,11 +1,16 @@
 ;; Current input and output ports, files, directories and the clock. Input
 ;; and output are independent effects: handlers choose their streams, and
-;; their defaults use standard input and output. The host also supplies
-;; defaults for `fs` and `clock`.
+;; `provide-input-port` and `provide-output-port` use standard input and
+;; output. `provide-fs` and `provide-clock` give the runtime's files and
+;; clock. A target installs these (src/snail/target).
 (define-library (snail core io)
   (export
    input-port
    output-port
+   provide-input-port
+   provide-output-port
+   provide-fs
+   provide-clock
    read-char
    write-char
    write-string
@@ -64,12 +69,18 @@
     ;; ---- Current port effects ----
 
     (effect input-port
-      ((read-char (Fn → (Option Char))))
-      (default ((read-char read-standard-char))))
+      ((read-char (Fn → (Option Char)))))
 
     (effect output-port
-      ((write-string (Fn String → Unit)))
-      (default ((write-string write-standard-string))))
+      ((write-string (Fn String → Unit))))
+
+    ;; Standard input and output.
+
+    (define (provide-input-port (work (Fn → T ! input-port e))) (→ T) (! e) (∀ (T e))
+      (handle input-port ((read-char read-standard-char)) (work)))
+
+    (define (provide-output-port (work (Fn → T ! output-port e))) (→ T) (! e) (∀ (T e))
+      (handle output-port ((write-string write-standard-string)) (work)))
 
     ;; The runtime reserves -3 for borrowed stdin and -2 for borrowed stdout.
     ;; Reading stdin flushes pending stdout first. Only the foreign boundary
@@ -144,29 +155,34 @@
        (status-size (Fn → I64))
        (status-modified (Fn → I64))
        (path-read-text (Fn I64 String → I32))
-       (path-write-text (Fn I32 String → I32)))
-      (default ((path-exists support-path-exists)
-                (open-input support-open-input)
-                (open-output support-open-output)
-                (port-read support-port-read)
-                (port-read-byte support-port-read-byte)
-                (port-write support-port-write)
-                (port-write-byte support-port-write-byte)
-                (port-close support-port-close)
-                (path-make-directory support-path-make-directory)
-                (path-rename support-path-rename)
-                (path-remove-file support-path-remove-file)
-                (path-remove-directory support-path-remove-directory)
-                (path-list support-path-list)
-                (path-status support-path-status)
-                (path-followed-status support-path-followed-status)
-                (path-make-link support-path-make-link)
-                (path-read-link support-path-read-link)
-                (reply-character support-reply-character)
-                (status-size support-status-size)
-                (status-modified support-status-modified)
-                (path-read-text support-path-read-text)
-                (path-write-text support-path-write-text))))
+       (path-write-text (Fn I32 String → I32))))
+
+    ;; Files through the runtime's own.
+    (define (provide-fs (work (Fn → T ! fs e))) (→ T) (! e) (∀ (T e))
+      (handle fs
+          ((path-exists support-path-exists)
+           (open-input support-open-input)
+           (open-output support-open-output)
+           (port-read support-port-read)
+           (port-read-byte support-port-read-byte)
+           (port-write support-port-write)
+           (port-write-byte support-port-write-byte)
+           (port-close support-port-close)
+           (path-make-directory support-path-make-directory)
+           (path-rename support-path-rename)
+           (path-remove-file support-path-remove-file)
+           (path-remove-directory support-path-remove-directory)
+           (path-list support-path-list)
+           (path-status support-path-status)
+           (path-followed-status support-path-followed-status)
+           (path-make-link support-path-make-link)
+           (path-read-link support-path-read-link)
+           (reply-character support-reply-character)
+           (status-size support-status-size)
+           (status-modified support-status-modified)
+           (path-read-text support-path-read-text)
+           (path-write-text support-path-write-text))
+        (work)))
 
     (extern support-path-exists
             "snail.core.support"
@@ -584,8 +600,10 @@
     ;; Nanoseconds since an origin the host chooses, which only ever grow:
     ;; the difference between two readings is the time between them.
     (effect clock
-      ((monotonic-nanoseconds (Fn → I64)))
-      (default ((monotonic-nanoseconds support-monotonic-nanoseconds))))
+      ((monotonic-nanoseconds (Fn → I64))))
+
+    (define (provide-clock (work (Fn → T ! clock e))) (→ T) (! e) (∀ (T e))
+      (handle clock ((monotonic-nanoseconds support-monotonic-nanoseconds)) (work)))
 
     (extern support-monotonic-nanoseconds
             "snail.core.support"

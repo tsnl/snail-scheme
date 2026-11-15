@@ -6,12 +6,13 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
 import {setImmediate as turn} from 'node:timers/promises';
-import {createWasi, instantiate, linkProgram} from '../../host/browser/load.mjs';
+import {createWasi, instantiate, linkedFileImports, linkProgram, wasmImports} from '../../host/browser/load.mjs';
 import {programEntry} from '../../host/browser/entry.mjs';
 import {createTasks, taskExports} from '../../host/browser/tasks.mjs';
 import {createTcp} from '../../host/native/tcp.mjs';
 import {createUdp} from '../../host/native/udp.mjs';
 import {socketImports} from '../../host/native/socket-imports.mjs';
+import {createAsyncFiles} from '../../host/native/async-files.mjs';
 
 let program, api, tasks, driving = null, requestTable = null;
 const tcp = createTcp(), udp = createUdp(), reported = [];
@@ -19,7 +20,10 @@ const tcp = createTcp(), udp = createUdp(), reported = [];
 const requests = new Map();
 // The imports outlive each run of tasks, which cancelling replaces.
 const current = {start: (...args) => tasks.start(...args), finish: ticket => tasks.finish(ticket)};
-const host = {'snail.runtime.native.socket': socketImports(() => program, current, tcp, udp)};
+// The Node target installs Node's file reads too, which this test leaves
+// unused.
+const host = {'snail.runtime.native.socket': socketImports(() => program, current, tcp, udp),
+              'snail.runtime.native.async-files': createAsyncFiles(current).imports};
 const wasi = createWasi({print: (_, line) => reported.push(line)}), filename = resolve(process.argv[2]);
 
 // Each run of tasks gets its own table of requests.
@@ -79,7 +83,8 @@ try {
   if (filename.endsWith('.manifest.datum')) {
     program = await linkProgram(file => readFile(resolve(dirname(filename), file)), filename, wasi, host);
   } else {
-    const runtime = await instantiate(await WebAssembly.compile(await readFile(filename)), {...wasi.getImportObject(), ...host});
+    const module = await WebAssembly.compile(await readFile(filename));
+    const runtime = await instantiate(module, {...wasi.getImportObject(), ...host, ...portable(module)});
     wasi.initialize(runtime);
     program = {runtime, linked: new Map()};
   }
@@ -218,3 +223,10 @@ try {
   clearTimeout(timeout);
 }
 console.log('socket boundary: typed TCP/UDP results, staging and aborts');
+
+// The imports of the capabilities the target installs and this test leaves
+// unused: the files a program links and the host's WebAssembly.
+function portable(module) {
+  const unread = file => { throw new Error(`this test reads no linked file ${file}`); };
+  return {...linkedFileImports(unread, module), 'snail.runtime.wasm': wasmImports(() => null)};
+}

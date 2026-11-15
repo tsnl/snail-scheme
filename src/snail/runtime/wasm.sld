@@ -3,7 +3,7 @@
 ;; handle, linked against providers chosen
 ;; one per import, and its exports are found by name, sent a character at a
 ;; time; a name the host holds comes back a character at a time. (snail
-;; shell wasm)'s `wasm` effect defaults to these.
+;; shell wasm)'s `provide-wasm` answers `wasm` with these.
 (define-library (snail runtime wasm)
   (export
    argument-character

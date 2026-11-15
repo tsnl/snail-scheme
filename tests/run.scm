@@ -211,10 +211,11 @@
 ;; The exposed and foreign ABI, exercised from JavaScript against linked Wasm.
 (define (check-host-boundary root)
   (let* ((program (path-join root "build/tests/host-boundary.wasm"))
-         (text (program->wat root
-                             (cons (path-join root "tests/host-boundary")
-                                   (standard-directories root))
-                             (path-join root "tests/host-boundary/main.sld"))))
+         (text (program->wat-for root
+                                 "portable"
+                                 (cons (path-join root "tests/host-boundary")
+                                       (standard-directories root))
+                                 (path-join root "tests/host-boundary/main.sld"))))
     (link-wat root text program)
     (run-host-boundary root program)))
 
@@ -228,9 +229,10 @@
 
 (define (compile-app-runtime root)
   (guard (failure (#t (report "app runtime" "compile failed" (error-text failure))))
-    (let ((text (program->wat root
-                              (standard-directories root)
-                              (path-join root "tests/app-runtime/main.sld"))))
+    (let ((text (program->wat-for root
+                                  "browser"
+                                  (standard-directories root)
+                                  (path-join root "tests/app-runtime/main.sld"))))
       (lambda ()
         (let ((program (path-join root "build/tests/app-runtime.wasm")))
           (link-wat root text program)
