@@ -11,6 +11,7 @@
 (define-library (snail shell page)
   (export
    events
+   provide-events
    poll-event
    wait-event
    event-field
@@ -23,6 +24,7 @@
    reload-kind
    save-kind
    storage
+   provide-storage
    load-save
    store-save
    page
@@ -64,19 +66,23 @@
        (report-ready (Fn → Unit))
        (checkpoint-root (Fn → Unit))
        (handover-only (Fn → I32))
-       (save-after (Fn I32 → Unit)))
-      (default
-        ((poll-event host-poll)
-         (wait-event (lambda () (through-host host-start-wait host-finish-wait)))
-         (event-field host-field)
-         (random-seed host-seed)
-         (canvas-width host-width)
-         (canvas-height host-height)
-         (report-boot host-boot)
-         (report-ready host-ready)
-         (checkpoint-root host-checkpoint)
-         (handover-only host-handover-only)
-         (save-after host-save-after))))
+       (save-after (Fn I32 → Unit))))
+
+    ;; The page's events, through the browser host.
+    (define (provide-events (work (Fn → T ! events e))) (→ T) (! e) (∀ (T e))
+      (handle events
+          ((poll-event host-poll)
+           (wait-event (lambda () (through-host host-start-wait host-finish-wait)))
+           (event-field host-field)
+           (random-seed host-seed)
+           (canvas-width host-width)
+           (canvas-height host-height)
+           (report-boot host-boot)
+           (report-ready host-ready)
+           (checkpoint-root host-checkpoint)
+           (handover-only host-handover-only)
+           (save-after host-save-after))
+        (work)))
 
     ;; ---- Storage ----
 
@@ -85,13 +91,17 @@
     (effect storage
       ((load-count (Fn → I32 ! tasks))
        (loaded-byte (Fn I32 → U8))
-       (store-save (Fn Bytes → Unit ! tasks)))
-      (default
-        ((load-count (lambda () (through-host host-start-load host-finish-load)))
-         (loaded-byte host-byte)
-         (store-save (lambda (bytes)
-                       (through-host (lambda (ticket) (host-start-store ticket bytes))
-                                     host-finish-store))))))
+       (store-save (Fn Bytes → Unit ! tasks))))
+
+    ;; The page's saved state, through the browser host.
+    (define (provide-storage (work (Fn → T ! storage e))) (→ T) (! e) (∀ (T e))
+      (handle storage
+          ((load-count (lambda () (through-host host-start-load host-finish-load)))
+           (loaded-byte host-byte)
+           (store-save (lambda (bytes)
+                         (through-host (lambda (ticket) (host-start-store ticket bytes))
+                                       host-finish-store))))
+        (work)))
 
     (define (load-save) (→ (Option Bytes)) (! storage tasks)
       (let ((count (load-count)))

@@ -1,7 +1,7 @@
 ;; The page's saved state, as host/browser/runtime.mjs provides it: loading
 ;; and storing are started and finished host operations, and a load is read
-;; back a byte at a time. (snail shell page)'s `storage` effect defaults to
-;; these.
+;; back a byte at a time. (snail shell page)'s `provide-storage` answers
+;; `storage` with these.
 (define-library (snail runtime browser storage)
   (export
    start-load

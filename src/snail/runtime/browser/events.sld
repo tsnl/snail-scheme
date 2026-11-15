@@ -1,6 +1,6 @@
 ;; The page's input and boot report, as host/browser/runtime.mjs provides
-;; them. (snail shell page)'s `events` effect defaults to these; waiting for
-;; an event is a started and finished host operation.
+;; them. (snail shell page)'s `provide-events` answers `events` with these;
+;; waiting for an event is a started and finished host operation.
 (define-library (snail runtime browser events)
   (export
    start-wait
