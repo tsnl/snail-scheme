@@ -1,7 +1,7 @@
-// The JavaScript side of running Snail-Core, the same in Node and in a browser:
+// The JavaScript side of running `snail-scheme`, the same in Node and in a browser:
 // the WASI a module that opens no files needs, the files a program links,
 // linking a program compiled one library at a time and relinking it from a
-// rebuilt library, and how Snail-Core passes a host strings and commands. It
+// rebuilt library, and how `snail-scheme` passes a host strings and commands. It
 // decides nothing about what a program is for: the browser host (host.mjs),
 // the reload client (reload-client.mjs) and host/native/run-snail.mjs build
 // on it.
@@ -168,9 +168,8 @@ function readModules(bytes) {
 // Links the program a modules.json names: the Rust runtime, initialized
 // through `wasi`, then each library's module in program order, so every
 // module comes after those it imports from. `read` gives a file's bytes by
-// its path, which may be relative to the manifest's. The modules'
-// initializations wait for runProgram, so the caller can keep the program
-// first. A program is the runtime instance, the host's imports, each
+// its path, which may be relative to the manifest's. Libraries have no
+// startup code. A program is the runtime instance, the host's imports, each
 // library's instance by name, the library names in program order, the
 // files its modules link, and the tasks `tasks` gives, in which a program
 // reads them.
@@ -182,26 +181,6 @@ export async function linkProgram(read, manifest, wasi, host, tasks = noTasks) {
                    names: modules.map(entry => entry.name), files: [], links: {}, tasks};
   await linkModules(program, compiled);
   return program;
-}
-
-// Runs each module's initialization in program order; the program's own,
-// last, returns its status, its body run as the first task when the
-// program links the scheduler.
-export function runProgram(program, names = program.names) {
-  let status = 0;
-  for (const name of names) {
-    const exports = program.linked.get(name).exports;
-    status = name === program.names.at(-1) ? runProgramMain(program, exports) : exports.main();
-  }
-  return status;
-}
-
-function runProgramMain(program, exports) {
-  const tasks = program.linked.get('snail.shell.task')?.exports;
-  if (!tasks?.['tasks:start-main'] || !exports['main:body']) return exports.main();
-  const status = exports['main:init']();
-  tasks['tasks:start-main'](exports['main:body']);
-  return status;
 }
 
 // What the program's own module, the last, exports.
@@ -266,8 +245,8 @@ const missingHost = (from, name) => () => { throw new Error(`this host does not 
 // they link are read from. The modules before `from`
 // cannot import from it, so their instances stay;
 // `from` and every module after it are linked anew, with handles for the
-// files they link, and initialized, so their globals start over. Returns the new
-// program and leaves the old one as it was, so a relink that fails leaves it
+// files they link. Returns the new program and leaves the old one as it was,
+// so a relink that fails leaves it
 // running.
 export async function relinkProgram(program, from, manifest, read) {
   const {store, modules} = readModules(await read(manifest));
@@ -276,25 +255,11 @@ export async function relinkProgram(program, from, manifest, read) {
   const next = {...program, read, manifest, store, linked: new Map(kept), names: modules.map(entry => entry.name)};
   const relinked = await compileModules(objectReader(read, store), modules.slice(start));
   await linkModules(next, relinked);
-  runProgram(next, relinked.map(entry => entry.name));
   return next;
 }
 
 // ---- Loading while the program runs ----
 
-// The `wasm` effect of (snail shell wasm), which reads the files and decides
-// what to link; the host only does what it cannot. `compile` takes the
-// bytes of a module, `namespace` makes an empty namespace, `instantiate`
-// links a module in one under a library name and runs its main, and
-// `has-export` and `export-function` find what an instance exports by name.
-// Namespace 0 is the program's own, its linked modules; a name already
-// there is refused, since the modules that import it keep the instance they
-// have. Another namespace holds a plugin's modules: each sees the modules
-// before it there, then the runtime and the host's modules, as a
-// child-first class loader resolves, and none of the files the program
-// links, so a plugin that links files cannot read them yet. A failure
-// answers a negative code, which (snail shell wasm) names; a trap in a
-// module's main still ends the program, and a main cannot wait.
 // A loader that chooses a module's providers itself lists the imports
 // with `import-count` and `import-at`, which holds the import's module and
 // field names for `held-length` and `held-char`, the reverse of the
@@ -311,22 +276,20 @@ export async function relinkProgram(program, from, manifest, read) {
 // loaded module given `snail.runtime.wasm` gets these same operations
 // over the program's runtime, whose memory stages its Bytes. Instance 0
 // is the loading program, `program().loader`, or its runtime, whose
-// exports a loaded module may import; `name-instance` puts an instance in
-// the program's namespace under a staged name, and naming one
-// `snail.core.support` makes it the program's runtime; `call-export`
+// exports a loaded module may import. `bind-runtime` selects the program's
+// runtime for staging memory, independently of its loader. `call-export`
 // calls an export of no argument or one i64, such as `main` or
 // `tasks:turn`, for its result as an i64. The program waits for each
 // operation, so they are synchronous. `program()` gives the program that
 // loads, which the host links after making these imports; `memory()`
 // gives the memory the caller's Bytes are staged in, the loader's own
 // when there is one.
-const INVALID_MODULE = -1, NAME_TAKEN = -1, LINK_FAILED = -2;
+const INVALID_MODULE = -1, LINK_FAILED = -2;
 const IMPORT_KINDS = ['function', 'table', 'memory', 'global'];
 const WASI = 'wasi_snapshot_preview1', PLATFORM = 'snail.platform', LOADING = 'snail.runtime.wasm';
 
 export function wasmImports(program, memory = () => (program().loader ?? program().runtime).exports.memory) {
-  const modules = [], instances = [null], namespaces = [], strings = stagedStrings();
-  const namespace = handle => (handle === 0 ? program().linked : namespaces[handle - 1]);
+  const modules = [], instances = [null], strings = stagedStrings();
   const instance = handle => (handle === 0 ? program().loader ?? program().runtime : instances[handle]);
   let held = ['', ''], prepared = null, loaded = null;
   // The import the next provider is for.
@@ -352,6 +315,11 @@ export function wasmImports(program, memory = () => (program().loader ?? program
       return (pointer, length) => link.instance.exports['snail:report-error'](pointer, length);
     }
     if (from === LOADING) return (loaded ??= wasmImports(program, () => program().runtime.exports.memory))[name];
+    if (from === 'snail.runtime.resource' && program().entry) {
+      // Import wrappers call through the session's entry each time, so no
+      // module holds another's scheduler.
+      return (...args) => program().entry.call(`resource:${name}`, ...args);
+    }
     return program().host[from]?.[name];
   }
   return {
@@ -359,16 +327,6 @@ export function wasmImports(program, memory = () => (program().loader ?? program
     compile(address) {
       try { return modules.push(new WebAssembly.Module(byteSnapshot(memory(), address))) - 1; }
       catch (error) { if (error instanceof WebAssembly.CompileError) return INVALID_MODULE; throw error; }
-    },
-    namespace: () => namespaces.push(new Map()),
-    instantiate(handle, module) {
-      const [name] = strings.take(), linked = namespace(handle);
-      if (linked.has(name) || hostProvided(name)) return NAME_TAKEN;
-      const instance = linkedInstance(handle === 0 ? program() : {...program(), linked, links: {}, files: []}, modules[module]);
-      if (!instance) return LINK_FAILED;
-      linked.set(name, instance);
-      instance.exports.main?.();
-      return instances.push(instance) - 1;
     },
     'has-export': handle => typeof instance(handle).exports[strings.take()[0]] === 'function',
     'export-function': handle => instance(handle).exports[strings.take()[0]],
@@ -398,47 +356,29 @@ export function wasmImports(program, memory = () => (program().loader ?? program
       else link.instance.exports._initialize?.();
       return instances.push(link.instance) - 1;
     },
-    'name-instance'(handle) {
-      const [name] = strings.take(), linked = program().linked;
-      if (name === 'snail.core.support') { program().runtime = instance(handle); return 1; }
-      if (linked.has(name) || hostProvided(name)) return 0;
-      linked.set(name, instance(handle));
-      return 1;
-    },
+    'bind-runtime'(handle) { program().runtime = instance(handle); },
     'call-export'(handle, argument) {
       const result = instance(handle).exports[strings.take()[0]](argument);
       return typeof result === 'bigint' ? result : BigInt(result ?? 0);
     },
-    'call-with-function'(handle, callee) {
-      const result = instance(handle).exports[strings.take()[0]](callee);
-      return typeof result === 'bigint' ? result : BigInt(result ?? 0);
-    },
+
   };
 }
 
-// Runs a module's main: a program that links (snail shell task) has its
-// definitions initialized by `main:init`, and its body, `main:body`, run
-// as the first task by `tasks:start-main`, so its statements may yield;
-// any other module's `main` does both at once. Answers main's result.
-export function runMain(exports) {
+// Runs an explicit main, under the owned scheduler when the program links
+// tasks. Linking a library never executes source code.
+export function runMain(exports, tasks) {
   if (exports['tasks:start-main'] && exports['main:body']) {
-    const status = exports['main:init']();
-    exports['tasks:start-main'](exports['main:body']);
-    return status;
+    tasks.startMain(exports['main:body']);
+    return 0;
   }
+  if (!exports.main) throw new Error('the program has no main function');
   return exports.main();
-}
-
-// An instance of the module, linked as a module of `program` is, or null
-// if an import has no provider of its type.
-function linkedInstance(program, module) {
-  try { return new WebAssembly.Instance(module, moduleImports(program, new Set(['snail.core.support', ...program.linked.keys()]), module)); }
-  catch (error) { if (error instanceof WebAssembly.LinkError || error instanceof TypeError) return null; throw error; }
 }
 
 // ---- Host commands ----
 
-// Snail-Core passes a host strings a character at a time, each ended by
+// `snail-scheme` passes a host strings a character at a time, each ended by
 // `argument-end`. A command's strings are its name and its arguments:
 // `command` calls the function `commands` has under the name with the
 // arguments and a number, and answers with its result, or 0. The `develop`
@@ -465,7 +405,7 @@ export function byteSnapshot(memory, address) {
   return new Uint8Array(buffer, pointer + 4, length).slice();
 }
 
-// Strings Snail-Core sends a character at a time, each ended by
+// Strings `snail-scheme` sends a character at a time, each ended by
 // `argument-end`; `take` gives those sent since it last took them.
 export function stagedStrings() {
   let staged = [], current = '';

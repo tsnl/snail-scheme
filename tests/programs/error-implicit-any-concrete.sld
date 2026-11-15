@@ -1,6 +1,9 @@
 (import
  (snail core base))
 
-(: integer (-> I64 I64))
-(define (integer value) value)
-(integer "wrong")
+(define (integer (value I64)) (→ I64) value)
+
+(define main
+  (lambda ()
+    (integer "wrong")
+    (unit)))

@@ -1,8 +1,8 @@
-// The actual Wasm boundary: nullable opaque handovers and borrowed byte records.
+// The actual Wasm boundary: opaque values and staged byte records.
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
-import {createWasi, instantiate, linkProgram, runProgram, programExports} from '../../host/browser/load.mjs';
+import {createWasi, instantiate, linkProgram, programExports} from '../../host/browser/load.mjs';
 
 let program, api, constructors, memory, number = 42;
 const seen = [], errors = [];
@@ -20,7 +20,7 @@ const host = {'snail.test': {
     const bytes = constructors['payload-buffer'](4);
     for (const [index, byte] of [0, 255, 128, 1].entries()) constructors['payload-put'](bytes, index, byte);
     const result = constructors['payload-finish'](number, bytes);
-    constructors['payload-put'](bytes, 2, 0); // Finished Bytes must own their copy.
+    constructors['payload-put'](bytes, 2, 0); // Finished Bytes must hold their own copy.
     return result;
   },
 }};
@@ -30,17 +30,17 @@ if (filename.endsWith('.json')) {
   api = programExports(program);
   constructors = program.linked.get('boundary.value').exports;
   memory = program.runtime.exports.memory;
-  runProgram(program);
+
 } else {
   const instance = await instantiate(await WebAssembly.compile(await readFile(filename)), {...wasi.getImportObject(), ...host});
   wasi.initialize(instance);
   api = constructors = instance.exports;
   memory = api.memory;
-  api.main();
 }
 assert.equal(api.echo(null), null);
 assert.equal(api.value(null), -1n);
-const state = api.state();
+const checkpoint = api.create();
+const state = api.state(checkpoint);
 assert.equal(api.echo(state), state);
 assert.equal(api.value(state), 42n);
 assert.throws(() => api.echo(42), TypeError);
@@ -48,10 +48,11 @@ api.discard(null);
 api.discard(state);
 assert.throws(() => api.fail());
 assert.match(errors.join('\n'), /a deliberate boundary trap/);
-assert.equal(api.value(api.state()), 42n, 'a trap preserves the opaque checkpoint');
+assert.equal(api.value(api.state(checkpoint)), 42n, 'a trap preserves the opaque checkpoint');
 assert.equal(api.binary(), 4);
 assert.equal(api.empty(), 0);
-assert.deepEqual(seen, [['text', 1], ['bytes', 7, [0, 255, 128, 1]], ['bytes', 0, []]]);
+assert.equal(api.updated(), 2);
+assert.deepEqual(seen, [['text', 1], ['bytes', 7, [0, 255, 128, 1]], ['bytes', 0, []], ['bytes', 9, [1, 2]]]);
 const result = api.managed();
 assert.equal(api['result-number'](result), 42);
 assert.equal(api['inspect-bytes'](api['result-bytes'](result)), 128);
@@ -59,5 +60,5 @@ assert.throws(() => api['result-number']({}), TypeError);
 assert.throws(() => api['inspect-bytes'](new Uint8Array(4)), TypeError);
 number = -1;
 assert.equal(api['result-number'](api.managed()), -1);
-assert.equal(api.value(api.inferred(43n)), 43n, 'a concrete inferred export retains its effects');
-console.log('host boundary: opaque values, typed managed results and borrowed bytes');
+assert.equal(api.value(api.inferred(checkpoint, 43n)), 43n, 'a concrete inferred export retains its effects');
+console.log('host boundary: opaque values, typed managed results and staged bytes');

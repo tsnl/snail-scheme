@@ -4,16 +4,15 @@
 
 ;; A total function may not read from a store whose instance prints.
 (typeclass (Store e S)
-  (: fetch-object (-> S String String ! e)))
+  (declare (fetch-object (left S) (right String)) (→ String) (! e)))
 
-(struct Directory
+(record Directory
   ((root String)))
 
-(instance (Store (! console) Directory)
-  (define (fetch-object directory name)
+(instance (Store (! output-port) Directory)
+  (define (fetch-object (directory Directory) (name String)) (→ String) (! output-port)
     (write-line name)
     name))
 
-(: quiet (-> Directory String String))
-(define (quiet directory name)
+(define (quiet (directory Directory) (name String)) (→ String)
   (fetch-object directory name))

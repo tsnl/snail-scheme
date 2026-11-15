@@ -4,37 +4,40 @@
 
 ;; Two class parameters, chosen together.
 (typeclass (Convert A B)
-  (: convert (-> A B)))
+  (declare (convert (value A)) (→ B)))
 
 (instance (Convert I64 String)
-  (define (convert n) (string-append "#" (show n))))
+  (define (convert (n I64)) (→ String)
+    (string-append "#" (show n))))
 
 (instance (Convert I64 F64)
-  (define (convert n) (i64->f64 n)))
+  (define (convert (n I64)) (→ F64)
+    (i64->f64 n)))
 
 ;; A method with a type variable of its own.
 (typeclass (Collection C)
-  (: collect (All (A) (-> C (-> I64 A) (List A)))))
+  (declare (collect (left C) (right (Fn I64 → A))) (→ (List A)) (∀ (A))))
 
-(struct Range
+(record Range
   ((start I64)
    (end I64)))
 
 (instance (Collection Range)
-  (define (collect range f)
+  (define (collect (range Range) (f (Fn I64 → A))) (→ (List A)) (∀ (A))
     (map f
-         (map (lambda (i) (+ i (Range-start range)))
-              (iota (- (Range-end range) (Range-start range)))))))
+         (map (lambda (i) (+ i (● range start)))
+              (iota (- (● range end) (● range start)))))))
 
 ;; A generic function whose requirements pass evidence on.
-(: describe-all (All (C) (requires (Collection C)) (-> C (List String))))
-(define (describe-all collection)
+(define (describe-all (collection C)) (→ (List String)) (∀ (C)) (⊨ (Collection C))
   (collect collection (lambda (n) (ann (convert n) String))))
 
-(write-line (ann (convert 5) String))
-(display (* 2.0 (ann (convert 5) F64)))
-(newline)
-(display (collect (Range 3 6) (lambda (n) (* n n))))
-(newline)
-(display (describe-all (Range 1 4)))
-(newline)
+(define (main) (→ Unit) (! output-port)
+  (write-line (ann (convert 5) String))
+  (display (* 2.0 (ann (convert 5) F64)))
+  (newline)
+  (write (collect (new Range (start 3) (end 6)) (lambda (n) (* n n))))
+  (newline)
+  (write (describe-all (new Range (start 1) (end 4))))
+  (newline)
+  (unit))

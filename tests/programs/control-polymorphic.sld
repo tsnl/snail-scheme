@@ -6,23 +6,23 @@
 ;; that cannot: each use is its own specialization, and only the first
 ;; tests for a yield after each call.
 (effect Stop
-  ((ctl stop (-> I64 I64))))
+  ((ctl stop (Fn I64 → I64))))
 
-(: sum-until-negative (-> (List I64) I64))
-(define (sum-until-negative items)
-  (handle Stop ((stop (lambda (total resume) (drop resume) total)))
+(define (sum-until-negative (items (List I64))) (→ I64)
+  (handle Stop ((stop (lambda (total resume) total)))
     (fold-left (lambda (total item) (if (< item 0) (stop total) (+ total item))) 0 items)))
 
-(: sum (-> (List I64) I64))
-(define (sum items)
+(define (sum (items (List I64))) (→ I64)
   (fold-left (lambda (total item) (+ total item)) 0 items))
 
-(display (sum-until-negative (list 1 2 3 -4 5)))
-(newline)
-(display (sum (list 1 2 3 -4 5)))
-(newline)
-(for-each (lambda (item) (display item) (newline)) (list 7 8))
-(display (handle Stop ((stop (lambda (item resume) (drop resume) item)))
-           (for-each (lambda (item) (when (> item 7) (stop item) (unit))) (list 7 8 9))
-           0))
-(newline)
+(define (main) (→ Unit) (! output-port)
+  (display (sum-until-negative (list 1 2 3 -4 5)))
+  (newline)
+  (display (sum (list 1 2 3 -4 5)))
+  (newline)
+  (for-each (lambda (item) (display item) (newline)) (list 7 8))
+  (display (handle Stop ((stop (lambda (item resume) item)))
+             (for-each (lambda (item) (when (> item 7) (stop item) (unit))) (list 7 8 9))
+             0))
+  (newline)
+  (unit))

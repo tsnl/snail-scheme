@@ -10,13 +10,13 @@ pkgs.mkShell {
   packages = with pkgs; [
     git
     git-filter-repo
-    chibi
+    chez
     gnumake
     nixfmt
     npins
-    emacs-nox
     rustup
     nodejs_26
     mdbook
+    tree-sitter
   ];
 }

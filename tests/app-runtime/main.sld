@@ -1,145 +1,134 @@
 (import
  (snail core base)
+ (only (snail core forms) host)
  (snail shell task)
  (snail shell app)
  (snail shell application)
  (snail shell page)
  (snail shell wire))
 
-;; A mismatch here is a broken test-host invariant. Guest conversions that
-;; are expected to fail use dyn-cast handlers in the dedicated fixtures.
+;; A mismatch here is a broken test-host invariant.
 (define-syntax fixture-convert
   (syntax-rules ()
     ((_ value target)
-     (match (try-convert value target)
-       ((Ok checked) checked)
-       ((Err _) (panic "fixture payload has the wrong type"))))))
-
+     (match (downcast target value)
+       ((Some checked) checked)
+       ((None) (panic "fixture payload has the wrong type"))))))
 
 ;; Each task retains the private handler across its waits on storage and
 ;; events. Its default, the host's, lets the runner detect a leaked handler
 ;; between turns.
 (effect Marker
-  ((marker (-> I32)))
+  ((marker (Fn → I32)))
   (default
     ((marker host-marker))))
 
-(extern host-marker "snail.test" "marker" (-> I32))
+(extern host-marker "snail.test" "marker" (Fn → I32))
 
 ;; The runtime drains children after a normal root return. Explicit reload
 ;; closes that scope after the root has handed over, including this case.
 ;; Each root is a task, as the shared page loop is.
-(extern background-boot "snail.runtime.browser.events" "boot" (-> I32 Unit ! events))
-(extern background-ready "snail.runtime.browser.events" "ready" (-> Unit ! events))
-(extern background-poll "snail.runtime.browser.events" "poll" (-> I32 ! events))
-(: background-main (-> (Option Any) I64 ! mut events))
-(define (background-main handover)
-  (start-page handover (once (lambda ()
-                               (background-boot 2)
-                               (background-poll) ; Resize.
-                               (background-poll) ; Frame.
-                               (background-ready) ; Acknowledge presentation explicitly.
-                               (dispatch-local (once (lambda () (sleep 100000))))
-                               (unit)))))
+(extern background-boot "snail.runtime.browser.events" "boot" (Fn I32 → Unit ! events))
+(extern background-ready "snail.runtime.browser.events" "ready" (Fn → Unit ! events))
+(extern background-poll "snail.runtime.browser.events" "poll" (Fn → I32 ! events))
+(define (background-main (scheduler Scheduler) (context PageRun)) (→ I64) (! mut host events)
+  (start-page context scheduler (lambda ()
+                                  (background-boot 2)
+                                  (background-poll) ; Resize.
+                                  (background-poll) ; Frame.
+                                  (background-ready) ; Acknowledge presentation explicitly.
+                                  (dispatch (lambda () (sleep 100000)))
+                                  (unit))))
 (expose background-main "background_main")
 
-(: unpresented-main (-> (Option Any) I64 ! mut events))
-(define (unpresented-main handover)
-  (start-page handover (once (lambda ()
-                               (background-boot 2)
-                               (dispatch-local (once (lambda () (sleep 100000))))
-                               (unit)))))
+(define (unpresented-main (scheduler Scheduler) (context PageRun)) (→ I64) (! mut host events)
+  (start-page context scheduler (lambda ()
+                                  (background-boot 2)
+                                  (dispatch (lambda () (sleep 100000)))
+                                  (unit))))
 (expose unpresented-main "unpresented_main")
 
 ;; Tasks beside the loop cannot enter its protocol: each of these traps.
-(: child-load (-> Unit ! storage tasks))
-(define (child-load)
+(define (child-load) (→ Unit) (! storage tasks)
   (load-save)
   (unit))
-(: child-store (-> Unit ! storage tasks))
-(define (child-store)
+(define (child-store) (→ Unit) (! storage tasks)
   (store-save #u8(20)))
-(: child-event (-> Unit ! events tasks))
-(define (child-event)
+(define (child-event) (→ Unit) (! events tasks)
   (next-event)
   (unit))
-(: child-boot (-> Unit ! events))
-(define (child-boot)
+(define (child-boot) (→ Unit) (! events)
   (background-boot 99))
 
-(: child-commit (-> Unit ! mut events))
-(define (child-commit)
-  (commit-page (Counter 999 0)))
+(define (child-commit) (→ Unit) (! mut events page)
+  (commit-page (new Counter (count 999) (resizes 0))))
 
-(: spawn-child (-> I32 Unit ! mut storage events))
-(define (spawn-child which)
-  (dispatch-local (once (lambda ()
-                          (match which
-                            (0 (child-load))
-                            (1 (child-store))
-                            (2 (child-event))
-                            (4 (child-commit))
-                            (5 (report-ready))
-                            (_ (child-boot)))))))
+(define (spawn-child (scheduler Scheduler) (context PageRun) (which I32))
+  (→ Unit) (! mut host storage events)
+  (handle page ((current-page (lambda () context)))
+    (dispatch-in scheduler
+                 (lambda ()
+                   (match which
+                     (0 (child-load))
+                     (1 (child-store))
+                     (2 (child-event))
+                     (4 (child-commit))
+                     (5 (report-ready))
+                     (_ (child-boot))))))
+  (unit))
 (expose spawn-child "spawn_child")
 
-(struct Counter
+(record Counter
   ((count I64)
    (resizes I32)))
 
-(struct Save
+(record Save
   ((count I64))
   (deriving Serialize Deserialize))
 
-(: initial (-> I32 I32 I32 Counter))
-(define (initial seed width height)
-  (Counter 0 0))
+(define (initial (seed I32) (width I32) (height I32)) (→ Counter)
+  (new Counter (count 0) (resizes 0)))
 
-(: step (-> Counter Input Counter))
-(define (step counter input)
+(define (step (counter Counter) (input Input)) (→ Counter)
   (match input
-    ((Press 1 _) (Counter-count-set counter (+ (Counter-count counter) 1)))
+    ((Press 1 _) (Counter-count-set counter (+ (● counter count) 1)))
     ((Press 2 _) (panic "a deliberate update trap"))
-    ((Elapsed elapsed) (Counter-count-set counter (+ (Counter-count counter) (i32->i64 elapsed))))
-    ((Resize _ _) (Counter-resizes-set counter (+ (Counter-resizes counter) 1)))
+    ((Elapsed elapsed) (Counter-count-set counter (+ (● counter count) (i32->i64 elapsed))))
+    ((Resize _ _) (Counter-resizes-set counter (+ (● counter resizes) 1)))
     (_ counter)))
 
-(: draw (-> Counter Frame))
-(define (draw counter)
-  (Frame (Camera (Vec3 4.0 4.0 4.0) (Vec3 0.0 0.0 0.0) (Perspective 0.8))
-         (Light (Vec3 0.3 1.0 0.5) 0.8 0.3)
-         (rgb 16 20 28)
-         1.0
-         (Nil)
-         (Nil)))
+(define (draw (counter Counter)) (→ Frame)
+  (new Frame
+    (camera (new Camera
+              (eye (new Vec3 (x 4.0) (y 4.0) (z 4.0)))
+              (target (new Vec3 (x 0.0) (y 0.0) (z 0.0)))
+              (projection (Perspective 0.8))))
+    (light (new Light (direction (new Vec3 (x 0.3) (y 1.0) (z 0.5))) (sun 0.8) (ambient 0.3)))
+    (background (rgb 16 20 28))
+    (motion 1.0)
+    (batches (Nil))
+    (pictures (Nil))))
 
-(: panels (-> Counter (List Panel)))
-(define (panels counter)
-  (list (Panel "counter" (At (TopLeft) 0)
-               (list (label "count" (i64->string (Counter-count counter)))))))
+(define (panels (counter Counter)) (→ (List Panel))
+  (list (new Panel (key "counter") (place (At (TopLeft) 0))
+             (widgets (list (label "count" (i64->string (● counter count))))))))
 
-(: save-counter (-> Counter Save))
-(define (save-counter counter)
-  (Save (Counter-count counter)))
+(define (save-counter (counter Counter)) (→ Save)
+  (new Save (count (● counter count))))
 
-(: restore-counter (-> Save Counter))
-(define (restore-counter saved)
-  (Counter (Save-count saved) 0))
+(define (restore-counter (saved Save)) (→ Counter)
+  (new Counter (count (● saved count)) (resizes 0)))
 
-(: inspect-count (-> Any I64))
-(define (inspect-count state)
-  (Counter-count (fixture-convert state Counter)))
+(define (inspect-count (state Any)) (→ I64)
+  (● (fixture-convert state Counter) count))
 
-(: inspect-resizes (-> Any I32))
-(define (inspect-resizes state)
-  (Counter-resizes (fixture-convert state Counter)))
+(define (inspect-resizes (state Any)) (→ I32)
+  (● (fixture-convert state Counter) resizes))
 
-(: other-state (-> Any))
-(define (other-state)
-  (type-convert (ann 5 I64) Any))
+(define (other-state) (→ Any)
+  (Any (ann 5 I64)))
 
-(: read-marker (-> I32 ! Marker))
-(define (read-marker)
+(define (read-marker) (→ I32) (! Marker)
   (marker))
 
 (expose read-marker "marker")
@@ -150,24 +139,33 @@
 (define-page-state Counter)
 
 (instance (Scene Counter)
-  (define (scene-initialize seed width height) (initial seed width height))
-  (define (scene-update state input) (step state input))
-  (define (scene-view state) (draw state))
-  (define (scene-hud state) (panels state))
-  (define (scene-save state) (serialize (save-counter state)))
-  (define (scene-restore bytes) (restore-counter (deserialize bytes))))
+  (define (scene-initialize (seed I32) (width I32) (height I32)) (→ Counter)
+    (initial seed width height))
+  (define (scene-update (state Counter) (input Input)) (→ Counter)
+    (step state input))
+  (define (scene-view (state Counter)) (→ Frame)
+    (draw state))
+  (define (scene-hud (state Counter)) (→ (List Panel))
+    (panels state))
+  (define (scene-save (state Counter)) (→ Bytes)
+    (serialize (save-counter state)))
+  (define (scene-restore (bytes Bytes)) (→ Counter)
+    (restore-counter (deserialize bytes))))
 
-(struct TestApplication
+(record TestApplication
   ())
 
-(instance (Application (! mut screen events storage tasks) TestApplication)
-  (define (start entry)
+(instance (Application (! mut host screen events storage tasks page) TestApplication)
+  (define (start (entry (Entry TestApplication)))
+    (→ Unit)
+    (! mut host screen events storage tasks page)
     (handle Marker
         ((marker (lambda () 17)))
-      (dispatch-local (once (lambda ()
-                              (yield)
-                              (unless (= (marker) 17) (panic "a child lost its inherited handler"))
-                              (sleep 100000))))
-      (start (ann (Entry) (Entry (SceneApplication Counter)))))))
+      (dispatch (lambda ()
+                  (yield)
+                  (unless (= (marker) 17)
+                    (panic "a child lost its inherited handler"))
+                  (sleep 100000)))
+      (start (ann (new Entry) (Entry (SceneApplication Counter)))))))
 
 (define-page-entry TestApplication)

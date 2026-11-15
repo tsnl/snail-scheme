@@ -1,5 +1,5 @@
 (import
  (snail core base))
 
-(define (f x)
-  (+ x undefined-name))
+(define f
+  (lambda (x) (+ x undefined-name)))

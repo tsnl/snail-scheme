@@ -3,37 +3,37 @@
  (snail core io))
 
 (effect Log
-  ((log (-> String Unit))))
+  ((log (Fn String → Unit))))
 
 (effect Counter
-  ((tick (-> I64))))
+  ((tick (Fn → I64))))
 
-(: work (-> I64 I64 ! Log))
-(define (work n)
+(define (work (n I64)) (→ I64) (! Log)
   (log (string-append "working on " (show n)))
   (* n 2))
 
-(: quietly (All (A e) (-> (-> A ! Log e) A ! e)))
-(define (quietly action)
+(define (quietly (action (Fn → A ! Log e))) (→ A) (! e) (∀ (A e))
   (handle Log
       ((log (lambda (message) (unit))))
     (action)))
 
-(: loudly (All (A e) (-> (-> A ! Log console e) A ! console e)))
-(define (loudly action)
+(define (loudly (action (Fn → A ! Log output-port e))) (→ A) (! output-port e) (∀ (A e))
   (handle Log
       ((log (lambda (message) (write-line (string-append "log: " message)))))
     (action)))
 
-(display (loudly (lambda () (work 21))))
-(newline)
-(display (quietly (lambda () (work 5))))
-(newline)
-(display (handle Counter
-             ((tick (lambda () 2)))
-           (+ (tick) (+ (tick) (tick)))))
-(newline)
-(loudly (lambda ()
-          (handle Log
-              ((log (lambda (message) (log (string-append "outer sees " message)))))
-            (log "inner"))))
+(define (main) (→ Unit) (! output-port)
+
+  (display (loudly (lambda () (work 21))))
+  (newline)
+  (display (quietly (lambda () (work 5))))
+  (newline)
+  (display (handle Counter
+               ((tick (lambda () 2)))
+             (+ (tick) (+ (tick) (tick)))))
+  (newline)
+  (loudly (lambda ()
+            (handle Log
+                ((log (lambda (message) (log (string-append "outer sees " message)))))
+              (log "inner"))))
+  (unit))

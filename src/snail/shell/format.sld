@@ -1,18 +1,14 @@
-;; Indentation, formatting and highlighting of Lisp source, matching this
-;; repository's formatter: Emacs's scheme-mode with the rules in
-;; scripts/format-scheme.el.
-;; Formatting first puts each import specification, struct field and record
-;; field on its own line, then indents every line. A line's indentation
-;; follows Emacs's `calculate-lisp-indent`: it goes under the first argument
-;; of a call, under the first expression of the line its list's last element
-;; starts on, or in by two columns for the body of a special form, as the
+;; The repository's Lisp formatter, shared by scripts/format-scheme and
+;; `snail-scheme lsp` (snail shell lsp), which formats an editor's open text.
+;; Formatting is a pure operation on text, including unfinished source.
+;; Formatting first puts each import specification and field declaration on its own line, then indents every line. A line's indentation goes
+;; under the first argument of a call, under the first expression of the
+;; line its list's last element starts on, or in by two columns for the body
+;; of a special form, as the
 ;; rule for the form's name says. A line whose code runs past the width,
 ;; `format-width` unless the caller says otherwise, is broken before the
 ;; next is indented: a call before its arguments, a binding form before
-;; each binding and body form. Nothing ever joins lines. The IDE
-;; (host/ide/ide.sld) formats on save and indents a line when Tab is
-;; pressed; it colors the text with (snail shell highlight), which follows
-;; the compiler's reader.
+;; each binding and body form. Nothing ever joins lines.
 (define-library (snail shell format)
   (export
    format-source
@@ -35,16 +31,18 @@
       (Atom ((offset I64) (text String)))
       (Text ((offset I64))))
 
-    ;; A line starts in code, inside a string, or inside a block comment;
-    ;; lines that start inside either keep their indentation.
+    ;; Lines starting inside quoted text or a comment keep their indentation.
+    ;; A datum comment owns its own lexer mode and list depth, so nested #;
+    ;; comments do not consume the datum the outer comment is waiting for.
     (enum Mode
       (Code)
-      (InString)
-      (InComment ((depth I64))))
+      (InQuoted ((delimiter Char)))
+      (InComment ((depth I64)))
+      (InDatum ((depth I64) (mode Mode))))
 
     ;; A line, the mode it starts in, its tokens, and the offset just past
     ;; its last token, where its code ends before any comment.
-    (struct Line
+    (record Line
       ((text String)
        (mode Mode)
        (tokens (List Token))
@@ -52,8 +50,7 @@
 
     ;; ---- Lexing ----
 
-    (: lex (-> String (List Line)))
-    (define (lex text)
+    (define (lex (text String)) (→ (List Line))
       (let loop ((lines (split-lines text)) (mode (Code)) (out (Nil)))
         (match lines
           ((Cons line rest)
@@ -62,8 +59,8 @@
           ((Nil) (reverse out)))))
 
     ;; A final newline leaves a final empty line.
-    (: split-lines (-> String (List String)))
-    (define (split-lines text)
+
+    (define (split-lines (text String)) (→ (List String))
       (let loop ((index (- (string-length text) 1)) (end (string-length text)) (out (Nil)))
         (cond ((< index 0) (Cons (substring text 0 end) out))
               ((= (string-ref text index) #\newline)
@@ -72,105 +69,125 @@
 
     ;; One step of lexing: the offset after what it read, the mode after
     ;; it, and the token it made, if any.
-    (struct Step
+    (record Step
       ((next I64)
        (mode Mode)
        (token (Option Token))))
 
     ;; A line that starts in `mode`, and the mode the next line starts in.
-    (: lex-line (-> String Mode (Pair Line Mode)))
-    (define (lex-line line mode)
+
+    (define (lex-line (line String) (mode Mode)) (→ (Pair Line Mode))
       (let loop ((offset 0) (state mode) (tokens (Nil)) (end 0))
         (if (>= offset (string-length line))
-            (Pair (Line line mode (reverse tokens) end) state)
+            (new Pair
+              (first (new Line (text line) (mode mode) (tokens (reverse tokens)) (end end)))
+              (second state))
             (let ((step (lex-step line offset state)))
-              (match (Step-token step)
+              (match (● step token)
                 ((Some token)
-                 (loop (Step-next step)
-                       (Step-mode step)
+                 (loop (● step next)
+                       (● step mode)
                        (Cons token tokens)
-                       (Step-next step)))
+                       (● step next)))
                 ((None)
-                 (loop (Step-next step) (Step-mode step) tokens end)))))))
+                 (loop (● step next) (● step mode) tokens end)))))))
 
-    (: lex-step (-> String I64 Mode Step))
-    (define (lex-step line offset mode)
+    (define (lex-step (line String) (offset I64) (mode Mode)) (→ Step)
       (match mode
         ((Code) (lex-code line offset))
-        ((InString) (lex-string line offset))
-        ((InComment depth) (lex-comment line offset depth))))
+        ((InQuoted delimiter) (lex-quoted line offset delimiter))
+        ((InComment depth) (lex-comment line offset depth))
+        ((InDatum depth mode) (lex-datum line offset depth mode))))
 
-    (: lex-code (-> String I64 Step))
-    (define (lex-code line offset)
+    (define (lex-code (line String) (offset I64)) (→ Step)
       (let ((c (string-ref line offset)) (after (+ offset 1)))
-        (cond ((char-whitespace? c) (Step after (Code) (None)))
-              ((= c #\;) (Step (string-length line) (Code) (None)))
+        (cond ((char-whitespace? c) (new Step (next after) (mode (Code)) (token (None))))
+              ((= c #\;) (new Step (next (string-length line)) (mode (Code)) (token (None))))
               ((or (= c #\() (= c #\[)) (code-token after (Open offset (spaced? line after))))
               ((or (= c #\)) (= c #\])) (code-token after (Close offset)))
-              ((= c #\") (Step-token-set (lex-string line after) (Some (Text offset))))
+              ((or (= c #\") (= c #\|))
+               (Step-token-set (lex-quoted line after c) (Some (Text offset))))
               ((or (= c #\') (= c #\`)) (code-token after (Prefix offset)))
               ((= c #\,) (code-token (if (at? line after "@") (+ after 1) after) (Prefix offset)))
               ((= c #\#) (lex-hash line offset))
               (else (lex-atom line offset offset)))))
 
-    (: code-token (-> I64 Token Step))
-    (define (code-token next token)
-      (Step next (Code) (Some token)))
+    (define (code-token (next I64) (token Token)) (→ Step)
+      (new Step (next next) (mode (Code)) (token (Some token))))
 
     ;; `#(` opens a vector, `#|` a block comment, and `#;` comments out the
-    ;; next datum, which counts here as a prefix; `#\` starts a character,
+    ;; next datum; `#\` starts a character,
     ;; whatever character follows it.
-    (: lex-hash (-> String I64 Step))
-    (define (lex-hash line offset)
+
+    (define (lex-hash (line String) (offset I64)) (→ Step)
       (let ((after (+ offset 1)))
         (cond ((at? line after "(") (code-token after (Prefix offset)))
+              ((at? line after "u8(") (code-token (+ after 2) (Prefix offset)))
               ((at? line after "|") (lex-comment line (+ after 1) 1))
-              ((at? line after ";") (code-token (+ after 1) (Prefix offset)))
+              ((at? line after ";")
+               (new Step (next (+ after 1)) (mode (InDatum 0 (Code))) (token (None))))
               ((at? line after "\\") (lex-atom line offset (min (+ after 2) (string-length line))))
               (else (lex-atom line offset after)))))
 
-    (: lex-atom (-> String I64 I64 Step))
-    (define (lex-atom line start from)
+    (define (lex-atom (line String) (start I64) (from I64)) (→ Step)
       (let ((end (atom-end line from)))
         (code-token end (Atom start (substring line start end)))))
 
-    (: atom-end (-> String I64 I64))
-    (define (atom-end line offset)
+    (define (atom-end (line String) (offset I64)) (→ I64)
       (if (or (>= offset (string-length line)) (delimiter? (string-ref line offset)))
           offset
           (atom-end line (+ offset 1))))
 
-    (: delimiter? (-> Char Bool))
-    (define (delimiter? c)
-      (or (char-whitespace? c) (member? c (list #\( #\) #\[ #\] #\" #\; #\' #\` #\,))))
+    (define (delimiter? (c Char)) (→ Bool)
+      (or (char-whitespace? c) (member? c (list #\( #\) #\[ #\] #\" #\| #\; #\' #\` #\,))))
 
-    ;; Inside a string, past its closing quote, or to the end of the line,
-    ;; which the string continues beyond.
-    (: lex-string (-> String I64 Step))
-    (define (lex-string line offset)
-      (cond ((>= offset (string-length line)) (Step offset (InString) (None)))
+    ;; Strings and |quoted identifiers| preserve their contents, including
+    ;; escapes and newlines. Only their opening delimiter makes a token.
+
+    (define (lex-quoted (line String) (offset I64) (delimiter Char)) (→ Step)
+      (cond ((>= offset (string-length line))
+             (new Step (next offset) (mode (InQuoted delimiter)) (token (None))))
             ((= (string-ref line offset) #\\)
-             (lex-string line (min (+ offset 2) (string-length line))))
-            ((= (string-ref line offset) #\") (Step (+ offset 1) (Code) (None)))
-            (else (lex-string line (+ offset 1)))))
+             (lex-quoted line (min (+ offset 2) (string-length line)) delimiter))
+            ((= (string-ref line offset) delimiter)
+             (new Step (next (+ offset 1)) (mode (Code)) (token (None))))
+            (else (lex-quoted line (+ offset 1) delimiter))))
+
+    ;; Discard one datum's tokens. Depth zero waits for its expression; -1
+    ;; waits only for quoted text to close. Positive depths count open lists.
+    ;; Prefixes wait for their datum, while nested comments stay in `mode`.
+
+    (define (lex-datum (line String) (offset I64) (depth I64) (mode Mode)) (→ Step)
+      (let* ((step (lex-step line offset mode))
+             (next-depth (match (● step token)
+                           ((Some (Open _ _)) (+ depth 1))
+                           ((Some (Close _)) (- depth 1))
+                           ((Some (Prefix _)) depth)
+                           ((Some _) (if (= depth 0) -1 depth))
+                           ((None) depth)))
+             (closed (match (● step token) ((Some (Close _)) (<= depth 1)) (_ #f))))
+        (new Step (next (● step next))
+             (mode (if (or closed (and (< next-depth 0) (code-mode? (● step mode))))
+                       (Code)
+                       (InDatum next-depth (● step mode))))
+             (token (None)))))
 
     ;; Inside a block comment, which nests.
-    (: lex-comment (-> String I64 I64 Step))
-    (define (lex-comment line offset depth)
-      (cond ((>= offset (string-length line)) (Step offset (InComment depth) (None)))
+
+    (define (lex-comment (line String) (offset I64) (depth I64)) (→ Step)
+      (cond ((>= offset (string-length line))
+             (new Step (next offset) (mode (InComment depth)) (token (None))))
             ((at? line offset "|#")
              (if (= depth 1)
-                 (Step (+ offset 2) (Code) (None))
+                 (new Step (next (+ offset 2)) (mode (Code)) (token (None)))
                  (lex-comment line (+ offset 2) (- depth 1))))
             ((at? line offset "#|") (lex-comment line (+ offset 2) (+ depth 1)))
             (else (lex-comment line (+ offset 1) depth))))
 
-    (: spaced? (-> String I64 Bool))
-    (define (spaced? line offset)
+    (define (spaced? (line String) (offset I64)) (→ Bool)
       (and (< offset (string-length line)) (member? (string-ref line offset) (list #\space #\tab))))
 
-    (: at? (-> String I64 String Bool))
-    (define (at? line offset text)
+    (define (at? (line String) (offset I64) (text String)) (→ Bool)
       (and (<= (+ offset (string-length text)) (string-length line))
            (string=? (substring line offset (+ offset (string-length text))) text)))
 
@@ -185,7 +202,7 @@
 
     ;; Where an element starts, and the column of the first expression on
     ;; that line, which may lie in another list.
-    (struct Element
+    (record Element
       ((head Head)
        (column I64)
        (line I64)
@@ -195,7 +212,7 @@
     ;; a bounded record rather than every element. `count` and `first` cover
     ;; the arguments, excluding the head; `last` is the head until an
     ;; argument appears.
-    (struct Elements
+    (record Elements
       ((head Element)
        (first (Option Element))
        (last Element)
@@ -204,7 +221,7 @@
     ;; An open list: its parenthesis, whether a space follows it, and what
     ;; its elements so far contribute. At the start of a line, every element
     ;; of the innermost open list is complete.
-    (struct Frame
+    (record Frame
       ((column I64)
        (line I64)
        (spaced Bool)
@@ -222,175 +239,179 @@
       (Special ((distinguished I64)))
       (LetRule))
 
-    ;; The rules of Emacs 29's scheme-mode, as scheme.el gives them, then
-    ;; those scripts/format-scheme.el adds for Snail-Core's forms, with `guard` as
-    ;; Emacs 31 indents it.
-    (: rules (List (Pair String Rule)))
-    (define rules
-      (concatenate
-       (list (map (lambda (name) (Pair name (Special 0)))
-                  (list "begin"
-                        "delay"
-                        "make-environment"
-                        "match-lambda"
-                        "match-lambda*"
-                        "sequence"
-                        "with-output-to-string"))
-             (map (lambda (name) (Pair name (Special 1)))
-                  (list "access-components"
-                        "and-let*"
-                        "assignment-components"
-                        "call-with-input-file"
-                        "call-with-output-file"
-                        "call-with-port"
-                        "call-with-values"
-                        "case"
-                        "combination-components"
-                        "comment-components"
-                        "conditional-components"
-                        "declaration-components"
-                        "define-library"
-                        "define-record-type"
-                        "define-values"
-                        "definition-components"
-                        "delay-components"
-                        "disjunction-components"
-                        "element"
-                        "eval-when"
-                        "fluid-let"
-                        "in-package"
-                        "in-package-components"
-                        "lambda"
-                        "lambda-components"
-                        "lambda-components*"
-                        "lambda-components**"
-                        "let*"
-                        "letrec"
-                        "letrec*"
-                        "letrec-syntax"
-                        "let-syntax"
-                        "let*-values"
-                        "let-values"
-                        "library"
-                        "list-search-negative"
-                        "list-search-positive"
-                        "list-transform-negative"
-                        "list-transform-positive"
-                        "local-declare"
-                        "macro"
-                        "make"
-                        "match-let*"
-                        "match-letrec"
-                        "mode"
-                        "named-lambda"
-                        "open-block-components"
-                        "parameterize"
-                        "pathname-components"
-                        "procedure-components"
-                        "root"
-                        "sequence-components"
-                        "style"
-                        "unassigned?-components"
-                        "unbound?-components"
-                        "unless"
-                        "using-syntax"
-                        "variable-components"
-                        "when"
-                        "with-input-from-file"
-                        "with-input-from-port"
-                        "with-input-from-string"
-                        "with-mode"
-                        "with-output-to-file"
-                        "with-output-to-port" "with-syntax" "with-values" "λ"))
-             (map (lambda (name) (Pair name (Special 2)))
-                  (list "do" "receive" "syntax-case" "syntax-table-define"))
-             (list (Pair "dynamic-wind" (Special 3))
-                   (Pair "let" (LetRule))
-                   (Pair "match-let" (LetRule))
-                   (Pair "syntax-rules" (Definition)))
-             (map (lambda (name) (Pair name (Special 1)))
-                  (list "fn" "struct" "enum" "typeclass" "instance" "effect" "match" "guard"))
-             (list (Pair "handle" (Special 2))))))
+    ;; Conventional Scheme indentation and `snail-scheme`'s forms. Binding names
+    ;; follow the let/-let and let*/-let* convention below, without a table entry.
 
-    ;; A name without a rule that starts with `def` and is longer than
-    ;; three characters is a definition. Emacs ignores case here, so
-    ;; `Defined` is one too.
-    (: indent-rule (-> String Rule))
-    (define (indent-rule name)
-      (match (assoc-ref rules name)
-        ((Some rule) rule)
-        ((None) (if (and (> (string-length name) 3) (def-prefix? name)) (Definition) (Call)))))
+    (define (known-rule (name String)) (→ (Option Rule))
+      (case name
+        (("begin"
+          "delay"
+          "make-environment"
+          "match-lambda"
+          "match-lambda*"
+          "sequence"
+          "with-output-to-string")
+         (Some (Special 0)))
+        (("access-components"
+          "assignment-components"
+          "call-with-input-file"
+          "call-with-output-file"
+          "call-with-port"
+          "call-with-values"
+          "case"
+          "combination-components"
+          "comment-components"
+          "conditional-components"
+          "declaration-components"
+          "define-library"
+          "define-record-type"
+          "define-values"
+          "definition-components"
+          "delay-components"
+          "disjunction-components"
+          "element"
+          "eval-when"
+          "in-package"
+          "in-package-components"
+          "lambda"
+          "lambda-components"
+          "lambda-components*"
+          "lambda-components**"
+          "letrec"
+          "letrec*"
+          "letrec-syntax"
+          "let-syntax"
+          "let*-values"
+          "let-values"
+          "library"
+          "list-search-negative"
+          "list-search-positive"
+          "list-transform-negative"
+          "list-transform-positive"
+          "local-declare"
+          "macro"
+          "make"
+          "match-letrec"
+          "mode"
+          "named-lambda"
+          "open-block-components"
+          "parameterize"
+          "pathname-components"
+          "procedure-components"
+          "root"
+          "sequence-components"
+          "style"
+          "unassigned?-components"
+          "unbound?-components"
+          "unless"
+          "using-syntax"
+          "variable-components"
+          "when"
+          "with-input-from-file"
+          "with-input-from-port"
+          "with-input-from-string"
+          "with-mode"
+          "with-output-to-file"
+          "with-output-to-port"
+          "with-syntax"
+          "with-values"
+          "λ")
+         (Some (Special 1)))
+        (("do" "receive" "syntax-case" "syntax-table-define") (Some (Special 2)))
+        (("dynamic-wind") (Some (Special 3)))
+        (("scheme-define" "declare") (Some (Definition)))
+        (("syntax-rules") (Some (Definition)))
+        (("new" "record" "enum" "typeclass" "instance" "effect" "match" "guard") (Some (Special 1)))
+        (("handle") (Some (Special 2)))
+        (else (None))))
 
-    (: def-prefix? (-> String Bool))
-    (define (def-prefix? name)
-      (every? (lambda (pair) (member? (string-ref name (Pair-first pair)) (Pair-second pair)))
-              (list (Pair 0 (list #\d #\D)) (Pair 1 (list #\e #\E)) (Pair 2 (list #\f #\F)))))
+    ;; A binding macro advertises its layout in its name. A name without a
+    ;; rule that starts with `def` (case insensitive) is a definition.
+
+    (define (indent-rule (name String)) (→ Rule)
+      (cond ((binding-name? name "let") (LetRule))
+            ((binding-name? name "let*") (Special 1))
+            (else
+             (match (known-rule name)
+               ((Some rule) rule)
+               ((None)
+                (if (and (> (string-length name) 3) (def-prefix? name)) (Definition) (Call)))))))
+
+    (define (binding-name? (name String) (base String)) (→ Bool)
+      (let* ((suffix (string-append "-" base))
+             (start (- (string-length name) (string-length suffix))))
+        (or (string=? name base)
+            (and (>= start 0) (string=? (substring name start (string-length name)) suffix)))))
+
+    (define (def-prefix? (name String)) (→ Bool)
+      (every? (lambda (pair) (member? (string-ref name (● pair first)) (● pair second)))
+              (list (new Pair (first 0) (second (list #\d #\D)))
+                    (new Pair (first 1) (second (list #\e #\E)))
+                    (new Pair (first 2) (second (list #\f #\F))))))
 
     ;; ---- Indentation ----
 
     ;; The column of a line that starts inside `frame`: just inside the
     ;; parenthesis when nothing follows it yet, else as the head's rule says.
-    (: frame-indent (-> Frame I64))
-    (define (frame-indent frame)
-      (match (Frame-elements frame)
+
+    (define (frame-indent (frame Frame)) (→ I64)
+      (match (● frame elements)
         ((Some elements)
-         (match (Element-head (Elements-head elements))
+         (match (● (● elements head) head)
            ((Named name) (named-indent frame elements name (normal-indent frame elements)))
-           (_ (unnamed-indent (Elements-head elements) (Elements-last elements)))))
-        ((None) (+ (Frame-column frame) 1))))
+           (_ (unnamed-indent (● elements head) (● elements last)))))
+        ((None) (+ (● frame column) 1))))
 
     ;; On the head's line, align under the first argument, or the head when
     ;; there is no argument or a space follows the parenthesis. Later align
     ;; under the first expression on the last element's line.
-    (: normal-indent (-> Frame Elements I64))
-    (define (normal-indent frame elements)
-      (let ((head (Elements-head elements)) (last (Elements-last elements)))
-        (cond ((not (= (Element-line last) (Element-line head))) (Element-first last))
-              ((Frame-spaced frame) (Element-column head))
-              (else (match (Elements-first elements)
-                      ((Some argument) (Element-column argument))
-                      ((None) (Element-column head)))))))
+
+    (define (normal-indent (frame Frame) (elements Elements)) (→ I64)
+      (let ((head (● elements head)) (last (● elements last)))
+        (cond ((not (= (● last line) (● head line))) (● last first))
+              ((● frame spaced) (● head column))
+              (else (match (● elements first)
+                      ((Some argument) (● argument column))
+                      ((None) (● head column)))))))
 
     ;; A list whose head is not a name lines up with its head while its
     ;; elements share the head's line.
-    (: unnamed-indent (-> Element Element I64))
-    (define (unnamed-indent head last)
-      (if (= (Element-line last) (Element-line head)) (Element-column head) (Element-first last)))
 
-    (: named-indent (-> Frame Elements String I64 I64))
-    (define (named-indent frame elements name normal)
+    (define (unnamed-indent (head Element) (last Element)) (→ I64)
+      (if (= (● last line) (● head line)) (● head column) (● last first)))
+
+    (define (named-indent (frame Frame) (elements Elements) (name String) (normal I64)) (→ I64)
       (match (indent-rule name)
         ((Call) normal)
         ((Definition)
-         (if (= (Element-line (Elements-last elements)) (Frame-line frame))
-             (+ (Frame-column frame) 2)
+         (if (= (● (● elements last) line) (● frame line))
+             (+ (● frame column) 2)
              normal))
         ((Special distinguished)
-         (special-indent frame distinguished (Elements-count elements) normal))
+         (special-indent frame distinguished (● elements count) normal))
         ((LetRule)
-         (special-indent frame (if (names-loop? elements) 2 1) (Elements-count elements) normal))))
+         (special-indent frame (if (names-loop? elements) 2 1) (● elements count) normal))))
 
-    ;; Emacs's `lisp-indent-specform`. A distinguished argument goes in by
-    ;; four columns when it is one of the first two; the first body form goes
+    ;; A distinguished argument goes in by four columns when it is one of
+    ;; the first two; the first body form goes
     ;; in by two, unless the line above sits further left.
-    (: special-indent (-> Frame I64 I64 I64 I64))
-    (define (special-indent frame distinguished arguments normal)
-      (let ((left (- distinguished arguments)) (body (+ (Frame-column frame) 2)))
-        (cond ((> left 0) (if (<= arguments 1) (+ (Frame-column frame) 4) normal))
+
+    (define (special-indent (frame Frame) (distinguished I64) (arguments I64) (normal I64)) (→ I64)
+      (let ((left (- distinguished arguments)) (body (+ (● frame column) 2)))
+        (cond ((> left 0) (if (<= arguments 1) (+ (● frame column) 4) normal))
               ((or (and (= distinguished 0) (= arguments 0)) (and (= left 0) (<= body normal)))
                body)
               (else normal))))
 
     ;; A named `let`: a name follows `let` on its line.
-    (: names-loop? (-> Elements Bool))
-    (define (names-loop? elements)
+
+    (define (names-loop? (elements Elements)) (→ Bool)
       (match elements
         ((Elements head (Some (Element (Named name) _ line _)) _ _)
-         (and (= line (Element-line head)) (member? (string-ref name 0) loop-name-starts)))
+         (and (= line (● head line)) (member? (string-ref name 0) (loop-name-starts))))
         (_ #f)))
 
-    (: loop-name-starts (List Char))
-    (define loop-name-starts
+    (define (loop-name-starts) (→ (List Char))
       (string->list "-abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+*/?!@$%^&_:~"))
 
     ;; ---- Indenting lines ----
@@ -398,51 +419,50 @@
     ;; Reindents lines `first` to `last`, counting from 0, and keeps the
     ;; others as they are. Lines are indented in order, each from the lists
     ;; open where it starts, as the lines above it now stand.
-    (: indent-lines (-> String I64 I64 String))
-    (define (indent-lines text first last)
+
+    (define (indent-lines (text String) (first I64) (last I64)) (→ String)
       (let loop ((lines (lex text)) (index 0) (frames (Nil)) (out (Nil)))
         (match lines
           ((Cons line rest)
            (match (if (and (<= first index) (<= index last))
                       (reindent line frames)
-                      (Pair (Line-text line) 0))
+                      (new Pair (first (● line text)) (second 0)))
              ((Pair indented shift)
               (loop rest
                     (+ index 1)
-                    (scan-line frames (Line-tokens line) shift index)
+                    (scan-line frames (● line tokens) shift index)
                     (Cons indented out)))))
           ((Nil) (string-join (reverse out) "\n")))))
 
     ;; A line's new text, and how far its tokens moved. A blank line
     ;; becomes empty; a line inside a string or block comment, or one that
     ;; starts with three semicolons, stays as it is.
-    (: reindent (-> Line (List Frame) (Pair String I64)))
-    (define (reindent line frames)
-      (let* ((text (Line-text line))
+
+    (define (reindent (line Line) (frames (List Frame))) (→ (Pair String I64))
+      (let* ((text (● line text))
              (start (indentation text))
              (rest (substring text start (string-length text))))
-        (cond ((not (code-mode? (Line-mode line))) (Pair text 0))
-              ((string=? rest "") (Pair "" 0))
-              ((at? rest 0 ";;;") (Pair text 0))
+        (cond ((not (code-mode? (● line mode))) (new Pair (first text) (second 0)))
+              ((string=? rest "") (new Pair (first "") (second 0)))
+              ((at? rest 0 ";;;") (new Pair (first text) (second 0)))
               (else (let ((column (stack-indent frames)))
-                      (Pair (string-append (make-string column #\space) rest) (- column start)))))))
+                      (new Pair
+                        (first (string-append (make-string column #\space) rest))
+                        (second (- column start))))))))
 
-    (: indentation (-> String I64))
-    (define (indentation text)
+    (define (indentation (text String)) (→ I64)
       (let loop ((index 0))
         (if
          (and (< index (string-length text)) (member? (string-ref text index) (list #\space #\tab)))
          (loop (+ index 1))
          index)))
 
-    (: code-mode? (-> Mode Bool))
-    (define (code-mode? mode)
+    (define (code-mode? (mode Mode)) (→ Bool)
       (match mode
         ((Code) #t)
         (_ #f)))
 
-    (: stack-indent (-> (List Frame) I64))
-    (define (stack-indent frames)
+    (define (stack-indent (frames (List Frame))) (→ I64)
       (match frames
         ((Cons frame _) (frame-indent frame))
         ((Nil) 0)))
@@ -451,86 +471,100 @@
 
     ;; The open lists while a line is scanned, the column of its first
     ;; expression, and the column of a prefix waiting for its expression.
-    (struct Scan
+    (record Scan
       ((frames (List Frame))
        (first (Option I64))
        (prefix (Option I64))))
 
     ;; The lists open after a line, whose tokens sit `shift` columns from
     ;; their offsets.
-    (: scan-line (-> (List Frame) (List Token) I64 I64 (List Frame)))
-    (define (scan-line frames tokens shift line)
-      (Scan-frames (fold-left (lambda (scan token) (scan-token scan token shift line))
-                              (Scan frames (None) (None))
-                              tokens)))
 
-    (: scan-token (-> Scan Token I64 I64 Scan))
-    (define (scan-token scan token shift line)
+    (define (scan-line (frames (List Frame)) (tokens (List Token)) (shift I64) (line I64))
+      (→ (List Frame))
+      (● (fold-left (lambda (scan token) (scan-token scan token shift line))
+                    (new Scan (frames frames) (first (None)) (prefix (None)))
+                    tokens) frames))
+
+    (define (scan-token (scan Scan) (token Token) (shift I64) (line I64)) (→ Scan)
       (match token
         ((Open offset spaced)
          (let ((added (add-expression scan (Listed) (+ offset shift) line)))
            (Scan-frames-set added
-                            (Cons (Frame (+ offset shift) line spaced (None))
-                                  (Scan-frames added)))))
-        ((Close _) (Scan-frames-set scan (list-drop (Scan-frames scan) 1)))
+                            (Cons (new Frame
+                                    (column (+ offset shift))
+                                    (line line)
+                                    (spaced spaced)
+                                    (elements (None)))
+                                  (● added frames)))))
+        ((Close _) (Scan-frames-set scan (list-drop (● scan frames) 1)))
         ((Prefix offset)
-         (Scan (Scan-frames scan) (Some (or-else (Scan-first scan) (+ offset shift)))
-               (Some (or-else (Scan-prefix scan) (+ offset shift)))))
+         (new Scan (frames (● scan frames)) (first (Some (or-else (● scan first) (+ offset shift))))
+              (prefix (Some (or-else (● scan prefix) (+ offset shift))))))
         ((Atom offset text) (add-expression scan (atom-head text) (+ offset shift) line))
         ((Text offset) (add-expression scan (Other) (+ offset shift) line))))
 
     ;; A character is not a name.
-    (: atom-head (-> String Head))
-    (define (atom-head text)
+
+    (define (atom-head (text String)) (→ Head)
       (if (at? text 0 "#\\") (Other) (Named text)))
 
     ;; An expression starts at `column`, or at the prefix before it, as an
     ;; element of the innermost list.
-    (: add-expression (-> Scan Head I64 I64 Scan))
-    (define (add-expression scan head column line)
-      (let* ((start (or-else (Scan-prefix scan) column)) (first (or-else (Scan-first scan) start)))
-        (Scan (add-element (Scan-frames scan) (Element head start line first))
-              (Some first)
-              (None))))
 
-    (: add-element (-> (List Frame) Element (List Frame)))
-    (define (add-element frames element)
+    (define (add-expression (scan Scan) (head Head) (column I64) (line I64)) (→ Scan)
+      (let* ((start (or-else (● scan prefix) column)) (first (or-else (● scan first) start)))
+        (new Scan
+          (frames (add-element (● scan frames)
+                               (new Element (head head) (column start) (line line) (first first))))
+          (first (Some first))
+          (prefix (None)))))
+
+    (define (add-element (frames (List Frame)) (element Element)) (→ (List Frame))
       (match frames
         ((Cons frame rest)
-         (Cons (Frame-elements-set frame (Some (extend (Frame-elements frame) element))) rest))
+         (Cons (Frame-elements-set frame (Some (extend (● frame elements) element))) rest))
         ((Nil) (Nil))))
 
     ;; The first element is the head; each later one is the latest argument,
     ;; and the earliest of those is remembered.
-    (: extend (-> (Option Elements) Element Elements))
-    (define (extend elements element)
-      (match elements
-        ((None) (Elements element (None) element 0))
-        ((Some (Elements head first _ count))
-         (Elements head (match first ((None) (Some element)) (_ first)) element (+ count 1)))))
 
-    (: or-else (-> (Option I64) I64 I64))
-    (define (or-else value default)
+    (define (extend (elements (Option Elements)) (element Element)) (→ Elements)
+      (match elements
+        ((None) (new Elements (head element) (first (None)) (last element) (count 0)))
+        ((Some (Elements head first _ count))
+         (new Elements
+           (head head)
+           (first (match first ((None) (Some element)) (_ first)))
+           (last element)
+           (count (+ count 1))))))
+
+    (define (or-else (value (Option I64)) (default I64)) (→ I64)
       (match value
         ((Some found) found)
         ((None) default)))
 
     ;; ---- Declarations ----
 
-    ;; A token with the line it is on.
-    (struct Placed
+    ;; A token with its line and that line's leading whitespace. A token
+    ;; after a comment is not at the start of its line, even if no earlier
+    ;; token was emitted on that line.
+    (record Placed
       ((line I64)
-       (token Token)))
+       (token Token)
+       (indent I64)))
 
-    (: placed-tokens (-> (List Line) (Vector Placed)))
-    (define (placed-tokens lines)
+    (define (placed-tokens (lines (List Line))) (→ (Vector Placed))
       (list->vector (concatenate (map-indexed (lambda (index line)
-                                                (map (lambda (token) (Placed index token))
-                                                     (Line-tokens line)))
+                                                (let ((indent (indentation (● line text))))
+                                                  (map (lambda (token)
+                                                         (new Placed
+                                                           (line index)
+                                                           (token token)
+                                                           (indent indent)))
+                                                       (● line tokens))))
                                               lines))))
 
-    (: token-offset (-> Token I64))
-    (define (token-offset token)
+    (define (token-offset (token Token)) (→ I64)
       (match token
         ((Open offset _) offset)
         ((Close offset) offset)
@@ -540,78 +574,77 @@
 
     ;; The index after the expression that starts at token `index`, if one
     ;; starts there and ends.
-    (: expression-end (-> (Vector Placed) I64 (Option I64)))
-    (define (expression-end tokens index)
+
+    (define (expression-end (tokens (Vector Placed)) (index I64)) (→ (Option I64))
       (if (>= index (vector-length tokens))
           (None)
-          (match (Placed-token (vector-ref tokens index))
+          (match (● (vector-ref tokens index) token)
             ((Prefix _) (expression-end tokens (+ index 1)))
             ((Open _ _) (list-end tokens (+ index 1) 1))
             ((Close _) (None))
             (_ (Some (+ index 1))))))
 
-    (: list-end (-> (Vector Placed) I64 I64 (Option I64)))
-    (define (list-end tokens index depth)
+    (define (list-end (tokens (Vector Placed)) (index I64) (depth I64)) (→ (Option I64))
       (cond ((= depth 0) (Some index))
             ((>= index (vector-length tokens)) (None))
-            (else (match (Placed-token (vector-ref tokens index))
+            (else (match (● (vector-ref tokens index) token)
                     ((Open _ _) (list-end tokens (+ index 1) (+ depth 1)))
                     ((Close _) (list-end tokens (+ index 1) (- depth 1)))
                     (_ (list-end tokens (+ index 1) depth))))))
 
-    (: skip-expressions (-> (Vector Placed) I64 I64 (Option I64)))
-    (define (skip-expressions tokens index count)
+    (define (skip-expressions (tokens (Vector Placed)) (index I64) (count I64)) (→ (Option I64))
       (if (= count 0)
           (Some index)
           (match (expression-end tokens index)
             ((Some next) (skip-expressions tokens next (- count 1)))
             ((None) (None)))))
 
-    (: open-at? (-> (Vector Placed) I64 Bool))
-    (define (open-at? tokens index)
+    (define (open-at? (tokens (Vector Placed)) (index I64)) (→ Bool)
       (and (< index (vector-length tokens))
-           (match (Placed-token (vector-ref tokens index))
+           (match (● (vector-ref tokens index) token)
              ((Open _ _) #t)
              (_ #f))))
 
     ;; The name right after the parenthesis at token `index`.
-    (: form-name (-> (Vector Placed) I64 (Option String)))
-    (define (form-name tokens index)
+
+    (define (form-name (tokens (Vector Placed)) (index I64)) (→ (Option String))
       (if (and (open-at? tokens index) (< (+ index 1) (vector-length tokens)))
-          (match (Pair (vector-ref tokens index) (vector-ref tokens (+ index 1)))
-            ((Pair (Placed line (Open offset _)) (Placed next-line (Atom next-offset name)))
+          (match (new Pair
+                   (first (vector-ref tokens index))
+                   (second (vector-ref tokens (+ index 1))))
+            ((Pair (Placed line (Open offset _) _) (Placed next-line (Atom next-offset name) _))
              (if (and (= line next-line) (= next-offset (+ offset 1))) (Some name) (None)))
             (_ (None)))
           (None)))
 
     ;; Breaks found so far, and whether the expressions they lie in ended.
-    (struct Found
+    (record Found
       ((breaks (List Placed))
        (ended Bool)))
 
     ;; Each list from token `index` on starts its own line, up to the first
     ;; element that is not a list.
-    (: break-entries (-> (Vector Placed) I64 (List Placed) Found))
-    (define (break-entries tokens index breaks)
+
+    (define (break-entries (tokens (Vector Placed)) (index I64) (breaks (List Placed))) (→ Found)
       (if (open-at? tokens index)
           (let ((breaks (break-before tokens index breaks)))
             (match (expression-end tokens index)
               ((Some next) (break-entries tokens next breaks))
-              ((None) (Found breaks #f))))
-          (Found breaks #t)))
+              ((None) (new Found (breaks breaks) (ended #f)))))
+          (new Found (breaks breaks) (ended #t))))
 
-    (: break-before (-> (Vector Placed) I64 (List Placed) (List Placed)))
-    (define (break-before tokens index breaks)
-      (if (or (= index 0)
-              (not (= (Placed-line (vector-ref tokens (- index 1)))
-                      (Placed-line (vector-ref tokens index)))))
-          breaks
-          (Cons (vector-ref tokens index) breaks)))
+    (define (break-before (tokens (Vector Placed)) (index I64) (breaks (List Placed)))
+      (→ (List Placed))
+      (let ((placed (vector-ref tokens index)))
+        (if (<= (token-offset (● placed token)) (● placed indent))
+            breaks
+            (Cons placed breaks))))
 
-    ;; A struct's field list starts its own line, and so does each field
+    ;; A record's field list starts its own line, and so does each field
     ;; after the first.
-    (: break-struct (-> (Vector Placed) I64 (List Placed) (List Placed)))
-    (define (break-struct tokens index breaks)
+
+    (define (break-record-declaration (tokens (Vector Placed)) (index I64) (breaks (List Placed)))
+      (→ (List Placed))
       (match (skip-expressions tokens (+ index 1) 2)
         ((Some fields)
          (if (open-at? tokens fields)
@@ -619,26 +652,26 @@
              breaks))
         ((None) breaks)))
 
-    (: break-fields (-> (Vector Placed) I64 (List Placed) (List Placed)))
-    (define (break-fields tokens index breaks)
+    (define (break-fields (tokens (Vector Placed)) (index I64) (breaks (List Placed)))
+      (→ (List Placed))
       (if (open-at? tokens index)
           (match (expression-end tokens index)
-            ((Some next) (Found-breaks (break-entries tokens next breaks)))
+            ((Some next) (● (break-entries tokens next breaks) breaks))
             ((None) breaks))
           breaks))
 
-    (: break-record (-> (Vector Placed) I64 (List Placed) (List Placed)))
-    (define (break-record tokens index breaks)
+    (define (break-record (tokens (Vector Placed)) (index I64) (breaks (List Placed)))
+      (→ (List Placed))
       (match (skip-expressions tokens (+ index 1) 4)
-        ((Some fields) (Found-breaks (break-entries tokens fields breaks)))
+        ((Some fields) (● (break-entries tokens fields breaks) breaks))
         ((None) breaks)))
 
-    ;; Where Emacs's formatter breaks lines, in order: before each import
-    ;; specification, a struct's field list and its fields after the first,
+    ;; Declaration breaks, in order: before each import
+    ;; specification, a record's field list and its fields after the first,
     ;; and a record type's fields. An import that does not end stops the
     ;; search, since everything after it is part of it.
-    (: declaration-breaks (-> (Vector Placed) (List Placed)))
-    (define (declaration-breaks tokens)
+
+    (define (declaration-breaks (tokens (Vector Placed))) (→ (List Placed))
       (let loop ((index 0) (breaks (Nil)))
         (if (>= index (vector-length tokens))
             (reverse breaks)
@@ -648,14 +681,14 @@
                  ((Found found #t)
                   (loop (or-else (expression-end tokens index) (vector-length tokens)) found))
                  ((Found found #f) (reverse found))))
-              ((Some "struct") (loop (+ index 2) (break-struct tokens index breaks)))
+              ((Some "record") (loop (+ index 2) (break-record-declaration tokens index breaks)))
               ((Some "define-record-type") (loop (+ index 2) (break-record tokens index breaks)))
               (_ (loop (+ index 1) breaks))))))
 
     ;; The lines with a break before each token in `breaks`, which are in
     ;; order, and the spaces before each break removed.
-    (: break-lines (-> (List Line) (List Placed) (List String)))
-    (define (break-lines lines breaks)
+
+    (define (break-lines (lines (List Line)) (breaks (List Placed))) (→ (List String))
       (let loop ((lines lines) (index 0) (breaks breaks) (out (Nil)))
         (match lines
           ((Cons line rest)
@@ -663,28 +696,25 @@
              (loop rest
                    (+ index 1)
                    (list-drop breaks (length here))
-                   (append (reverse (split-line (Line-text line) here)) out))))
+                   (append (reverse (split-line (● line text) here)) out))))
           ((Nil) (reverse out)))))
 
-    (: line-offsets (-> (List Placed) I64 (List I64)))
-    (define (line-offsets breaks index)
+    (define (line-offsets (breaks (List Placed)) (index I64)) (→ (List I64))
       (match breaks
         ((Cons placed rest)
-         (if (= (Placed-line placed) index)
-             (Cons (token-offset (Placed-token placed)) (line-offsets rest index))
+         (if (= (● placed line) index)
+             (Cons (token-offset (● placed token)) (line-offsets rest index))
              (Nil)))
         ((Nil) (Nil))))
 
-    (: split-line (-> String (List I64) (List String)))
-    (define (split-line text offsets)
+    (define (split-line (text String) (offsets (List I64))) (→ (List String))
       (let loop ((start 0) (offsets offsets) (out (Nil)))
         (match offsets
           ((Cons offset rest)
            (loop offset rest (Cons (trim-right (substring text start offset)) out)))
           ((Nil) (reverse (Cons (substring text start (string-length text)) out))))))
 
-    (: trim-right (-> String String))
-    (define (trim-right text)
+    (define (trim-right (text String)) (→ String)
       (let loop ((end (string-length text)))
         (if (and (> end 0) (member? (string-ref text (- end 1)) (list #\space #\tab)))
             (loop (- end 1))
@@ -693,15 +723,14 @@
     ;; ---- Long lines ----
 
     ;; A line whose code runs past the width, a comment after it not
-    ;; counting, breaks before the next line is indented, as in
-    ;; scripts/format-scheme.el. Each list with an element after the line's
-    ;; first token can break the line before some of its elements, as its
+    ;; counting, breaks before the next line is indented. Each list with an
+    ;; element after the line's first token can break the line before some
+    ;; of its elements, as its
     ;; shape says, and the outermost that can, does. The pieces are indented
     ;; as the lines they now are and broken in turn, so a line is final once
     ;; it fits or nothing on it can break.
 
-    (: format-width I64)
-    (define format-width 100)
+    (define (format-width) (→ I64) 100)
 
     ;; How a list breaks, by its head. A call breaks before each argument
     ;; after its first, or before its first when no other is on the line. A
@@ -714,31 +743,30 @@
       (Body ((from I64)))
       (Binding ((bindings I64))))
 
-    ;; Binding forms besides `let`, with the element each keeps its bindings
-    ;; in. The body follows the bindings.
-    (: binding-forms (List (Pair String I64)))
-    (define binding-forms
-      (list (Pair "let*" 1)
-            (Pair "letrec" 1)
-            (Pair "letrec*" 1)
-            (Pair "let-values" 1)
-            (Pair "let*-values" 1)
-            (Pair "parameterize" 1)
-            (Pair "do" 1)
-            (Pair "handle" 2)
-            (Pair "learning" 2)
-            (Pair "expanding" 2)
-            (Pair "naming" 2)
-            (Pair "specializing" 2)))
+    ;; Binding forms outside the naming convention, with the element each
+    ;; keeps its bindings in. The body follows the bindings.
+
+    (define (binding-forms) (→ (List (Pair String I64)))
+      (list (new Pair (first "letrec") (second 1))
+            (new Pair (first "letrec*") (second 1))
+            (new Pair (first "let-values") (second 1))
+            (new Pair (first "let*-values") (second 1))
+            (new Pair (first "parameterize") (second 1))
+            (new Pair (first "do") (second 1))
+            (new Pair (first "handle") (second 2))
+            (new Pair (first "learning") (second 2))
+            (new Pair (first "expanding") (second 2))
+            (new Pair (first "naming") (second 2))
+            (new Pair (first "specializing") (second 2))))
 
     ;; A name's shape follows its indentation rule: a special form keeps
     ;; only its first distinguished argument beside its name, and a
     ;; definition its first. A named `let` keeps its bindings after the name.
-    (: shape (-> Elements Shape))
-    (define (shape elements)
-      (match (Element-head (Elements-head elements))
+
+    (define (shape (elements Elements)) (→ Shape)
+      (match (● (● elements head) head)
         ((Named name)
-         (match (assoc-ref binding-forms name)
+         (match (if (binding-name? name "let*") (Some 1) (assoc-ref (binding-forms) name))
            ((Some bindings) (Binding bindings))
            ((None)
             (match (indent-rule name)
@@ -755,16 +783,15 @@
     ;; has key -1: its head is behind it, so it breaks before each element.
     ;; `head` is where the first element starts, if on the line. After a
     ;; `!`, which starts the effects of a function type, nothing breaks.
-    (struct Group
+    (record Group
       ((depth I64)
        (key I64)
        (bindings Bool)
        (head (Option I64))
        (effects Bool)))
 
-    (: above? (-> Group Bool))
-    (define (above? group)
-      (= (Group-key group) -1))
+    (define (above? (group Group)) (→ Bool)
+      (= (● group key) -1))
 
     ;; Somewhere a list could break the line: one of the places its shape
     ;; breaks, or a call's first argument, which breaks only when nothing
@@ -773,14 +800,14 @@
       (Break)
       (Fallback ((fits Bool))))
 
-    (struct Candidate
+    (record Candidate
       ((depth I64)
        (key I64)
        (offset I64)
        (place Place)))
 
     ;; The line being broken, where its code starts and ends, and the width.
-    (struct Extent
+    (record Extent
       ((text String)
        (first I64)
        (end I64)
@@ -788,16 +815,16 @@
 
     ;; A line breaks only where spaces are, so tokens written together stay
     ;; together, and never before its first token.
-    (: breakable? (-> Extent I64 Bool))
-    (define (breakable? extent start)
-      (and (not (= start (Extent-first extent)))
-           (member? (string-ref (Extent-text extent) (- start 1))
+
+    (define (breakable? (extent Extent) (start I64)) (→ Bool)
+      (and (not (= start (● extent first)))
+           (member? (string-ref (● extent text) (- start 1))
                     (list #\space #\tab))))
 
     ;; The scan of a line for breaks: the lists open, as indentation and as
     ;; breaking see them, and the candidates found so far, latest first.
     ;; The top level is always at the bottom of the groups.
-    (struct Breaking
+    (record Breaking
       ((scan Scan)
        (groups (List Group))
        (candidates (List Candidate))))
@@ -805,171 +832,209 @@
     ;; What an element tells the list it is in: the list's group afterwards,
     ;; the candidates it adds, and whether the element, a list, holds the
     ;; bindings of the binding form it is in.
-    (struct Arrival
+    (record Arrival
       ((group Group)
        (candidates (List Candidate))
        (bindings Bool)))
 
     ;; The lists open where a line starts, above the top level at depth 0.
-    (: enclosing-groups (-> (List Frame) (List Group)))
-    (define (enclosing-groups frames)
+
+    (define (enclosing-groups (frames (List Frame))) (→ (List Group))
       (match frames
         ((Cons _ rest)
-         (Cons (Group (length frames) -1 #f (None) #f) (enclosing-groups rest)))
-        ((Nil) (list (Group 0 -1 #f (None) #f)))))
+         (Cons (new Group (depth (length frames)) (key -1) (bindings #f) (head (None)) (effects #f))
+               (enclosing-groups rest)))
+        ((Nil) (list (new Group (depth 0) (key -1) (bindings #f) (head (None)) (effects #f))))))
 
-    (: next-index (-> Frame I64))
-    (define (next-index frame)
-      (match (Frame-elements frame)
-        ((Some elements) (+ (Elements-count elements) 1))
+    (define (next-index (frame Frame)) (→ I64)
+      (match (● frame elements)
+        ((Some elements) (+ (● elements count) 1))
         ((None) 0)))
 
     ;; An element of the list `group` describes starts at `start`, below the
     ;; lists `frames`; `opens` says it is a list, and `bang` that it is a
     ;; `!`. Nothing breaks where the line cannot, or after a `!`.
-    (: arrive (-> Extent (List Frame) Group I64 Bool Bool Arrival))
-    (define (arrive extent frames group start opens bang)
-      (let ((after (Group-effects-set group (or bang (Group-effects group))))
+
+    (define (arrive (extent Extent)
+                    (frames (List Frame))
+                    (group Group)
+                    (start I64)
+                    (opens Bool)
+                    (bang Bool))
+      (→ Arrival)
+      (let ((after (Group-effects-set group (or bang (● group effects))))
             (breaks
-             (and (breakable? extent start) (not (Group-effects group)))))
+             (and (breakable? extent start) (not (● group effects)))))
         (if (above? group)
-            (Arrival after (candidate-at group start breaks (Break)) #f)
+            (new Arrival
+              (group after)
+              (candidates (candidate-at group start breaks (Break)))
+              (bindings #f))
             (match frames
               ((Cons frame _)
                (arrive-opened extent frame after start opens breaks))
               ;; A list that opened on the line is the innermost frame.
-              ((Nil) (Arrival after (Nil) #f))))))
+              ((Nil) (new Arrival (group after) (candidates (Nil)) (bindings #f)))))))
 
     ;; The next element of a list that opened on the line, which `frame`
     ;; describes: its head, a binding form's binding, or wherever the list's
     ;; shape breaks.
-    (: arrive-opened (-> Extent Frame Group I64 Bool Bool Arrival))
-    (define (arrive-opened extent frame group start opens breaks)
+
+    (define (arrive-opened (extent Extent)
+                           (frame Frame)
+                           (group Group)
+                           (start I64)
+                           (opens Bool)
+                           (breaks Bool))
+      (→ Arrival)
       (let ((index (next-index frame)))
-        (cond ((Group-bindings group)
-               (Arrival group
-                        (candidate-at group
-                                      start
-                                      (and (>= index 1)
-                                           (breakable? extent start))
-                                      (Break))
-                        #f))
+        (cond ((● group bindings)
+               (new Arrival (group group)
+                    (candidates (candidate-at group
+                                              start
+                                              (and (>= index 1)
+                                                   (breakable? extent start))
+                                              (Break)))
+                    (bindings #f)))
               ((= index 0)
-               (Arrival (Group-head-set group (Some start)) (Nil) #f))
+               (new Arrival
+                 (group (Group-head-set group (Some start)))
+                 (candidates (Nil))
+                 (bindings #f)))
               (breaks (shaped-arrival extent
                                       (frame-shape frame)
                                       group
                                       index
                                       start
                                       opens))
-              (else (Arrival group (Nil) #f)))))
+              (else (new Arrival (group group) (candidates (Nil)) (bindings #f))))))
 
-    (: frame-shape (-> Frame Shape))
-    (define (frame-shape frame)
-      (match (Frame-elements frame)
+    (define (frame-shape (frame Frame)) (→ Shape)
+      (match (● frame elements)
         ((Some elements) (shape elements))
         ((None) (Body 1))))
 
     ;; Element `index` of a list of `shape`: the binding form's bindings, or
     ;; where it breaks.
-    (: shaped-arrival (-> Extent Shape Group I64 I64 Bool Arrival))
-    (define (shaped-arrival extent shape group index start opens)
+
+    (define (shaped-arrival (extent Extent)
+                            (shape Shape)
+                            (group Group)
+                            (index I64)
+                            (start I64)
+                            (opens Bool))
+      (→ Arrival)
       (match shape
         ((Binding bindings)
          (if (and (= index bindings) opens)
-             (Arrival group (Nil) #t)
-             (Arrival group
-                      (candidate-at group start (> index bindings) (Break))
-                      #f)))
+             (new Arrival (group group) (candidates (Nil)) (bindings #t))
+             (new Arrival (group group)
+                  (candidates (candidate-at group start (> index bindings) (Break)))
+                  (bindings #f))))
         ((Body from)
-         (Arrival group (candidate-at group start (>= index from) (Break)) #f))
+         (new Arrival
+           (group group)
+           (candidates (candidate-at group start (>= index from) (Break)))
+           (bindings #f)))
         ((Arguments)
-         (Arrival group
-                  (if (>= index 2)
-                      (candidate-at group start #t (Break))
-                      (fallback-at extent group start index))
-                  #f))))
+         (new Arrival (group group)
+              (candidates (if (>= index 2)
+                              (candidate-at group start #t (Break))
+                              (fallback-at extent group start index)))
+              (bindings #f)))))
 
-    (: candidate-at (-> Group I64 Bool Place (List Candidate)))
-    (define (candidate-at group start breaks place)
+    (define (candidate-at (group Group) (start I64) (breaks Bool) (place Place))
+      (→ (List Candidate))
       (if breaks
-          (list (Candidate (Group-depth group) (Group-key group) start place))
+          (list
+           (new Candidate (depth (● group depth)) (key (● group key)) (offset start) (place place)))
           (Nil)))
 
     ;; A call's first argument, which would move under the call's head.
-    (: fallback-at (-> Extent Group I64 I64 (List Candidate)))
-    (define (fallback-at extent group start index)
-      (match (Group-head group)
+
+    (define (fallback-at (extent Extent) (group Group) (start I64) (index I64)) (→ (List Candidate))
+      (match (● group head)
         ((Some head)
-         (let ((moved (+ head (- (Extent-end extent) start))))
+         (let ((moved (+ head (- (● extent end) start))))
            (candidate-at group
                          start
                          (= index 1)
-                         (Fallback (<= moved (Extent-width extent))))))
+                         (Fallback (<= moved (● extent width))))))
         ((None) (Nil))))
 
     ;; The innermost list learns of an element starting at `start`.
-    (: arrive-innermost (-> Extent Breaking I64 Bool Bool (Option Arrival)))
-    (define (arrive-innermost extent breaking start opens bang)
-      (match (Breaking-groups breaking)
+
+    (define (arrive-innermost (extent Extent)
+                              (breaking Breaking)
+                              (start I64)
+                              (opens Bool)
+                              (bang Bool))
+      (→ (Option Arrival))
+      (match (● breaking groups)
         ((Cons group _)
          (Some (arrive extent
-                       (Scan-frames (Breaking-scan breaking))
+                       (● (● breaking scan) frames)
                        group
                        start
                        opens
                        bang)))
         ((Nil) (None))))
 
-    (: settle (-> Breaking Scan (Option Arrival) Breaking))
-    (define (settle breaking scan arrival)
+    (define (settle (breaking Breaking) (scan Scan) (arrival (Option Arrival))) (→ Breaking)
       (match arrival
         ((Some (Arrival group candidates _))
-         (Breaking scan
-                   (Cons group (list-drop (Breaking-groups breaking) 1))
-                   (append candidates (Breaking-candidates breaking))))
+         (new Breaking (scan scan)
+              (groups (Cons group (list-drop (● breaking groups) 1)))
+              (candidates (append candidates (● breaking candidates)))))
         ((None) (Breaking-scan-set breaking scan))))
 
     ;; The group of a list that opens at `key`: the binding form's, when the
     ;; list holds its bindings.
-    (: opened-group (-> (Option Arrival) I64 I64 Group))
-    (define (opened-group arrival depth key)
+
+    (define (opened-group (arrival (Option Arrival)) (depth I64) (key I64)) (→ Group)
       (match arrival
         ((Some (Arrival owner _ #t))
-         (Group (Group-depth owner) (Group-key owner) #t (None) #f))
-        (_ (Group depth key #f (None) #f))))
+         (new Group
+           (depth (● owner depth))
+           (key (● owner key))
+           (bindings #t)
+           (head (None))
+           (effects #f)))
+        (_ (new Group (depth depth) (key key) (bindings #f) (head (None)) (effects #f)))))
 
     ;; A list closes; a parenthesis too many leaves the top level in place.
-    (: close-group (-> (List Group) (List Group)))
-    (define (close-group groups)
+
+    (define (close-group (groups (List Group))) (→ (List Group))
       (match groups
         ((Cons _ (Cons next rest)) (Cons next rest))
         (_ groups)))
 
     ;; A list opens at `key`, starting at `start`: it arrives in the list
     ;; it is in, and its own group goes on top.
-    (: open-list (-> Extent Breaking Scan I64 I64 Breaking))
-    (define (open-list extent breaking scan start key)
+
+    (define (open-list (extent Extent) (breaking Breaking) (scan Scan) (start I64) (key I64))
+      (→ Breaking)
       (let* ((arrival (arrive-innermost extent breaking start #t #f))
              (settled (settle breaking scan arrival)))
         (Breaking-groups-set
          settled
-         (Cons (opened-group arrival (length (Scan-frames scan)) key)
-               (Breaking-groups settled)))))
+         (Cons (opened-group arrival (length (● scan frames)) key)
+               (● settled groups)))))
 
     ;; One token of the line, `shift` columns from its offset, on line
     ;; `line`: lists open and close, and each element arrives in its list.
-    (: break-token (-> Extent I64 I64 Breaking Token Breaking))
-    (define (break-token extent shift line breaking token)
-      (let ((start (or-else (Scan-prefix (Breaking-scan breaking))
+
+    (define (break-token (extent Extent) (shift I64) (line I64) (breaking Breaking) (token Token))
+      (→ Breaking)
+      (let ((start (or-else (● (● breaking scan) prefix)
                             (+ (token-offset token) shift)))
-            (scan (scan-token (Breaking-scan breaking) token shift line)))
+            (scan (scan-token (● breaking scan) token shift line)))
         (match token
           ((Prefix _) (Breaking-scan-set breaking scan))
           ((Close _)
-           (Breaking scan
-                     (close-group (Breaking-groups breaking))
-                     (Breaking-candidates breaking)))
+           (new Breaking (scan scan)
+                (groups (close-group (● breaking groups)))
+                (candidates (● breaking candidates))))
           ((Open offset _)
            (open-list extent breaking scan start (+ offset shift)))
           ((Atom offset text)
@@ -983,23 +1048,28 @@
                    (arrive-innermost extent breaking start #f #f))))))
 
     ;; The candidates of a line, in order, below the lists `frames`.
-    (: line-candidates (-> Extent Line I64 (List Frame) I64 (List Candidate)))
-    (define (line-candidates extent line shift frames index)
+
+    (define (line-candidates (extent Extent)
+                             (line Line)
+                             (shift I64)
+                             (frames (List Frame))
+                             (index I64))
+      (→ (List Candidate))
       (reverse
-       (Breaking-candidates
-        (fold-left (lambda (breaking token)
-                     (break-token extent shift index breaking token))
-                   (Breaking (Scan frames (None) (None))
-                             (enclosing-groups frames)
-                             (Nil))
-                   (Line-tokens line)))))
+       (● (fold-left (lambda (breaking token)
+                       (break-token extent shift index breaking token))
+                     (new Breaking (scan (new Scan (frames frames) (first (None)) (prefix (None))))
+                          (groups (enclosing-groups frames))
+                          (candidates (Nil)))
+                     (● line tokens)) candidates)))
 
     ;; ---- Choosing breaks ----
 
     ;; The outermost of `candidates` that `eligible` accepts, the leftmost
     ;; of those equally deep.
-    (: outermost (-> (List Candidate) (-> Candidate Bool) (Option Candidate)))
-    (define (outermost candidates eligible)
+
+    (define (outermost (candidates (List Candidate)) (eligible (Fn Candidate → Bool)))
+      (→ (Option Candidate))
       (fold-left (lambda (best candidate)
                    (if (and (eligible candidate)
                             (match best
@@ -1010,34 +1080,30 @@
                  (None)
                  candidates))
 
-    (: outside? (-> Candidate Candidate Bool))
-    (define (outside? a b)
-      (or (< (Candidate-depth a) (Candidate-depth b))
-          (and (= (Candidate-depth a) (Candidate-depth b))
-               (< (Candidate-key a) (Candidate-key b)))))
+    (define (outside? (a Candidate) (b Candidate)) (→ Bool)
+      (or (< (● a depth) (● b depth))
+          (and (= (● a depth) (● b depth))
+               (< (● a key) (● b key)))))
 
-    (: same-list? (-> Candidate Candidate Bool))
-    (define (same-list? a b)
-      (and (= (Candidate-depth a) (Candidate-depth b))
-           (= (Candidate-key a) (Candidate-key b))))
+    (define (same-list? (a Candidate) (b Candidate)) (→ Bool)
+      (and (= (● a depth) (● b depth))
+           (= (● a key) (● b key))))
 
-    (: breaks? (-> Candidate Bool))
-    (define (breaks? candidate)
-      (match (Candidate-place candidate)
+    (define (breaks? (candidate Candidate)) (→ Bool)
+      (match (● candidate place)
         ((Break) #t)
         ((Fallback fits) #f)))
 
-    (: fits? (-> Candidate Bool))
-    (define (fits? candidate)
-      (match (Candidate-place candidate)
+    (define (fits? (candidate Candidate)) (→ Bool)
+      (match (● candidate place)
         ((Break) #t)
         ((Fallback fits) fits)))
 
     ;; The outermost list that can break, breaks: before each of its breaks,
     ;; or else before its fallback. A fallback whose move would not fit is a
     ;; last resort, taken only when nothing else on the line can break.
-    (: chosen-breaks (-> (List Candidate) (List I64)))
-    (define (chosen-breaks candidates)
+
+    (define (chosen-breaks (candidates (List Candidate))) (→ (List I64))
       (match (outermost candidates fits?)
         ((Some best) (list-breaks candidates best))
         ((None)
@@ -1045,24 +1111,29 @@
            ((Some best) (list-breaks candidates best))
            ((None) (Nil))))))
 
-    (: list-breaks (-> (List Candidate) Candidate (List I64)))
-    (define (list-breaks candidates best)
+    (define (list-breaks (candidates (List Candidate)) (best Candidate)) (→ (List I64))
       (let* ((own (filter (lambda (candidate) (same-list? candidate best))
                           candidates))
              (breaks (filter breaks? own)))
-        (map Candidate-offset (if (null? breaks) own breaks))))
+        (map (lambda (record) (● record offset)) (if (null? breaks) own breaks))))
 
     ;; Where to break a line indented by `shift`, as offsets in the indented
     ;; line, when its code runs past `width`.
-    (: line-breaks (-> Line String I64 (List Frame) I64 I64 (List I64)))
-    (define (line-breaks line text shift frames index width)
-      (match (Line-tokens line)
+
+    (define (line-breaks (line Line)
+                         (text String)
+                         (shift I64)
+                         (frames (List Frame))
+                         (index I64)
+                         (width I64))
+      (→ (List I64))
+      (match (● line tokens)
         ((Cons token _)
-         (let ((extent (Extent text
-                               (+ (token-offset token) shift)
-                               (+ (Line-end line) shift)
-                               width)))
-           (if (and (code-mode? (Line-mode line)) (> (Extent-end extent) width))
+         (let ((extent (new Extent (text text)
+                            (first (+ (token-offset token) shift))
+                            (end (+ (● line end) shift))
+                            (width width))))
+           (if (and (code-mode? (● line mode)) (> (● extent end) width))
                (chosen-breaks (line-candidates extent line shift frames index))
                (Nil))))
         ((Nil) (Nil))))
@@ -1070,8 +1141,8 @@
     ;; Indents each line as `indent-lines` does, first breaking it when its
     ;; code runs past `width`. The pieces of a broken line are lines in
     ;; their turn; the first is already indented.
-    (: fit-lines (-> String I64 String))
-    (define (fit-lines text width)
+
+    (define (fit-lines (text String) (width I64)) (→ String)
       (let loop ((lines (lex text)) (index 0) (frames (Nil)) (out (Nil)))
         (match lines
           ((Cons line rest)
@@ -1082,7 +1153,7 @@
                 (if (null? breaks)
                     (loop rest
                           (+ index 1)
-                          (scan-line frames (Line-tokens line) shift index)
+                          (scan-line frames (● line tokens) shift index)
                           (Cons indented out))
                     (loop
                      (append (map code-line (split-line indented breaks)) rest)
@@ -1091,15 +1162,14 @@
                      out))))))
           ((Nil) (string-join (reverse out) "\n")))))
 
-    (: code-line (-> String Line))
-    (define (code-line text)
-      (Pair-first (lex-line text (Code))))
+    (define (code-line (text String)) (→ Line)
+      (● (lex-line text (Code)) first))
 
     ;; ---- Formatting ----
 
     ;; Declarations first, then indentation, breaking lines past `width`.
-    (: format-source (-> String I64 String))
-    (define (format-source text width)
+
+    (define (format-source (text String) (width I64)) (→ String)
       (let* ((lines (lex text))
              (broken (string-join (break-lines lines
                                                (declaration-breaks

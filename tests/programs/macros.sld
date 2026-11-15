@@ -21,23 +21,25 @@
 ;; A macro that defines a function the caller names.
 (define-syntax define-square
   (syntax-rules ()
-    ((_ name) (define (name x) (* x x)))))
+    ((_ name) (define (name (x I64)) (→ I64) (* x x)))))
 
 (define-square square)
 
 ;; A core keyword may be shadowed.
-(: twice (-> (-> I64 I64) I64 I64))
-(define (twice if x)
+(define (twice (if (Fn I64 → I64)) (x I64)) (→ I64)
   (if (if x)))
 
-(display (pairs (1 2 3) (4) 5))
-(newline)
-(write-line (pick else))
-(write-line (let ((else 1)) (pick else)))
-(define temporary 10)
-(display (with-temporary 1 temporary))
-(newline)
-(display (square 7))
-(newline)
-(display (twice (lambda (n) (* n 3)) 2))
-(newline)
+(define (temporary) (→ I64) 10)
+
+(define (main) (→ Unit) (! output-port)
+  (write (pairs (1 2 3) (4) 5))
+  (newline)
+  (write-line (pick else))
+  (write-line (let ((else 1)) (pick else)))
+  (display (with-temporary 1 (temporary)))
+  (newline)
+  (display (square 7))
+  (newline)
+  (display (twice (lambda (n) (* n 3)) 2))
+  (newline)
+  (unit))

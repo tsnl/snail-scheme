@@ -3,7 +3,7 @@
  (snail core base)
  (snail core io))
 
-(struct (Vec3 T)
+(record (Vec3 T)
   ((x T)
    (y T)
    (z T)))
@@ -18,29 +18,31 @@
   (Rgb ((value (Vec3 I64)))))
 
 (typeclass (ToHex T)
-  (: to-hex (-> T String)))
+  (declare (to-hex (value T)) (→ String)))
 
-(: channel-hex (-> I64 String))
-(define (channel-hex value)
+(define (channel-hex (value I64)) (→ String)
   (let ((digits "0123456789abcdef"))
     (string (string-ref digits (quotient value 16)) (string-ref digits (remainder value 16)))))
 
 (instance (ToHex PrimaryColor)
-  (define (to-hex color)
+  (define (to-hex (color PrimaryColor)) (→ String)
     (match color
       ((Red) "#ff0000")
       ((Green) "#00ff00")
       ((Blue) "#0000ff"))))
 
 (instance (ToHex (Vec3 I64))
-  (define (to-hex v)
-    (string-append "#" (channel-hex (Vec3-x v)) (channel-hex (Vec3-y v)) (channel-hex (Vec3-z v)))))
+  (define (to-hex (v (Vec3 I64))) (→ String)
+
+    (string-append "#" (channel-hex (● v x)) (channel-hex (● v y)) (channel-hex (● v z)))))
 
 (instance (ToHex Color)
-  (define (to-hex color)
+  (define (to-hex (color Color)) (→ String)
     (match color
       ((Primary value) (to-hex value))
       ((Rgb value) (to-hex value)))))
 
-(for-each (lambda (color) (write-line (to-hex color)))
-          (list (Primary (Red)) (Rgb (Vec3 255 160 0)) (Primary (Blue))))
+(define (main) (→ Unit) (! output-port)
+  (for-each (lambda (color) (write-line (to-hex color)))
+            (list (Primary (Red)) (Rgb (new Vec3 (x 255) (y 160) (z 0))) (Primary (Blue))))
+  (unit))

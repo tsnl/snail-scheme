@@ -2,61 +2,64 @@
  (snail core base)
  (snail core io))
 
-;; `::label` reads the field `label` of whatever struct it is given. Each
-;; label is a typeclass over the record and the field's type, with an
-;; instance per struct declaring the field, and the record's type decides
-;; the field's; `::a::b` chains two reads. The book's types chapter includes
-;; the text between ANCHOR and ANCHOR_END.
+;; Nominal projections select stored slots. The book's types chapter
+;; includes the text between ANCHOR and ANCHOR_END.
 ;; ANCHOR: paths
-(struct Point
+(record Point
   ((x I64)
    (y I64)))
 
-(struct Segment
+(record Segment
   ((from Point)
    (to Point)
    (label String)))
 
-(struct Tag
+(record Tag
   ((label String)
    (weight I64)))
 
-(: describe (-> Segment String))
-(define (describe segment)
-  (string-append (::label segment)
+(define (describe (segment Segment)) (→ String)
+  (string-append (● segment label)
                  ": "
-                 (show (::from::x segment))
+                 (show (● segment from x))
                  " to "
-                 (show (::to::x segment))))
-;; ANCHOR_END: paths
+                 (show (● segment to x))))
 
-(write-line (describe (Segment (Point 1 2) (Point 3 4) "diagonal")))
-(write-line (::label (Tag "heavy" 9)))
-(write-line (show (::weight (Tag "heavy" 9))))
+;; A generic nominal record still identifies the slot being read.
+(define (labelled (record (Pair T String))) (→ String) (∀ (T))
+  (string-append "[" (● record second) "]"))
 
-;; A generic function reads a field of any record that has it.
-(: labelled (All (R) (requires (::label R String)) (-> R String)))
-(define (labelled record)
-  (string-append "[" (::label record) "]"))
-
-(write-line (labelled (Tag "t" 1)))
-(write-line (labelled (Segment (Point 0 0) (Point 1 1) "s")))
-
-;; A path is a function.
-(write-line (string-join (map show (map ::x (list (Point 5 0) (Point 6 0)))) " "))
-(write-line (string-join (map ::label (list (Tag "a" 1) (Tag "b" 2))) " "))
-
-;; A type without the field may declare the instance itself: a computed
-;; field.
-(struct Circle
+;; Computation uses an ordinary function; projection always means storage.
+(record Circle
   ((radius I64)))
 
-(instance (::x Circle I64)
-  (define (::x circle)
-    (* 2 (Circle-radius circle))))
+(define (diameter (circle Circle)) (→ I64)
+  (* 2 (● circle radius)))
 
-(write-line (show (::x (Circle 21))))
+(define (main) (→ Unit) (! output-port)
 
-;; A generic struct's instance is generic too.
-(write-line (show (::first (Pair 7 "seven"))))
-(write-line (::second (Pair 7 "seven")))
+  ;; ANCHOR_END: paths
+
+  (write-line (describe (new Segment
+                          (from (new Point (x 1) (y 2)))
+                          (to (new Point (x 3) (y 4)))
+                          (label "diagonal"))))
+  (write-line (● (new Tag (label "heavy") (weight 9)) label))
+  (write-line (show (● (new Tag (label "heavy") (weight 9)) weight)))
+  (write-line (labelled (new Pair (first 1) (second "t"))))
+  (write-line (labelled (new Pair (first #t) (second "s"))))
+  ;; A lambda can use a projection as a higher-order selector.
+  (write-line
+   (string-join (map show
+                     (map (lambda (record) (● record x))
+                          (list (new Point (x 5) (y 0)) (new Point (x 6) (y 0)))))
+                " "))
+  (write-line
+   (string-join (map (lambda (record) (● record label))
+                     (list (new Tag (label "a") (weight 1)) (new Tag (label "b") (weight 2))))
+                " "))
+  (write-line (show (diameter (new Circle (radius 21)))))
+  ;; Instantiating a nominal record substitutes its field types.
+  (write-line (show (● (new Pair (first 7) (second "seven")) first)))
+  (write-line (● (new Pair (first 7) (second "seven")) second))
+  (unit))

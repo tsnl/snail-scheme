@@ -9,7 +9,6 @@
 (define-library (siegework game)
   (export
    View
-   View-heading
    Menu
    Closed
    Paused
@@ -17,21 +16,6 @@
    Resigning
    Results
    Game
-   Game-world
-   Game-epoch
-   Game-view
-   Game-clock
-   Game-phase
-   Game-shown
-   Game-hover
-   Game-selected
-   Game-preview
-   Game-rush
-   Game-menu
-   Game-left-handed
-   Game-message
-   Game-width
-   Game-height
    Save
    new-game
    game-save
@@ -70,7 +54,7 @@
    (snail shell app)
    (snail shell math)
    (siegework grid)
-   (only (siegework terrain) Land-starter)
+   (only (siegework terrain))
    (siegework world)
    (siegework colony)
    (siegework simulation))
@@ -83,7 +67,7 @@
     ;; cells from the bottom of the screen to the top. A turn eases from
     ;; `turned-from` over the `turn-milliseconds` of the game's clock after
     ;; `turned-at`.
-    (struct View
+    (record View
       ((x F32)
        (z F32)
        (scale F32)
@@ -112,7 +96,7 @@
     ;; `preview` is the
     ;; building whose button the pointer is over; `rush` makes new buildings
     ;; rushed; `message` explains the last rejected order.
-    (struct Game
+    (record Game
       ((world World)
        (orders (List Entry))
        (epoch I64)
@@ -136,7 +120,7 @@
     ;; oldest entry first, so restoring replays the game; and how it was
     ;; being played: paused, for which hand, and the view, so a reloaded
     ;; page or module looks where the player was looking.
-    (struct Save
+    (record Save
       ((seed I64)
        (tick I64)
        (orders (List Entry))
@@ -145,59 +129,59 @@
        (view View))
       (deriving Serialize Deserialize))
 
-    (: new-game (-> I32 I32 I32 Game))
-    (define (new-game seed width height)
+    (define (new-game (seed I32) (width I32) (height I32)) (→ Game)
       (game-around (new-world (i32->i64 seed)) (Nil) 0 (Closed) #f width height))
 
     ;; A game opens looking at its starter crystal, the first place to
     ;; build, four cells from the hub.
-    (: game-around (-> World (List Entry) I64 Menu Bool I32 I32 Game))
-    (define (game-around world orders epoch menu left-handed width height)
-      (let ((start (Land-starter (World-land world))))
-        (Game world
-              orders
-              epoch
-              0
-              0
-              0
-              (View (i64->f32 (Cell-x start))
-                    (i64->f32 (Cell-y start))
-                    1.0
-                    0
-                    0
-                    (negate turn-milliseconds))
-              (Nil)
-              no-gestures
-              (None)
-              (None)
-              (None)
-              #f
-              menu left-handed "" width height)))
+    (define (game-around (world World)
+                         (orders (List Entry))
+                         (epoch I64)
+                         (menu Menu)
+                         (left-handed Bool)
+                         (width I32)
+                         (height I32))
+      (→ Game)
+      (let ((start (● (● world land) starter)))
+        (new Game (world world)
+             (orders orders)
+             (epoch epoch)
+             (clock 0)
+             (shown 0)
+             (phase 0)
+             (view (new View (x (i64->f32 (● start x)))
+                        (z (i64->f32 (● start y)))
+                        (scale 1.0)
+                        (heading 0)
+                        (turned-from 0)
+                        (turned-at (negate (turn-milliseconds)))))
+             (held (Nil))
+             (gestures (no-gestures))
+             (hover (None))
+             (selected (None))
+             (preview (None))
+             (rush #f)
+             (menu menu) (left-handed left-handed) (message "") (width width) (height height))))
 
     ;; ---- Time ----
 
     ;; The world advances once for each tenth of a second that passes.
-    (: tick-milliseconds I64)
-    (define tick-milliseconds 100)
+    (define (tick-milliseconds) (→ I64) 100)
 
     ;; The camera takes this long to turn a quarter.
-    (: turn-milliseconds I64)
-    (define turn-milliseconds 300)
+    (define (turn-milliseconds) (→ I64) 300)
 
     ;; The world is still while a dialog pauses it or once it is decided.
-    (: still? (-> Game Bool))
-    (define (still? game)
-      (or (paused? game) (not (playing? (Game-world game)))))
+    (define (still? (game Game)) (→ Bool)
+      (or (paused? game) (not (playing? (● game world)))))
 
     ;; How far the world's things have moved through the current tick; a
     ;; still world holds the frame it stopped at.
-    (: world-motion (-> Game F32))
-    (define (world-motion game)
-      (min 1.0 (/ (i64->f32 (Game-phase game)) (i64->f32 tick-milliseconds))))
+    (define (world-motion (game Game)) (→ F32)
+      (min 1.0 (/ (i64->f32 (● game phase)) (i64->f32 (tick-milliseconds)))))
 
-    (: paused? (-> Game Bool))
-    (define (paused? game)
-      (match (Game-menu game)
+    (define (paused? (game Game)) (→ Bool)
+      (match (● game menu)
         ((Paused) #t)
         ((Restarting) #t)
         ((Resigning) #t)
@@ -205,85 +189,77 @@
 
     ;; The clock restarts with the restored game, so a turn in progress is
     ;; saved as finished.
-    (: game-save (-> Game Save))
-    (define (game-save game)
-      (let ((world (Game-world game)) (view (Game-view game)))
-        (Save (World-seed world)
-              (World-tick world)
-              (reverse (Game-orders game))
-              (paused? game)
-              (Game-left-handed game)
-              (View-turned-at-set (View-turned-from-set view (View-heading view))
-                                  (negate turn-milliseconds)))))
+    (define (game-save (game Game)) (→ Save)
+      (let ((world (● game world)) (view (● game view)))
+        (new Save (seed (● world seed))
+             (tick (● world tick))
+             (orders (reverse (● game orders)))
+             (paused (paused? game))
+             (left-handed (● game left-handed))
+             (view (View-turned-at-set (View-turned-from-set view (● view heading))
+                                       (negate (turn-milliseconds)))))))
 
     ;; The host reports the screen's size after restoring.
-    (: game-restore (-> Save Game))
-    (define (game-restore save)
-      (match (replay (Save-seed save) (Save-orders save) (Save-tick save))
+    (define (game-restore (save Save)) (→ Game)
+      (match (replay (● save seed) (● save orders) (● save tick))
         ((Pair world orders)
          (Game-view-set (game-around world
                                      (reverse orders)
                                      0
-                                     (if (Save-paused save) (Paused) (Closed))
-                                     (Save-left-handed save)
+                                     (if (● save paused) (Paused) (Closed))
+                                     (● save left-handed)
                                      0
                                      0)
-                        (Save-view save)))))
+                        (● save view)))))
 
     ;; ---- Camera ----
 
     ;; The heading in quarter turns, eased between the last two.
-    (: heading-angle (-> Game F32))
-    (define (heading-angle game)
-      (let* ((view (Game-view game))
-             (from (i64->f32 (View-turned-from view)))
-             (to (i64->f32 (View-heading view)))
-             (t (clamp (/ (i64->f32 (- (Game-clock game) (View-turned-at view)))
-                          (i64->f32 turn-milliseconds))
+    (define (heading-angle (game Game)) (→ F32)
+      (let* ((view (● game view))
+             (from (i64->f32 (● view turned-from)))
+             (to (i64->f32 (● view heading)))
+             (t (clamp (/ (i64->f32 (- (● game clock) (● view turned-at)))
+                          (i64->f32 (turn-milliseconds)))
                        0.0
                        1.0)))
         (* 1.5707964 (+ from (* (- to from) (* t (* t (- 3.0 (* 2.0 t)))))))))
 
     ;; Equal horizontal offsets give a 2:1 diamond for each resting quarter
     ;; turn; the height, sqrt((18^2 + 18^2) / 3), gives 30 degrees.
-    (: game-camera (-> Game Camera))
-    (define (game-camera game)
-      (let* ((view (Game-view game)) (angle (f32->f64 (heading-angle game)))
+    (define (game-camera (game Game)) (→ Camera)
+      (let* ((view (● game view)) (angle (f32->f64 (heading-angle game)))
              (c (f64->f32 (cos angle)))
              (s (f64->f32 (sin angle)))
-             (k (View-scale view))
-             (target (Vec3 (View-x view) 0.0 (View-z view))))
-        (Camera (Vec3 (+ (Vec3-x target) (* 18.0 (* k (+ c s))))
-                      (* k 14.696938)
-                      (+ (Vec3-z target) (* 18.0 (* k (- c s)))))
-                target (Orthographic (* 18.0 k)))))
+             (k (● view scale))
+             (target (new Vec3 (x (● view x)) (y 0.0) (z (● view z)))))
+        (new Camera (eye (new Vec3 (x (+ (● target x) (* 18.0 (* k (+ c s)))))
+                              (y (* k 14.696938))
+                              (z (+ (● target z) (* 18.0 (* k (- c s)))))))
+             (target target) (projection (Orthographic (* 18.0 k))))))
 
-    (: clamp (-> F32 F32 F32 F32))
-    (define (clamp value low high)
+    (define (clamp (value F32) (low F32) (high F32)) (→ F32)
       (max low (min high value)))
 
     ;; Moves the camera's target by `right` along the screen's right on the
     ;; ground and `up` away from the viewer, within the map.
-    (: shifted (-> Game F32 F32 View))
-    (define (shifted game right up)
-      (let* ((view (Game-view game)) (angle (f32->f64 (heading-angle game)))
-             (c (f64->f32 (cos angle))) (s (f64->f32 (sin angle))) (limit (i64->f32 map-size)))
+    (define (shifted (game Game) (right F32) (up F32)) (→ View)
+      (let* ((view (● game view)) (angle (f32->f64 (heading-angle game)))
+             (c (f64->f32 (cos angle))) (s (f64->f32 (sin angle))) (limit (i64->f32 (map-size))))
         (View-z-set (View-x-set view
-                                (clamp (+ (View-x view)
+                                (clamp (+ (● view x)
                                           (* 0.70710677 (- (* right (- c s)) (* up (+ c s)))))
                                        0.0
                                        limit))
                     (clamp
-                     (+ (View-z view) (* 0.70710677 (- (* (negate right) (+ c s)) (* up (- c s)))))
+                     (+ (● view z) (* 0.70710677 (- (* (negate right) (+ c s)) (* up (- c s)))))
                      0.0
                      limit))))
 
-    (: held? (-> Game I32 Bool))
-    (define (held? game key)
-      (member? key (Game-held game)))
+    (define (held? (game Game) (key I32)) (→ Bool)
+      (member? key (● game held)))
 
-    (: held-axis (-> Game I32 I32 I32 I32 F32))
-    (define (held-axis game more more-key less less-key)
+    (define (held-axis (game Game) (more I32) (more-key I32) (less I32) (less-key I32)) (→ F32)
       (- (if (or (held? game more) (held? game more-key)) 1.0 0.0)
          (if (or (held? game less) (held? game less-key)) 1.0 0.0)))
 
@@ -291,53 +267,48 @@
     ;; second at the starting zoom, faster farther out, so the map moves at
     ;; a steady rate on screen. Up the screen covers twice the ground, seen
     ;; at 30 degrees, as dragging does.
-    (: move-camera (-> Game I64 Game))
-    (define (move-camera game milliseconds)
-      (let ((speed (* (* 0.009 (View-scale (Game-view game))) (i64->f32 milliseconds))))
+    (define (move-camera (game Game) (milliseconds I64)) (→ Game)
+      (let ((speed (* (* 0.009 (● (● game view) scale)) (i64->f32 milliseconds))))
         (Game-view-set game
                        (shifted game
-                                (* speed (held-axis game key-right 100 key-left 97))
-                                (* (* 2.0 speed) (held-axis game key-up 119 key-down 115))))))
+                                (* speed (held-axis game (key-right) 100 (key-left) 97))
+                                (* (* 2.0 speed) (held-axis game (key-up) 119 (key-down) 115))))))
 
     ;; Dragging moves the ground with the pointer: a pixel is 18 times the
     ;; zoom over the screen's height across, and twice that up the screen,
     ;; where the ground is seen at 30 degrees.
-    (: pan (-> Game I32 I32 Game))
-    (define (pan game dx dy)
-      (let ((unit (/ (* 18.0 (View-scale (Game-view game))) (i32->f32 (max 1 (Game-height game))))))
+    (define (pan (game Game) (dx I32) (dy I32)) (→ Game)
+      (let ((unit (/ (* 18.0 (● (● game view) scale)) (i32->f32 (max 1 (● game height))))))
         (Game-view-set game
                        (shifted game
                                 (* (negate unit) (i32->f32 dx))
                                 (* (* 2.0 unit) (i32->f32 dy))))))
 
     ;; Starts a quarter turn from wherever the current one has eased to.
-    (: turn (-> Game I64 Game))
-    (define (turn game quarters)
-      (let ((view (Game-view game)))
+    (define (turn (game Game) (quarters I64)) (→ Game)
+      (let ((view (● game view)))
         (Game-view-set game
                        (View-turned-at-set (View-turned-from-set
-                                            (View-heading-set view (+ (View-heading view) quarters))
-                                            (View-heading view))
-                                           (Game-clock game)))))
+                                            (View-heading-set view (+ (● view heading) quarters))
+                                            (● view heading))
+                                           (● game clock)))))
 
-    (: zoom (-> Game F32 Game))
-    (define (zoom game factor)
-      (let ((view (Game-view game)))
-        (Game-view-set game (View-scale-set view (clamp (* (View-scale view) factor) 0.4 6.0)))))
+    (define (zoom (game Game) (factor F32)) (→ Game)
+      (let ((view (● game view)))
+        (Game-view-set game (View-scale-set view (clamp (* (● view scale) factor) 0.4 6.0)))))
 
-    (: look-at (-> Game Cell Game))
-    (define (look-at game cell)
-      (let ((view (Game-view game)))
+    (define (look-at (game Game) (cell Cell)) (→ Game)
+      (let ((view (● game view)))
         (Game-view-set game
-                       (View-z-set (View-x-set view (i64->f32 (Cell-x cell)))
-                                   (i64->f32 (Cell-y cell))))))
+                       (View-z-set (View-x-set view (i64->f32 (● cell x)))
+                                   (i64->f32 (● cell y))))))
 
     ;; The cell under a pixel, if the pointer is over the map.
-    (: pick (-> Game I32 I32 (Option Cell)))
-    (define (pick game x y)
-      (match (ground-point (game-camera game) x y (Game-width game) (Game-height game))
+    (define (pick (game Game) (x I32) (y I32)) (→ (Option Cell))
+      (match (ground-point (game-camera game) x y (● game width) (● game height))
         ((Some point)
-         (let ((cell (Cell (f32->i64 (round (Vec3-x point))) (f32->i64 (round (Vec3-z point))))))
+         (let ((cell
+                (new Cell (x (f32->i64 (round (● point x)))) (y (f32->i64 (round (● point z)))))))
            (if (in-bounds? cell) (Some cell) (None))))
         ((None) (None))))
 
@@ -369,9 +340,9 @@
 
     ;; A command as a button's action and argument: a cell travels as its
     ;; index.
-    (: press-code (-> Command (Pair I32 I32)))
-    (define (press-code command)
-      (let ((at (lambda (action cell) (Pair action (i64->i32 (cell-index cell))))))
+    (define (press-code (command Command)) (→ (Pair I32 I32))
+      (let ((at (lambda (action cell)
+                  (new Pair (first action) (second (i64->i32 (cell-index cell)))))))
         (match command
           ((BuildAt (Extractor) cell) (at 1 cell))
           ((BuildAt (Pylon) cell) (at 2 cell))
@@ -381,12 +352,11 @@
           ((CancelAt cell) (at 6 cell))
           ((ScavengeAt cell) (at 7 cell))
           ((Locate cell) (at 8 cell))
-          ((Turn quarters) (Pair 10 (i64->i32 quarters)))
-          ((Hand left) (Pair 11 (if left 1 0)))
-          (_ (Pair (+ 20 (plain-code command)) 0)))))
+          ((Turn quarters) (new Pair (first 10) (second (i64->i32 quarters))))
+          ((Hand left) (new Pair (first 11) (second (if left 1 0))))
+          (_ (new Pair (first (+ 20 (plain-code command))) (second 0))))))
 
-    (: plain-code (-> Command I32))
-    (define (plain-code command)
+    (define (plain-code (command Command)) (→ I32)
       (match command
         ((RepairHub) 0)
         ((ToggleRush) 1)
@@ -404,18 +374,15 @@
 
     ;; The command a button reported, if it names one. A cell must lie on
     ;; the map, so numbers from the host cannot name another place.
-    (: parse-press (-> I32 I32 (Option Command)))
-    (define (parse-press action argument)
+    (define (parse-press (action I32) (argument I32)) (→ (Option Command))
       (if (and (< 0 action) (< action 10) (not (on-map? argument)))
           (None)
           (parse-code action argument)))
 
-    (: on-map? (-> I32 Bool))
-    (define (on-map? index)
-      (and (<= 0 index) (< (i32->i64 index) (* map-size map-size))))
+    (define (on-map? (index I32)) (→ Bool)
+      (and (<= 0 index) (< (i32->i64 index) (* (map-size) (map-size)))))
 
-    (: parse-code (-> I32 I32 (Option Command)))
-    (define (parse-code action argument)
+    (define (parse-code (action I32) (argument I32)) (→ (Option Command))
       (let ((cell (index-cell (i32->i64 argument))))
         (case action
           ((1) (Some (BuildAt (Extractor) cell)))
@@ -444,35 +411,32 @@
 
     ;; Gives an order to the world and journals it; a rejection is shown
     ;; instead.
-    (: order (-> Game Action Game))
-    (define (order game action)
-      (match (command (Game-world game) action)
+    (define (order (game Game) (action Action)) (→ Game)
+      (match (command (● game world) action)
         ((Ok (Pair world entry))
          (Game-message-set
-          (Game-orders-set (Game-world-set game world) (Cons entry (Game-orders game)))
+          (Game-orders-set (Game-world-set game world) (Cons entry (● game orders)))
           ""))
         ((Err rejection) (Game-message-set game (rejection-text rejection)))))
 
-    (: perform (-> Game Command Game))
-    (define (perform game command)
+    (define (perform (game Game) (command Command)) (→ Game)
       (match command
-        ((BuildAt kind cell) (order game (Build kind cell (Game-rush game))))
+        ((BuildAt kind cell) (order game (Build kind cell (● game rush))))
         ((UpgradeAt cell) (order game (Upgrade cell)))
         ((RushAt cell) (order game (Rush cell)))
         ((CancelAt cell) (order game (Cancel cell)))
         ((ScavengeAt cell) (order game (Scavenge cell)))
         ((RepairHub) (order game (Repair)))
-        ((ToggleRush) (Game-rush-set game (not (Game-rush game))))
+        ((ToggleRush) (Game-rush-set game (not (● game rush))))
         ((CloseCard) (Game-message-set (Game-selected-set game (None)) ""))
         ((Locate cell) (Game-selected-set (look-at game cell) (Some cell)))
-        ((Home) (look-at game (Hub-cell (World-hub (Game-world game)))))
+        ((Home) (look-at game (● (● (● game world) hub) cell)))
         ((Turn quarters) (turn game quarters))
         (_ (perform-menu game command))))
 
-    (: perform-menu (-> Game Command Game))
-    (define (perform-menu game command)
+    (define (perform-menu (game Game) (command Command)) (→ Game)
       (match command
-        ((OpenMenu) (Game-menu-set game (if (playing? (Game-world game)) (Paused) (Results))))
+        ((OpenMenu) (Game-menu-set game (if (playing? (● game world)) (Paused) (Results))))
         ((Resume) (Game-menu-set game (Closed)))
         ((AskRestart) (Game-menu-set game (Restarting)))
         ((AskResign) (Game-menu-set game (Resigning)))
@@ -484,22 +448,20 @@
         (_ game)))
 
     ;; A new map from a seed derived from this one, for the same hand.
-    (: restart (-> Game Game))
-    (define (restart game)
-      (game-around (new-world (+ (remainder (* (World-seed (Game-world game)) 48271) 65521) 1))
+    (define (restart (game Game)) (→ Game)
+      (game-around (new-world (+ (remainder (* (● (● game world) seed) 48271) 65521) 1))
                    (Nil)
-                   (+ (Game-epoch game) 1)
+                   (+ (● game epoch) 1)
                    (Closed)
-                   (Game-left-handed game) (Game-width game) (Game-height game)))
+                   (● game left-handed) (● game width) (● game height)))
 
     ;; ---- Keys ----
 
     ;; On a selected cell, 1, 2 and 3 build a pylon, a turret and an
     ;; extractor, 4 rushes (the selected work, or else new buildings) and 5
     ;; closes; letters act on the selection too.
-    (: key-command (-> Game I32 (Option Command)))
-    (define (key-command game key)
-      (match (Game-selected game)
+    (define (key-command (game Game) (key I32)) (→ (Option Command))
+      (match (● game selected)
         ((Some cell)
          (case key
            ((49) (Some (BuildAt (Pylon) cell)))
@@ -515,12 +477,10 @@
         ((None) (view-command key))))
 
     ;; Rushing acts on the selected work, or else makes new buildings rushed.
-    (: rush-key (-> Game Cell Command))
-    (define (rush-key game cell)
-      (if (working? (Game-world game) cell) (RushAt cell) (ToggleRush)))
+    (define (rush-key (game Game) (cell Cell)) (→ Command)
+      (if (working? (● game world) cell) (RushAt cell) (ToggleRush)))
 
-    (: view-command (-> I32 (Option Command)))
-    (define (view-command key)
+    (define (view-command (key I32)) (→ (Option Command))
       (case key
         ((102) (Some (RepairHub)))
         ((104) (Some (Home)))
@@ -529,19 +489,17 @@
         ((112) (Some (OpenMenu)))
         (else (None))))
 
-    (: working? (-> World Cell Bool))
-    (define (working? world cell)
-      (if (hub-cell? (World-hub world) cell)
-          (match (Hub-work (World-hub world)) ((Some _) #t) ((None) #f))
+    (define (working? (world World) (cell Cell)) (→ Bool)
+      (if (hub-cell? (● world hub) cell)
+          (match (● (● world hub) work) ((Some _) #t) ((None) #f))
           (match (building-at world cell)
-            ((Some b) (match (Building-work b) ((Some _) #t) ((None) #f)))
+            ((Some b) (match (● b work) ((Some _) #t) ((None) #f)))
             ((None) #f))))
 
     ;; Escape backs out one step: a confirmation to the menu, the menu or
     ;; the results to the map, then the selection.
-    (: escape (-> Game Game))
-    (define (escape game)
-      (match (Game-menu game)
+    (define (escape (game Game)) (→ Game)
+      (match (● game menu)
         ((Closed) (perform game (CloseCard)))
         ((Restarting) (Game-menu-set game (Paused)))
         ((Resigning) (Game-menu-set game (Paused)))
@@ -551,18 +509,17 @@
     ;; Shift is only held: Shift with WASD or the arrows pans as the key
     ;; alone does, and Shift with any other key does nothing. While a
     ;; dialog is open only it and the pause key answer.
-    (: key-press (-> Game I32 Bool Game))
-    (define (key-press game key shift)
+    (define (key-press (game Game) (key I32) (shift Bool)) (→ Game)
       (let ((game (Game-held-set game
                                  (if (held? game key)
-                                     (Game-held game)
-                                     (Cons key (Game-held game))))))
+                                     (● game held)
+                                     (Cons key (● game held))))))
         (cond (shift game)
-              ((= key key-escape) (escape game))
+              ((= key (key-escape)) (escape game))
               ((= key 112)
                (if (paused? game) (Game-menu-set game (Closed)) (perform game (OpenMenu))))
-              ((match (Game-menu game) ((Closed) #f) (_ #t)) game)
-              ((or (= key key-enter) (= key key-space)) (Game-selected-set game (Game-hover game)))
+              ((match (● game menu) ((Closed) #f) (_ #t)) game)
+              ((or (= key (key-enter)) (= key (key-space))) (Game-selected-set game (● game hover)))
               (else (match (key-command game key)
                       ((Some command) (perform game command))
                       ((None) game))))))
@@ -573,48 +530,43 @@
     ;; what is shown of it. Once the world has started, its phase grows too,
     ;; and each whole tick of it advances the world, at most a few at once
     ;; after a long frame. The results open once when the game is decided.
-    (: pass (-> Game I64 Game))
-    (define (pass game milliseconds)
+    (define (pass (game Game) (milliseconds I64)) (→ Game)
       (let ((game
-             (move-camera (Game-clock-set game (+ (Game-clock game) milliseconds)) milliseconds)))
+             (move-camera (Game-clock-set game (+ (● game clock) milliseconds)) milliseconds)))
         (cond ((still? game) game)
-              ((World-started (Game-world game))
-               (catch-up (Game-phase-set (Game-shown-set game (+ (Game-shown game) milliseconds))
-                                         (+ (Game-phase game) milliseconds))
+              ((● (● game world) started)
+               (catch-up (Game-phase-set (Game-shown-set game (+ (● game shown) milliseconds))
+                                         (+ (● game phase) milliseconds))
                          3))
-              (else (Game-shown-set game (+ (Game-shown game) milliseconds))))))
+              (else (Game-shown-set game (+ (● game shown) milliseconds))))))
 
-    (: catch-up (-> Game I64 Game))
-    (define (catch-up game allowed)
-      (cond ((< (Game-phase game) tick-milliseconds) game)
+    (define (catch-up (game Game) (allowed I64)) (→ Game)
+      (cond ((< (● game phase) (tick-milliseconds)) game)
             ((or (= allowed 0) (still? game))
-             (Game-phase-set game (min (Game-phase game) (- tick-milliseconds 1))))
+             (Game-phase-set game (min (● game phase) (- (tick-milliseconds) 1))))
             (else
-             (catch-up (advance-world (Game-phase-set game (- (Game-phase game) tick-milliseconds)))
+             (catch-up (advance-world (Game-phase-set game (- (● game phase) (tick-milliseconds))))
                        (- allowed 1)))))
 
-    (: advance-world (-> Game Game))
-    (define (advance-world game)
-      (let ((world (advance (Game-world game))))
-        (Game-world-set (if (and (playing? (Game-world game)) (not (playing? world)))
+    (define (advance-world (game Game)) (→ Game)
+      (let ((world (advance (● game world))))
+        (Game-world-set (if (and (playing? (● game world)) (not (playing? world)))
                             (Game-menu-set game (Results))
                             game)
                         world)))
 
     ;; Hovering over a building's button previews it on the selected cell.
-    (: hover (-> Game I32 I32 Game))
-    (define (hover game action argument)
+    (define (hover (game Game) (action I32) (argument I32)) (→ Game)
       (Game-preview-set game
                         (match (parse-press action argument)
                           ((Some (BuildAt kind _)) (Some kind))
                           (_ (None)))))
 
-    (: update-game (-> Game Input Game))
-    (define (update-game game input)
+    (define (update-game (game Game) (input Input)) (→ Game)
       (match input
         ((Elapsed milliseconds) (pass game (i32->i64 milliseconds)))
         ((KeyDown key shift) (key-press game key shift))
-        ((KeyUp key) (Game-held-set game (filter (lambda (k) (not (= k key))) (Game-held game))))
+        ((KeyUp key) (Game-held-set game (filter (lambda (k) (not (= k key))) (● game held))))
         ((Wheel pixels) (zoom game (+ 1.0 (* 0.001 (i32->f32 pixels)))))
         ((Resize width height) (Game-height-set (Game-width-set game width) height))
         ((Press action argument)
@@ -622,14 +574,13 @@
            ((Some command) (perform game command))
            ((None) game)))
         ((Hover action argument) (hover game action argument))
-        (_ (match (recognize (Game-gestures game) input)
+        (_ (match (recognize (● game gestures) input)
              ((Pair gestures meanings)
               (fold-left gesture (Game-gestures-set game gestures) meanings))))))
 
     ;; Pointing hovers, a tap selects the cell beneath it, dragging pans and
     ;; pinching zooms. A tap with another button clears the selection.
-    (: gesture (-> Game Gesture Game))
-    (define (gesture game meaning)
+    (define (gesture (game Game) (meaning Gesture)) (→ Game)
       (match meaning
         ((Point x y) (Game-hover-set game (pick game x y)))
         ((Tap x y button) (let ((cell (pick game x y)))

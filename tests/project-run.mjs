@@ -10,17 +10,18 @@ const execute = promisify(execFile), root = process.argv[2];
 const project = await mkdtemp(join(tmpdir(), 'snail-run-project-'));
 const caller = await mkdtemp(join(tmpdir(), 'snail-run-caller-'));
 const source = finish => `(import (snail core base) (snail core io))
-  (for-each write-line (command-line))
+  (define (main) (→ Unit) (! input-port output-port fs)
+    (for-each write-line (command-line))
   (write-line (match (read-line) ((Some line) line) ((None) "EOF")))
   (write-file "run-cwd.txt" "caller")
-  ${finish}`;
-const run = (name, args = []) => execute(join(root, 'snail'), ['run', project, name, ...args],
+  ${finish})`;
+const run = (name, args = []) => execute(join(root, 'snail-scheme'), ['run', project, name, ...args],
   {cwd: caller, timeout: 120_000, killSignal: 'SIGKILL'});
 
-async function ready(child) {
+async function ready(child, marker = 'ready\n') {
   await new Promise((resolve, reject) => {
     let text = '';
-    child.stdout.on('data', chunk => { text += chunk; if (text.includes('ready\n')) resolve(); });
+    child.stdout.on('data', chunk => { text += chunk; if (text.includes(marker)) resolve(); });
     child.once('error', reject);
     child.once('exit', () => reject(new Error('program exited before readiness')));
   });
@@ -41,12 +42,24 @@ try {
   assert.equal(result.stderr, '');
   assert.equal(await readFile(join(caller, 'run-cwd.txt'), 'utf8'), 'caller');
 
+  // A character read flushes an unterminated prompt, then shares stdin with lines.
+  await writeFile(join(project, 'main.sld'), `(import (snail core base) (snail core io))
+    (define (main) (→ Unit) (! input-port output-port)
+      (write-string "prompt> ")
+    (write (read-char)) (newline)
+    (write (read-line)) (newline)
+    (write (read-char)) (newline))`);
+  const prompted = run('app');
+  await ready(prompted.child, 'prompt> ');
+  prompted.child.stdin.end('λ😀tail\n');
+  assert.equal((await prompted).stdout, 'prompt> (Some #\\λ)\n(Some "😀tail")\n(None)\n');
+
   await writeFile(join(project, 'main.sld'), source('(panic "run failure")'));
   const failure = run('app');
   failure.child.stdin.end('status\n');
   await assert.rejects(failure, error => error.code === 1 && /run failure/.test(error.stderr) && error.stdout.endsWith('status\n'));
   const beforeFailure = await realpath(join(project, 'build/program'));
-  await writeFile(join(project, 'main.sld'), '(import (snail core base)) (missing-function)');
+  await writeFile(join(project, 'main.sld'), '(import (snail core base)) (define (main) (→ Unit) (missing-function))');
   await assert.rejects(run('app'), error => error.code === 1 && error.stdout === '' && /missing-function/.test(error.stderr));
   assert.equal(await realpath(join(project, 'build/program')), beforeFailure, 'failed rebuild never runs the preceding output');
   for (const name of ['missing', 'program']) {
@@ -54,7 +67,7 @@ try {
   }
 
   // The original CLI PID is now the application; no signal forwarding exists.
-  await writeFile(join(project, 'main.sld'), '(import (snail core base) (snail core io)) (write-line "ready") (read-line)');
+  await writeFile(join(project, 'main.sld'), '(import (snail core base) (snail core io)) (define (main) (→ Unit) (! input-port output-port) (write-line "ready") (read-line) (unit))');
   for (const signal of ['SIGINT', 'SIGTERM']) {
     const waiting = run('app'), stopped = assert.rejects(waiting, {signal});
     await ready(waiting.child);

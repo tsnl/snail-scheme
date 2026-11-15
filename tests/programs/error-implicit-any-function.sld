@@ -1,9 +1,11 @@
 (import
  (snail core base))
 
-(: accept (-> (-> I64 I64) I64))
-(define (accept function) (function 1))
+(define (accept (function (Fn I64 → I64))) (→ I64) (function 1))
 
-(: dynamic (-> Any Any))
-(define (dynamic value) value)
-(accept dynamic)
+(define (dynamic (value Any)) (→ Any) value)
+
+(define main
+  (lambda ()
+    (accept dynamic)
+    (unit)))

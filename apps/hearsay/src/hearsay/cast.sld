@@ -22,40 +22,41 @@
     ;; ---- Dealing ----
 
     ;; One item of a list, and the generator after the draw.
-    (: deal (All (T) (requires (Copy T)) (-> Random (List T) (Pair T Random))))
-    (define (deal random items)
-      (Pair (list-ref items (random-below random (length items))) (random-next random)))
+    (define (deal (random Random) (items (List T)))
+      (→ (Pair T Random)) (∀ (T))
+      (new Pair
+        (first (list-ref items (random-below random (length items))))
+        (second (random-next random))))
 
-    (: names->dyes (-> (List String) (List Dye)))
-    (define (names->dyes names)
-      (map Dye names))
+    (define (names->dyes (names (List String))) (→ (List Dye))
+      (map (lambda (%field0) (new Dye (name %field0))) names))
 
     ;; ---- Wardrobe ----
 
-    (: audience-dyes (-> I64 (List Dye)))
-    (define (audience-dyes audience)
+    (define (audience-dyes (audience I64)) (→ (List Dye))
       (names->dyes (list-ref (list (list "maroon" "orange" "teal" "rose")
                                    (list "forest" "brown" "slate" "tan")
                                    (list "charcoal" "navy" "black" "white"))
                              audience)))
 
-    (: build-heads (-> Build (List Head)))
-    (define (build-heads build)
+    (define (build-heads (build Build)) (→ (List Head))
       (match build
         ((Female) (list (HumanFemale) (HumanFemale) (HumanFemale) (HumanFemaleElderly)))
         (_ (list (HumanMale) (HumanMale) (HumanMale) (HumanMaleElderly)))))
 
-    (: elderly? (-> Head Bool))
-    (define (elderly? head)
+    (define (elderly? (head Head)) (→ Bool)
       (match head
         ((HumanMaleElderly) #t)
         ((HumanFemaleElderly) #t)
         (_ #f)))
 
-    (define human-skins (map Skin (list "light" "amber" "olive" "taupe" "bronze" "brown" "black")))
+    (define (human-skins)
+      (→ (List Skin))
+      (map (lambda (%field0) (new Skin (name %field0)))
+           (list "light" "amber" "olive" "taupe" "bronze" "brown" "black")))
 
-    (define cuts
-      (map HairStyle
+    (define (cuts) (→ (List HairStyle))
+      (map (lambda (%field0) (new HairStyle (name %field0)))
            (list "bob"
                  "buzzcut"
                  "curly_short"
@@ -65,49 +66,46 @@
                  "cowlick"
                  "bangs_bun")))
 
-    (: hair-shades (-> Head (List HairColor)))
-    (define (hair-shades head)
-      (map HairColor
+    (define (hair-shades (head Head)) (→ (List HairColor))
+      (map (lambda (%field0) (new HairColor (name %field0)))
            (if (elderly? head)
                (list "gray" "white")
                (list "black" "dark_brown" "chestnut" "blonde" "ginger"))))
 
-    (: tops (-> Build (List Garment)))
-    (define (tops build)
+    (define (tops (build Build)) (→ (List Garment))
       (match build
         ((Male) (list (Longsleeve) (Shortsleeve) (Overalls) (Tabard)))
         ((Female) (list (Longsleeve) (Blouse) (Tunic) (Tanktop)))
         (_ (list (Longsleeve)))))
 
-    (: bottoms (-> Build (List Garment)))
-    (define (bottoms build)
+    (define (bottoms (build Build)) (→ (List Garment))
       (match build
         ((Female) (list (Pants) (Skirt) (Leggings)))
         (_ (list (Pants)))))
 
-    (define footwear (list (Shoes) (Boots)))
+    (define (footwear) (→ (List Garment)) (list (Shoes) (Boots)))
 
     ;; Dark enough to tell from skin and floor at sprite size.
-    (define shoe-dyes (map Dye (list "black" "charcoal" "walnut")))
+    (define (shoe-dyes)
+      (→ (List Dye))
+      (map (lambda (%field0) (new Dye (name %field0))) (list "black" "charcoal" "walnut")))
 
     ;; A garment in the dye dealt, if the catalog draws it in that for the
     ;; build, and otherwise in the first dye it does: male pants come only
     ;; in green.
-    (: worn-in (-> Build Garment Dye Worn))
-    (define (worn-in build garment dye)
+    (define (worn-in (build Build) (garment Garment) (dye Dye)) (→ Worn)
       (let ((drawn (garment-dyes build garment)))
-        (Worn garment
-              (if (any? (lambda (other) (string=? (Dye-name other) (Dye-name dye))) drawn)
-                  dye
-                  (match drawn
-                    ((Cons first _) first)
-                    ((Nil) dye))))))
+        (new Worn (garment garment)
+             (dye (if (any? (lambda (other) (string=? (● other name) (● dye name))) drawn)
+                      dye
+                      (match drawn
+                        ((Cons first _) first)
+                        ((Nil) dye)))))))
 
     ;; Every look dealt here is one the catalog draws, so dressing never
     ;; fails. Were the tables to drift from the catalog, building (hearsay
     ;; art), which dresses everyone, would stop here.
-    (: dressed (-> Build Head Skin Outfit Character))
-    (define (dressed build head skin outfit)
+    (define (dressed (build Build) (head Head) (skin Skin) (outfit Outfit)) (→ Character)
       (match (dress build head skin outfit)
         ((Some character) character)
         ((None) (panic "the cast wears something the catalog does not draw"))))
@@ -115,68 +113,75 @@
     ;; ---- People ----
 
     ;; A character dealt from `seed`, dressed in `palette`.
-    (: dealt (-> I64 (List Dye) Character))
-    (define (dealt seed palette)
+    (define (dealt (seed I64) (palette (List Dye))) (→ Character)
       (let* ((r (make-random seed))
              (build (deal r (list (Male) (Female) (Teen))))
-             (head (deal (Pair-second build) (build-heads (Pair-first build))))
-             (skin (deal (Pair-second head) human-skins)) (cut (deal (Pair-second skin) cuts))
-             (shade (deal (Pair-second cut) (hair-shades (Pair-first head)))))
-        (outfitted (Pair-first build)
-                   (Pair-first head)
-                   (Pair-first skin)
-                   (Hair (Pair-first cut) (Pair-first shade))
+             (head (deal (● build second) (build-heads (● build first))))
+             (skin (deal (● head second) (human-skins))) (cut (deal (● skin second) (cuts)))
+             (shade (deal (● cut second) (hair-shades (● head first)))))
+        (outfitted (● build first)
+                   (● head first)
+                   (● skin first)
+                   (new Hair (style (● cut first)) (color (● shade first)))
                    palette
-                   (Pair-second shade))))
+                   (● shade second))))
 
-    (: outfitted (-> Build Head Skin Hair (List Dye) Random Character))
-    (define (outfitted build head skin hair palette r)
-      (let* ((top (deal r (tops build))) (top-dye (deal (Pair-second top) palette))
-             (bottom (deal (Pair-second top-dye) (bottoms build)))
-             (bottom-dye (deal (Pair-second bottom) palette))
-             (shoe (deal (Pair-second bottom-dye) footwear))
-             (shoe-dye (deal (Pair-second shoe) shoe-dyes)))
+    (define (outfitted (build Build)
+                       (head Head)
+                       (skin Skin)
+                       (hair Hair)
+                       (palette (List Dye))
+                       (r Random))
+      (→ Character)
+      (let* ((top (deal r (tops build))) (top-dye (deal (● top second) palette))
+             (bottom (deal (● top-dye second) (bottoms build)))
+             (bottom-dye (deal (● bottom second) palette))
+             (shoe (deal (● bottom-dye second) (footwear)))
+             (shoe-dye (deal (● shoe second) (shoe-dyes))))
         (dressed build head skin
-                 (Outfit (Some hair) (Some (worn-in build (Pair-first top) (Pair-first top-dye)))
-                         (Some (worn-in build (Pair-first bottom) (Pair-first bottom-dye)))
-                         (Some (worn-in build (Pair-first shoe) (Pair-first shoe-dye)))))))
+                 (new Outfit
+                   (hair (Some hair))
+                   (torso (Some (worn-in build (● top first) (● top-dye first))))
+                   (legs (Some (worn-in build (● bottom first) (● bottom-dye first))))
+                   (feet (Some (worn-in build (● shoe first) (● shoe-dye first))))))))
 
     ;; Resident `person` of the rumor mill, dressed in their audience's
     ;; colors.
-    (: resident (-> I64 Character))
-    (define (resident person)
+    (define (resident (person I64)) (→ Character)
       (dealt (+ 1000 (* 7919 person)) (audience-dyes (audience-of person))))
 
     ;; The favor ledger's rivals, by fixer: Vee, and otherwise Kit.
-    (: rival (-> I64 Character))
-    (define (rival who)
-      (if (= who vee)
-          (dressed (Female) (HumanFemale) (Skin "bronze")
-                   (Outfit (Some (Hair (HairStyle "high_ponytail") (HairColor "raven")))
-                           (Some (Worn (Tunic) (Dye "purple")))
-                           (Some (Worn (Leggings) (Dye "black")))
-                           (Some (Worn (Boots) (Dye "black")))))
-          (dressed (Male) (HumanMale) (Skin "light")
-                   (Outfit (Some (Hair (HairStyle "spiked") (HairColor "carrot")))
-                           (Some (Worn (Tabard) (Dye "red")))
-                           (Some (Worn (Pants) (Dye "green")))
-                           (Some (Worn (Shoes) (Dye "black")))))))
+    (define (rival (who I64)) (→ Character)
+      (if (= who (vee))
+          (dressed (Female) (HumanFemale) (new Skin (name "bronze"))
+                   (new Outfit
+                     (hair (Some (new Hair
+                                   (style (new HairStyle (name "high_ponytail")))
+                                   (color (new HairColor (name "raven"))))))
+                     (torso (Some (new Worn (garment (Tunic)) (dye (new Dye (name "purple"))))))
+                     (legs (Some (new Worn (garment (Leggings)) (dye (new Dye (name "black"))))))
+                     (feet (Some (new Worn (garment (Boots)) (dye (new Dye (name "black"))))))))
+          (dressed (Male) (HumanMale) (new Skin (name "light"))
+                   (new Outfit
+                     (hair (Some (new Hair
+                                   (style (new HairStyle (name "spiked")))
+                                   (color (new HairColor (name "carrot"))))))
+                     (torso (Some (new Worn (garment (Tabard)) (dye (new Dye (name "red"))))))
+                     (legs (Some (new Worn (garment (Pants)) (dye (new Dye (name "green"))))))
+                     (feet (Some (new Worn (garment (Shoes)) (dye (new Dye (name "black"))))))))))
 
     ;; Everyone drawn, for embedding their art.
-    (: everyone (List Character))
-    (define everyone
-      (append (map resident (iota person-count)) (list (rival vee) (rival kit))))
+    (define (everyone) (→ (List Character))
+      (append (map resident (iota (person-count))) (list (rival (vee)) (rival (kit)))))
 
     ;; ---- Pictures ----
 
     ;; The screens key the pictures they compose of the cast: 100 + p for
     ;; resident p, and 200 + f for the rival who is fixer f.
-    (: person-picture (-> I64 I32))
-    (define (person-picture person)
+    (define (person-picture (person I64)) (→ I32)
       (i64->i32 (+ 100 person)))
 
-    (: rival-picture (-> I64 I32))
-    (define (rival-picture who)
+    (define (rival-picture (who I64)) (→ I32)
       (i64->i32 (+ 200 who)))
 
     ))

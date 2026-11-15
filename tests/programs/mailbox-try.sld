@@ -1,4 +1,5 @@
 (import
+ (only (snail core forms) host)
  (snail core base)
  (snail core io)
  (snail shell task))
@@ -6,16 +7,17 @@
 ;; Receiving without waiting: an empty mailbox answers none at once, and
 ;; one with messages gives the oldest, leaving the rest for a receiver
 ;; that waits.
-(: tried (-> (Mailbox String) String ! mut))
-(define (tried mailbox)
+(define (tried (mailbox (Mailbox String))) (→ String) (! mut)
   (match (mailbox-try-receive mailbox)
     ((Some message) message)
     ((None) "none")))
 
-(let ((mailbox (make-mailbox)))
-  (write-line (tried mailbox))
-  (mailbox-post mailbox "first")
-  (mailbox-post mailbox "second")
-  (write-line (tried mailbox))
-  (dispatch-local (once (lambda () (write-line (mailbox-receive mailbox)))))
-  (dispatch-local (once (lambda () (write-line (tried mailbox))))))
+(define (main) (→ Unit) (! host mut output-port tasks)
+  (let ((mailbox (make-mailbox)))
+    (write-line (tried mailbox))
+    (mailbox-post mailbox "first")
+    (mailbox-post mailbox "second")
+    (write-line (tried mailbox))
+    (dispatch (lambda () (write-line (mailbox-receive mailbox))))
+    (dispatch (lambda () (write-line (tried mailbox)))))
+  (unit))

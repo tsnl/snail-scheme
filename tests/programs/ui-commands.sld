@@ -1,4 +1,5 @@
 (import
+ (only (snail core forms) host)
  (snail core base)
  (snail core io)
  (snail shell task)
@@ -18,7 +19,7 @@
 ;; nothing. Hiding asks first. The window hears Control-S, and no other
 ;; key, and the page going back online.
 
-(struct Model
+(record Model
   ((text String)
    (shown Bool)
    (log (List String))))
@@ -35,27 +36,24 @@
   (Done ((what String))))
 
 (type (Command M)
-      (FnOnce M ! dom tasks))
+      (Fn → M ! dom tasks))
 
-(: update (-> Model Msg (Pair Model (List (Command Msg)))))
-(define (update model message)
+(define (update (model Model) (message Msg)) (→ (Pair Model (List (Command Msg))))
   (match message
-    ((Begin) (Pair model (list (once began))))
-    ((Typed text) (Pair (Model-text-set model text) (Nil)))
-    ((Indent) (Pair model (list (once indent))))
-    ((Late) (Pair model (list (once late))))
-    ((Ask) (Pair model (list (once ask))))
-    ((Hide) (Pair (Model-shown-set model #f) (list (once missing))))
-    ((Save) (Pair (logged model "saved") (Nil)))
-    ((Online) (Pair (logged model "online") (Nil)))
-    ((Done what) (Pair (logged model what) (Nil)))))
+    ((Begin) (new Pair (first model) (second (list began))))
+    ((Typed text) (new Pair (first (Model-text-set model text)) (second (Nil))))
+    ((Indent) (new Pair (first model) (second (list indent))))
+    ((Late) (new Pair (first model) (second (list late))))
+    ((Ask) (new Pair (first model) (second (list ask))))
+    ((Hide) (new Pair (first (Model-shown-set model #f)) (second (list missing))))
+    ((Save) (new Pair (first (logged model "saved")) (second (Nil))))
+    ((Online) (new Pair (first (logged model "online")) (second (Nil))))
+    ((Done what) (new Pair (first (logged model what)) (second (Nil))))))
 
-(: logged (-> Model String Model))
-(define (logged model what)
-  (Model-log-set model (append (Model-log model) (list what))))
+(define (logged (model Model) (what String)) (→ Model)
+  (Model-log-set model (append (● model log) (list what))))
 
-(: indent (-> Msg ! dom))
-(define (indent)
+(define (indent) (→ Msg) (! dom)
   (match (element-by-id "text")
     ((Some node)
      (let ((took (insert-text node 0 0 "  ")))
@@ -64,15 +62,14 @@
        (Done (string-append "indented: "
                             (if took "taken" "refused")
                             ", selection "
-                            (show (Pair-first (selection-range node)))
+                            (show (● (selection-range node) first))
                             "-"
-                            (show (Pair-second (selection-range node)))
+                            (show (● (selection-range node) second))
                             ", line height "
-                            (show (Measure-line-height (measure node)))))))
+                            (show (● (measure node) line-height))))))
     ((None) (Done "no field"))))
 
-(: late (-> Msg ! dom tasks))
-(define (late)
+(define (late) (→ Msg) (! dom tasks)
   (match (element-by-id "text")
     ((Some node)
      (yield)
@@ -84,29 +81,26 @@
                             (show (string-length (string-property node "value")))))))
     ((None) (Done "no field"))))
 
-(: ask (-> Msg ! dom))
-(define (ask)
+(define (ask) (→ Msg) (! dom)
   (if (confirm "Hide the field?") (Hide) (Done "kept")))
 
-(: missing (-> Msg ! dom))
-(define (missing)
+(define (missing) (→ Msg) (! dom)
   (match (element-by-id "text")
     ((Some node) (Done "still there"))
     ((None) (Done "field gone"))))
 
-(: view (-> Model (Html Msg)))
-(define (view model)
+(define (view (model Model)) (→ (Html Msg))
   (Element "div"
            (Nil)
-           (append (if (Model-shown model)
+           (append (if (● model shown)
                        (list (Element "textarea"
                                       (list (Keyed "text")
                                             (Attr "id" "text")
-                                            (StringProperty "value" (Model-text model))
+                                            (StringProperty "value" (● model text))
                                             (On "input"
                                                 (list (Value))
                                                 (Allow)
-                                                (lambda (event) (Typed (Event-value event)))))
+                                                (lambda (event) (Typed (● event value)))))
                                       (Nil)))
                        (Nil))
                    (list (Element "button"
@@ -122,53 +116,52 @@
                                         (On "click" (Nil) (Allow) (lambda (event) (Ask))))
                                   (Nil))))))
 
-(: window (-> Model (List (Attribute Msg))))
-(define (window model)
+(define (window (model Model)) (→ (List (Attribute Msg)))
   (list (On "online" (Nil) (Allow) (lambda (event) (Online)))
         (On "keydown"
             (list (Key))
-            (Chords (list (Chord "s" control-key)))
+            (Chords (list (new Chord (key "s") (modifiers (control-key)))))
             (lambda (event) (Save)))))
 
-(: began (-> Msg))
-(define (began)
+(define (began) (→ Msg)
   (Done "began"))
 
-(: starts-with? (-> String String Bool))
-(define (starts-with? prefix line)
+(define (starts-with? (prefix String) (line String)) (→ Bool)
   (and (>= (string-length line) (string-length prefix))
        (string=? (substring line 0 (string-length prefix)) prefix)))
 
-(: clicked (-> String Cue))
-(define (clicked target)
-  (Fire target "click" no-event))
+(define (clicked (target String)) (→ Cue)
+  (Fire target "click" (no-event)))
 
-(dispatch-local
- (once (lambda ()
-         (let ((result
-                (with-memory-dom (list (Fire "text" "input" (Event-value-set no-event "(car x)"))
-                                       (clicked "indent")
-                                       (FireWindow "keydown"
-                                                   (Event-modifiers-set (Event-key-set no-event "s")
-                                                                        control-key))
-                                       (clicked "late")
-                                       (clicked "hide")
-                                       (FireWindow "online" no-event))
-                                 (lambda ()
-                                   (run-ui (Model "" #t (Nil))
-                                           (list (Begin))
-                                           update
-                                           view
-                                           window
-                                           (lambda (model) (unit))
-                                           (lambda (model) (unit)))))))
-           (write-line (string-append "text: " (Model-text (Pair-first result))))
-           (for-each write-line (Model-log (Pair-first result)))
-           (write-line (document->html (Pair-second result)))
-           (for-each write-line
-                     (filter (lambda (line)
-                               (not (or (starts-with? "create" line)
-                                        (starts-with? "insert " line)
-                                        (starts-with? "listen" line)
-                                        (starts-with? "set-attribute" line))))
-                             (document-trace (Pair-second result))))))))
+(define (main) (→ Unit) (! host mut output-port tasks)
+  (dispatch
+   (lambda ()
+     (let ((result
+            (with-memory-dom
+             (list (Fire "text" "input" (Event-value-set (no-event) "(car x)"))
+                   (clicked "indent")
+                   (FireWindow "keydown"
+                               (Event-modifiers-set (Event-key-set (no-event) "s")
+                                                    (control-key)))
+                   (clicked "late")
+                   (clicked "hide")
+                   (FireWindow "online" (no-event)))
+             (lambda ()
+               (run-ui (new Model (text "") (shown #t) (log (Nil)))
+                       (list (Begin))
+                       (lambda (model message) (update model message))
+                       view
+                       window
+                       (lambda (model) (unit))
+                       (lambda (model) (unit)))))))
+       (write-line (string-append "text: " (● (● result first) text)))
+       (for-each write-line (● (● result first) log))
+       (write-line (document->html (● result second)))
+       (for-each write-line
+                 (filter (lambda (line)
+                           (not (or (starts-with? "create" line)
+                                    (starts-with? "insert " line)
+                                    (starts-with? "listen" line)
+                                    (starts-with? "set-attribute" line))))
+                         (document-trace (● result second)))))))
+  (unit))

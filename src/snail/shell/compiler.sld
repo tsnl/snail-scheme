@@ -1,95 +1,109 @@
 ;; The compiler's passes in order, from a program's source path to
-;; WebAssembly text, or to the schemas of its wire types. In a one-off
-;; compile each pass's output is the next pass's only input; a session,
-;; (snail shell compiler session), also keeps what each library became in the
-;; build before. The typed driver serves both compiler entries: Chibi runs
+;; WebAssembly text. Every invocation reads, checks and emits the whole
+;; program afresh. The typed driver serves
+;; both compiler entries: Chez runs
 ;; the source as stage 0, and Node runs the compiler compiled to Wasm.
 (define-library (snail shell compiler)
   (export
    WholeProgram
-   WholeProgram-text
-   WholeProgram-links
    source->wat
+   Checked
+   source->checked
+   checked->modules
    source->modules
-   source->schemas
    Built
-   Built-name
-   Built-text
-   Built-links
    LinkedFile
-   LinkedFile-digest
-   LinkedFile-path
    no-inputs)
   (import
    (snail core base)
    (snail core io)
    (snail shell compiler read)
-   (only (snail shell compiler inputs) Inputs)
+   (only (snail shell compiler inputs) Inputs no-inputs)
    (snail shell compiler core)
    (snail shell compiler expand)
    (snail shell compiler check)
    (snail shell compiler prepare)
-   (snail shell compiler wasm)
-   (snail shell compiler session))
+   (only (snail shell compiler specialize) control-effects prepare-specialization)
+   (snail shell compiler wasm))
   (begin
 
     ;; The front of every compile: the program a source path reads, expanded.
     ;; `generate` runs the producer program of a `generate-library`, given
     ;; the libraries loading when it was reached, and returns the bytes of
     ;; the syntax it writes.
-    (: source->expanded
-       (-> (List String)
-           String
-           (-> (List String) (List Syntax) Bytes ! fs compile)
-           Inputs
-           ExpandedProgram
-           ! fs compile))
-    (define (source->expanded directories source generate inputs)
-      (expand-program directories generate inputs source empty-expansion))
+
+    (define (source->expanded (directories (List String))
+                              (source String)
+                              (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
+                              (inputs Inputs))
+      (→ ExpandedProgram)
+      (! fs compile)
+      (expand-program directories generate inputs source))
 
     ;; A program compiled to one module: its text, and the files it links,
     ;; which ship beside it.
-    (struct WholeProgram
+    (record Built
+      ((name String)
+       (text String)
+       (links (List LinkedFile))))
+
+    (record WholeProgram
       ((text String)
        (links (List LinkedFile))))
 
-    (: source->wat
-       (-> (List String)
-           String
-           (-> (List String) (List Syntax) Bytes ! fs compile)
-           Inputs
-           WholeProgram
-           ! mut fs compile))
-    (define (source->wat directories source generate inputs)
+    (define (source->wat (directories (List String))
+                         (source String)
+                         (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
+                         (inputs Inputs))
+      (→ WholeProgram)
+      (! mut fs compile)
       (let* ((expanded (source->expanded directories source generate inputs))
-             (typed (check-program (ExpandedProgram-program expanded)))
+             (typed (check-program (● expanded program)))
              (module (emit-module (prepare-program typed))))
-        (WholeProgram (wat->string module) (program-links expanded))))
+        (new WholeProgram (text (wat->string module)) (links (program-links expanded)))))
+
+    ;; A program read, expanded and checked, before anything is emitted: what
+    ;; a development build compiles each library from, and what an editor
+    ;; asks of the program's names (snail shell lsp).
+    (record Checked
+      ((expanded ExpandedProgram)
+       (typed Typed)))
+
+    (define (source->checked (directories (List String))
+                             (source String)
+                             (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
+                             (inputs Inputs))
+      (→ Checked)
+      (! fs compile)
+      (let ((expanded (source->expanded directories source generate inputs)))
+        (new Checked (expanded expanded) (typed (check-program (● expanded program))))))
 
     ;; One module of text per library, and one for the program, in program
     ;; order: each comes after the modules it imports from, with the files
-    ;; its library links. This is a session's build with nothing kept from
-    ;; before.
-    (: source->modules
-       (-> (List String)
-           String
-           (-> (List String) (List Syntax) Bytes ! fs compile)
-           Inputs
-           (List Built)
-           ! mut fs compile))
-    (define (source->modules directories source generate inputs)
-      (Pair-first (build-session (make-session directories) source generate inputs)))
+    ;; its library links. Every library is checked and emitted in this build.
 
-    (: source->schemas
-       (-> (List String)
-           String
-           (-> (List String) (List Syntax) Bytes ! fs compile)
-           Inputs
-           String
-           ! fs compile))
-    (define (source->schemas directories source generate inputs)
-      (let ((typed (check-program (ExpandedProgram-program
-                                   (source->expanded directories source generate inputs)))))
-        (wire-schemas (Typed-program typed))))
+    (define (source->modules (directories (List String))
+                             (source String)
+                             (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
+                             (inputs Inputs))
+      (→ (List Built))
+      (! mut fs compile)
+      (checked->modules (source->checked directories source generate inputs)))
+
+    (define (checked->modules (checked Checked)) (→ (List Built)) (! mut compile)
+      (let* ((expanded (● checked expanded))
+             (typed (● checked typed))
+             (input (prepare-specialization typed)))
+        (append (if (null? (control-effects (● typed program))) (Nil)
+                    (list (new Built (name "snail.core.control")
+                               (text (wat->string (emit-control-module (● typed program))))
+                               (links (Nil)))))
+                (map (lambda (library)
+                       (new Built (name (● library first))
+                            (text (wat->string (emit-module (prepare-library input (● library first)
+                                                                             (● library second)))))
+                            (links (library-links expanded (● library first)))))
+                     (filter (lambda (library) (not (null? (● library second))))
+                             (library-items (● typed program) (● typed items)))))))
 
     ))

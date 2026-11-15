@@ -1,1 +1,1 @@
-an exposed function must be defined with lambda
+top-level definitions must be functions; put values in a function or an explicit state object

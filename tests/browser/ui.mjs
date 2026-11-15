@@ -1,11 +1,11 @@
-// A document interface in a real page: `snail build` builds a copy of
+// A document interface in a real page: `snail-scheme build` builds a copy of
 // tests/apps/notes, a static server serves it, and headless Chromium types
 // notes, adds them by the button and by Enter, which the listener's chord
 // keeps from its default action, and removes one. The count of notes added
 // arrives by a command's wake, and the command focuses the field it finds
 // by id. Another command inserts text into the field as typing would,
 // which the page can undo, and Tab inserts at a caret past an astral
-// scalar, an offset of 2 to the page and 1 to Snail. Escape on the window
+// scalar, an offset of 2 to the page and 1 to `snail-scheme`. Escape on the window
 // clears the draft. The page asks its server for a greeting as it starts,
 // shares its notes with headers and a body, and hears a stream of events
 // until the server ends it. Clearing the notes asks first. Persistence and
@@ -67,7 +67,7 @@ function serve(directory) {
 const directory = await mkdtemp(join(tmpdir(), 'snail-ui-'));
 const app = join(directory, 'notes');
 await cp(join(root, 'tests/apps/notes'), app, {recursive: true, filter: path => basename(path) !== 'build'});
-const built = (await promisify(execFile)(join(root, 'snail'), ['build', app, 'site'])).stdout.trim();
+const built = (await promisify(execFile)(join(root, 'snail-scheme'), ['build', app, 'site'])).stdout.trim();
 const server = await serve(built);
 const browser = await openBrowser();
 const notes = () => browser.evaluate(`[...document.querySelectorAll('#notes li')].map(item => item.firstChild.data).join(',')`);

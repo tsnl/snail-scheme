@@ -8,121 +8,122 @@
  (snail core io)
  (snail shell wire)
  (siegework grid)
- (only (siegework terrain) Land-starter)
+ (only (siegework terrain))
  (siegework world)
  (siegework colony)
  (siegework simulation))
 
 ;; A game in progress: the world and its journal, newest entry first.
-(struct Played
+(record Played
   ((world World)
    (journal (List Entry))))
 
-(: give (-> Played Action Played))
-(define (give played action)
-  (match (command (Played-world played) action)
-    ((Ok (Pair world entry)) (Played world (Cons entry (Played-journal played))))
+(define (give (played Played) (action Action)) (→ Played)
+  (match (command (● played world) action)
+    ((Ok (Pair world entry)) (new Played (world world) (journal (Cons entry (● played journal)))))
     ((Err _) played)))
 
-(: run (-> Played I64 Played))
-(define (run played ticks)
+(define (run (played Played) (ticks I64)) (→ Played)
   (if (= ticks 0)
       played
-      (run (Played-world-set played (advance (Played-world played))) (- ticks 1))))
+      (run (Played-world-set played (advance (● played world))) (- ticks 1))))
 
-(: offset (-> World I64 I64 Cell))
-(define (offset world dx dy)
-  (let ((hub (Hub-cell (World-hub world))))
-    (Cell (+ (Cell-x hub) dx) (+ (Cell-y hub) dy))))
+(define (offset (world World) (dx I64) (dy I64)) (→ Cell)
+  (let ((hub (● (● world hub) cell)))
+    (new Cell (x (+ (● hub x) dx)) (y (+ (● hub y) dy)))))
 
-(: reinforce (-> Played Played))
-(define (reinforce played)
-  (let ((world (Played-world played)))
+(define (reinforce (played Played)) (→ Played)
+  (let ((world (● played world)))
     (give (fold-left (lambda (played d)
                        (give played
-                             (Build (Turret) (offset world (Pair-first d) (Pair-second d)) #f)))
+                             (Build (Turret) (offset world (● d first) (● d second)) #f)))
                      played
-                     (list (Pair -2 0) (Pair 0 2) (Pair 2 0) (Pair 0 -2) (Pair -2 2) (Pair 2 -2)))
+                     (list (new Pair (first -2) (second 0))
+                           (new Pair (first 0) (second 2))
+                           (new Pair (first 2) (second 0))
+                           (new Pair (first 0) (second -2))
+                           (new Pair (first -2) (second 2))
+                           (new Pair (first 2) (second -2))))
           (Upgrade (offset world 0 0)))))
 
-(: play (-> Played I64 Played))
-(define (play played rounds)
+(define (play (played Played) (rounds I64)) (→ Played)
   (if (= rounds 0) played (play (run (reinforce played) 100) (- rounds 1))))
 
 ;; Everything the rules decide, as text.
-(: fingerprint (-> World String))
-(define (fingerprint world)
-  (string-join (list (show (World-tick world))
-                     (show (World-energy world))
-                     (show (Ledger-produced (World-ledger world)))
-                     (show (Ledger-spent (World-ledger world)))
-                     (show (Ledger-kills (World-ledger world)))
-                     (show (Hub-health (World-hub world)))
-                     (show (Hub-slots (World-hub world)))
-                     (string-join (map building-text (World-buildings world)) ",")
+(define (fingerprint (world World)) (→ String)
+  (string-join (list (show (● world tick))
+                     (show (● world energy))
+                     (show (● (● world ledger) produced))
+                     (show (● (● world ledger) spent))
+                     (show (● (● world ledger) kills))
+                     (show (● (● world hub) health))
+                     (show (● (● world hub) slots))
+                     (string-join (map building-text (● world buildings)) ",")
                      (string-join (map (lambda (e)
-                                         (string-append (show (Enemy-id e))
+                                         (string-append (show (● e id))
                                                         "@"
-                                                        (cell-text (Enemy-cell e))
+                                                        (cell-text (● e cell))
                                                         ":"
-                                                        (show (Enemy-health e))))
-                                       (World-enemies world))
+                                                        (show (● e health))))
+                                       (● world enemies))
                                   ",")
-                     (string-join (map (lambda (n) (show (Nest-health n))) (World-nests world)) ",")
+                     (string-join (map (lambda (n) (show (● n health))) (● world nests)) ",")
                      (string-join
-                      (map (lambda (c) (show (Crystal-reserve c))) (World-crystals world))
+                      (map (lambda (c) (show (● c reserve))) (● world crystals))
                       ","))
                " "))
 
-(: building-text (-> Building String))
-(define (building-text b)
-  (string-append (show (Building-id b))
-                 (kind-name (Building-kind b))
-                 (cell-text (Building-cell b))
+(define (building-text (b Building)) (→ String)
+  (string-append (show (● b id))
+                 (kind-name (● b kind))
+                 (cell-text (● b cell))
                  "L"
-                 (show (Building-level b))
+                 (show (● b level))
                  "H"
-                 (show (Building-health b))
-                 (match (Building-work b)
-                   ((Some work) (string-append "W" (show (Work-progress work))))
+                 (show (● b health))
+                 (match (● b work)
+                   ((Some work) (string-append "W" (show (● work progress))))
                    ((None) ""))))
 
-(: cell-text (-> Cell String))
-(define (cell-text cell)
-  (string-append (show (Cell-x cell)) "." (show (Cell-y cell))))
+(define (cell-text (cell Cell)) (→ String)
+  (string-append (show (● cell x)) "." (show (● cell y))))
 
-(let ()
-  (define start (Played (new-world 3) (Nil)))
-  (define start
-    (give start (Build (Extractor) (Land-starter (World-land (Played-world start))) #f)))
-  (define played (play start 20))
-  (define world (Played-world played))
-  (define journal (reverse (Played-journal played)))
-  (write-line (string-append "played to tick "
-                             (show (World-tick world))
-                             " with "
-                             (show (length journal))
-                             " orders, "
-                             (show (length (World-buildings world)))
-                             " buildings and "
-                             (show (Ledger-kills (World-ledger world)))
-                             " kills"))
-  (write-line (string-append "replay matches: "
-                             (show (string=?
-                                    (fingerprint (Pair-first (replay 3 journal (World-tick world))))
-                                    (fingerprint world)))))
-  (define stray (Cons (Entry 0 (Build (Turret) (offset world 1 1) #f)) journal))
-  (write-line (string-append "replay skipping a rejected order matches: "
-                             (show (string=?
-                                    (fingerprint (Pair-first (replay 3 stray (World-tick world))))
-                                    (fingerprint world)))))
-  (write-line (string-append "and drops it from the journal: "
-                             (show (= (length (Pair-second (replay 3 stray (World-tick world))))
-                                      (length journal)))))
-  (define bytes (serialize journal))
-  (define decoded (ann (deserialize bytes) (List Entry)))
-  (write-line (string-append "decoded journal matches: "
-                             (show (string=?
-                                    (fingerprint (Pair-first (replay 3 decoded (World-tick world))))
-                                    (fingerprint world)))))
-  (write-line (string-append "journal of " (show (vector-length bytes)) " bytes")))
+(define (main) (→ Unit) (! output-port)
+
+  (let ()
+    (define start (new Played (world (new-world 3)) (journal (Nil))))
+    (define start
+      (give start (Build (Extractor) (● (● (● start world) land) starter) #f)))
+    (define played (play start 20))
+    (define world (● played world))
+    (define journal (reverse (● played journal)))
+    (write-line (string-append "played to tick "
+                               (show (● world tick))
+                               " with "
+                               (show (length journal))
+                               " orders, "
+                               (show (length (● world buildings)))
+                               " buildings and "
+                               (show (● (● world ledger) kills))
+                               " kills"))
+    (write-line (string-append "replay matches: "
+                               (show (string=?
+                                      (fingerprint (● (replay 3 journal (● world tick)) first))
+                                      (fingerprint world)))))
+    (define stray
+      (Cons (new Entry (tick 0) (action (Build (Turret) (offset world 1 1) #f))) journal))
+    (write-line (string-append "replay skipping a rejected order matches: "
+                               (show (string=?
+                                      (fingerprint (● (replay 3 stray (● world tick)) first))
+                                      (fingerprint world)))))
+    (write-line (string-append "and drops it from the journal: "
+                               (show (= (length (● (replay 3 stray (● world tick)) second))
+                                        (length journal)))))
+    (define bytes (serialize journal))
+    (define decoded (ann (deserialize bytes) (List Entry)))
+    (write-line (string-append "decoded journal matches: "
+                               (show (string=?
+                                      (fingerprint (● (replay 3 decoded (● world tick)) first))
+                                      (fingerprint world)))))
+    (write-line (string-append "journal of " (show (vector-length bytes)) " bytes")))
+  (unit))

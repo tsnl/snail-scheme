@@ -2,10 +2,7 @@
  (snail core base)
  (snail core io)
  (only (snail shell artifact)
-       ArtifactBundle
-       ArtifactBundle-files
-       ArtifactFile-path
-       ArtifactFile-bytes)
+       ArtifactBundle)
  (rename (only (snail shell artifact) artifact-bundle) (artifact-bundle bundle))
  (generated assets)
  (sample consumer)
@@ -19,20 +16,22 @@
   (syntax-rules ()
     ((_) (bundle "admin"))))
 
-(: print-bundle (-> ArtifactBundle Unit ! console))
-(define (print-bundle bundle)
+(define (print-bundle (bundle ArtifactBundle)) (→ Unit) (! output-port)
   (for-each (lambda (file)
-              (display (ArtifactFile-path file))
+              (display (● file path))
               (display ":")
               (vector-for-each (lambda (byte) (display (u8->i32 byte)) (display ","))
-                               (ArtifactFile-bytes file))
+                               (● file bytes))
               (newline))
-            (ArtifactBundle-files bundle)))
+            (● bundle files)))
 
-;; These local values must not capture the imported macro's constructors.
-(let ((ArtifactBundle "shadow") (ArtifactFile "shadow") (Cons "shadow") (Nil "shadow"))
-  (print-bundle (bundle "client")))
-(print-bundle (admin))
-(print-bundle generated-bundle)
-(print-bundle (client-bundle))
-(print-bundle (generic-bundle "another specialization"))
+(define main
+  (lambda ()
+    ;; These local values must not capture the imported macro's constructors.
+    (let ((ArtifactBundle "shadow") (ArtifactFile "shadow") (Cons "shadow") (Nil "shadow"))
+      (print-bundle (bundle "client")))
+    (print-bundle (admin))
+    (print-bundle (generated-bundle))
+    (print-bundle (client-bundle))
+    (print-bundle (generic-bundle "another specialization"))
+    (unit)))

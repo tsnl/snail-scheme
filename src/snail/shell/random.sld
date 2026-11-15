@@ -10,48 +10,35 @@
   (import
    (snail core base)
    (snail shell wire)
-   (except (snail core primitive)
-           string-append
-           make-array
-           array-length
-           array-ref
-           array-set!
-           array->vector
-           vector->array
-           array-copy!
-           vector-copy!))
+   (except (snail core primitive) string-append))
   (begin
 
     ;; `value` is the latest output; advancing returns a new generator.
-    (struct Random
+    (record Random
       ((state I64)
        (value I64))
       (deriving Serialize Deserialize))
 
-    (: make-random (-> I64 Random))
-    (define (make-random seed)
-      (random-next (Random seed 0)))
+    (define (make-random (seed I64)) (→ Random)
+      (random-next (new Random (state seed) (value 0))))
 
-    (: random-next (-> Random Random))
-    (define (random-next random)
-      (let* ((state (+ (Random-state random) -7046029254386353131))
+    (define (random-next (random Random)) (→ Random)
+      (let* ((state (+ (● random state) -7046029254386353131))
              (z (i64-xor state (i64-shift-right/logical state 30)))
              (z (* z -4658895280553007687))
              (z (i64-xor z (i64-shift-right/logical z 27)))
              (z (* z -7723592293110705685)))
-        (Random state (i64-xor z (i64-shift-right/logical z 31)))))
+        (new Random (state state) (value (i64-xor z (i64-shift-right/logical z 31))))))
 
-    (: random-value (-> Random I64))
-    (define (random-value random)
-      (Random-value random))
+    (define (random-value (random Random)) (→ I64)
+      (● random value))
 
-    (: random-state (-> Random I64))
-    (define (random-state random)
-      (Random-state random))
+    (define (random-state (random Random)) (→ I64)
+      (● random state))
 
     ;; The latest output reduced to [0, bound).
-    (: random-below (-> Random I64 I64))
-    (define (random-below random bound)
-      (modulo (i64-shift-right/logical (Random-value random) 1) bound))
+
+    (define (random-below (random Random) (bound I64)) (→ I64)
+      (modulo (i64-shift-right/logical (● random value) 1) bound))
 
     ))

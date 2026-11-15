@@ -3,56 +3,43 @@
 ;; each line of NAME.err in its diagnostics, in order. Then the Siegework package is built
 ;; and driven headlessly, and the in-process assembler assembles a program.
 ;; Programs compile, link and run in parallel. With the compiler's source
-;; on Chibi, compiles stay serial to bound its heap use. Finally
+;; on Chez, compiles stay serial to bound its heap use. Finally
 ;; representative programs run again as modules linked when they run.
 ;;
-;;   chibi-scheme -D snail-tests -I tests -I bootstrap/chibi-include tests/run.scm ROOT [NAME ...]
+;;   scheme --script host/chez/load.scm ROOT test [NAME ...]
 (import
- (scheme base)
- (scheme cxr)
- (scheme file)
- (scheme process-context)
- (scheme write)
- (chibi filesystem)
- (only (chibi pathname) path-directory)
- (chibi process)
+ (chezscheme)
+ (except (snail stage0 system) error-text)
  (snail stage0 process)
- (only (chibi string) string-contains string-cursor->index string-split string-suffix?)
- (srfi 1)
- (only (srfi 132) list-sort)
  (snail stage0 build)
  (only (snail stage0 forms) test-forms)
+ (only (snail core base) test-base)
  (only (snail shell compiler read) test-read)
- (only (snail shell compiler annotations) test-annotations)
  (only (snail shell compiler inputs) test-inputs)
  (only (snail shell compiler expand) test-expand)
  (only (snail shell compiler core) test-core)
  (only (snail shell compiler sha256) test-sha256)
  (only (snail shell compiler check) test-check)
- (only (snail shell compiler conversions) test-conversions)
  (only (snail shell compiler specialize) test-specialize)
  (only (snail shell compiler prepare) test-prepare)
  (only (snail shell compiler wasm) test-wasm)
- (only (snail shell compiler session) test-session)
  (only (snail shell project plan) test-plan)
  (only (snail shell project) test-project))
 
 ;; ---- Cases ----
 
 (define (case-names directory)
-  (list-sort string<? (filter-map (lambda (file)
-                                    (and (string-suffix? ".sld" file)
-                                         (substring file 0 (- (string-length file) 4))))
-                                  (directory-files directory))))
+  (list-sort string<? (filter values (map (lambda (file)
+                                            (and (string-suffix? ".sld" file)
+                                                 (substring file 0 (- (string-length file) 4))))
+                                          (directory-list directory)))))
 
 (define (error-text failure)
-  (let ((port (open-output-string)))
-    (if (error-object? failure)
-        (begin (write-string (error-object-message failure) port)
-               (for-each (lambda (irritant) (write-string " " port) (write irritant port))
-                         (error-object-irritants failure)))
-        (write failure port))
-    (get-output-string port)))
+  (if (message-condition? failure)
+      (if (format-condition? failure)
+          (apply format (condition-message failure) (condition-irritants failure))
+          (condition-message failure))
+      (format "~s" failure)))
 
 (define (trim-newline text)
   (let ((length (string-length text)))
@@ -66,12 +53,12 @@
 
 ;; ---- Programs ----
 
-;; A source compile on Chibi needs a large heap. The compiled compiler can
+;; A source compile on Chez needs a large heap. The compiled compiler can
 ;; run in each check's child, with its own scratch and output files.
-(define chibi-compiler? (equal? (get-environment-variable "SNAIL_STAGE0") "chibi"))
+(define source-compiler? (equal? (getenv "SNAIL_STAGE0") "chez"))
 
 ;; What a program prints, its standard output then its standard error, on
-;; the host `program-command` chooses (host/chibi/snail/stage0/build.sld).
+;; the host `program-command` chooses (host/chez/snail/stage0/build.sld).
 (define (run-wasm root program . arguments)
   (let ((result (capture-process (append (program-command root program) arguments))))
     (string-append (car result) (without-backtrace (cadr result)))))
@@ -81,7 +68,7 @@
 ;; message.
 (define (without-backtrace text)
   (let ((cursor (string-contains text "error while executing at wasm backtrace:\n")))
-    (if cursor (substring text 0 (string-cursor->index text cursor)) text)))
+    (if cursor (substring text 0 cursor) text)))
 
 ;; Compiles a case. A case that expects a diagnostic is decided here; any
 ;; other becomes the check that links its program, places the files it
@@ -113,7 +100,7 @@
       (let ((cursor (string-contains text (car parts))))
         (and cursor
              (contains-in-order?
-              (substring text (+ (string-cursor->index text cursor) (string-length (car parts))))
+              (substring text (+ cursor (string-length (car parts))) (string-length text))
               (cdr parts))))))
 
 (define (check-output root compiled program name expected-output)
@@ -136,7 +123,7 @@
                         (case-names directory))))
     (create-directory* build)
     (map (lambda (name)
-           (if chibi-compiler?
+           (if source-compiler?
                (compile-case root directories directory build name)
                (lambda () (check-case root directories directory build name))))
          names)))
@@ -171,17 +158,20 @@
                                        (path-join directory "assemble.wasm")
                                        (standard-directories root)))
            (assembled (begin
-                        (call-with-output-file wat (lambda (port) (write-string text port)))
+                        (call-with-replacing-output-file wat
+                                                         (lambda (port) (write-string text port)))
                         (run-wasm root tool wat (path-join directory "fibonacci.wasm")
                                   (build-runtime root #f) (path-join directory "linked.wasm")))))
       (let ((runtime (place-object! directory (file-bytes (build-runtime root #f))))
             (module (place-object! directory (file-bytes (path-join directory "fibonacci.wasm")))))
-        (call-with-output-file manifest
-          (lambda (port)
-            (write-string (string-append "{\"runtime\":{\"digest\":\"" (car runtime)
-                                         "\"},\"modules\":[{\"name\":\"program\",\"digest\":\""
-                                         (car module) "\"}],\"files\":[]}")
-                          port))))
+        (call-with-replacing-output-file manifest
+                                         (lambda (port)
+                                           (write-string
+                                            (string-append "{\"runtime\":{\"digest\":\""
+                                                           (car runtime)
+                                                           "\"},\"modules\":[{\"name\":\"program\",\"digest\":\""
+                                                           (car module) "\"}],\"files\":[]}")
+                                            port))))
       (let ((expected
              "assembled the program\nlinked the program after a failed link\nbroken text names its line and column\n"))
         (if (string=? assembled expected)
@@ -205,6 +195,18 @@
         (night-day (enum-type-id root "(Night) (Day)")))
     (or (not (string=? day-night night-day))
         (report "type ids" "unchanged by reordering an enum's cases" day-night))))
+
+;; Values crossing the host boundary survive repeated calls, including
+;; aliases and nullable Any payloads.
+(define (check-exposed-values root name)
+  (let* ((program (path-join root (string-append "build/tests/" name ".wasm")))
+         (text (program->wat root (standard-directories root)
+                             (path-join root "tests" name "main.sld"))))
+    (link-wat root text program)
+    (let ((result (capture-process (list "node" "--no-warnings"
+                                         (path-join root "tests" name "check.mjs") program))))
+      (or (zero? (caddr result))
+          (report name "failed" (string-append (car result) (cadr result)))))))
 
 ;; The exposed and foreign ABI, exercised from JavaScript against linked Wasm.
 (define (check-host-boundary root)
@@ -256,55 +258,37 @@
   (let ((source (path-join root "build/tests/type-ids/main.sld"))
         (marker "(struct.new $any (i32.const "))
     (create-directory* (path-join root "build/tests/type-ids"))
-    (call-with-output-file source
-      (lambda (port)
-        (write-string (string-append "(import (snail core base))\n(enum Phase "
-                                     cases
-                                     ")\n(type-convert (Day) Any)\n")
-                      port)))
+    (call-with-replacing-output-file source
+                                     (lambda (port)
+                                       (write-string
+                                        (string-append "(import (snail core base))\n(enum Phase "
+                                                       cases
+                                                       ")\n(define (main) (→ Unit) (match (Any (Day)) (_ (unit))))\n")
+                                        port)))
     (let* ((text (program->wat root (standard-directories root) source))
            (start (+ (text-index text marker 0) (string-length marker))))
       (substring text start (text-index text ")" start)))))
 
 (define (text-index text pattern from)
-  (cond ((> (+ from (string-length pattern)) (string-length text)) (error "not found" pattern))
-        ((string=? (substring text from (+ from (string-length pattern))) pattern) from)
-        (else (text-index text pattern (+ from 1)))))
+  (cond
+   ((> (+ from (string-length pattern)) (string-length text)) (error 'test "not found" pattern))
+   ((string=? (substring text from (+ from (string-length pattern))) pattern) from)
+   (else (text-index text pattern (+ from 1)))))
 
-;; (snail shell format) as a program, tests/format-check.sld, leaves every
-;; Scheme file in the repository as the Emacs formatter that `make check`
-;; runs left it.
-(define (compile-formatter root)
-  (guard (failure (#t (report "formatter" "compile failed" (error-text failure))))
-    (let ((text
-           (program->wat root
-                         (standard-directories root)
-                         (path-join root "tests/format-check.sld"))))
-      (lambda () (check-formatter root text)))))
+;; The formatter's contracts, `./snail-scheme format`, including the
+;; repository's formatting gate.
+(define (check-formatter root)
+  (let ((result (capture-process (list "node" (path-join root "tests/format-scheme.mjs") root))))
+    (or (zero? (caddr result))
+        (report "formatter" "CLI regression" (string-append (car result) (cadr result))))))
 
-(define (check-formatter root text)
-  (guard (failure (#t (report "formatter" "check failed" (error-text failure))))
-    (let ((program (path-join root "build/tests/formatter/format.wasm"))
-          (files (capture-process (list "git" "-C" root "ls-files" "*.scm" "*.sld"))))
-      (create-directory* (path-join root "build/tests/formatter"))
-      (link-wat root text program)
-      (let ((result (capture-process
-                     (append (program-command root program)
-                             (list "--check")
-                             (map (lambda (file) (path-join root file))
-                                  (delete "" (string-split (car files) #\newline)))))))
-        (or (and (zero? (caddr result)) (string=? (car result) ""))
-            (report "formatter"
-                    "formats differently from Emacs"
-                    (string-append (car result) (cadr result))))))))
-
-;; The book's preprocessor, bootstrap/highlight-book.sld, run on a small
+;; The book's preprocessor, tools/highlight-book.sld, run on a small
 ;; book, turns each `scheme` block into spans and leaves the rest as it was.
 (define (compile-book-highlighter root)
   (guard (failure (#t (report "book highlighter" "compile failed" (error-text failure))))
     (let ((text (program->wat root
                               (standard-directories root)
-                              (path-join root "bootstrap/highlight-book.sld"))))
+                              (path-join root "tools/highlight-book.sld"))))
       (lambda () (check-book-highlighter root text)))))
 
 (define (check-book-highlighter root text)
@@ -333,34 +317,36 @@
            (report "compiler wat" "no module text" (cadr wat)))
           ((not (equal? (car run) "832040\n"))
            (report "compiler run" "wrong output" (string-append (car run) (cadr run))))
-          ((not (and (not (zero? (caddr failed))) (equal? (car failed) "survived\n")))
+          ((not (and (not (zero? (caddr failed))) (equal? (car failed) "")))
            (report "compiler run"
-                   "a failed child must set failure status and let its sibling finish"
+                   "a fatal child panic must fail the run before starting queued siblings"
                    (string-append (car failed) (cadr failed))))
           ((not (= (caddr panicked) 256))
            (report "compiler run" "a panic must exit with status 1" (cadr panicked)))
           ((not (= (caddr trapped) 512))
            (report "compiler run" "a trap must be status 2" (cadr trapped)))
-          (else (check-scheme-script root)))))
+          (else #t))))
 
-;; The generated script installs its own dyn-cast boundary. A bad cast
-;; becomes a diagnostic and failure status, and no later expression runs.
-(define (check-scheme-script root)
-  (let ((result (capture-process
-                 (list (path-join root "scripts/snail-tool") "run"
-                       "-I" (path-join root "tests/programs/lib")
-                       (path-join root "tests/scheme-any-script-error/main.sld")))))
-    (or (and (= (caddr result) 256)
-             (string-contains (cadr result) "dyn-cast: type mismatch")
-             (not (string-contains (car result) "unreachable")))
-        (report "Scheme script" "conversion failure did not abort the script"
-                (string-append (car result) (cadr result))))))
-
+;; What a command would print and its status, (STDOUT STDERR STATUS): `wat`
+;; prints the program's text, and `run` builds the program and runs it.
 (define (tool-run root command program)
-  (capture-process
-   (list (path-join root "scripts/snail-tool") command (path-join root program))))
+  (let ((source (path-join root program))
+        (output (path-join root (string-append "build/tests/command-line/" (path-last program)
+                                               ".wasm"))))
+    (guard (failure (#t (list "" (error-text failure) 1)))
+      (if (string=? command "wat")
+          (list (program->wat root (standard-directories root) source) "" 0)
+          (begin
+            (build-program root (standard-directories root) source output (build-runtime root #f))
+            (capture-process (program-command root output)))))))
 
-;; The compiled compiler and its source on Chibi must emit the same text
+;; The text one compiler command emits for a program, or #f with a report.
+(define (emitted root command what program)
+  (guard (failure
+          (#t (report "host agreement" (string-append what " failed") (error-text failure))))
+    (run-compiler root command "wat" (standard-directories root) (path-join root program))))
+
+;; The compiled compiler and its source on Chez must emit the same text
 ;; for the same program; `make bootstrap` checks the compiler itself. The
 ;; control programs reach the backend of control effects too: its A-normal
 ;; form, frames, rebasing and latent forwarding.
@@ -369,18 +355,13 @@
     "tests/programs/control-stored-resume.sld"))
 
 (define (check-host-agreement root)
-  (every (lambda (program) (check-host-agreement-on root program)) host-agreement-programs))
+  (for-all (lambda (program) (check-host-agreement-on root program)) host-agreement-programs))
 
 (define (check-host-agreement-on root program)
-  (let* ((tool (path-join root "scripts/snail-tool"))
-         (source (path-join root program))
-         (compiled (capture-process (list tool "wat" source)))
-         (interpreted (capture-process (list "env" "SNAIL_STAGE0=chibi" tool "wat" source))))
-    (cond ((not (zero? (caddr compiled)))
-           (report "host agreement" "the compiled compiler failed" (cadr compiled)))
-          ((not (zero? (caddr interpreted)))
-           (report "host agreement" "the source on Chibi failed" (cadr interpreted)))
-          ((not (equal? (car compiled) (car interpreted)))
+  (let ((compiled (emitted root (cli-compiler root #f) "the compiled compiler" program))
+        (interpreted (emitted root (chez-compiler root) "the source on Chez" program)))
+    (cond ((not (and compiled interpreted)) #f)
+          ((not (equal? compiled interpreted))
            (report "host agreement"
                    (string-append "the two hosts emit different text for " program)
                    ""))
@@ -391,16 +372,12 @@
 ;; uses is deterministic by the spec; only NaN payloads could differ.
 ;; The application fixture exercises classes, effects, tasks and serialization.
 (define (check-engine-agreement root)
-  (let* ((tool (path-join root "scripts/snail-tool"))
-         (wat (list "wat" (path-join root "tests/app-runtime/main.sld")))
-         (v8 (capture-process (append (list "env" "SNAIL_STAGE0=" "SNAIL_ENGINE=node" tool) wat)))
-         (wasmtime (capture-process
-                    (append (list "env" "SNAIL_STAGE0=" "SNAIL_ENGINE=wasmtime" tool) wat))))
+  (let* ((program "tests/app-runtime/main.sld")
+         (v8 (emitted root (cli-compiler root #f) "the compiler on V8" program))
+         (wasmtime (emitted root (cli-compiler root #t) "the compiler on wasmtime" program)))
     (cond
-     ((not (zero? (caddr v8))) (report "engine agreement" "the compiler on V8 failed" (cadr v8)))
-     ((not (zero? (caddr wasmtime)))
-      (report "engine agreement" "the compiler on wasmtime failed" (cadr wasmtime)))
-     ((not (equal? (car v8) (car wasmtime)))
+     ((not (and v8 wasmtime)) #f)
+     ((not (equal? v8 wasmtime))
       (report "engine agreement"
               "V8 and wasmtime emit different text for the application fixture"
               ""))
@@ -449,7 +426,28 @@
     (or (zero? (caddr result))
         (report "project development" "failed" (string-append (car result) (cadr result))))))
 
-;; ./snail reuses stage 0's tool list only while nothing its rule reads
+;; `snail-scheme lsp` answers an editor for a project of its own.
+(define (check-language-server root)
+  (let ((result (capture-process
+                 (list "node" "--no-warnings" (path-join root "tests/lsp.mjs") root))))
+    (or (zero? (caddr result))
+        (report "language server" "failed" (string-append (car result) (cadr result))))))
+
+;; Zed's grammar parses every tracked Scheme file.
+(define (check-tree-sitter root)
+  (let ((result (capture-process
+                 (list "node" "--no-warnings" (path-join root "tests/tree-sitter.mjs") root))))
+    (or (zero? (caddr result))
+        (report "tree-sitter grammar" "failed" (string-append (car result) (cadr result))))))
+
+;; VS Code's extension starts the language server for the language's files.
+(define (check-vscode root)
+  (let ((result (capture-process
+                 (list "node" "--no-warnings" (path-join root "tests/vscode.mjs") root))))
+    (or (zero? (caddr result))
+        (report "vscode extension" "failed" (string-append (car result) (cadr result))))))
+
+;; ./snail-scheme reuses stage 0's tool list only while nothing its rule reads
 ;; changed, in a root of stubs that builds nothing.
 (define (check-launcher root)
   (let ((result (capture-process
@@ -475,43 +473,42 @@
     (or (zero? (caddr result))
         (report "project reload" "failed" (string-append (car result) (cadr result))))))
 
-(define (check-development-runs root)
-  (let ((result (capture-process
-                 (list "node" "--no-warnings" (path-join root "tests/development-runs.mjs") root))))
-    (or (zero? (caddr result))
-        (report "development runs" "failed" (string-append (car result) (cadr result))))))
-
-(define (check-project-http root)
-  (let ((result (capture-process
-                 (list "node" "--no-warnings" (path-join root "tests/project-http.mjs") root))))
-    (or (zero? (caddr result))
-        (report "project HTTP" "test failed" (string-append (car result) (cadr result))))))
-
-(define (check-project-search root)
-  (let ((result (capture-process
-                 (list "node" "--no-warnings" (path-join root "tests/project-search.mjs") root))))
-    (or (zero? (caddr result))
-        (report "project search" "test failed" (string-append (car result) (cadr result))))))
-
-(define (check-project-create root)
-  (let ((result (capture-process
-                 (list "node" "--no-warnings" (path-join root "tests/project-create.mjs") root))))
-    (or (zero? (caddr result))
-        (report "project creation" "test failed" (string-append (car result) (cadr result))))))
-
 (define (check-tcp root)
   (let ((result (capture-process (list "node" "--no-warnings" (path-join root "tests/tcp.mjs")))))
     (or (zero? (caddr result))
         (report "native TCP" "failed" (string-append (car result) (cadr result))))))
 
 (define (check-udp root)
-  (every (lambda (flags)
-           (let ((result (capture-process (append (list "node" "--no-warnings")
-                                                  flags
-                                                  (list (path-join root "tests/udp.mjs"))))))
-             (or (zero? (caddr result))
-                 (report "native UDP" "failed" (string-append (car result) (cadr result))))))
-         '(() ("--test-udp-no-try-send"))))
+  (for-all (lambda (flags)
+             (let ((result (capture-process (append (list "node" "--no-warnings")
+                                                    flags
+                                                    (list (path-join root "tests/udp.mjs"))))))
+               (or (zero? (caddr result))
+                   (report "native UDP" "failed" (string-append (car result) (cadr result))))))
+           '(() ("--test-udp-no-try-send"))))
+
+(define (compile-async-files root)
+  (let ((text (program->wat root (standard-directories root)
+                            (path-join root "tests/async-files/main.sld"))))
+    (lambda ()
+      (let ((program (path-join root "build/tests/async-files.wasm")))
+        (link-wat root text program)
+        (check-async-files root program "static")))))
+
+(define (check-async-files root program mode)
+  (let ((printed
+         (run-wasm root program (path-join root (string-append "build/tests/async-data-" mode))))
+        (expected (read-file (path-join root "tests/async-files/main.out"))))
+    (cond ((string=? printed expected) #t)
+          ((string=? printed "SKIP: native async file provider unavailable\n")
+           (display "async files: io_uring unavailable; native integration skipped\n") #t)
+          (else (report "async files" "wrong output" printed)))))
+
+(define (run-linked-async-files root)
+  (let ((output (path-join root "build/tests/linked/async-files")))
+    (build-modules root (standard-directories root)
+                   (path-join root "tests/async-files/main.sld") output)
+    (check-async-files root (path-join output "modules.json") "linked")))
 
 (define (compile-socket-boundary root)
   (let ((text (program->wat root
@@ -595,38 +592,34 @@
   '(("examples" "fibonacci")
     ("examples" "effects")
     ("examples" "colors")
-    ("examples" "scheme-fibonacci")
     ("tests/programs" "closures")
     ("tests/programs" "classes-advanced")
     ("tests/programs" "data")
-    ("tests/programs" "dynamic")
+    ("tests/programs" "explicit-any")
     ("tests/programs" "wire")
     ("tests/programs" "deriving-libraries")
     ("tests/programs" "tables")
-    ("tests/programs" "implicit-any")
-    ("tests/programs" "dynamic-instance")
-    ("tests/programs" "dynamic-instance-effects")
     ("tests/programs" "libraries")
     ("tests/programs" "specialization-order")
-    ("tests/programs" "specialization-drop")
     ("tests/programs" "generated") ("tests/programs" "wasm")
+    ("tests/programs" "wasm-instance-identity")
+
     ("tests/programs" "handler-captures")
     ("tests/programs" "tasks-main")
-    ("tests/programs" "once")
     ("tests/programs" "tasks")
+    ("tests/programs" "ui-checkpoint-wait")
     ("tests/programs" "mailbox")
     ("tests/programs" "effect-row-inclusion")
     ("tests/programs" "link-file")
     ("tests/programs" "control-early-exit")
     ("tests/programs" "control-per-library")
-    ("tests/programs" "borrow-per-library")
-    ("tests/programs" "borrow-parameters")
-    ("tests/programs" "borrow-fields")
-    ("tests/programs" "borrow-continuations")
+    ("tests/programs" "function-values")
+    ("tests/programs" "function-cache")
     ("tests/programs" "control-placeholders")
     ("tests/programs" "control-generator")
     ("tests/programs" "control-resumable-exception")
     ("tests/programs" "control-stored-resume")
+    ("tests/programs" "control-resume-twice")
     ("tests/programs" "control-tail-loop")
     ("tests/programs" "tcp") ("tests/programs" "tcp-handler") ("tests/programs" "process")
     ("tests/programs" "udp") ("tests/programs" "udp-handler") ("tests/programs" "http")
@@ -667,8 +660,9 @@
                         (list (lambda () (run-linked-app-runtime root))
                               (lambda () (run-linked-host-boundary root))
                               (lambda () (run-linked-socket-boundary root))
-                              (lambda () (run-dynamic-loading root))))))
-    (if chibi-compiler?
+                              (lambda () (run-linked-async-files root))
+                              ))))
+    (if source-compiler?
         (map (lambda (check) (check)) checks)
         (run-checks checks))))
 
@@ -688,91 +682,50 @@
                    output)
     (run-host-boundary root (path-join output "modules.json"))))
 
-;; ---- Loading while a program runs ----
-
-;; A host program, linked when it runs, loads what other builds hold
-;; through (snail shell wasm): the module of a library from a plugin's
-;; build, whose exported function it casts and calls, and the plugin
-;; itself, whose dynamic function it calls on values of a library both
-;; import. The plugin is built twice, the second time from a stale
-;; declaration of that library, whose function the host must refuse.
-(define (run-dynamic-loading root)
-  (guard (failure (#t (report "dynamic loading" "build failed" (error-text failure))))
-    (let* ((source (lambda (name) (path-join root "tests/dynamic" name)))
-           (output (lambda (name) (path-join root "build/tests/dynamic" name)))
-           (directories (cons (source "lib") (standard-directories root))))
-      (build-modules root directories (source "plugin.sld") (output "plugin"))
-      (build-modules root
-                     (cons (source "stale") directories)
-                     (source "plugin.sld")
-                     (output "stale"))
-      (build-modules root directories (source "host.sld") (output "host"))
-      (let ((printed (run-wasm root
-                               (path-join (output "host") "modules.json")
-                               (path-join (output "plugin") "cell.wasm")
-                               (path-join (output "plugin") "modules.json")
-                               (path-join (output "stale") "modules.json")))
-            (expected (read-file (source "host.out"))))
-        (or (equal? printed expected)
-            (report "dynamic loading"
-                    "wrong output"
-                    (string-append printed "\nexpected:\n" expected)))))))
-
 ;; ---- Checks in parallel ----
 
-;; A check owns its output files, and each compile has private scratch, so
-;; checks run in child processes, `jobs` at a time. With the source compiler
-;; on Chibi, run-suite compiles first, leaving only linking and execution
-;; for these children. A child reports its failure and exits with its result.
+;; A worker claims one index under the mutex and owns that result slot.
+;; Compiles and linked programs execute in child processes with private files.
 (define jobs 8)
 
 (define (run-checks cases)
-  (let ((results (list->vector cases)))
-    (let loop ((pending (filter (lambda (index) (procedure? (vector-ref results index)))
-                                (iota (vector-length results))))
-               (running '()))
-      (cond ((and (pair? pending) (< (length running) jobs))
-             (loop (cdr pending)
-                   (cons (cons (start-check (vector-ref results (car pending))) (car pending))
-                         running)))
-            ((pair? running)
-             (let* ((done (waitpid -1 0)) (entry (assv (car done) running)))
-               (vector-set! results (cdr entry) (zero? (cadr done)))
-               (loop pending (delete entry running))))
-            (else (vector->list results))))))
-
-;; Ports are flushed before the fork so no buffered text is written twice,
-;; and the child exits without unwinding into the parent's continuation.
-(define (start-check check)
-  (flush-output-port (current-output-port))
-  (flush-output-port (current-error-port))
-  (let ((pid (fork)))
-    (if (zero? pid)
-        (let ((passed
-               (guard (failure (#t (report "check" "raised" (error-text failure)))) (check))))
-          (flush-output-port (current-output-port))
-          (flush-output-port (current-error-port))
-          (emergency-exit (if passed 0 1)))
-        pid)))
+  (let* ([results (list->vector cases)] [next 0] [remaining jobs]
+         [lock (make-mutex)] [done (make-condition)])
+    (define (claim)
+      (with-mutex lock
+                  (and (< next (vector-length results))
+                       (let ([index next]) (set! next (+ next 1)) index))))
+    (define (worker)
+      (let loop ([index (claim)])
+        (when index
+          (let ([check (vector-ref results index)])
+            (when (procedure? check)
+              (vector-set! results index
+                           (guard (failure [else (report "check" "raised" (error-text failure))])
+                             (check)))))
+          (loop (claim))))
+      (with-mutex lock (set! remaining (- remaining 1)) (condition-signal done)))
+    (do ([i 0 (+ i 1)]) [(= i jobs)] (fork-thread worker))
+    (with-mutex lock
+                (let wait () (unless (= remaining 0) (condition-wait done lock) (wait))))
+    (vector->list results)))
 
 ;; ---- Suite ----
 
 (define (main root selected)
   (test-forms)
+  (test-base)
   (test-read)
-  (test-annotations)
   (test-inputs)
   (test-build root)
   (test-process root)
   (test-core)
   (test-sha256)
   (test-check)
-  (test-conversions)
   (test-specialize)
   (test-prepare)
   (test-wasm)
   (test-expand (path-join root "build/tests/expand") (path-join root "src"))
-  (test-session (path-join root "build/tests/session") (path-join root "src"))
   (test-plan (path-join root "build/tests/plan") (path-join root "src"))
   (test-project)
   (let* ((cases (append (run-suite root "examples" '("examples") selected)
@@ -798,32 +751,34 @@
                                   (lambda () (check-project-resources root))
                                   (lambda () (check-project-development root))
                                   (lambda () (check-project-attempts root))
-                                  (lambda () (check-development-runs root))
-                                  (lambda () (check-project-http root))
-                                  (lambda () (check-project-search root))
-                                  (lambda () (check-project-create root))
                                   (lambda () (check-project-bundles root))
                                   (lambda () (check-launcher root))
+                                  (lambda () (check-language-server root))
+                                  (lambda () (check-tree-sitter root))
+                                  (lambda () (check-vscode root))
                                   (lambda () (check-project-reload root))
                                   (lambda () (check-tcp root))
                                   (lambda () (check-udp root))
                                   (lambda () (check-type-ids root))
                                   (lambda () (check-numeric-runtime root))
-                                  (lambda () (check-host-boundary root))
+                                  (lambda ()
+                                    (and (check-exposed-values root "host-values")
+                                         (check-host-boundary root)))
                                   (compile-artifacts root)
                                   (compile-socket-boundary root)
+                                  (compile-async-files root)
                                   (compile-termination root)
                                   (compile-app-runtime root)
                                   (lambda () (check-siegework root))
                                   (compile-toolchain-assembler root)
-                                  (compile-formatter root)
+                                  (lambda () (check-formatter root))
                                   (compile-book-highlighter root))
                             '())))
          (results (append (run-checks cases)
                           (if (null? selected)
                               (run-linked-cases root)
                               '())))
-         (failures (count not results)))
+         (failures (length (filter not results))))
     (display (string-append (number->string (- (length results) failures))
                             "/"
                             (number->string (length results))

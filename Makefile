@@ -1,83 +1,73 @@
 .DEFAULT_GOAL := check
-.PHONY: format check fetch test test-wasmtime test-chibi test-browser bootstrap ide site siegework hearsay pages
+.PHONY: format check fetch test test-wasmtime test-chez test-browser bootstrap watch site siegework hearsay pages
 
-CHIBI ?= chibi-scheme
-# Chibi collects the whole heap whenever it grows, so start it large.
-HEAP ?= 2G
-EMACS ?= emacs
+CHEZ ?= scheme
+export CHEZ
 NIXFMT ?= nixfmt
 MDBOOK ?= mdbook
-SCHEME_SOURCES = '*.scm' '*.sld'
-# Stage 0 sees only bootstrap/chibi-include: one symlink per library the
-# compiler's own load closure reaches, so no other library under src/ can
-# enter the bootstrap by accident. tests/ supplies (snail stage0 testing).
-CHIBI_PATH = -I tests -I bootstrap/chibi-include
+# Tree-sitter's queries under editors/zed are written in .scm files too.
+SCHEME_SOURCES = '*.scm' '*.sld' '*.sls' ':(exclude)editors/zed/languages'
 
 # Downloads the Rust crates in each Cargo.lock, which the tests and every
 # build then use offline. Run it once in a new checkout or container.
 fetch:
-	cargo fetch --locked --manifest-path crates/snail-core-support/Cargo.toml
+	cargo fetch --locked --manifest-path crates/snail-scheme-support/Cargo.toml
 	cargo fetch --locked --manifest-path crates/snail/Cargo.toml
 
 # The formatter's tests, the compiler's unit tests, the examples and test
 # programs, both games' tests, Siegework headless, and the development service.
-# Build shared tools before the service tests' startup deadlines begin.
+# Bootstrap the command line and build the engine that runs per-library
+# programs before the service tests' startup deadlines begin.
 test:
-	./scripts/snail-tool dev-tools >/dev/null
-	"$(EMACS)" --quick --batch -l tests/format-scheme.el -f ert-run-tests-batch-and-exit
-	"$(CHIBI)" -h $(HEAP) -D snail-tests $(CHIBI_PATH) tests/run.scm "$(CURDIR)"
+	./snail-scheme build . engine >/dev/null
+	"$(CHEZ)" --script host/chez/load.scm "$(CURDIR)" test
 
 # The suite with every compile on the native executable's wasmtime instead of
 # Node, plus the check that both engines emit the same text.
 test-wasmtime:
 	SNAIL_ENGINE=wasmtime $(MAKE) test
 
-# The suite with the compiler's source running on Chibi instead of as Wasm.
-test-chibi:
-	SNAIL_STAGE0=chibi ./scripts/snail-tool dev-tools >/dev/null
-	SNAIL_STAGE0=chibi "$(CHIBI)" -h $(HEAP) -D snail-tests $(CHIBI_PATH) tests/run.scm "$(CURDIR)"
+# The suite with the compiler's source running on Chez instead of as Wasm.
+test-chez:
+	./snail-scheme build . engine >/dev/null
+	SNAIL_STAGE0=chez "$(CHEZ)" --script host/chez/load.scm "$(CURDIR)" test
 
-# Live reload and the browser IDE in headless Chromium, which CI does not
-# have; CHROMIUM names the browser.
+# Live reload and browser interfaces in headless Chromium, which CI does
+# not have; CHROMIUM names the browser.
 test-browser:
 	node tests/browser/reload.mjs "$(CURDIR)"
-	node tests/browser/ide.mjs "$(CURDIR)"
-	node tests/browser/ide-highlights.mjs "$(CURDIR)"
-	node tests/browser/ide-palette.mjs "$(CURDIR)"
-	node tests/browser/ide-search.mjs "$(CURDIR)"
-	node tests/browser/ide-create.mjs "$(CURDIR)"
-	node tests/browser/ide-installable.mjs "$(CURDIR)"
-	node tests/browser/ide-install.mjs "$(CURDIR)"
-	node tests/browser/ide-runs.mjs "$(CURDIR)"
-	node tests/browser/ide-refresh.mjs "$(CURDIR)"
+	node tests/browser/wasm-instance-identity.mjs "$(CURDIR)"
 	node tests/browser/ui.mjs "$(CURDIR)"
 	node tests/browser/ui-reload.mjs "$(CURDIR)"
+	node tests/browser/ui-requests.mjs "$(CURDIR)"
 
-# Rebuilds the compiler from its source on Chibi, then to a fixpoint.
+# Rebuilds the command line from the compiler's source on Chez, then to a
+# fixpoint.
 bootstrap:
-	rm -rf build/compiler
-	./scripts/snail-tool bootstrap
+	rm -rf build/bootstrap
+	./scripts/bootstrap
 
 format:
-	git ls-files -z $(SCHEME_SOURCES) | EMACS="$(EMACS)" xargs -0 ./scripts/format-scheme --write
+	git ls-files -z $(SCHEME_SOURCES) | xargs -0 ./scripts/format-scheme --write
 	$(NIXFMT) shell.nix
 
 check:
-	git ls-files -z $(SCHEME_SOURCES) | EMACS="$(EMACS)" xargs -0 ./scripts/format-scheme --check
+	git ls-files -z $(SCHEME_SOURCES) | xargs -0 ./scripts/format-scheme --check
 	$(NIXFMT) --check shell.nix
 
-# The native project service and browser editor for the whole repository.
-ide:
-	CHIBI="$(CHIBI)" SNAIL_HEAP="$(HEAP)" ./snail dev .
+# The development service for the whole repository: each browser target
+# at http://127.0.0.1:8000/NAME/, relinked as its sources change.
+watch:
+	./snail-scheme watch .
 
 # The root project names each application, with output in build/NAME.
 site: siegework hearsay
 
 siegework:
-	CHIBI="$(CHIBI)" SNAIL_HEAP="$(HEAP)" ./snail build --release . siegework
+	./snail-scheme build --release . siegework
 
 hearsay:
-	CHIBI="$(CHIBI)" SNAIL_HEAP="$(HEAP)" ./snail build --release . hearsay
+	./snail-scheme build --release . hearsay
 
 # The GitHub Pages site in build/pages: the book, with Siegework at
 # play/siegework/. Hearsay stays unpublished: its LPC art must be credited

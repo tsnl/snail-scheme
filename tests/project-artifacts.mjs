@@ -10,9 +10,9 @@ import {promisify} from 'node:util';
 const execute = promisify(execFile), root = process.argv[2];
 const project = await mkdtemp(join(tmpdir(), 'snail-project-artifacts-'));
 const output = name => join(project, 'build', name);
-const build = name => execute(join(root, 'snail'), ['build', project, name], {maxBuffer: 4 * 1024 * 1024});
+const build = name => execute(join(root, 'snail-scheme'), ['build', project, name], {maxBuffer: 4 * 1024 * 1024});
 const run = path => execute(process.execPath, ['--no-warnings', join(root, 'host/native/run-snail.mjs'), path]);
-const artifact = name => `(import (snail core base) (snail shell artifact))\n(artifact-bundle "${name}")\n`;
+const artifact = name => `(import (snail core base) (snail shell artifact))\n(define (main) (→ Unit) (artifact-bundle "${name}") (unit))\n`;
 
 async function generations() {
   const counts = {};
@@ -49,18 +49,19 @@ async function producerCycles() {
     (import (snail core base) (snail core io) (snail shell syntax) ${imports})
     (begin (write-file "${join(directory, `${name.replace('/', '-')}.ran`)}" "ran")
       (library-syntax (list "${name.replace('/', '" "')}") (list "value") (list (list "snail" "core" "base") ${output})
-        (list (form ":" (list (SymbolSyntax "value") (SymbolSyntax "String")))
-              (form "define" (list (SymbolSyntax "value") (StringSyntax "${name}")))))))`;
+        (list (form "define" (list (form "value" (Nil))
+              (form "→" (list (SymbolSyntax "String")))
+              (StringSyntax "${name}")))))))`;
   try {
     await write('project.datum', `((build-target knot (program (entry "knot.sld") (library-roots ("src"))))
       (build-target late (program (entry "late.sld") (library-roots ("src")))))`);
-    await write('knot.sld', '(import (snail core base) (sample knot)) (unit)');
+    await write('knot.sld', '(import (snail core base) (sample knot)) (define (main) (→ Unit) (unit))');
     await write('src/sample/knot.sld', recipe('sample/knot', '(sample knot-helper)', ''));
     await write('src/sample/knot-helper.sld', '(define-library (sample knot-helper) (export) (import (sample knot)) (begin))');
-    await write('late.sld', '(import (snail core base) (g one)) (unit)');
+    await write('late.sld', '(import (snail core base) (g one)) (define (main) (→ Unit) (unit))');
     await write('src/g/one.sld', recipe('g/one', '', '(list "g" "two")'));
     await write('src/g/two.sld', recipe('g/two', '(g one)', ''));
-    const build = name => execute(join(root, 'snail'), ['build', directory, name], {maxBuffer: 4 * 1024 * 1024});
+    const build = name => execute(join(root, 'snail-scheme'), ['build', directory, name], {maxBuffer: 4 * 1024 * 1024});
     await assert.rejects(build('knot'), /library import cycle through sample\.knot/);
     assert.equal(await ran('sample-knot'), false, 'a producer in a cycle never runs');
     await assert.rejects(build('late'), /library import cycle through g\.one/);
@@ -119,15 +120,15 @@ try {
   await writeFile(join(project, 'client.sld'), artifact('client'));
   await assert.rejects(build('client'), /client -> client/);
   await writeFile(join(project, 'client.sld'), artifact('admin'));
-  await writeFile(join(project, 'admin.sld'), '(import (snail core base) (generated assets))\n(unit)\n');
+  await writeFile(join(project, 'admin.sld'), '(import (snail core base) (generated assets))\n(define (main) (→ Unit) (unit))\n');
   await assert.rejects(build('client'), /client -> admin -> client/, 'cycle discovered while compiling a producer');
-  await writeFile(join(project, 'client.sld'), '(import (snail core base)) (unit)\n');
+  await writeFile(join(project, 'client.sld'), '(import (snail core base)) (define (main) (→ Unit) (unit))\n');
   await assert.rejects(build('admin'), /artifact dependency cycle: admin -> admin/, 'cycle introduced by generated syntax');
   assert.deepEqual(await generations(), beforeCycles, 'a rejected cycle removes the generations its build created');
 
-  await writeFile(join(project, 'client.sld'), '(import (snail core base)) (unit)\n');
-  await writeFile(join(project, 'admin.sld'), '(import (snail core base)) (unit)\n');
-  await writeFile(join(project, 'server.sld'), `${source}\n(missing-function)\n`);
+  await writeFile(join(project, 'client.sld'), '(import (snail core base)) (define (main) (→ Unit) (unit))\n');
+  await writeFile(join(project, 'admin.sld'), '(import (snail core base)) (define (main) (→ Unit) (unit))\n');
+  await writeFile(join(project, 'server.sld'), `${source}\n(define (broken) (→ Unit) (missing-function))\n`);
   const priorClient = await realpath(output('client'));
   await assert.rejects(build('server'), /missing-function/);
   assert.equal(await realpath(output('server')), second, 'failed parent retains its prior completed output');

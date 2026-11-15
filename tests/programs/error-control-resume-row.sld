@@ -7,38 +7,40 @@
 ;; `log` then needs a Log handler there, so `resume` performs the handle's
 ;; context row, Log here, and a Step that stores it must say so.
 (effect Gen
-  ((ctl yield (-> I64 I64))))
+  ((ctl yield (Fn I64 → I64))))
 
 (effect Log
-  ((log (-> String Unit))))
+  ((log (Fn String → Unit))))
 
 ;; ANCHOR: step
 (enum Step
   (Done)
   (Yielded
    ((value I64)
-    (next (FnOnce I64 Step)))))
+    (next (Fn I64 → Step)))))
 
-(: start (-> (-> Unit ! Gen) Step ! Log))
-(define (start body)
+(define (start (body (Fn → Unit ! Gen))) (→ Step) (! Log)
   (handle Gen ((yield (lambda (v resume)
                         (log (string-append "handler saw " (show v)))
                         (Yielded v resume))))
     (body)
     (Done)))
+
 ;; ANCHOR_END: step
 
-(: counter (-> Unit ! Gen))
-(define (counter)
+(define (counter) (→ Unit) (! Gen)
   (yield 1)
   (yield 2)
   (unit))
 
-;; With no Log handler around `next`, the second yield would log to none.
-(match (handle Log ((log (lambda (line) (write-line line)))) (start counter))
-  ((Yielded value next)
-   (write-line (string-append "got " (show value)))
-   (match (next 10)
-     ((Yielded value _) (write-line (string-append "got " (show value))))
-     ((Done) (write-line "done"))))
-  ((Done) (write-line "done at once")))
+(define main
+  (lambda ()
+    ;; With no Log handler around `next`, the second yield would log to none.
+    (match (handle Log ((log (lambda (line) (write-line line)))) (start counter))
+      ((Yielded value next)
+       (write-line (string-append "got " (show value)))
+       (match (next 10)
+         ((Yielded value _) (write-line (string-append "got " (show value))))
+         ((Done) (write-line "done"))))
+      ((Done) (write-line "done at once")))
+    (unit)))

@@ -6,8 +6,6 @@
    Ledger
    new-ledger
    ledger-over?
-   Ledger-round
-   Ledger-last-round
    round-count
    you
    vee
@@ -21,10 +19,6 @@
    EndRound
    ledger-act
    Choice
-   Choice-command
-   Choice-text
-   Choice-caption
-   Choice-refusal
    offer-choices
    contact-choices
    job-choices
@@ -45,54 +39,43 @@
 
     ;; Abilities, contacts and fixers are indices into these tables. Contact
     ;; c lends the ability (list-ref contact-abilities c).
-    (: ability-names (List String))
-    (define ability-names (list "doors" "muscle" "medicine" "fencing" "paperwork" "eyes"))
+    (define (ability-names)
+      (→ (List String))
+      (list "doors" "muscle" "medicine" "fencing" "paperwork" "eyes"))
 
-    (: ability-count I64)
-    (define ability-count 6)
+    (define (ability-count) (→ I64) 6)
 
-    (: contact-names (List String))
-    (define contact-names (list "Ivo" "Ren" "Sal" "Tia" "Una" "Vik" "Wes" "Xan"))
+    (define (contact-names)
+      (→ (List String))
+      (list "Ivo" "Ren" "Sal" "Tia" "Una" "Vik" "Wes" "Xan"))
 
-    (: contact-abilities (List I64))
-    (define contact-abilities (list 2 0 1 3 4 5 0 1))
+    (define (contact-abilities) (→ (List I64)) (list 2 0 1 3 4 5 0 1))
 
-    (: contact-count I64)
-    (define contact-count 8)
+    (define (contact-count) (→ I64) 8)
 
-    (: round-count I64)
-    (define round-count 8)
+    (define (round-count) (→ I64) 8)
 
-    (: ability-name (-> I64 String))
-    (define (ability-name ability)
-      (list-ref ability-names ability))
+    (define (ability-name (ability I64)) (→ String)
+      (list-ref (ability-names) ability))
 
-    (: contact-name (-> I64 String))
-    (define (contact-name contact)
-      (list-ref contact-names contact))
+    (define (contact-name (contact I64)) (→ String)
+      (list-ref (contact-names) contact))
 
-    (: contact-ability (-> I64 I64))
-    (define (contact-ability contact)
-      (list-ref contact-abilities contact))
+    (define (contact-ability (contact I64)) (→ I64)
+      (list-ref (contact-abilities) contact))
 
     ;; Fixer 0 is you; Vee and Kit are the rivals.
-    (: you I64)
-    (define you 0)
+    (define (you) (→ I64) 0)
 
-    (: vee I64)
-    (define vee 1)
+    (define (vee) (→ I64) 1)
 
-    (: kit I64)
-    (define kit 2)
+    (define (kit) (→ I64) 2)
 
-    (: rivals (List I64))
-    (define rivals (list vee kit))
+    (define (rivals) (→ (List I64)) (list (vee) (kit)))
 
-    (: everyone (List I64))
-    (define everyone (list you vee kit))
+    (define (everyone) (→ (List I64)) (list (you) (vee) (kit)))
 
-    (: fixer-name (-> I64 String))
-    (define (fixer-name who)
+    (define (fixer-name (who I64)) (→ String)
       (list-ref (list "You" "Vee" "Kit") who))
 
     ;; ---- Markers ----
@@ -100,34 +83,29 @@
     ;; A marker lends its holder its contact's ability once. It lapses at the
     ;; end of round `lapses`, the second round after the one in which it was
     ;; granted, and keeps that date when it changes hands.
-    (struct Marker
+    (record Marker
       ((contact I64)
        (lapses I64))
       (deriving Serialize Deserialize))
 
-    (: grant-marker (-> I64 I64 Marker))
-    (define (grant-marker contact granted)
-      (Marker contact (+ granted 2)))
+    (define (grant-marker (contact I64) (granted I64)) (→ Marker)
+      (new Marker (contact contact) (lapses (+ granted 2))))
 
-    (: marker-ability (-> Marker I64))
-    (define (marker-ability marker)
-      (contact-ability (Marker-contact marker)))
+    (define (marker-ability (marker Marker)) (→ I64)
+      (contact-ability (● marker contact)))
 
     ;; The older marker lapses first; between equal dates, the lower contact
     ;; is older.
-    (: older? (-> Marker Marker Bool))
-    (define (older? a b)
-      (or (< (Marker-lapses a) (Marker-lapses b))
-          (and (= (Marker-lapses a) (Marker-lapses b)) (< (Marker-contact a) (Marker-contact b)))))
+    (define (older? (a Marker) (b Marker)) (→ Bool)
+      (or (< (● a lapses) (● b lapses))
+          (and (= (● a lapses) (● b lapses)) (< (● a contact) (● b contact)))))
 
-    (: same-marker? (-> Marker Marker Bool))
-    (define (same-marker? a b)
-      (and (= (Marker-contact a) (Marker-contact b)) (= (Marker-lapses a) (Marker-lapses b))))
+    (define (same-marker? (a Marker) (b Marker)) (→ Bool)
+      (and (= (● a contact) (● b contact)) (= (● a lapses) (● b lapses))))
 
     ;; A hand of markers stays sorted oldest first, so the first marker with
     ;; an ability is the oldest one.
-    (: insert-marker (-> Marker (List Marker) (List Marker)))
-    (define (insert-marker marker markers)
+    (define (insert-marker (marker Marker) (markers (List Marker))) (→ (List Marker))
       (match markers
         ((Nil) (list marker))
         ((Cons first rest)
@@ -135,28 +113,24 @@
              (Cons first (insert-marker marker rest))
              (Cons marker markers)))))
 
-    (: remove-marker (-> Marker (List Marker) (List Marker)))
-    (define (remove-marker marker markers)
+    (define (remove-marker (marker Marker) (markers (List Marker))) (→ (List Marker))
       (match markers
         ((Nil) (Nil))
         ((Cons first rest)
          (if (same-marker? first marker) rest (Cons first (remove-marker marker rest))))))
 
-    (: oldest-with (-> (List Marker) I64 (Option Marker)))
-    (define (oldest-with markers ability)
+    (define (oldest-with (markers (List Marker)) (ability I64)) (→ (Option Marker))
       (find (lambda (marker) (= (marker-ability marker) ability)) markers))
 
     ;; The abilities, in order, that no marker in the hand lends.
-    (: lacking (-> (List Marker) (List I64) (List I64)))
-    (define (lacking markers abilities)
+    (define (lacking (markers (List Marker)) (abilities (List I64))) (→ (List I64))
       (filter (lambda (ability)
                 (null? (filter (lambda (marker) (= (marker-ability marker) ability)) markers)))
               abilities))
 
     ;; Spends the oldest marker for each ability. The caller has checked that
     ;; none is lacking.
-    (: spend-for (-> (List Marker) (List I64) (List Marker)))
-    (define (spend-for markers abilities)
+    (define (spend-for (markers (List Marker)) (abilities (List I64))) (→ (List Marker))
       (fold-left (lambda (left ability)
                    (match (oldest-with left ability)
                      ((Some marker) (remove-marker marker left))
@@ -167,20 +141,18 @@
 
     ;; A job needs two or three different abilities, in ascending order, and
     ;; expires at the end of round `expires`, the round after it is posted.
-    (struct Job
+    (record Job
       ((number I64)
        (abilities (List I64))
        (expires I64))
       (deriving Serialize Deserialize))
 
     ;; Two abilities pay 4 coins and 1 standing; three pay 6 and 2.
-    (: job-coins (-> Job I64))
-    (define (job-coins job)
-      (* 2 (length (Job-abilities job))))
+    (define (job-coins (job Job)) (→ I64)
+      (* 2 (length (● job abilities))))
 
-    (: job-standing (-> Job I64))
-    (define (job-standing job)
-      (- (length (Job-abilities job)) 1))
+    (define (job-standing (job Job)) (→ I64)
+      (- (length (● job abilities)) 1))
 
     (enum Want
       (WantAbility ((ability I64)))
@@ -197,7 +169,7 @@
       (PromiseOffered ((ability I64) (due I64)))
       (deriving Serialize Deserialize))
 
-    (struct Offer
+    (record Offer
       ((number I64)
        (rival I64)
        (price I64)
@@ -205,17 +177,16 @@
       (deriving Serialize Deserialize))
 
     ;; The rival pays for a buy or for your promise; you pay for the rest.
-    (: offer-payer (-> Offer I64))
-    (define (offer-payer offer)
-      (match (Offer-deal offer)
-        ((Buy _) (Offer-rival offer))
-        ((PromiseWanted _ _) (Offer-rival offer))
-        ((Sell _) you)
-        ((PromiseOffered _ _) you)))
+    (define (offer-payer (offer Offer)) (→ I64)
+      (match (● offer deal)
+        ((Buy _) (● offer rival))
+        ((PromiseWanted _ _) (● offer rival))
+        ((Sell _) (you))
+        ((PromiseOffered _ _) (you))))
 
     ;; A debt of one marker with `ability`. It stays on the books until it is
     ;; honored or refused, and is refused if still owed at the end of `due`.
-    (struct Promise
+    (record Promise
       ((number I64)
        (debtor I64)
        (creditor I64)
@@ -226,7 +197,7 @@
     ;; ---- State ----
 
     ;; A rival's target is the job it works toward this round; yours is None.
-    (struct Fixer
+    (record Fixer
       ((coins I64)
        (standing I64)
        (markers (List Marker))
@@ -239,7 +210,7 @@
     ;; contacts met this round. `events` records what the current command
     ;; did, newest first; `last-round` keeps what the last end of round did,
     ;; oldest first, for the screen.
-    (struct Ledger
+    (record Ledger
       ((random Random)
        (round I64)
        (fixers (List Fixer))
@@ -254,307 +225,301 @@
        (last-round (List String)))
       (deriving Serialize Deserialize))
 
-    (: replace-at (All (T) (requires (Copy T)) (-> (List T) I64 T (List T))))
-    (define (replace-at items index value)
+    (define (replace-at (items (List T)) (index I64) (value T))
+      (→ (List T))
+      (∀ (T))
       (map-indexed (lambda (at item) (if (= at index) value item)) items))
 
-    (: ledger-fixer (-> Ledger I64 Fixer))
-    (define (ledger-fixer ledger who)
-      (list-ref (Ledger-fixers ledger) who))
+    (define (ledger-fixer (ledger Ledger) (who I64)) (→ Fixer)
+      (list-ref (● ledger fixers) who))
 
-    (: ledger-fixer-set (-> Ledger I64 Fixer Ledger))
-    (define (ledger-fixer-set ledger who fixer)
-      (Ledger-fixers-set ledger (replace-at (Ledger-fixers ledger) who fixer)))
+    (define (ledger-fixer-set (ledger Ledger) (who I64) (fixer Fixer)) (→ Ledger)
+      (Ledger-fixers-set ledger (replace-at (● ledger fixers) who fixer)))
 
-    (: markers-of (-> Ledger I64 (List Marker)))
-    (define (markers-of ledger who)
-      (Fixer-markers (ledger-fixer ledger who)))
+    (define (markers-of (ledger Ledger) (who I64)) (→ (List Marker))
+      (● (ledger-fixer ledger who) markers))
 
-    (: coins-of (-> Ledger I64 I64))
-    (define (coins-of ledger who)
-      (Fixer-coins (ledger-fixer ledger who)))
+    (define (coins-of (ledger Ledger) (who I64)) (→ I64)
+      (● (ledger-fixer ledger who) coins))
 
     ;; A roll below `bound`, and the ledger with its generator advanced past it.
-    (: roll (-> Ledger I64 (Pair I64 Ledger)))
-    (define (roll ledger bound)
-      (let ((random (Ledger-random ledger)))
-        (Pair (random-below random bound) (Ledger-random-set ledger (random-next random)))))
+    (define (roll (ledger Ledger) (bound I64)) (→ (Pair I64 Ledger))
+      (let ((random (● ledger random)))
+        (new Pair
+          (first (random-below random bound))
+          (second (Ledger-random-set ledger (random-next random))))))
 
-    (: note (-> Ledger String Ledger))
-    (define (note ledger text)
-      (Ledger-events-set ledger (Cons text (Ledger-events ledger))))
+    (define (note (ledger Ledger) (text String)) (→ Ledger)
+      (Ledger-events-set ledger (Cons text (● ledger events))))
 
     ;; ---- Holdings ----
 
-    (: add-coins (-> Ledger I64 I64 Ledger))
-    (define (add-coins ledger who amount)
+    (define (add-coins (ledger Ledger) (who I64) (amount I64)) (→ Ledger)
       (let ((fixer (ledger-fixer ledger who)))
-        (ledger-fixer-set ledger who (Fixer-coins-set fixer (+ (Fixer-coins fixer) amount)))))
+        (ledger-fixer-set ledger who (Fixer-coins-set fixer (+ (● fixer coins) amount)))))
 
-    (: transfer-coins (-> Ledger I64 I64 I64 Ledger))
-    (define (transfer-coins ledger from to amount)
+    (define (transfer-coins (ledger Ledger) (from I64) (to I64) (amount I64)) (→ Ledger)
       (add-coins (add-coins ledger from (negate amount)) to amount))
 
-    (: gain-marker (-> Ledger I64 Marker Ledger))
-    (define (gain-marker ledger who marker)
+    (define (gain-marker (ledger Ledger) (who I64) (marker Marker)) (→ Ledger)
       (let ((fixer (ledger-fixer ledger who)))
         (ledger-fixer-set ledger
                           who
-                          (Fixer-markers-set fixer (insert-marker marker (Fixer-markers fixer))))))
+                          (Fixer-markers-set fixer (insert-marker marker (● fixer markers))))))
 
-    (: lose-marker (-> Ledger I64 Marker Ledger))
-    (define (lose-marker ledger who marker)
+    (define (lose-marker (ledger Ledger) (who I64) (marker Marker)) (→ Ledger)
       (let ((fixer (ledger-fixer ledger who)))
         (ledger-fixer-set ledger
                           who
-                          (Fixer-markers-set fixer (remove-marker marker (Fixer-markers fixer))))))
+                          (Fixer-markers-set fixer (remove-marker marker (● fixer markers))))))
 
-    (: transfer-marker (-> Ledger I64 I64 Marker Ledger))
-    (define (transfer-marker ledger from to marker)
+    (define (transfer-marker (ledger Ledger) (from I64) (to I64) (marker Marker)) (→ Ledger)
       (gain-marker (lose-marker ledger from marker) to marker))
 
     ;; Doing a job spends one marker per ability and pays coins and standing.
-    (: complete-job (-> Ledger I64 Job Ledger))
-    (define (complete-job ledger who job)
+    (define (complete-job (ledger Ledger) (who I64) (job Job)) (→ Ledger)
       (let* ((fixer (ledger-fixer ledger who))
-             (fixer (Fixer-markers-set fixer (spend-for (Fixer-markers fixer) (Job-abilities job))))
-             (fixer (Fixer-coins-set fixer (+ (Fixer-coins fixer) (job-coins job))))
-             (fixer (Fixer-standing-set fixer (+ (Fixer-standing fixer) (job-standing job)))))
+             (fixer (Fixer-markers-set fixer (spend-for (● fixer markers) (● job abilities))))
+             (fixer (Fixer-coins-set fixer (+ (● fixer coins) (job-coins job))))
+             (fixer (Fixer-standing-set fixer (+ (● fixer standing) (job-standing job)))))
         (note
-         (Ledger-jobs-set (ledger-fixer-set ledger who fixer) (remove-job (Ledger-jobs ledger) job))
-         (string-append (acts who "complete") " job " (show (Job-number job)) " for "
+         (Ledger-jobs-set (ledger-fixer-set ledger who fixer) (remove-job (● ledger jobs) job))
+         (string-append (acts who "complete") " job " (show (● job number)) " for "
                         (coins-text (job-coins job))
                         " and "
                         (show (job-standing job))
                         " standing."))))
 
-    (: remove-job (-> (List Job) Job (List Job)))
-    (define (remove-job jobs job)
-      (filter (lambda (other) (not (= (Job-number other) (Job-number job)))) jobs))
+    (define (remove-job (jobs (List Job)) (job Job)) (→ (List Job))
+      (filter (lambda (other) (not (= (● other number) (● job number)))) jobs))
 
     ;; ---- Promises ----
 
-    (: make-promise (-> Ledger I64 I64 I64 I64 Ledger))
-    (define (make-promise ledger debtor creditor ability due)
-      (let ((promise (Promise (Ledger-next-promise ledger) debtor creditor ability due)))
+    (define (make-promise (ledger Ledger) (debtor I64) (creditor I64) (ability I64) (due I64))
+      (→ Ledger)
+      (let ((promise (new Promise
+                       (number (● ledger next-promise))
+                       (debtor debtor)
+                       (creditor creditor)
+                       (ability ability)
+                       (due due))))
         (Ledger-next-promise-set
-         (Ledger-promises-set ledger (append (Ledger-promises ledger) (list promise)))
-         (+ (Promise-number promise) 1))))
+         (Ledger-promises-set ledger (append (● ledger promises) (list promise)))
+         (+ (● promise number) 1))))
 
-    (: drop-promise (-> Ledger Promise Ledger))
-    (define (drop-promise ledger promise)
+    (define (drop-promise (ledger Ledger) (promise Promise)) (→ Ledger)
       (Ledger-promises-set ledger
                            (filter (lambda (other)
-                                     (not (= (Promise-number other) (Promise-number promise))))
-                                   (Ledger-promises ledger))))
+                                     (not (= (● other number) (● promise number))))
+                                   (● ledger promises))))
 
     ;; Keeping a promise gives the creditor the debtor's marker.
-    (: keep-promise (-> Ledger Promise Marker Ledger))
-    (define (keep-promise ledger promise marker)
-      (let* ((debtor (Promise-debtor promise))
+    (define (keep-promise (ledger Ledger) (promise Promise) (marker Marker)) (→ Ledger)
+      (let* ((debtor (● promise debtor))
              (fixer (ledger-fixer ledger debtor))
              (ledger
-              (ledger-fixer-set ledger debtor (Fixer-kept-set fixer (+ (Fixer-kept fixer) 1)))))
+              (ledger-fixer-set ledger debtor (Fixer-kept-set fixer (+ (● fixer kept) 1)))))
         (note
-         (drop-promise (transfer-marker ledger debtor (Promise-creditor promise) marker) promise)
+         (drop-promise (transfer-marker ledger debtor (● promise creditor) marker) promise)
          (string-append (acts debtor "honor")
                         " promise "
-                        (show (Promise-number promise))
+                        (show (● promise number))
                         ", giving "
-                        (object-name (Promise-creditor promise))
+                        (object-name (● promise creditor))
                         " "
                         (describe-marker marker)
                         "."))))
 
     ;; Refusing costs the debtor 1 standing and goes on their record.
-    (: refuse-promise (-> Ledger Promise Ledger))
-    (define (refuse-promise ledger promise)
-      (let* ((debtor (Promise-debtor promise))
+    (define (refuse-promise (ledger Ledger) (promise Promise)) (→ Ledger)
+      (let* ((debtor (● promise debtor))
              (fixer (ledger-fixer ledger debtor))
-             (fixer (Fixer-standing-set (Fixer-refused-set fixer (+ (Fixer-refused fixer) 1))
-                                        (- (Fixer-standing fixer) 1))))
+             (fixer (Fixer-standing-set (Fixer-refused-set fixer (+ (● fixer refused) 1))
+                                        (- (● fixer standing) 1))))
         (note (drop-promise (ledger-fixer-set ledger debtor fixer) promise)
-              (string-append (acts debtor "refuse") " promise " (show (Promise-number promise))
+              (string-append (acts debtor "refuse") " promise " (show (● promise number))
                              " and " (acts-object debtor "lose") " 1 standing."))))
 
     ;; Once you have refused a promise, rivals pay less, charge more and stop
     ;; asking you for promises.
-    (: trusted? (-> Ledger Bool))
-    (define (trusted? ledger)
-      (= (Fixer-refused (ledger-fixer ledger you)) 0))
+    (define (trusted? (ledger Ledger)) (→ Bool)
+      (= (● (ledger-fixer ledger (you)) refused) 0))
 
     ;; ---- Start of a round ----
 
     ;; Each fixer starts with 4 coins and two markers from contacts drawn at
     ;; random, dealt in turn and granted in round 1.
-    (: new-ledger (-> I64 Ledger))
-    (define (new-ledger seed)
-      (let* ((fixer (Fixer 4 0 (Nil) 0 0 (None)))
-             (ledger (Ledger (make-random seed)
-                             1
-                             (list fixer fixer fixer)
-                             (Nil)
-                             (Nil)
-                             (Nil)
-                             (Nil)
-                             (Nil)
-                             1
-                             1
-                             (Nil)
-                             (Nil)))
-             (ledger (fold-left deal-marker ledger (append everyone everyone))))
+    (define (new-ledger (seed I64)) (→ Ledger)
+      (let* ((fixer (new Fixer
+                      (coins 4)
+                      (standing 0)
+                      (markers (Nil))
+                      (kept 0)
+                      (refused 0)
+                      (target (None))))
+             (ledger (new Ledger (random (make-random seed))
+                          (round 1)
+                          (fixers (list fixer fixer fixer))
+                          (wants (Nil))
+                          (met (Nil))
+                          (jobs (Nil))
+                          (offers (Nil))
+                          (promises (Nil))
+                          (next-job 1)
+                          (next-promise 1)
+                          (events (Nil))
+                          (last-round (Nil))))
+             (ledger (fold-left deal-marker ledger (append (everyone) (everyone)))))
         (begin-round (draw-wants ledger))))
 
-    (: deal-marker (-> Ledger I64 Ledger))
-    (define (deal-marker ledger who)
-      (let ((drawn (roll ledger contact-count)))
-        (gain-marker (Pair-second drawn)
+    (define (deal-marker (ledger Ledger) (who I64)) (→ Ledger)
+      (let ((drawn (roll ledger (contact-count))))
+        (gain-marker (● drawn second)
                      who
-                     (grant-marker (Pair-first drawn) (Ledger-round ledger)))))
+                     (grant-marker (● drawn first) (● ledger round)))))
 
-    (: draw-wants (-> Ledger Ledger))
-    (define (draw-wants ledger)
+    (define (draw-wants (ledger Ledger)) (→ Ledger)
       (fold-left (lambda (ledger contact)
                    (let ((drawn (draw-want ledger contact)))
-                     (Ledger-wants-set (Pair-second drawn)
-                                       (append (Ledger-wants ledger) (list (Pair-first drawn))))))
-                 ledger (iota contact-count)))
+                     (Ledger-wants-set (● drawn second)
+                                       (append (● ledger wants) (list (● drawn first))))))
+                 ledger (iota (contact-count))))
 
     ;; Half the time a contact wants one of the five abilities other than
     ;; their own; otherwise 2, 3 or 4 coins.
-    (: draw-want (-> Ledger I64 (Pair Want Ledger)))
-    (define (draw-want ledger contact)
+    (define (draw-want (ledger Ledger) (contact I64)) (→ (Pair Want Ledger))
       (let ((kind (roll ledger 10)))
-        (if (< (Pair-first kind) 5)
-            (let ((offset (roll (Pair-second kind) 5)))
-              (Pair (WantAbility
-                     (modulo (+ (contact-ability contact) (+ 1 (Pair-first offset))) ability-count))
-                    (Pair-second offset)))
-            (let ((coins (roll (Pair-second kind) 3)))
-              (Pair (WantCoins (+ 2 (Pair-first coins))) (Pair-second coins))))))
+        (if (< (● kind first) 5)
+            (let ((offset (roll (● kind second) 5)))
+              (new Pair (first (WantAbility
+                                (modulo (+ (contact-ability contact) (+ 1 (● offset first)))
+                                        (ability-count))))
+                   (second (● offset second))))
+            (let ((coins (roll (● kind second) 3)))
+              (new Pair (first (WantCoins (+ 2 (● coins first)))) (second (● coins second)))))))
 
     ;; Steps 1 to 3 of a round come before your move.
-    (: begin-round (-> Ledger Ledger))
-    (define (begin-round ledger)
+    (define (begin-round (ledger Ledger)) (→ Ledger)
       (post-offers (choose-targets (post-jobs (Ledger-met-set ledger (Nil))))))
 
     ;; 1. Market: new jobs are posted until three are open.
-    (: post-jobs (-> Ledger Ledger))
-    (define (post-jobs ledger)
-      (if (>= (length (Ledger-jobs ledger)) 3)
+    (define (post-jobs (ledger Ledger)) (→ Ledger)
+      (if (>= (length (● ledger jobs)) 3)
           ledger
           (post-jobs (post-job ledger))))
 
-    (: post-job (-> Ledger Ledger))
-    (define (post-job ledger)
+    (define (post-job (ledger Ledger)) (→ Ledger)
       (let* ((size (roll ledger 2))
-             (drawn (draw-abilities (Pair-second size) (+ 2 (Pair-first size))))
-             (ledger (Pair-second drawn))
-             (job (Job (Ledger-next-job ledger) (Pair-first drawn) (+ (Ledger-round ledger) 1))))
-        (Ledger-next-job-set (Ledger-jobs-set ledger (append (Ledger-jobs ledger) (list job)))
-                             (+ (Job-number job) 1))))
+             (drawn (draw-abilities (● size second) (+ 2 (● size first))))
+             (ledger (● drawn second))
+             (job (new Job
+                    (number (● ledger next-job))
+                    (abilities (● drawn first))
+                    (expires (+ (● ledger round) 1)))))
+        (Ledger-next-job-set (Ledger-jobs-set ledger (append (● ledger jobs) (list job)))
+                             (+ (● job number) 1))))
 
     ;; Draws `count` different abilities and lists them in ascending order.
-    (: draw-abilities (-> Ledger I64 (Pair (List I64) Ledger)))
-    (define (draw-abilities ledger count)
-      (let loop ((ledger ledger) (left (iota ability-count)) (drawn (Nil)))
+    (define (draw-abilities (ledger Ledger) (count I64)) (→ (Pair (List I64) Ledger))
+      (let loop ((ledger ledger) (left (iota (ability-count))) (drawn (Nil)))
         (if (= (length drawn) count)
-            (Pair (filter (lambda (ability) (member? ability drawn)) (iota ability-count)) ledger)
+            (new Pair
+              (first (filter (lambda (ability) (member? ability drawn)) (iota (ability-count))))
+              (second ledger))
             (let* ((pick (roll ledger (length left)))
-                   (ability (list-ref left (Pair-first pick))))
-              (loop (Pair-second pick)
+                   (ability (list-ref left (● pick first))))
+              (loop (● pick second)
                     (filter (lambda (other) (not (= other ability))) left)
                     (Cons ability drawn))))))
 
     ;; 2. Targets: each rival works toward the open job it lacks the fewest
     ;; abilities for; ties go to more standing, then to the job listed first.
-    (: choose-targets (-> Ledger Ledger))
-    (define (choose-targets ledger)
+    (define (choose-targets (ledger Ledger)) (→ Ledger)
       (fold-left (lambda (ledger who)
                    (let ((fixer (ledger-fixer ledger who)))
                      (ledger-fixer-set ledger
                                        who
                                        (Fixer-target-set fixer
-                                                         (best-job (Fixer-markers fixer)
-                                                                   (Ledger-jobs ledger))))))
-                 ledger rivals))
+                                                         (best-job (● fixer markers)
+                                                                   (● ledger jobs))))))
+                 ledger (rivals)))
 
-    (: best-job (-> (List Marker) (List Job) (Option I64)))
-    (define (best-job markers jobs)
+    (define (best-job (markers (List Marker)) (jobs (List Job))) (→ (Option I64))
       (match (fold-left (lambda (best job)
                           (match best
                             ((Some chosen) (if (better-target? markers job chosen) (Some job) best))
                             ((None) (Some job))))
                         (None) jobs)
-        ((Some job) (Some (Job-number job)))
+        ((Some job) (Some (● job number)))
         ((None) (None))))
 
-    (: better-target? (-> (List Marker) Job Job Bool))
-    (define (better-target? markers job chosen)
-      (let ((missing (length (lacking markers (Job-abilities job))))
-            (chosen-missing (length (lacking markers (Job-abilities chosen)))))
+    (define (better-target? (markers (List Marker)) (job Job) (chosen Job)) (→ Bool)
+      (let ((missing (length (lacking markers (● job abilities))))
+            (chosen-missing (length (lacking markers (● chosen abilities)))))
         (or (< missing chosen-missing)
             (and (= missing chosen-missing) (> (job-standing job) (job-standing chosen))))))
 
-    (: find-job (-> Ledger I64 (Option Job)))
-    (define (find-job ledger number)
-      (find (lambda (job) (= (Job-number job) number)) (Ledger-jobs ledger)))
+    (define (find-job (ledger Ledger) (number I64)) (→ (Option Job))
+      (find (lambda (job) (= (● job number) number)) (● ledger jobs)))
 
-    (: target-job (-> Ledger I64 (Option Job)))
-    (define (target-job ledger who)
-      (match (Fixer-target (ledger-fixer ledger who))
+    (define (target-job (ledger Ledger) (who I64)) (→ (Option Job))
+      (match (● (ledger-fixer ledger who) target)
         ((Some number) (find-job ledger number))
         ((None) (None))))
 
     ;; A target someone else has done needs nothing.
-    (: target-needs (-> Ledger I64 (List I64)))
-    (define (target-needs ledger who)
+    (define (target-needs (ledger Ledger) (who I64)) (→ (List I64))
       (match (target-job ledger who)
-        ((Some job) (Job-abilities job))
+        ((Some job) (● job abilities))
         ((None) (Nil))))
 
     ;; 3. Offers: each rival posts its offers in order, numbered from 1
     ;; across both rivals. Accepting an offer removes it until the round ends.
-    (: post-offers (-> Ledger Ledger))
-    (define (post-offers ledger)
-      (fold-left post-rival-offers (Ledger-offers-set ledger (Nil)) rivals))
+    (define (post-offers (ledger Ledger)) (→ Ledger)
+      (fold-left post-rival-offers (Ledger-offers-set ledger (Nil)) (rivals)))
 
-    (: post-rival-offers (-> Ledger I64 Ledger))
-    (define (post-rival-offers ledger who)
-      (let ((promised (roll ledger ability-count)))
+    (define (post-rival-offers (ledger Ledger) (who I64)) (→ Ledger)
+      (let ((promised (roll ledger (ability-count))))
         (fold-left
-         (lambda (ledger deal) (post-offer ledger who (Pair-first deal) (Pair-second deal)))
-         (Pair-second promised)
-         (rival-deals (Pair-second promised) who (Pair-first promised)))))
+         (lambda (ledger deal) (post-offer ledger who (● deal first) (● deal second)))
+         (● promised second)
+         (rival-deals (● promised second) who (● promised first)))))
 
-    (: post-offer (-> Ledger I64 I64 Deal Ledger))
-    (define (post-offer ledger who price deal)
-      (let ((offers (Ledger-offers ledger)))
+    (define (post-offer (ledger Ledger) (who I64) (price I64) (deal Deal)) (→ Ledger)
+      (let ((offers (● ledger offers)))
         (Ledger-offers-set ledger
-                           (append offers (list (Offer (+ (length offers) 1) who price deal))))))
+                           (append offers
+                                   (list (new Offer
+                                           (number (+ (length offers) 1))
+                                           (rival who)
+                                           (price price)
+                                           (deal deal)))))))
 
     ;; A rival buys the first ability its target lacks, sells a marker its
     ;; target does not need, wants your promise of the ability it lacks last,
     ;; and offers its promise of `promised`, skipping what it has nothing for.
-    (: rival-deals (-> Ledger I64 I64 (List (Pair I64 Deal))))
-    (define (rival-deals ledger who promised)
+    (define (rival-deals (ledger Ledger) (who I64) (promised I64)) (→ (List (Pair I64 Deal)))
       (let* ((needs (target-needs ledger who))
              (missing (lacking (markers-of ledger who) needs))
              (spare (filter (lambda (marker) (not (member? (marker-ability marker) needs)))
                             (markers-of ledger who)))
              (trusted (trusted? ledger))
-             (due (+ (Ledger-round ledger) 2)))
+             (due (+ (● ledger round) 2)))
         (concatenate
          (list (match missing
-                 ((Cons ability _) (list (Pair (if trusted 3 2) (Buy ability))))
+                 ((Cons ability _)
+                  (list (new Pair (first (if trusted 3 2)) (second (Buy ability)))))
                  ((Nil) (Nil)))
                (match spare
-                 ((Cons marker _) (list (Pair (if trusted 2 3) (Sell marker))))
+                 ((Cons marker _) (list (new Pair (first (if trusted 2 3)) (second (Sell marker)))))
                  ((Nil) (Nil)))
                (match (last missing)
-                 ((Some ability) (if trusted (list (Pair 2 (PromiseWanted ability due))) (Nil)))
+                 ((Some ability)
+                  (if trusted
+                      (list (new Pair (first 2) (second (PromiseWanted ability due))))
+                      (Nil)))
                  ((None) (Nil)))
-               (list (Pair 1 (PromiseOffered promised due)))))))
+               (list (new Pair (first 1) (second (PromiseOffered promised due))))))))
 
     ;; ---- Your move ----
 
@@ -569,8 +534,8 @@
       (deriving Serialize Deserialize))
 
     ;; Applies a command and says what it did, or says why it cannot be done.
-    (: ledger-act (-> Ledger Command (Result (Pair Ledger (List String)) String)))
-    (define (ledger-act ledger command)
+    (define (ledger-act (ledger Ledger) (command Command))
+      (→ (Result (Pair Ledger (List String)) String))
       (if (ledger-over? ledger)
           (Err "The game is over.")
           (match command
@@ -580,63 +545,62 @@
             ((Honor number) (honor-promise ledger number))
             ((EndRound) (Ok (end-round ledger))))))
 
-    (: accept-offer (-> Ledger I64 (Result (Pair Ledger (List String)) String)))
-    (define (accept-offer ledger number)
-      (match (find (lambda (offer) (= (Offer-number offer) number)) (Ledger-offers ledger))
+    (define (accept-offer (ledger Ledger) (number I64))
+      (→ (Result (Pair Ledger (List String)) String))
+      (match (find (lambda (offer) (= (● offer number) number)) (● ledger offers))
         ((Some offer)
-         (if (< (coins-of ledger (offer-payer offer)) (Offer-price offer))
+         (if (< (coins-of ledger (offer-payer offer)) (● offer price))
              (Err (string-append (fixer-name (offer-payer offer))
                                  " cannot pay "
-                                 (coins-text (Offer-price offer))
+                                 (coins-text (● offer price))
                                  "."))
              (accept-deal ledger offer)))
         ((None) (Err "No such offer."))))
 
     ;; A rival loses markers only at the end of a round, when its offers are
     ;; withdrawn, so the marker it sells is still in its hand.
-    (: accept-deal (-> Ledger Offer (Result (Pair Ledger (List String)) String)))
-    (define (accept-deal ledger offer)
-      (let ((rival (Offer-rival offer)))
-        (match (Offer-deal offer)
+    (define (accept-deal (ledger Ledger) (offer Offer))
+      (→ (Result (Pair Ledger (List String)) String))
+      (let ((rival (● offer rival)))
+        (match (● offer deal)
           ((Buy ability)
-           (match (oldest-with (markers-of ledger you) ability)
+           (match (oldest-with (markers-of ledger (you)) ability)
              ((Some marker)
-              (Ok (report (settle-offer (transfer-marker ledger you rival marker) offer))))
+              (Ok (report (settle-offer (transfer-marker ledger (you) rival marker) offer))))
              ((None) (no-marker ability))))
           ((Sell marker)
-           (Ok (report (settle-offer (transfer-marker ledger rival you marker) offer))))
+           (Ok (report (settle-offer (transfer-marker ledger rival (you) marker) offer))))
           ((PromiseWanted ability due)
-           (Ok (report (settle-offer (make-promise ledger you rival ability due) offer))))
+           (Ok (report (settle-offer (make-promise ledger (you) rival ability due) offer))))
           ((PromiseOffered ability due)
-           (Ok (report (settle-offer (make-promise ledger rival you ability due) offer)))))))
+           (Ok (report (settle-offer (make-promise ledger rival (you) ability due) offer)))))))
 
     ;; The price changes hands and the offer is taken off the board.
-    (: settle-offer (-> Ledger Offer Ledger))
-    (define (settle-offer ledger offer)
+    (define (settle-offer (ledger Ledger) (offer Offer)) (→ Ledger)
       (let* ((payer (offer-payer offer))
-             (payee (if (= payer you) (Offer-rival offer) you))
-             (offers (filter (lambda (other) (not (= (Offer-number other) (Offer-number offer))))
-                             (Ledger-offers ledger))))
-        (note (Ledger-offers-set (transfer-coins ledger payer payee (Offer-price offer)) offers)
+             (payee (if (= payer (you)) (● offer rival) (you)))
+             (offers (filter (lambda (other) (not (= (● other number) (● offer number))))
+                             (● ledger offers))))
+        (note (Ledger-offers-set (transfer-coins ledger payer payee (● offer price)) offers)
               (string-append "You accept: " (describe-offer offer)))))
 
     ;; Each contact can be met once a round.
-    (: meet-contact (-> Ledger I64 (Result (Pair Ledger (List String)) String)))
-    (define (meet-contact ledger contact)
-      (cond ((not (and (>= contact 0) (< contact contact-count))) (Err "No such contact."))
-            ((member? contact (Ledger-met ledger))
+    (define (meet-contact (ledger Ledger) (contact I64))
+      (→ (Result (Pair Ledger (List String)) String))
+      (cond ((not (and (>= contact 0) (< contact (contact-count)))) (Err "No such contact."))
+            ((member? contact (● ledger met))
              (Err (string-append (contact-name contact) " has already been met this round.")))
-            (else (meet-want ledger contact (list-ref (Ledger-wants ledger) contact)))))
+            (else (meet-want ledger contact (list-ref (● ledger wants) contact)))))
 
     ;; You meet a want by paying its coins or spending your oldest marker
     ;; with its ability.
-    (: meet-want (-> Ledger I64 Want (Result (Pair Ledger (List String)) String)))
-    (define (meet-want ledger contact want)
+    (define (meet-want (ledger Ledger) (contact I64) (want Want))
+      (→ (Result (Pair Ledger (List String)) String))
       (match want
         ((WantCoins coins)
-         (if (< (coins-of ledger you) coins)
+         (if (< (coins-of ledger (you)) coins)
              (Err (string-append "You cannot pay " (coins-text coins) "."))
-             (Ok (report (grant-favor (note (add-coins ledger you (negate coins))
+             (Ok (report (grant-favor (note (add-coins ledger (you) (negate coins))
                                             (string-append "You pay "
                                                            (contact-name contact)
                                                            " "
@@ -644,9 +608,9 @@
                                                            "."))
                                       contact)))))
         ((WantAbility ability)
-         (match (oldest-with (markers-of ledger you) ability)
+         (match (oldest-with (markers-of ledger (you)) ability)
            ((Some marker)
-            (Ok (report (grant-favor (note (lose-marker ledger you marker)
+            (Ok (report (grant-favor (note (lose-marker ledger (you) marker)
                                            (string-append "You spend "
                                                           (describe-marker marker)
                                                           " for "
@@ -656,98 +620,88 @@
            ((None) (no-marker ability))))))
 
     ;; A contact whose want is met grants you a marker and draws a new want.
-    (: grant-favor (-> Ledger I64 Ledger))
-    (define (grant-favor ledger contact)
-      (let* ((marker (grant-marker contact (Ledger-round ledger)))
+    (define (grant-favor (ledger Ledger) (contact I64)) (→ Ledger)
+      (let* ((marker (grant-marker contact (● ledger round)))
              (drawn (draw-want ledger contact))
-             (ledger (Ledger-wants-set (Pair-second drawn)
-                                       (replace-at (Ledger-wants ledger)
+             (ledger (Ledger-wants-set (● drawn second)
+                                       (replace-at (● ledger wants)
                                                    contact
-                                                   (Pair-first drawn)))))
-        (note (Ledger-met-set (gain-marker ledger you marker) (Cons contact (Ledger-met ledger)))
+                                                   (● drawn first)))))
+        (note (Ledger-met-set (gain-marker ledger (you) marker) (Cons contact (● ledger met)))
               (string-append (contact-name contact)
                              " grants you a marker through round "
-                             (show (Marker-lapses marker))
-                             " and now wants " (describe-want (Pair-first drawn)) "."))))
+                             (show (● marker lapses))
+                             " and now wants " (describe-want (● drawn first)) "."))))
 
-    (: work-job (-> Ledger I64 (Result (Pair Ledger (List String)) String)))
-    (define (work-job ledger number)
+    (define (work-job (ledger Ledger) (number I64)) (→ (Result (Pair Ledger (List String)) String))
       (match (find-job ledger number)
         ((Some job)
-         (match (lacking (markers-of ledger you) (Job-abilities job))
-           ((Nil) (Ok (report (complete-job ledger you job))))
+         (match (lacking (markers-of ledger (you)) (● job abilities))
+           ((Nil) (Ok (report (complete-job ledger (you) job))))
            (missing (Err (string-append "You lack " (abilities-text missing) ".")))))
         ((None) (Err "No such open job."))))
 
-    (: honor-promise (-> Ledger I64 (Result (Pair Ledger (List String)) String)))
-    (define (honor-promise ledger number)
+    (define (honor-promise (ledger Ledger) (number I64))
+      (→ (Result (Pair Ledger (List String)) String))
       (match (find (lambda (promise)
-                     (and (= (Promise-number promise) number) (= (Promise-debtor promise) you)))
-                   (Ledger-promises ledger))
+                     (and (= (● promise number) number) (= (● promise debtor) (you))))
+                   (● ledger promises))
         ((Some promise)
-         (match (oldest-with (markers-of ledger you) (Promise-ability promise))
+         (match (oldest-with (markers-of ledger (you)) (● promise ability))
            ((Some marker) (Ok (report (keep-promise ledger promise marker))))
-           ((None) (no-marker (Promise-ability promise)))))
+           ((None) (no-marker (● promise ability)))))
         ((None) (Err "You owe no such promise."))))
 
-    (: no-marker (-> I64 (Result (Pair Ledger (List String)) String)))
-    (define (no-marker ability)
+    (define (no-marker (ability I64)) (→ (Result (Pair Ledger (List String)) String))
       (Err (string-append "You hold no marker with " (ability-name ability) ".")))
 
     ;; Answers a command with what it did, a line each, and clears the
     ;; record.
-    (: report (-> Ledger (Pair Ledger (List String))))
-    (define (report ledger)
-      (Pair (Ledger-events-set ledger (Nil)) (reverse (Ledger-events ledger))))
+    (define (report (ledger Ledger)) (→ (Pair Ledger (List String)))
+      (new Pair (first (Ledger-events-set ledger (Nil))) (second (reverse (● ledger events)))))
 
     ;; ---- End of round ----
 
-    (: end-round (-> Ledger (Pair Ledger (List String))))
-    (define (end-round ledger)
+    (define (end-round (ledger Ledger)) (→ (Pair Ledger (List String)))
       (report
        (advance-round
         (remember-round
          (expire-jobs (settle-promises (lapse-markers (rivals-recruit (rivals-work ledger)))))))))
 
     ;; The screen shows what this end of round did until the next one.
-    (: remember-round (-> Ledger Ledger))
-    (define (remember-round ledger)
-      (Ledger-last-round-set ledger (reverse (Ledger-events ledger))))
+    (define (remember-round (ledger Ledger)) (→ Ledger)
+      (Ledger-last-round-set ledger (reverse (● ledger events))))
 
     ;; 1. Each rival holding markers for every ability its target needs does
     ;; the job.
-    (: rivals-work (-> Ledger Ledger))
-    (define (rivals-work ledger)
+    (define (rivals-work (ledger Ledger)) (→ Ledger)
       (fold-left (lambda (ledger who)
                    (match (target-job ledger who)
                      ((Some job)
-                      (if (null? (lacking (markers-of ledger who) (Job-abilities job)))
+                      (if (null? (lacking (markers-of ledger who) (● job abilities)))
                           (complete-job ledger who job)
                           ledger))
                      ((None) ledger)))
-                 ledger rivals))
+                 ledger (rivals)))
 
     ;; 2. Each rival gains a marker from a contact drawn at random.
-    (: rivals-recruit (-> Ledger Ledger))
-    (define (rivals-recruit ledger)
+    (define (rivals-recruit (ledger Ledger)) (→ Ledger)
       (fold-left (lambda (ledger who)
-                   (let* ((drawn (roll ledger contact-count))
-                          (marker (grant-marker (Pair-first drawn) (Ledger-round ledger))))
-                     (note (gain-marker (Pair-second drawn) who marker)
+                   (let* ((drawn (roll ledger (contact-count)))
+                          (marker (grant-marker (● drawn first) (● ledger round))))
+                     (note (gain-marker (● drawn second) who marker)
                            (string-append (acts who "gain") " " (describe-marker marker) "."))))
-                 ledger rivals))
+                 ledger (rivals)))
 
     ;; 4. Promises due this round are honored or refused.
-    (: settle-promises (-> Ledger Ledger))
-    (define (settle-promises ledger)
+    (define (settle-promises (ledger Ledger)) (→ Ledger)
       (fold-left settle-promise ledger
-                 (filter (lambda (promise) (= (Promise-due promise) (Ledger-round ledger)))
-                         (Ledger-promises ledger))))
+                 (filter (lambda (promise) (= (● promise due) (● ledger round)))
+                         (● ledger promises))))
 
-    (: settle-promise (-> Ledger Promise Ledger))
-    (define (settle-promise ledger promise)
-      (let ((debtor (Promise-debtor promise)))
-        (match (oldest-with (markers-of ledger debtor) (Promise-ability promise))
+    (define (settle-promise (ledger Ledger) (promise Promise)) (→ Ledger)
+      (let ((debtor (● promise debtor)))
+        (match (oldest-with (markers-of ledger debtor) (● promise ability))
           ((Some marker)
            (if (willing? ledger debtor marker)
                (keep-promise ledger promise marker)
@@ -756,16 +710,14 @@
 
     ;; You keep a promise only by honoring it during your move. Vee honors
     ;; every promise she can; Kit keeps a marker his target needs.
-    (: willing? (-> Ledger I64 Marker Bool))
-    (define (willing? ledger debtor marker)
-      (cond ((= debtor you) #f)
-            ((= debtor kit) (not (needed? ledger debtor marker)))
+    (define (willing? (ledger Ledger) (debtor I64) (marker Marker)) (→ Bool)
+      (cond ((= debtor (you)) #f)
+            ((= debtor (kit)) (not (needed? ledger debtor marker)))
             (else #t)))
 
     ;; A marker is needed when the target needs its ability and no other
     ;; marker in the hand lends it.
-    (: needed? (-> Ledger I64 Marker Bool))
-    (define (needed? ledger who marker)
+    (define (needed? (ledger Ledger) (who I64) (marker Marker)) (→ Bool)
       (let ((ability (marker-ability marker)))
         (and (member? ability (target-needs ledger who))
              (member? ability
@@ -774,8 +726,7 @@
     ;; 3. Lapsed markers are removed before promises are settled, so no one
     ;; honors a promise with a marker about to lapse. 5. Expired jobs go
     ;; last, after Kit has judged what his target needs.
-    (: lapse-markers (-> Ledger Ledger))
-    (define (lapse-markers ledger)
+    (define (lapse-markers (ledger Ledger)) (→ Ledger)
       (fold-left (lambda (ledger who)
                    (fold-left (lambda (ledger marker)
                                 (note (lose-marker ledger who marker)
@@ -785,44 +736,39 @@
                                                      " lapses.")))
                               ledger
                               (filter
-                               (lambda (marker) (<= (Marker-lapses marker) (Ledger-round ledger)))
+                               (lambda (marker) (<= (● marker lapses) (● ledger round)))
                                (markers-of ledger who))))
-                 ledger everyone))
+                 ledger (everyone)))
 
-    (: expire-jobs (-> Ledger Ledger))
-    (define (expire-jobs ledger)
+    (define (expire-jobs (ledger Ledger)) (→ Ledger)
       (fold-left (lambda (ledger job)
-                   (note (Ledger-jobs-set ledger (remove-job (Ledger-jobs ledger) job))
-                         (string-append "Job " (show (Job-number job)) " expires.")))
+                   (note (Ledger-jobs-set ledger (remove-job (● ledger jobs) job))
+                         (string-append "Job " (show (● job number)) " expires.")))
                  ledger
-                 (filter (lambda (job) (<= (Job-expires job) (Ledger-round ledger)))
-                         (Ledger-jobs ledger))))
+                 (filter (lambda (job) (<= (● job expires) (● ledger round)))
+                         (● ledger jobs))))
 
     ;; After round 8 the game is over; otherwise the next round begins.
-    (: advance-round (-> Ledger Ledger))
-    (define (advance-round ledger)
-      (let ((ledger (Ledger-round-set ledger (+ (Ledger-round ledger) 1))))
+    (define (advance-round (ledger Ledger)) (→ Ledger)
+      (let ((ledger (Ledger-round-set ledger (+ (● ledger round) 1))))
         (if (ledger-over? ledger)
             (note ledger (ledger-result ledger))
             (note (begin-round ledger)
-                  (string-append "Round " (show (Ledger-round ledger)) " begins.")))))
+                  (string-append "Round " (show (● ledger round)) " begins.")))))
 
-    (: ledger-over? (-> Ledger Bool))
-    (define (ledger-over? ledger)
-      (> (Ledger-round ledger) round-count))
+    (define (ledger-over? (ledger Ledger)) (→ Bool)
+      (> (● ledger round) (round-count)))
 
     ;; The most standing wins, and coins break ties.
-    (: ahead? (-> Fixer Fixer Bool))
-    (define (ahead? a b)
-      (or (> (Fixer-standing a) (Fixer-standing b))
-          (and (= (Fixer-standing a) (Fixer-standing b)) (> (Fixer-coins a) (Fixer-coins b)))))
+    (define (ahead? (a Fixer) (b Fixer)) (→ Bool)
+      (or (> (● a standing) (● b standing))
+          (and (= (● a standing) (● b standing)) (> (● a coins) (● b coins)))))
 
-    (: ledger-result (-> Ledger String))
-    (define (ledger-result ledger)
+    (define (ledger-result (ledger Ledger)) (→ String)
       (let ((winners (filter (lambda (who)
                                (not (any? (lambda (other) (ahead? other (ledger-fixer ledger who)))
-                                          (Ledger-fixers ledger))))
-                             everyone)))
+                                          (● ledger fixers))))
+                             (everyone))))
         (match winners
           ((Cons who (Nil)) (string-append "The game is over. " (acts who "win") "."))
           (_ (string-append "The game is over. "
@@ -833,98 +779,83 @@
 
     ;; A command the board offers: what it does, its terms in a caption, and
     ;; why it would fail now, if it would.
-    (struct Choice
+    (record Choice
       ((command Command)
        (text String)
        (caption String)
        (refusal (Option String)))
       (deriving Serialize Deserialize))
 
-    (: choice (-> Ledger Command (Pair String String) Choice))
-    (define (choice ledger command parts)
-      (Choice command (Pair-first parts) (Pair-second parts)
-              (match (ledger-act ledger command)
-                ((Ok _) (None))
-                ((Err why) (Some why)))))
+    (define (choice (ledger Ledger) (command Command) (parts (Pair String String))) (→ Choice)
+      (new Choice (command command) (text (● parts first)) (caption (● parts second))
+           (refusal (match (ledger-act ledger command)
+                      ((Ok _) (None))
+                      ((Err why) (Some why))))))
 
     ;; One rival's offers.
-    (: offer-choices (-> Ledger I64 (List Choice)))
-    (define (offer-choices ledger rival)
-      (map (lambda (offer) (choice ledger (Accept (Offer-number offer)) (offer-parts offer)))
-           (filter (lambda (offer) (= (Offer-rival offer) rival)) (Ledger-offers ledger))))
+    (define (offer-choices (ledger Ledger) (rival I64)) (→ (List Choice))
+      (map (lambda (offer) (choice ledger (Accept (● offer number)) (offer-parts offer)))
+           (filter (lambda (offer) (= (● offer rival) rival)) (● ledger offers))))
 
-    (: contact-choices (-> Ledger (List Choice)))
-    (define (contact-choices ledger)
+    (define (contact-choices (ledger Ledger)) (→ (List Choice))
       (map (lambda (contact) (choice ledger (Meet contact) (contact-parts ledger contact)))
-           (iota contact-count)))
+           (iota (contact-count))))
 
-    (: job-choices (-> Ledger (List Choice)))
-    (define (job-choices ledger)
-      (map (lambda (job) (choice ledger (Work (Job-number job)) (job-parts job)))
-           (Ledger-jobs ledger)))
+    (define (job-choices (ledger Ledger)) (→ (List Choice))
+      (map (lambda (job) (choice ledger (Work (● job number)) (job-parts job)))
+           (● ledger jobs)))
 
     ;; Only the promises you owe can be honored.
-    (: promise-choices (-> Ledger (List Choice)))
-    (define (promise-choices ledger)
+    (define (promise-choices (ledger Ledger)) (→ (List Choice))
       (map
-       (lambda (promise) (choice ledger (Honor (Promise-number promise)) (promise-parts promise)))
-       (filter (lambda (promise) (= (Promise-debtor promise) you)) (Ledger-promises ledger))))
+       (lambda (promise) (choice ledger (Honor (● promise number)) (promise-parts promise)))
+       (filter (lambda (promise) (= (● promise debtor) (you))) (● ledger promises))))
 
     ;; The rivals you owe a marker by the end of this round.
-    (: due-now (-> Ledger (List String)))
-    (define (due-now ledger)
-      (map (lambda (promise) (fixer-name (Promise-creditor promise)))
+    (define (due-now (ledger Ledger)) (→ (List String))
+      (map (lambda (promise) (fixer-name (● promise creditor)))
            (filter (lambda (promise)
-                     (and (= (Promise-debtor promise) you)
-                          (= (Promise-due promise) (Ledger-round ledger))))
-                   (Ledger-promises ledger))))
+                     (and (= (● promise debtor) (you))
+                          (= (● promise due) (● ledger round))))
+                   (● ledger promises))))
 
     ;; ---- Text ----
 
     ;; "You refuse", "Vee refuses".
-    (: acts (-> I64 String String))
-    (define (acts who verb)
-      (string-append (fixer-name who) " " verb (if (= who you) "" "s")))
+    (define (acts (who I64) (verb String)) (→ String)
+      (string-append (fixer-name who) " " verb (if (= who (you)) "" "s")))
 
     ;; "and lose", "and loses".
-    (: acts-object (-> I64 String String))
-    (define (acts-object who verb)
-      (string-append verb (if (= who you) "" "s")))
+    (define (acts-object (who I64) (verb String)) (→ String)
+      (string-append verb (if (= who (you)) "" "s")))
 
-    (: object-name (-> I64 String))
-    (define (object-name who)
-      (if (= who you) "you" (fixer-name who)))
+    (define (object-name (who I64)) (→ String)
+      (if (= who (you)) "you" (fixer-name who)))
 
-    (: possessive (-> I64 String))
-    (define (possessive who)
-      (if (= who you) "Your" (string-append (fixer-name who) "'s")))
+    (define (possessive (who I64)) (→ String)
+      (if (= who (you)) "Your" (string-append (fixer-name who) "'s")))
 
-    (: coins-text (-> I64 String))
-    (define (coins-text coins)
+    (define (coins-text (coins I64)) (→ String)
       (string-append (show coins) (if (= coins 1) " coin" " coins")))
 
-    (: abilities-text (-> (List I64) String))
-    (define (abilities-text abilities)
+    (define (abilities-text (abilities (List I64))) (→ String)
       (string-join (map ability-name abilities) " + "))
 
-    (: describe-marker (-> Marker String))
-    (define (describe-marker marker)
-      (string-append (contact-name (Marker-contact marker))
+    (define (describe-marker (marker Marker)) (→ String)
+      (string-append (contact-name (● marker contact))
                      " ("
                      (ability-name (marker-ability marker))
-                     ", through round " (show (Marker-lapses marker)) ")"))
+                     ", through round " (show (● marker lapses)) ")"))
 
-    (: describe-want (-> Want String))
-    (define (describe-want want)
+    (define (describe-want (want Want)) (→ String)
       (match want
         ((WantAbility ability) (string-append "a marker with " (ability-name ability)))
         ((WantCoins coins) (coins-text coins))))
 
-    (: describe-offer (-> Offer String))
-    (define (describe-offer offer)
-      (let ((rival (fixer-name (Offer-rival offer)))
-            (price (coins-text (Offer-price offer))))
-        (match (Offer-deal offer)
+    (define (describe-offer (offer Offer)) (→ String)
+      (let ((rival (fixer-name (● offer rival)))
+            (price (coins-text (● offer price))))
+        (match (● offer deal)
           ((Buy ability)
            (string-append rival
                           " buys your oldest "
@@ -953,96 +884,90 @@
                           ".")))))
 
     ;; A choice's text and caption: what it does, and its terms.
-    (: offer-parts (-> Offer (Pair String String)))
-    (define (offer-parts offer)
-      (let ((price (coins-text (Offer-price offer))))
-        (match (Offer-deal offer)
+    (define (offer-parts (offer Offer)) (→ (Pair String String))
+      (let ((price (coins-text (● offer price))))
+        (match (● offer deal)
           ((Buy ability)
-           (Pair (string-append "Buys your oldest " (ability-name ability) " marker")
-                 (string-append "pays " price)))
+           (new Pair (first (string-append "Buys your oldest " (ability-name ability) " marker"))
+                (second (string-append "pays " price))))
           ((Sell marker)
-           (Pair (string-append "Sells "
-                                (contact-name (Marker-contact marker))
-                                " ("
-                                (ability-name (marker-ability marker))
-                                ")")
-                 (string-append "for "
-                                price
-                                ", lapses after round "
-                                (show (Marker-lapses marker)))))
+           (new Pair (first (string-append "Sells "
+                                           (contact-name (● marker contact))
+                                           " ("
+                                           (ability-name (marker-ability marker))
+                                           ")"))
+                (second (string-append "for "
+                                       price
+                                       ", lapses after round "
+                                       (show (● marker lapses))))))
           ((PromiseWanted ability due)
-           (Pair (string-append "Wants your promise of " (ability-name ability))
-                 (string-append "pays " price " now, due at the end of round " (show due))))
+           (new Pair (first (string-append "Wants your promise of " (ability-name ability)))
+                (second (string-append "pays " price " now, due at the end of round " (show due)))))
           ((PromiseOffered ability due)
-           (Pair (string-append "Promises you " (ability-name ability))
-                 (string-append "for " price ", due at the end of round " (show due)))))))
+           (new Pair (first (string-append "Promises you " (ability-name ability)))
+                (second (string-append "for " price ", due at the end of round " (show due))))))))
 
-    (: contact-parts (-> Ledger I64 (Pair String String)))
-    (define (contact-parts ledger contact)
-      (Pair (string-append (contact-name contact) " (" (ability-name (contact-ability contact)) ")")
-            (if (member? contact (Ledger-met ledger))
-                "met this round"
-                (string-append "wants " (describe-want (list-ref (Ledger-wants ledger) contact))))))
+    (define (contact-parts (ledger Ledger) (contact I64)) (→ (Pair String String))
+      (new Pair
+        (first
+         (string-append (contact-name contact) " (" (ability-name (contact-ability contact)) ")"))
+        (second (if (member? contact (● ledger met))
+                    "met this round"
+                    (string-append "wants " (describe-want (list-ref (● ledger wants) contact)))))))
 
-    (: job-parts (-> Job (Pair String String)))
-    (define (job-parts job)
-      (Pair (string-append "Job " (show (Job-number job)) ": " (abilities-text (Job-abilities job)))
-            (string-append (coins-text (job-coins job))
-                           " and "
-                           (show (job-standing job))
-                           " standing, open through round "
-                           (show (Job-expires job)))))
+    (define (job-parts (job Job)) (→ (Pair String String))
+      (new Pair
+        (first (string-append "Job " (show (● job number)) ": " (abilities-text (● job abilities))))
+        (second (string-append (coins-text (job-coins job))
+                               " and "
+                               (show (job-standing job))
+                               " standing, open through round "
+                               (show (● job expires))))))
 
-    (: promise-parts (-> Promise (Pair String String)))
-    (define (promise-parts promise)
-      (Pair (string-append "Give "
-                           (object-name (Promise-creditor promise))
-                           " a "
-                           (ability-name (Promise-ability promise))
-                           " marker")
-            (string-append "due at the end of round " (show (Promise-due promise)))))
+    (define (promise-parts (promise Promise)) (→ (Pair String String))
+      (new Pair (first (string-append "Give "
+                                      (object-name (● promise creditor))
+                                      " a "
+                                      (ability-name (● promise ability))
+                                      " marker"))
+           (second (string-append "due at the end of round " (show (● promise due))))))
 
     ;; A fixer's coins, standing and record of promises.
-    (: fixer-stats (-> Ledger I64 String))
-    (define (fixer-stats ledger who)
+    (define (fixer-stats (ledger Ledger) (who I64)) (→ String)
       (let ((fixer (ledger-fixer ledger who)))
-        (string-append (coins-text (Fixer-coins fixer))
+        (string-append (coins-text (● fixer coins))
                        " · "
-                       (show (Fixer-standing fixer))
+                       (show (● fixer standing))
                        " standing · kept "
-                       (show (Fixer-kept fixer)) ", refused " (show (Fixer-refused fixer)))))
+                       (show (● fixer kept)) ", refused " (show (● fixer refused)))))
 
     ;; A fixer's markers, and for a rival the job it works toward, a line
     ;; each.
-    (: fixer-holdings (-> Ledger I64 (List String)))
-    (define (fixer-holdings ledger who)
+    (define (fixer-holdings (ledger Ledger) (who I64)) (→ (List String))
       (let ((markers (markers-of ledger who)))
         (Cons (if (null? markers)
                   "No markers"
                   (string-append "Markers: " (string-join (map describe-marker markers) ", ")))
               (match (target-job ledger who)
-                ((Some job) (list (string-append "Working toward job " (show (Job-number job)))))
+                ((Some job) (list (string-append "Working toward job " (show (● job number)))))
                 ((None) (Nil))))))
 
-    (: describe-promise (-> Promise String))
-    (define (describe-promise promise)
-      (string-append (acts (Promise-debtor promise) "owe") " "
-                     (object-name (Promise-creditor promise))
+    (define (describe-promise (promise Promise)) (→ String)
+      (string-append (acts (● promise debtor) "owe") " "
+                     (object-name (● promise creditor))
                      " a marker with "
-                     (ability-name (Promise-ability promise))
-                     ", due at the end of round " (show (Promise-due promise)) "."))
+                     (ability-name (● promise ability))
+                     ", due at the end of round " (show (● promise due)) "."))
 
-    (: ledger-header (-> Ledger String))
-    (define (ledger-header ledger)
+    (define (ledger-header (ledger Ledger)) (→ String)
       (if (ledger-over? ledger)
           "Final standings"
-          (string-append "Round " (show (Ledger-round ledger)) " of " (show round-count))))
+          (string-append "Round " (show (● ledger round)) " of " (show (round-count)))))
 
     ;; The promises rivals owe you; the ones you owe are choices.
-    (: owed-lines (-> Ledger (List String)))
-    (define (owed-lines ledger)
+    (define (owed-lines (ledger Ledger)) (→ (List String))
       (map describe-promise
-           (filter (lambda (promise) (not (= (Promise-debtor promise) you)))
-                   (Ledger-promises ledger))))
+           (filter (lambda (promise) (not (= (● promise debtor) (you))))
+                   (● ledger promises))))
 
     ))

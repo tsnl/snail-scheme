@@ -9,8 +9,7 @@
        diagnostics->string
        Failed))
 
-(: project Project)
-(define project
+(define (project) (→ Project)
   (match (compiling
           (lambda ()
             (parse-project
@@ -22,15 +21,18 @@
     ((Err (Failed diagnostics)) (panic (diagnostics->string diagnostics)))
     ((Err _) (panic "parsing a project asked for an input"))))
 
-(for-each (lambda (target) (write-line (target-name target))) (Project-builds project))
-(for-each
- (lambda (run)
-   (write-line
-    (string-append (RunTarget-name run) " -> " (ProgramBuild-name (RunTarget-program run))))
-   (match (ProgramBuild-entry (RunTarget-program run))
-     ((SourceEntry path) (write-line (ProjectPath-text path)))
-     (_ (panic "expected a source entry")))
-   (write-line (string-join (RunTarget-arguments run) "|"))
-   (for-each (lambda (path) (write-line (ProjectPath-text path)))
-             (ProgramBuild-libraries (RunTarget-program run))))
- (Project-runs project))
+(define (main) (→ Unit) (! output-port)
+
+  (for-each (lambda (target) (write-line (target-name target))) (● (project) builds))
+  (for-each
+   (lambda (run)
+     (write-line
+      (string-append (● run name) " -> " (● (● run program) name)))
+     (match (● (● run program) entry)
+       ((SourceEntry path) (write-line (● path text)))
+       (_ (panic "expected a source entry")))
+     (write-line (string-join (● run arguments) "|"))
+     (for-each (lambda (path) (write-line (● path text)))
+               (● (● run program) libraries)))
+   (● (project) runs))
+  (unit))

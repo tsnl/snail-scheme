@@ -9,8 +9,7 @@
 ;; properties read back, listeners made and dropped, and removing a
 ;; subtree. The trace has a line per operation; the tree prints as HTML.
 
-(: build (-> String ! dom))
-(define (build)
+(define (build) (→ String) (! dom)
   (let* ((root (document-root))
          (list-node (create-element "ul"))
          (first (create-element "li"))
@@ -32,7 +31,8 @@
     (let ((keys (listen field
                         "keydown"
                         (list (Key) (Value))
-                        (Chords (list (Chord "Tab" 0) (Chord "s" control-key)))))
+                        (Chords (list (new Chord (key "Tab") (modifiers 0))
+                                      (new Chord (key "s") (modifiers (control-key)))))))
           (clicks (listen first "click" (Nil) (Always))))
       (unlisten clicks)
       (focus-node field)
@@ -42,25 +42,23 @@
                      " ["
                      (string-property field "missing")
                      "] "
-                     (show (Listener-id keys))))))
+                     (show (● keys id))))))
 
-(: result (Pair String Document))
-(define result (with-memory-dom (Nil) build))
+(define (main) (→ Unit) (! mut output-port)
 
-(write-line (Pair-first result))
-(write-line (document->html (Pair-second result)))
-(for-each write-line (document-trace (Pair-second result)))
-
-(: removed Document)
-(define removed
-  (Pair-second (with-memory-dom (Nil) (lambda ()
-                                        (let ((outer (create-element "div"))
-                                              (inner (create-element "p")))
-                                          (insert-node (document-root) outer (None))
-                                          (insert-node outer inner (None))
-                                          (remove-node outer)
-                                          (insert-node (document-root)
-                                                       (create-text "after")
-                                                       (None)))))))
-
-(write-line (document->html removed))
+  (define result (→ (Pair String Document)) (with-memory-dom (Nil) build))
+  (define removed (→ Document)
+    (● (with-memory-dom (Nil) (lambda ()
+                                (let ((outer (create-element "div"))
+                                      (inner (create-element "p")))
+                                  (insert-node (document-root) outer (None))
+                                  (insert-node outer inner (None))
+                                  (remove-node outer)
+                                  (insert-node (document-root)
+                                               (create-text "after")
+                                               (None))))) second))
+  (write-line (● result first))
+  (write-line (document->html (● result second)))
+  (for-each write-line (document-trace (● result second)))
+  (write-line (document->html removed))
+  (unit))

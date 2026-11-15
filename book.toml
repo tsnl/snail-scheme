@@ -1,6 +1,6 @@
 [book]
-title = "Snail-Scheme"
-authors = ["Snail-Scheme contributors"]
+title = "snail-scheme"
+authors = ["snail-scheme contributors"]
 language = "en"
 src = "doc/book"
 
@@ -9,7 +9,7 @@ build-dir = "build/book"
 create-missing = false
 
 # Colors each `scheme` block by the compiler's own lexical rules, through
-# (snail shell highlight) in a Snail program, after `links` has included the
+# (snail shell highlight) in a `snail-scheme` program, after `links` has included the
 # examples' text; highlight.js leaves those blocks alone.
 [preprocessor.snail-highlight]
 command = "scripts/highlight-book"

@@ -1,0 +1,39 @@
+{
+  "name": "snail-scheme",
+  "displayName": "snail-scheme",
+  "description": "snail-scheme, a statically-typed Scheme successor: colours, diagnostics, formatting, hover and definitions from `snail-scheme lsp`.",
+  "version": "0.1.0",
+  "publisher": "tsnl",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tsnl/snail-scheme"
+  },
+  "engines": {
+    "vscode": "^1.91.0"
+  },
+  "main": "./extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "snail-scheme",
+        "aliases": ["snail-scheme"],
+        "extensions": [".sld", ".sls", ".scm", ".datum"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "configuration": {
+      "title": "snail-scheme",
+      "properties": {
+        "snail-scheme.path": {
+          "type": "string",
+          "default": "",
+          "description": "The snail-scheme launcher to run as the language server. Empty finds the workspace's ./snail-scheme, then snail-scheme on PATH."
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "vscode-languageclient": "11.0.0"
+  }
+}

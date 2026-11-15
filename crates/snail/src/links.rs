@@ -132,18 +132,47 @@ pub fn define(linker: &mut Linker<Host>, names: &[String]) -> wasmtime::Result<(
         "snail.runtime.resource",
         "read",
         |mut caller: Caller<'_, Host>, ticket: i64, handle: i32| {
-            caller.data_mut().files.start(ticket, handle)
+            if crate::program::engine_entry(&caller) {
+                crate::program::entry_call(
+                    &mut caller,
+                    "resource:read",
+                    &[wasmtime::Val::I64(ticket), wasmtime::Val::I32(handle)],
+                )
+                .map(|_| ())
+            } else {
+                caller.data_mut().files.start(ticket, handle)
+            }
         },
     )?;
     linker.func_wrap(
         "snail.runtime.resource",
         "finish",
-        |mut caller: Caller<'_, Host>, ticket: i64| caller.data_mut().files.finish(ticket),
+        |mut caller: Caller<'_, Host>, ticket: i64| {
+            if crate::program::engine_entry(&caller) {
+                Ok(crate::program::entry_call(
+                    &mut caller,
+                    "resource:finish",
+                    &[wasmtime::Val::I64(ticket)],
+                )? as i32)
+            } else {
+                caller.data_mut().files.finish(ticket)
+            }
+        },
     )?;
     linker.func_wrap(
         "snail.runtime.resource",
         "byte",
-        |caller: Caller<'_, Host>, index: i32| caller.data().files.byte(index),
+        |mut caller: Caller<'_, Host>, index: i32| {
+            if crate::program::engine_entry(&caller) {
+                Ok(crate::program::entry_call(
+                    &mut caller,
+                    "resource:byte",
+                    &[wasmtime::Val::I32(index)],
+                )? as i32)
+            } else {
+                caller.data().files.byte(index)
+            }
+        },
     )?;
     Ok(())
 }

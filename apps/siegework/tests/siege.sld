@@ -6,165 +6,159 @@
  (snail core base)
  (snail core io)
  (siegework grid)
- (only (siegework terrain) Land-starter)
+ (only (siegework terrain))
  (siegework world)
  (siegework colony)
  (siegework siege)
  (siegework simulation))
 
-(: run (-> World I64 World))
-(define (run world ticks)
+(define (run (world World) (ticks I64)) (→ World)
   (if (or (= ticks 0) (not (playing? world))) world (run (advance world) (- ticks 1))))
 
-(: try (-> World Action World))
-(define (try world action)
+(define (try (world World) (action Action)) (→ World)
   (match (act world action)
     ((Ok world) world)
     ((Err _) world)))
 
-(: outcome-text (-> Outcome String))
-(define (outcome-text outcome)
+(define (outcome-text (outcome Outcome)) (→ String)
   (match outcome
     ((Playing) "playing")
     ((Won) "won")
     ((Lost) "lost")
     ((Resigned) "resigned")))
 
-(: report (-> String World Unit ! console))
-(define (report name world)
+(define (report (name String) (world World)) (→ Unit) (! output-port)
   (write-line (string-append name
                              ": tick "
-                             (show (World-tick world))
+                             (show (● world tick))
                              ", buildings "
-                             (show (length (World-buildings world)))
+                             (show (length (● world buildings)))
                              ", hub "
-                             (show (Hub-health (World-hub world)))
+                             (show (● (● world hub) health))
                              ", enemies "
-                             (show (length (World-enemies world)))
+                             (show (length (● world enemies)))
                              ", kills "
-                             (show (Ledger-kills (World-ledger world)))
+                             (show (● (● world ledger) kills))
                              ", lost "
-                             (show (Ledger-lost (World-ledger world)))
+                             (show (● (● world ledger) lost))
                              ", opened rock "
                              (show (vector-fold (lambda (n open) (if open (+ n 1) n))
                                                 0
-                                                (World-opened world)))
-                             ", " (outcome-text (World-outcome world)))))
+                                                (● world opened)))
+                             ", " (outcome-text (● world outcome)))))
 
-(: attack-text (-> I64 String))
-(define (attack-text tick)
+(define (attack-text (tick I64)) (→ String)
   (string-append (show tick)
                  " "
                  (match (attack-kind tick) ((Regular) "wave") ((Raid) "raid") ((Heavy) "boss"))
                  " of "
                  (show (attack-size tick))))
 
-(: offset (-> World I64 I64 Cell))
-(define (offset world dx dy)
-  (let ((hub (Hub-cell (World-hub world))))
-    (Cell (+ (Cell-x hub) dx) (+ (Cell-y hub) dy))))
+(define (offset (world World) (dx I64) (dy I64)) (→ Cell)
+  (let ((hub (● (● world hub) cell)))
+    (new Cell (x (+ (● hub x) dx)) (y (+ (● hub y) dy)))))
 
-(: started (-> World World))
-(define (started world)
-  (try world (Build (Extractor) (Land-starter (World-land world)) #f)))
+(define (started (world World)) (→ World)
+  (try world (Build (Extractor) (● (● world land) starter) #f)))
 
-(: reinforce (-> World World))
-(define (reinforce world)
+(define (reinforce (world World)) (→ World)
   (try (fold-left (lambda (world d)
-                    (try world (Build (Turret) (offset world (Pair-first d) (Pair-second d)) #f)))
+                    (try world (Build (Turret) (offset world (● d first) (● d second)) #f)))
                   world
-                  (list (Pair -2 0)
-                        (Pair 0 2)
-                        (Pair 2 0)
-                        (Pair 0 -2)
-                        (Pair -2 2)
-                        (Pair 2 -2)
-                        (Pair 2 2)
-                        (Pair -2 -2)))
+                  (list (new Pair (first -2) (second 0))
+                        (new Pair (first 0) (second 2))
+                        (new Pair (first 2) (second 0))
+                        (new Pair (first 0) (second -2))
+                        (new Pair (first -2) (second 2))
+                        (new Pair (first 2) (second -2))
+                        (new Pair (first 2) (second 2))
+                        (new Pair (first -2) (second -2))))
        (Upgrade (offset world 0 0))))
 
-(: defend (-> World I64 World))
-(define (defend world ticks)
+(define (defend (world World) (ticks I64)) (→ World)
   (if (or (<= ticks 0) (not (playing? world)))
       world
       (defend (run (reinforce world) 100) (- ticks 100))))
 
-(write-line
- (string-append "attacks: " (string-join (map attack-text (let loop ((tick 0) (found (Nil)))
-                                                            (if (= (length found) 12)
-                                                                (reverse found)
-                                                                (let ((next
-                                                                       (next-attack-tick tick)))
-                                                                  (loop next (Cons next found))))))
-                                         ", ")))
-(write-line (string-append "next attack after tick 5000: " (attack-text (next-attack-tick 5000))))
-(define lost (run (started (new-world 1)) 6000))
-(report "undefended" lost)
-(write-line (string-append "the lost colony's whole map is uncovered: "
-                           (show (vector-fold (lambda (all seen) (and all seen))
-                                              #t
-                                              (World-explored lost)))))
-(define defended (defend (started (new-world 1)) 1000))
-(report "defended" defended)
-(report "defended" (defend defended 2000))
+
+
+
 
 ;; Turrets three cells west and east of the hub flank a sturdy enemy to
 ;; the north. Both hit it, but it turns only on the first and keeps after
 ;; that one.
-(: flanked (-> World World))
-(define (flanked world)
+(define (flanked (world World)) (→ World)
   (let ((world (run (try (try world (Build (Turret) (offset world -3 0) #f))
                          (Build (Turret) (offset world 3 0) #f))
                     100)))
     (World-enemies-set world
-                       (list (Enemy 999
-                                    (Minion)
-                                    0
-                                    #f
-                                    (offset world 0 4)
-                                    (offset world 0 4)
-                                    2000
-                                    2000
-                                    (None)
-                                    (None))))))
+                       (list (new Enemy (id 999)
+                                  (behavior (Minion))
+                                  (rank 0)
+                                  (burrower #f)
+                                  (cell (offset world 0 4))
+                                  (previous (offset world 0 4))
+                                  (health 2000)
+                                  (maximum 2000)
+                                  (raid (None))
+                                  (aggro (None)))))))
 
-(: aggro-text (-> World String))
-(define (aggro-text world)
-  (match (find (lambda (e) (= (Enemy-id e) 999)) (World-enemies world))
+(define (aggro-text (world World)) (→ String)
+  (match (find (lambda (e) (= (● e id) 999)) (● world enemies))
     ((Some enemy)
-     (match (Enemy-aggro enemy)
+     (match (● enemy aggro)
        ((Some id) (string-append "building " (show id)))
        ((None) "nothing")))
     ((None) "gone")))
 
-(: watch (-> World I64 Unit ! console))
-(define (watch world ticks)
+(define (watch (world World) (ticks I64)) (→ Unit) (! output-port)
   (if (> ticks 0)
       (let ((next (advance world)))
         (for-each (lambda (shot)
                     (write-line (string-append "tick "
-                                               (show (World-tick next))
+                                               (show (● next tick))
                                                ": the turret at x "
-                                               (show (Cell-x (Shot-from shot)))
+                                               (show (● (● shot from) x))
                                                " fires; the enemy has turned on "
                                                (aggro-text next))))
-                  (filter (lambda (shot) (= (Shot-tick shot) (World-tick next)))
-                          (World-shots next)))
+                  (filter (lambda (shot) (= (● shot tick) (● next tick)))
+                          (● next shots)))
         (watch next (- ticks 1)))
       (begin
         (write-line (string-append "at tick "
-                                   (show (World-tick world))
+                                   (show (● world tick))
                                    " the enemy has turned on "
                                    (aggro-text world)))
         (write-line (string-append "the guns stay on each turret's last shot: "
-                                   (string-join (map aim-text (World-buildings world)) ", "))))))
+                                   (string-join (map aim-text (● world buildings)) ", "))))))
 
-(: aim-text (-> Building String))
-(define (aim-text b)
-  (string-append (kind-name (Building-kind b)) " at x " (show (Cell-x (Building-cell b))) " "
-                 (match (Building-aim b)
+(define (aim-text (b Building)) (→ String)
+  (string-append (kind-name (● b kind)) " at x " (show (● (● b cell) x)) " "
+                 (match (● b aim)
                    ((Some cell)
-                    (string-append "aims at " (show (Cell-x cell)) "," (show (Cell-y cell))))
+                    (string-append "aims at " (show (● cell x)) "," (show (● cell y))))
                    ((None) "has not fired"))))
 
-(watch (flanked (started (new-world 1))) 40)
+(define (main) (→ Unit) (! output-port)
+  (define lost (run (started (new-world 1)) 6000))
+  (define defended (defend (started (new-world 1)) 1000))
+  (write-line
+   (string-append "attacks: " (string-join (map attack-text (let loop ((tick 0) (found (Nil)))
+                                                              (if (= (length found) 12)
+                                                                  (reverse found)
+                                                                  (let ((next
+                                                                         (next-attack-tick tick)))
+                                                                    (loop next
+                                                                          (Cons next found))))))
+                                           ", ")))
+  (write-line
+   (string-append "next attack after tick 5000: " (attack-text (next-attack-tick 5000))))
+  (report "undefended" lost)
+  (write-line (string-append "the lost colony's whole map is uncovered: "
+                             (show (vector-fold (lambda (all seen) (and all seen))
+                                                #t
+                                                (● lost explored)))))
+  (report "defended" defended)
+  (report "defended" (defend defended 2000))
+  (watch (flanked (started (new-world 1))) 40)
+  (unit))

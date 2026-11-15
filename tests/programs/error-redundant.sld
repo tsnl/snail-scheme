@@ -1,8 +1,7 @@
 (import
  (snail core base))
 
-(: f (-> Bool I64))
-(define (f x)
+(define (f (x Bool)) (→ I64)
   (match x
     (_ 1)
     (#t 2)))

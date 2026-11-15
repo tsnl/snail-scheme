@@ -9,7 +9,7 @@
 // through the browser host's loader fetching the page's files over HTTP,
 // which never fetches the file the program does not read. A development
 // build places the file in the store its generations share, seen from
-// outside `snail dev` (tests/development-service.mjs): once the file is
+// outside `snail-scheme watch` (tests/development-service.mjs): once the file is
 // edited, the next Build compiles the library that links it and its
 // importer, whose manifest names the new bytes under their own digest.
 import assert from 'node:assert/strict';
@@ -20,13 +20,13 @@ import {createServer} from 'node:http';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {promisify} from 'node:util';
-import {createWasi, instantiate, linkedFileImports} from '../host/browser/load.mjs';
+import {createWasi, instantiate, linkedFileImports, runMain} from '../host/browser/load.mjs';
 import {createTasks, taskExports} from '../host/browser/tasks.mjs';
 import {startDevelopment} from './development-service.mjs';
 
 const execute = promisify(execFile), root = process.argv[2];
 const project = await mkdtemp(join(tmpdir(), 'snail-project-resources-'));
-const build = target => execute(join(root, 'snail'), ['build', project, target]);
+const build = target => execute(join(root, 'snail-scheme'), ['build', project, target]);
 const run = path => execute(process.execPath, ['--no-warnings', join(root, 'host/native/run-snail.mjs'), path]);
 const write = async (name, contents) => { await mkdir(join(project, name, '..'), {recursive: true}); await writeFile(join(project, name), contents); };
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -59,19 +59,21 @@ async function pageOutput(directory) {
     const tasks = createTasks(() => instance && taskExports({exports: instance.exports}));
     instance = await instantiate(module, {...wasi.getImportObject(), ...linkedFileImports(read, module, () => tasks)});
     wasi.initialize(instance);
-    instance.exports.main();
-    await tasks.drive();
+    runMain(instance.exports, tasks);
+    try { await tasks.drive(); }
+    finally { tasks.close(); }
     return {output: lines.join('\n'), fetched};
   } finally { server.close(); }
 }
 
 try {
   await write('src/assets/sprites.sld', `(define-library (assets sprites) (export hero villain) (import (snail core base) (snail shell resource))
-    (begin (: hero Resource) (define hero (link-file "art/hero.bin")) (: villain Resource) (define villain (link-file "art/villain.bin"))))`);
+    (begin (define (hero) (→ Resource) (link-file "art/hero.bin")) (define (villain) (→ Resource) (link-file "art/villain.bin"))))`);
   await write('src/assets/art/hero.bin', hero);
   await write('src/assets/art/villain.bin', villain);
-  await write('main.sld', `(import (snail core base) (snail core io) (only (snail shell task) tasks dispatch-local) (snail shell resource) (assets sprites))
-(dispatch-local (once (lambda () (write-line (string-join (map (lambda (byte) (show (u8->i32 byte))) (vector->list (read-resource hero))) ",")))))\n`);
+  await write('main.sld', `(import (snail core base) (snail core io) (only (snail shell task) tasks) (snail shell resource) (assets sprites))
+(define (main) (→ Unit) (! output-port resource tasks)
+  (write-line (string-join (map (lambda (byte) (show (u8->i32 byte))) (vector->list (read-resource (hero)))) ",")))\n`);
   await write('public/index.html', '<!doctype html><title>Resources</title>');
   await write('project.datum', `((build-target cli (program (entry "main.sld") (library-roots ("src"))))
  (build-target page (browser (entry "main.sld") (library-roots ("src")) (public "public"))))`);
@@ -103,7 +105,7 @@ try {
     assert.equal((await run(join(output.directory, 'modules.json'))).stdout, '1,2,3,255\n');
     await write('src/assets/art/hero.bin', edited);
     const next = (await service.rebuilt()).published.targets.find(target => target.name === 'cli');
-    assert.equal(next.compiled, 2, 'the library that links the file, and its importer, compile again');
+    assert.equal(next.compiled, manifest.modules.length, 'a resource edit recompiles every module');
     assert.deepEqual(await shared(next.directory, edited), edited, 'the store holds the new bytes');
     assert.deepEqual(await shared(next.directory, hero), hero, 'and still the old');
     assert.equal((await run(join(next.directory, 'modules.json'))).stdout, '9,8\n');

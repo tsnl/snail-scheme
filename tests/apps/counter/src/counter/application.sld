@@ -5,71 +5,74 @@
    (snail shell app)
    (snail shell wire))
   (begin
-    (struct Counter
+    (record Counter
       ((count I64)
        (width I32)
        (height I32)))
 
-    (struct Save
+    (record Save
       ((count I64))
       (deriving Serialize Deserialize))
 
-    (: greeting String)
-    (define greeting "hello")
+    (define (greeting) (→ String) "hello")
 
-    (: add-action I32)
-    (define add-action 1)
+    (define (add-action) (→ I32) 1)
 
-    (: start (-> I32 I32 I32 Counter))
-    (define (start seed width height)
-      (Counter 0 width height))
+    (define (start (seed I32) (width I32) (height I32)) (→ Counter)
+      (new Counter (count 0) (width width) (height height)))
 
-    (: step (-> Counter Input Counter))
-    (define (step counter input)
+    (define (step (counter Counter) (input Input)) (→ Counter)
       (match input
-        ((Press 1 _) (Counter-count-set counter (+ (Counter-count counter) 1)))
-        ((Resize width height) (Counter (Counter-count counter) width height))
+        ((Press 1 _) (Counter-count-set counter (+ (● counter count) 1)))
+        ((Resize width height)
+         (new Counter (count (● counter count)) (width width) (height height)))
         (_ counter)))
 
     ;; One box, its batch versioned by the count, under a fixed camera.
-    (: draw (-> Counter Frame))
-    (define (draw counter)
-      (Frame (Camera (Vec3 4.0 4.0 4.0) (Vec3 0.0 0.0 0.0) (Perspective 0.8))
-             (Light (Vec3 0.3 1.0 0.5) 0.8 0.3)
-             (rgb 16 20 28)
-             1.0
-             (list (Batch 1 (i64->i32 (Counter-count counter)) (Solid)
-                          (lambda ()
-                            (list (item (Box)
-                                        (Vec3 0.0 0.0 0.0)
-                                        (Vec3 1.0 1.0 1.0)
-                                        0.0
-                                        (rgb 143 209 143))))))
-             (Nil)))
+    (define (draw (counter Counter)) (→ Frame)
+      (new Frame
+        (camera (new Camera
+                  (eye (new Vec3 (x 4.0) (y 4.0) (z 4.0)))
+                  (target (new Vec3 (x 0.0) (y 0.0) (z 0.0)))
+                  (projection (Perspective 0.8))))
+        (light (new Light (direction (new Vec3 (x 0.3) (y 1.0) (z 0.5))) (sun 0.8) (ambient 0.3)))
+        (background (rgb 16 20 28))
+        (motion 1.0)
+        (batches (list (new Batch (key 1) (version (i64->i32 (● counter count))) (style (Solid))
+                            (items (lambda ()
+                                     (list (item (Box)
+                                                 (new Vec3 (x 0.0) (y 0.0) (z 0.0))
+                                                 (new Vec3 (x 1.0) (y 1.0) (z 1.0))
+                                                 0.0
+                                                 (rgb 143 209 143))))))))
+        (pictures (Nil))))
 
-    (: panels (-> Counter (List Panel)))
-    (define (panels counter)
-      (list (Panel "counter" (At (TopLeft) 0)
-                   (list (label "greeting" greeting)
-                         (label "count" (i64->string (Counter-count counter)))
-                         (button "add" "Add" add-action)))))
+    (define (panels (counter Counter)) (→ (List Panel))
+      (list (new Panel (key "counter") (place (At (TopLeft) 0))
+                 (widgets (list (label "greeting" (greeting))
+                                (label "count" (i64->string (● counter count)))
+                                (button "add" "Add" (add-action)))))))
 
-    (: save (-> Counter Save))
-    (define (save counter)
-      (Save (Counter-count counter)))
+    (define (save (counter Counter)) (→ Save)
+      (new Save (count (● counter count))))
 
-    (: restore (-> Save Counter))
-    (define (restore saved)
-      (Counter (Save-count saved) 0 0))
+    (define (restore (saved Save)) (→ Counter)
+      (new Counter (count (● saved count)) (width 0) (height 0)))
 
     (type CounterApplication (SceneApplication Counter))
 
     (define-page-state Counter)
 
     (instance (Scene Counter)
-      (define (scene-initialize seed width height) (start seed width height))
-      (define (scene-update state input) (step state input))
-      (define (scene-view state) (draw state))
-      (define (scene-hud state) (panels state))
-      (define (scene-save state) (serialize (save state)))
-      (define (scene-restore bytes) (restore (deserialize bytes))))))
+      (define (scene-initialize (seed I32) (width I32) (height I32)) (→ Counter)
+        (start seed width height))
+      (define (scene-update (state Counter) (input Input)) (→ Counter)
+        (step state input))
+      (define (scene-view (state Counter)) (→ Frame)
+        (draw state))
+      (define (scene-hud (state Counter)) (→ (List Panel))
+        (panels state))
+      (define (scene-save (state Counter)) (→ Bytes)
+        (serialize (save state)))
+      (define (scene-restore (bytes Bytes)) (→ Counter)
+        (restore (deserialize bytes))))))

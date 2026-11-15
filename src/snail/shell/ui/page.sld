@@ -17,6 +17,7 @@
    interface-restore)
   (import
    (snail core base)
+   (only (snail core forms) host)
    (snail shell application)
    (snail shell task)
    (snail shell page)
@@ -29,53 +30,48 @@
 
     ;; ---- Interfaces ----
 
-    (type (Command M) (FnOnce M ! tasks dom fetch))
+    (type (Command M) (Fn → M ! tasks dom fetch))
 
     (typeclass (Interface Model)
       (type Message)
-      (: interface-initialize (-> I32 Model))
-      (: interface-update (-> Model Message (Pair Model (List (Command Message)))))
-      (: interface-view (-> Model (Html Message)))
-      (: interface-window (-> Model (List (Attribute Message))))
-      (: interface-messages (-> Model (List Message)))
-      (: interface-save (-> Model Bytes))
-      (: interface-restore (-> Bytes Model)))
+      (declare (interface-initialize (seed I32)) (→ Model))
+      (declare (interface-update (model Model) (message Message))
+        (→ (Pair Model (List (Command Message)))))
+      (declare (interface-view (value Model)) (→ (Html Message)))
+      (declare (interface-window (value Model)) (→ (List (Attribute Message))))
+      (declare (interface-messages (value Model)) (→ (List Message)))
+      (declare (interface-save (value Model)) (→ Bytes))
+      (declare (interface-restore (bytes Bytes)) (→ Model)))
 
-    (struct (InterfaceApplication Model)
+    (record (InterfaceApplication Model)
       ())
 
-    (instance (Application (! mut events storage tasks) (InterfaceApplication Model))
-      (requires (Interface Model) (PageState Model) (Copy Model))
-      (define (start entry)
+    (instance (Application (! mut host events storage tasks page) (InterfaceApplication Model))
+      (⊨ (Interface Model) (PageState Model))
+      (define (start (entry (Entry (InterfaceApplication Model))))
+        (→ Unit)
+        (! mut host events storage tasks page)
+
         (run-page (lambda () (initial-interface entry)) interface-save interface-restore
                   present-interface)))
 
-    (: initial-interface
-       (All (Model) (requires (Interface Model))
-            (-> (Entry (InterfaceApplication Model)) Model ! events)))
-    (define (initial-interface entry)
+    (define (initial-interface (entry (Entry (InterfaceApplication Model))))
+      (→ Model)
+      (! events)
+      (∀ (Model))
+      (⊨ (Interface Model))
       (interface-initialize (random-seed)))
 
-    ;; The loop's row includes publishing and saving its model. Commands
-    ;; retain their narrower public contract and run under the same handlers.
-    (: widen-commands
-       (All (M) (-> (List (Command M))
-                    (List (FnOnce M ! mut events storage tasks dom fetch)))))
-    (define (widen-commands commands)
-      (match commands
-        ((Cons command rest) (Cons (once (lambda () (command))) (widen-commands rest)))
-        ((Nil) (Nil))))
+    ;; The loop's row includes publishing and saving its model. Commands and
+    ;; the save keep their narrower contracts and fit the loop as they are.
+    ;; The update's pair is rebuilt because a record's type never widens;
+    ;; its commands widen as they move into the new one.
 
-    (: interface-save-callback
-       (All (S) (-> (-> S Unit ! events storage tasks)
-                    (-> S Unit ! mut events storage tasks dom fetch))))
-    (define (interface-save-callback save)
-      (lambda (model) (save model)))
-
-    (: present-interface
-       (All (Model) (requires (Interface Model) (PageState Model) (Copy Model))
-            (-> Model (-> Model Unit ! events storage tasks) Unit ! mut events storage tasks)))
-    (define (present-interface model save)
+    (define (present-interface (model Model) (save (Fn Model → Unit ! events storage tasks)))
+      (→ Unit)
+      (! mut host events storage tasks page)
+      (∀ (Model))
+      (⊨ (Interface Model) (PageState Model))
       (with-page-dom
        (lambda ()
          (with-page-fetch
@@ -83,10 +79,10 @@
             (run-ui model (interface-messages model)
                     (lambda (model message)
                       (match (interface-update model message)
-                        ((Pair next commands) (Pair next (widen-commands commands)))))
+                        ((Pair next commands) (new Pair (first next) (second commands)))))
                     interface-view interface-window
                     (lambda (model) (commit-page model) (report-ready))
-                    (interface-save-callback save))
+                    save)
             (unit))))))
 
     ))

@@ -9,8 +9,7 @@
  (hearsay shell)
  (only (hearsay hud) guide-next guide-close))
 
-(: widget-text (-> Widget String))
-(define (widget-text widget)
+(define (widget-text (widget Widget)) (→ String)
   (match widget
     ((Label face text) (string-append (tone-mark face) text))
     ((Button face text caption action argument control ring)
@@ -23,14 +22,12 @@
     ((Text face spans) (string-concatenate (map span-words spans)))
     ((Image face picture region scale) (string-append "<picture " (show picture) ">"))))
 
-(: span-words (-> Span String))
-(define (span-words span)
+(define (span-words (span Span)) (→ String)
   (match span
     ((Normal words) words)
     ((Strong words) words)))
 
-(: tone-mark (-> Look String))
-(define (tone-mark face)
+(define (tone-mark (face Look)) (→ String)
   (match face
     ((Look key icon help tone badge)
      (match tone
@@ -41,8 +38,7 @@
        ((Muted) "(muted) ")
        ((Suggested) "(suggested) ")))))
 
-(: place-name (-> Place String))
-(define (place-name place)
+(define (place-name (place Place)) (→ String)
   (match place
     ((At corner column)
      (string-append (match corner
@@ -54,8 +50,7 @@
     ((Dialog dismiss) "dialog")
     ((Banner) "banner")))
 
-(: show-batches (-> Frame Unit ! console))
-(define (show-batches frame)
+(define (show-batches (frame Frame)) (→ Unit) (! output-port)
   (match frame
     ((Frame camera light background motion batches pictures)
      (write-line (string-append "batches: "
@@ -66,49 +61,57 @@
                                                   batches)
                                              " "))))))
 
-(: show-panel (-> Panel Unit ! console))
-(define (show-panel panel)
+(define (show-panel (panel Panel)) (→ Unit) (! output-port)
   (match panel
     ((Panel key place widgets)
      (write-line (string-append "-- " key ", " (place-name place)))
      (for-each (lambda (widget) (write-line (widget-text widget))) widgets))))
 
-(: click (-> Shell (List (Pair I32 I32)) Shell))
-(define (click shell presses)
+(define (click (shell Shell) (presses (List (Pair I32 I32)))) (→ Shell)
   (fold-left
-   (lambda (shell press) (update-shell shell (Press (Pair-first press) (Pair-second press))))
+   (lambda (shell press) (update-shell shell (Press (● press first) (● press second))))
    shell
    presses))
 
-(: step (-> Shell String (List (Pair I32 I32)) Shell ! console))
-(define (step shell title presses)
+(define (step (shell Shell) (title String) (presses (List (Pair I32 I32))))
+  (→ Shell)
+  (! output-port)
   (let ((shell (click shell presses)))
     (write-line (string-append "==== " title))
     (show-batches (view-shell shell (lambda (path) (None))))
     (for-each show-panel (shell-hud shell))
     shell))
 
-;; The ledger is the second prototype opened, so seed 5 deals it seed 7.
-;; Buttons: 9000 with argument i opens rumor-mill scenario i, 9100 opens the
-;; ledger, and 9999 is Menu. Each guide opens by itself the first time;
-;; `guide-next` turns to its next page, closing it after the last, and
-;; `guide-close` closes it. In the mill, 100 + p chooses person p, 3
-;; delivers a job and 9 lies low. In the ledger, action 3 with argument i
-;; does the i-th job, and 5 ends the round.
-(let* ((shell (new-shell 5 1280 800))
-       (shell (step shell "menu" (Nil)))
-       (shell (step shell "two faces with its guide open" (list (Pair 9000 0))))
-       (shell (step shell "two faces after delivering a job for Mo"
-                    (list (Pair guide-close 0) (Pair 112 0) (Pair 3 0) (Pair 9 0))))
-       (shell (step shell
-                    "ledger with its guide on the last page"
-                    (list (Pair 9999 0)
-                          (Pair 9100 0)
-                          (Pair guide-next 0)
-                          (Pair guide-next 0)
-                          (Pair guide-next 0)
-                          (Pair guide-next 0))))
-       (shell (step shell
-                    "ledger after doing job 2 and ending the round"
-                    (list (Pair guide-next 0) (Pair 3 1) (Pair 5 0)))))
+(define (main) (→ Unit) (! output-port)
+
+  ;; The ledger is the second prototype opened, so seed 5 deals it seed 7.
+  ;; Buttons: 9000 with argument i opens rumor-mill scenario i, 9100 opens the
+  ;; ledger, and 9999 is Menu. Each guide opens by itself the first time;
+  ;; `guide-next` turns to its next page, closing it after the last, and
+  ;; `guide-close` closes it. In the mill, 100 + p chooses person p, 3
+  ;; delivers a job and 9 lies low. In the ledger, action 3 with argument i
+  ;; does the i-th job, and 5 ends the round.
+  (let* ((shell (new-shell 5 1280 800))
+         (shell (step shell "menu" (Nil)))
+         (shell
+          (step shell "two faces with its guide open" (list (new Pair (first 9000) (second 0)))))
+         (shell (step shell "two faces after delivering a job for Mo"
+                      (list (new Pair (first (guide-close)) (second 0))
+                            (new Pair (first 112) (second 0))
+                            (new Pair (first 3) (second 0))
+                            (new Pair (first 9) (second 0)))))
+         (shell (step shell
+                      "ledger with its guide on the last page"
+                      (list (new Pair (first 9999) (second 0))
+                            (new Pair (first 9100) (second 0))
+                            (new Pair (first (guide-next)) (second 0))
+                            (new Pair (first (guide-next)) (second 0))
+                            (new Pair (first (guide-next)) (second 0))
+                            (new Pair (first (guide-next)) (second 0)))))
+         (shell (step shell
+                      "ledger after doing job 2 and ending the round"
+                      (list (new Pair (first (guide-next)) (second 0))
+                            (new Pair (first 3) (second 1))
+                            (new Pair (first 5) (second 0))))))
+    (unit))
   (unit))

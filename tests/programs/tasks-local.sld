@@ -1,11 +1,19 @@
 (import
  (snail core base)
+ (only (snail core forms) host)
  (snail core io)
  (snail shell task))
-(let ((cell (ref (ann 0 I64))))
-  (dispatch-local
-   (once (lambda ()
-           (ref-set! cell 42)
-           (yield)
-           (display (ref-get cell))
-           (newline)))))
+
+(record TaskValue
+  ((value I64)))
+
+(define (main) (→ Unit) (! host mut output-port tasks)
+
+  (let ((cell (new TaskValue (value 0))))
+    (dispatch
+     (lambda ()
+       (set! (● cell value) 42)
+       (yield)
+       (display (● cell value))
+       (newline))))
+  (unit))

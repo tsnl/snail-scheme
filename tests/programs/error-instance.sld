@@ -1,6 +1,5 @@
 (import
  (snail core base))
 
-(: f (-> Bool Bool))
-(define (f x)
+(define (f (x Bool)) (→ Bool)
   (+ x x))

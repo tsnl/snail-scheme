@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import {chmodSync, statSync} from 'node:fs';
 import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -12,12 +11,14 @@ import {socketImports} from './socket-imports.mjs';
 import {createProcesses, createTermination} from './process.mjs';
 import {processImports} from './process-imports.mjs';
 import {createHints} from './hints.mjs';
+import {createAsyncFiles} from './async-files.mjs';
 
 // ---- One reactor initialization and one program invocation ----
 //
 // A program is one linked module, or a modules.json naming the modules of a
 // program compiled one library at a time, which the engine links
-// ((snail shell engine), built to build/engine/engine.wasm, or where
+// ((snail shell engine), the root project's `engine` target, published at
+// build/engine/program.wasm, or where
 // SNAIL_ENGINE_MODULE says): this host starts the engine with the manifest
 // in SNAIL_MANIFEST, and the engine reads the objects from the store,
 // links them through the Wasm primitives of load.mjs, runs each main, and
@@ -35,13 +36,6 @@ import {createHints} from './hints.mjs';
 // status 2, told as `snail: MESSAGE`. crates/snail/src/program.rs keeps
 // the same protocol on wasmtime, and the compiled compiler is run by it
 // too: a compile that fails, or needs an input, exits with status 1.
-
-// The `modes` effect of src/snail/shell/project/files.sld: a file's
-// permission bits, which WASI cannot reach. A failure answers -1.
-const modeCommands = {
-  mode([path]) { try { return statSync(path).mode & 0o777; } catch { return -1; } },
-  chmod([path], mode) { try { chmodSync(path, mode); return 0; } catch { return -1; } },
-};
 
 function resultStatus(value) {
   if (value === undefined) return 0;
@@ -79,17 +73,20 @@ async function run(filename, arguments_) {
   // A task's exit has told its message already.
   const report = error => { failed = true; if (error instanceof Error) console.error(`snail: ${error.message}`); };
   const tasks = createTasks(() => program && taskExports(program), {reportError: report});
+  const asyncFiles = createAsyncFiles(tasks);
   const host = {'snail.runtime.wasm': wasmImports(() => program),
+                'snail.runtime.native.async-files': asyncFiles.imports,
                 'snail.runtime.native.socket': socketImports(() => program, tasks, tcp, udp),
                 'snail.runtime.native.process': processImports(() => program, tasks, processes, termination),
-                'snail.runtime.native.files': {...commandImports({...modeCommands, ...hints.commands}), ...hints.waits(tasks)}};
+                'snail.runtime.native.files': {...commandImports(hints.commands), ...hints.waits(tasks)}};
   // A task waiting on a timer or a ticket is live work even when no OS
   // handle keeps Node alive.
   const keepAlive = setInterval(() => {}, 60_000);
   try {
     program = await loadProgram(resolve(filename), wasi, host, () => tasks);
     program.wasi = () => freshWasi();
-    status = resultStatus(runInitializers(program));
+    program.entry = tasks;
+    status = resultStatus(runInitializers(program, tasks));
     await tasks.drive().catch(report);
     if (failed) status = 1;
   } catch (error) {
@@ -98,12 +95,12 @@ async function run(filename, arguments_) {
   } finally {
     try {
       tasks.close(); hints.shutdown(); termination.close();
-      await Promise.all([tcp.shutdown(), udp.shutdown(), processes.shutdown()]);
+      await Promise.all([tcp.shutdown(), udp.shutdown(), processes.shutdown(), asyncFiles.close()]);
     }
     finally {
       clearInterval(keepAlive);
       if (program) {
-        const closed = [program.exports['engine:close']?.() ?? 0, program.exports['close-resources']()];
+        const closed = [tasks.closeStatus, program.exports['close-resources']()];
         if (closed.some(result => result !== 0) && status === 0) status = 1;
       }
     }
@@ -128,7 +125,7 @@ async function loadProgram(filename, wasi, host, tasks) {
 }
 
 function engineModule() {
-  return process.env.SNAIL_ENGINE_MODULE ?? fileURLToPath(new URL('../../build/engine/engine.wasm', import.meta.url));
+  return process.env.SNAIL_ENGINE_MODULE ?? fileURLToPath(new URL('../../build/engine/program.wasm', import.meta.url));
 }
 
 // The program's main, or the engine's, whose first task links the program
@@ -138,11 +135,11 @@ function engineModule() {
 // Work dispatched by any initializer belongs to this runtime and may
 // outlive the program's main invocation: its tasks run once every main
 // has returned.
-function runInitializers(program) {
-  const result = runMain(program.exports);
-  if (!program.exports['engine:status']) return result;
-  program.exports['engine:turn'](BigInt(Date.now()));
-  return Number(program.exports['engine:status']());
+function runInitializers(program, tasks) {
+  if (!program.exports['engine:start']) return runMain(program.exports, tasks);
+  tasks.call('engine:start');
+  tasks.call('tasks:turn', BigInt(Date.now()));
+  return Number(tasks.call('engine:status'));
 }
 
 // ---- The program on the main thread ----

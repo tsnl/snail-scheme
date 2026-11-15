@@ -2,7 +2,6 @@
  (snail core base)
  (snail core io))
 
-(: pure (-> I64 I64))
-(define (pure x)
+(define (pure (x I64)) (→ I64)
   (write-line "side effect")
   x)

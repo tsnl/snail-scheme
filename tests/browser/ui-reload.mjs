@@ -14,7 +14,8 @@ const app = join(directory, 'notes'), source = join(app, 'src/notes/application.
 await cp(join(root, 'tests/apps/notes'), app, {recursive: true, filter: path => basename(path) !== 'build'});
 const service = await startDevelopment(root, app), browser = await openBrowser();
 const notes = () => browser.evaluate(`[...document.querySelectorAll('#notes li')].map(item => item.firstChild.data).join(',')`);
-const notice = () => browser.evaluate(`document.querySelector('[role="status"]')?.textContent ?? ''`);
+const notice = () => browser.evaluate(`document.querySelector('[role="status"]')?.style.display === 'block'
+  ? document.querySelector('[role="status"]').textContent : ''`);
 const button = () => browser.evaluate(`document.getElementById('add')?.textContent`);
 async function edit(...replacements) {
   let text = await readFile(source, 'utf8');
@@ -69,21 +70,23 @@ try {
   await browser.evaluate('runtime.send(...oldEvent), new Promise(resolve => setTimeout(resolve, 50))');
   assert.equal(await browser.evaluate(`document.getElementById('draft').value`), '', 'the replaced view cannot deliver an old event');
 
-  await edit('(define (view model)\n', '(define (view model)\n      (panic "rejected document view")\n');
+  await edit('(define (view (model Notes)) (→ (Html Message))\n', '(define (view (model Notes)) (→ (Html Message))\n      (panic "rejected document view")\n');
   await until(async () => (await notice()).includes('rejected document view'), 'the refused replacement');
   assert.equal(await notes(), 'milk,eggs', 'rollback restores the latest committed model');
   await add('tea');
   await until(async () => await notes() === 'milk,eggs,tea', 'the old application after rollback');
   await edit('      (panic "rejected document view")\n', '');
-  await until(async () => (await notice()).startsWith('Reloaded'), 'the repaired document application');
+  // Restoring exactly the running module needs no relink; the accepted build
+  // can simply clear its rejected replacement's notice.
+  await until(async () => { const text = await notice(); return !text || text.startsWith('Reloaded'); }, 'the repaired document application');
   assert.equal(await notes(), 'milk,eggs,tea');
 
   // A stopped root extracts its save without presenting or replaying its
   // startup messages. Only starting the repaired application increments it.
-  const trap = '      (when (string=? (Notes-draft model) "trap") (panic "document update trap"))\n';
-  await edit('(define (interface-messages model) (list (Load)))',
-    '(define (interface-messages model) (list (Added (+ (Notes-added model) 1))))',
-    '(define (view model)\n', '(define (view model)\n' + trap,
+  const trap = '      (when (string=? (● model draft) "trap") (panic "document update trap"))\n';
+  await edit('(define (interface-messages (model Notes)) (→ (List Message))\n        (list (Load)))',
+    '(define (interface-messages (model Notes)) (→ (List Message))\n        (list (Added (+ (● model added) 1))))',
+    '(define (view (model Notes)) (→ (Html Message))\n', '(define (view (model Notes)) (→ (Html Message))\n' + trap,
     '(Text "Add note")', '(Text "Trap test")');
   await until(async () => await button() === 'Trap test', 'the recovery test application');
   const count = () => browser.evaluate(`Number(document.getElementById('added').textContent.split(' ')[0])`);
@@ -95,6 +98,17 @@ try {
   await until(async () => await button() === 'Recovered', 'the recovered document');
   assert.equal(await count(), before + 1, 'checkpoint extraction never replays startup messages');
   assert.equal(await notes(), 'milk,eggs,tea');
+  // If encoding fails before refresh obtains bytes, its stopped checkpoint
+  // remains the recovery source for a repaired application.
+  const save = '(define (interface-save (model Notes)) (→ Bytes)\n        (serialize (save model)))';
+  const failedSave = '(define (interface-save (model Notes)) (→ Bytes)\n        (panic "save encoding trap"))';
+  await edit(save, failedSave, '(Text "Recovered")', '(Text "Save trap")');
+  await until(async () => await button() === 'Save trap', 'the failing save application');
+  await browser.evaluate(`import(new URL('application.mjs', document.baseURI).href).then(({running}) => running[0].refresh())`);
+  await until(() => browser.evaluate('document.querySelector("[role=alert]")?.textContent.includes("Refresh deferred")'), 'the deferred refresh');
+  await edit(failedSave, save, '(Text "Save trap")', '(Text "Save repaired")');
+  await until(async () => await button() === 'Save repaired', 'the repaired save application');
+  assert.equal(await notes(), 'milk,eggs,tea', 'a failed refresh retains its unsaved checkpoint');
   if (screenshot) await browser.screenshot(screenshot);
   console.log('document reload: periodic saves, state handover, stale listeners and rollback passed');
 } catch (error) {

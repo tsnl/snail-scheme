@@ -34,8 +34,7 @@
 
     ;; ---- Strings ----
 
-    (: hex4 (-> I32 String))
-    (define (hex4 code)
+    (define (hex4 (code I32)) (→ String)
       (string-generate 4
                        (lambda (index)
                          (string-ref "0123456789abcdef"
@@ -47,12 +46,12 @@
 
     ;; `JSON.stringify`'s escapes: the quote and the backslash, the five
     ;; controls with short forms, and every other control as \u and four
-    ;; lowercase hex digits. A surrogate escapes the same way: a Snail
+    ;; lowercase hex digits. A surrogate escapes the same way: a `snail-scheme`
     ;; String holds scalars, so a surrogate Char, which only `i32->char`
     ;; makes, is always alone, and JavaScript escapes a lone surrogate.
     ;; Everything else, DEL, U+2028 and U+2029 among it, is written as it is.
-    (: escape (-> Char (Option String)))
-    (define (escape char)
+
+    (define (escape (char Char)) (→ (Option String))
       (let ((code (char->i32 char)))
         (cond ((= code 34) (Some "\\\""))
               ((= code 92) (Some "\\\\"))
@@ -67,8 +66,8 @@
 
     ;; Each run of characters between escapes is copied as one substring,
     ;; so a long text with few escapes, a file's contents, is a few pieces.
-    (: string-pieces (-> String (List String) (List String)))
-    (define (string-pieces text pieces)
+
+    (define (string-pieces (text String) (pieces (List String))) (→ (List String))
       (let loop ((start 0) (index 0) (pieces (Cons "\"" pieces)))
         (if (= index (string-length text))
             (Cons "\"" (Cons (substring text start index) pieces))
@@ -83,8 +82,8 @@
 
     ;; The pieces of a value's text, prepended in reverse to `pieces`, so
     ;; that writing is one pass and one final concatenation.
-    (: value-pieces (-> Json (List String) (List String)))
-    (define (value-pieces value pieces)
+
+    (define (value-pieces (value Json) (pieces (List String))) (→ (List String))
       (match value
         ((JsonNull) (Cons "null" pieces))
         ((JsonBool flag) (Cons (if flag "true" "false") pieces))
@@ -93,14 +92,16 @@
         ((JsonArray items) (Cons "]" (separated value-pieces items (Cons "[" pieces))))
         ((JsonObject members) (Cons "}" (separated member-pieces members (Cons "{" pieces))))))
 
-    (: member-pieces (-> (Pair String Json) (List String) (List String)))
-    (define (member-pieces member pieces)
-      (value-pieces (Pair-second member) (Cons ":" (string-pieces (Pair-first member) pieces))))
+    (define (member-pieces (member (Pair String Json)) (pieces (List String))) (→ (List String))
+      (value-pieces (● member second) (Cons ":" (string-pieces (● member first) pieces))))
 
     ;; Items with a comma between each two, and no spaces anywhere.
-    (: separated
-       (All (T) (-> (-> T (List String) (List String)) (List T) (List String) (List String))))
-    (define (separated write items pieces)
+
+    (define (separated (write (Fn T (List String) → (List String)))
+                       (items (List T))
+                       (pieces (List String)))
+      (→ (List String))
+      (∀ (T))
       (match items
         ((Nil) pieces)
         ((Cons first rest)
@@ -108,8 +109,7 @@
                     (write first pieces)
                     rest))))
 
-    (: json->string (-> Json String))
-    (define (json->string value)
+    (define (json->string (value Json)) (→ String)
       (string-concatenate (reverse (value-pieces value (Nil)))))
 
     ))

@@ -3,22 +3,18 @@
 (define-library (sample route)
   (export
    Stop
-   Stop-label
-   Stop-shape
-   Route
-   Route-stops
-   Route-length)
+   Route)
   (import
    (snail core base)
    (sample shape))
   (begin
 
-    (struct (Stop T)
+    (record (Stop T)
       ((label T)
        (shape Shape))
       (deriving Serialize Deserialize))
 
-    (struct Route
+    (record Route
       ((stops (List (Stop String)))
        (length I64))
       (deriving Serialize Deserialize))))

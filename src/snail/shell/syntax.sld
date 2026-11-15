@@ -22,7 +22,7 @@
   (import
    (snail core base)
    (snail core io)
-   (only (snail shell task) tasks dispatch-local)
+   (only (snail shell task) tasks)
    (only (snail shell resource) resource))
   (begin
 
@@ -41,14 +41,18 @@
       (BytesSyntax ((value Bytes))))
 
     ;; `(head item ...)`.
-    (: form (-> String (List Syntax) Syntax))
-    (define (form head items)
+
+    (define (form (head String) (items (List Syntax))) (→ Syntax)
       (ListSyntax (Cons (SymbolSyntax head) items)))
 
     ;; The form a recipe returns: `(define-library (name ...) (export ...)
     ;; (import (library ...) ...) (begin definition ...))`.
-    (: library-syntax (-> (List String) (List String) (List (List String)) (List Syntax) Syntax))
-    (define (library-syntax name exports imports definitions)
+
+    (define (library-syntax (name (List String))
+                            (exports (List String))
+                            (imports (List (List String)))
+                            (definitions (List Syntax)))
+      (→ Syntax)
       (let ((library-name (lambda (parts) (ListSyntax (map SymbolSyntax parts)))))
         (form "define-library"
               (list (library-name name)
@@ -72,14 +76,14 @@
     ;; first, and the high bit set on every byte but the last. A text is a
     ;; count of scalars, then each scalar's code. src/snail/shell/compiler/read.sld
     ;; decodes this.
-    (: syntax->bytes (-> Syntax Bytes))
-    (define (syntax->bytes syntax)
+
+    (define (syntax->bytes (syntax Syntax)) (→ Bytes)
       (vector-concatenate (reverse (encode syntax (Nil)))))
 
     ;; The pieces of `syntax` before `pieces`, last first. A byte vector is
     ;; its own piece, so its bytes are copied only when the pieces join.
-    (: encode (-> Syntax (List Bytes) (List Bytes)))
-    (define (encode syntax pieces)
+
+    (define (encode (syntax Syntax) (pieces (List Bytes))) (→ (List Bytes))
       (match syntax
         ((ListSyntax items)
          (fold-left (lambda (pieces item) (encode item pieces))
@@ -94,20 +98,19 @@
         ((BytesSyntax bytes) (Cons bytes (Cons (counted 7 (vector-length bytes)) pieces)))))
 
     ;; A tag and one count.
-    (: counted (-> I32 I64 Bytes))
-    (define (counted tag count)
+
+    (define (counted (tag I32) (count I64)) (→ Bytes)
       (list->vector (Cons (i32->u8 tag) (count-bytes count))))
 
     ;; A tag and a text.
-    (: text-piece (-> I32 String Bytes))
-    (define (text-piece tag text)
+
+    (define (text-piece (tag I32) (text String)) (→ Bytes)
       (list->vector (Cons (i32->u8 tag) (append (count-bytes (string-length text))
                                                 (concatenate
                                                  (map (lambda (c) (count-bytes (char->integer c)))
                                                       (string->list text)))))))
 
-    (: count-bytes (-> I64 (List U8)))
-    (define (count-bytes count)
+    (define (count-bytes (count I64)) (→ (List U8))
       (if (< count 128)
           (list (i32->u8 (i64->i32 count)))
           (Cons (i32->u8 (i64->i32 (+ 128 (remainder count 128))))
@@ -118,11 +121,11 @@
     ;; Writes the syntax a recipe's expression returns to the file the
     ;; driver names as the producer's argument. The expression runs in a
     ;; task, so it may read the files its recipe links with `read-resource`.
-    (: write-generated-library (-> (-> Syntax ! fs resource tasks) Unit ! mut fs resource))
-    (define (write-generated-library library)
+
+    (define (write-generated-library (library (Fn → Syntax ! fs resource tasks)))
+      (→ Unit) (! fs resource tasks)
       (match (command-line)
-        ((Cons _ (Cons path _))
-         (dispatch-local (once (lambda () (write-bytes path (syntax->bytes (library)))))))
+        ((Cons _ (Cons path _)) (write-bytes path (syntax->bytes (library))))
         (_ (panic "a producer writes its library to the path given as its argument"))))
 
     ))

@@ -6,49 +6,45 @@
 ;; whoever holds it resumes the computation later, after the handler has
 ;; returned, under whatever handlers are in scope where it is called.
 (effect Gen
-  ((ctl yield (-> I64 Unit))))
+  ((ctl yield (Fn I64 → Unit))))
 
 (effect Log
-  ((log (-> String Unit))))
+  ((log (Fn String → Unit))))
 
 ;; A step of a generator: done, or a value and the rest, which may be
-;; resumed once. Holding `resume` makes a Step linear.
+;; resumed once; a second resume panics.
 (enum Step
   (Done)
   (Yielded
    ((value I64)
-    (next (FnOnce Unit Step ! Log)))))
+    (next (Fn Unit → Step ! Log)))))
 
 ;; The generator's first step: the handler hands back each value with the
 ;; rest of the body still to run.
-(: start (-> (-> Unit ! Gen Log) Step ! Log))
-(define (start body)
+(define (start (body (Fn → Unit ! Gen Log))) (→ Step) (! Log)
   (handle Gen ((yield (lambda (value resume) (Yielded value resume))))
     (body)
     (Done)))
 
-(: count-from (-> String I64 I64 Unit ! Gen Log))
-(define (count-from name first count)
+(define (count-from (name String) (first I64) (count I64)) (→ Unit) (! Gen Log)
   (when (> count 0)
     (log (string-append name " produces " (show first)))
     (yield first)
     (count-from name (+ first 1) (- count 1))))
 
-(struct Pair-of-steps
+(record Pair-of-steps
   ((left Step)
    (right Step)))
 
 ;; Both generators take their first step under one log.
-(: begin-both (-> Pair-of-steps ! console))
-(define (begin-both)
+(define (begin-both) (→ Pair-of-steps) (! output-port)
   (handle Log ((log (lambda (line) (write-line (string-append "first log: " line)))))
-    (Pair-of-steps (start (lambda () (count-from "a" 1 3)))
-                   (start (lambda () (count-from "b" 10 2))))))
+    (new Pair-of-steps (left (start (lambda () (count-from "a" 1 3))))
+         (right (start (lambda () (count-from "b" 10 2)))))))
 
 ;; The rest alternates between them, long after their handlers returned,
 ;; under another log: each resumed step logs to the handler in scope here.
-(: alternate (-> Step Step Unit ! Log console))
-(define (alternate this other)
+(define (alternate (this Step) (other Step)) (→ Unit) (! Log output-port)
   (match this
     ((Done)
      (match other
@@ -58,27 +54,21 @@
      (write-line (string-append "got " (show value)))
      (alternate other (next (unit))))))
 
-(match (begin-both)
-  ((Pair-of-steps left right)
-   (handle Log ((log (lambda (line) (write-line (string-append "second log: " line)))))
-     (alternate left right))))
-
 ;; A control effect in the resumed part: the generator asks for a scale
 ;; with a control operation, which the handler in scope where it is
 ;; resumed answers. The node of the generator's handler takes the
 ;; resumer's evidence as its outside, so the yield reaches that handler,
 ;; not the one that was in scope when the generator started.
 (effect Ask
-  ((ctl ask (-> I64))))
+  ((ctl ask (Fn → I64))))
 
 (enum Asking
   (Finished)
   (Gave
    ((value I64)
-    (next (FnOnce Unit Asking ! Ask)))))
+    (next (Fn Unit → Asking ! Ask)))))
 
-(: scaled (-> I64 Asking ! Ask))
-(define (scaled count)
+(define (scaled (count I64)) (→ Asking) (! Ask)
   (handle Gen ((yield (lambda (value resume) (Gave value resume))))
     (let loop ((index 1))
       (when (<= index count)
@@ -86,12 +76,17 @@
         (loop (+ index 1))))
     (Finished)))
 
-(: drain (-> Asking I64 Unit ! console))
-(define (drain step scale)
+(define (drain (step Asking) (scale I64)) (→ Unit) (! output-port)
   (match step
     ((Finished) (write-line "finished"))
     ((Gave value next)
      (write-line (string-append "gave " (show value)))
      (drain (handle Ask ((ask (lambda (resume) (resume scale)))) (next (unit))) (* scale 10)))))
 
-(drain (handle Ask ((ask (lambda (resume) (resume 1)))) (scaled 3)) 2)
+(define (main) (→ Unit) (! output-port)
+  (match (begin-both)
+    ((Pair-of-steps left right)
+     (handle Log ((log (lambda (line) (write-line (string-append "second log: " line)))))
+       (alternate left right))))
+  (drain (handle Ask ((ask (lambda (resume) (resume 1)))) (scaled 3)) 2)
+  (unit))

@@ -5,7 +5,9 @@
 (generate-library (lpc skins)
                   (import
                    (snail core base)
-                   (lpc embed))
+                   (lpc embed)
+                   (snail shell resource))
                   (ramps-library (list "lpc" "skins")
-                                 (include-bytes
-                                  "lpc-character-bases-v3_1/_build/palettes/skin.json")))
+                                 (read-resource
+                                  (link-file
+                                   "lpc-character-bases-v3_1/_build/palettes/skin.json"))))

@@ -36,7 +36,6 @@ async function instantiateGame(path, host, saved) {
   const program = await instantiate(await WebAssembly.compile(await readFile(path)),
     {...wasi.getImportObject(), ...runtime.imports, 'snail.runtime.browser.screen': host.imports});
   wasi.initialize(program);
-  program.exports.main();
   await runtime.start(applicationEntry(program)).ready.promise;
   return runtime;
 }
@@ -57,7 +56,7 @@ const widget = (host, key) => host.widgets.find(entry => entry.key === key);
 const tap = async (game, x, y) => { await send(game, POINTER_DOWN, 1, x, y, 0); await send(game, POINTER_UP, 1, x, y, 0); };
 
 const root = resolve(process.argv[2]);
-const built = await promisify(execFile)(join(root, 'snail'), ['build', root, 'siegework']);
+const built = await promisify(execFile)(join(root, 'snail-scheme'), ['build', root, 'siegework']);
 const path = join(built.stdout.trim(), 'program.wasm');
 const host = screen();
 const game = await instantiateGame(path, host);
@@ -142,7 +141,7 @@ await send(game, ELAPSED, 0);
 assert.notDeepEqual(host.frames.at(-1).camera, resting, 'the drag moves the camera');
 
 // Save, restore into a fresh instance, and compare what each shows.
-const {saved: bytes} = await game.stop();
+const bytes = (await game.stop()).saved;
 const other = screen();
 const started = performance.now();
 const restored = await instantiateGame(path, other, bytes);

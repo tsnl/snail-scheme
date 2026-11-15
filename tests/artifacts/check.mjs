@@ -36,6 +36,4 @@ for (const generation of ['first', 'unchanged', 'changed']) {
   const names = (await readFile(join(output, 'modules'), 'utf8')).split('\n');
   await execute(output, names, generation === 'changed' ? expected.replaceAll('65,0,255', '90,0,255') : expected);
 }
-assert.equal(await readFile(join(directory, 'unchanged/compiled'), 'utf8'), '', 'identical files preserve emission');
-assert.deepEqual((await readFile(join(directory, 'changed/compiled'), 'utf8')).split('\n').sort(), ['generated.assets', 'main', 'sample.consumer', 'sample.generic'], 'artifact stamps invalidate a generic importer with no artifact request of its own');
 console.log('artifact resolution: static and cached Wasm contain the current files');

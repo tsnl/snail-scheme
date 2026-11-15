@@ -8,7 +8,6 @@
    Worn
    Outfit
    Character
-   Character-sheets
    dress
    character-paths
    fingerprint
@@ -24,18 +23,18 @@
 
     ;; ---- Outfits ----
 
-    (struct Hair
+    (record Hair
       ((style HairStyle)
        (color HairColor))
       (deriving Serialize Deserialize))
 
-    (struct Worn
+    (record Worn
       ((garment Garment)
        (dye Dye))
       (deriving Serialize Deserialize))
 
     ;; One garment at most in each slot.
-    (struct Outfit
+    (record Outfit
       ((hair (Option Hair))
        (torso (Option Worn))
        (legs (Option Worn))
@@ -45,33 +44,31 @@
     ;; ---- Dressing ----
 
     ;; The sheets of a character's walking rows, bottom first.
-    (struct Character
+    (record Character
       ((sheets (List Sheet))))
 
     ;; A character wearing `outfit`, if every garment in it is worn in its
     ;; own slot and drawn for `build`. Its layers are the body, the feet,
     ;; the legs, the torso, the head, and the hair over the head.
-    (: dress (-> Build Head Skin Outfit (Option Character)))
-    (define (dress build head skin outfit)
-      (match (list (worn-sheets build (Feet) (Outfit-feet outfit))
-                   (worn-sheets build (Legs) (Outfit-legs outfit))
-                   (worn-sheets build (Torso) (Outfit-torso outfit)))
+    (define (dress (build Build) (head Head) (skin Skin) (outfit Outfit)) (→ (Option Character))
+      (match (list (worn-sheets build (Feet) (● outfit feet))
+                   (worn-sheets build (Legs) (● outfit legs))
+                   (worn-sheets build (Torso) (● outfit torso)))
         ((Cons (Some feet) (Cons (Some legs) (Cons (Some torso) (Nil))))
-         (Some (Character (concatenate (list (list (body-sheet build skin))
-                                             feet
-                                             legs
-                                             torso
-                                             (list (head-sheet head skin))
-                                             (match (Outfit-hair outfit)
-                                               ((Some (Hair style color))
-                                                (list (hair-sheet build style color)))
-                                               ((None) (Nil))))))))
+         (Some (new Character (sheets (concatenate (list (list (body-sheet build skin))
+                                                         feet
+                                                         legs
+                                                         torso
+                                                         (list (head-sheet head skin))
+                                                         (match (● outfit hair)
+                                                           ((Some (Hair style color))
+                                                            (list (hair-sheet build style color)))
+                                                           ((None) (Nil)))))))))
         (_ (None))))
 
     ;; The sheet a slot's garment is drawn on, none for an empty slot, or
     ;; None for a garment worn in another slot or not drawn for `build`.
-    (: worn-sheets (-> Build Slot (Option Worn) (Option (List Sheet))))
-    (define (worn-sheets build slot worn)
+    (define (worn-sheets (build Build) (slot Slot) (worn (Option Worn))) (→ (Option (List Sheet)))
       (match worn
         ((Some (Worn garment dye))
          (if (same-slot? slot (garment-slot garment))
@@ -81,56 +78,60 @@
              (None)))
         ((None) (Some (Nil)))))
 
-    (: same-slot? (-> Slot Slot Bool))
-    (define (same-slot? a b)
-      (match (Pair a b)
+    (define (same-slot? (a Slot) (b Slot)) (→ Bool)
+      (match (new Pair (first a) (second b))
         ((Pair (Torso) (Torso)) #t)
         ((Pair (Legs) (Legs)) #t)
         ((Pair (Feet) (Feet)) #t)
         (_ #f)))
 
     ;; The files the character's layers come from, to embed.
-    (: character-paths (-> Character (List String)))
-    (define (character-paths who)
-      (map Sheet-path (Character-sheets who)))
+    (define (character-paths (who Character)) (→ (List String))
+      (map (lambda (record) (● record path)) (● who sheets)))
 
     ;; ---- Pictures ----
 
     ;; A 32-bit FNV-1a hash, a word at a time, of each layer's path and
     ;; swaps: equal characters agree, and a changed one almost surely
     ;; differs.
-    (: fingerprint (-> Character I32))
-    (define (fingerprint who)
+    (define (fingerprint (who Character)) (→ I32)
       (fold-left (lambda (hash word) (* (i32-xor hash word) 16777619))
                  -2128831035
-                 (concatenate (map sheet-words (Character-sheets who)))))
+                 (concatenate (map sheet-words (● who sheets)))))
 
-    (: sheet-words (-> Sheet (List I32)))
-    (define (sheet-words sheet)
-      (append (map char->i32 (string->list (Sheet-path sheet)))
-              (concatenate (map (lambda (swap) (list (Pair-first swap) (Pair-second swap)))
-                                (Sheet-swaps sheet)))))
+    (define (sheet-words (sheet Sheet)) (→ (List I32))
+      (append (map char->i32 (string->list (● sheet path)))
+              (concatenate (map (lambda (swap) (list (● swap first) (● swap second)))
+                                (● sheet swaps)))))
 
     ;; The character's walking rows as picture `key`, from the sources `art`
     ;; finds for each sheet. Its version is the character's fingerprint, so
     ;; the host composes it again only when the character changes. A sheet
     ;; whose file `art` lacks is left out.
-    (: walk-picture (-> (-> String (Option Source)) I32 Character Picture))
-    (define (walk-picture art key who)
-      (Picture key (fingerprint who) (Rect-width walk-region) (Rect-height walk-region)
-               (lambda ()
-                 (concatenate
-                  (map (lambda (sheet)
-                         (match (art (Sheet-path sheet))
-                           ((Some source)
-                            (list (Layer source (Sheet-from sheet) 0 0 (Sheet-swaps sheet))))
-                           ((None) (Nil))))
-                       (Character-sheets who))))))
+    (define (walk-picture (art (Fn String → (Option Source))) (key I32) (who Character))
+      (→ Picture)
+      (new Picture
+        (key key)
+        (version (fingerprint who))
+        (width (● (walk-region) width))
+        (height (● (walk-region) height))
+        (layers (lambda ()
+                  (concatenate
+                   (map (lambda (sheet)
+                          (match (art (● sheet path))
+                            ((Some source)
+                             (list (new Layer
+                                     (source source)
+                                     (from (● sheet from))
+                                     (x 0)
+                                     (y 0)
+                                     (swaps (● sheet swaps)))))
+                            ((None) (Nil))))
+                        (● who sheets)))))))
 
     ;; The character in picture `key`, shoulders up, each texel `scale`
     ;; pixels wide.
-    (: portrait (-> String I32 I32 Widget))
-    (define (portrait look-key key scale)
-      (Image (look look-key) key face-region scale))
+    (define (portrait (look-key String) (key I32) (scale I32)) (→ Widget)
+      (Image (look look-key) key (face-region) scale))
 
     ))

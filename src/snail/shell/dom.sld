@@ -1,6 +1,6 @@
 ;; A page's document as an effect: the primitives a user interface needs to
 ;; build and change it. A node is a handle the host keeps in a table, so no
-;; host object crosses into Snail-Core and no closure crosses out. A
+;; host object crosses into `snail-scheme` and no closure crosses out. A
 ;; listener says, when it is made, what its events carry and which of them
 ;; the host prevents the default action of, since the host must decide both
 ;; synchronously, while the event is being dispatched. The browser host
@@ -9,9 +9,7 @@
 (define-library (snail shell dom)
   (export
    Node
-   Node-handle
    Listener
-   Listener-id
    Capture
    Value
    Key
@@ -24,40 +22,20 @@
    Always
    Chords
    Chord
-   Chord-key
-   Chord-modifiers
    Event
-   Event-value
    Event-value-set
-   Event-key
    Event-key-set
-   Event-modifiers
    Event-modifiers-set
-   Event-x
    Event-x-set
-   Event-y
    Event-y-set
-   Event-buttons
    Event-buttons-set
-   Event-scroll-top
    Event-scroll-top-set
-   Event-scroll-left
    Event-scroll-left-set
-   Event-selection-start
    Event-selection-start-set
-   Event-selection-end
    Event-selection-end-set
-   Event-checked
    Event-checked-set
    no-event
    Measure
-   Measure-left
-   Measure-top
-   Measure-width
-   Measure-height
-   Measure-client-width
-   Measure-client-height
-   Measure-line-height
    Delivery
    Fired
    Woken
@@ -114,10 +92,10 @@
     ;; A node of the document. The root is the page's container, which the
     ;; interface owns entirely; removing a node frees its handle and those
     ;; of the nodes under it.
-    (struct Node
+    (record Node
       ((handle I32)))
 
-    (struct Listener
+    (record Listener
       ((id I32)))
 
     ;; ---- Listeners ----
@@ -146,30 +124,25 @@
 
     ;; A key as an event names it, such as "Tab" or "s", and the modifiers
     ;; held with it, the sum of the modifier keys' bits below.
-    (struct Chord
+    (record Chord
       ((key String)
        (modifiers I32)))
 
-    (: control-key I32)
-    (define control-key 1)
+    (define (control-key) (→ I32) 1)
 
-    (: shift-key I32)
-    (define shift-key 2)
+    (define (shift-key) (→ I32) 2)
 
-    (: alt-key I32)
-    (define alt-key 4)
+    (define (alt-key) (→ I32) 4)
 
-    (: meta-key I32)
-    (define meta-key 8)
+    (define (meta-key) (→ I32) 8)
 
     ;; The captures as the host's bits, each kind's bit its position in
     ;; `Capture`.
-    (: capture-bits (-> (List Capture) I32))
-    (define (capture-bits captures)
+
+    (define (capture-bits (captures (List Capture))) (→ I32)
       (fold-left + 0 (delete-duplicates = (map capture-bit captures))))
 
-    (: capture-bit (-> Capture I32))
-    (define (capture-bit capture)
+    (define (capture-bit (capture Capture)) (→ I32)
       (match capture
         ((Value) 1)
         ((Key) 2)
@@ -183,7 +156,7 @@
     ;; What an event carried when it fired: each field its listener
     ;; captured, and the rest as `no-event` has them. A selection's offsets
     ;; count scalars, as a String's indices do.
-    (struct Event
+    (record Event
       ((value String)
        (key String)
        (modifiers I32)
@@ -196,8 +169,20 @@
        (selection-end I32)
        (checked Bool)))
 
-    (: no-event Event)
-    (define no-event (Event "" "" 0 0.0 0.0 0 0.0 0.0 0 0 #f))
+    (define (no-event)
+      (→ Event)
+      (new Event
+        (value "")
+        (key "")
+        (modifiers 0)
+        (x 0.0)
+        (y 0.0)
+        (buttons 0)
+        (scroll-top 0.0)
+        (scroll-left 0.0)
+        (selection-start 0)
+        (selection-end 0)
+        (checked #f)))
 
     ;; What the next event is: a listener fired, carrying what it captured;
     ;; something performed `wake`; the page was hidden, so an interface
@@ -215,7 +200,7 @@
     ;; Where a node's box lies in the page's viewport and how big it is, the
     ;; size of what it shows inside its borders and scroll bars, and the
     ;; height of its lines, in CSS pixels.
-    (struct Measure
+    (record Measure
       ((left F64)
        (top F64)
        (width F64)
@@ -262,32 +247,32 @@
     ;; reaches the whole page, such as a shortcut or the page going back
     ;; online. It has no attributes or properties.
     (effect dom
-      ((document-root (-> Node))
-       (create-element (-> String Node))
-       (create-text (-> String Node))
-       (set-attribute (-> Node String String Unit))
-       (set-text (-> Node String Unit))
-       (set-string-property (-> Node String String Unit))
-       (set-number-property (-> Node String F64 Unit))
-       (set-flag-property (-> Node String Bool Unit))
-       (string-property (-> Node String String))
-       (number-property (-> Node String F64))
-       (insert-node (-> Node Node (Option Node) Unit))
-       (remove-node (-> Node Unit))
-       (listen (-> Node String (List Capture) Prevent Listener))
-       (unlisten (-> Listener Unit))
-       (focus-node (-> Node Unit))
-       (window-node (-> Node))
-       (refresh-page (-> Unit))
-       (confirm (-> String Bool))
-       (installation-status (-> InstallationStatus))
-       (install-app (-> InstallResult ! tasks))
-       (fullscreen? (-> Bool))
-       (set-fullscreen (-> Bool Bool ! tasks))
-       (element-by-id (-> String (Option Node)))
-       (select-range (-> Node I32 I32 Unit))
-       (selection-range (-> Node (Pair I32 I32)))
-       (insert-text (-> Node I32 I32 String Bool))
-       (measure (-> Node Measure))
-       (wake (-> Unit))
-       (next-event (-> Delivery ! tasks))))))
+      ((document-root (Fn → Node))
+       (create-element (Fn String → Node))
+       (create-text (Fn String → Node))
+       (set-attribute (Fn Node String String → Unit))
+       (set-text (Fn Node String → Unit))
+       (set-string-property (Fn Node String String → Unit))
+       (set-number-property (Fn Node String F64 → Unit))
+       (set-flag-property (Fn Node String Bool → Unit))
+       (string-property (Fn Node String → String))
+       (number-property (Fn Node String → F64))
+       (insert-node (Fn Node Node (Option Node) → Unit))
+       (remove-node (Fn Node → Unit))
+       (listen (Fn Node String (List Capture) Prevent → Listener))
+       (unlisten (Fn Listener → Unit))
+       (focus-node (Fn Node → Unit))
+       (window-node (Fn → Node))
+       (refresh-page (Fn → Unit))
+       (confirm (Fn String → Bool))
+       (installation-status (Fn → InstallationStatus))
+       (install-app (Fn → InstallResult ! tasks))
+       (fullscreen? (Fn → Bool))
+       (set-fullscreen (Fn Bool → Bool ! tasks))
+       (element-by-id (Fn String → (Option Node)))
+       (select-range (Fn Node I32 I32 → Unit))
+       (selection-range (Fn Node → (Pair I32 I32)))
+       (insert-text (Fn Node I32 I32 String → Bool))
+       (measure (Fn Node → Measure))
+       (wake (Fn → Unit))
+       (next-event (Fn → Delivery ! tasks))))))

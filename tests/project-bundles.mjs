@@ -1,6 +1,6 @@
-// `snail dev` serving a browser target, from outside
-// (tests/development-service.mjs): the applications' origin, apart from
-// the editor's, lists the browser targets; /NAME/ is the latest build's page
+// `snail-scheme watch` serving a browser target, from outside
+// (tests/development-service.mjs): the service's origin lists the browser
+// targets; /NAME/ is the latest build's page
 // based in that build, with its manifest and the reload client;
 // /NAME/.snail/builds/EPOCH/ serves that build's files and never a newer
 // build's; /NAME/.snail/events tells a page of the latest build, or of a
@@ -16,7 +16,7 @@ import {startDevelopment} from './development-service.mjs';
 
 const root = process.argv[2], project = fs.realpathSync(fs.mkdtempSync(join(tmpdir(), 'snail-project-bundles-')));
 const source = join(project, 'main.sld');
-const program = text => `(import (snail core base) (snail core io)) (write-line "${text}")`;
+const program = text => `(import (snail core base) (snail core io)) (define (main) (→ Unit) (! output-port) (write-line "${text}"))`;
 fs.writeFileSync(join(project, 'project.datum'),
   '((build-target site (browser (entry "main.sld") (public "public"))) (build-target tool (program (entry "main.sld"))))');
 fs.mkdirSync(join(project, 'public'));
@@ -60,7 +60,7 @@ try {
   assert.match(site.url, /^http:\/\/127\.0\.0\.1:\d+\/site\/$/);
   assert.equal(first.published.targets.find(target => target.name === 'tool').url, undefined, 'only browser targets are served');
   const origin = new URL(site.url).origin, get = path => request(origin, path);
-  assert.notEqual(origin, service.url, "the applications' origin is apart from the editor's");
+  assert.equal(origin, service.url, 'the service serves its browser targets on its own origin');
   assert.match((await get('/')).text, /<a href="\/site\/">site<\/a>/);
   assert.equal((await get('/tool/')).status, 404, 'a program target is not served');
 
@@ -120,14 +120,14 @@ try {
 
   // A failure names its place, and keeps the build it follows, which a page
   // that connects after it hears of with the failure.
-  fs.writeFileSync(source, '(import (snail core base) (snail core io)) (write-line 5)');
+  fs.writeFileSync(source, '(import (snail core base) (snail core io)) (define (main) (→ Unit) (! output-port) (write-line 5))');
   await service.settled(third.id, 'failed');
   assert.match(await firstEvent(`${origin}/site/.snail/events`),
     new RegExp(`^\\(failed "[^"]*main\\.sld:\\d+:\\d+: [^"]+" \\(base "${pinned(third.id)}"\\)`));
   assert.ok((await get('/site/')).text.includes(`<base href="${pinned(third.id)}">`), 'the page stays the last good build');
   assert.deepEqual(JSON.parse((await get('/site/manifest.webmanifest')).text), identity, 'web app identity survives reclaimed builds');
   assert.match((await get('/site/')).text, /href="\/site\/manifest.webmanifest"/);
-  console.log("project bundles: the applications' origin, pinned builds, the reload client, failures, reclamation and refusals");
+  console.log('project bundles: the targets index, pinned builds, the reload client, failures, reclamation and refusals');
 } finally {
   await service.stop();
   fs.rmSync(project, {recursive: true, force: true});

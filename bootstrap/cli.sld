@@ -1,6 +1,6 @@
-;; The `snail` command line, which stage 0 builds (`scripts/snail-tool
-;; cli-tools`) and ./snail runs on Node, after the repository's root and the
-;; runtime module programs are linked with:
+;; The `snail-scheme` command line, stage 0's one product (scripts/bootstrap),
+;; which ./snail-scheme runs on Node, after the repository's root and the
+;; runtime modules programs are linked with, plain and the toolchain's:
 ;;
 ;;   build [--release] PROJECT BUILD-TARGET
 ;;     builds a target, publishes it, and prints where its output is;
@@ -8,28 +8,36 @@
 ;;     builds a run target's program, publishes it, and becomes it, with the
 ;;     run's arguments and then these, in the caller's directory;
 ;;   resident PROJECT
-;;     builds for the development service, keeping each target's compiler
-;;     session from one build to the next (below);
-;;   dev EDITOR CLIENT [--port PORT] PROJECT
+;;     rebuilds every configured target for each development request;
+;;   lsp
+;;     serves the Language Server Protocol on standard input and output,
+;;     (snail shell lsp), for the project the editor opens, as ./snail-scheme lsp
+;;     does;
+;;   watch CLIENT [--port PORT] PROJECT
 ;;     runs the development service, (snail shell project service), with
-;;     the editor's browser bundle, host/ide built, and the reload
-;;     client's, host/browser/reload.sld built, until it is interrupted,
-;;     as ./snail dev does.
+;;     the reload client's program, host/browser/reload.sld built, until it
+;;     is interrupted, as ./snail-scheme watch does;
+;;   format [--width COLUMNS] [--check|--write FILE ...]
+;;     formats standard input to standard output, or reports or rewrites
+;;     each file (snail shell format) would change, as ./snail-scheme
+;;     format does;
+;;   compile MODE SOURCE OUTPUT GENERATED [DIRECTORY ...]
+;;     makes one compile, (snail shell compiler driver): the interface stage
+;;     0 bootstraps this program through and its test harness compiles with.
 ;;
 ;; A failure prints its message and exits with status 1; the outputs of
 ;; earlier builds stay published.
 (import
  (snail core base)
  (snail core io)
+ (only (snail core forms) host)
+ (only (snail shell task) tasks)
+ (only (snail shell socket) tcp)
+ (only (snail shell watch) hints)
  (only (snail shell compiler read)
        Loc
-       Loc-file
-       Loc-line
-       Loc-column
        SourceDiagnostic
        diagnostics->list
-       SourceDiagnostic-loc
-       SourceDiagnostic-message
        diagnostic->string
        loc->string)
  (snail shell json)
@@ -37,13 +45,16 @@
  (snail shell project)
  (snail shell project build)
  (snail shell project service)
+ (snail shell lsp)
+ (only (snail shell format) format-source format-width)
+ (only (snail shell compiler driver) compile-arguments)
  (snail shell process))
 
 ;; ---- Requests ----
 
 ;; What one invocation asks for. A build's `target` is a build target, a
 ;; run's a run target.
-(struct Job
+(record Job
   ((tools Tools)
    (run? Bool)
    (mode Mode)
@@ -51,47 +62,76 @@
    (target String)
    (arguments (List String))))
 
-(: usage String)
-(define usage
-  "usage: snail build [--release] PROJECT BUILD-TARGET | snail run PROJECT RUN-TARGET [ARGUMENT ...]")
+(define (usage) (→ String)
+  "usage: snail-scheme build [--release] PROJECT BUILD-TARGET | snail-scheme run PROJECT RUN-TARGET [ARGUMENT ...]")
 
-(: request (-> (List String) Job))
-(define (request arguments)
+(define (request (arguments (List String))) (→ Job)
   (match arguments
-    ((Cons _ (Cons root (Cons runtime (Cons action rest))))
-     (let ((tools (Tools root runtime (match (environment-variable "NODE")
-                                        ((Some node) node)
-                                        ((None) "node")))))
+    ((Cons _ (Cons root (Cons runtime (Cons toolchain (Cons action rest)))))
+     (let ((tools (tools-of root runtime toolchain)))
        (cond ((string=? action "build") (build-request tools rest))
              ((string=? action "run") (run-request tools rest))
              ((string=? action "resident") (resident-request tools rest))
-             (else (panic usage)))))
-    (_ (panic usage))))
+             (else (panic (usage))))))
+    (_ (panic (usage)))))
 
-(: build-request (-> Tools (List String) Job))
-(define (build-request tools arguments)
+(define (tools-of (root String) (runtime String) (toolchain String)) (→ Tools)
+  (new Tools
+    (root root)
+    (runtime runtime)
+    (toolchain toolchain)
+    (node (match (environment-variable "NODE")
+            ((Some node) node)
+            ((None) "node")))))
+
+(define (build-request (tools Tools) (arguments (List String))) (→ Job)
   (match arguments
     ((Cons "--release" (Cons project (Cons target (Nil))))
-     (Job tools #f (Release) (resolved project) target (Nil)))
-    ((Cons project (Cons target (Nil))) (Job tools #f (Debug) (resolved project) target (Nil)))
-    (_ (panic usage))))
+     (new Job
+       (tools tools)
+       (run? #f)
+       (mode (Release))
+       (project (resolved project))
+       (target target)
+       (arguments (Nil))))
+    ((Cons project (Cons target (Nil)))
+     (new Job
+       (tools tools)
+       (run? #f)
+       (mode (Debug))
+       (project (resolved project))
+       (target target)
+       (arguments (Nil))))
+    (_ (panic (usage)))))
 
-(: run-request (-> Tools (List String) Job))
-(define (run-request tools arguments)
+(define (run-request (tools Tools) (arguments (List String))) (→ Job)
   (match arguments
-    ((Cons project (Cons target rest)) (Job tools #t (Debug) (resolved project) target rest))
-    (_ (panic usage))))
+    ((Cons project (Cons target rest))
+     (new Job
+       (tools tools)
+       (run? #t)
+       (mode (Debug))
+       (project (resolved project))
+       (target target)
+       (arguments rest)))
+    (_ (panic (usage)))))
 
-(: resident-request (-> Tools (List String) Job))
-(define (resident-request tools arguments)
+(define (resident-request (tools Tools) (arguments (List String))) (→ Job)
   (match arguments
-    ((Cons project (Nil)) (Job tools #f (Development) (resolved project) "" (Nil)))
-    (_ (panic "usage: snail resident PROJECT"))))
+    ((Cons project (Nil))
+     (new Job
+       (tools tools)
+       (run? #f)
+       (mode (Development))
+       (project (resolved project))
+       (target "")
+       (arguments (Nil))))
+    (_ (panic "usage: snail-scheme resident PROJECT"))))
 
 ;; A path made absolute against the working directory, without empty or
 ;; "." components, and with each ".." taking the component before it.
-(: resolved (-> String String))
-(define (resolved path)
+
+(define (resolved (path String)) (→ String)
   (let* ((absolute (if (and (> (string-length path) 0) (char=? (string-ref path 0) #\/))
                        path
                        (string-append (match (working-directory)
@@ -109,8 +149,7 @@
                            (path-parts absolute))))
     (string-append "/" (string-join (reverse parts) "/"))))
 
-(: path-parts (-> String (List String)))
-(define (path-parts path)
+(define (path-parts (path String)) (→ (List String))
   (match (string-index path #\/)
     ((Some index)
      (Cons (substring path 0 index) (path-parts (substring path (+ index 1) (string-length path)))))
@@ -120,59 +159,58 @@
 
 ;; Builds `target`, with the root's build/snail-run/ for scratch, and
 ;; publishes it; answers the target's generation.
-(: build-and-publish (-> Job Project String String ! mut fs clock process))
-(define (build-and-publish job description target)
-  (match (Pair-first (build-project (Job-tools job)
-                                    (Job-project job)
-                                    description
-                                    (list target)
-                                    (Job-mode job)
-                                    (scratch job)
-                                    ".snail-"
-                                    (Nil)))
+
+(define (build-and-publish (job Job) (description Project) (target String))
+  (→ String)
+  (! mut fs clock process)
+  (match (build-project (● job tools)
+                        (● job project)
+                        description
+                        (list target)
+                        (● job mode)
+                        (scratch job)
+                        ".snail-")
     ((Err failure) (panic (failure->string failure)))
     ((Ok candidate)
      (match (publish-project candidate)
        ((Err message) (panic message))
        ((Ok _) (generation-of candidate target))))))
 
-(: scratch (-> Job String))
-(define (scratch job)
-  (string-append (Tools-root (Job-tools job)) "/build/snail-run"))
+(define (scratch (job Job)) (→ String)
+  (string-append (● (● job tools) root) "/build/snail-run"))
 
-(: generation-of (-> Candidate String String))
-(define (generation-of candidate target)
-  (match (find (lambda (output) (string=? (Output-name output) target))
-               (Candidate-outputs candidate))
-    ((Some output) (Output-directory output))
+(define (generation-of (candidate Candidate) (target String)) (→ String)
+  (match (find (lambda (output) (string=? (● output name) target))
+               (● candidate outputs))
+    ((Some output) (● output directory))
     ((None) (panic (string-append "internal error: the build did not build " target)))))
 
 ;; ---- Running ----
 
 ;; The run target's program, built, then this process, replaced by Node
 ;; running it.
-(: run-target (-> Job Project Unit ! mut fs clock process))
-(define (run-target job description)
-  (match (find (lambda (run) (string=? (RunTarget-name run) (Job-target job)))
-               (Project-runs description))
-    ((None) (panic (string-append "unknown project run target " (Job-target job))))
+
+(define (run-target (job Job) (description Project)) (→ Unit) (! mut fs clock process)
+  (match (find (lambda (run) (string=? (● run name) (● job target)))
+               (● description runs))
+    ((None) (panic (string-append "unknown project run target " (● job target))))
     ((Some run)
      (let* ((generation (build-and-publish job
                                            description
-                                           (ProgramBuild-name (RunTarget-program run))))
-            (tools (Job-tools job))
-            (error (exec (Command (Tools-node tools)
-                                  (append (list "--no-warnings"
-                                                (string-append (Tools-root tools)
-                                                               "/host/native/run-snail.mjs")
-                                                (string-append generation "/program.wasm"))
-                                          (append (RunTarget-arguments run) (Job-arguments job)))
-                                  "."))))
-       (panic (string-append "cannot run " (Tools-node tools) ": " (ProcessError-code error)))))))
+                                           (● (● run program) name)))
+            (tools (● job tools))
+            (error (exec (new Command (program (● tools node))
+                              (arguments (append (list "--no-warnings"
+                                                       (string-append (● tools root)
+                                                                      "/host/native/run-snail.mjs")
+                                                       (string-append generation "/program.wasm"))
+                                                 (append (● run arguments) (● job arguments))))
+                              (directory ".")))))
+       (panic (string-append "cannot run " (● tools node) ": " (● error code)))))))
 
 ;; ---- The resident builder ----
 
-;; `snail resident PROJECT` builds for the development service,
+;; `snail-scheme resident PROJECT` builds for the development service,
 ;; (snail shell project service), which writes it one request a line and
 ;; reads one reply a line, each a JSON object:
 ;;
@@ -190,12 +228,11 @@
 ;;   {"kind":"discard","epoch":N}
 ;;     removes its generations, and replies {"epoch":N}.
 ;;
-;; Each target's compiler session goes from one build to the next, so a
-;; build compiles only the libraries an edit reaches. The resident exits
-;; when its input ends.
-(struct Resident
+;; Each request rebuilds every configured target. Only an unpublished
+;; candidate survives between requests; no compiler cache does. The
+;; resident exits when its input ends.
+(record Resident
   ((job Job)
-   (retained (List Retained))
    (held (Option (Pair I64 Candidate)))))
 
 (enum Request
@@ -203,78 +240,78 @@
   (PublishRequest ((epoch I64)))
   (DiscardRequest ((epoch I64))))
 
-(: serve (-> Resident Unit ! mut fs clock process console))
-(define (serve resident)
+(define (serve (resident Resident)) (→ Unit) (! mut fs clock process input-port output-port)
   (match (read-line)
     ((None) (unit))
     ((Some line) (serve (answer resident (parse-request line))))))
 
-(: answer (-> Resident Request Resident ! mut fs clock process console))
-(define (answer resident request)
+(define (answer (resident Resident) (request Request))
+  (→ Resident)
+  (! mut fs clock process output-port)
   (match request
     ((BuildRequest epoch prefix) (build-for resident epoch prefix))
     ((PublishRequest epoch)
      (let ((published (publish-project (held resident epoch))))
-       (reply (list (Pair "epoch" (JsonInteger epoch))
-                    (Pair "error" (match published
-                                    ((Ok _) (JsonNull))
-                                    ((Err message) (JsonString message))))))
+       (reply (list (new Pair (first "epoch") (second (JsonInteger epoch)))
+                    (new Pair (first "error") (second (match published
+                                                        ((Ok _) (JsonNull))
+                                                        ((Err message) (JsonString message)))))))
        (Resident-held-set resident (None))))
     ((DiscardRequest epoch)
      (discard-candidate (held resident epoch))
-     (reply (list (Pair "epoch" (JsonInteger epoch))))
+     (reply (list (new Pair (first "epoch") (second (JsonInteger epoch)))))
      (Resident-held-set resident (None)))))
 
-(: build-for (-> Resident I64 String Resident ! mut fs clock process console))
-(define (build-for resident epoch prefix)
-  (let ((job (Resident-job resident)))
-    (match (Resident-held resident)
+(define (build-for (resident Resident) (epoch I64) (prefix String))
+  (→ Resident)
+  (! mut fs clock process output-port)
+  (let ((job (● resident job)))
+    (match (● resident held)
       ((Some _) (panic "internal error: a build was asked for before the last was decided"))
       ((None) (unit)))
-    (match (read-project (Job-project job))
+    (match (read-project (● job project))
       ((Err failure)
        (reply (build-reply epoch (JsonNull) (JsonNull) failure))
        resident)
       ((Ok description)
        (let* ((began (monotonic-nanoseconds))
-              (built (build-project (Job-tools job)
-                                    (Job-project job)
+              (built (build-project (● job tools)
+                                    (● job project)
                                     description
-                                    (map build-name (Project-builds description))
+                                    (map build-name (● description builds))
                                     (Development)
                                     (scratch job)
-                                    prefix
-                                    (Resident-retained resident)))
+                                    prefix))
               (milliseconds (quotient (- (monotonic-nanoseconds) began) 1000000)))
-         (match (Pair-first built)
+         (match built
            ((Ok candidate)
-            (reply (list (Pair "epoch" (JsonInteger epoch))
-                         (Pair "description" (description->json description))
-                         (Pair "candidate" (candidate->json candidate description milliseconds))
-                         (Pair "diagnostics" (JsonArray (Nil)))))
-            (Resident job (Pair-second built) (Some (Pair epoch candidate))))
+            (reply (list (new Pair (first "epoch") (second (JsonInteger epoch)))
+                         (new Pair (first "description") (second (description->json description)))
+                         (new Pair
+                           (first "candidate")
+                           (second (candidate->json candidate description milliseconds)))
+                         (new Pair (first "diagnostics") (second (JsonArray (Nil))))))
+            (new Resident (job job) (held (Some (new Pair (first epoch) (second candidate))))))
            ((Err failure)
             (reply (build-reply epoch (description->json description) (JsonNull) failure))
-            (Resident job (Pair-second built) (None)))))))))
+            (new Resident (job job) (held (None))))))))))
 
-(: build-reply (-> I64 Json Json Failure (List (Pair String Json))))
-(define (build-reply epoch description candidate failure)
-  (list (Pair "epoch" (JsonInteger epoch))
-        (Pair "description" description)
-        (Pair "candidate" candidate)
-        (Pair "diagnostics" (JsonArray (failure-diagnostics failure)))))
+(define (build-reply (epoch I64) (description Json) (candidate Json) (failure Failure))
+  (→ (List (Pair String Json)))
+  (list (new Pair (first "epoch") (second (JsonInteger epoch)))
+        (new Pair (first "description") (second description))
+        (new Pair (first "candidate") (second candidate))
+        (new Pair (first "diagnostics") (second (JsonArray (failure-diagnostics failure))))))
 
-(: held (-> Resident I64 Candidate))
-(define (held resident epoch)
-  (match (Resident-held resident)
+(define (held (resident Resident) (epoch I64)) (→ Candidate)
+  (match (● resident held)
     ((Some (Pair held-epoch candidate))
      (if (= held-epoch epoch)
          candidate
          (panic (string-append "internal error: no candidate for epoch " (show epoch)))))
     ((None) (panic (string-append "internal error: no candidate for epoch " (show epoch))))))
 
-(: reply (-> (List (Pair String Json)) Unit ! console))
-(define (reply members)
+(define (reply (members (List (Pair String Json)))) (→ Unit) (! output-port)
   (write-line (json->string (JsonObject members))))
 
 ;; ---- Requests and replies as JSON ----
@@ -282,8 +319,8 @@
 ;; A request the service wrote. The service is trusted, so a line that is
 ;; not one is an internal error. A generation prefix names a directory
 ;; beside the published outputs, as the builder's own do.
-(: parse-request (-> String Request))
-(define (parse-request line)
+
+(define (parse-request (line String)) (→ Request)
   (let* ((json (match (string->json line)
                  ((Some json) json)
                  ((None) (panic (string-append "internal error: a request is not JSON: " line)))))
@@ -296,8 +333,7 @@
       ((Some (JsonString "discard")) (DiscardRequest epoch))
       (_ (panic (string-append "internal error: an unknown request: " line))))))
 
-(: generation-prefix (-> Json String String))
-(define (generation-prefix json line)
+(define (generation-prefix (json Json) (line String)) (→ String)
   (match (json-member json "prefix")
     ((Some (JsonString prefix))
      (if (and (> (string-length prefix) 7)
@@ -311,131 +347,153 @@
                  line))))
     (_ (panic (string-append "internal error: a build request has no prefix: " line)))))
 
-(: build-name (-> BuildTarget String))
-(define (build-name target)
+(define (build-name (target BuildTarget)) (→ String)
   (match target
-    ((ProgramTarget program) (ProgramBuild-name program))
-    ((BrowserTarget browser) (BrowserBuild-name browser))))
+    ((ProgramTarget program) (● program name))
+    ((BrowserTarget browser) (● browser name))))
 
 ;; The project as the service reads it: its build and run targets, each
 ;; with its source point.
-(: description->json (-> Project Json))
-(define (description->json description)
-  (JsonObject (list (Pair "builds" (JsonArray (map build->json (Project-builds description))))
-                    (Pair "runs" (JsonArray (map run->json (Project-runs description)))))))
 
-(: entry->json (-> ProjectEntry Json))
-(define (entry->json entry)
+(define (description->json (description Project)) (→ Json)
+  (JsonObject
+   (list (new Pair (first "builds") (second (JsonArray (map build->json (● description builds)))))
+         (new Pair (first "runs") (second (JsonArray (map run->json (● description runs))))))))
+
+(define (entry->json (entry ProjectEntry)) (→ Json)
   (match entry
-    ((SourceEntry path) (JsonString (ProjectPath-text path)))
+    ((SourceEntry path) (JsonString (● path text)))
     ((ApplicationEntry library name)
-     (JsonObject (list (Pair "library" (JsonArray (map JsonString library)))
-                       (Pair "type" (JsonString name)))))))
+     (JsonObject (list (new Pair (first "library") (second (JsonArray (map JsonString library))))
+                       (new Pair (first "type") (second (JsonString name))))))))
 
-(: build->json (-> BuildTarget Json))
-(define (build->json target)
+(define (build->json (target BuildTarget)) (→ Json)
   (match target
     ((ProgramTarget program)
-     (JsonObject (list (Pair "kind" (JsonString "program"))
-                       (Pair "name" (JsonString (ProgramBuild-name program)))
-                       (Pair "entry" (entry->json (ProgramBuild-entry program)))
-                       (Pair "location" (JsonString (loc->string (ProgramBuild-loc program))))
-                       (Pair "libraries" (paths->json (ProgramBuild-libraries program))))))
+     (JsonObject (list (new Pair (first "kind") (second (JsonString "program")))
+                       (new Pair (first "name") (second (JsonString (● program name))))
+                       (new Pair (first "entry") (second (entry->json (● program entry))))
+                       (new Pair
+                         (first "location")
+                         (second (JsonString (loc->string (● program loc)))))
+                       (new Pair
+                         (first "libraries")
+                         (second (paths->json (● program libraries)))))))
     ((BrowserTarget browser)
-     (JsonObject (list (Pair "kind" (JsonString "browser"))
-                       (Pair "name" (JsonString (BrowserBuild-name browser)))
-                       (Pair "entry" (entry->json (BrowserBuild-entry browser)))
-                       (Pair "location" (JsonString (loc->string (BrowserBuild-loc browser))))
-                       (Pair "libraries" (paths->json (BrowserBuild-libraries browser)))
-                       (Pair "public" (match (BrowserBuild-public browser)
-                                        ((Some path) (JsonString (ProjectPath-text path)))
-                                        ((None) (JsonNull)))))))))
+     (JsonObject (list (new Pair (first "kind") (second (JsonString "browser")))
+                       (new Pair (first "name") (second (JsonString (● browser name))))
+                       (new Pair (first "entry") (second (entry->json (● browser entry))))
+                       (new Pair
+                         (first "location")
+                         (second (JsonString (loc->string (● browser loc)))))
+                       (new Pair (first "libraries") (second (paths->json (● browser libraries))))
+                       (new Pair (first "public") (second (match (● browser public)
+                                                            ((Some path) (JsonString (● path text)))
+                                                            ((None) (JsonNull))))))))))
 
-(: paths->json (-> (List ProjectPath) Json))
-(define (paths->json paths)
-  (JsonArray (map (lambda (path) (JsonString (ProjectPath-text path))) paths)))
+(define (paths->json (paths (List ProjectPath))) (→ Json)
+  (JsonArray (map (lambda (path) (JsonString (● path text))) paths)))
 
-(: run->json (-> RunTarget Json))
-(define (run->json run)
-  (JsonObject (list (Pair "kind" (JsonString "run"))
-                    (Pair "name" (JsonString (RunTarget-name run)))
-                    (Pair "build" (JsonString (ProgramBuild-name (RunTarget-program run))))
-                    (Pair "location" (JsonString (loc->string (RunTarget-loc run))))
-                    (Pair "args" (JsonArray (map JsonString (RunTarget-arguments run)))))))
+(define (run->json (run RunTarget)) (→ Json)
+  (JsonObject (list (new Pair (first "kind") (second (JsonString "run")))
+                    (new Pair (first "name") (second (JsonString (● run name))))
+                    (new Pair (first "build") (second (JsonString (● (● run program) name))))
+                    (new Pair (first "location") (second (JsonString (loc->string (● run loc)))))
+                    (new Pair
+                      (first "args")
+                      (second (JsonArray (map JsonString (● run arguments))))))))
 
 ;; How long the build took, and each target's generation, with its
 ;; digests and how many of its modules the build compiled.
-(: candidate->json (-> Candidate Project I64 Json))
-(define (candidate->json candidate description milliseconds)
+
+(define (candidate->json (candidate Candidate) (description Project) (milliseconds I64)) (→ Json)
   (JsonObject
-   (list (Pair "project" (JsonString (Candidate-project candidate)))
-         (Pair "milliseconds" (JsonInteger milliseconds))
-         (Pair "description" (description->json description))
-         (Pair "targets" (JsonArray (map output->json (Candidate-outputs candidate)))))))
+   (list (new Pair (first "project") (second (JsonString (● candidate project))))
+         (new Pair (first "milliseconds") (second (JsonInteger milliseconds)))
+         (new Pair (first "description") (second (description->json description)))
+         (new Pair
+           (first "targets")
+           (second (JsonArray (map output->json (● candidate outputs))))))))
 
-(: output->json (-> Output Json))
-(define (output->json output)
-  (JsonObject (list (Pair "name" (JsonString (Output-name output)))
-                    (Pair "directory" (JsonString (Output-directory output)))
-                    (Pair "digest" (JsonString (Output-digest output)))
-                    (Pair "compiled" (JsonInteger (Output-compiled output)))
-                    (Pair "modules" (JsonInteger (Output-modules output)))
-                    (Pair "files"
-                          (JsonObject (map (lambda (file)
-                                             (Pair (Pair-first file)
-                                                   (JsonString (Pair-second file))))
-                                           (Output-files output))))
-                    (Pair "linked" (JsonArray (map JsonString (Output-linked output)))))))
+(define (output->json (output Output)) (→ Json)
+  (JsonObject (list (new Pair (first "name") (second (JsonString (● output name))))
+                    (new Pair (first "directory") (second (JsonString (● output directory))))
+                    (new Pair (first "digest") (second (JsonString (● output digest))))
+                    (new Pair (first "compiled") (second (JsonInteger (● output compiled))))
+                    (new Pair (first "modules") (second (JsonInteger (● output modules))))
+                    (new Pair (first "files")
+                         (second (JsonObject (map (lambda (file)
+                                                    (new Pair (first (● file first))
+                                                         (second (JsonString (● file second)))))
+                                                  (● output files)))))
+                    (new Pair
+                      (first "linked")
+                      (second (JsonArray (map JsonString (● output linked))))))))
 
-;; A failure's diagnostics as the editor shows them: a compile's, each
+;; A failure's diagnostics as the service reports them: a compile's, each
 ;; naming its source point when it has one, or the build's one.
-(: failure-diagnostics (-> Failure (List Json)))
-(define (failure-diagnostics failure)
+
+(define (failure-diagnostics (failure Failure)) (→ (List Json))
   (match failure
     ((CompileFailure diagnostics) (map source-diagnostic->json (diagnostics->list diagnostics)))
     ((BuildFailure message) (list (diagnostic->json message (JsonNull))))))
 
 ;; A location in line 0 is not a point: one about a file as a whole, such
 ;; as a missing source, names the file in its message.
-(: source-diagnostic->json (-> SourceDiagnostic Json))
-(define (source-diagnostic->json diagnostic)
-  (let ((loc (SourceDiagnostic-loc diagnostic)))
-    (cond ((= (string-length (Loc-file loc)) 0)
-           (diagnostic->json (SourceDiagnostic-message diagnostic) (JsonNull)))
-          ((and (> (Loc-line loc) 0) (> (Loc-column loc) 0))
-           (diagnostic->json (SourceDiagnostic-message diagnostic) (source->json loc)))
+
+(define (source-diagnostic->json (diagnostic SourceDiagnostic)) (→ Json)
+  (let ((loc (● diagnostic loc)))
+    (cond ((= (string-length (● loc file)) 0)
+           (diagnostic->json (● diagnostic message) (JsonNull)))
+          ((and (> (● loc line) 0) (> (● loc column) 0))
+           (diagnostic->json (● diagnostic message) (source->json loc)))
           (else (diagnostic->json (diagnostic->string diagnostic) (JsonNull))))))
 
-(: source->json (-> Loc Json))
-(define (source->json loc)
-  (JsonObject (list (Pair "file" (JsonString (Loc-file loc)))
-                    (Pair "line" (JsonInteger (Loc-line loc)))
-                    (Pair "column" (JsonInteger (Loc-column loc))))))
+(define (source->json (loc Loc)) (→ Json)
+  (JsonObject (list (new Pair (first "file") (second (JsonString (● loc file))))
+                    (new Pair (first "line") (second (JsonInteger (● loc line))))
+                    (new Pair (first "column") (second (JsonInteger (● loc column)))))))
 
-(: diagnostic->json (-> String Json Json))
-(define (diagnostic->json message source)
-  (JsonObject (list (Pair "severity" (JsonString "error"))
-                    (Pair "message" (JsonString message))
-                    (Pair "source" source))))
+(define (diagnostic->json (message String) (source Json)) (→ Json)
+  (JsonObject (list (new Pair (first "severity") (second (JsonString "error")))
+                    (new Pair (first "message") (second (JsonString message)))
+                    (new Pair (first "source") (second source)))))
 
 ;; ---- The development service ----
 
-;; The service's setup, from `dev`'s arguments after the command line's
-;; own: its path, the root and the runtime.
-(: dev-setup (-> String String String (List String) Setup))
-(define (dev-setup cli root runtime arguments)
+;; The service's setup, from `watch`'s arguments after the command line's
+;; own: its path, the root and the runtimes.
+
+(define (watch-setup (cli String) (root String) (runtime String) (toolchain String)
+                     (arguments (List String)))
+  (→ Setup)
   (let ((node (match (environment-variable "NODE")
                 ((Some node) node)
                 ((None) "node"))))
     (match arguments
-      ((Cons editor (Cons client (Cons "--port" (Cons port (Cons project (Nil))))))
-       (Setup root cli runtime node editor client (resolved project) (port-number port)))
-      ((Cons editor (Cons client (Cons project (Nil))))
-       (Setup root cli runtime node editor client (resolved project) 8000))
-      (_ (panic "usage: snail dev [--port PORT] PROJECT")))))
+      ((Cons client (Cons "--port" (Cons port (Cons project (Nil)))))
+       (new Setup
+         (root root)
+         (cli cli)
+         (runtime runtime)
+         (toolchain toolchain)
+         (node node)
+         (client client)
+         (project (resolved project))
+         (port (port-number port))))
+      ((Cons client (Cons project (Nil)))
+       (new Setup
+         (root root)
+         (cli cli)
+         (runtime runtime)
+         (toolchain toolchain)
+         (node node)
+         (client client)
+         (project (resolved project))
+         (port 8000)))
+      (_ (panic "usage: snail-scheme watch [--port PORT] PROJECT")))))
 
-(: port-number (-> String I32))
-(define (port-number text)
+(define (port-number (text String)) (→ I32)
   (let ((digits (string->list text)))
     (if (and (not (null? digits))
              (<= (length digits) 5)
@@ -447,24 +505,105 @@
           (if (<= number 65535) number (panic "port must be an integer from 0 to 65535")))
         (panic "port must be an integer from 0 to 65535"))))
 
+;; ---- Formatting ----
+
+;; What `format` reads and where it answers: standard input to standard
+;; output, or files, each reported or rewritten if formatting changes it.
+(enum FormatInput
+  (StandardInput)
+  (CheckFiles ((paths (List String))))
+  (WriteFiles ((paths (List String)))))
+
+(record FormatRequest
+  ((width I64)
+   (input FormatInput)))
+
+(define (format-request (arguments (List String))) (→ FormatRequest)
+  (match arguments
+    ((Cons "--width" (Cons columns rest))
+     (match (string->i64 columns)
+       ((Some width)
+        (if (> width 0) (new FormatRequest (width width) (input (format-input rest))) (bad-width)))
+       ((None) (bad-width))))
+    (_ (new FormatRequest (width (format-width)) (input (format-input arguments))))))
+
+(define (bad-width) (→ FormatRequest)
+  (panic "snail-scheme format: --width takes a positive number of columns"))
+
+(define (format-input (arguments (List String))) (→ FormatInput)
+  (match arguments
+    ((Nil) (StandardInput))
+    ((Cons "--check" (Cons path rest)) (CheckFiles (Cons path rest)))
+    ((Cons "--write" (Cons path rest)) (WriteFiles (Cons path rest)))
+    (_ (panic "usage: snail-scheme format [--width COLUMNS] [--write|--check FILE ...]"))))
+
+;; Scalars, not lines, so the end of input invents no final newline.
+
+(define (read-input) (→ String) (! input-port)
+  (let loop ((characters (Nil)))
+    (match (read-char)
+      ((None) (list->string (reverse characters)))
+      ((Some char) (loop (Cons char characters))))))
+
+;; Every changed path, in order. Checking leaves files alone; writing
+;; leaves formatted files alone, timestamps and all.
+
+(define (format-files (width I64) (write? Bool) (paths (List String))) (→ (List String)) (! fs)
+  (let loop ((paths paths) (changed (Nil)))
+    (match paths
+      ((Nil) (reverse changed))
+      ((Cons path rest)
+       (let* ((before (read-file path)) (after (format-source before width)))
+         (if (string=? before after)
+             (loop rest changed)
+             (begin
+               (when write? (write-file path after))
+               (loop rest (Cons path changed)))))))))
+
+;; Every file that needs formatting is reported, not just the first, and
+;; then the command fails as any does, with status 1.
+
+(define (check-files (width I64) (paths (List String))) (→ Unit) (! fs)
+  (match (format-files width #f paths)
+    ((Nil) (unit))
+    (changed
+     (panic (string-join (map (lambda (path) (string-append path ": needs formatting")) changed)
+                         "\n")))))
+
+(define (format-command (request FormatRequest)) (→ Unit) (! input-port output-port fs)
+  (match (● request input)
+    ((StandardInput) (write-string (format-source (read-input) (● request width))))
+    ((CheckFiles paths) (check-files (● request width) paths))
+    ((WriteFiles paths) (format-files (● request width) #t paths) (unit))))
+
 ;; ---- The invocation ----
 
 ;; A build, a run, or the resident builder.
-(: invoke (-> Job Unit ! mut fs clock process console))
-(define (invoke job)
-  (match (Job-mode job)
-    ((Development) (serve (Resident job (Nil) (None))))
+
+(define (invoke (job Job)) (→ Unit) (! mut fs clock process input-port output-port)
+  (match (● job mode)
+    ((Development) (serve (new Resident (job job) (held (None)))))
     (_
-     (match (read-project (Job-project job))
+     (match (read-project (● job project))
        ((Err failure) (panic (failure->string failure)))
        ((Ok description)
-        (if (Job-run? job)
+        (if (● job run?)
             (run-target job description)
             (begin
-              (build-and-publish job description (Job-target job))
-              (write-line (string-append (Job-project job) "/build/" (Job-target job))))))))))
+              (build-and-publish job description (● job target))
+              (write-line (string-append (● job project) "/build/" (● job target))))))))))
 
-(match (command-line)
-  ((Cons cli (Cons root (Cons runtime (Cons "dev" arguments))))
-   (develop (dev-setup cli root runtime arguments)))
-  (arguments (invoke (request arguments))))
+(define (main)
+  (→ Unit)
+  (! host mut clock fs input-port output-port process signals tcp tasks hints)
+
+  (match (command-line)
+    ((Cons _ (Cons _ (Cons _ (Cons _ (Cons "compile" arguments))))) (compile-arguments arguments))
+    ((Cons _ (Cons _ (Cons _ (Cons _ (Cons "format" arguments)))))
+     (format-command (format-request arguments)))
+    ((Cons cli (Cons root (Cons runtime (Cons toolchain (Cons "watch" arguments)))))
+     (develop (watch-setup cli root runtime toolchain arguments)))
+    ((Cons _ (Cons root (Cons runtime (Cons toolchain (Cons "lsp" (Nil))))))
+     (serve-language (tools-of root runtime toolchain)))
+    (arguments (invoke (request arguments))))
+  (unit))

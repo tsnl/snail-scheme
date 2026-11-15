@@ -11,8 +11,6 @@
    empty-inventory
    inventory
    inventory-changes
-   inventory-files
-   inventory-directories
    hints
    Watch
    watch-tree
@@ -29,26 +27,29 @@
     ;; ---- Inventories ----
 
     ;; Each path under the roots, with its fingerprint.
-    (struct Inventory
+    (record Inventory
       ((fingerprints (Table String))))
 
-    (: empty-inventory Inventory)
-    (define empty-inventory (Inventory empty-table))
+    (define (empty-inventory) (→ Inventory) (new Inventory (fingerprints (empty-table))))
 
     ;; The paths under `roots`, the roots among them, leaving out each path
     ;; in `excluded` and what is under it. A path that vanishes while the
     ;; inventory is taken is left out, as removed, so the next inventory
     ;; that has it reports it again. One that cannot be read otherwise
     ;; fails the inventory, which leaving it out would report removed.
-    (: inventory (-> (List String) (List String) (Result Inventory String) ! fs))
-    (define (inventory roots excluded)
-      (match (take-paths empty-table roots excluded)
-        ((Ok fingerprints) (Ok (Inventory fingerprints)))
+
+    (define (inventory (roots (List String)) (excluded (List String)))
+      (→ (Result Inventory String))
+      (! fs)
+      (match (take-paths (empty-table) roots excluded)
+        ((Ok fingerprints) (Ok (new Inventory (fingerprints fingerprints))))
         ((Err message) (Err message))))
 
-    (: take-paths
-       (-> (Table String) (List String) (List String) (Result (Table String) String) ! fs))
-    (define (take-paths fingerprints paths excluded)
+    (define (take-paths (fingerprints (Table String))
+                        (paths (List String))
+                        (excluded (List String)))
+      (→ (Result (Table String) String))
+      (! fs)
       (match paths
         ((Nil) (Ok fingerprints))
         ((Cons path rest)
@@ -56,21 +57,25 @@
            ((Ok fingerprints) (take-paths fingerprints rest excluded))
            ((Err message) (Err message))))))
 
-    (: take-path (-> (Table String) String (List String) (Result (Table String) String) ! fs))
-    (define (take-path fingerprints path excluded)
+    (define (take-path (fingerprints (Table String)) (path String) (excluded (List String)))
+      (→ (Result (Table String) String))
+      (! fs)
       (if (member? path excluded)
           (Ok fingerprints)
           (match (file-status path)
             ((Ok status)
              (let ((fingerprints (table-set fingerprints path (fingerprint status))))
-               (match (FileStatus-kind status)
+               (match (● status kind)
                  ((Directory) (take-directory fingerprints path excluded))
                  (_ (Ok fingerprints)))))
             ((Err (NotFound)) (Ok fingerprints))
             ((Err error) (Err (unreadable path error))))))
 
-    (: take-directory (-> (Table String) String (List String) (Result (Table String) String) ! fs))
-    (define (take-directory fingerprints directory excluded)
+    (define (take-directory (fingerprints (Table String))
+                            (directory String)
+                            (excluded (List String)))
+      (→ (Result (Table String) String))
+      (! fs)
       (match (list-directory directory)
         ((Ok names)
          (take-paths fingerprints
@@ -79,8 +84,7 @@
         ((Err (NotFound)) (Ok fingerprints))
         ((Err error) (Err (unreadable directory error)))))
 
-    (: unreadable (-> String FileError String))
-    (define (unreadable path error)
+    (define (unreadable (path String) (error FileError)) (→ String)
       (string-append "cannot read " path ": " (show error)))
 
     ;; What tells an edit to a path apart. A file's is its size and
@@ -88,12 +92,12 @@
     ;; over another differs from it. A directory's is its kind alone: what
     ;; it holds has fingerprints of its own, and its timestamps change with
     ;; any of them. A symbolic link is fingerprinted, not followed.
-    (: fingerprint (-> FileStatus String))
-    (define (fingerprint status)
-      (let ((stamp (string-append (i64->string (FileStatus-size status))
+
+    (define (fingerprint (status FileStatus)) (→ String)
+      (let ((stamp (string-append (i64->string (● status size))
                                   " "
-                                  (i64->string (FileStatus-modified status)))))
-        (match (FileStatus-kind status)
+                                  (i64->string (● status modified)))))
+        (match (● status kind)
           ((RegularFile) (string-append "file " stamp))
           ((Directory) "directory")
           ((SymbolicLink) (string-append "link " stamp))
@@ -104,36 +108,15 @@
     ;; The paths that differ between two inventories of the same roots:
     ;; those `after` fingerprints otherwise than `before`, or has and
     ;; `before` has not, and then those only `before` has.
-    (: inventory-changes (-> Inventory Inventory (List String)))
-    (define (inventory-changes before after)
-      (let ((old (Inventory-fingerprints before)) (new (Inventory-fingerprints after)))
-        (append (filter (lambda (path) (not (same-fingerprint? old new path))) (table-keys new))
-                (filter (lambda (path) (not (table-contains? new path))) (table-keys old)))))
 
-    ;; The regular files an inventory found, in no particular order.
-    (: inventory-files (-> Inventory (List String)))
-    (define (inventory-files taken)
-      (let ((fingerprints (Inventory-fingerprints taken)))
-        (filter (lambda (path)
-                  (match (table-ref fingerprints path)
-                    ((Some print) (and (>= (string-length print) 5)
-                                       (string=? (substring print 0 5) "file ")))
-                    ((None) #f)))
-                (table-keys fingerprints))))
+    (define (inventory-changes (before Inventory) (after Inventory)) (→ (List String))
+      (let ((old (● before fingerprints)) (updated (● after fingerprints)))
+        (append
+         (filter (lambda (path) (not (same-fingerprint? old updated path))) (table-keys updated))
+         (filter (lambda (path) (not (table-contains? updated path))) (table-keys old)))))
 
-    ;; Real directories only: the inventory never traverses symbolic links.
-    (: inventory-directories (-> Inventory (List String)))
-    (define (inventory-directories taken)
-      (let ((fingerprints (Inventory-fingerprints taken)))
-        (filter (lambda (path)
-                  (match (table-ref fingerprints path)
-                    ((Some print) (string=? print "directory"))
-                    ((None) #f)))
-                (table-keys fingerprints))))
-
-    (: same-fingerprint? (-> (Table String) (Table String) String Bool))
-    (define (same-fingerprint? old new path)
-      (match (Pair (table-ref old path) (table-ref new path))
+    (define (same-fingerprint? (old (Table String)) (updated (Table String)) (path String)) (→ Bool)
+      (match (new Pair (first (table-ref old path)) (second (table-ref updated path)))
         ((Pair (Some was) (Some is)) (string=? was is))
         (_ #f)))
 
@@ -145,13 +128,12 @@
     ;; since a watch can miss a change or be lost: hints only make an
     ;; inventory prompt. Only Node implements them, as WASI has no watch.
     ;; Starting and closing a watch are commands, its root and exclusions
-    ;; sent a character at a time, as `modes` sends paths in
-    ;; (snail shell project files); waiting is by ticket.
+    ;; sent a character at a time; waiting is by ticket.
     (effect hints
-      ((hint-character (-> Char Unit))
-       (hint-end (-> Unit))
-       (hint-command (-> I32 I32))
-       (next-hint-of (-> I32 Bool ! tasks)))
+      ((hint-character (Fn Char → Unit))
+       (hint-end (Fn → Unit))
+       (hint-command (Fn I32 → I32))
+       (next-hint-of (Fn I32 → Bool ! tasks)))
       (default
         ((hint-character host-argument-character)
          (hint-end host-argument-end)
@@ -161,34 +143,33 @@
             (= (through-host (lambda (ticket) (host-start-hint ticket id)) host-finish-hint) 1))))))
 
     ;; A watch the host keeps, by number.
-    (struct Watch
+    (record Watch
       ((id I32)))
 
     ;; A watch of `root` and what is under it, but for each path in
     ;; `excluded` and what is under that; None when the host cannot watch
     ;; it, as when it is missing.
-    (: watch-tree (-> String (List String) (Option Watch) ! hints))
-    (define (watch-tree root excluded)
+
+    (define (watch-tree (root String) (excluded (List String))) (→ (Option Watch)) (! hints)
       (for-each send-hint-text (list "watch" root))
       (for-each send-hint-text excluded)
       (let ((id (hint-command 0)))
-        (if (< id 0) (None) (Some (Watch id)))))
+        (if (< id 0) (None) (Some (new Watch (id id))))))
 
-    (: send-hint-text (-> String Unit ! hints))
-    (define (send-hint-text text)
+    (define (send-hint-text (text String)) (→ Unit) (! hints)
       (for-each hint-character (string->list text))
       (hint-end))
 
     ;; Waits for a hint since the last one taken, #t, or for the watch to
     ;; close or be lost, #f.
-    (: next-hint (-> Watch Bool ! hints tasks))
-    (define (next-hint watch)
-      (next-hint-of (Watch-id watch)))
+
+    (define (next-hint (watch Watch)) (→ Bool) (! hints tasks)
+      (next-hint-of (● watch id)))
 
     ;; Ends the watch, and answers a wait on it with #f.
-    (: close-watch (-> Watch Unit ! hints))
-    (define (close-watch watch)
+
+    (define (close-watch (watch Watch)) (→ Unit) (! hints)
       (send-hint-text "unwatch")
-      (hint-command (Watch-id watch))
+      (hint-command (● watch id))
       (unit))))
 

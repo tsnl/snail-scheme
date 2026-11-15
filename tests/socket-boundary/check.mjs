@@ -1,7 +1,7 @@
-// Real Wasm, Snail-Core tasks and loopback sockets in both linking modes.
-// Native spies place cancellation and failure at the ownership boundaries,
-// not in a model. Cancelling closes the run of tasks, as reloading or
-// ending a program does: every outstanding operation is aborted.
+// Real Wasm, `snail-scheme` tasks and loopback sockets in both linking modes.
+// Native spies place aborts and failures at the native boundaries, not in
+// a model. Cancelling closes the run of tasks, as reloading or ending a
+// program does: every outstanding operation is aborted.
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
@@ -13,7 +13,7 @@ import {createTcp} from '../../host/native/tcp.mjs';
 import {createUdp} from '../../host/native/udp.mjs';
 import {socketImports} from '../../host/native/socket-imports.mjs';
 
-let program, api, tasks, driving = null;
+let program, api, tasks, driving = null, requestTable = null;
 const tcp = createTcp(), udp = createUdp(), reported = [];
 // A request waits for its task's answer, or for the trap that ended it.
 const requests = new Map();
@@ -22,17 +22,23 @@ const current = {start: (...args) => tasks.start(...args), finish: ticket => tas
 const host = {'snail.runtime.native.socket': socketImports(() => program, current, tcp, udp)};
 const wasi = createWasi({print: (_, line) => reported.push(line)}), filename = resolve(process.argv[2]);
 
+// Each run of tasks gets its own table of requests.
+function context() {
+  if (requestTable === null) requestTable = api.requests();
+  return requestTable;
+}
 function fresh() {
+  requestTable = null;
   tasks = createTasks(() => program && taskExports(program), {reportError(error, task) {
     const request = requests.get(task);
     if (!request) return reported.push(error);
-    requests.delete(task);
-    request.reject(error);
+    for (const pending of requests.values()) pending.reject(error);
+    requests.clear();
   }});
 }
 function deliver() {
   for (const [id, request] of requests) {
-    if (api.answered(BigInt(id))) { requests.delete(id); request.resolve(api.answer(BigInt(id))); }
+    if (api['answered'](context(), BigInt(id))) { requests.delete(id); request.resolve(api['answer'](context(), BigInt(id))); }
   }
   return false;
 }
@@ -58,7 +64,8 @@ function cancel(reason) {
   fresh();
 }
 function invoke(name, ...args) {
-  const id = Number(api[`begin-${name}`](...args));
+  if (tasks.signal.aborted) fresh();
+  const id = Number(tasks.call(api[`begin-${name}`], context(), ...args));
   const done = new Promise((resolve, reject) => requests.set(id, {resolve, reject}));
   done.catch(() => {});
   pump();
@@ -77,14 +84,12 @@ try {
     program = {runtime, linked: new Map()};
   }
   api = programEntry(program, 'main').exports;
-  const modules = program.names ? program.names.map(name => program.linked.get(name)) : [program.runtime];
-  for (const module of modules) module.exports.main();
 
-  const listener = api.listener(await invoke('open').done), port = api.port(listener);
-  const client = api.connection(await invoke('dial', port).done);
+  const listener = api['listener'](await invoke('open').done), port = api['port'](listener);
+  const client = api['connection'](await invoke('dial', port).done);
   let serverId;
   tcp.accept = async (...args) => (serverId = await native.accept(...args));
-  const server = api.connection(await invoke('take', listener).done);
+  const server = api['connection'](await invoke('take', listener).done);
   tcp.accept = native.accept;
 
   // Another effect reuses staging while the first write is suspended.
@@ -96,10 +101,10 @@ try {
   };
   const sending = invoke('send', client);
   await held.promise;
-  assert.equal(api.truth(await invoke('overwrite').done), 1);
+  assert.equal(api['truth'](await invoke('overwrite').done), 1);
   assert.deepEqual([...sent], [0, 255, 128, 1]);
   release.resolve();
-  assert.equal(api.written(await sending.done), 4);
+  assert.equal(api['written'](await sending.done), 4);
   tcp.write = native.write;
   const received = [];
   while (received.length < 4) {
@@ -144,25 +149,25 @@ try {
   tcp.read = () => { throw fault; };
   await assert.rejects(invoke('receive', client, 1).done, error => error === fault);
   tcp.read = native.read;
-  assert.equal(api.finished(await invoke('finish', client, 1000).done), 1, 'finish after remote EOF returns typed Unit');
+  assert.equal(api['finished'](await invoke('finish', client, 1000).done), 1, 'finish after remote EOF returns typed Unit');
   api['stop-listener'](listener);
 
   // Both tasks may finish concurrently; unread bytes are drained.
-  const finishingListener = api.listener(await invoke('open').done), finishingPort = api.port(finishingListener);
-  const endingClient = api.connection(await invoke('dial', finishingPort).done);
-  const endingServer = api.connection(await invoke('take', finishingListener).done);
+  const finishingListener = api['listener'](await invoke('open').done), finishingPort = api['port'](finishingListener);
+  const endingClient = api['connection'](await invoke('dial', finishingPort).done);
+  const endingServer = api['connection'](await invoke('take', finishingListener).done);
   await invoke('send', endingClient).done;
   const ending = invoke('finish', endingClient, 1000);
-  assert.equal(api.finished(await invoke('finish', endingServer, 1000).done), 1);
-  assert.equal(api.finished(await ending.done), 1);
+  assert.equal(api['finished'](await invoke('finish', endingServer, 1000).done), 1);
+  assert.equal(api['finished'](await ending.done), 1);
 
-  const stalled = api.connection(await invoke('dial', finishingPort).done);
-  const stalledPeer = api.connection(await invoke('take', finishingListener).done);
+  const stalled = api['connection'](await invoke('dial', finishingPort).done);
+  const stalledPeer = api['connection'](await invoke('take', finishingListener).done);
   assert.equal(api['timed-out'](await invoke('finish', stalled, 0).done), 1, 'deadline failure is a typed socket error');
   api['stop-connection'](stalledPeer);
 
-  const interrupted = api.connection(await invoke('dial', finishingPort).done);
-  const interruptedPeer = api.connection(await invoke('take', finishingListener).done);
+  const interrupted = api['connection'](await invoke('dial', finishingPort).done);
+  const interruptedPeer = api['connection'](await invoke('take', finishingListener).done);
   const nativeFinish = tcp.finish, started = Promise.withResolvers();
   tcp.finish = (...args) => { const result = nativeFinish(...args); started.resolve(); return result; };
   const finishing = invoke('finish', interrupted, 1000);
@@ -177,7 +182,7 @@ try {
   const first = api['udp-socket'](await invoke('open-udp').done);
   const second = api['udp-socket'](await invoke('open-udp').done);
   const firstPort = api['udp-port'](first), secondPort = api['udp-port'](second);
-  assert.equal(api.written(await invoke('send-udp', first, secondPort).done), 4);
+  assert.equal(api['written'](await invoke('send-udp', first, secondPort).done), 4);
   const packet = await invoke('receive-udp', second, 4).done;
   assert.equal(api['packet-size'](packet), 4);
   assert.equal(api['packet-port'](packet), firstPort);
@@ -212,4 +217,4 @@ try {
   await udp.shutdown();
   clearTimeout(timeout);
 }
-console.log('socket boundary: typed TCP/UDP results, staging ownership and cancellation');
+console.log('socket boundary: typed TCP/UDP results, staging and aborts');

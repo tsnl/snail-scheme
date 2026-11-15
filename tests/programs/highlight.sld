@@ -18,8 +18,7 @@
 
 ;; ---- Printing ----
 
-(: quoted (-> String String))
-(define (quoted text)
+(define (quoted (text String)) (→ String)
   (string-append "\""
                  (string-concatenate (map (lambda (c)
                                             (cond ((char=? c #\") "\\\"")
@@ -29,21 +28,18 @@
                                           (string->list text)))
                  "\""))
 
-(: token-text (-> (Vector Char) Token String))
-(define (token-text chars token)
-  (vector->string (subvector chars (Token-start token) (Token-end token))))
+(define (token-text (chars (Vector Char)) (token Token)) (→ String)
+  (vector->string (subvector chars (● token start) (● token end))))
 
-(: tiles? (-> (List Token) I64 I64 Bool))
-(define (tiles? tokens index end)
+(define (tiles? (tokens (List Token)) (index I64) (end I64)) (→ Bool)
   (match tokens
     ((Cons token rest)
-     (and (= (Token-start token) index)
-          (< index (Token-end token))
-          (tiles? rest (Token-end token) end)))
+     (and (= (● token start) index)
+          (< index (● token end))
+          (tiles? rest (● token end) end)))
     ((Nil) (= index end))))
 
-(: show-tokens (-> String Unit ! console))
-(define (show-tokens text)
+(define (show-tokens (text String)) (→ Unit) (! output-port)
   (let* ((chars (string->vector text)) (tokens (highlight-tokens text)))
     (unless (and (tiles? tokens 0 (vector-length chars))
                  (string=?
@@ -53,57 +49,52 @@
     (write-line (quoted text))
     (write-line (string-append "  "
                                (string-join (map (lambda (token)
-                                                   (string-append (class-name (Token-class token))
+                                                   (string-append (class-name (● token class))
                                                                   ":"
                                                                   (quoted
                                                                    (token-text chars token))))
                                                  tokens)
                                             " ")))))
 
-(: show-reading (-> String Unit ! console))
-(define (show-reading text)
+(define (show-reading (text String)) (→ Unit) (! output-port)
   (show-tokens text)
   (write-line (string-append "  read: " (reading text))))
 
 ;; The forms the reader makes of `text`, or the error it stops with.
-(: reading (-> String String))
-(define (reading text)
+(define (reading (text String)) (→ String)
   (match (compiling (lambda () (read-text text "sample.sld")))
     ((Ok forms) (string-join (map syntax->string forms) " "))
     ((Err (Failed diagnostics)) (diagnostics->string diagnostics))
     ((Err (Requested _)) "the reader asked for an input")))
 
-;; ---- Samples ----
+(define (main) (→ Unit) (! output-port)
+  ;; ---- Samples ----
 
-;; A definition's name, a comment, a number and the core forms.
-(show-reading "(define (twice x) ; doubles\n  (* 2 x))")
-(show-reading "(: label (-> I64 String))")
-(show-reading "(define ((adder n) x) (+ n x))")
-(show-reading "(struct Point ((x F64)) (deriving Show)) (match p ((Point x) x) (_ 0))")
-(show-reading "(effect ask (ctl ask (-> Unit I64))) (handle ask ((ask (lambda (resume) 1))) body)")
-
-;; Block comments nest.
-(show-reading "#| outer #| inner |# still outer |#x")
-
-;; Escapes stay inside their string; `#\` takes the character after it,
-;; whatever it is.
-(show-reading "\"line\\n quote\\\" slash\\\\ \\x41;\" #\\( #\\space #\\x41 #\\)")
-
-;; Byte vectors, quotes, booleans and numbers; `+x` is a name.
-(show-reading "#u8(0 255) 'x '(a b) #t #false 1.5e3 -7 +x")
-
-;; `#;` comments out the datum after it, and two of them two data. A
-;; commented list runs to its own closing bracket, past the comments, the
-;; strings and the `#;` inside it.
-(show-reading "#;(skip me) kept #; #; a 'b c")
-(show-reading "(f #;(a ; note\n #;b \"(\" c) d)")
-
-;; A delimiter ends a token wherever it is: the quote mark in `x'y`, the
-;; string after `"s"`, and the comment after `a`.
-(show-reading "(x'y \"s\"t #\\) a;b\n[c])")
-
-;; What the reader rejects still classifies.
-(show-tokens ". #foo (a) ]")
-(show-tokens "\"unterminated\n(still a string")
-(show-tokens "#| unterminated")
-(show-tokens "(#; )")
+  ;; A definition's name, a comment, a number and the core forms.
+  (show-reading "(define (twice (x I64)) (→ I64) ; doubles\n  (* 2 x))")
+  (show-reading "(define label (→ String) \"label\")")
+  (show-reading "(define (adder (n I64)) (→ (Fn I64 → I64)) (lambda (x) (+ n x)))")
+  (show-reading "(record Point ((x F64)) (deriving Show)) (match p ((Point x) x) (_ 0))")
+  (show-reading
+   "(effect ask ((ctl ask (Fn → I64)))) (handle ask ((ask (lambda (resume) (resume 1)))) body)")
+  ;; Block comments nest.
+  (show-reading "#| outer #| inner |# still outer |#x")
+  ;; Escapes stay inside their string; `#\` takes the character after it,
+  ;; whatever it is.
+  (show-reading "\"line\\n quote\\\" slash\\\\ \\x41;\" #\\( #\\space #\\x41 #\\)")
+  ;; Byte vectors, quotes, booleans and numbers; `+x` is a name.
+  (show-reading "#u8(0 255) 'x '(a b) #t #false 1.5e3 -7 +x")
+  ;; `#;` comments out the datum after it, and two of them two data. A
+  ;; commented list runs to its own closing bracket, past the comments, the
+  ;; strings and the `#;` inside it.
+  (show-reading "#;(skip me) kept #; #; a 'b c")
+  (show-reading "(f #;(a ; note\n #;b \"(\" c) d)")
+  ;; A delimiter ends a token wherever it is: the quote mark in `x'y`, the
+  ;; string after `"s"`, and the comment after `a`.
+  (show-reading "(x'y \"s\"t #\\) a;b\n[c])")
+  ;; What the reader rejects still classifies.
+  (show-tokens ". #foo (a) ]")
+  (show-tokens "\"unterminated\n(still a string")
+  (show-tokens "#| unterminated")
+  (show-tokens "(#; )")
+  (unit))

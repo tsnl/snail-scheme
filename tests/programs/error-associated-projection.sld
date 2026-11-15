@@ -4,6 +4,5 @@
 
 (typeclass (Op e A B)
   (type Output)
-  (: op (-> A B Output ! e)))
-(: wrong (All (A B e) (-> A B (Op.Output e A B))))
-(define (wrong a b) (op a b))
+  (declare (op (left A) (right B)) (→ Output) (! e)))
+(define (wrong (a A) (b B)) (→ (Op.Output e A B)) (∀ (A B e)) (op a b))

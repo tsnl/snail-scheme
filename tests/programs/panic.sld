@@ -2,11 +2,13 @@
  (snail core base)
  (snail core io))
 
-(: head (All (T) (requires (Copy T)) (-> (List T) T)))
-(define (head items)
+(define (head (items (List T))) (→ T) (∀ (T))
   (match items
     ((Cons item _) item)
     ((Nil) (panic "head of an empty list"))))
 
-(write-line "start")
-(display (head (ann (Nil) (List I64))))
+(define (main) (→ Unit) (! output-port)
+
+  (write-line "start")
+  (display (head (ann (Nil) (List I64))))
+  (unit))

@@ -5,8 +5,6 @@
   (export
    map-size
    Cell
-   Cell-x
-   Cell-y
    cell=?
    cell-index
    index-cell
@@ -26,51 +24,42 @@
 
     ;; ---- Cells ----
 
-    (: map-size I64)
-    (define map-size 80)
+    (define (map-size) (→ I64) 80)
 
-    (struct Cell
+    (record Cell
       ((x I64)
        (y I64))
       (deriving Serialize Deserialize))
 
-    (: cell=? (-> Cell Cell Bool))
-    (define (cell=? a b)
-      (and (= (Cell-x a) (Cell-x b)) (= (Cell-y a) (Cell-y b))))
+    (define (cell=? (a Cell) (b Cell)) (→ Bool)
+      (and (= (● a x) (● b x)) (= (● a y) (● b y))))
 
-    (: cell-index (-> Cell I64))
-    (define (cell-index cell)
-      (+ (Cell-x cell) (* map-size (Cell-y cell))))
+    (define (cell-index (cell Cell)) (→ I64)
+      (+ (● cell x) (* (map-size) (● cell y))))
 
-    (: index-cell (-> I64 Cell))
-    (define (index-cell index)
-      (Cell (remainder index map-size) (quotient index map-size)))
+    (define (index-cell (index I64)) (→ Cell)
+      (new Cell (x (remainder index (map-size))) (y (quotient index (map-size)))))
 
-    (: in-bounds? (-> Cell Bool))
-    (define (in-bounds? cell)
-      (and (<= 0 (Cell-x cell))
-           (< (Cell-x cell) map-size)
-           (<= 0 (Cell-y cell))
-           (< (Cell-y cell) map-size)))
+    (define (in-bounds? (cell Cell)) (→ Bool)
+      (and (<= 0 (● cell x))
+           (< (● cell x) (map-size))
+           (<= 0 (● cell y))
+           (< (● cell y) (map-size))))
 
-    (: distance-squared (-> Cell Cell I64))
-    (define (distance-squared a b)
-      (let ((dx (- (Cell-x a) (Cell-x b))) (dy (- (Cell-y a) (Cell-y b))))
+    (define (distance-squared (a Cell) (b Cell)) (→ I64)
+      (let ((dx (- (● a x) (● b x))) (dy (- (● a y) (● b y))))
         (+ (* dx dx) (* dy dy))))
 
-    (: manhattan (-> Cell Cell I64))
-    (define (manhattan a b)
-      (+ (abs (- (Cell-x a) (Cell-x b))) (abs (- (Cell-y a) (Cell-y b)))))
+    (define (manhattan (a Cell) (b Cell)) (→ I64)
+      (+ (abs (- (● a x) (● b x))) (abs (- (● a y) (● b y)))))
 
     ;; Within a circle of `radius` cells around `center`.
-    (: within? (-> Cell Cell I64 Bool))
-    (define (within? cell center radius)
+    (define (within? (cell Cell) (center Cell) (radius I64)) (→ Bool)
       (<= (distance-squared cell center) (* radius radius)))
 
     ;; The largest integer whose square is at most `square`, by Newton's
     ;; iteration from above.
-    (: integer-sqrt (-> I64 I64))
-    (define (integer-sqrt square)
+    (define (integer-sqrt (square I64)) (→ I64)
       (if (= square 0)
           0
           (let loop ((guess square))
@@ -78,11 +67,13 @@
               (if (>= next guess) guess (loop next))))))
 
     ;; East, west, south, north: a fixed order, so ties break the same way.
-    (: neighbors (-> Cell (List Cell)))
-    (define (neighbors cell)
-      (let ((x (Cell-x cell)) (y (Cell-y cell)))
+    (define (neighbors (cell Cell)) (→ (List Cell))
+      (let ((x (● cell x)) (y (● cell y)))
         (filter in-bounds?
-                (list (Cell (+ x 1) y) (Cell (- x 1) y) (Cell x (+ y 1)) (Cell x (- y 1))))))
+                (list (new Cell (x (+ x 1)) (y y))
+                      (new Cell (x (- x 1)) (y y))
+                      (new Cell (x x) (y (+ y 1)))
+                      (new Cell (x x) (y (- y 1)))))))
 
     ;; ---- Straight lines ----
 
@@ -93,20 +84,20 @@
     ;; along an axis never meets the other kind of line, and one through a
     ;; corner touches both side cells, so nothing is seen or wired diagonally
     ;; between two rocks.
-    (: line-cells (-> Cell Cell (List Cell)))
-    (define (line-cells a b)
-      (let ((dx (abs (- (Cell-x b) (Cell-x a)))) (dy (abs (- (Cell-y b) (Cell-y a))))
-            (sx (if (< (Cell-x a) (Cell-x b)) 1 -1)) (sy (if (< (Cell-y a) (Cell-y b)) 1 -1)))
-        (let walk ((x (Cell-x a)) (y (Cell-y a)) (nx 1) (ny 1) (cells (Nil)))
-          (let ((cells (Cons (Cell x y) cells)) (order (- (* ny dx) (* nx dy))))
-            (cond ((and (= x (Cell-x b)) (= y (Cell-y b))) (reverse cells))
+    (define (line-cells (a Cell) (b Cell)) (→ (List Cell))
+      (let ((dx (abs (- (● b x) (● a x)))) (dy (abs (- (● b y) (● a y))))
+            (sx (if (< (● a x) (● b x)) 1 -1)) (sy (if (< (● a y) (● b y)) 1 -1)))
+        (let walk ((x (● a x)) (y (● a y)) (nx 1) (ny 1) (cells (Nil)))
+          (let ((cells (Cons (new Cell (x x) (y y)) cells)) (order (- (* ny dx) (* nx dy))))
+            (cond ((and (= x (● b x)) (= y (● b y))) (reverse cells))
                   ((< order 0) (walk x (+ y sy) nx (+ ny 2) cells))
                   ((> order 0) (walk (+ x sx) y (+ nx 2) ny cells))
                   (else (walk (+ x sx)
                               (+ y sy)
                               (+ nx 2)
                               (+ ny 2)
-                              (Cons (Cell x (+ y sy)) (Cons (Cell (+ x sx) y) cells)))))))))
+                              (Cons (new Cell (x x) (y (+ y sy)))
+                                    (Cons (new Cell (x (+ x sx)) (y y)) cells)))))))))
 
     ;; ---- Passes ----
 
@@ -117,12 +108,11 @@
     ;; within the round and into closed ones for the next. Each cell keeps
     ;; the neighbor it was reached from, so the way is read back from
     ;; `start`. The array is local to the search, so it is total.
-    (: crossing-path (-> (Vector Bool) (List Cell) Cell (List Cell)))
-    (define (crossing-path open goals start)
+    (define (crossing-path (open (Vector Bool)) (goals (List Cell)) (start Cell)) (→ (List Cell))
       (unsafe-total
        (lambda ()
-         (let ((from (make-array (* map-size map-size) -1)))
-           (for-each (lambda (goal) (array-set! from (cell-index goal) (cell-index goal))) goals)
+         (let ((from (make-vector (* (map-size) (map-size)) -1)))
+           (for-each (lambda (goal) (vector-set! from (cell-index goal) (cell-index goal))) goals)
            (let round ((current goals) (next (Nil)))
              (match current
                ((Nil) (if (null? next)
@@ -130,14 +120,15 @@
                             (let ((closed (if (vector-ref open index)
                                               closed
                                               (Cons (index-cell index) closed))))
-                              (if (= (array-ref from index) index)
+                              (if (= (vector-ref from index) index)
                                   closed
-                                  (back (array-ref from index) closed))))
+                                  (back (vector-ref from index) closed))))
                           (round next (Nil))))
                ((Cons cell rest)
-                (let ((reached (filter (lambda (n) (= (array-ref from (cell-index n)) -1))
+                (let ((reached (filter (lambda (n) (= (vector-ref from (cell-index n)) -1))
                                        (neighbors cell))))
-                  (for-each (lambda (n) (array-set! from (cell-index n) (cell-index cell))) reached)
+                  (for-each (lambda (n) (vector-set! from (cell-index n) (cell-index cell)))
+                            reached)
                   (round
                    (append (filter (lambda (n) (vector-ref open (cell-index n))) reached) rest)
                    (append (filter (lambda (n) (not (vector-ref open (cell-index n)))) reached)
@@ -149,23 +140,22 @@
     ;; open cells, or -1 where no goal can be reached. A walker heads for a
     ;; goal by stepping to any neighbor one step closer. The array is local
     ;; to the search, so it is total.
-    (: distance-field (-> (Vector Bool) (List Cell) (Vector I64)))
-    (define (distance-field open goals)
+    (define (distance-field (open (Vector Bool)) (goals (List Cell))) (→ (Vector I64))
       (unsafe-total
        (lambda ()
-         (let ((distance (make-array (* map-size map-size) -1)))
-           (for-each (lambda (goal) (array-set! distance (cell-index goal) 0)) goals)
+         (let ((distance (make-vector (* (map-size) (map-size)) -1)))
+           (for-each (lambda (goal) (vector-set! distance (cell-index goal) 0)) goals)
            (let loop ((frontier goals) (next (Nil)))
              (match frontier
-               ((Nil) (if (null? next) (array->vector distance) (loop (reverse next) (Nil))))
+               ((Nil) (if (null? next) distance (loop (reverse next) (Nil))))
                ((Cons cell rest)
-                (let ((steps (+ (array-ref distance (cell-index cell)) 1)))
+                (let ((steps (+ (vector-ref distance (cell-index cell)) 1)))
                   (loop rest (fold-left (lambda (queued neighbor)
                                           (let ((index (cell-index neighbor)))
                                             (if (and (vector-ref open index)
-                                                     (= (array-ref distance index) -1))
+                                                     (= (vector-ref distance index) -1))
                                                 (begin
-                                                  (array-set! distance index steps)
+                                                  (vector-set! distance index steps)
                                                   (Cons neighbor queued))
                                                 queued)))
                                         next (neighbors cell)))))))))))

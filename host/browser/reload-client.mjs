@@ -1,4 +1,4 @@
-// The reload client's binding for the pages `snail dev` serves
+// The reload client's binding for the pages `snail-scheme watch` serves
 // (reload.mjs). The client, host/browser/reload.sld,
 // runs as WebAssembly and decides what the page does about each build; this
 // file performs its commands with a notice over the page and what the page
@@ -48,24 +48,29 @@ function button(caption, handler) {
 // every program's save is stored. The client is one linked
 // module with its own runtime.
 export async function createReloadClient(bytes, page) {
-  const client = {exports: null, page, notice: createNotice()};
+  const client = {exports: null, owner: null, page, notice: createNotice()};
   const wasi = createWasi({print: (fd, line) => (fd === 2 ? console.error : console.log)(line)});
   const imports = {...wasi.getImportObject(), 'snail.page': commandImports(pageCommands(client))};
   const instance = await instantiate(await WebAssembly.compile(bytes), imports);
   wasi.initialize(instance);
   client.exports = instance.exports;
-  client.exports.main();
+  client.owner = client.exports.reload_create();
   return {
     start: manifest => enter(client, 'reload_start', manifest),
     event: text => enter(client, 'reload_event', text),
     pageError: (text, stopped) => enter(client, 'reload_page_error', text, stopped ? 1 : 0),
+    close() {
+      client.owner = null;
+      client.notice.hide();
+    },
   };
 }
 
 // Sends text a character at a time, then calls the entry point.
 function enter(client, entry, text, ...numbers) {
-  for (const character of text) client.exports.reload_character(character.codePointAt(0));
-  client.exports[entry](...numbers);
+  if (client.owner === null) return; // Late relink results cannot reopen a closed client.
+  for (const character of text) client.exports.reload_character(client.owner, character.codePointAt(0));
+  client.exports[entry](client.owner, ...numbers);
 }
 
 // ---- Page commands ----

@@ -4,22 +4,25 @@
 ;; the host has read the file. A library links files beside its own
 ;; source, and the program beside its own.
 (import
+ (only (snail core forms) host)
  (snail core base)
  (snail core io)
- (only (snail shell task) tasks dispatch-local)
+ (only (snail shell task) tasks dispatch)
  (snail shell resource)
  (sample linked))
 
-(: image Resource)
-(define image (link-file "data/./pixel.png"))
+(define (image) (→ Resource) (link-file "data/./pixel.png"))
 
-(dispatch-local
- (once (lambda ()
-         (write-line (greeting-text))
-         (let ((bytes (read-resource image)))
-           (display (vector-length bytes))
-           (newline)
-           (display
-            (string-join (map (lambda (index) (show (u8->i32 (vector-ref bytes index)))) (iota 8))
-                         " "))
-           (newline)))))
+(define (main) (→ Unit) (! host mut output-port resource tasks)
+  (dispatch
+   (lambda ()
+     (write-line (greeting-text))
+     (let ((bytes (read-resource (image))))
+       (display (vector-length bytes))
+       (newline)
+       (display
+        (string-join
+         (map (lambda (index) (show (u8->i32 (vector-ref bytes index)))) (iota 8))
+         " "))
+       (newline))))
+  (unit))

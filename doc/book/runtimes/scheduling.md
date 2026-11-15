@@ -1,6 +1,6 @@
 # Driving the scheduler
 
-The scheduler is written in Snail-Core ([task operations](tasks.md)); a
+The scheduler is written in `snail-scheme` ([task operations](tasks.md)); a
 host only drives it and completes the operations its tasks wait on.
 `host/browser/tasks.mjs` is the driver Node and the browser share, and
 `drive` in `crates/snail/src/program.rs` is wasmtime's. Each runs on one
@@ -18,23 +18,21 @@ says, until no task is live:
 | -2, every task waits on a ticket | until a completion wakes one; with no operation outstanding, nothing will, and the run fails |
 | -1, no task is live | not at all: `drive` returns |
 
-A trap unwinds out of `turn`. The scheduler took the trapped task off its
-queue before running it, so the driver reports the trap with the id
-`tasks:running` gives, and turns again. `drive` takes a `stopped` test,
+A trap unwinds out of `turn`. The driver reports the trap with the id
+`tasks:running` gives, closes the run and returns; Wasm does not unwind
+the trapping frame, and closing forgets the rest of the scheduler's
+tasks. `drive` takes a `stopped` test,
 asked after each turn: the application runtime stops at the loop's answer
 and only then decides whether its children may go on. `interrupt` ends a
 rest early, so that `stopped` is asked again. A CPU loop that does not
 wait still monopolizes the execution agent; the scheduler does not
 preempt it.
 
-An engine ([runtimes](index.md#direction)) runs tasks of its own, linking
-and reading linked files, beside the program's, and the driver turns the
-two as one through the engine's `engine:turn`, `engine:wake`,
-`engine:close-tasks`, `engine:running` and `engine:live`. A turn runs the
-program's turn and then the engine's, answering 0 when the engine's woke
-a task of the program's, and otherwise the sooner of the two answers.
-`engine:running` names a task of the program's by its id and one of the
-engine's by its id negated.
+An engine ([runtimes](index.md#direction)) runs its own work, linking
+and reading linked files, as tasks on the program's scheduler, so the two
+share one ticket space and one turn. The driver turns that scheduler
+through the engine's `engine:turn`, `engine:wake`, `engine:close-tasks`,
+`engine:running` and `engine:live`.
 
 ## Host operations
 
@@ -48,7 +46,7 @@ calls `finish(ticket)`, which runs `deliver` on a success, making the
 answer the library reads, or throws a failure into the finish, where it
 traps the task. `coded` turns a native failure
 with an error code, such as `ECONNRESET`, into the operation's `Err`
-value, and leaves a cancellation or an uncoded failure a failure.
+value, and leaves an abort or an uncoded failure a failure.
 
 A success whose ticket wakes nothing, because its task trapped or its run
 closed, is disposed of exactly once, through the operation's synchronous
@@ -57,7 +55,7 @@ failures are not disposed of.
 
 ## Closing a run
 
-`close` aborts the run's signal, drops every task through `tasks:close`,
+`close` aborts the run's signal, forgets every task through `tasks:close`,
 and disposes of each outcome still held. An operation that cannot abort
 may finish normally afterwards; its ticket then wakes nothing, and its
 outcome is disposed of. Its external effects are not rolled back.
@@ -66,10 +64,10 @@ An adapter receives the `AbortSignal` and returns one Promise covering
 both its operation and its owned cleanup. It must handle an already
 aborted signal, remove listeners on normal completion, and settle only
 after owned cleanup finishes. Timers and event waits can disarm promptly.
-A disposer must not suspend or reenter Snail-Core; if it starts OS
+A disposer must not suspend or reenter `snail-scheme`; if it starts OS
 resource closure, the native owner awaits that remaining cleanup during
 shutdown. An adapter that never settles keeps its run from ending.
 
-A task failure does not close its siblings' run. A Node host holds a
+A task failure ends the run, including its siblings. A Node host holds a
 process-lifetime token until `drive` returns, since a task waiting on a
 timer or a ticket is live work that no OS handle keeps Node alive for.

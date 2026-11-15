@@ -4,4 +4,4 @@
  (snail core base)
  (snail shell resource))
 
-(define forged (Resource 0))
+(define (forged) (→ Resource) (Resource 0))

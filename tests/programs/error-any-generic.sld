@@ -6,12 +6,16 @@
 ;; specialization erases an ordinary effect before the backend sees it, so
 ;; a conversion must name its types where it is written.
 (effect Log
-  ((log (-> String Unit))))
+  ((log (Fn String → Unit))))
 
-(: box (All (A) (-> A Any)))
-(define (box value) (type-convert value Any))
+(define (box (value A)) (→ Any) (∀ (A)) (Any value))
 
-(: noisy (-> Unit ! Log))
-(define (noisy) (log "hi"))
+(define (noisy) (→ Unit) (! Log) (log "hi"))
 
-((ann (type-convert (box noisy) (-> Unit)) (-> Unit)))
+(define main
+  (lambda ()
+    ((ann (match (downcast (Fn → Unit) (box noisy))
+            ((Some value) value)
+            ((None) (panic "type mismatch")))
+          (Fn → Unit)))
+    (unit)))

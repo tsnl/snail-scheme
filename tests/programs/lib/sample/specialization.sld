@@ -1,46 +1,28 @@
 (define-library (sample specialization)
-  (export first second advance round-trip fixed nested-values)
+  (export first second round-trip fixed nested-values)
   (import
    (snail core base))
   (begin
 
-    (: counter (Ref I64))
-    (define counter (ref 0))
+    ;; Lazy values follow dependencies, including forward ones.
+    (define (second) (→ I64) (+ (first) 2))
+    (define (first) (→ I64) (+ (origin) 1))
+    (define (origin) (→ I64) 0)
 
-    (: advance (-> I64 ! mut))
-    (define (advance)
-      (let ((next (+ (ref-get counter) 1)))
-        (ref-set! counter next)
-        next))
-
-    ;; Emission reaches these in reverse order. Their initialization must
-    ;; still follow source order, including the otherwise unused value.
-    (: first I64)
-    (define first (advance))
-    (: second I64)
-    (define second (+ first (advance)))
-    (: unreferenced I64)
-    (define unreferenced (advance))
-
-    ;; Each concrete nested-values initializer must follow the matching
-    ;; empty-values initializer, including copies made by another library.
-    (: empty-values (All (A) (requires (Copy A)) (List A)))
-    (define empty-values (Nil))
-    (: nested-values (All (A) (requires (Copy A)) (List (List A))))
-    (define nested-values (Cons empty-values (Nil)))
+    ;; Stateless templates expand at each type; allocating generic values
+    ;; are ordinary constructor functions, including across libraries.
+    (define (empty-values) (→ (List A)) (∀ (A)) (Nil))
+    (define (nested-values) (→ (List (List A))) (∀ (A)) (Cons (empty-values) (Nil)))
 
     ;; Both specializations reserve their names before discovering the
     ;; back-edge. Repeated references reuse the reserved implementation.
-    (: outbound (All (A) (-> A I64 A)))
-    (define (outbound value count)
+    (define (outbound (value A) (count I64)) (→ A) (∀ (A))
       (if (= count 0) value (inbound value (- count 1))))
 
-    (: inbound (All (A) (-> A I64 A)))
-    (define (inbound value count)
+    (define (inbound (value A) (count I64)) (→ A) (∀ (A))
       (if (= count 0) value (outbound value (- count 1))))
 
-    (: fixed (-> I64 I64))
-    (define (fixed value) (+ value 1))
+    (define (fixed (value I64)) (→ I64) (+ value 1))
 
-    (: round-trip (All (A) (-> A I64 A)))
-    (define round-trip outbound)))
+    (define (round-trip (left A) (right I64)) (→ A) (∀ (A))
+      (outbound left right))))

@@ -4,11 +4,11 @@
 
 ;; An instance gives each of its class's parameters, its row among them.
 (typeclass (Store e S)
-  (: fetch-object (-> S String String ! e)))
+  (declare (fetch-object (left S) (right String)) (→ String) (! e)))
 
-(struct Loud
+(record Loud
   ((name String)))
 
 (instance (Store Loud)
-  (define (fetch-object loud name)
-    name))
+  (define fetch-object
+    (lambda (loud name) name)))

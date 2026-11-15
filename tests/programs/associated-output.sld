@@ -4,63 +4,61 @@
 
 (typeclass (Add e A B)
   (type Output)
-  (: add (-> A B Output ! e)))
+  (declare (add (left A) (right B)) (→ Output) (! e)))
 
 (instance (Add (!) I64 F64)
   (type Output F64)
-  (define (add a b) (+ (i64->f64 a) b)))
+  (define (add (a I64) (b F64)) (→ F64)
+    (+ (i64->f64 a) b)))
 
 (instance (Add (!) I64 I64)
   (type Output I64)
-  (define (add a b) (+ a b)))
+  (define (add (a I64) (b I64)) (→ I64)
+    (+ a b)))
 
-(: sum
-   (All (A B e)
-        (requires (Add e A B))
-        (-> A B (Add.Output e A B) ! e)))
-(define (sum a b) (add a b))
+(define (sum (a A) (b B)) (→ (Add.Output e A B)) (! e) (∀ (A B e)) (⊨ (Add e A B)) (add a b))
 
-(: twice
-   (All (A e)
-        (requires (Copy A) (Add e A A (type Output A)))
-        (-> A A ! e)))
-(define (twice a) (add a a))
-
-(display (sum (ann 1 I64) 2.5))
-(newline)
-(display (twice (ann 7 I64)))
-(newline)
+(define (twice (a A))
+  (→ A)
+  (! e)
+  (∀ (A e))
+  (⊨ (Add e A A (type Output A)))
+  (add a a))
 
 ;; An output of an earlier prerequisite becomes a later prerequisite's input.
-(struct (Box A)
+(record (Box A)
   ((value A)))
+
 (typeclass (Extract T)
   (type Output)
-  (: extract (-> T Output)))
+  (declare (extract (value T)) (→ Output)))
+
 (instance (Extract (Box A))
   (type Output A)
-  (define (extract value) (match value ((Box value) value))))
-(instance (Add (! e) (Box A) B)
-  (requires (Extract (Box A)) (Add e (Extract.Output (Box A)) B))
-  (type Output (Add.Output e (Extract.Output (Box A)) B))
-  (define (add a b) (add (extract a) b)))
+  (define (extract (value (Box A))) (→ A)
+    (match value ((Box value) value))))
 
-(display (sum (Box (ann 4 I64)) 0.5))
-(newline)
+(instance (Add (! e) (Box A) B)
+  (⊨ (Extract (Box A)) (Add e (Extract.Output (Box A)) B))
+  (type Output (Add.Output e (Extract.Output (Box A)) B))
+  (define (add (a (Box A)) (b B)) (→ (Add.Output e (Extract.Output (Box A)) B)) (! e)
+    (add (extract a) b)))
 
 ;; Recursion that makes its input smaller is permitted.
 (typeclass (Flatten A)
   (type Output)
-  (: flatten (-> A Output)))
+  (declare (flatten (value A)) (→ Output)))
+
 (instance (Flatten I64)
   (type Output I64)
-  (define (flatten value) value))
+  (define (flatten (value I64)) (→ I64)
+    value))
+
 (instance (Flatten (Box A))
-  (requires (Flatten A))
+  (⊨ (Flatten A))
   (type Output (Flatten.Output A))
-  (define (flatten value) (match value ((Box inner) (flatten inner)))))
-(display (flatten (Box (Box (ann 9 I64)))))
-(newline)
+  (define (flatten (value (Box A))) (→ (Flatten.Output A))
+    (match value ((Box inner) (flatten inner)))))
 
 ;; Class variables introduced by a macro retain their lexical marks.
 (define-syntax define-identity-class
@@ -68,10 +66,25 @@
     ((_ class method)
      (typeclass (class A)
        (type Output)
-       (: method (-> A Output))))))
+       (declare (method (value A)) (→ Output))))))
+
 (define-identity-class Identity identity)
+
 (instance (Identity I64)
   (type Output I64)
-  (define (identity value) value))
-(display (identity (ann 11 I64)))
-(newline)
+  (define (identity (value I64)) (→ I64)
+    value))
+
+(define (main) (→ Unit) (! output-port)
+
+  (display (sum (ann 1 I64) 2.5))
+  (newline)
+  (display (twice (ann 7 I64)))
+  (newline)
+  (display (sum (new Box (value (ann 4 I64))) 0.5))
+  (newline)
+  (display (flatten (new Box (value (new Box (value (ann 9 I64)))))))
+  (newline)
+  (display (identity (ann 11 I64)))
+  (newline)
+  (unit))

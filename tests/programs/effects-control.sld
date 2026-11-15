@@ -3,53 +3,45 @@
  (snail core io))
 
 ;; The examples of "Control handlers" in the book's chapter on effects and
-;; handlers, doc/book/snail-core/effects.md, which includes the parts
+;; handlers, doc/book/snail-scheme/effects.md, which includes the parts
 ;; between each ANCHOR and ANCHOR_END.
 
 ;; ANCHOR: collect
 (effect Gen
-  ((ctl yield (-> I64 Unit))))
+  ((ctl yield (Fn I64 → Unit))))
 
 ;; Yields the numbers from `low` to `high`.
-(: range (-> I64 I64 Unit ! Gen))
-(define (range low high)
+(define (range (low I64) (high I64)) (→ Unit) (! Gen)
   (when (<= low high)
     (yield low)
     (range (+ low 1) high)))
 
 ;; Every value `body` yields, in order.
-(: collect (-> (-> Unit ! Gen) (List I64)))
-(define (collect body)
+(define (collect (body (Fn → Unit ! Gen))) (→ (List I64))
   (handle Gen
       ((yield (lambda (value resume) (Cons value (resume (unit))))))
     (body)
     (Nil)))
+
 ;; ANCHOR_END: collect
 
-(: show-all (-> (List I64) Unit ! console))
-(define (show-all values)
+(define (show-all (values (List I64))) (→ Unit) (! output-port)
   (write-line (string-join (map show values) " ")))
 
-;; ANCHOR: run-collect
-(show-all (collect (lambda () (range 1 5))))
 ;; ANCHOR_END: run-collect
 
 ;; ANCHOR: first-above
 ;; The first value above `limit` that `body` yields, or -1.
-(: first-above (-> I64 (-> Unit ! Gen) I64))
-(define (first-above limit body)
+(define (first-above (limit I64) (body (Fn → Unit ! Gen))) (→ I64)
   (handle Gen
       ((yield (lambda (value resume)
                 (if (> value limit)
                     (begin
-                      (drop resume)
                       value)
                     (resume (unit))))))
     (body)
     -1))
 
-(write-line (show (first-above 3 (lambda () (range 1 5)))))
-(write-line (show (first-above 9 (lambda () (range 1 5)))))
 ;; ANCHOR_END: first-above
 
 ;; ANCHOR: step
@@ -58,20 +50,18 @@
   (Done)
   (Yielded
    ((value I64)
-    (next (FnOnce Unit Step)))))
+    (next (Fn Unit → Step)))))
 
 ;; Runs `body` to its first yield, and hands back the rest rather than
 ;; resuming it.
-(: start (-> (-> Unit ! Gen) Step))
-(define (start body)
+(define (start (body (Fn → Unit ! Gen))) (→ Step)
   (handle Gen
       ((yield (lambda (value resume) (Yielded value resume))))
     (body)
     (Done)))
 
 ;; Takes turns between two generators until both are done.
-(: interleave (-> Step Step (List I64)))
-(define (interleave this other)
+(define (interleave (this Step) (other Step)) (→ (List I64))
   (match this
     ((Done)
      (match other
@@ -80,5 +70,10 @@
     ((Yielded value next)
      (Cons value (interleave other (next (unit)))))))
 
-(show-all (interleave (start (lambda () (range 1 3))) (start (lambda () (range 10 14)))))
-;; ANCHOR_END: step
+(define (main) (→ Unit) (! output-port)
+  ;; ANCHOR: run-collect
+  (show-all (collect (lambda () (range 1 5))))
+  (write-line (repr (first-above 3 (lambda () (range 1 5)))))
+  (write-line (repr (first-above 9 (lambda () (range 1 5)))))
+  (show-all (interleave (start (lambda () (range 1 3))) (start (lambda () (range 10 14)))))
+  (unit))

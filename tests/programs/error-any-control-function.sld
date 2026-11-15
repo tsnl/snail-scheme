@@ -7,19 +7,21 @@
 ;; tested for a yield: the body would run on with a placeholder. An Any
 ;; never holds a function that performs effects.
 (effect Gen
-  ((ctl yield (-> I64 I64))))
+  ((ctl yield (Fn I64 → I64))))
 
-(: gen (-> I64 ! Gen))
-(define (gen) (+ 1 (yield 1)))
+(define (gen) (→ I64) (! Gen) (+ 1 (yield 1)))
 
-(: boxed Any)
-(define boxed (type-convert gen Any))
+(define (boxed) (→ Any) (Any gen))
 
-(: hidden (-> I64))
-(define hidden (type-convert boxed (-> I64)))
+(define (hidden)
+  (→ (Fn → I64))
+  (match (downcast (Fn → I64) (boxed)) ((Some value) value) ((None) (panic "type mismatch"))))
 
-(display (handle Gen ((yield (lambda (v resume) (+ 1000 (resume (* v 10))))))
-           (let ((a (hidden)))
-             (write-line (string-append "a = " (show a)))
-             (+ a 5))))
-(newline)
+(define main
+  (lambda ()
+    (display (handle Gen ((yield (lambda (v resume) (+ 1000 (resume (* v 10))))))
+               (let ((a ((hidden))))
+                 (write-line (string-append "a = " (show a)))
+                 (+ a 5))))
+    (newline)
+    (unit)))

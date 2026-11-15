@@ -1,0 +1,5 @@
+((build-target site
+   (browser
+    (entry ((requests application) RequestsApplication))
+    (library-roots ("src"))
+    (public "public"))))

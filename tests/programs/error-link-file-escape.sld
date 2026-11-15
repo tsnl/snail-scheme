@@ -4,4 +4,4 @@
  (snail core base)
  (snail shell resource))
 
-(define image (link-file "data/../../programs/data/pixel.png"))
+(define (image) (→ Resource) (link-file "data/../../programs/data/pixel.png"))

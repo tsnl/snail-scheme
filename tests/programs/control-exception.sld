@@ -3,58 +3,53 @@
  (snail core io))
 
 ;; An exception is a control operation with a resumable shape: `raise`
-;; could hand its caller a number, but these handlers drop `resume` and
-;; answer for the whole handled computation instead.
+;; could hand its caller a number, but these handlers never call `resume`
+;; and answer for the whole handled computation instead.
 ;; ANCHOR: parse-or
 (effect Raise
-  ((ctl raise (-> String I64))))
+  ((ctl raise (Fn String → I64))))
 
-(: digit (-> Char I64 ! Raise))
-(define (digit c)
+(define (digit (c Char)) (→ I64) (! Raise)
   (if (char-numeric? c)
       (- (char->integer c) 48)
       (raise (string-append "not a digit: " (list->string (list c))))))
 
-(: number (-> String I64 ! Raise))
-(define (number text)
+(define (number (text String)) (→ I64) (! Raise)
   (fold-left (lambda (total c) (+ (* total 10) (digit c))) 0 (string->list text)))
 
 ;; The handler's answer is a default, after reporting the message.
-(: parse-or (-> String I64 I64 ! console))
-(define (parse-or text default)
-  (handle Raise ((raise (lambda (message resume) (drop resume) (write-line message) default)))
+(define (parse-or (text String) (default I64)) (→ I64) (! output-port)
+  (handle Raise ((raise (lambda (message resume) (write-line message) default)))
     (number text)))
 
-(display (parse-or "123" 0))
-(newline)
-(display (parse-or "1x3" 0))
-(newline)
-;; ANCHOR_END: parse-or
+(define (main) (→ Unit) (! output-port)
+  (display (parse-or "123" 0))
+  (newline)
+  (display (parse-or "1x3" 0))
+  (newline)
+  ;; ANCHOR_END: parse-or
 
-;; Of two handlers of one effect, the inner one catches; its
-;; implementation runs in the outer context, so raising there reaches the
-;; outer handler, which answers for everything inside it.
-(display
- (handle Raise ((raise (lambda (message resume)
-                         (drop resume)
-                         (write-line (string-append "outer: " message))
-                         0)))
-   (+ 100
-      (handle Raise ((raise
-                      (lambda (message resume)
-                        (drop resume)
-                        (write-line (string-append "inner: " message))
-                        1)))
-        (raise "boom")))))
-(newline)
-(display
- (handle Raise ((raise (lambda (message resume)
-                         (drop resume)
-                         (write-line (string-append "outer: " message))
-                         0)))
-   (+ 100
-      (handle Raise ((raise (lambda (message resume)
-                              (drop resume)
-                              (raise (string-append "again " message)))))
-        (raise "boom")))))
-(newline)
+  ;; Of two handlers of one effect, the inner one catches; its
+  ;; implementation runs in the outer context, so raising there reaches the
+  ;; outer handler, which answers for everything inside it.
+  (display
+   (handle Raise ((raise (lambda (message resume)
+                           (write-line (string-append "outer: " message))
+                           0)))
+     (+ 100
+        (handle Raise ((raise
+                        (lambda (message resume)
+                          (write-line (string-append "inner: " message))
+                          1)))
+          (raise "boom")))))
+  (newline)
+  (display
+   (handle Raise ((raise (lambda (message resume)
+                           (write-line (string-append "outer: " message))
+                           0)))
+     (+ 100
+        (handle Raise ((raise (lambda (message resume)
+                                (raise (string-append "again " message)))))
+          (raise "boom")))))
+  (newline)
+  (unit))

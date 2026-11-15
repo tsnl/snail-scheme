@@ -4,8 +4,10 @@
 ;; A generic function performs the row its requirement gives the class, so
 ;; its signature names it.
 (typeclass (Store e S)
-  (: fetch-object (-> S String String ! e)))
+  (declare (fetch-object (left S) (right String)) (→ String) (! e)))
 
-(: fetch-twice (All (e S) (requires (Store e S) (Copy S)) (-> S String String)))
-(define (fetch-twice store name)
+(define (fetch-twice (store S) (name String))
+  (→ String)
+  (∀ (e S))
+  (⊨ (Store e S))
   (string-append (fetch-object store name) (fetch-object store name)))

@@ -10,8 +10,8 @@
    (snail core base))
   (begin
 
-    (struct (Entry A)
+    (record (Entry A)
       ())
 
     (typeclass (Application e A)
-      (: start (-> (Entry A) Unit ! e)))))
+      (declare (start (entry (Entry A))) (→ Unit) (! e)))))

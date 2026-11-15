@@ -2,6 +2,5 @@
  (snail core base)
  (snail shell artifact))
 
-(: bundle-for (-> String ArtifactBundle))
-(define (bundle-for name)
+(define (bundle-for (name String)) (→ ArtifactBundle)
   (artifact-bundle name))

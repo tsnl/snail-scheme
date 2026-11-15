@@ -8,14 +8,14 @@
  (snail core base)
  (snail core io)
  (only (snail core table) empty-table))
-(struct Point
+(record Point
   ((x F64)
    (y F64)) (deriving Show))
 (match value
   ((Some x) (display x))
   (_ (unit)))
-(handle console
-    ((console-write (lambda (c) (unit))))
+(handle output-port
+    ((write-string (lambda (c) (unit))))
   (display "a
 b")
   (display #\())
@@ -40,6 +40,11 @@ b")
                     gamma
                     delta)
   (list alpha beta))
+(result-let* ((a (foo x))
+              (b (bar a))
+              (c (baz b)))
+  (+ a b c)
+  (Ok c))
 (string-append "first part"
                (symbol->string name)
                "last part")
@@ -59,11 +64,11 @@ b")
      zeta) ; stays on the last line
 (define message
   "a string much longer than forty columns cannot break")
-(: run
-   (-> Config
-       (List String)
-       Status
-       ! fs console))
+(define (run (config Config)
+             (args (List String)))
+  (→ Status)
+  (! fs output-port)
+  (status config args))
 (bytes
  #u8(1 2 3 4 5 6 7 8 9 10 11 12 13 14))
 (display "one")
@@ -73,3 +78,23 @@ idempotent
 (foo bar
      baz
   qux)
+(result-let* ((a (Ok 1)))
+  (Ok a))
+(result-let* ((a (Ok 1)))
+  (Ok a))
+(let ((x 1))
+  (x))
+(let* ((x 1))
+  (x))
+(retry-let ((x 1))
+  (x))
+(custom-let* ((x 1))
+  (x))
+(def-let ((x 1))
+  (x))
+(outlet ((x 1))
+        (x))
+(custom-let-later ((x 1))
+                  (x))
+(retry-let loop ((x 1))
+  (loop x))

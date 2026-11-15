@@ -10,24 +10,23 @@
 ;; 2 resumed it, and logs to the log around the resume, not to the one
 ;; around the task when `fetch` was performed.
 (effect Async
-  ((ctl await (-> I64 I64))
-   (task-id (-> I64))))
+  ((ctl await (Fn I64 → I64))
+   (task-id (Fn → I64))))
 
 (effect Log
-  ((log (-> String Unit))))
+  ((log (Fn String → Unit))))
 
 (effect Io
-  ((fetch (-> I64 I64 ! Async Log))))
+  ((fetch (Fn I64 → I64 ! Async Log))))
 
 (enum Task
   (Done
    ((value I64)))
   (Waiting
    ((ticket I64)
-    (next (FnOnce I64 Task ! Io Log)))))
+    (next (Fn I64 → Task ! Io Log)))))
 
-(: start (-> I64 (FnOnce I64 ! Io Async Log) Task ! Io Log))
-(define (start id body)
+(define (start (id I64) (body (Fn → I64 ! Io Async Log))) (→ Task) (! Io Log)
   (handle Async
       ((await (lambda (ticket resume)
                 (log (string-append "task " (show id) " waits on " (show ticket)))
@@ -36,31 +35,31 @@
     (Done (body))))
 
 ;; Answers each wait with its ticket.
-(: finish (-> Task I64 ! Io Log))
-(define (finish task)
+(define (finish (task Task)) (→ I64) (! Io Log)
   (match task
     ((Done value) value)
     ((Waiting ticket next) (finish (next ticket)))))
 
-(: labelled (-> String String Unit ! console))
-(define (labelled name line)
+(define (labelled (name String) (line String)) (→ Unit) (! output-port)
   (write-line (string-append name ": " line)))
 
-(handle Io
-    ((fetch (lambda (ticket)
-              (log (string-append "fetch in task " (show (task-id))))
-              (let ((answer (await ticket)))
-                (log (string-append "fetch resumed in task " (show (task-id))))
-                (await (+ answer 1))))))
-  (let ((first (handle Log ((log (lambda (line) (labelled "the first log" line))))
-                 (start 1 (once (lambda () (fetch 1)))))))
-    (handle Log ((log (lambda (line) (labelled "the second log" line))))
-      (match first
-        ((Waiting ticket next)
-         ;; Task 1's first wait is answered inside task 2.
-         (write-line (show (finish (start 2 (once (lambda ()
-                                                    (log (string-append "task "
-                                                                        (show (task-id))
-                                                                        " resumes task 1"))
-                                                    (finish (next (* ticket 10))))))))))
-        ((Done value) (write-line (show value)))))))
+(define (main) (→ Unit) (! output-port)
+  (handle Io
+      ((fetch (lambda (ticket)
+                (log (string-append "fetch in task " (show (task-id))))
+                (let ((answer (await ticket)))
+                  (log (string-append "fetch resumed in task " (show (task-id))))
+                  (await (+ answer 1))))))
+    (let ((first (handle Log ((log (lambda (line) (labelled "the first log" line))))
+                   (start 1 (lambda () (fetch 1))))))
+      (handle Log ((log (lambda (line) (labelled "the second log" line))))
+        (match first
+          ((Waiting ticket next)
+           ;; Task 1's first wait is answered inside task 2.
+           (write-line (show (finish (start 2 (lambda ()
+                                                (log (string-append "task "
+                                                                    (show (task-id))
+                                                                    " resumes task 1"))
+                                                (finish (next (* ticket 10)))))))))
+          ((Done value) (write-line (show value)))))))
+  (unit))

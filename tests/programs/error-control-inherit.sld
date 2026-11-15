@@ -5,8 +5,11 @@
 ;; A procedure closed over its handlers may run after their handles have
 ;; returned, so it may not yield to one.
 (effect Stop
-  ((ctl stop (-> Unit))))
+  ((ctl stop (Fn → Unit))))
 
-(drop
- (handle Stop ((stop (lambda (resume) (drop resume) (inherit-handlers (once (lambda () (unit)))))))
-   (inherit-handlers (once (lambda () (stop))))))
+(define (main) (→ Unit)
+
+  (handle Stop ((stop
+                 (lambda (resume) (inherit-handlers (lambda () (unit))))))
+    (inherit-handlers (lambda () (stop))))
+  (unit))

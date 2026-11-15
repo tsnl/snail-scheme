@@ -3,11 +3,15 @@
  (snail core io)
  (snail shell artifact))
 
-(define bundle (artifact-bundle "client"))
-(for-each (lambda (file)
-            (display (ArtifactFile-path file))
-            (display ":")
-            (vector-for-each (lambda (byte) (display (u8->i32 byte)) (display ","))
-                             (ArtifactFile-bytes file))
-            (newline))
-          (ArtifactBundle-files bundle))
+(define (bundle) (→ ArtifactBundle) (artifact-bundle "client"))
+
+(define main
+  (lambda ()
+    (for-each (lambda (file)
+                (display (● file path))
+                (display ":")
+                (vector-for-each (lambda (byte) (display (u8->i32 byte)) (display ","))
+                                 (● file bytes))
+                (newline))
+              (● (bundle) files))
+    (unit)))

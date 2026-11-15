@@ -14,7 +14,7 @@ publish = false
 # its preview 2, which turns on wasmtime's component model and async
 # support; nothing here uses either.
 [dependencies]
-snail-core-support = { path = "../snail-core-support", features = ["assembler"] }
+snail-scheme-support = { path = "../snail-scheme-support", features = ["assembler"] }
 wasmtime = { version = "=48.0.7", default-features = false, features = [
     "backtrace",
     "cranelift",
@@ -37,3 +37,7 @@ wat = "=1.262.0"
 
 [profile.release]
 strip = "debuginfo"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+io-uring = "=0.7.16"
+libc = "=0.2.191"

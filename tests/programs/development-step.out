@@ -4,10 +4,10 @@ edits coalesce into one attempt
   timer -> notify building 1; build 1
   built 1 a candidate -> reconcile
   reconciled -> publish 1
-  published 1 -> release 1; notify succeeded 1 published 1 run app available
+  published 1 -> release 1; notify succeeded 1 published 1
   touched /r/apps/p/main.sld -> arm
   touched /r/src/snail/core/base.sld -> arm
-  timer -> notify building 2 published 1 run app available; build 2
+  timer -> notify building 2 published 1; build 2
   timer -> nothing
 an input edited while building supersedes the attempt
   resident started -> reconcile
@@ -25,7 +25,7 @@ a file the build does not read does not
   touched /r/apps/p/notes.txt -> nothing
   built 1 a candidate -> reconcile
   reconciled -> publish 1
-  published 1 -> release 1; notify succeeded 1 published 1 run app available
+  published 1 -> release 1; notify succeeded 1 published 1
 a public file is an input once a reply names the directory
   resident started -> reconcile
   reconciled -> arm
@@ -41,19 +41,19 @@ a linked file is an input once a published program links it
   touched /r/apps/p/art.bin -> nothing
   built 1 a candidate -> reconcile
   reconciled -> publish 1
-  published 1 -> release 1; notify succeeded 1 published 1 run app available
+  published 1 -> release 1; notify succeeded 1 published 1
   touched /r/apps/p/art.bin -> arm
-  timer -> notify building 2 published 1 run app available; build 2
+  timer -> notify building 2 published 1; build 2
 a reply for another epoch is fatal
   resident started -> reconcile
   reconciled -> arm
   timer -> notify building 1; build 1
   built 1 a candidate -> reconcile
   reconciled -> publish 1
-  published 1 -> release 1; notify succeeded 1 published 1 run app available
+  published 1 -> release 1; notify succeeded 1 published 1
   touched /r/apps/p/main.sld -> arm
-  timer -> notify building 2 published 1 run app available; build 2
-  built 1 nothing -> notify fatal 2 [unexpected compiler attempt result] published 1 run app available; shutdown; abandon 2; closed
+  timer -> notify building 2 published 1; build 2
+  built 1 nothing -> notify fatal 2 [unexpected compiler attempt result] published 1; shutdown; abandon 2; closed
 a publication that fails releases the attempt and reports it
   resident started -> reconcile
   reconciled -> arm
@@ -67,11 +67,11 @@ a failed build reports its diagnostics and keeps what was published
   timer -> notify building 1; build 1
   built 1 a candidate -> reconcile
   reconciled -> publish 1
-  published 1 -> release 1; notify succeeded 1 published 1 run app available
+  published 1 -> release 1; notify succeeded 1 published 1
   touched /r/apps/p/main.sld -> arm
-  timer -> notify building 2 published 1 run app available; build 2
+  timer -> notify building 2 published 1; build 2
   built 2 nothing -> reconcile
-  reconciled -> abandon 2; notify failed 2 [unbound identifier x] published 1 run app available
+  reconciled -> abandon 2; notify failed 2 [unbound identifier x] published 1
 a disk that cannot be read discards the candidate until it can
   resident started -> reconcile
   reconciled -> arm
@@ -95,7 +95,6 @@ closing with an attempt in flight abandons it, and nothing after
   timer -> notify building 1; build 1
   close -> shutdown; abandon 1; closed
   built 1 a candidate -> nothing
-  start app -> refuse closed
   close -> nothing
 closing while publishing releases
   resident started -> reconcile
@@ -115,63 +114,25 @@ the resident's exit before the first reconciliation stays what failed
   resident exited: SIGKILL -> notify fatal 0 [SIGKILL]; shutdown; closed
   reconciled -> nothing
   timer -> nothing
-run targets follow what is wanted and what is published
+generations stay while they are the latest two published
   resident started -> reconcile
   reconciled -> arm
   timer -> notify building 1; build 1
   built 1 a candidate -> reconcile
   reconciled -> publish 1
-  published 1 -> release 1; notify succeeded 1 published 1 run app available
-  start app -> launch app from build 1 at /r/apps/p/build/s-a/modules.json; notify succeeded 1 published 1 run app wanted available
-  start app -> nothing
+  published 1 -> release 1; notify succeeded 1 published 1
   touched /r/apps/p/main.sld -> arm
-  timer -> notify building 2 published 1 run app wanted available; build 2
+  timer -> notify building 2 published 1; build 2
   built 2 a candidate -> reconcile
   reconciled -> publish 2
-  published 2 -> release 2; launch app from build 2 at /r/apps/p/build/s-b/modules.json; notify succeeded 2 published 2 run app wanted available
+  published 2 -> release 2; notify succeeded 2 published 2
   touched /r/apps/p/main.sld -> arm
-  timer -> notify building 3 published 2 run app wanted available; build 3
+  timer -> notify building 3 published 2; build 3
   built 3 a candidate -> reconcile
   reconciled -> publish 3
-  published 3 -> release 3; reclaim /r/apps/p/build/s-a; notify succeeded 3 published 3 run app wanted available
-  restart app -> launch app from build 3 at /r/apps/p/build/s-b/modules.json; notify succeeded 3 published 3 run app wanted available
-  stop app -> launch app nothing; notify succeeded 3 published 3 run app available
-  start nope -> refuse unknown nope
-  start app -> launch app from build 3 at /r/apps/p/build/s-b/modules.json; notify succeeded 3 published 3 run app wanted available
-  touched /r/apps/p/project.datum -> arm
-  timer -> notify building 4 published 3 run app wanted available; build 4
+  published 3 -> release 3; reclaim /r/apps/p/build/g1; notify succeeded 3 published 3
+  touched /r/apps/p/main.sld -> arm
+  timer -> notify building 4 published 3; build 4
   built 4 a candidate -> reconcile
   reconciled -> publish 4
-  published 4 -> release 4; launch app nothing; notify succeeded 4 published 4 run app
-  start app -> refuse unknown app
-  stop app -> nothing
-generations stay while recent or while a run runs from one
-  resident started -> reconcile
-  reconciled -> arm
-  timer -> notify building 1; build 1
-  built 1 a candidate -> reconcile
-  reconciled -> publish 1
-  published 1 -> release 1; notify succeeded 1 published 1 run app available
-  start app -> launch app from build 1 at /r/apps/p/build/g1/modules.json; notify succeeded 1 published 1 run app wanted available
-  touched /r/apps/p/main.sld -> arm
-  timer -> notify building 2 published 1 run app wanted available; build 2
-  built 2 a candidate -> reconcile
-  reconciled -> publish 2
-  published 2 -> release 2; notify succeeded 2 published 2 run app wanted available
-  touched /r/apps/p/main.sld -> arm
-  timer -> notify building 3 published 2 run app wanted available; build 3
-  built 3 a candidate -> reconcile
-  reconciled -> publish 3
-  published 3 -> release 3; notify succeeded 3 published 3 run app wanted available
-  stop app -> launch app nothing; reclaim /r/apps/p/build/g1; notify succeeded 3 published 3 run app available
-  start app -> launch app from build 3 at /r/apps/p/build/g3/modules.json; notify succeeded 3 published 3 run app wanted available
-  touched /r/apps/p/main.sld -> arm
-  timer -> notify building 4 published 3 run app wanted available; build 4
-  built 4 a candidate -> reconcile
-  reconciled -> publish 4
-  published 4 -> release 4; launch app from build 4 at /r/apps/p/build/g4/modules.json; reclaim /r/apps/p/build/g2; notify succeeded 4 published 4 run app wanted available
-  touched /r/apps/p/main.sld -> arm
-  timer -> notify building 5 published 4 run app wanted available; build 5
-  built 5 a candidate -> reconcile
-  reconciled -> publish 5
-  published 5 -> release 5; reclaim /r/apps/p/build/g3; notify succeeded 5 published 5 run app wanted available
+  published 4 -> release 4; reclaim /r/apps/p/build/g2; notify succeeded 4 published 4

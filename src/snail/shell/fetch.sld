@@ -5,16 +5,9 @@
 (define-library (snail shell fetch)
   (export
    Header
-   Header-name
-   Header-value
    Reply
-   Reply-status
-   Reply-body
    Stream
-   Stream-id
    StreamEvent
-   StreamEvent-kind
-   StreamEvent-data
    fetch
    request
    stream-open
@@ -27,22 +20,22 @@
 
     ;; ---- Requests ----
 
-    (struct Header
+    (record Header
       ((name String)
        (value String)))
 
     ;; A server's reply, whatever its status, and its body as text.
-    (struct Reply
+    (record Reply
       ((status I32)
        (body String)))
 
     ;; The events a server sends at one URL, as the host receives them.
-    (struct Stream
+    (record Stream
       ((id I32)))
 
     ;; An event a stream heard: its kind, the name the server gave it, or
     ;; "message" when it gave none, and its data.
-    (struct StreamEvent
+    (record StreamEvent
       ((kind String)
        (data String)))
 
@@ -60,7 +53,7 @@
     ;; one command waiting on it, and issues the next from the update that
     ;; handles the event.
     (effect fetch
-      ((request (-> String String (List Header) String (Result Reply String) ! tasks))
-       (stream-open (-> String (List String) Stream))
-       (stream-next (-> Stream (Option StreamEvent) ! tasks))
-       (stream-close (-> Stream Unit))))))
+      ((request (Fn String String (List Header) String → (Result Reply String) ! tasks))
+       (stream-open (Fn String (List String) → Stream))
+       (stream-next (Fn Stream → (Option StreamEvent) ! tasks))
+       (stream-close (Fn Stream → Unit))))))

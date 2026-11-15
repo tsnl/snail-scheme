@@ -1,0 +1,1 @@
+expected (declare (method (parameter Type) ...) (→ Result) ...), or (type Output)

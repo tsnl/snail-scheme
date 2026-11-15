@@ -6,9 +6,6 @@
 (define-library (snail shell explore)
   (export
    Violation
-   Violation-reason
-   Violation-moves
-   Violation-state
    explore)
   (import
    (snail core base)
@@ -16,44 +13,46 @@
    (snail shell wire))
   (begin
 
-    (struct (Violation S M)
+    (record (Violation S M)
       ((reason String)
        (moves (List M))
        (state S)))
 
     ;; A state with the moves that reached it, newest first.
-    (struct (Visit S M)
+    (record (Visit S M)
       ((state S)
        (path (List M))))
 
     ;; `moves` lists what may happen in a state, `step` applies one, and
     ;; `invariant` explains why a state is wrong, if it is.
-    (: explore (All (S M) (requires (Serialize S) (Copy S) (Copy M))
-                    (-> S
-                        (-> S (List M))
-                        (-> S M S)
-                        (-> S (Option String))
-                        I64
-                        (Option (Violation S M)))))
-    (define (explore initial moves step invariant depth)
-      (search (list (Visit initial (Nil)))
+
+    (define (explore (initial S)
+                     (moves (Fn S → (List M)))
+                     (step (Fn S M → S))
+                     (invariant (Fn S → (Option String)))
+                     (depth I64))
+      (→ (Option (Violation S M)))
+      (∀ (S M))
+      (⊨ (Serialize S))
+      (search (list (new Visit (state initial) (path (Nil))))
               moves
               step
               invariant
               depth
-              (table-set empty-table (state-key initial) #t)))
+              (table-set (empty-table) (state-key initial) #t)))
 
     ;; Checks one frontier, then the states its moves reach for the first
     ;; time. `seen` holds every state reached so far.
-    (: search (All (S M) (requires (Serialize S) (Copy M) (Copy S))
-                   (-> (List (Visit S M))
-                       (-> S (List M))
-                       (-> S M S)
-                       (-> S (Option String))
-                       I64
-                       (Table Bool)
-                       (Option (Violation S M)))))
-    (define (search frontier moves step invariant depth seen)
+
+    (define (search (frontier (List (Visit S M)))
+                    (moves (Fn S → (List M)))
+                    (step (Fn S M → S))
+                    (invariant (Fn S → (Option String)))
+                    (depth I64)
+                    (seen (Table Bool)))
+      (→ (Option (Violation S M)))
+      (∀ (S M))
+      (⊨ (Serialize S))
       (match (first-violation frontier invariant)
         ((Some violation) (Some violation))
         ((None)
@@ -62,47 +61,52 @@
              (match (successors frontier moves step seen)
                ((Pair next seen) (search next moves step invariant (- depth 1) seen)))))))
 
-    (: first-violation
-       (All (S M)
-            (requires (Copy M) (Copy S))
-            (-> (List (Visit S M)) (-> S (Option String)) (Option (Violation S M)))))
-    (define (first-violation frontier invariant)
+    (define (first-violation (frontier (List (Visit S M)))
+                             (invariant (Fn S → (Option String))))
+      (→ (Option (Violation S M)))
+      (∀ (S M))
       (match frontier
         ((Nil) (None))
         ((Cons visit rest)
-         (match (invariant (Visit-state visit))
+         (match (invariant (● visit state))
            ((Some reason)
-            (Some (Violation reason (reverse (Visit-path visit)) (Visit-state visit))))
+            (Some (new Violation
+                    (reason reason)
+                    (moves (reverse (● visit path)))
+                    (state (● visit state)))))
            ((None) (first-violation rest invariant))))))
 
     ;; The states the frontier reaches for the first time, with `seen`
     ;; grown by them.
-    (: successors (All (S M) (requires (Serialize S) (Copy M) (Copy S))
-                       (-> (List (Visit S M))
-                           (-> S (List M))
-                           (-> S M S)
-                           (Table Bool)
-                           (Pair (List (Visit S M)) (Table Bool)))))
-    (define (successors frontier moves step seen)
+
+    (define (successors (frontier (List (Visit S M)))
+                        (moves (Fn S → (List M)))
+                        (step (Fn S M → S))
+                        (seen (Table Bool)))
+      (→ (Pair (List (Visit S M)) (Table Bool)))
+      (∀ (S M))
+      (⊨ (Serialize S))
       (match (fold-left (lambda (found visit)
                           (fold-left (lambda (found move)
-                                       (let* ((state (step (Visit-state visit) move))
+                                       (let* ((state (step (● visit state) move))
                                               (key (state-key state)))
                                          (match found
                                            ((Pair next seen)
                                             (if (table-contains? seen key)
                                                 found
-                                                (Pair
-                                                 (Cons (Visit state (Cons move (Visit-path visit)))
-                                                       next)
-                                                 (table-set seen key #t)))))))
-                                     found (moves (Visit-state visit))))
-                        (Pair (Nil) seen) frontier)
-        ((Pair next seen) (Pair (reverse next) seen))))
+                                                (new Pair
+                                                  (first (Cons (new Visit
+                                                                 (state state)
+                                                                 (path (Cons move (● visit path))))
+                                                               next))
+                                                  (second (table-set seen key #t))))))))
+                                     found (moves (● visit state))))
+                        (new Pair (first (Nil)) (second seen)) frontier)
+        ((Pair next seen) (new Pair (first (reverse next)) (second seen)))))
 
     ;; The encoding as text, one character per byte, to key the table.
-    (: state-key (All (S) (requires (Serialize S) (Copy S)) (-> S String)))
-    (define (state-key state)
+
+    (define (state-key (state S)) (→ String) (∀ (S)) (⊨ (Serialize S))
       (let ((bytes (serialize state)))
         (string-generate (vector-length bytes)
                          (lambda (index) (i32->char (u8->i32 (vector-ref bytes index)))))))

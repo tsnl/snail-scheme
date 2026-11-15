@@ -10,9 +10,6 @@
    Sandbox
    scenarios
    Rules
-   Rules-name
-   Rules-pitch
-   Rules-deadline
    scenario-rules
    new-mill
    mill-over?
@@ -37,9 +34,6 @@
    Wait
    take-shift
    refusal
-   Mill-scenario
-   Mill-shift
-   Mill-coins
    last-shift
    Progress
    Met
@@ -48,8 +42,6 @@
    Due
    Done
    Goal
-   Goal-text
-   Goal-progress
    mill-goals
    mill-result
    forced?
@@ -81,32 +73,24 @@
 
     ;; ---- Town ----
 
-    (: person-count I64)
-    (define person-count 24)
+    (define (person-count) (→ I64) 24)
 
     ;; The audiences in order. Person p belongs to audience p / 8.
-    (: market I64)
-    (define market 0)
+    (define (market) (→ I64) 0)
 
-    (: docks I64)
-    (define docks 1)
+    (define (docks) (→ I64) 1)
 
-    (: tower I64)
-    (define tower 2)
+    (define (tower) (→ I64) 2)
 
-    (: audiences (List I64))
-    (define audiences (list market docks tower))
+    (define (audiences) (→ (List I64)) (list (market) (docks) (tower)))
 
-    (: audience-of (-> I64 I64))
-    (define (audience-of person)
+    (define (audience-of (person I64)) (→ I64)
       (quotient person 8))
 
-    (: audience-name (-> I64 String))
-    (define (audience-name audience)
+    (define (audience-name (audience I64)) (→ String)
       (list-ref (list "Market" "Docks" "Tower") audience))
 
-    (: person-name (-> I64 String))
-    (define (person-name person)
+    (define (person-name (person I64)) (→ String)
       (list-ref (list "Ana, courier" "Bix, bartender" "Cal, noodle cook" "Dee, tailor"
                       "Eli, pawnbroker" "Fen, street medic" "Gus, vendor" "Hana, rickshaw driver"
                       "Ike, crane operator" "Jun, stevedore" "Kas, union steward" "Lia, net mender"
@@ -116,36 +100,37 @@
                 person))
 
     ;; Hubs pass a story two steps per shift instead of one.
-    (: hub? (-> I64 Bool))
-    (define (hub? person)
+    (define (hub? (person I64)) (→ Bool)
       (member? person (list 1 10 13 17)))
 
     ;; Each audience is a ring of eight; chords cross three of the rings and
     ;; three bridges join the audiences.
-    (: ring-next (-> I64 I64))
-    (define (ring-next person)
+    (define (ring-next (person I64)) (→ I64)
       (+ (* 8 (audience-of person)) (remainder (+ person 1) 8)))
 
-    (: ties (List (Pair I64 I64)))
-    (define ties
-      (append (map (lambda (person) (Pair person (ring-next person))) (iota person-count))
-              (list (Pair 1 5) (Pair 9 13) (Pair 17 21)
-                    (Pair 0 12) (Pair 7 19) (Pair 13 17))))
+    (define (ties) (→ (List (Pair I64 I64)))
+      (append (map (lambda (person) (new Pair (first person) (second (ring-next person))))
+                   (iota (person-count)))
+              (list (new Pair (first 1) (second 5))
+                    (new Pair (first 9) (second 13))
+                    (new Pair (first 17) (second 21))
+                    (new Pair (first 0) (second 12))
+                    (new Pair (first 7) (second 19))
+                    (new Pair (first 13) (second 17)))))
 
-    (: neighbors (-> I64 (List I64)))
-    (define (neighbors person)
-      (append (map Pair-second (filter (lambda (tie) (= (Pair-first tie) person)) ties))
-              (map Pair-first (filter (lambda (tie) (= (Pair-second tie) person)) ties))))
+    (define (neighbors (person I64)) (→ (List I64))
+      (append (map (lambda (record) (● record second))
+                   (filter (lambda (tie) (= (● tie first) person)) (ties)))
+              (map (lambda (record) (● record first))
+                   (filter (lambda (tie) (= (● tie second) person)) (ties)))))
 
-    (: first-name (-> I64 String))
-    (define (first-name person)
+    (define (first-name (person I64)) (→ String)
       (let ((name (person-name person)))
         (match (string-index name #\,)
           ((Some end) (substring name 0 end))
           ((None) name))))
 
-    (: members (-> I64 (List I64)))
-    (define (members audience)
+    (define (members (audience I64)) (→ (List I64))
       (map (lambda (k) (+ (* 8 audience) k)) (iota 8)))
 
     ;; ---- Stories ----
@@ -159,32 +144,26 @@
       (Unreliable)
       (deriving Serialize Deserialize))
 
-    (: traits (List Trait))
-    (define traits
+    (define (traits) (→ (List Trait))
       (list (Dangerous) (Harmless) (Reliable) (Unreliable)))
 
-    (: trait-index (-> Trait I64))
-    (define (trait-index trait)
+    (define (trait-index (trait Trait)) (→ I64)
       (match trait
         ((Dangerous) 0)
         ((Harmless) 1)
         ((Reliable) 2)
         ((Unreliable) 3)))
 
-    (: trait-name (-> Trait String))
-    (define (trait-name trait)
+    (define (trait-name (trait Trait)) (→ String)
       (list-ref (list "dangerous" "harmless" "reliable" "unreliable") (trait-index trait)))
 
-    (: same-pair? (-> Trait Trait Bool))
-    (define (same-pair? a b)
+    (define (same-pair? (a Trait) (b Trait)) (→ Bool)
       (= (quotient (trait-index a) 2) (quotient (trait-index b) 2)))
 
-    (: same-trait? (-> Trait Trait Bool))
-    (define (same-trait? a b)
+    (define (same-trait? (a Trait) (b Trait)) (→ Bool)
       (= (trait-index a) (trait-index b)))
 
-    (: opposite? (-> Trait Trait Bool))
-    (define (opposite? a b)
+    (define (opposite? (a Trait) (b Trait)) (→ Bool)
       (and (same-pair? a b) (not (same-trait? a b))))
 
     ;; Who started a story: a deed of yours someone witnessed, a lie of
@@ -197,7 +176,7 @@
 
     ;; A story's id is its place in creation order, so a lower id is older.
     ;; Its listener is the witness or first listener.
-    (struct Story
+    (record Story
       ((id I64)
        (trait Trait)
        (intensity I64)
@@ -210,7 +189,7 @@
     ;; the shift they heard it, and the people it passed through on the way,
     ;; nearest first. The path is fixed when the copy is heard, so it stays
     ;; true even after someone along it is paid to forget.
-    (struct Copy
+    (record Copy
       ((story I64)
        (intensity I64)
        (heard I64)
@@ -234,7 +213,7 @@
     ;; `copies` and `quiet` are indexed by person. A person keeps quiet
     ;; through the shift recorded in `quiet`. After the last shift, `shift`
     ;; is one past it.
-    (struct Mill
+    (record Mill
       ((scenario Scenario)
        (shift I64)
        (coins I64)
@@ -245,52 +224,57 @@
        (outcome Outcome))
       (deriving Serialize Deserialize))
 
-    (: copies-of (-> Mill I64 (List Copy)))
-    (define (copies-of mill person)
-      (vector-ref (Mill-copies mill) person))
+    (define (copies-of (mill Mill) (person I64)) (→ (List Copy))
+      (vector-ref (● mill copies) person))
 
-    (: story (-> Mill I64 Story))
-    (define (story mill id)
-      (list-ref (Mill-stories mill) id))
+    (define (story (mill Mill) (id I64)) (→ Story)
+      (list-ref (● mill stories) id))
 
-    (: holds? (-> Mill I64 I64 Bool))
-    (define (holds? mill person id)
-      (any? (lambda (copy) (= (Copy-story copy) id)) (copies-of mill person)))
+    (define (holds? (mill Mill) (person I64) (id I64)) (→ Bool)
+      (any? (lambda (copy) (= (● copy story) id)) (copies-of mill person)))
 
-    (: hear (-> Mill I64 Copy Mill))
-    (define (hear mill person copy)
+    (define (hear (mill Mill) (person I64) (copy Copy)) (→ Mill)
       (Mill-copies-set mill
-                       (vector-set (Mill-copies mill)
+                       (vector-set (● mill copies)
                                    person
                                    (append (copies-of mill person) (list copy)))))
 
     ;; Starts a new story at its first listener.
-    (: tell (-> Mill Trait I64 String Source I64 Mill))
-    (define (tell mill trait intensity label source listener)
-      (let ((id (length (Mill-stories mill))))
+    (define (tell (mill Mill)
+                  (trait Trait)
+                  (intensity I64)
+                  (label String)
+                  (source Source)
+                  (listener I64))
+      (→ Mill)
+      (let ((id (length (● mill stories))))
         (hear (Mill-stories-set mill
-                                (append (Mill-stories mill)
-                                        (list (Story id trait intensity label source listener))))
+                                (append (● mill stories)
+                                        (list (new Story
+                                                (id id)
+                                                (trait trait)
+                                                (intensity intensity)
+                                                (label label)
+                                                (source source)
+                                                (listener listener)))))
               listener
-              (Copy id intensity (Mill-shift mill) (Nil)))))
+              (new Copy (story id) (intensity intensity) (heard (● mill shift)) (path (Nil))))))
 
     ;; ---- Beliefs ----
 
     ;; First impressions stick: between equally intense copies, the one
     ;; heard first wins, then the older story.
-    (: stronger? (-> Copy Copy Bool))
-    (define (stronger? a b)
+    (define (stronger? (a Copy) (b Copy)) (→ Bool)
       (cond
-       ((not (= (Copy-intensity a) (Copy-intensity b))) (> (Copy-intensity a) (Copy-intensity b)))
-       ((not (= (Copy-heard a) (Copy-heard b))) (< (Copy-heard a) (Copy-heard b)))
-       (else (< (Copy-story a) (Copy-story b)))))
+       ((not (= (● a intensity) (● b intensity))) (> (● a intensity) (● b intensity)))
+       ((not (= (● a heard) (● b heard))) (< (● a heard) (● b heard)))
+       (else (< (● a story) (● b story)))))
 
     ;; The copy a person believes on a trait's pair.
-    (: believed (-> Mill I64 Trait (Option Copy)))
-    (define (believed mill person trait)
+    (define (believed (mill Mill) (person I64) (trait Trait)) (→ (Option Copy))
       (fold-left (lambda (best copy)
                    (cond
-                    ((not (same-pair? (Story-trait (story mill (Copy-story copy))) trait)) best)
+                    ((not (same-pair? (● (story mill (● copy story)) trait) trait)) best)
                     ((match best ((Some other) (stronger? other copy)) ((None) #f)) best)
                     (else (Some copy))))
                  (None)
@@ -298,48 +282,43 @@
 
     ;; How intensely a person believes a trait, or 0 if they believe its
     ;; opposite or nothing.
-    (: belief (-> Mill I64 Trait I64))
-    (define (belief mill person trait)
+    (define (belief (mill Mill) (person I64) (trait Trait)) (→ I64)
       (match (believed mill person trait)
         ((Some copy)
-         (if (same-trait? (Story-trait (story mill (Copy-story copy))) trait)
-             (Copy-intensity copy)
+         (if (same-trait? (● (story mill (● copy story)) trait) trait)
+             (● copy intensity)
              0))
         ((None) 0)))
 
     ;; The highest N such that four members believe the trait at N or more.
-    (: raw-level (-> Mill I64 Trait I64))
-    (define (raw-level mill audience trait)
+    (define (raw-level (mill Mill) (audience I64) (trait Trait)) (→ I64)
       (let ((beliefs (map (lambda (person) (belief mill person trait)) (members audience))))
         (fold-left
          (lambda (level n) (if (>= (length (filter (lambda (b) (>= b n)) beliefs)) 4) n level))
          0
          (list 1 2 3))))
 
-    (: lie? (-> Story Bool))
-    (define (lie? s)
-      (match (Story-source s)
+    (define (lie? (s Story)) (→ Bool)
+      (match (● s source)
         ((Lie) #t)
         (_ #f)))
 
     ;; A lie is exposed while its first listener holds a story of the
     ;; opposite trait that is not a lie.
-    (: exposed? (-> Mill Story Bool))
-    (define (exposed? mill lie)
+    (define (exposed? (mill Mill) (lie Story)) (→ Bool)
       (and (lie? lie)
            (any? (lambda (copy)
-                   (let ((other (story mill (Copy-story copy))))
-                     (and (opposite? (Story-trait other) (Story-trait lie)) (not (lie? other)))))
-                 (copies-of mill (Story-listener lie)))))
+                   (let ((other (story mill (● copy story))))
+                     (and (opposite? (● other trait) (● lie trait)) (not (lie? other)))))
+                 (copies-of mill (● lie listener)))))
 
     ;; Each exposed lie raises its listener's audience's level of
     ;; unreliable by 1.
-    (: level (-> Mill I64 Trait I64))
-    (define (level mill audience trait)
+    (define (level (mill Mill) (audience I64) (trait Trait)) (→ I64)
       (let ((exposed (filter (lambda (s)
                                (and (exposed? mill s)
-                                    (= (audience-of (Story-listener s)) audience)))
-                             (Mill-stories mill))))
+                                    (= (audience-of (● s listener)) audience)))
+                             (● mill stories))))
         (min 3 (+ (raw-level mill audience trait)
                   (match trait
                     ((Unreliable) (length exposed))
@@ -349,72 +328,69 @@
 
     ;; A copy offered to a person at the end of a shift. Its path starts with
     ;; whoever passes it, so it is never empty.
-    (struct Offer
+    (record Offer
       ((person I64)
        (story I64)
        (intensity I64)
        (path (List I64))))
 
-    (: quiet? (-> Mill I64 Bool))
-    (define (quiet? mill person)
-      (>= (vector-ref (Mill-quiet mill) person) (Mill-shift mill)))
+    (define (quiet? (mill Mill) (person I64)) (→ Bool)
+      (>= (vector-ref (● mill quiet) person) (● mill shift)))
 
     ;; Crossing into another audience grows a story by 1, up to 3.
-    (: grow (-> I64 I64 I64 I64))
-    (define (grow intensity from to)
+    (define (grow (intensity I64) (from I64) (to I64)) (→ I64)
       (min 3 (+ intensity (if (= (audience-of from) (audience-of to)) 0 1))))
 
     ;; One step along each tie, and for a hub a second step onward from
     ;; each neighbor.
-    (: offers-of-copy (-> I64 Copy (List Offer)))
-    (define (offers-of-copy person copy)
+    (define (offers-of-copy (person I64) (copy Copy)) (→ (List Offer))
       (concatenate
        (map (lambda (next)
-              (let ((intensity (grow (Copy-intensity copy) person next)))
-                (Cons (Offer next (Copy-story copy) intensity (Cons person (Copy-path copy)))
+              (let ((intensity (grow (● copy intensity) person next)))
+                (Cons (new Offer
+                        (person next)
+                        (story (● copy story))
+                        (intensity intensity)
+                        (path (Cons person (● copy path))))
                       (if (hub? person)
                           (map (lambda (far)
-                                 (Offer far
-                                        (Copy-story copy)
-                                        (grow intensity next far)
-                                        (Cons next (Cons person (Copy-path copy)))))
+                                 (new Offer (person far)
+                                      (story (● copy story))
+                                      (intensity (grow intensity next far))
+                                      (path (Cons next (Cons person (● copy path))))))
                                (filter (lambda (far) (not (= far person))) (neighbors next)))
                           (Nil)))))
             (neighbors person))))
 
     ;; Everyone not keeping quiet passes on each story heard before this
     ;; shift.
-    (: offers (-> Mill (List Offer)))
-    (define (offers mill)
+    (define (offers (mill Mill)) (→ (List Offer))
       (concatenate
        (map (lambda (person)
               (if (quiet? mill person)
                   (Nil)
                   (concatenate (map (lambda (copy) (offers-of-copy person copy))
-                                    (filter (lambda (copy) (< (Copy-heard copy) (Mill-shift mill)))
+                                    (filter (lambda (copy) (< (● copy heard) (● mill shift)))
                                             (copies-of mill person))))))
-            (iota person-count))))
+            (iota (person-count)))))
 
-    (: better-offer? (-> Offer Offer Bool))
-    (define (better-offer? a b)
-      (or (> (Offer-intensity a) (Offer-intensity b))
-          (and (= (Offer-intensity a) (Offer-intensity b))
-               (< (list-ref (Offer-path a) 0) (list-ref (Offer-path b) 0)))))
+    (define (better-offer? (a Offer) (b Offer)) (→ Bool)
+      (or (> (● a intensity) (● b intensity))
+          (and (= (● a intensity) (● b intensity))
+               (< (list-ref (● a path) 0) (list-ref (● b path) 0)))))
 
-    (: keep-better (-> (List Offer) Offer (List Offer)))
-    (define (keep-better best offer)
-      (let ((others (filter (lambda (o) (not (= (Offer-story o) (Offer-story offer)))) best)))
-        (match (find (lambda (o) (= (Offer-story o) (Offer-story offer))) best)
+    (define (keep-better (best (List Offer)) (offer Offer)) (→ (List Offer))
+      (let ((others (filter (lambda (o) (not (= (● o story) (● offer story)))) best)))
+        (match (find (lambda (o) (= (● o story) (● offer story))) best)
           ((Some held) (if (better-offer? offer held) (Cons offer others) best))
           ((None) (Cons offer best)))))
 
     ;; The best offer of each story a person does not hold yet.
-    (: arrivals (-> Mill (List Offer) I64 (List Offer)))
-    (define (arrivals mill all person)
+    (define (arrivals (mill Mill) (all (List Offer)) (person I64)) (→ (List Offer))
       (reverse
        (fold-left (lambda (best offer)
-                    (if (or (not (= (Offer-person offer) person))
-                            (holds? mill person (Offer-story offer)))
+                    (if (or (not (= (● offer person) person))
+                            (holds? mill person (● offer story)))
                         best
                         (keep-better best offer)))
                   (Nil)
@@ -422,21 +398,20 @@
 
     ;; Ends the shift. Offers are all computed from the state before
     ;; anyone hears anything, so a story moves its full distance at once.
-    (: spread (-> Mill Mill))
-    (define (spread mill)
+    (define (spread (mill Mill)) (→ Mill)
       (let* ((all (offers mill))
              (heard (fold-left (lambda (current person)
                                  (fold-left (lambda (current offer)
                                               (hear current person
-                                                    (Copy (Offer-story offer)
-                                                          (Offer-intensity offer)
-                                                          (Mill-shift mill)
-                                                          (Offer-path offer))))
+                                                    (new Copy (story (● offer story))
+                                                         (intensity (● offer intensity))
+                                                         (heard (● mill shift))
+                                                         (path (● offer path)))))
                                             current
                                             (arrivals mill all person)))
                                mill
-                               (iota person-count))))
-        (Mill-shift-set heard (+ (Mill-shift mill) 1))))
+                               (iota (person-count)))))
+        (Mill-shift-set heard (+ (● mill shift) 1))))
 
     ;; ---- Scenarios ----
 
@@ -446,75 +421,71 @@
       (Sandbox)
       (deriving Serialize Deserialize))
 
-    (: scenarios (List Scenario))
-    (define scenarios
+    (define (scenarios) (→ (List Scenario))
       (list (TwoFaces) (Smear) (Sandbox)))
 
     ;; What a scenario asks: its name and what the menu says of it, its last
     ;; shift, when its goal is judged, and the shift, if any, on which you
     ;; must rough someone up or make a threat in the Docks, in front of a
     ;; crowd.
-    (struct Rules
+    (record Rules
       ((name String)
        (pitch String)
        (last-shift I64)
        (deadline String)
        (forced-shift (Option I64))))
 
-    (: scenario-rules (-> Scenario Rules))
-    (define (scenario-rules scenario)
+    (define (scenario-rules (scenario Scenario)) (→ Rules)
       (match scenario
         ((TwoFaces)
-         (Rules "Two faces"
-                "Look reliable to the Market without the Tower hearing you are dangerous."
-                8
-                "Judged after shift 8."
-                (Some 3)))
+         (new Rules (name "Two faces")
+              (pitch "Look reliable to the Market without the Tower hearing you are dangerous.")
+              (last-shift 8)
+              (deadline "Judged after shift 8.")
+              (forced-shift (Some 3))))
         ((Smear)
-         (Rules "The smear"
-                "A rival's lie is spreading; keep it from the Tower for ten shifts."
-                10
-                "Hold out through shift 10."
-                (None)))
+         (new Rules (name "The smear")
+              (pitch "A rival's lie is spreading; keep it from the Tower for ten shifts.")
+              (last-shift 10)
+              (deadline "Hold out through shift 10.")
+              (forced-shift (None))))
         ((Sandbox)
-         (Rules "Sandbox"
-                "Twelve shifts and no goal: see how stories travel."
-                12
-                "Twelve shifts to try things; there is no goal."
-                (None)))))
+         (new Rules (name "Sandbox")
+              (pitch "Twelve shifts and no goal: see how stories travel.")
+              (last-shift 12)
+              (deadline "Twelve shifts to try things; there is no goal.")
+              (forced-shift (None))))))
 
-    (: last-shift (-> Mill I64))
-    (define (last-shift mill)
-      (Rules-last-shift (scenario-rules (Mill-scenario mill))))
+    (define (last-shift (mill Mill)) (→ I64)
+      (● (scenario-rules (● mill scenario)) last-shift))
 
-    (: new-mill (-> Scenario Mill))
-    (define (new-mill scenario)
-      (let ((mill (Mill scenario
-                        1
-                        10
-                        (Nil)
-                        (make-vector person-count (Nil))
-                        (make-vector person-count 0)
-                        (Nil)
-                        (Playing))))
+    (define (new-mill (scenario Scenario)) (→ Mill)
+      (let ((mill (new Mill (scenario scenario)
+                       (shift 1)
+                       (coins 10)
+                       (stories (Nil))
+                       (copies (make-vector (person-count) (Nil)))
+                       (quiet (make-vector (person-count) 0))
+                       (liabilities (Nil))
+                       (outcome (Playing)))))
         (match scenario
           ((Smear) (smear mill))
           (_ mill))))
 
     ;; The rival told Lia and Oda before the first shift.
-    (: smear (-> Mill Mill))
-    (define (smear mill)
+    (define (smear (mill Mill)) (→ Mill)
       (let ((told (tell (Mill-shift-set mill 0)
                         (Unreliable)
                         2
                         "a rival says you skipped out on a debt"
                         (Rival)
                         11)))
-        (Mill-shift-set (hear told 14 (Copy 0 2 0 (Nil))) 1)))
+        (Mill-shift-set (hear told 14 (new Copy (story 0) (intensity 2) (heard 0) (path (Nil))))
+                        1)))
 
-    (: two-faces-outcome (-> Mill Outcome))
-    (define (two-faces-outcome mill)
-      (let ((reliable (level mill market (Reliable))) (dangerous (level mill tower (Dangerous))))
+    (define (two-faces-outcome (mill Mill)) (→ Outcome)
+      (let ((reliable (level mill (market) (Reliable)))
+            (dangerous (level mill (tower) (Dangerous))))
         (cond ((< reliable 3)
                (Lost
                 (string-append "The Market believes you reliable at only " (show reliable) ".")))
@@ -523,22 +494,20 @@
               (else (Won "The Market trusts you, and the Tower never heard you were dangerous.")))))
 
     ;; Decides the game after a spread, which has already advanced `shift`.
-    (: judge (-> Mill Mill))
-    (define (judge mill)
-      (let ((done (= (- (Mill-shift mill) 1) (last-shift mill))))
+    (define (judge (mill Mill)) (→ Mill)
+      (let ((done (= (- (● mill shift) 1) (last-shift mill))))
         (Mill-outcome-set mill
-                          (match (Mill-scenario mill)
+                          (match (● mill scenario)
                             ((TwoFaces) (if done (two-faces-outcome mill) (Playing)))
                             ((Smear)
-                             (cond ((> (level mill tower (Unreliable)) 0)
+                             (cond ((> (level mill (tower) (Unreliable)) 0)
                                     (Lost "The Tower believes you unreliable."))
                                    (done (Won "The Tower never believed the smear."))
                                    (else (Playing))))
                             ((Sandbox) (if done (Ended) (Playing)))))))
 
-    (: mill-over? (-> Mill Bool))
-    (define (mill-over? mill)
-      (match (Mill-outcome mill)
+    (define (mill-over? (mill Mill)) (→ Bool)
+      (match (● mill outcome)
         ((Playing) #f)
         (_ #t)))
 
@@ -558,14 +527,12 @@
       (Walk)
       (deriving Serialize Deserialize))
 
-    (: deeds (List Deed))
-    (define deeds
+    (define (deeds) (→ (List Deed))
       (list (Rough) (Threat) (Deliver) (Keep) (Walk)))
 
     ;; The story a deed's witness hears: its trait, its intensity, and what
     ;; it says.
-    (: deed-trait (-> Deed Trait))
-    (define (deed-trait deed)
+    (define (deed-trait (deed Deed)) (→ Trait)
       (match deed
         ((Rough) (Dangerous))
         ((Threat) (Dangerous))
@@ -573,8 +540,7 @@
         ((Keep) (Reliable))
         ((Walk) (Harmless))))
 
-    (: deed-intensity (-> Deed I64))
-    (define (deed-intensity deed)
+    (define (deed-intensity (deed Deed)) (→ I64)
       (match deed
         ((Rough) 2)
         ((Threat) 1)
@@ -583,8 +549,7 @@
         ((Walk) 1)))
 
     ;; "you roughed someone up in front of Mo".
-    (: deed-label (-> Deed I64 String))
-    (define (deed-label deed person)
+    (define (deed-label (deed Deed) (person I64)) (→ String)
       (string-append (match deed
                        ((Rough) "you roughed someone up in front of ")
                        ((Threat) "you made a threat in front of ")
@@ -594,8 +559,7 @@
                      (first-name person)))
 
     ;; What the player does: "Rough someone up".
-    (: deed-name (-> Deed String))
-    (define (deed-name deed)
+    (define (deed-name (deed Deed)) (→ String)
       (match deed
         ((Rough) "Rough someone up")
         ((Threat) "Make a threat")
@@ -604,53 +568,47 @@
         ((Walk) "Walk away from a fight")))
 
     ;; The story it starts: "dangerous 2".
-    (: deed-effect (-> Deed String))
-    (define (deed-effect deed)
+    (define (deed-effect (deed Deed)) (→ String)
       (string-append (trait-name (deed-trait deed)) " " (show (deed-intensity deed))))
 
     ;; On the scenario's forced shift, only a dangerous deed in the Docks
     ;; will do, and a crowd sees it.
-    (: forced? (-> Mill Bool))
-    (define (forced? mill)
-      (match (Rules-forced-shift (scenario-rules (Mill-scenario mill)))
-        ((Some shift) (= shift (Mill-shift mill)))
+    (define (forced? (mill Mill)) (→ Bool)
+      (match (● (scenario-rules (● mill scenario)) forced-shift)
+        ((Some shift) (= shift (● mill shift)))
         ((None) #f)))
 
     ;; Everyone tied to the witness hears the newest story from them at
     ;; once, grown if they belong to another audience.
-    (: crowd (-> Mill I64 Mill))
-    (define (crowd mill witness)
-      (let* ((id (- (length (Mill-stories mill)) 1)) (intensity (Story-intensity (story mill id))))
+    (define (crowd (mill Mill) (witness I64)) (→ Mill)
+      (let* ((id (- (length (● mill stories)) 1)) (intensity (● (story mill id) intensity)))
         (fold-left (lambda (current person)
                      (hear current
                            person
-                           (Copy id
-                                 (grow intensity witness person)
-                                 (Mill-shift mill)
-                                 (list witness))))
+                           (new Copy (story id)
+                                (intensity (grow intensity witness person))
+                                (heard (● mill shift))
+                                (path (list witness)))))
                    mill
                    (neighbors witness))))
 
-    (: allowed? (-> Mill Action Bool))
-    (define (allowed? mill action)
+    (define (allowed? (mill Mill) (action Action)) (→ Bool)
       (or (not (forced? mill))
           (match action
             ((Do deed person)
-             (and (same-trait? (deed-trait deed) (Dangerous)) (= (audience-of person) docks)))
+             (and (same-trait? (deed-trait deed) (Dangerous)) (= (audience-of person) (docks))))
             (_ #f))))
 
     ;; A payment empties the person's memory of you and keeps them quiet
     ;; for this shift and the next three.
-    (: pay (-> Mill I64 Mill))
-    (define (pay mill person)
-      (let ((paid (Mill-coins-set mill (- (Mill-coins mill) 2))))
+    (define (pay (mill Mill) (person I64)) (→ Mill)
+      (let ((paid (Mill-coins-set mill (- (● mill coins) 2))))
         (Mill-liabilities-set
-         (Mill-quiet-set (Mill-copies-set paid (vector-set (Mill-copies paid) person (Nil)))
-                         (vector-set (Mill-quiet paid) person (+ (Mill-shift mill) 3)))
-         (append (Mill-liabilities mill) (list (Paid person (Mill-shift mill)))))))
+         (Mill-quiet-set (Mill-copies-set paid (vector-set (● paid copies) person (Nil)))
+                         (vector-set (● paid quiet) person (+ (● mill shift) 3)))
+         (append (● mill liabilities) (list (Paid person (● mill shift)))))))
 
-    (: lie (-> Mill Trait I64 Mill))
-    (define (lie mill trait person)
+    (define (lie (mill Mill) (trait Trait) (person I64)) (→ Mill)
       (Mill-liabilities-set
        (tell mill
              trait
@@ -658,144 +616,136 @@
              (string-append "your lie to " (first-name person) " that you are " (trait-name trait))
              (Lie)
              person)
-       (append (Mill-liabilities mill) (list (Told (length (Mill-stories mill)))))))
+       (append (● mill liabilities) (list (Told (length (● mill stories)))))))
 
     ;; A deed's witness hears its story, and on a forced shift so does the
     ;; crowd.
-    (: witness (-> Mill Deed I64 (Pair Mill String)))
-    (define (witness mill deed person)
+    (define (witness (mill Mill) (deed Deed) (person I64)) (→ (Pair Mill String))
       (let ((told (tell mill
                         (deed-trait deed)
                         (deed-intensity deed)
                         (deed-label deed person)
                         (Witnessed)
                         person)))
-        (Pair (if (forced? mill) (crowd told person) told)
-              (string-append (first-name person)
-                             (if (forced? mill) " and the crowd" "")
-                             " heard it: "
-                             (deed-effect deed)
-                             "."))))
+        (new Pair (first (if (forced? mill) (crowd told person) told))
+             (second (string-append (first-name person)
+                                    (if (forced? mill) " and the crowd" "")
+                                    " heard it: "
+                                    (deed-effect deed)
+                                    ".")))))
 
     ;; Applies the player's action for this shift, which `refusal` allows,
     ;; and says what it did.
-    (: act (-> Mill Action (Pair Mill String)))
-    (define (act mill action)
+    (define (act (mill Mill) (action Action)) (→ (Pair Mill String))
       (match action
         ((Do deed person) (witness mill deed person))
         ((Pay person)
-         (Pair (pay mill person)
-               (string-append "You paid "
-                              (first-name person)
-                              ". "
-                              (first-name person)
-                              " forgets every story and keeps quiet through shift "
-                              (show (+ (Mill-shift mill) 3)) ".")))
+         (new Pair (first (pay mill person))
+              (second (string-append "You paid "
+                                     (first-name person)
+                                     ". "
+                                     (first-name person)
+                                     " forgets every story and keeps quiet through shift "
+                                     (show (+ (● mill shift) 3)) "."))))
         ((Mislead trait person)
-         (Pair (lie mill trait person)
-               (string-append "You told "
-                              (first-name person)
-                              " you are "
-                              (trait-name trait)
-                              ": a lie.")))
-        ((Wait) (Pair mill "You lie low."))))
+         (new Pair (first (lie mill trait person))
+              (second (string-append "You told "
+                                     (first-name person)
+                                     " you are "
+                                     (trait-name trait)
+                                     ": a lie."))))
+        ((Wait) (new Pair (first mill) (second "You lie low.")))))
 
     ;; ---- Shifts ----
 
     ;; Who holds more stories after a shift than before it.
-    (: newly-heard (-> Mill Mill (List I64)))
-    (define (newly-heard before after)
+    (define (newly-heard (before Mill) (after Mill)) (→ (List I64))
       (filter
        (lambda (person) (> (length (copies-of after person)) (length (copies-of before person))))
-       (iota person-count)))
+       (iota (person-count))))
 
     ;; How many people in each audience heard something new.
-    (: news (-> Mill Mill String))
-    (define (news before after)
+    (define (news (before Mill) (after Mill)) (→ String)
       (let* ((fresh (newly-heard before after))
              (counts (map (lambda (audience)
-                            (Pair audience
-                                  (length
-                                   (filter (lambda (person) (= (audience-of person) audience))
-                                           fresh))))
-                          audiences))
-             (reached (filter (lambda (count) (> (Pair-second count) 0)) counts)))
-        (string-append "End of shift " (show (Mill-shift before)) ": "
+                            (new Pair (first audience)
+                                 (second (length
+                                          (filter
+                                           (lambda (person) (= (audience-of person) audience))
+                                           fresh)))))
+                          (audiences)))
+             (reached (filter (lambda (count) (> (● count second) 0)) counts)))
+        (string-append "End of shift " (show (● before shift)) ": "
                        (if (null? reached)
                            "no story moved."
                            (string-append "new stories reached "
                                           (string-join (map (lambda (count)
                                                               (string-append
-                                                               (show (Pair-second count))
+                                                               (show (● count second))
                                                                " in the "
-                                                               (audience-name (Pair-first count))))
+                                                               (audience-name (● count first))))
                                                             reached)
                                                        ", ")
                                           ".")))))
 
     ;; An audience's level of a trait at two moments.
-    (struct Change
+    (record Change
       ((audience I64)
        (trait Trait)
        (was I64)
        (now I64)))
 
-    (: level-changes (-> Mill Mill (List Change)))
-    (define (level-changes before after)
-      (filter (lambda (change) (not (= (Change-was change) (Change-now change))))
+    (define (level-changes (before Mill) (after Mill)) (→ (List Change))
+      (filter (lambda (change) (not (= (● change was) (● change now))))
               (concatenate (map (lambda (audience)
                                   (map (lambda (trait)
-                                         (Change audience
-                                                 trait
-                                                 (level before audience trait)
-                                                 (level after audience trait)))
-                                       traits))
-                                audiences))))
+                                         (new Change (audience audience)
+                                              (trait trait)
+                                              (was (level before audience trait))
+                                              (now (level after audience trait))))
+                                       (traits)))
+                                (audiences)))))
 
-    (: change-text (-> Change String))
-    (define (change-text change)
-      (let ((now (Change-now change)))
-        (string-append "The " (audience-name (Change-audience change))
+    (define (change-text (change Change)) (→ String)
+      (let ((now (● change now)))
+        (string-append "The " (audience-name (● change audience))
                        (if (= now 0) " no longer believes you " " now believes you ")
-                       (trait-name (Change-trait change))
+                       (trait-name (● change trait))
                        (if (= now 0) "" (string-append " " (show now)))
-                       " (was " (show (Change-was change)) ").")))
+                       " (was " (show (● change was)) ").")))
 
     ;; Why the action cannot be taken this shift, if it cannot.
-    (: refusal (-> Mill Action (Option String)))
-    (define (refusal mill action)
+    (define (refusal (mill Mill) (action Action)) (→ (Option String))
       (cond ((mill-over? mill) (Some "The game is over."))
             ((not (allowed? mill action))
              (Some
               "This shift you must rough someone up or make a threat in front of someone in the Docks."))
-            ((match action ((Pay _) (< (Mill-coins mill) 2)) (_ #f)) (Some "Paying costs 2 coins."))
+            ((match action ((Pay _) (< (● mill coins) 2)) (_ #f)) (Some "Paying costs 2 coins."))
             (else (None))))
 
     ;; One shift: the action, the spread and the verdict, with what changed,
     ;; or why the action cannot be taken.
-    (: take-shift (-> Mill Action (Result (Pair Mill (List String)) String)))
-    (define (take-shift mill action)
+    (define (take-shift (mill Mill) (action Action)) (→ (Result (Pair Mill (List String)) String))
       (match (refusal mill action)
         ((Some why) (Err why))
         ((None) (Ok (finish-shift mill (act mill action))))))
 
     ;; Spreads and judges after the action, and reports what changed since
     ;; the shift began, a line each.
-    (: finish-shift (-> Mill (Pair Mill String) (Pair Mill (List String))))
-    (define (finish-shift mill acted)
-      (let* ((before (Pair-first acted)) (after (judge (spread before))))
-        (Pair after
-              (Cons (Pair-second acted)
-                    (Cons (news before after) (map change-text (level-changes mill after)))))))
+    (define (finish-shift (mill Mill) (acted (Pair Mill String))) (→ (Pair Mill (List String)))
+      (let* ((before (● acted first)) (after (judge (spread before))))
+        (new Pair (first after)
+             (second (Cons (● acted second)
+                           (Cons (news before after)
+                                 (map change-text (level-changes mill after))))))))
 
     ;; ---- Forecast ----
 
     ;; The level changes over the coming shifts if you lie low throughout,
     ;; at most six.
-    (: forecast (-> Mill (List String)))
-    (define (forecast mill)
+    (define (forecast (mill Mill)) (→ (List String))
       (let loop ((current mill)
-                 (left (min 6 (+ (- (last-shift mill) (Mill-shift mill)) 1)))
+                 (left (min 6 (+ (- (last-shift mill) (● mill shift)) 1)))
                  (lines (Nil)))
         (if (= left 0)
             (take (reverse lines) (min 6 (length lines)))
@@ -805,19 +755,18 @@
                     (append (reverse (forecast-changes mill current next)) lines))))))
 
     ;; `now` is the present, for comparison; `current` is the shift ending.
-    (: forecast-changes (-> Mill Mill Mill (List String)))
-    (define (forecast-changes now current next)
+    (define (forecast-changes (now Mill) (current Mill) (next Mill)) (→ (List String))
       (map (lambda (change)
              (string-append "After shift "
-                            (show (Mill-shift current))
+                            (show (● current shift))
                             ": the "
-                            (audience-name (Change-audience change))
+                            (audience-name (● change audience))
                             " believes you "
-                            (trait-name (Change-trait change))
+                            (trait-name (● change trait))
                             " "
-                            (show (Change-now change))
+                            (show (● change now))
                             " (now "
-                            (show (level now (Change-audience change) (Change-trait change)))
+                            (show (level now (● change audience) (● change trait)))
                             ")."))
            (level-changes current next)))
 
@@ -832,103 +781,95 @@
       (Due)
       (Done))
 
-    (struct Goal
+    (record Goal
       ((text String)
        (progress Progress)))
 
-    (: holds (-> Bool Progress))
-    (define (holds condition)
+    (define (holds (condition Bool)) (→ Progress)
       (if condition (Met) (Unmet)))
 
     ;; The scenario's goal, part by part, judged against the present.
-    (: mill-goals (-> Mill (List Goal)))
-    (define (mill-goals mill)
-      (append (match (Mill-scenario mill)
+    (define (mill-goals (mill Mill)) (→ (List Goal))
+      (append (match (● mill scenario)
                 ((TwoFaces)
-                 (list (Goal "The Market believes you reliable at 3"
-                             (holds (>= (level mill market (Reliable)) 3)))
-                       (Goal "The Tower does not believe you dangerous"
-                             (holds (= (level mill tower (Dangerous)) 0)))))
+                 (list (new Goal (text "The Market believes you reliable at 3")
+                            (progress (holds (>= (level mill (market) (Reliable)) 3))))
+                       (new Goal (text "The Tower does not believe you dangerous")
+                            (progress (holds (= (level mill (tower) (Dangerous)) 0))))))
                 ((Smear)
-                 (list (Goal "The Tower never believes you unreliable"
-                             (holds (= (level mill tower (Unreliable)) 0)))))
+                 (list (new Goal (text "The Tower never believes you unreliable")
+                            (progress (holds (= (level mill (tower) (Unreliable)) 0))))))
                 ((Sandbox) (Nil)))
-              (match (Rules-forced-shift (scenario-rules (Mill-scenario mill)))
+              (match (● (scenario-rules (● mill scenario)) forced-shift)
                 ((Some shift)
-                 (list (Goal (string-append "On shift "
-                                            (show shift)
-                                            ", rough someone up or threaten someone in the Docks")
-                             (cond ((< (Mill-shift mill) shift) (Upcoming))
-                                   ((= (Mill-shift mill) shift) (Due))
-                                   (else (Done))))))
+                 (list (new Goal (text (string-append "On shift "
+                                                      (show shift)
+                                                      ", rough someone up or threaten someone in the Docks"))
+                            (progress (cond ((< (● mill shift) shift) (Upcoming))
+                                            ((= (● mill shift) shift) (Due))
+                                            (else (Done)))))))
                 ((None) (Nil)))))
 
     ;; The verdict once the game is over.
-    (: mill-result (-> Mill (Option (Pair Bool String))))
-    (define (mill-result mill)
-      (match (Mill-outcome mill)
-        ((Won reason) (Some (Pair #t (string-append "You win. " reason))))
-        ((Lost reason) (Some (Pair #f (string-append "You lose. " reason))))
-        ((Ended) (Some (Pair #t "The sandbox is over.")))
+    (define (mill-result (mill Mill)) (→ (Option (Pair Bool String)))
+      (match (● mill outcome)
+        ((Won reason) (Some (new Pair (first #t) (second (string-append "You win. " reason)))))
+        ((Lost reason) (Some (new Pair (first #f) (second (string-append "You lose. " reason)))))
+        ((Ended) (Some (new Pair (first #t) (second "The sandbox is over."))))
         ((Playing) (None))))
 
     ;; What an audience, or a person, believes about you, strongest traits
     ;; as levels.
-    (: audience-beliefs (-> Mill I64 (List (Pair Trait I64))))
-    (define (audience-beliefs mill audience)
-      (filter (lambda (pair) (> (Pair-second pair) 0))
-              (map (lambda (trait) (Pair trait (level mill audience trait))) traits)))
+    (define (audience-beliefs (mill Mill) (audience I64)) (→ (List (Pair Trait I64)))
+      (filter (lambda (pair) (> (● pair second) 0))
+              (map (lambda (trait) (new Pair (first trait) (second (level mill audience trait))))
+                   (traits))))
 
-    (: person-beliefs (-> Mill I64 (List (Pair Trait I64))))
-    (define (person-beliefs mill person)
-      (filter (lambda (pair) (> (Pair-second pair) 0))
-              (map (lambda (trait) (Pair trait (belief mill person trait))) traits)))
+    (define (person-beliefs (mill Mill) (person I64)) (→ (List (Pair Trait I64)))
+      (filter (lambda (pair) (> (● pair second) 0))
+              (map (lambda (trait) (new Pair (first trait) (second (belief mill person trait))))
+                   (traits))))
 
     ;; ---- Liabilities ----
 
-    (: liability-text (-> Mill Liability String))
-    (define (liability-text mill liability)
+    (define (liability-text (mill Mill) (liability Liability)) (→ String)
       (match liability
         ((Paid person shift)
          (string-append "Paid " (first-name person) " on shift " (show shift) "."))
         ((Told id)
          (let ((s (story mill id)))
            (string-append "Lied to "
-                          (first-name (Story-listener s))
+                          (first-name (● s listener))
                           ": "
-                          (trait-name (Story-trait s))
+                          (trait-name (● s trait))
                           " 1"
                           (if (exposed? mill s) " (exposed)." "."))))))
 
     ;; The payments and lies that could come back to bite, a line each.
-    (: liabilities (-> Mill (List String)))
-    (define (liabilities mill)
-      (map (lambda (item) (liability-text mill item)) (Mill-liabilities mill)))
+    (define (liabilities (mill Mill)) (→ (List String))
+      (map (lambda (item) (liability-text mill item)) (● mill liabilities)))
 
     ;; ---- Stories held ----
 
     ;; "from Mo, who heard it from Lia".
-    (: path-text (-> (List I64) String))
-    (define (path-text path)
+    (define (path-text (path (List I64))) (→ String)
       (string-append "from " (string-join (map first-name path) ", who heard it from ")))
 
     ;; A story a person holds: its trait and strength, what it says, and the
     ;; path it took to them.
-    (: story-line (-> Mill Copy String))
-    (define (story-line mill copy)
-      (let ((s (story mill (Copy-story copy))) (heard (show (Copy-heard copy))))
-        (string-append (trait-name (Story-trait s))
+    (define (story-line (mill Mill) (copy Copy)) (→ String)
+      (let ((s (story mill (● copy story))) (heard (show (● copy heard))))
+        (string-append (trait-name (● s trait))
                        " "
-                       (show (Copy-intensity copy))
+                       (show (● copy intensity))
                        ": "
-                       (Story-label s)
-                       (match (Copy-path copy)
+                       (● s label)
+                       (match (● copy path)
                          ((Nil) (string-append ". First heard here on shift " heard "."))
                          (path
                           (string-append ". Heard on shift " heard " " (path-text path) "."))))))
 
-    (: story-lines (-> Mill I64 (List String)))
-    (define (story-lines mill person)
+    (define (story-lines (mill Mill) (person I64)) (→ (List String))
       (map (lambda (copy) (story-line mill copy)) (copies-of mill person)))
 
     ))

@@ -1,66 +1,67 @@
 (import
+ (only (snail core forms) host)
  (snail core base)
- (snail core io)
+ (except (snail core io) write)
  (snail shell task)
  (snail shell socket)
  (snail shell http)
  (snail shell http exchange))
 
-(: require (All (T) (-> (Result T SocketError) T)))
-(define (require result)
-  (match result ((Ok value) value) ((Err error) (panic (SocketError-code error)))))
+(define (require (result (Result T SocketError))) (→ T) (∀ (T))
+  (match result ((Ok value) value) ((Err error) (panic (● error code)))))
 
-(: ascii (-> String Bytes))
-(define (ascii text)
+(define (ascii (text String)) (→ Bytes)
   (vector-generate (string-length text)
                    (lambda (index) (i32->u8 (char->i32 (string-ref text index))))))
 
-(: text (-> Bytes String))
-(define (text bytes)
+(define (text (bytes Bytes)) (→ String)
   (string-generate (vector-length bytes)
                    (lambda (index) (i32->char (u8->i32 (vector-ref bytes index))))))
 
-(: write-all (-> Connection Bytes Unit ! tcp tasks))
-(define (write-all connection bytes)
+(define (write-all (connection Connection) (bytes Bytes)) (→ Unit) (! tcp tasks)
   (let loop ((offset 0))
     (when (< offset (vector-length bytes))
       (let ((count (require (write connection (subvector bytes offset (vector-length bytes))))))
         (unless (> count 0) (panic "write did not progress"))
         (loop (+ offset (i32->i64 count)))))))
 
-(: read-all (-> Connection Bytes ! tcp tasks))
-(define (read-all connection)
+(define (read-all (connection Connection)) (→ Bytes) (! tcp tasks)
   (let loop ((chunks (ann (Nil) (List Bytes))))
     (match (require (read connection 65536))
       ((None) (vector-concatenate (reverse chunks)))
       ((Some bytes) (loop (Cons bytes chunks))))))
 
-(: echo (-> Request (Result Response String) ! tasks))
-(define (echo request)
+(define (echo (request Request)) (→ (Result Response String)) (! tasks)
   (sleep 1)
-  (Ok (Response 200 (list (Header "Content-Type" "text/plain")) (Request-body request))))
+  (Ok (new Response
+        (status 200)
+        (headers (list (new Header (name "Content-Type") (value "text/plain"))))
+        (body (● request body)))))
 
-;; A program waits on sockets from a task, which the scheduler runs once
-;; main returns.
-(dispatch-local
- (once (lambda ()
-         (let* ((listener (require (listen (require (endpoint "127.0.0.1" 0)))))
-                (client
-                 (require (connect (require (endpoint "127.0.0.1" (Listener-port listener))))))
-                (server (require (accept listener))))
-           (require (close-listener listener))
-           (dispatch-local
-            (once (lambda ()
-                    (match (serve-one server 2000 echo)
-                      ((Ok _) (unit))
-                      ((Err _) (panic "HTTP server exchange failed"))))))
-           (write-all client
-                      (ascii "POST /echo HTTP/1.1\r\nHost: test\r\nContent-Length: 4\r\n\r\nbody"))
-           (write-all client (make-vector 131073 (i32->u8 88)))
-           (let ((response (read-all client)))
-             (require (finish-connection client 2000))
-             (unless (string=? (text response)
-                               "HTTP/1.1 200 \r\nConnection: close\r\nContent-Length: 4\r\ncontent-type: text/plain\r\n\r\nbody")
-               (panic "incomplete HTTP response")))
-           (write-line
-            "HTTP exchange: real sockets, suspended handler, unread input and graceful finish")))))
+(define (main) (→ Unit) (! host mut output-port tcp tasks)
+  ;; A program waits on sockets from a task, which the scheduler runs once
+  ;; main returns.
+  (dispatch
+   (lambda ()
+     (let* ((listener (require (listen (require (endpoint "127.0.0.1" 0)))))
+            (client
+             (require (connect (require (endpoint "127.0.0.1" (● listener port))))))
+            (server (require (accept listener))))
+       (require (close-listener listener))
+       (dispatch
+        (lambda ()
+          (match (serve-one server 2000 echo)
+            ((Ok _) (unit))
+            ((Err _) (panic "HTTP server exchange failed")))))
+       (write-all client
+                  (ascii
+                   "POST /echo HTTP/1.1\r\nHost: test\r\nContent-Length: 4\r\n\r\nbody"))
+       (write-all client (make-vector 131073 (i32->u8 88)))
+       (let ((response (read-all client)))
+         (require (finish-connection client 2000))
+         (unless (string=? (text response)
+                           "HTTP/1.1 200 \r\nConnection: close\r\nContent-Length: 4\r\ncontent-type: text/plain\r\n\r\nbody")
+           (panic "incomplete HTTP response")))
+       (write-line
+        "HTTP exchange: real sockets, suspended handler, unread input and graceful finish"))))
+  (unit))

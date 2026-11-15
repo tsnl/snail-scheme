@@ -4,8 +4,8 @@ Research recorded on 2026-10-24. This page describes future options, not
 shipping features. We ship one WasmGC backend.
 
 Three decisions have been made since. One-shot `ctl` handlers are implemented
-by evidence passing ([effects and handlers](../snail-core/effects.md#control-handlers)),
-and the runtime's tasks are an effect on them, scheduled in Snail-Core, so
+by evidence passing ([effects and handlers](../snail-scheme/effects.md#control-handlers)),
+and the runtime's tasks are an effect on them, scheduled in `snail-scheme`, so
 no host suspends a Wasm stack ([task operations](tasks.md)).
 And each instance of a program is single-threaded, talking to others only
 through queues and shared memory ([instances](instances.md), proposed). So
@@ -27,8 +27,7 @@ continuation API or arbitrary migration of suspended stacks, and it has no
 counterpart outside the browser engines, so the tasks no longer use it.
 
 These extensions solve different problems. Stack switching does not make
-the heap shareable. Sharing the heap does not establish ownership, handler
-lifetimes or cancellation. An implementation of both still needs to
+the heap shareable. Sharing the heap does not establish handler lifetimes. An implementation of both still needs to
 preserve the language's invariants.
 
 ## Option A: restore a Wasm-to-LLVM backend
@@ -53,10 +52,10 @@ worker isolation was not a shared-heap thread pool. See its
 and [runtime](https://github.com/tsnl/snail-scheme/blob/fc8bf59ad2bc6f18d8c99547c56689f14d70aa95/src/native/native.rs).
 
 A stackful implementation would allocate stacks, switch between them at
-delimited suspension points, and represent a continuation as ownership of
-a suspended stack chain. The Wasm type checker supplies the continuation's
-type; LLVM need not gain a first-class continuation type. Affine resumptions
-avoid copying stacks to support repeated resumes. A historical
+delimited suspension points, and represent a continuation as a suspended
+stack chain. The Wasm type checker supplies the continuation's type; LLVM
+need not gain a first-class continuation type. One-shot resumptions avoid
+copying stacks to support repeated resumes. A historical
 [WasmFX prototype, section 5](https://kcsrk.info/papers/wasmfx_oopsla23.pdf),
 implemented this using Wasmtime's fibers and native register/stack switching.
 That establishes feasibility, not readiness of our old backend.
@@ -67,8 +66,8 @@ with saved state in a frame. They do not automatically capture arbitrary
 nested ordinary calls. We would either transform every potentially
 suspending path or supply a stack-switching runtime. The
 `coro.id.retcon.once` convention describes a coroutine yielding once; it
-does not by itself implement our rule that each captured resumption is
-consumed exactly once.
+does not by itself implement our rule that a captured resumption runs at
+most once.
 
 The substantial work is making the runtime correct:
 
@@ -78,16 +77,14 @@ The substantial work is making the runtime correct:
 - Enumerate roots from every running and suspended computation. A first
   multithreaded collector can stop all mutators; it need not collect
   concurrently. It still needs safepoints and safe allocation coordination.
-- Implement stack limits, foreign-call boundaries, cancellation unwinding
-  and exactly-once cleanup. Cross-thread resume must account for thread-local
-  state, not just copy a stack pointer.
+- Implement stack limits and foreign-call boundaries. Cross-thread resume
+  must account for thread-local state, not just copy a stack pointer.
 - Implement the shared Wasm memory/object operations and their atomic
   semantics. Native pointer accessibility alone does not provide them.
 
 A useful first experiment would suspend with live managed references,
 force a moving collection in another computation, resume, and check the
-references. Cancellation should exercise the same roots and cleanup paths.
-Only then should two native mutators run concurrently.
+references. Only then should two native mutators run concurrently.
 
 ## Option B: a C backend informed by Koka
 
@@ -109,22 +106,22 @@ continuation closures on the yielding path. A yielding flag distinguishes
 ordinary return values from suspension. Capture does work along the
 continuation's path, whereas native stack switching can retain the stack
 without rebuilding that path as closures. These are different cost models;
-neither establishes a performance result for Snail-Core without measurement.
+neither establishes a performance result for `snail-scheme` without measurement.
 
-Koka supports multiple resumptions. Snail-Core restricts them to one: `resume`
-is linear, so it is called or dropped exactly once. A C
+Koka supports multiple resumptions. `snail-scheme` restricts them to one: a
+second call of `resume` panics. A C
 backend would still need closure conversion, effect lowering, a
 managed-memory strategy, a foreign ABI and a portable runtime.
 Adopting this technique does not mean embedding Koka or obtaining those
 pieces automatically. Koka's reference-counting implementation is also not
 a requirement of the continuation technique.
 
-Koka explicitly finalizes abandoned resumptions so `finally` clauses run.
-Its `raw ctl` exposes a resume context whose owner must eventually resume or
-finalize it. This is evidence against treating cancellation as merely
-freeing a closure display. The
+Koka explicitly finalizes abandoned resumptions so `finally` clauses run,
+and its `raw ctl` exposes a resume context that must eventually be resumed
+or finalized; the
 [tour](https://github.com/koka-lang/koka/blob/dev/doc/spec/tour.kk.md)
-describes that contract. The related
+describes that contract. `snail-scheme` has no `finally`: a resumption that is
+never called is reclaimed by the collector, and nothing in its frames runs. The related
 [libmprompt](https://github.com/koka-lang/libmprompt) project takes a separate
 native stack-switching approach; it is not the mechanism described above.
 
@@ -132,16 +129,13 @@ The compiler transformation could also target today's WasmGC. Therefore
 waiting for typed stack switching is a choice to avoid another substantial
 lowering strategy, not proof that `ctl` is impossible on today's Wasm.
 
-## Handler ownership and scheduling
+## Handlers and scheduling
 
-An unrestricted handler implementation may be invoked repeatedly and
-concurrently. Each invocation receives its own linear resumption.
-That does not make the installation, delimiter or captured resources
-unrestricted. A continuation must retain the bindings and resources it
-needs; cancellation must release them without retaining managed wrappers
-through external cleanup records. A precise account of grades, effect
-instances and escaping resumptions remains theoretical work before public
-`ctl` handlers are added.
+A handler implementation may be invoked repeatedly and concurrently. Each
+invocation receives its own resumption. That does not make the installation
+or its delimiter reusable. A continuation must retain the bindings it
+needs. The implemented evidence/frame translation establishes these
+lifetimes; alternative backends would need to preserve that same contract.
 
 A shared-heap backend would want a conventional work-stealing pool. That is
 not the plan: each instance schedules its own tasks, and parallel work
@@ -149,59 +143,25 @@ runs as more instances ([instances](instances.md)). For now, deploy
 independent Wasm instances and balance requests externally. Neither native
 backend is on the implementation path of the task rewrite.
 
-## Scheme control and dynamic wind
+## Deliberate language limits
 
-The Scheme layer needs abortive `call/cc` with reusable continuations of
-unlimited extent, multiple values, dynamic parameters and exception
-handlers. Invoking an escape continuation replaces the current
-continuation. A root delimiter must model the Scheme execution context;
-delimiting every ordinary function or temporary browser callback would
-truncate it. Other Scheme conformance work remains in the
-[language issue](https://github.com/tsnl/snail-scheme/issues/456). See [R7RS sections 6.10 and 6.11](https://standards.scheme.org/official/r7rs.pdf).
+`snail-scheme` is a statically-typed Scheme successor, not an R7RS
+implementation. `call/cc`, `dynamic-wind`, reusable continuations and a separate
+Scheme compatibility runtime are outside the language. Its implemented
+control model is one-shot delimited effects: a second resume panics, and a
+resumption that is never called runs nothing. Future backends must preserve
+that contract rather than add a second continuation model.
 
-Represent `dynamic-wind` scopes as persistent nodes with identity, parent,
-entry and exit thunks, and their surrounding dynamic context. A
-continuation retains the applicable chain. For a control transfer, find
-the common ancestor, exit current scopes from inside outward, then enter
-destination scopes from outside inward:
+## Foreign callbacks
 
-```text
-Current: root -> A -> B -> C
-Target:  root -> A -> D
-Actions: C.after -> B.after -> D.before -> resume target
-```
+A pending operation holds the ticket its task waits on. Its completion
+settles it once and wakes the ticket; a result whose ticket wakes no task is
+disposed of by the host. An empty ready queue is not runtime exhaustion
+while waits remain live. Nothing walks language frames: neither GC
+reachability nor a native Rust/JavaScript exception unwinds them.
 
-Remove a scope before calling its exit thunk; install it after its entry
-thunk returns. Preserve the body's returned values across normal exit.
-The transition machinery must participate in control lowering when a
-hook performs an effect. The standard library implementation in
-[The Scheme Programming Language](https://www.scheme.com/tspl4/control.html#./control:h6)
-illustrates the chain and ordering.
-
-Compiler-generated returns used to package a suspension do not themselves
-leave a language scope. Ordinary I/O waiting preserves the task's dynamic
-context. Actual continuation transfers run the corresponding wind
-transitions. Capturing a continuation and collecting an already inactive
-continuation do not independently trigger wind hooks. Final resource
-destruction and dynamic scope exit remain separate operations.
-
-## Cancellation and foreign callbacks
-
-A pending operation owns its one-shot continuation. Completion and
-cancellation race to settle that operation once; only the winner may
-enqueue its work or initiate cancellation cleanup. Abandoning a task
-disarms its registration or retains the registration's storage until late
-callbacks can no longer access it. An empty ready queue is not runtime
-exhaustion while waits or cleanup remain live.
-
-Cancellation follows an explicit task cleanup path. It does not rely on
-GC reachability or a native Rust/JavaScript exception to walk language
-frames. Reusable Scheme continuations require a distinct lifetime policy:
-discarding one reference does not cancel every retained invocation or
-destroy resources still reachable through another reference.
-
-Foreign callbacks return normally. They copy transient inputs or transfer
-an explicitly owned buffer, settle a registration and enqueue Snail-Core work.
+Foreign callbacks return normally. They copy transient inputs or hand over
+an explicitly owned buffer, settle a registration and enqueue `snail-scheme` work.
 They do not capture a foreign stack as part of a continuation. Browser
 operations that need an immediate response, such as event suppression,
 keep that decision in the synchronous adapter.

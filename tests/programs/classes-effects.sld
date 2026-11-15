@@ -9,84 +9,105 @@
 ;; requires the class at a row of its own, and performs that row; a
 ;; caller then performs whatever its store's instance does.
 (effect log
-  ((say (-> String Unit))))
+  ((say (Fn String → Unit))))
 
 ;; ANCHOR: store
 (typeclass (Store e S)
-  (: fetch-object (-> S String String ! e)))
+  (declare (fetch-object (left S) (right String)) (→ String) (! e)))
 
-(struct Directory
+(record Directory
   ((root String)))
 
-(struct Table
+(record Table
   ((objects (List (Pair String String)))))
 
-(instance (Store (! console) Directory)
-  (define (fetch-object directory name)
-    (write-line (string-append "reading " (Directory-root directory) "/" name))
+(instance (Store (! output-port) Directory)
+  (define (fetch-object (directory Directory) (name String)) (→ String) (! output-port)
+    (write-line (string-append "reading " (● directory root) "/" name))
     (string-append "the bytes of " name)))
 
 (instance (Store (!) Table)
-  (define (fetch-object table name)
-    (match (assoc-ref (Table-objects table) name)
+  (define (fetch-object (table Table) (name String)) (→ String)
+    (match (assoc-ref (● table objects) name)
       ((Some text) text)
       ((None) "missing"))))
 
-(: fetch-twice (All (e S) (requires (Store e S) (Copy S)) (-> S String String ! e)))
-(define (fetch-twice store name)
+(define (fetch-twice (store S) (name String))
+  (→ String)
+  (! e)
+  (∀ (e S))
+  (⊨ (Store e S))
   (string-append (fetch-object store name) " / " (fetch-object store name)))
+
 ;; ANCHOR_END: store
 
 ;; A table's reads are total, so a total function may make them.
-(: from-table (-> Table String String))
-(define (from-table table name)
+(define (from-table (table Table) (name String)) (→ String)
   (fetch-twice table name))
 
 ;; A requirement may bound the row instead: `peek` is total, and takes any
 ;; store whose reads are.
-(: peek (All (S) (requires (Store (!) S)) (-> S String String)))
-(define (peek store name)
+(define (peek (store S) (name String)) (→ String) (∀ (S)) (⊨ (Store (!) S))
   (fetch-object store name))
 
 ;; The row a generic function performs holds its other arguments' effects
 ;; too, a control effect among them: `ask` suspends the fetch between its
 ;; reads, whichever store it reads.
 (effect Ask
-  ((ctl ask (-> String String))))
+  ((ctl ask (Fn String → String))))
 
-(: fetch-asked (All (e S) (requires (Store e S) (Copy S)) (-> S (-> String String ! e) String ! e)))
-(define (fetch-asked store choose)
+(define (fetch-asked (store S) (choose (Fn String → String ! e)))
+  (→ String)
+  (! e)
+  (∀ (e S))
+  (⊨ (Store e S))
   (let ((name (choose "which?")))
     (string-append (fetch-object store name) " then " (fetch-object store (choose "again?")))))
 
-(: answering (All (e) (-> (-> String ! Ask e) String ! e)))
-(define (answering body)
+(define (answering (body (Fn → String ! Ask e))) (→ String) (! e) (∀ (e))
   (handle Ask ((ask (lambda (question resume) (resume (if (string=? question "which?") "a" "b")))))
     (body)))
 
 ;; ANCHOR: logged
-(struct (Logged S)
+(record (Logged S)
   ((inner S)))
 
 (instance (Store (! log e) (Logged S))
-  (requires (Store e S))
-  (define (fetch-object logged name)
+  (⊨ (Store e S))
+  (define (fetch-object (logged (Logged S)) (name String)) (→ String) (! log e)
     (say (string-append "fetching " name))
     (match logged
       ((Logged inner) (fetch-object inner name)))))
+
 ;; ANCHOR_END: logged
 
 ;; The log is printed here; what the inner store performs passes through.
-(: logging (All (e) (-> (-> String ! log e) String ! console e)))
-(define (logging body)
+(define (logging (body (Fn → String ! log e))) (→ String) (! output-port e) (∀ (e))
   (handle log
       ((say (lambda (line) (write-line (string-append "log: " line)))))
     (body)))
 
-(write-line (fetch-twice (Directory "assets") "hero"))
-(write-line (from-table (Table (list (Pair "hero" "held"))) "hero"))
-(write-line (peek (Table (list (Pair "villain" "kept"))) "villain"))
-(write-line (answering (lambda () (fetch-asked (Table (list (Pair "a" "A") (Pair "b" "B"))) ask))))
-(write-line (answering (lambda () (fetch-asked (Directory "d") ask))))
-(write-line (logging (lambda () (fetch-twice (Logged (Table (list (Pair "a" "b")))) "a"))))
-(write-line (logging (lambda () (fetch-object (Logged (Directory "pack")) "villain"))))
+(define (main) (→ Unit) (! output-port)
+
+  (write-line (fetch-twice (new Directory (root "assets")) "hero"))
+  (write-line
+   (from-table (new Table (objects (list (new Pair (first "hero") (second "held"))))) "hero"))
+  (write-line
+   (peek (new Table (objects (list (new Pair (first "villain") (second "kept"))))) "villain"))
+  (write-line
+   (answering (lambda ()
+                (fetch-asked (new Table
+                               (objects (list (new Pair (first "a") (second "A"))
+                                              (new Pair (first "b") (second "B")))))
+                             ask))))
+  (write-line (answering (lambda () (fetch-asked (new Directory (root "d")) ask))))
+  (write-line (logging (lambda ()
+                         (fetch-twice (new Logged
+                                        (inner (new Table
+                                                 (objects
+                                                  (list (new Pair (first "a") (second "b")))))))
+                                      "a"))))
+  (write-line (logging (lambda ()
+                         (fetch-object (new Logged (inner (new Directory (root "pack"))))
+                                       "villain"))))
+  (unit))

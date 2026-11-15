@@ -8,7 +8,10 @@
                                   (list "squares")
                                   (list (list "snail" "core" "base"))
                                   (list (form "define"
-                                              (list (SymbolSyntax "squares")
+                                              (list (form "squares" (Nil))
+                                                    (form "→"
+                                                          (list (form "List"
+                                                                      (list (SymbolSyntax "I64")))))
                                                     (form "list"
                                                           (map (lambda (i) (IntegerSyntax (* i i)))
                                                                (iota 6))))))))

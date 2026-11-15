@@ -1,5 +1,5 @@
-#!/usr/bin/env bash
-set -euo pipefail
-
-script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-exec "${EMACS:-emacs}" --quick --batch --script "$script_dir/format-scheme.el" "$@"
+#!/bin/sh
+# The repository's formatter, the one `snail-scheme lsp` formats with, as
+# the command line's `format`.
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+exec "$root/snail-scheme" format "$@"

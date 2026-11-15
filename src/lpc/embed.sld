@@ -16,32 +16,35 @@
    (only (snail shell utf8) utf8->string))
   (begin
 
-    ;; `(: name (-> String result))` and `(define (name key) (cond ...))`,
+    ;; `(define (name (key String)) (→ result) (cond ...))`,
     ;; a function giving each entry's value for its string and `fallback`
     ;; for any other.
-    (: lookup-definitions (-> String Syntax (List (Pair String Syntax)) Syntax (List Syntax)))
-    (define (lookup-definitions name result entries fallback)
-      (list (form ":" (list (SymbolSyntax name) (form "->" (list (SymbolSyntax "String") result))))
-            (form "define"
-                  (list (form name (list (SymbolSyntax "key")))
+    (define (lookup-definitions (name String)
+                                (result Syntax)
+                                (entries (List (Pair String Syntax)))
+                                (fallback Syntax))
+      (→ (List Syntax))
+      (list (form "define"
+                  (list (form name (list (form "key" (list (SymbolSyntax "String")))))
+                        (form "→" (list result))
                         (form "cond"
                               (append (map lookup-clause entries)
                                       (list (form "else" (list fallback)))))))))
 
     ;; `((string=? key "K") VALUE)`.
-    (: lookup-clause (-> (Pair String Syntax) Syntax))
-    (define (lookup-clause entry)
+    (define (lookup-clause (entry (Pair String Syntax))) (→ Syntax)
       (ListSyntax
-       (list (form "string=?" (list (SymbolSyntax "key") (StringSyntax (Pair-first entry))))
-             (Pair-second entry))))
+       (list (form "string=?" (list (SymbolSyntax "key") (StringSyntax (● entry first))))
+             (● entry second))))
 
     ;; ---- Images ----
 
     ;; The library `name` exporting `art`, which gives the image at each path
     ;; of `paths` as a Source keyed from `first-key` on, and None for any
     ;; other path. The paths' files are read now, as bytes.
-    (: embed-library (-> (List String) I32 (List String) Syntax ! fs))
-    (define (embed-library name first-key paths)
+    (define (embed-library (name (List String)) (first-key I32) (paths (List String)))
+      (→ Syntax)
+      (! fs)
       (library-syntax name
                       (list "art")
                       (list (list "snail" "core" "base") (list "snail" "shell" "app"))
@@ -53,26 +56,27 @@
                                            (form "None" (Nil)))
                        (concatenate (map-indexed image-definitions paths)))))
 
-    ;; Path P gives `(Some (Source KEY image-I))`.
-    (: art-entry (-> I32 I64 String (Pair String Syntax)))
-    (define (art-entry first-key index path)
-      (Pair path
-            (form "Some"
-                  (list (form "Source"
-                              (list (IntegerSyntax (+ (i32->i64 first-key) index))
-                                    (image-name index)))))))
+    ;; Path P gives `(Some (new Source (key KEY) (bytes image-I)))`.
+    (define (art-entry (first-key I32) (index I64) (path String)) (→ (Pair String Syntax))
+      (new Pair (first path)
+           (second (form "Some"
+                         (list (form "new"
+                                     (list (SymbolSyntax "Source")
+                                           (form "key"
+                                                 (list (IntegerSyntax (+ (i32->i64 first-key)
+                                                                         index))))
+                                           (form "bytes" (list (image-name index))))))))))
 
-    (: image-name (-> I64 Syntax))
-    (define (image-name index)
+    (define (image-name (index I64)) (→ Syntax)
       (SymbolSyntax (string-append "image-" (show index))))
 
     ;; An image is a thunk of its bytes, so they are copied out of their
     ;; data segment only when the host asks for them.
-    (: image-definitions (-> I64 String (List Syntax) ! fs))
-    (define (image-definitions index path)
-      (list (form ":" (list (image-name index) (form "->" (list (SymbolSyntax "Bytes")))))
-            (form "define"
-                  (list (ListSyntax (list (image-name index))) (BytesSyntax (read-bytes path))))))
+    (define (image-definitions (index I64) (path String)) (→ (List Syntax)) (! fs)
+      (list (form "define"
+                  (list (ListSyntax (list (image-name index)))
+                        (form "→" (list (SymbolSyntax "Bytes")))
+                        (BytesSyntax (read-bytes path))))))
 
     ;; ---- Palettes ----
 
@@ -80,44 +84,41 @@
     ;; 0xRRGGBB, of each ramp in `json`, a palette file's bytes: an object
     ;; whose keys name lists of "#rrggbbaa" strings, as the LPC packs keep
     ;; their palettes. A missing ramp is empty.
-    (: ramps-library (-> (List String) Bytes Syntax))
-    (define (ramps-library name json)
+    (define (ramps-library (name (List String)) (json Bytes)) (→ Syntax)
       (library-syntax name (list "ramp") (list (list "snail" "core" "base"))
                       (lookup-definitions "ramp"
                                           (form "List" (list (SymbolSyntax "I32")))
                                           (map ramp-entry (json-ramps (palette-text json)))
                                           (form "Nil" (Nil)))))
 
-    (: palette-text (-> Bytes String))
-    (define (palette-text json)
+    (define (palette-text (json Bytes)) (→ String)
       (match (utf8->string json)
         ((Ok text) text)
         ((Err _) (panic "the palette file is not UTF-8"))))
 
     ;; Ramp K gives `(list C ...)`.
-    (: ramp-entry (-> (Pair String (List I32)) (Pair String Syntax)))
-    (define (ramp-entry ramp)
-      (Pair (Pair-first ramp)
-            (form "list"
-                  (map (lambda (color) (IntegerSyntax (i32->i64 color))) (Pair-second ramp)))))
+    (define (ramp-entry (ramp (Pair String (List I32)))) (→ (Pair String Syntax))
+      (new Pair (first (● ramp first))
+           (second (form "list"
+                         (map (lambda (color) (IntegerSyntax (i32->i64 color))) (● ramp second))))))
 
     ;; The quoted strings of the file in order: each key is followed by its
     ;; colors, so a string that is not a color starts the next ramp.
-    (: json-ramps (-> String (List (Pair String (List I32)))))
-    (define (json-ramps text)
+    (define (json-ramps (text String)) (→ (List (Pair String (List I32))))
       (reverse
        (fold-left (lambda (ramps word)
                     (match (color-value word)
                       ((Some color) (match ramps
                                       ((Cons (Pair key colors) rest)
-                                       (Cons (Pair key (append colors (list color))) rest))
+                                       (Cons
+                                        (new Pair (first key) (second (append colors (list color))))
+                                        rest))
                                       ((Nil) ramps)))
-                      ((None) (Cons (Pair word (Nil)) ramps))))
+                      ((None) (Cons (new Pair (first word) (second (Nil))) ramps))))
                   (Nil)
                   (quoted-strings text))))
 
-    (: quoted-strings (-> String (List String)))
-    (define (quoted-strings text)
+    (define (quoted-strings (text String)) (→ (List String))
       (let loop ((index 0) (start -1) (found (Nil)))
         (cond ((= index (string-length text)) (reverse found))
               ((not (char=? (string-ref text index) #\")) (loop (+ index 1) start found))
@@ -125,8 +126,7 @@
               (else (loop (+ index 1) -1 (Cons (substring text start index) found))))))
 
     ;; "#rrggbb" or "#rrggbbaa", as 0xRRGGBB.
-    (: color-value (-> String (Option I32)))
-    (define (color-value word)
+    (define (color-value (word String)) (→ (Option I32))
       (if (and (or (= (string-length word) 7) (= (string-length word) 9))
                (char=? (string-ref word 0) #\#))
           (fold-left (lambda (value index)
@@ -139,8 +139,7 @@
                      (list 1 2 3 4 5 6))
           (None)))
 
-    (: hex-digit (-> Char (Option I32)))
-    (define (hex-digit c)
+    (define (hex-digit (c Char)) (→ (Option I32))
       (let ((code (char->i32 c)))
         (cond ((and (<= 48 code) (<= code 57)) (Some (- code 48)))
               ((and (<= 97 code) (<= code 102)) (Some (- code 87)))

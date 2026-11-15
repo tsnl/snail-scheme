@@ -72,7 +72,7 @@ export function createDom(container, runtime, {refresh = () => {}} = {}) {
 
   // ---- Offsets ----
 
-  // An offset crosses counting scalars, as a Snail String's indices do;
+  // An offset crosses counting scalars, as a `snail-scheme` String's indices do;
   // a field counts UTF-16 code units.
   const scalars = (text, units) => [...text.slice(0, units)].length;
   function units(text, scalars) {

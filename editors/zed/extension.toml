@@ -1,0 +1,19 @@
+id = "snail-scheme"
+name = "snail-scheme"
+description = "snail-scheme, a statically-typed Scheme successor: syntax from its tree-sitter grammar, and diagnostics, formatting, hover and definitions from `snail-scheme lsp`."
+version = "0.1.0"
+schema_version = 1
+authors = ["snail-scheme contributors"]
+repository = "https://github.com/tsnl/snail-scheme"
+
+[language_servers.snail-scheme]
+name = "snail-scheme"
+languages = ["snail-scheme"]
+
+# Zed fetches the grammar from the repository at `rev` and compiles
+# editors/tree-sitter-snail-scheme/src. Move `rev` to a commit that has a grammar
+# change before installing the extension again.
+[grammars.snail_scheme]
+repository = "https://github.com/tsnl/snail-scheme"
+rev = "REVISION"
+path = "editors/tree-sitter-snail-scheme"

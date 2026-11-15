@@ -1,4 +1,5 @@
 (import
+ (only (snail core forms) host)
  (snail core base)
  (snail core io)
  (snail shell task)
@@ -14,11 +15,11 @@
 ;; their nodes instead of rewriting them, and the trace shows each change
 ;; the reconciler made.
 
-(struct Item
+(record Item
   ((id I64)
    (text String)))
 
-(struct Model
+(record Model
   ((items (List Item))
    (draft String)
    (next I64)
@@ -31,36 +32,37 @@
   (Remove ((id I64)))
   (Saved ((count I64))))
 
-(: update (-> Model Msg (Pair Model (List (FnOnce Msg ! console tasks)))))
-(define (update model message)
+(define (update (model Model) (message Msg))
+  (→ (Pair Model (List (Fn → Msg ! output-port tasks))))
   (match message
-    ((Typed text) (Pair (Model-draft-set model text) (Nil)))
+    ((Typed text) (new Pair (first (Model-draft-set model text)) (second (Nil))))
     ((Add)
      (let ((items
-            (append (Model-items model) (list (Item (Model-next model) (Model-draft model))))))
-       (Pair (Model items "" (+ (Model-next model) 1) (Model-saved model))
-             (list (once (lambda ()
-                           (yield)
-                           (Saved (length items))))))))
-    ((Reverse) (Pair (Model-items-set model (reverse (Model-items model))) (Nil)))
+            (append (● model items) (list (new Item (id (● model next)) (text (● model draft)))))))
+       (new Pair
+         (first
+          (new Model (items items) (draft "") (next (+ (● model next) 1)) (saved (● model saved))))
+         (second (list (lambda ()
+                         (yield)
+                         (Saved (length items))))))))
+    ((Reverse) (new Pair (first (Model-items-set model (reverse (● model items)))) (second (Nil))))
     ((Remove id)
-     (Pair (Model-items-set model
-                            (filter (lambda (item) (not (= (Item-id item) id)))
-                                    (Model-items model)))
-           (Nil)))
-    ((Saved count) (Pair (Model-saved-set model count) (Nil)))))
+     (new Pair (first (Model-items-set model
+                                       (filter (lambda (item) (not (= (● item id) id)))
+                                               (● model items))))
+          (second (Nil))))
+    ((Saved count) (new Pair (first (Model-saved-set model count)) (second (Nil))))))
 
-(: view (-> Model (Html Msg)))
-(define (view model)
+(define (view (model Model)) (→ (Html Msg))
   (Element "main"
            (Nil)
            (list (Element "input"
                           (list (Attr "id" "draft")
-                                (StringProperty "value" (Model-draft model))
+                                (StringProperty "value" (● model draft))
                                 (On "input"
                                     (list (Value))
                                     (Allow)
-                                    (lambda (event) (Typed (Event-value event)))))
+                                    (lambda (event) (Typed (● event value)))))
                           (Nil))
                  (Element "button"
                           (list (Attr "id" "add")
@@ -70,36 +72,32 @@
                           (list (Attr "id" "reverse")
                                 (On "click" (Nil) (Allow) (lambda (event) (Reverse))))
                           (list (Text "Reverse")))
-                 (Element "ul" (Nil) (map item-view (Model-items model)))
-                 (Text (string-append "saved " (show (Model-saved model)))))))
+                 (Element "ul" (Nil) (map item-view (● model items)))
+                 (Text (string-append "saved " (show (● model saved)))))))
 
-(: item-view (-> Item (Html Msg)))
-(define (item-view item)
+(define (item-view (item Item)) (→ (Html Msg))
   (Element "li"
-           (list (Keyed (show (Item-id item))))
-           (list (Text (Item-text item))
+           (list (Keyed (show (● item id))))
+           (list (Text (● item text))
                  (Element "button"
-                          (list (Attr "id" (string-append "remove-" (show (Item-id item))))
-                                (On "click" (Nil) (Allow) (lambda (event) (Remove (Item-id item)))))
+                          (list (Attr "id" (string-append "remove-" (show (● item id))))
+                                (On "click" (Nil) (Allow) (lambda (event) (Remove (● item id)))))
                           (list (Text "x"))))))
 
-(: checkpoint (-> Model Unit ! console))
-(define (checkpoint model)
+(define (checkpoint (model Model)) (→ Unit) (! output-port)
   (write-line (string-append "checkpoint: "
-                             (string-join (map Item-text (Model-items model)) ", ")
+                             (string-join (map (lambda (record) (● record text)) (● model items))
+                                          ", ")
                              "; saved "
-                             (show (Model-saved model)))))
+                             (show (● model saved)))))
 
-(: typed (-> String Cue))
-(define (typed text)
-  (Fire "draft" "input" (Event-value-set no-event text)))
+(define (typed (text String)) (→ Cue)
+  (Fire "draft" "input" (Event-value-set (no-event) text)))
 
-(: clicked (-> String Cue))
-(define (clicked target)
-  (Fire target "click" no-event))
+(define (clicked (target String)) (→ Cue)
+  (Fire target "click" (no-event)))
 
-(: script (List Cue))
-(define script
+(define (script) (→ (List Cue))
   (list (typed "milk")
         (clicked "add")
         (typed "eggs")
@@ -110,18 +108,20 @@
         (clicked "reverse")
         (clicked "remove-1")))
 
-(dispatch-local
- (once (lambda ()
-         (let ((result
-                (with-memory-dom script
-                                 (lambda ()
-                                   (run-ui (Model (Nil) "" 0 0)
-                                           (Nil)
-                                           update
-                                           view
-                                           (lambda (model) (Nil))
-                                           (lambda (model) (unit))
-                                           checkpoint)))))
-           (write-line (string-append "saved " (show (Model-saved (Pair-first result)))))
-           (write-line (document->html (Pair-second result)))
-           (for-each write-line (document-trace (Pair-second result)))))))
+(define (main) (→ Unit) (! host mut output-port tasks)
+  (dispatch
+   (lambda ()
+     (let ((result
+            (with-memory-dom (script)
+                             (lambda ()
+                               (run-ui (new Model (items (Nil)) (draft "") (next 0) (saved 0))
+                                       (Nil)
+                                       (lambda (model message) (update model message))
+                                       view
+                                       (lambda (model) (Nil))
+                                       (lambda (model) (unit))
+                                       checkpoint)))))
+       (write-line (string-append "saved " (show (● (● result first) saved))))
+       (write-line (document->html (● result second)))
+       (for-each write-line (document-trace (● result second))))))
+  (unit))

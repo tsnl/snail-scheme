@@ -33,8 +33,6 @@
   (import
    (snail core base)
    (snail core table)
-   (snail shell datum)
-   (snail shell write)
    (only (snail shell task) tasks yield)
    (snail shell dom))
   (begin
@@ -45,7 +43,7 @@
     ;; node; its attributes and properties in the order first set; its
     ;; children; its parent, -1 when it is detached; the listeners on it;
     ;; and whether its handle is still live.
-    (struct Entry
+    (record Entry
       ((tag String)
        (text String)
        (attributes (List (Pair String String)))
@@ -57,7 +55,7 @@
 
     ;; A listener: its id, its event, and its prevention, which says which
     ;; keys it hears.
-    (struct Hearing
+    (record Hearing
       ((id I32)
        (event String)
        (prevent Prevent)))
@@ -71,166 +69,165 @@
     ;; the next handle and listener id; and the trace's lines, newest
     ;; first. Handle 0 is the root, and -1 the window, which holds only
     ;; listeners.
-    (struct Document
+    (record Document
       ((entries (Table Entry))
        (owners (Table I32))
        (next I32)
        (next-listener I32)
        (lines (List String))))
 
-    (: empty-document Document)
-    (define empty-document
-      (Document (table-set (table-set empty-table "0" (new-entry "#root" ""))
-                           "-1"
-                           (new-entry "#window" ""))
-                empty-table
-                1
-                1
-                (Nil)))
+    (define (empty-document) (→ Document)
+      (new Document (entries (table-set (table-set (empty-table) "0" (new-entry "#root" ""))
+                                        "-1"
+                                        (new-entry "#window" "")))
+           (owners (empty-table))
+           (next 1)
+           (next-listener 1)
+           (lines (Nil))))
 
-    (: new-entry (-> String String Entry))
-    (define (new-entry tag text)
-      (Entry tag text (Nil) (Nil) (Nil) -1 (Nil) #t))
+    (define (new-entry (tag String) (text String)) (→ Entry)
+      (new Entry
+        (tag tag)
+        (text text)
+        (attributes (Nil))
+        (properties (Nil))
+        (children (Nil))
+        (parent -1)
+        (listeners (Nil))
+        (live #t)))
 
     ;; The trace, a line per operation, oldest first.
-    (: document-trace (-> Document (List String)))
-    (define (document-trace document)
-      (reverse (Document-lines document)))
 
-    (: entry (-> Document I32 Entry))
-    (define (entry document handle)
-      (match (table-ref (Document-entries document) (show handle))
+    (define (document-trace (document Document)) (→ (List String))
+      (reverse (● document lines)))
+
+    (define (entry (document Document) (handle I32)) (→ Entry)
+      (match (table-ref (● document entries) (show handle))
         ((Some found)
-         (if (Entry-live found)
+         (if (● found live)
              found
              (panic (string-append "the node " (show handle) " was removed"))))
         ((None) (panic (string-append "no node has the handle " (show handle))))))
 
-    (: put (-> Document I32 Entry Document))
-    (define (put document handle changed)
+    (define (put (document Document) (handle I32) (changed Entry)) (→ Document)
       (Document-entries-set document
-                            (table-set (Document-entries document) (show handle) changed)))
+                            (table-set (● document entries) (show handle) changed)))
 
-    (: traced (-> Document (List String) Document))
-    (define (traced document words)
-      (Document-lines-set document (Cons (string-join words " ") (Document-lines document))))
+    (define (traced (document Document) (words (List String))) (→ Document)
+      (Document-lines-set document (Cons (string-join words " ") (● document lines))))
 
-    (: quoted (-> String String))
-    (define (quoted text)
-      (datum->string (ann text Any)))
+    (define (quoted (text String)) (→ String)
+      (repr text))
 
     ;; ---- Operations ----
 
-    (: created (-> Document String String (Pair Node Document)))
-    (define (created document tag text)
+    (define (created (document Document) (tag String) (text String)) (→ (Pair Node Document))
       (let ((made (made document tag text)))
-        (Pair (Pair-first made)
-              (traced (Pair-second made)
-                      (if (string=? tag "#text")
-                          (list "create-text" (show (Node-handle (Pair-first made))) (quoted text))
-                          (list "create-element" (show (Node-handle (Pair-first made))) tag))))))
+        (new Pair (first (● made first))
+             (second (traced (● made second)
+                             (if (string=? tag "#text")
+                                 (list "create-text" (show (● (● made first) handle)) (quoted text))
+                                 (list "create-element" (show (● (● made first) handle)) tag)))))))
 
-    (: made (-> Document String String (Pair Node Document)))
-    (define (made document tag text)
-      (let ((handle (Document-next document)))
-        (Pair (Node handle)
-              (Document-next-set (put document handle (new-entry tag text)) (+ handle 1)))))
+    (define (made (document Document) (tag String) (text String)) (→ (Pair Node Document))
+      (let ((handle (● document next)))
+        (new Pair (first (new Node (handle handle)))
+             (second (Document-next-set (put document handle (new-entry tag text)) (+ handle 1))))))
 
-    (: attribute-set (-> Document Node String String Document))
-    (define (attribute-set document node name value)
-      (let* ((handle (Node-handle node)) (changed (entry document handle)))
+    (define (attribute-set (document Document) (node Node) (name String) (value String))
+      (→ Document)
+      (let* ((handle (● node handle)) (changed (entry document handle)))
         (traced (put document
                      handle
                      (Entry-attributes-set changed
-                                           (assigned (Entry-attributes changed)
+                                           (assigned (● changed attributes)
                                                      name
                                                      (if (string=? value "") (None) (Some value)))))
                 (list "set-attribute" (show handle) name (quoted value)))))
 
     ;; `pairs` with `name` given `value`, in place when it is there and last
     ;; when it is new, or without it.
-    (: assigned
-       (All (V)
-            (requires (Copy V))
-            (-> (List (Pair String V)) String (Option V) (List (Pair String V)))))
-    (define (assigned pairs name value)
-      (let ((others (filter (lambda (pair) (not (string=? (Pair-first pair) name))) pairs)))
+
+    (define (assigned (pairs (List (Pair String V))) (name String) (value (Option V)))
+      (→ (List (Pair String V)))
+      (∀ (V))
+      (let ((others (filter (lambda (pair) (not (string=? (● pair first) name))) pairs)))
         (match value
           ((None) others)
           ((Some value)
-           (if (any? (lambda (pair) (string=? (Pair-first pair) name)) pairs)
-               (map (lambda (pair) (if (string=? (Pair-first pair) name) (Pair name value) pair))
+           (if (any? (lambda (pair) (string=? (● pair first) name)) pairs)
+               (map (lambda (pair)
+                      (if (string=? (● pair first) name)
+                          (new Pair (first name) (second value))
+                          pair))
                     pairs)
-               (append pairs (list (Pair name value))))))))
+               (append pairs (list (new Pair (first name) (second value)))))))))
 
     ;; An element's text replaces its children, whose handles are freed,
     ;; with one text node of its own.
-    (: text-set (-> Document Node String Document))
-    (define (text-set document node text)
-      (let ((handle (Node-handle node)))
-        (traced (if (string=? (Entry-tag (entry document handle)) "#text")
+
+    (define (text-set (document Document) (node Node) (text String)) (→ Document)
+      (let ((handle (● node handle)))
+        (traced (if (string=? (● (entry document handle) tag) "#text")
                     (put document handle (Entry-text-set (entry document handle) text))
                     (element-text-set document handle text))
                 (list "set-text" (show handle) (quoted text)))))
 
-    (: element-text-set (-> Document I32 String Document))
-    (define (element-text-set document handle text)
-      (let* ((cleared (fold-left freed document (Entry-children (entry document handle))))
+    (define (element-text-set (document Document) (handle I32) (text String)) (→ Document)
+      (let* ((cleared (fold-left freed document (● (entry document handle) children)))
              (child (made cleared "#text" text))
-             (text-handle (Node-handle (Pair-first child)))
-             (document (Pair-second child)))
+             (text-handle (● (● child first) handle))
+             (document (● child second)))
         (put (put document text-handle (Entry-parent-set (entry document text-handle) handle))
              handle
              (Entry-children-set (entry document handle) (list text-handle)))))
 
-    (: property-set (-> Document Node String Property Document))
-    (define (property-set document node name value)
+    (define (property-set (document Document) (node Node) (name String) (value Property))
+      (→ Document)
       (commanded document
                  node
-                 (list "set-property" (show (Node-handle node)) name (property->string value))
+                 (list "set-property" (show (● node handle)) name (property->string value))
                  (lambda (changed)
                    (Entry-properties-set changed
-                                         (assigned (Entry-properties changed) name (Some value))))))
+                                         (assigned (● changed properties) name (Some value))))))
 
-    (: property->string (-> Property String))
-    (define (property->string property)
+    (define (property->string (property Property)) (→ String)
       (match property
         ((Text value) (quoted value))
         ((Number value) (show value))
         ((Flag value) (if value "true" "false"))))
 
-    (: property-of (-> Document Node String (Option Property)))
-    (define (property-of document node name)
-      (match (live document (Node-handle node))
+    (define (property-of (document Document) (node Node) (name String)) (→ (Option Property))
+      (match (live document (● node handle))
         ((Some found)
-         (match (find (lambda (pair) (string=? (Pair-first pair) name)) (Entry-properties found))
-           ((Some pair) (Some (Pair-second pair)))
+         (match (find (lambda (pair) (string=? (● pair first) name)) (● found properties))
+           ((Some pair) (Some (● pair second)))
            ((None) (None))))
         ((None) (None))))
 
     ;; A child inserted where it is, or into a node under it, would leave
     ;; the tree; a child elsewhere moves.
-    (: inserted (-> Document Node Node (Option Node) Document))
-    (define (inserted document parent child before)
-      (let ((into (Node-handle parent)) (moved (Node-handle child)))
+
+    (define (inserted (document Document) (parent Node) (child Node) (before (Option Node)))
+      (→ Document)
+      (let ((into (● parent handle)) (moved (● child handle)))
         (when (or (= into moved) (under? document into moved))
           (panic (string-append "the node " (show moved) " cannot go inside itself")))
         (let* ((detached (detached document moved))
                (siblings (filter (lambda (sibling) (not (= sibling moved)))
-                                 (Entry-children (entry detached into))))
+                                 (● (entry detached into) children)))
                (placed (match before
-                         ((Some node) (insert-before siblings (Node-handle node) moved))
+                         ((Some node) (insert-before siblings (● node handle) moved))
                          ((None) (append siblings (list moved))))))
           (traced (put (put detached into (Entry-children-set (entry detached into) placed))
                        moved
                        (Entry-parent-set (entry detached moved) into))
                   (append (list "insert" (show moved) "into" (show into))
                           (match before
-                            ((Some node) (list "before" (show (Node-handle node))))
+                            ((Some node) (list "before" (show (● node handle))))
                             ((None) (Nil))))))))
 
-    (: insert-before (-> (List I32) I32 I32 (List I32)))
-    (define (insert-before siblings before moved)
+    (define (insert-before (siblings (List I32)) (before I32) (moved I32)) (→ (List I32))
       (match siblings
         ((Cons first rest)
          (if (= first before)
@@ -239,63 +236,67 @@
         ((Nil) (panic (string-append "the node " (show before) " is not a child there")))))
 
     ;; Whether `handle` lies under `ancestor`.
-    (: under? (-> Document I32 I32 Bool))
-    (define (under? document handle ancestor)
-      (let ((parent (Entry-parent (entry document handle))))
+
+    (define (under? (document Document) (handle I32) (ancestor I32)) (→ Bool)
+      (let ((parent (● (entry document handle) parent)))
         (and (>= parent 0) (or (= parent ancestor) (under? document parent ancestor)))))
 
-    (: detached (-> Document I32 Document))
-    (define (detached document handle)
-      (let ((parent (Entry-parent (entry document handle))))
+    (define (detached (document Document) (handle I32)) (→ Document)
+      (let ((parent (● (entry document handle) parent)))
         (if (< parent 0)
             document
             (put (put document
                       parent
                       (Entry-children-set (entry document parent)
                                           (filter (lambda (child) (not (= child handle)))
-                                                  (Entry-children (entry document parent)))))
+                                                  (● (entry document parent) children))))
                  handle
                  (Entry-parent-set (entry document handle) -1)))))
 
     ;; A removed node leaves its parent, and its handle and those under it
     ;; are freed.
-    (: removed (-> Document Node Document))
-    (define (removed document node)
-      (let ((handle (Node-handle node)))
+
+    (define (removed (document Document) (node Node)) (→ Document)
+      (let ((handle (● node handle)))
         (traced (freed (detached document handle) handle) (list "remove" (show handle)))))
 
-    (: freed (-> Document I32 Document))
-    (define (freed document handle)
+    (define (freed (document Document) (handle I32)) (→ Document)
       (let ((gone (entry document handle)))
         (put
-         (fold-left (lambda (document child) (freed document child)) document (Entry-children gone))
+         (fold-left (lambda (document child) (freed document child)) document (● gone children))
          handle
          (Entry-live-set gone #f))))
 
-    (: listened (-> Document Node String (List Capture) Prevent (Pair Listener Document)))
-    (define (listened document node event captures prevent)
-      (let* ((handle (Node-handle node))
-             (id (Document-next-listener document))
+    (define (listened (document Document)
+                      (node Node)
+                      (event String)
+                      (captures (List Capture))
+                      (prevent Prevent))
+      (→ (Pair Listener Document))
+      (let* ((handle (● node handle))
+             (id (● document next-listener))
              (on (entry document handle)))
-        (Pair (Listener id)
-              (traced (Document-owners-set
-                       (Document-next-listener-set
-                        (put document
-                             handle
-                             (Entry-listeners-set on
-                                                  (append (Entry-listeners on)
-                                                          (list (Hearing id event prevent)))))
-                        (+ id 1))
-                       (table-set (Document-owners document) (show id) handle))
-                      (list "listen"
-                            (show handle)
-                            event
-                            (string-append "#" (show id))
-                            (show (capture-bits captures))
-                            (prevent->string prevent))))))
+        (new Pair (first (new Listener (id id)))
+             (second (traced (Document-owners-set
+                              (Document-next-listener-set
+                               (put document
+                                    handle
+                                    (Entry-listeners-set on
+                                                         (append (● on listeners)
+                                                                 (list (new Hearing
+                                                                         (id id)
+                                                                         (event event)
+                                                                         (prevent prevent))))))
+                               (+ id 1))
+                              (table-set (● document owners) (show id) handle))
+                             (list "listen"
+                                   (show handle)
+                                   event
+                                   (string-append "#" (show id))
+                                   (show (capture-bits captures))
+                                   (prevent->string prevent)))))))
 
-    (: prevent->string (-> Prevent String))
-    (define (prevent->string prevent)
+    (define (prevent->string (prevent Prevent)) (→ String)
       (match prevent
         ((Allow) "allow")
         ((Always) "always")
@@ -304,16 +305,16 @@
                         (string-concatenate
                          (map (lambda (chord)
                                 (string-append " "
-                                               (show (Chord-modifiers chord))
+                                               (show (● chord modifiers))
                                                "+"
-                                               (quoted (Chord-key chord))))
+                                               (quoted (● chord key))))
                               chords))))))
 
     ;; A listener goes with its node, so its node must be there.
-    (: unlistened (-> Document Listener Document))
-    (define (unlistened document listener)
-      (let* ((id (Listener-id listener))
-             (handle (match (table-ref (Document-owners document) (show id))
+
+    (define (unlistened (document Document) (listener Listener)) (→ Document)
+      (let* ((id (● listener id))
+             (handle (match (table-ref (● document owners) (show id))
                        ((Some handle) handle)
                        ((None) (panic (string-append "no listener has the id " (show id))))))
              (on (entry document handle)))
@@ -321,8 +322,8 @@
                      handle
                      (Entry-listeners-set on
                                           (filter
-                                           (lambda (hearing) (not (= (Hearing-id hearing) id)))
-                                           (Entry-listeners on))))
+                                           (lambda (hearing) (not (= (● hearing id) id)))
+                                           (● on listeners))))
                 (list "unlisten" (string-append "#" (show id))))))
 
     ;; ---- Events ----
@@ -339,39 +340,41 @@
       (Hide))
 
     ;; A cue's delivery.
-    (: cued (-> Document Cue (Pair Delivery Document)))
-    (define (cued document cue)
+
+    (define (cued (document Document) (cue Cue)) (→ (Pair Delivery Document))
       (match cue
         ((Fire target event data) (fired document target (target-entry document target) event data))
         ((FireWindow event data) (fired document "window" (entry document -1) event data))
-        ((Hide) (Pair (Hidden) (traced document (list "hide"))))))
+        ((Hide) (new Pair (first (Hidden)) (second (traced document (list "hide")))))))
 
     ;; The listener a scripted event fires, which must be there, and must
     ;; hear its key when it hears only chords.
-    (: fired (-> Document String Entry String Event (Pair Delivery Document)))
-    (define (fired document target on event data)
-      (match (find (lambda (hearing) (string=? (Hearing-event hearing) event)) (Entry-listeners on))
+
+    (define (fired (document Document) (target String) (on Entry) (event String) (data Event))
+      (→ (Pair Delivery Document))
+      (match (find (lambda (hearing) (string=? (● hearing event) event)) (● on listeners))
         ((Some hearing)
-         (unless (hears? (Hearing-prevent hearing) data)
+         (unless (hears? (● hearing prevent) data)
            (panic
-            (string-append "the " event " listener on " target " does not hear " (Event-key data))))
-         (Pair (Fired (Listener (Hearing-id hearing)) data)
-               (traced document
-                       (list "fire" target event (string-append "#" (show (Hearing-id hearing)))))))
+            (string-append "the " event " listener on " target " does not hear " (● data key))))
+         (new Pair (first (Fired (new Listener (id (● hearing id))) data))
+              (second (traced document
+                              (list "fire"
+                                    target
+                                    event
+                                    (string-append "#" (show (● hearing id))))))))
         ((None) (panic (string-append "nothing listens for " event " on " target)))))
 
-    (: hears? (-> Prevent Event Bool))
-    (define (hears? prevent data)
+    (define (hears? (prevent Prevent) (data Event)) (→ Bool)
       (match prevent
         ((Chords chords)
          (any? (lambda (chord)
-                 (and (string=? (Chord-key chord) (Event-key data))
-                      (= (Chord-modifiers chord) (Event-modifiers data))))
+                 (and (string=? (● chord key) (● data key))
+                      (= (● chord modifiers) (● data modifiers))))
                chords))
         (_ #t)))
 
-    (: target-entry (-> Document String Entry))
-    (define (target-entry document target)
+    (define (target-entry (document Document) (target String)) (→ Entry)
       (match (element-handle document target 0)
         ((Some handle) (entry document handle))
         ((None) (panic (string-append "no element has the id " target)))))
@@ -379,71 +382,73 @@
     ;; ---- Commands ----
 
     ;; A node, unless it was removed.
-    (: live (-> Document I32 (Option Entry)))
-    (define (live document handle)
-      (match (table-ref (Document-entries document) (show handle))
-        ((Some found) (if (Entry-live found) (Some found) (None)))
+
+    (define (live (document Document) (handle I32)) (→ (Option Entry))
+      (match (table-ref (● document entries) (show handle))
+        ((Some found) (if (● found live) (Some found) (None)))
         ((None) (panic (string-append "no node has the handle " (show handle))))))
 
     ;; A command's change to a node, traced by `words`, or the trace alone
     ;; when the node was removed.
-    (: commanded (-> Document Node (List String) (-> Entry Entry) Document))
-    (define (commanded document node words change)
-      (let ((handle (Node-handle node)))
+
+    (define (commanded (document Document)
+                       (node Node)
+                       (words (List String))
+                       (change (Fn Entry → Entry)))
+      (→ Document)
+      (let ((handle (● node handle)))
         (match (live document handle)
           ((Some found) (traced (put document handle (change found)) words))
           ((None) (traced document (append words (list "(removed)")))))))
 
     ;; The first node from `handle` on whose `id` is `target`.
-    (: element-handle (-> Document String I32 (Option I32)))
-    (define (element-handle document target handle)
-      (cond ((>= handle (Document-next document)) (None))
+
+    (define (element-handle (document Document) (target String) (handle I32)) (→ (Option I32))
+      (cond ((>= handle (● document next)) (None))
             ((match (live document handle)
                ((Some found)
                 (any? (lambda (pair)
-                        (and (string=? (Pair-first pair) "id")
-                             (string=? (Pair-second pair) target)))
-                      (Entry-attributes found)))
+                        (and (string=? (● pair first) "id")
+                             (string=? (● pair second) target)))
+                      (● found attributes)))
                ((None) #f))
              (Some handle))
             (else (element-handle document target (+ handle 1)))))
 
-    (: selected (-> Document Node I32 I32 Document))
-    (define (selected document node start end)
+    (define (selected (document Document) (node Node) (start I32) (end I32)) (→ Document)
       (commanded document
                  node
-                 (list "select" (show (Node-handle node)) (show start) (show end))
+                 (list "select" (show (● node handle)) (show start) (show end))
                  (lambda (found) (selection-set found start end))))
 
-    (: selection-set (-> Entry I32 I32 Entry))
-    (define (selection-set found start end)
+    (define (selection-set (found Entry) (start I32) (end I32)) (→ Entry)
       (Entry-properties-set found
-                            (assigned (assigned (Entry-properties found)
+                            (assigned (assigned (● found properties)
                                                 "selectionStart"
                                                 (Some (Number (i32->f64 start))))
                                       "selectionEnd"
                                       (Some (Number (i32->f64 end))))))
 
-    (: offset-property (-> Document Node String I32))
-    (define (offset-property document node name)
+    (define (offset-property (document Document) (node Node) (name String)) (→ I32)
       (match (property-of document node name)
         ((Some (Number offset)) (f64->i32 offset))
         (_ 0)))
 
     ;; The field's value with the range replaced by `text`, and the caret
     ;; after it.
-    (: text-inserted (-> Document Node I32 I32 String Document))
-    (define (text-inserted document node start end text)
+
+    (define (text-inserted (document Document) (node Node) (start I32) (end I32) (text String))
+      (→ Document)
       (commanded document
                  node
                  (list "insert-text"
-                       (show (Node-handle node))
+                       (show (● node handle))
                        (show start)
                        (show end)
                        (quoted text))
                  (lambda (found)
-                   (let* ((value (match (find (lambda (pair) (string=? (Pair-first pair) "value"))
-                                              (Entry-properties found))
+                   (let* ((value (match (find (lambda (pair) (string=? (● pair first) "value"))
+                                              (● found properties))
                                    ((Some (Pair _ (Text value))) value)
                                    (_ "")))
                           (changed (string-append (substring value 0 (i32->i64 start))
@@ -453,7 +458,7 @@
                                                              (string-length value))))
                           (caret (+ start (i64->i32 (string-length text)))))
                      (selection-set (Entry-properties-set found
-                                                          (assigned (Entry-properties found)
+                                                          (assigned (● found properties)
                                                                     "value"
                                                                     (Some (Text changed))))
                                     caret
@@ -461,15 +466,15 @@
 
     ;; The `input` event a field's listener hears after text is inserted
     ;; into it.
-    (: input-fired (-> Document Node (Option Delivery)))
-    (define (input-fired document node)
-      (match (live document (Node-handle node))
+
+    (define (input-fired (document Document) (node Node)) (→ (Option Delivery))
+      (match (live document (● node handle))
         ((Some found)
-         (match (find (lambda (hearing) (string=? (Hearing-event hearing) "input"))
-                      (Entry-listeners found))
+         (match (find (lambda (hearing) (string=? (● hearing event) "input"))
+                      (● found listeners))
            ((Some hearing)
-            (Some (Fired (Listener (Hearing-id hearing))
-                         (Event-value-set no-event
+            (Some (Fired (new Listener (id (● hearing id)))
+                         (Event-value-set (no-event)
                                           (match (property-of document node "value")
                                             ((Some (Text value)) value)
                                             (_ ""))))))
@@ -477,37 +482,55 @@
         ((None) (None))))
 
     ;; A document in memory has no layout: every measure is 0.
-    (: measured (-> Document Node (Pair Measure Document)))
-    (define (measured document node)
-      (Pair (Measure 0.0 0.0 0.0 0.0 0.0 0.0 0.0)
-            (commanded document
-                       node
-                       (list "measure" (show (Node-handle node)))
-                       (lambda (found) found))))
+
+    (define (measured (document Document) (node Node)) (→ (Pair Measure Document))
+      (new Pair
+        (first (new Measure
+                 (left 0.0)
+                 (top 0.0)
+                 (width 0.0)
+                 (height 0.0)
+                 (client-width 0.0)
+                 (client-height 0.0)
+                 (line-height 0.0)))
+        (second (commanded document
+                           node
+                           (list "measure" (show (● node handle)))
+                           (lambda (found) found)))))
 
     ;; ---- Handling ----
 
+    ;; The simulated host shares one explicit state record among handlers.
+    (record Memory
+      ((document Document)
+       (cues (List Cue))
+       (woken Bool)
+       (inputs (List Delivery))))
+
     ;; One operation's change to the document in `state`, and its answer.
-    (: change!
-       (All (A) (requires (Copy A)) (-> (Ref Document) (-> Document (Pair A Document)) A ! mut)))
-    (define (change! state operation)
-      (let ((result (operation (ref-get state))))
-        (ref-set! state (Pair-second result))
-        (Pair-first result)))
 
-    (: alter! (-> (Ref Document) (-> Document Document) Unit ! mut))
-    (define (alter! state operation)
-      (ref-set! state (operation (ref-get state))))
+    (define (change! (state Memory) (operation (Fn Document → (Pair A Document))))
+      (→ A)
+      (! mut)
+      (∀ (A))
+      (let ((result (operation (● state document))))
+        (set! (● state document) (● result second))
+        (● result first)))
 
-    (: with-memory-dom
-       (All (T e)
-            (requires (Copy T))
-            (-> (List Cue) (-> T ! dom e) (Pair T Document) ! mut e)))
-    (define (with-memory-dom script work)
-      (let ((state (ref empty-document)) (cues (ref script)) (woken (ref #f)) (inputs (ref (Nil))))
+    (define (alter! (state Memory) (operation (Fn Document → Document)))
+      (→ Unit)
+      (! mut)
+      (set! (● state document) (operation (● state document))))
+
+    (define (with-memory-dom (script (List Cue)) (work (Fn → T ! dom e)))
+      (→ (Pair T Document))
+      (! mut e)
+      (∀ (T e))
+      (let ((state
+             (new Memory (document (empty-document)) (cues script) (woken #f) (inputs (Nil)))))
         (let ((value
                (handle dom
-                   ((document-root (lambda () (Node 0)))
+                   ((document-root (lambda () (new Node (handle 0))))
                     (create-element
                      (lambda (tag) (change! state (lambda (document) (created document tag "")))))
                     (create-text
@@ -534,12 +557,12 @@
                                (lambda (document) (property-set document node name (Flag value))))))
                     (string-property
                      (lambda (node name)
-                       (match (property-of (ref-get state) node name)
+                       (match (property-of (● state document) node name)
                          ((Some (Text value)) value)
                          (_ ""))))
                     (number-property
                      (lambda (node name)
-                       (match (property-of (ref-get state) node name)
+                       (match (property-of (● state document) node name)
                          ((Some (Number value)) value)
                          (_ 0.0))))
                     (insert-node
@@ -561,21 +584,21 @@
                                (lambda (document)
                                  (commanded document
                                             node
-                                            (list "focus" (show (Node-handle node)))
+                                            (list "focus" (show (● node handle)))
                                             (lambda (found) found))))))
                     (element-by-id
                      (lambda (id)
-                       (match (element-handle (ref-get state) id 0)
-                         ((Some handle) (Some (Node handle)))
+                       (match (element-handle (● state document) id 0)
+                         ((Some handle) (Some (new Node (handle handle))))
                          ((None) (None)))))
                     (select-range
                      (lambda (node start end)
                        (alter! state (lambda (document) (selected document node start end)))))
                     (selection-range
                      (lambda (node)
-                       (Pair (offset-property (ref-get state) node "selectionStart")
-                             (offset-property (ref-get state) node "selectionEnd"))))
-                    (window-node (lambda () (Node -1)))
+                       (new Pair (first (offset-property (● state document) node "selectionStart"))
+                            (second (offset-property (● state document) node "selectionEnd")))))
+                    (window-node (lambda () (new Node (handle -1))))
                     (refresh-page (lambda () (unit)))
                     (confirm
                      (lambda (question)
@@ -590,85 +613,82 @@
                     (set-fullscreen (lambda (enter) #f))
                     (insert-text
                      (lambda (node start end text)
-                       (let ((taken (match (live (ref-get state) (Node-handle node))
+                       (let ((taken (match (live (● state document) (● node handle))
                                       ((Some _) #t)
                                       ((None) #f))))
                          (alter! state
                                  (lambda (document) (text-inserted document node start end text)))
-                         (match (input-fired (ref-get state) node)
+                         (match (input-fired (● state document) node)
                            ((Some delivery)
-                            (ref-set! inputs (append (ref-get inputs) (list delivery))))
+                            (set! (● state inputs) (append (● state inputs) (list delivery))))
                            ((None) (unit)))
                          taken)))
                     (measure
                      (lambda (node) (change! state (lambda (document) (measured document node)))))
                     (wake
                      (lambda ()
-                       (ref-set! woken #t)
+                       (set! (● state woken) #t)
                        (alter! state (lambda (document) (traced document (list "wake"))))))
                     (next-event
                      (lambda ()
                        (yield)
-                       (match (ref-get inputs)
+                       (match (● state inputs)
                          ((Cons delivery rest)
-                          (ref-set! inputs rest)
+                          (set! (● state inputs) rest)
                           delivery)
                          ((Nil)
-                          (if (ref-get woken)
+                          (if (● state woken)
                               (begin
-                                (ref-set! woken #f)
+                                (set! (● state woken) #f)
                                 (Woken))
-                              (match (ref-get cues)
+                              (match (● state cues)
                                 ((Cons cue rest)
-                                 (ref-set! cues rest)
+                                 (set! (● state cues) rest)
                                  (change! state (lambda (document) (cued document cue))))
                                 ((Nil)
                                  (alter! state (lambda (document) (traced document (list "close"))))
                                  (Closed)))))))))
                  (work))))
-          (Pair value (ref-get state)))))
+          (new Pair (first value) (second (● state document))))))
 
     ;; ---- Printing ----
 
     ;; The tree under the root as HTML would write it, with each property
     ;; as `.name=value` and each listener as `@event` among the attributes.
-    (: document->html (-> Document String))
-    (define (document->html document)
-      (string-concatenate
-       (map (lambda (child) (node->html document child)) (Entry-children (entry document 0)))))
 
-    (: node->html (-> Document I32 String))
-    (define (node->html document handle)
+    (define (document->html (document Document)) (→ String)
+      (string-concatenate
+       (map (lambda (child) (node->html document child)) (● (entry document 0) children))))
+
+    (define (node->html (document Document) (handle I32)) (→ String)
       (let ((node (entry document handle)))
-        (if (string=? (Entry-tag node) "#text")
-            (escaped (Entry-text node))
+        (if (string=? (● node tag) "#text")
+            (escaped (● node text))
             (string-append "<"
-                           (Entry-tag node)
-                           (string-concatenate (map attribute->html (Entry-attributes node)))
+                           (● node tag)
+                           (string-concatenate (map attribute->html (● node attributes)))
                            (string-concatenate
                             (map (lambda (pair)
                                    (string-append " ."
-                                                  (Pair-first pair)
+                                                  (● pair first)
                                                   "="
-                                                  (property->string (Pair-second pair))))
-                                 (Entry-properties node)))
+                                                  (property->string (● pair second))))
+                                 (● node properties)))
                            (string-concatenate
-                            (map (lambda (hearing) (string-append " @" (Hearing-event hearing)))
-                                 (Entry-listeners node)))
+                            (map (lambda (hearing) (string-append " @" (● hearing event)))
+                                 (● node listeners)))
                            ">"
                            (string-concatenate
                             (map (lambda (child) (node->html document child))
-                                 (Entry-children node)))
+                                 (● node children)))
                            "</"
-                           (Entry-tag node)
+                           (● node tag)
                            ">"))))
 
-    (: attribute->html (-> (Pair String String) String))
-    (define (attribute->html pair)
-      (string-append " " (Pair-first pair) "=\"" (escaped (Pair-second pair)) "\""))
+    (define (attribute->html (pair (Pair String String))) (→ String)
+      (string-append " " (● pair first) "=\"" (escaped (● pair second)) "\""))
 
-    (: escaped (-> String String))
-    (define (escaped text)
+    (define (escaped (text String)) (→ String)
       (string-concatenate
        (map (lambda (char)
               (cond ((char=? char #\<) "&lt;")

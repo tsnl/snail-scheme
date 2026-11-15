@@ -19,62 +19,58 @@
 
     ;; ---- Properties ----
 
-    (extern char-upcase "snail.core.support" "snail:text/upcase" (-> Char Char))
-    (extern char-downcase "snail.core.support" "snail:text/downcase" (-> Char Char))
-    (extern char-foldcase "snail.core.support" "snail:text/foldcase" (-> Char Char))
-    (extern lowercase-flag "snail.core.support" "snail:text/lowercase" (-> Char I32))
-    (extern uppercase-flag "snail.core.support" "snail:text/uppercase" (-> Char I32))
-    (extern digit-flag "snail.core.support" "snail:text/digit-value" (-> Char I32))
-    (extern alphabetic-flag "snail.core.support" "snail:text/alphabetic" (-> Char I32))
-    (extern numeric-flag "snail.core.support" "snail:text/numeric" (-> Char I32))
-    (extern whitespace-flag "snail.core.support" "snail:datum/whitespace" (-> Char I32))
+    (extern char-upcase "snail.core.support" "snail:text/upcase" (Fn Char → Char))
+    (extern char-downcase "snail.core.support" "snail:text/downcase" (Fn Char → Char))
+    (extern char-foldcase "snail.core.support" "snail:text/foldcase" (Fn Char → Char))
+    (extern lowercase-flag "snail.core.support" "snail:text/lowercase" (Fn Char → I32))
+    (extern uppercase-flag "snail.core.support" "snail:text/uppercase" (Fn Char → I32))
+    (extern digit-flag "snail.core.support" "snail:text/digit-value" (Fn Char → I32))
+    (extern alphabetic-flag "snail.core.support" "snail:text/alphabetic" (Fn Char → I32))
+    (extern numeric-flag "snail.core.support" "snail:text/numeric" (Fn Char → I32))
+    (extern whitespace-flag "snail.core.support" "snail:datum/whitespace" (Fn Char → I32))
 
-    (: char-unicode-alphabetic? (-> Char Bool))
-    (define (char-unicode-alphabetic? char)
+    (define (char-unicode-alphabetic? (char Char)) (→ Bool)
       (= (alphabetic-flag char) 1))
 
-    (: char-unicode-numeric? (-> Char Bool))
-    (define (char-unicode-numeric? char)
+    (define (char-unicode-numeric? (char Char)) (→ Bool)
       (= (numeric-flag char) 1))
 
-    (: char-unicode-whitespace? (-> Char Bool))
-    (define (char-unicode-whitespace? char)
+    (define (char-unicode-whitespace? (char Char)) (→ Bool)
       (= (whitespace-flag char) 1))
 
-    (: char-lower-case? (-> Char Bool))
-    (define (char-lower-case? char)
+    (define (char-lower-case? (char Char)) (→ Bool)
       (= (lowercase-flag char) 1))
 
-    (: char-upper-case? (-> Char Bool))
-    (define (char-upper-case? char)
+    (define (char-upper-case? (char Char)) (→ Bool)
       (= (uppercase-flag char) 1))
 
     ;; A decimal digit's value in any script, or nothing for anything else.
     ;; The runtime answers -1 rather than a value it could be mistaken for.
-    (: char-digit-value (-> Char (Option I64)))
-    (define (char-digit-value char)
+
+    (define (char-digit-value (char Char)) (→ (Option I64))
       (let ((value (digit-flag char)))
         (if (< value 0) (None) (Some (i32->i64 value)))))
 
     ;; ---- Strings ----
 
     ;; Simple case mapping, one scalar to one scalar.
-    (: string-upcase (-> String String))
-    (define (string-upcase text)
+
+    (define (string-upcase (text String)) (→ String)
       (string-generate (string-length text) (lambda (index) (char-upcase (string-ref text index)))))
 
-    (: string-downcase (-> String String))
-    (define (string-downcase text)
+    (define (string-downcase (text String)) (→ String)
       (string-generate (string-length text)
                        (lambda (index) (char-downcase (string-ref text index)))))
 
     ;; Full case folding, which may expand one scalar into several, as "ß"
     ;; into "ss"; folded strings compare equal ignoring case.
-    (extern fold-length "snail.core.support" "snail:text/full-fold-length" (-> Char I32))
-    (extern fold-scalar "snail.core.support" "snail:text/full-fold-scalar" (-> Char I32 Char))
+    (extern fold-length "snail.core.support" "snail:text/full-fold-length" (Fn Char → I32))
+    (extern fold-scalar
+            "snail.core.support"
+            "snail:text/full-fold-scalar"
+            (Fn Char I32 → Char))
 
-    (: string-foldcase (-> String String))
-    (define (string-foldcase text)
+    (define (string-foldcase (text String)) (→ String)
       (string-concatenate
        (map (lambda (char)
               (string-generate (i32->i64 (fold-length char))

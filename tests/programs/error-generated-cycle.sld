@@ -6,4 +6,7 @@
  (snail core io)
  (sample knot))
 
-(display knot)
+(define main
+  (lambda ()
+    (display knot)
+    (unit)))

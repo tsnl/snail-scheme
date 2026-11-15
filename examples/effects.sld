@@ -5,25 +5,26 @@
  (snail core io))
 
 (effect Log
-  ((log (-> String Unit))))
+  ((log (Fn String → Unit))))
 
-(: total-cost (-> (List I64) I64 ! Log))
-(define (total-cost prices)
+(define (total-cost (prices (List I64))) (→ I64) (! Log)
   (fold-left (lambda (total price)
                (log (string-append "adding " (show price)))
                (+ total price))
              0 prices))
 
 ;; The same function, quiet or verbose, depending only on its handler.
-(: quietly (All (A e) (-> (-> A ! Log e) A ! e)))
-(define (quietly action)
+(define (quietly (action (Fn → A ! Log e))) (→ A) (! e) (∀ (A e))
   (handle Log
       ((log (lambda (message) (unit))))
     (action)))
 
-(display (quietly (lambda () (total-cost (list 3 4 5)))))
-(newline)
-(display (handle Log
-             ((log (lambda (message) (write-line message))))
-           (total-cost (list 1 2))))
-(newline)
+(define (main) (→ Unit) (! output-port)
+
+  (display (quietly (lambda () (total-cost (list 3 4 5)))))
+  (newline)
+  (display (handle Log
+               ((log (lambda (message) (write-line message))))
+             (total-cost (list 1 2))))
+  (newline)
+  (unit))

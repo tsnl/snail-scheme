@@ -1,1 +1,1 @@
-cannot write a field through a requirement
+field x requires a known record type, found R

@@ -5,19 +5,21 @@
 ;; operation's type names, Gen here, since only those are tested for
 ;; where the operation is performed.
 (effect Abort
-  ((ctl abort (-> I64 I64))))
+  ((ctl abort (Fn I64 → I64))))
 
 (effect Gen
-  ((ctl yield (-> I64 Unit))))
+  ((ctl yield (Fn I64 → Unit))))
 
 (effect Ask
-  ((ask (-> I64 ! Gen))))
+  ((ask (Fn → I64 ! Gen))))
 
-(: answer (-> I64))
-(define (answer)
-  (handle Abort ((abort (lambda (value resume) (drop resume) value)))
+(define (answer) (→ I64)
+  (handle Abort ((abort (lambda (value resume) value)))
     (handle Gen ((yield (lambda (value resume) (resume (unit)))))
       (handle Ask ((ask (lambda () (abort 0))))
         (+ (ask) 1)))))
 
-(answer)
+(define (main) (→ Unit)
+
+  (answer)
+  (unit))

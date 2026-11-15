@@ -13,11 +13,12 @@
 //!    exit ends the program with its own status;
 //! 3. drive the program's tasks, when it links (snail shell task), until
 //!    none is live: a task that traps is told, and a task that panics tells
-//!    its message and exits; either fails the run, status 1, while its
-//!    siblings go on;
-//! 4. close the program's resources whatever happened, `close-resources`
-//!    or the runtime's `snail:io/close-all`; failing to close them makes a
-//!    successful run's status 1.
+//!    its message and exits; either fails the run, status 1, and ends driving;
+//!    reachable queued work is disposed during close;
+//! 4. close queued work, let go of the scheduler, and close the program's
+//!    resources whatever happened, `close-resources` or the runtime's
+//!    `snail:io/close-all`; failing to close them makes a successful run's
+//!    status 1.
 //!
 //! A trap, or a failure of the host, is status 2, told as `snail: MESSAGE`
 //! with the Wasm frames after it on standard error.
@@ -34,12 +35,13 @@ use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use wasmtime::{
-    AsContextMut, Engine, Instance, Linker, Module, Store, TypedFunc, Val, WasmParams, WasmResults,
-    bail, format_err,
+    AnyRef, AsContext, AsContextMut, Engine, ExternType, Instance, Linker, Module, OwnedRooted,
+    RootScope, Rooted, Store, Val, bail, format_err,
 };
 use wasmtime_wasi::I32Exit;
 use wasmtime_wasi::p1::{self, WasiP1Ctx};
 
+use crate::async_files;
 use crate::engine::{call, engine, exit_status, is_precompiled, load, report, wasi};
 use crate::links::{self, Files};
 use crate::modules::{self, Loading, Manifest};
@@ -51,16 +53,16 @@ use crate::modules::{self, Loading, Manifest};
 pub struct Host {
     pub wasi: WasiP1Ctx,
     pub files: Files,
+    pub async_files: async_files::Files,
     pub loading: Loading,
+    pub entry: Option<Entry>,
 }
 
 /// A program ready to start: the instance holding the runtime, whose
-/// memory the program's code shares; its export that closes the program's
-/// resources; and the instances whose mains run, in program order.
+/// memory the program's code shares, and its resource cleanup export.
 pub struct Linked {
     pub runtime: Instance,
     pub close: &'static str,
-    pub mains: Vec<Instance>,
 }
 
 pub fn run(path: &str, arguments: &[String]) -> u8 {
@@ -74,7 +76,8 @@ pub fn run(path: &str, arguments: &[String]) -> u8 {
 }
 
 // One linked module is the program; a manifest is run by the engine
-// ((snail shell engine), at SNAIL_ENGINE_MODULE or build/engine/engine.wasm
+// ((snail shell engine), at SNAIL_ENGINE_MODULE or build/engine/program.wasm,
+// the root project's `engine` target,
 // beside this executable's build), started with the manifest in
 // SNAIL_MANIFEST, which links the program's objects through the Wasm
 // primitives of modules.rs, runs each main, serves the files it links, and
@@ -86,13 +89,17 @@ fn execute(path: &str, arguments: &[String]) -> wasmtime::Result<u8> {
     let names = links::linked_names([&payload.module]);
     let files = Files::new(&payload.store, &names);
     let mut linker = host_linker(&engine, &names)?;
+    define_node_only(&mut linker, &payload.module)?;
     let host = Host {
         wasi: wasi(path, arguments, &payload.environment)?,
         files,
+        async_files: async_files::Files::default(),
         loading: Loading::new(linker.clone()),
+        entry: None,
     };
     let mut store = Store::new(&engine, host);
     let program = link_module(&mut store, &mut linker, &payload.module)?;
+    store.data_mut().entry = Entry::create(&mut store, program.runtime)?;
     let ran = start(&mut store, &program);
     let closed = close(&mut store, &program);
     settle(ran, closed)
@@ -105,6 +112,7 @@ fn host_linker(engine: &Engine, links: &[String]) -> wasmtime::Result<Linker<Hos
     let mut linker = Linker::new(engine);
     p1::add_to_linker_sync(&mut linker, |host: &mut Host| &mut host.wasi)?;
     links::define(&mut linker, links)?;
+    async_files::define(&mut linker)?;
     modules::define_loading(&mut linker)?;
     modules::define_platform(&mut linker)?;
     Ok(linker)
@@ -113,43 +121,44 @@ fn host_linker(engine: &Engine, links: &[String]) -> wasmtime::Result<Linker<Hos
 // The program's resources close, the engine's program's through
 // `engine:close` first; a status other than 0 is a resource left open.
 fn close(store: &mut Store<Host>, program: &Linked) -> wasmtime::Result<i32> {
-    let mut status = 0;
-    if program
-        .runtime
-        .get_func(&mut *store, "engine:close")
-        .is_some()
-    {
-        status = call::<i32>(&mut *store, &program.runtime, "engine:close")?;
+    // Keep services and the root live while queue disposal calls cleanup.
+    // Attempt each teardown even if a previous one trapped.
+    let queues = if store.data().entry.is_some() {
+        entry_task(&mut *store, "close", &[]).map(|_| ())
+    } else {
+        Ok(())
+    };
+    let children = if engine_entry(&*store) {
+        entry_call(&mut *store, "engine:close", &[])
+    } else {
+        Ok(0)
+    };
+    if let Some(entry) = store.data_mut().entry.as_mut() {
+        entry.scheduler = None;
     }
-    let own = call::<i32>(&mut *store, &program.runtime, program.close)?;
-    Ok(if status != 0 { status } else { own })
+    let files = store.data_mut().async_files.close();
+    let own = call::<i32>(&mut *store, &program.runtime, program.close);
+    queues?;
+    files?;
+    let children = children?;
+    let own = own?;
+    Ok(if children != 0 { children as i32 } else { own })
 }
 
-// The program's main answers the status, unless a task traps after it;
-// the engine's first task runs each of the program's and keeps the last
-// one's result as `engine:status`, and its store reads files at once, so
-// the engine's first turn runs that task whole. A program that links the
-// scheduler has its definitions initialized by `main:init` and its body
-// run as the first task by `tasks:start-main`.
+// A source program has one explicit main. The engine links a program in
+// its first turn and schedules that main under the same owned scheduler.
 fn start(store: &mut Store<Host>, program: &Linked) -> wasmtime::Result<u8> {
-    let mut status = 0;
-    for instance in &program.mains {
-        match main_status(&mut *store, instance) {
-            Ok(result) => status = result,
+    let status = if engine_entry(&*store) {
+        entry_call(&mut *store, "engine:start", &[])?;
+        entry_task(&mut *store, "turn", &[Val::I64(now())])?;
+        u8::try_from(entry_call(&mut *store, "engine:status", &[])?).unwrap_or(1)
+    } else {
+        match main_status(&mut *store, &program.runtime) {
+            Ok(result) => result,
             Err(error) => return exit_status(Err(error)),
         }
-        if let Some(reported) = instance
-            .get_typed_func::<(), i64>(&mut *store, "engine:status")
-            .ok()
-        {
-            let turn = instance.get_typed_func::<i64, i64>(&mut *store, "engine:turn")?;
-            if let Err(error) = turn.call(&mut *store, now()) {
-                return exit_status(Err(error));
-            }
-            status = u8::try_from(reported.call(&mut *store, ())?).unwrap_or(1);
-        }
-    }
-    match drive(store, program) {
+    };
+    match drive(store) {
         Ok(true) => Ok(1),
         Ok(false) => Ok(status),
         Err(error) => exit_status(Err(error)),
@@ -158,22 +167,21 @@ fn start(store: &mut Store<Host>, program: &Linked) -> wasmtime::Result<u8> {
 
 // What `main` answers, as run-snail.mjs reads it: nothing is 0, an
 // integer from 0 to 255 is itself, and any other value is 1.
-fn main_status(mut store: impl AsContextMut, instance: &Instance) -> wasmtime::Result<u8> {
-    let Some(main) = instance.get_func(&mut store, "main") else {
-        bail!("the module exports no function main")
-    };
-    let start = instance.get_func(&mut store, "tasks:start-main");
-    let body = instance.get_func(&mut store, "main:body");
-    let init = instance.get_func(&mut store, "main:init");
-    let (main, arguments) = match (start, body, init) {
-        (Some(start), Some(body), Some(init)) => {
-            init.call(&mut store, &[], &mut [Val::I32(0)])?;
-            (start, vec![Val::FuncRef(Some(body))])
+fn main_status(
+    mut store: impl AsContextMut<Data = Host>,
+    instance: &Instance,
+) -> wasmtime::Result<u8> {
+    if store.as_context().data().entry.is_some() {
+        if let Some(body) = instance.get_func(&mut store, "main:body") {
+            entry_call(&mut store, "tasks:start-main", &[Val::FuncRef(Some(body))])?;
+            return Ok(0);
         }
-        _ => (main, Vec::new()),
-    };
+    }
+    let main = instance
+        .get_func(&mut store, "main")
+        .ok_or_else(|| format_err!("the module exports no function main"))?;
     let mut results = vec![Val::I32(0); main.ty(&store).results().len()];
-    main.call(&mut store, &arguments, &mut results)?;
+    main.call(&mut store, &[], &mut results)?;
     Ok(match results.first() {
         None => 0,
         Some(Val::I32(result)) => u8::try_from(*result).unwrap_or(1),
@@ -193,67 +201,142 @@ fn settle(ran: wasmtime::Result<u8>, closed: wasmtime::Result<i32>) -> wasmtime:
     })
 }
 
-// ---- Tasks ----
+// ---- Entries ----
 
-// The scheduler's export `name`, from whichever instance holds (snail
-// shell task): the runtime, when the program is one linked module. An
-// engine drives its own tasks and the program's as one scheduler, through
-// `engine:` exports of the same names.
-fn task_export<Params: WasmParams, Results: WasmResults>(
-    store: &mut Store<Host>,
-    program: &Linked,
-    name: &str,
-) -> Option<TypedFunc<Params, Results>> {
-    let engine = name.replacen("tasks:", "engine:", 1);
-    std::iter::once(&program.runtime)
-        .chain(&program.mains)
-        .find_map(|instance| {
-            instance
-                .get_typed_func(&mut *store, &engine)
-                .or_else(|_| instance.get_typed_func(&mut *store, name))
-                .ok()
-        })
+/// The scheduler the program's `create` made, and the instance whose
+/// exports take it. Closing the run lets go of it, so no later import
+/// wrapper can call in.
+pub struct Entry {
+    instance: Instance,
+    scheduler: Option<OwnedRooted<AnyRef>>,
+    prefix: &'static str,
 }
 
-// Turns until no task is live, answering whether a task failed. A turn
-// answers 0 when a task is ready, -1 when none is live, -2 when every task
-// waits on a ticket, and otherwise how long until the next sleeper wakes.
-// The only host operations this host completes are reads of linked files,
-// which it wakes after the turn that started them, once their tasks wait;
-// with none to wake, every task waiting on a ticket is a deadlock. A trap
-// ends only the task that ran, and so does a WASI exit: a panic tells its
-// message and then exits, which unwinds out of the turn, as run-snail.mjs's
-// WASI throws out of one, and its status is lost.
-fn drive(store: &mut Store<Host>, program: &Linked) -> wasmtime::Result<bool> {
-    let Some(turn) = task_export::<i64, i64>(store, program, "tasks:turn") else {
-        return Ok(false);
+impl Entry {
+    fn create(store: &mut Store<Host>, instance: Instance) -> wasmtime::Result<Option<Entry>> {
+        for prefix in ["engine", "tasks"] {
+            let Some(create) = instance.get_func(&mut *store, &format!("{prefix}:create")) else {
+                continue;
+            };
+            let mut scope = RootScope::new(&mut *store);
+            let value = create
+                .typed::<(), Rooted<AnyRef>>(&scope)?
+                .call(&mut scope, ())?;
+            let scheduler = Some(value.to_owned_rooted(&mut scope)?);
+            return Ok(Some(Entry {
+                instance,
+                scheduler,
+                prefix,
+            }));
+        }
+        Ok(None)
+    }
+}
+
+pub fn engine_entry(store: impl AsContext<Data = Host>) -> bool {
+    store
+        .as_context()
+        .data()
+        .entry
+        .as_ref()
+        .is_some_and(|entry| entry.prefix == "engine")
+}
+
+/// Import wrappers pass the scheduler to each call, never a copy of their
+/// own. A temporary GC root keeps it alive through a reentrant call, and no
+/// longer than the entry holds it.
+pub fn entry_call(
+    mut store: impl AsContextMut<Data = Host>,
+    name: &str,
+    args: &[Val],
+) -> wasmtime::Result<i64> {
+    let (instance, scheduler) = {
+        let context = store.as_context();
+        let entry = context
+            .data()
+            .entry
+            .as_ref()
+            .ok_or_else(|| format_err!("this program has no task entry"))?;
+        let scheduler = entry
+            .scheduler
+            .as_ref()
+            .ok_or_else(|| format_err!("the program's tasks have closed"))?;
+        (entry.instance, scheduler.clone())
     };
-    let wake = task_export::<i64, i32>(store, program, "tasks:wake");
-    let mut failed = false;
+    let mut scope = RootScope::new(&mut store);
+    let function = instance
+        .get_func(&mut scope, name)
+        .ok_or_else(|| format_err!("the entry exports no {name}"))?;
+    let mut arguments = vec![Val::AnyRef(Some(scheduler.to_rooted(&mut scope)))];
+    arguments.extend_from_slice(args);
+    let mut results = vec![Val::I32(0); function.ty(&scope).results().len()];
+    function.call(&mut scope, &arguments, &mut results)?;
+    match results.first() {
+        None => Ok(0),
+        Some(Val::I32(value)) => Ok(i64::from(*value)),
+        Some(Val::I64(value)) => Ok(*value),
+        _ => bail!("{name} must return an integer or Unit"),
+    }
+}
+
+fn entry_task(
+    mut store: impl AsContextMut<Data = Host>,
+    name: &str,
+    args: &[Val],
+) -> wasmtime::Result<i64> {
+    let engine = engine_entry(&store);
+    let prefix = if engine { "engine" } else { "tasks" };
+    let name = if engine && name == "close" {
+        "close-tasks"
+    } else {
+        name
+    };
+    entry_call(&mut store, &format!("{prefix}:{name}"), args)
+}
+
+// ---- Tasks ----
+
+// Turns are bounded FIFO batches. A trap is terminal: Wasm does not unwind
+// the trapping frame. Close can still dispose of reachable queued work.
+fn drive(store: &mut Store<Host>) -> wasmtime::Result<bool> {
+    if store.data().entry.is_none() {
+        return Ok(false);
+    }
     loop {
-        let answer = turn.call(&mut *store, now());
+        let answer = entry_task(&mut *store, "turn", &[Val::I64(now())]);
         let waking = store.data_mut().files.take_waking();
+        let file_reads = store.data_mut().async_files.collect()?;
+        let has_completions = !waking.is_empty() || !file_reads.is_empty();
+        let files_pending = store.data().async_files.pending();
         match answer {
-            Ok(-1) => return Ok(failed),
-            Ok(-2) if waking.is_empty() => {
+            Ok(-1) => return Ok(false),
+            Ok(-2) if !has_completions && !files_pending => {
                 bail!("every task waits on a ticket, and this host completes none")
             }
-            Ok(delay) if delay > 0 && waking.is_empty() => {
-                thread::sleep(Duration::from_millis(delay as u64))
+            Ok(-2) if !has_completions => store.data_mut().async_files.wait(None)?,
+            Ok(delay) if delay > 0 && !has_completions => {
+                let timeout = Duration::from_millis(delay as u64);
+                if files_pending {
+                    store.data_mut().async_files.wait(Some(timeout))?;
+                } else {
+                    thread::sleep(timeout);
+                }
             }
             Ok(_) => {}
             Err(error) => {
                 if error.downcast_ref::<I32Exit>().is_none() {
                     report(&error, true);
                 }
-                failed = true;
+                return Ok(true);
             }
         }
         for ticket in waking {
-            let Some(wake) = &wake else {
-                bail!("a read of a linked file finished, and the scheduler exports no tasks:wake")
-            };
-            wake.call(&mut *store, ticket)?;
+            entry_task(&mut *store, "wake", &[Val::I64(ticket)])?;
+        }
+        for (ticket, id) in file_reads {
+            if entry_task(&mut *store, "wake", &[Val::I64(ticket)])? == 0 {
+                store.data_mut().async_files.cancel(id);
+            }
         }
     }
 }
@@ -296,7 +379,7 @@ impl Payload {
     }
 }
 
-// The engine's module: SNAIL_ENGINE_MODULE, or build/engine/engine.wasm
+// The engine's module: SNAIL_ENGINE_MODULE, or build/engine/program.wasm
 // in the build directory this executable was built into.
 fn engine_module() -> wasmtime::Result<PathBuf> {
     if let Some(path) = std::env::var_os("SNAIL_ENGINE_MODULE") {
@@ -307,7 +390,7 @@ fn engine_module() -> wasmtime::Result<PathBuf> {
         .ancestors()
         .find(|directory| directory.file_name().is_some_and(|name| name == "build"))
         .ok_or_else(|| format_err!("the engine's module is not found: set SNAIL_ENGINE_MODULE"))?;
-    Ok(build.join("engine").join("engine.wasm"))
+    Ok(build.join("engine").join("program.wasm"))
 }
 
 fn is_manifest(path: &Path) -> bool {
@@ -329,7 +412,6 @@ fn link_module(
     Ok(Linked {
         runtime: instance,
         close: "close-resources",
-        mains: vec![instance],
     })
 }
 
@@ -342,32 +424,34 @@ pub const NODE_ONLY: [&str; 3] = [
     "snail.runtime.native.files",
 ];
 
-/// The module in `file`, compiled, unless it imports what only Node
-/// provides; its import section is read first, so a refused module costs
-/// no compile. A `.cwasm` file is machine code `snail precompile` wrote,
-/// as the compiled compiler's is, and its imports are read once it loads.
+/// The module in `file`, compiled. A `.cwasm` file is machine code
+/// `snail precompile` wrote, as the command line's is.
 pub fn compile_module(engine: &Engine, file: &Path) -> wasmtime::Result<Module> {
     if is_precompiled(file) {
-        let module = load(engine, file)?;
-        refuse_node_only(file, module.imports().map(|import| import.module()))?;
-        return Ok(module);
+        return load(engine, file);
     }
-    let bytes = read(file)?;
-    refuse_node_only(file, import_modules(&bytes)?.iter().map(String::as_str))?;
-    Module::new(engine, &bytes)
+    Module::new(engine, read(file)?)
 }
 
-fn refuse_node_only<'a>(
-    file: &Path,
-    mut imported: impl Iterator<Item = &'a str>,
-) -> wasmtime::Result<()> {
-    match imported.find(|module| NODE_ONLY.contains(module)) {
-        Some(node) => bail!(
-            "{} imports {node}: a program that uses sockets, processes, file modes or watches runs on Node",
-            file.display()
-        ),
-        None => Ok(()),
+/// Each function `module` imports of what only Node provides, as one that
+/// traps when it is called, saying so: the command line imports sockets
+/// and processes for `watch` and `run`, and its `compile` calls neither,
+/// so it compiles here. Stage 0 runs a program that does call them on
+/// Node, having asked `snail imports`; a module loaded while the program
+/// runs gets the same stand-ins (modules.rs).
+fn define_node_only(linker: &mut Linker<Host>, module: &Module) -> wasmtime::Result<()> {
+    for import in module.imports() {
+        if !NODE_ONLY.contains(&import.module()) {
+            continue;
+        }
+        if let ExternType::Func(ty) = import.ty() {
+            let missing = format!("{} {} runs on Node", import.module(), import.name());
+            linker.func_new(import.module(), import.name(), ty, move |_, _, _| {
+                Err(format_err!("{missing}"))
+            })?;
+        }
     }
+    Ok(())
 }
 
 fn read(file: &Path) -> wasmtime::Result<Vec<u8>> {
@@ -434,13 +518,18 @@ mod tests {
 
     // The same, with more items, such as a scheduler's turn.
     fn tasks_program(imports: &str, main: &str, close: i32, items: &str) -> String {
+        let closed = if items.is_empty() {
+            ""
+        } else {
+            "(if (i32.ne (global.get $closed) (i32.const 1)) (then unreachable))"
+        };
         format!(
             r#"(module {imports}
                  (import "wasi_snapshot_preview1" "proc_exit" (func $exit (param i32)))
                  (memory (export "memory") 1)
                  (func (export "_initialize"))
                  (func (export "main") (result i32) {main})
-                 (func (export "close-resources") (result i32) (i32.const {close}))
+                 (func (export "close-resources") (result i32) {closed} (i32.const {close}))
                  {items})"#
         )
     }
@@ -466,11 +555,20 @@ mod tests {
                 format!("(if (i32.eq (local.get $n) (i32.const {index})) (then {then}))")
             })
             .collect();
+        let expected = turns
+            .iter()
+            .position(|turn| matches!(turn, Turn::Trap | Turn::Exit(_) | Turn::Answer(-2)))
+            .map_or(turns.len() + 1, |index| index + 1);
         format!(
-            r#"(global $turns (mut i32) (i32.const 0))
-               (func (export "tasks:turn") (param $now i64) (result i64) (local $n i32)
-                 (local.set $n (global.get $turns))
-                 (global.set $turns (i32.add (local.get $n) (i32.const 1)))
+            r#"(type $state (struct (field (mut i32))))
+               (global $closed (mut i32) (i32.const 0))
+               (func (export "tasks:create") (result (ref $state)) (struct.new $state (i32.const 0)))
+               (func (export "tasks:close") (param $state (ref $state))
+                 (if (i32.ne (struct.get $state 0 (local.get $state)) (i32.const {expected})) (then unreachable))
+                 (global.set $closed (i32.add (global.get $closed) (i32.const 1))))
+               (func (export "tasks:turn") (param $state (ref $state)) (param $now i64) (result i64) (local $n i32)
+                 (local.set $n (struct.get $state 0 (local.get $state)))
+                 (struct.set $state 0 (local.get $state) (i32.add (local.get $n) (i32.const 1)))
                  {cases}
                  (i64.const -1))"#
         )
@@ -506,17 +604,16 @@ mod tests {
         assert_eq!(status("unclosed-failure", "(i32.const 4)", 1), 4);
     }
 
+    // A program may import sockets it never uses, as the command line's
+    // compile does; one that calls them traps.
     #[test]
-    fn a_program_that_uses_sockets_is_refused() {
-        let imports = r#"(import "snail.runtime.native.socket" "start-read" (func (param i64)))"#;
-        let file = module_file("sockets", &program(imports, "(i32.const 0)", 0));
-        let engine = engine().unwrap();
-        let error = compile_module(&engine, Path::new(&file))
-            .unwrap_err()
-            .to_string();
-        assert!(error.ends_with(
-            "imports snail.runtime.native.socket: a program that uses sockets, processes, file modes or watches runs on Node"
-        ));
+    fn a_program_that_calls_sockets_traps() {
+        let imports =
+            r#"(import "snail.runtime.native.socket" "start-read" (func $read (param i64)))"#;
+        let unused = module_file("sockets-unused", &program(imports, "(i32.const 0)", 0));
+        assert_eq!(run(&unused, &[]), 0);
+        let called = "(call $read (i64.const 0)) (i32.const 0)";
+        let file = module_file("sockets", &program(imports, called, 0));
         assert_eq!(run(&file, &[]), 2);
     }
 
@@ -537,9 +634,14 @@ mod tests {
             ),
             3
         );
-        let sockets = r#"(import "snail.runtime.native.socket" "start-read" (func (param i64)))"#;
-        let refused = precompiled("precompiled-sockets", sockets, "(i32.const 0)");
-        assert_eq!(run(&refused, &[]), 2);
+        let sockets =
+            r#"(import "snail.runtime.native.socket" "start-read" (func $read (param i64)))"#;
+        let called = precompiled(
+            "precompiled-sockets",
+            sockets,
+            "(call $read (i64.const 0)) (i32.const 0)",
+        );
+        assert_eq!(run(&called, &[]), 2);
     }
 
     #[test]
@@ -557,7 +659,7 @@ mod tests {
     }
 
     #[test]
-    fn a_trapped_task_fails_the_run_and_its_siblings_go_on() {
+    fn a_trapped_task_ends_driving_before_close() {
         let file = module_file(
             "trapped",
             &tasks_program(
@@ -573,7 +675,7 @@ mod tests {
     // A panic exits through WASI. In a task that ends the task, as a trap
     // does, so the run fails with 1 rather than ending with the exit's 7.
     #[test]
-    fn a_task_that_exits_fails_the_run_and_its_siblings_go_on() {
+    fn a_task_that_exits_ends_driving_before_close() {
         let file = module_file(
             "exited",
             &tasks_program(
