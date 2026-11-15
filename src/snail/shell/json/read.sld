@@ -1,5 +1,5 @@
 ;; JSON text read back into the values (snail shell json) writes: any JSON
-;; text whose numbers are integers, such as a modules.json. A library of
+;; text whose numbers are integers, such as a language server message. A library of
 ;; its own, so that a program that only writes JSON does not carry it.
 (define-library (snail shell json read)
   (export

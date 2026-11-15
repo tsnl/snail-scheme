@@ -18,8 +18,15 @@
   (import
    (snail core base)
    (only (snail core forms) host Funcref)
-   (snail shell json)
-   (snail shell json read)
+   (only (snail shell compiler read)
+         Syntax
+         Atom
+         Ident
+         Form
+         DString
+         DInt
+         read-text
+         compiling)
    (snail shell task)
    (snail shell wasm))
   (begin
@@ -32,90 +39,62 @@
       ((digest String)
        (size I64)))
 
-    ;; The manifest, with the directory it was read from: the store its
-    ;; objects are in, relative to it, the runtime, each library's module
-    ;; by name in program order, and the files the program links.
+    ;; The manifest, with the directory it was read from, whose store/ holds
+    ;; its objects: the runtime, each library's module by name in program
+    ;; order, and the files the program links.
     (record Manifest
       ((directory String)
-       (store String)
        (runtime Object)
        (modules (List (Pair String Object)))
        (files (List Object))))
 
-    ;; The manifest at `path`, whose text the entry read.
+    ;; The manifest at `path`, whose text the entry read: one list of
+    ;; `(runtime "DIGEST" SIZE)`, then `(module "LIBRARY" "DIGEST" SIZE)` and
+    ;; `(file "DIGEST" SIZE)` entries, read by the compiler's reader.
 
     (define (parse-manifest (path String) (text String)) (→ Manifest)
-      (match (manifest-of (directory-of path) (string->json text))
-        ((Some manifest) manifest)
-        ((None) (panic (string-append path " is not the modules.json of a program")))))
+      (match (compiling (lambda () (read-text text path)))
+        ((Ok (Cons (Form (Cons (Form (Cons (Ident "runtime" _ _) runtime) _) entries) _) (Nil)))
+         (fold-right (lambda (entry manifest) (with-entry path manifest entry))
+                     (new Manifest (directory (directory-of path))
+                          (runtime (object-of path runtime))
+                          (modules (Nil))
+                          (files (Nil)))
+                     entries))
+        (_ (not-a-manifest path))))
 
-    (define (manifest-of (directory String) (json (Option Json))) (→ (Option Manifest))
-      (match json
-        ((Some json)
-         (match (new Pair (first (object-of (json-member json "runtime")))
-                     (second (modules-of (json-array json "modules"))))
-           ((Pair (Some runtime) (Some modules))
-            (Some (new Manifest (directory directory)
-                       (store (json-text json "store" "store/"))
-                       (runtime runtime)
-                       (modules modules)
-                       (files (objects-of (json-array json "files"))))))
-           (_ (None))))
-        ((None) (None))))
+    ;; `manifest` with `entry` before what it holds, as the entries are
+    ;; folded from the last.
 
-    (define (modules-of (entries (List Json))) (→ (Option (List (Pair String Object))))
-      (fold-right (lambda (entry rest)
-                    (match (new Pair
-                             (first rest)
-                             (second (new Pair
-                                       (first (json-member entry "name"))
-                                       (second (object-of (Some entry))))))
-                      ((Pair (Some rest) (Pair (Some (JsonString name)) (Some object)))
-                       (if (module-name-available? name rest)
-                           (Some (Cons (new Pair (first name) (second object)) rest)) (None)))
-                      (_ (None))))
-                  (Some (Nil))
-                  entries))
+    (define (with-entry (path String) (manifest Manifest) (entry Syntax)) (→ Manifest)
+      (match entry
+        ((Form (Cons (Ident "module" _ _) (Cons (Atom (DString name) _) object)) _)
+         (if (module-name-available? name (● manifest modules))
+             (Manifest-modules-set manifest
+                                   (Cons (new Pair (first name) (second (object-of path object)))
+                                         (● manifest modules)))
+             (panic (string-append path " may not link a library as " name))))
+        ((Form (Cons (Ident "file" _ _) object) _)
+         (Manifest-files-set manifest (Cons (object-of path object) (● manifest files))))
+        (_ (not-a-manifest path))))
 
-    ;; The parsed tail is also the set of names already accepted. Library
-    ;; imports cannot shadow runtime services or ambiguously name a provider.
-    (define (module-name-available? (name String) (rest (List (Pair String Object)))) (→ Bool)
+    (define (object-of (path String) (fields (List Syntax))) (→ Object)
+      (match fields
+        ((Cons (Atom (DString digest) _) (Cons (Atom (DInt size) _) (Nil)))
+         (new Object (digest digest) (size size)))
+        (_ (not-a-manifest path))))
+
+    (define (not-a-manifest (path String)) (→ A) (∀ (A))
+      (panic (string-append path " is not the manifest of a program")))
+
+    ;; Library imports cannot shadow runtime services or ambiguously name a
+    ;; provider.
+    (define (module-name-available? (name String) (named (List (Pair String Object)))) (→ Bool)
       (and (not (string=? name ""))
            (not (string=? name "snail.core.support"))
            (not (and (>= (string-length name) 14)
                      (string=? (substring name 0 14) "snail.runtime.")))
-           (not (any? (lambda (entry) (string=? name (● entry first))) rest))))
-
-    ;; The objects among `entries`, each with a digest.
-
-    (define (objects-of (entries (List Json))) (→ (List Object))
-      (concatenate (map (lambda (entry)
-                          (match (object-of (Some entry))
-                            ((Some object) (list object))
-                            ((None) (Nil))))
-                        entries)))
-
-    (define (object-of (json (Option Json))) (→ (Option Object))
-      (match json
-        ((Some entry)
-         (match (json-member entry "digest")
-           ((Some (JsonString digest))
-            (Some (new Object (digest digest)
-                       (size (match (json-member entry "size")
-                               ((Some (JsonInteger size)) size)
-                               (_ 0))))))
-           (_ (None))))
-        ((None) (None))))
-
-    (define (json-text (json Json) (name String) (default String)) (→ String)
-      (match (json-member json name)
-        ((Some (JsonString text)) text)
-        (_ default)))
-
-    (define (json-array (json Json) (name String)) (→ (List Json))
-      (match (json-member json name)
-        ((Some (JsonArray items)) items)
-        (_ (Nil))))
+           (not (any? (lambda (entry) (string=? name (● entry first))) named))))
 
     ;; A path's directory with its final slash, or "" for a bare name.
 
@@ -125,11 +104,11 @@
               ((char=? (string-ref path index) #\/) (substring path 0 (+ index 1)))
               (else (loop (- index 1))))))
 
-    ;; Where an object lies: the store, relative to the manifest, then its
-    ;; digest under sha256/.
+    ;; Where an object lies: store/ beside the manifest, under sha256/,
+    ;; sharded by the digest's first two hex digits.
 
     (define (object-file (manifest Manifest) (digest String)) (→ String)
-      (string-append (● manifest directory) (● manifest store) "sha256/" digest))
+      (string-append (● manifest directory) "store/sha256/" (substring digest 0 2) "/" digest))
 
     ;; ---- The store ----
 

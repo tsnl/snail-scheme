@@ -25,7 +25,7 @@ const host = {'snail.test': {
   },
 }};
 const filename = resolve(process.argv[2]);
-if (filename.endsWith('.json')) {
+if (filename.endsWith('.manifest.datum')) {
   program = await linkProgram(file => readFile(resolve(dirname(filename), file)), filename, wasi, host);
   api = programExports(program);
   constructors = program.linked.get('boundary.value').exports;

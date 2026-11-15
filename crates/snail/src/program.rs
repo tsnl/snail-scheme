@@ -3,7 +3,7 @@
 //! (links.rs) and loading modules (modules.rs).
 //!
 //! `snail run-wasm PROGRAM ARGUMENT ...` runs PROGRAM, one linked module or
-//! the modules.json of a program compiled one library at a time
+//! the manifest of a program compiled one library at a time
 //! (modules.rs). WASI gives it PROGRAM and the arguments, the environment
 //! with SNAIL_CWD, and `/` (engine.rs). The protocol:
 //!
@@ -76,9 +76,9 @@ pub fn run(path: &str, arguments: &[String]) -> u8 {
 }
 
 // One linked module is the program; a manifest is run by the engine
-// ((snail shell engine), at SNAIL_ENGINE_MODULE or build/engine/program.wasm,
-// the root project's `engine` target,
-// beside this executable's build), started with the manifest in
+// ((snail shell engine), which the command line holds, at
+// SNAIL_ENGINE_MODULE or build/bootstrap/snail-scheme.wasm beside this
+// executable's build), started with the manifest in
 // SNAIL_MANIFEST, which links the program's objects through the Wasm
 // primitives of modules.rs, runs each main, serves the files it links, and
 // forwards its scheduler as its own exports. A file a linked module links
@@ -99,7 +99,7 @@ fn execute(path: &str, arguments: &[String]) -> wasmtime::Result<u8> {
     };
     let mut store = Store::new(&engine, host);
     let program = link_module(&mut store, &mut linker, &payload.module)?;
-    store.data_mut().entry = Entry::create(&mut store, program.runtime)?;
+    store.data_mut().entry = Entry::create(&mut store, program.runtime, payload.engine)?;
     let ran = start(&mut store, &program);
     let closed = close(&mut store, &program);
     settle(ran, closed)
@@ -213,8 +213,14 @@ pub struct Entry {
 }
 
 impl Entry {
-    fn create(store: &mut Store<Host>, instance: Instance) -> wasmtime::Result<Option<Entry>> {
-        for prefix in ["engine", "tasks"] {
+    // The engine's exports when it runs a manifest; otherwise the
+    // program's own scheduler, which the command line also has.
+    fn create(
+        store: &mut Store<Host>,
+        instance: Instance,
+        engine: bool,
+    ) -> wasmtime::Result<Option<Entry>> {
+        for prefix in [if engine { "engine" } else { "tasks" }] {
             let Some(create) = instance.get_func(&mut *store, &format!("{prefix}:create")) else {
                 continue;
             };
@@ -352,12 +358,13 @@ fn now() -> i64 {
 
 /// What `run-wasm` was given, compiled: one linked module, or the engine,
 /// given a manifest to run through SNAIL_MANIFEST; the store the files the
-/// module links are objects of, `store/` beside it; and what the module's
-/// environment says beyond the host's.
+/// module links are objects of, `store/` beside it; what the module's
+/// environment says beyond the host's; and whether it is the engine.
 struct Payload {
     module: Module,
     store: PathBuf,
     environment: Vec<(String, String)>,
+    engine: bool,
 }
 
 impl Payload {
@@ -375,12 +382,14 @@ impl Payload {
             module: compile_module(engine, &file)?,
             store: file.parent().unwrap_or(Path::new("")).join("store"),
             environment,
+            engine: is_manifest(path),
         })
     }
 }
 
-// The engine's module: SNAIL_ENGINE_MODULE, or build/engine/program.wasm
-// in the build directory this executable was built into.
+// The engine's module: SNAIL_ENGINE_MODULE, or the command line in the
+// build directory this executable was built into, as machine code when
+// stage 0 has precompiled the current one.
 fn engine_module() -> wasmtime::Result<PathBuf> {
     if let Some(path) = std::env::var_os("SNAIL_ENGINE_MODULE") {
         return Ok(PathBuf::from(path));
@@ -390,12 +399,21 @@ fn engine_module() -> wasmtime::Result<PathBuf> {
         .ancestors()
         .find(|directory| directory.file_name().is_some_and(|name| name == "build"))
         .ok_or_else(|| format_err!("the engine's module is not found: set SNAIL_ENGINE_MODULE"))?;
-    Ok(build.join("engine").join("program.wasm"))
+    let module = build.join("bootstrap").join("snail-scheme.wasm");
+    let code = module.with_extension("cwasm");
+    let modified = |path: &Path| {
+        std::fs::metadata(path)
+            .and_then(|data| data.modified())
+            .ok()
+    };
+    Ok(match (modified(&code), modified(&module)) {
+        (Some(code_time), Some(module_time)) if code_time >= module_time => code,
+        _ => module,
+    })
 }
 
 fn is_manifest(path: &Path) -> bool {
-    path.extension()
-        .is_some_and(|extension| extension == "json")
+    path.to_string_lossy().ends_with(".manifest.datum")
 }
 
 // One linked module holds the runtime itself, so it closes its own

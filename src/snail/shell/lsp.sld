@@ -3,8 +3,8 @@
 ;; editor opened, whose project.datum names its targets. Zed starts it
 ;; through editors/zed; any editor that speaks the protocol can.
 ;;
-;; It answers from the project's development build, built in this process when the editor opens the project and each
-;; time it saves a file. The build reads the disk, so what it reports is
+;; It answers from a debug build of the project, built in this process when
+;; the editor opens the project and each time it saves a file. The build reads the disk, so what it reports is
 ;; what was saved:
 ;;
 ;; - diagnostics: each failure the build met, at its place;
@@ -584,7 +584,7 @@
 
     ;; ---- Building ----
 
-    ;; Builds every target of the project in development mode, then
+    ;; Builds every target of the project in debug mode, then
     ;; publishes what failed and keeps the programs' names. A build that
     ;; failed keeps the names of the last that did not. The generations go
     ;; once their programs are read: the server publishes nothing.
@@ -609,7 +609,7 @@
         ((Err failure) (new Pair (first (failure-reports project failure)) (second (None))))
         ((Ok description)
          (match (build-project tools project description (map target-name (● description builds))
-                               (Development) (string-append (● tools root) "/build/snail-run")
+                               (Debug) (string-append (● tools root) "/build/snail-run")
                                ".snail-lsp-")
            ((Err failure) (new Pair (first (failure-reports project failure)) (second (None))))
            ((Ok candidate)

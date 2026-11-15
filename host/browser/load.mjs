@@ -93,7 +93,7 @@ function withStubs(module, imports, stubbed, stub) {
 // resource), by importing a function from "snail.runtime.link" named for
 // the SHA-256 of the file's bytes, which answers the file's handle. A
 // handle is only that name: the host reads the file, an object of the
-// program's store at STORE/sha256/DIGEST, the first time a task asks for
+// program's store at store/sha256/AB/DIGEST, the first time a task asks for
 // its bytes, and keeps them, so a file the program never reads is never
 // fetched. Handles index `files`, one for each digest the program has
 // linked, which only grows. The bytes under a digest never change, so a
@@ -117,10 +117,11 @@ async function readLinked({name, read}) {
   catch (error) { throw new Error(`cannot read the linked file ${name}: ${error.message}`, {cause: error}); }
 }
 
-// Reads an object of the store at `store`, a path relative to the file
-// `read` resolves against, by its digest. A linked program's store is
-// store/ beside it; a manifest names its own.
-const objectReader = (read, store = 'store/') => digest => read(`${store}sha256/${digest}`);
+// Reads an object by its digest from store/ beside the program or its
+// manifest, sharded by the digest's first two hex digits, as every build
+// lays out its store (the project builder's "Objects").
+export const objectPath = digest => `store/sha256/${digest.slice(0, 2)}/${digest}`;
+const objectReader = read => digest => read(objectPath(digest));
 
 // The `resource` effect of (snail shell resource): a task starts reading a
 // file by handle under its ticket (tasks.mjs), finishes the ticket for
@@ -153,17 +154,48 @@ export function linkedFileImports(read, module, tasks = noTasks) {
 
 // ---- Linking ----
 
-// A program compiled one library at a time is named by its modules.json:
-// {"store": STORE, "runtime": OBJECT, "modules": [{"name": LIBRARY,
-// ...OBJECT}, ...], "files": [OBJECT, ...]}, where an OBJECT is {"digest":
-// DIGEST, "size": SIZE}, the modules in program order. Every object, the
-// runtime, each module and each file the program links, is read from the
-// store, relative to the manifest, by its digest.
-function readModules(bytes) {
-  return JSON.parse(decoder.decode(bytes));
+// A program is named by its manifest, NAME.manifest.datum, a list of
+// entries: `(runtime "DIGEST" SIZE)`, then `(module "LIBRARY" "DIGEST"
+// SIZE)` for each library in program order, then `(file "DIGEST" SIZE)`
+// for each file the program links. Every object is read from store/ beside
+// the manifest by its digest (objectPath).
+export function readManifest(bytes) {
+  const [[kind, digest, size] = [], ...entries] = readDatum(decoder.decode(bytes));
+  if (kind !== 'runtime') throw new Error('a manifest begins with its runtime');
+  const manifest = {runtime: {digest, size}, modules: [], files: []};
+  for (const [kind, ...fields] of entries) {
+    if (kind === 'module') manifest.modules.push({name: fields[0], digest: fields[1], size: fields[2]});
+    else if (kind === 'file') manifest.files.push({digest: fields[0], size: fields[1]});
+    else throw new Error(`a manifest has no entry ${kind}`);
+  }
+  return manifest;
 }
 
-// Links the program a modules.json names: the Rust runtime, initialized
+// The one datum of `text`, of the kinds a manifest holds: lists, strings
+// with \" and \\ escapes, integers and symbols, which read as strings.
+function readDatum(text) {
+  const tokens = text.match(/"(?:[^"\\]|\\.)*"|[()]|[^\s()";]+|;[^\n]*/g).filter(token => token[0] !== ';');
+  let at = 0;
+  const datum = () => {
+    const token = tokens[at++];
+    if (token === '(') {
+      const items = [];
+      while (tokens[at] !== ')') {
+        if (at >= tokens.length) throw new Error('a manifest ends inside a list');
+        items.push(datum());
+      }
+      at++;
+      return items;
+    }
+    if (token[0] === '"') return token.slice(1, -1).replace(/\\(.)/g, '$1');
+    return /^-?\d+$/.test(token) ? Number(token) : token;
+  };
+  const value = datum();
+  if (at !== tokens.length) throw new Error('a manifest holds more than one datum');
+  return value;
+}
+
+// Links the program a manifest names: the Rust runtime, initialized
 // through `wasi`, then each library's module in program order, so every
 // module comes after those it imports from. `read` gives a file's bytes by
 // its path, which may be relative to the manifest's. Libraries have no
@@ -172,10 +204,10 @@ function readModules(bytes) {
 // files its modules link, and the tasks `tasks` gives, in which a program
 // reads them.
 export async function linkProgram(read, manifest, wasi, host, tasks = noTasks) {
-  const {runtime, store, modules} = readModules(await read(manifest));
-  const object = objectReader(read, store);
+  const {runtime, modules} = readManifest(await read(manifest));
+  const object = objectReader(read);
   const [runtimeModule, compiled] = await Promise.all([compileObject(object, runtime), compileModules(object, modules)]);
-  const program = {read, manifest, store, runtime: await instantiateRuntime(runtimeModule, wasi), host, linked: new Map(),
+  const program = {read, manifest, runtime: await instantiateRuntime(runtimeModule, wasi), host, linked: new Map(),
                    names: modules.map(entry => entry.name), files: [], links: {}, tasks};
   await linkModules(program, compiled);
   return program;
@@ -214,7 +246,7 @@ export const hostProvided = name => name.startsWith('snail.runtime.') || name ==
 async function linkModules(program, modules) {
   const reserved = modules.find(entry => hostProvided(entry.name));
   if (reserved) throw new Error(`no library may be linked as ${reserved.name}, which the host provides`);
-  program.links = linkImports(objectReader(program.read, program.store), modules.map(entry => entry.module), program.files);
+  program.links = linkImports(objectReader(program.read), modules.map(entry => entry.module), program.files);
   const libraries = new Set(['snail.core.support', ...program.linked.keys(), ...modules.map(entry => entry.name)]);
   for (const {name, module} of modules) program.linked.set(name, await WebAssembly.instantiate(module, moduleImports(program, libraries, module)));
 }

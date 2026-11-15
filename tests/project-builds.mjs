@@ -30,12 +30,12 @@ try {
 
   await assert.rejects(build('missing'), /unknown project build target/);
   assert.equal((await build('cli')).stdout.trim(), output('cli'), 'building does not run launch commands');
-  const executed = await execute(process.execPath, ['--no-warnings', join(root, 'host/native/run-snail.mjs'), join(output('cli'), 'program.wasm')]);
+  const executed = await execute(process.execPath, ['--no-warnings', join(root, 'host/native/run-snail.mjs'), join(output('cli'), 'cli.manifest.datum')]);
   assert.equal(executed.stdout, 'hello project', 'entry and explicit library roots reach the existing compiler');
 
   await build('page');
   const first = await realpath(output('page'));
-  assert.equal(await readFile(join(first, 'index.html'), 'utf8'), '<!doctype html><head><link id="snail-web-app" rel="manifest" href="./manifest.webmanifest"><title>Project</title>');
+  assert.equal(await readFile(join(first, 'index.html'), 'utf8'), '<!doctype html><head><link id="snail-web-app" rel="manifest" href="./manifest.webmanifest"><meta name="snail-modules" content="./page.manifest.datum"><title>Project</title>');
   const webApp = JSON.parse(await readFile(join(first, 'manifest.webmanifest'), 'utf8'));
   assert.equal(webApp.id, undefined); assert.equal(webApp.start_url, './'); assert.equal(webApp.scope, './');
   assert.equal(webApp.display, 'standalone');
@@ -64,7 +64,7 @@ try {
   await assert.rejects(build('page'), /conflicts with a build artifact/);
   assert.equal(await realpath(output('page')), second, 'failed packaging leaves output unchanged');
   await rm(join(project, 'public/host.mjs'), {recursive: true});
-  // This program links no files, but a build of one that does writes store/.
+  // Every build writes store/, which holds the program's objects.
   await mkdir(join(project, 'public/store'));
   await assert.rejects(build('page'), /conflicts with a build artifact: .*store/);
   assert.equal(await realpath(output('page')), second, 'a reserved name is refused in every build');
@@ -103,7 +103,7 @@ try {
   await writeFile(join(project, 'project.datum'), selected('Printer'));
   await build('selected');
   const typed = await execute(process.execPath, ['--no-warnings', join(root, 'host/native/run-snail.mjs'),
-    join(output('selected'), 'program.wasm')]);
+    join(output('selected'), 'selected.manifest.datum')]);
   assert.equal(typed.stdout.trim(), 'typed entry');
   for (const type of ['Missing', 'Unknown', 'Generic']) {
     await writeFile(join(project, 'project.datum'), selected(type));

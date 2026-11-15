@@ -12,10 +12,10 @@ runtime instance, with no handle and no part in cleanup, because the private
 
 The command-line driver (`host/chez/snail/stage0/build.sld`) builds this crate for
 `wasm32-wasip1`. It merges the runtime into each statically linked program,
-as `snail-scheme build` and the internal source compiler build them, and connects terminal
-diagnostics and resource cleanup. A program linked when it runs, as a development build
+as stage 0 and `snailc` build them, and connects terminal diagnostics and
+resource cleanup. A program linked when it runs, as `snail-scheme build`
 makes it, instead loads the runtime as its own instance beside the library
-modules (`host/browser/load.mjs`). Node's
+modules (`host/browser/load.mjs` and the engine). Node's
 WASI and the browser host in `host/browser/host.mjs` supply the platform
 operations.
 

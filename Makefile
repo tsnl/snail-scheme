@@ -16,10 +16,10 @@ fetch:
 
 # The formatter's tests, the compiler's unit tests, the examples and test
 # programs, both games' tests, Siegework headless, and the project builds.
-# Bootstrap the command line and build the engine that runs per-library
-# programs first.
+# Bootstrap the command line, which is also the engine that runs per-library
+# programs, first.
 test:
-	./snail-scheme build . engine >/dev/null
+	./scripts/bootstrap >/dev/null
 	"$(CHEZ)" --script host/chez/load.scm "$(CURDIR)" test
 
 # The suite with every compile on the native executable's wasmtime instead of
@@ -29,7 +29,7 @@ test-wasmtime:
 
 # The suite with the compiler's source running on Chez instead of as Wasm.
 test-chez:
-	./snail-scheme build . engine >/dev/null
+	./scripts/bootstrap >/dev/null
 	SNAIL_STAGE0=chez "$(CHEZ)" --script host/chez/load.scm "$(CURDIR)" test
 
 # Browser interfaces in headless Chromium, which CI does
@@ -71,4 +71,4 @@ pages: siegework
 	cp -R build/siegework/. build/pages/play/siegework/
 	test -f build/pages/index.html
 	test -f build/pages/games/siegework.html
-	test -f build/pages/play/siegework/program.wasm
+	test -f build/pages/play/siegework/siegework.manifest.datum

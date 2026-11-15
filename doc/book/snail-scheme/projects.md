@@ -54,7 +54,7 @@ library name is a nonempty list of identifiers; the final identifier names the
 type. The builder emits an ordinary typed `Application.start` call, so missing
 instances, unknown types and unsupplied type arguments are compiler errors.
 The generated source lives under `build/.snail-entry/`, named by its content
-digest so its path stays stable across development builds.
+digest so its path stays stable across builds.
 
 Both kinds accept an optional `library-roots` list. Browser builds also accept an optional `public` directory.
 Omitted roots mean an empty list; the toolchain supplies its standard library.
@@ -84,20 +84,42 @@ duplicate target errors identify both declarations, duplicate fields the second.
 
 ## Output directories
 
-Each build target produces one directory at `PROJECT/build/TARGET`. A static
-program contains `program.wasm`, and each file its libraries link as an
-object at `store/sha256/DIGEST`, named for the SHA-256 of its bytes ([linked files](types.md#linked-files)). A browser build adds the shared browser host
-and recursively copies `public`, if specified. Supply `index.html` there; no page
-is generated. Browser pages load `./program.wasm` through `host.mjs`, which
-fetches a linked file beside it when the program first reads it, or through
-`ui.mjs` for a [document interface](applications.md#document-interfaces).
+Each build target produces one directory at `PROJECT/build/TARGET`, the same
+shape in a debug or a release build. Every library is compiled to a module of
+its own. The modules, the runtime they link with and each file the program
+links ([linked files](types.md#linked-files)) are objects of the project's
+store, `PROJECT/build/.snail-store/sha256/AB/DIGEST`, named for the SHA-256
+of their bytes and sharded by its first two hex digits. A build adds only the
+objects whose bytes are new; an object is written once and never rewritten,
+and nothing reclaims the store: delete it and rebuild from time to time.
 
-Public files cannot overwrite generated files. At the root, every name some
-build generates is reserved, whether or not this build writes it:
-`program.wasm`, `modules.json`, `store`, the
-browser host's files and the `.snail-target` ownership marker. A public tree
-that builds in one mode, or with one set of linked files, therefore builds in
-every other. `.snail-publish` is reserved at every depth. Public trees must
+The directory holds the program's manifest, `TARGET.manifest.datum`, and a
+view of the objects it names at the same paths under its own `store/`: links
+into the project's store in a debug build, copies in a release build, so a
+release directory can be served or shipped on its own. The manifest is one
+list of entries:
+
+```scheme
+((runtime "DIGEST" SIZE)
+ (module "snail.core.base" "DIGEST" SIZE)
+ ...
+ (file "DIGEST" SIZE))
+```
+
+the runtime, each library's module in program order, then each file the
+program links. Every host links the program from it: Node and
+`build/snail run-wasm` through the engine the command line holds, a page
+through `load.mjs`. A browser build adds the shared browser host and
+recursively copies `public`, if specified. Supply `index.html` there; no
+page is generated. The builder names the manifest in the page, with a
+`snail-modules` meta element, which `host.mjs`, or `ui.mjs` for a
+[document interface](applications.md#document-interfaces), links the
+program from; a linked file is fetched when the program first reads it.
+
+Public files cannot overwrite generated files. At the root, every name the
+build generates is reserved: the manifest, `store`, the browser host's files
+and the `.snail-target` ownership marker. `.snail-publish` is reserved at
+every depth. Public trees must
 contain only regular files and directories, include no project build output,
 and have no symlink components, including in the path to the public directory.
 
@@ -117,19 +139,9 @@ generations. Publication consumes the candidate even on failure; callers must
 not discard it again. These guarantees concern complete outputs, not an atomic
 source snapshot or power-loss durability.
 
-Development builds contain `modules.json` instead of linked `program.wasm`:
-a module per library, the runtime they link with and the files they link
-are all objects of the store the project's development builds share,
-`build/.snail-store/sha256/DIGEST`, named for the SHA-256 of their bytes,
-which each manifest names as `../.snail-store/` and lists by digest and
-size. A generation therefore holds no object, a build adds only the objects
-whose bytes are new, and an object is written once and never rewritten.
-Editing a linked file compiles again the library that links it, whose module
-names the new digest. A build that embeds a development generation ([artifact
-bundles](#artifact-bundles)) gets its objects under `store/sha256/` and a
-manifest that says so. Nothing reclaims the store yet. Existing
-browser pages receive the module-manifest meta tag understood by `host.mjs`;
-the builder still does not invent a page.
+A build that embeds a generation ([artifact bundles](#artifact-bundles)) gets
+its files with the objects of its `store/` view read in, so the embedded
+page is complete wherever it is served from.
 
 ## Artifact bundles
 

@@ -17,7 +17,7 @@ const artifact = name => `(import (snail core base) (snail shell artifact))\n(de
 async function generations() {
   const counts = {};
   for (const name of await readdir(join(project, 'build'))) {
-    if (!name.startsWith('.snail-')) continue;
+    if (!name.startsWith('.snail-') || name === '.snail-store') continue;
     const target = await readFile(join(project, 'build', name, '.snail-target'), 'utf8');
     counts[target] = (counts[target] ?? 0) + 1;
   }
@@ -29,7 +29,7 @@ async function checkProgram(program, value) {
   const paths = lines[0].split('|');
   assert.deepEqual(paths, [...paths].sort(), 'relative file names are sorted');
   assert.equal(new Set(paths).size, paths.length);
-  assert.ok(paths.includes('program.wasm') && paths.includes('host.mjs') && paths.includes('index.html'));
+  assert.ok(paths.includes('client.manifest.datum') && paths.includes('host.mjs') && paths.includes('index.html'));
   assert.ok(paths.includes('nested/.snail-target'), 'only the root ownership marker is excluded');
   assert.ok(paths.includes('.hidden') && paths.includes('quote".txt'));
   assert.ok(!paths.includes('.snail-target') && !paths.includes('.snail-publish'));
@@ -87,14 +87,14 @@ try {
 
   await build('server');
   const first = await realpath(output('server'));
-  await checkProgram(join(first, 'program.wasm'), 65);
+  await checkProgram(join(first, 'server.manifest.datum'), 65);
   assert.deepEqual(await generations(), {client: 1, admin: 1, server: 1}, 'repeated and nested requests build each target once');
 
   await writeFile(join(project, 'client-public/nested/data.bin'), Buffer.from([90, 0, 255]));
   await build('server');
   const second = await realpath(output('server'));
-  await checkProgram(join(second, 'program.wasm'), 90);
-  await checkProgram(join(first, 'program.wasm'), 65);
+  await checkProgram(join(second, 'server.manifest.datum'), 90);
+  await checkProgram(join(first, 'server.manifest.datum'), 65);
   assert.deepEqual(await generations(), {client: 2, admin: 2, server: 2}, 'each invocation regenerates dependencies and producers');
 
   // A public directory the build cannot read fails it, and publishes
@@ -133,12 +133,13 @@ try {
   await assert.rejects(build('server'), /missing-function/);
   assert.equal(await realpath(output('server')), second, 'failed parent retains its prior completed output');
   assert.equal(await realpath(output('client')), priorClient, 'a failed parent publishes none of its dependencies');
-  await checkProgram(join(second, 'program.wasm'), 90);
+  await checkProgram(join(second, 'server.manifest.datum'), 90);
 
-  // Artifact bytes do not depend on a generation path at runtime.
-  await cp(join(second, 'program.wasm'), join(project, 'standalone.wasm'));
+  // Artifact bytes do not depend on a generation path at runtime: a copy
+  // of the generation, its store's objects copied in, runs on its own.
+  await cp(second, join(project, 'standalone'), {recursive: true, dereference: true});
   await rename(join(project, 'build'), join(project, 'outputs-moved'));
-  await checkProgram(join(project, 'standalone.wasm'), 90);
+  await checkProgram(join(project, 'standalone/server.manifest.datum'), 90);
   console.log('project artifacts passed');
 } finally {
   await rm(project, {recursive: true, force: true});
