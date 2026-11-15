@@ -7,23 +7,23 @@
 ;; host turns it once before it reads `engine:status`.
 (import
  (snail core base)
- (only (snail core forms) host)
+ (only (snail core forms) Host)
  (snail core io)
  (snail shell engine)
- (only (snail shell wasm) wasm))
+ (only (snail shell wasm) Wasm))
 
 ;; The store is files: an object is read at once, and one that is not
 ;; there is none.
 
-(define (with-files (body (Fn → A ! linked-content-store e))) (→ A) (! fs e) (∀ (A e))
-  (handle linked-content-store
+(define (with-files (body (Fn → A ! Linked-content-store e))) (→ A) (! Fs e) (∀ (A e))
+  (handle Linked-content-store
       ((read-object (lambda (path)
                       (if (file-exists? path)
                           (Some (read-bytes path))
                           (None)))))
     (body)))
 
-(define (read-file-resource (engine Engine) (ticket I64) (handle I32)) (→ Unit) (! mut host fs)
+(define (read-file-resource (engine Engine) (ticket I64) (handle I32)) (→ Unit) (! Mut Host Fs)
   (with-files (lambda () (resource-read engine ticket handle))))
 
 (expose engine-turn "engine:turn")
@@ -37,7 +37,7 @@
 (expose program-status "engine:status")
 (expose close-program "engine:close")
 
-(define (start-engine (engine Engine)) (→ Unit) (! mut host fs wasm)
+(define (start-engine (engine Engine)) (→ Unit) (! Mut Host Fs Wasm)
   (match (environment-variable "SNAIL_MANIFEST")
     ((Some manifest)
      (with-files (lambda () (run-manifest engine manifest (read-file manifest)))))

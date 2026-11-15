@@ -29,7 +29,7 @@
     ;; compiler. Simple case mapping preserves that count. A query cannot
     ;; cross a line; CRLF counts as one newline and snippets omit the CR.
 
-    (define (scan (query Query) (text String) (end I64) (room I64)) (→ (List Occurrence)) (! tasks)
+    (define (scan (query Query) (text String) (end I64) (room I64)) (→ (List Occurrence)) (! Tasks)
       (let ((needle (● query text)))
         (let loop ((at 0) (line 1) (start 0) (hits (ann (Nil) (List Occurrence))) (room room)
                    (next-yield 0))

@@ -1,5 +1,5 @@
 (import
- (only (snail core forms) host)
+ (only (snail core forms) Host)
  (snail core base)
  (except (snail core io) write)
  (snail shell task)
@@ -7,7 +7,7 @@
  (snail shell http)
  (snail shell http exchange))
 
-(define (require (result (Result T SocketError))) (→ T) (∀ (T))
+(define (require (result (Result T Socket-error))) (→ T) (∀ (T))
   (match result ((Ok value) value) ((Err error) (panic (● error code)))))
 
 (define (ascii (text String)) (→ Bytes)
@@ -18,27 +18,27 @@
   (string-generate (vector-length bytes)
                    (lambda (index) (i32->char (u8->i32 (vector-ref bytes index))))))
 
-(define (write-all (connection Connection) (bytes Bytes)) (→ Unit) (! tcp tasks)
+(define (write-all (connection Connection) (bytes Bytes)) (→ Unit) (! Tcp Tasks)
   (let loop ((offset 0))
     (when (< offset (vector-length bytes))
       (let ((count (require (write connection (subvector bytes offset (vector-length bytes))))))
         (unless (> count 0) (panic "write did not progress"))
         (loop (+ offset (i32->i64 count)))))))
 
-(define (read-all (connection Connection)) (→ Bytes) (! tcp tasks)
+(define (read-all (connection Connection)) (→ Bytes) (! Tcp Tasks)
   (let loop ((chunks (ann (Nil) (List Bytes))))
     (match (require (read connection 65536))
       ((None) (vector-concatenate (reverse chunks)))
       ((Some bytes) (loop (Cons bytes chunks))))))
 
-(define (echo (request Request)) (→ (Result Response String)) (! tasks)
+(define (echo (request Request)) (→ (Result Response String)) (! Tasks)
   (sleep 1)
   (Ok (new Response
         (status 200)
         (headers (list (new Header (name "Content-Type") (value "text/plain"))))
         (body (● request body)))))
 
-(define (main) (→ Unit) (! host mut output-port tcp tasks)
+(define (main) (→ Unit) (! Host Mut Output-port Tcp Tasks)
   ;; A program waits on sockets from a task, which the scheduler runs once
   ;; main returns.
   (dispatch

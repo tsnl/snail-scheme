@@ -2,7 +2,7 @@
 
 **Proposed.** Applications send `Frame` values to
 `host/browser/renderer.mjs`, a fixed JavaScript renderer. This design replaces
-it with two layers written in Snail Scheme: a `gpu` effect that is a thin wrapper
+it with two layers written in Snail Scheme: a `Gpu` effect that is a thin wrapper
 around WebGPU, and `(snail shell graphics ...)` libraries of pipelines and
 packers on top of it. Delivery is tracked in
 [the graphics issue](https://github.com/tsnl/snail-scheme/issues/463).
@@ -14,11 +14,11 @@ here depends on an engine extension.
 
 ## WebGPU through an effect
 
-The `gpu` effect mirrors WebGPU's own operations and descriptors, so code
+The `Gpu` effect mirrors WebGPU's own operations and descriptors, so code
 using it reads like WebGPU:
 
 ```scheme
-(effect gpu
+(effect Gpu
   ((create-buffer (Fn BufferDescriptor → GpuBuffer))
    (write-buffer (Fn GpuBuffer I64 Bytes → Unit))
    (create-texture (Fn TextureDescriptor → GpuTexture))
@@ -38,7 +38,7 @@ using it reads like WebGPU:
    (destroy (Fn GpuObject → Unit))))
 ```
 
-The calls are procedural; effects keep them reasonable. A `! gpu` row says
+The calls are procedural; effects keep them reasonable. A `! Gpu` row says
 exactly which functions touch the device, and handlers customize what the
 calls do without changing their callers: tracing, recording for tests,
 validating handles, capturing a frame, or decoding compressed textures for a

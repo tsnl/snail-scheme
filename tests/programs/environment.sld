@@ -9,7 +9,7 @@
     ((Some value) (if (string=? value "") "set, empty" "set"))
     ((None) "unset")))
 
-(define (main) (→ Unit) (! fs output-port)
+(define (main) (→ Unit) (! Fs Output-port)
   (write-line (string-append "PATH: " (set? "PATH")))
   (write-line (string-append "SNAIL_CWD: " (set? "SNAIL_CWD")))
   (write-line (string-append "an unset variable: " (set? "SNAIL_TEST_SURELY_UNSET")))

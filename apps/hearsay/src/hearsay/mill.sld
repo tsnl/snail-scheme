@@ -5,7 +5,7 @@
   (export
    Mill
    Scenario
-   TwoFaces
+   Two-faces
    Smear
    Sandbox
    scenarios
@@ -234,7 +234,7 @@
       (any? (lambda (copy) (= (● copy story) id)) (copies-of mill person)))
 
     (define (hear (mill Mill) (person I64) (copy Copy)) (→ Mill)
-      (Mill-copies-set mill
+      (mill-copies-set mill
                        (vector-set (● mill copies)
                                    person
                                    (append (copies-of mill person) (list copy)))))
@@ -248,7 +248,7 @@
                   (listener I64))
       (→ Mill)
       (let ((id (length (● mill stories))))
-        (hear (Mill-stories-set mill
+        (hear (mill-stories-set mill
                                 (append (● mill stories)
                                         (list (new Story
                                                 (id id)
@@ -411,18 +411,18 @@
                                             (arrivals mill all person)))
                                mill
                                (iota (person-count)))))
-        (Mill-shift-set heard (+ (● mill shift) 1))))
+        (mill-shift-set heard (+ (● mill shift) 1))))
 
     ;; ---- Scenarios ----
 
     (enum Scenario
-      (TwoFaces)
+      (Two-faces)
       (Smear)
       (Sandbox)
       (deriving Serialize Deserialize))
 
     (define (scenarios) (→ (List Scenario))
-      (list (TwoFaces) (Smear) (Sandbox)))
+      (list (Two-faces) (Smear) (Sandbox)))
 
     ;; What a scenario asks: its name and what the menu says of it, its last
     ;; shift, when its goal is judged, and the shift, if any, on which you
@@ -437,7 +437,7 @@
 
     (define (scenario-rules (scenario Scenario)) (→ Rules)
       (match scenario
-        ((TwoFaces)
+        ((Two-faces)
          (new Rules (name "Two faces")
               (pitch "Look reliable to the Market without the Tower hearing you are dangerous.")
               (last-shift 8)
@@ -474,13 +474,13 @@
 
     ;; The rival told Lia and Oda before the first shift.
     (define (smear (mill Mill)) (→ Mill)
-      (let ((told (tell (Mill-shift-set mill 0)
+      (let ((told (tell (mill-shift-set mill 0)
                         (Unreliable)
                         2
                         "a rival says you skipped out on a debt"
                         (Rival)
                         11)))
-        (Mill-shift-set (hear told 14 (new Copy (story 0) (intensity 2) (heard 0) (path (Nil))))
+        (mill-shift-set (hear told 14 (new Copy (story 0) (intensity 2) (heard 0) (path (Nil))))
                         1)))
 
     (define (two-faces-outcome (mill Mill)) (→ Outcome)
@@ -496,9 +496,9 @@
     ;; Decides the game after a spread, which has already advanced `shift`.
     (define (judge (mill Mill)) (→ Mill)
       (let ((done (= (- (● mill shift) 1) (last-shift mill))))
-        (Mill-outcome-set mill
+        (mill-outcome-set mill
                           (match (● mill scenario)
-                            ((TwoFaces) (if done (two-faces-outcome mill) (Playing)))
+                            ((Two-faces) (if done (two-faces-outcome mill) (Playing)))
                             ((Smear)
                              (cond ((> (level mill (tower) (Unreliable)) 0)
                                     (Lost "The Tower believes you unreliable."))
@@ -602,14 +602,14 @@
     ;; A payment empties the person's memory of you and keeps them quiet
     ;; for this shift and the next three.
     (define (pay (mill Mill) (person I64)) (→ Mill)
-      (let ((paid (Mill-coins-set mill (- (● mill coins) 2))))
-        (Mill-liabilities-set
-         (Mill-quiet-set (Mill-copies-set paid (vector-set (● paid copies) person (Nil)))
+      (let ((paid (mill-coins-set mill (- (● mill coins) 2))))
+        (mill-liabilities-set
+         (mill-quiet-set (mill-copies-set paid (vector-set (● paid copies) person (Nil)))
                          (vector-set (● paid quiet) person (+ (● mill shift) 3)))
          (append (● mill liabilities) (list (Paid person (● mill shift)))))))
 
     (define (lie (mill Mill) (trait Trait) (person I64)) (→ Mill)
-      (Mill-liabilities-set
+      (mill-liabilities-set
        (tell mill
              trait
              1
@@ -791,7 +791,7 @@
     ;; The scenario's goal, part by part, judged against the present.
     (define (mill-goals (mill Mill)) (→ (List Goal))
       (append (match (● mill scenario)
-                ((TwoFaces)
+                ((Two-faces)
                  (list (new Goal (text "The Market believes you reliable at 3")
                             (progress (holds (>= (level mill (market) (Reliable)) 3))))
                        (new Goal (text "The Tower does not believe you dangerous")

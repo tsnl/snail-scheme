@@ -5,12 +5,12 @@
 ;; the source as stage 0, and Node runs the compiler compiled to Wasm.
 (define-library (snail shell compiler)
   (export
-   WholeProgram
+   Whole-program
    source->wat
    source->modules
    source->schemas
    Built
-   LinkedFile
+   Linked-file
    no-inputs)
   (import
    (snail core base)
@@ -32,10 +32,10 @@
 
     (define (source->expanded (directories (List String))
                               (source String)
-                              (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
+                              (generate (Fn (List String) (List Syntax) → Bytes ! Fs Compile))
                               (inputs Inputs))
-      (→ ExpandedProgram)
-      (! fs compile)
+      (→ Expanded-program)
+      (! Fs Compile)
       (expand-program directories generate inputs source))
 
     ;; A program compiled to one module: its text, and the files it links,
@@ -43,22 +43,22 @@
     (record Built
       ((name String)
        (text String)
-       (links (List LinkedFile))))
+       (links (List Linked-file))))
 
-    (record WholeProgram
+    (record Whole-program
       ((text String)
-       (links (List LinkedFile))))
+       (links (List Linked-file))))
 
     (define (source->wat (directories (List String))
                          (source String)
-                         (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
+                         (generate (Fn (List String) (List Syntax) → Bytes ! Fs Compile))
                          (inputs Inputs))
-      (→ WholeProgram)
-      (! mut fs compile)
+      (→ Whole-program)
+      (! Mut Fs Compile)
       (let* ((expanded (source->expanded directories source generate inputs))
              (typed (check-program (● expanded program)))
              (module (emit-module (prepare-program typed))))
-        (new WholeProgram (text (wat->string module)) (links (program-links expanded)))))
+        (new Whole-program (text (wat->string module)) (links (program-links expanded)))))
 
     ;; One module of text per library, and one for the program, in program
     ;; order: each comes after the modules it imports from, with the files
@@ -66,10 +66,10 @@
 
     (define (source->modules (directories (List String))
                              (source String)
-                             (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
+                             (generate (Fn (List String) (List Syntax) → Bytes ! Fs Compile))
                              (inputs Inputs))
       (→ (List Built))
-      (! mut fs compile)
+      (! Mut Fs Compile)
       (let* ((expanded (source->expanded directories source generate inputs))
              (typed (check-program (● expanded program)))
              (input (prepare-specialization typed)))
@@ -87,10 +87,10 @@
 
     (define (source->schemas (directories (List String))
                              (source String)
-                             (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
+                             (generate (Fn (List String) (List Syntax) → Bytes ! Fs Compile))
                              (inputs Inputs))
       (→ String)
-      (! fs compile)
+      (! Fs Compile)
       (let ((typed
              (check-program (● (source->expanded directories source generate inputs) program))))
         (wire-schemas (● typed program))))

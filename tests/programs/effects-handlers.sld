@@ -49,7 +49,7 @@
 
 ;; Files from the disk, under `build/`. `read-file` performs fs, which
 ;; goes to the handlers outside this one: here, the host.
-(define (from-disk (action (Fn → A ! Files e))) (→ A) (! fs e) (∀ (A e))
+(define (from-disk (action (Fn → A ! Files e))) (→ A) (! Fs e) (∀ (A e))
   (handle Files
       ((load (lambda (name) (read-file (string-append "build/" name)))))
     (action)))
@@ -69,11 +69,11 @@
   (default
     ((verbosity (lambda () 1)))))
 
-(define (note (level I64) (message String)) (→ Unit) (! Verbosity output-port)
+(define (note (level I64) (message String)) (→ Unit) (! Verbosity Output-port)
   (when (<= level (verbosity))
     (write-line message)))
 
-(define (main) (→ Unit) (! Verbosity fs output-port)
+(define (main) (→ Unit) (! Verbosity Fs Output-port)
 
   ;; ANCHOR_END: declare
 

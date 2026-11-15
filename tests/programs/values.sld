@@ -34,13 +34,13 @@
     ((Evaluate expr) (evaluate expr))))
 
 ;; A record whose field is an effectful function, with the row as a parameter.
-(record (Task e)
-  ((step (Fn I64 → I64 ! e))))
+(record (Task E)
+  ((step (Fn I64 → I64 ! E))))
 
 (effect Note
   ((note (Fn String → Unit))))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   (display ((make-counter) 25))
   (newline)
   (write (map Some (list 1 2)))
@@ -49,7 +49,7 @@
    (length (map (lambda (c) (match c ((Red) "r") ((Green) "g"))) (list (Red) (Green) (Red)))))
   (newline)
   (write (map (lambda (record) (● record x))
-              (map (lambda (p) (Point-x-set p 9))
+              (map (lambda (p) (point-x-set p 9))
                    (list (new Point (x 1) (y 2)) (new Point (x 3) (y 4))))))
   (newline)
   (display (vector-fold * 1 (list->vector (list 1 2 3 4 5))))

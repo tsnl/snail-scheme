@@ -36,7 +36,7 @@
 (define (diameter (circle Circle)) (→ I64)
   (* 2 (● circle radius)))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
 
   ;; ANCHOR_END: paths
 

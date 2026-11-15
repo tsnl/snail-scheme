@@ -27,7 +27,7 @@
     (define (advance (world World)) (→ World)
       (if (and (● world started) (playing? world))
           (judge (settle
-                  (strike (settle (fire (march (excavate (spawn (work (produce (World-tick-set world
+                  (strike (settle (fire (march (excavate (spawn (work (produce (world-tick-set world
                                                                                                (+
                                                                                                 (●
                                                                                                  world

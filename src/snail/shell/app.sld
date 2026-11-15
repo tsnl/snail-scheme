@@ -8,11 +8,11 @@
 ;;   save    : State -> Bytes
 ;;   restore : Bytes -> State
 ;;
-;; `SceneApplication` implements the ordinary Application class. Its loop
+;; `Scene-application` implements the ordinary Application class. Its loop
 ;; presents complete events and commits them through (snail shell page),
 ;; which owns boot, restore and durable saves for both browser engines.
 ;; Time is input, so the state decides how its simulation advances. The
-;; host draws a Frame through `screen` and updates HUD values after each
+;; host draws a Frame through `Screen` and updates HUD values after each
 ;; input (after time, at most ten times a second). A durable save may be
 ;; much smaller than the state: a record of how to rebuild it.
 ;;
@@ -24,12 +24,12 @@
 (define-library (snail shell app)
   (export
    Input
-   KeyDown
-   KeyUp
-   PointerDown
-   PointerMove
-   PointerUp
-   PointerCancel
+   Key-down
+   Key-up
+   Pointer-down
+   Pointer-move
+   Pointer-up
+   Pointer-cancel
    Wheel
    Resize
    Press
@@ -62,7 +62,7 @@
    Layer
    Picture
    Texture
-   Texture-region-set
+   texture-region-set
    still
    Material
    plain
@@ -70,14 +70,14 @@
    Fixed
    Upright
    Item
-   Item-position-set
-   Item-scale-set
-   Item-yaw-set
-   Item-color-set
-   Item-glow-set
-   Item-from-set
-   Item-material-set
-   Item-facing-set
+   item-position-set
+   item-scale-set
+   item-yaw-set
+   item-color-set
+   item-glow-set
+   item-from-set
+   item-material-set
+   item-facing-set
    item
    sprite
    flat-sprite
@@ -106,8 +106,8 @@
    Disabled
    Selected
    Look
-   Look-help-set
-   Look-tone-set
+   look-help-set
+   look-tone-set
    look
    Widget
    Label
@@ -122,10 +122,10 @@
    label
    button
    Corner
-   TopLeft
-   TopRight
-   BottomLeft
-   BottomRight
+   Top-left
+   Top-right
+   Bottom-left
+   Bottom-right
    Place
    At
    Dialog
@@ -133,27 +133,27 @@
    Panel
    Frame
    rgb
-   screen
+   Screen
    render
    Ray
    pointer-ray
    screen-axes
    ground-point
    Event
-   FrameEvent
-   InputEvent
+   Frame-event
+   Input-event
    Hidden
-   SaveRequested
+   Save-requested
    Reload
-   events
+   Events
    next-event
-   storage
+   Storage
    load-save
    store-save
-   PageState
+   Page-state
    define-page-state
    Scene
-   SceneApplication
+   Scene-application
    scene-initialize
    scene-update
    scene-view
@@ -162,7 +162,7 @@
    scene-restore)
   (import
    (rename (snail core base) (instance class-instance))
-   (only (snail core forms) host)
+   (only (snail core forms) Host)
    (prefix (snail runtime browser screen) host-)
    (snail shell task)
    (snail shell application)
@@ -180,12 +180,12 @@
     ;; argument of a HUD button; hovering off a button reports action 0.
     ;; Elapsed reports the milliseconds since the last display frame.
     (enum Input
-      (KeyDown ((key I32) (shift Bool)))
-      (KeyUp ((key I32)))
-      (PointerDown ((pointer I32) (x I32) (y I32) (button I32)))
-      (PointerMove ((pointer I32) (x I32) (y I32)))
-      (PointerUp ((pointer I32) (x I32) (y I32)))
-      (PointerCancel ((pointer I32)))
+      (Key-down ((key I32) (shift Bool)))
+      (Key-up ((key I32)))
+      (Pointer-down ((pointer I32) (x I32) (y I32) (button I32)))
+      (Pointer-move ((pointer I32) (x I32) (y I32)))
+      (Pointer-up ((pointer I32) (x I32) (y I32)))
+      (Pointer-cancel ((pointer I32)))
       (Wheel ((pixels I32)))
       (Resize ((width I32) (height I32)))
       (Press ((action I32) (argument I32)))
@@ -210,12 +210,12 @@
 
     (define (decode-input (kind I32) (a I32) (b I32) (c I32) (d I32)) (→ Input)
       (case kind
-        ((1) (KeyDown a (= b 1)))
-        ((2) (KeyUp a))
-        ((3) (PointerDown a b c d))
-        ((4) (PointerMove a b c))
-        ((5) (PointerUp a b c))
-        ((6) (PointerCancel a))
+        ((1) (Key-down a (= b 1)))
+        ((2) (Key-up a))
+        ((3) (Pointer-down a b c d))
+        ((4) (Pointer-move a b c))
+        ((5) (Pointer-up a b c))
+        ((6) (Pointer-cancel a))
         ((7) (Wheel a))
         ((8) (Resize a b))
         ((9) (Press a b))
@@ -265,7 +265,7 @@
     (define (recognize (gestures Gestures) (input Input)) (→ (Pair Gestures (List Gesture)))
       (let ((contacts (● gestures contacts)))
         (match input
-          ((PointerDown pointer x y button)
+          ((Pointer-down pointer x y button)
            (new Pair
              (first (new Gestures
                       (contacts (press-contact contacts
@@ -278,9 +278,9 @@
                                                  (y y)
                                                  (mode (Holding)))))))
              (second (Nil))))
-          ((PointerMove pointer x y) (move-contact contacts pointer x y))
-          ((PointerUp pointer x y) (release-contact contacts pointer x y))
-          ((PointerCancel pointer)
+          ((Pointer-move pointer x y) (move-contact contacts pointer x y))
+          ((Pointer-up pointer x y) (release-contact contacts pointer x y))
+          ((Pointer-cancel pointer)
            (new Pair
              (first (new Gestures (contacts (without-contact contacts pointer))))
              (second (Nil))))
@@ -293,7 +293,7 @@
       (let ((pressed (append (without-contact contacts (● contact pointer)) (list contact))))
         (match pressed
           ((Cons _ (Nil)) pressed)
-          (_ (map (lambda (c) (Contact-mode-set c (Pinched))) pressed)))))
+          (_ (map (lambda (c) (contact-mode-set c (Pinched))) pressed)))))
 
     (define (without-contact (contacts (List Contact)) (pointer I32)) (→ (List Contact))
       (filter (lambda (c) (not (= (● c pointer) pointer))) contacts))
@@ -308,7 +308,7 @@
                             (lone-move contact x y)
                             (let ((moved (map (lambda (c)
                                                 (if (= (● c pointer) pointer)
-                                                    (Contact-y-set (Contact-x-set c x) y)
+                                                    (contact-y-set (contact-x-set c x) y)
                                                     c))
                                               contacts)))
                               (new Pair
@@ -320,7 +320,7 @@
     ;; and its first drag covers the whole way from there.
 
     (define (lone-move (contact Contact) (x I32) (y I32)) (→ (Pair Gestures (List Gesture)))
-      (let ((moved (Contact-y-set (Contact-x-set contact x) y)))
+      (let ((moved (contact-y-set (contact-x-set contact x) y)))
         (match (● contact mode)
           ((Dragging)
            (new Pair (first (new Gestures (contacts (list moved))))
@@ -328,7 +328,7 @@
           ((Holding) (if (far? contact x y)
                          (new Pair
                            (first
-                            (new Gestures (contacts (list (Contact-mode-set moved (Dragging))))))
+                            (new Gestures (contacts (list (contact-mode-set moved (Dragging))))))
                            (second (list (Drag (- x (● contact start-x))
                                                (- y (● contact start-y))))))
                          (new Pair (first (new Gestures (contacts (list moved)))) (second (Nil)))))
@@ -641,10 +641,10 @@
       (Button (look key) text "" action 0 (Enabled) -1.0))
 
     (enum Corner
-      (TopLeft)
-      (TopRight)
-      (BottomLeft)
-      (BottomRight))
+      (Top-left)
+      (Top-right)
+      (Bottom-left)
+      (Bottom-right))
 
     ;; Panels in a corner stack in columns: column 0 against the side of the
     ;; screen, later ones farther in, each running from the corner in the
@@ -663,7 +663,7 @@
 
     ;; ---- Drawing ----
 
-    (effect screen
+    (effect Screen
       ((frame-begin (Fn I32 F32 → Unit))
        (camera (Fn F32 F32 F32 F32 F32 F32 I32 F32 → Unit))
        (light (Fn F32 F32 F32 F32 F32 → Unit))
@@ -705,7 +705,7 @@
                 (text-character host-text-character)
                 (hud-end host-hud-end))))
 
-    (define (render (frame Frame)) (→ Unit) (! screen)
+    (define (render (frame Frame)) (→ Unit) (! Screen)
       (frame-begin (● frame background) (● frame motion))
       (render-camera (● frame camera))
       (render-light (● frame light))
@@ -715,7 +715,7 @@
 
     ;; Kind 0 is perspective and 1 orthographic, as in host/browser/renderer.mjs.
 
-    (define (render-camera (view Camera)) (→ Unit) (! screen)
+    (define (render-camera (view Camera)) (→ Unit) (! Screen)
       (let ((eye (● view eye)) (target (● view target)))
         (match (● view projection)
           ((Perspective fov)
@@ -737,7 +737,7 @@
                    1
                    height)))))
 
-    (define (render-light (sunlight Light)) (→ Unit) (! screen)
+    (define (render-light (sunlight Light)) (→ Unit) (! Screen)
       (let ((direction (● sunlight direction)))
         (light (● direction x)
                (● direction y)
@@ -748,7 +748,7 @@
     ;; A picture's layers travel only when the host lacks this version, and a
     ;; source's bytes only when the host has never decoded it.
 
-    (define (render-picture (picture Picture)) (→ Unit) (! screen)
+    (define (render-picture (picture Picture)) (→ Unit) (! Screen)
       (unless (picture-begin (● picture key)
                              (● picture version)
                              (● picture width)
@@ -756,7 +756,7 @@
         (for-each render-layer ((● picture layers)))
         (picture-end)))
 
-    (define (render-layer (piece Layer)) (→ Unit) (! screen)
+    (define (render-layer (piece Layer)) (→ Unit) (! Screen)
       (let ((from (● piece from)) (source (● piece source)))
         (unless (layer (● source key)
                        (● from x)
@@ -770,7 +770,7 @@
 
     ;; Bytes go four at a time, little-endian, the last word padded.
 
-    (define (send-source (source Source)) (→ Unit) (! screen)
+    (define (send-source (source Source)) (→ Unit) (! Screen)
       (let* ((bytes ((● source bytes))) (count (vector-length bytes))
              (byte (lambda (index) (if (< index count) (u8->i32 (vector-ref bytes index)) 0))))
         (source-begin (● source key) (i64->i32 count))
@@ -785,7 +785,7 @@
     ;; The style travels with every frame; the items only when the host lacks
     ;; this version. Styles 0 to 2 match the `styles` of host/browser/host.mjs.
 
-    (define (render-batch (batch Batch)) (→ Unit) (! screen)
+    (define (render-batch (batch Batch)) (→ Unit) (! Screen)
       (unless (match (● batch style)
                 ((Solid) (batch-begin (● batch key) (● batch version) 0 1.0 0.0 0.0 0.0))
                 ((Translucent opacity)
@@ -800,7 +800,7 @@
                               radius)))
         (for-each render-item ((● batch items)))))
 
-    (define (render-item (item Item)) (→ Unit) (! screen)
+    (define (render-item (item Item)) (→ Unit) (! Screen)
       (let ((position (● item position)) (scale (● item scale)) (from (● item from)))
         (instance (mesh-index (● item mesh))
           (● position x)
@@ -818,7 +818,7 @@
     ;; A material and facing follow each instance: an untextured one names
     ;; picture -1.
 
-    (define (render-surface (material Material) (facing Facing)) (→ Unit) (! screen)
+    (define (render-surface (material Material) (facing Facing)) (→ Unit) (! Screen)
       (let ((turn (match facing ((Fixed) 0) ((Upright) 1))))
         (match (● material texture)
           ((Some texture)
@@ -860,14 +860,14 @@
 
     ;; The HUD is sent apart from frames, only when it may have changed.
 
-    (define (render-hud (panels (List Panel))) (→ Unit) (! screen)
+    (define (render-hud (panels (List Panel))) (→ Unit) (! Screen)
       (hud-begin)
       (for-each render-panel panels)
       (hud-end))
 
     ;; Places and corners match host/browser/hud.mjs.
 
-    (define (render-panel (panel Panel)) (→ Unit) (! screen)
+    (define (render-panel (panel Panel)) (→ Unit) (! Screen)
       (match (● panel place)
         ((At corner column) (panel-begin 0 (corner-index corner) column 0))
         ((Dialog dismiss) (panel-begin 1 0 0 dismiss))
@@ -877,17 +877,17 @@
 
     (define (corner-index (corner Corner)) (→ I32)
       (match corner
-        ((TopLeft) 0)
-        ((TopRight) 1)
-        ((BottomLeft) 2)
-        ((BottomRight) 3)))
+        ((Top-left) 0)
+        ((Top-right) 1)
+        ((Bottom-left) 2)
+        ((Bottom-right) 3)))
 
     ;; A widget's kind and numbers, then its strings, each named by a field:
     ;; 0 key, 1 icon, 2 help, 3 badge, 4 text, 5 caption, 6 url, then each
     ;; span of a text, 7 normal or 8 strong. Kinds, tones and controls match
     ;; host/browser/hud.mjs, and fields host/browser/host.mjs.
 
-    (define (render-widget (widget Widget)) (→ Unit) (! screen)
+    (define (render-widget (widget Widget)) (→ Unit) (! Screen)
       (match widget
         ((Label face text)
          (widget-begin 0 (tone-index (● face tone)) 0 0 0 0.0)
@@ -919,12 +919,12 @@
                        scale)
          (render-look face))))
 
-    (define (render-span (span Span)) (→ Unit) (! screen)
+    (define (render-span (span Span)) (→ Unit) (! Screen)
       (match span
         ((Normal words) (render-field 7 words))
         ((Strong words) (render-field 8 words))))
 
-    (define (render-look (face Look)) (→ Unit) (! screen)
+    (define (render-look (face Look)) (→ Unit) (! Screen)
       (render-field 0 (● face key))
       (render-field 1 (● face icon))
       (render-field 2 (● face help))
@@ -947,7 +947,7 @@
 
     ;; Empty strings are not sent.
 
-    (define (render-field (which I32) (text String)) (→ Unit) (! screen)
+    (define (render-field (which I32) (text String)) (→ Unit) (! Screen)
       (when (> (string-length text) 0)
         (field which)
         (let loop ((index 0))
@@ -1032,24 +1032,24 @@
 
     ;; Frame already names the drawing data above; FrameEvent names a tick.
     (enum Event
-      (FrameEvent ((elapsed I32)))
-      (InputEvent ((input Input)))
+      (Frame-event ((elapsed I32)))
+      (Input-event ((input Input)))
       (Hidden)
-      (SaveRequested)
+      (Save-requested)
       (Reload))
 
-    (define (next-event) (→ Event) (! events tasks)
+    (define (next-event) (→ Event) (! Events Tasks)
       (match (poll-event)
         (0 (wait-event) (next-event))
-        (11 (FrameEvent (event-field 0)))
+        (11 (Frame-event (event-field 0)))
         (12 (Hidden))
         (13 (Reload))
-        (16 (SaveRequested))
-        (kind (InputEvent (decode-input kind
-                                        (event-field 0)
-                                        (event-field 1)
-                                        (event-field 2)
-                                        (event-field 3))))))
+        (16 (Save-requested))
+        (kind (Input-event (decode-input kind
+                                         (event-field 0)
+                                         (event-field 1)
+                                         (event-field 2)
+                                         (event-field 3))))))
 
     ;; ---- Scene applications ----
 
@@ -1063,11 +1063,11 @@
 
     ;; This adapter supplies Application through ordinary instance evidence.
     ;; A project's selected type may be an alias for (SceneApplication Game).
-    (record (SceneApplication S)
+    (record (Scene-application S)
       ())
 
-    (class-instance (Application (! mut screen events storage tasks page) (SceneApplication S))
-                    (⊨ (Scene S) (PageState S))
+    (class-instance (Application (! Mut Screen Events Storage Tasks Page) (Scene-application S))
+                    (⊨ (Scene S) (Page-state S))
                     (define start
                       (lambda (entry)
                         (run-page (lambda () (initial-scene entry)) scene-save scene-restore
@@ -1076,9 +1076,9 @@
     ;; The witness selects the state type before initialization; subsequent
     ;; calls select their Scene evidence from the state itself.
 
-    (define (initial-scene (entry (Entry (SceneApplication S))))
+    (define (initial-scene (entry (Entry (Scene-application S))))
       (→ S)
-      (! events)
+      (! Events)
       (∀ (S))
       (⊨ (Scene S))
       (scene-initialize (random-seed) (canvas-width) (canvas-height)))
@@ -1087,13 +1087,13 @@
     ;; drawing and HUD throttling; an input owns its HUD. Save events share
     ;; the same queue, independently of display frames.
 
-    (define (scene-loop (save (Fn S → Unit ! events storage tasks)) (state S) (since-hud I32))
+    (define (scene-loop (save (Fn S → Unit ! Events Storage Tasks)) (state S) (since-hud I32))
       (→ Unit)
-      (! mut screen events storage tasks page)
+      (! Mut Screen Events Storage Tasks Page)
       (∀ (S))
-      (⊨ (Scene S) (PageState S))
+      (⊨ (Scene S) (Page-state S))
       (match (next-event)
-        ((FrameEvent elapsed)
+        ((Frame-event elapsed)
          (let* ((next (scene-update state (Elapsed elapsed))) (frame (scene-view next))
                 (hud-time (+ since-hud elapsed))
                 (show-hud? (>= hud-time 100)) (widgets (if show-hud? (scene-hud next) (Nil))))
@@ -1102,13 +1102,13 @@
            (commit-page next)
            (report-ready)
            (scene-loop save next (if show-hud? 0 hud-time))))
-        ((InputEvent input)
+        ((Input-event input)
          (let* ((next (scene-update state input)) (widgets (scene-hud next)))
            (render-hud widgets)
            (commit-page next)
            (scene-loop save next 0)))
         ((Hidden) (save state) (scene-loop save state since-hud))
-        ((SaveRequested) (save state) (scene-loop save state since-hud))
+        ((Save-requested) (save state) (scene-loop save state since-hud))
         ((Reload) (save state) (unit))))
 
     ))

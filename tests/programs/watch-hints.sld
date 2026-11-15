@@ -1,5 +1,5 @@
 (import
- (only (snail core forms) host)
+ (only (snail core forms) Host)
  (snail core base)
  (snail core io)
  (snail shell task)
@@ -14,20 +14,20 @@
 (define (at (name String)) (→ String)
   (string-append (root) "/" name))
 
-(define (writer) (→ Unit) (! fs tasks output-port)
+(define (writer) (→ Unit) (! Fs Tasks Output-port)
   (write-file (at "build/output") "out")
   (sleep 200)
   (write-line "writing outside")
   (write-file (at "src/main.sld") "main"))
 
-(define (waiter (watch Watch)) (→ Unit) (! fs tasks output-port hints)
+(define (waiter (watch Watch)) (→ Unit) (! Fs Tasks Output-port Hints)
   (write-line (if (next-hint watch) "hinted" "closed"))
   (close-watch watch)
   (write-line (if (next-hint watch) "hinted" "closed"))
   (remove-tree (root))
   (unit))
 
-(define (main) (→ Unit) (! host mut fs output-port tasks hints)
+(define (main) (→ Unit) (! Host Mut Fs Output-port Tasks Hints)
   (remove-tree (root))
   (make-directories (at "build"))
   (make-directories (at "src"))

@@ -1,6 +1,6 @@
 # Task operations
 
-`(snail shell task)` defines the `tasks` effect and the scheduler that
+`(snail shell task)` defines the `Tasks` effect and the scheduler that
 handles it, both in Snail Scheme:
 
 | Operation | Meaning |
@@ -22,10 +22,10 @@ handles it, both in Snail Scheme:
 (import
  (snail core base)
  (snail core io)
- (only (snail core forms) host)
+ (only (snail core forms) Host)
  (snail shell task))
 
-(define (main) (→ Unit) (! mut host tasks output-port)
+(define (main) (→ Unit) (! Mut Host Tasks Output-port)
   (dispatch
    (lambda ()
      (yield)
@@ -52,16 +52,16 @@ it, and to an application, whose loop is a task ([applications](../snail-core/ap
 
 A task is a function that runs one step of it, closed over the handlers in
 scope where the task was dispatched. Its first step runs the work under
-the task's own handler of `tasks`, whose control operations do not
+the task's own handler of `Tasks`, whose control operations do not
 resume: each answers a `Step` holding the rest of the task, closed over
 the same handlers.
 
 ```scheme
 (enum Step
   (Finished)
-  (Yielded ((next (Fn → Step ! host))))
-  (Sleeping ((delay I64) (next (Fn → Step ! host))))
-  (Waiting ((ticket I64) (next (Fn → Step ! host)))))
+  (Yielded ((next (Fn → Step ! Host))))
+  (Sleeping ((delay I64) (next (Fn → Step ! Host))))
+  (Waiting ((ticket I64) (next (Fn → Step ! Host)))))
 ```
 
 The scheduler keeps every task that is not running in exactly one list:
@@ -113,13 +113,13 @@ scheduler.
 
 ## Effects and locality
 
-The dispatcher must admit both `tasks` and the effects of the thunk, so
+The dispatcher must admit both `Tasks` and the effects of the thunk, so
 dispatching cannot hide an otherwise unhandled operation. The work may
-yield only to `tasks`: its other handlers may have returned by the time
+yield only to `Tasks`: its other handlers may have returned by the time
 it runs, so preparation refuses work that may yield to any other
 control effect where it is dispatched.
 
-`tasks` is an ordinary effect. A program can handle it itself, for a
+`Tasks` is an ordinary effect. A program can handle it itself, for a
 simulated clock in a test or a scheduler of its own;
 `tests/programs/tasks-handler.sld` runs a countdown under a handler whose
 `sleep` advances a logical clock, then under the real scheduler.
@@ -129,7 +129,7 @@ in this single-threaded instance. Work for another instance travels
 as bytes through a queue, never as a closure ([#553](https://github.com/tsnl/snail-scheme/issues/553), proposed).
 
 Only `yield`, `sleep` and `await` let other tasks run. Console and
-the core `fs` services remain synchronous; performing an arbitrary effect
+the core `Fs` services remain synchronous; performing an arbitrary effect
 does not by itself wait, and the scheduler does not preempt a CPU loop.
 Dispatching a filesystem operation from `(snail core io)` defers it but
 does not make the kernel operation asynchronous;
@@ -138,8 +138,8 @@ asynchronous reads.
 
 ## Native asynchronous file reads
 
-`(snail shell async-files)` exports the ordinary `files` effect. Its
-`read-file : String I32 -> Result<Bytes, FileError> ! files tasks` reads
+`(snail shell async-files)` exports the ordinary `Files` effect. Its
+`read-file : String I32 -> Result<Bytes, FileError> ! Files Tasks` reads
 an entire file up to the supplied byte limit. It suspends the calling task
 while other tasks run. A task that has other work meanwhile dispatches the
 read and receives its result through a [mailbox](#mailboxes):
@@ -153,12 +153,12 @@ read and receives its result through a [mailbox](#mailboxes):
 ```
 
 Here `file-read-file` is imported with a `file-` prefix, and the dispatched
-task retains the explicit `files` capability (`tests/async-files/main.sld`).
+task retains the explicit `Files` capability (`tests/async-files/main.sld`).
 
 Limits range from zero through 16 MiB. The host reads at most limit plus
-one bytes, distinguishing an exact fit from `TooLarge`; metadata is not
+one bytes, distinguishing an exact fit from `Too-large`; metadata is not
 proof that the subsequent read fits. Other error values are `Unavailable`,
-`InvalidInput`, `NotFound`, `PermissionDenied`, and `Failed`. Reads of a
+`Invalid-input`, `Not-found`, `Permission-denied`, and `Failed`. Reads of a
 changing file are not snapshots. This first capability does not change
 core filesystem operations or the IDE service's non-yielding save transaction.
 
@@ -207,7 +207,7 @@ program importing both libraries would have conflicting imports.
 ```
 
 A receiver that finds the queue empty takes a ticket, keeps in the
-mailbox a waker, `(Fn → Unit ! mut)`, closed over its scheduler and that
+mailbox a waker, `(Fn → Unit ! Mut)`, closed over its scheduler and that
 ticket, and awaits the ticket. A waker only moves its task to the ready
 list, so any code may call it: another task, or code between turns. A
 call after the task was woken, or once its scheduler has closed, wakes
@@ -233,7 +233,7 @@ finishes by taking the result the host built for it:
 
 `(snail shell socket)`, `(snail shell process)` and the application's
 event and storage waits all wait through `through-host`, so each waiting
-operation's latent row names `tasks`: a program that reads a socket can
+operation's latent row names `Tasks`: a program that reads a socket can
 see that it waits, and must do so from a task. Waiting needs no lock,
 because a task runs until it waits: nothing else runs between taking a
 ticket and awaiting it, so neither a post nor a host completion can come

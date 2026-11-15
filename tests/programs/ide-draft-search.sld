@@ -1,13 +1,13 @@
 (import
  (snail core base)
- (only (snail core forms) host)
+ (only (snail core forms) Host)
  (snail core io)
  (snail shell task)
  (snail shell fetch)
  (snail shell text search)
  (prefix (snail shell ide search) search-))
 
-(define (run (text String) (query String)) (→ Unit) (! tasks fetch output-port)
+(define (run (text String) (query String)) (→ Unit) (! Tasks Fetch Output-port)
   (match (search-run (search-CurrentDraft (new search-Draft (path "draft.sld") (text text))) query)
     ((Ok (search-DraftResults draft hits limited))
      (for-each (lambda (hit)
@@ -17,11 +17,11 @@
      (write-line (string-append (show (length hits)) " " (show limited))))
     (_ (panic "draft search failed"))))
 
-(define (main) (→ Unit) (! host mut output-port tasks)
+(define (main) (→ Unit) (! Host Mut Output-port Tasks)
 
   (dispatch
    (lambda ()
-     (handle fetch
+     (handle Fetch
          ((request
            (lambda (method url headers body) (panic "draft search must not use HTTP")))
           (stream-open (lambda (url kinds) (panic "stream")))

@@ -29,7 +29,7 @@
   (yield 2)
   (unit))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   ;; Each handler prints the lines it is given under its own name.
   (match (handle Log ((log (lambda (line) (write-line (string-append "first: " line)))))
            (start counter))

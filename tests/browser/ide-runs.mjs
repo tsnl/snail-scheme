@@ -16,10 +16,10 @@ const config = includeApp => `(
   (build-target failure (program (entry "failure.sld")))
   ${includeApp ? '(run-target app (run worker))' : ''}
   (run-target crash (run failure)))`;
-const program = value => `(import (snail core base) (snail core io))\n(define (greeting) (→ String) ${value})\n(define (main) (→ Unit) (! output-port) (write-line (greeting)))\n`;
+const program = value => `(import (snail core base) (snail core io))\n(define (greeting) (→ String) ${value})\n(define (main) (→ Unit) (! Output-port) (write-line (greeting)))\n`;
 await writeFile(join(project, 'project.datum'), config(true));
 await writeFile(join(project, 'main.sld'), program('"hello"'));
-await writeFile(join(project, 'worker.sld'), '(import (snail core base) (snail core io) (snail shell task)) (define (main) (→ Unit) (! output-port tasks) (let loop () (write-line "<b>literal output</b>") (sleep 80) (loop)))');
+await writeFile(join(project, 'worker.sld'), '(import (snail core base) (snail core io) (snail shell task)) (define (main) (→ Unit) (! Output-port Tasks) (let loop () (write-line "<b>literal output</b>") (sleep 80) (loop)))');
 await writeFile(join(project, 'failure.sld'), '(import (snail core base)) (define (main) (→ Unit) (panic "stderr literal"))');
 const service = await startDevelopment(root, project), browser = await openBrowser();
 const click = id => browser.evaluate(`document.getElementById(${JSON.stringify(id)}).click()`);

@@ -6,9 +6,9 @@
 ;; is resumed somewhere else (#565). They still go to the handlers where
 ;; the operation was performed, as the resume left them: the task's own
 ;; handler, re-installed, and beyond it the handlers in scope where the
-;; task was resumed. So `fetch` asks task 1 whose task it is although task
+;; task was resumed. So `Fetch` asks task 1 whose task it is although task
 ;; 2 resumed it, and logs to the log around the resume, not to the one
-;; around the task when `fetch` was performed.
+;; around the task when `Fetch` was performed.
 (effect Async
   ((ctl await (Fn I64 → I64))
    (task-id (Fn → I64))))
@@ -40,10 +40,10 @@
     ((Done value) value)
     ((Waiting ticket next) (finish (next ticket)))))
 
-(define (labelled (name String) (line String)) (→ Unit) (! output-port)
+(define (labelled (name String) (line String)) (→ Unit) (! Output-port)
   (write-line (string-append name ": " line)))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   (handle Io
       ((fetch (lambda (ticket)
                 (log (string-append "fetch in task " (show (task-id))))

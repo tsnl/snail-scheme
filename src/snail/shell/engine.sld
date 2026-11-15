@@ -2,7 +2,7 @@
 ;; same scheduler as its loading and file work.
 (define-library (snail shell engine)
   (export
-   linked-content-store
+   Linked-content-store
    read-object
    Engine make-engine run-manifest
    program-status
@@ -17,7 +17,7 @@
    close-program)
   (import
    (snail core base)
-   (only (snail core forms) host Funcref)
+   (only (snail core forms) Host Funcref)
    (snail shell json)
    (snail shell json read)
    (snail shell task)
@@ -70,7 +70,7 @@
                              (second (new Pair
                                        (first (json-member entry "name"))
                                        (second (object-of (Some entry))))))
-                      ((Pair (Some rest) (Pair (Some (JsonString name)) (Some object)))
+                      ((Pair (Some rest) (Pair (Some (Json-string name)) (Some object)))
                        (if (module-name-available? name rest)
                            (Some (Cons (new Pair (first name) (second object)) rest)) (None)))
                       (_ (None))))
@@ -99,22 +99,22 @@
       (match json
         ((Some entry)
          (match (json-member entry "digest")
-           ((Some (JsonString digest))
+           ((Some (Json-string digest))
             (Some (new Object (digest digest)
                        (size (match (json-member entry "size")
-                               ((Some (JsonInteger size)) size)
+                               ((Some (Json-integer size)) size)
                                (_ 0))))))
            (_ (None))))
         ((None) (None))))
 
     (define (json-text (json Json) (name String) (default String)) (→ String)
       (match (json-member json name)
-        ((Some (JsonString text)) text)
+        ((Some (Json-string text)) text)
         (_ default)))
 
     (define (json-array (json Json) (name String)) (→ (List Json))
       (match (json-member json name)
-        ((Some (JsonArray items)) items)
+        ((Some (Json-array items)) items)
         (_ (Nil))))
 
     ;; A path's directory with its final slash, or "" for a bare name.
@@ -138,15 +138,15 @@
     ;; entry handles this once, choosing the backend: the native engine
     ;; reads a file. A read may wait by ticket, as a fetch does
     ;; ((snail shell task)'s `through-host`), so it runs in a task.
-    (effect linked-content-store
-      ((read-object (Fn String → (Option Bytes) ! tasks))))
+    (effect Linked-content-store
+      ((read-object (Fn String → (Option Bytes) ! Tasks))))
 
     ;; An object the program needs; one the store cannot give is a build
     ;; the engine cannot run.
 
     (define (object-bytes (manifest Manifest) (name String) (object Object))
       (→ Bytes)
-      (! tasks linked-content-store)
+      (! Tasks Linked-content-store)
       (match (read-object (object-file manifest (● object digest)))
         ((Some bytes) bytes)
         ((None)
@@ -180,13 +180,13 @@
 
     ;; Startup links in one task. Program work joins the same FIFO.
     (define (run-manifest (engine Engine) (path String) (text String))
-      (→ Unit) (! mut host wasm linked-content-store)
+      (→ Unit) (! Mut Host Wasm Linked-content-store)
       (dispatch-in (● engine scheduler)
                    (lambda () (link-manifest engine (parse-manifest path text))))
       (unit))
 
     (define (link-manifest (engine Engine) (manifest Manifest))
-      (→ Unit) (! mut host wasm tasks linked-content-store)
+      (→ Unit) (! Mut Host Wasm Tasks Linked-content-store)
       (let ((runtime (link-object manifest "the runtime" (● manifest runtime) (None) (Nil))))
         (bind-runtime runtime)
         (set! (● engine runtime) (Some runtime))
@@ -196,7 +196,7 @@
         (run-main engine (link-libraries manifest runtime (● manifest modules) (Nil)))))
 
     (define (run-main (engine Engine) (libraries (List (Pair String Module))))
-      (→ Unit) (! mut host wasm)
+      (→ Unit) (! Mut Host Wasm)
       (match libraries
         ((Nil) (panic "the manifest has no program"))
         ((Cons (Pair _ program) (Nil))
@@ -216,7 +216,7 @@
                             (modules (List (Pair String Object)))
                             (libraries (List (Pair String Module))))
       (→ (List (Pair String Module)))
-      (! wasm tasks linked-content-store)
+      (! Wasm Tasks Linked-content-store)
       (match modules
         ((Nil) (reverse libraries))
         ((Cons (Pair name object) rest)
@@ -236,7 +236,7 @@
                          (runtime (Option Module))
                          (libraries (List (Pair String Module))))
       (→ Module)
-      (! wasm tasks linked-content-store)
+      (! Wasm Tasks Linked-content-store)
       (let ((compiled
              (match (compile-bytes (object-bytes manifest name object))
                ((Some compiled) compiled)
@@ -264,18 +264,18 @@
       (let ((from (● import from)) (name (● import name)))
         (cond ((string=? from "snail.core.support")
                (match runtime
-                 ((Some runtime) (ExportOf runtime name))
+                 ((Some runtime) (Export-of runtime name))
                  ((None) (Unprovided))))
               ((string=? from "snail.runtime.link")
                (match (file-handle manifest name 0)
-                 ((Some handle) (ConstantOf handle))
+                 ((Some handle) (Constant-of handle))
                  ((None) (Unprovided))))
               ((string=? from "snail.runtime.resource")
-               (HostProvided))
+               (Host-provided))
               (else
                (match (assoc-ref libraries from)
-                 ((Some library) (ExportOf library name))
-                 ((None) (HostIfProvided)))))))
+                 ((Some library) (Export-of library name))
+                 ((None) (Host-if-provided)))))))
 
     ;; A linked file's handle: its position among the manifest's files.
 
@@ -291,13 +291,13 @@
 
     ;; One scheduler means one ticket space and one turn. Loading
     ;; work and program work have the same lifetime.
-    (define (engine-turn (engine Engine) (now I64)) (→ I64) (! mut host)
+    (define (engine-turn (engine Engine) (now I64)) (→ I64) (! Mut Host)
       (tasks-turn (● engine scheduler) now))
 
-    (define (engine-wake (engine Engine) (ticket I64)) (→ I32) (! mut)
+    (define (engine-wake (engine Engine) (ticket I64)) (→ I32) (! Mut)
       (if (tasks-wake! (● engine scheduler) ticket) 1 0))
 
-    (define (engine-close-tasks (engine Engine)) (→ Unit) (! mut)
+    (define (engine-close-tasks (engine Engine)) (→ Unit) (! Mut)
       (tasks-close! (● engine scheduler)))
 
     (define (engine-running (engine Engine)) (→ I64)
@@ -309,7 +309,7 @@
     ;; Calls an export the program's modules are known to have; one they
     ;; lack is a build the engine cannot run.
 
-    (define (call (instance Module) (name String) (argument I64)) (→ I64) (! wasm)
+    (define (call (instance Module) (name String) (argument I64)) (→ I64) (! Wasm)
       (match (run-export instance name argument)
         ((Ok answer) answer)
         ((Err error) (panic (load-error-message error)))))
@@ -317,7 +317,7 @@
     ;; Closes the program's runtime, as the host closes its own: the
     ;; status of closing its resources.
 
-    (define (close-program (engine Engine)) (→ I32) (! wasm)
+    (define (close-program (engine Engine)) (→ I32) (! Wasm)
       (match (● engine runtime)
         ((Some runtime) (i64->i32 (call runtime "snail:io/close-all" 0)))
         ((None) 0)))
@@ -328,7 +328,7 @@
     ;; A file-read task's completion wakes the program's ticket in the same
     ;; scheduler, after installing the bytes.
     (define (resource-read (engine Engine) (ticket I64) (handle I32))
-      (→ Unit) (! mut host linked-content-store)
+      (→ Unit) (! Mut Host Linked-content-store)
       (let ((file (vector-ref (● engine files) (i32->i64 handle))))
         (dispatch-in (● engine scheduler)
                      (lambda ()
@@ -340,13 +340,13 @@
                            (take-answer engine ticket) (unit)))))
         (unit)))
 
-    (define (take-answer (engine Engine) (ticket I64)) (→ (Option (Option Bytes))) (! mut)
+    (define (take-answer (engine Engine) (ticket I64)) (→ (Option (Option Bytes))) (! Mut)
       (let ((answer (assoc-ref (● engine answers) ticket)))
         (set! (● engine answers)
               (filter (lambda (answer) (not (= (● answer first) ticket))) (● engine answers)))
         answer))
 
-    (define (resource-finish (engine Engine) (ticket I64)) (→ I32) (! mut)
+    (define (resource-finish (engine Engine) (ticket I64)) (→ I32) (! Mut)
       (match (take-answer engine ticket)
         ((Some (Some bytes))
          (set! (● engine held) bytes)

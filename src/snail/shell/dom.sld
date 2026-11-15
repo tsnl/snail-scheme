@@ -23,30 +23,30 @@
    Chords
    Chord
    Event
-   Event-value-set
-   Event-key-set
-   Event-modifiers-set
-   Event-x-set
-   Event-y-set
-   Event-buttons-set
-   Event-scroll-top-set
-   Event-scroll-left-set
-   Event-selection-start-set
-   Event-selection-end-set
-   Event-checked-set
+   event-value-set
+   event-key-set
+   event-modifiers-set
+   event-x-set
+   event-y-set
+   event-buttons-set
+   event-scroll-top-set
+   event-scroll-left-set
+   event-selection-start-set
+   event-selection-end-set
+   event-checked-set
    no-event
    Measure
    Delivery
    Fired
    Woken
    Hidden
-   SaveRequested
+   Save-requested
    Closed
    control-key
    shift-key
    alt-key
    meta-key
-   dom
+   Dom
    document-root
    refresh-page
    create-element
@@ -65,14 +65,14 @@
    focus-node
    window-node
    confirm
-   InstallationStatus InstallUnavailable InstallAvailable AppInstalled
-   InstallResult
-   InstallAccepted
-   InstallDismissed
-   InstallNotAvailable
-   GestureRequired
-   InstallFailed
-   InstallAlreadyInstalled
+   Installation-status Install-unavailable Install-available App-installed
+   Install-result
+   Install-accepted
+   Install-dismissed
+   Install-not-available
+   Gesture-required
+   Install-failed
+   Install-already-installed
    installation-status install-app fullscreen? set-fullscreen
    element-by-id
    select-range
@@ -84,7 +84,7 @@
    capture-bits)
   (import
    (snail core base)
-   (only (snail shell task) tasks))
+   (only (snail shell task) Tasks))
   (begin
 
     ;; ---- Handles ----
@@ -192,7 +192,7 @@
               (event Event)))
       (Woken)
       (Hidden)
-      (SaveRequested)
+      (Save-requested)
       (Closed))
 
     ;; ---- Measuring ----
@@ -214,9 +214,9 @@
     ;; A browser offer is opaque and single use. Acceptance of its prompt
     ;; precedes the distinct appinstalled event. An expired activation does
     ;; not consume the offer; another explicit click can try again.
-    (enum InstallationStatus (InstallUnavailable) (InstallAvailable) (AppInstalled))
-    (enum InstallResult (InstallAccepted) (InstallDismissed) (InstallNotAvailable)
-          (GestureRequired) (InstallFailed) (InstallAlreadyInstalled))
+    (enum Installation-status (Install-unavailable) (Install-available) (App-installed))
+    (enum Install-result (Install-accepted) (Install-dismissed) (Install-not-available)
+          (Gesture-required) (Install-failed) (Install-already-installed))
 
     ;; ---- The effect ----
 
@@ -246,7 +246,7 @@
     ;; view does: the interface's window listeners are on it, for what
     ;; reaches the whole page, such as a shortcut or the page going back
     ;; online. It has no attributes or properties.
-    (effect dom
+    (effect Dom
       ((document-root (Fn → Node))
        (create-element (Fn String → Node))
        (create-text (Fn String → Node))
@@ -265,14 +265,14 @@
        (window-node (Fn → Node))
        (refresh-page (Fn → Unit))
        (confirm (Fn String → Bool))
-       (installation-status (Fn → InstallationStatus))
-       (install-app (Fn → InstallResult ! tasks))
+       (installation-status (Fn → Installation-status))
+       (install-app (Fn → Install-result ! Tasks))
        (fullscreen? (Fn → Bool))
-       (set-fullscreen (Fn Bool → Bool ! tasks))
+       (set-fullscreen (Fn Bool → Bool ! Tasks))
        (element-by-id (Fn String → (Option Node)))
        (select-range (Fn Node I32 I32 → Unit))
        (selection-range (Fn Node → (Pair I32 I32)))
        (insert-text (Fn Node I32 I32 String → Bool))
        (measure (Fn Node → Measure))
        (wake (Fn → Unit))
-       (next-event (Fn → Delivery ! tasks))))))
+       (next-event (Fn → Delivery ! Tasks))))))

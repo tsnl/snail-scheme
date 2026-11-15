@@ -18,12 +18,12 @@
 ;; own can mount its bundle at /.
 (define-library (snail shell project bundle)
   (export
-   BuildDirectory
+   Build-directory
    Reloading
-   BundleEvent
-   BuildUnderway
-   BuildPublished
-   BuildFailed
+   Bundle-event
+   Build-underway
+   Build-published
+   Build-failed
    bundle-response
    bundle-file
    bundle-event)
@@ -44,7 +44,7 @@
     ;; A build of the application, by its epoch: the directory of its
     ;; generation, the digests of its files but its modules and linked
     ;; files, by relative name, and how long it took.
-    (record BuildDirectory
+    (record Build-directory
       ((epoch I64)
        (directory String)
        (files (List (Pair String String)))
@@ -64,10 +64,10 @@
 
     (define (bundle-response (mount String)
                              (reloading Reloading)
-                             (builds (List BuildDirectory))
+                             (builds (List Build-directory))
                              (path (List String)))
       (→ Response)
-      (! fs)
+      (! Fs)
       (match (new Pair (first builds) (second path))
         ((Pair _ (Cons ".snail" (Cons file (Nil)))) (client-file reloading file))
         ((Pair (Nil) _) (refusal 503 "the application has not been built yet"))
@@ -84,7 +84,7 @@
     ;; retained build's manifest names as ../.snail-store/, so its URL never
     ;; changes with the build.
 
-    (define (store-object (build BuildDirectory) (path (List String))) (→ Response) (! fs)
+    (define (store-object (build Build-directory) (path (List String))) (→ Response) (! Fs)
       (match path
         ((Cons "sha256" (Cons digest (Nil)))
          (let ((object (string-append (parent-directory (● build directory))
@@ -101,9 +101,9 @@
               ((char=? (string-ref path (- end 1)) #\/) (substring path 0 (- end 1)))
               (else (loop (- end 1))))))
 
-    (define (pinned (builds (List BuildDirectory)) (epoch String) (path (List String)))
+    (define (pinned (builds (List Build-directory)) (epoch String) (path (List String)))
       (→ Response)
-      (! fs)
+      (! Fs)
       (match (find (lambda (build) (string=? (show (● build epoch)) epoch)) builds)
         ((Some build) (bundle-file (● build directory) path))
         ((None) (refusal 404 (string-append "build " epoch " is no longer served")))))
@@ -114,7 +114,7 @@
     ;; manifest and the reload client. A page that is not UTF-8 is served as
     ;; it is.
 
-    (define (page (mount String) (build BuildDirectory)) (→ Response) (! fs)
+    (define (page (mount String) (build Build-directory)) (→ Response) (! Fs)
       (let ((path (string-append (● build directory) "/index.html")))
         (if (regular-file? path)
             (let ((bytes (read-bytes path)))
@@ -128,13 +128,13 @@
     ;; the escaped reload manifest and the reload client. The supplied page
     ;; and its installation identity stay independent of that generation.
 
-    (define (based (raw String) (mount String) (build BuildDirectory)) (→ String) (! fs)
+    (define (based (raw String) (mount String) (build Build-directory)) (→ String) (! Fs)
       (insert-metadata (stable-web-app raw mount)
-                       (list (PageBase (build-base mount build))
-                             (ReloadData (manifest-text mount (Some build)))
-                             (ModuleScript (string-append mount ".snail/reload.mjs")))))
+                       (list (Page-base (build-base mount build))
+                             (Reload-data (manifest-text mount (Some build)))
+                             (Module-script (string-append mount ".snail/reload.mjs")))))
 
-    (define (build-base (mount String) (build BuildDirectory)) (→ String)
+    (define (build-base (mount String) (build Build-directory)) (→ String)
       (string-append mount ".snail/builds/" (show (● build epoch)) "/"))
 
     ;; ---- The reload client ----
@@ -142,7 +142,7 @@
     ;; reload.mjs and what it imports come from the browser host, beside
     ;; the client's program, so they stay the same across builds.
 
-    (define (client-file (reloading Reloading) (file String)) (→ Response) (! fs)
+    (define (client-file (reloading Reloading) (file String)) (→ Response) (! Fs)
       (cond ((member? file (list "reload.mjs" "reload-client.mjs" "load.mjs"))
              (bundle-file (● reloading host) (list file)))
             ((and (string=? file "reload.wasm") (regular-file? (● reloading program)))
@@ -156,7 +156,7 @@
     ;; in program order, with the digest of its bytes. modules.json is left
     ;; out, as the modules stand for it.
 
-    (define (manifest-text (mount String) (found (Option BuildDirectory))) (→ String) (! fs)
+    (define (manifest-text (mount String) (found (Option Build-directory))) (→ String) (! Fs)
       (match found
         ((Some build)
          (string-append (string-append "(base " (repr (build-base mount build)) ")")
@@ -180,12 +180,12 @@
 
     ;; Each module's library and digest, from the build's modules.json.
 
-    (define (build-modules (build BuildDirectory)) (→ (List (Pair String String))) (! fs)
+    (define (build-modules (build Build-directory)) (→ (List (Pair String String))) (! Fs)
       (let ((path (string-append (● build directory) "/modules.json")))
         (match (if (regular-file? path) (string->json (read-file path)) (None))
           ((Some manifest)
            (match (json-member manifest "modules")
-             ((Some (JsonArray modules))
+             ((Some (Json-array modules))
               (map (lambda (module)
                      (new Pair
                        (first (json-text module "name"))
@@ -196,24 +196,24 @@
 
     (define (json-text (json Json) (name String)) (→ String)
       (match (json-member json name)
-        ((Some (JsonString text)) text)
+        ((Some (Json-string text)) text)
         (_ "")))
 
     ;; What the server tells a page of a build: that one is under way, that
     ;; one was published, or why one failed. Each names the latest build
     ;; published, none before the first.
-    (enum BundleEvent
-      (BuildUnderway)
-      (BuildPublished)
-      (BuildFailed ((message String))))
+    (enum Bundle-event
+      (Build-underway)
+      (Build-published)
+      (Build-failed ((message String))))
 
-    (define (bundle-event (mount String) (event BundleEvent) (build (Option BuildDirectory)))
+    (define (bundle-event (mount String) (event Bundle-event) (build (Option Build-directory)))
       (→ String)
-      (! fs)
+      (! Fs)
       (let ((manifest (manifest-text mount build)))
         (match event
-          ((BuildUnderway) (string-append "(building " manifest ")"))
-          ((BuildPublished)
+          ((Build-underway) (string-append "(building " manifest ")"))
+          ((Build-published)
            (string-append "(built "
                           (match build
                             ((Some found) (show (● found milliseconds)))
@@ -221,7 +221,7 @@
                           " "
                           manifest
                           ")"))
-          ((BuildFailed message)
+          ((Build-failed message)
            (string-append "(failed " (repr message) " " manifest ")")))))
 
     ;; ---- Files ----
@@ -230,7 +230,7 @@
     ;; build's directory; a last empty segment names a directory's
     ;; index.html, which is served as it is.
 
-    (define (bundle-file (directory String) (path (List String))) (→ Response) (! fs)
+    (define (bundle-file (directory String) (path (List String))) (→ Response) (! Fs)
       (match (relative-path path)
         ((Some relative)
          (let ((file (string-append directory "/" relative)))
@@ -260,11 +260,11 @@
     ;; A generation holds only regular files and directories, so a link is
     ;; never followed out of it.
 
-    (define (regular-file? (path String)) (→ Bool) (! fs)
+    (define (regular-file? (path String)) (→ Bool) (! Fs)
       (match (file-status path)
         ((Ok status)
          (match (● status kind)
-           ((RegularFile) #t)
+           ((Regular-file) #t)
            (_ #f)))
         ((Err _) #f)))
 

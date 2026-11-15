@@ -1,16 +1,16 @@
 (import
- (only (snail core forms) host)
+ (only (snail core forms) Host)
  (snail core base)
  (rename (snail core io) (write write-value))
  (snail shell task)
  (snail shell socket))
 
-(define (require (result (Result T SocketError))) (→ T) (∀ (T))
+(define (require (result (Result T Socket-error))) (→ T) (∀ (T))
   (match result
     ((Ok value) value)
     ((Err error) (panic (● error code)))))
 
-(define (receive-four (connection Connection)) (→ Bytes) (! tcp tasks)
+(define (receive-four (connection Connection)) (→ Bytes) (! Tcp Tasks)
   (let loop ((bytes #u8()))
     (if (= (vector-length bytes) 4)
         bytes
@@ -18,7 +18,7 @@
           ((Some chunk) (loop (vector-append bytes chunk)))
           ((None) (panic "unexpected EOF"))))))
 
-(define (main) (→ Unit) (! host mut output-port tcp tasks)
+(define (main) (→ Unit) (! Host Mut Output-port Tcp Tasks)
   ;; A program waits on sockets from a task, which the scheduler runs once
   ;; main returns.
   (dispatch
@@ -68,8 +68,8 @@
                    ((Err error) (write-line (● error code)))
                    ((Ok _) (panic "a port out of range was accepted"))))
                (list -1 65536))
-     (write-line (Endpoint-address (require (endpoint "0.0.0.0" 65535))))
-     (write-line (Endpoint-address (require (endpoint "255.255.255.255" 0))))
+     (write-line (endpoint-address (require (endpoint "0.0.0.0" 65535))))
+     (write-line (endpoint-address (require (endpoint "255.255.255.255" 0))))
 
      ;; A token from a replacement handler cannot masquerade as a native handle.
      (match (close-connection (new Connection (token (Any (ann 1 I32)))))

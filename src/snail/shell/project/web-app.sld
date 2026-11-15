@@ -4,13 +4,13 @@
 ;; A project's own public/manifest.webmanifest replaces this default whole.
 (define-library (snail shell project web-app)
   (export web-app-manifest with-web-app stable-web-app
-          PageMetadata
-          PageBase
-          PageMeta
-          WebManifest
-          ModuleMap
-          ReloadData
-          ModuleScript
+          Page-metadata
+          Page-base
+          Page-meta
+          Web-manifest
+          Module-map
+          Reload-data
+          Module-script
           insert-metadata)
   (import
    (snail core base)
@@ -21,9 +21,9 @@
     ;; ---- Manifest ----
 
     (define (web-app-manifest (name String)) (→ Json)
-      (JsonObject
+      (Json-object
        (append (map (lambda (field)
-                      (new Pair (first (● field first)) (second (JsonString (● field second)))))
+                      (new Pair (first (● field first)) (second (Json-string (● field second)))))
                     (list (new Pair (first "name") (second name))
                           (new Pair (first "short_name") (second name))
                           (new Pair (first "start_url") (second "./"))
@@ -31,31 +31,31 @@
                           (new Pair (first "display") (second "standalone"))
                           (new Pair (first "background_color") (second "#24282f"))
                           (new Pair (first "theme_color") (second "#24282f"))))
-               (list (new Pair (first "icons") (second (JsonArray (map icon (list 192 512)))))))))
+               (list (new Pair (first "icons") (second (Json-array (map icon (list 192 512)))))))))
 
     (define (icon (size I64)) (→ Json)
-      (JsonObject
+      (Json-object
        (list (new Pair
                (first "src")
-               (second (JsonString (string-append "./snail-icon-" (show size) ".png"))))
+               (second (Json-string (string-append "./snail-icon-" (show size) ".png"))))
              (new Pair
                (first "sizes")
-               (second (JsonString (string-append (show size) "x" (show size)))))
-             (new Pair (first "type") (second (JsonString "image/png"))))))
+               (second (Json-string (string-append (show size) "x" (show size)))))
+             (new Pair (first "type") (second (Json-string "image/png"))))))
 
     ;; ---- Page metadata ----
 
     ;; The only markup the packager adds. Callers describe elements; this
     ;; renderer owns quoting and HTML encoding. Reload data uses an attribute,
     ;; so a path containing </script> cannot terminate a raw-text element.
-    (enum PageMetadata
-      (PageBase ((url String)))
-      (PageMeta ((name String)
-                 (content String)))
-      (WebManifest ((url String)))
-      (ModuleMap ((url String)))
-      (ReloadData ((text String)))
-      (ModuleScript ((url String))))
+    (enum Page-metadata
+      (Page-base ((url String)))
+      (Page-meta ((name String)
+                  (content String)))
+      (Web-manifest ((url String)))
+      (Module-map ((url String)))
+      (Reload-data ((text String)))
+      (Module-script ((url String))))
 
     (define (attribute-text (text String)) (→ String)
       (string-concatenate
@@ -73,38 +73,38 @@
                            attributes))
                      ">"))
 
-    (define (metadata-text (item PageMetadata)) (→ String)
+    (define (metadata-text (item Page-metadata)) (→ String)
       (match item
-        ((PageBase url) (element-start "base" (list (new Pair (first "href") (second url)))))
-        ((PageMeta name content)
+        ((Page-base url) (element-start "base" (list (new Pair (first "href") (second url)))))
+        ((Page-meta name content)
          (element-start "meta"
                         (list (new Pair (first "name") (second name))
                               (new Pair (first "content") (second content)))))
-        ((WebManifest url)
+        ((Web-manifest url)
          (element-start "link" (list (new Pair (first "id") (second "snail-web-app"))
                                      (new Pair (first "rel") (second "manifest"))
                                      (new Pair (first "href") (second url)))))
-        ((ModuleMap url)
+        ((Module-map url)
          (element-start "meta"
                         (list (new Pair (first "name") (second "snail-modules"))
                               (new Pair (first "content") (second url)))))
-        ((ReloadData text)
+        ((Reload-data text)
          (element-start "meta"
                         (list (new Pair (first "id") (second "snail-manifest"))
                               (new Pair (first "content") (second text)))))
-        ((ModuleScript url)
+        ((Module-script url)
          (string-append (element-start "script" (list (new Pair (first "type") (second "module"))
                                                       (new Pair (first "src") (second url))))
                         "</script>"))))
 
-    (define (default-link) (→ String) (metadata-text (WebManifest "./manifest.webmanifest")))
+    (define (default-link) (→ String) (metadata-text (Web-manifest "./manifest.webmanifest")))
 
     ;; Keep user HTML byte-for-byte around one parsed insertion boundary.
     ;; Existing head attributes stay on their element. Missing heads are
     ;; opened explicitly, and close where the original HTML closes them.
     ;; A doctype/preamble stays before the generated head.
 
-    (define (insert-metadata (text String) (items (List PageMetadata))) (→ String)
+    (define (insert-metadata (text String) (items (List Page-metadata))) (→ String)
       (let* ((head (head-boundary text)) (at (● head first))
              (added (string-concatenate (map metadata-text items))))
         (string-append (substring text 0 at)
@@ -112,8 +112,8 @@
                        (substring text at (string-length text)))))
 
     (define (with-web-app (text String) (development Bool)) (→ String)
-      (insert-metadata text (Cons (WebManifest "./manifest.webmanifest")
-                                  (if development (list (ModuleMap "./modules.json")) (Nil)))))
+      (insert-metadata text (Cons (Web-manifest "./manifest.webmanifest")
+                                  (if development (list (Module-map "./modules.json")) (Nil)))))
 
     ;; Only the builder-owned first link is replaced. A pinned executable
     ;; base must never pin the app's installation identity to one generation.
@@ -123,7 +123,7 @@
         (if (text-at? text start (default-link))
             (string-append (substring text 0 start)
                            (metadata-text
-                            (WebManifest (string-append mount "manifest.webmanifest")))
+                            (Web-manifest (string-append mount "manifest.webmanifest")))
                            (substring text
                                       (+ start (string-length (default-link)))
                                       (string-length text)))

@@ -42,15 +42,15 @@
   (match place
     ((At corner column)
      (string-append (match corner
-                      ((TopLeft) "top left")
-                      ((TopRight) "top right")
-                      ((BottomLeft) "bottom left")
-                      ((BottomRight) "bottom right"))
+                      ((Top-left) "top left")
+                      ((Top-right) "top right")
+                      ((Bottom-left) "bottom left")
+                      ((Bottom-right) "bottom right"))
                     " " (show column)))
     ((Dialog dismiss) "dialog")
     ((Banner) "banner")))
 
-(define (show-batches (frame Frame)) (→ Unit) (! output-port)
+(define (show-batches (frame Frame)) (→ Unit) (! Output-port)
   (match frame
     ((Frame camera light background motion batches pictures)
      (write-line (string-append "batches: "
@@ -61,7 +61,7 @@
                                                   batches)
                                              " "))))))
 
-(define (show-panel (panel Panel)) (→ Unit) (! output-port)
+(define (show-panel (panel Panel)) (→ Unit) (! Output-port)
   (match panel
     ((Panel key place widgets)
      (write-line (string-append "-- " key ", " (place-name place)))
@@ -75,14 +75,14 @@
 
 (define (step (shell Shell) (title String) (presses (List (Pair I32 I32))))
   (→ Shell)
-  (! output-port)
+  (! Output-port)
   (let ((shell (click shell presses)))
     (write-line (string-append "==== " title))
     (show-batches (view-shell shell (lambda (path) (None))))
     (for-each show-panel (shell-hud shell))
     shell))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
 
   ;; The ledger is the second prototype opened, so seed 5 deals it seed 7.
   ;; Buttons: 9000 with argument i opens rumor-mill scenario i, 9100 opens the

@@ -15,24 +15,24 @@
    Pregnant
    builds
    Head
-   HumanMale
-   HumanFemale
-   HumanMaleElderly
-   HumanFemaleElderly
-   OrcMale
-   OrcFemale
-   LizardMale
-   LizardFemale
-   WolfMale
-   WolfFemale
+   Human-male
+   Human-female
+   Human-male-elderly
+   Human-female-elderly
+   Orc-male
+   Orc-female
+   Lizard-male
+   Lizard-female
+   Wolf-male
+   Wolf-female
    Boarman
    Minotaur
    heads
    Skin
    skins
-   HairStyle
+   Hair-style
    hair-styles
-   HairColor
+   Hair-color
    hair-colors
    Dye
    dyes
@@ -42,7 +42,7 @@
    Blouse
    Tunic
    Tanktop
-   ScoopShirt
+   Scoop-shirt
    Sleeveless
    Overalls
    Tabard
@@ -81,11 +81,11 @@
       ((name String))
       (deriving Serialize Deserialize))
 
-    (record HairStyle
+    (record Hair-style
       ((name String))
       (deriving Serialize Deserialize))
 
-    (record HairColor
+    (record Hair-color
       ((name String))
       (deriving Serialize Deserialize))
 
@@ -117,8 +117,8 @@
                  "taupe"
                  "zombie_green")))
 
-    (define (hair-styles) (→ (List HairStyle))
-      (map (lambda (name) (new HairStyle (name name)))
+    (define (hair-styles) (→ (List Hair-style))
+      (map (lambda (name) (new Hair-style (name name)))
            (list "afro"
                  "balding"
                  "bangs_bun"
@@ -165,8 +165,8 @@
                  "twists_fade"
                  "twists_straight")))
 
-    (define (hair-colors) (→ (List HairColor))
-      (map (lambda (name) (new HairColor (name name)))
+    (define (hair-colors) (→ (List Hair-color))
+      (map (lambda (name) (new Hair-color (name name)))
            (list "ash"
                  "black"
                  "blonde"
@@ -242,46 +242,46 @@
         ((Pregnant) "pregnant")))
 
     (enum Head
-      (HumanMale)
-      (HumanFemale)
-      (HumanMaleElderly)
-      (HumanFemaleElderly)
-      (OrcMale)
-      (OrcFemale)
-      (LizardMale)
-      (LizardFemale)
-      (WolfMale)
-      (WolfFemale)
+      (Human-male)
+      (Human-female)
+      (Human-male-elderly)
+      (Human-female-elderly)
+      (Orc-male)
+      (Orc-female)
+      (Lizard-male)
+      (Lizard-female)
+      (Wolf-male)
+      (Wolf-female)
       (Boarman)
       (Minotaur)
       (deriving Serialize Deserialize))
 
     (define (heads) (→ (List Head))
-      (list (HumanMale)
-            (HumanFemale)
-            (HumanMaleElderly)
-            (HumanFemaleElderly)
-            (OrcMale)
-            (OrcFemale)
-            (LizardMale)
-            (LizardFemale)
-            (WolfMale) (WolfFemale) (Boarman) (Minotaur)))
+      (list (Human-male)
+            (Human-female)
+            (Human-male-elderly)
+            (Human-female-elderly)
+            (Orc-male)
+            (Orc-female)
+            (Lizard-male)
+            (Lizard-female)
+            (Wolf-male) (Wolf-female) (Boarman) (Minotaur)))
 
     ;; A head's folder, and the skin ramp its walking sheet is drawn in.
     ;; The pack recolors heads only for its smaller sheets, so the walking
     ;; rows are recolored here by swapping one ramp for another.
     (define (head-folder (head Head)) (→ (Pair String String))
       (match head
-        ((HumanMale) (new Pair (first "human_male") (second "light")))
-        ((HumanFemale) (new Pair (first "human_female") (second "light")))
-        ((HumanMaleElderly) (new Pair (first "human_male_elderly") (second "light")))
-        ((HumanFemaleElderly) (new Pair (first "human_female_elderly") (second "light")))
-        ((OrcMale) (new Pair (first "orc_male") (second "green")))
-        ((OrcFemale) (new Pair (first "orc_female") (second "green")))
-        ((LizardMale) (new Pair (first "lizard_male") (second "green")))
-        ((LizardFemale) (new Pair (first "lizard_female") (second "green")))
-        ((WolfMale) (new Pair (first "wolf_male") (second "fur_brown")))
-        ((WolfFemale) (new Pair (first "wolf_female") (second "fur_brown")))
+        ((Human-male) (new Pair (first "human_male") (second "light")))
+        ((Human-female) (new Pair (first "human_female") (second "light")))
+        ((Human-male-elderly) (new Pair (first "human_male_elderly") (second "light")))
+        ((Human-female-elderly) (new Pair (first "human_female_elderly") (second "light")))
+        ((Orc-male) (new Pair (first "orc_male") (second "green")))
+        ((Orc-female) (new Pair (first "orc_female") (second "green")))
+        ((Lizard-male) (new Pair (first "lizard_male") (second "green")))
+        ((Lizard-female) (new Pair (first "lizard_female") (second "green")))
+        ((Wolf-male) (new Pair (first "wolf_male") (second "fur_brown")))
+        ((Wolf-female) (new Pair (first "wolf_female") (second "fur_brown")))
         ((Boarman) (new Pair (first "boarman") (second "fur_brown")))
         ((Minotaur) (new Pair (first "minotaur") (second "fur_tan")))))
 
@@ -315,7 +315,7 @@
 
     ;; Hair is drawn for male heads and female heads; female and pregnant
     ;; bodies wear the female cut.
-    (define (hair-sheet (build Build) (style HairStyle) (color HairColor)) (→ Sheet)
+    (define (hair-sheet (build Build) (style Hair-style) (color Hair-color)) (→ Sheet)
       (let ((cut (match build ((Female) "female") ((Pregnant) "female") (_ "male"))))
         (universal (string-append "src/lpc/lpc-hair/hair/"
                                   (● style name)
@@ -333,7 +333,7 @@
       (Blouse)
       (Tunic)
       (Tanktop)
-      (ScoopShirt)
+      (Scoop-shirt)
       (Sleeveless)
       (Overalls)
       (Tabard)
@@ -351,7 +351,7 @@
             (Blouse)
             (Tunic)
             (Tanktop)
-            (ScoopShirt)
+            (Scoop-shirt)
             (Sleeveless)
             (Overalls)
             (Tabard)
@@ -389,7 +389,7 @@
         ((Blouse) (new Pair (first "torso/clothes/blouse") (second (list (Female)))))
         ((Tunic) (new Pair (first "torso/clothes/tunic") (second (list (Female)))))
         ((Tanktop) (new Pair (first "torso/clothes/tanktop") (second (list (Female) (Pregnant)))))
-        ((ScoopShirt)
+        ((Scoop-shirt)
          (new Pair (first "torso/clothes/scoop_shirt") (second (list (Female) (Pregnant)))))
         ((Sleeveless)
          (new Pair (first "torso/clothes/sleeveless") (second (list (Female) (Pregnant)))))

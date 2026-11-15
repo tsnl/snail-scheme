@@ -9,7 +9,7 @@
 ;; and its ordinary call; neither path may enqueue an imported body.
 (expose fixed "fixed")
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
 
   ;; Source and emission order do not affect dependency forcing.
   (write-line (show (first)))

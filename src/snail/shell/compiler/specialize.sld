@@ -73,15 +73,15 @@
        (body Body)))
 
     (enum Body
-      (SourceRecipe
+      (Source-recipe
        ((name String)
         (types (List Type))
         (evidence (List Evidence))))
-      (SourceBody
+      (Source-body
        ((value Expr)))
       (Imported))
 
-    (define (Definition-external? (binding Definition)) (→ Bool)
+    (define (definition-external? (binding Definition)) (→ Bool)
       (match (● binding body)
         ((Imported) #t)
         (_ #f)))
@@ -154,7 +154,7 @@
                                     (new Definition
                                       (type (ground (instantiation state name types evidence)
                                                     (● value type)))
-                                      (body (SourceRecipe name types evidence))))))))))
+                                      (body (Source-recipe name types evidence))))))))))
 
     ;; All executable work uses this reservation rule and this queue. Merely looking up a binding never generates code.
 
@@ -164,9 +164,9 @@
           (begin
             (when (= (● state remaining) 0)
               (panic "compilation exceeds the limit of 65536 specialized definitions"))
-            (State-pending-set
-             (State-remaining-set
-              (State-bindings-set state (table-set (● state bindings) name binding))
+            (state-pending-set
+             (state-remaining-set
+              (state-bindings-set state (table-set (● state bindings) name binding))
               (- (● state remaining) 1))
              (Cons name (● state pending))))))
 
@@ -197,7 +197,7 @@
       (match (● state pending)
         ((Cons name rest)
          (let ((definition (binding-of state name)))
-           (specializing state ((then (State-pending-set rest))
+           (specializing state ((then (state-pending-set rest))
                                 (value (instantiate-body (● definition body)))
                                 (then (complete-definition name definition value)))
                          (new Pair (first (Some (Define name value))) (second state)))))
@@ -205,13 +205,13 @@
 
     (define (complete-definition (state State) (name String) (definition Definition) (value Expr))
       (→ State)
-      (State-bindings-set state
+      (state-bindings-set state
                           (table-set (● state bindings) name
-                                     (Definition-body-set definition (SourceBody value)))))
+                                     (definition-body-set definition (Source-body value)))))
 
     (define (instantiate-body (state State) (body Body)) (→ (Pair Expr State))
       (match body
-        ((SourceRecipe name types evidence)
+        ((Source-recipe name types evidence)
          (copy-expr state (instantiation state name types evidence) (definition state name)))
         (_ (panic "internal error: only an unbuilt recipe can be queued"))))
 
@@ -224,7 +224,7 @@
     ;; boundary. The program contributes declarations, not its syntax items.
 
     (define (specialization-declarations (state State)) (→ Declarations)
-      (new Declarations (program (Program-items-set (specialization-program state) (Nil)))
+      (new Declarations (program (program-items-set (specialization-program state) (Nil)))
            (owner (● state owner)) (control (● state control))
            (bindings (fold-left (lambda (bindings name)
                                   (let ((definition (binding-of state name)))
@@ -232,7 +232,7 @@
                                                (new Binding (type (● definition type))
 
                                                     (external?
-                                                     (Definition-external? definition))))))
+                                                     (definition-external? definition))))))
                                 (empty-table) (table-keys (● state bindings))))))
 
     ;; A read-only snapshot of original source instantiations. Imports keep
@@ -242,7 +242,7 @@
     (define (specialization-definitions (state State)) (→ (Table Expr))
       (fold-left (lambda (bodies name)
                    (match (● (binding-of state name) body)
-                     ((SourceBody value) (table-set bodies name value))
+                     ((Source-body value) (table-set bodies name value))
                      ((Imported) bodies)
                      (_ (panic "internal error: analysis requires completed definitions"))))
                  (empty-table) (table-keys (● state bindings))))
@@ -258,24 +258,24 @@
 
     (define (erase-rows (control (List String)) (type Type)) (→ Type)
       (match type
-        ((TCon name args) (TCon name (map (lambda (arg) (erase-rows control arg)) args)))
-        ((TFun params result row)
-         (TFun (map (lambda (param) (erase-rows control param)) params)
-               (erase-rows control result)
-               (control-row control row)))
-        ((TRow _ _) (control-row control type))
+        ((T-con name args) (T-con name (map (lambda (arg) (erase-rows control arg)) args)))
+        ((T-fun params result row)
+         (T-fun (map (lambda (param) (erase-rows control param)) params)
+                (erase-rows control result)
+                (control-row control row)))
+        ((T-row _ _) (control-row control type))
         (_ type)))
 
     ;; The control effects a row names, in the order of `control`, closed.
 
     (define (control-row (control (List String)) (row Type)) (→ Type)
       (let ((labels (row-labels row)))
-        (TRow (filter (lambda (effect) (member? effect labels)) control) (None))))
+        (T-row (filter (lambda (effect) (member? effect labels)) control) (None))))
 
     (define (row-labels (row Type)) (→ (List String))
       (match row
-        ((TRow labels (Some tail)) (append labels (row-labels tail)))
-        ((TRow labels (None)) labels)
+        ((T-row labels (Some tail)) (append labels (row-labels tail)))
+        ((T-row labels (None)) labels)
         (_ (Nil))))
 
     ;; A specialization's name keys its types as `type-key` does, plus the
@@ -288,17 +288,17 @@
 
     (define (unchecked-spec-key (type Type)) (→ String)
       (match type
-        ((TCon name (Nil)) name)
-        ((TCon name args)
+        ((T-con name (Nil)) name)
+        ((T-con name args)
          (string-append name "<" (string-join (map unchecked-spec-key args) ",") ">"))
-        ((TFun params result row)
+        ((T-fun params result row)
          (string-append "fn<"
                         (string-join (map unchecked-spec-key params) ",")
                         "->"
                         (unchecked-spec-key result)
                         ">"
                         (control-suffix row)))
-        ((TRow _ _) (string-append "row" (control-suffix type)))
+        ((T-row _ _) (string-append "row" (control-suffix type)))
         (_ (type-key type))))
 
     (define (control-suffix (row Type)) (→ String)
@@ -306,12 +306,12 @@
 
     (define (ground-evidence (inst Instantiation) (evidence Evidence)) (→ Evidence)
       (match evidence
-        ((EvParam index) (list-ref (● inst evidence) index))
-        ((EvInstance instance types subs)
-         (EvInstance instance
-                     (map (lambda (type) (ground inst type)) types)
-                     (map (lambda (sub) (ground-evidence inst sub)) subs)))
-        ((EvHole _) (panic "internal error: unsolved evidence"))))
+        ((Ev-param index) (list-ref (● inst evidence) index))
+        ((Ev-instance instance types subs)
+         (Ev-instance instance
+                      (map (lambda (type) (ground inst type)) types)
+                      (map (lambda (sub) (ground-evidence inst sub)) subs)))
+        ((Ev-hole _) (panic "internal error: unsolved evidence"))))
 
     (define (copy-expr (state State) (inst Instantiation) (expr Expr)) (→ (Pair Expr State))
       (let ((type (ground inst (● expr type))) (loc (● expr loc)))
@@ -355,7 +355,7 @@
                                              clauses)))
                        (new Pair (first (Match scrutinee clauses)) (second state))))
 
-        ((FieldRead _ _ _) (panic "internal error: field selection survived checking"))
+        ((Field-read _ _ _) (panic "internal error: field selection survived checking"))
         ((New _ _) (panic "internal error: named construction survived checking"))
         ((Ann inner type)
          (specializing state
@@ -367,9 +367,9 @@
                                      implementations))
                               (body (copy-expr inst body)))
                        (new Pair (first (Handle effect implementations body)) (second state))))
-        ((BoxAny inner)
+        ((Box-any inner)
          (specializing state ((inner (copy-expr inst inner)))
-                       (new Pair (first (BoxAny inner)) (second state))))
+                       (new Pair (first (Box-any inner)) (second state))))
 
         ((Downcast inner target)
          (specializing state ((inner (copy-expr inst inner)))
@@ -395,11 +395,11 @@
 
     (define (copy-pattern (inst Instantiation) (pattern Pattern)) (→ Pattern)
       (match pattern
-        ((PWild type) (PWild (ground inst type)))
-        ((PVar name type) (PVar name (ground inst type)))
-        ((PLit value type) (PLit value (ground inst type)))
-        ((PCon constructor args type)
-         (PCon constructor (map (lambda (arg) (copy-pattern inst arg)) args) (ground inst type)))))
+        ((P-wild type) (P-wild (ground inst type)))
+        ((P-var name type) (P-var name (ground inst type)))
+        ((P-lit value type) (P-lit value (ground inst type)))
+        ((P-con constructor args type)
+         (P-con constructor (map (lambda (arg) (copy-pattern inst arg)) args) (ground inst type)))))
 
     ;; ---- References ----
 
@@ -417,7 +417,7 @@
         ((Some (Defined _ _ )) (definition-reference state name types evidence type loc))
         ((Some (Method class _))
          (match evidence
-           ((Cons (EvInstance instance instance-types subs) rest)
+           ((Cons (Ev-instance instance instance-types subs) rest)
             (let ((class-arity
                    (length (● (program-class (specialization-program state) class) params)))
                   (target (instance-method state instance name)))
@@ -513,7 +513,7 @@
     (define (import-definition (state State) (name String) (value Expr)) (→ State)
       (if (table-contains? (● state bindings) name)
           state
-          (State-bindings-set state
+          (state-bindings-set state
                               (table-set (● state bindings) name
                                          (new Definition (type (● value type))
 
@@ -576,25 +576,25 @@
       ;; the rest, wherever the row sits.
       (define test-control-rows
         (lambda ()
-          (let ((row (TRow (list "mut" "gen") (Some (TRow (list "abort" "console") (None)))))
-                (control (list "abort" "gen")))
-            (expect (erase-rows control row) (TRow (list "abort" "gen") (None)))
+          (let ((row (T-row (list "Mut" "Gen") (Some (T-row (list "Abort" "Console") (None)))))
+                (control (list "Abort" "Gen")))
+            (expect (erase-rows control row) (T-row (list "Abort" "Gen") (None)))
             (expect (erase-rows (Nil) row) (empty-row))
-            (expect (erase-rows control (TFun (list (TCon "I64" (Nil))) (TCon "Unit" (Nil)) row))
-                    (TFun (list (TCon "I64" (Nil)))
-                          (TCon "Unit" (Nil))
-                          (TRow (list "abort" "gen") (None)))))))
+            (expect (erase-rows control (T-fun (list (T-con "I64" (Nil))) (T-con "Unit" (Nil)) row))
+                    (T-fun (list (T-con "I64" (Nil)))
+                           (T-con "Unit" (Nil))
+                           (T-row (list "Abort" "Gen") (None)))))))
 
       ;; Without control effects a name is what `type-key` gives, so pure
       ;; code keeps its names; with one, the name says so.
       (define test-spec-keys
-        (lambda () (let ((pure (TFun (list (TCon "I64" (Nil))) (TCon "I64" (Nil)) (empty-row)))
+        (lambda () (let ((pure (T-fun (list (T-con "I64" (Nil))) (T-con "I64" (Nil)) (empty-row)))
                          (control
-                          (TFun (list (TCon "I64" (Nil)))
-                                (TCon "I64" (Nil))
-                                (TRow (list "gen") (None)))))
+                          (T-fun (list (T-con "I64" (Nil)))
+                                 (T-con "I64" (Nil))
+                                 (T-row (list "Gen") (None)))))
                      (expect (spec-key pure) (type-key pure))
-                     (expect (spec-key (TCon "List" (list pure)))
-                             (type-key (TCon "List" (list pure))))
+                     (expect (spec-key (T-con "List" (list pure)))
+                             (type-key (T-con "List" (list pure))))
                      (expect (spec-key control) "fn<I64->I64>!gen")
                      (expect (spec-key (empty-row)) "row"))))))))

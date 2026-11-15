@@ -1,4 +1,4 @@
-;; A document in memory for the `dom` effect, so an interface runs, and is
+;; A document in memory for the `Dom` effect, so an interface runs, and is
 ;; tested, without a page. `with-memory-dom` handles the effect around its
 ;; work and answers the work's value with the document it left: its tree,
 ;; which `document->html` prints, and the trace of every operation, one
@@ -25,7 +25,7 @@
    Document
    Cue
    Fire
-   FireWindow
+   Fire-window
    Hide
    document-trace
    document->html
@@ -33,7 +33,7 @@
   (import
    (snail core base)
    (snail core table)
-   (only (snail shell task) tasks yield)
+   (only (snail shell task) Tasks yield)
    (snail shell dom))
   (begin
 
@@ -110,11 +110,11 @@
         ((None) (panic (string-append "no node has the handle " (show handle))))))
 
     (define (put (document Document) (handle I32) (changed Entry)) (→ Document)
-      (Document-entries-set document
+      (document-entries-set document
                             (table-set (● document entries) (show handle) changed)))
 
     (define (traced (document Document) (words (List String))) (→ Document)
-      (Document-lines-set document (Cons (string-join words " ") (● document lines))))
+      (document-lines-set document (Cons (string-join words " ") (● document lines))))
 
     (define (quoted (text String)) (→ String)
       (repr text))
@@ -132,14 +132,14 @@
     (define (made (document Document) (tag String) (text String)) (→ (Pair Node Document))
       (let ((handle (● document next)))
         (new Pair (first (new Node (handle handle)))
-             (second (Document-next-set (put document handle (new-entry tag text)) (+ handle 1))))))
+             (second (document-next-set (put document handle (new-entry tag text)) (+ handle 1))))))
 
     (define (attribute-set (document Document) (node Node) (name String) (value String))
       (→ Document)
       (let* ((handle (● node handle)) (changed (entry document handle)))
         (traced (put document
                      handle
-                     (Entry-attributes-set changed
+                     (entry-attributes-set changed
                                            (assigned (● changed attributes)
                                                      name
                                                      (if (string=? value "") (None) (Some value)))))
@@ -169,7 +169,7 @@
     (define (text-set (document Document) (node Node) (text String)) (→ Document)
       (let ((handle (● node handle)))
         (traced (if (string=? (● (entry document handle) tag) "#text")
-                    (put document handle (Entry-text-set (entry document handle) text))
+                    (put document handle (entry-text-set (entry document handle) text))
                     (element-text-set document handle text))
                 (list "set-text" (show handle) (quoted text)))))
 
@@ -178,9 +178,9 @@
              (child (made cleared "#text" text))
              (text-handle (● (● child first) handle))
              (document (● child second)))
-        (put (put document text-handle (Entry-parent-set (entry document text-handle) handle))
+        (put (put document text-handle (entry-parent-set (entry document text-handle) handle))
              handle
-             (Entry-children-set (entry document handle) (list text-handle)))))
+             (entry-children-set (entry document handle) (list text-handle)))))
 
     (define (property-set (document Document) (node Node) (name String) (value Property))
       (→ Document)
@@ -188,7 +188,7 @@
                  node
                  (list "set-property" (show (● node handle)) name (property->string value))
                  (lambda (changed)
-                   (Entry-properties-set changed
+                   (entry-properties-set changed
                                          (assigned (● changed properties) name (Some value))))))
 
     (define (property->string (property Property)) (→ String)
@@ -219,9 +219,9 @@
                (placed (match before
                          ((Some node) (insert-before siblings (● node handle) moved))
                          ((None) (append siblings (list moved))))))
-          (traced (put (put detached into (Entry-children-set (entry detached into) placed))
+          (traced (put (put detached into (entry-children-set (entry detached into) placed))
                        moved
-                       (Entry-parent-set (entry detached moved) into))
+                       (entry-parent-set (entry detached moved) into))
                   (append (list "insert" (show moved) "into" (show into))
                           (match before
                             ((Some node) (list "before" (show (● node handle))))
@@ -247,11 +247,11 @@
             document
             (put (put document
                       parent
-                      (Entry-children-set (entry document parent)
+                      (entry-children-set (entry document parent)
                                           (filter (lambda (child) (not (= child handle)))
                                                   (● (entry document parent) children))))
                  handle
-                 (Entry-parent-set (entry document handle) -1)))))
+                 (entry-parent-set (entry document handle) -1)))))
 
     ;; A removed node leaves its parent, and its handle and those under it
     ;; are freed.
@@ -265,7 +265,7 @@
         (put
          (fold-left (lambda (document child) (freed document child)) document (● gone children))
          handle
-         (Entry-live-set gone #f))))
+         (entry-live-set gone #f))))
 
     (define (listened (document Document)
                       (node Node)
@@ -277,11 +277,11 @@
              (id (● document next-listener))
              (on (entry document handle)))
         (new Pair (first (new Listener (id id)))
-             (second (traced (Document-owners-set
-                              (Document-next-listener-set
+             (second (traced (document-owners-set
+                              (document-next-listener-set
                                (put document
                                     handle
-                                    (Entry-listeners-set on
+                                    (entry-listeners-set on
                                                          (append (● on listeners)
                                                                  (list (new Hearing
                                                                          (id id)
@@ -320,7 +320,7 @@
              (on (entry document handle)))
         (traced (put document
                      handle
-                     (Entry-listeners-set on
+                     (entry-listeners-set on
                                           (filter
                                            (lambda (hearing) (not (= (● hearing id) id)))
                                            (● on listeners))))
@@ -335,8 +335,8 @@
       (Fire ((target String)
              (event String)
              (data Event)))
-      (FireWindow ((event String)
-                   (data Event)))
+      (Fire-window ((event String)
+                    (data Event)))
       (Hide))
 
     ;; A cue's delivery.
@@ -344,7 +344,7 @@
     (define (cued (document Document) (cue Cue)) (→ (Pair Delivery Document))
       (match cue
         ((Fire target event data) (fired document target (target-entry document target) event data))
-        ((FireWindow event data) (fired document "window" (entry document -1) event data))
+        ((Fire-window event data) (fired document "window" (entry document -1) event data))
         ((Hide) (new Pair (first (Hidden)) (second (traced document (list "hide")))))))
 
     ;; The listener a scripted event fires, which must be there, and must
@@ -422,7 +422,7 @@
                  (lambda (found) (selection-set found start end))))
 
     (define (selection-set (found Entry) (start I32) (end I32)) (→ Entry)
-      (Entry-properties-set found
+      (entry-properties-set found
                             (assigned (assigned (● found properties)
                                                 "selectionStart"
                                                 (Some (Number (i32->f64 start))))
@@ -457,7 +457,7 @@
                                                              (i32->i64 end)
                                                              (string-length value))))
                           (caret (+ start (i64->i32 (string-length text)))))
-                     (selection-set (Entry-properties-set found
+                     (selection-set (entry-properties-set found
                                                           (assigned (● found properties)
                                                                     "value"
                                                                     (Some (Text changed))))
@@ -474,7 +474,7 @@
                       (● found listeners))
            ((Some hearing)
             (Some (Fired (new Listener (id (● hearing id)))
-                         (Event-value-set (no-event)
+                         (event-value-set (no-event)
                                           (match (property-of document node "value")
                                             ((Some (Text value)) value)
                                             (_ ""))))))
@@ -511,7 +511,7 @@
 
     (define (change! (state Memory) (operation (Fn Document → (Pair A Document))))
       (→ A)
-      (! mut)
+      (! Mut)
       (∀ (A))
       (let ((result (operation (● state document))))
         (set! (● state document) (● result second))
@@ -519,17 +519,17 @@
 
     (define (alter! (state Memory) (operation (Fn Document → Document)))
       (→ Unit)
-      (! mut)
+      (! Mut)
       (set! (● state document) (operation (● state document))))
 
-    (define (with-memory-dom (script (List Cue)) (work (Fn → T ! dom e)))
+    (define (with-memory-dom (script (List Cue)) (work (Fn → T ! Dom e)))
       (→ (Pair T Document))
-      (! mut e)
+      (! Mut e)
       (∀ (T e))
       (let ((state
              (new Memory (document (empty-document)) (cues script) (woken #f) (inputs (Nil)))))
         (let ((value
-               (handle dom
+               (handle Dom
                    ((document-root (lambda () (new Node (handle 0))))
                     (create-element
                      (lambda (tag) (change! state (lambda (document) (created document tag "")))))
@@ -607,8 +607,8 @@
                                  (traced document (list "confirm" (quoted question)))))
                        #t))
                     ;; This document has no browser window or installation offer.
-                    (installation-status (lambda () (InstallUnavailable)))
-                    (install-app (lambda () (InstallNotAvailable)))
+                    (installation-status (lambda () (Install-unavailable)))
+                    (install-app (lambda () (Install-not-available)))
                     (fullscreen? (lambda () #f))
                     (set-fullscreen (lambda (enter) #f))
                     (insert-text

@@ -1,7 +1,7 @@
 ;; User interfaces in the shape Elm gave them. An interface is a model, a
 ;; `view` from the model to a tree of `Html`, and an `update` from the
 ;; model and a message to the next model and the commands it starts. The
-;; tree is plain data: `run-ui` shows it in the document through the `dom`
+;; tree is plain data: `run-ui` shows it in the document through the `Dom`
 ;; effect, and after each update changes only what differs from the tree
 ;; it showed before, so a node keeps its identity, and with it the focus,
 ;; selection and scroll the page gave it, for as long as the view keeps it.
@@ -21,16 +21,16 @@
    Text
    Attribute
    Attr
-   StringProperty
-   NumberProperty
-   FlagProperty
+   String-property
+   Number-property
+   Flag-property
    On
    Keyed
    map-html
    run-ui)
   (import
    (snail core base)
-   (only (snail core forms) host)
+   (only (snail core forms) Host)
    (snail core table)
    (snail shell task)
    (snail shell dom))
@@ -53,9 +53,9 @@
     ;; cleared: an attribute removed, a property set to "", 0 or false.
     (enum (Attribute M)
       (Attr ((name String) (value String)))
-      (StringProperty ((name String) (value String)))
-      (NumberProperty ((name String) (value F64)))
-      (FlagProperty ((name String) (value Bool)))
+      (String-property ((name String) (value String)))
+      (Number-property ((name String) (value F64)))
+      (Flag-property ((name String) (value Bool)))
       (On ((event String)
            (captures (List Capture))
            (prevent Prevent)
@@ -77,9 +77,9 @@
       (∀ (A B))
       (match attribute
         ((Attr name value) (Attr name value))
-        ((StringProperty name value) (StringProperty name value))
-        ((NumberProperty name value) (NumberProperty name value))
-        ((FlagProperty name value) (FlagProperty name value))
+        ((String-property name value) (String-property name value))
+        ((Number-property name value) (Number-property name value))
+        ((Flag-property name value) (Flag-property name value))
         ((Keyed key) (Keyed key))
         ((On name captures prevent message)
          (On name captures prevent (lambda (event) (wrap (message event)))))))
@@ -89,17 +89,17 @@
     ;; The tree as the document holds it: each node's handle beside what
     ;; the view said of it, and an element's listeners by event.
     (enum (Shown M)
-      (ShownElement ((node Node)
-                     (tag String)
-                     (attributes (List (Attribute M)))
-                     (listeners (List (Pair String Listener)))
-                     (children (List (Shown M)))))
-      (ShownText ((node Node) (text String))))
+      (Shown-element ((node Node)
+                      (tag String)
+                      (attributes (List (Attribute M)))
+                      (listeners (List (Pair String Listener)))
+                      (children (List (Shown M)))))
+      (Shown-text ((node Node) (text String))))
 
     (define (shown-node (shown (Shown M))) (→ Node) (∀ (M))
       (match shown
-        ((ShownElement node _ _ _ _) node)
-        ((ShownText node _) node)))
+        ((Shown-element node _ _ _ _) node)
+        ((Shown-text node _) node)))
 
     ;; A shown node's handle as a table's key.
 
@@ -114,27 +114,27 @@
 
     ;; ---- Creating ----
 
-    (define (create (html (Html M))) (→ (Shown M)) (! dom) (∀ (M))
+    (define (create (html (Html M))) (→ (Shown M)) (! Dom) (∀ (M))
       (match html
-        ((Text text) (ShownText (create-text text) text))
+        ((Text text) (Shown-text (create-text text) text))
         ((Element tag attributes children)
          (let ((node (create-element tag)))
            (for-each (lambda (attribute) (apply-attribute node attribute)) attributes)
            (let ((shown (map create children)))
              (for-each (lambda (child) (insert-node node (shown-node child) (None))) shown)
-             (ShownElement node tag attributes (listen-all node attributes) shown))))))
+             (Shown-element node tag attributes (listen-all node attributes) shown))))))
 
-    (define (apply-attribute (node Node) (attribute (Attribute M))) (→ Unit) (! dom) (∀ (M))
+    (define (apply-attribute (node Node) (attribute (Attribute M))) (→ Unit) (! Dom) (∀ (M))
       (match attribute
         ((Attr name value) (set-attribute node name value))
-        ((StringProperty name value) (set-string-property node name value))
-        ((NumberProperty name value) (set-number-property node name value))
-        ((FlagProperty name value) (set-flag-property node name value))
+        ((String-property name value) (set-string-property node name value))
+        ((Number-property name value) (set-number-property node name value))
+        ((Flag-property name value) (set-flag-property node name value))
         (_ (unit))))
 
     (define (listen-all (node Node) (attributes (List (Attribute M))))
       (→ (List (Pair String Listener)))
-      (! dom)
+      (! Dom)
       (∀ (M))
       (match attributes
         ((Cons (On event captures prevent _) rest)
@@ -149,27 +149,27 @@
     ;; and tags and keys agree, and otherwise by a new subtree; the caller
     ;; places a new one and removes the old.
 
-    (define (patch (shown (Shown M)) (html (Html M))) (→ (Shown M)) (! dom) (∀ (M))
+    (define (patch (shown (Shown M)) (html (Html M))) (→ (Shown M)) (! Dom) (∀ (M))
       (if (matches? shown html)
           (match (new Pair (first shown) (second html))
-            ((Pair (ShownText node text) (Text updated))
+            ((Pair (Shown-text node text) (Text updated))
              (unless (string=? text updated) (set-text node updated))
-             (ShownText node updated))
-            ((Pair (ShownElement node tag attributes listeners children)
+             (Shown-text node updated))
+            ((Pair (Shown-element node tag attributes listeners children)
                    (Element _ new-attributes new-children))
              (patch-attributes node attributes new-attributes)
-             (ShownElement node
-                           tag
-                           new-attributes
-                           (patch-listeners node attributes listeners new-attributes)
-                           (patch-children node children new-children)))
+             (Shown-element node
+                            tag
+                            new-attributes
+                            (patch-listeners node attributes listeners new-attributes)
+                            (patch-children node children new-children)))
             (_ (panic "internal error: a match of different kinds")))
           (create html)))
 
     (define (matches? (shown (Shown M)) (html (Html M))) (→ Bool) (∀ (M))
       (match (new Pair (first shown) (second html))
-        ((Pair (ShownText _ _) (Text _)) #t)
-        ((Pair (ShownElement _ tag attributes _ _) (Element new-tag new-attributes _))
+        ((Pair (Shown-text _ _) (Text _)) #t)
+        ((Pair (Shown-element _ tag attributes _ _) (Element new-tag new-attributes _))
          (and (string=? tag new-tag) (string=? (key-of attributes) (key-of new-attributes))))
         (_ #f)))
 
@@ -178,7 +178,7 @@
 
     (define (patch-attributes (node Node) (old (List (Attribute M))) (updated (List (Attribute M))))
       (→ Unit)
-      (! dom)
+      (! Dom)
       (∀ (M))
       (for-each (lambda (attribute)
                   (unless (any? (lambda (before) (same-value? before attribute)) old)
@@ -192,26 +192,26 @@
     (define (same-name? (a (Attribute M)) (b (Attribute M))) (→ Bool) (∀ (M))
       (match (new Pair (first a) (second b))
         ((Pair (Attr x _) (Attr y _)) (string=? x y))
-        ((Pair (StringProperty x _) (StringProperty y _)) (string=? x y))
-        ((Pair (NumberProperty x _) (NumberProperty y _)) (string=? x y))
-        ((Pair (FlagProperty x _) (FlagProperty y _)) (string=? x y))
+        ((Pair (String-property x _) (String-property y _)) (string=? x y))
+        ((Pair (Number-property x _) (Number-property y _)) (string=? x y))
+        ((Pair (Flag-property x _) (Flag-property y _)) (string=? x y))
         (_ #f)))
 
     (define (same-value? (a (Attribute M)) (b (Attribute M))) (→ Bool) (∀ (M))
       (and (same-name? a b)
            (match (new Pair (first a) (second b))
              ((Pair (Attr _ x) (Attr _ y)) (string=? x y))
-             ((Pair (StringProperty _ x) (StringProperty _ y)) (string=? x y))
-             ((Pair (NumberProperty _ x) (NumberProperty _ y)) (= x y))
-             ((Pair (FlagProperty _ x) (FlagProperty _ y)) (= x y))
+             ((Pair (String-property _ x) (String-property _ y)) (string=? x y))
+             ((Pair (Number-property _ x) (Number-property _ y)) (= x y))
+             ((Pair (Flag-property _ x) (Flag-property _ y)) (= x y))
              (_ #f))))
 
-    (define (clear-attribute (node Node) (attribute (Attribute M))) (→ Unit) (! dom) (∀ (M))
+    (define (clear-attribute (node Node) (attribute (Attribute M))) (→ Unit) (! Dom) (∀ (M))
       (match attribute
         ((Attr name _) (set-attribute node name ""))
-        ((StringProperty name _) (set-string-property node name ""))
-        ((NumberProperty name _) (set-number-property node name 0.0))
-        ((FlagProperty name _) (set-flag-property node name #f))
+        ((String-property name _) (set-string-property node name ""))
+        ((Number-property name _) (set-number-property node name 0.0))
+        ((Flag-property name _) (set-flag-property node name #f))
         (_ (unit))))
 
     ;; A listener stays while the view keeps its event, captures and
@@ -222,7 +222,7 @@
                              (listeners (List (Pair String Listener)))
                              (updated (List (Attribute M))))
       (→ (List (Pair String Listener)))
-      (! dom)
+      (! Dom)
       (∀ (M))
       (for-each (lambda (pair)
                   (unless (kept-listener? (● pair first) old updated) (unlisten (● pair second))))
@@ -278,7 +278,7 @@
 
     (define (patch-children (parent Node) (old (List (Shown M))) (updated (List (Html M))))
       (→ (List (Shown M)))
-      (! dom)
+      (! Dom)
       (∀ (M))
       (let* ((pairs (taking old updated))
              (taken (taken-names pairs))
@@ -351,8 +351,8 @@
 
     (define (shown-key (shown (Shown M))) (→ String) (∀ (M))
       (match shown
-        ((ShownElement _ _ attributes _ _) (key-of attributes))
-        ((ShownText _ _) "")))
+        ((Shown-element _ _ attributes _ _) (key-of attributes))
+        ((Shown-text _ _) "")))
 
     (define (html-key (html (Html M))) (→ String) (∀ (M))
       (match html
@@ -373,7 +373,7 @@
                    (taken (Table Bool))
                    (next (Option Node)))
       (→ Unit)
-      (! dom)
+      (! Dom)
       (∀ (M))
       (match children
         ((Cons child rest)
@@ -393,7 +393,7 @@
                     (taken (Table Bool))
                     (next (Option Node)))
       (→ (List (Shown M)))
-      (! dom)
+      (! Dom)
       (∀ (M))
       (match unplaced
         ((Cons last others)
@@ -406,7 +406,7 @@
                    (taken (Table Bool))
                    (next (Option Node)))
       (→ (List (Shown M)))
-      (! dom)
+      (! Dom)
       (∀ (M))
       (insert-node parent (shown-node child) next)
       (if (table-contains? taken (node-name child))
@@ -419,18 +419,18 @@
     ;; only the listeners given it are patched, so any other attribute is
     ;; ignored.
 
-    (define (window-shown (attributes (List (Attribute M)))) (→ (Shown M)) (! dom) (∀ (M))
+    (define (window-shown (attributes (List (Attribute M)))) (→ (Shown M)) (! Dom) (∀ (M))
       (let ((node (window-node)))
-        (ShownElement node "#window" attributes (listen-all node attributes) (Nil))))
+        (Shown-element node "#window" attributes (listen-all node attributes) (Nil))))
 
     (define (patch-window (shown (Shown M)) (attributes (List (Attribute M))))
       (→ (Shown M))
-      (! dom)
+      (! Dom)
       (∀ (M))
       (match shown
-        ((ShownElement node tag old listeners _)
-         (ShownElement node tag attributes (patch-listeners node old listeners attributes) (Nil)))
-        ((ShownText _ _) (panic "internal error: the window shown as text"))))
+        ((Shown-element node tag old listeners _)
+         (Shown-element node tag attributes (patch-listeners node old listeners attributes) (Nil)))
+        ((Shown-text _ _) (panic "internal error: the window shown as text"))))
 
     ;; ---- Listeners ----
 
@@ -446,8 +446,8 @@
       (→ (List (Pair (Fn Event → M) Listener)))
       (∀ (M))
       (match shown
-        ((ShownText _ _) (Nil))
-        ((ShownElement _ _ attributes listeners children)
+        ((Shown-text _ _) (Nil))
+        ((Shown-element _ _ attributes listeners children)
          (append (concatenate
                   (map (lambda (pair)
                          (match (listening (● pair first) attributes)
@@ -487,13 +487,13 @@
 
     (define (run-ui (model Model)
                     (start (List M))
-                    (update (Fn Model M → (Pair Model (List (Fn → M ! tasks e))) ! mut host e))
+                    (update (Fn Model M → (Pair Model (List (Fn → M ! Tasks e))) ! Mut Host e))
                     (view (Fn Model → (Html M)))
                     (window (Fn Model → (List (Attribute M))))
                     (commit (Fn Model → Unit ! e))
-                    (checkpoint (Fn Model → Unit ! tasks e)))
+                    (checkpoint (Fn Model → Unit ! Tasks e)))
       (→ Model)
-      (! mut host dom tasks e)
+      (! Mut Host Dom Tasks e)
       (∀ (Model M e))
       (let ((box (make-mailbox)) (shown (create (view model))))
         (insert-node (document-root) (shown-node shown) (None))
@@ -508,14 +508,14 @@
                           start))))
 
     (define (serve (box (Mailbox M))
-                   (update (Fn Model M → (Pair Model (List (Fn → M ! tasks e))) ! mut host e))
+                   (update (Fn Model M → (Pair Model (List (Fn → M ! Tasks e))) ! Mut Host e))
                    (view (Fn Model → (Html M)))
                    (window (Fn Model → (List (Attribute M))))
                    (commit (Fn Model → Unit ! e))
-                   (checkpoint (Fn Model → Unit ! tasks e))
+                   (checkpoint (Fn Model → Unit ! Tasks e))
                    (running (Running Model M)))
       (→ Model)
-      (! mut host dom tasks e)
+      (! Mut Host Dom Tasks e)
       (∀ (Model M e))
       (commit (● running model))
       (match (next-event)
@@ -539,7 +539,7 @@
         ((Hidden)
          (checkpoint (● running model))
          (serve box update view window commit checkpoint running))
-        ((SaveRequested)
+        ((Save-requested)
          (checkpoint (● running model))
          (serve box update view window commit checkpoint running))
         ((Closed)
@@ -550,13 +550,13 @@
 
     (define (answered (box (Mailbox M))
                       (update
-                       (Fn Model M → (Pair Model (List (Fn → M ! tasks e))) ! mut host e))
+                       (Fn Model M → (Pair Model (List (Fn → M ! Tasks e))) ! Mut Host e))
                       (view (Fn Model → (Html M)))
                       (window (Fn Model → (List (Attribute M))))
                       (commit (Fn Model → Unit ! e))
                       (running (Running Model M)))
       (→ (Running Model M))
-      (! mut host dom tasks e)
+      (! Mut Host Dom Tasks e)
       (∀ (Model M e))
       (match (mailbox-try-receive box)
         ((Some message)
@@ -569,13 +569,13 @@
     ;; the view and window of the next model shown.
 
     (define (updated (box (Mailbox M))
-                     (update (Fn Model M → (Pair Model (List (Fn → M ! tasks e))) ! mut host e))
+                     (update (Fn Model M → (Pair Model (List (Fn → M ! Tasks e))) ! Mut Host e))
                      (view (Fn Model → (Html M)))
                      (window (Fn Model → (List (Attribute M))))
                      (running (Running Model M))
                      (message M))
       (→ (Running Model M))
-      (! mut host dom tasks e)
+      (! Mut Host Dom Tasks e)
       (∀ (Model M e))
       (match (update (● running model) message)
         ((Pair model commands)
@@ -584,9 +584,9 @@
                   (patch-root (● running shown) (view model))
                   (patch-window (● running window) (window model))))))
 
-    (define (start-commands (box (Mailbox M)) (commands (List (Fn → M ! tasks e))))
+    (define (start-commands (box (Mailbox M)) (commands (List (Fn → M ! Tasks e))))
       (→ Unit)
-      (! mut host dom tasks e)
+      (! Mut Host Dom Tasks e)
       (∀ (M e))
       (match commands
         ((Cons command rest)
@@ -594,16 +594,16 @@
          (start-commands box rest))
         ((Nil) (unit))))
 
-    (define (answer (box (Mailbox M)) (command (Fn → M ! tasks e)))
+    (define (answer (box (Mailbox M)) (command (Fn → M ! Tasks e)))
       (→ Unit)
-      (! mut dom tasks e)
+      (! Mut Dom Tasks e)
       (∀ (M e))
       (mailbox-post box (command))
       (wake))
 
     ;; The root's one child, patched, or replaced by a new one.
 
-    (define (patch-root (shown (Shown M)) (html (Html M))) (→ (Shown M)) (! dom) (∀ (M))
+    (define (patch-root (shown (Shown M)) (html (Html M))) (→ (Shown M)) (! Dom) (∀ (M))
       (let ((next (patch shown html)))
         (unless (same-node? next shown)
           (insert-node (document-root) (shown-node next) (None))

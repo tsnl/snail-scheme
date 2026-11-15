@@ -1,15 +1,15 @@
 (import
  (snail core base)
  (snail core io)
- (only (snail core forms) host)
+ (only (snail core forms) Host)
  (only (snail core primitive) inherit-handlers))
 
 (effect Reading ((read-number (Fn → I64))))
 (enum Step
   (Done ((value I64)))
-  (More ((reader (Fn → I64 ! host))
+  (More ((reader (Fn → I64 ! Host))
          (next (Fn Unit → Step ! Reading)))))
-(effect Pause ((ctl pause (Fn (Fn → I64 ! host) → Unit))))
+(effect Pause ((ctl pause (Fn (Fn → I64 ! Host) → Unit))))
 
 (define (start) (→ Step) (! Reading)
   (handle Pause ((pause (lambda (reader resume) (More reader resume))))
@@ -21,7 +21,7 @@
     ((Done value) value)
     ((More reader next) -1)))
 
-(define (main) (→ Unit) (! host output-port)
+(define (main) (→ Unit) (! Host Output-port)
   (match (handle Reading ((read-number (lambda () 1))) (start))
     ((Done value) (write-line (show value)))
     ((More reader next)

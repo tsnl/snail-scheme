@@ -2,10 +2,10 @@
  (snail core base)
  (snail core io))
 
-(effect ReadValue
-  ((read-value (Fn → I64 ! fs))))
+(effect Read-value
+  ((read-value (Fn → I64 ! Fs))))
 
-(define (main) (→ Unit) (! fs output-port)
-  (handle ReadValue ((read-value (lambda () 42)))
+(define (main) (→ Unit) (! Fs Output-port)
+  (handle Read-value ((read-value (lambda () 42)))
     (display (read-value)) (newline))
   (unit))

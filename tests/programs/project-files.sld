@@ -21,18 +21,18 @@
 (define (at (name String)) (→ String)
   (string-append (root) "/" name))
 
-(define (report (label String) (text String)) (→ Unit) (! output-port)
+(define (report (label String) (text String)) (→ Unit) (! Output-port)
   (write-line (string-append label " -> " text)))
 
-(define (refusal->string (refusal FileRefusal)) (→ String)
+(define (refusal->string (refusal File-refusal)) (→ String)
   (match refusal
-    ((ChangedOnDisk) "changed on disk")
-    ((NotServed message) (string-append "not served: " message))
-    ((DiskFailed error) (string-append "disk failed: " (show error)))))
+    ((Changed-on-disk) "changed on disk")
+    ((Not-served message) (string-append "not served: " message))
+    ((Disk-failed error) (string-append "disk failed: " (show error)))))
 
-(define (text-report (label String) (result (Result ProjectText FileRefusal)))
+(define (text-report (label String) (result (Result Project-text File-refusal)))
   (→ Unit)
-  (! output-port)
+  (! Output-port)
   (report label (match result
                   ((Ok text)
                    (string-append (● text text)
@@ -40,16 +40,16 @@
                                   (substring (● text revision) 0 12)))
                   ((Err refusal) (refusal->string refusal)))))
 
-(define (read-report (path String)) (→ Unit) (! output-port fs)
+(define (read-report (path String)) (→ Unit) (! Output-port Fs)
   (text-report (string-append "read " path) (read-project-text (root) path)))
 
 ;; The revision of the file at `path` now, which a save names.
-(define (revision-of (path String)) (→ String) (! fs)
+(define (revision-of (path String)) (→ String) (! Fs)
   (match (read-project-text (root) path)
     ((Ok text) (● text revision))
     ((Err _) "")))
 
-(define (mode-report (path String)) (→ Unit) (! output-port modes)
+(define (mode-report (path String)) (→ Unit) (! Output-port Modes)
   (report (string-append "mode of " path) (match (file-mode (at path))
                                             ((Some mode) (number->octal mode))
                                             ((None) "none"))))
@@ -59,7 +59,7 @@
       (show number)
       (string-append (number->octal (quotient number 8)) (show (remainder number 8)))))
 
-(define (main) (→ Unit) (! fs output-port modes)
+(define (main) (→ Unit) (! Fs Output-port Modes)
   (remove-tree (root))
   (make-directories (at "lib"))
   (make-directories (at ".git"))

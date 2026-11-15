@@ -11,5 +11,5 @@
                                   (list (list "snail" "core" "base"))
                                   (list (form "define"
                                               (list (form "knot" (Nil))
-                                                    (form "→" (list (SymbolSyntax "I64")))
-                                                    (IntegerSyntax (helper)))))))
+                                                    (form "→" (list (Symbol-syntax "I64")))
+                                                    (Integer-syntax (helper)))))))

@@ -3,8 +3,8 @@
  (snail core io))
 
 ;; An instance's methods perform no more than the row its head writes.
-(typeclass (Store e S)
-  (declare (fetch-object (left S) (right String)) (→ String) (! e)))
+(typeclass (Store E S)
+  (declare (fetch-object (left S) (right String)) (→ String) (! E)))
 
 (record Loud
   ((name String)))

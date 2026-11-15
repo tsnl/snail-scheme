@@ -9,9 +9,9 @@
    (snail core base)
    (snail core io)
    (only (snail shell compiler read)
-         DString
+         D-string
          datum->string
-         compile
+         Compile
          compiling
          Failed
          Requested
@@ -22,7 +22,7 @@
 
     ;; ---- Compilation ----
 
-    (define (compile-command-line) (→ Unit) (! mut fs)
+    (define (compile-command-line) (→ Unit) (! Mut Fs)
       (match (command-line)
         ((Cons _ (Cons mode (Cons source (Cons output (Cons generated directories)))))
          (match (compiling (lambda () (compile-mode mode source output generated directories)))
@@ -42,7 +42,7 @@
                           (generated String)
                           (directories (List String)))
       (→ Unit)
-      (! mut fs compile)
+      (! Mut Fs Compile)
       (let ((generate
              (lambda (loading forms) (generated-syntax generated directories loading forms))))
         (cond ((string=? mode "schema")
@@ -55,15 +55,15 @@
                                    generated
                                    (source->wat directories source generate (no-inputs)))))))
 
-    (define (write-program (output String) (generated String) (program WholeProgram))
+    (define (write-program (output String) (generated String) (program Whole-program))
       (→ Unit)
-      (! fs)
+      (! Fs)
       (write-file output (● program text))
       (write-links generated (● program links)))
 
     (define (write-modules (directory String) (generated String) (modules (List Built)))
       (→ Unit)
-      (! fs)
+      (! Fs)
       (for-each (lambda (module)
                   (write-file (string-append directory "/" (● module name) ".wat")
                               (● module text)))
@@ -80,14 +80,14 @@
     ;; links.datum in the compile's own directory, beside the libraries its
     ;; producers generate; libraries that link the same bytes share a line.
 
-    (define (write-links (directory String) (links (List LinkedFile))) (→ Unit) (! fs)
+    (define (write-links (directory String) (links (List Linked-file))) (→ Unit) (! Fs)
       (write-file (string-append directory "/links.datum")
                   (string-concatenate
                    (map (lambda (link)
                           (string-append "("
-                                         (datum->string (DString (● link digest)))
+                                         (datum->string (D-string (● link digest)))
                                          " "
-                                         (datum->string (DString (● link path)))
+                                         (datum->string (D-string (● link path)))
                                          ")\n"))
                         (delete-duplicates (lambda (a b)
                                              (string=? (● a digest) (● b digest)))

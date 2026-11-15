@@ -1,6 +1,6 @@
 (import
  (snail core base)
- (only (snail core forms) host)
+ (only (snail core forms) Host)
  (snail core io)
  (snail shell task)
  (snail shell dom)
@@ -23,7 +23,7 @@
 (enum Delivery
   (Input ((message Msg)))
   (Produced ((read I64)
-             (result CommandResult))))
+             (result Command-result))))
 
 ;; This race driver controls when a command runs, using the IDE's actual
 ;; pure transitions. The other IDE tests run its own `ui-update`.
@@ -35,8 +35,8 @@
               (gate (Mailbox Unit))
               (state Requests)
               (commands (List Command)))
-  (→ (List (Fn → Delivery ! mut host output-port tasks dom fetch)))
-  (! mut host)
+  (→ (List (Fn → Delivery ! Mut Host Output-port Tasks Dom Fetch)))
+  (! Mut Host)
   (match commands
     ((Nil) (Nil))
     ((Cons work rest)
@@ -50,10 +50,10 @@
 ;; Record the request identity at its boundary, before it can suspend.
 (define (observed (work Command) (state Requests))
   (→ Delivery)
-  (! mut tasks dom fetch)
+  (! Mut Tasks Dom Fetch)
   (let ((issued (new Request (issued 0))))
     (let ((result
-           (handle fetch
+           (handle Fetch
                ((request (lambda (method url headers body)
                            (when (and (>= (string-length url) 10)
                                       (string=? (substring url 0 10) "/api/file?"))
@@ -71,8 +71,8 @@
                      (model Model)
                      (message Delivery))
   (→ (Pair Model
-           (List (Fn → Delivery ! mut host output-port tasks dom fetch))))
-  (! mut host)
+           (List (Fn → Delivery ! Mut Host Output-port Tasks Dom Fetch))))
+  (! Mut Host)
   (match message
     ((Input message)
      (match (update (● model ide) message)
@@ -97,9 +97,9 @@
 
 (define (input (text String))
   (→ Cue)
-  (Fire "command-query" "input" (Event-value-set (no-event) text)))
+  (Fire "command-query" "input" (event-value-set (no-event) text)))
 
-(define (enter) (→ Cue) (Fire "command-query" "keydown" (Event-key-set (no-event) "Enter")))
+(define (enter) (→ Cue) (Fire "command-query" "keydown" (event-key-set (no-event) "Enter")))
 
 (define (verify-focus (result (Pair Node Document))) (→ Unit)
   (let ((expected (string-append "focus " (show (● (● result first) handle))))
@@ -110,9 +110,9 @@
       ((Some line) (unless (string=? line expected) (panic "old task stole focus")))
       ((None) (panic "no focus")))))
 
-(define (run (delayed-read Bool)) (→ Unit) (! mut host output-port tasks)
+(define (run (delayed-read Bool)) (→ Unit) (! Mut Host Output-port Tasks)
   (let ((state (new Requests (reads 0) (completed 0) (events #f) (hides 0))) (gate (make-mailbox)))
-    (handle fetch
+    (handle Fetch
         ((request (lambda (method url headers body)
                     (cond ((string=? url "/api/project")
                            (Ok (new Reply (status 200)
@@ -137,15 +137,15 @@
                         (if (● state events) (None)
                             (begin
                               (set! (● state events) #t)
-                              (Some (new StreamEvent (kind "open") (data "")))))))
+                              (Some (new Stream-event (kind "open") (data "")))))))
          (stream-close (lambda (stream) (unit))))
       (verify-focus (with-memory-dom
-                     (list (FireWindow "keydown" (Event-key-set (no-event) "F1"))
+                     (list (Fire-window "keydown" (event-key-set (no-event) "F1"))
                            (input "search-project") (enter) (input "needle") (Hide) (enter)
-                           (if delayed-read (FireWindow "online" (no-event))
-                               (FireWindow "keydown"
-                                           (Event-modifiers-set (Event-key-set (no-event) "\\")
-                                                                (control-key))))
+                           (if delayed-read (Fire-window "online" (no-event))
+                               (Fire-window "keydown"
+                                            (event-modifiers-set (event-key-set (no-event) "\\")
+                                                                 (control-key))))
                            (Hide))
                      (lambda ()
                        (let ((final (run-ui (new Model (ide (initial)) (answers 0))
@@ -177,6 +177,6 @@
       (write-line (if delayed-read "obsolete failure cannot reveal cached coordinates"
                       "queued reveal cannot steal focus after a split")))))
 
-(define (main) (→ Unit) (! host mut output-port tasks)
+(define (main) (→ Unit) (! Host Mut Output-port Tasks)
   (dispatch (lambda () (run #t) (run #f)))
   (unit))

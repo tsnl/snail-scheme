@@ -1,6 +1,6 @@
 (import
  (snail core base)
- (only (snail core forms) host)
+ (only (snail core forms) Host)
  (snail core io)
  (snail shell task))
 
@@ -9,17 +9,17 @@
 ;; both, but `third`, which was ready behind the producer, asks before
 ;; either runs and takes it. The woken receivers find nothing and wait
 ;; again, still in the order they began to wait.
-(define (receive-one (mailbox (Mailbox String)) (name String)) (→ Unit) (! output-port mut tasks)
+(define (receive-one (mailbox (Mailbox String)) (name String)) (→ Unit) (! Output-port Mut Tasks)
   (write-line (string-append name " received " (mailbox-receive mailbox))))
 
-(define (produce (mailbox (Mailbox String))) (→ Unit) (! mut tasks)
+(define (produce (mailbox (Mailbox String))) (→ Unit) (! Mut Tasks)
   (mailbox-post mailbox "one")
   (yield)
   (mailbox-post mailbox "two")
   (yield)
   (mailbox-post mailbox "three"))
 
-(define (main) (→ Unit) (! host mut output-port tasks)
+(define (main) (→ Unit) (! Host Mut Output-port Tasks)
   (let ((mailbox (make-mailbox)))
     (dispatch (lambda () (receive-one mailbox "first")))
     (dispatch (lambda () (receive-one mailbox "second")))

@@ -11,7 +11,7 @@
     (define (buffer (count I32)) (→ (Vector U8))
       (make-vector (i32->i64 count) (i32->u8 0)))
 
-    (define (put! (target (Vector U8)) (index I32) (byte I32)) (→ Unit) (! mut)
+    (define (put! (target (Vector U8)) (index I32) (byte I32)) (→ Unit) (! Mut)
       (vector-set! target (i32->i64 index) (i32->u8 byte)))
 
     (define (finish (number I32) (bytes (Vector U8))) (→ (Result Payload String))

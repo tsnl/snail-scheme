@@ -1,7 +1,7 @@
 (import
  (snail core base)
- (only (snail shell task) tasks Scheduler dispatch-in)
- (only (snail core forms) host)
+ (only (snail shell task) Tasks Scheduler dispatch-in)
+ (only (snail core forms) Host)
  (rename (snail shell socket)
          (send udp-send)
          (receive udp-receive)))
@@ -30,8 +30,8 @@
 (define (requests) (→ Requests) (new Requests (slots (Nil))))
 (expose requests "requests")
 
-(define (request (scheduler Scheduler) (requests Requests) (work (Fn → Any ! tcp udp tasks)))
-  (→ I64) (! mut host tcp udp)
+(define (request (scheduler Scheduler) (requests Requests) (work (Fn → Any ! Tcp Udp Tasks)))
+  (→ I64) (! Mut Host Tcp Udp)
   (let* ((slot (new Slot (value (None))))
          (id (dispatch-in scheduler (lambda () (set! (● slot value) (Some (work)))))))
     (set! (● requests slots) (Cons (new Pair (first id) (second slot)) (● requests slots)))
@@ -47,7 +47,7 @@
     ((Some _) #t)
     ((None) #f)))
 
-(define (answer (requests Requests) (id I64)) (→ Any) (! mut)
+(define (answer (requests Requests) (id I64)) (→ Any) (! Mut)
   (match (● (slot requests id) value)
     ((Some result)
      (set! (● requests slots) (filter (lambda (entry) (not (= (● entry first) id)))
@@ -64,96 +64,96 @@
 
 ;; ---- Operations ----
 
-(define (require (result (Result T SocketError))) (→ T) (∀ (T))
+(define (require (result (Result T Socket-error))) (→ T) (∀ (T))
   (match result
     ((Ok value) value)
     ((Err error) (panic (● error code)))))
 
-(define (open) (→ (Result Listener SocketError)) (! tcp tasks)
+(define (open) (→ (Result Listener Socket-error)) (! Tcp Tasks)
   (listen (require (endpoint "127.0.0.1" 0))))
 
 (define (listener (answer Any)) (→ Listener)
-  (require (fixture-convert answer (Result Listener SocketError))))
+  (require (fixture-convert answer (Result Listener Socket-error))))
 
 (define (port (listener Listener)) (→ I32) (● listener port))
 
-(define (dial (port I32)) (→ (Result Connection SocketError)) (! tcp tasks)
+(define (dial (port I32)) (→ (Result Connection Socket-error)) (! Tcp Tasks)
   (connect (require (endpoint "127.0.0.1" port))))
 
 (define (take (listener Listener))
-  (→ (Result Connection SocketError))
-  (! tcp tasks)
+  (→ (Result Connection Socket-error))
+  (! Tcp Tasks)
   (accept listener))
 
 (define (connection (answer Any)) (→ Connection)
-  (require (fixture-convert answer (Result Connection SocketError))))
+  (require (fixture-convert answer (Result Connection Socket-error))))
 
 (define (receive (connection Connection) (count I32))
-  (→ (Result (Option Bytes) SocketError))
-  (! tcp tasks)
+  (→ (Result (Option Bytes) Socket-error))
+  (! Tcp Tasks)
   (read connection count))
 
 (define (read-count (answer Any)) (→ I32)
-  (match (require (fixture-convert answer (Result (Option Bytes) SocketError)))
+  (match (require (fixture-convert answer (Result (Option Bytes) Socket-error)))
     ((Some bytes) (i64->i32 (vector-length bytes)))
     ((None) -1)))
 
 (define (read-byte (answer Any) (index I32)) (→ I32)
-  (match (require (fixture-convert answer (Result (Option Bytes) SocketError)))
+  (match (require (fixture-convert answer (Result (Option Bytes) Socket-error)))
     ((Some bytes) (u8->i32 (vector-ref bytes (i32->i64 index))))
     ((None) -1)))
 
 (define (bad-read? (answer Any)) (→ Bool)
-  (match (fixture-convert answer (Result (Option Bytes) SocketError))
+  (match (fixture-convert answer (Result (Option Bytes) Socket-error))
     ((Err error) (string=? (● error code) "EBADF"))
     ((Ok _) #f)))
 
 (define (send (connection Connection))
-  (→ (Result I32 SocketError))
-  (! tcp tasks)
+  (→ (Result I32 Socket-error))
+  (! Tcp Tasks)
   (write connection #u8(0 255 128 1)))
 
 (define (written (answer Any)) (→ I32)
-  (require (fixture-convert answer (Result I32 SocketError))))
+  (require (fixture-convert answer (Result I32 Socket-error))))
 
-(define (overwrite) (→ Bool) (! tcp tasks)
+(define (overwrite) (→ Bool) (! Tcp Tasks)
   (match (write (new Connection (token (Any (ann 1 I32)))) #u8(9 8 7))
     ((Err error) (string=? (● error code) "EBADF"))
     ((Ok _) #f)))
 
-(define (stop-listener (listener Listener)) (→ Unit) (! tcp) (require (close-listener listener)))
+(define (stop-listener (listener Listener)) (→ Unit) (! Tcp) (require (close-listener listener)))
 
 (define (stop-connection (connection Connection))
   (→ Unit)
-  (! tcp)
+  (! Tcp)
   (require (close-connection connection)))
 
 (define (finish (connection Connection) (grace I32))
-  (→ (Result Unit SocketError))
-  (! tcp tasks)
+  (→ (Result Unit Socket-error))
+  (! Tcp Tasks)
   (finish-connection connection grace))
 
 (define (finished? (answer Any)) (→ Bool)
-  (match (fixture-convert answer (Result Unit SocketError))
+  (match (fixture-convert answer (Result Unit Socket-error))
     ((Ok _) #t)
     ((Err _) #f)))
 
 (define (timed-out? (answer Any)) (→ Bool)
-  (match (fixture-convert answer (Result Unit SocketError))
+  (match (fixture-convert answer (Result Unit Socket-error))
     ((Err error) (string=? (● error code) "ETIMEDOUT"))
     ((Ok _) #f)))
 
-(define (begin-open (scheduler Scheduler) (requests Requests)) (→ I64) (! mut host tcp udp)
+(define (begin-open (scheduler Scheduler) (requests Requests)) (→ I64) (! Mut Host Tcp Udp)
   (request scheduler requests (lambda () (Any (open)))))
 
 (define (begin-dial (scheduler Scheduler) (requests Requests) (port I32))
   (→ I64)
-  (! mut host tcp udp)
+  (! Mut Host Tcp Udp)
   (request scheduler requests (lambda () (Any (dial port)))))
 
 (define (begin-take (scheduler Scheduler) (requests Requests) (listener Listener))
   (→ I64)
-  (! mut host tcp udp)
+  (! Mut Host Tcp Udp)
   (request scheduler requests (lambda () (Any (take listener)))))
 
 (define (begin-receive (scheduler Scheduler)
@@ -161,20 +161,20 @@
                        (connection Connection)
                        (count I32))
   (→ I64)
-  (! mut host tcp udp)
+  (! Mut Host Tcp Udp)
   (request scheduler requests (lambda () (Any (receive connection count)))))
 
 (define (begin-send (scheduler Scheduler) (requests Requests) (connection Connection))
   (→ I64)
-  (! mut host tcp udp)
+  (! Mut Host Tcp Udp)
   (request scheduler requests (lambda () (Any (send connection)))))
 
-(define (begin-overwrite (scheduler Scheduler) (requests Requests)) (→ I64) (! mut host tcp udp)
+(define (begin-overwrite (scheduler Scheduler) (requests Requests)) (→ I64) (! Mut Host Tcp Udp)
   (request scheduler requests (lambda () (Any (overwrite)))))
 
 (define (begin-finish (scheduler Scheduler) (requests Requests) (connection Connection) (grace I32))
   (→ I64)
-  (! mut host tcp udp)
+  (! Mut Host Tcp Udp)
   (request scheduler requests (lambda () (Any (finish connection grace)))))
 
 (expose begin-open "begin-open")
@@ -196,44 +196,47 @@
 (expose finished? "finished")
 (expose timed-out? "timed-out")
 
-(define (open-udp) (→ UdpSocket) (! udp tasks) (require (bind (require (endpoint "127.0.0.1" 0)))))
+(define (open-udp) (→ Udp-socket) (! Udp Tasks) (require (bind (require (endpoint "127.0.0.1" 0)))))
 
-(define (udp-socket (answer Any)) (→ UdpSocket)
-  (fixture-convert answer UdpSocket))
+(define (udp-socket (answer Any)) (→ Udp-socket)
+  (fixture-convert answer Udp-socket))
 
-(define (udp-port (socket UdpSocket)) (→ I32) (● socket port))
+(define (udp-port (socket Udp-socket)) (→ I32) (● socket port))
 
-(define (send-udp (socket UdpSocket) (port I32)) (→ (Result I32 SocketError)) (! udp tasks)
+(define (send-udp (socket Udp-socket) (port I32)) (→ (Result I32 Socket-error)) (! Udp Tasks)
   (udp-send socket (require (endpoint "127.0.0.1" port)) #u8(0 255 128 1)))
 
-(define (receive-udp (socket UdpSocket) (count I32))
-  (→ (Result Datagram SocketError))
-  (! udp tasks)
+(define (receive-udp (socket Udp-socket) (count I32))
+  (→ (Result Datagram Socket-error))
+  (! Udp Tasks)
   (udp-receive socket count))
 
 (define (datagram (answer Any)) (→ Datagram)
-  (require (fixture-convert answer (Result Datagram SocketError))))
+  (require (fixture-convert answer (Result Datagram Socket-error))))
 
-(define (packet-port (answer Any)) (→ I32) (Endpoint-port (● (datagram answer) peer)))
+(define (packet-port (answer Any)) (→ I32) (endpoint-port (● (datagram answer) peer)))
 
 (define (packet-size (answer Any)) (→ I32) (i64->i32 (vector-length (● (datagram answer) bytes))))
 
 (define (packet-byte (answer Any) (index I32)) (→ I32)
   (u8->i32 (vector-ref (● (datagram answer) bytes) (i32->i64 index))))
 
-(define (stop-udp (socket UdpSocket)) (→ Unit) (! udp) (require (close-udp socket)))
+(define (stop-udp (socket Udp-socket)) (→ Unit) (! Udp) (require (close-udp socket)))
 
-(define (begin-open-udp (scheduler Scheduler) (requests Requests)) (→ I64) (! mut host tcp udp)
+(define (begin-open-udp (scheduler Scheduler) (requests Requests)) (→ I64) (! Mut Host Tcp Udp)
   (request scheduler requests (lambda () (Any (open-udp)))))
 
-(define (begin-send-udp (scheduler Scheduler) (requests Requests) (socket UdpSocket) (port I32))
+(define (begin-send-udp (scheduler Scheduler) (requests Requests) (socket Udp-socket) (port I32))
   (→ I64)
-  (! mut host tcp udp)
+  (! Mut Host Tcp Udp)
   (request scheduler requests (lambda () (Any (send-udp socket port)))))
 
-(define (begin-receive-udp (scheduler Scheduler) (requests Requests) (socket UdpSocket) (count I32))
+(define (begin-receive-udp (scheduler Scheduler)
+                           (requests Requests)
+                           (socket Udp-socket)
+                           (count I32))
   (→ I64)
-  (! mut host tcp udp)
+  (! Mut Host Tcp Udp)
   (request scheduler requests (lambda () (Any (receive-udp socket count)))))
 
 (expose begin-open-udp "begin-open-udp")

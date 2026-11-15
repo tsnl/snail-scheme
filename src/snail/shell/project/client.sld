@@ -24,14 +24,14 @@
 
     (define (api (method String) (url String) (headers (List Header)) (body String))
       (→ (Result Json Failure))
-      (! fetch tasks)
+      (! Fetch Tasks)
       (match (request method url headers body)
         ((Ok reply) (reply-json reply))
         ((Err why) (Err (new Failure (status -1) (message why))))))
 
     (define (reply-json (reply Reply)) (→ (Result Json Failure))
       (let ((status (● reply status)))
-        (match (if (= status 204) (Some (JsonNull)) (string->json (● reply body)))
+        (match (if (= status 204) (Some (Json-null)) (string->json (● reply body)))
           ((Some json)
            (if (and (>= status 200) (< status 300))
                (Ok json)
@@ -91,5 +91,5 @@
     (define (project-reply (reply (Result Json Failure))) (→ (Result Project Failure))
       (decoded-reply json->project "project" reply))
 
-    (define (search-reply (reply (Result Json Failure))) (→ (Result SearchResults Failure))
+    (define (search-reply (reply (Result Json Failure))) (→ (Result Search-results Failure))
       (decoded-reply json->search "search" reply))))

@@ -4,7 +4,7 @@
 (record Cell
   ((value I64)))
 (define (make-cell) (→ Cell) (new Cell (value 0)))
-(define (bump (cell Cell)) (→ I64) (! mut)
+(define (bump (cell Cell)) (→ I64) (! Mut)
   (set! (● cell value) (+ (● cell value) 1))
   (● cell value))
 (define (reader (cell Cell)) (→ (Fn → I64)) (lambda () (● cell value)))
@@ -14,7 +14,7 @@
 (define inferred-even (lambda (n) (if (= n 0) #t (inferred-odd (- n 1)))))
 (define inferred-odd (lambda (n) (if (= n 0) #f (inferred-even (- n 1)))))
 (define annotated (ann (lambda (n) (+ n 1)) (Fn I64 → I64)))
-(define (main) (→ Unit) (! mut output-port)
+(define (main) (→ Unit) (! Mut Output-port)
   (let* ((first (make-cell)) (second (make-cell)) (alias first) (read (reader first)))
     (write-line (show (bump alias)))
     (write-line (show (read)))

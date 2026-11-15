@@ -82,7 +82,7 @@ does not resolve symlinks, check existence or read source files.
 
 `(snail shell project)` uses the compiler's located reader on Chez and Wasm.
 `parse-project` takes text and its filename and returns ordered typed build and
-run lists. A resolved `RunTarget` contains a `ProgramBuild`; callers need not
+run lists. A resolved `Run-target` contains a `Program-build`; callers need not
 recheck its existence or kind. Builds are collected before runs are resolved,
 without a separate pending syntax tree. Paths and declarations retain locations;
 duplicate target errors identify both declarations, duplicate fields the second.
@@ -146,14 +146,14 @@ the builder still does not invent a page.
  (snail shell artifact))
 
 
-(define (frontend) (→ ArtifactBundle) (artifact-bundle "client"))
+(define (frontend) (→ Artifact-bundle) (artifact-bundle "client"))
 
 ;; A lookup in embedded data, without file IO or a runtime build.
 (artifact-ref (frontend) "index.html")
 ```
 
 The name must be a literal string naming a browser target in the same project.
-The macro constructs an ordinary `ArtifactBundle` containing `ArtifactFile`
+The macro constructs an ordinary `Artifact-bundle` containing `Artifact-file`
 records with relative `path` and immutable `bytes`. `artifact-ref` returns
 `Option Bytes`; field paths expose the file list. MIME types, routes and
 transport policy belong to serving code. No special backend representation or

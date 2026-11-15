@@ -1,6 +1,6 @@
 (import
  (snail core base)
- (only (snail core forms) host)
+ (only (snail core forms) Host)
  (snail core io)
  (snail shell task)
  (snail shell dom)
@@ -15,7 +15,7 @@
 ;; A DOM edit can precede its input message. Change the live field after
 ;; formatting was scheduled but before its command runs. Neither replacement
 ;; nor scroll restoration may act on the obsolete field snapshot.
-(define (replace-field (changed-path Bool)) (→ Unit) (! dom)
+(define (replace-field (changed-path Bool)) (→ Unit) (! Dom)
   (match (new Pair (first (element-by-id "text-0")) (second (element-by-id "editor-0")))
     ((Pair (Some field) (Some scroller))
      (set-string-property field (if changed-path "snailPath" "value")
@@ -28,8 +28,8 @@
                      (race Race)
                      (model Ide)
                      (message Msg))
-  (→ (Pair Ide (List (Fn → Msg ! tasks dom fetch))))
-  (! mut dom)
+  (→ (Pair Ide (List (Fn → Msg ! Tasks Dom Fetch))))
+  (! Mut Dom)
   (let ((next (ui-update model message)))
     ;; The first result applies the named command and queues formatting.
     ;; Change the DOM before that queued task gets its next scheduler turn.
@@ -38,15 +38,15 @@
       (replace-field changed-path))
     next))
 
-(define (report-editor) (→ Unit) (! dom output-port)
+(define (report-editor) (→ Unit) (! Dom Output-port)
   (match (new Pair (first (element-by-id "text-0")) (second (element-by-id "editor-0")))
     ((Pair (Some field) (Some scroller))
      (write-line (string-property field "value"))
      (write-line (show (number-property scroller "scrollTop"))))
     (_ (panic "missing editor"))))
 
-(define (run (changed-path Bool)) (→ Unit) (! mut host output-port tasks)
-  (handle fetch
+(define (run (changed-path Bool)) (→ Unit) (! Mut Host Output-port Tasks)
+  (handle Fetch
       ((request (lambda (method url headers body)
                   (Ok (new Reply
                         (status 200)
@@ -67,7 +67,7 @@
       (with-memory-dom (Nil)
                        (lambda ()
                          (run-ui loaded
-                                 (list (DispatchCommand "format-buffer"))
+                                 (list (Dispatch-command "format-buffer"))
                                  (lambda (model message)
                                    (race-update changed-path race model message))
                                  (lambda (model) (view model))
@@ -78,6 +78,6 @@
       (unless (● race injected) (panic "the formatting race was not exercised"))
       (unit))))
 
-(define (main) (→ Unit) (! host mut output-port tasks)
+(define (main) (→ Unit) (! Host Mut Output-port Tasks)
   (dispatch (lambda () (run #f) (run #t)))
   (unit))

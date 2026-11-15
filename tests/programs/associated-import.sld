@@ -9,7 +9,7 @@
   (⊨ (p:Combine A B))
   (p:generic a b))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   (display (forward "2" "3"))
   (newline)
   (display ((p:make-adder 2) 3))

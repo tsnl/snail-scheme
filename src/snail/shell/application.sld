@@ -13,5 +13,5 @@
     (record (Entry A)
       ())
 
-    (typeclass (Application e A)
-      (declare (start (entry (Entry A))) (→ Unit) (! e)))))
+    (typeclass (Application E A)
+      (declare (start (entry (Entry A))) (→ Unit) (! E)))))

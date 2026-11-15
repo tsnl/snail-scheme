@@ -35,9 +35,9 @@ bytes directly, so a producer need not print and reparse a source string.
                   (list "squares")
                   (list (list "snail" "core" "base"))
                   (list (form "define"
-                              (list (SymbolSyntax "squares")
+                              (list (Symbol-syntax "squares")
                                     (form "list"
-                                          (map (lambda (i) (IntegerSyntax (* i i)))
+                                          (map (lambda (i) (Integer-syntax (* i i)))
                                                (iota 6))))))))
 ```
 

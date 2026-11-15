@@ -115,14 +115,14 @@
        (loc Loc)))
 
     (enum Wanted
-      (WantPerformed ((name String) (declared Type) (performed (List Type)) (loc Loc)))
-      (WantInclusion ((latent Type) (context Type) (loc Loc)))
-      (WantField ((projection Projection)))
-      (WantClass ((constraint Constraint)
-                  (hole I64)
-                  (givens (List Constraint))
-                  (loc Loc)))
-      (WantLiteral
+      (Want-performed ((name String) (declared Type) (performed (List Type)) (loc Loc)))
+      (Want-inclusion ((latent Type) (context Type) (loc Loc)))
+      (Want-field ((projection Projection)))
+      (Want-class ((constraint Constraint)
+                   (hole I64)
+                   (givens (List Constraint))
+                   (loc Loc)))
+      (Want-literal
        ((value Datum)
         (type Type)
         (loc Loc))))
@@ -147,31 +147,31 @@
 
     (define (bind-solved (ck Checker) (meta Type) (type Type)) (→ Checker)
       (match meta
-        ((TVar id) (Checker-solution-set ck
-                                         (Solution-types-set (solution ck)
-                                                             (table-set (● (solution ck) types)
-                                                                        (identity-key id)
-                                                                        type))))
-        (_ (panic "internal error: expected TVar"))))
+        ((T-var id) (checker-solution-set ck
+                                          (solution-types-set (solution ck)
+                                                              (table-set (● (solution ck) types)
+                                                                         (identity-key id)
+                                                                         type))))
+        (_ (panic "internal error: expected T-var"))))
 
     (define (fresh-identity (ck Checker)) (→ (Pair I64 Checker))
       (let ((id (+ (● ck counter) 1)))
-        (new Pair (first id) (second (Checker-counter-set ck id)))))
+        (new Pair (first id) (second (checker-counter-set ck id)))))
 
     ;; ---- Metavariables and unification ----
 
     (define (fresh-meta (ck Checker)) (→ (Pair Type Checker))
       (learning ck ((id (fresh-identity)))
-                (new Pair (first (TVar id)) (second ck))))
+                (new Pair (first (T-var id)) (second ck))))
 
     (define (meta? (type Type)) (→ Bool)
       (match type
-        ((TVar _) #t)
+        ((T-var _) #t)
         (_ #f)))
 
     (define (same-meta? (a Type) (b Type)) (→ Bool)
       (match a
-        ((TVar id) (match b ((TVar other) (= id other)) (_ #f)))
+        ((T-var id) (match b ((T-var other) (= id other)) (_ #f)))
         (_ #f)))
 
     ;; The type a metavariable stands for, following a chain of bindings.
@@ -179,18 +179,18 @@
 
     (define (prune (solution Solution) (type Type)) (→ Type)
       (match type
-        ((TVar id)
+        ((T-var id)
          (match (solved-type solution id)
            ((Some bound) (prune solution bound))
            ((None) type)))
         (_ type)))
 
-    (define (unify (ck Checker) (expected Type) (actual Type) (loc Loc)) (→ Checker) (! compile)
+    (define (unify (ck Checker) (expected Type) (actual Type) (loc Loc)) (→ Checker) (! Compile)
       (learning ck ((agreed (unify? expected actual)))
                 (if agreed ck (type-mismatch ck expected actual loc))))
 
     (define (type-mismatch (ck Checker) (expected Type) (actual Type) (loc Loc))
-      (→ T) (! compile) (∀ (T))
+      (→ T) (! Compile) (∀ (T))
       (compile-error loc
                      (string-append "type mismatch: expected "
                                     (type->string (resolve-type (solution ck) expected))
@@ -219,22 +219,22 @@
 
     (define (unify-structure? (ck Checker) (a Type) (b Type)) (→ (Pair Bool Checker))
       (match a
-        ((TCon name args)
+        ((T-con name args)
          (match b
-           ((TCon other others)
+           ((T-con other others)
             (if (string=? name other)
                 (unify-all? ck args others)
                 (new Pair (first #f) (second ck))))
            (_ (new Pair (first #f) (second ck)))))
-        ((TFun params result row)
+        ((T-fun params result row)
          (match b
-           ((TFun others other-result other-row)
+           ((T-fun others other-result other-row)
             (unify-function? ck params result row others other-result other-row))
            (_ (new Pair (first #f) (second ck)))))
-        ((TRow _ _) (unify-rows? ck a b))
-        ((TRigid name)
+        ((T-row _ _) (unify-rows? ck a b))
+        ((T-rigid name)
          (match b
-           ((TRigid other) (new Pair (first (string=? name other)) (second ck)))
+           ((T-rigid other) (new Pair (first (string=? name other)) (second ck)))
            (_ (new Pair (first #f) (second ck)))))
         (_ (new Pair (first #f) (second ck)))))
 
@@ -264,12 +264,12 @@
     (define (occurs? (solution Solution) (meta Type) (type Type)) (→ Bool)
       (let ((type (prune solution type)))
         (match type
-          ((TVar _) (same-meta? type meta))
-          ((TCon _ args) (any? (lambda (arg) (occurs? solution meta arg)) args))
-          ((TFun params result row)
+          ((T-var _) (same-meta? type meta))
+          ((T-con _ args) (any? (lambda (arg) (occurs? solution meta arg)) args))
+          ((T-fun params result row)
            (or (any? (lambda (param) (occurs? solution meta param)) params)
                (occurs? solution meta result) (occurs? solution meta row)))
-          ((TRow _ (Some tail)) (occurs? solution meta tail))
+          ((T-row _ (Some tail)) (occurs? solution meta tail))
           (_ #f))))
 
     ;; ---- Effect rows ----
@@ -280,8 +280,8 @@
     (define (flatten-row (solution Solution) (row Type)) (→ (Pair (List String) (Option Type)))
       (let ((row (prune solution row)))
         (match row
-          ((TRow labels (None)) (new Pair (first labels) (second (None))))
-          ((TRow labels (Some tail))
+          ((T-row labels (None)) (new Pair (first labels) (second (None))))
+          ((T-row labels (Some tail))
            (let ((rest (flatten-row solution tail)))
              (new Pair (first (label-union labels (● rest first))) (second (● rest second)))))
           (_ (new Pair (first (Nil)) (second (Some row)))))))
@@ -294,7 +294,7 @@
     (define (same-tail? (a (Option Type)) (b (Option Type))) (→ Bool)
       (match a
         ((None) (match b ((None) #t) ((Some _) #f)))
-        ((Some (TRigid name)) (match b ((Some (TRigid other)) (string=? name other)) (_ #f)))
+        ((Some (T-rigid name)) (match b ((Some (T-rigid other)) (string=? name other)) (_ #f)))
         ((Some x) (match b ((Some y) (same-meta? x y)) ((None) #f)))))
 
     ;; Rows unify as sets: shared labels match, and each open tail absorbs the
@@ -310,17 +310,17 @@
           (new Pair (first (and (null? only-left) (null? only-right))) (second ck)))
          ((and (meta-tail? left-tail) (meta-tail? right-tail))
           (learning ck ((meta (fresh-meta))
-                        (bound-left (bind? (tail-type left-tail) (TRow only-right (Some meta)))))
+                        (bound-left (bind? (tail-type left-tail) (T-row only-right (Some meta)))))
                     (if (not bound-left)
                         (new Pair (first #f) (second ck))
-                        (bind? ck (tail-type right-tail) (TRow only-left (Some meta))))))
+                        (bind? ck (tail-type right-tail) (T-row only-left (Some meta))))))
          ((meta-tail? left-tail)
           (if (null? only-left)
-              (bind? ck (tail-type left-tail) (TRow only-right right-tail))
+              (bind? ck (tail-type left-tail) (T-row only-right right-tail))
               (new Pair (first #f) (second ck))))
          ((meta-tail? right-tail)
           (if (null? only-right)
-              (bind? ck (tail-type right-tail) (TRow only-left left-tail))
+              (bind? ck (tail-type right-tail) (T-row only-left left-tail))
               (new Pair (first #f) (second ck))))
          (else (new Pair (first #f) (second ck))))))
 
@@ -334,23 +334,23 @@
     ;; Unknown latent effects stay as obligations until class resolution has
     ;; supplied their lower bounds. Neither pure nor the whole caller row is
     ;; a valid early guess for an unresolved callback or destructor.
-    (define (perform (ck Checker) (latent Type) (row Type) (loc Loc)) (→ Checker) (! compile)
+    (define (perform (ck Checker) (latent Type) (row Type) (loc Loc)) (→ Checker) (! Compile)
       (let ((ck (record-performed ck row latent)))
         (learning ck ((included (propagate-inclusion latent row loc)))
-                  (if included ck (want ck (WantInclusion latent row loc))))))
+                  (if included ck (want ck (Want-inclusion latent row loc))))))
 
     (define (propagate-inclusion (ck Checker) (latent Type) (row Type) (loc Loc))
-      (→ (Pair Bool Checker)) (! compile)
+      (→ (Pair Bool Checker)) (! Compile)
       (let* ((source (flatten-row (solution ck) latent))
              (target (flatten-row (solution ck) row))
              (missing (label-difference (● source first) (● target first))))
         (if (null? missing)
             (if (and (meta-tail? (● target second))
-                     (match (● source second) ((Some (TRigid _)) #t) (_ #f)))
+                     (match (● source second) ((Some (T-rigid _)) #t) (_ #f)))
                 (learning ck ((then (unify (tail-type (● target second))
                                            (tail-type (● source second)) loc)))
                           (new Pair (first #t) (second ck)))
-                (if (and (match (● source second) ((Some (TRigid _)) #t) (_ #f))
+                (if (and (match (● source second) ((Some (T-rigid _)) #t) (_ #f))
                          (not (same-tail? (● source second) (● target second))))
                     (effect-refusal ck latent loc)
                     (new Pair (first (or (match (● source second) ((None) #t) (_ #f))
@@ -359,11 +359,11 @@
             (if (meta-tail? (● target second))
                 (learning ck ((tail (fresh-meta))
                               (then (unify (tail-type (● target second))
-                                           (TRow missing (Some tail)) loc)))
+                                           (T-row missing (Some tail)) loc)))
                           (propagate-inclusion ck latent row loc))
                 (effect-refusal ck latent loc)))))
 
-    (define (effect-refusal (ck Checker) (latent Type) (loc Loc)) (→ T) (! compile) (∀ (T))
+    (define (effect-refusal (ck Checker) (latent Type) (loc Loc)) (→ T) (! Compile) (∀ (T))
       (let ((flat (flatten-row (solution ck) latent)))
         (compile-error loc
                        (string-append "this performs effects its context does not allow:"
@@ -372,26 +372,26 @@
 
     ;; Propagation can expose a label through several calls. Each growth
     ;; allocates a fresh tail, so the counter also detects a fixed point.
-    (define (propagate-inclusions (ck Checker)) (→ Checker) (! compile)
+    (define (propagate-inclusions (ck Checker)) (→ Checker) (! Compile)
       (let* ((before (● ck counter))
              (ck (fold-left propagate-wanted-inclusion ck (reverse (● ck pending)))))
         (if (= before (● ck counter)) ck (propagate-inclusions ck))))
 
-    (define (solve-inclusions (ck Checker)) (→ Checker) (! compile)
+    (define (solve-inclusions (ck Checker)) (→ Checker) (! Compile)
       (let ((ck (propagate-inclusions ck)))
         (fold-left finish-wanted-inclusion ck (reverse (● ck pending)))))
 
-    (define (propagate-wanted-inclusion (ck Checker) (want Wanted)) (→ Checker) (! compile)
+    (define (propagate-wanted-inclusion (ck Checker) (want Wanted)) (→ Checker) (! Compile)
       (match want
-        ((WantInclusion latent row loc) (● (propagate-inclusion ck latent row loc) second))
+        ((Want-inclusion latent row loc) (● (propagate-inclusion ck latent row loc) second))
         (_ ck)))
 
     ;; Residual tails share one row variable. This conservative completion
     ;; avoids adding bounded-row schemes; a closed allowance closes a still
     ;; unconstrained source tail only after all class obligations.
-    (define (finish-wanted-inclusion (ck Checker) (want Wanted)) (→ Checker) (! compile)
+    (define (finish-wanted-inclusion (ck Checker) (want Wanted)) (→ Checker) (! Compile)
       (match want
-        ((WantInclusion latent row loc)
+        ((Want-inclusion latent row loc)
          (learning ck ((included (propagate-inclusion latent row loc)))
                    (if included ck
                        (let ((source (flatten-row (solution ck) latent))
@@ -406,18 +406,18 @@
 
     (define (row-variable? (variable (Option I64)) (row Type)) (→ Bool)
       (match (new Pair (first variable) (second row))
-        ((Pair (Some number) (TVar id)) (= number id))
+        ((Pair (Some number) (T-var id)) (= number id))
         (_ #f)))
 
     ;; Preserve the row itself: generic evidence may determine its effects
     ;; later. The final check reads it through the solved types.
     (define (record-performed (ck Checker) (row Type) (effects Type)) (→ Checker)
       (if (row-variable? (● ck signed) row)
-          (Checker-performed-set ck (Cons effects (● ck performed))) ck))
+          (checker-performed-set ck (Cons effects (● ck performed))) ck))
 
     (define (tail-variable (tail (Option Type))) (→ (List String))
       (match tail
-        ((Some (TRigid name)) (list name))
+        ((Some (T-rigid name)) (list name))
         (_ (Nil))))
 
     ;; The effects a declared row names that no call performed: its labels
@@ -442,11 +442,11 @@
     ;; narrower one. A type or row not yet solved is unified, as before.
 
     (define (subsume? (ck Checker) (expected Type) (actual Type) (loc Loc))
-      (→ (Pair Bool Checker)) (! compile)
+      (→ (Pair Bool Checker)) (! Compile)
       (match (new Pair (first (prune (solution ck) expected)) (second (prune (solution ck) actual)))
-        ((Pair (TFun params result row) (TFun others other-result other-row))
+        ((Pair (T-fun params result row) (T-fun others other-result other-row))
          (subsume-function? ck params result row others other-result other-row loc))
-        ((Pair (TCon name args) (TCon other others))
+        ((Pair (T-con name args) (T-con other others))
          (cond ((not (and (string=? name other) (= (length args) (length others))))
                 (new Pair (first #f) (second ck)))
                ((null? args) (new Pair (first #t) (second ck)))
@@ -460,7 +460,7 @@
     (define (subsume-function? (ck Checker) (params (List Type)) (result Type) (row Type)
                                (others (List Type)) (other-result Type) (other-row Type)
                                (loc Loc))
-      (→ (Pair Bool Checker)) (! compile)
+      (→ (Pair Bool Checker)) (! Compile)
       (if (not (= (length params) (length others)))
           (new Pair (first #f) (second ck))
           (learning ck ((parameters (all-subsumed? others params loc)))
@@ -472,7 +472,7 @@
                                       (includes-row? ck row other-row loc)))))))
 
     (define (all-subsumed? (ck Checker) (expected (List Type)) (actual (List Type)) (loc Loc))
-      (→ (Pair Bool Checker)) (! compile)
+      (→ (Pair Bool Checker)) (! Compile)
       (fold-left (lambda (done pair)
                    (if (● done first)
                        (subsume? (● done second) (● pair first) (● pair second) loc)
@@ -487,7 +487,7 @@
     ;; or fails here.
 
     (define (includes-row? (ck Checker) (expected Type) (actual Type) (loc Loc))
-      (→ (Pair Bool Checker)) (! compile)
+      (→ (Pair Bool Checker)) (! Compile)
       (cond ((or (meta? (prune (solution ck) expected))
                  (meta-tail? (● (flatten-row (solution ck) actual) second)))
              (unify? ck expected actual))
@@ -502,7 +502,7 @@
         (and (not (meta-tail? (● target second)))
              (or (not (null? (label-difference (● source first) (● target first))))
                  (match (● source second)
-                   ((Some (TRigid _)) (not (same-tail? (● source second) (● target second))))
+                   ((Some (T-rigid _)) (not (same-tail? (● source second) (● target second))))
                    (_ #f))))))
 
     ;; An enum widens with its arguments when each of its parameters occurs
@@ -531,14 +531,14 @@
                             (visiting (List String)))
       (→ Bool)
       (match type
-        ((TRigid name) (or positive (not (string=? name param))))
-        ((TFun params result row)
+        ((T-rigid name) (or positive (not (string=? name param))))
+        ((T-fun params result row)
          (and (every? (lambda (type) (positive-only? program param type (not positive) visiting))
                       params)
               (positive-only? program param result positive visiting)
               (positive-only? program param row positive visiting)))
-        ((TRow _ (Some tail)) (positive-only? program param tail positive visiting))
-        ((TCon name args)
+        ((T-row _ (Some tail)) (positive-only? program param tail positive visiting))
+        ((T-con name args)
          (if (or (member? name visiting) (covariant-enum? program name visiting))
              (every? (lambda (type) (positive-only? program param type positive visiting)) args)
              (every? (lambda (type) (not (mentions? param type))) args)))
@@ -546,29 +546,29 @@
 
     (define (mentions? (param String) (type Type)) (→ Bool)
       (match type
-        ((TRigid name) (string=? name param))
-        ((TFun params result row)
+        ((T-rigid name) (string=? name param))
+        ((T-fun params result row)
          (or (any? (lambda (type) (mentions? param type)) params)
              (mentions? param result)
              (mentions? param row)))
-        ((TRow _ (Some tail)) (mentions? param tail))
-        ((TCon _ args) (any? (lambda (type) (mentions? param type)) args))
+        ((T-row _ (Some tail)) (mentions? param tail))
+        ((T-con _ args) (any? (lambda (type) (mentions? param type)) args))
         (_ #f)))
 
     ;; ---- Instantiation ----
 
     (define (want (ck Checker) (wanted Wanted)) (→ Checker)
-      (let ((ck (Checker-pending-count-set (Checker-pending-set ck (Cons wanted (● ck pending)))
+      (let ((ck (checker-pending-count-set (checker-pending-set ck (Cons wanted (● ck pending)))
                                            (+ (● ck pending-count) 1))))
         (match wanted
-          ((WantField _) (Checker-unsolved-fields-set ck (+ (● ck unsolved-fields) 1)))
+          ((Want-field _) (checker-unsolved-fields-set ck (+ (● ck unsolved-fields) 1)))
           (_ ck))))
 
     (define (want-class (ck Checker) (constraint Constraint) (loc Loc)) (→ (Pair Evidence Checker))
       (learning ck ((hole (fresh-identity))
                     (then
-                     (want (WantClass constraint hole (● ck givens) loc))))
-                (new Pair (first (EvHole hole)) (second ck))))
+                     (want (Want-class constraint hole (● ck givens) loc))))
+                (new Pair (first (Ev-hole hole)) (second ck))))
 
     ;; A use of a variable: its type, the types its quantified variables
     ;; took, and the evidence for its constraints.
@@ -618,9 +618,9 @@
 
     (define (open-row (ck Checker) (type Type)) (→ (Pair Type Checker))
       (match (prune (solution ck) type)
-        ((TFun params result (TRow labels (None)))
+        ((T-fun params result (T-row labels (None)))
          (learning ck ((tail (fresh-meta)))
-                   (new Pair (first (TFun params result (TRow labels (Some tail)))) (second ck))))
+                   (new Pair (first (T-fun params result (T-row labels (Some tail)))) (second ck))))
         (_ (new Pair (first type) (second ck)))))
 
     (define (global-scheme (ck Checker) (name String)) (→ (Option Scheme))
@@ -638,7 +638,7 @@
     ;; binding form passes the extended checker.
 
     (define (bind-local (ck Checker) (name String) (type Type)) (→ Checker)
-      (Checker-locals-set ck (table-set (● ck locals) name type)))
+      (checker-locals-set ck (table-set (● ck locals) name type)))
 
     (define (bind-locals (ck Checker) (names (List String)) (types (List Type))) (→ Checker)
       (fold-left (lambda (ck pair) (bind-local ck (● pair first) (● pair second)))
@@ -646,11 +646,11 @@
                  (zip names types)))
 
     (define (set-scheme (ck Checker) (name String) (scheme Scheme)) (→ Checker)
-      (Checker-schemes-set ck (table-set (● ck schemes) name scheme)))
+      (checker-schemes-set ck (table-set (● ck schemes) name scheme)))
 
     (define (variable-type (ck Checker) (name String) (loc Loc))
       (→ (Pair Instantiated Checker))
-      (! compile)
+      (! Compile)
       (match (table-ref (● ck locals) name)
         ((Some local)
          (new Pair
@@ -665,18 +665,18 @@
 
     (define (literal-type (ck Checker) (value Datum) (loc Loc)) (→ (Pair Type Checker))
       (match value
-        ((DBool _) (new Pair (first (TCon "Bool" (Nil))) (second ck)))
-        ((DChar _) (new Pair (first (TCon "Char" (Nil))) (second ck)))
-        ((DString _) (new Pair (first (TCon "String" (Nil))) (second ck)))
-        ((DBytes _) (new Pair (first (TCon "Vector" (list (TCon "U8" (Nil))))) (second ck)))
-        ((DUnit) (new Pair (first (TCon "Unit" (Nil))) (second ck)))
+        ((D-bool _) (new Pair (first (T-con "Bool" (Nil))) (second ck)))
+        ((D-char _) (new Pair (first (T-con "Char" (Nil))) (second ck)))
+        ((D-string _) (new Pair (first (T-con "String" (Nil))) (second ck)))
+        ((D-bytes _) (new Pair (first (T-con "Vector" (list (T-con "U8" (Nil))))) (second ck)))
+        ((D-unit) (new Pair (first (T-con "Unit" (Nil))) (second ck)))
         (_ (learning ck ((type (fresh-meta))
-                         (then (want (WantLiteral value type loc))))
+                         (then (want (Want-literal value type loc))))
                      (new Pair (first type) (second ck))))))
 
     ;; `row` is the effect row of the enclosing function body.
 
-    (define (infer (ck Checker) (expr Expr) (row Type)) (→ (Pair Expr Checker)) (! compile)
+    (define (infer (ck Checker) (expr Expr) (row Type)) (→ (Pair Expr Checker)) (! Compile)
       (let ((loc (● expr loc)))
         (match (● expr term)
           ((Lit value)
@@ -693,14 +693,14 @@
           ((Lambda params body ) (infer-lambda ck params body  loc))
           ((App callee args) (infer-app ck callee args row loc))
           ((New callee fields) (infer-new ck callee fields row loc (None)))
-          ((FieldRead record label _) (infer-field-read ck record label row loc))
+          ((Field-read record label _) (infer-field-read ck record label row loc))
           ;; `then` is `learning`'s own keyword, so the branches are named
           ;; for what they are rather than by their field names.
           ((If test consequent alternative)
            (learning ck ((test (infer test row))
                          (consequent (infer consequent row))
                          (alternative (infer alternative row))
-                         (test (fit (TCon "Bool" (Nil)) test row (● test loc)))
+                         (test (fit (T-con "Bool" (Nil)) test row (● test loc)))
                          (then (unify (● consequent type)
                                       (● alternative type)
                                       (● alternative loc))))
@@ -724,15 +724,16 @@
                      (fit ck type inner row loc)))
           ((Handle effect implementations body)
            (infer-handle ck effect implementations body row loc))
-          ((BoxAny inner)
+          ((Box-any inner)
            (learning ck ((inner (infer inner row)))
                      (new Pair
-                       (first (new Expr (term (BoxAny inner)) (type (TCon "Any" (Nil))) (loc loc)))
+                       (first
+                        (new Expr (term (Box-any inner)) (type (T-con "Any" (Nil))) (loc loc)))
                        (second ck))))
           ((Downcast inner target)
-           (learning ck ((inner (check-result inner (TCon "Any" (Nil)) row)))
+           (learning ck ((inner (check-result inner (T-con "Any" (Nil)) row)))
                      (new Pair (first (new Expr (term (Downcast inner target))
-                                           (type (TCon "snail.core.base:Option" (list target)))
+                                           (type (T-con "snail.core.base:Option" (list target)))
                                            (loc loc)))
                           (second ck))))
           )))
@@ -742,7 +743,7 @@
                           (body Expr)
 
                           (loc Loc))
-      (→ (Pair Expr Checker)) (! compile)
+      (→ (Pair Expr Checker)) (! Compile)
       (learning ck ((types (each (lambda (ck param) (fresh-meta ck)) params)))
                 (infer-lambda-at ck params body  types loc)))
 
@@ -755,13 +756,13 @@
                              (types (List Type))
                              (loc Loc))
       (→ (Pair Expr Checker))
-      (! compile)
+      (! Compile)
       (learning ck ((body-row (fresh-meta))
                     (body (scoped (bind-locals ck params types) body body-row)))
                 (new Pair
                   (first (new Expr
                            (term (Lambda params body ))
-                           (type (TFun types (● body type) body-row))
+                           (type (T-fun types (● body type) body-row))
                            (loc loc)))
                   (second ck))))
 
@@ -781,7 +782,7 @@
 
     (define (check-value (ck Checker) (expr Expr) (type Type) (row Type))
       (→ (Pair Expr Checker))
-      (! compile)
+      (! Compile)
       (match (new Pair (first (● expr term)) (second (prune (solution ck) type)))
 
         ((Pair (New callee fields) _)
@@ -789,7 +790,7 @@
         ((Pair (App callee args) _)
          (infer-app-at ck callee args row (● expr loc) (Some type)))
         ((Pair (If test consequent alternative) _)
-         (learning ck ((test (check-result test (TCon "Bool" (Nil)) row))
+         (learning ck ((test (check-result test (T-con "Bool" (Nil)) row))
                        (consequent (check-result consequent type row))
                        (alternative (check-result alternative type row)))
                    (new Pair
@@ -814,7 +815,7 @@
                      (second ck))))
         ((Pair (Match scrutinee clauses) _)
          (infer-match-at ck scrutinee clauses type row (● expr loc)))
-        ((Pair (Lambda params body ) (TFun param-types result body-row))
+        ((Pair (Lambda params body ) (T-fun param-types result body-row))
          (if (= (length params) (length param-types))
              (check-lambda ck expr params body  type param-types result body-row)
              (infer ck expr row)))
@@ -824,7 +825,7 @@
 
     (define (check-result (ck Checker) (expr Expr) (type Type) (row Type))
       (→ (Pair Expr Checker))
-      (! compile)
+      (! Compile)
       (learning ck ((expr (check-value expr type row)))
                 (fit ck type expr row (● expr loc))))
 
@@ -836,7 +837,7 @@
     (define (check-lambda (ck Checker) (expr Expr) (params (List String))
                           (body Expr)  (type Type) (param-types (List Type))
                           (result Type) (body-row Type))
-      (→ (Pair Expr Checker)) (! compile)
+      (→ (Pair Expr Checker)) (! Compile)
       (let ((outer ck))
         (learning ck ((row (fresh-meta))
                       (then (unify row body-row (● expr loc)))
@@ -852,23 +853,23 @@
 
     (define (finish-lambda-scope (outer Checker) (done Checker)) (→ Checker)
       (match (● outer signed)
-        ((Some _) (Checker-performed-set done (● outer performed)))
+        ((Some _) (checker-performed-set done (● outer performed)))
         ((None) done)))
 
     ;; The scope of a body checked against its signature, whose row
     ;; variable is `row`: nothing is performed in it yet.
 
     (define (signed-body (ck Checker) (row Type)) (→ Checker)
-      (Checker-performed-set (Checker-signed-set ck (Some (meta-number row))) (Nil)))
+      (checker-performed-set (checker-signed-set ck (Some (meta-number row))) (Nil)))
 
     (define (meta-number (meta Type)) (→ I64)
       (match meta
-        ((TVar id) id)
+        ((T-var id) id)
         (_ -1)))
 
     (define (infer-app (ck Checker) (callee Expr) (args (List Expr)) (row Type) (loc Loc))
       (→ (Pair Expr Checker))
-      (! compile)
+      (! Compile)
       (infer-app-at ck callee args row loc (None)))
 
     (define (infer-app-at (ck Checker)
@@ -878,7 +879,7 @@
                           (loc Loc)
                           (expected (Option Type)))
       (→ (Pair Expr Checker))
-      (! compile)
+      (! Compile)
       (let ((before (● ck pending-count)))
         (learning ck ((callee (infer callee row))
                       (then (result-context callee expected loc))
@@ -898,11 +899,11 @@
     ;; the checked result uses the existing constructor.
     (define (infer-new (ck Checker) (callee Expr) (fields (List Initializer))
                        (row Type) (loc Loc) (expected (Option Type)))
-      (→ (Pair Expr Checker)) (! compile)
+      (→ (Pair Expr Checker)) (! Compile)
       (let ((before (● ck pending-count)))
         (learning ck ((callee (infer callee row)) (then (result-context callee expected loc)))
                   (match (● callee type)
-                    ((TFun params result _)
+                    ((T-fun params result _)
                      (learning ck ((fields (each (lambda (ck field)
                                                    (check-initializer ck field params row))
                                                  fields))
@@ -912,7 +913,7 @@
                     (_ (panic "internal error: record constructor is not a function"))))))
 
     (define (check-initializer (ck Checker) (field Initializer) (params (List Type)) (row Type))
-      (→ (Pair Initializer Checker)) (! compile)
+      (→ (Pair Initializer Checker)) (! Compile)
       (learning ck ((value (check-result (● field value) (list-ref params (● field slot)) row)))
                 (new Pair
                   (first
@@ -945,29 +946,29 @@
 
     (define (result-context (ck Checker) (callee Expr) (expected (Option Type)) (loc Loc))
       (→ Checker)
-      (! compile)
+      (! Compile)
       (match (new Pair
                (first (callable-arrow (prune (solution ck) (● callee type))))
                (second expected))
-        ((Pair (Some (TFun _ (TCon result args) _)) (Some type))
+        ((Pair (Some (T-fun _ (T-con result args) _)) (Some type))
          (match (prune (solution ck) type)
-           ((TCon target _) (if (string=? target result)
-                                (fit-result ck type (TCon result args) loc) ck))
+           ((T-con target _) (if (string=? target result)
+                                 (fit-result ck type (T-con result args) loc) ck))
            (_ ck)))
         (_ ck)))
 
     ;; A call's result meets the expected type as any value does.
 
     (define (fit-result (ck Checker) (expected Type) (result Type) (loc Loc))
-      (→ Checker) (! compile)
+      (→ Checker) (! Compile)
       (learning ck ((fits (subsume? expected result loc)))
                 (if fits ck (type-mismatch ck expected result loc))))
 
     (define (infer-arguments (ck Checker) (callee Expr) (args (List Expr)) (row Type))
       (→ (Pair (List Expr) Checker))
-      (! compile)
+      (! Compile)
       (match (callable-arrow (prune (solution ck) (● callee type)))
-        ((Some (TFun params _ _))
+        ((Some (T-fun params _ _))
          (if (= (length params) (length args))
              (each ck (lambda (ck pair)
                         (if (projection-call? ck callee)
@@ -1000,9 +1001,9 @@
                         (context Type)
                         (loc Loc))
       (→ (Pair (List Expr) Checker))
-      (! compile)
+      (! Compile)
       (match (prune (solution ck) callee-type)
-        ((TFun params callee-result row)
+        ((T-fun params callee-result row)
          (unless (= (length params) (length args))
            (compile-error loc
                           (string-append "expected "
@@ -1019,11 +1020,11 @@
                        (then (unify callee-result result loc))
                        (then (unify row latent loc)))
                    (new Pair (first args) (second ck))))
-        ((TVar _)
+        ((T-var _)
          (new Pair (first args)
               (second (unify ck
                              callee-type
-                             (TFun (map (lambda (record) (● record type)) args) result latent)
+                             (T-fun (map (lambda (record) (● record type)) args) result latent)
                              loc))))
         (other (compile-error loc (string-append "not a function: " (type->string other))))))
 
@@ -1032,7 +1033,7 @@
     ;; from unifying only in rows ("Subsumption").
 
     (define (fit (ck Checker) (expected Type) (expr Expr) (row Type) (loc Loc))
-      (→ (Pair Expr Checker)) (! compile)
+      (→ (Pair Expr Checker)) (! Compile)
       (learning ck ((fits (subsume? expected (● expr type) loc)))
                 (if fits
                     (new Pair (first expr) (second ck))
@@ -1042,7 +1043,7 @@
 
     (define (infer-let (ck Checker) (name String) (value Expr) (body Expr) (row Type) (loc Loc))
       (→ (Pair Expr Checker))
-      (! compile)
+      (! Compile)
       (learning ck ((type (local-placeholder name value))
                     (value (infer-let-value name type value row))
                     (then (unify type (● value type) (● value loc)))
@@ -1061,14 +1062,14 @@
         ((Lambda params _ )
          (learning ck ((types (each (lambda (ck param) (fresh-meta ck)) params))
                        (result (fresh-meta)) (row (fresh-meta)))
-                   (new Pair (first (TFun types result row)) (second ck))))
+                   (new Pair (first (T-fun types result row)) (second ck))))
         (_ (fresh-meta ck))))
 
     ;; A `let`'s own name is visible in its value only when the value is a
     ;; lambda, so a recursive local function can call itself.
 
     (define (infer-let-value (ck Checker) (name String) (type Type) (value Expr) (row Type))
-      (→ (Pair Expr Checker)) (! compile)
+      (→ (Pair Expr Checker)) (! Compile)
       (if (local-function? value)
           (within ck (bind-local ck name type) (lambda (inner) (check-value inner value type row)))
           (infer ck value row)))
@@ -1085,9 +1086,9 @@
 
     (define (infer-local-lambda (ck Checker) (value Expr) (type Type))
       (→ (Pair Expr Checker))
-      (! compile)
+      (! Compile)
       (match (new Pair (first (● value term)) (second (fn-arrow type)))
-        ((Pair (Lambda params body ) (TFun types _ _))
+        ((Pair (Lambda params body ) (T-fun types _ _))
          (learning ck ((value (infer-lambda-at params body  types (● value loc)))
                        (then (unify (fn-arrow type) (● value type) (● value loc))))
                    (new Pair
@@ -1099,12 +1100,12 @@
 
     (define (scoped (ck Checker) (inner Checker) (expr Expr) (row Type))
       (→ (Pair Expr Checker))
-      (! compile)
+      (! Compile)
       (within ck inner (lambda (scope) (infer scope expr row))))
 
     (define (infer-match (ck Checker) (scrutinee Expr) (clauses (List Clause)) (row Type) (loc Loc))
       (→ (Pair Expr Checker))
-      (! compile)
+      (! Compile)
       (learning ck ((result (fresh-meta)))
                 (infer-match-at ck scrutinee clauses result row loc)))
 
@@ -1115,7 +1116,7 @@
                             (row Type)
                             (loc Loc))
       (→ (Pair Expr Checker))
-      (! compile)
+      (! Compile)
       (learning ck ((scrutinee (infer scrutinee row))
                     (clauses (each (lambda (ck clause)
                                      (infer-clause ck clause (● scrutinee type) result row))
@@ -1130,9 +1131,9 @@
     ;; A match with no clauses is exhaustive only on a type with no cases,
     ;; which has no value to reach it with.
 
-    (define (check-empty-match (ck Checker) (type Type) (loc Loc)) (→ Unit) (! compile)
+    (define (check-empty-match (ck Checker) (type Type) (loc Loc)) (→ Unit) (! Compile)
       (unless (match (resolve-type (solution ck) type)
-                ((TCon name _)
+                ((T-con name _)
                  (match (table-ref (● (program-of ck) types) name)
                    ((Some data) (and (● data enum?) (null? (● data cases))))
                    ((None) #f)))
@@ -1149,7 +1150,7 @@
                           (result Type)
                           (row Type))
       (→ (Pair Clause Checker))
-      (! compile)
+      (! Compile)
       (let ((body-loc (● (● clause body) loc)))
         (learning ck ((checked (check-pattern (● clause pattern) scrutinee-type body-loc))
                       (body (within (● checked scope)
@@ -1180,7 +1181,7 @@
                           (row Type)
                           (loc Loc))
       (→ (Pair Expr Checker))
-      (! compile)
+      (! Compile)
       (let* ((info (program-effect (program-of ck) effect)) (operations (● info operations)))
         (unless (and (= (length operations) (length implementations))
                      (every? (lambda (operation)
@@ -1200,8 +1201,8 @@
                                                      row
                                                      loc))
                              implementations))
-                      (body (infer body (TRow (list effect) (Some rest))))
-                      (body (fit result body (TRow (list effect) (Some rest)) (● body loc)))
+                      (body (infer body (T-row (list effect) (Some rest))))
+                      (body (fit result body (T-row (list effect) (Some rest)) (● body loc)))
                       (then (perform rest row loc)))
                   (new Pair
                     (first
@@ -1224,12 +1225,12 @@
                                   (row Type)
                                   (loc Loc))
       (→ (Pair (Pair String Expr) Checker))
-      (! compile)
+      (! Compile)
       (match (program-value (program-of ck) (● entry first))
         ((Some (Operation effect scheme))
          (learning ck ((use (instantiate scheme loc)))
                    (match (● use type)
-                     ((TFun params result _)
+                     ((T-fun params result _)
                       (learning ck ((rest (fresh-meta)))
                                 (let ((expected
                                        (implementation-type (● entry first) answer params result
@@ -1254,16 +1255,16 @@
     ;; `rest`, or `rest` alone.
 
     (define (latent-row (labels (List String)) (rest Type)) (→ Type)
-      (if (null? labels) rest (TRow labels (Some rest))))
+      (if (null? labels) rest (T-row labels (Some rest))))
 
     ;; An implementation that is a lambda takes its parameter types from the
     ;; operation, so its body knows the type of `resume` when it calls it.
 
     (define (infer-implementation-value (ck Checker) (value Expr) (expected Type) (row Type))
       (→ (Pair Expr Checker))
-      (! compile)
+      (! Compile)
       (match (new Pair (first (● value term)) (second expected))
-        ((Pair (Lambda params body ) (TFun types result _))
+        ((Pair (Lambda params body ) (T-fun types result _))
          (if (= (length params) (length types))
              (learning ck ((value (infer-lambda-at params body  types (● value loc))))
                        (fit-lambda-result ck value result))
@@ -1275,14 +1276,14 @@
 
     (define (fit-lambda-result (ck Checker) (value Expr) (result Type))
       (→ (Pair Expr Checker))
-      (! compile)
+      (! Compile)
       (match (new Pair (first (● value term)) (second (● value type)))
-        ((Pair (Lambda params body ) (TFun types _ row))
+        ((Pair (Lambda params body ) (T-fun types _ row))
          (learning ck ((body (fit result body row (● body loc))))
                    (new Pair
                      (first (new Expr
                               (term (Lambda params body ))
-                              (type (TFun types result row))
+                              (type (T-fun types result row))
                               (loc (● value loc))))
                      (second ck))))
         (_ (panic "internal error: fitting the result of a non-lambda"))))
@@ -1301,11 +1302,11 @@
                                  (latent Type)
                                  (context Type))
       (→ Type)
-      (cond ((not (member? operation (● answer control))) (TFun params result latent))
-            ((never-type? result) (TFun params (● answer result) latent))
-            (else (TFun (append params (list (TFun (list result) (● answer result) context)))
-                        (● answer result)
-                        latent))))
+      (cond ((not (member? operation (● answer control))) (T-fun params result latent))
+            ((never-type? result) (T-fun params (● answer result) latent))
+            (else (T-fun (append params (list (T-fun (list result) (● answer result) context)))
+                         (● answer result)
+                         latent))))
 
     ;; ---- Patterns ----
 
@@ -1320,25 +1321,25 @@
 
     (define (check-pattern (ck Checker) (pattern Pattern) (type Type) (loc Loc))
       (→ (Pair Checked Checker))
-      (! compile)
+      (! Compile)
       (match pattern
-        ((PWild _) (new Pair (first (new Checked (pattern (PWild type)) (scope ck))) (second ck)))
-        ((PVar name _)
+        ((P-wild _) (new Pair (first (new Checked (pattern (P-wild type)) (scope ck))) (second ck)))
+        ((P-var name _)
          (new Pair
-           (first (new Checked (pattern (PVar name type)) (scope (bind-local ck name type))))
+           (first (new Checked (pattern (P-var name type)) (scope (bind-local ck name type))))
            (second ck)))
-        ((PLit value _)
+        ((P-lit value _)
          (learning ck ((literal (literal-type value loc))
                        (then (unify type literal loc)))
                    (new Pair
-                     (first (new Checked (pattern (PLit value type)) (scope ck)))
+                     (first (new Checked (pattern (P-lit value type)) (scope ck)))
                      (second ck))))
-        ((PCon constructor args _)
+        ((P-con constructor args _)
          (match (program-value (program-of ck) constructor)
            ((Some (Constructor case scheme))
             (learning ck ((use (instantiate scheme loc)))
                       (match (● use type)
-                        ((TFun fields result _)
+                        ((T-fun fields result _)
                          (unless (= (length fields) (length args))
                            (compile-error loc
                                           (string-append (short-name constructor)
@@ -1367,14 +1368,16 @@
                           (fields (List Type))
                           (loc Loc))
       (→ (Pair Checked Checker))
-      (! compile)
+      (! Compile)
       (learning ck ((done (each (lambda (ck pair)
                                   (check-pattern ck (● pair first) (● pair second) loc))
                                 (zip args fields))))
                 (new Pair
                   (first (new Checked
                            (pattern
-                            (PCon constructor (map (lambda (record) (● record pattern)) done) type))
+                            (P-con constructor
+                                   (map (lambda (record) (● record pattern)) done)
+                                   type))
                            (scope (fold-left
                                    (lambda (scope field) (merged-locals scope (● field scope)))
                                    ck
@@ -1384,7 +1387,7 @@
     ;; Every local a field pattern bound, added to the scope so far.
 
     (define (merged-locals (scope Checker) (field Checker)) (→ Checker)
-      (Checker-locals-set scope (table-union (● scope locals) (● field locals))))
+      (checker-locals-set scope (table-union (● scope locals) (● field locals))))
 
     ;; ---- Coverage ----
 
@@ -1392,7 +1395,7 @@
     ;; after the clauses before it; a match is exhaustive if a wildcard is not
     ;; useful after all of them.
 
-    (define (check-coverage (ck Checker) (patterns (List Pattern)) (loc Loc)) (→ Unit) (! compile)
+    (define (check-coverage (ck Checker) (patterns (List Pattern)) (loc Loc)) (→ Unit) (! Compile)
       (let loop ((rows (Nil)) (patterns patterns))
         (match patterns
           ((Cons pattern rest)
@@ -1400,41 +1403,43 @@
              (compile-error loc "unreachable match clause"))
            (loop (Cons (list pattern) rows) rest))
           ((Nil) (unit))))
-      (when (useful? ck (map (lambda (pattern) (list pattern)) patterns) (list (PWild (unchecked))))
+      (when (useful? ck
+                     (map (lambda (pattern) (list pattern)) patterns)
+                     (list (P-wild (unchecked))))
         (compile-error loc "match is not exhaustive")))
 
     ;; A pattern's head is a constructor and its arity, or a literal, which
     ;; is a constructor without fields. Wildcards and variables have none.
     (enum Head
-      (HCon
+      (H-con
        ((name String)
         (arity I64)))
-      (HLit
+      (H-lit
        ((value Datum))))
 
     (define (head-of (pattern Pattern)) (→ (Option Head))
       (match pattern
-        ((PCon constructor args _) (Some (HCon constructor (length args))))
-        ((PLit value _) (Some (HLit value)))
+        ((P-con constructor args _) (Some (H-con constructor (length args))))
+        ((P-lit value _) (Some (H-lit value)))
         (_ (None))))
 
     (define (head=? (a Head) (b Head)) (→ Bool)
       (match a
-        ((HCon name _) (match b ((HCon other _) (string=? name other)) (_ #f)))
-        ((HLit value) (match b ((HLit other) (datum=? value other)) (_ #f)))))
+        ((H-con name _) (match b ((H-con other _) (string=? name other)) (_ #f)))
+        ((H-lit value) (match b ((H-lit other) (datum=? value other)) (_ #f)))))
 
     (define (head-arity (head Head)) (→ I64)
       (match head
-        ((HCon _ arity) arity)
-        ((HLit _) 0)))
+        ((H-con _ arity) arity)
+        ((H-lit _) 0)))
 
     (define (pattern-args (pattern Pattern)) (→ (List Pattern))
       (match pattern
-        ((PCon _ args _) args)
+        ((P-con _ args _) args)
         (_ (Nil))))
 
     (define (wildcards (count I64)) (→ (List Pattern))
-      (map (lambda (index) (PWild (unchecked))) (iota count)))
+      (map (lambda (index) (P-wild (unchecked))) (iota count)))
 
     (define (specialize (rows (List (List Pattern))) (head Head)) (→ (List (List Pattern)))
       (concatenate
@@ -1484,8 +1489,8 @@
 
     (define (complete-signature (ck Checker) (seen (List Head))) (→ (Option (List Head)))
       (let ((all (match seen
-                   ((Cons (HLit (DBool _)) _) (list (HLit (DBool #t)) (HLit (DBool #f))))
-                   ((Cons (HCon constructor _) _) (constructor-heads ck constructor))
+                   ((Cons (H-lit (D-bool _)) _) (list (H-lit (D-bool #t)) (H-lit (D-bool #f))))
+                   ((Cons (H-con constructor _) _) (constructor-heads ck constructor))
                    (_ (Nil)))))
         (if (and (not (null? all))
                  (every? (lambda (head) (any? (lambda (other) (head=? head other)) seen)) all))
@@ -1495,36 +1500,39 @@
     (define (constructor-heads (ck Checker) (constructor String)) (→ (List Head))
       (match (program-value (program-of ck) constructor)
         ((Some (Constructor case _))
-         (map (lambda (case) (HCon (● case name) (length (● case fields))))
+         (map (lambda (case) (H-con (● case name) (length (● case fields))))
               (● (program-type (program-of ck) (● case type)) cases)))
         (_ (Nil))))
 
     ;; ---- Nominal field selections ----
 
     (define (infer-field-read (ck Checker) (record Expr) (label String) (row Type) (loc Loc))
-      (→ (Pair Expr Checker)) (! compile)
+      (→ (Pair Expr Checker)) (! Compile)
       (let ((before (● ck pending-count)))
         (learning ck ((record (infer record row))
                       (result (fresh-meta))
                       (hole (fresh-identity))
                       (then
-                       (want (WantField (new Projection
-                                          (record record)
-                                          (label label)
-                                          (result result)
-                                          (row row)
-                                          (hole hole)
-                                          (loc loc)))))
+                       (want (Want-field (new Projection
+                                           (record record)
+                                           (label label)
+                                           (result result)
+                                           (row row)
+                                           (hole hole)
+                                           (loc loc)))))
                       (then (improve-types before)))
                   (new Pair
                     (first
-                     (new Expr (term (FieldRead record label (Some hole))) (type result) (loc loc)))
+                     (new Expr
+                       (term (Field-read record label (Some hole)))
+                       (type result)
+                       (loc loc)))
                     (second ck)))))
 
     (define (projection-solved? (ck Checker) (projection Projection)) (→ Bool)
       (table-contains? (● (solution ck) projections) (identity-key (● projection hole))))
 
-    (define (improve-projection (ck Checker) (projection Projection)) (→ Checker) (! compile)
+    (define (improve-projection (ck Checker) (projection Projection)) (→ Checker) (! Compile)
       (if (projection-solved? ck projection) ck
           (match (resolve-projection ck (● projection record) (● projection label)
                                      (● projection loc))
@@ -1532,10 +1540,10 @@
             ((Some (Pair value effects))
              (learning ck ((then (unify (● projection result) (● value type) (● projection loc)))
                            (then (perform effects (● projection row) (● projection loc))))
-                       (Checker-solution-set (Checker-unsolved-fields-set ck
+                       (checker-solution-set (checker-unsolved-fields-set ck
                                                                           (- (● ck unsolved-fields)
                                                                              1))
-                                             (Solution-projections-set (solution ck)
+                                             (solution-projections-set (solution ck)
                                                                        (table-set (● (solution ck)
                                                                                      projections)
                                                                                   (identity-key
@@ -1543,7 +1551,7 @@
                                                                                       hole))
                                                                                   value))))))))
 
-    (define (check-projection (ck Checker) (projection Projection)) (→ Unit) (! compile)
+    (define (check-projection (ck Checker) (projection Projection)) (→ Unit) (! Compile)
       (unless (projection-solved? ck projection)
         (compile-error (● projection loc)
                        (string-append "field " (● projection label)
@@ -1551,19 +1559,19 @@
 
     ;; Each label selects one stored field of the current nominal object.
     (define (resolve-projection (ck Checker) (record Expr) (label String) (loc Loc))
-      (→ (Option (Pair Expr Type))) (! compile)
+      (→ (Option (Pair Expr Type))) (! Compile)
       (let ((owner (resolve-type (solution ck) (● record type))))
         (match owner
-          ((TVar _) (None))
-          ((TCon _ _) (projection-slot ck record owner label loc))
+          ((T-var _) (None))
+          ((T-con _ _) (projection-slot ck record owner label loc))
           (_ (compile-error loc (string-append "field " label
                                                " requires a known record type, found "
                                                (type->string owner)))))))
 
     (define (projection-slot (ck Checker) (record Expr) (owner Type) (label String) (loc Loc))
-      (→ (Option (Pair Expr Type))) (! compile)
+      (→ (Option (Pair Expr Type))) (! Compile)
       (match owner
-        ((TCon name args)
+        ((T-con name args)
          (match (table-ref (● (program-of ck) types) name)
            ((Some data)
             (when (● data enum?)
@@ -1577,13 +1585,13 @@
             (compile-error loc (string-append (type->string owner) " has no field " label)))))
         (_ (panic "internal error: a slot has a nominal owner"))))
 
-    (define (projection-value (ck Checker) (record Expr) (data DataType) (case Case)
+    (define (projection-value (ck Checker) (record Expr) (data Data-type) (case Case)
                               (index I64) (args (List Type)) (loc Loc))
       (→ (Option (Pair Expr Type)))
       (let* ((field (list-ref (● case fields) index))
              (result (substitute (zip (● data params) args) (● field type)))
              (callee (new Expr (term (Var (field-operation-name case index "get") args (Nil)))
-                          (type (TFun (list (● record type)) result (empty-row))) (loc loc))))
+                          (type (T-fun (list (● record type)) result (empty-row))) (loc loc))))
         (Some (new Pair
                 (first (new Expr (term (App callee (list record))) (type result) (loc loc)))
                 (second (empty-row))))))
@@ -1598,7 +1606,7 @@
     ;; determine: most are solved at their call (`solve-found-rows`), while
     ;; constraints whose inputs a later use decides wait until here.
 
-    (define (solve-pending (ck Checker)) (→ Checker) (! compile)
+    (define (solve-pending (ck Checker)) (→ Checker) (! Compile)
       (unless (= (● ck unsolved-fields) (length (waiting-fields ck (● ck pending))))
         (panic "internal error: the checker miscounted its unsolved field selections"))
       (let ((pending (reverse (● ck pending))))
@@ -1608,8 +1616,8 @@
                       (then (improve-types 0)))
                   (for-each (lambda (want)
                               (match want
-                                ((WantField projection) (check-projection ck projection))
-                                ((WantLiteral value type loc) (check-literal ck value type loc))
+                                ((Want-field projection) (check-projection ck projection))
+                                ((Want-literal value type loc) (check-literal ck value type loc))
                                 (_ (unit))))
                             pending)
                   (let ((ck (solve-inclusions
@@ -1619,33 +1627,33 @@
 
     ;; Class resolution can still add effects to a procedure's inferred row,
     ;; so inclusions are propagated again once every class is solved.
-    (define (solve-pending-class (ck Checker) (want Wanted)) (→ Checker) (! compile)
+    (define (solve-pending-class (ck Checker) (want Wanted)) (→ Checker) (! Compile)
       (match want
-        ((WantClass constraint hole givens loc)
+        ((Want-class constraint hole givens loc)
          (resumed ck (solve-class ck constraint hole givens loc)))
         (_ ck)))
 
     (define (default-literals (ck Checker) (pending (List Wanted)) (float? Bool))
       (→ Checker)
-      (! compile)
+      (! Compile)
       (fold-left (lambda (ck want) (default-literal ck want float?)) ck pending))
 
-    (define (default-literal (ck Checker) (want Wanted) (float? Bool)) (→ Checker) (! compile)
+    (define (default-literal (ck Checker) (want Wanted) (float? Bool)) (→ Checker) (! Compile)
       (match want
-        ((WantLiteral value type loc)
+        ((Want-literal value type loc)
          (if (and (float-literal? value float?) (meta? (prune (solution ck) type)))
-             (unify ck (TCon (if float? "F64" "I64") (Nil)) type loc)
+             (unify ck (T-con (if float? "F64" "I64") (Nil)) type loc)
              ck))
         (_ ck)))
 
     (define (float-literal? (value Datum) (float? Bool)) (→ Bool)
       (match value
-        ((DFloat _) float?)
+        ((D-float _) float?)
         (_ (not float?))))
 
-    (define (check-literal (ck Checker) (value Datum) (type Type) (loc Loc)) (→ Unit) (! compile)
+    (define (check-literal (ck Checker) (value Datum) (type Type) (loc Loc)) (→ Unit) (! Compile)
       (match (prune (solution ck) type)
-        ((TCon name (Nil))
+        ((T-con name (Nil))
          (unless (literal-fits? value name)
            (compile-error loc
                           (string-append "the literal "
@@ -1658,13 +1666,13 @@
 
     (define (literal-fits? (value Datum) (type String)) (→ Bool)
       (match value
-        ((DInt n)
+        ((D-int n)
          (case type
            (("U8") (and (<= 0 n) (<= n 255)))
            (("I32") (and (<= -2147483648 n) (<= n 2147483647)))
            (("I64" "F32" "F64") #t)
            (else #f)))
-        ((DFloat _) (or (string=? type "F32") (string=? type "F64")))
+        ((D-float _) (or (string=? type "F32") (string=? type "F64")))
         (_ #f)))
 
     (define (solve-class (ck Checker)
@@ -1673,7 +1681,7 @@
                          (givens (List Constraint))
                          (loc Loc))
       (→ Checker)
-      (! compile)
+      (! Compile)
       (cond ((determined-class? ck (● constraint class))
              (solve-found ck constraint hole givens (None) loc))
             (else
@@ -1699,7 +1707,7 @@
                          (context (Option Type))
                          (loc Loc))
       (→ Checker)
-      (! compile)
+      (! Compile)
       (match (determined-evidence ck constraint givens context loc)
         ((Pair evidence ck) (with-evidence ck hole evidence))))
 
@@ -1714,7 +1722,7 @@
                                  (context (Option Type))
                                  (loc Loc))
       (→ (Pair Evidence Checker))
-      (! compile)
+      (! Compile)
       (let* ((class (program-class (program-of ck) (● constraint class)))
              (types (map (lambda (type) (resolve-type (solution ck) type))
                          (● constraint types))))
@@ -1737,12 +1745,13 @@
                                (givens (List Constraint))
                                (loc Loc))
       (→ (Pair (Pair Evidence (List Type)) Checker))
-      (! compile)
+      (! Compile)
       (match (list-index (lambda (given) (given-for? class types given)) givens)
         ((Some index)
          (let ((given (● (list-ref givens index) types)))
-           (new Pair (first (new Pair (first (EvParam index)) (second (row-arguments class given))))
-                (second (unify-outputs ck class given types loc)))))
+           (new Pair
+             (first (new Pair (first (Ev-param index)) (second (row-arguments class given))))
+             (second (unify-outputs ck class given types loc)))))
         ((None) (determined-instance ck class types givens loc))))
 
     (define (given-for? (class Class) (types (List Type)) (given Constraint)) (→ Bool)
@@ -1759,7 +1768,7 @@
                                  (givens (List Constraint))
                                  (loc Loc))
       (→ (Pair (Pair Evidence (List Type)) Checker))
-      (! compile)
+      (! Compile)
       (match (matching-instance ck class types loc)
         ((Pair instance bindings)
          (let ((outer ck) (ck (enter-instance ck class types loc)))
@@ -1776,11 +1785,11 @@
 
     (define (enter-instance (ck Checker) (class Class) (types (List Type)) (loc Loc))
       (→ Checker)
-      (! compile)
+      (! Compile)
       (when (or (>= (length (● ck resolving)) 128)
                 (any? (lambda (goal) (given-for? class types goal)) (● ck resolving)))
         (compile-error loc "instance requirements do not terminate"))
-      (Checker-resolving-set ck
+      (checker-resolving-set ck
                              (Cons (new Constraint (class (● class name)) (types types))
                                    (● ck resolving))))
 
@@ -1795,13 +1804,13 @@
                            (wanted (List Type))
                            (loc Loc))
       (→ Checker)
-      (! compile)
+      (! Compile)
       (fold-left (lambda (ck pair) (unify ck (● pair first) (● pair second) loc))
                  ck (zip (output-arguments class established) (output-arguments class wanted))))
 
     (define (with-evidence (ck Checker) (hole I64) (evidence Evidence)) (→ Checker)
-      (Checker-solution-set ck
-                            (Solution-evidence-set (solution ck)
+      (checker-solution-set ck
+                            (solution-evidence-set (solution ck)
                                                    (table-set (● (solution ck) evidence)
                                                               (identity-key hole)
                                                               evidence))))
@@ -1821,7 +1830,7 @@
 
     (define (charge (ck Checker) (performed Type) (row Type) (context (Option Type)) (loc Loc))
       (→ Checker)
-      (! compile)
+      (! Compile)
       (let ((ck (perform ck performed row loc)))
         (match context
           ((Some context)
@@ -1837,7 +1846,7 @@
     ;; what its methods do. One whose types a later use
     ;; decides waits for `solve-pending`.
 
-    (define (solve-found-rows (ck Checker) (before I64) (context Type)) (→ Checker) (! compile)
+    (define (solve-found-rows (ck Checker) (before I64) (context Type)) (→ Checker) (! Compile)
       (let* ((count (- (● ck pending-count) before))
              (recent (take (● ck pending) count))
              (older (list-drop (● ck pending) count)))
@@ -1846,7 +1855,7 @@
                               (new Pair (first (Nil)) (second ck))
                               (reverse recent))
               ((Pair kept ck)
-               (Checker-pending-count-set (Checker-pending-set ck (append kept older))
+               (checker-pending-count-set (checker-pending-set ck (append kept older))
                                           (+ before (length kept)))))
             ck)))
 
@@ -1855,14 +1864,14 @@
     ;; `pending` keeps them.
 
     (define (solve-known-row (progress (Pair (List Wanted) Checker)) (want Wanted) (context Type))
-      (→ (Pair (List Wanted) Checker)) (! compile)
+      (→ (Pair (List Wanted) Checker)) (! Compile)
       (match progress
         ((Pair kept ck)
          (if (not (known-class-inputs? ck want)) (new Pair (first (Cons want kept)) (second ck))
              (let ((before (● ck pending-count)))
                (let ((done
                       (match want
-                        ((WantClass constraint hole givens loc)
+                        ((Want-class constraint hole givens loc)
                          (resumed ck (solve-found ck constraint hole givens (Some context) loc)))
                         (_ ck))))
                  (new Pair
@@ -1871,7 +1880,7 @@
 
     (define (known-class-inputs? (ck Checker) (want Wanted)) (→ Bool)
       (match want
-        ((WantClass constraint _ _ _)
+        ((Want-class constraint _ _ _)
          (let ((class (● constraint class)))
            (and (determined-class? ck class)
                 (every? (lambda (type) (not (has-meta? (solution ck) type)))
@@ -1882,7 +1891,7 @@
     ;; Field selections and associated outputs improve together: each
     ;; established output can determine another selection's receiver.
 
-    (define (improve-types (ck Checker) (before I64)) (→ Checker) (! compile)
+    (define (improve-types (ck Checker) (before I64)) (→ Checker) (! Compile)
       (let* ((count (- (● ck pending-count) before))
              (recent (take (● ck pending) count))
              (deferred (if (= (● ck unsolved-fields) (length (waiting-fields ck recent))) (Nil)
@@ -1900,26 +1909,26 @@
     (define (waiting-fields (ck Checker) (wanted (List Wanted))) (→ (List Wanted))
       (filter (lambda (want)
                 (match want
-                  ((WantField projection) (not (projection-solved? ck projection)))
+                  ((Want-field projection) (not (projection-solved? ck projection)))
                   (_ #f)))
               wanted))
 
     (define (improvement-types (ck Checker) (wanted (List Wanted))) (→ (List Type))
       (concatenate (map (lambda (want)
                           (match want
-                            ((WantField projection)
+                            ((Want-field projection)
                              (map (lambda (type) (resolve-type (solution ck) type))
                                   (list (● projection record type) (● projection result)
                                         (● projection row))))
-                            ((WantClass constraint _ _ _)
+                            ((Want-class constraint _ _ _)
                              (map (lambda (type) (resolve-type (solution ck) type))
                                   (● constraint types)))
                             (_ (Nil)))) wanted)))
 
-    (define (improve-output (ck Checker) (want Wanted)) (→ Checker) (! compile)
+    (define (improve-output (ck Checker) (want Wanted)) (→ Checker) (! Compile)
       (match want
-        ((WantField projection) (improve-projection ck projection))
-        ((WantClass constraint _ givens loc)
+        ((Want-field projection) (improve-projection ck projection))
+        ((Want-class constraint _ givens loc)
          (let ((class (program-class (program-of ck) (● constraint class))))
            (if (and (not (null? (● class outputs))) (known-class-inputs? ck want))
                (resumed ck (● (determined-source ck class
@@ -1934,7 +1943,7 @@
 
     (define (find-evidence (ck Checker) (constraint Constraint) (givens (List Constraint))
                            (loc Loc))
-      (→ (Option (Pair Evidence Checker))) (! compile)
+      (→ (Option (Pair Evidence Checker))) (! Compile)
       (let ((types (map (lambda (type) (resolve-type (solution ck) type)) (● constraint types))))
         (if (any? (lambda (type) (has-meta? (solution ck) type)) types) (None)
             (match (given-evidence (● constraint class) types givens)
@@ -1947,7 +1956,7 @@
                            (and (string=? class (● given class))
                                 (types=? types (● given types))))
                          givens)
-        ((Some index) (Some (EvParam index)))
+        ((Some index) (Some (Ev-param index)))
         ((None) (None))))
 
     (define (instance-evidence (ck Checker)
@@ -1956,7 +1965,7 @@
                                (givens (List Constraint))
                                (loc Loc))
       (→ (Pair Evidence Checker))
-      (! compile)
+      (! Compile)
       (match (matching-instance ck (program-class (program-of ck) class) types loc)
         ((Pair instance bindings)
          (instance-application ck instance bindings (Nil) givens loc))))
@@ -1967,7 +1976,7 @@
 
     (define (matching-instance (ck Checker) (class Class) (types (List Type)) (loc Loc))
       (→ (Pair Instance Substitution))
-      (! compile)
+      (! Compile)
       (let loop ((instances
                   (class-instances (program-of ck) (● class name))))
         (match instances
@@ -1994,7 +2003,7 @@
                                   (givens (List Constraint))
                                   (loc Loc))
       (→ (Pair Evidence Checker))
-      (! compile)
+      (! Compile)
       (match (each ck
                    (lambda (ck requirement)
                      (requirement-evidence ck
@@ -2004,9 +2013,9 @@
                                            loc))
                    (● instance requires))
         ((Pair subs ck)
-         (new Pair (first (EvInstance (● instance name)
-                                      (applied-types instance (append rows bindings))
-                                      subs))
+         (new Pair (first (Ev-instance (● instance name)
+                                       (applied-types instance (append rows bindings))
+                                       subs))
               (second ck)))))
 
     ;; The types the head's match gave the instance's variables, in order.
@@ -2015,7 +2024,7 @@
       (map (lambda (var)
              (match (assoc-ref bindings var)
                ((Some type) type)
-               ((None) (TCon "Unit" (Nil)))))
+               ((None) (T-con "Unit" (Nil)))))
            (● instance vars)))
 
     ;; A requirement of a row class, as `(Store e S)`, is solved as its use
@@ -2027,7 +2036,7 @@
                                   (givens (List Constraint))
                                   (loc Loc))
       (→ (Pair Evidence Checker))
-      (! compile)
+      (! Compile)
       (if (determined-class? ck (● requirement class))
           (determined-evidence ck requirement givens (None) loc)
           (match (find-evidence ck requirement givens loc)
@@ -2040,13 +2049,13 @@
                                          (● requirement types))))
 
     (define (constraint->string (class String) (types (List Type))) (→ String)
-      (type->string (TCon class types)))
+      (type->string (T-con class types)))
 
     (define (has-meta? (solution Solution) (type Type)) (→ Bool)
       (match (prune solution type)
-        ((TVar _) #t)
-        ((TCon _ args) (any? (lambda (arg) (has-meta? solution arg)) args))
-        ((TFun params result _)
+        ((T-var _) #t)
+        ((T-con _ args) (any? (lambda (arg) (has-meta? solution arg)) args))
+        ((T-fun params result _)
          (or (any? (lambda (param) (has-meta? solution param)) params) (has-meta? solution result)))
         (_ #f)))
 
@@ -2057,12 +2066,12 @@
     (define (resolve-type (solution Solution) (type Type)) (→ Type)
       (let ((type (prune solution type)))
         (match type
-          ((TCon name args) (TCon name (map (lambda (arg) (resolve-type solution arg)) args)))
-          ((TFun params result row)
-           (TFun (map (lambda (param) (resolve-type solution param)) params)
-                 (resolve-type solution result) (resolve-type solution row)))
-          ((TRow _ _)
-           (let ((flat (flatten-row solution type))) (TRow (● flat first) (● flat second))))
+          ((T-con name args) (T-con name (map (lambda (arg) (resolve-type solution arg)) args)))
+          ((T-fun params result row)
+           (T-fun (map (lambda (param) (resolve-type solution param)) params)
+                  (resolve-type solution result) (resolve-type solution row)))
+          ((T-row _ _)
+           (let ((flat (flatten-row solution type))) (T-row (● flat first) (● flat second))))
           (_ type))))
 
     ;; Replaces solved metavariables. An unsolved type defaults to Unit and an
@@ -2071,28 +2080,28 @@
     (define (zonk (solution Solution) (type Type)) (→ Type)
       (let ((type (prune solution type)))
         (match type
-          ((TVar _) (TCon "Unit" (Nil)))
-          ((TCon name args) (TCon name (map (lambda (arg) (zonk solution arg)) args)))
-          ((TFun params result row)
-           (TFun (map (lambda (param) (zonk solution param)) params)
-                 (zonk solution result)
-                 (zonk-row solution row)))
-          ((TRow _ _) (zonk-row solution type))
+          ((T-var _) (T-con "Unit" (Nil)))
+          ((T-con name args) (T-con name (map (lambda (arg) (zonk solution arg)) args)))
+          ((T-fun params result row)
+           (T-fun (map (lambda (param) (zonk solution param)) params)
+                  (zonk solution result)
+                  (zonk-row solution row)))
+          ((T-row _ _) (zonk-row solution type))
           (_ type))))
 
     (define (zonk-row (solution Solution) (row Type)) (→ Type)
       (let ((flat (flatten-row solution row)))
-        (TRow (● flat first) (if (meta-tail? (● flat second)) (None) (● flat second)))))
+        (T-row (● flat first) (if (meta-tail? (● flat second)) (None) (● flat second)))))
 
     (define (zonk-evidence (solution Solution) (evidence Evidence)) (→ Evidence)
       (match evidence
-        ((EvHole hole)
+        ((Ev-hole hole)
          (match (solved-evidence solution hole)
            ((Some solved) (zonk-evidence solution solved))
            ((None) (panic "internal error: unsolved evidence"))))
-        ((EvInstance instance types subs)
-         (EvInstance instance (map (lambda (type) (zonk solution type)) types)
-                     (map (lambda (sub) (zonk-evidence solution sub)) subs)))
+        ((Ev-instance instance types subs)
+         (Ev-instance instance (map (lambda (type) (zonk solution type)) types)
+                      (map (lambda (sub) (zonk-evidence solution sub)) subs)))
         (_ evidence)))
 
     (define (zonk-expr (solution Solution) (expr Expr)) (→ Expr)
@@ -2106,11 +2115,12 @@
                         ((App callee args)
                          (App (zonk-expr solution callee)
                               (map (lambda (arg) (zonk-expr solution arg)) args)))
-                        ((FieldRead _ _ (Some hole))
+                        ((Field-read _ _ (Some hole))
                          (match (table-ref (● solution projections) (identity-key hole))
                            ((Some value) (● (zonk-expr solution value) term))
                            ((None) (panic "internal error: unsolved field selection"))))
-                        ((FieldRead _ _ (None)) (panic "internal error: unchecked field selection"))
+                        ((Field-read _ _ (None))
+                         (panic "internal error: unchecked field selection"))
                         ((New _ _) (panic "internal error: unchecked construction"))
                         ((If test then otherwise)
                          (If (zonk-expr solution test)
@@ -2129,7 +2139,7 @@
                                      clauses)))
 
                         ((Ann inner type) (Ann (zonk-expr solution inner) (zonk solution type)))
-                        ((BoxAny inner) (BoxAny (zonk-expr solution inner)))
+                        ((Box-any inner) (Box-any (zonk-expr solution inner)))
                         ((Downcast inner target)
                          (Downcast (zonk-expr solution inner) (zonk solution target)))
                         ((Handle effect implementations body)
@@ -2144,13 +2154,13 @@
 
     (define (zonk-pattern (solution Solution) (pattern Pattern)) (→ Pattern)
       (match pattern
-        ((PWild type) (PWild (zonk solution type)))
-        ((PVar name type) (PVar name (zonk solution type)))
-        ((PLit value type) (PLit value (zonk solution type)))
-        ((PCon constructor args type)
-         (PCon constructor
-               (map (lambda (arg) (zonk-pattern solution arg)) args)
-               (zonk solution type)))))
+        ((P-wild type) (P-wild (zonk solution type)))
+        ((P-var name type) (P-var name (zonk solution type)))
+        ((P-lit value type) (P-lit value (zonk solution type)))
+        ((P-con constructor args type)
+         (P-con constructor
+                (map (lambda (arg) (zonk-pattern solution arg)) args)
+                (zonk solution type)))))
 
     ;; ---- Free variables ----
 
@@ -2183,20 +2193,20 @@
 
     (define (pattern-variables (pattern Pattern)) (→ (List String))
       (match pattern
-        ((PVar name _) (list name))
-        ((PCon _ args _) (concatenate (map pattern-variables args)))
+        ((P-var name _) (list name))
+        ((P-con _ args _) (concatenate (map pattern-variables args)))
         (_ (Nil))))
 
     ;; ---- Checked operations ----
 
     ;; Validate operations at their final inferred types, including references
     ;; passed as values. This runs before specialization erases ordinary effects.
-    (define (check-operations-item (program Program) (item Item)) (→ Unit) (! compile)
+    (define (check-operations-item (program Program) (item Item)) (→ Unit) (! Compile)
       (match item
         ((Define _ value) (check-operations program value))
         (_ (unit))))
 
-    (define (check-operations (program Program) (expr Expr)) (→ Unit) (! compile)
+    (define (check-operations (program Program) (expr Expr)) (→ Unit) (! Compile)
       (match (● expr term)
         ((Var name _ _)
          (when (member? name (list "prim:cache" "prim:lru-cache"))
@@ -2212,10 +2222,10 @@
 
     ;; An unknown F or open row cannot promise effect-free calls. Fixed-arity
     ;; generic factories can state the empty callback row in their headers.
-    (define (check-cache-effects (name String) (type Type) (loc Loc)) (→ Unit) (! compile)
+    (define (check-cache-effects (name String) (type Type) (loc Loc)) (→ Unit) (! Compile)
       (match type
-        ((TFun _ (TFun _ _ (TRow (Nil) (None))) _) (unit))
-        ((TFun _ (TFun _ _ _) _)
+        ((T-fun _ (T-fun _ _ (T-row (Nil) (None))) _) (unit))
+        ((T-fun _ (T-fun _ _ _) _)
          (compile-error loc
                         (string-append name
                                        " requires a function with an empty effect row; use unsafe-effectful-"
@@ -2225,7 +2235,7 @@
     ;; A written place selects a record field. Enum fields are destructured
     ;; by match; mutable payloads can themselves be records.
 
-    (define (check-place-links (program Program) (place Expr)) (→ Unit) (! compile)
+    (define (check-place-links (program Program) (place Expr)) (→ Unit) (! Compile)
       (match (place-link program place)
         ((Ok _) (unit))
         ((Err problem) (compile-error (● place loc) problem))))
@@ -2257,23 +2267,23 @@
     ;; A box must not hide a callable's effects. Boxing and downcasting
     ;; themselves introduce no effects.
 
-    (define (check-boxing (program Program) (item Item)) (→ Unit) (! compile)
+    (define (check-boxing (program Program) (item Item)) (→ Unit) (! Compile)
       (match item
         ((Define _ value) (check-expression-boxing program value))
         (_ (unit))))
 
-    (define (check-expression-boxing (program Program) (expr Expr)) (→ Unit) (! compile)
+    (define (check-expression-boxing (program Program) (expr Expr)) (→ Unit) (! Compile)
       (match (● expr term)
-        ((BoxAny inner) (check-boxed-type program "Any" (● inner type) (● expr loc)))
+        ((Box-any inner) (check-boxed-type program "Any" (● inner type) (● expr loc)))
         ((Downcast _ target) (check-boxed-type program "downcast" target (● expr loc)))
         (_ (unit)))
       (for-each (lambda (child) (check-expression-boxing program child)) (expr-children expr)))
 
     (define (check-boxed-type (program Program) (form String) (type Type) (loc Loc))
-      (→ Unit) (! compile)
+      (→ Unit) (! Compile)
       (refuse-hidden-effects form type loc))
 
-    (define (refuse-hidden-effects (form String) (type Type) (loc Loc)) (→ Unit) (! compile)
+    (define (refuse-hidden-effects (form String) (type Type) (loc Loc)) (→ Unit) (! Compile)
       (match (hidden-effects type)
         ((Some part)
          (compile-error loc
@@ -2282,7 +2292,7 @@
                                        " cannot take "
                                        (type->string type)
                                        (match part
-                                         ((TRigid name)
+                                         ((T-rigid name)
                                           (string-append ", since " name " may stand for one"))
                                          (_ "")))))
         ((None) (unit))))
@@ -2294,7 +2304,7 @@
 
     (define (check-group (ck Checker) (definitions (List Item)) (exposed (List String)))
       (→ (Pair (List Item) Checker))
-      (! compile)
+      (! Compile)
       (let ((before (● ck pending-count)))
         (learning ck ((then (provisional-schemes definitions))
                       (results (each infer-definition definitions))
@@ -2306,7 +2316,7 @@
                                                     (_ (panic "internal error: expected Define")))
                                             (● pair second)))
                                         (zip definitions results)))
-                       (second (Checker-open-set ck
+                       (second (checker-open-set ck
                                                  (append (map (lambda (definition)
                                                                 (match definition
                                                                   ((Define definition-name
@@ -2341,7 +2351,7 @@
     ;; An inferred function, checked against its recursive placeholder.
 
     (define (infer-definition (ck Checker) (definition Item))
-      (→ (Pair Expr Checker)) (! compile)
+      (→ (Pair Expr Checker)) (! Compile)
       (match definition
         ((Define name value)
          (if (lambda-expr? value)
@@ -2390,7 +2400,7 @@
              ;; Generalization binds a metavariable to a quantified name, like
              ;; any other solution; nothing distinguishes the two afterwards.
              (bound (fold-left (lambda (ck pair)
-                                 (bind-solved ck (● pair first) (TRigid (● pair second))))
+                                 (bind-solved ck (● pair first) (T-rigid (● pair second))))
                                ck (zip metas names))))
         (fold-left (lambda (ck definition)
                      (match definition
@@ -2424,7 +2434,7 @@
                              (resolve-type (solution ck)
                                            (scheme-type ck
                                                         definition-name)))
-                       ((TFun _ _ row)
+                       ((T-fun _ _ row)
                         (free-metas (solution ck) row))
                        (_ (Nil)))
                      (Nil)))
@@ -2432,33 +2442,33 @@
 
     (define (meta-id (meta Type)) (→ I64)
       (match meta
-        ((TVar id) id)
+        ((T-var id) id)
         (_ -1)))
 
     (define (wanted-metas (solution Solution) (want Wanted)) (→ (List Type))
       (match want
-        ((WantPerformed _ _ rows _)
+        ((Want-performed _ _ rows _)
          (concatenate (map (lambda (row) (free-metas solution row)) rows)))
-        ((WantInclusion latent row _)
+        ((Want-inclusion latent row _)
          (append (free-metas solution latent) (free-metas solution row)))
-        ((WantField projection)
+        ((Want-field projection)
          (concatenate (map (lambda (type) (free-metas solution type))
                            (list (● projection record type) (● projection result)
                                  (● projection row)))))
-        ((WantClass constraint _ _ _)
+        ((Want-class constraint _ _ _)
          (concatenate
           (map (lambda (type) (free-metas solution type)) (● constraint types))))
-        ((WantLiteral _ type _) (free-metas solution type))))
+        ((Want-literal _ type _) (free-metas solution type))))
 
     (define (free-metas (solution Solution) (type Type)) (→ (List Type))
       (let ((type (prune solution type)))
         (match type
-          ((TVar _) (list type))
-          ((TCon _ args) (concatenate (map (lambda (arg) (free-metas solution arg)) args)))
-          ((TFun params result row)
+          ((T-var _) (list type))
+          ((T-con _ args) (concatenate (map (lambda (arg) (free-metas solution arg)) args)))
+          ((T-fun params result row)
            (append (concatenate (map (lambda (param) (free-metas solution param)) params))
                    (append (free-metas solution result) (free-metas solution row))))
-          ((TRow _ (Some tail)) (free-metas solution tail))
+          ((T-row _ (Some tail)) (free-metas solution tail))
           (_ (Nil)))))
 
     ;; A signature's variables are rigid and its constraints are given. A
@@ -2469,13 +2479,13 @@
 
     (define (check-annotated (ck Checker) (definition Item) (scheme Scheme))
       (→ (Pair Item Checker))
-      (! compile)
+      (! Compile)
       (match definition
         ((Define _ definition-value)
          (check-associated-givens (program-of ck) (● scheme constraints)
                                   (● definition-value loc))
          (within ck
-                 (Checker-givens-set ck (if (null? (● scheme vars)) (Nil) (● scheme constraints)))
+                 (checker-givens-set ck (if (null? (● scheme vars)) (Nil) (● scheme constraints)))
                  (lambda (inner) (check-annotated-value inner definition scheme))))
         (_ (panic "internal error: expected Define"))))
 
@@ -2484,7 +2494,7 @@
 
     (define (check-associated-givens (program Program) (givens (List Constraint)) (loc Loc))
       (→ Unit)
-      (! compile)
+      (! Compile)
       (match givens
         ((Nil) (unit))
         ((Cons given rest)
@@ -2496,7 +2506,7 @@
            (check-associated-givens program rest loc)))))
 
     (define (check-annotated-value (ck Checker) (definition Item) (scheme Scheme))
-      (→ (Pair Item Checker)) (! compile)
+      (→ (Pair Item Checker)) (! Compile)
       (match definition
         ((Define name value)
          (learning ck ((then (want-closed-requirements scheme (● value loc)))
@@ -2518,15 +2528,15 @@
         ((Define definition-name definition-value)
          (match (new Pair (first (signature-loc (program-of ck) definition-name))
                      (second (fn-arrow (● scheme type))))
-           ((Pair (Some loc) (TFun _ _ row))
+           ((Pair (Some loc) (T-fun _ _ row))
             (if (lambda-expr? definition-value)
-                (want ck (WantPerformed definition-name row (● ck performed) loc)) ck))
+                (want ck (Want-performed definition-name row (● ck performed) loc)) ck))
            (_ ck)))
         (_ (panic "internal error: expected Define"))))
 
-    (define (check-performed (ck Checker) (want Wanted)) (→ Unit) (! compile)
+    (define (check-performed (ck Checker) (want Wanted)) (→ Unit) (! Compile)
       (match want
-        ((WantPerformed name declared performed loc)
+        ((Want-performed name declared performed loc)
          (match (unperformed-effects declared
                                      (concatenate (map (lambda (row)
                                                          (let ((flat
@@ -2570,17 +2580,17 @@
     ;; under the handler of every effect declared `around-main`, so the
     ;; body may perform those besides what the host implements.
 
-    (define (check-entry (ck Checker) (name String) (loc Loc)) (→ Checker) (! compile)
+    (define (check-entry (ck Checker) (name String) (loc Loc)) (→ Checker) (! Compile)
       (match (global-scheme ck name)
         ((Some (Scheme (Nil) (Nil) type))
          (match (resolve-type (solution ck) type)
-           ((TFun (Nil) (TCon "Unit" (Nil)) row) (check-body-effects ck row loc))
+           ((T-fun (Nil) (T-con "Unit" (Nil)) row) (check-body-effects ck row loc))
            (_
             (compile-error loc "main must be a function taking no arguments and returning Unit"))))
         (_ (compile-error loc
                           "main must be a monomorphic function taking no arguments and returning Unit"))))
 
-    (define (check-body-effects (ck Checker) (row Type) (loc Loc)) (→ Checker) (! compile)
+    (define (check-body-effects (ck Checker) (row Type) (loc Loc)) (→ Checker) (! Compile)
       (check-effects-with ck row loc (lambda (effect) (● effect around-main))))
 
     ;; The host may retain values, holding managed references opaquely. The
@@ -2591,7 +2601,7 @@
 
     (define (check-exposed (ck Checker) (name String) (loc Loc))
       (→ Checker)
-      (! compile)
+      (! Compile)
       (match (program-value (program-of ck) name)
         ((Some (Defined _ _ )) (unit))
         (_ (compile-error loc "an exposed function must be defined")))
@@ -2605,15 +2615,15 @@
 
     (define (check-exposed-type (ck Checker) (type Type) (loc Loc))
       (→ Checker)
-      (! compile)
+      (! Compile)
       (match (fn-arrow type)
-        ((TFun _ _ row) (check-host-effects ck row loc))
+        ((T-fun _ _ row) (check-host-effects ck row loc))
         (_ (compile-error loc "an exposed function must be a monomorphic function"))))
 
     ;; Effects performed at program start need defaults for every
     ;; operation; the builtin effects are the host's own.
 
-    (define (check-host-effects (ck Checker) (row Type) (loc Loc)) (→ Checker) (! compile)
+    (define (check-host-effects (ck Checker) (row Type) (loc Loc)) (→ Checker) (! Compile)
       (check-effects-with ck row loc (lambda (effect) #f)))
 
     ;; The effects of `row` must each be the host's: builtin, with a default
@@ -2624,9 +2634,9 @@
                                 (loc Loc)
                                 (allowed (Fn Effect → Bool)))
       (→ Checker)
-      (! compile)
+      (! Compile)
       (for-each (lambda (label)
-                  (unless (or (member? label (list "mut" "host"))
+                  (unless (or (member? label (list "Mut" "Host"))
                               (let ((effect (program-effect (program-of ck) label)))
                                 (or (allowed effect)
                                     (= (length (● effect defaults))
@@ -2645,7 +2655,7 @@
     ;; are compiled apart: an unannotated value takes its type from its own
     ;; library, never from a library that imports it.
 
-    (define (check-program (program Program)) (→ Typed) (! compile)
+    (define (check-program (program Program)) (→ Typed) (! Compile)
       (let loop ((libraries (library-items program (program-items program)))
                  (items (Nil))
                  (schemes (empty-table)))
@@ -2663,7 +2673,7 @@
 
     (define (check-library (program Program) (schemes (Table Scheme)) (items (List Item)))
       (→ Typed)
-      (! compile)
+      (! Compile)
       (let ((ck (new Checker (program program)
                      (locals (empty-table))
                      (givens (Nil))
@@ -2690,14 +2700,14 @@
 
     ;; Check each item at its final types and report failures in source order.
 
-    (define (check-final (typed Typed)) (→ Unit) (! compile)
+    (define (check-final (typed Typed)) (→ Unit) (! Compile)
       (let ((program (● typed program)))
         (fail-if-found
          (in-source-order
           (failures-of (lambda (item) (check-operations-item program item))
                        (● typed items))))))
 
-    (define (check-exposures (ck Checker) (items (List Item))) (→ Checker) (! compile)
+    (define (check-exposures (ck Checker) (items (List Item))) (→ Checker) (! Compile)
       (fold-left (lambda (ck item)
                    (match item
                      ((Expose name _ loc) (check-exposed ck name loc))
@@ -2718,7 +2728,7 @@
 
     (define (check-items (ck Checker) (items (List Item)))
       (→ (Pair (List Item) Checker))
-      (! compile)
+      (! Compile)
       (let* ((exposed (concatenate (map (lambda (item)
                                           (match item
                                             ((Expose name _ _) (list name))
@@ -2781,7 +2791,7 @@
 
     (define (check-item (ck Checker) (results (Table Item)) (item Item))
       (→ (Pair Item Checker))
-      (! compile)
+      (! Compile)
       (match item
         ((Define name _)
          (match (table-ref results name)
@@ -2847,7 +2857,7 @@
     (record (Recovered B)
       ((checker Checker)
        (values (List B))
-       (found (List SourceDiagnostic))
+       (found (List Source-diagnostic))
        (failed (List String))))
 
     ;; `step` over each item, as `each` does, past the items that fail.
@@ -2856,27 +2866,27 @@
     (define (each-recovered (start (Recovered B))
                             (references (Fn A → (List String)))
                             (names (Fn A → (List String)))
-                            (step (Fn Checker A → (Pair B Checker) ! compile))
+                            (step (Fn Checker A → (Pair B Checker) ! Compile))
                             (items (List A)))
       (→ (Recovered B))
-      (! compile)
+      (! Compile)
       (∀ (A B))
       (let ((done (fold-left (lambda (done item) (recover done references names step item))
                              start
                              items)))
-        (Recovered-values-set done (reverse (● done values)))))
+        (recovered-values-set done (reverse (● done values)))))
 
     (define (recover (done (Recovered B))
                      (references (Fn A → (List String)))
                      (names (Fn A → (List String)))
-                     (step (Fn Checker A → (Pair B Checker) ! compile))
+                     (step (Fn Checker A → (Pair B Checker) ! Compile))
                      (item A))
       (→ (Recovered B))
-      (! compile)
+      (! Compile)
       (∀ (A B))
       (let ((failed (● done failed)))
         (if (any? (lambda (name) (member? name failed)) (references item))
-            (Recovered-failed-set done (append (names item) failed))
+            (recovered-failed-set done (append (names item) failed))
             (match (recovering (lambda () (step (● done checker) item)))
               ((Ok (Pair value ck))
                (new Recovered
@@ -2885,8 +2895,8 @@
                  (found (● done found))
                  (failed failed)))
               ((Err found)
-               (Recovered-failed-set
-                (Recovered-found-set done (append (● done found) (diagnostics->list found)))
+               (recovered-failed-set
+                (recovered-found-set done (append (● done found) (diagnostics->list found)))
                 (append (names item) failed)))))))
 
     ;; ---- Dependency order ----
@@ -2935,16 +2945,16 @@
       ;; names them. Whole programs exercise the rule and its exemptions in
       ;; tests/programs/error-unperformed-effect and declared-effects.
       (define test-check
-        (lambda () (expect (unperformed-effects (TRow (list "mut" "snail.core.io:console") (None))
-                                                (list "snail.core.io:console"))
-                           (list "mut"))
-                (expect (unperformed-effects (TRow (list "mut") (Some (TRigid "e"))) (list "mut"))
+        (lambda () (expect (unperformed-effects (T-row (list "Mut" "snail.core.io:Console") (None))
+                                                (list "snail.core.io:Console"))
+                           (list "Mut"))
+                (expect (unperformed-effects (T-row (list "Mut") (Some (T-rigid "e"))) (list "Mut"))
                         (list "e"))
                 (expect
-                 (unperformed-effects (TRow (list "mut") (Some (TRigid "e"))) (list "e" "mut"))
+                 (unperformed-effects (T-row (list "Mut") (Some (T-rigid "e"))) (list "e" "Mut"))
                  (Nil))
-                (expect (unperformed-message "double" (list "mut"))
-                        "double declares the effect mut but never performs it")
-                (expect (unperformed-message "f" (list "snail.core.io:console" "e"))
-                        "f declares the effects console e but never performs them")))))
+                (expect (unperformed-message "double" (list "Mut"))
+                        "double declares the effect Mut but never performs it")
+                (expect (unperformed-message "f" (list "snail.core.io:Console" "e"))
+                        "f declares the effects Console e but never performs them")))))
    (else)))

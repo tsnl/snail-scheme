@@ -26,16 +26,16 @@
     (list (generated:form "define"
                           (list (generated:form "generated-bundle" (Nil))
                                 (generated:form "→"
-                                                (list (generated:SymbolSyntax "ArtifactBundle")))
+                                                (list (generated:SymbolSyntax "Artifact-bundle")))
                                 (generated:form "artifact-bundle"
                                                 (list (generated:StringSyntax "client")))))))))
 
-(define (write-module (path String) (text String)) (→ Unit) (! fs)
+(define (write-module (path String) (text String)) (→ Unit) (! Fs)
   (match (assemble text)
     ((Ok bytes) (write-bytes path bytes))
     ((Err message) (panic (string-append "could not assemble " path ": " message)))))
 
-(define (write-build (output String) (built (List Built))) (→ Unit) (! fs)
+(define (write-build (output String) (built (List Built))) (→ Unit) (! Fs)
   (for-each (lambda (module)
               (write-module (string-append output "/" (● module name) ".wasm")
                             (● module text)))
@@ -48,7 +48,7 @@
 ;; has no errors.
 (define (compile-all (source String) (output String) (directories (List String)))
   (→ Unit)
-  (! mut fs reader:compile)
+  (! Mut Fs reader:compile)
   (write-module (string-append output "/program.wasm")
                 (● (source->wat directories source generate (inputs #u8(65 0 255))) text))
   (write-build (string-append output "/first")
@@ -58,7 +58,7 @@
   (write-build (string-append output "/changed")
                (source->modules directories source generate (inputs #u8(90 0 255)))))
 
-(define (main) (→ Unit) (! mut fs)
+(define (main) (→ Unit) (! Mut Fs)
 
   (match (command-line)
     ((Cons _ (Cons source (Cons output directories)))

@@ -5,15 +5,15 @@
 ;; A class whose instances each perform their own row. `Store`'s method
 ;; performs `e`, a row its instances write in their heads: reading a
 ;; directory prints, reading a table performs nothing, and a logged store
-;; performs `log` and the row of the store it wraps. A generic function
+;; performs `Log` and the row of the store it wraps. A generic function
 ;; requires the class at a row of its own, and performs that row; a
 ;; caller then performs whatever its store's instance does.
-(effect log
+(effect Log
   ((say (Fn String → Unit))))
 
 ;; ANCHOR: store
-(typeclass (Store e S)
-  (declare (fetch-object (left S) (right String)) (→ String) (! e)))
+(typeclass (Store E S)
+  (declare (fetch-object (left S) (right String)) (→ String) (! E)))
 
 (record Directory
   ((root String)))
@@ -21,8 +21,8 @@
 (record Table
   ((objects (List (Pair String String)))))
 
-(instance (Store (! output-port) Directory)
-  (define (fetch-object (directory Directory) (name String)) (→ String) (! output-port)
+(instance (Store (! Output-port) Directory)
+  (define (fetch-object (directory Directory) (name String)) (→ String) (! Output-port)
     (write-line (string-append "reading " (● directory root) "/" name))
     (string-append "the bytes of " name)))
 
@@ -51,7 +51,7 @@
   (fetch-object store name))
 
 ;; The row a generic function performs holds its other arguments' effects
-;; too, a control effect among them: `ask` suspends the fetch between its
+;; too, a control effect among them: `Ask` suspends the fetch between its
 ;; reads, whichever store it reads.
 (effect Ask
   ((ctl ask (Fn String → String))))
@@ -72,9 +72,9 @@
 (record (Logged S)
   ((inner S)))
 
-(instance (Store (! log e) (Logged S))
+(instance (Store (! Log e) (Logged S))
   (⊨ (Store e S))
-  (define (fetch-object (logged (Logged S)) (name String)) (→ String) (! log e)
+  (define (fetch-object (logged (Logged S)) (name String)) (→ String) (! Log e)
     (say (string-append "fetching " name))
     (match logged
       ((Logged inner) (fetch-object inner name)))))
@@ -82,12 +82,12 @@
 ;; ANCHOR_END: logged
 
 ;; The log is printed here; what the inner store performs passes through.
-(define (logging (body (Fn → String ! log e))) (→ String) (! output-port e) (∀ (e))
-  (handle log
+(define (logging (body (Fn → String ! Log e))) (→ String) (! Output-port e) (∀ (e))
+  (handle Log
       ((say (lambda (line) (write-line (string-append "log: " line)))))
     (body)))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
 
   (write-line (fetch-twice (new Directory (root "assets")) "hero"))
   (write-line

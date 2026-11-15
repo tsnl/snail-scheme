@@ -13,7 +13,7 @@
    inventory-changes
    inventory-files
    inventory-directories
-   hints
+   Hints
    Watch
    watch-tree
    next-hint
@@ -23,7 +23,7 @@
    (prefix (snail runtime native files) host-)
    (snail core io)
    (snail core table)
-   (only (snail shell task) tasks through-host))
+   (only (snail shell task) Tasks through-host))
   (begin
 
     ;; ---- Inventories ----
@@ -42,7 +42,7 @@
 
     (define (inventory (roots (List String)) (excluded (List String)))
       (→ (Result Inventory String))
-      (! fs)
+      (! Fs)
       (match (take-paths (empty-table) roots excluded)
         ((Ok fingerprints) (Ok (new Inventory (fingerprints fingerprints))))
         ((Err message) (Err message))))
@@ -51,7 +51,7 @@
                         (paths (List String))
                         (excluded (List String)))
       (→ (Result (Table String) String))
-      (! fs)
+      (! Fs)
       (match paths
         ((Nil) (Ok fingerprints))
         ((Cons path rest)
@@ -61,7 +61,7 @@
 
     (define (take-path (fingerprints (Table String)) (path String) (excluded (List String)))
       (→ (Result (Table String) String))
-      (! fs)
+      (! Fs)
       (if (member? path excluded)
           (Ok fingerprints)
           (match (file-status path)
@@ -70,23 +70,23 @@
                (match (● status kind)
                  ((Directory) (take-directory fingerprints path excluded))
                  (_ (Ok fingerprints)))))
-            ((Err (NotFound)) (Ok fingerprints))
+            ((Err (Not-found)) (Ok fingerprints))
             ((Err error) (Err (unreadable path error))))))
 
     (define (take-directory (fingerprints (Table String))
                             (directory String)
                             (excluded (List String)))
       (→ (Result (Table String) String))
-      (! fs)
+      (! Fs)
       (match (list-directory directory)
         ((Ok names)
          (take-paths fingerprints
                      (map (lambda (name) (string-append directory "/" name)) names)
                      excluded))
-        ((Err (NotFound)) (Ok fingerprints))
+        ((Err (Not-found)) (Ok fingerprints))
         ((Err error) (Err (unreadable directory error)))))
 
-    (define (unreadable (path String) (error FileError)) (→ String)
+    (define (unreadable (path String) (error File-error)) (→ String)
       (string-append "cannot read " path ": " (show error)))
 
     ;; What tells an edit to a path apart. A file's is its size and
@@ -95,15 +95,15 @@
     ;; it holds has fingerprints of its own, and its timestamps change with
     ;; any of them. A symbolic link is fingerprinted, not followed.
 
-    (define (fingerprint (status FileStatus)) (→ String)
+    (define (fingerprint (status File-status)) (→ String)
       (let ((stamp (string-append (i64->string (● status size))
                                   " "
                                   (i64->string (● status modified)))))
         (match (● status kind)
-          ((RegularFile) (string-append "file " stamp))
+          ((Regular-file) (string-append "file " stamp))
           ((Directory) "directory")
-          ((SymbolicLink) (string-append "link " stamp))
-          ((OtherKind) (string-append "other " stamp)))))
+          ((Symbolic-link) (string-append "link " stamp))
+          ((Other-kind) (string-append "other " stamp)))))
 
     ;; ---- Changes ----
 
@@ -151,13 +151,13 @@
     ;; since a watch can miss a change or be lost: hints only make an
     ;; inventory prompt. Only Node implements them, as WASI has no watch.
     ;; Starting and closing a watch are commands, its root and exclusions
-    ;; sent a character at a time, as `modes` sends paths in
+    ;; sent a character at a time, as `Modes` sends paths in
     ;; (snail shell project files); waiting is by ticket.
-    (effect hints
+    (effect Hints
       ((hint-character (Fn Char → Unit))
        (hint-end (Fn → Unit))
        (hint-command (Fn I32 → I32))
-       (next-hint-of (Fn I32 → Bool ! tasks)))
+       (next-hint-of (Fn I32 → Bool ! Tasks)))
       (default
         ((hint-character host-argument-character)
          (hint-end host-argument-end)
@@ -174,25 +174,25 @@
     ;; `excluded` and what is under that; None when the host cannot watch
     ;; it, as when it is missing.
 
-    (define (watch-tree (root String) (excluded (List String))) (→ (Option Watch)) (! hints)
+    (define (watch-tree (root String) (excluded (List String))) (→ (Option Watch)) (! Hints)
       (for-each send-hint-text (list "watch" root))
       (for-each send-hint-text excluded)
       (let ((id (hint-command 0)))
         (if (< id 0) (None) (Some (new Watch (id id))))))
 
-    (define (send-hint-text (text String)) (→ Unit) (! hints)
+    (define (send-hint-text (text String)) (→ Unit) (! Hints)
       (for-each hint-character (string->list text))
       (hint-end))
 
     ;; Waits for a hint since the last one taken, #t, or for the watch to
     ;; close or be lost, #f.
 
-    (define (next-hint (watch Watch)) (→ Bool) (! hints tasks)
+    (define (next-hint (watch Watch)) (→ Bool) (! Hints Tasks)
       (next-hint-of (● watch id)))
 
     ;; Ends the watch, and answers a wait on it with #f.
 
-    (define (close-watch (watch Watch)) (→ Unit) (! hints)
+    (define (close-watch (watch Watch)) (→ Unit) (! Hints)
       (send-hint-text "unwatch")
       (hint-command (● watch id))
       (unit))))

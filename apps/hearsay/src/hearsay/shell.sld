@@ -24,8 +24,8 @@
 
     (enum Screen
       (Menu)
-      (Rumors ((screen MillScreen)))
-      (Favors ((screen LedgerScreen)))
+      (Rumors ((screen Mill-screen)))
+      (Favors ((screen Ledger-screen)))
       (deriving Serialize Deserialize))
 
     ;; `opened` counts the prototypes opened. A ledger's seed comes from
@@ -71,11 +71,11 @@
     (define (open (shell Shell) (action I32) (argument I32)) (→ Shell)
       (let ((index (i32->i64 argument)) (opened (+ (● shell opened) 1)))
         (cond ((= action (action-ledger))
-               (show-opened (Shell-ledger-guided-set shell #t)
+               (show-opened (shell-ledger-guided-set shell #t)
                             (Favors (new-ledger-screen (+ (● shell seed) opened)))
                             (● shell ledger-guided)))
               ((and (= action (action-scenario)) (>= index 0) (< index (length (scenarios))))
-               (show-opened (Shell-mill-guided-set shell #t)
+               (show-opened (shell-mill-guided-set shell #t)
                             (Rumors (new-mill-screen (list-ref (scenarios) index)
                                                      (* opened 1000)
                                                      (● shell width)
@@ -86,17 +86,17 @@
     ;; Shows a newly opened prototype and counts it, pressing its Guide
     ;; button unless it has been `guided` before.
     (define (show-opened (shell Shell) (screen Screen) (guided Bool)) (→ Shell)
-      (let ((shown (Shell-opened-set (Shell-screen-set shell screen) (+ (● shell opened) 1))))
+      (let ((shown (shell-opened-set (shell-screen-set shell screen) (+ (● shell opened) 1))))
         (if guided shown (forward shown (Press (guide-open) 0)))))
 
     (define (forward (shell Shell) (input Input)) (→ Shell)
       (match (● shell screen)
         ((Menu) shell)
-        ((Rumors screen) (Shell-screen-set shell (Rumors (update-mill-screen screen input))))
-        ((Favors screen) (Shell-screen-set shell (Favors (update-ledger-screen screen input))))))
+        ((Rumors screen) (shell-screen-set shell (Rumors (update-mill-screen screen input))))
+        ((Favors screen) (shell-screen-set shell (Favors (update-ledger-screen screen input))))))
 
     (define (press (shell Shell) (action I32) (argument I32)) (→ Shell)
-      (cond ((= action (action-menu)) (Shell-screen-set shell (Menu)))
+      (cond ((= action (action-menu)) (shell-screen-set shell (Menu)))
             ((match (● shell screen) ((Menu) #t) (_ #f)) (open shell action argument))
             (else (forward shell (Press action argument)))))
 
@@ -104,7 +104,7 @@
       (match input
         ((Press action argument) (press shell action argument))
         ((Resize width height)
-         (forward (Shell-height-set (Shell-width-set shell width) height) input))
+         (forward (shell-height-set (shell-width-set shell width) height) input))
         (_ (forward shell input))))
 
     ;; ---- View ----
@@ -118,7 +118,7 @@
         ((Favors screen) (view-ledger-screen screen art))))
 
     (define (menu-panels) (→ (List Panel))
-      (list (new Panel (key "menu") (place (At (TopLeft) 0))
+      (list (new Panel (key "menu") (place (At (Top-left) 0))
                  (widgets (concatenate
                            (list (list (label "title" "Hearsay prototypes")
                                        (label "subtitle"
@@ -148,7 +148,7 @@
     ;; Each prototype puts the Menu and Guide buttons first in the top-right
     ;; corner.
     (define (menu-button) (→ (List Panel))
-      (list (new Panel (key "back") (place (At (TopRight) 0))
+      (list (new Panel (key "back") (place (At (Top-right) 0))
                  (widgets (list (button "back" "Menu" (action-menu))
                                 (button "open-guide" "Guide" (guide-open)))))))
 

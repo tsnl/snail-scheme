@@ -1,4 +1,4 @@
-;; Effect rows and handlers. `log` performs Log; a handler decides what
+;; Effect rows and handlers. `Log` performs Log; a handler decides what
 ;; logging means, and the type system tracks which code may perform it.
 (import
  (snail core base)
@@ -19,7 +19,7 @@
       ((log (lambda (message) (unit))))
     (action)))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
 
   (display (quietly (lambda () (total-cost (list 3 4 5)))))
   (newline)

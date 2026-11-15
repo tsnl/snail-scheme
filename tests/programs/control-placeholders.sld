@@ -25,7 +25,7 @@
 (define (adder) (→ (Fn I64 → I64)) (! Abort) (let ((z (abort 5))) (lambda (y) (* y z))))
 
 (define (later)
-  (→ (Fn → Unit ! output-port))
+  (→ (Fn → Unit ! Output-port))
   (! Abort)
   (let ((value (abort 6))) (lambda () (write-line (show value)))))
 
@@ -38,7 +38,7 @@
   ((peek (Fn → I64))
    (ctl bail (Fn I64 → Unit))))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   (display (handle Abort ((abort (lambda (value resume) (* value 1000))))
              (+ (● (point) x) 1)))
   (newline)

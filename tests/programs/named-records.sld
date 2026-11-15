@@ -12,12 +12,12 @@
 
 (record Work
   ((label String)
-   (job (Fn → Unit ! output-port))))
+   (job (Fn → Unit ! Output-port))))
 
 (record Empty
   ())
 
-(define (marked (label String) (value I64)) (→ I64) (! output-port)
+(define (marked (label String) (value I64)) (→ I64) (! Output-port)
   (write-line label)
   value)
 
@@ -38,7 +38,7 @@
   (syntax-rules ()
     ((_) (new Point (y 0) (x 0)))))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   (let ((point (new Point (y (marked "y first" 20)) (x (marked "x second" 10)))))
     (write-line (i64->string (● point x)))
     (write-line (i64->string (● point y))))

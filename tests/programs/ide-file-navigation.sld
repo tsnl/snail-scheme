@@ -1,6 +1,6 @@
 (import
  (snail core base)
- (only (snail core forms) host)
+ (only (snail core forms) Host)
  (snail core io)
  (snail shell task)
  (snail shell dom)
@@ -16,19 +16,19 @@
 
 ;; Files are supplied by the service. Selection and fuzzy filtering run in
 ;; the IDE, and the selected path is read through the ordinary buffer flow.
-(define (recovered (bytes Bytes)) (→ Unit) (! output-port)
+(define (recovered (bytes Bytes)) (→ Unit) (! Output-port)
   (let ((model (restored (read-recovery bytes))))
     (write-line (string-join (● (list-ref (● model panes) 0) tabs) ","))
     (match (buffer-at model "lib/notes.txt")
       ((Some buffer) (write-line (● buffer text)))
       ((None) (panic "draft lost during recovery")))))
 
-(define (main) (→ Unit) (! host mut output-port tasks)
+(define (main) (→ Unit) (! Host Mut Output-port Tasks)
   (dispatch
    (lambda ()
      (let ((state (new Requests (events #f) (requests (Nil)))))
        (let ((result
-              (handle fetch
+              (handle Fetch
                   ((request (lambda (method url headers body)
                               (set! (● state requests) (append (● state requests) (list url)))
                               (Ok (new Reply (status 200)
@@ -45,15 +45,15 @@
                                   (if (● state events) (None)
                                       (begin
                                         (set! (● state events) #t)
-                                        (Some (new StreamEvent (kind "open") (data "")))))))
+                                        (Some (new Stream-event (kind "open") (data "")))))))
                    (stream-close (lambda (stream) (unit))))
                 (with-memory-dom
-                 (list (FireWindow "keydown"
-                                   (Event-modifiers-set (Event-key-set (no-event) "p")
-                                                        (meta-key)))
-                       (Fire "command-query" "input" (Event-value-set (no-event) "lnote"))
-                       (Fire "command-query" "keydown" (Event-key-set (no-event) "Enter"))
-                       (Fire "text-0" "input" (Event-value-set (no-event) "draft notes")))
+                 (list (Fire-window "keydown"
+                                    (event-modifiers-set (event-key-set (no-event) "p")
+                                                         (meta-key)))
+                       (Fire "command-query" "input" (event-value-set (no-event) "lnote"))
+                       (Fire "command-query" "keydown" (event-key-set (no-event) "Enter"))
+                       (Fire "text-0" "input" (event-value-set (no-event) "draft notes")))
                  (lambda ()
                    (run-ui (initial)
                            (list (Connect))

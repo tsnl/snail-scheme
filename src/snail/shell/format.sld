@@ -38,9 +38,9 @@
     ;; comments do not consume the datum the outer comment is waiting for.
     (enum Mode
       (Code)
-      (InQuoted ((delimiter Char)))
-      (InComment ((depth I64)))
-      (InDatum ((depth I64) (mode Mode))))
+      (In-quoted ((delimiter Char)))
+      (In-comment ((depth I64)))
+      (In-datum ((depth I64) (mode Mode))))
 
     ;; A line, the mode it starts in, its tokens, and the offset just past
     ;; its last token, where its code ends before any comment.
@@ -97,9 +97,9 @@
     (define (lex-step (line String) (offset I64) (mode Mode)) (→ Step)
       (match mode
         ((Code) (lex-code line offset))
-        ((InQuoted delimiter) (lex-quoted line offset delimiter))
-        ((InComment depth) (lex-comment line offset depth))
-        ((InDatum depth mode) (lex-datum line offset depth mode))))
+        ((In-quoted delimiter) (lex-quoted line offset delimiter))
+        ((In-comment depth) (lex-comment line offset depth))
+        ((In-datum depth mode) (lex-datum line offset depth mode))))
 
     (define (lex-code (line String) (offset I64)) (→ Step)
       (let ((c (string-ref line offset)) (after (+ offset 1)))
@@ -108,7 +108,7 @@
               ((or (= c #\() (= c #\[)) (code-token after (Open offset (spaced? line after))))
               ((or (= c #\)) (= c #\])) (code-token after (Close offset)))
               ((or (= c #\") (= c #\|))
-               (Step-token-set (lex-quoted line after c) (Some (Text offset))))
+               (step-token-set (lex-quoted line after c) (Some (Text offset))))
               ((or (= c #\') (= c #\`)) (code-token after (Prefix offset)))
               ((= c #\,) (code-token (if (at? line after "@") (+ after 1) after) (Prefix offset)))
               ((= c #\#) (lex-hash line offset))
@@ -127,7 +127,7 @@
               ((at? line after "u8(") (code-token (+ after 2) (Prefix offset)))
               ((at? line after "|") (lex-comment line (+ after 1) 1))
               ((at? line after ";")
-               (new Step (next (+ after 1)) (mode (InDatum 0 (Code))) (token (None))))
+               (new Step (next (+ after 1)) (mode (In-datum 0 (Code))) (token (None))))
               ((at? line after "\\") (lex-atom line offset (min (+ after 2) (string-length line))))
               (else (lex-atom line offset after)))))
 
@@ -148,7 +148,7 @@
 
     (define (lex-quoted (line String) (offset I64) (delimiter Char)) (→ Step)
       (cond ((>= offset (string-length line))
-             (new Step (next offset) (mode (InQuoted delimiter)) (token (None))))
+             (new Step (next offset) (mode (In-quoted delimiter)) (token (None))))
             ((= (string-ref line offset) #\\)
              (lex-quoted line (min (+ offset 2) (string-length line)) delimiter))
             ((= (string-ref line offset) delimiter)
@@ -171,14 +171,14 @@
         (new Step (next (● step next))
              (mode (if (or closed (and (< next-depth 0) (code-mode? (● step mode))))
                        (Code)
-                       (InDatum next-depth (● step mode))))
+                       (In-datum next-depth (● step mode))))
              (token (None)))))
 
     ;; Inside a block comment, which nests.
 
     (define (lex-comment (line String) (offset I64) (depth I64)) (→ Step)
       (cond ((>= offset (string-length line))
-             (new Step (next offset) (mode (InComment depth)) (token (None))))
+             (new Step (next offset) (mode (In-comment depth)) (token (None))))
             ((at? line offset "|#")
              (if (= depth 1)
                  (new Step (next (+ offset 2)) (mode (Code)) (token (None)))
@@ -239,7 +239,7 @@
       (Call)
       (Definition)
       (Special ((distinguished I64)))
-      (LetRule))
+      (Let-rule))
 
     ;; Conventional Scheme indentation and Snail Scheme's forms. Binding names
     ;; follow the let/-let and let*/-let* convention below, without a table entry.
@@ -331,7 +331,7 @@
     ;; rule that starts with `def` (case insensitive) is a definition.
 
     (define (indent-rule (name String)) (→ Rule)
-      (cond ((binding-name? name "let") (LetRule))
+      (cond ((binding-name? name "let") (Let-rule))
             ((binding-name? name "let*") (Special 1))
             (else
              (match (known-rule name)
@@ -391,7 +391,7 @@
              normal))
         ((Special distinguished)
          (special-indent frame distinguished (● elements count) normal))
-        ((LetRule)
+        ((Let-rule)
          (special-indent frame (if (names-loop? elements) 2 1) (● elements count) normal))))
 
     ;; A distinguished argument goes in by four columns when it is one of
@@ -491,14 +491,14 @@
       (match token
         ((Open offset spaced)
          (let ((added (add-expression scan (Listed) (+ offset shift) line)))
-           (Scan-frames-set added
+           (scan-frames-set added
                             (Cons (new Frame
                                     (column (+ offset shift))
                                     (line line)
                                     (spaced spaced)
                                     (elements (None)))
                                   (● added frames)))))
-        ((Close _) (Scan-frames-set scan (list-drop (● scan frames) 1)))
+        ((Close _) (scan-frames-set scan (list-drop (● scan frames) 1)))
         ((Prefix offset)
          (new Scan (frames (● scan frames)) (first (Some (or-else (● scan first) (+ offset shift))))
               (prefix (Some (or-else (● scan prefix) (+ offset shift))))))
@@ -524,7 +524,7 @@
     (define (add-element (frames (List Frame)) (element Element)) (→ (List Frame))
       (match frames
         ((Cons frame rest)
-         (Cons (Frame-elements-set frame (Some (extend (● frame elements) element))) rest))
+         (Cons (frame-elements-set frame (Some (extend (● frame elements) element))) rest))
         ((Nil) (Nil))))
 
     ;; The first element is the head; each later one is the latest argument,
@@ -775,7 +775,7 @@
               ((Call) (Arguments))
               ((Definition) (Body 2))
               ((Special distinguished) (Body (min (+ distinguished 1) 2)))
-              ((LetRule) (Binding (if (names-loop? elements) 2 1)))))))
+              ((Let-rule) (Binding (if (names-loop? elements) 2 1)))))))
         (_ (Body 1))))
 
     ;; A list open while a line is scanned for breaks. Its breaks count as
@@ -864,7 +864,7 @@
                     (opens Bool)
                     (bang Bool))
       (→ Arrival)
-      (let ((after (Group-effects-set group (or bang (● group effects))))
+      (let ((after (group-effects-set group (or bang (● group effects))))
             (breaks
              (and (breakable? extent start) (not (● group effects)))))
         (if (above? group)
@@ -900,7 +900,7 @@
                     (bindings #f)))
               ((= index 0)
                (new Arrival
-                 (group (Group-head-set group (Some start)))
+                 (group (group-head-set group (Some start)))
                  (candidates (Nil))
                  (bindings #f)))
               (breaks (shaped-arrival extent
@@ -988,7 +988,7 @@
          (new Breaking (scan scan)
               (groups (Cons group (list-drop (● breaking groups) 1)))
               (candidates (append candidates (● breaking candidates)))))
-        ((None) (Breaking-scan-set breaking scan))))
+        ((None) (breaking-scan-set breaking scan))))
 
     ;; The group of a list that opens at `key`: the binding form's, when the
     ;; list holds its bindings.
@@ -1018,7 +1018,7 @@
       (→ Breaking)
       (let* ((arrival (arrive-innermost extent breaking start #t #f))
              (settled (settle breaking scan arrival)))
-        (Breaking-groups-set
+        (breaking-groups-set
          settled
          (Cons (opened-group arrival (length (● scan frames)) key)
                (● settled groups)))))
@@ -1032,7 +1032,7 @@
                             (+ (token-offset token) shift)))
             (scan (scan-token (● breaking scan) token shift line)))
         (match token
-          ((Prefix _) (Breaking-scan-set breaking scan))
+          ((Prefix _) (breaking-scan-set breaking scan))
           ((Close _)
            (new Breaking (scan scan)
                 (groups (close-group (● breaking groups)))

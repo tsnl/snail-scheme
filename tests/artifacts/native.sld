@@ -3,7 +3,7 @@
  (snail core io)
  (snail shell artifact))
 
-(define (bundle) (→ ArtifactBundle) (artifact-bundle "client"))
+(define (bundle) (→ Artifact-bundle) (artifact-bundle "client"))
 
 (define main
   (lambda ()

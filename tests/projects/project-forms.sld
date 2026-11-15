@@ -21,7 +21,7 @@
     ((Err (Failed diagnostics)) (panic (diagnostics->string diagnostics)))
     ((Err _) (panic "parsing a project asked for an input"))))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
 
   (for-each (lambda (target) (write-line (target-name target))) (● (project) builds))
   (for-each
@@ -29,7 +29,7 @@
      (write-line
       (string-append (● run name) " -> " (● (● run program) name)))
      (match (● (● run program) entry)
-       ((SourceEntry path) (write-line (● path text)))
+       ((Source-entry path) (write-line (● path text)))
        (_ (panic "expected a source entry")))
      (write-line (string-join (● run arguments) "|"))
      (for-each (lambda (path) (write-line (● path text)))

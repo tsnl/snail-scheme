@@ -19,7 +19,7 @@
 
 (define (highlight-book (input Json)) (→ Json)
   (match input
-    ((JsonArray (Cons _ (Cons book (Nil))))
+    ((Json-array (Cons _ (Cons book (Nil))))
      (with-members book
                    (lambda (name value)
                      (if (or (string=? name "items") (string=? name "sections"))
@@ -29,7 +29,7 @@
 
 (define (map-items (items Json)) (→ Json)
   (match items
-    ((JsonArray list) (JsonArray (map highlight-item list)))
+    ((Json-array list) (Json-array (map highlight-item list)))
     (other other)))
 
 (define (highlight-item (item Json)) (→ Json)
@@ -45,7 +45,7 @@
                 (lambda (name value)
                   (cond ((string=? name "content")
                          (match value
-                           ((JsonString content) (JsonString (highlight-blocks content)))
+                           ((Json-string content) (Json-string (highlight-blocks content)))
                            (other other)))
                         ((string=? name "sub_items") (map-items value))
                         (else value)))))
@@ -55,11 +55,11 @@
 
 (define (with-members (json Json) (change (Fn String Json → Json))) (→ Json)
   (match json
-    ((JsonObject members)
-     (JsonObject (map (lambda (member)
-                        (new Pair (first (● member first))
-                             (second (change (● member first) (● member second)))))
-                      members)))
+    ((Json-object members)
+     (Json-object (map (lambda (member)
+                         (new Pair (first (● member first))
+                              (second (change (● member first) (● member second)))))
+                       members)))
     (other other)))
 
 ;; ---- Fenced blocks ----
@@ -212,12 +212,12 @@
 
 ;; ---- The invocation ----
 
-(define (read-input (lines (List String))) (→ String) (! input-port)
+(define (read-input (lines (List String))) (→ String) (! Input-port)
   (match (read-line)
     ((None) (string-join (reverse lines) "\n"))
     ((Some line) (read-input (Cons line lines)))))
 
-(define (main) (→ Unit) (! input-port output-port)
+(define (main) (→ Unit) (! Input-port Output-port)
   (match (command-line)
     ((Cons _ (Cons "supports" (Cons renderer (Nil))))
      (unless (string=? renderer "html")

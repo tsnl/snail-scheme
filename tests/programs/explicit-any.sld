@@ -12,11 +12,11 @@
 (define (assert (value Bool)) (→ Unit)
   (unless value (panic "Any assertion failed")))
 
-(define (input (trace Trace) (label String) (value Any)) (→ Any) (! mut)
+(define (input (trace Trace) (label String) (value Any)) (→ Any) (! Mut)
   (set! (● trace text) (string-append (● trace text) label))
   value)
 
-(define (main) (→ Unit) (! mut output-port)
+(define (main) (→ Unit) (! Mut Output-port)
   (assert (match (downcast I64 (Any 42)) ((Some 42) #t) (_ #f)))
   (assert (match (downcast I64 (Any "42")) ((None) #t) (_ #f)))
   ;; Equal Wasm layouts do not make distinct nominal types interchangeable.

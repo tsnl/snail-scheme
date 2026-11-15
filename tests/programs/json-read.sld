@@ -15,15 +15,15 @@
     ((None) "nothing")))
 
 (define (written) (→ (List Json))
-  (list (JsonNull)
-        (JsonInteger -9223372036854775808)
-        (JsonString "quote \" backslash \\ tab\tend λ 😀")
-        (JsonString (list->string (list (integer->char 55296) (integer->char 31))))
-        (JsonArray (list (JsonInteger 1) (JsonArray (Nil)) (JsonObject (Nil))))
-        (JsonObject (list (new Pair (first "a") (second (JsonBool #t)))
-                          (new Pair (first "a") (second (JsonBool #f)))))))
+  (list (Json-null)
+        (Json-integer -9223372036854775808)
+        (Json-string "quote \" backslash \\ tab\tend λ 😀")
+        (Json-string (list->string (list (integer->char 55296) (integer->char 31))))
+        (Json-array (list (Json-integer 1) (Json-array (Nil)) (Json-object (Nil))))
+        (Json-object (list (new Pair (first "a") (second (Json-bool #t)))
+                           (new Pair (first "a") (second (Json-bool #f)))))))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   (for-each (lambda (value) (write-line (read-back (json->string value)))) (written))
   (for-each (lambda (text) (write-line (read-back text)))
             (list

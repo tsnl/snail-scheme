@@ -31,7 +31,7 @@
     (⊨ (Extract B))
     (match a ((Box value) (new Pair (first (extract value)) (second (extract b)))))))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   (match (combine (new Box (value (ann 1 I64))) #t)
     ((Pair a b) (display a) (newline) (write-line b)))
   (unit))

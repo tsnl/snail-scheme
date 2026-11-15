@@ -3,8 +3,8 @@
 ;; or looks up a mutable output directory.
 (define-library (snail shell artifact)
   (export
-   ArtifactFile
-   ArtifactBundle
+   Artifact-file
+   Artifact-bundle
    artifact-bundle
    artifact-ref)
   (import
@@ -12,26 +12,26 @@
    (only (snail core forms) artifact-files))
   (begin
 
-    (record ArtifactFile
+    (record Artifact-file
       ((path String)
        (bytes Bytes)))
 
-    (record ArtifactBundle
-      ((files (List ArtifactFile))))
+    (record Artifact-bundle
+      ((files (List Artifact-file))))
 
     ;; Constructor identifiers keep their definition scope when imported
     ;; under another name or expanded beneath shadowing local bindings.
     (define-syntax artifact-bundle
       (syntax-rules ()
         ((_ name)
-         (new ArtifactBundle
+         (new Artifact-bundle
            (files (artifact-files name
                                   (lambda (path bytes)
-                                    (new ArtifactFile (path path) (bytes bytes)))
+                                    (new Artifact-file (path path) (bytes bytes)))
                                   Cons
                                   Nil))))))
 
-    (define (artifact-ref (bundle ArtifactBundle) (path String)) (→ (Option Bytes))
+    (define (artifact-ref (bundle Artifact-bundle) (path String)) (→ (Option Bytes))
       (match (find (lambda (file) (string=? (● file path) path))
                    (● bundle files))
         ((Some file) (Some (● file bytes)))

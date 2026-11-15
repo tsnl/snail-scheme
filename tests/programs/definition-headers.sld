@@ -40,7 +40,7 @@
   (→ I64)
   42)
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
 
   (write-line (i64->string (twice 21)))
   (write-line (i64->string (length (ann (empty) (List I64)))))

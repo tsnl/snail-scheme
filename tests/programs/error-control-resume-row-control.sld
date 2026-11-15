@@ -31,11 +31,11 @@
   (yield 2)
   (unit))
 
-(define (logged (body (Fn → Step ! Log))) (→ Step) (! output-port)
+(define (logged (body (Fn → Step ! Log))) (→ Step) (! Output-port)
   (handle Log ((log (lambda (line resume) (write-line line) (resume (unit)))))
     (body)))
 
-(define (run) (→ Unit) (! output-port)
+(define (run) (→ Unit) (! Output-port)
   (handle Log ((log
                 (lambda (line resume) (write-line (string-append "outer: " line)) (resume (unit)))))
     (match (logged (lambda () (start counter)))

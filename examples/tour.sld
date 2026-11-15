@@ -96,7 +96,7 @@
 (record Counter
   ((count I64)))
 
-(define (bump! (counter Counter)) (→ Unit) (! mut)
+(define (bump! (counter Counter)) (→ Unit) (! Mut)
   (set! (● counter count) (+ (● counter count) 1)))
 
 ;; ---- Effects ----
@@ -134,7 +134,7 @@
                (set! (● a text) (● b text))
                (set! (● b text) temporary)))))
 
-(define (main) (→ Unit) (! mut output-port)
+(define (main) (→ Unit) (! Mut Output-port)
 
   (write-line (string-append "seven squared is " (i64->string (square 7))))
   ;; Nothing converts implicitly: an I64 becomes an F64 only when asked.

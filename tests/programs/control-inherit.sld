@@ -1,22 +1,22 @@
 (import
  (snail core base)
  (snail core io)
- (only (snail core forms) host)
+ (only (snail core forms) Host)
  (only (snail core primitive) inherit-handlers))
 
 ;; `inherit-handlers` closes a procedure over the handlers in scope where
 ;; it is called, so the procedure reaches them wherever it is later
 ;; called, even after their handles have returned. The function it makes
-;; performs `host`, as code may that runs whatever the host implements,
+;; performs `Host`, as code may that runs whatever the host implements,
 ;; which a program's top level may. The book's chapter on effects includes
 ;; the text between each ANCHOR and ANCHOR_END.
 (effect Log
   ((log (Fn String → Unit))))
 
-(define (first-log (line String)) (→ Unit) (! output-port)
+(define (first-log (line String)) (→ Unit) (! Output-port)
   (write-line (string-append "first log: " line)))
 
-(define (second-log (line String)) (→ Unit) (! output-port)
+(define (second-log (line String)) (→ Unit) (! Output-port)
   (write-line (string-append "second log: " line)))
 
 ;; ANCHOR_END: thunk
@@ -33,7 +33,7 @@
   (Done)
   (Yielded
    ((value I64)
-    (next (Fn → Step ! host)))))
+    (next (Fn → Step ! Host)))))
 
 (define (start (body (Fn → Unit ! Gen Log))) (→ Step) (! Log)
   (handle Gen ((yield (lambda (value resume)
@@ -49,14 +49,14 @@
     (yield value)
     (count-to (+ value 1) last)))
 
-(define (drain (step Step)) (→ Unit) (! output-port host)
+(define (drain (step Step)) (→ Unit) (! Output-port Host)
   (match step
     ((Done) (write-line "done"))
     ((Yielded value next)
      (write-line (string-append "got " (show value)))
      (drain (next)))))
 
-(define (main) (→ Unit) (! host output-port)
+(define (main) (→ Unit) (! Host Output-port)
   ;; ANCHOR: thunk
   ;; A thunk closed under the first log runs under the second, and logs to
   ;; the first.

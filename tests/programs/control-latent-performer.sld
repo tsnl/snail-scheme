@@ -11,7 +11,7 @@
 (effect Io
   ((fetch (Fn I64 → I64 ! Async))))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
 
   (write-line
    (show

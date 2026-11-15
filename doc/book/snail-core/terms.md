@@ -19,7 +19,7 @@ Import sets may use `only`, `except`, `prefix` and `rename`.
 (define (fibonacci (n I64)) (→ I64)
   (if (< n 2) n (+ (fibonacci (- n 1)) (fibonacci (- n 2)))))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   (write-line (show (fibonacci 30))))
 ```
 
@@ -37,12 +37,12 @@ value is the library's `define-library` form, as a `Syntax` from
   (library-syntax (list "sample" "table")
                   (list "squares")
                   (list (list "snail" "core" "base"))
-                  (list (form "define" (list (SymbolSyntax "squares")
-                                             (form "list" (map (lambda (i) (IntegerSyntax (* i i))) (iota 6))))))))
+                  (list (form "define" (list (Symbol-syntax "squares")
+                                             (form "list" (map (lambda (i) (Integer-syntax (* i i))) (iota 6))))))))
 ```
 
 The program writes the syntax as bytes that the compiler decodes, so no text
-is printed or parsed in between, and a `BytesSyntax` reaches the compiler
+is printed or parsed in between, and a `Bytes-syntax` reaches the compiler
 as the bytes it holds. Construct syntax explicitly with `(snail shell syntax)`.
 Every generated form is located at the recipe.
 
@@ -68,11 +68,11 @@ those bytes as a byte literal in its generated library.
 | `(lru-cache capacity function)` | The same wrapper with a least-recently-used entry limit. |
 | `(Any expression)` | Boxes an unrestricted value with its concrete type. |
 | `(downcast Type boxed)` | Returns `Some` of the payload if its type matches, or `None`. |
-| `(record (Name param ...) ((field type) ...))` | Mutable heap record type. |
+| `(record (Name Param ...) ((field type) ...))` | Mutable heap record type. |
 | `(new Name (field expression) ...)` | Construct a record; every field exactly once, evaluated in written order. |
-| `(enum (Name param ...) (Case [((field type) ...)]) ...)` | Tagged sum. |
-| `(type (Name param ...) type)` | Transparent alias. |
-| `(typeclass (Class param ...) (declare (method ...) ...) ...)` | Class of types with methods. |
+| `(enum (Name Param ...) (Case [((field type) ...)]) ...)` | Tagged sum. |
+| `(type (Name Param ...) type)` | Transparent alias. |
+| `(typeclass (Class Param ...) (declare (method ...) ...) ...)` | Class of types with methods. |
 | `(instance (Class type ...) [(⊨ constraint ...)] (define ...) ...)` | Instance. |
 | `(effect Name ((operation type) ...) [(default ((operation implementation) ...))])` | Effect with operations and optional Snail Scheme defaults, each a lambda or a function's or extern's name. `(ctl operation type)` declares a control operation, which has no default ([effects and handlers](effects.md)). |
 | `(handle Name ((operation implementation) ...) body ...)` | Handles an effect for the extent of `body`; a control operation's implementation also takes `resume`. |

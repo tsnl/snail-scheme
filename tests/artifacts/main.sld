@@ -2,7 +2,7 @@
  (snail core base)
  (snail core io)
  (only (snail shell artifact)
-       ArtifactBundle)
+       Artifact-bundle)
  (rename (only (snail shell artifact) artifact-bundle) (artifact-bundle bundle))
  (generated assets)
  (sample consumer)
@@ -16,7 +16,7 @@
   (syntax-rules ()
     ((_) (bundle "admin"))))
 
-(define (print-bundle (bundle ArtifactBundle)) (→ Unit) (! output-port)
+(define (print-bundle (bundle Artifact-bundle)) (→ Unit) (! Output-port)
   (for-each (lambda (file)
               (display (● file path))
               (display ":")
@@ -28,7 +28,7 @@
 (define main
   (lambda ()
     ;; These local values must not capture the imported macro's constructors.
-    (let ((ArtifactBundle "shadow") (ArtifactFile "shadow") (Cons "shadow") (Nil "shadow"))
+    (let ((Artifact-bundle "shadow") (Artifact-file "shadow") (Cons "shadow") (Nil "shadow"))
       (print-bundle (bundle "client")))
     (print-bundle (admin))
     (print-bundle (generated-bundle))

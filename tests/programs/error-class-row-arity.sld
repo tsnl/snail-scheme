@@ -3,8 +3,8 @@
  (snail core io))
 
 ;; An instance gives each of its class's parameters, its row among them.
-(typeclass (Store e S)
-  (declare (fetch-object (left S) (right String)) (→ String) (! e)))
+(typeclass (Store E S)
+  (declare (fetch-object (left S) (right String)) (→ String) (! E)))
 
 (record Loud
   ((name String)))

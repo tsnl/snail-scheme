@@ -3,14 +3,14 @@
  (snail core io))
 
 ;; A total function may not read from a store whose instance prints.
-(typeclass (Store e S)
-  (declare (fetch-object (left S) (right String)) (→ String) (! e)))
+(typeclass (Store E S)
+  (declare (fetch-object (left S) (right String)) (→ String) (! E)))
 
 (record Directory
   ((root String)))
 
-(instance (Store (! output-port) Directory)
-  (define (fetch-object (directory Directory) (name String)) (→ String) (! output-port)
+(instance (Store (! Output-port) Directory)
+  (define (fetch-object (directory Directory) (name String)) (→ String) (! Output-port)
     (write-line name)
     name))
 

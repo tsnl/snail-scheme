@@ -32,7 +32,7 @@
 (define (describe-all (collection C)) (→ (List String)) (∀ (C)) (⊨ (Collection C))
   (collect collection (lambda (n) (ann (convert n) String))))
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   (write-line (ann (convert 5) String))
   (display (* 2.0 (ann (convert 5) F64)))
   (newline)

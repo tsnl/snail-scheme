@@ -3,7 +3,7 @@
 ;; asks: `read` starts reading it under a ticket of (snail shell task) and
 ;; returns at once; once the ticket wakes, `finish` answers the file's
 ;; length and holds its bytes, which `byte` reads, until the next `finish`.
-;; (snail shell resource)'s `resource` effect defaults to these.
+;; (snail shell resource)'s `Resource` effect defaults to these.
 (define-library (snail runtime resource)
   (export
    read

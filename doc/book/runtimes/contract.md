@@ -61,7 +61,7 @@ the current ordinary bindings. Each task has its own binding vector; the
 reusable implementations may be shared. This preserves the dispatched closure's declared effects.
 It does not establish rules for cloning future control delimiters.
 
-Waits are control operations of `tasks`: the scheduler retains a one-shot
+Waits are control operations of `Tasks`: the scheduler retains a one-shot
 resumption and later makes it ready, when a timer passes or the host
 wakes its ticket. Like every `ctl` operation they compile to evidence
 passing, with a one-shot, first-class `resume` (see

@@ -12,7 +12,7 @@
 
 ;; A permutation exercises the halves and merges beyond a few elements.
 
-(define (main) (→ Unit) (! output-port)
+(define (main) (→ Unit) (! Output-port)
   (define shuffled (→ (List I64)) (map (lambda (index) (remainder (* index 97) 257)) (iota 257)))
 
   (write-line (repr (ann (list-sort < (Nil)) (List I64))))

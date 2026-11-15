@@ -10,7 +10,7 @@
   ((name String)
    (count I64)))
 
-(define (bump! (counter Counter)) (→ Unit) (! mut)
+(define (bump! (counter Counter)) (→ Unit) (! Mut)
   (set! (● counter count) (+ (● counter count) 1)))
 
 ;; A path reaches through nested structs to one field.
@@ -22,7 +22,7 @@
   ((home Point)
    (last Point)))
 
-(define (main) (→ Unit) (! mut output-port)
+(define (main) (→ Unit) (! Mut Output-port)
 
   ;; ANCHOR_END: counter
 
