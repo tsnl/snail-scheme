@@ -2570,18 +2570,16 @@
                      (● scheme constraints))
           ck))
 
-    ;; A program's body runs as its first task when it links the scheduler,
-    ;; under the handler of every effect declared `around-main`, so the
-    ;; body may perform those besides what the host implements. What the
-    ;; host calls is `start`, main under its target's handlers, so its row
-    ;; is the one left to the host.
+    ;; What the host calls is `start`, which runs main as the first task of
+    ;; the host's scheduler under its target's handlers, so its row is the
+    ;; one left to the host.
 
     (define (check-entry (ck Checker) (name String) (start String) (loc Loc)) (→ Checker)
       (! compile)
       (match (global-scheme ck name)
         ((Some (Scheme (Nil) (Nil) type))
          (match (resolve-type (solution ck) type)
-           ((TFun (Nil) (TCon "Unit" (Nil)) _) (check-body-effects ck (start-row ck start) loc))
+           ((TFun (Nil) (TCon "Unit" (Nil)) _) (check-host-effects ck (start-row ck start) loc))
            (_
             (compile-error loc "main must be a function taking no arguments and returning Unit"))))
         (_ (compile-error loc
@@ -2594,9 +2592,6 @@
            ((TFun _ _ row) row)
            (_ (panic "internal error: an entry's start is not a function"))))
         ((None) (panic "internal error: an entry's start has no type"))))
-
-    (define (check-body-effects (ck Checker) (row Type) (loc Loc)) (→ Checker) (! compile)
-      (check-effects-with ck row loc (lambda (effect) (● effect around-main))))
 
     ;; The host may retain values, holding managed references opaquely. The
     ;; trusted host respects `snail-scheme` types and implements the declared
@@ -2625,27 +2620,15 @@
         ((TFun _ _ row) (check-host-effects ck row loc))
         (_ (compile-error loc "an exposed function must be a monomorphic function"))))
 
-    ;; Effects performed at program start need defaults for every
-    ;; operation; the builtin effects are the host's own.
+    ;; The effects of `row`, which the host calls into, must each be the
+    ;; host's: builtin, or with a default for every operation.
 
     (define (check-host-effects (ck Checker) (row Type) (loc Loc)) (→ Checker) (! compile)
-      (check-effects-with ck row loc (lambda (effect) #f)))
-
-    ;; The effects of `row` must each be the host's: builtin, with a default
-    ;; for every operation, or `allowed` otherwise.
-
-    (define (check-effects-with (ck Checker)
-                                (row Type)
-                                (loc Loc)
-                                (allowed (Fn Effect → Bool)))
-      (→ Checker)
-      (! compile)
       (for-each (lambda (label)
                   (unless (or (member? label (list "mut" "host"))
                               (let ((effect (program-effect (program-of ck) label)))
-                                (or (allowed effect)
-                                    (= (length (● effect defaults))
-                                       (length (● effect operations))))))
+                                (= (length (● effect defaults))
+                                   (length (● effect operations)))))
                     (compile-error loc
                                    (string-append "the effect "
                                                   (short-name label)

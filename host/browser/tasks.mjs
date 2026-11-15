@@ -105,7 +105,6 @@ export function createTasks(exports, {reportError = () => {}} = {}) {
     call: enter,
     get closeStatus() { return closeStatus; },
     get owner() { if (closed) throw new Error('the task scheduler has closed'); context(); return owner; },
-    startMain(body) { enter('tasks:start-main', body); },
     running() { return owner === null ? 0 : Number(scheduler['tasks:running'](owner)); },
     live() { return owner === null ? 0 : Number(scheduler['tasks:live'](owner)); },
     // Runs `operation` with the run's AbortSignal. `deliver` builds the

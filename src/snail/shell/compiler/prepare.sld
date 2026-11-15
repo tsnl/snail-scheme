@@ -784,20 +784,17 @@
                                      (name "t:Abort")
                                      (operations (list "t:abort"))
                                      (control (list "t:abort"))
-                                     (defaults (Nil))
-                                     (around-main #f))
+                                     (defaults (Nil)))
                                    (new Effect
                                      (name "t:Log")
                                      (operations (list "t:log"))
                                      (control (Nil))
-                                     (defaults (Nil))
-                                     (around-main #f))
+                                     (defaults (Nil)))
                                    (new Effect
                                      (name "t:Io")
                                      (operations (list "t:fetch"))
                                      (control (Nil))
-                                     (defaults (Nil))
-                                     (around-main #f))))
+                                     (defaults (Nil)))))
                        (list (new Pair (first "t:abort") (second (operation "t:Abort" (Nil))))
                              (new Pair (first "t:log") (second (operation "t:Log" (Nil))))
                              (new Pair

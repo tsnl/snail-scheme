@@ -11,7 +11,7 @@ const bytes = readFileSync(process.argv[2]);
 const wasi = new WASI({version: 'preview1', args: [], env: {}, preopens: {}});
 const {instance} = await WebAssembly.instantiate(bytes, wasi.getImportObject());
 wasi.initialize(instance);
-assert.equal(instance.exports.main(), 0);
+assert.equal(runMain(instance.exports), -1n);
 const groups = [
   {names: ['plain_expensive', 'cached_expensive', 'lru_expensive'], count: 50000n},
   {names: ['plain_cheap', 'cached_cheap'], count: 50000n},
@@ -40,3 +40,11 @@ for (const {names, count} of groups) {
   report.groups.push({count: String(count), checksum: String(expected), medians_ms, samples});
 }
 console.log(JSON.stringify(report, null, 2));
+
+// Main is the scheduler's first task, and its first turn runs it; a
+// benchmark's main dispatches nothing, so that turn leaves no task live.
+function runMain(exports) {
+  const scheduler = exports['tasks:create']();
+  exports.main(scheduler);
+  return exports['tasks:turn'](scheduler, 0n);
+}

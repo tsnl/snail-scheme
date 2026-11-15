@@ -250,8 +250,11 @@ Each step is a pull request that passes every check on its own.
      under its `provide`, which handles nothing yet. A `project.datum`
      program builds for `node`, a browser target for `browser`, and stage 0
      compiles for `node`.
-   - Tasks from the target: `main` runs as the scheduler's first task under
-     the target's `start`, and `around-main` and `tasks:start-main` go.
+   - Tasks from the target: done. The entry's start takes the host's
+     scheduler and calls the target's `start`, which runs `main` as its
+     first task inside `provide`. Every host calls `main(scheduler)` and
+     then turns; `around-main`, `tasks:start-main` and `engine:status` are
+     gone, and `main`'s result is no longer a status.
    - Each capability's `default` moves into the targets that provide it, and
      every exposed function is wrapped as `main` is; a capability left
      unhandled fails the build.

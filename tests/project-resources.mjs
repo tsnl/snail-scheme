@@ -54,8 +54,7 @@ async function pageOutput(directory) {
     let program;
     const tasks = createTasks(() => program && taskExports(program));
     program = await linkProgram(read, 'page.manifest.datum', wasi, {}, () => tasks);
-    // The program's module has its main; the task library's starts it.
-    runMain({...taskExports(program), ...programExports(program)}, tasks);
+    runMain(programExports(program), tasks);
     try { await tasks.drive(); }
     finally { tasks.close(); }
     return {output: lines.join('\n'), fetched};
