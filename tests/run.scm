@@ -244,16 +244,6 @@
     (or (zero? (caddr result))
         (report "app runtime" "failed" (string-append (car result) (cadr result))))))
 
-;; Exercise scratch isolation in separate runtime instances, as linked modules use.
-(define (check-numeric-runtime root)
-  (let ((result (capture-process
-                 (list "node"
-                       "--no-warnings"
-                       (path-join root "tests/numeric.mjs")
-                       (build-runtime root #f)))))
-    (or (zero? (caddr result))
-        (report "numeric runtime" "conversion failed" (string-append (car result) (cadr result))))))
-
 (define (enum-type-id root cases)
   (let ((source (path-join root "build/tests/type-ids/main.sld"))
         (marker "(struct.new $any (i32.const "))
@@ -736,7 +726,6 @@
                                   (lambda () (check-tcp root))
                                   (lambda () (check-udp root))
                                   (lambda () (check-type-ids root))
-                                  (lambda () (check-numeric-runtime root))
                                   (lambda ()
                                     (and (check-exposed-values root "host-values")
                                          (check-host-boundary root)))

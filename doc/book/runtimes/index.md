@@ -82,10 +82,10 @@ must be checked before promising compatibility.
 
 The Rust support module, `snail.core.support` from
 `crates/snail-scheme-support`, is what lies beneath `(snail core …)`, not a
-runtime interface. The Unicode tables and the transcendental math are
-already `snail-scheme` libraries. *Proposed:* float printing and parsing move
-into `snail-scheme` as well, and I/O moves through WASI once memory
-primitives exist (the crate's README has the plan).
+runtime interface. The Unicode tables, the transcendental math and float
+printing are `snail-scheme` code, so what remains is I/O. *Proposed:* it
+moves through WASI once memory primitives exist (the crate's README has the
+plan).
 
 ## Future work
 
