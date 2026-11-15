@@ -5,7 +5,7 @@ import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
 import {applicationEntry, createEventQueue, createRuntime, FRAME, HIDDEN, RELOAD} from '../../host/browser/runtime.mjs';
 import {screenImports} from '../../host/browser/host.mjs';
-import {createWasi, instantiate, linkProgram} from '../../host/browser/load.mjs';
+import {createWasi, instantiate, linkedFileImports, linkProgram, wasmImports} from '../../host/browser/load.mjs';
 
 const path = resolve(process.argv[2]);
 const turn = () => new Promise(setImmediate);
@@ -82,7 +82,8 @@ async function application(options = {}) {
     program = await linkProgram(file => readFile(resolve(dirname(path), file)), path, wasi, imports);
 
   } else {
-    program = await instantiate(await WebAssembly.compile(await readFile(path)), {...wasi.getImportObject(), ...imports});
+    const module = await WebAssembly.compile(await readFile(path));
+    program = await instantiate(module, {...wasi.getImportObject(), ...imports, ...portable(module)});
     wasi.initialize(program);
   }
   const entry = applicationEntry(program);
@@ -352,3 +353,10 @@ await checkRootReturn();
 await checkUnpresentedReturn();
 await checkProtocolOwnership();
 console.log('app runtime: the loop as a task, storage by ticket, queued input, inherited handlers and checkpoint recovery passed');
+
+// The imports of the capabilities the target installs and this test leaves
+// unused: the files a program links and the host's WebAssembly.
+function portable(module) {
+  const unread = file => { throw new Error(`this test reads no linked file ${file}`); };
+  return {...linkedFileImports(unread, module), 'snail.runtime.wasm': wasmImports(() => null)};
+}

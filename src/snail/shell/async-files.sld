@@ -3,6 +3,7 @@
 ;; Neither this operation nor its result promises a disk snapshot.
 (define-library (snail shell async-files)
   (export files
+          provide-files
           read-file
           FileError
           Unavailable
@@ -28,8 +29,10 @@
       (Failed))
 
     (effect files
-      ((read-file (Fn String I32 → (Result Bytes FileError) ! tasks)))
-      (default ((read-file native-read))))
+      ((read-file (Fn String I32 → (Result Bytes FileError) ! tasks))))
+
+    (define (provide-files (work (Fn → T ! files e))) (→ T) (! e) (∀ (T e))
+      (handle files ((read-file native-read)) (work)))
 
     ;; ---- Reading ----
 

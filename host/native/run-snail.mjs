@@ -107,8 +107,10 @@ async function loadProgram(filename, wasi, host, tasks) {
   const engine = isManifest(filename);
   const module = await WebAssembly.compile(await readFile(engine ? engineModule() : filename));
   const program = {runtime: null, exports: null, host, linked: new Map()};
-  const instance = await (engine ? instantiate(module, {...wasi.getImportObject(), ...host})
-    : WebAssembly.instantiate(module, {...wasi.getImportObject(), ...host, ...linkedFileImports(read, module, tasks)}));
+  // The engine links no files of its own, but its target installs the
+  // resource handler, so it imports the reads it never makes.
+  const imports = {...wasi.getImportObject(), ...host, ...linkedFileImports(read, module, tasks)};
+  const instance = await (engine ? instantiate(module, imports) : WebAssembly.instantiate(module, imports));
   wasi.initialize(instance);
   Object.assign(program, {runtime: instance, exports: instance.exports, loader: engine ? instance : null});
   return program;

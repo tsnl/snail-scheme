@@ -420,8 +420,8 @@ package's data, and the library reads it when it needs it:
   names a file and nothing more. The type is exported without its
   constructor, so a program cannot make one from a string: holding a
   `Resource` is evidence that its file ships. `(read-resource r)` returns the
-  file's `Bytes` and performs `resource`, an effect with host defaults on
-  Node, in the browser and on wasmtime. It is not `fs`: a page has no
+  file's `Bytes` and performs `resource`, which every target handles
+  through `provide-resource`, on Node, in the browser and on wasmtime. It is not `fs`: a page has no
   filesystem, and a program with none still reads its own files.
 
 **A file is read when the program asks for it.** A host reads nothing a
