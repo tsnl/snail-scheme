@@ -68,12 +68,12 @@
     ;; ---- Reporting ----
 
     (define (report-diagnostics (format ErrorFormat) (diagnostics Diagnostics))
-      (→ A) (! mut) (∀ A)
+      (→ A) (! mut) (∀ (A))
       (write-error
        (string-append (diagnostics->output format diagnostics (output-color? format)) "\n"))
       (exit 1))
 
-    (define (report-error (format ErrorFormat) (message String)) (→ A) (! mut) (∀ A)
+    (define (report-error (format ErrorFormat) (message String)) (→ A) (! mut) (∀ (A))
       (write-error (string-append (message->output format message (output-color? format)) "\n"))
       (exit 1))
 

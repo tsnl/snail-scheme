@@ -11,8 +11,14 @@
        Diagnostics))
 
 (define (errors) (→ Diagnostics)
-  (new Diagnostics (first (new SourceDiagnostic (loc (new Loc (file "main.sld") (line 3) (column 7))) (message "expected I64, found String"))) (more (list
-                (new SourceDiagnostic (loc (new Loc (file "library.sld") (line 0) (column 0))) (message "first\n\nlast \"quoted\"\t\r\x0;"))))))
+  (new Diagnostics
+    (first (new SourceDiagnostic
+             (loc (new Loc (file "main.sld") (line 3) (column 7)))
+             (message "expected I64, found String")))
+    (more (list
+           (new SourceDiagnostic
+             (loc (new Loc (file "library.sld") (line 0) (column 0)))
+             (message "first\n\nlast \"quoted\"\t\r\x0;"))))))
 
 (define (color-codes (level Level)) (→ Unit) (! output-port)
   (write (map char->integer (string->list (log->string level "" #t))))
