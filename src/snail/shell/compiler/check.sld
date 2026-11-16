@@ -1949,7 +1949,7 @@
       (match (● expr term)
         ((Var name _ _)
          (when (member? name (list "prim:cache" "prim:lru-cache"))
-           (check-cache-effects (short-name name) (● expr type) (● expr loc))))
+           (check-cache-signature (● expr type) (● expr loc))))
         ((App callee (Cons place (Cons _ (Nil))))
          (match (● callee term)
            ((Var name _ _)
@@ -1959,16 +1959,11 @@
         (_ (unit)))
       (for-each (lambda (child) (check-operations program child)) (expr-children expr)))
 
-    ;; An unknown F or open row cannot promise effect-free calls. Fixed-arity
-    ;; generic factories can state the empty callback row in their headers.
-    (define (check-cache-effects (name String) (type Type) (loc Loc)) (→ Unit) (! compile)
+    ;; A cache is built for one signature, so an unknown F cannot be cached.
+    ;; A generic factory states the function's shape in its header.
+    (define (check-cache-signature (type Type) (loc Loc)) (→ Unit) (! compile)
       (match type
-        ((TFun _ (TFun _ _ (TRow (Nil) (None))) _) (unit))
-        ((TFun _ (TFun _ _ _) _)
-         (compile-error loc
-                        (string-append name
-                                       " requires a function with an empty effect row; use unsafe-effectful-"
-                                       name " to cache an effectful function")))
+        ((TFun _ (TFun _ _ _) _) (unit))
         (_ (compile-error loc "cache requires an ordinary Fn function with a known signature"))))
 
     ;; A written place selects a record field. Enum fields are destructured

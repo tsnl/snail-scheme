@@ -185,8 +185,8 @@
 
     ;; A global or data segment that a module declares once, at its first
     ;; use, is declared by a cached function of the module and what names
-    ;; it: a later use skips the declaration and gets the same reference.
-    ;; `unsafe-effectful-cache` says that skipping is intended. Its keys
+    ;; it: a later use skips the declaration and gets the same reference,
+    ;; since a cache hit skips the function's effects. A cache's keys
     ;; compare strings and numbers by value and the module by identity, so
     ;; such a function takes those and nothing else.
 
@@ -736,7 +736,7 @@
     ;; String literals are immutable globals, built once.
 
     (define string-literal
-      (unsafe-effectful-cache
+      (cache
        (lambda ((m Module) (text String)) (→ Wat) (! mut)
          (let ((global (keyed-id "string" text)) (array (array-type m (Scalar "i32"))))
            (push! (● m globals)
@@ -758,7 +758,7 @@
       (bytes-segment m (bytes-wat-string bytes) (array-length bytes)))
 
     (define bytes-segment
-      (unsafe-effectful-cache
+      (cache
        (lambda ((m Module) (text String) (length I64)) (→ Wat) (! mut)
          (let ((segment (keyed-id "bytes" text)))
            (push! (● m data) (wat "data" (id segment) (Word text)))
@@ -783,7 +783,7 @@
     ;; The table of `count` elements whose bytes are `data`.
 
     (define integer-table
-      (unsafe-effectful-cache
+      (cache
        (lambda ((m Module) (element String) (data String) (count I64)) (→ Wat) (! mut)
          (let* ((array (array-type m (element-rep m (TCon element (Nil)))))
                 (key (string-append element ":" data))
@@ -964,7 +964,7 @@
         (closure-global m (lambda-function! m function self (Nil) base) base)))
 
     (define closure-global
-      (unsafe-effectful-cache
+      (cache
        (lambda ((m Module) (code String) (base String)) (→ Wat) (! mut)
          (let ((global (derived-id "closure" code)))
            (push! (● m globals)
@@ -1267,7 +1267,7 @@
                         (● case tag)))
 
     (define singleton-global
-      (unsafe-effectful-cache
+      (cache
        (lambda ((m Module) (key String) (base String) (tag I64)) (→ Wat) (! mut)
          (let ((global (keyed-id "value" key)))
            (push! (● m globals)
@@ -3520,9 +3520,9 @@
              (arg (lambda (n) (list-ref code n)))
              (sequence (lambda (t) (sequence-type m t))))
         (case operation
-          (("cache" "unsafe-effectful-cache")
+          (("cache")
            (list (cached-function m type (wat "i64.const" (int 0)) (arg 0) #f)))
-          (("lru-cache" "unsafe-effectful-lru-cache")
+          (("lru-cache")
            (list (cached-function m type (arg 0) (arg 1) #t)))
           (("unit") (list (wat "i32.const" (int 0))))
           (("inherit-handlers") (list (inherited fn type (arg 0))))

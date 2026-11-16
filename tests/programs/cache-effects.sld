@@ -11,7 +11,7 @@
   (cache f))
 
 (define (memoize-effects (f (Fn A → B ! e))) (→ (Fn A → B ! e)) (∀ (A B e))
-  (unsafe-effectful-cache f))
+  (cache f))
 (define (with-seed (n I64)) (→ I64) (! Seed) (+ n (seed)))
 
 ;; A handled control operation has no outward effect and cannot suspend its caller.
@@ -24,10 +24,10 @@
     (write-line (show (bounded 7)))
     (write-line (show (bounded 7))))
   (handle Seed ((seed (lambda () 10)))
-    (let* ((wrap unsafe-effectful-cache)
+    (let* ((wrap cache)
            (memo (memoize-effects with-seed))
            (alias (wrap with-seed))
-           (bounded (unsafe-effectful-lru-cache 1 with-seed)))
+           (bounded (lru-cache 1 with-seed)))
       (write-line (show (memo 1)))
       (write-line (show (alias 2)))
       (write-line (show (bounded 3)))
