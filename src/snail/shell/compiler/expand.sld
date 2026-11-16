@@ -197,8 +197,8 @@
     ;; `counter` numbers fresh names. `scopes` holds the environments that marks refer
     ;; to, by number, and `scope-count` is the next number; `tops` holds
     ;; each top level's definitions, by key, and `top-count` makes the next
-    ;; key. `deriving` is the scope derived instances resolve in, once one
-    ;; is made.
+    ;; key. `deriving` is the scope a deriving macro's name resolves in,
+    ;; once one is made.
     (record Context
       ((directories (List String))
        (target (Option (List String)))
@@ -1664,6 +1664,16 @@
            (fields (form-items fields "a field list"))))
         (_ (compile-error (syntax-loc case) "expected (Case) or (Case ((field type) ...))"))))
 
+    ;; A data type's cases: an enum's as declared, a record's one case named
+    ;; after the record.
+
+    (define (data-cases (form Syntax) (enum? Bool)) (→ (List CaseSyntax)) (! compile)
+      (if enum?
+          (map parse-case (enum-cases form))
+          (list (new CaseSyntax
+                  (name (declared-name (declaration-head form)))
+                  (fields (record-fields form))))))
+
     (define (scan-case (cx Context) (env Env) (case Syntax)) (→ Context) (! compile)
       (bind-member cx env (● (parse-case case) name)))
 
@@ -1766,11 +1776,7 @@
                    ((Some (TypeName id _ _)) id)
                    (_ (panic "internal error: type"))))
              (scope (type-scope env params))
-             (cases (if enum?
-                        (map parse-case (enum-cases form))
-                        (list (new CaseSyntax
-                                (name (declared-name head))
-                                (fields (record-fields form))))))
+             (cases (data-cases form enum?))
              (data (new DataType (name id)
                         (params (ident-names params))
                         (cases (map-indexed (lambda (tag case) (resolve-case cx scope case id tag))
@@ -2944,45 +2950,47 @@
 
     ;; ---- Deriving ----
 
-    ;; Derived instances are ordinary instance declarations, built as syntax.
-    ;; Identifiers they introduce are marked to resolve in an environment of
-    ;; the implicit libraries, whatever the declaring library imports.
+    ;; A derived instance is a use of a macro its class's library defines
+    ;; beside the class: `derive-repr` in (snail core base),
+    ;; `derive-serialize` and `derive-deserialize` in (snail shell wire).
+    ;; The expander writes only the use, marking the macro's name to resolve
+    ;; among those libraries' exports, whatever the declaring library
+    ;; imports. A use is the declaration's own keyword, `record` or `enum`,
+    ;; its head with its parameters, then each case:
+    ;;
+    ;;   (derive-repr enum (Option T) (None "None") (Some "Some" (field0 value "value")))
+    ;;
+    ;; A case is its name, the name as text and, for each field, a fresh
+    ;; variable, the label and the label as text. A macro binds the
+    ;; variable, since a case may repeat a label and `_` binds nothing.
 
     (define implicit-libraries (→ (List (List String)))
-      (list (list "snail" "core" "forms")
-            (list "snail" "core" "primitive")
-            (list "snail" "core" "base")
-            (list "snail" "shell" "wire")))
+      (list (list "snail" "core" "base") (list "snail" "shell" "wire")))
 
-    (record DerivingCase
-      ((name Syntax)
-       (fields (List Syntax))
-       (enum? Bool)))
+    ;; A declaration that derives nothing loads no implicit library.
 
     (define (derived-instances (cx Context) (form Syntax) (enum? Bool))
       (→ (Pair (List Syntax) Context))
       (! fs compile generator)
-      (let* ((head (declaration-head form)) (loc (syntax-loc form))
-             (cases (if enum?
-                        (map (lambda (form)
-                               (let ((case (parse-case form)))
-                                 (new DerivingCase (name (● case name))
-                                      (fields (map (lambda (field) (● (parse-field field) name))
-                                                   (● case fields)))
-                                      (enum? #t)))) (enum-cases form))
-                        (list (new DerivingCase (name (declared-name head))
-                                   (fields (map (lambda (field) (● (parse-field field) name))
-                                                (record-fields form)))
-                                   (enum? #f))))))
-        (each cx
-              (lambda (cx class)
-                (match class
-                  ((Ident "Repr" _ _) (repr-instance cx head cases loc))
-                  ((Ident "Serialize" _ _) (serialize-instance cx head cases loc))
-                  ((Ident "Deserialize" _ _) (deserialize-instance cx head cases loc))
-                  (_ (compile-error (syntax-loc class)
-                                    "only Repr, Serialize and Deserialize can be derived"))))
-              (derived-classes form))))
+      (match (map deriving-macro (derived-classes form))
+        ((Nil) (new Pair (first (Nil)) (second cx)))
+        (macros
+         (let ((loc (syntax-loc form)))
+           (threading cx ((scope (deriving-scope loc)))
+                      (let* ((d (new Deriver (scope scope) (loc loc)))
+                             (arguments (deriving-arguments d form enum?)))
+                        (new Pair
+                          (first (map (lambda (macro) (Form (Cons (marked d macro) arguments) loc))
+                                      macros))
+                          (second cx))))))))
+
+    (define (deriving-macro (class Syntax)) (→ String) (! compile)
+      (match class
+        ((Ident "Repr" _ _) "derive-repr")
+        ((Ident "Serialize" _ _) "derive-serialize")
+        ((Ident "Deserialize" _ _) "derive-deserialize")
+        (_ (compile-error (syntax-loc class)
+                          "only Repr, Serialize and Deserialize can be derived"))))
 
     ;; The scope derived instances resolve in, made at the build's first
     ;; deriving clause, which loads the implicit libraries, and shared by
@@ -3003,12 +3011,13 @@
                         (scope (register-scope env)))
                     (new Pair (first scope) (second (Context-deriving-set cx (Some scope))))))))
 
-    ;; Builds the syntax of a derived instance; `w` marks introduced identifiers.
+    ;; What the uses of one declaration's macros share: the scope their
+    ;; marked identifiers resolve in, and where the declaration is.
     (record Deriver
       ((scope I64)
        (loc Loc)))
 
-    (define (w (deriver Deriver) (name String)) (→ Syntax)
+    (define (marked (deriver Deriver) (name String)) (→ Syntax)
       (let ((loc (● deriver loc)))
         (Ident name
                (Some (new Mark (key (string-append name "%deriving"))
@@ -3016,172 +3025,35 @@
                           (scope (● deriver scope))))
                loc)))
 
-    (define (f (deriver Deriver) (items (List Syntax))) (→ Syntax)
-      (Form items (● deriver loc)))
+    (define (derived-head (form Syntax)) (→ Syntax) (! compile)
+      (match (declaration-head form)
+        ((Form items loc) (Form items loc))
+        (name (Form (list name) (syntax-loc name)))))
 
-    (define (field-idents (deriver Deriver) (count I64)) (→ (List Syntax))
-      (map (lambda (index) (w deriver (string-append "field" (i64->string index)))) (iota count)))
+    (define (deriving-arguments (d Deriver) (form Syntax) (enum? Bool)) (→ (List Syntax))
+      (! compile)
+      (Cons (form-keyword form)
+            (Cons (derived-head form)
+                  (map (lambda (case) (derived-case d case)) (data-cases form enum?)))))
 
-    (define (instance-head (d Deriver) (class String) (head Syntax)) (→ (List Syntax)) (! compile)
-      (let ((params (declared-params head)))
-        (append (list (w d "instance") (f d (list (w d class) head)))
-                (if (null? params)
-                    (Nil)
-                    (list (f d
-                             (Cons (w d "⊨")
-                                   (map (lambda (param) (f d (list (w d class) param)))
-                                        params))))))))
+    (define (form-keyword (form Syntax)) (→ Syntax)
+      (match form
+        ((Form (Cons keyword _) _) keyword)
+        (_ (panic "internal error: a declaration is a form"))))
 
-    ;; A derived method inherits its class's signature. Its lambda keeps
-    ;; that inference without introducing an unannotated function head.
-    (define (derived-method (d Deriver) (name String) (parameters (List Syntax)) (body Syntax))
-      (→ Syntax)
-      (f d (list (w d "define") (w d name)
-                 (f d (list (w d "lambda") (f d parameters) body)))))
+    (define (derived-case (d Deriver) (case CaseSyntax)) (→ Syntax) (! compile)
+      (Form (Cons (● case name)
+                  (Cons (Atom (DString (expect-name (● case name) "a constructor")) (● d loc))
+                        (map-indexed (lambda (index field)
+                                       (derived-field d index (● (parse-field field) name)))
+                                     (● case fields))))
+            (● d loc)))
 
-    ;; Constructor notation is ordinary pure code, with no runtime reflection.
-    (define (repr-instance (cx Context) (head Syntax) (cases (List DerivingCase)) (loc Loc))
-      (→ (Pair Syntax Context))
-      (! fs compile generator)
-      (threading cx ((scope (deriving-scope loc)))
-                 (let* ((d (new Deriver (scope scope) (loc loc))) (value (w d "value"))
-                        (body (f d (Cons (w d "match")
-                                         (Cons value
-                                               (map (lambda (case) (repr-case d case)) cases))))))
-                   (new Pair (first (f d (append (instance-head d "Repr" head)
-                                                 (list
-                                                  (derived-method d "repr" (list value) body)))))
-                        (second cx)))))
-
-    (define (repr-case (d Deriver) (case DerivingCase)) (→ Syntax) (! compile)
-      (let* ((fields (field-idents d (length (● case fields))))
-             (name (expect-name (● case name) "a constructor"))
-             (open (repr-text d (string-append (if (● case enum?) "(" "(new ") name)))
-             (pieces (map (lambda (pair)
-                            (let ((label (expect-name (● pair first) "a field label"))
-                                  (value (f d (list (w d "repr") (● pair second)))))
-                              (if (● case enum?) (list (repr-text d " ") value)
-                                  (list (repr-text d (string-append " (" label " "))
-                                        value
-                                        (repr-text d ")")))))
-                          (zip (● case fields) fields))))
-        (f d (list (f d (Cons (● case name) fields))
-                   (f d (list (w d "string-concatenate")
-                              (f d
-                                 (Cons (w d "list")
-                                       (Cons open
-                                             (append (concatenate pieces)
-                                                     (list (repr-text d ")"))))))))))))
-
-    (define (repr-text (d Deriver) (text String)) (→ Syntax)
-      (Atom (DString text) (● d loc)))
-
-    ;; Each case writes its TypeId, then its fields in order.
-
-    (define (serialize-instance (cx Context)
-                                (head Syntax)
-                                (cases (List DerivingCase))
-                                (loc Loc))
-      (→ (Pair Syntax Context))
-      (! fs compile generator)
-      (threading cx ((scope (deriving-scope loc)))
-                 (let* ((d (new Deriver (scope scope) (loc loc)))
-                        (value (w d "value"))
-                        (encoder (w d "encoder")))
-                   (new Pair (first (f d (append (instance-head d "Serialize" head)
-                                                 (list
-                                                  (derived-method d "encode" (list value encoder)
-                                                                  (f d (Cons (w d "match")
-                                                                             (Cons value
-                                                                                   (map
-                                                                                    (lambda (case)
-                                                                                      (serialize-case
-                                                                                       d
-                                                                                       case
-                                                                                       encoder))
-                                                                                    cases)))))))))
-                        (second cx)))))
-
-    (define (serialize-case (d Deriver) (case DerivingCase) (encoder Syntax)) (→ Syntax)
-      (let ((fields (field-idents d (length (● case fields)))))
-        (f d (Cons (f d (Cons (● case name) fields))
-                   (Cons (f d
-                            (list (w d "encode-case-id")
-                                  encoder
-                                  (f d (list (w d "case-id") (● case name)))))
-                         (append
-                          (map (lambda (field) (f d (list (w d "encode") field encoder))) fields)
-                          (list (f d (list (w d "unit"))))))))))
-
-    ;; The TypeId read selects the case; an unknown one is a schema mismatch.
-
-    (define (deserialize-instance (cx Context)
-                                  (head Syntax)
-                                  (cases (List DerivingCase))
-                                  (loc Loc))
-      (→ (Pair Syntax Context))
-      (! fs compile generator)
-      (threading cx ((scope (deriving-scope loc)))
-                 (let* ((d (new Deriver (scope scope) (loc loc)))
-                        (decoder (w d "decoder"))
-                        (id (w d "id")))
-                   (new Pair (first (f d (append (instance-head d "Deserialize" head)
-                                                 (list
-                                                  (derived-method d "decode" (list decoder)
-                                                                  (f d
-                                                                     (list (w d "let")
-                                                                           (f d
-                                                                              (list (f d
-                                                                                       (list id
-                                                                                             (f d
-                                                                                                (list
-                                                                                                 (w
-                                                                                                  d
-                                                                                                  "decode-case-id")
-                                                                                                 decoder))))))
-                                                                           (fold-right
-                                                                            (lambda (case otherwise)
-                                                                              (f d (list (w d "if")
-                                                                                         (f d
-                                                                                            (list
-                                                                                             (w d
-                                                                                                "case-id=?")
-                                                                                             id
-                                                                                             (f d
-                                                                                                (list
-                                                                                                 (w
-                                                                                                  d
-                                                                                                  "case-id")
-                                                                                                 (●
-                                                                                                  case
-                                                                                                  name)))))
-                                                                                         (deserialize-case
-                                                                                          d
-                                                                                          case
-                                                                                          decoder)
-                                                                                         otherwise)))
-                                                                            (f d
-                                                                               (list (w d "panic")
-                                                                                     (Atom
-                                                                                      (DString
-                                                                                       "wire data has a different schema")
-                                                                                      loc)))
-                                                                            cases))))))))
-                        (second cx)))))
-
-    (define (deserialize-case (d Deriver) (case DerivingCase) (decoder Syntax)) (→ Syntax)
-      (let ((fields (field-idents d (length (● case fields)))))
-        (fold-right (lambda (field body)
-                      (f d
-                         (list (w d "let")
-                               (f d (list (f d (list field (f d (list (w d "decode") decoder))))))
-                               body)))
-                    (if (● case enum?) (f d (Cons (● case name) fields))
-                        (f d (Cons (w d "new")
-                                   (Cons (● case name)
-                                         (map (lambda (pair)
-                                                (f d (list (● pair first) (● pair second))))
-                                              (zip (● case fields) fields)))))) fields)))
+    (define (derived-field (d Deriver) (index I64) (label Syntax)) (→ Syntax) (! compile)
+      (Form (list (marked d (string-append "field" (i64->string index)))
+                  label
+                  (Atom (DString (expect-name label "a field label")) (● d loc)))
+            (● d loc)))
 
     ;; ---- Patterns ----
 

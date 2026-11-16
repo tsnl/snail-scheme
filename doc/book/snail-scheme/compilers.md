@@ -77,8 +77,11 @@ an ordinary accessor operation. Nested fields follow object references;
 there is no inline-layout path to reconstruct. `set!` writes the resolved
 field.
 
-Expansion generates constructors, field operations and requested derived
-instances. Their bodies and evidence then go through ordinary checking.
+Expansion generates constructors and field operations. A derived instance
+is a use of a `syntax-rules` macro that the class's library defines beside
+the class, `derive-serialize` in `(snail shell wire)` for one; the expander
+writes only that use, from the declaration's head, cases and field labels.
+Every body and its evidence then go through ordinary checking.
 A script's top-level expressions are its entry, in order; a library's top
 level has none, and a producer recipe gets an explicit entry function.
 

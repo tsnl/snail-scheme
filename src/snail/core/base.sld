@@ -27,7 +27,7 @@
    i32->f32 f32->i32
    f32->bits bits->f32 f64->bits bits->f64
    Show show i64->string string->i64 f64->string
-   Repr repr
+   Repr repr derive-repr
    Option Some None Result Ok Err Pair Never absurd
    List
    Cons
@@ -1124,6 +1124,34 @@
     ;; including quotes and escapes; displaying a value still uses Show.
     (typeclass (Repr T)
       (declare (repr (value T)) (→ String)))
+
+    ;; `(deriving Repr)` on a record or an enum is a use of this macro, in
+    ;; the form the expander's "Deriving" section describes. A record is
+    ;; written as its construction, an enum's case as its call.
+
+    (define-syntax derive-repr
+      (syntax-rules (record enum)
+        ((_ record (name param ...) (case text (field label label-text) ...))
+         (instance (Repr (name param ...))
+           (⊨ (Repr param) ...)
+           (define repr
+             (lambda (value)
+               (match value
+                 ((case field ...)
+                  (string-concatenate
+                   (list "(new "
+                         text
+                         (string-append " (" label-text " " (repr field) ")") ...
+                         ")"))))))))
+        ((_ enum (name param ...) (case text (field label label-text) ...) ...)
+         (instance (Repr (name param ...))
+           (⊨ (Repr param) ...)
+           (define repr
+             (lambda (value)
+               (match value
+                 ((case field ...)
+                  (string-concatenate
+                   (list "(" text (string-append " " (repr field)) ... ")"))) ...)))))))
 
     (instance (Repr I64)
       (define (repr (value I64)) (→ String)
