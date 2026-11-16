@@ -9,6 +9,8 @@
 // their version; their style (opacity, or a revealed disc) is a uniform set
 // every frame.
 
+import {pageDevice} from './gpu.mjs';
+
 const shaderSource = `
 struct Globals { viewProjection: mat4x4f, light: vec4f, params: vec4f, eye: vec4f, forward: vec4f }
 struct Style { opacity: f32, centerX: f32, centerZ: f32, radius: f32 }
@@ -296,13 +298,7 @@ function clearColor(color) {
 // ---- Renderer ----
 
 export async function createRenderer(canvas, pictures) {
-  if (!navigator.gpu) throw new Error('this browser does not support WebGPU');
-  const adapter = await navigator.gpu.requestAdapter();
-  const device = await adapter.requestDevice();
-  device.addEventListener('uncapturederror', event => console.error('WebGPU:', event.error.message));
-  const context = canvas.getContext('webgpu');
-  const format = navigator.gpu.getPreferredCanvasFormat();
-  context.configure({device, format, alphaMode: 'opaque'});
+  const {device, context, format} = await pageDevice(canvas);
   const pipelines = createPipelines(device, format), geometry = uploadMeshes(device);
   const globals = device.createBuffer({size: 128, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
   const globalGroup = device.createBindGroup({layout: pipelines.layouts.globals, entries: [{binding: 0, resource: {buffer: globals}}]});

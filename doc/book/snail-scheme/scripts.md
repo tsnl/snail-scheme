@@ -138,6 +138,7 @@ A page adds itself:
 | --- | --- |
 | `events`, `storage` | `(snail shell page)` |
 | `screen` | `(snail shell app)` |
+| `gpu` | `(snail shell gpu)` |
 | `dom` | `(snail shell dom)` |
 | `fetch` | `(snail shell fetch)` |
 

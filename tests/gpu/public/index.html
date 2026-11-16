@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>gpu</title>
+<link rel="stylesheet" href="./style.css">
+<body>
+  <canvas id="view" aria-label="WebGPU test"></canvas>
+  <div id="overlay"></div>
+  <script type="module">
+    // What the program prints, and what WebGPU reports, kept for the test.
+    window.lines = [];
+    for (const level of ['log', 'error', 'warn']) {
+      const original = console[level];
+      console[level] = (...args) => { lines.push(`${level}: ${args.join(' ')}`); original(...args); };
+    }
+    const {startApplication} = await import('./host.mjs');
+    startApplication({canvas: document.getElementById('view'), overlay: document.getElementById('overlay'), storageKey: 'gpu-test'})
+      .then(() => { document.body.dataset.ready = 'true'; })
+      .catch(error => { document.body.dataset.error = error.message; });
+  </script>
+</body>
+</html>

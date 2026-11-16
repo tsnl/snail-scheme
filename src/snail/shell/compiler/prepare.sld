@@ -355,7 +355,7 @@
            (match (● expr type)
              ((TFun _ (TFun params _ _) _)
               (for-each (lambda (type) (check-cache-key type (● expr loc))) params))
-             (_ (compile-error (● expr loc) "cache requires an ordinary Fn function")))))
+             (_ (panic "internal error: checking refuses a cache of an unknown signature")))))
         (_ (unit))))
 
     (define (check-cache-key (type Type) (loc Loc)) (→ Unit) (! compile)
