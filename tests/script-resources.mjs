@@ -3,11 +3,13 @@
 //   node tests/script-resources.mjs ROOT
 //
 // A library links two files beside its source. A script built for node and
-// for the browser each copy them to store/sha256/AB/DIGEST beside the
-// program's module, debug or release; the program prints the bytes of
-// one, read in a task, natively and through the browser host's loader
-// fetching the page's files over HTTP, which never fetches the file the
-// program does not read.
+// for the browser each place them in the workspace's store,
+// build/.snail-store, and name them at store/sha256/AB/DIGEST beside the
+// program's module, debug or release, as hard links: every script's builds
+// share one copy, and each output still holds its files. The program
+// prints the bytes of one, read in a task, natively and through the
+// browser host's loader fetching the page's files over HTTP, which never
+// fetches the file the program does not read.
 import assert from 'node:assert/strict';
 import {execFile} from 'node:child_process';
 import {createHash} from 'node:crypto';
@@ -73,16 +75,21 @@ try {
   assert.deepEqual(await resource(output, hero), hero, 'the node build places the file');
   assert.deepEqual(await resource(output, villain), villain);
   assert.equal((await run(join(output, 'main.wasm'))).stdout, '1,2,3,255\n', 'the native host reads it when the task asks');
-  // A build takes the files its script's published build already holds
-  // as other names for them, so a bulky file is on disk once however
-  // often the script is built, and each generation still holds its own.
-  const first = await realpath(output), inode = async directory => (await stat(join(directory, objectPath(digest(hero))))).ino;
+  // The workspace's store holds each file once, and every build names it
+  // from there: a rebuild, a release build and another script's build all
+  // share the one copy, and each output still holds its files without it.
+  const shared = join(project, 'build/.snail-store'), inode = async directory => (await stat(join(directory, objectPath(digest(hero))))).ino;
+  const stored = (await stat(join(shared, objectPath(digest(hero)).replace(/^store\//, '')))).ino;
+  assert.equal(await inode(output), stored, 'a build names the store\'s object');
+  const first = await realpath(output);
   await build('cli', '--release');
   assert.notEqual(await realpath(output), first);
-  assert.deepEqual(await resource(output, hero), hero, 'a release build places it too');
-  assert.equal(await inode(output), await inode(first), 'as another name for the one the last build placed');
-  await rm(first, {recursive: true});
-  assert.deepEqual(await resource(output, hero), hero, 'which outlives that build');
+  assert.equal(await inode(output), stored, 'a release build names it too');
+  await write('tools/other.scm', await readFile(join(project, 'main.scm')));
+  await execute(join(root, 'snail-scheme'), ['build', '--target', 'node', 'tools/other.scm'], {cwd: project});
+  assert.equal(await inode(join(project, 'build/tools/other')), stored, 'as another script\'s build does');
+  await rm(shared, {recursive: true});
+  assert.deepEqual(await resource(output, hero), hero, 'and an output outlives the store');
   assert.equal((await run(join(output, 'main.wasm'))).stdout, '1,2,3,255\n', 'beside its optimized module');
 
   await build('page');

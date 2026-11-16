@@ -174,8 +174,9 @@ That path cannot collide, and it is stable, which is what future caching needs.
 
 Every build is fully linked: the whole program compiled as one module and
 fused with the runtime, `main.wasm`, with the files it links under
-`store/sha256/ab/abcdef…`, each named for the SHA-256 of its bytes and
-shared, as a hard link, with the build it replaces.
+`store/sha256/ab/abcdef…`, each named for the SHA-256 of its bytes. Each
+is a hard link to the one copy in the workspace's store,
+`build/.snail-store`, which every build of every script shares.
 Node, `build/snail run-wasm` and a page each run it directly. The output
 folder can be served or run as it is, as `python3 -m http.server
 --directory build/src/apps/siegework/main` serves a browser program.
@@ -183,8 +184,8 @@ folder can be served or run as it is, as `python3 -m http.server
 A release build, `--release`, also optimizes the module with Binaryen's
 `wasm-opt -O2`, which can inline the runtime's functions into the program.
 That is the modes' one difference: a debug build was once a module per
-library with a manifest and a workspace store, kept for relinking a running
-page, and went when reload did.
+library with a manifest, kept for relinking a running page, and went when
+reload did.
 
 ## Linked files
 

@@ -447,9 +447,7 @@
            (let ((linked (string-append working "/linked.wasm")))
              (write-bytes linked (linked-program builder program))
              (optimize linked output))))
-        (place-links directory
-                     (Some (string-append (● builder workspace) "/build/" (● target name) "/store"))
-                     (● program links))))
+        (place-links builder directory (● program links))))
 
     ;; `work` in a directory of its own in the build's scratch, removed after.
 
@@ -542,47 +540,48 @@
 
     ;; ---- Linked files ----
 
-    ;; A file the program links is an object of store/ beside its module,
-    ;; at sha256/AB/DIGEST: named for the SHA-256 of its bytes and sharded
-    ;; by its first two hex digits, where each host reads it by its digest.
-    ;; `published` is the store of the build this one replaces, if it has
-    ;; one: an object it holds is the same bytes, so the new generation
-    ;; takes another name for it and copies nothing. A program's bulky
-    ;; files are then on disk once, however often it is built, and each
-    ;; generation still holds its own, whichever is deleted.
+    ;; A file a program links is an object: named for the SHA-256 of its
+    ;; bytes, at sha256/AB/DIGEST, sharded by its first two hex digits. The
+    ;; workspace keeps one store of them, build/.snail-store, which every
+    ;; build of every script shares: an object is placed once and never
+    ;; rewritten. A program reads its files from store/ beside its module,
+    ;; where each is another name for the store's object, a hard link: a
+    ;; program's bulky files are on disk once, and its directory still holds
+    ;; them itself, to be served or shipped on its own. Nothing reclaims the
+    ;; store; deleting build/ does.
+
+    (define (workspace-store (builder Builder)) (→ String)
+      (string-append (● builder workspace) "/build/.snail-store"))
 
     (define (object-path (store String) (digest String)) (→ String)
       (string-append store "/sha256/" (substring digest 0 2) "/" digest))
 
-    (define (place-links (directory String) (published (Option String)) (links (List LinkedFile)))
+    ;; The files `links` names, in the workspace's store and under
+    ;; `directory`'s store/: a program's generation, or a producer's scratch.
+
+    (define (place-links (builder Builder) (directory String) (links (List LinkedFile)))
       (→ Unit)
       (! fs building)
       (for-each (lambda (link)
-                  (let ((to (object-path (string-append directory "/store") (● link digest))))
+                  (let ((object (object-path (workspace-store builder) (● link digest)))
+                        (to (object-path (string-append directory "/store") (● link digest))))
+                    (unless (kind-is? object (RegularFile))
+                      (place-object link object (base-name directory)))
                     (expect-done (make-directories (directory-part to))
                                  (string-append "cannot make " to))
-                    (unless (reused? published (● link digest) to)
-                      (copy-link link to))))
+                    (name-object object to)))
                 (delete-duplicates (lambda (a b) (string=? (● a digest) (● b digest))) links)))
-
-    ;; Where the two lie on different file systems, or the published build
-    ;; has no such object, the file is copied.
-
-    (define (reused? (published (Option String)) (digest String) (to String)) (→ Bool) (! fs)
-      (match published
-        ((Some store)
-         (match (make-hard-link (object-path store digest) to)
-           ((Ok _) #t)
-           ((Err _) #f)))
-        ((None) #f)))
 
     ;; A file is named for the digest of the bytes its compile read, so the
     ;; bytes placed must be those: a file edited since fails the build, and
     ;; the next one compiles against its new bytes. A link to a file is
-    ;; read through, as the compile read it.
+    ;; read through, as the compile read it. The object is written beside
+    ;; its place, under a name this build alone writes, and renamed into it,
+    ;; so a reader never sees a partial object, and two builds placing one
+    ;; object at once each rename the same bytes.
 
-    (define (copy-link (link LinkedFile) (to String)) (→ Unit) (! fs building)
-      (let ((from (● link path)))
+    (define (place-object (link LinkedFile) (object String) (token String)) (→ Unit) (! fs building)
+      (let ((from (● link path)) (writing (string-append object ".writing." token)))
         (unless (match (followed-status from)
                   ((Ok status) (match (● status kind) ((RegularFile) #t) (_ #f)))
                   ((Err _) #f))
@@ -591,7 +590,18 @@
         (let ((bytes (read-bytes from)))
           (unless (string=? (bytes->hex (sha256 bytes)) (● link digest))
             (fail-build (string-append "the linked file " from " changed during the build")))
-          (write-bytes to bytes))))
+          (expect-done (make-directories (directory-part object))
+                       (string-append "cannot make " object))
+          (write-bytes writing bytes)
+          (expect-done (rename-file writing object) (string-append "cannot place " object)))))
+
+    ;; Another name for the store's object, or a copy of it where the two
+    ;; lie on different file systems.
+
+    (define (name-object (object String) (to String)) (→ Unit) (! fs building)
+      (match (make-hard-link object to)
+        ((Ok _) (unit))
+        ((Err _) (copy-into object to (string-append "cannot copy " object)))))
 
     ;; Runs a command to its end, and stops the build with what it wrote to
     ;; stderr unless it exits with status 0.
@@ -645,8 +655,8 @@
       (→ Unit)
       (! mut fs process building)
       (let ((program (string-append working "/" key ".wasm")))
-        (place-links working
-                     (None)
+        (place-links builder
+                     working
                      (link-program builder
                                    (string-append working "/" key ".sld")
                                    directories

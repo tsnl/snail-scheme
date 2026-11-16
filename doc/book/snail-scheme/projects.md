@@ -27,14 +27,18 @@ A script's build produces one directory at `WORKSPACE/build/PATH`, PATH
 being the script's path in its workspace without its extension. It holds
 one module, `NAME.wasm`, NAME being the script's file name without its
 extension: the whole program compiled as one and fused with its runtime.
-Each file the program links ([linked files](types.md#linked-files)) is
-copied into `store/` beside it, at `store/sha256/AB/DIGEST`, named for the
-SHA-256 of its bytes and sharded by its first two hex digits, so the
-directory can be served or shipped on its own. A file the script's
-published build already holds is not copied again: the new generation takes
-another name for it, a hard link, so a program's bulky files are on disk
-once however often it is built, and each generation still holds its own
-when another is deleted. Node and
+
+Each file the program links ([linked files](types.md#linked-files)) is an
+object of the workspace's store,
+`WORKSPACE/build/.snail-store/sha256/AB/DIGEST`, named for the SHA-256 of
+its bytes and sharded by its first two hex digits. Every build of every
+script shares the store: an object is written once and never rewritten.
+The program reads its files from `store/` beside its module, at the same
+paths, where each is another name for the store's object, a hard link (a
+copy where the two lie on different file systems). A program's bulky files
+are then on disk once, and its directory still holds them itself, so it
+can be served or shipped on its own. Nothing reclaims the store: delete
+`build/` and rebuild from time to time. Node and
 `build/snail run-wasm` run the module directly, and a page through
 `linkModule` in `load.mjs`.
 

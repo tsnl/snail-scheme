@@ -9,8 +9,8 @@ workspace is the nearest folder above it that holds src/, where every
 import resolves. The output, build/PATH in the workspace, where PATH is
 FILE's path there without its extension, is a link to a completed
 generation: one module, NAME.wasm, the program linked with its runtime,
-and copies of the files it links under store/. With --release the module
-is also optimized by wasm-opt.
+and the files it links under store/, shared with every other build through
+build/.snail-store. With --release the module is also optimized by wasm-opt.
 A browser build adds the browser host and the public/ folder beside FILE.
 
 run builds FILE as build does, then becomes its program in the current
