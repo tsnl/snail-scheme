@@ -63,6 +63,7 @@ assert.throws(() => api['inspect-bytes'](new Uint8Array(4)), TypeError);
 number = -1;
 assert.equal(api['result-number'](api.managed()), -1);
 assert.equal(api.value(api.inferred(checkpoint, 43n)), 43n, 'a concrete inferred export retains its effects');
+assert.equal(api.later(41n), 42n, "an exposed library function runs under the target's handlers");
 console.log('host boundary: opaque values, typed managed results and staged bytes');
 
 // The imports of the capabilities the target installs and this test leaves

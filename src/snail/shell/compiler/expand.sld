@@ -872,7 +872,9 @@
                    (reverse (filter exposure? (● cx items))))))
 
     ;; `(define (exposed argument ...) (provide (lambda () (f argument ...))))`,
-    ;; under a name no source can write, exposed in f's place.
+    ;; under a name no source can write, exposed in f's place. The wrapper
+    ;; is the program's, whatever library f is from, and its name says so:
+    ;; a name's prefix is the module that holds it.
     (define (with-exposure (cx Context) (provide String) (item Item)) (→ Context)
       (match item
         ((Expose name symbol loc)
@@ -882,7 +884,7 @@
                        (let* ((var (lambda (name) (expr (Var name (Nil) (Nil)) loc)))
                               (call (expr (App (var name) (map var params)) loc))
                               (body (App (var provide) (list (expr (Lambda (Nil) call) loc))))
-                              (exposed (string-append name " exposed")))
+                              (exposed (string-append (● cx prefix) ":" name " exposed")))
                          (add-item (add-item (add-value cx exposed (Defined (None) (None)))
                                              (Define exposed (expr (Lambda params (expr body loc))
                                                                    loc)))
