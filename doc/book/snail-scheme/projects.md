@@ -31,7 +31,7 @@ python3 -m http.server 4191 --directory build/siegework
 
 `snail-scheme` uses one root `project.datum` for the whole repository. Its
 `siegework` and `hearsay` targets name entries, library roots and public files
-under `apps/`. An editor opening the root runs `snail-scheme lsp`
+under `src/apps/`. An editor opening the root runs `snail-scheme lsp`
 over the same project ([editors](toolchain.md#editors)). Each application's
 output is under `build/TARGET`; application directories have no separate project
 description. Test fixtures retain their own projects.

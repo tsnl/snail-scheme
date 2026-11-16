@@ -1,8 +1,8 @@
 (import
  (snail core base)
- (siegework world)
- (siegework colony)
- (siegework simulation))
+ (apps siegework world)
+ (apps siegework colony)
+ (apps siegework simulation))
 
 ;; The same deterministic simulation on both revisions, without rendering,
 ;; host events or engine startup in the timed region.

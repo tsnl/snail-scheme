@@ -301,9 +301,10 @@ Each step is a pull request that passes every check on its own.
    page's `load.mjs` links such a module with `linkModule`, and producers
    share the linking. Siegework's release module is 190 KB.
 7. **Applications become scripts.**
+   - Siegework and Hearsay move to `src/apps/NAME/`: done. Their libraries
+     are `(apps NAME ...)` and their tests are in `tests/NAME/`.
    - Prototype the page's top level as a task.
-   - Move Siegework and Hearsay to `src/apps/NAME/main.scm`, with a winit-style
-     helper.
+   - Each becomes `src/apps/NAME/main.scm`, with a winit-style helper.
    - Remove the `Application` class.
 8. **Embedding, then no project file.**
    - Producers call the compiler, and `link-file` is loosened.

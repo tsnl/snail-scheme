@@ -20,7 +20,7 @@ A [project](projects.md) selects an exported concrete type, including an alias:
 ```scheme
 ((build-target site
    (browser
-    (entry ((siegework application) Siegework))
+    (entry ((apps siegework application) Siegework))
     (library-roots ("src"))
     (public "public"))))
 ```
@@ -115,9 +115,9 @@ by key, so hover and focus survive updates, and reports presses and hovering
 back as input. `recognize` turns raw pointer events into points, taps, drags
 and pinches.
 
-[Siegework](https://github.com/tsnl/snail-scheme/tree/main/apps/siegework)
+[Siegework](https://github.com/tsnl/snail-scheme/tree/main/src/apps/siegework)
 is the complete example, and
-[Hearsay](https://github.com/tsnl/snail-scheme/tree/main/apps/hearsay)'s
+[Hearsay](https://github.com/tsnl/snail-scheme/tree/main/src/apps/hearsay)'s
 prototypes draw their residents as LPC characters on a 2D map.
 
 ## Document interfaces

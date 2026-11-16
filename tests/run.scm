@@ -133,7 +133,7 @@
 (define (check-siegework root)
   (let ((result (capture-process (list "node"
                                        "--no-warnings"
-                                       (path-join root "apps/siegework/tests/headless.mjs")
+                                       (path-join root "tests/siegework/headless.mjs")
                                        root))))
     (or (zero? (caddr result))
         (report "siegework" "headless run failed" (string-append (car result) (cadr result))))))
@@ -711,8 +711,8 @@
                                    '("tests/programs" "tests/programs/lib")
                                    selected)
                         (run-suite root "tests/projects" '("src") selected)
-                        (run-suite root "apps/siegework/tests" '("apps/siegework/src") selected)
-                        (run-suite root "apps/hearsay/tests" '("apps/hearsay/src") selected)
+                        (run-suite root "tests/siegework" '("src") selected)
+                        (run-suite root "tests/hearsay" '("src") selected)
                         ;; Comparing V8 with wasmtime needs the native executable, built
                         ;; only when SNAIL_ENGINE=wasmtime selects it (make test-wasmtime).
                         (if (and (null? selected) (wasmtime-engine?))
