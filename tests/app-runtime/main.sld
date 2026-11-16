@@ -1,7 +1,7 @@
 ;; A scene run by the page's host as a script is: main runs the scene under
 ;; (snail target browser)'s handlers, as the scheduler's first task, beside
 ;; a sleeping child. The HUD shows the count, which tells the check what
-;; the scene's state is.
+;; the scene's state is, and the buttons the check clicks.
 (import
  (snail core base)
  (only (snail core forms) host)
@@ -14,17 +14,28 @@
   ((marker (Fn → I32))))
 
 (record Counter
-  ((count I64)))
+  ((count I64)
+   (hovered I32)
+   (leaving? Bool)))
+
+(define (counting (count I64)) (→ Counter)
+  (new Counter (count count) (hovered 0) (leaving? #t)))
 
 (record Save
   ((count I64))
   (deriving Serialize Deserialize))
 
-;; Press 1 counts and Press 2 traps.
+;; A key or Press 1 counts, Press 2 traps, and Press 3 removes its own
+;; button; the HUD shows the action of the button under the pointer.
 (define (step (counter Counter) (input Input)) (→ Counter)
   (match input
-    ((Press 1 _) (new Counter (count (+ (● counter count) 1))))
+    ((KeyDown _ _) (counting (+ (● counter count) 1)))
+    ((Press 1 _) (counting (+ (● counter count) 1)))
     ((Press 2 _) (panic "a deliberate update trap"))
+    ((Press 3 _)
+     (new Counter (count (● counter count)) (hovered (● counter hovered)) (leaving? #f)))
+    ((Hover action _)
+     (new Counter (count (● counter count)) (hovered action) (leaving? (● counter leaving?))))
     (_ counter)))
 
 (define (draw (counter Counter)) (→ Frame)
@@ -41,16 +52,20 @@
 
 (define (panels (counter Counter)) (→ (List Panel))
   (list (new Panel (key "counter") (place (At (TopLeft) 0))
-             (widgets (list (label "count" (i64->string (● counter count))))))))
+             (widgets (append (list (label "count" (i64->string (● counter count)))
+                                    (label "hovered" (show (● counter hovered)))
+                                    (button "add" "Add" 1)
+                                    (button "trap" "Trap" 2))
+                              (if (● counter leaving?) (list (button "leave" "Leave" 3)) (Nil)))))))
 
 (define (counter) (→ (SceneHandler Counter))
   (new SceneHandler
-    (initialize (lambda (seed width height) (new Counter (count 0))))
+    (initialize (lambda (seed width height) (counting 0)))
     (update step)
     (view draw)
     (hud panels)
     (save (lambda (counter) (serialize (new Save (count (● counter count))))))
-    (restore (lambda (bytes) (new Counter (count (● (ann (deserialize bytes) Save) count)))))))
+    (restore (lambda (bytes) (counting (● (ann (deserialize bytes) Save) count))))))
 
 (define (main) (→ Unit) (! mut host screen events storage tasks)
   (handle Marker

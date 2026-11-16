@@ -2,7 +2,7 @@
 // application sends as bytes. Sources are decoded once by key; a picture is
 // composed on a canvas once all its sources have decoded, and kept until the
 // application sends another version. The renderer uploads a composed
-// picture as a texture, and the HUD draws regions of it on canvases.
+// picture as a texture, and the HUD's images show one by its address.
 
 // ---- Sources ----
 
@@ -33,7 +33,7 @@ function recolored(bitmap, layer) {
 // ---- Pictures ----
 
 export function createPictures() {
-  const sources = new Map(), pictures = new Map(), listeners = new Map();
+  const sources = new Map(), pictures = new Map();
 
   // Draws each layer once every source it needs has decoded. A newer
   // version arriving meanwhile wins: the older composition is dropped.
@@ -49,7 +49,15 @@ export function createPictures() {
       context.drawImage(image, fx, fy, layer.fw, layer.fh, layer.x, layer.y, layer.fw, layer.fh);
     });
     picture.canvas = canvas;
-    for (const listener of listeners.get(picture.key) ?? []) listener(picture);
+  }
+
+  // The composed picture as a file an image element can show. A version
+  // that is no longer the picture's keeps the address it had.
+  async function encode(picture) {
+    const blob = await picture.canvas.convertToBlob();
+    if (pictures.get(picture.key) !== picture) return;
+    URL.revokeObjectURL(picture.url);
+    picture.url = URL.createObjectURL(blob);
   }
 
   return {
@@ -57,7 +65,8 @@ export function createPictures() {
     hasSource(key) { return sources.has(key); },
     // Starts a picture; its layers follow, then `finish`.
     define(key, version, width, height) {
-      const picture = {key, version, width, height, layers: [], canvas: null};
+      const picture = {key, version, width, height, layers: [], canvas: null, encoding: null,
+                       url: pictures.get(key)?.url ?? ''};
       pictures.set(key, picture);
       return picture;
     },
@@ -75,14 +84,13 @@ export function createPictures() {
       sources.clear();
       for (const picture of pictures.values()) picture.version = null;
     },
-    // Calls `listener` whenever the picture under `key` is composed, until
-    // the function this returns is called. Until then the store keeps the
-    // listener and whatever it draws on, so a watcher that goes away must
-    // call it, as the HUD does for an image that leaves.
-    watch(key, listener) {
-      if (!listeners.has(key)) listeners.set(key, new Set());
-      listeners.get(key).add(listener);
-      return () => listeners.get(key).delete(listener);
+    // The address of the picture for an image element, or '' until it has
+    // one. A version is encoded when first asked for, and the version
+    // before it stays shown until then.
+    url(key) {
+      const picture = pictures.get(key);
+      if (picture?.canvas) picture.encoding ??= encode(picture).catch(error => console.error(`picture ${key}:`, error.message));
+      return picture?.url ?? '';
     },
   };
 }

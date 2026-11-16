@@ -78,9 +78,15 @@ sheet, and `src/lpc` uses it for the Liberated Pixel Cup character art.
 HUD panels, built from widgets such as those `label` and `button` make,
 stack in columns from the screen's corners, appear as dialogs, or sit in a
 banner across the top that lets input through but for its links. A widget's
-tone can mark it suggested, the control to use next. The host keeps elements
-by key, so hover and focus survive updates, and reports presses and hovering
-back as input. `recognize` turns raw pointer events into points, taps, drags
+tone can mark it suggested, the control to use next. The HUD is a tree in
+the page's document: the scene's loop builds it as `(snail shell ui)`'s
+`Html` and changes the document through the `dom` effect only where the tree
+differs from the one before, so an element keeps its node while its key
+stays, and with it hover and focus. A button's listeners make the presses
+and hovering the scene's `update` takes as input; a button removed while the
+pointer is over it reports the pointer gone. An image shows a region of a
+picture the host has composed, by the address `screen`'s `picture-url`
+answers. `recognize` turns raw pointer events into points, taps, drags
 and pinches.
 
 [Siegework](https://github.com/tsnl/snail-scheme/tree/main/src/apps/siegework)
@@ -269,8 +275,9 @@ and canvas dimensions are available to all tasks.
 
 `host/browser/runtime.mjs` owns a run's queue and storage bindings;
 `application.mjs` owns loading and the start without an unreadable save.
-`host.mjs` retains the scene devices, while `ui.mjs` resets the document and
-fetch devices for each run. DOM listeners enqueue input rather than calling
+`host.mjs` retains the scene devices and gives the HUD the page's overlay as
+its document, while `ui.mjs` resets the document and fetch devices for each
+run. DOM listeners enqueue input rather than calling
 Wasm. Consecutive moves for the same pointer and consecutive resizes coalesce
 without crossing other input. Consuming a pending frame requests the next
 animation frame, so slow work does not accumulate ticks. HUD values update at

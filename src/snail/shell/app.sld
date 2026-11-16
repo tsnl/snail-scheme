@@ -12,8 +12,9 @@
 ;; Its loop draws each event's state; (snail shell page) owns boot,
 ;; restore and durable saves for both browser engines.
 ;; Time is input, so the state decides how its simulation advances. The
-;; host draws a Frame through `screen` and updates HUD values after each
-;; input (after time, at most ten times a second). A durable save may be
+;; host draws a Frame through `screen`; the HUD is a tree in the page's
+;; document, changed through `dom` where it differs after each input
+;; (after time, at most ten times a second). A durable save may be
 ;; much smaller than the state: a record of how to rebuild it.
 ;;
 ;; Scenes are 3D. Meshes and sprites are both items, drawn by one shader in
@@ -143,6 +144,7 @@
    Event
    FrameEvent
    InputEvent
+   HudEvent
    Hidden
    SaveRequested
    events
@@ -158,7 +160,11 @@
    (prefix (snail runtime browser screen) host-)
    (snail shell task)
    (snail shell math)
-   (snail shell page))
+   (snail shell page)
+   (only (snail core table) table-ref table-contains?)
+   (only (snail shell dom) dom document-root no-event Allow)
+   (only (snail shell dom page) with-page-dom)
+   (prefix (snail shell ui) ui:))
   (begin
 
     ;; ---- Input ----
@@ -197,7 +203,8 @@
 
     (define (key-space) (→ I32) 32)
 
-    ;; The kinds match the input encoding in host/browser/host.mjs.
+    ;; The kinds match the input encoding in host/browser/host.mjs. A press
+    ;; or hover is no kind: a HUD listener's function makes it.
 
     (define (decode-input (kind I32) (a I32) (b I32) (c I32) (d I32)) (→ Input)
       (case kind
@@ -209,8 +216,6 @@
         ((6) (PointerCancel a))
         ((7) (Wheel a))
         ((8) (Resize a b))
-        ((9) (Press a b))
-        ((10) (Hover a b))
         (else (Elapsed a))))
 
     ;; ---- Gestures ----
@@ -668,13 +673,7 @@
        (instance (Fn I32 F32 F32 F32 F32 F32 F32 F32 I32 F32 F32 F32 F32 → Unit))
        (surface (Fn F32 F32 I32 I32 I32 I32 I32 I32 I32 I32 → Unit))
        (frame-end (Fn → Unit))
-       (hud-begin (Fn → Unit))
-       (panel-begin (Fn I32 I32 I32 I32 → Unit))
-       (widget-begin (Fn I32 I32 I32 I32 I32 F32 → Unit))
-       (widget-image (Fn I32 I32 I32 I32 I32 I32 → Unit))
-       (field (Fn I32 → Unit))
-       (text-character (Fn Char → Unit))
-       (hud-end (Fn → Unit))))
+       (picture-url (Fn I32 → String))))
 
     ;; The page's canvas, through the browser host.
     (define (provide-screen (work (Fn → T ! screen e))) (→ T) (! e) (∀ (T e))
@@ -692,14 +691,15 @@
            (instance host-instance)
            (surface host-surface)
            (frame-end host-frame-end)
-           (hud-begin host-hud-begin)
-           (panel-begin host-panel-begin)
-           (widget-begin host-widget-begin)
-           (widget-image host-widget-image)
-           (field host-field)
-           (text-character host-text-character)
-           (hud-end host-hud-end))
+           (picture-url host-url))
         (work)))
+
+    ;; A string from the host crosses a scalar at a time.
+
+    (define (host-url (picture I32)) (→ String)
+      (string-generate (i32->i64 (host-picture-url picture))
+                       (lambda (index)
+                         (integer->char (i32->i64 (host-picture-url-scalar (i64->i32 index)))))))
 
     (define (render (frame Frame)) (→ Unit) (! screen)
       (frame-begin (● frame background) (● frame motion))
@@ -854,102 +854,220 @@
         ((Octahedron) 6)
         ((Quad) 7)))
 
-    ;; The HUD is sent apart from frames, only when it may have changed.
+    ;; ---- The HUD's document ----
 
-    (define (render-hud (panels (List Panel))) (→ Unit) (! screen)
-      (hud-begin)
-      (for-each render-panel panels)
-      (hud-end))
+    ;; The HUD as the trees the page's overlay holds: each corner with its
+    ;; panels in columns, the banner with its, and the dialogs with theirs
+    ;; over a backdrop that presses the last dialog's `dismiss`. The page's
+    ;; style lays them out (host/browser/style.css), and an application's
+    ;; own colors widgets by their data-key, data-icon, data-tone and
+    ;; data-badge. A panel or widget keeps its node while its key and tag
+    ;; stay, so hover and focus survive the updates; siblings' keys differ,
+    ;; as (snail shell ui) requires. A listener's function makes the input
+    ;; its event is.
 
-    ;; Places and corners match host/browser/hud.mjs.
+    (define (hud-html (panels (List Panel))) (→ (List (ui:Html Input))) (! screen)
+      (append (map (lambda (corner) (corner-html corner panels))
+                   (list "top-left" "top-right" "bottom-left" "bottom-right"))
+              (list (ui:Element "div"
+                                (list (ui:Attr "class" "banner"))
+                                (map panel-html (placed "banner" panels)))
+                    (dialogs-html (placed "dialog" panels)))))
 
-    (define (render-panel (panel Panel)) (→ Unit) (! screen)
+    ;; Where a panel goes: a corner by its class in the page's style, the
+    ;; banner or the dialogs.
+
+    (define (place-name (place Place)) (→ String)
+      (match place
+        ((At (TopLeft) _) "top-left")
+        ((At (TopRight) _) "top-right")
+        ((At (BottomLeft) _) "bottom-left")
+        ((At (BottomRight) _) "bottom-right")
+        ((Dialog _) "dialog")
+        ((Banner) "banner")))
+
+    (define (placed (name String) (panels (List Panel))) (→ (List Panel))
+      (filter (lambda (panel) (string=? (place-name (● panel place)) name)) panels))
+
+    (define (panel-column (panel Panel)) (→ I32)
       (match (● panel place)
-        ((At corner column) (panel-begin 0 (corner-index corner) column 0))
-        ((Dialog dismiss) (panel-begin 1 0 0 dismiss))
-        ((Banner) (panel-begin 2 0 0 0)))
-      (render-field 0 (● panel key))
-      (for-each render-widget (● panel widgets)))
+        ((At _ column) column)
+        (_ 0)))
 
-    (define (corner-index (corner Corner)) (→ I32)
-      (match corner
-        ((TopLeft) 0)
-        ((TopRight) 1)
-        ((BottomLeft) 2)
-        ((BottomRight) 3)))
+    ;; A corner's columns, column 0 first, each holding its panels in the
+    ;; order given.
 
-    ;; A widget's kind and numbers, then its strings, each named by a field:
-    ;; 0 key, 1 icon, 2 help, 3 badge, 4 text, 5 caption, 6 url, then each
-    ;; span of a text, 7 normal or 8 strong. Kinds, tones and controls match
-    ;; host/browser/hud.mjs, and fields host/browser/host.mjs.
+    (define (corner-html (corner String) (panels (List Panel))) (→ (ui:Html Input)) (! screen)
+      (let ((here (placed corner panels)))
+        (ui:Element "div"
+                    (list (ui:Attr "class" (string-append "corner " corner)))
+                    (map (lambda (column)
+                           (ui:Element "div"
+                                       (list (ui:Keyed (show column)) (ui:Attr "class" "column"))
+                                       (map panel-html
+                                            (filter (lambda (panel) (= (panel-column panel) column))
+                                                    here))))
+                         (list-sort < (delete-duplicates = (map panel-column here)))))))
 
-    (define (render-widget (widget Widget)) (→ Unit) (! screen)
+    (define (dialogs-html (dialogs (List Panel))) (→ (ui:Html Input)) (! screen)
+      (let ((dismiss (fold-left (lambda (dismiss panel)
+                                  (match (● panel place)
+                                    ((Dialog action) action)
+                                    (_ dismiss)))
+                                0
+                                dialogs)))
+        (ui:Element "div"
+                    (list (ui:Attr "class" (if (null? dialogs) "dialogs" "dialogs open")))
+                    (Cons (ui:Element "div"
+                                      (list (ui:Attr "class" "backdrop")
+                                            (ui:On "click"
+                                                   (Nil)
+                                                   (Allow)
+                                                   (lambda (_) (Press dismiss 0))))
+                                      (Nil))
+                          (map panel-html dialogs)))))
+
+    (define (panel-html (panel Panel)) (→ (ui:Html Input)) (! screen)
+      (ui:Element "div"
+                  (list (ui:Keyed (● panel key))
+                        (ui:Attr "class" "panel")
+                        (ui:Attr "data-key" (● panel key)))
+                  (map widget-html (● panel widgets))))
+
+    ;; ---- Widgets ----
+
+    ;; A widget is an icon the style draws and its text, a button also its
+    ;; caption; a text's words are spans, strong in places.
+
+    (define (widget-html (widget Widget)) (→ (ui:Html Input)) (! screen)
       (match widget
         ((Label face text)
-         (widget-begin 0 (tone-index (● face tone)) 0 0 0 0.0)
-         (render-look face)
-         (render-field 4 text))
+         (ui:Element "div" (faced "label" face text) (list (part "icon" "") (part "text" text))))
         ((Button face text caption action argument control ring)
-         (widget-begin 1 (tone-index (● face tone)) action argument (control-index control) ring)
-         (render-look face) (render-field 4 text) (render-field 5 caption))
+         (ui:Element "button"
+                     (append (faced "button" face text) (pressing action argument control ring))
+                     (list (part "icon" "") (part "text" text) (part "caption" caption))))
         ((Dial face text fraction)
-         (widget-begin 2 (tone-index (● face tone)) 0 0 0 fraction)
-         (render-look face)
-         (render-field 4 text))
+         (ui:Element "div"
+                     (Cons (filled fraction) (faced "dial" face text))
+                     (list (part "icon" "") (part "text" text))))
         ((Link face text url)
-         (widget-begin 3 (tone-index (● face tone)) 0 0 0 0.0)
-         (render-look face)
-         (render-field 4 text)
-         (render-field 6 url))
+         (ui:Element "a"
+                     (append (faced "link" face text)
+                             (list (ui:Attr "target" "_blank")
+                                   (ui:Attr "rel" "noopener")
+                                   (ui:Attr "href" url)))
+                     (list (part "icon" "") (part "text" text))))
         ((Text face spans)
-         (widget-begin 4 (tone-index (● face tone)) 0 0 0 0.0)
-         (render-look face)
-         (for-each render-span spans))
-        ((Image face picture region scale)
-         (widget-begin 5 (tone-index (● face tone)) 0 0 0 0.0)
-         (widget-image picture
-                       (● region x)
-                       (● region y)
-                       (● region width)
-                       (● region height)
-                       scale)
-         (render-look face))))
+         (ui:Element "div"
+                     (faced "label" face "")
+                     (list (part "icon" "")
+                           (ui:Element "span"
+                                       (list (ui:Attr "class" "text"))
+                                       (map span-html spans)))))
+        ((Image face picture region scale) (image-html face (picture-url picture) region scale))))
 
-    (define (render-span (span Span)) (→ Unit) (! screen)
-      (match span
-        ((Normal words) (render-field 7 words))
-        ((Strong words) (render-field 8 words))))
+    ;; What every widget but an image says of itself: its class, the key
+    ;; that keeps its node, its look for the page's style, and for
+    ;; assistive technology its help after its text. An attribute given ""
+    ;; is absent.
 
-    (define (render-look (face Look)) (→ Unit) (! screen)
-      (render-field 0 (● face key))
-      (render-field 1 (● face icon))
-      (render-field 2 (● face help))
-      (render-field 3 (● face badge)))
+    (define (faced (class String) (face Look) (text String)) (→ (List (ui:Attribute Input)))
+      (let ((help (● face help)))
+        (list (ui:Keyed (● face key))
+              (ui:Attr "class" class)
+              (ui:Attr "data-key" (● face key))
+              (ui:Attr "data-icon" (● face icon))
+              (ui:Attr "data-badge" (● face badge))
+              (ui:Attr "data-tone" (tone-name (● face tone)))
+              (ui:Attr "title" help)
+              (ui:Attr "aria-label"
+                       (cond ((string=? help "") "")
+                             ((string=? text "") help)
+                             (else (string-append text " " help)))))))
 
-    (define (tone-index (tone Tone)) (→ I32)
+    (define (tone-name (tone Tone)) (→ String)
       (match tone
-        ((Plain) 0)
-        ((Good) 1)
-        ((Warning) 2)
-        ((Danger) 3)
-        ((Muted) 4)
-        ((Suggested) 5)))
+        ((Plain) "plain")
+        ((Good) "good")
+        ((Warning) "warning")
+        ((Danger) "danger")
+        ((Muted) "muted")
+        ((Suggested) "suggested")))
 
-    (define (control-index (control Control)) (→ I32)
-      (match control
-        ((Enabled) 0)
-        ((Disabled) 1)
-        ((Selected) 2)))
+    ;; A part of a widget, empty when it has no text, so the style can hide
+    ;; it.
 
-    ;; Empty strings are not sent.
+    (define (part (class String) (text String)) (→ (ui:Html Input))
+      (ui:Element "span"
+                  (list (ui:Attr "class" class))
+                  (if (string=? text "") (Nil) (list (ui:Text text)))))
 
-    (define (render-field (which I32) (text String)) (→ Unit) (! screen)
-      (when (> (string-length text) 0)
-        (field which)
-        (let loop ((index 0))
-          (when (< index (string-length text))
-            (text-character (string-ref text index))
-            (loop (+ index 1))))))
+    (define (span-html (span Span)) (→ (ui:Html Input))
+      (match span
+        ((Normal words) (ui:Element "span" (Nil) (list (ui:Text words))))
+        ((Strong words) (ui:Element "strong" (Nil) (list (ui:Text words))))))
+
+    ;; A button's state, its ring, and its listeners: a click presses it,
+    ;; and the pointer entering and leaving it hover on and off it.
+
+    (define (pressing (action I32) (argument I32) (control Control) (ring F32))
+      (→ (List (ui:Attribute Input)))
+      (list (ui:FlagProperty "disabled" (match control ((Disabled) #t) (_ #f)))
+            (ui:Attr "aria-pressed" (match control ((Selected) "true") (_ "")))
+            (ui:Attr "data-ring" (if (>= ring 0.0) "true" ""))
+            (filled ring)
+            (ui:On "click" (Nil) (Allow) (lambda (_) (Press action argument)))
+            (ui:On "pointerenter" (Nil) (Allow) (lambda (_) (Hover action argument)))
+            (ui:On "pointerleave" (Nil) (Allow) (lambda (_) (Hover 0 0)))))
+
+    ;; How full a dial or ring is, for the style's gradients: a fraction
+    ;; within 0 and 1 as a percentage to a tenth.
+
+    (define (filled (fraction F32)) (→ (ui:Attribute Input))
+      (let ((tenths (f32->i32 (round (* 1000.0 (max 0.0 (min 1.0 fraction)))))))
+        (ui:Attr "style"
+                 (string-append "--fraction: "
+                                (show (quotient tenths 10))
+                                "."
+                                (show (remainder tenths 10))
+                                "%"))))
+
+    ;; An image is a window the size of its region at its scale, over the
+    ;; whole picture moved and scaled so the region fills it; the style
+    ;; keeps its texels crisp. Until the host has composed the picture, the
+    ;; window is empty.
+
+    (define (image-html (face Look) (url String) (region Rect) (scale I32)) (→ (ui:Html Input))
+      (ui:Element "div"
+                  (list (ui:Keyed (● face key))
+                        (ui:Attr "class" "image")
+                        (ui:Attr "data-key" (● face key))
+                        (ui:Attr "title" (● face help))
+                        (ui:Attr "style"
+                                 (string-append "width: "
+                                                (show (* (● region width) scale))
+                                                "px; height: "
+                                                (show (* (● region height) scale))
+                                                "px; overflow: hidden")))
+                  (if (string=? url "") (Nil) (list (picture-html url region scale)))))
+
+    (define (picture-html (url String) (region Rect) (scale I32)) (→ (ui:Html Input))
+      (ui:Element "img"
+                  (list (ui:Attr "src" url)
+                        (ui:Attr "style"
+                                 (string-append "width: "
+                                                (show (● region width))
+                                                "px; height: "
+                                                (show (● region height))
+                                                "px; object-fit: none; object-position: -"
+                                                (show (● region x))
+                                                "px -"
+                                                (show (● region y))
+                                                "px; transform-origin: 0 0; transform: scale("
+                                                (show scale)
+                                                ")")))
+                  (Nil)))
 
     ;; ---- Picking ----
 
@@ -1030,6 +1148,7 @@
     (enum Event
       (FrameEvent ((elapsed I32)))
       (InputEvent ((input Input)))
+      (HudEvent ((listener I32)))
       (Hidden)
       (SaveRequested))
 
@@ -1038,6 +1157,7 @@
         (0 (wait-event) (next-event))
         (11 (FrameEvent (event-field 0)))
         (12 (Hidden))
+        (14 (HudEvent (event-field 0)))
         (16 (SaveRequested))
         (kind (InputEvent (decode-input kind
                                         (event-field 0)
@@ -1060,40 +1180,98 @@
        (restore (Fn Bytes → S))))
 
     ;; The page's state, from its save or `initialize` with a seed and the
-    ;; canvas's size, then the scene's loop, which never returns.
+    ;; canvas's size, then the scene's loop, which never returns, over the
+    ;; page's document.
 
     (define (run-scene (scene (SceneHandler S))) (→ Unit) (! screen events storage tasks) (∀ (S))
       (run-page (lambda ()
                   ((● scene initialize) (random-seed) (canvas-width) (canvas-height)))
                 (● scene save)
                 (● scene restore)
-                (lambda (state save) (scene-loop scene save state 0))))
+                (lambda (state save)
+                  (with-page-dom
+                   (lambda ()
+                     (scene-loop scene save state (new Hud (shown (Nil)) (hovered (None))) 0))))))
 
     ;; Each event's state is drawn: a frame draws the scene and, at most ten
-    ;; times a second, the HUD; an input draws its HUD. Saves share the
-    ;; same queue, independently of display frames.
+    ;; times a second, the HUD; an input shows its HUD. Saves share the
+    ;; same queue, independently of display frames. A HUD listener that
+    ;; fired gives its input; one the HUD has since dropped gives none.
 
     (define (scene-loop (scene (SceneHandler S))
                         (save (Fn S → Unit ! events storage tasks))
                         (state S)
+                        (hud Hud)
                         (since-hud I32))
       (→ Unit)
-      (! screen events storage tasks)
+      (! screen dom events storage tasks)
       (∀ (S))
       (match (next-event)
         ((FrameEvent elapsed)
-         (let* ((next ((● scene update) state (Elapsed elapsed)))
-                (hud-time (+ since-hud elapsed))
-                (show-hud? (>= hud-time 100)))
+         (let ((next ((● scene update) state (Elapsed elapsed)))
+               (show-hud? (>= (+ since-hud elapsed) 100)))
            (render ((● scene view) next))
-           (when show-hud? (render-hud ((● scene hud) next)))
-           (report-ready)
-           (scene-loop scene save next (if show-hud? 0 hud-time))))
-        ((InputEvent input)
-         (let ((next ((● scene update) state input)))
-           (render-hud ((● scene hud) next))
-           (scene-loop scene save next 0)))
-        ((Hidden) (save state) (scene-loop scene save state since-hud))
-        ((SaveRequested) (save state) (scene-loop scene save state since-hud))))
+           (let ((shown (if show-hud?
+                            (show-hud scene next hud)
+                            (new Pair (first next) (second hud)))))
+             (report-ready)
+             (scene-loop scene
+                         save
+                         (● shown first)
+                         (● shown second)
+                         (if show-hud? 0 (+ since-hud elapsed))))))
+        ((InputEvent input) (scene-input scene save state hud input))
+        ((HudEvent listener)
+         (match (table-ref (ui:listener-table (● hud shown)) (show listener))
+           ((Some message)
+            (let ((input (message (no-event))))
+              (scene-input scene save state (hovering hud listener input) input)))
+           ((None) (scene-loop scene save state hud since-hud))))
+        ((Hidden) (save state) (scene-loop scene save state hud since-hud))
+        ((SaveRequested) (save state) (scene-loop scene save state hud since-hud))))
+
+    (define (scene-input (scene (SceneHandler S))
+                         (save (Fn S → Unit ! events storage tasks))
+                         (state S)
+                         (hud Hud)
+                         (input Input))
+      (→ Unit)
+      (! screen dom events storage tasks)
+      (∀ (S))
+      (let ((shown (show-hud scene ((● scene update) state input) hud)))
+        (scene-loop scene save (● shown first) (● shown second) 0)))
+
+    ;; ---- Showing the HUD ----
+
+    ;; The HUD as the document holds it, and the listener of the button
+    ;; under the pointer, the one that heard the pointer enter.
+    (record Hud
+      ((shown (List (ui:Shown Input)))
+       (hovered (Option I32))))
+
+    (define (hovering (hud Hud) (listener I32) (input Input)) (→ Hud)
+      (match input
+        ((Hover 0 _) (new Hud (shown (● hud shown)) (hovered (None))))
+        ((Hover _ _) (new Hud (shown (● hud shown)) (hovered (Some listener))))
+        (_ hud)))
+
+    ;; The state's HUD shown, in place where it differs. A button removed
+    ;; while the pointer is over it never hears the pointer leave, so the
+    ;; state is told, and its HUD shown.
+
+    (define (show-hud (scene (SceneHandler S)) (state S) (hud Hud))
+      (→ (Pair S Hud))
+      (! screen dom)
+      (∀ (S))
+      (let ((shown (ui:patch-children (document-root)
+                                      (● hud shown)
+                                      (hud-html ((● scene hud) state)))))
+        (if (match (● hud hovered)
+              ((Some listener) (not (table-contains? (ui:listener-table shown) (show listener))))
+              ((None) #f))
+            (show-hud scene
+                      ((● scene update) state (Hover 0 0))
+                      (new Hud (shown shown) (hovered (None))))
+            (new Pair (first state) (second (new Hud (shown shown) (hovered (● hud hovered))))))))
 
     ))

@@ -1,9 +1,10 @@
 // The browser host for a `snail-scheme` application built with (snail shell app). It owns no
 // game rules: DOM listeners queue events; the loop runs as a `snail-scheme` task,
-// presents through the `screen` effect, and waits on storage by ticket.
+// presents through the `screen` effect, shows its HUD in the overlay through
+// the `dom` effect, and waits on storage by ticket.
 
 import {createRenderer} from './renderer.mjs';
-import {createHud} from './hud.mjs';
+import {createDom} from './dom.mjs';
 import {createPictures} from './pictures.mjs';
 import {loadSave, storeSave} from './storage.mjs';
 import {createRuntime} from './runtime.mjs';
@@ -14,7 +15,7 @@ import {startPage, reportApplicationError} from './application.mjs';
 // Input kinds and named keys match `decode-input` and the key constants in
 // src/snail/shell/app.sld.
 const KEY_DOWN = 1, KEY_UP = 2, POINTER_DOWN = 3, POINTER_MOVE = 4, POINTER_UP = 5, POINTER_CANCEL = 6;
-const WHEEL = 7, RESIZE = 8, PRESS = 9, HOVER = 10;
+const WHEEL = 7, RESIZE = 8;
 const namedKeys = {ArrowLeft: 1, ArrowRight: 2, ArrowUp: 3, ArrowDown: 4, Escape: 27, Enter: 13, ' ': 32};
 
 function keyCode(event) {
@@ -24,12 +25,12 @@ function keyCode(event) {
 
 // ---- Screen effect ----
 
-// The `screen` effect of src/snail/shell/app.sld, in three parts: frames for the
-// renderer, pictures for the picture store, which the renderer and the HUD
-// both read, and the HUD. A test passes its own renderer, picture store and
-// HUD, each with just what its part calls.
-export function screenImports(renderer, pictures, hud) {
-  return {...frameImports(renderer), ...pictureImports(pictures), ...hudImports(hud)};
+// The `screen` effect of src/snail/shell/app.sld, in two parts: frames for the
+// renderer, and pictures for the picture store, which the renderer reads
+// and the HUD's images show. A test passes its own renderer and picture
+// store, each with just what its part calls.
+export function screenImports(renderer, pictures) {
+  return {...frameImports(renderer), ...pictureImports(pictures)};
 }
 
 // Collects one frame and hands it to the renderer, which may already hold
@@ -70,7 +71,7 @@ function frameImports(renderer) {
 // Pictures and the sources they need go to the picture store, which may
 // already hold them.
 function pictureImports(pictures) {
-  let picture = null, source = null;
+  let picture = null, source = null, url = [];
   return {
     'picture-begin'(key, version, width, height) {
       if (pictures.has(key, version)) return 1;
@@ -96,42 +97,12 @@ function pictureImports(pictures) {
     'picture-end'() {
       pictures.finish(picture);
     },
-  };
-}
-
-// Collects the HUD, which the program sends only after updates, and hands
-// its panels to the HUD. A widget's strings arrive by field, numbered as
-// `render-widget` in src/snail/shell/app.sld numbers them; fields 7 and 8 each
-// start a span of a text, normal or strong.
-function hudImports(hud) {
-  let panels = null, target = null, fieldName = null;
-  const fields = ['key', 'icon', 'help', 'badge', 'text', 'caption', 'url'];
-  return {
-    'hud-begin'() {
-      panels = [];
+    // A picture's address, answered a scalar at a time.
+    'picture-url'(key) {
+      url = [...pictures.url(key)];
+      return url.length;
     },
-    'panel-begin'(place, corner, column, dismiss) {
-      target = {place, corner, column, dismiss, key: '', widgets: []};
-      panels.push(target);
-    },
-    'widget-begin'(kind, tone, action, argument, control, value) {
-      target = {kind, tone, action, argument, control, value, key: '', icon: '', help: '', badge: '', text: '', caption: '', url: '', spans: []};
-      panels.at(-1).widgets.push(target);
-    },
-    'widget-image'(key, x, y, width, height, scale) {
-      target.image = {key, x, y, width, height, scale};
-    },
-    field(which) {
-      if (which >= 7) target.spans.push({strong: which === 8, words: ''});
-      fieldName = fields[which] ?? null;
-    },
-    'text-character'(code) {
-      if (fieldName) target[fieldName] += String.fromCodePoint(code);
-      else target.spans.at(-1).words += String.fromCodePoint(code);
-    },
-    'hud-end'() {
-      hud.update(panels);
-    },
+    'picture-url-scalar': index => url[index].codePointAt(0),
   };
 }
 
@@ -144,12 +115,12 @@ export async function startApplication({url, canvas, overlay, storageKey}) {
     frames: {request: requestAnimationFrame.bind(globalThis), cancel: cancelAnimationFrame.bind(globalThis)},
     initial: () => [[8, canvas.clientWidth, canvas.clientHeight], [11, 0]],
     reportError: reportApplicationError});
-  const hud = createHud(overlay, (action, argument) => runtime.send(PRESS, action, argument),
-                        (action, argument) => runtime.send(HOVER, action, argument), pictures);
+  const dom = createDom(overlay, runtime);
   attachInput(canvas, runtime);
   return startPage({runtime,
-    imports: {...runtime.imports, 'snail.runtime.browser.screen': screenImports(renderer, pictures, hud)},
-    reset() { renderer.forget(); pictures.forget(); }}, url);
+    imports: {...runtime.imports, 'snail.runtime.browser.screen': screenImports(renderer, pictures),
+              'snail.runtime.browser.dom': dom.imports},
+    reset() { renderer.forget(); pictures.forget(); dom.reset(); }}, url);
 }
 
 // Wheel deltas arrive in pixels, lines or pages; the application gets pixels.
