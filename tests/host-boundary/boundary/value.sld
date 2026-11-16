@@ -1,7 +1,10 @@
 (define-library (boundary value)
-  (export Payload)
+  (export
+   Payload
+   later)
   (import
-   (snail core base))
+   (snail core base)
+   (snail core io))
   (begin
 
     (record Payload
@@ -18,6 +21,11 @@
       (if (< number 0)
           (Err "rejected")
           (Ok (new Payload (number number) (bytes (array-copy bytes))))))
+
+    ;; A function that needs a capability of the target's, which the program
+    ;; exposes: its wrapper, under the target's handlers, is the program's.
+    (define (later (base I64)) (→ I64) (! clock)
+      (if (>= (monotonic-nanoseconds) 0) (+ base 1) base))
 
     (expose buffer "payload-buffer")
     (expose put! "payload-put")

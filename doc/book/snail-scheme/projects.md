@@ -124,4 +124,8 @@ prints the producer into its scratch, compiles, links and runs it, and
 compiles again (`producing` in `build.sld`). The producer's own compile does
 the same, and the libraries loading when it was reached begin its source,
 so a producer that needs the library it generates, at once or once another
-producer has run, is an import cycle and never runs.
+producer has run, is an import cycle and never runs. A producer is also
+handed the scripts whose builds it is part of, after the tools on its
+command line, and `build-script` refuses one of them: a script that embeds
+its own build fails with the chain of scripts, where it would otherwise
+build without end.

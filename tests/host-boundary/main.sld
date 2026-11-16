@@ -87,3 +87,6 @@
     (set! (● checkpoint value) (Any (ann value I64)))
     (state checkpoint)))
 (expose inferred-entry "inferred")
+
+;; A library's function, run under the target's handlers.
+(expose later "later")

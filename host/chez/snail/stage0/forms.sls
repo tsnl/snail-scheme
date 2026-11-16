@@ -224,7 +224,10 @@
   ;; The source compiler uses only abortive control effects at stage zero.
   ;; Each handler records the complete outside context. Returning operations
   ;; must hide inner handlers of other effects too, just as Wasm evidence does.
-  (scheme-define handlers (make-parameter '()))
+  ;; The handlers in scope are a thread's own: the test runner handles
+  ;; effects on several threads at once, and a parameter they shared would
+  ;; leave one thread's handlers, with their escapes, in another's scope.
+  (scheme-define handlers (make-thread-parameter '()))
   (scheme-define (find-handler effect operation)
     (let loop ([stack (handlers)])
       (cond [(null? stack) (error 'effect "unhandled operation" operation)]
