@@ -1,9 +1,9 @@
-// Real static and dynamically linked Wasm: the loop as a `snail-scheme` task,
-// fencing and recovery.
+// Real static and dynamically linked Wasm: a scene script's main as a
+// `snail-scheme` task, its saves, and how a run ends.
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
-import {applicationEntry, createEventQueue, createRuntime, FRAME, HIDDEN, RELOAD} from '../../host/browser/runtime.mjs';
+import {applicationEntry, createEventQueue, createRuntime, FRAME, HIDDEN} from '../../host/browser/runtime.mjs';
 import {screenImports} from '../../host/browser/host.mjs';
 import {createWasi, instantiate, linkedFileImports, linkProgram, wasmImports} from '../../host/browser/load.mjs';
 
@@ -29,10 +29,9 @@ async function checkQueue() {
   queue.push(PRESS, 2);
   await waiting;
   await queue.wait(); // An already queued event cannot lose its wakeup.
-  queue.reload();
-  assert.equal(queue.push(PRESS, 3), false);
-  assert.deepEqual([queue.poll(), queue.poll(), queue.poll()], [[PRESS, 2], [RELOAD], undefined]);
   queue.close();
+  assert.equal(queue.push(PRESS, 3), false);
+  assert.equal(queue.poll(), undefined, 'closing drops the unread input');
   await assert.rejects(queue.wait(), /stopped/);
   const abortable = createEventQueue(), controller = new AbortController();
   const cancelled = abortable.wait(controller.signal);
@@ -57,13 +56,11 @@ function checkFrames() {
   assert.deepEqual(queue.poll(), [FRAME, 250]);
   assert.equal(queue.poll(), undefined);
   assert.equal(scheduled.size, 1);
-  queue.reload();
+  queue.close();
   assert.equal(scheduled.size, 0);
   assert.equal(cancelled.length, 1);
-  callback(performance.now()); // A stale RAF cannot cross the reload fence.
-  assert.deepEqual(queue.poll(), [RELOAD]);
+  callback(performance.now()); // A stale RAF cannot reach a closed queue.
   assert.equal(queue.poll(), undefined);
-  queue.close();
 }
 
 async function application(options = {}) {
@@ -90,173 +87,84 @@ async function application(options = {}) {
   return {observed, runtime, entry};
 }
 
-async function checkSuspension() {
-  const loaded = Promise.withResolvers(), stored = Promise.withResolvers();
-  let saves = 0;
-  const app = await application({load: () => loaded.promise, store: async () => { if (++saves === 1) await stored.promise; }});
+// Input sent during startup is delivered after the first frame; hiding
+// saves, and a later run boots from that save.
+async function checkStartup() {
+  const loaded = Promise.withResolvers();
+  const saves = [];
+  const app = await application({load: () => loaded.promise, store: async bytes => { saves.push(bytes); }});
   const {runtime, entry, observed} = app;
   const run = runtime.start(entry);
   runtime.send(PRESS, 1); runtime.send(PRESS, 1);
   await turn();
-  assert.equal(live(run), 2, 'the root and its sleeping child both remain live');
+  assert.equal(live(run), 2, 'the scene and its sleeping child both remain live');
   assert.equal(observed.frames, 0);
   assert.throws(() => runtime.start(entry), /overlap/);
   loaded.resolve(undefined);
-  assert.equal(await run.ready.promise, 2);
-  await turn();
-  assert.equal(observed.count, '2', 'input received during startup follows initial presentation');
+  assert.equal(await run.ready.promise, 2, 'a page without a save starts fresh');
+  await until(() => observed.count === '2');
   runtime.send(HIDDEN);
-  await turn();
-  assert.equal(saves, 1);
-  runtime.send(PRESS, 1);
-  const stopping = runtime.stop();
-  assert.equal(runtime.stop(), stopping, 'repeated stop shares one handover');
-  runtime.send(PRESS, 1); // Arrives beyond the fence, for the next invocation.
-  await turn();
-  assert.equal(runtime.execution.queue.closed, false, 'reload waits for storage instead of abandoning a stack');
-  assert.equal(observed.count, '2');
-  stored.resolve();
-  const handover = await stopping;
-  assert.equal(entry.exports.count(handover.state), 3n, 'the accepted prefix completes before Reload');
-  assert.ok(handover.saved.length);
-  assert.equal(await runtime.start(entry, handover.state).ready.promise, 0);
-  await turn();
-  assert.equal(observed.count, '4', 'transition input is delivered once after adoption');
-  await runtime.stop();
+  await until(() => saves.length === 1);
+  runtime.close();
+  assert.equal(live(run), 0, 'closing discards every task');
+  const later = await application({load: async () => saves[0]});
+  assert.equal(await later.runtime.start(later.entry).ready.promise, 1, 'a page with a save restores it');
+  assert.equal(later.observed.count, '2', 'the restored count, shown on the first Resize');
+  later.runtime.send(PRESS, 1);
+  await until(() => later.observed.count === '3');
+  later.runtime.close();
 }
 
-async function checkReloadDuringBoot() {
-  const loaded = Promise.withResolvers();
-  const app = await application({load: () => loaded.promise}), {runtime, entry, observed} = app;
-  const first = runtime.start(entry);
-  await turn();
-  runtime.send(PRESS, 1);
-  const stopping = runtime.stop();
-  loaded.resolve(undefined);
-  await first.ready.promise;
-  const handover = await stopping;
-  assert.equal(entry.exports.count(handover.state), 0n, 'input beyond a startup fence waits for the next run');
-  await runtime.start(entry, handover.state).ready.promise;
-  await turn();
-  assert.equal(observed.count, '1', 'accepting a fenced startup never discards pending input');
-  await runtime.stop();
-}
-
-async function checkTrap() {
+// A trap in any task ends the run, reported once, and the page keeps its
+// last save.
+async function checkTraps() {
   const app = await application(), {runtime, entry, observed} = app;
   const run = runtime.start(entry);
   await run.ready.promise;
-  runtime.send(PRESS, 1);
-  await turn();
   observed.failFrame = true;
-  runtime.send(FRAME, 5); runtime.send(PRESS, 1); runtime.send(PRESS, 1);
-  const failed = await run.done;
-  assert.match(failed.error.message, /presentation trap/);
-  assert.equal(entry.exports.count(failed.state), 1n, 'the partially rendered candidate never becomes a checkpoint');
+  runtime.send(FRAME, 5);
+  assert.match((await run.done).error.message, /presentation trap/);
   assert.equal(observed.errors.length, 1);
-  const frames = observed.frames;
-  const handover = await runtime.stop();
-  assert.equal(handover.error, null);
-  assert.equal(observed.frames, frames, 'checkpoint extraction does not replay the failing view');
-  assert.equal(entry.exports.count(handover.state), 1n);
-  assert.ok(handover.saved.length);
-  observed.failFrame = false;
-  await runtime.start(entry, handover.state).ready.promise;
-  await turn();
-  assert.equal(observed.count, '3', 'unread actions survive a trap and are consumed once');
-  await runtime.stop();
+  assert.equal(runtime.execution.queue.closed, true);
+  const update = await application(), started = update.runtime.start(update.entry);
+  await started.ready.promise;
+  update.runtime.send(PRESS, 2);
+  assert.ok((await started.done).error, 'a snail-scheme panic ends the run');
 }
 
-async function checkUpdateTrap() {
-  const app = await application(), {runtime, entry, observed} = app;
-  const run = runtime.start(entry);
-  await run.ready.promise;
-  runtime.send(PRESS, 1);
-  await turn();
-  runtime.send(PRESS, 2); runtime.send(PRESS, 1);
-  const failure = await run.done;
-  assert.ok(failure.error, 'a snail-scheme panic ends the loop\'s task');
-  assert.equal(entry.exports.count(failure.state), 1n);
-  const handover = await runtime.stop();
-  await runtime.start(entry, handover.state).ready.promise;
-  await turn();
-  assert.equal(observed.count, '2', 'the trapping action is consumed and the following action survives');
-  await runtime.stop();
-}
-
-async function checkRefusal() {
-  const app = await application(), {runtime, entry, observed} = app;
-  await runtime.start(entry).ready.promise;
-  const previous = await runtime.stop();
-  const foreign = entry.exports.other();
-  const refused = runtime.start(entry, foreign, {restore: null});
-  runtime.send(PRESS, 1);
-  await assert.rejects(refused.ready.promise, /could not take over/);
-  const refusal = await refused.done;
-  assert.equal(refusal.state, null);
-  await runtime.start(entry, previous.state).ready.promise;
-  await turn();
-  assert.equal(observed.count, '1');
-  const rollback = await runtime.stop();
-  assert.equal(entry.exports.resizes(rollback.state), 2, 'a rejected candidate cannot donate its synthetic Resize to rollback');
+// A save the scene cannot read traps before boot, as application.mjs's
+// startCold expects; a run without it then starts fresh.
+async function checkUnreadableSave() {
+  const app = await application({load: async () => new Uint8Array([255, 255, 255])});
+  const run = app.runtime.start(app.entry);
+  await assert.rejects(run.ready.promise);
+  await run.done;
+  assert.equal(run.boot, null);
+  assert.ok(run.loaded);
+  assert.equal(await app.runtime.start(app.entry, {fresh: true}).ready.promise, 2);
+  app.runtime.close();
 }
 
 async function checkStartupFailures() {
-  const loadError = new Error('load failed');
-  const rejected = await application({load: async () => { throw loadError; }});
+  const rejected = await application({load: async () => { throw new Error('load failed'); }});
   const loading = rejected.runtime.start(rejected.entry);
   await assert.rejects(loading.ready.promise, /load failed/);
-  assert.equal((await loading.done).state, null, 'a preboot failure cannot invent a checkpoint');
   await loading.done;
-  const incoming = rejected.entry.exports.other();
-  const retry = rejected.runtime.start(rejected.entry, incoming);
-  await assert.rejects(retry.ready.promise, /load failed/);
-  assert.equal((await retry.done).state, incoming, 'a preboot failure retains the incoming state for rollback');
-  await retry.done;
   const trapped = await application();
   trapped.observed.failFrame = true;
   const first = trapped.runtime.start(trapped.entry);
   await assert.rejects(first.ready.promise, /presentation trap/);
-  assert.equal(trapped.entry.exports.count((await first.done).state), 0n, 'the boot checkpoint survives a first-frame trap');
-  trapped.observed.failFrame = false;
-  const saved = await trapped.runtime.stop();
-  await trapped.runtime.start(trapped.entry, saved.state).ready.promise;
-  await trapped.runtime.stop();
+  await first.done;
 }
 
 async function checkStorageFailure() {
   const app = await application({store: async () => { throw new Error('disk full'); }});
   await app.runtime.start(app.entry).ready.promise;
-  const handover = await app.runtime.stop();
-  assert.equal(handover.error, null);
-  assert.ok(handover.saved.length, 'migration keeps an owned save even if persistence fails');
+  app.runtime.send(HIDDEN);
+  await until(() => app.observed.warnings.length === 1);
   assert.match(app.observed.warnings[0], /disk full/);
-}
-
-async function checkRootReturn() {
-  const app = await application();
-  await app.runtime.start(app.entry).ready.promise;
-  const previous = await app.runtime.stop();
-  const entry = {...app.entry, main: app.entry.exports.background_main};
-  const run = app.runtime.start(entry, previous.state);
-  assert.equal(await run.ready.promise, 2);
-  await run.root;
-  let settled = false;
-  run.done.then(() => { settled = true; });
-  await turn();
-  assert.equal(settled, false, 'a child outlives a normally returning root');
-  const handover = await app.runtime.stop();
-  assert.equal(handover.state, null, 'a root that never adopts the incoming state has no checkpoint');
-  assert.equal(live(run), 0, 'stopping discards the remaining child');
-}
-
-async function checkUnpresentedReturn() {
-  const app = await application();
-  const run = app.runtime.start({...app.entry, main: app.entry.exports.unpresented_main});
-  await run.root; await turn();
-  assert.equal(live(run), 0, 'children cannot keep an unpresented application alive');
-  await assert.rejects(run.ready.promise, /before startup completed/);
-  await run.done;
+  assert.equal(app.runtime.execution.queue.closed, false, 'a failed save leaves the page running');
+  app.runtime.close();
 }
 
 // A library may not take a name the host provides: the program's modules
@@ -272,62 +180,15 @@ async function checkReservedName() {
     /no library may be linked as snail\.runtime\.wasm, which the host provides/);
 }
 
-// Each violation ends its whole scheduler generation. Wasm traps do not
-// unwind; a fresh invocation proves isolation instead.
-async function checkProtocolOwnership() {
-  for (const which of [0, 1, 2, 3, 4, 5]) {
-    const loaded = Promise.withResolvers();
-    let loads = 0, saves = 0;
-    const app = await application({load: () => { loads++; return loaded.promise; },
-                                   store: () => { saves++; }});
-    const run = app.runtime.start(app.entry);
-    await turn();
-    run.tasks.call(app.entry.exports.spawn_child, run.page, which);
-    run.tasks.interrupt();
-    await assert.rejects(run.ready.promise, /belong to the root task/);
-    const failed = await run.done;
-    assert.match(failed.error.message, /belong to the root task/);
-    assert.equal(loads, 1, 'a child cannot replace the root load buffer');
-    assert.equal(saves, 0);
-    assert.equal(run.boot, null);
-    assert.equal(failed.state, null);
-    assert.equal(run.page, null, 'the host releases its page context after failure');
-    assert.equal(live(run), 0);
-    loaded.resolve(undefined);
-  }
-  const stored = Promise.withResolvers();
-  const saves = [];
-  const app = await application({store: bytes => { saves.push(bytes); return stored.promise; }});
-  const run = app.runtime.start(app.entry);
-  await run.ready.promise;
-  const stopping = app.runtime.stop();
-  await turn();
-  assert.equal(saves.length, 1);
-  run.tasks.call(app.entry.exports.spawn_child, run.page, 1);
-  run.tasks.interrupt();
-  await until(() => app.observed.errors.length === 1);
-  assert.ok(saves.every(bytes => bytes.toString() === saves[0].toString()),
-            'a child cannot replace the root checkpoint; recovery may retry its persistence');
-  stored.resolve();
-  const handover = await stopping;
-  assert.equal(saves.length, 2, 'recovery retries the root checkpoint after the terminal trap');
-  assert.deepEqual(handover.saved, saves[0]);
-}
-
 await checkQueue();
 checkFrames();
-await checkSuspension();
-await checkReloadDuringBoot();
-await checkTrap();
-await checkUpdateTrap();
-await checkRefusal();
+await checkStartup();
+await checkTraps();
+await checkUnreadableSave();
 await checkStartupFailures();
 await checkStorageFailure();
 await checkReservedName();
-await checkRootReturn();
-await checkUnpresentedReturn();
-await checkProtocolOwnership();
-console.log('app runtime: the loop as a task, storage by ticket, queued input, inherited handlers and checkpoint recovery passed');
+console.log('app runtime: the scene as a task, storage by ticket, queued input, inherited handlers and saves passed');
 
 // The imports of the capabilities the target installs and this test leaves
 // unused: the files a program links and the host's WebAssembly.

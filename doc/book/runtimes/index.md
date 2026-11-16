@@ -17,7 +17,7 @@ The [task contract](contract.md) specifies the replacement for
 the actor API. It separates scheduling, handler installations and the
 values tasks hold. The actor request/reply API has been removed. [Task operations](tasks.md)
 run in the CLI and GUI. [Applications](../snail-scheme/applications.md) describes
-checkpoint handover on that runtime.
+pages' saves on that runtime.
 [Values](../snail-scheme/values.md) describes sharing, mutation and resources.
 The [socket effects](networking.md) bind typed, interceptable TCP and UDP operations
 to native Node resources, with cancellation and shutdown owned by the runtime, and the

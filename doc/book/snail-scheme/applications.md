@@ -1,93 +1,61 @@
 # Application model
 
-`(snail shell application)` defines one ordinary, effect-polymorphic entry
-contract:
+An application is a [script](scripts.md): its statements run in order, and
+the last hands control to an engine's loop. The engine is a library, in the
+style of Rust's [winit](https://github.com/rust-windowing/winit): the script
+builds a handler, a record of the application's functions, and calls the
+engine with it.
 
 ```scheme
-(record (Entry A) ())
-(typeclass (Application e A)
-  (declare (start (entry (Entry A))) (→ Unit) (! e)))
+(import (snail core base) (snail shell app) (snail shell wire) (apps siegework game) ...)
+(run-scene (new SceneHandler
+             (initialize new-game) (update update-game) (view view-game) (hud game-hud)
+             (save (lambda (game) (serialize (game-save game))))
+             (restore (lambda (bytes) (game-restore (deserialize bytes))))))
 ```
 
-`Entry` is an empty type witness. Selecting an application does not require
-constructing its state: `start` creates that state and runs the program. A
-console application can implement the class directly, perform `output-port` and task
-effects, and return when it is done. Custom handlers and background tasks belong
-inside `start`. There is no reset binder or separate declaration of entry effects.
-
-A [project](projects.md) selects an exported concrete type, including an alias:
-
-```scheme
-((build-target site
-   (browser
-    (entry ((apps siegework application) Siegework))
-    (library-roots ("src"))
-    (public "public"))))
+```sh
+./snail-scheme build --target browser src/apps/siegework/main.scm
 ```
 
-The builder generates an ordinary import and a typed `start` call. The compiler's
-usual instance resolution checks that the selected type implements `Application`
-and determines its effect row. A program target calls `start` directly. A browser
-target uses `define-page-entry` from `(snail shell page)` to dispatch it as the
-root task and expose the host handover functions. Source-file entries remain
-available for scripts and tooling.
-
-Engines express richer contracts as ordinary classes. `Scene State` and
-`Interface Model` provide scene and document callbacks; the generic
-`SceneApplication State` and `InterfaceApplication Model` adapters implement
-`Application`. These are ordinary instances, not a compiler-specific superclass
-rule. Each engine calls its class methods directly; it has no second API for
-supplying those same methods as callbacks. Both engines use `run-page` for boot,
-save and restore, and commit immutable checkpoints through `commit-page`. IPC
-remains outside this contract. Typed session protocols are future library work,
-expressed through effects rather than additional `Application` methods.
+On the page, the host calls the script's `main` with a scheduler, as every
+host does, and (snail target browser) runs the script as its first task under
+the page's handlers ([targets](scripts.md#targets-and-capabilities)). A
+statement can wait: `run-scene` waits for the page's events through the task
+effect. There are two engines, `run-scene` for a canvas and `run-interface`
+for a document, and both boot and save through `run-page` from
+`(snail shell page)`. An application with its own loop calls `run-page`
+itself, as `tests/apps/requests` does. IPC remains outside this contract.
+Typed session protocols are future library work, expressed through effects.
 
 ## Scenes
 
-`(snail shell app)` describes a scene with pure methods over immutable state:
+`(snail shell app)`'s `SceneHandler` holds a scene's pure functions over
+immutable state:
 
-| Method | Meaning |
+| Field | Meaning |
 | --- | --- |
-| `scene-initialize : seed width height -> State` | The first state. |
-| `scene-update : State Input -> State` | Applies a key, pointer, HUD button, screen size, or elapsed milliseconds. |
-| `scene-view : State -> Frame` | Drawing data: items, meshes and sprites under a camera and light. |
-| `scene-hud : State -> (List Panel)` | Panels of labels, texts, buttons, dials, links and images. |
-| `scene-save : State -> Bytes` | Encodes the durable state, often a record of how to rebuild the full state. |
-| `scene-restore : Bytes -> State` | Decodes the durable state and reconstructs the running state. |
+| `initialize : seed width height -> State` | The first state. |
+| `update : State Input -> State` | Applies a key, pointer, HUD button, screen size, or elapsed milliseconds. |
+| `view : State -> Frame` | Drawing data: items, meshes and sprites under a camera and light. |
+| `hud : State -> (List Panel)` | Panels of labels, texts, buttons, dials, links and images. |
+| `save : State -> Bytes` | Encodes the durable state, often a record of how to rebuild the full state. |
+| `restore : Bytes -> State` | Decodes the durable state and reconstructs the running state. |
 
-An application library exports an alias and implements the engine's class:
+Serialization is chosen explicitly by the application; these examples use
+`(snail shell wire)`.
 
-```scheme
-(type GameApplication (SceneApplication Game))
-(define-page-state Game)
-(instance (Scene Game)
-  (define scene-initialize (lambda (seed width height) (new-game seed width height)))
-  (define scene-update (lambda (game input) (step game input)))
-  (define scene-view (lambda (game) (draw game)))
-  (define scene-hud (lambda (game) (panels game)))
-  (define scene-save (lambda (game) (serialize (save-game game))))
-  (define scene-restore (lambda (bytes) (restore-game (deserialize bytes)))))
-```
+`run-scene` performs `screen`, `events`, `storage` and `tasks`, and never
+returns. `next-event` drains the host queue, then waits by ticket when it is
+empty. `FrameEvent` carries elapsed milliseconds; `InputEvent` carries an
+`Input`. `Hidden` and `SaveRequested` save without stopping. A shared
+five-second host timer supplies `SaveRequested` to either engine, so saving
+does not require animation frames. The host arms it at boot and after each save.
 
-`define-page-state` supplies ordinary `PageState` evidence for packing and
-unpacking this concrete state at the host's opaque `Any` boundary. It preserves
-the compiler's checks on reification; it does not permit hidden effectful values
-to cross that boundary. Serialization is
-chosen explicitly by the application; these examples use `(snail shell wire)`.
-
-The scene engine performs `mut`, `screen`, `events`, `storage` and `tasks`.
-`next-event` drains the host queue, then waits by ticket when it is empty.
-`FrameEvent` carries elapsed milliseconds; `InputEvent` carries an `Input`.
-`Hidden` and `SaveRequested` save without stopping, and `Reload` saves and returns.
-A shared five-second host timer supplies `SaveRequested` to either engine, so
-saving does not require animation frames. `snail-scheme` rearms it after each save.
-
-Only a complete successful presentation commits the next state. A trap leaves
-the preceding checkpoint available through `app_state`. The engine reports
-readiness explicitly after its first complete frame. Since elapsed time is
-input, the application decides how its simulation advances. Each task keeps its
-handlers across waits. Libraries have no runtime initialization;
-application state is created by the running entry.
+The engine reports readiness after its first complete frame. Since elapsed
+time is input, the application decides how its simulation advances. Each task
+keeps its handlers across waits. Libraries have no runtime initialization;
+application state is created by the running script.
 
 Frames are built from batches of items. The host keeps a batch until its
 version changes, so a still scene costs nothing to send; each item also
@@ -204,27 +172,20 @@ document it left, as HTML and as a trace of every operation.
 `tests/programs/ui-commands.sld` run interfaces this way under `make
 test`.
 
-`Interface` from `(snail shell ui page)` gives a document application its
-ordinary `Application` implementation:
+`run-interface` from `(snail shell ui page)` runs a document application
+from an `InterfaceHandler`:
 
 ```scheme
-(type NotesApplication (InterfaceApplication Notes))
-(define-page-state Notes)
-(instance (Interface Notes)
-  (type Message NoteMessage)
-  (define interface-initialize (lambda (seed) (new-notes seed)))
-  (define interface-update (lambda (model message) (update model message)))
-  (define interface-view (lambda (model) (view model)))
-  (define interface-window (lambda (model) (window model)))
-  (define interface-messages (lambda (model) (list (Load))))
-  (define interface-save (lambda (model) (serialize (save model))))
-  (define interface-restore (lambda (bytes) (restore (deserialize bytes)))))
+(run-interface (new InterfaceHandler
+                 (initialize new-notes) (update update) (view view) (window window)
+                 (messages (lambda (model) (list (Load))))
+                 (save (lambda (model) (serialize (save model))))
+                 (restore (lambda (bytes) (restore (deserialize bytes))))))
 ```
 
-`Message` is an associated type of the model's instance. An interface without
-window listeners returns `(Nil)` from `interface-window`; one without startup
-messages returns `(Nil)` from `interface-messages`. Initialization takes the seed
-alone, and update's commands are `(Command Message)`,
+An interface without window listeners returns `(Nil)` from `window`; one
+without startup messages returns `(Nil)` from `messages`. Initialization takes
+the seed alone, and update's commands are `(Command Message)`,
 which may wait on tasks, reach the document, and ask the server through
 the `fetch` effect of `(snail shell fetch)`. `request method url headers
 body` answers the server's reply, its status and body, or why there was
@@ -235,12 +196,11 @@ drops, and a stream that names the kind `error` hears an event each time.
 One command waits on a stream at a time, and the update that hears
 an event issues the next wait, so a stream needs no machinery beyond
 one-shot commands.
-The shared page lifecycle first adopts a handed-over model of its type, otherwise
-restores saved bytes. Only a cold start without a save initializes a fresh model.
-The engine runs `run-ui` as the page's root task under `with-page-dom` from
-`(snail shell dom page)` and
-`with-page-fetch` from `(snail shell fetch page)`. Completed presentations commit
-the model and acknowledge startup; the shared saver stores the encoded model.
+The shared page lifecycle restores saved bytes; only a start without a save
+initializes a fresh model. The engine runs `run-ui` under `with-page-dom` from
+`(snail shell dom page)` and `with-page-fetch` from `(snail shell fetch page)`.
+A completed presentation acknowledges startup; the shared saver stores the
+encoded model.
 The page loads `startInterface` from
 `ui.mjs`, which a browser build ships, with a container element in place
 of the canvas. `host/browser/dom.mjs` keeps the interface's nodes and
@@ -249,13 +209,13 @@ listener reads what it captures and prevents the default action while
 the event is dispatched, then queues the event (kind 14). A `wake` queues
 kind 15 from any task. `host/browser/fetch.mjs` runs a request or a stream's next event as a
 host operation of the command's own task, and closes every stream when a
-program starts. `tests/apps/notes` is the example, and
+program starts. `tests/apps/notes/main.scm` is the example, and
 `tests/browser/ui.mjs` drives it in Chromium against a server of its
 own.
 
 Both `ui.mjs` and the scene's `host.mjs` delegate loading to
-`host/browser/application.mjs`. Document applications support development modules
-and periodic saves as scenes do.
+`host/browser/application.mjs`. Document applications support per-library and
+linked builds, and periodic saves, as scenes do.
 
 ### Commands and late replies
 
@@ -271,92 +231,67 @@ number's request as a command, which answers `Loaded` with that number
 and the reply, and an update shows a reply only if it carries the latest
 number. `Cancel` moves the number on, so a reply that arrives after it,
 or after a newer `Load`, is ignored; the request itself runs to its end.
-Its `Save` contains only display data and a click count. The ordinary
-`Application` instance uses `run-page`, installs DOM and fetch handlers,
-and calls `run-ui`. Its commit callback calls `commit-page` and
-`report-ready`; the checkpoint callback comes from `run-page`.
+Its `Save` contains only display data and a click count. Its script calls
+`run-requests`, which runs `run-page` over the `Save` itself, installs DOM and
+fetch handlers, and calls `run-ui`. Its commit callback calls `report-ready`;
+the checkpoint callback comes from `run-page`.
 
-Only detached `Save` crosses a restart or handover. Mutable fields make
-this an application responsibility: a snapshot must not retain mutable
-model storage that later updates can change. A command still running
-belongs to the old scheduler and never answers the replacement. Restore
-decides whether interrupted work should be restarted; the example shows
-an interrupted request as such.
-A view or update trap leaves the preceding committed Save available to recovery.
+Only `Save` crosses a reload. A command still running when the page goes
+never answers the next page. Restore decides whether interrupted work should
+be restarted; the example shows an interrupted request as such.
 
 `tests/browser/ui-requests.mjs` holds server replies while input
 continues, verifies that a canceled request cannot install a late reply,
-and refreshes while a request is pending. The replacement restores its
-snapshot and can request again. `tests/programs/ui-checkpoint-wait.sld`
+and saves and reloads while a request is pending. The next page restores
+its save and can request again. `tests/programs/ui-checkpoint-wait.sld`
 runs a command that finishes while a checkpoint waits, over the memory
 DOM.
 
 ## Task lifetime
 
-The loop is a task of the program's [scheduler](../runtimes/tasks.md).
-The host creates a scheduler and a `PageRun` context, then passes both to
-`app_main`. It dispatches the entry through `start-page`, which answers its id.
-The host turns that scheduler until the root returns or fails. `(snail shell page)`
-exposes `app_done` to distinguish a successful return from suspension or an
-invalid disappearance, and `app_state` for the optional checkpoint. Normal
-return and failure use that same checkpoint; a root that never adopts state
-has none. Completion and presentation readiness are independent. A trap in
-any task fails the run and closes the scheduler; `tasks:running` identifies
-the failing task for the report. Normal root completion after initial presentation
-lets children finish: the host turns until no task is live. Root failure
-or return before that acceptance boundary closes the scheduler, forgetting
-the remaining tasks. Stopping waits for the root's checkpoint
-handover before closing it. Repeated stop requests share one handover
-result. This is application lifecycle policy; a task finishing does not
-stop its children.
+The script is the first task of the program's
+[scheduler](../runtimes/tasks.md). The host creates a scheduler, passes it to
+the program's `main`, and turns it until no task is live or one fails. A trap
+in any task fails the run and closes the scheduler; `tasks:running`
+identifies the failing task for the report. An engine's loop never returns,
+so a page runs until it is left or traps.
 
 Event waits and storage wait by ticket, as any host operation does
 ([waiting on the host](../runtimes/tasks.md#waiting-on-the-host)). Their
 abort signals belong to the run that began the call, and closing the run
-aborts them. Non-abortable storage may delay teardown until it finishes.
-An old completion wakes nothing in a replacement run.
+aborts them.
 
-Only one loop consumes application events. The runtime buffers input and
-coalesces frames; it does not own an implicitly shared current world.
-The root task owns event consumption, boot acknowledgement and checkpoint
-storage. Calling these operations from a detached task fails before any
-input or saved bytes change. A child can use task waits and separately bound
-I/O, but cannot replace the application's checkpoint while its loop saves.
-Read-only seed and canvas dimensions remain available to all tasks.
+One loop consumes the page's events. The runtime buffers input and
+coalesces frames; it does not own an implicitly shared current world. Seed
+and canvas dimensions are available to all tasks.
 
 ## Event and save boundaries
 
-`host/browser/runtime.mjs` owns an invocation's queue and storage bindings;
-`application.mjs` owns loading and the replacement transaction. `host.mjs` retains
-the scene devices, while `ui.mjs` resets the document and fetch devices for each run.
-DOM listeners enqueue input rather than calling Wasm. Consecutive moves for the
-same pointer and consecutive resizes coalesce without crossing other input.
-Consuming a pending frame requests the next animation frame, so slow work does
-not accumulate ticks. HUD values update at most every 100 milliseconds and
-periodic saves occur every five seconds.
+`host/browser/runtime.mjs` owns a run's queue and storage bindings;
+`application.mjs` owns loading and the start without an unreadable save.
+`host.mjs` retains the scene devices, while `ui.mjs` resets the document and
+fetch devices for each run. DOM listeners enqueue input rather than calling
+Wasm. Consecutive moves for the same pointer and consecutive resizes coalesce
+without crossing other input. Consuming a pending frame requests the next
+animation frame, so slow work does not accumulate ticks. HUD values update at
+most every 100 milliseconds and periodic saves occur every five seconds.
 
-Event waits and complete storage operations wait by ticket on the `snail-scheme`
-scheduler. Starting a save copies its byte argument before the
-IndexedDB request begins; a failed persistence operation still leaves an
-owned snapshot for migration. GPU drawing currently uses synchronous screen
-bindings. No import suspends Wasm, so the linear-memory stack of the Rust
-scalar services is never left mid-call.
+Event waits and complete storage operations wait by ticket on the
+`snail-scheme` scheduler. Starting a save copies its byte argument before the
+IndexedDB request begins; a failed save is a warning, and the page keeps
+running. GPU drawing currently uses synchronous screen bindings. No import
+suspends Wasm, so the linear-memory stack of the Rust scalar services is
+never left mid-call.
 
-Stopping fences the queue with `Reload`. Its accepted prefix finishes, the root
-saves and returns, and the runtime closes the remaining tasks. The engine
-explicitly acknowledges its first completed presentation: a scene handles resize
-and a zero-time frame, while a document presents its initial model and startup
-messages.
+The engine acknowledges its first completed presentation: a scene handles
+resize and a zero-time frame, while a document presents its initial model
+and startup messages. Input sent before then is delivered after it.
 
-After a trap, `app_state` exposes the last complete checkpoint. Serializing it
-runs the old entry in handover-only mode: the shared page lifecycle saves it
-without entering either engine, avoiding a failing view or replayed startup messages.
-The consumed failing event is dropped; unread input remains. A cold first-frame
-failure also retains its owner so a source fix can resume it.
-A closure kept in the state can retain old code; applications storing functions
-must reconstruct them through save/restore when changing their implementation.
-There are no global value caches to migrate. Keep state that must survive
-a page reload in the application's Save.
+A save the application cannot read traps before the page boots; the page
+then starts again without it. A trap after boot ends the page, which keeps
+its last save: up to five seconds of work, or what happened since the page
+was last hidden, is lost. Keep state that must survive a reload in the
+application's Save.
 
 <a id="proposed-application-processes"></a>
 

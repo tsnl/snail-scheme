@@ -49,8 +49,7 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
 - Top-level definitions bind functions. Values are local to functions or
   explicit state objects; there are no lazy global caches or initialization
   guards. Preserve typed define headers and `(Fn ... → ...)`.
-  A direct lambda definition remains function code with an inferred type,
-  used by generated application entries to determine their effect rows.
+  A direct lambda definition remains function code with an inferred type.
 
 - Use type checking to prove invariants that enable optimization. Preserve
   evidence about representations, effects and foreign boundaries
@@ -156,12 +155,12 @@ Scheme file. Browser changes should be seen running:
 
 ## Applications
 
-Build an application with `./snail-scheme build . TARGET` and serve its
-output directory, `build/TARGET`, with any static HTTP server; point
+An application is a script, `src/apps/NAME/main.scm`. Build it with
+`./snail-scheme build --target browser src/apps/NAME/main.scm` and serve its
+output directory, `build/src/apps/NAME/main`, with any static HTTP server; point
 `tests/browser/page.mjs` at it to see a change. Edit in any editor; in Zed,
 install `editors/zed` as a dev extension for `snail-scheme lsp`'s diagnostics
-on save, formatting, hover and definitions. The root `project.datum` names
-the `siegework` and `hearsay` browser targets. Each build first runs the
+on save, formatting, hover and definitions. Each build first runs the
 producers of the `generate-library` recipes it reaches, so Hearsay builds
 too; its producers run every time. What matters when writing code:
 

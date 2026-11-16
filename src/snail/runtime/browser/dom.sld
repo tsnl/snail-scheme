@@ -8,7 +8,6 @@
 (define-library (snail runtime browser dom)
   (export
    root
-   refresh-page
    create-element
    create-text
    set-attribute
@@ -95,7 +94,6 @@
             "snail.runtime.browser.dom"
             "finish-fullscreen"
             (Fn I64 → I32))
-    (extern refresh-page "snail.runtime.browser.dom" "refresh-page" (Fn → Unit))
     (extern confirm "snail.runtime.browser.dom" "confirm" (Fn Bytes → I32))
     (extern element-by-id "snail.runtime.browser.dom" "element-by-id" (Fn Bytes → I32))
     (extern select-range "snail.runtime.browser.dom" "select-range" (Fn I32 I32 I32 → Unit))

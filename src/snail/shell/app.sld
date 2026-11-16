@@ -8,9 +8,9 @@
 ;;   save    : State -> Bytes
 ;;   restore : Bytes -> State
 ;;
-;; `SceneApplication` implements the ordinary Application class. Its loop
-;; presents complete events and commits them through (snail shell page),
-;; which owns boot, restore and durable saves for both browser engines.
+;; A script runs one with `run-scene`, given a SceneHandler of the six.
+;; Its loop draws each event's state; (snail shell page) owns boot,
+;; restore and durable saves for both browser engines.
 ;; Time is input, so the state decides how its simulation advances. The
 ;; host draws a Frame through `screen` and updates HUD values after each
 ;; input (after time, at most ten times a second). A durable save may be
@@ -145,28 +145,18 @@
    InputEvent
    Hidden
    SaveRequested
-   Reload
    events
    next-event
    storage
    load-save
    store-save
-   PageState
-   define-page-state
-   Scene
-   SceneApplication
-   scene-initialize
-   scene-update
-   scene-view
-   scene-hud
-   scene-save
-   scene-restore)
+   SceneHandler
+   run-scene)
   (import
-   (rename (snail core base) (instance class-instance))
+   (except (snail core base) instance)
    (only (snail core forms) host)
    (prefix (snail runtime browser screen) host-)
    (snail shell task)
-   (snail shell application)
    (snail shell math)
    (snail shell page))
   (begin
@@ -1041,15 +1031,13 @@
       (FrameEvent ((elapsed I32)))
       (InputEvent ((input Input)))
       (Hidden)
-      (SaveRequested)
-      (Reload))
+      (SaveRequested))
 
     (define (next-event) (→ Event) (! events tasks)
       (match (poll-event)
         (0 (wait-event) (next-event))
         (11 (FrameEvent (event-field 0)))
         (12 (Hidden))
-        (13 (Reload))
         (16 (SaveRequested))
         (kind (InputEvent (decode-input kind
                                         (event-field 0)
@@ -1057,64 +1045,55 @@
                                         (event-field 2)
                                         (event-field 3))))))
 
-    ;; ---- Scene applications ----
+    ;; ---- Running a scene ----
 
-    (typeclass (Scene S)
-      (declare (scene-initialize (seed I32) (width I32) (height I32)) (→ S))
-      (declare (scene-update (state S) (input Input)) (→ S))
-      (declare (scene-view (value S)) (→ Frame))
-      (declare (scene-hud (value S)) (→ (List Panel)))
-      (declare (scene-save (value S)) (→ Bytes))
-      (declare (scene-restore (bytes Bytes)) (→ S)))
+    ;; A scene is a handler, in the style of winit's: a record of the six
+    ;; functions over its state, which a script hands to `run-scene` as its
+    ;; last statement.
 
-    ;; This adapter supplies Application through ordinary instance evidence.
-    ;; A project's selected type may be an alias for (SceneApplication Game).
-    (record (SceneApplication S)
-      ())
+    (record (SceneHandler S)
+      ((initialize (Fn I32 I32 I32 → S))
+       (update (Fn S Input → S))
+       (view (Fn S → Frame))
+       (hud (Fn S → (List Panel)))
+       (save (Fn S → Bytes))
+       (restore (Fn Bytes → S))))
 
-    (class-instance (Application (! mut screen events storage tasks page) (SceneApplication S))
-                    (⊨ (Scene S) (PageState S))
-                    (define start
-                      (lambda (entry)
-                        (run-page (lambda () (initial-scene entry)) scene-save scene-restore
-                                  (lambda (state save) (scene-loop save state 0))))))
+    ;; The page's state, from its save or `initialize` with a seed and the
+    ;; canvas's size, then the scene's loop, which never returns.
 
-    ;; The witness selects the state type before initialization; subsequent
-    ;; calls select their Scene evidence from the state itself.
+    (define (run-scene (scene (SceneHandler S))) (→ Unit) (! screen events storage tasks) (∀ (S))
+      (run-page (lambda ()
+                  ((● scene initialize) (random-seed) (canvas-width) (canvas-height)))
+                (● scene save)
+                (● scene restore)
+                (lambda (state save) (scene-loop scene save state 0))))
 
-    (define (initial-scene (entry (Entry (SceneApplication S))))
-      (→ S)
-      (! events)
-      (∀ (S))
-      (⊨ (Scene S))
-      (scene-initialize (random-seed) (canvas-width) (canvas-height)))
+    ;; Each event's state is drawn: a frame draws the scene and, at most ten
+    ;; times a second, the HUD; an input draws its HUD. Saves share the
+    ;; same queue, independently of display frames.
 
-    ;; Only successful events publish their resulting state. A frame owns
-    ;; drawing and HUD throttling; an input owns its HUD. Save events share
-    ;; the same queue, independently of display frames.
-
-    (define (scene-loop (save (Fn S → Unit ! events storage tasks)) (state S) (since-hud I32))
+    (define (scene-loop (scene (SceneHandler S))
+                        (save (Fn S → Unit ! events storage tasks))
+                        (state S)
+                        (since-hud I32))
       (→ Unit)
-      (! mut screen events storage tasks page)
+      (! screen events storage tasks)
       (∀ (S))
-      (⊨ (Scene S) (PageState S))
       (match (next-event)
         ((FrameEvent elapsed)
-         (let* ((next (scene-update state (Elapsed elapsed))) (frame (scene-view next))
+         (let* ((next ((● scene update) state (Elapsed elapsed)))
                 (hud-time (+ since-hud elapsed))
-                (show-hud? (>= hud-time 100)) (widgets (if show-hud? (scene-hud next) (Nil))))
-           (render frame)
-           (when show-hud? (render-hud widgets))
-           (commit-page next)
+                (show-hud? (>= hud-time 100)))
+           (render ((● scene view) next))
+           (when show-hud? (render-hud ((● scene hud) next)))
            (report-ready)
-           (scene-loop save next (if show-hud? 0 hud-time))))
+           (scene-loop scene save next (if show-hud? 0 hud-time))))
         ((InputEvent input)
-         (let* ((next (scene-update state input)) (widgets (scene-hud next)))
-           (render-hud widgets)
-           (commit-page next)
-           (scene-loop save next 0)))
-        ((Hidden) (save state) (scene-loop save state since-hud))
-        ((SaveRequested) (save state) (scene-loop save state since-hud))
-        ((Reload) (save state) (unit))))
+         (let ((next ((● scene update) state input)))
+           (render-hud ((● scene hud) next))
+           (scene-loop scene save next 0)))
+        ((Hidden) (save state) (scene-loop scene save state since-hud))
+        ((SaveRequested) (save state) (scene-loop scene save state since-hud))))
 
     ))

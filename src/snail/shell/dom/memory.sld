@@ -599,7 +599,6 @@
                        (new Pair (first (offset-property (● state document) node "selectionStart"))
                             (second (offset-property (● state document) node "selectionEnd")))))
                     (window-node (lambda () (new Node (handle -1))))
-                    (refresh-page (lambda () (unit)))
                     (confirm
                      (lambda (question)
                        (alter! state

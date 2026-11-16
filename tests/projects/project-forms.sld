@@ -28,9 +28,7 @@
    (lambda (run)
      (write-line
       (string-append (● run name) " -> " (● (● run program) name)))
-     (match (● (● run program) entry)
-       ((SourceEntry path) (write-line (● path text)))
-       (_ (panic "expected a source entry")))
+     (write-line (● (● (● run program) entry) text))
      (write-line (string-join (● run arguments) "|"))
      (for-each (lambda (path) (write-line (● path text)))
                (● (● run program) libraries)))

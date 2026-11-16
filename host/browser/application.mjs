@@ -1,5 +1,5 @@
-// One loader and replacement transaction for every browser application.
-// Engines supply device imports and reset their presentation before each run.
+// One loader for every browser application. Engines supply device imports
+// and reset their presentation before each run.
 import {createWasi, linkModule, linkProgram} from './load.mjs';
 import {applicationEntry, HIDDEN} from './runtime.mjs';
 
@@ -28,19 +28,19 @@ async function linkApplication(application, program, read) {
                                    () => application.runtime.execution.tasks);
 }
 
-// Only a cold restoration failure before boot may discard saved bytes.
-// A first-frame trap already has a committed state and must stay recoverable.
+// A save the program cannot read traps before it boots: the page then
+// starts again without it. A trap after boot ends the page, which keeps
+// its last save.
 async function startCold(application) {
   const {runtime, program} = application, entry = applicationEntry(program);
   const run = runtime.start(entry);
   try { await run.ready.promise; }
   catch (error) {
     await run.done;
-    if (application.strictRestore) throw error;
     if (run.boot !== null || run.loaded == null) { reportApplicationError(error); return; }
     console.warn('discarding an incompatible save:', error.message);
     application.reset();
-    const retry = runtime.start(entry, null, {restore: null});
+    const retry = runtime.start(entry, {fresh: true});
     try { await retry.ready.promise; }
     catch (error) { await retry.done; reportApplicationError(error); }
   }

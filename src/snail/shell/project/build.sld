@@ -156,59 +156,24 @@
     ;; order: each entry and library root found in the project's directory,
     ;; and the standard libraries' directory after the roots.
 
-    (define (plan-targets (builder Builder)) (→ (List Target)) (! fs building)
+    (define (plan-targets (builder Builder)) (→ (List Target))
       (map (lambda (target)
              (match target
                ((ProgramTarget program)
                 (new Target (name (● program name))
                      (browser? #f)
                      (platform (● program platform))
-                     (entry (entry-source builder #f (● program entry)))
+                     (entry (in-project builder (● program entry)))
                      (directories (library-directories builder (● program libraries)))
                      (loc (● program loc))))
                ((BrowserTarget browser)
                 (new Target (name (● browser name))
                      (browser? #t)
                      (platform (list "snail" "target" "browser"))
-                     (entry (entry-source builder #t (● browser entry)))
+                     (entry (in-project builder (● browser entry)))
                      (directories (library-directories builder (● browser libraries)))
                      (loc (● browser loc))))))
            (● (● builder description) builds)))
-
-    ;; Entry selection emits ordinary source, so normal import resolution,
-    ;; type checking and instance selection establish its contract. A digest
-    ;; names immutable scaffolding: development sessions keep the same source
-    ;; identity, and concurrent builds never replace one another's entry.
-
-    (define (entry-source (builder Builder) (browser? Bool) (entry ProjectEntry))
-      (→ String)
-      (! fs building)
-      (match entry
-        ((SourceEntry path) (in-project builder path))
-        ((ApplicationEntry library name)
-         (let* ((text (application-source browser? library name))
-                (directory (string-append (● builder project) "/build/.snail-entry"))
-                (file
-                 (string-append directory "/" (bytes->hex (sha256 (string->utf8 text))) ".sld")))
-           (expect-done (make-directories directory) (string-append "cannot make " directory))
-           (unless (file-exists? file)
-             (let ((writing (string-append file ".writing."
-                                           (bytes->hex
-                                            (sha256 (string->utf8 (● builder scratch)))))))
-               (write-file writing text)
-               (expect-done (rename-file writing file) (string-append "cannot place " file))))
-           file))))
-
-    (define (application-source (browser? Bool) (library (List String)) (name String)) (→ String)
-      ;; The lambda's row follows the selected Application instance, just as
-      ;; define-page-entry's does. Importing the entry performs no work.
-      (string-append "(import (snail core base) (snail shell application) "
-                     (if browser? "(snail shell page) " "")
-                     "(prefix (" (string-join library " ") ") selected:))\n"
-                     (if browser?
-                         "(define-page-entry selected:"
-                         "(define main (lambda () (start (ann (new Entry) (Entry selected:")
-                     name (if browser? ")\n" ")))))\n")))
 
     (define (in-project (builder Builder) (path ProjectPath)) (→ String)
       (if (string=? (● path text) ".")

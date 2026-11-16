@@ -115,7 +115,7 @@
                     "rename"
                     "cond-expand"
                     "ctl" "∀" "⊨" "deriving" "host" "→" "!"
-                    "define-page-state" "define-record-type" "guard")))
+                    "define-record-type" "guard")))
 
     ;; A definition names what follows `(define`, `(define-syntax` or `(:`.
     (define (defining-forms) (→ (List String))
