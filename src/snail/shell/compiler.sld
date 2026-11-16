@@ -24,12 +24,14 @@
 
     ;; A program read, expanded and checked, before anything is emitted: what
     ;; a build emits, and what an editor asks of the program's names (snail
-    ;; shell lsp). `generate` runs the producer program of a
-    ;; `generate-library`, given the libraries loading when it was reached,
-    ;; and returns the bytes of the syntax it writes.
+    ;; shell lsp).
     (record Checked
       ((expanded ExpandedProgram)
        (typed Typed)))
+
+    ;; `generate` runs the producer program of a `generate-library`, given
+    ;; the libraries loading when it was reached, and returns the bytes of
+    ;; the syntax it writes.
 
     (define (source->checked (directories (List String))
                              (source String)

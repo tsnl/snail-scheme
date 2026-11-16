@@ -575,7 +575,6 @@
 
     (define (function-wat (fn Fn) (name String) (params (List Wat)) (result Rep) (body (List Wat)))
       (→ Wat)
-
       (wat* "func"
             (Cons (id name)
                   (append params
@@ -692,7 +691,6 @@
           ((Handle effect implementations body) (emit-handle fn expr effect implementations body))
           ((BoxAny inner) (list (to-any (● fn module) (● inner type) (emit1 fn inner))))
           ((Downcast inner target) (list (emit-downcast fn inner target (● expr type))))
-
           ((FieldRead _ _ _) (panic "internal error: field selection survived checking"))
           ((New _ _) (panic "internal error: named construction survived checking"))
           ((Ann inner _) (emit fn inner tail?)))))
@@ -1205,7 +1203,6 @@
 
     (define (closure-call-wat (m Module) (base String) (read Wat) (args (List Wat)) (tail? Bool))
       (→ Wat)
-
       (wat* (if tail? "return_call_ref" "call_ref")
             (Cons (id (code-type m base))
                   (Cons read (append args (list (wat "struct.get" (id base) (int 0) read)))))))
@@ -1781,7 +1778,6 @@
 
     (define (funcref-closure (m Module) (type Type) (reference Wat)) (→ Wat) (! mut)
       (match type
-
         ((TFun _ _ _)
          (let* ((signature (function-signature m type))
                 (base (closure-type m (● signature first) (● signature second)))
@@ -3444,7 +3440,6 @@
           (("unit") (list (wat "i32.const" (int 0))))
           (("inherit-handlers") (list (inherited fn type (arg 0))))
           (("unsafe-cast") (list (funcref-closure m type (arg 0))))
-
           (("panic") (list (wat* "call" (Cons (id (panic-helper m)) code)) (wat "unreachable")))
           (("bool->i32" "char->i32" "i32->char" "u8->i32") code)
           (("i32->u8") (list (wat "i32.and" (arg 0) (wat "i32.const" (int 255)))))

@@ -348,7 +348,6 @@
       (! compile)
       (let ((identifier-name (ident-name ident)))
         (match env
-
           ((Top top _)
            (let ((definitions (top-definitions cx top)))
              (when (table-contains? definitions (ident-key ident))
@@ -1372,7 +1371,6 @@
          (threading cx ((scanned (each (lambda (cx item) (scan-top-level cx env item))
                                        (form-tail form))))
                     (new Pair (first (concatenate scanned)) (second cx))))
-
         ((Some (Core "define-syntax"))
          (new Pair (first (Nil)) (second (define-top-macro cx env form))))
         ((Some (Core "primitive"))
@@ -1488,7 +1486,6 @@
           (("enum") (new Pair (first (Nil)) (second (declare-data cx env form #t))))
           (("typeclass") (new Pair (first (Nil)) (second (declare-class cx env form))))
           (("instance") (declare-instance cx env form))
-
           (("extern") (new Pair (first (Nil)) (second (declare-extern cx env form))))
           (("effect") (new Pair (first (Nil)) (second (declare-effect cx env form))))
           (("define" "value")
@@ -1948,9 +1945,8 @@
       (! compile)
       (match form
         ((Form (Cons _ (Cons (Form (Cons class-ident type-args) _) body)) loc)
-         (let ((parts (split-requires body)))
-           (threading cx ((class (instance-class env class-ident))
-                          (declared (declared-instance env class type-args (● parts first) loc))
+         (let ((parts (split-requires body)) (class (instance-class cx env class-ident)))
+           (threading cx ((declared (declared-instance env class type-args (● parts first) loc))
                           (methods
                            (each (lambda (cx definition)
                                    (instance-method cx
@@ -1972,12 +1968,9 @@
         (_
          (compile-error (syntax-loc form) "expected (instance (Class type ...) definition ...)"))))
 
-    (define (instance-class (cx Context) (env Env) (class-ident Syntax))
-      (→ (Pair Class Context)) (! compile)
+    (define (instance-class (cx Context) (env Env) (class-ident Syntax)) (→ Class) (! compile)
       (match (resolve cx env class-ident)
-        ((Some (ClassName id))
-
-         (new Pair (first (program-class (● cx program) id)) (second cx)))
+        ((Some (ClassName id)) (program-class (● cx program) id))
         (_ (compile-error (syntax-loc class-ident)
                           "instance of something that is not a typeclass"))))
 
@@ -2624,7 +2617,6 @@
                 (expand-typed-lambda cx env (parse-lambda (Form items loc)))
                 (expand-lambda cx env (form-items params "a parameter list") body loc)))
            (_ (compile-error loc "expected (lambda (parameter ...) body ...)"))))
-
         (("if")
          ;; `then` is `threading`'s own keyword, so the branches are named
          ;; otherwise.
@@ -2640,7 +2632,6 @@
                          (first (expr (If test consequent (expr (Lit (DUnit)) loc)) loc))
                          (second cx))))
            (_ (compile-error loc "expected (if test then [else])"))))
-
         (("begin") (expand-body cx env (list-tail items 1) loc))
         (("let") (expand-let cx env items loc))
         (("match") (expand-match cx env items loc))
@@ -2684,7 +2675,6 @@
                            (env Env)
                            (params (List Syntax))
                            (body (List Syntax))
-
                            (loc Loc))
       (→ (Pair Expr Context))
       (! compile)
@@ -2733,7 +2723,6 @@
     (define (expand-body-forms (cx Context)
                                (scope Env)
                                (forms (List Syntax))
-
                                (loc Loc))
       (→ (Pair Expr Context))
       (! compile)
@@ -2747,7 +2736,6 @@
                       ((Some (Core "define-syntax"))
                        (threading cx ((inner (define-local-macro scope form)))
                                   (expand-body-forms cx inner rest loc)))
-
                       ((Some (Core "define"))
                        (expand-local-definition cx scope form rest loc))
                       (_ (threading cx ((value (expand-expr scope form)))
@@ -2991,7 +2979,6 @@
                                    (fields (map (lambda (field) (● (parse-field field) name))
                                                 (record-fields form)))
                                    (enum? #f))))))
-
         (each cx
               (lambda (cx class)
                 (match class
