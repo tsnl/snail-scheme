@@ -8,10 +8,7 @@
    expand-program
    LinkedFile
    library-links
-   program-links
-   LibraryFile
-   DefinedLibrary
-   GeneratedLibrary)
+   program-links)
   (import
    (snail core base)
    (snail core table)
@@ -906,7 +903,7 @@
     (define (host-signature? (value (Option Value))) (→ Bool)
       (match value
         ((Some (Defined (Some scheme) _))
-         (match (fn-arrow (● scheme type))
+         (match (● scheme type)
            ((TFun _ _ (TRow labels (None)))
             (every? (lambda (label) (member? label (list "mut" "host"))) labels))
            (_ #f)))
@@ -2166,7 +2163,7 @@
                             (params (List Syntax)) (self Constraint) (signature Syntax))
       (→ (Pair String Context)) (! compile)
       (let* ((definition (parse-declaration signature))
-             (own (operational-scheme (resolve-scheme cx scope (definition-type definition))))
+             (own (resolve-scheme cx scope (definition-type definition)))
              (global (global-binding cx env (● definition name))))
         (new Pair (first global)
              (second (add-value cx global
@@ -2608,7 +2605,7 @@
                            (Cons (Atom (DString module) _)
                                  (Cons (Atom (DString symbol) _) (Cons type (Nil))))))
                _)
-         (let ((resolved (fn-arrow (resolve-type cx env type))))
+         (let ((resolved (resolve-type cx env type)))
            (check-host-parameters resolved (syntax-loc type))
            (add-value cx
                       (global-binding cx env name)
@@ -2690,7 +2687,7 @@
                                     (control? Bool))
       (→ (Pair (Pair String Bool) Context))
       (! compile)
-      (match (operational-scheme (resolve-scheme cx env type))
+      (match (resolve-scheme cx env type)
         ((Scheme vars constraints (TFun params result (TRow latent (None))))
          (unless (and (null? vars) (null? constraints))
            (compile-error (syntax-loc type)
@@ -2732,7 +2729,7 @@
         ((Form (Cons _ (Cons name (Cons type (Nil)))) _)
          (let* ((global (primitive-global (expect-name name "a primitive name")))
                 (cx (bind-top cx env name (Global global))))
-           (add-value cx global (Primitive (operational-scheme (resolve-scheme cx env type))))))
+           (add-value cx global (Primitive (resolve-scheme cx env type)))))
         (_ (compile-error (syntax-loc form) "expected (primitive name type)"))))
 
     ;; ---- Types ----
@@ -2746,16 +2743,6 @@
        (env Env)))
 
     (define (resolve-scheme (cx Context) (env Env) (syntax Syntax)) (→ Scheme) (! compile)
-      (resolve-raw-scheme cx env syntax))
-
-    ;; A primitive, method or operation describes executable code, rather
-    ;; than introducing a source closure identity of its own.
-
-    (define (operational-scheme (scheme Scheme)) (→ Scheme)
-      (new Scheme (vars (● scheme vars)) (constraints (● scheme constraints))
-           (type (fn-arrow (● scheme type)))))
-
-    (define (resolve-raw-scheme (cx Context) (env Env) (syntax Syntax)) (→ Scheme) (! compile)
       (match syntax
         ((Form (Cons (Ident "∀" _ _) (Cons (Form params _) rest)) loc)
          (let* ((params (map (lambda (param) (expect-ident param "a type variable")) params))

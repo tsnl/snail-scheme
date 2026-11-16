@@ -1046,7 +1046,7 @@ have been sneaked into code whose types do not mention it.
 
 That code was also compiled believing `Async` was already handled: only a
 call whose callee's row names a control effect checks for a yield
-(`control.sld` in the [compiler tour](compilers.md)). A yield aimed
+("Control" in `wasm.sld`; see the [compiler tour](compilers.md)). A yield aimed
 further out would return through frames compiled without a test for one.
 The error above closes the other way in: an operation whose type names no
 control effect may not yield at all.
