@@ -66,10 +66,13 @@ cannot change the compiler inside it, so one compile by it is the
 fixpoint's output; an edit to the compiler runs the whole fixpoint.
 Set `CHEZ` to the Chez `scheme` executable when it is not on `PATH`.
 
-`make test` exercises compiler units and linked programs with the compiled
-compiler. `make test-chez` compiles the suite from source on Chez.
-`make test-wasmtime` uses Wasmtime for supported compiles and executions and
-checks agreement with V8. `make check` verifies source formatting. There is
+`make test` runs the compiler's unit tests from source on Chez
+(`tests/unit.scm`), then builds every test program with the command line,
+as a user's is built, and runs it (`tests/run.mjs`). Stage 0 compiles
+nothing but the command line: that Chez and the compiled compiler agree is
+the fixpoint's check, on the compiler's own source. `make test-wasmtime`
+builds each program for wasmtime, runs it on the native executable, and
+checks that the command line emits the same text on both engines. `make check` verifies source formatting. There is
 no Chibi test or bootstrap path.
 
 ## The native executable

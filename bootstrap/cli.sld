@@ -21,12 +21,12 @@
 ;;     format does;
 ;;   compile MODE SOURCE OUTPUT GENERATED [DIRECTORY ...]
 ;;     makes one compile, (snail shell compiler driver): the interface stage
-;;     0 bootstraps this program through and its test harness compiles with.
+;;     0 bootstraps this program through.
 ;;
 ;; It is also the engine, (snail shell engine), which host/native/run-snail.mjs
 ;; and `snail run-wasm` start through the exports of "The engine" to run a
-;; program compiled one library at a time, as stage 0's test harness
-;; builds them: SNAIL_MANIFEST names its manifest.
+;; program compiled one library at a time: SNAIL_MANIFEST names its
+;; manifest.
 ;;
 ;; A failure prints its message and exits with status 1; the outputs of
 ;; earlier builds stay published.
@@ -106,8 +106,11 @@
   (cond ((string=? name "node") (Node))
         ((string=? name "wasmtime") (Wasmtime))
         ((string=? name "browser") (Browser))
+        ((string=? name "portable") (Portable))
         (else
-         (panic (string-append "unknown target " name ": expected node, wasmtime or browser")))))
+         (panic (string-append "unknown target "
+                               name
+                               ": expected node, wasmtime, browser or portable")))))
 
 (define (script-request (tools Tools) (run? Bool) (flags BuildFlags) (arguments (List String)))
   (→ ScriptJob)
@@ -137,7 +140,8 @@
                                   (Cons (built-program job) (● job arguments))))))
       ((Wasmtime) (become (string-append (● tools root) "/build/snail")
                           (Cons "run-wasm" (Cons (built-program job) (● job arguments)))))
-      ((Browser) (panic "a page is not run here: build it, then serve its output")))))
+      ((Browser) (panic "a page is not run here: build it, then serve its output"))
+      ((Portable) (panic "a portable program is run by a host: build it for node or wasmtime")))))
 
 (define (built-program (job ScriptJob)) (→ String) (! mut fs clock process)
   (string-append (build-job job)

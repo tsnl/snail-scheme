@@ -804,7 +804,7 @@
 
     ;; The body of the program at `path`, and the recipe it stands for when
     ;; it is a producer, printed with the libraries `loading` when it was
-    ;; reached: such a body begins with `(recipe "lib/sample/blob.sld")`.
+    ;; reached: such a body begins with `(recipe "src/sample/blob.sld")`.
 
     (define (producer-body (path String) (loading (List String)) (body (List Syntax)))
       (→ (Pair (Option Recipe) (List Syntax)))

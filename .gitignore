@@ -8,7 +8,7 @@
 
 # Intermediate build files
 /build/
-/tests/apps/*/build/
+/tests/**/build/
 
 # Cargo names its output `target` relative to wherever the build ran, so
 # ignore the name anywhere rather than listing each crate and each caller,
