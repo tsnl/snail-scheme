@@ -256,14 +256,11 @@ The host sees the scheduler only through five exports of
 
 A host's loop calls `turn`, rests until the answer says, or until a
 completion wakes a ticket, and calls it again until no task is live
-(`host/browser/tasks.mjs`'s `drive`, and `drive` in
-`crates/snail/src/program.rs` for wasmtime). A trap unwinds out of `turn`.
+(`host/browser/tasks.mjs`'s `drive`). A trap unwinds out of `turn`.
 The host reports the trap under `tasks:running`, closes the scheduler and
 ends the run. An
 answer of -2 while no host operation is outstanding is a deadlock: no
-completion will wake a ticket, so the run fails. The wasmtime host
-completes no host operations, so there -2 always fails; a program that
-uses sockets or processes runs on Node.
+completion will wake a ticket, so the run fails.
 
 A host operation's start and finish are synchronous imports.
 `host/browser/tasks.mjs` keeps each outcome under its ticket until the

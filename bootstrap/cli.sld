@@ -3,13 +3,12 @@
 ;; runtime modules programs are linked with, plain and the toolchain's:
 ;;
 ;;   build --target TARGET [--release] FILE
-;;     builds the script FILE for TARGET, node, wasmtime, browser or
-;;     portable, into build/PATH of its workspace, PATH being FILE's there
-;;     without its extension, publishes it, and prints where its output is;
-;;   run --target TARGET [--release] [--engine ENGINE] FILE [ARGUMENT ...]
-;;     builds the script as `build` does, then becomes it, with the
-;;     arguments, in the caller's directory, on ENGINE, node or wasmtime:
-;;     without one, the engine TARGET is named for, and node for portable;
+;;     builds the script FILE for TARGET, node or browser, into
+;;     build/PATH of its workspace, PATH being FILE's there without its
+;;     extension, publishes it, and prints where its output is;
+;;   run --target TARGET [--release] FILE [ARGUMENT ...]
+;;     builds the script as `build` does, then becomes it on Node, with
+;;     the arguments, in the caller's directory;
 ;;   wat --target TARGET FILE
 ;;     prints the WebAssembly text of the script's whole program;
 ;;   lsp
@@ -42,7 +41,7 @@
 ;; What a build or run names: a script, with --target.
 
 (define (usage) (→ String)
-  "usage: snail-scheme build|run --target node|wasmtime|browser|portable [--release] FILE [ARGUMENT ...]")
+  "usage: snail-scheme build|run --target node|browser [--release] FILE [ARGUMENT ...]")
 
 (define (request (arguments (List String))) (→ ScriptJob) (! fs)
   (match arguments
@@ -51,9 +50,8 @@
            (run? (cond ((string=? action "build") #f)
                        ((string=? action "run") #t)
                        (else (panic (usage))))))
-       (match (build-flags rest (None) (Debug) (None))
-         ((Pair (Some flags) rest)
-          (script-request tools run? (if run? flags (without-engine flags)) rest))
+       (match (build-flags rest (None) (Debug))
+         ((Pair (Some flags) rest) (script-request tools run? flags rest))
          ((Pair (None) _) (panic (usage))))))
     (_ (panic (usage)))))
 
@@ -69,19 +67,10 @@
 
 ;; ---- Scripts ----
 
-;; What runs a built program. A target names the capabilities a program
-;; may use, not its host: every build but a page's runs on either engine,
-;; where a call to a capability the engine lacks traps.
-(enum Engine
-  (OnNode)
-  (OnWasmtime))
-
-;; The flags every building command takes, parsed here alone, and the
-;; engine `run` was told to use.
+;; The flags every building command takes, parsed here alone.
 (record BuildFlags
   ((platform Platform)
-   (mode Mode)
-   (engine (Option Engine))))
+   (mode Mode)))
 
 ;; A script to build, and to run when `run?`, with its arguments.
 (record ScriptJob
@@ -94,45 +83,21 @@
 ;; The leading build flags, and what follows them; no flags when no
 ;; --target is among them.
 
-(define (build-flags (arguments (List String))
-                     (platform (Option Platform))
-                     (mode Mode)
-                     (engine (Option Engine)))
+(define (build-flags (arguments (List String)) (platform (Option Platform)) (mode Mode))
   (→ (Pair (Option BuildFlags) (List String)))
   (match arguments
-    ((Cons "--target" (Cons name rest))
-     (build-flags rest (Some (platform-named name)) mode engine))
-    ((Cons "--release" rest) (build-flags rest platform (Release) engine))
-    ((Cons "--engine" (Cons name rest))
-     (build-flags rest platform mode (Some (engine-named name))))
+    ((Cons "--target" (Cons name rest)) (build-flags rest (Some (platform-named name)) mode))
+    ((Cons "--release" rest) (build-flags rest platform (Release)))
     (_ (new Pair
          (first (match platform
-                  ((Some platform)
-                   (Some (new BuildFlags (platform platform) (mode mode) (engine engine))))
+                  ((Some platform) (Some (new BuildFlags (platform platform) (mode mode))))
                   ((None) (None))))
          (second arguments)))))
 
-(define (engine-named (name String)) (→ Engine)
-  (cond ((string=? name "node") (OnNode))
-        ((string=? name "wasmtime") (OnWasmtime))
-        (else (panic (string-append "unknown engine " name ": expected node or wasmtime")))))
-
-;; Only `run` chooses an engine.
-
-(define (without-engine (flags BuildFlags)) (→ BuildFlags)
-  (match (● flags engine)
-    ((Some _) (panic "--engine belongs to run: a build runs on either engine"))
-    ((None) flags)))
-
 (define (platform-named (name String)) (→ Platform)
   (cond ((string=? name "node") (Node))
-        ((string=? name "wasmtime") (Wasmtime))
         ((string=? name "browser") (Browser))
-        ((string=? name "portable") (Portable))
-        (else
-         (panic (string-append "unknown target "
-                               name
-                               ": expected node, wasmtime, browser or portable")))))
+        (else (panic (string-append "unknown target " name ": expected node or browser")))))
 
 (define (script-request (tools Tools) (run? Bool) (flags BuildFlags) (arguments (List String)))
   (→ ScriptJob)
@@ -150,30 +115,17 @@
 (define (build-job (job ScriptJob)) (→ String) (! mut fs clock process)
   (build-script (● job tools) (● job script) (● (● job flags) platform) (● (● job flags) mode)))
 
-;; The script built, then this process, replaced by its program on the
-;; job's engine.
+;; The script built, then this process, replaced by its program on Node.
+;; A page has nothing to run here, so it is refused before it is built.
 
 (define (run-script (job ScriptJob)) (→ Unit) (! mut fs clock process)
   (let ((tools (● job tools)))
-    (match (job-engine (● job flags))
-      ((OnNode) (become (● tools node)
-                        (Cons "--no-warnings"
-                              (Cons (string-append (● tools root) "/host/native/run-snail.mjs")
-                                    (Cons (built-program job) (● job arguments))))))
-      ((OnWasmtime) (become (string-append (● tools root) "/build/snail")
-                            (Cons "run-wasm" (Cons (built-program job) (● job arguments))))))))
-
-;; The engine asked for, or else the one the target is named for; a
-;; portable program names none and runs on Node, as this command line
-;; does. A page has nothing to run here, so it is refused before it is
-;; built.
-
-(define (job-engine (flags BuildFlags)) (→ Engine)
-  (match (new Pair (first (● flags platform)) (second (● flags engine)))
-    ((Pair (Browser) _) (panic "a page is not run here: build it, then serve its output"))
-    ((Pair _ (Some engine)) engine)
-    ((Pair (Wasmtime) _) (OnWasmtime))
-    (_ (OnNode))))
+    (match (● (● job flags) platform)
+      ((Node) (become (● tools node)
+                      (Cons "--no-warnings"
+                            (Cons (string-append (● tools root) "/host/native/run-snail.mjs")
+                                  (Cons (built-program job) (● job arguments))))))
+      ((Browser) (panic "a page is not run here: build it, then serve its output")))))
 
 (define (built-program (job ScriptJob)) (→ String) (! mut fs clock process)
   (string-append (build-job job)
@@ -188,9 +140,9 @@
 ;; needs a build to run its producer, so here it fails.
 
 (define (print-wat (tools Tools) (arguments (List String))) (→ Unit) (! mut fs output-port)
-  (match (build-flags arguments (None) (Debug) (None))
-    ((Pair (Some flags) (Cons file (Nil))) (print-script-wat tools (without-engine flags) file))
-    (_ (panic "usage: snail-scheme wat --target node|wasmtime|browser|portable FILE"))))
+  (match (build-flags arguments (None) (Debug))
+    ((Pair (Some flags) (Cons file (Nil))) (print-script-wat tools flags file))
+    (_ (panic "usage: snail-scheme wat --target node|browser FILE"))))
 
 (define (print-script-wat (tools Tools) (flags BuildFlags) (file String)) (→ Unit)
   (! mut fs output-port)

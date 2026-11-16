@@ -25,9 +25,7 @@
    program-name
    Platform
    Node
-   Wasmtime
    Browser
-   Portable
    platform-library
    Script
    script-at
@@ -89,22 +87,17 @@
 
     ;; ---- Scripts ----
 
-    ;; Where a script's program runs: on Node, on the native executable, in
-    ;; a page, or on any of them, with the capabilities they share.
+    ;; Where a script's program runs: on Node or in a page.
     (enum Platform
       (Node)
-      (Wasmtime)
-      (Browser)
-      (Portable))
+      (Browser))
 
     (define (platform-library (platform Platform)) (→ (List String))
       (list "snail"
             "target"
             (match platform
               ((Node) "node")
-              ((Wasmtime) "wasmtime")
-              ((Browser) "browser")
-              ((Portable) "portable"))))
+              ((Browser) "browser"))))
 
     ;; A script: `file`, an absolute path, in `workspace`, the nearest folder
     ;; above it that holds src/, where every import resolves.

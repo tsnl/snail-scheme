@@ -352,14 +352,14 @@ package's data, and the library reads it when it needs it:
   constructor, so a program cannot make one from a string: holding a
   `Resource` is evidence that its file ships. `(read-resource r)` returns the
   file's `Bytes` and performs `resource`, which every target handles
-  through `provide-resource`, on Node, in the browser and on wasmtime. It is not `fs`: a page has no
+  through `provide-resource`, on Node and in the browser. It is not `fs`: a page has no
   filesystem, and a program with none still reads its own files.
 
 **A file is read when the program asks for it.** A host reads nothing a
 module links when it instantiates the module. `read-resource` waits for the
 host as a task does (`through-host` in `(snail shell task)`), so it performs
-`tasks` and runs in a task. The first read of a file reads it, Node and
-wasmtime from the payload's directory and the browser by fetching beside the
+`tasks` and runs in a task. The first read of a file reads it, Node from
+the payload's directory and the browser by fetching beside the
 page's module, and later reads of it from the same module return the same
 bytes. A file the program never reads is never fetched, so a library may link
 far more than any one program uses. A file that cannot be read traps the task

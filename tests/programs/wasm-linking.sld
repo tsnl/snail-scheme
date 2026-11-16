@@ -1,7 +1,7 @@
 ;; The host's Wasm primitives as a loader written in `snail-scheme` uses them:
 ;; a module's imports listed, each given a provider, the module linked and
-;; an export run. The two hosts must answer alike: this runs on Node in
-;; `make test` and on wasmtime in `make test-wasmtime`. `one` exports a
+;; an export run. Hosts must answer alike: this runs on Node in `make
+;; test` and in a page in `make test-browser`. `one` exports a
 ;; function and a global; `two` imports both, a function of the host's,
 ;; and one that is given a constant, or nothing. Providers follow the
 ;; module's import order, which is the binary's: Binaryen wrote the global

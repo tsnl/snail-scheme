@@ -61,7 +61,7 @@
 
        (call-export (Fn I32 I64 → I64))))
 
-    ;; The host's own engine: the page's or Node's WebAssembly, or wasmtime.
+    ;; The host's own engine: the page's or Node's WebAssembly.
     (define (provide-wasm (work (Fn → T ! wasm e))) (→ T) (! e) (∀ (T e))
       (handle wasm
           ((argument-character host-argument-character)

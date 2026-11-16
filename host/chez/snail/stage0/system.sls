@@ -2,7 +2,7 @@
 ;; compiled by `snail-scheme` imports this host library.
 (library (snail stage0 system)
   (export create-directory create-directory* delete-file-hierarchy path-directory path-normalize
-          make-path file-link-status modification-nanoseconds file-size symbolic-link-file
+          make-path file-link-status modification-nanoseconds file-size
           file-lock lock/exclusive lock/unlock string-contains string-suffix? string-split
           write-string read-string read-bytevector write-bytevector
           open-binary-input-file open-binary-output-file port->string error-text
@@ -62,14 +62,11 @@
   ;; scalar descriptors cross this collect-safe call; no Scheme heap pointer.
   (define loaded-libc (load-shared-object #f))
   (define c-flock (foreign-procedure __collect_safe "flock" (int int) int))
-  (define c-symlink (foreign-procedure "symlink" (string string) int))
   (define lock/exclusive 2)
   (define lock/unlock 8)
   (define (file-lock port operation)
     (unless (zero? (c-flock (port-file-descriptor port) operation))
       (error 'file-lock "cannot lock build directory")))
-  (define (symbolic-link-file target path)
-    (unless (zero? (c-symlink target path)) (error 'symlink "cannot create link" target path)))
 
   (define (pinned-channel root)
     (let* ((path (make-path root "rust-toolchain.toml"))

@@ -69,62 +69,35 @@ Set `CHEZ` to the Chez `scheme` executable when it is not on `PATH`.
 (`tests/unit.scm`), then builds every test program with the command line,
 as a user's is built, and runs it (`tests/run.mjs`). Stage 0 compiles
 nothing but the command line: that Chez and the compiled compiler agree is
-the fixpoint's check, on the compiler's own source. `make test-wasmtime`
-builds each program for wasmtime, runs it on the native executable, and
-checks that the command line emits the same text on both engines. `make check` verifies source formatting. There is
-no Chibi test or bootstrap path.
+the fixpoint's check, on the compiler's own source. `make check` verifies
+source formatting. There is no Chibi test or bootstrap path.
 
-## The native executable
+## Running and linking
 
-`crates/snail` builds `build/snail`, a native executable that embeds
-[wasmtime](https://wasmtime.dev) 48 and runs compiled programs without
-Node, the command line among them. A compile is the command line's
-`compile` action, `compile TARGET SOURCE OUTPUT DIRECTORY ...`, which stage
-0 runs for the bootstrap: one that fails exits with status 1.
+Node runs every compiled program, the command line among them:
+`host/native/run-snail.mjs PROGRAM ARGUMENT ...` gives a linked module WASI,
+the files it links and module loading, calls `_initialize`, then `main`
+with a new scheduler, which starts the program's `main` as its first task,
+and drives the program's tasks until none is live
+([driving the scheduler](../runtimes/scheduling.md)). A file the program
+links is an object of `store/` beside it, at `sha256/AB/DIGEST`, read when a
+task first asks for it.
 
-`build/snail run-wasm PROGRAM ARGUMENT ...` runs a compiled program as
-`host/native/run-snail.mjs` does on Node, for one that needs of its host
-only WASI, the files it links and loading modules
-(`crates/snail/src/program.rs`). PROGRAM is one linked module, as every
-`snail-scheme build` writes. A file it links is an object of `store/`
-beside it, at `sha256/AB/DIGEST`, read by the host when a task first asks
-for it, which wakes the task's ticket between turns (`links.rs`).
-WASI gets PROGRAM and the arguments, the environment with `SNAIL_CWD`
-naming the working directory, and the host's `/` preopened; then
-`_initialize`; then `main` with a new scheduler, which starts the
-program's `main` as its first task; then
-the first turn; and then the program's tasks, driven until none is live
-([driving the scheduler](../runtimes/scheduling.md)).
 The status is 0, or 1 when a task trapped or exited after the first turn;
 a WASI exit in the first turn is its own status, and ends the program
-before its other tasks run.
-`close-resources` runs whatever
-happened, and a nonzero answer fails a run that succeeded. A trap or a
-failure of the host is status 2, with V8's message after `snail: ` and the
-Wasm frames after it, and so is a run whose tasks all wait on tickets,
-since this host completes no host operations. Node's runner gives the
-same statuses. What a module imports of
-`snail.runtime.native.socket` or `snail.runtime.native.process` is linked to
-a function that traps when it is called, saying the operation runs on Node:
-the command line imports processes for `run`, and its `wat` calls none,
-so it runs here, while a program that uses sockets or processes runs on
-Node.
+before its other tasks run. A trap in the first turn or a failure of the
+host is status 2, with the message after `snail: `, and so is a run whose
+tasks all wait on tickets nothing will complete.
 
-Node is still the default engine: `./snail-scheme` and the bootstrap run the
-command line on it. `./snail-scheme run --target wasmtime FILE` builds a
-program for `(snail target wasmtime)` and runs it on `build/snail`, and
-`SNAIL_ENGINE=wasmtime` has the test suite do so for every program but
-those `tests/run.mjs` names as needing Node's processes, signals or
-sockets. Stage 0 uses this executable to link the command line, `build/snail
-link INPUT.wat RUNTIME.wasm OUTPUT.wasm`, so it builds it with Cargo when
-stale, and `make bootstrap` builds it first.
+A compile is the command line's `compile` action,
+`compile TARGET SOURCE OUTPUT DIRECTORY ...`, which stage 0 runs for the
+bootstrap: one that fails exits with status 1. Stage 0 links the command
+line with `snail-link INPUT.wat RUNTIME.wasm OUTPUT.wasm`, a small native
+program in `crates/snail-scheme-support` that calls the assembler and
+linker the command line itself holds; Cargo builds it when stale.
 
-Node remains the default for compiler execution. Wasmtime provides an
-independent engine and is exercised by `make test-wasmtime`. Performance
-comparisons must identify the compiler revision and distinguish engine
-startup, compilation of Wasm to native code, and execution; the language's
-boxed records change those costs substantially.
-
-The standalone executable and its embedded project tooling remain the
-subject of [#562](https://github.com/tsnl/snail-scheme/issues/562). Chez is
-needed for a clean source bootstrap, not to execute a compiled program.
+There is no native runner: the wasmtime executable that once ran programs
+without Node is removed, and its history holds it. Other hosts, such as
+workerd, remain the direction ([runtimes](../runtimes/index.md#direction)).
+Chez is needed for a clean source bootstrap, not to execute a compiled
+program.

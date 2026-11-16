@@ -240,8 +240,8 @@ clock, from an origin the host chooses; only differences mean anything.
 
 ## Loading WebAssembly
 
-`(snail shell wasm)` supplies the engine's explicit linker on Node, browser and
-Wasmtime. Compile bytes with `compile-bytes`, inspect `module-imports`, then
+`(snail shell wasm)` supplies the engine's explicit linker on Node and in
+the browser. Compile bytes with `compile-bytes`, inspect `module-imports`, then
 supply `link-module` with one provider per import. `(ExportOf instance name)`
 selects an export, `(HostProvided)` selects a host service, `(ConstantOf n)`
 provides a constant function, and `(Unprovided)` traps if called.

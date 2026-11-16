@@ -20,8 +20,8 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   `native/` for Node, `browser/` for the page. Editor support lives under
   `editors/`: the tree-sitter grammar and the Zed extension. Rust
   crates live in `crates/`. No program or library may depend on
-  JavaScript: hosts beyond Node and the page, such as wasmtime and
-  workerd, are the long-term direction
+  JavaScript: hosts beyond Node and the page, such as workerd, are the
+  long-term direction
   ([Runtimes](doc/book/runtimes/index.md#direction)). Surface macros expand away before checking. See
   [the language chapters](doc/book/snail-scheme/index.md).
 
@@ -151,10 +151,8 @@ that time for a worse report. Push when a change is verified, not to find out.
 
 Relevant checks are `make test`, `make check`,
 `cargo test --manifest-path crates/snail-scheme-support/Cargo.toml --offline`, and
-`cargo fmt --manifest-path crates/snail-scheme-support/Cargo.toml --all -- --check`, and the
-same two for `crates/snail`. Changes to the native
-executable or to how compiles and programs run must also pass
-`make test-wasmtime`. Stage 0 rebuilds the command line whenever its
+`cargo fmt --manifest-path crates/snail-scheme-support/Cargo.toml --all -- --check`.
+Stage 0 rebuilds the command line whenever its
 source changes; compiler changes must also pass `make bootstrap`, which
 rebuilds from Chez alone and checks that Chez and the compiled compiler
 emit the same text for it.
