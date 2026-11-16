@@ -27,7 +27,7 @@
    failure->string
    Output
    Candidate
-   manifest-name
+   program-name
    read-project
    build-project
    publish-project
@@ -62,19 +62,23 @@
     ;; libraries (src/), the browser host's files and the native runner,
     ;; `runtime` is the runtime module a program is linked with, `toolchain`
     ;; the one a program that links the assembler is, whose services
-    ;; include it, and `node` runs producers.
+    ;; include it, and `node` runs producers. Binaryen's wasm-opt, which
+    ;; optimizes a release build, is found on PATH.
     (record Tools
       ((root String)
        (runtime String)
        (toolchain String)
        (node String)))
 
-    ;; Both modes leave a module per library, each an object of the
+    ;; A debug build leaves a module per library, each an object of the
     ;; project's store, with NAME.manifest.datum naming them in link order,
     ;; the runtime and the files the program links, which every host links
-    ;; as the program starts. Neither runs a function-body optimizer. A
-    ;; debug generation links to the objects in the store; a release one
-    ;; holds copies, so it can be served or shipped on its own.
+    ;; as the program starts; its generation links to the objects in the
+    ;; store. A release build compiles the whole program to one module,
+    ;; fuses it with the runtime and optimizes it with wasm-opt, which can
+    ;; inline the runtime's functions into the program: NAME.wasm, with
+    ;; copies of the files it links, so it can be served or shipped on its
+    ;; own.
     (enum Mode
       (Debug)
       (Release))
@@ -430,7 +434,7 @@
 
     (define (build-target (builder Builder) (node I64) (target Target) (progress Progress))
       (→ Progress)
-      (! mut fs clock building)
+      (! mut fs clock process building)
       (let* ((name (● target name))
              (directory (prepare-generation builder name))
              (program (removing directory
@@ -492,10 +496,10 @@
                            (directory String)
                            (progress Progress))
       (→ Program)
-      (! mut fs building)
+      (! mut fs process building)
       (in-working builder node (lambda (working)
                                  (let ((checked (check-target target working progress)))
-                                   (write-program builder target directory checked)))))
+                                   (write-program builder target directory working checked)))))
 
     (define (check-target (target Target) (working String) (progress Progress)) (→ Checked)
       (! fs building)
@@ -508,16 +512,48 @@
                                      (● progress inputs)
                                      (Some (● target platform)))))))
 
-    (define (write-program (builder Builder) (target Target) (directory String) (checked Checked))
+    (define (write-program (builder Builder)
+                           (target Target)
+                           (directory String)
+                           (working String)
+                           (checked Checked))
       (→ Program)
+      (! mut fs process building)
+      (let ((links (match (● builder mode)
+                     ((Debug) (write-modules builder target directory checked))
+                     ((Release) (write-linked builder target directory working checked)))))
+        (new Program
+          (linked (map (lambda (file) (● file path)) links))
+          (typed (Some (● checked typed))))))
+
+    ;; A debug build's modules, one per library, and their manifest.
+
+    (define (write-modules (builder Builder) (target Target) (directory String) (checked Checked))
+      (→ (List LinkedFile))
       (! mut fs building)
       (let* ((built (compiled (lambda () (checked->modules checked))))
              (modules (map assemble-module built))
              (links (concatenate (map (lambda (module) (● module links)) built))))
         (write-manifest builder target directory modules links)
-        (new Program
-          (linked (map (lambda (file) (● file path)) links))
-          (typed (Some (● checked typed))))))
+        links))
+
+    ;; A release build's one module, NAME.wasm, linked and optimized in
+    ;; `working`, and copies of the files it links in its store/.
+
+    (define (write-linked (builder Builder)
+                          (target Target)
+                          (directory String)
+                          (working String)
+                          (checked Checked))
+      (→ (List LinkedFile))
+      (! mut fs process building)
+      (let* ((program (compiled (lambda () (checked->wat checked))))
+             (linked (string-append working "/linked.wasm"))
+             (output (string-append directory "/" (linked-name (● target name)))))
+        (write-bytes linked (linked-program builder program))
+        (optimize linked output)
+        (place-links builder directory (● program links))
+        (● program links)))
 
     ;; A browser target's host files and public tree; then the files the
     ;; generation holds.
@@ -550,9 +586,9 @@
     ;; include the assembler, for a program that links (snail shell
     ;; assembler), and the plain one otherwise.
 
-    (define (program-runtime (builder Builder) (modules (List (Pair String Bytes)))) (→ String)
+    (define (program-runtime (builder Builder) (libraries (List String))) (→ String)
       (let ((tools (● builder tools)))
-        (if (any? (lambda (module) (string=? (● module first) "snail.shell.assembler")) modules)
+        (if (member? "snail.shell.assembler" libraries)
             (● tools toolchain)
             (● tools runtime))))
 
@@ -561,7 +597,6 @@
     ;; it. The compile's own files stay in `working`.
 
     (define (link-program (builder Builder)
-                          (runtime String)
                           (entry String)
                           (directories (List String))
                           (inputs Inputs)
@@ -579,11 +614,54 @@
                                                                   forms))
                                               inputs
                                               (Some (list "snail" "target" "node")))))))
-        (match (link (● program text)
-                     (read-bytes runtime))
-          ((Ok bytes) (write-bytes output bytes))
-          ((Err message) (fail-build (string-append "cannot link program: " message))))
+        (write-bytes output (linked-program builder program))
         (● program links)))
+
+    ;; The whole program fused with its runtime into one module.
+
+    (define (linked-program (builder Builder) (program WholeProgram)) (→ Bytes) (! fs building)
+      (match (link (● program text) (read-bytes (program-runtime builder (● program libraries))))
+        ((Ok bytes) bytes)
+        ((Err message) (fail-build (string-append "cannot link program: " message)))))
+
+    ;; wasm-opt's -O2 over the linked module, enabling exactly the
+    ;; proposals the program may use: the compiler's GC, typed references,
+    ;; tail calls, bulk memory for its constant data and saturating
+    ;; conversions, and the Rust runtime's wasm32-wasip1 defaults. Enabling
+    ;; every feature would let it introduce one a host lacks: it then emits
+    ;; exact reference types, which Node 26 rejects.
+
+    (define (optimize (linked String) (output String)) (→ Unit)
+      (! process building)
+      (run-command (new Command (program "wasm-opt")
+                        (arguments (list "--enable-gc"
+                                         "--enable-reference-types"
+                                         "--enable-tail-call"
+                                         "--enable-bulk-memory"
+                                         "--enable-nontrapping-float-to-int"
+                                         "--enable-sign-ext"
+                                         "--enable-mutable-globals"
+                                         "--enable-multivalue"
+                                         "-O2"
+                                         linked
+                                         "-o"
+                                         output))
+                        (directory "."))
+                   "wasm-opt"))
+
+    ;; A release build's program, named for the last part of its target's
+    ;; name, as its manifest would be.
+
+    (define (linked-name (target String)) (→ String)
+      (string-append (base-name target) ".wasm"))
+
+    ;; What a host runs or a page loads: the manifest of a debug build, the
+    ;; linked module of a release one.
+
+    (define (program-name (target String) (mode Mode)) (→ String)
+      (match mode
+        ((Debug) (manifest-name target))
+        ((Release) (linked-name target))))
 
     ;; ---- Objects ----
 
@@ -683,7 +761,12 @@
       (! fs building)
       (let* ((store (project-store builder))
              (token (base-name directory))
-             (runtime (place-object store token (read-bytes (program-runtime builder modules))))
+             (runtime (place-object store
+                                    token
+                                    (read-bytes (program-runtime builder
+                                                                 (map
+                                                                  (lambda (module) (● module first))
+                                                                  modules)))))
              (placed (map (lambda (module)
                             (new Pair (first (● module first))
                                  (second (place-object store token (● module second)))))
@@ -777,28 +860,27 @@
                   (lambda (working)
                     (let ((program (string-append working "/producer.wasm"))
                           (output (string-append working "/output.syntax")))
-                      (place-producer-links builder
-                                            working
-                                            (link-program builder
-                                                          (● (● builder tools) runtime)
-                                                          (● producer source)
-                                                          (● producer directories)
-                                                          inputs
-                                                          working
-                                                          program))
+                      (place-links builder
+                                   working
+                                   (link-program builder
+                                                 (● producer source)
+                                                 (● producer directories)
+                                                 inputs
+                                                 working
+                                                 program))
                       (run-producer builder program output)
                       (supply-producer producer inputs output)))))
 
-    ;; A producer is one linked module, whose linked files are objects of
-    ;; store/ beside it, copied there from the project's store.
+    ;; A linked module's files, a producer's or a release build's, are
+    ;; objects of store/ beside it, copied there from the project's store.
 
-    (define (place-producer-links (builder Builder) (working String) (links (List LinkedFile)))
+    (define (place-links (builder Builder) (directory String) (links (List LinkedFile)))
       (→ Unit)
       (! fs building)
       (for-each (lambda (link)
-                  (let ((object (place-link (project-store builder) "producer" link)))
+                  (let ((object (place-link (project-store builder) (base-name directory) link)))
                     (copy-into (object-path (project-store builder) (● object digest))
-                               (object-path (string-append working "/store") (● object digest))
+                               (object-path (string-append directory "/store") (● object digest))
                                (string-append "cannot copy " (● link path)))))
                 (distinct-links links)))
 
@@ -845,11 +927,12 @@
             "snail-icon.svg" "snail-icon-192.png" "snail-icon-512.png"))
 
     ;; The names a build of `target` writes at its generation's root: its
-    ;; manifest, store/, the ownership marker and the browser host's files.
+    ;; manifest or linked module, store/, the ownership marker and the browser host's files.
     ;; A public tree may use none of them.
 
     (define (generated-names (target String)) (→ (List String))
-      (append (list (manifest-name target) "store" ".snail-target") (browser-files)))
+      (append (list (manifest-name target) (linked-name target) "store" ".snail-target")
+              (browser-files)))
 
     ;; The browser host's files, then the target's public tree, if it has
     ;; one. The page is the project's own index.html; none is generated.
@@ -863,7 +946,7 @@
       (copy-browser-assets builder name directory)
       (ensure-web-manifest (string-append (base-name (● builder project)) " / " name)
                            directory)
-      (prepare-browser-page directory (manifest-name name)))
+      (prepare-browser-page directory (program-name name (● builder mode))))
 
     ;; Public assets were copied first. A supplied manifest is a complete
     ;; replacement; the default is a regular file in the same output tree.

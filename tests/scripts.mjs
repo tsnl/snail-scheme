@@ -42,7 +42,12 @@ try {
   await readFile(join(objects, shard, object));
   await command('build', '--release', '--target', 'node', 'apps/hello/main.scm');
   const release = await realpath(output);
-  assert.ok((await lstat(join(release, 'store/sha256', shard, object))).isFile(), 'a release build copies');
+  assert.deepEqual((await readdir(release)).filter(name => !name.startsWith('.')), ['main.wasm'],
+    'a release build is one linked module, named for the script');
+  for (const target of ['node', 'wasmtime']) {
+    const ran = await command('run', '--release', '--target', target, 'apps/hello/main.scm', 'one');
+    assert.equal(ran.stdout, 'hello from src\none\n', `${target} runs the release build`);
+  }
 
   await write('apps/hello/public/index.html', '<!doctype html><title>Hello</title>');
   await command('build', '--target', 'browser', 'apps/hello/main.scm');
@@ -51,6 +56,9 @@ try {
     'a page names the manifest');
   assert.ok((await readdir(page)).includes('host.mjs'), 'a page holds the browser host');
   await assert.rejects(command('run', '--target', 'browser', 'apps/hello/main.scm'), /a page is not run here/);
+  await command('build', '--release', '--target', 'browser', 'apps/hello/main.scm');
+  assert.match(await readFile(join(await realpath(output), 'index.html'), 'utf8'), /content="\.\/main\.wasm"/,
+    'a release page names its one module');
 
   await assert.rejects(command('run', '--target', 'deno', 'apps/hello/main.scm'), /unknown target deno/);
   await assert.rejects(command('run', '--target', 'node', 'apps/missing.scm'), /there is no script at/);

@@ -84,4 +84,4 @@ pages: siegework
 	cp -R build/siegework/. build/pages/play/siegework/
 	test -f build/pages/index.html
 	test -f build/pages/games/siegework.html
-	test -f build/pages/play/siegework/siegework.manifest.datum
+	test -f build/pages/play/siegework/siegework.wasm

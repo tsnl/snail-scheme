@@ -1,17 +1,18 @@
 // One loader and replacement transaction for every browser application.
 // Engines supply device imports and reset their presentation before each run.
-import {createWasi, linkProgram} from './load.mjs';
+import {createWasi, linkModule, linkProgram} from './load.mjs';
 import {applicationEntry, HIDDEN} from './runtime.mjs';
 
 export const running = [];
 
-// The page's program is linked from its manifest, which the build names
-// in the page (a `snail-modules` meta element), or from `url`.
+// The page's program is linked from what the build names in the page (a
+// `snail-modules` meta element), or from `url`: a debug build's manifest,
+// or a release build's one module, NAME.wasm.
 export async function startPage(application, url) {
   Object.assign(application, {program: null, errors: []});
-  const manifest = document.querySelector('meta[name="snail-modules"]')?.content ?? url;
-  if (!manifest) throw new Error('the page names no program manifest');
-  await linkApplication(application, manifest, fetchRead(manifest));
+  const program = document.querySelector('meta[name="snail-modules"]')?.content ?? url;
+  if (!program) throw new Error('the page names no program');
+  await linkApplication(application, program, fetchRead(program));
   application.reset();
   application.startup = startCold(application);
   running.push(application);
@@ -20,10 +21,11 @@ export async function startPage(application, url) {
   return application;
 }
 
-async function linkApplication(application, manifest, read) {
+async function linkApplication(application, program, read) {
   const wasi = createWasi({print: printer(application)});
-  application.program = await linkProgram(read, manifest, wasi, application.imports,
-                                          () => application.runtime.execution.tasks);
+  const link = program.endsWith('.wasm') ? linkModule : linkProgram;
+  application.program = await link(read, program, wasi, application.imports,
+                                   () => application.runtime.execution.tasks);
 }
 
 // Only a cold restoration failure before boot may discard saved bytes.
