@@ -4,12 +4,14 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
 import {applicationEntry, createEventQueue, createRuntime, FRAME, HIDDEN} from '../../host/browser/runtime.mjs';
+import {createOverlay, widget, text, fire} from '../document.mjs';
 import {screenImports} from '../../host/browser/host.mjs';
+import {createDom} from '../../host/browser/dom.mjs';
 import {createWasi, instantiate, linkedFileImports, wasmImports} from '../../host/browser/load.mjs';
 
 const path = resolve(process.argv[2]);
 const turn = () => new Promise(setImmediate);
-const PRESS = 9, RESIZE = 8, MOVE = 4;
+const PRESS = 9, RESIZE = 8, MOVE = 4, KEY_DOWN = 1;
 const live = run => run.tasks.live();
 
 // Waits up to a hundred turns of the event loop for `condition`.
@@ -64,16 +66,17 @@ function checkFrames() {
 }
 
 async function application(options = {}) {
-  const observed = {count: null, frames: 0, failFrame: false, errors: [], warnings: []};
+  const overlay = createOverlay();
+  const observed = {frames: 0, failFrame: false, errors: [], warnings: [], overlay,
+                    get count() { return text(widget(overlay, 'count')); }};
   const runtime = createRuntime({...options, reportError: error => observed.errors.push(error), warn: text => observed.warnings.push(text)});
   const screen = screenImports({hasBatch: () => false, draw() {
     if (observed.failFrame) throw new Error('a deliberate presentation trap');
     observed.frames++;
-  }}, {has: () => true}, {update: panels => {
-    observed.count = panels.flatMap(panel => panel.widgets).find(widget => widget.key === 'count')?.text;
-  }});
+  }}, {has: () => true, url: () => ''});
   const wasi = createWasi({print() {}});
-  const imports = {...runtime.imports, 'snail.runtime.browser.screen': screen};
+  const imports = {...runtime.imports, 'snail.runtime.browser.screen': screen,
+                   'snail.runtime.browser.dom': createDom(overlay, runtime).imports};
   const module = await WebAssembly.compile(await readFile(path));
   const program = await instantiate(module, {...wasi.getImportObject(), ...imports, ...portable(module)});
   wasi.initialize(program);
@@ -82,14 +85,15 @@ async function application(options = {}) {
 }
 
 // Input sent during startup is delivered after the first frame; hiding
-// saves, and a later run boots from that save.
+// saves, and a later run boots from that save, whose HUD's button counts
+// when clicked.
 async function checkStartup() {
   const loaded = Promise.withResolvers();
   const saves = [];
   const app = await application({load: () => loaded.promise, store: async bytes => { saves.push(bytes); }});
   const {runtime, entry, observed} = app;
   const run = runtime.start(entry);
-  runtime.send(PRESS, 1); runtime.send(PRESS, 1);
+  runtime.send(KEY_DOWN, 1); runtime.send(KEY_DOWN, 1);
   await turn();
   assert.equal(live(run), 2, 'the scene and its sleeping child both remain live');
   assert.equal(observed.frames, 0);
@@ -104,9 +108,27 @@ async function checkStartup() {
   const later = await application({load: async () => saves[0]});
   assert.equal(await later.runtime.start(later.entry).ready.promise, 1, 'a page with a save restores it');
   assert.equal(later.observed.count, '2', 'the restored count, shown on the first Resize');
-  later.runtime.send(PRESS, 1);
+  fire(widget(later.observed.overlay, 'add'), 'click');
   await until(() => later.observed.count === '3');
   later.runtime.close();
+}
+
+// The pointer over a button is hovering input; a button removed while the
+// pointer is over it never hears the pointer leave, and the scene is told.
+async function checkHover() {
+  const app = await application(), {overlay} = app.observed;
+  await app.runtime.start(app.entry).ready.promise;
+  const hovered = () => text(widget(overlay, 'hovered'));
+  fire(widget(overlay, 'add'), 'pointerenter');
+  await until(() => hovered() === '1');
+  fire(widget(overlay, 'add'), 'pointerleave');
+  await until(() => hovered() === '0');
+  fire(widget(overlay, 'leave'), 'pointerenter');
+  await until(() => hovered() === '3');
+  fire(widget(overlay, 'leave'), 'click');
+  await until(() => !widget(overlay, 'leave'));
+  assert.equal(hovered(), '0', 'the removed button is no longer hovered');
+  app.runtime.close();
 }
 
 // A trap in any task ends the run, reported once, and the page keeps its
@@ -122,7 +144,7 @@ async function checkTraps() {
   assert.equal(runtime.execution.queue.closed, true);
   const update = await application(), started = update.runtime.start(update.entry);
   await started.ready.promise;
-  update.runtime.send(PRESS, 2);
+  fire(widget(update.observed.overlay, 'trap'), 'click');
   assert.ok((await started.done).error, 'a snail-scheme panic ends the run');
 }
 
@@ -164,11 +186,12 @@ async function checkStorageFailure() {
 await checkQueue();
 checkFrames();
 await checkStartup();
+await checkHover();
 await checkTraps();
 await checkUnreadableSave();
 await checkStartupFailures();
 await checkStorageFailure();
-console.log('app runtime: the scene as a task, storage by ticket, queued input, inherited handlers and saves passed');
+console.log('app runtime: the scene as a task, storage by ticket, queued input, the HUD\'s presses and hovering, inherited handlers and saves passed');
 
 // The imports of the capabilities the target installs and this test leaves
 // unused: the files a program links and the host's WebAssembly.

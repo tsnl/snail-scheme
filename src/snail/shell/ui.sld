@@ -14,6 +14,11 @@
 ;; reaches the whole page, are a list of their own the model gives; and an
 ;; interface may start with messages, to start the commands it needs
 ;; before anything happens.
+;;
+;; A program with a loop of its own, as a scene has for its HUD ((snail
+;; shell app)), shows trees itself: `patch-children` keeps a node's
+;; children equal to a list of trees, and `listener-table` finds the
+;; function of a listener that fired.
 (define-library (snail shell ui)
   (export
    Html
@@ -27,6 +32,9 @@
    On
    Keyed
    map-html
+   Shown
+   patch-children
+   listener-table
    run-ui)
   (import
    (snail core base)

@@ -1,6 +1,6 @@
 // Builds Siegework's script and runs it without a browser: a recording screen host, keys
 // that pan, the opening's banner and pulsing crystals, taps that select
-// cells, an order given through the HUD's card, five minutes of play, a drag
+// cells, an order given by clicking the HUD's button, five minutes of play, a drag
 // of the camera, and a save replayed through the application loop.
 //   node tests/siegework/headless.mjs ROOT
 import {execFile} from 'node:child_process';
@@ -8,20 +8,21 @@ import {readFile} from 'node:fs/promises';
 import {join, resolve} from 'node:path';
 import {promisify} from 'node:util';
 import assert from 'node:assert/strict';
+import {createOverlay, widget as widgetIn, part, text, fire} from '../document.mjs';
 import {screenImports} from '../../host/browser/host.mjs';
+import {createDom} from '../../host/browser/dom.mjs';
 import {createRuntime, applicationEntry} from '../../host/browser/runtime.mjs';
 import {createWasi, linkModule} from '../../host/browser/load.mjs';
 
-const HIDDEN = 12, ELAPSED = 11, PRESS = 9, POINTER_UP = 5, POINTER_MOVE = 4, POINTER_DOWN = 3, KEY_DOWN = 1, KEY_UP = 2;
-const SUGGESTED = 5;
+const HIDDEN = 12, ELAPSED = 11, POINTER_UP = 5, POINTER_MOVE = 4, POINTER_DOWN = 3, KEY_DOWN = 1, KEY_UP = 2;
 
 // The browser host's screen with a renderer that records the latest frame and
-// holds no batch, a picture store that has every picture, and a HUD that
-// keeps the latest widgets.
+// holds no batch and a picture store that has every picture, and an
+// overlay for the HUD's document.
 function screen() {
-  const host = {frames: [], widgets: [], imports: null};
-  host.imports = screenImports({hasBatch: () => false, draw: frame => { host.frames = [frame]; }}, {has: () => true},
-                               {update: panels => { host.widgets = panels.flatMap(panel => panel.widgets); }});
+  const host = {frames: [], overlay: createOverlay(), imports: null};
+  host.imports = screenImports({hasBatch: () => false, draw: frame => { host.frames = [frame]; }},
+                               {has: () => true, url: () => ''});
   return host;
 }
 
@@ -34,7 +35,8 @@ async function instantiateGame(directory, host, saved) {
   const runtime = createRuntime({seed: 7, load: async () => saved});
   const wasi = createWasi({print: (fd, line) => console.log(line)});
   const program = await linkModule(file => readFile(join(directory, file)), 'main.wasm', wasi,
-    {...runtime.imports, 'snail.runtime.browser.screen': host.imports}, () => runtime.execution.tasks);
+    {...runtime.imports, 'snail.runtime.browser.screen': host.imports,
+     'snail.runtime.browser.dom': createDom(host.overlay, runtime).imports}, () => runtime.execution.tasks);
   await runtime.start(applicationEntry(program)).ready.promise;
   return runtime;
 }
@@ -43,6 +45,10 @@ async function instantiateGame(directory, host, saved) {
 // the input and parks again before inspecting the screen or sending a tick.
 async function send(game, ...event) {
   game.send(...event);
+  await settled(game);
+}
+
+async function settled(game) {
   const end = Date.now() + 10000, queue = game.execution.queue;
   while (!queue.waiting && !queue.closed) {
     assert.ok(Date.now() < end, 'the application consumed its queued input');
@@ -51,7 +57,9 @@ async function send(game, ...event) {
   assert.equal(game.execution.queue.closed, false, 'the application is still running');
 }
 
-const widget = (host, key) => host.widgets.find(entry => entry.key === key);
+const widget = (host, key) => widgetIn(host.overlay, key);
+const enabled = button => button.disabled === false && button.getAttribute('aria-pressed') === null;
+const suggested = node => node.getAttribute('data-tone') === 'suggested';
 const tap = async (game, x, y) => { await send(game, POINTER_DOWN, 1, x, y, 0); await send(game, POINTER_UP, 1, x, y, 0); };
 
 const root = resolve(process.argv[2]);
@@ -64,18 +72,19 @@ const first = host.frames.at(-1);
 assert.deepEqual(first.batches.map(batch => batch.key), [1, 3, 5, 8, 9, 6, 4, 10, 7],
                  'terrain, structures, motion, bars, links, cursor, shimmer, beacons and preview');
 assert.ok(first.batches[7].items.length > 0, 'the crystals in sight pulse before the game begins');
-assert.equal(widget(host, 'opening-title').text, 'Siegework');
-const spoken = key => widget(host, key).spans.map(span => span.strong ? `*${span.words}*` : span.words).join('');
+assert.equal(text(widget(host, 'opening-title')), 'Siegework');
+const spoken = key => part(widget(host, key), 'text').childNodes
+  .map(span => span.tagName === 'strong' ? `*${span.textContent}*` : span.textContent).join('');
 assert.equal(spoken('opening-crystal'), 'Click the *glowing crystal*');
-assert.match(widget(host, 'how-to-play').url, /games\/siegework\.html$/);
+assert.match(widget(host, 'how-to-play').getAttribute('href'), /games\/siegework\.html$/);
 assert.ok(first.batches[0].items.length > 200, 'the explored ground around the hub');
-assert.equal(widget(host, 'energy').text, '160');
-assert.equal(widget(host, 'nests').text, '☆☆☆');
+assert.equal(text(widget(host, 'energy')), '160');
+assert.equal(text(widget(host, 'nests')), '☆☆☆');
 // The camera opens on the starter crystal: a tap in the middle offers the
 // suggested extractor.
 await tap(game, 480, 320);
-assert.equal(widget(host, 'build-extractor').control, 0, 'the starter crystal is in the middle');
-assert.equal(widget(host, 'build-extractor').tone, SUGGESTED);
+assert.ok(enabled(widget(host, 'build-extractor')), 'the starter crystal is in the middle');
+assert.ok(suggested(widget(host, 'build-extractor')));
 await send(game, KEY_DOWN, 53, 0, 0, 0);
 await send(game, KEY_UP, 53, 0, 0, 0);
 
@@ -109,13 +118,14 @@ for (let y = 10; y < 640 && !crystal; y += 20)
   for (let x = 10; x < 960 && !crystal; x += 20) {
     await tap(game, x, y);
     const button = widget(host, 'build-extractor');
-    if (button && button.control === 0) crystal = button;
+    if (button && enabled(button)) crystal = button;
   }
 assert.ok(crystal, 'a crystal is in view');
-assert.equal(crystal.tone, SUGGESTED, 'the opening suggests the extractor');
+assert.ok(suggested(crystal), 'the opening suggests the extractor');
 assert.equal(spoken('opening-build'), 'Click the *build button* to continue');
-await send(game, PRESS, crystal.action, crystal.argument, 0, 0);
-assert.equal(widget(host, 'energy').text, '135');
+fire(crystal, 'click');
+await settled(game);
+assert.equal(text(widget(host, 'energy')), '135');
 assert.ok(widget(host, 'scavenge'), 'the first extractor is ready at once');
 assert.ok(!widget(host, 'opening-title'), 'the banner leaves once the game begins');
 await send(game, ELAPSED, 0);
@@ -129,7 +139,7 @@ for (let i = 0; i < 3000; i++) {
 }
 assert.ok(alarm, 'an attack raises the alert');
 await send(game, ELAPSED, 0);
-const readouts = h => ['health', 'energy', 'threat', 'elapsed'].map(key => widget(h, key)?.text);
+const readouts = h => ['health', 'energy', 'threat', 'elapsed'].map(key => text(widget(h, key)));
 console.log(readouts(host).join(' | '));
 
 // A drag pans the camera away from the hub.
