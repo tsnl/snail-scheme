@@ -1,24 +1,14 @@
-;; A document engine over the shared page lifecycle. Interface describes
-;; pure model transitions and commands; its Application adapter installs
+;; A document engine over the shared page lifecycle. An InterfaceHandler
+;; describes pure model transitions and commands; `run-interface` installs
 ;; the browser's document and fetch bindings and runs the ordinary UI loop.
 (define-library (snail shell ui page)
   (export
    Command
-   PageState
-   define-page-state
-   Interface
-   InterfaceApplication
-   interface-initialize
-   interface-update
-   interface-view
-   interface-window
-   interface-messages
-   interface-save
-   interface-restore)
+   InterfaceHandler
+   run-interface)
   (import
    (snail core base)
    (only (snail core forms) host)
-   (snail shell application)
    (snail shell task)
    (snail shell page)
    (snail shell dom)
@@ -32,56 +22,53 @@
 
     (type (Command M) (Fn → M ! tasks dom fetch))
 
-    (typeclass (Interface Model)
-      (type Message)
-      (declare (interface-initialize (seed I32)) (→ Model))
-      (declare (interface-update (model Model) (message Message))
-        (→ (Pair Model (List (Command Message)))))
-      (declare (interface-view (value Model)) (→ (Html Message)))
-      (declare (interface-window (value Model)) (→ (List (Attribute Message))))
-      (declare (interface-messages (value Model)) (→ (List Message)))
-      (declare (interface-save (value Model)) (→ Bytes))
-      (declare (interface-restore (bytes Bytes)) (→ Model)))
+    ;; An interface is a handler, in the style of winit's: a record of
+    ;; pure model transitions and views, and the commands an update
+    ;; starts, which a script hands to `run-interface` as its last
+    ;; statement.
 
-    (record (InterfaceApplication Model)
-      ())
+    (record (InterfaceHandler Model Message)
+      ((initialize (Fn I32 → Model))
+       (update (Fn Model Message → (Pair Model (List (Command Message)))))
+       (view (Fn Model → (Html Message)))
+       (window (Fn Model → (List (Attribute Message))))
+       (messages (Fn Model → (List Message)))
+       (save (Fn Model → Bytes))
+       (restore (Fn Bytes → Model))))
 
-    (instance (Application (! mut host events storage tasks page) (InterfaceApplication Model))
-      (⊨ (Interface Model) (PageState Model))
-      (define (start (entry (Entry (InterfaceApplication Model))))
-        (→ Unit)
-        (! mut host events storage tasks page)
+    ;; The page's model, from its save or `initialize` with a seed, then
+    ;; the interface's loop over the page's document and fetch.
 
-        (run-page (lambda () (initial-interface entry)) interface-save interface-restore
-                  present-interface)))
-
-    (define (initial-interface (entry (Entry (InterfaceApplication Model))))
-      (→ Model)
-      (! events)
-      (∀ (Model))
-      (⊨ (Interface Model))
-      (interface-initialize (random-seed)))
-
-    ;; The loop's row includes publishing and saving its model. Commands and
-    ;; the save keep their narrower contracts and fit the loop as they are.
-    ;; The update's pair is rebuilt because a record's type never widens;
-    ;; its commands widen as they move into the new one.
-
-    (define (present-interface (model Model) (save (Fn Model → Unit ! events storage tasks)))
+    (define (run-interface (interface (InterfaceHandler Model Message)))
       (→ Unit)
-      (! mut host events storage tasks page)
-      (∀ (Model))
-      (⊨ (Interface Model) (PageState Model))
+      (! mut host events storage tasks)
+      (∀ (Model Message))
+      (run-page (lambda () ((● interface initialize) (random-seed)))
+                (● interface save)
+                (● interface restore)
+                (lambda (model save) (present-interface interface model save))))
+
+    ;; The loop's row includes saving its model. Commands keep their
+    ;; narrower contract and fit the loop as they are. The update's pair is
+    ;; rebuilt because a record's type never widens; its commands widen as
+    ;; they move into the new one.
+
+    (define (present-interface (interface (InterfaceHandler Model Message))
+                               (model Model)
+                               (save (Fn Model → Unit ! events storage tasks)))
+      (→ Unit)
+      (! mut host events storage tasks)
+      (∀ (Model Message))
       (with-page-dom
        (lambda ()
          (with-page-fetch
           (lambda ()
-            (run-ui model (interface-messages model)
+            (run-ui model ((● interface messages) model)
                     (lambda (model message)
-                      (match (interface-update model message)
+                      (match ((● interface update) model message)
                         ((Pair next commands) (new Pair (first next) (second commands)))))
-                    interface-view interface-window
-                    (lambda (model) (commit-page model) (report-ready))
+                    (● interface view) (● interface window)
+                    (lambda (model) (report-ready))
                     save)
             (unit))))))
 

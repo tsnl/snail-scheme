@@ -55,14 +55,13 @@ runs no initializer. Only a script has statements.
 
 A GUI program is an ordinary script that hands control to a library's event loop,
 in the style of Rust's [winit](https://github.com/rust-windowing/winit): it
-builds a handler, a record of functions, and calls `(run-app handler)` as a
+builds a handler, a record of functions, and calls `(run-scene handler)` as a
 statement. Such libraries are conveniences, not part of the language or the
 toolchain.
 
-**To prototype first:** on the page a statement cannot block. The browser host
-already drives the application's loop as a task, so the script's top level runs
-as a task, and `run-app` waits for events through the task effect. Siegework is
-the prototype.
+On the page a statement cannot block, so the script's top level runs as the
+scheduler's first task, and `run-scene` waits for events through the task
+effect ([application model](applications.md)).
 
 ## Targets and capabilities
 
@@ -303,9 +302,12 @@ Each step is a pull request that passes every check on its own.
 7. **Applications become scripts.**
    - Siegework and Hearsay move to `src/apps/NAME/`: done. Their libraries
      are `(apps NAME ...)` and their tests are in `tests/NAME/`.
-   - Prototype the page's top level as a task.
-   - Each becomes `src/apps/NAME/main.scm`, with a winit-style helper.
-   - Remove the `Application` class.
+   - Each becomes `src/apps/NAME/main.scm`, with a winit-style helper:
+     done. A script hands `run-scene` a `SceneHandler`, or `run-interface`
+     an `InterfaceHandler`, and the page calls its `main` like every host.
+   - The `Application` class goes: done, with `(entry ((lib) Type))`,
+     `define-page-entry` and the page's in-memory checkpoint. A trap ends
+     the page, which keeps its last save.
 8. **Embedding, then no project file.**
    - Producers call the compiler, and `link-file` is loosened.
    - Port the `artifact-bundle` tests, then delete `artifact.sld`, `plan.sld`,

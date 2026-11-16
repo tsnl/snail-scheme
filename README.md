@@ -24,12 +24,11 @@ Scheme runs its source to start the first bootstrap.
 ```sh
 nix-shell
 make fetch
-./snail-scheme build . siegework
+./snail-scheme build --target browser src/apps/siegework/main.scm
 ```
 
-The root `project.datum` describes the whole repository, with `siegework` and
-`hearsay` browser targets, and `./snail-scheme lsp` serves an editor that opens
-the repository: [`editors/zed`](editors/zed) and [`editors/vscode`](editors/vscode)
+Siegework and Hearsay are scripts, `src/apps/NAME/main.scm`, and
+`./snail-scheme lsp` serves an editor that opens the repository: [`editors/zed`](editors/zed) and [`editors/vscode`](editors/vscode)
 are extensions for Zed and VS Code.
 
 A script is a source file run as it is, for an explicit target; its imports
@@ -62,11 +61,11 @@ or build it:
 
 ```sh
 make site
-python3 -m http.server 4191 --directory build/siegework
+python3 -m http.server 4191 --directory build/src/apps/siegework/main
 ```
 
-Rebuild with `./snail-scheme build . siegework` and reload the page to see a
-change; `build/hearsay` serves Hearsay the same way. In Zed, the extension in [`editors/zed`](editors/zed) highlights,
+Rebuild with `make siegework` and reload the page to see a change;
+`build/src/apps/hearsay/main` serves Hearsay the same way. In Zed, the extension in [`editors/zed`](editors/zed) highlights,
 indents and formats `snail-scheme`, and `snail-scheme lsp` reports each saved build's
 diagnostics where they arise and gives a name's type and definition.
 

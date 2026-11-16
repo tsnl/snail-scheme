@@ -1,6 +1,6 @@
 // A browser interface's requests run as commands whose replies come back
 // as messages. Hold server replies so input, replacement, late replies and
-// reload happen while real host I/O is pending, rather than relying on
+// a reload happen while real host I/O is pending, rather than relying on
 // timer ordering.
 import assert from 'node:assert/strict';
 import {execFile} from 'node:child_process';
@@ -15,7 +15,7 @@ const [root, screenshot] = process.argv.slice(2);
 const directory = await mkdtemp(join(tmpdir(), 'snail-ui-requests-'));
 const app = join(directory, 'app');
 await cp(join(root, 'tests/apps/requests'), app, {recursive: true, filter: path => basename(path) !== 'build'});
-const built = (await promisify(execFile)(join(root, 'snail-scheme'), ['build', app, 'site'])).stdout.trim();
+const built = (await promisify(execFile)(join(root, 'snail-scheme'), ['build', '--target', 'browser', join(app, 'main.scm')])).stdout.trim();
 const waiting = [];
 const types = {'.html': 'text/html', '.mjs': 'text/javascript', '.wasm': 'application/wasm'};
 const server = createServer(async (request, response) => {
@@ -35,6 +35,14 @@ const url = `http://127.0.0.1:${server.address().port}/`;
 const shown = id => browser.evaluate(`document.getElementById('${id}')?.textContent`);
 const click = id => browser.evaluate(`document.getElementById('${id}').click()`);
 const ready = () => until(() => browser.evaluate('document.body.dataset.error || document.body.dataset.ready'), 'the interface');
+// Hiding the page saves its model; a navigation then restores that save.
+const hideAndReload = async () => {
+  await browser.evaluate('application.runtime.execution.saved = null; application.runtime.send(12)');
+  await until(() => browser.evaluate(`import('./storage.mjs').then(({loadSave}) => loadSave('requests'))
+    .then(bytes => application.runtime.execution.saved !== null &&
+                   String(bytes) === String(application.runtime.execution.saved))`), 'the save on hiding');
+  await browser.navigate(url);
+};
 const request = async () => {
   await click('load');
   await until(() => waiting.length > 0, 'the request on the server');
@@ -44,8 +52,8 @@ try {
   await browser.navigate(url);
   assert.equal(await ready(), 'true');
   assert.equal(await shown('result'), 'idle');
-  // The shared save timer reaches an idle interface too. A hard navigation
-  // restores only its durable snapshot, independently of graceful refresh.
+  // The shared save timer reaches an idle interface too, and a navigation
+  // restores its save.
   await click('click');
   await until(async () => await shown('clicks') === '1', 'the value to save');
   await until(() => browser.evaluate(`import('./storage.mjs').then(({loadSave}) =>
@@ -67,10 +75,10 @@ try {
   await sleep(100);
   assert.equal(await shown('result'), 'new result', 'a canceled request cannot install a late result');
 
-  // A graceful refresh checkpoints the model and forgets its pending
-  // request. The next instance restores only Save.
+  // A save forgets the pending request: the next instance restores only
+  // Save.
   const interrupted = await request();
-  await browser.evaluate('void application.refresh()');
+  await hideAndReload();
   await until(async () => await shown('result') === 'interrupted', 'the pending request restored as interrupted');
   assert.equal(await ready(), 'true');
   assert.equal(await shown('clicks'), '2');
@@ -78,15 +86,15 @@ try {
   const restored = await request();
   restored.end('loading');
   await until(() => browser.evaluate(`document.querySelector('main')?.getAttribute('aria-busy') === 'false'`), 'the literal loading reply collected');
-  // The display string is data. Only a tagged Waiting snapshot represents
-  // interrupted work; a completed reply named "loading" survives refresh.
-  await browser.evaluate('application.refresh().then(() => true)');
+  // The display string is data. Only a tagged Waiting save represents
+  // interrupted work; a completed reply named "loading" survives a reload.
+  await hideAndReload();
   await until(async () => await shown('result') === 'loading' && await shown('clicks') === '2', 'the completed loading reply restored');
   const final = await request();
   final.end('restored and responsive');
   await until(async () => await shown('result') === 'restored and responsive', 'work after restoration');
   if (screenshot) await browser.screenshot(screenshot);
-  console.log('UI requests handle input, replies, cancellation, late replies, periodic saves and checkpoint restoration');
+  console.log('UI requests handle input, replies, cancellation, late replies, periodic saves and restoring a save');
 } finally {
   for (const response of waiting) response.end();
   browser.close();

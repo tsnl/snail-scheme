@@ -66,14 +66,15 @@ generated-unicode:
 	  --example unicode-tables > build/unicode-tables.sld
 	./snail-scheme format < build/unicode-tables.sld > build/unicode.sld
 
-# The root project names each application, with output in build/NAME.
+# Each application is a script, src/apps/NAME/main.scm, built into
+# build/src/apps/NAME/main.
 site: siegework hearsay
 
 siegework:
-	./snail-scheme build --release . siegework
+	./snail-scheme build --release --target browser src/apps/siegework/main.scm
 
 hearsay:
-	./snail-scheme build --release . hearsay
+	./snail-scheme build --release --target browser src/apps/hearsay/main.scm
 
 # The GitHub Pages site in build/pages: the book, with Siegework at
 # play/siegework/. Hearsay stays unpublished: its LPC art must be credited
@@ -81,7 +82,7 @@ hearsay:
 pages: siegework
 	"$(MDBOOK)" build --dest-dir build/pages
 	mkdir -p build/pages/play/siegework
-	cp -R build/siegework/. build/pages/play/siegework/
+	cp -R build/src/apps/siegework/main/. build/pages/play/siegework/
 	test -f build/pages/index.html
 	test -f build/pages/games/siegework.html
-	test -f build/pages/play/siegework/siegework.wasm
+	test -f build/pages/play/siegework/main.wasm

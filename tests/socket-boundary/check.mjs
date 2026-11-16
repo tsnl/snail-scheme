@@ -92,7 +92,7 @@ try {
     wasi.initialize(runtime);
     program = {runtime, linked: new Map()};
   }
-  api = programEntry(program, 'main').exports;
+  api = programEntry(program).exports;
 
   const listener = api['listener'](await invoke('open').done), port = api['port'](listener);
   const client = api['connection'](await invoke('dial', port).done);

@@ -24,17 +24,17 @@ builds and their arguments. One server can embed several browser bundles; a
 browser bundle is a dependency, not a directly launched process. Applications
 supply the server and routes; project metadata does not infer them.
 
+`snail-scheme` uses one root `project.datum` for the whole repository, whose
+one target builds the book's highlighter. The applications are scripts
+([application model](applications.md)), built without it:
+
 ```sh
-./snail-scheme build --release . siegework
-python3 -m http.server 4191 --directory build/siegework
+./snail-scheme build --release --target browser src/apps/siegework/main.scm
+python3 -m http.server 4191 --directory build/src/apps/siegework/main
 ```
 
-`snail-scheme` uses one root `project.datum` for the whole repository. Its
-`siegework` and `hearsay` targets name entries, library roots and public files
-under `src/apps/`. An editor opening the root runs `snail-scheme lsp`
-over the same project ([editors](toolchain.md#editors)). Each application's
-output is under `build/TARGET`; application directories have no separate project
-description. Test fixtures retain their own projects.
+An editor opening the root runs `snail-scheme lsp` over the same project
+([editors](toolchain.md#editors)). Test fixtures retain their own projects.
 
 A single script needs no project:
 `snail-scheme build --target node FILE` builds it ([scripts](scripts.md)).
@@ -50,13 +50,7 @@ The file contains exactly one proper list of explicit `build-target` and
 `run-target` forms. Every field is exactly `(key value)`, including list values
 such as `(library-roots ("src" "shared"))` and `(args ())`.
 
-Both build kinds require one `entry`: a source path string, or an exported
-concrete application type such as `(entry ((example console) Printer))`. The
-library name is a nonempty list of identifiers; the final identifier names the
-type. The builder emits an ordinary typed `Application.start` call, so missing
-instances, unknown types and unsupplied type arguments are compiler errors.
-The generated source lives under `build/.snail-entry/`, named by its content
-digest so its path stays stable across builds.
+Both build kinds require one `entry`, a source path string.
 
 Both kinds accept an optional `library-roots` list. Browser builds also accept an optional `public` directory.
 Omitted roots mean an empty list; the toolchain supplies its standard library.

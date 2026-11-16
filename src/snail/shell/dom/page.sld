@@ -3,9 +3,9 @@
 ;; keeps the interface's nodes and listeners in tables by handle, under the
 ;; container the page gives it. Deliveries come from the page's event queue
 ;; ((snail shell page)): a listener's event as a kind the host fires with
-;; what it captured, a wake, the page hidden, and a reload, which closes
-;; the document. Only the root task polls the queue, so only it may wait
-;; for the next delivery; `wake` reaches the host from any task.
+;; what it captured, a wake, the page hidden, and a save's timer. A page's
+;; document never closes. One task, the interface's loop, waits for the
+;; next delivery; `wake` reaches the host from any task.
 (define-library (snail shell dom page)
   (export
    with-page-dom)
@@ -56,7 +56,6 @@
            (focus-node (lambda (node) (host-focus (● node handle))))
            ;; dom.mjs keeps the window at handle -1.
            (window-node (lambda () (new Node (handle -1))))
-           (refresh-page (lambda () (host-refresh-page)))
            (confirm (lambda (question) (= (host-confirm (string->utf8 question)) 1)))
            (installation-status page-installation-status)
            (install-app page-install)
@@ -115,7 +114,6 @@
               ((= kind (woken-kind)) (Woken))
               ((= kind (hidden-kind)) (Hidden))
               ((= kind (save-kind)) (SaveRequested))
-              ((= kind (reload-kind)) (Closed))
               (else (page-delivery)))))
 
     (define (fired-event) (→ Event) (! events)

@@ -217,7 +217,7 @@
 (define (script-project (script Script)) (→ Project) (! fs)
   (let* ((loc (new Loc (file (● script file)) (line 1) (column 1)))
          (path (lambda (text) (new ProjectPath (text text) (loc loc))))
-         (entry (SourceEntry (path (script-path script))))
+         (entry (path (script-path script)))
          (name (script-name script))
          (roots (list (path "src"))))
     (new Project

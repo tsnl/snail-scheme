@@ -1,20 +1,22 @@
-// Applications own input and checkpoint handover; (snail shell task) owns
-// tasks, the application's loop among them.
+// A page's program is a script: the host calls its main with a scheduler,
+// whose first task runs the script under (snail target browser)'s
+// handlers, and drives the scheduler. This file holds the page's event
+// queue and its one save; (snail shell task) owns the tasks.
 import {programEntry} from './entry.mjs';
 import {byteSnapshot} from './load.mjs';
 import {createTasks, taskExports} from './tasks.mjs';
 
-export const FRAME = 11, HIDDEN = 12, RELOAD = 13, SAVE = 16;
+export const FRAME = 11, HIDDEN = 12, SAVE = 16;
 const MOVE = 4, RESIZE = 8;
 
 // A queue has one frame scheduled or queued. Only consuming a frame permits
 // another RAF; a slow application cannot accumulate a backlog of clock ticks.
 export function createEventQueue(frames = null) {
   const events = [];
-  let phase = 'open', waiter = null, ticket = null, last = null;
+  let open = true, waiter = null, ticket = null, last = null;
   const wake = () => { waiter?.resolve(); waiter = null; };
   function schedule() {
-    if (!frames || phase !== 'open' || ticket !== null) return;
+    if (!frames || !open || ticket !== null) return;
     if (last === null) last = performance.now();
     ticket = frames.request(now => {
       ticket = null;
@@ -23,7 +25,7 @@ export function createEventQueue(frames = null) {
     });
   }
   function push(kind, ...fields) {
-    if (phase !== 'open') return false;
+    if (!open) return false;
     const event = [kind, ...fields];
     const previous = events.at(-1);
     if ((kind === RESIZE && previous?.[0] === RESIZE) ||
@@ -38,7 +40,7 @@ export function createEventQueue(frames = null) {
     wait(signal) {
       if (signal?.aborted) return Promise.reject(signal.reason);
       if (events.length) return Promise.resolve();
-      if (phase === 'closed') return Promise.reject(new Error('the application has stopped'));
+      if (!open) return Promise.reject(new Error('the application has stopped'));
       if (waiter) throw new Error('an application can have only one event waiter');
       waiter = Promise.withResolvers();
       const pending = waiter;
@@ -49,189 +51,134 @@ export function createEventQueue(frames = null) {
       signal?.addEventListener('abort', abort, {once: true});
       return pending.promise.finally(() => signal?.removeEventListener('abort', abort));
     },
-    reload() {
-      if (phase !== 'open') return;
-      phase = 'reload';
-      if (ticket !== null) frames.cancel(ticket);
-      ticket = null;
-      events.push([RELOAD]);
-      wake();
-    },
     close() {
-      phase = 'closed';
+      open = false;
       if (ticket !== null) frames.cancel(ticket);
       ticket = null;
-      const unread = events.splice(0).filter(([kind]) => kind !== FRAME && kind !== RELOAD);
+      events.length = 0;
       waiter?.reject(new Error('the application has stopped'));
       waiter = null;
-      return unread;
     },
-    get closed() { return phase === 'closed'; },
+    get closed() { return !open; },
     get waiting() { return waiter !== null; },
   };
 }
 
-// Both packaging modes describe the same entry: the application's exports
-// and memory, the checkpoint and completion exports of (snail shell page),
-// and those of (snail shell task), which drive the loop.
+// Both packaging modes describe the same entry: the program's main and
+// memory, and the exports of (snail shell task), which drive its tasks.
 export function applicationEntry(program) {
-  const entry = programEntry(program, 'app_main');
-  return {...entry, app: program.names ? program.linked.get('snail.shell.page').exports : entry.exports,
-          tasks: taskExports(program)};
+  return {...programEntry(program), tasks: taskExports(program)};
 }
 
 // Imports stay attached to the application. Async operations capture their
-// invocation before awaiting.
+// run before awaiting.
 export function createRuntime({size = () => [960, 640], seed = 1, load = async () => undefined,
                                store = async () => {}, frames = null, initial = () => [[RESIZE, ...size()], [FRAME, 0]], reportError = () => {}, warn = console.warn} = {}) {
-  let current = null, stopping = null;
+  let current = null;
   const pending = [];
-  // This scope starts exactly one loop, the root task, which owns the
-  // application protocol. Other tasks must not consume its input or replace
-  // checkpoint bytes while its storage operation is outstanding.
-  function applicationRun() {
-    if (!current || current.tasks.running() !== current.loop) {
-      throw new Error('application events and checkpoint storage belong to the root task');
-    }
+  const run = () => {
+    if (!current || current.queue.closed) throw new Error('the application has stopped');
     return current;
-  }
+  };
   const imports = {
     'snail.runtime.browser.events': {
       poll() {
-        const run = applicationRun();
-        const event = run.queue.poll();
+        const event = run().queue.poll();
         if (!event) return 0;
-        run.event = event;
+        current.event = event;
         return event[0];
       },
       // Waiting for an event is a ticket the queue's next push completes.
       'start-wait'(ticket) {
-        const run = applicationRun();
-        run.tasks.start(Number(ticket), signal => run.queue.wait(signal), () => 0);
+        const {tasks, queue} = run();
+        tasks.start(Number(ticket), signal => queue.wait(signal), () => 0);
       },
-      'finish-wait': ticket => applicationRun().tasks.finish(Number(ticket)),
-      field: index => applicationRun().event[index + 1] ?? 0,
+      'finish-wait': ticket => run().tasks.finish(Number(ticket)),
+      field: index => run().event[index + 1] ?? 0,
       seed: () => seed,
       width: () => size()[0],
       height: () => size()[1],
-      boot: kind => { applicationRun().boot = kind; },
-      checkpoint: () => { applicationRun(); },
-      'handover-only': () => applicationRun().transfer ? 1 : 0,
-      'save-after'(milliseconds) {
-        const run = applicationRun();
-        clearTimeout(run.saveTimer);
-        run.saveTimer = setTimeout(() => run.queue.push(SAVE), milliseconds);
+      boot(kind) {
+        const current = run();
+        current.boot = kind;
+        saveLater(current);
       },
+      // The first frame shown: startup is complete, and input sent before
+      // it is delivered.
       ready() {
-        const run = applicationRun();
-        if (run.accepted) return;
-        run.accepted = true;
-        run.ready.resolve(run.boot);
-        while (pending.length && run.queue.push(...pending[0])) pending.shift();
+        const current = run();
+        if (current.accepted) return;
+        current.accepted = true;
+        current.ready.resolve(current.boot);
+        while (pending.length && current.queue.push(...pending[0])) pending.shift();
       },
     },
     'snail.runtime.browser.storage': {
       'start-load'(ticket) {
-        const run = applicationRun();
-        run.tasks.start(Number(ticket), async signal => {
-          run.loaded = run.restore === undefined ? await load(signal) : run.restore;
-          return run.loaded == null ? -1 : run.loaded.length;
+        const current = run();
+        current.tasks.start(Number(ticket), async signal => {
+          current.loaded = current.fresh ? null : await load(signal);
+          return current.loaded == null ? -1 : current.loaded.length;
         }, count => count);
       },
-      'finish-load': ticket => applicationRun().tasks.finish(Number(ticket)),
-      byte: index => applicationRun().loaded[index],
+      'finish-load': ticket => run().tasks.finish(Number(ticket)),
+      byte: index => run().loaded[index],
       'start-store'(ticket, address) {
-        const run = applicationRun(), bytes = byteSnapshot(run.entry.memory, address);
-        run.saved = bytes;
-        run.tasks.start(Number(ticket), async signal => {
+        const current = run(), bytes = byteSnapshot(current.entry.memory, address);
+        current.saved = bytes;
+        saveLater(current);
+        current.tasks.start(Number(ticket), async signal => {
           try { await store(bytes, signal); }
           catch (error) { if (!signal.aborted) warn(`save failed: ${error.message}`); }
         }, () => 0);
       },
-      'finish-store': ticket => applicationRun().tasks.finish(Number(ticket)),
+      'finish-store': ticket => run().tasks.finish(Number(ticket)),
     },
   };
-  function finish(run, state, error) {
+  // The program saves when the page is hidden and when this timer asks:
+  // five seconds after it boots or last saved.
+  function saveLater(run) {
     clearTimeout(run.saveTimer);
-    const unread = run.queue.close();
-    if (run.accepted) pending.unshift(...unread);
+    run.saveTimer = setTimeout(() => run.queue.push(SAVE), 5000);
+  }
+  // Wasm traps do not unwind a trapped frame, so a trap in any task ends
+  // the run; the page keeps its last save.
+  function finish(run, error) {
+    clearTimeout(run.saveTimer);
+    run.queue.close();
+    try { run.tasks.close(); } catch (failure) { error ??= failure; }
     if (error) {
       run.ready.reject(error);
       if (run.accepted) reportError(error);
-    } else if (!run.accepted) run.ready.reject(new Error(run.boot === null ?
-      'the new program could not take over the running state' : 'the application stopped before startup completed'));
-    return {state, error};
+    } else if (!run.accepted) run.ready.reject(new Error('the application stopped before startup completed'));
+    return {error};
   }
-  // Wasm traps do not unwind a trapped frame. A trap in any task ends this
-  // generation; recovery starts a new task from its last completed checkpoint.
-  function trapped(run, error) {
-    run.failure ??= error instanceof Error ? error : new Error('application failed', {cause: error});
-  }
-  function completionError(run) {
-    if (run.failure) return run.failure;
-    return run.entry.app.app_done(run.page) === 0 ? new Error('the application loop stopped without answering') : null;
-  }
-  function start(entry, handover = null, {restore, transfer = false} = {}) {
-    if (current && !current.queue.closed) throw new Error('application entries must not overlap');
-    if (!transfer) stopping = null;
-    const ready = Promise.withResolvers(), queue = createEventQueue(transfer ? null : frames);
-    const run = {entry, ready, queue, restore, transfer, tasks: null, accepted: false, saved: null, loaded: null,
-                 event: null, boot: null, loop: null, page: null, failure: null, root: null, done: null, saveTimer: null};
-    run.tasks = createTasks(() => entry.tasks, {reportError: (error, task) => trapped(run, error, task)});
+  // A fresh run boots without the stored save.
+  function start(entry, {fresh = false} = {}) {
+    if (current && !current.queue.closed) throw new Error('application runs must not overlap');
+    const ready = Promise.withResolvers(), queue = createEventQueue(frames);
+    const started = {entry, ready, queue, fresh, tasks: null, accepted: false, saved: null, loaded: null,
+                     event: null, boot: null, failure: null, done: null, saveTimer: null};
+    started.tasks = createTasks(() => entry.tasks, {reportError: error => { started.failure ??= error; }});
     ready.promise.catch(() => {});
-    current = run;
-    if (transfer) queue.reload();
-    else for (const event of initial()) queue.push(...event);
-    // A new PageRun belongs to this invocation even when linked libraries
-    // are reused. The scheduler owns pending work; the page owns recovery data.
-    run.page = entry.app.app_create(handover);
+    current = started;
+    for (const event of initial()) queue.push(...event);
+    let driven;
     try {
-      run.loop = Number(run.tasks.call(entry.main, run.page));
-      const answered = () => run.failure !== null || entry.app.app_done(run.page) !== 0;
-      run.root = run.tasks.drive(answered).then(() => completionError(run), error => error);
-    } catch (error) { run.root = Promise.resolve(error); }
-    run.done = run.root.then(async error => {
-      // Read the checkpoint before closing the scheduler.
-      const getter = error && run.boot === null ? 'app_incoming' : 'app_state';
-      let state = null;
-      try {
-        state = entry.app[getter](run.page);
-        if (error || !run.accepted) run.tasks.close();
-        else await run.tasks.drive().catch(failure => { run.failure ??= failure; });
-      } catch (failure) {
-        error ??= failure;
-      } finally {
-        const page = run.page;
-        run.page = null;
-        try { run.tasks.close(); } catch (failure) { error ??= failure; }
-      }
-      return finish(run, state, error ?? run.failure);
-    });
-    return run;
+      started.tasks.call(entry.main);
+      driven = started.tasks.drive().then(() => started.failure, error => error);
+    } catch (error) { driven = Promise.resolve(error); }
+    started.done = driven.then(error => finish(started, error));
+    return started;
   }
-  async function stopRun(run) {
-    run.queue.reload();
-    await run.root; // The application saves its checkpoint before teardown.
-    try { run.tasks.close(); } catch (error) { trapped(run, error); }
-    return run.done;
+  // Ends the run, as leaving the page does: its tasks are discarded, its
+  // drive returns and finishes it, and its save stays as it was last stored.
+  function close() {
+    current?.tasks.close();
   }
-  async function stopCurrent() {
-    let run = current;
-    let result = await stopRun(run);
-    if (result.error && result.state !== null) {
-      // Transfer the checkpoint through old code without replaying the event
-      // or view that trapped. The shared page lifecycle saves without
-      // entering either engine in this invocation.
-      run = start(run.entry, result.state, {transfer: true});
-      result = await stopRun(run);
-    }
-    result.saved = run.saved;
-    return result;
-  }
-  function stop() { return stopping ??= stopCurrent(); }
   function send(...event) {
     if (!current?.accepted || !current.queue.push(...event)) pending.push(event);
   }
-  return {imports, start, stop, send,
+  return {imports, start, close, send,
           get execution() { return current; }};
 }
