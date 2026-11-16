@@ -53,7 +53,7 @@
    (snail core base))
   (begin
 
-    (define (pi) (→ F64) 3.141592653589793)
+    (define pi (→ F64) 3.141592653589793)
 
     ;; ---- Words ----
 
@@ -93,7 +93,7 @@
     (define (signed (negative Bool) (x F64)) (→ F64)
       (if negative (negate x) x))
 
-    (define (infinity) (→ F64)
+    (define infinity (→ F64)
       (bits->f64 9218868437227405312)) ; 0x7ff00000_00000000
 
     ;; ---- Scaling ----
@@ -155,17 +155,17 @@
     ;; x − k π/2 for a small k, with π/2's first 33 bits and their tail.
     (define (reduce-near (x F64) (k I64)) (→ Reduced)
       (let* ((multiple (i64->f64 k))
-             (z (- x (* multiple (pio2-1))))
-             (tail (* multiple (pio2-1t)))
+             (z (- x (* multiple pio2-1)))
+             (tail (* multiple pio2-1t))
              (high (- z tail)))
         (new Reduced (quadrant k) (high high) (low (- (- z high) tail)))))
 
-    (define (pio2-1) (→ F64) 1.57079632673412561417e+00) ; 0x3FF921FB, 0x54400000
-    (define (pio2-1t) (→ F64) 6.07710050650619224932e-11) ; 0x3DD0B461, 0x1A626331
-    (define (pio2-2) (→ F64) 6.07710050630396597660e-11) ; 0x3DD0B461, 0x1A600000
-    (define (pio2-2t) (→ F64) 2.02226624879595063154e-21) ; 0x3BA3198A, 0x2E037073
-    (define (pio2-3) (→ F64) 2.02226624871116645580e-21) ; 0x3BA3198A, 0x2E000000
-    (define (pio2-3t) (→ F64) 8.47842766036889956997e-32) ; 0x397B839A, 0x252049C1
+    (define pio2-1 (→ F64) 1.57079632673412561417e+00) ; 0x3FF921FB, 0x54400000
+    (define pio2-1t (→ F64) 6.07710050650619224932e-11) ; 0x3DD0B461, 0x1A626331
+    (define pio2-2 (→ F64) 6.07710050630396597660e-11) ; 0x3DD0B461, 0x1A600000
+    (define pio2-2t (→ F64) 2.02226624879595063154e-21) ; 0x3BA3198A, 0x2E037073
+    (define pio2-3 (→ F64) 2.02226624871116645580e-21) ; 0x3BA3198A, 0x2E000000
+    (define pio2-3t (→ F64) 8.47842766036889956997e-32) ; 0x397B839A, 0x252049C1
 
     ;; |x| < 2^20 π/2: n is x × 2/π rounded to an integer, and x − n π/2 is
     ;; cut in up to three rounds, each subtracting the next 33 bits of π/2
@@ -173,7 +173,7 @@
     (define (reduce-medium (x F64) (ix I64)) (→ Reduced)
       (let* ((to-int 6755399441055744.0) ; 1.5 × 2^52: adding it rounds to an integer
              (n (- (+ (* x 6.36619772367581382433e-01) to-int) to-int)) ; 2/π
-             (cut (precise-cut (new Cut (rest (- x (* n (pio2-1)))) (tail (* n (pio2-1t))))
+             (cut (precise-cut (new Cut (rest (- x (* n pio2-1))) (tail (* n pio2-1t)))
                                n
                                (i64-shift-right ix 20)))
              (high (- (● cut rest) (● cut tail))))
@@ -191,9 +191,9 @@
     ;; when the second cancelled more than 49.
     (define (precise-cut (cut Cut) (n F64) (exponent I64)) (→ Cut)
       (if (> (- exponent (cut-exponent cut)) 16)
-          (let ((second (cut-again cut n (pio2-2) (pio2-2t))))
+          (let ((second (cut-again cut n pio2-2 pio2-2t)))
             (if (> (- exponent (cut-exponent second)) 49)
-                (cut-again second n (pio2-3) (pio2-3t))
+                (cut-again second n pio2-3 pio2-3t)
                 second))
           cut))
 
@@ -240,9 +240,9 @@
 
     ;; 2/π's bits, 24 to an entry.
     (define (two-over-pi (index I64)) (→ F64)
-      (if (< index 0) 0.0 (i32->f64 (constant-array-ref (two-over-pi-digits) index))))
+      (if (< index 0) 0.0 (i32->f64 (constant-array-ref two-over-pi-digits index))))
 
-    (define (two-over-pi-digits) (→ (ConstantArray I32))
+    (define two-over-pi-digits (→ (ConstantArray I32))
       (constant-array I32
                       (10680707 7228996
                                 1387004
@@ -541,15 +541,15 @@
     (define (kernel-tan (x F64) (y F64) (odd? Bool)) (→ F64)
       (let* ((big? (>= (magnitude-word x) 1072010280)) ; 0x3FE59428
              (negative (negative? x))
-             (x (if big? (+ (- (pio4) (signed negative x)) (- (pio4-lo) (signed negative y))) x))
+             (x (if big? (+ (- pio4 (signed negative x)) (- pio4-lo (signed negative y))) x))
              (y (if big? 0.0 y))
              (r (tan-sum x y)))
         (cond (big? (signed negative (tan-big x r odd?)))
               (odd? (minus-reciprocal x r))
               (else (+ x r)))))
 
-    (define (pio4) (→ F64) 7.85398163397448278999e-01) ; 3FE921FB, 54442D18
-    (define (pio4-lo) (→ F64) 3.06161699786838301793e-17) ; 3C81A626, 33145C07
+    (define pio4 (→ F64) 7.85398163397448278999e-01) ; 3FE921FB, 54442D18
+    (define pio4-lo (→ F64) 3.06161699786838301793e-17) ; 3C81A626, 33145C07
 
     ;; tan(x + y) − x: x^3 times the polynomial, split into its odd and even
     ;; terms in x^4, plus y's share.
@@ -645,13 +645,13 @@
                                     (* z 7.70381505559019352791e-02))))))))))
         (/ p q)))
 
-    (define (pio2-hi) (→ F64) 1.57079632679489655800e+00) ; 0x3FF921FB, 0x54442D18
-    (define (pio2-lo) (→ F64) 6.12323399573676603587e-17) ; 0x3C91A626, 0x33145C07
+    (define pio2-hi (→ F64) 1.57079632679489655800e+00) ; 0x3FF921FB, 0x54442D18
+    (define pio2-lo (→ F64) 6.12323399573676603587e-17) ; 0x3C91A626, 0x33145C07
 
     (define (asin (x F64)) (→ F64)
       (let ((ix (magnitude-word x)))
         (cond ((>= ix 1072693248) ; 0x3ff00000, |x| >= 1 or NaN
-               (if (and (= ix 1072693248) (= (low-word x) 0)) (* x (pio2-hi)) (/ 0.0 (- x x))))
+               (if (and (= ix 1072693248) (= (low-word x) 0)) (* x pio2-hi) (/ 0.0 (- x x))))
               ((< ix 1071644672) ; 0x3fe00000, |x| < 0.5
                (if (and (>= ix 1048576) (< ix 1045430272)) x (+ x (* x (asin-ratio (* x x))))))
               (else (signed (negative? x) (asin-outer (magnitude x) ix))))))
@@ -663,12 +663,12 @@
              (s (sqrt z))
              (r (asin-ratio z)))
         (if (>= ix 1072640819) ; 0x3fef3333, 0.975
-            (- (pio2-hi) (- (* 2.0 (+ s (* s r))) (pio2-lo)))
+            (- pio2-hi (- (* 2.0 (+ s (* s r))) pio2-lo))
             (let* ((f (with-low-word s 0))
                    (c (/ (- z (* f f)) (+ s f))))
-              (- (* 0.5 (pio2-hi))
-                 (- (- (* (* 2.0 s) r) (- (pio2-lo) (* 2.0 c)))
-                    (- (* 0.5 (pio2-hi)) (* 2.0 f))))))))
+              (- (* 0.5 pio2-hi)
+                 (- (- (* (* 2.0 s) r) (- pio2-lo (* 2.0 c)))
+                    (- (* 0.5 pio2-hi) (* 2.0 f))))))))
 
     ;; acos(x) = π/2 − asin(x) near zero; further out, 2 asin(√((1 ∓ x)/2)),
     ;; from π for negative x.
@@ -676,16 +676,16 @@
       (let ((ix (magnitude-word x)))
         (cond ((>= ix 1072693248)
                (cond ((not (and (= ix 1072693248) (= (low-word x) 0))) (/ 0.0 (- x x)))
-                     ((negative? x) (* 2.0 (pio2-hi)))
+                     ((negative? x) (* 2.0 pio2-hi))
                      (else 0.0)))
               ((< ix 1071644672)
                (if (<= ix 1012924416) ; 0x3c600000, |x| < 2^-57
-                   (pio2-hi)
-                   (- (pio2-hi) (- x (- (pio2-lo) (* x (asin-ratio (* x x))))))))
+                   pio2-hi
+                   (- pio2-hi (- x (- pio2-lo (* x (asin-ratio (* x x))))))))
               ((negative? x)
                (let* ((z (* (+ 1.0 x) 0.5))
                       (s (sqrt z)))
-                 (* 2.0 (- (pio2-hi) (+ s (- (* (asin-ratio z) s) (pio2-lo)))))))
+                 (* 2.0 (- pio2-hi (+ s (- (* (asin-ratio z) s) pio2-lo))))))
               (else (acos-positive x)))))
 
     (define (acos-positive (x F64)) (→ F64)
@@ -761,17 +761,17 @@
       (let ((quadrant (+ (if (negative? y) 1 0) (if (negative? x) 2 0))))
         (cond ((or (nan? x) (nan? y)) (+ x y))
               ((= x 1.0) (atan y))
-              ((= y 0.0) (case quadrant ((0 1) y) ((2) (pi)) (else (negate (pi)))))
-              ((= x 0.0) (signed (negative? y) (/ (pi) 2.0)))
-              ((= (magnitude x) (infinity)) (atan2-infinite quadrant (= (magnitude y) (infinity))))
+              ((= y 0.0) (case quadrant ((0 1) y) ((2) pi) (else (negate pi))))
+              ((= x 0.0) (signed (negative? y) (/ pi 2.0)))
+              ((= (magnitude x) infinity) (atan2-infinite quadrant (= (magnitude y) infinity)))
               (else (atan2-finite y x quadrant)))))
 
     (define (atan2-infinite (quadrant I64) (both? Bool)) (→ F64)
       (case quadrant
-        ((0) (if both? (/ (pi) 4.0) 0.0))
-        ((1) (if both? (/ (negate (pi)) 4.0) (negate 0.0)))
-        ((2) (if both? (/ (* 3.0 (pi)) 4.0) (pi)))
-        (else (if both? (/ (* -3.0 (pi)) 4.0) (negate (pi))))))
+        ((0) (if both? (/ pi 4.0) 0.0))
+        ((1) (if both? (/ (negate pi) 4.0) (negate 0.0)))
+        ((2) (if both? (/ (* 3.0 pi) 4.0) pi))
+        (else (if both? (/ (* -3.0 pi) 4.0) (negate pi)))))
 
     ;; Past |y/x| = 2^64 the angle is ±π/2; for negative x below 2^-64 it
     ;; rounds to ±π.
@@ -780,14 +780,14 @@
              (iy (magnitude-word y))
              ;; 67108864 = 64 << 20: |y/x| < 2^-64 for negative x.
              (z (if (and (>= quadrant 2) (< (+ iy 67108864) ix)) 0.0 (atan (magnitude (/ y x))))))
-        (cond ((or (< (+ ix 67108864) iy) (= iy 2146435072)) (signed (negative? y) (/ (pi) 2.0)))
+        (cond ((or (< (+ ix 67108864) iy) (= iy 2146435072)) (signed (negative? y) (/ pi 2.0)))
               (else (case quadrant
                       ((0) z)
                       ((1) (negate z))
-                      ((2) (- (pi) (- z (pi-lo))))
-                      (else (- (- z (pi-lo)) (pi))))))))
+                      ((2) (- pi (- z pi-lo)))
+                      (else (- (- z pi-lo) pi)))))))
 
-    (define (pi-lo) (→ F64) 1.2246467991473531772e-16) ; 0x3CA1A626, 0x33145C07
+    (define pi-lo (→ F64) 1.2246467991473531772e-16) ; 0x3CA1A626, 0x33145C07
 
     ;; ---- Exponentials and logarithms ----
 
@@ -796,7 +796,7 @@
     (define (exp (x F64)) (→ F64)
       (let ((hx (magnitude-word x)))
         (cond ((nan? x) x)
-              ((> x 709.782712893383973096) (infinity))
+              ((> x 709.782712893383973096) infinity)
               ((< x -745.13321910194110842) 0.0)
               ((> hx 1071001154) (exp-reduced x hx)) ; 0x3fd62e42, ln 2 / 2
               ((> hx 1043333120) (exp-near-zero x 0.0 x 0)) ; 0x3e300000, 2^-28
@@ -809,12 +809,12 @@
                        (f64->i64 (+ (* 1.44269504088896338700e+00 x) (if negative -0.5 0.5))))
                       (negative -1)
                       (else 1)))
-             (hi (- x (* (i64->f64 k) (ln2-hi))))
-             (lo (* (i64->f64 k) (ln2-lo))))
+             (hi (- x (* (i64->f64 k) ln2-hi)))
+             (lo (* (i64->f64 k) ln2-lo)))
         (exp-near-zero hi lo (- hi lo) k)))
 
-    (define (ln2-hi) (→ F64) 6.93147180369123816490e-01) ; 0x3fe62e42, 0xfee00000
-    (define (ln2-lo) (→ F64) 1.90821492927058770002e-10) ; 0x3dea39ef, 0x35793c76
+    (define ln2-hi (→ F64) 6.93147180369123816490e-01) ; 0x3fe62e42, 0xfee00000
+    (define ln2-lo (→ F64) 1.90821492927058770002e-10) ; 0x3dea39ef, 0x35793c76
 
     ;; 2^k exp(hi − lo), r = hi − lo.
     (define (exp-near-zero (hi F64) (lo F64) (r F64) (k I64)) (→ F64)
@@ -849,7 +849,7 @@
              (hfsq (* (* 0.5 f) f))
              (s (/ f (+ 2.0 f)))
              (dk (i64->f64 k)))
-        (+ (+ (- (+ (* s (+ hfsq (log-series s))) (* dk (ln2-lo))) hfsq) f) (* dk (ln2-hi)))))
+        (+ (+ (- (+ (* s (+ hfsq (log-series s))) (* dk ln2-lo)) hfsq) f) (* dk ln2-hi))))
 
     (define (log-series (s F64)) (→ F64)
       (let* ((z (* s s))
@@ -874,7 +874,7 @@
         (cond ((= y 0.0) 1.0)
               ((= x 1.0) 1.0)
               ((or (nan? x) (nan? y)) (+ x y))
-              ((= (magnitude y) (infinity)) (power-infinite x y))
+              ((= (magnitude y) infinity) (power-infinite x y))
               ((= y 1.0) x)
               ((= y -1.0) (/ 1.0 x))
               ((= y 2.0) (* x x))
@@ -922,7 +922,7 @@
     (define (power-general (x F64) (y F64) (s F64)) (→ F64)
       (let ((ix (magnitude-word x))
             (iy (magnitude-word y))
-            (up (lambda (grows) (if grows (* s (infinity)) (* s 0.0)))))
+            (up (lambda (grows) (if grows (* s infinity) (* s 0.0)))))
         (cond ((<= iy 1105199104) (power-of y (log2-split (magnitude x) ix) s)) ; 0x41e00000, 2^31
               ((> iy 1139802112) ; 0x43f00000, 2^64
                (if (<= ix 1072693247) (up* (negative? y)) (up* (not (negative? y)))))
@@ -931,7 +931,7 @@
               (else (power-of y (log2-near-one (magnitude x)) s)))))
 
     (define (up* (grows Bool)) (→ F64)
-      (if grows (infinity) 0.0))
+      (if grows infinity 0.0))
 
     ;; log2 x = high + low, high with its low word zero.
     (record Split
@@ -1015,7 +1015,7 @@
                     (or (not (= j 1083179008))
                         (not (= i 0))
                         (> (+ p-l 8.0085662595372944372e-17) (- z p-h))))
-               (* s (infinity)))
+               (* s infinity))
               ((and (< j 1083179008)
                     (>= (i64-and j 2147483647) 1083231232) ; 0x4090cc00, z <= -1075
                     (or (not (= (i64-and j 4294967295) 3230714880))

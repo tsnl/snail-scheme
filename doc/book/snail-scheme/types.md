@@ -94,8 +94,8 @@ it as `array-ref` and `array-length` read an array, and
 `constant-array->array` copies it into an array of its own.
 
 ```scheme
-(define (powers) (→ (ConstantArray I32)) (constant-array I32 (1 10 100 1000)))
-(constant-array-ref (powers) 2) ; 100
+(define powers (→ (ConstantArray I32)) (constant-array I32 (1 10 100 1000)))
+(constant-array-ref powers 2) ; 100
 ```
 
 A table is shared as any [top-level value](#top-level-values) is, and

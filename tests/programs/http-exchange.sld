@@ -209,12 +209,12 @@
        (let* ((prefix "GET / HTTP/1.1\r\nHost: test\r\nX-Pad: ")
               (head (ascii (string-append prefix
                                           (make-string
-                                           (- (- (head-limit) (string-length prefix)) 4)
+                                           (- (- head-limit (string-length prefix)) 4)
                                            #\x)
                                           "\r\n\r\n")))
               (state (stream head 1 65536 "")))
          (assert (success? (run state echo)))
-         (assert (= (● state cursor) (head-limit))))
+         (assert (= (● state cursor) head-limit)))
        (for-each
         (lambda (input)
           (let ((state (stream input 1 65536 "")))
@@ -222,7 +222,7 @@
             (assert (= (● state ended) 2))
             (assert (string=? (output state) ""))))
         (list (ascii "GET / HTTP/1.1\r\nHost: test\r\r\n\r\n")
-              (make-array (head-limit) (i32->u8 65))
+              (make-array head-limit (i32->u8 65))
               (ascii "POST / HTTP/1.1\r\nHost: test\r\nContent-Length: 8388609\r\n\r\n")
               (ascii
                "POST / HTTP/1.1\r\nHost: test\r\nTransfer-Encoding: chunked\r\n\r\n")))

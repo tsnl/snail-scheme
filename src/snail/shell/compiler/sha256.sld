@@ -14,10 +14,10 @@
 
     ;; ---- Words ----
 
-    (define (word-mask) (→ I64) 4294967295)
+    (define word-mask (→ I64) 4294967295)
 
     (define (wrap (value I64)) (→ I64)
-      (i64-and value (word-mask)))
+      (i64-and value word-mask))
 
     ;; Words written as the standard prints them: eight lowercase hex
     ;; digits each, one space after every word.
@@ -39,13 +39,13 @@
     ;; §5.3.3: the first 32 bits of the fractional parts of the square
     ;; roots of the first eight primes.
 
-    (define (initial-state) (→ (Array I64))
+    (define initial-state (→ (Array I64))
       (hex-words "6a09e667 bb67ae85 3c6ef372 a54ff53a 510e527f 9b05688c 1f83d9ab 5be0cd19 "))
 
     ;; §4.2.2: the first 32 bits of the fractional parts of the cube roots
     ;; of the first 64 primes.
 
-    (define (round-constants) (→ (Array I64))
+    (define round-constants (→ (Array I64))
       (hex-words
        (string-append "428a2f98 71374491 b5c0fbcf e9b5dba5 3956c25b 59f111f1 923f82a4 ab1c5ed5 "
                       "d807aa98 12835b01 243185be 550c7dc3 72be5d74 80deb1fe 9bdc06a7 c19bf174 "
@@ -79,7 +79,7 @@
     ;; Each bit of `x` chooses between the bits of `y` and `z`.
 
     (define (choose (x I64) (y I64) (z I64)) (→ I64)
-      (i64-xor (i64-and x y) (i64-and (i64-xor x (word-mask)) z)))
+      (i64-xor (i64-and x y) (i64-and (i64-xor x word-mask) z)))
 
     ;; Each bit is the majority of three.
 
@@ -174,8 +174,8 @@
     ;; The final state's eight words, big-endian.
 
     (define (sha256 (message Bytes)) (→ Bytes)
-      (let* ((constants (round-constants)) (tail (tail-blocks message))
-             (state (compress-blocks constants (compress-blocks constants (initial-state)
+      (let* ((constants round-constants) (tail (tail-blocks message))
+             (state (compress-blocks constants (compress-blocks constants initial-state
                                                                 message
                                                                 (quotient (array-length message)
                                                                           64))

@@ -20,7 +20,8 @@ A top-level value is one too: the expander wraps its initializer as
 no later pass knows values exist. The backend emits that definition as a
 function over two globals, a state and a slot: it runs the initializer on
 the first call, panics if the initializer reads its own value, and answers
-the slot afterwards.
+the slot afterwards. A value whose initializer is a literal needs no slot
+and is the plain function that answers it.
 
 The compiler is written in `snail-scheme` under `src/snail/shell/compiler/`.
 Its host boundary consists of `(snail core base)`, `(snail core table)` and

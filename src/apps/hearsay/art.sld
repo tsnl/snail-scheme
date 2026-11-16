@@ -12,4 +12,4 @@
                                  1000
                                  (delete-duplicates string=?
                                                     (concatenate
-                                                     (map character-paths (everyone))))))
+                                                     (map character-paths everyone)))))

@@ -28,17 +28,17 @@
 
     (define (record (char Char)) (→ I64)
       (let* ((point (char->integer char))
-             (shift (unicode-shift))
+             (shift unicode-shift)
              (block (u8->i64
-                     (constant-array-ref (unicode-blocks) (i64-shift-right/logical point shift))))
+                     (constant-array-ref unicode-blocks (i64-shift-right/logical point shift))))
              (place (i64-and point (- (i64-shift-left 1 shift) 1))))
-        (u8->i64 (constant-array-ref (unicode-runs) (+ (i64-shift-left block shift) place)))))
+        (u8->i64 (constant-array-ref unicode-runs (+ (i64-shift-left block shift) place)))))
 
     (define (u8->i64 (byte U8)) (→ I64)
       (i32->i64 (u8->i32 byte)))
 
     (define (flag? (char Char) (bit I64)) (→ Bool)
-      (not (= (i64-and (u8->i64 (constant-array-ref (unicode-flags) (record char))) bit) 0)))
+      (not (= (i64-and (u8->i64 (constant-array-ref unicode-flags (record char))) bit) 0)))
 
     ;; A scalar moved by the delta its record holds for the mapping `table`.
 
@@ -63,7 +63,7 @@
     ;; the table holds -1 for anything else.
 
     (define (char-digit-value (char Char)) (→ (Option I64))
-      (let ((value (i32->i64 (constant-array-ref (unicode-digits) (record char)))))
+      (let ((value (i32->i64 (constant-array-ref unicode-digits (record char)))))
         (if (< value 0) (None) (Some value))))
 
     (define (char-unicode-numeric? (char Char)) (→ Bool)
@@ -76,13 +76,13 @@
     ;; Simple case mapping, one scalar to one scalar.
 
     (define (char-upcase (char Char)) (→ Char)
-      (mapped char (unicode-upper)))
+      (mapped char unicode-upper))
 
     (define (char-downcase (char Char)) (→ Char)
-      (mapped char (unicode-lower)))
+      (mapped char unicode-lower))
 
     (define (char-foldcase (char Char)) (→ Char)
-      (mapped char (unicode-fold)))
+      (mapped char unicode-fold))
 
     (define (string-upcase (text String)) (→ String)
       (string-generate (string-length text) (lambda (index) (char-upcase (string-ref text index)))))
@@ -100,15 +100,15 @@
       (string-concatenate (map full-fold (string->list text))))
 
     (define (full-fold (char Char)) (→ String)
-      (match (fold-point (char->integer char) 0 (constant-array-length (unicode-fold-points)))
+      (match (fold-point (char->integer char) 0 (constant-array-length unicode-fold-points))
         ((Some index)
-         (let ((start (i32->i64 (constant-array-ref (unicode-fold-starts) index)))
-               (end (i32->i64 (constant-array-ref (unicode-fold-starts) (+ index 1)))))
+         (let ((start (i32->i64 (constant-array-ref unicode-fold-starts index)))
+               (end (i32->i64 (constant-array-ref unicode-fold-starts (+ index 1)))))
            (string-generate (- end start)
                             (lambda (offset)
                               (integer->char
                                (i32->i64
-                                (constant-array-ref (unicode-fold-scalars) (+ start offset))))))))
+                                (constant-array-ref unicode-fold-scalars (+ start offset))))))))
         ((None) (make-string 1 (char-foldcase char)))))
 
     ;; The index of `point` among the fold points from `low` up to `high`.
@@ -117,7 +117,7 @@
       (if (>= low high)
           (None)
           (let* ((middle (quotient (+ low high) 2))
-                 (at (i32->i64 (constant-array-ref (unicode-fold-points) middle))))
+                 (at (i32->i64 (constant-array-ref unicode-fold-points middle))))
             (cond ((= at point) (Some middle))
                   ((< at point) (fold-point point (+ middle 1) high))
                   (else (fold-point point low middle))))))

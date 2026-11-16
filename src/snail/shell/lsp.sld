@@ -394,7 +394,7 @@
       ((uses (Table Use))
        (bindings (Table Loc))))
 
-    (define (empty-index) (→ Index)
+    (define empty-index (→ Index)
       (new Index (uses (empty-table)) (bindings (empty-table))))
 
     (define (loc-key (loc Loc)) (→ String)
@@ -405,7 +405,7 @@
 
     (define (index-programs (programs (List Typed))) (→ Index)
       (fold-left (lambda (index typed) (fold-left index-item index (● typed items)))
-                 (empty-index)
+                 empty-index
                  programs))
 
     (define (index-item (index Index) (item Item)) (→ Index)
@@ -470,7 +470,7 @@
 
     (define (serve-language (tools Tools)) (→ Unit) (! mut fs clock process input-port output-port)
       (serve (new Server (tools tools) (workspace (None)) (documents (Nil)) (reported (Nil))
-                  (names (empty-index)) (exiting #f))))
+                  (names empty-index) (exiting #f))))
 
     (define (serve (server Server)) (→ Unit) (! mut fs clock process input-port output-port)
       (match (read-message)
@@ -497,7 +497,7 @@
       (→ Server)
       (! fs output-port)
       (cond ((string=? method "initialize")
-             (respond id (capabilities))
+             (respond id capabilities)
              (Server-workspace-set server (opened-folder params)))
             ((string=? method "shutdown") (respond id (JsonNull)) server)
             ((string=? method "textDocument/formatting")
@@ -533,7 +533,7 @@
     ;; Full text in every change, as the capabilities ask: the last change
     ;; holds the document.
 
-    (define (capabilities) (→ Json)
+    (define capabilities (→ Json)
       (object
        (list (field "capabilities"
                     (object (list (field "textDocumentSync"
@@ -544,7 +544,7 @@
                                   (field "hoverProvider" (JsonBool #t))
                                   (field "definitionProvider" (JsonBool #t))
                                   (field "semanticTokensProvider"
-                                         (object (list (field "legend" (legend))
+                                         (object (list (field "legend" legend)
                                                        (field "full" (JsonBool #t))))))))
              (field "serverInfo" (object (list (field "name" (JsonString "snail-scheme"))))))))
 
@@ -698,7 +698,7 @@
     (define (formatting (server Server) (params Json)) (→ Json)
       (match (requested server params)
         ((Some document)
-         (let* ((text (● document text)) (formatted (format-source text (format-width))))
+         (let* ((text (● document text)) (formatted (format-source text format-width)))
            (if (string=? text formatted)
                (JsonArray (Nil))
                (JsonArray
@@ -783,7 +783,7 @@
     ;; token declares the name. Names used, brackets and blanks take the
     ;; editor's plain colour.
 
-    (define (legend) (→ Json)
+    (define legend (→ Json)
       (object (list (field "tokenTypes"
                            (JsonArray (map JsonString
                                            (list "comment" "string" "number" "keyword" "type"

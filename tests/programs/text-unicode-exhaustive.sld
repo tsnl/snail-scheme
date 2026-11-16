@@ -46,4 +46,4 @@
         (else (checksum (+ point 1) (mix-scalar hash (integer->char point))))))
 
 (define (main) (→ Unit) (! output-port)
-  (write-line (if (= (checksum 0 0) (unicode-checksum)) "every scalar agrees" "disagrees")))
+  (write-line (if (= (checksum 0 0) unicode-checksum) "every scalar agrees" "disagrees")))

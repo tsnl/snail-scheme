@@ -183,19 +183,19 @@
       (Hover ((action I32) (argument I32)))
       (Elapsed ((milliseconds I32))))
 
-    (define (key-left) (→ I32) 1)
+    (define key-left (→ I32) 1)
 
-    (define (key-right) (→ I32) 2)
+    (define key-right (→ I32) 2)
 
-    (define (key-up) (→ I32) 3)
+    (define key-up (→ I32) 3)
 
-    (define (key-down) (→ I32) 4)
+    (define key-down (→ I32) 4)
 
-    (define (key-escape) (→ I32) 27)
+    (define key-escape (→ I32) 27)
 
-    (define (key-enter) (→ I32) 13)
+    (define key-enter (→ I32) 13)
 
-    (define (key-space) (→ I32) 32)
+    (define key-space (→ I32) 32)
 
     ;; The kinds match the input encoding in host/browser/host.mjs.
 
@@ -248,7 +248,7 @@
     (record Gestures
       ((contacts (List Contact))))
 
-    (define (no-gestures) (→ Gestures) (new Gestures (contacts (Nil))))
+    (define no-gestures (→ Gestures) (new Gestures (contacts (Nil))))
 
     ;; Reads one input, returning the pointers still pressed and what the
     ;; input meant. Inputs other than pointers mean nothing here.
@@ -471,7 +471,7 @@
        (roughness F32)))
 
     ;; Untextured and fully rough, as a matte dielectric.
-    (define (plain) (→ Material) (new Material (texture (None)) (metalness 0.0) (roughness 1.0)))
+    (define plain (→ Material) (new Material (texture (None)) (metalness 0.0) (roughness 1.0)))
 
     ;; A fixed item turns by its yaw alone; an upright one also turns about
     ;; the vertical axis to face the camera, as sprites do.
@@ -512,7 +512,7 @@
         (color color)
         (glow 0.0)
         (from position)
-        (material (plain))
+        (material plain)
         (facing (Fixed))))
 
     ;; A texture on a quad `width` by `height` world units, its bottom center

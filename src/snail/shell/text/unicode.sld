@@ -20,11 +20,11 @@
    (snail core base))
   (begin
 
-    (define (unicode-shift) (→ I64) 7)
+    (define unicode-shift (→ I64) 7)
 
-    (define (unicode-checksum) (→ I64) 670528887)
+    (define unicode-checksum (→ I64) 670528887)
 
-    (define (unicode-blocks) (→ (ConstantArray U8))
+    (define unicode-blocks (→ (ConstantArray U8))
       (constant-array U8
                       (0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28
                          29 30 31 32 33 34 34 35 36 37 38 39 34 34 34 40 41 42 43 44 45 46 47 48 49
@@ -471,7 +471,7 @@
                          64 64 64 64 64 64 64 64 64 64 64 64 64 64 64 64 64 64 64 64 64 64 64 64 64
                          64 64 64 64 64 64)))
 
-    (define (unicode-runs) (→ (ConstantArray U8))
+    (define unicode-runs (→ (ConstantArray U8))
       (constant-array U8
                       (0 0 0 0 0 0 0 0 0 1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0
                          0
@@ -7698,7 +7698,7 @@
                          42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42
                          42 42 42 42 42 42 42 42 42 42 42 0 0 0 0 0 0)))
 
-    (define (unicode-flags) (→ (ConstantArray U8))
+    (define unicode-flags (→ (ConstantArray U8))
       (constant-array U8
                       (0 2 0 0 0 0 0 0 0 0 0 0 9 5 5 5 5 9 5 9 5 9 5 5 9 9 9 9 9 9 9 5 9 9 5 5 9 5
                          9 9 9 9 1 5 9 1 5 5 9 9 9 9 9 9 5 9 9 9 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5
@@ -7707,7 +7707,7 @@
                          9 5 9 5 9 9 9 9 9 9 9 5 9 5 9 5 9 9 9 5 5 9 9 9 9 9 5 9 9 5 9 9 9 9 9 9 9 9
                          9 9 9 9 9 5 5 5 9 5 9 5 9 5)))
 
-    (define (unicode-digits) (→ (ConstantArray I32))
+    (define unicode-digits (→ (ConstantArray I32))
       (constant-array I32
                       (-1 -1 0 1 2 3 4 5 6 7 8 9 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
                           -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
@@ -7742,7 +7742,7 @@
                           -1
                           -1)))
 
-    (define (unicode-upper) (→ (ConstantArray I32))
+    (define unicode-upper (→ (ConstantArray I32))
       (constant-array I32
                       (0 0 0 0 0 0 0 0 0 0 0 0 0 -32 0 743 121 0 -1 0 -232 0 -300 195 0 0 0 0 0 0 0
                          97 0 0 163 42561 0 130 0 0 0 0 0 56 0 -1 -2 -79 0 0 0 0 0 0 10815 0 0 0
@@ -7822,7 +7822,7 @@
                          0
                          -34)))
 
-    (define (unicode-lower) (→ (ConstantArray I32))
+    (define unicode-lower (→ (ConstantArray I32))
       (constant-array I32
                       (0 0 0 0 0 0 0 0 0 0 0 0 32 0 0 0 0 1 0 -199 0 -121 0 0 210 206 205 79 202
                          203 207 0 211 209 0 0 213 0 214 218 217 219 0 0 2 1 0 0 -97 -56 -130 10795
@@ -7908,7 +7908,7 @@
                          -42308 -42319 -42315 -42305 -42258 -42282 -42261 928 -48 -42307 -35384
                          -42343 -42561 0 0 0 40 0 39 0 34 0)))
 
-    (define (unicode-fold) (→ (ConstantArray I32))
+    (define unicode-fold (→ (ConstantArray I32))
       (constant-array I32
                       (0 0 0 0 0 0 0 0 0 0 0 0 32 0 0 775 0 1 0 0 0 -121 -268 0 210 206 205 79 202
                          203 207 0 211 209 0 0 213 0 214 218 217 219 0 0 2 1 0 0 -97 -56 -130 10795
@@ -7934,7 +7934,7 @@
                          -42319 -42315 -42305 -42258 -42282 -42261 928 -48 -42307 -35384 -42343
                          -42561 0 -38864 1 40 0 39 0 34 0)))
 
-    (define (unicode-fold-points) (→ (ConstantArray I32))
+    (define unicode-fold-points (→ (ConstantArray I32))
       (constant-array I32
                       (223 304 329 496 912 944 1415 7830 7831 7832 7833 7834 7838 8016 8018 8020
                            8022
@@ -8026,7 +8026,7 @@
                            64278
                            64279)))
 
-    (define (unicode-fold-starts) (→ (ConstantArray I32))
+    (define unicode-fold-starts (→ (ConstantArray I32))
       (constant-array I32
                       (0 2 4 6 8 11 14 16 18 20 22 24 26 28 30 33 36 39 41 43 45 47 49 51 53 55 57
                          59 61 63 65 67 69 71 73 75 77 79 81 83 85 87 89 91 93 95 97 99 101 103 105
@@ -8034,7 +8034,7 @@
                          146 148 150 152 154 156 159 161 164 167 169 172 175 178 180 182 185 187 189
                          191 193 196 198 200 202 204 207 210 212 214 216 218 220 222 224)))
 
-    (define (unicode-fold-scalars) (→ (ConstantArray I32))
+    (define unicode-fold-scalars (→ (ConstantArray I32))
       (constant-array I32
                       (115 115 105 775 700 110 106 780 953 776 769 965 776 769 1381 1410 104 817
                            116
