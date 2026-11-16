@@ -24,44 +24,32 @@ open script and library ([editors](toolchain.md#editors)). The
 ## Output directories
 
 A script's build produces one directory at `WORKSPACE/build/PATH`, PATH
-being the script's path in its workspace without its extension. In a
-debug build every library is compiled to a module of its own. The modules,
-the runtime they link with and each file the program links
-([linked files](types.md#linked-files)) are objects of the workspace's
-store, `WORKSPACE/build/.snail-store/sha256/AB/DIGEST`, named for the SHA-256
-of their bytes and sharded by its first two hex digits. A build adds only the
-objects whose bytes are new; an object is written once and never rewritten,
-and nothing reclaims the store: delete it and rebuild from time to time.
+being the script's path in its workspace without its extension. It holds
+one module, `NAME.wasm`, NAME being the script's file name without its
+extension: the whole program compiled as one and fused with its runtime.
 
-A debug directory holds the program's manifest, `NAME.manifest.datum`, NAME
-being the script's file name without its extension, and
-a view of the objects it names at the same paths under its own `store/`,
-links into the workspace's store. The manifest is one list of entries:
+Each file the program links ([linked files](types.md#linked-files)) is an
+object of the workspace's store,
+`WORKSPACE/build/.snail-store/sha256/AB/DIGEST`, named for the SHA-256 of
+its bytes and sharded by its first two hex digits. Every build of every
+script shares the store: an object is written once and never rewritten.
+The program reads its files from `store/` beside its module, at the same
+paths, where each is another name for the store's object, a hard link (a
+copy where the two lie on different file systems). A program's bulky files
+are then on disk once, and its directory still holds them itself, so it
+can be served or shipped on its own. Nothing reclaims the store: delete
+`build/` and rebuild from time to time. Node and
+`build/snail run-wasm` run the module directly, and a page through
+`linkModule` in `load.mjs`.
 
-```scheme
-((runtime "DIGEST" SIZE)
- (module "snail.core.base" "DIGEST" SIZE)
- ...
- (file "DIGEST" SIZE))
-```
-
-the runtime, each library's module in program order, then each file the
-program links. Every host links the program from it: Node and
-`build/snail run-wasm` through the engine the command line holds, a page
-through `load.mjs`.
-
-A release directory, `--release`, holds one module instead, `NAME.wasm`:
-the whole program compiled as one, fused with its runtime, then optimized
-by Binaryen's `wasm-opt -O2`, which can inline the runtime's functions into
-the program. Each file the program links is copied into its `store/`, at
-the same path, so the directory can be served or shipped on its own. Node
-and `build/snail run-wasm` run the module directly, and a page through
-`linkModule` in `load.mjs`. `wasm-opt` is found on `PATH`.
+A release build, `--release`, differs in one thing: the module is then
+optimized by Binaryen's `wasm-opt -O2`, which can inline the runtime's
+functions into the program. `wasm-opt` is found on `PATH`.
 
 A browser build adds the shared browser host and recursively copies the
 `public/` folder beside the script, if there is one. Supply `index.html`
-there; no page is generated. The builder names the program, the manifest or the
-module, in the page, with a
+there; no page is generated. The builder names the program's module in
+the page, with a
 `snail-modules` meta element, which `host.mjs`, or `ui.mjs` for a
 [document interface](applications.md#document-interfaces), links the
 program from; a linked file is fetched when the program first reads it.

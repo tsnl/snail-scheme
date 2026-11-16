@@ -170,32 +170,22 @@ No command takes an output path. A build of `src/apps/siegework/main.scm` writes
 under `build/src/apps/siegework/main`, the script's path without its extension.
 That path cannot collide, and it is stable, which is what future caching needs.
 
-## Output: modules, a manifest and the store
+## Output: one linked module
 
-- **A debug build keeps one module per library,** linked when the program
-  starts, with the runtime as an instance of its own.
-- **A release build is fully linked:** the whole program compiled as one
-  module, fused with the runtime, then optimized with Binaryen's
-  `wasm-opt -O2`, which can inline the runtime's functions into the
-  program. Calls into the runtime are then ordinary calls. It is
-  `main.wasm`, with no manifest; Node, `build/snail run-wasm` and a page
-  each run it directly.
-- **A debug build's manifest**, `main.manifest.datum`, names every object the program
-  needs by digest and size: `(runtime "DIGEST" SIZE)`, `(module "LIBRARY"
-  "DIGEST" SIZE)` for each library in link order, `(file "DIGEST" SIZE)`
-  for each linked file.
-- **One store**, `build/.snail-store/sha256/ab/abcdef…`, shared by every
-  build in the workspace. An object is named for the SHA-256 of its bytes and
-  sharded by the first two hex digits. It is written once and never rewritten.
+Every build is fully linked: the whole program compiled as one module and
+fused with the runtime, `main.wasm`, with the files it links under
+`store/sha256/ab/abcdef…`, each named for the SHA-256 of its bytes. Each
+is a hard link to the one copy in the workspace's store,
+`build/.snail-store`, which every build of every script shares.
+Node, `build/snail run-wasm` and a page each run it directly. The output
+folder can be served or run as it is, as `python3 -m http.server
+--directory build/src/apps/siegework/main` serves a browser program.
 
-Nothing reclaims the store. Delete `build/` and rebuild from time to time. A
-`snail-scheme gc` command can come later if it is needed.
-
-A debug build's output folder holds the manifest and a view of the objects
-it names at the same paths under its own `store/`, relative links into the
-store. A release build's holds `main.wasm` and copies of the files it links
-under `store/`. Either folder can be served or run as it is, as `python3 -m http.server --directory build/src/apps/siegework/main`
-serves a browser program.
+A release build, `--release`, also optimizes the module with Binaryen's
+`wasm-opt -O2`, which can inline the runtime's functions into the program.
+That is the modes' one difference: a debug build was once a module per
+library with a manifest, kept for relinking a running page, and went when
+reload did.
 
 ## Linked files
 
@@ -242,7 +232,7 @@ Each step is a pull request that passes every check on its own.
    - Every build keeps a module per library, and the `Debug` and `Development`
      modes merge.
    - All builds share the sharded `build/.snail-store/`, and each writes its
-     `.manifest.datum`.
+     `.manifest.datum`. (Since replaced: every build is one linked module.)
    - Targets still come from `project.datum`.
 3. **Scripts and `run`/`build FILE`.** Done, but for targets' handlers:
    - Top-level statements, and resolution under the workspace's `src/`.

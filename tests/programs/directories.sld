@@ -100,6 +100,15 @@
           (answer (lambda (target) target) (read-symbolic-link (at "a/B.txt"))))
   (report "remove the link" (answer done (remove-file (at "link"))))
   (report "its target remains" (show (file-exists? (at "a/B.txt"))))
+  ;; ---- Hard links ----
+
+  (report "another name" (answer done (make-hard-link (at "a/B.txt") (at "a/also.txt"))))
+  (report "the name again" (answer done (make-hard-link (at "a/B.txt") (at "a/also.txt"))))
+  (report "status of the name" (answer status-text (file-status (at "a/also.txt"))))
+  (report "a name for nothing" (answer done (make-hard-link (at "missing") (at "a/none.txt"))))
+  (report "remove the first name" (answer done (remove-file (at "a/B.txt"))))
+  (report "the other still reads" (read-file (at "a/also.txt")))
+  (report "rename it back" (answer done (rename-file (at "a/also.txt") (at "a/B.txt"))))
   ;; ---- Removing a tree ----
 
   (make-symbolic-link "a" (at "a/b/c/up"))

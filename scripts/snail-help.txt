@@ -8,9 +8,9 @@ build compiles the script FILE for TARGET: node, wasmtime or browser. Its
 workspace is the nearest folder above it that holds src/, where every
 import resolves. The output, build/PATH in the workspace, where PATH is
 FILE's path there without its extension, is a link to a completed
-generation: the program's manifest and a store/ view of its modules and
-linked files, links into build/.snail-store; or, with --release, one
-module, NAME.wasm, linked and optimized by wasm-opt, and copies of its files.
+generation: one module, NAME.wasm, the program linked with its runtime,
+and the files it links under store/, shared with every other build through
+build/.snail-store. With --release the module is also optimized by wasm-opt.
 A browser build adds the browser host and the public/ folder beside FILE.
 
 run builds FILE as build does, then becomes its program in the current

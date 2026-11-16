@@ -1,13 +1,12 @@
 // One loader for every browser application. Engines supply device imports
 // and reset their presentation before each run.
-import {createWasi, linkModule, linkProgram} from './load.mjs';
+import {createWasi, linkModule} from './load.mjs';
 import {applicationEntry, HIDDEN} from './runtime.mjs';
 
 export const running = [];
 
-// The page's program is linked from what the build names in the page (a
-// `snail-modules` meta element), or from `url`: a debug build's manifest,
-// or a release build's one module, NAME.wasm.
+// The page's program is the one module the build names in the page (a
+// `snail-modules` meta element), or `url`: NAME.wasm.
 export async function startPage(application, url) {
   Object.assign(application, {program: null, errors: []});
   const program = document.querySelector('meta[name="snail-modules"]')?.content ?? url;
@@ -23,9 +22,8 @@ export async function startPage(application, url) {
 
 async function linkApplication(application, program, read) {
   const wasi = createWasi({print: printer(application)});
-  const link = program.endsWith('.wasm') ? linkModule : linkProgram;
-  application.program = await link(read, program, wasi, application.imports,
-                                   () => application.runtime.execution.tasks);
+  application.program = await linkModule(read, program, wasi, application.imports,
+                                         () => application.runtime.execution.tasks);
 }
 
 // A save the program cannot read traps before it boots: the page then

@@ -35,8 +35,8 @@ The chapters describe implemented behavior and mark proposed toolchain changes:
   complete rebuilds.
 - [Application model](applications.md): interactive applications in the
   browser.
-- [Development toolchain](toolchain.md): building one library at a time,
-  hot reload, the language server and editor support, and the proposed
+- [Development toolchain](toolchain.md): the commands and their builds,
+  the language server and editor support, and the proposed
   application workflow.
 - [Proposed typed state](state.md): durable records and disposable cached views;
   an API for review, not implemented functionality.

@@ -27,12 +27,12 @@ try {
   await writeFile(pub('obsolete.txt'), 'first generation');
 
   assert.equal((await build('cli')).stdout.trim(), output('cli'), 'building does not run the program');
-  const executed = await execute(process.execPath, ['--no-warnings', join(root, 'host/native/run-snail.mjs'), join(output('cli'), 'cli.manifest.datum')]);
+  const executed = await execute(process.execPath, ['--no-warnings', join(root, 'host/native/run-snail.mjs'), join(output('cli'), 'cli.wasm')]);
   assert.equal(executed.stdout, 'hello project', 'the workspace src/ reaches the compiler');
 
   await build('page');
   const first = await realpath(output('page'));
-  assert.equal(await readFile(join(first, 'index.html'), 'utf8'), '<!doctype html><head><link id="snail-web-app" rel="manifest" href="./manifest.webmanifest"><meta name="snail-modules" content="./main.manifest.datum"><title>Project</title>');
+  assert.equal(await readFile(join(first, 'index.html'), 'utf8'), '<!doctype html><head><link id="snail-web-app" rel="manifest" href="./manifest.webmanifest"><meta name="snail-modules" content="./main.wasm"><title>Project</title>');
   const webApp = JSON.parse(await readFile(join(first, 'manifest.webmanifest'), 'utf8'));
   assert.equal(webApp.id, undefined); assert.equal(webApp.start_url, './'); assert.equal(webApp.scope, './');
   assert.equal(webApp.display, 'standalone');
@@ -61,7 +61,7 @@ try {
   await assert.rejects(build('page'), /conflicts with a build artifact/);
   assert.equal(await realpath(output('page')), second, 'failed packaging leaves output unchanged');
   await rm(pub('host.mjs'), {recursive: true});
-  // Every build writes store/, which holds the program's objects.
+  // store/ holds the files a program links, so the name is the build's.
   await mkdir(pub('store'));
   await assert.rejects(build('page'), /conflicts with a build artifact: .*store/);
   assert.equal(await realpath(output('page')), second, 'a reserved name is refused in every build');

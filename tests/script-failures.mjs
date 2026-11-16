@@ -31,7 +31,7 @@ async function throughTheCommandLine() {
   assert.deepEqual(inventory(), [], 'a failed build discards the generation it created');
   // A producer reads real input files when the build runs it, and is
   // compiled and run in private compiler scratch, so the workspace's build
-  // directory holds only the script's generation, its link and the store.
+  // directory holds only the script's generation and its link.
   write('main.scm', '(import (snail core base) (generated flag)) (define (main) (→ Unit) (ann (value) String) (unit))');
   write('flag.txt', 'valid');
   write('src/generated/flag.sld', `(generate-library (generated flag)
@@ -43,12 +43,12 @@ async function throughTheCommandLine() {
             (StringSyntax "ok") (SymbolSyntax "unknown-generated-name")))))))`);
   await build();
   const published = fs.readlinkSync(join(project, 'build/main'));
-  assert.deepEqual(inventory(), [published, '.snail-store', 'main']);
-  assert.deepEqual(fs.readdirSync(join(project, 'build', published)).sort(), ['.snail-target', 'main.manifest.datum', 'store'],
+  assert.deepEqual(inventory(), [published, 'main']);
+  assert.deepEqual(fs.readdirSync(join(project, 'build', published)).sort(), ['.snail-target', 'main.wasm'],
     'producer programs use private compiler scratch');
   write('flag.txt', 'invalid');
   await assert.rejects(build(), /unknown-generated-name/);
-  assert.deepEqual(inventory(), [published, '.snail-store', 'main'], 'a failed build leaves the published generation');
+  assert.deepEqual(inventory(), [published, 'main'], 'a failed build leaves the published generation');
   assert.equal(fs.readlinkSync(join(project, 'build/main')), published);
 }
 
