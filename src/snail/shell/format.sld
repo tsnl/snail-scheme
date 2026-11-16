@@ -194,10 +194,12 @@
     ;; ---- Open lists ----
 
     ;; What an element of a list is, which matters for its first element:
-    ;; a name selects an indentation rule.
+    ;; a name selects an indentation rule. A header clause, such as `(→ T)`,
+    ;; is known once it closes: a lambda's body starts after its last one.
     (enum Head
       (Named ((name String)))
       (Listed)
+      (Clause)
       (Other))
 
     ;; Where an element starts, and the column of the first expression on
@@ -388,7 +390,9 @@
              (+ (● frame column) 2)
              normal))
         ((Special distinguished)
-         (special-indent frame distinguished (● elements count) normal))
+         (match (● (● elements last) head)
+           ((Clause) (+ (● frame column) 2))
+           (_ (special-indent frame distinguished (● elements count) normal))))
         ((LetRule)
          (special-indent frame (if (names-loop? elements) 2 1) (● elements count) normal))))
 
@@ -496,12 +500,32 @@
                                     (spaced spaced)
                                     (elements (None)))
                                   (● added frames)))))
-        ((Close _) (Scan-frames-set scan (list-drop (● scan frames) 1)))
+        ((Close _) (Scan-frames-set scan (close-frame (● scan frames))))
         ((Prefix offset)
          (new Scan (frames (● scan frames)) (first (Some (or-else (● scan first) (+ offset shift))))
               (prefix (Some (or-else (● scan prefix) (+ offset shift))))))
         ((Atom offset text) (add-expression scan (atom-head text) (+ offset shift) line))
         ((Text offset) (add-expression scan (Other) (+ offset shift) line))))
+
+    ;; The list that held a closed header clause remembers what it was.
+
+    (define (close-frame (frames (List Frame))) (→ (List Frame))
+      (match frames
+        ((Cons (Frame _ _ _ (Some (Elements (Element (Named name) _ _ _) _ _ _)))
+               (Cons (Frame column line spaced (Some (Elements head first last count))) rest))
+         (if (member? name (list "→" "!" "∀" "⊨"))
+             (Cons (new Frame
+                     (column column)
+                     (line line)
+                     (spaced spaced)
+                     (elements (Some (new Elements
+                                       (head head)
+                                       (first first)
+                                       (last (Element-head-set last (Clause)))
+                                       (count count)))))
+                   rest)
+             (list-drop frames 1)))
+        (_ (list-drop frames 1))))
 
     ;; A character is not a name.
 

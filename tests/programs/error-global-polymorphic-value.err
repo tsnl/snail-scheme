@@ -1,1 +1,1 @@
-top-level definitions must be functions; put values in a function or an explicit state object
+a top-level value has one type; write a generic one as a function of no arguments

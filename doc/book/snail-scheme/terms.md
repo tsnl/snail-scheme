@@ -3,9 +3,9 @@
 ## Programs and libraries
 
 A program is a file of `import` forms followed by declarations and definitions.
-Its root `main` starts runtime work. Top-level definitions bind functions;
-values live in function bodies and explicit state objects. Importing a library
-runs no source initializer. A library uses `define-library` with `import`,
+Its root `main` starts runtime work. A top-level value's initializer runs
+when the value is first read, so importing a library runs nothing. A library
+uses `define-library` with `import`,
 `export` and `begin` sections, stored at a path that matches its name:
 `(sample geometry)` lives in `sample/geometry.sld` under a search directory.
 Import sets may use `only`, `except`, `prefix` and `rename`.
@@ -56,8 +56,9 @@ those bytes as a byte literal in its generated library.
 
 | Form | Meaning |
 | --- | --- |
-| `(define (name (param type) ...) (→ Result) [header ...] body ...)` | Typed function definition. Optional effect, generic and constraint clauses precede the body. A direct lambda definition can infer its type; ordinary value definitions are local only. |
-| `(lambda (param ...) body ...)` | Function with a fixed number of parameters. |
+| `(define name [(→ Type)] value)` | Value definition. At top level the initializer runs at most once, on the first read, and performs no effect ([top-level values](types.md#top-level-values)). |
+| `(define (name (param type) ...) (→ Result) [header ...] body ...)` | Typed function definition, shorthand for `(define name (lambda ((param type) ...) (→ Result) [header ...] body ...))`. Optional effect, generic and constraint clauses precede the body. |
+| `(lambda (param ...) body ...)`, `(lambda ((param type) ...) (→ Result) [header ...] body ...)` | Function with a fixed number of parameters. It takes a definition's whole header, or annotates nothing and has its type inferred. |
 | `(if test then [else])` | `test` is `Bool`; without `else` the result is `Unit`. |
 | `(begin form ...)` | A body: definitions and expressions in order. |
 | `(let ((name value) ...) body ...)`, `(let loop ((name value) ...) body ...)` | Local bindings and loops. |
@@ -112,6 +113,13 @@ cache, while two evaluations of `(cache f)` have separate caches.
 (define (use-lookup) (→ I64)
   (let ((lookup (lru-cache 128 (lambda (key) (* key key)))))
     (+ (lookup 12) (lookup 12))))
+```
+
+A wrapper defined as a [top-level value](types.md#top-level-values) is made
+once, so the whole program shares its cache:
+
+```scheme
+(define square (cache (lambda ((n I64)) (→ I64) (* n n))))
 ```
 
 `unsafe-effectful-cache` and `unsafe-effectful-lru-cache` have the same call shapes

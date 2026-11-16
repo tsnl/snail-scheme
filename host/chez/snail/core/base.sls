@@ -67,7 +67,7 @@
    set!
    )
   (import
-   (except (chezscheme) define set! case map fold-left fold-right find
+   (except (chezscheme) define lambda set! case map fold-left fold-right find
            char-whitespace? char-numeric? char-alphabetic?)
    (snail stage0 forms))
 
