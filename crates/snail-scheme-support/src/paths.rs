@@ -14,7 +14,7 @@
 //! Rust's standard library reaches WASI preview1 for every operation, as it
 //! does for `io`'s files: `path_create_directory`, `path_rename`,
 //! `path_unlink_file`, `path_remove_directory`, `fd_readdir`,
-//! `path_filestat_get`, `path_symlink` and `path_readlink`, and `path_open`,
+//! `path_filestat_get`, `path_symlink`, `path_readlink` and `path_link`, and `path_open`,
 //! `fd_filestat_get`, `fd_read` and `fd_write` for whole texts.
 
 use crate::io::{checked, resolved, staged_path, staged_text};
@@ -103,6 +103,16 @@ pub extern "C" fn make_directory(count: u32) -> i32 {
 pub extern "C" fn rename(count: u32) -> i32 {
     answer(staged_pair(count).and_then(|(from, to)| {
         std::fs::rename(resolved(from), resolved(to))?;
+        Ok(0)
+    }))
+}
+
+/// Another name for the file `existing` names, which is not copied: both
+/// names hold the same bytes for as long as either remains.
+#[unsafe(export_name = "snail:io/make-hard-link")]
+pub extern "C" fn make_hard_link(count: u32) -> i32 {
+    answer(staged_pair(count).and_then(|(existing, path)| {
+        std::fs::hard_link(resolved(existing), resolved(path))?;
         Ok(0)
     }))
 }

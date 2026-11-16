@@ -57,6 +57,7 @@
    followed-status
    make-symbolic-link
    read-symbolic-link
+   make-hard-link
    clock
    monotonic-nanoseconds
    command-line
@@ -151,6 +152,7 @@
        (path-followed-status (Fn String → I32))
        (path-make-link (Fn String → I32))
        (path-read-link (Fn String → I32))
+       (path-hard-link (Fn String → I32))
        (reply-character (Fn I32 → Char))
        (status-size (Fn → I64))
        (status-modified (Fn → I64))
@@ -177,6 +179,7 @@
            (path-followed-status support-path-followed-status)
            (path-make-link support-path-make-link)
            (path-read-link support-path-read-link)
+           (path-hard-link support-path-hard-link)
            (reply-character support-reply-character)
            (status-size support-status-size)
            (status-modified support-status-modified)
@@ -239,6 +242,10 @@
     (extern support-path-read-link
             "snail.core.support"
             "snail:io/read-symbolic-link"
+            (Fn String → I32))
+    (extern support-path-hard-link
+            "snail.core.support"
+            "snail:io/make-hard-link"
             (Fn String → I32))
     (extern support-reply-character
             "snail.core.support"
@@ -534,6 +541,13 @@
       (match (path-result (path-read-link path))
         ((Ok count) (Ok (reply-text count)))
         ((Err error) (Err error))))
+
+    ;; Makes `path` another name for the file `existing` names, without
+    ;; copying it: both hold the same bytes while either remains. It fails
+    ;; where the two would lie on different file systems.
+
+    (define (make-hard-link (existing String) (path String)) (→ (Result Unit FileError)) (! fs)
+      (path-done (path-hard-link (path-pair existing path))))
 
     ;; ---- Whole texts ----
 

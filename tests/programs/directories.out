@@ -39,6 +39,13 @@ remove the link to nothing -> ok
 read a file as a link -> error: the operation failed
 remove the link -> ok
 its target remains -> #t
+another name -> ok
+the name again -> error: it already exists
+status of the name -> ok file of 4 bytes, modified after 1970
+a name for nothing -> error: no such file or directory
+remove the first name -> ok
+the other still reads -> four
+rename it back -> ok
 list root before -> ok (a)
 remove the tree -> ok
 root exists -> #f
