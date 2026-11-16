@@ -11,7 +11,6 @@
    TVar
    TRigid
    empty-row
-   mut-row
    unchecked
    Constraint
    Scheme
@@ -82,9 +81,8 @@
    Defined
    Constructor
    Accessor
-   field-operation-name
+   accessor-name
    Replacer
-   Setter
    Method
    Operation
    Primitive
@@ -154,10 +152,6 @@
        ((name String))))
 
     (define empty-row (→ Type) (TRow (Nil) (None)))
-
-    ;; Writing a field changes storage; reading it has no mutation effect.
-
-    (define mut-row (→ Type) (TRow (list "mut") (None)))
 
     ;; The type of an expression the checker has not yet seen. The checker
     ;; rebuilds every expression, so no later pass meets it.
@@ -727,17 +721,20 @@
        (operations (List String))
        (control (List String))))
 
+    ;; The name of the accessor that reads a record's field. A field path
+    ;; resolves to it; the `%` keeps a program from naming it.
+
+    (define (accessor-name (case Case) (index I64)) (→ String)
+      (string-append "%get:" (● case name) "-" (● (list-ref (● case fields) index) name)))
+
     ;; What a unique value name denotes. A definition's scheme is its
     ;; signature's, or none until it is inferred, and `signature` is where
-    ;; its typed header was written. Every definition is a function. An instance method has
-    ;; its class method's scheme and no signature of its own, and like a
-    ;; default no program names it. Internal field operations describe
-    ;; path reads, pure record copies and writes. Only the pure
-    ;; replacement has a source function name; enum fields are read by match.
-    (define (field-operation-name (case Case) (index I64) (operation String)) (→ String)
-      (string-append "%" operation ":" (● case name) "-"
-                     (● (list-ref (● case fields) index) name)))
-
+    ;; its typed header was written. Every definition is a function. An
+    ;; instance method has its class method's scheme and no signature of
+    ;; its own; a program never names one directly. A record's fields
+    ;; are read through accessors and replaced through replacers, which
+    ;; alone have a source name; a write names the accessor of its place,
+    ;; and an enum's fields are read by match.
     (enum Value
       (Defined
         ((scheme (Option Scheme))
@@ -750,10 +747,6 @@
         (index I64)
         (scheme Scheme)))
       (Replacer
-       ((case Case)
-        (index I64)
-        (scheme Scheme)))
-      (Setter
        ((case Case)
         (index I64)
         (scheme Scheme)))
@@ -778,7 +771,6 @@
         ((Constructor _ scheme) (Some scheme))
         ((Accessor _ _ scheme) (Some scheme))
         ((Replacer _ _ scheme) (Some scheme))
-        ((Setter _ _ scheme) (Some scheme))
         ((Method _ scheme) (Some scheme))
         ((Operation _ scheme) (Some scheme))
         ((Primitive scheme) (Some scheme))
