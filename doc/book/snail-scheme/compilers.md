@@ -35,10 +35,8 @@ in a top-level value: its key is the module and the text that names the
 item, so a second use skips the declaration. Those caches live as long as
 the compiler process, and so does each module they were asked about.
 
-Project builds compile each library to a module of its own and link them
-when the program loads; stage 0 links the complete program with
-the Rust scalar services into one module. The same checking and preparation
-contracts serve both.
+Every build compiles the whole program to one module and links it with
+the Rust scalar services, as stage 0 does the command line.
 Start with `examples/fibonacci.sld`, inspect its output with
 `./snail-scheme wat --target node examples/fibonacci.sld`, then follow the passes
 below.
@@ -218,67 +216,53 @@ Wasmtime execute the same linked code; no JavaScript continuation mechanism
 is required. `call/cc`, `dynamic-wind` and multishot continuation copying are
 not language features.
 
-## Separate compilation
+## Whole programs
 
-The unit of compilation is a library (`source->modules` in
-`src/snail/shell/compiler.sld`). In its module:
-
-- each monomorphic definition is exported under its global name, as in
-  `snail.core.base:map`;
-- each generic function the library uses is copied in,
-  specialized at the library's own types, as C++ instantiates a template in
-  every translation unit that uses it;
-- each monomorphic definition of another library is imported from that
-  library's module;
-- handlers travel as evidence, so no handler crosses a module boundary as a
-  global; the one global modules share is the yield record of control
-  operations, which a fixed module, `snail.core.control`, declares and exports.
-  A build links it first when the program has control effects, and every
-  module that tests or sets the record imports it, so a yield crosses
-  modules as it crosses functions.
-
-The checker settles each library's types before it checks the libraries
-that import it, so a definition's type comes from its own library and not
-from how an importer happens to use it.
+The unit of checking is a library, and the unit of compilation is the
+program (`source->wat` in `src/snail/shell/compiler.sld`). The checker
+settles each library's types before it checks the libraries that import it,
+so a definition's type comes from its own library and not from how an
+importer happens to use it. Emission then keeps only what the program
+reaches from its entry and its exposures: each generic function is
+specialized at the types it is used at, and every call is a direct call
+within the one module. Handlers travel as evidence, and the one global of
+control operations is the yield record, which the module declares and
+exports.
 
 Every invocation expands current sources, checks every library, specializes
 and emits every reachable function again. There is no compiler Session,
 interface fingerprint, invalidation graph or retained checked-code/Wasm cache.
-Each build rebuilds its targets and runs their producers.
+Each build rebuilds its program and runs its producers. A program was once
+also compiled a library at a time, each to a module of its own, linked when
+it started; that went with the reload it served.
 
 ## Linking
 
-A module imports each function of another library by the library's name,
-and the loader (`host/browser/load.mjs`) instantiates the runtime, then the
-modules in program order, so every module comes after those it imports
-from. Calls across libraries are direct calls to imported functions.
+A build fuses the program's module with the runtime's into one
+(`link` in `(snail shell assembler)`, the Rust backend `build/snail link`
+also uses), so calls into the runtime are ordinary calls, which
+`wasm-opt` can inline in a release build.
 
 WebAssembly treats two GC types as the same only when their whole
-recursion groups match. The backend therefore puts each type in the
-smallest recursion group it can have: the strongly connected component of
-the graph of references between types, ordered by name, with the groups it
-refers to emitted first. Every module that uses a type declares the
-identical group, and the engine's canonicalization makes them one type
-across modules. A case of an enum without fields declares no type of its
-own, since only the modules that build or match it would declare one.
+recursion groups match. The backend puts each type in the smallest
+recursion group it can have: the strongly connected component of the graph
+of references between types, ordered by name, with the groups it refers to
+emitted first. A module a program loads while it runs that declares the
+identical group shares the type, by the engine's canonicalization. A case
+of an enum without fields declares no type of its own.
 
 `snail-scheme` types are checked at compile time, each library against its
-imports. Every rebuild checks and emits the complete dependency closure. The
-engine also checks the WebAssembly type of every import. A value crossing as
-`Any` keeps its nominal type identity for explicit `downcast` checks.
-
-Linking modules in program order keeps debug code free of the indirection
-that a table of mutable globals, like ELF's global offset table, would add to
-every call across libraries.
+imports. A value crossing as `Any` keeps its nominal type identity for
+explicit `downcast` checks.
 
 ### Linking by hand
 
-The engine uses `(snail shell wasm)` to link a program from its manifest.
+A program loads modules while it runs with `(snail shell wasm)`.
 `compile-bytes` compiles a module, `module-imports` lists its imports, and
 `link-module` accepts one explicit `Provider` per import in order. A provider
 is an instance's export, a host service, a constant function, or a function
 that fails if called. Missing or incompatible providers return `LinkFailed`.
-Linking runs `_initialize` when present; the engine starts `main` separately.
+Linking runs `_initialize` when present; the loader calls `main` separately.
 
 `module-export` returns an untyped `Funcref`. `unsafe-cast` wraps it in an `Fn`
 closure at the requested type, passing the caller's effect evidence. The Wasm
@@ -287,8 +271,8 @@ must establish that contract. `run-export` calls a scalar export by name.
 
 `loading-program` identifies the loader. `bind-runtime` selects the loaded
 program's runtime for staging bytes and reporting errors without changing the
-loader's identity. The engine carries library providers in a local list; no
-second host registry or plugin namespace participates in linking.
+loader's identity. No host registry or plugin namespace participates in
+linking.
 
 `tests/programs/wasm-linking.sld` checks provider selection and failures.
 `wasm-instance-identity.sld` verifies that existing imports keep their original
@@ -299,10 +283,8 @@ the identity test also runs in Chromium.
 ### Hosts
 
 The host compiles bytes, lists imports, binds explicit providers and finds
-exports. Node and Wasmtime install these operations for the engine. The browser
-adapter also implements them and is exercised by the Chromium fixture; normal
-browser applications still use the JavaScript manifest loader. Resource fetching
-and scheduling remain explicit responsibilities of the engine or browser host.
+exports. Node, Wasmtime and the page install these operations; the page's
+are exercised by the Chromium fixture.
 
 Every import module a host provides is named for the runtime interface it
 implements, `snail.runtime.…` (#566): `snail.runtime.link` and
@@ -313,16 +295,9 @@ implements, `snail.runtime.…` (#566): `snail.runtime.link` and
 and `snail.runtime.browser.screen`, `.events`, `.storage`, `.dom` and
 `.fetch` on the page. A `(snail runtime …)` library declares one of these
 interfaces as externs, and nothing else, so it has no items and emits no
-module: each of its importers imports from the host itself
-(`emit-libraries` in `(snail shell compiler)`).
+code: the program's module imports from the host itself.
 The Rust support module, built from `crates/snail-scheme-support`, is
-`snail.core.support`, and the compiler's control module
-`snail.core.control`. A module linked under a `(snail runtime …)` name, or
-`(snail core support)`, would have one of the hosts' names as its module
-key, and the program's modules would import it in place of the host's
-interface, so a loader refuses one, at
-startup and when the program loads one (`hostProvided` in `load.mjs`,
-`host_provided` in `crates/snail/src/modules.rs`).
+`snail.core.support`, which a build fuses into the program's module.
 
 ## Compiler inputs
 

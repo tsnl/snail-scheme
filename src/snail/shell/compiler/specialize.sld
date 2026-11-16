@@ -46,27 +46,24 @@
     ;; pending requests or concrete bodies, so an emitter cannot specialize.
     (record Declarations
       ((program Program)
-       (owner (Option String))
        (control (List String))
        (bindings (Table Binding))))
 
     (record Binding
-      ((type Type)
-       (external? Bool)))
+      ((type Type)))
 
     ;; Requests reserve names before visiting bodies, so recursive calls
     ;; terminate. A recipe becomes a concrete body once.
     ;; Original bodies survive until preparation has checked every batch.
     (record State
       ((input Specialization)
-       (owner (Option String))
        (control (List String))
        (bindings (Table Definition))
        (remaining I64)
        (pending (List String))))
 
     ;; The registry owns each executable identity and its signature. A body
-    ;; is a recipe, its completed instantiation, or an imported declaration.
+    ;; is a recipe or its completed instantiation.
     (record Definition
       ((type Type)
        (body Body)))
@@ -77,13 +74,7 @@
         (types (List Type))
         (evidence (List Evidence))))
       (SourceBody
-       ((value Expr)))
-      (Imported))
-
-    (define (Definition-external? (binding Definition)) (→ Bool)
-      (match (● binding body)
-        ((Imported) #t)
-        (_ #f)))
+       ((value Expr))))
 
     ;; The types and evidence that replace a definition's quantified variables
     ;; and requirements while it is copied.
@@ -140,9 +131,7 @@
              (Cons name (● state pending))))))
 
     (define (requested (state State) (name String)) (→ State)
-      (if (external? state name (Nil))
-          (import-definition state name (definition state name))
-          (● (request state name (Nil) (Nil)) second)))
+      (● (request state name (Nil) (Nil)) second))
 
     (define (instantiation (state State)
                            (name String)
@@ -194,25 +183,20 @@
 
     (define (specialization-declarations (state State)) (→ Declarations)
       (new Declarations (program (Program-items-set (specialization-program state) (Nil)))
-           (owner (● state owner)) (control (● state control))
+           (control (● state control))
            (bindings (fold-left (lambda (bindings name)
-                                  (let ((definition (binding-of state name)))
-                                    (table-set bindings name
-                                               (new Binding (type (● definition type))
-
-                                                    (external?
-                                                     (Definition-external? definition))))))
+                                  (table-set bindings
+                                             name
+                                             (new Binding (type (● (binding-of state name) type)))))
                                 (empty-table) (table-keys (● state bindings))))))
 
-    ;; A read-only snapshot of original source instantiations. Imports keep
-    ;; their declared rows. Missing local bodies mean discovery was not
-    ;; closed before analysis.
+    ;; A read-only snapshot of original source instantiations. Missing
+    ;; bodies mean discovery was not closed before analysis.
 
     (define (specialization-definitions (state State)) (→ (Table Expr))
       (fold-left (lambda (bodies name)
                    (match (● (binding-of state name) body)
                      ((SourceBody value) (table-set bodies name value))
-                     ((Imported) bodies)
                      (_ (panic "internal error: analysis requires completed definitions"))))
                  (empty-table) (table-keys (● state bindings))))
 
@@ -423,37 +407,15 @@
               (types (List Type)) (evidence (List Evidence))
               (type Type) (loc Loc))
       (→ (Pair Expr State))
-      (if (external? state name types)
-          (new Pair (first (new Expr (term (Var name (Nil) (Nil))) (type type) (loc loc)))
-               (second (import-definition state name (definition state name))))
-          (threading state ((spec (request name types evidence)))
-                     (new Pair
-                       (first (new Expr (term (Var spec (Nil) (Nil))) (type type) (loc loc)))
-                       (second state)))))
-
-    ;; Imports and emitted definitions share one identity table. In
-    ;; particular, exposing an imported function must not enqueue a local
-    ;; copy that a later reference could replace with an import.
-
-    (define (import-definition (state State) (name String) (value Expr)) (→ State)
-      (if (table-contains? (● state bindings) name)
-          state
-          (State-bindings-set state
-                              (table-set (● state bindings) name
-                                         (new Definition (type (● value type))
-
-                                              (body (Imported)))))))
-
-    (define (external? (state State) (name String) (types (List Type))) (→ Bool)
-      (match (● state owner)
-        ((Some owner) (and (null? types)
-                           (not (string=? (name-owner name) owner))))
-        ((None) #f)))
+      (threading state ((spec (request name types evidence)))
+                 (new Pair
+                   (first (new Expr (term (Var spec (Nil) (Nil))) (type type) (loc loc)))
+                   (second state))))
 
     ;; ---- Roots ----
 
-    (define (new-state (input Specialization) (owner (Option String))) (→ State)
-      (new State (input input) (owner owner)
+    (define (new-state (input Specialization)) (→ State)
+      (new State (input input)
            (control (control-effects (● (● input typed) program)))
            (bindings (empty-table)) (remaining 65536) (pending (Nil))))
 
@@ -465,22 +427,16 @@
                       (filter (lambda (effect) (not (null? (● effect control))))
                               (table-values (● program effects))))))
 
-    ;; Library modules export monomorphic functions.
-    ;; Whole programs keep only definitions reached from an entry or exposure.
-    (define (start-specialization (state State) (items (List Item))) (→ (Pair (List String) State))
-      (threading state ((exports (each root-item items)))
-                 (new Pair (first (concatenate exports)) (second state))))
-
-    (define (root-item (state State) (item Item)) (→ (Pair (List String) State))
-      (match item
-        ((Expose name _ _) (new Pair (first (Nil)) (second (requested state name))))
-        ((Entry _ start _) (new Pair (first (Nil)) (second (requested state start))))
-        ((Define name value)
-         (if (null? (● (scheme-of state name) vars))
-             (match (● state owner)
-               ((Some _) (new Pair (first (list name)) (second (requested state name))))
-               ((None) (new Pair (first (Nil)) (second state))))
-             (new Pair (first (Nil)) (second state))))))
+    ;; A program keeps only the definitions reached from an entry or an
+    ;; exposure.
+    (define (start-specialization (state State) (items (List Item))) (→ State)
+      (fold-left (lambda (state item)
+                   (match item
+                     ((Expose name _ _) (requested state name))
+                     ((Entry _ start _) (requested state start))
+                     ((Define _ _) state)))
+                 state
+                 items))
 
     )
 

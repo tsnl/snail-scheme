@@ -230,9 +230,9 @@ Each step is a pull request that passes every check on its own.
 2. **The store and manifests.** Done, and since replaced: every build is
    one linked module, and the engine that linked per-library programs is
    gone.
-   - Every build keeps a module per library, and the `Debug` and `Development`
-     modes merge.
-   - All builds share the sharded `build/.snail-store/`, and each writes its
+   - Every build kept a module per library, and the `Debug` and `Development`
+     modes merged.
+   - All builds shared the sharded `build/.snail-store/`, and each wrote its
      `.manifest.datum`.
    - Targets still come from `project.datum`.
 3. **Scripts and `run`/`build FILE`.** Done, but for targets' handlers:

@@ -14,7 +14,6 @@
 (define-library (snail shell compiler wasm)
   (export
    emit-module
-   emit-control-module
    wat->string)
   (import
    (snail core base)
@@ -896,16 +895,8 @@
     (define (definition-of (m Module) (name String)) (→ (Option Binding))
       (table-ref (● (● m declarations) bindings) name))
 
-    (define (function-id (m Module) (name String)) (→ String) (! mut)
-      (match (definition-of m name)
-        ((Some binding)
-         (if (● binding external?)
-             (let ((signature (function-signature m (● binding type))))
-               (import! m (new Import (module (name-owner name)) (symbol name))
-                        (Cons (evidence-rep m) (● signature first))
-                        (Some (● signature second))))
-             (wasm-id name)))
-        ((None) (wasm-id name))))
+    (define (function-id (m Module) (name String)) (→ String)
+      (wasm-id name))
 
     ;; An immutable global closure whose code calls `name` with its
     ;; arguments. Each use writes that code again; identical lambdas share
@@ -2371,42 +2362,20 @@
                                      (wat "field"
                                           (wat "mut" (ref-wat frames))))))))))
 
-    ;; The global holding the record, null while nothing yields. A whole
-    ;; program declares and exports it. A library imports it from the control
-    ;; module, which a library build links first. A loading engine supplies
-    ;; its own control module, so yields cross into loaded program code under
-    ;; the same scheduler and evidence protocol.
+    ;; The global holding the record, null while nothing yields, which the
+    ;; program declares and exports.
 
     (define (yielding (m Module)) (→ String) (! mut)
-      (let ((type (wat "mut" (ref-wat (yield-type m)))))
-        (match (● (● m declarations) owner)
-          ((Some _)
-           (import-once! m "yielding" "$yielding"
-                         (lambda (global)
-                           (wat "import"
-                                (wat-string "snail.core.control")
-                                (wat-string "yielding")
-                                (wat "global" (id global) type)))))
-          ((None)
-           (unless (table-contains? (● m helpers) "yielding")
-             (put! (● m helpers) "yielding" "$yielding")
-             (push! (● m globals)
-                    (wat "global" (id "$yielding") type (wat "ref.null" (id "$yield"))))
-             (push! (● m exports)
-                    (wat "export" (wat-string "yielding") (wat "global" (id "$yielding")))))
-           "$yielding"))))
-
-    ;; The module a library build links first when its program has control
-    ;; effects: it declares the record's global and exports it, and its
-    ;; text never changes.
-
-    (define (emit-control-module (program Program)) (→ Wat) (! mut)
-      (let ((m (new-module (new Declarations (program (Program-items-set program (Nil)))
-                                (owner (None))
-                                (control (control-effects program))
-                                (bindings (empty-table))))))
-        (yielding m)
-        (module-wat m)))
+      (unless (table-contains? (● m helpers) "yielding")
+        (put! (● m helpers) "yielding" "$yielding")
+        (push! (● m globals)
+               (wat "global"
+                    (id "$yielding")
+                    (wat "mut" (ref-wat (yield-type m)))
+                    (wat "ref.null" (id "$yield"))))
+        (push! (● m exports)
+               (wat "export" (wat-string "yielding") (wat "global" (id "$yielding")))))
+      "$yielding")
 
     (define (yielding? (m Module)) (→ Wat) (! mut)
       (wat "i32.eqz" (wat "ref.is_null" (wat "global.get" (id (yielding m))))))
@@ -4312,7 +4281,6 @@
                   (● prepared definitions))
         (for-each (lambda (item) (emit-exposure! m item)) (● prepared exposed))
         (match (● prepared entry) ((Some name) (emit-main! m name)) (_ (unit)))
-        (for-each (lambda (name) (export-definition! m name)) (● prepared exported))
         (module-wat m)))
 
     (define (new-module (declarations Declarations)) (→ Module)
@@ -4344,14 +4312,6 @@
          (push! (● m exports)
                 (wat "export" (wat-string "main:body") (wat "func" (id (function-id m start))))))
         ((None) (panic "internal error: the entry's start has no definition"))))
-
-    (define (export-definition! (m Module) (name String)) (→ Unit) (! mut)
-      (match (definition-of m name)
-        ((Some definition)
-         (push! (● m exports)
-                (wat "export" (wat-string name)
-                     (wat "func" (id (wasm-id name))))))
-        ((None) (panic (string-append "internal error: nothing to export for " name)))))
 
     ;; The fields in the order Wasm requires: types in their recursion
     ;; groups, then imports, globals, declared function references, exports,
