@@ -1,5 +1,5 @@
 ;; The book's code highlighter, the mdbook preprocessor book.toml names,
-;; which scripts/highlight-book runs on Node once stage 0 has built it.
+;; which scripts/highlight-book builds and runs on Node.
 ;; mdbook asks `supports RENDERER` first, then writes [context, book] as
 ;; JSON to standard input and reads the book back from standard output.
 ;; Each fenced block whose language is `scheme` becomes the HTML that

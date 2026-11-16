@@ -417,7 +417,7 @@ a browser cache them for good.
 | `host/native/run-snail.mjs` | Node/WASI program execution, the compiled compiler's included, on Node's main thread, plus module loading; it drives the program's task scheduler through `host/browser/tasks.mjs`, as the page does. A trap is status 2 and a WASI exit its own, as on wasmtime. |
 | `src/`, `host/chez/` | Typed language libraries and the explicit Chez adapters. `host/chez/load.scm` permits only the compiler's source closure and stage-zero tools. |
 
-Running project build plans and publication belong to the [project builder](projects.md),
+Builds and publication belong to the [builder](projects.md),
 the language server to the
 [development toolchain](toolchain.md), and
 task scheduling and resources to the [runtime](../runtimes/index.md).

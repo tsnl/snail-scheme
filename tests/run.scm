@@ -22,8 +22,7 @@
  (only (snail shell compiler check) test-check)
  (only (snail shell compiler specialize) test-specialize)
  (only (snail shell compiler prepare) test-prepare)
- (only (snail shell compiler wasm) test-wasm)
- (only (snail shell project) test-project))
+ (only (snail shell compiler wasm) test-wasm))
 
 ;; ---- Cases ----
 
@@ -273,13 +272,13 @@
     (or (zero? (caddr result))
         (report "formatter" "CLI regression" (string-append (car result) (cadr result))))))
 
-;; The book's preprocessor, tools/highlight-book.sld, run on a small
+;; The book's preprocessor, tools/highlight-book.scm, run on a small
 ;; book, turns each `scheme` block into spans and leaves the rest as it was.
 (define (compile-book-highlighter root)
   (guard (failure (#t (report "book highlighter" "compile failed" (error-text failure))))
     (let ((text (program->wat root
                               (standard-directories root)
-                              (path-join root "tools/highlight-book.sld"))))
+                              (path-join root "tools/highlight-book.scm"))))
       (lambda () (check-book-highlighter root text)))))
 
 (define (check-book-highlighter root text)
@@ -380,47 +379,16 @@
               ""))
      (else #t))))
 
-(define (check-project-builds root)
-  (let ((result (capture-process
-                 (list "node" "--no-warnings" (path-join root "tests/project-builds.mjs") root))))
-    (or (zero? (caddr result))
-        (report "project builds" "failed" (string-append (car result) (cadr result))))))
-
-(define (check-project-run root)
-  (let ((result (capture-process
-                 (list "node" "--no-warnings" (path-join root "tests/project-run.mjs") root))))
-    (or (zero? (caddr result))
-        (report "project run" "failed" (string-append (car result) (cadr result))))))
-
-(define (check-scripts root)
-  (let ((result (capture-process
-                 (list "node" "--no-warnings" (path-join root "tests/scripts.mjs") root))))
-    (or (zero? (caddr result))
-        (report "scripts" "failed" (string-append (car result) (cadr result))))))
-
-(define (check-project-failures root)
-  (let ((result (capture-process
-                 (list "node" "--no-warnings" (path-join root "tests/project-failures.mjs") root))))
-    (or (zero? (caddr result))
-        (report "project failures" "failed" (string-append (car result) (cadr result))))))
-
-(define (check-project-resources root)
+;; A Node suite in tests/, NAME.mjs, given the repository's root.
+(define (check-node-suite root name)
   (let ((result (capture-process (list "node"
                                        "--no-warnings"
-                                       (path-join root "tests/project-resources.mjs")
+                                       (path-join root (string-append "tests/" name ".mjs"))
                                        root))))
     (or (zero? (caddr result))
-        (report "project resources" "failed" (string-append (car result) (cadr result))))))
+        (report name "failed" (string-append (car result) (cadr result))))))
 
-(define (check-embedding root)
-  (let ((result (capture-process (list "node"
-                                       "--no-warnings"
-                                       (path-join root "tests/embedding.mjs")
-                                       root))))
-    (or (zero? (caddr result))
-        (report "embedding" "failed" (string-append (car result) (cadr result))))))
-
-;; `snail-scheme lsp` answers an editor for a project of its own.
+;; `snail-scheme lsp` answers an editor for a workspace of its own.
 (define (check-language-server root)
   (let ((result (capture-process
                  (list "node" "--no-warnings" (path-join root "tests/lsp.mjs") root))))
@@ -667,13 +635,11 @@
   (test-prepare)
   (test-wasm)
   (test-expand (path-join root "build/tests/expand") (path-join root "src"))
-  (test-project)
   (let* ((cases (append (run-suite root "examples" '("examples") selected)
                         (run-suite root
                                    "tests/programs"
                                    '("tests/programs" "tests/programs/lib")
                                    selected)
-                        (run-suite root "tests/projects" '("src") selected)
                         (run-suite root "tests/siegework" '("src") selected)
                         (run-suite root "tests/hearsay" '("src") selected)
                         ;; Comparing V8 with wasmtime needs the native executable, built
@@ -684,12 +650,12 @@
                         (if (null? selected)
                             (list (lambda () (run-command-line root))
                                   (lambda () (check-host-agreement root))
-                                  (lambda () (check-project-builds root))
-                                  (lambda () (check-project-run root))
-                                  (lambda () (check-scripts root))
-                                  (lambda () (check-project-failures root))
-                                  (lambda () (check-embedding root))
-                                  (lambda () (check-project-resources root))
+                                  (lambda () (check-node-suite root "scripts"))
+                                  (lambda () (check-node-suite root "script-builds"))
+                                  (lambda () (check-node-suite root "script-run"))
+                                  (lambda () (check-node-suite root "script-failures"))
+                                  (lambda () (check-node-suite root "embedding"))
+                                  (lambda () (check-node-suite root "script-resources"))
                                   (lambda () (check-launcher root))
                                   (lambda () (check-language-server root))
                                   (lambda () (check-tree-sitter root))

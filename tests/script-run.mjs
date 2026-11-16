@@ -1,13 +1,15 @@
-// Named runs become the freshly built program, with ordinary shell IO/status.
+// `snail-scheme run` becomes the freshly built program, with ordinary shell
+// IO and status.
+//   node tests/script-run.mjs ROOT
 import assert from 'node:assert/strict';
 import {execFile} from 'node:child_process';
-import {mkdtemp, readFile, realpath, rm, writeFile} from 'node:fs/promises';
+import {mkdir, mkdtemp, readFile, realpath, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {dirname, join} from 'node:path';
 import {promisify} from 'node:util';
 
 const execute = promisify(execFile), root = process.argv[2];
-const project = await mkdtemp(join(tmpdir(), 'snail-run-project-'));
+const project = await mkdtemp(join(tmpdir(), 'snail-run-workspace-'));
 const caller = await mkdtemp(join(tmpdir(), 'snail-run-caller-'));
 const source = finish => `(import (snail core base) (snail core io))
   (define (main) (→ Unit) (! input-port output-port fs)
@@ -15,7 +17,7 @@ const source = finish => `(import (snail core base) (snail core io))
   (write-line (match (read-line) ((Some line) line) ((None) "EOF")))
   (write-file "run-cwd.txt" "caller")
   ${finish})`;
-const run = (name, args = []) => execute(join(root, 'snail-scheme'), ['run', project, name, ...args],
+const run = (args = []) => execute(join(root, 'snail-scheme'), ['run', '--target', 'node', join(project, 'main.scm'), ...args],
   {cwd: caller, timeout: 120_000, killSignal: 'SIGKILL'});
 
 async function ready(child, marker = 'ready\n') {
@@ -28,48 +30,43 @@ async function ready(child, marker = 'ready\n') {
 }
 
 try {
-  await writeFile(join(project, 'project.datum'), `(
-    (build-target program (program (entry "main.sld")))
-    (run-target app (run program (args ("configured" "" "λ")))))`);
-  await writeFile(join(project, 'main.sld'), source('(unit)'));
-  const execution = run('app', ['--flag', 'quote" with spaces', '$(shell-looking)']);
+  await mkdir(join(project, 'src'));
+  await writeFile(join(project, 'main.scm'), source('(unit)'));
+  const execution = run(['', 'λ', '--flag', 'quote" with spaces', '$(shell-looking)']);
   execution.child.stdin.end('from stdin\n');
   const result = await execution, lines = result.stdout.split('\n');
-  const first = await realpath(join(project, 'build/program'));
-  assert.equal(lines[0], join(first, 'program.manifest.datum'), 'argv names the exact generation');
+  const first = await realpath(join(project, 'build/main'));
+  assert.equal(lines[0], join(first, 'main.manifest.datum'), 'argv names the exact generation');
   assert.match(dirname(lines[0]), /\/\.snail-[^/]+$/);
-  assert.deepEqual(lines.slice(1), ['configured', '', 'λ', '--flag', 'quote" with spaces', '$(shell-looking)', 'from stdin', '']);
+  assert.deepEqual(lines.slice(1), ['', 'λ', '--flag', 'quote" with spaces', '$(shell-looking)', 'from stdin', '']);
   assert.equal(result.stderr, '');
   assert.equal(await readFile(join(caller, 'run-cwd.txt'), 'utf8'), 'caller');
 
   // A character read flushes an unterminated prompt, then shares stdin with lines.
-  await writeFile(join(project, 'main.sld'), `(import (snail core base) (snail core io))
+  await writeFile(join(project, 'main.scm'), `(import (snail core base) (snail core io))
     (define (main) (→ Unit) (! input-port output-port)
       (write-string "prompt> ")
     (write (read-char)) (newline)
     (write (read-line)) (newline)
     (write (read-char)) (newline))`);
-  const prompted = run('app');
+  const prompted = run();
   await ready(prompted.child, 'prompt> ');
   prompted.child.stdin.end('λ😀tail\n');
   assert.equal((await prompted).stdout, 'prompt> (Some #\\λ)\n(Some "😀tail")\n(None)\n');
 
-  await writeFile(join(project, 'main.sld'), source('(panic "run failure")'));
-  const failure = run('app');
+  await writeFile(join(project, 'main.scm'), source('(panic "run failure")'));
+  const failure = run();
   failure.child.stdin.end('status\n');
   await assert.rejects(failure, error => error.code === 1 && /run failure/.test(error.stderr) && error.stdout.endsWith('status\n'));
-  const beforeFailure = await realpath(join(project, 'build/program'));
-  await writeFile(join(project, 'main.sld'), '(import (snail core base)) (define (main) (→ Unit) (missing-function))');
-  await assert.rejects(run('app'), error => error.code === 1 && error.stdout === '' && /missing-function/.test(error.stderr));
-  assert.equal(await realpath(join(project, 'build/program')), beforeFailure, 'failed rebuild never runs the preceding output');
-  for (const name of ['missing', 'program']) {
-    await assert.rejects(run(name), error => error.code === 1 && error.stdout === '' && /unknown project run target/.test(error.stderr));
-  }
+  const beforeFailure = await realpath(join(project, 'build/main'));
+  await writeFile(join(project, 'main.scm'), '(import (snail core base)) (define (main) (→ Unit) (missing-function))');
+  await assert.rejects(run(), error => error.code === 1 && error.stdout === '' && /missing-function/.test(error.stderr));
+  assert.equal(await realpath(join(project, 'build/main')), beforeFailure, 'failed rebuild never runs the preceding output');
 
   // The original CLI PID is now the application; no signal forwarding exists.
-  await writeFile(join(project, 'main.sld'), '(import (snail core base) (snail core io)) (define (main) (→ Unit) (! input-port output-port) (write-line "ready") (read-line) (unit))');
+  await writeFile(join(project, 'main.scm'), '(import (snail core base) (snail core io)) (define (main) (→ Unit) (! input-port output-port) (write-line "ready") (read-line) (unit))');
   for (const signal of ['SIGINT', 'SIGTERM']) {
-    const waiting = run('app'), stopped = assert.rejects(waiting, {signal});
+    const waiting = run(), stopped = assert.rejects(waiting, {signal});
     await ready(waiting.child);
     assert.equal(waiting.child.kill(signal), true);
     await stopped;
@@ -78,4 +75,4 @@ try {
   await rm(project, {recursive: true, force: true});
   await rm(caller, {recursive: true, force: true});
 }
-console.log('project run: immutable output, arguments, stdin, working directory, status and signals');
+console.log('script run: immutable output, arguments, stdin, working directory, status and signals');

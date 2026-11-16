@@ -11,14 +11,10 @@
 ;;     arguments, in the caller's directory;
 ;;   wat FILE
 ;;     prints the WebAssembly text of the script's whole program;
-;;   build [--release] PROJECT BUILD-TARGET
-;;   run PROJECT RUN-TARGET [ARGUMENT ...]
-;;     build and run a target of the project.datum in PROJECT, as until
-;;     project files go;
 ;;   lsp
 ;;     serves the Language Server Protocol on standard input and output,
-;;     (snail shell lsp), for the project the editor opens, as ./snail-scheme lsp
-;;     does;
+;;     (snail shell lsp), for the workspace the editor opens, as
+;;     ./snail-scheme lsp does;
 ;;   format [--width COLUMNS] [--check|--write FILE ...]
 ;;     formats standard input to standard output, or reports or rewrites
 ;;     each file (snail shell format) would change, as ./snail-scheme
@@ -40,7 +36,6 @@
  (only (snail core forms) host)
  (snail shell engine)
  (only (snail shell wasm) wasm)
- (snail shell project)
  (snail shell project build)
  (snail shell lsp)
  (only (snail shell format) format-source format-width)
@@ -51,27 +46,12 @@
 
 ;; ---- Requests ----
 
-;; What one invocation asks for: a script, or a target of a project.
-(enum Request
-  (ScriptRequest ((job ScriptJob)))
-  (ProjectRequest ((job Job))))
-
-;; A project's target. A build's `target` is a build target, a run's a run
-;; target.
-(record Job
-  ((tools Tools)
-   (run? Bool)
-   (mode Mode)
-   (project String)
-   (target String)
-   (arguments (List String))))
+;; What a build or run names: a script, with --target.
 
 (define (usage) (→ String)
-  "usage: snail-scheme build|run --target node|wasmtime|browser [--release] FILE [ARGUMENT ...] | snail-scheme build [--release] PROJECT BUILD-TARGET | snail-scheme run PROJECT RUN-TARGET [ARGUMENT ...]")
+  "usage: snail-scheme build|run --target node|wasmtime|browser [--release] FILE [ARGUMENT ...]")
 
-;; A request names a target with --target exactly when it is a script's.
-
-(define (request (arguments (List String))) (→ Request) (! fs)
+(define (request (arguments (List String))) (→ ScriptJob) (! fs)
   (match arguments
     ((Cons _ (Cons root (Cons runtime (Cons toolchain (Cons action rest)))))
      (let ((tools (tools-of root runtime toolchain))
@@ -79,9 +59,8 @@
                        ((string=? action "run") #t)
                        (else (panic (usage))))))
        (match (build-flags rest (None) (Debug))
-         ((Pair (Some flags) rest) (ScriptRequest (script-request tools run? flags rest)))
-         ((Pair (None) _)
-          (ProjectRequest (if run? (run-request tools rest) (build-request tools rest)))))))
+         ((Pair (Some flags) rest) (script-request tools run? flags rest))
+         ((Pair (None) _) (panic (usage))))))
     (_ (panic (usage)))))
 
 (define (tools-of (root String) (runtime String) (toolchain String)) (→ Tools)
@@ -92,26 +71,6 @@
     (node (match (environment-variable "NODE")
             ((Some node) node)
             ((None) "node")))))
-
-(define (build-request (tools Tools) (arguments (List String))) (→ Job)
-  (match arguments
-    ((Cons "--release" (Cons project (Cons target (Nil))))
-     (new Job
-       (tools tools)
-       (run? #f)
-       (mode (Release))
-       (project (resolved project))
-       (target target)
-       (arguments (Nil))))
-    ((Cons project (Cons target (Nil)))
-     (new Job
-       (tools tools)
-       (run? #f)
-       (mode (Debug))
-       (project (resolved project))
-       (target target)
-       (arguments (Nil))))
-    (_ (panic (usage)))))
 
 ;; ---- Scripts ----
 
@@ -200,11 +159,7 @@
   (! mut fs output-port)
   (let ((script (script-at file)))
     (match (compiling (lambda ()
-                        (source->wat (delete-duplicates string=?
-                                                        (list
-                                                         (string-append (● script workspace) "/src")
-                                                         (string-append (● tools root)
-                                                                        "/src")))
+                        (source->wat (workspace-directories tools (● script workspace))
                                      (● script file)
                                      (lambda (loading forms)
                                        (panic "wat does not run producers: build the script"))
@@ -212,67 +167,6 @@
       ((Ok program) (write-string (● program text)))
       ((Err (Failed diagnostics)) (panic (diagnostics->string diagnostics)))
       ((Err (Requested _)) (panic "wat does not run producers: build the script")))))
-
-;; ---- Projects ----
-
-(define (run-request (tools Tools) (arguments (List String))) (→ Job)
-  (match arguments
-    ((Cons project (Cons target rest))
-     (new Job
-       (tools tools)
-       (run? #t)
-       (mode (Debug))
-       (project (resolved project))
-       (target target)
-       (arguments rest)))
-    (_ (panic (usage)))))
-
-;; ---- Building ----
-
-;; Builds `target`, with the root's build/snail-run/ for scratch, and
-;; publishes it; answers the target's generation.
-
-(define (build-and-publish (job Job) (description Project) (target String))
-  (→ String)
-  (! mut fs clock process)
-  (publish-build (build-project (● job tools)
-                                (● job project)
-                                description
-                                (list target)
-                                (● job mode)
-                                (scratch (● job tools))
-                                ".snail-")
-                 target))
-
-(define (publish-build (built (Result Candidate Failure)) (target String)) (→ String) (! fs)
-  (match built
-    ((Err failure) (panic (failure->string failure)))
-    ((Ok candidate)
-     (match (publish-project candidate)
-       ((Err message) (panic message))
-       ((Ok _) (generation-of candidate target))))))
-
-(define (scratch (tools Tools)) (→ String)
-  (string-append (● tools root) "/build/snail-run"))
-
-;; ---- Running ----
-
-;; The run target's program, built, then this process, replaced by Node
-;; running it.
-
-(define (run-target (job Job) (description Project)) (→ Unit) (! mut fs clock process)
-  (match (find (lambda (run) (string=? (● run name) (● job target)))
-               (● description runs))
-    ((None) (panic (string-append "unknown project run target " (● job target))))
-    ((Some run)
-     (let* ((name (● (● run program) name))
-            (generation (build-and-publish job description name))
-            (tools (● job tools)))
-       (become (● tools node)
-               (append (list "--no-warnings"
-                             (string-append (● tools root) "/host/native/run-snail.mjs")
-                             (string-append generation "/" (program-name name (● job mode))))
-                       (append (● run arguments) (● job arguments))))))))
 
 ;; ---- Formatting ----
 
@@ -382,29 +276,15 @@
 
 ;; ---- The invocation ----
 
-;; A build or a run, of a script or a project's target.
+;; A script's build, or its run.
 
-(define (invoke (request Request)) (→ Unit) (! mut fs clock process output-port)
-  (match request
-    ((ScriptRequest job)
-     (if (● job run?)
-         (run-script job)
-         (begin
-           (build-job job)
-           (write-line (string-append (● (● job script) workspace)
-                                      "/build/"
-                                      (script-name (● job script)))))))
-    ((ProjectRequest job) (invoke-project job))))
-
-(define (invoke-project (job Job)) (→ Unit) (! mut fs clock process output-port)
-  (match (read-project (● job project))
-    ((Err failure) (panic (failure->string failure)))
-    ((Ok description)
-     (if (● job run?)
-         (run-target job description)
-         (begin
-           (build-and-publish job description (● job target))
-           (write-line (string-append (● job project) "/build/" (● job target))))))))
+(define (invoke (job ScriptJob)) (→ Unit) (! mut fs clock process output-port)
+  (if (● job run?)
+      (run-script job)
+      (begin
+        (build-job job)
+        (write-line
+         (string-append (● (● job script) workspace) "/build/" (script-name (● job script)))))))
 
 (define (main)
   (→ Unit)
