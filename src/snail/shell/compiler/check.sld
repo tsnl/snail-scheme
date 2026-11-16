@@ -32,7 +32,6 @@
        (solution Solution)
        (schemes (Table Scheme))
        (pending (List Wanted))
-       (pending-count I64)
        (waiting (List Projection))
        (open (List String))
        (performed (List Type))))
@@ -52,7 +51,6 @@
            (solution (● inner solution))
            (schemes (● inner schemes))
            (pending (● inner pending))
-           (pending-count (● inner pending-count))
            (waiting (● inner waiting))
            (open (● inner open))
            (performed (● inner performed))))
@@ -118,9 +116,6 @@
       (match (table-ref (● typed schemes) name)
         ((Some scheme) scheme)
         ((None) (panic (string-append "internal error: no scheme for " name)))))
-
-    (define (program-of (ck Checker)) (→ Program)
-      (● ck program))
 
     (define (solution (ck Checker)) (→ Solution)
       (● ck solution))
@@ -428,7 +423,7 @@
          (cond ((not (and (string=? name other) (= (length args) (length others))))
                 (new Pair (first #f) (second ck)))
                ((null? args) (new Pair (first #t) (second ck)))
-               ((covariant-enum? (program-of ck) name (Nil)) (all-subsumed? ck args others loc))
+               ((covariant-enum? (● ck program) name (Nil)) (all-subsumed? ck args others loc))
                (else (unify-all? ck args others))))
         ((Pair expected actual) (unify? ck expected actual))))
 
@@ -536,8 +531,7 @@
     ;; ---- Instantiation ----
 
     (define (want (ck Checker) (wanted Wanted)) (→ Checker)
-      (Checker-pending-count-set (Checker-pending-set ck (Cons wanted (● ck pending)))
-                                 (+ (● ck pending-count) 1)))
+      (Checker-pending-set ck (Cons wanted (● ck pending))))
 
     (define (want-class (ck Checker) (constraint Constraint) (loc Loc)) (→ (Pair Evidence Checker))
       (threading ck ((hole (fresh-identity))
@@ -588,7 +582,7 @@
       (match (table-ref (● ck schemes) name)
         ((Some scheme) (Some scheme))
         ((None)
-         (match (program-value (program-of ck) name)
+         (match (program-value (● ck program) name)
            ((Some value)
             (match (value-scheme value)
               ((Some scheme) (Some scheme))
@@ -1051,7 +1045,7 @@
     (define (check-empty-match (ck Checker) (type Type) (loc Loc)) (→ Unit) (! compile)
       (unless (match (resolve-type (solution ck) type)
                 ((TCon name _)
-                 (match (table-ref (● (program-of ck) types) name)
+                 (match (table-ref (● (● ck program) types) name)
                    ((Some data) (and (● data enum?) (null? (● data cases))))
                    ((None) #f)))
                 (_ #f))
@@ -1099,7 +1093,7 @@
                           (loc Loc))
       (→ (Pair Expr Checker))
       (! compile)
-      (let* ((info (program-effect (program-of ck) effect)) (operations (● info operations)))
+      (let* ((info (program-effect (● ck program) effect)) (operations (● info operations)))
         (unless (and (= (length operations) (length implementations))
                      (every? (lambda (operation)
                                (any? (lambda (entry) (string=? (● entry first) operation))
@@ -1146,7 +1140,7 @@
                                   (loc Loc))
       (→ (Pair (Pair String Expr) Checker))
       (! compile)
-      (match (program-value (program-of ck) (● entry first))
+      (match (program-value (● ck program) (● entry first))
         ((Some (Operation effect scheme))
          (threading ck ((use (instantiate scheme loc)))
                     (match (● use type)
@@ -1256,7 +1250,7 @@
                       (first (new Checked (pattern (PLit value type)) (scope ck)))
                       (second ck))))
         ((PCon constructor args _)
-         (match (program-value (program-of ck) constructor)
+         (match (program-value (● ck program) constructor)
            ((Some (Constructor case scheme))
             (threading ck ((use (instantiate scheme loc)))
                        (match (● use type)
@@ -1417,10 +1411,10 @@
             (None))))
 
     (define (constructor-heads (ck Checker) (constructor String)) (→ (List Head))
-      (match (program-value (program-of ck) constructor)
+      (match (program-value (● ck program) constructor)
         ((Some (Constructor case _))
          (map (lambda (case) (HCon (● case name) (length (● case fields))))
-              (● (program-type (program-of ck) (● case type)) cases)))
+              (● (program-type (● ck program) (● case type)) cases)))
         (_ (Nil))))
 
     ;; ---- Nominal field selections ----
@@ -1450,9 +1444,6 @@
     (define (wait-for-field (ck Checker) (projection Projection)) (→ Checker)
       (Checker-waiting-set (want ck (WantField projection)) (Cons projection (● ck waiting))))
 
-    (define (projection-solved? (ck Checker) (projection Projection)) (→ Bool)
-      (table-contains? (● (solution ck) projections) (identity-key (● projection hole))))
-
     ;; A selection whose receiver's type is now known reads its field;
     ;; one whose is not waits again.
 
@@ -1462,17 +1453,17 @@
         ((Some (Pair value effects))
          (threading ck ((then (unify (● projection result) (● value type) (● projection loc)))
                         (then (perform effects (● projection row) (● projection loc))))
-                    (Checker-solution-set ck (solved-projection (solution ck) projection value))))))
+                    (with-projection ck (● projection hole) value)))))
 
-    (define (solved-projection (solution Solution) (projection Projection) (value Expr))
-      (→ Solution)
-      (Solution-projections-set solution
-                                (table-set (● solution projections)
-                                           (identity-key (● projection hole))
-                                           value)))
+    (define (with-projection (ck Checker) (hole I64) (value Expr)) (→ Checker)
+      (Checker-solution-set ck
+                            (Solution-projections-set (solution ck)
+                                                      (table-set (● (solution ck) projections)
+                                                                 (identity-key hole)
+                                                                 value))))
 
     (define (check-projection (ck Checker) (projection Projection)) (→ Unit) (! compile)
-      (unless (projection-solved? ck projection)
+      (unless (table-contains? (● (solution ck) projections) (identity-key (● projection hole)))
         (compile-error (● projection loc)
                        (string-append "field " (● projection label)
                                       " requires a known record type; annotate the receiver"))))
@@ -1492,7 +1483,7 @@
       (→ (Option (Pair Expr Type))) (! compile)
       (match owner
         ((TCon name args)
-         (match (table-ref (● (program-of ck) types) name)
+         (match (table-ref (● (● ck program) types) name)
            ((Some data)
             (when (● data enum?)
               (compile-error loc "field selection requires a record; match an enum's cases"))
@@ -1685,7 +1676,7 @@
     (define (matching-instance (ck Checker) (class String) (types (List Type)) (loc Loc))
       (→ (Pair Instance Substitution))
       (! compile)
-      (let loop ((instances (class-instances (program-of ck) class)))
+      (let loop ((instances (class-instances (● ck program) class)))
         (match instances
           ((Nil)
            (compile-error loc (string-append "no instance for " (constraint->string class types))))
@@ -1894,29 +1885,33 @@
 
     ;; ---- Definitions ----
 
-    ;; A definition the checker infers or checks: an item's `Define`, taken
-    ;; apart once where groups are formed.
+    ;; A definition the checker infers or checks: an item's `Define` taken
+    ;; apart, so a group holds nothing else.
     (record Definition
       ((name String)
        (value Expr)))
 
     ;; An unannotated group of mutually recursive definitions is inferred
-    ;; together and generalized. Typed function headers are checked directly.
+    ;; together and generalized over the obligations it raised, which it
+    ;; collects apart from the library's and then adds to them. Typed
+    ;; function headers are checked directly.
 
     (define (check-group (ck Checker) (definitions (List Definition)) (exposed (List String)))
       (→ (Pair (List Definition) Checker))
       (! compile)
-      (let ((before (● ck pending-count)))
-        (threading ck ((then (provisional-schemes definitions))
+      (let ((outer (● ck pending)))
+        (threading ck ((then (Checker-pending-set (Nil)))
+                       (then (provisional-schemes definitions))
                        (values (each infer-definition definitions))
-                       (then (generalize-group definitions before exposed)))
+                       (then (generalize definitions (● ck pending) exposed)))
                    (new Pair
                      (first
                       (map (lambda (pair) (Definition-value-set (● pair first) (● pair second)))
                            (zip definitions values)))
-                     (second (Checker-open-set ck
-                                               (append (definition-names definitions)
-                                                       (● ck open))))))))
+                     (second
+                      (Checker-open-set (Checker-pending-set ck (append (● ck pending) outer))
+                                        (append (definition-names definitions)
+                                                (● ck open))))))))
 
     (define (definition-names (definitions (List Definition))) (→ (List String))
       (map (lambda (definition) (● definition name)) definitions))
@@ -1929,14 +1924,6 @@
                    (threading ck ((type (local-placeholder (● definition value))))
                               (set-scheme ck (● definition name) (mono-scheme type))))
                  ck definitions))
-
-    ;; Generalize an inferred function group over the constraints it raised.
-
-    (define (generalize-group (ck Checker) (definitions (List Definition))
-                              (before I64) (exposed (List String)))
-      (→ Checker)
-      (generalize ck definitions
-                  (take (● ck pending) (- (● ck pending-count) before)) exposed))
 
     ;; An inferred function, checked against its recursive placeholder.
 
@@ -1962,22 +1949,15 @@
                         (exposed (List String)))
       (→ Checker)
       (let* ((fixed (map meta-id
-                         (append (concatenate (map (lambda (name)
-                                                     (free-metas (solution ck)
-                                                                 (scheme-type ck name)))
-                                                   (● ck open)))
-                                 (append (concatenate
-                                          (map (lambda (want) (wanted-metas (solution ck) want))
-                                               wanted))
-                                         (append (value-metas ck definitions)
-                                                 (exposed-row-metas ck definitions exposed))))))
+                         (concatenate
+                          (list (scheme-metas ck (● ck open))
+                                (concatenate (map (lambda (want) (wanted-metas (solution ck) want))
+                                                  wanted))
+                                (value-metas ck definitions)
+                                (exposed-row-metas ck definitions exposed)))))
              (metas (filter (lambda (meta) (not (member? (meta-id meta) fixed)))
                             (delete-duplicates same-meta?
-                                               (concatenate (map (lambda (name)
-                                                                   (free-metas (solution ck)
-                                                                               (scheme-type ck
-                                                                                            name)))
-                                                                 (definition-names definitions))))))
+                                               (scheme-metas ck (definition-names definitions)))))
              (names (map (lambda (index) (string-append "t" (i64->string (+ index 1))))
                          (iota (length metas))))
              ;; Generalization binds a metavariable to a quantified name, like
@@ -1998,12 +1978,16 @@
     ;; in its library decide together.
 
     (define (value-metas (ck Checker) (definitions (List Definition))) (→ (List Type))
-      (concatenate (map (lambda (definition)
-                          (match (value-loc (● definition value))
-                            ((Some _)
-                             (free-metas (solution ck) (scheme-type ck (● definition name))))
-                            ((None) (Nil))))
-                        definitions)))
+      (scheme-metas ck (definition-names (filter (lambda (definition)
+                                                   (match (value-loc (● definition value))
+                                                     ((Some _) #t)
+                                                     ((None) #f)))
+                                                 definitions))))
+
+    ;; The metavariables the current schemes of `names` mention.
+
+    (define (scheme-metas (ck Checker) (names (List String))) (→ (List Type))
+      (concatenate (map (lambda (name) (free-metas (solution ck) (scheme-type ck name))) names)))
 
     ;; Where a value's definition is, if `value` is one as the expander
     ;; writes it.
@@ -2107,7 +2091,7 @@
 
     (define (want-performed (ck Checker) (definition Definition) (scheme Scheme)) (→ Checker)
       (match (new Pair
-               (first (signature-loc (program-of ck) (● definition name)))
+               (first (signature-loc (● ck program) (● definition name)))
                (second (● scheme type)))
         ((Pair (Some loc) (TFun _ _ row))
          (if (lambda-expr? (● definition value))
@@ -2178,7 +2162,7 @@
     (define (check-exposed (ck Checker) (name String) (loc Loc))
       (→ Unit)
       (! compile)
-      (match (program-value (program-of ck) name)
+      (match (program-value (● ck program) name)
         ((Some (Defined _ _)) (unit))
         (_ (compile-error loc "an exposed function must be defined")))
       (match (global-scheme ck name)
@@ -2244,7 +2228,6 @@
                      (solution empty-solution)
                      (schemes schemes)
                      (pending (Nil))
-                     (pending-count 0)
                      (waiting (Nil))
                      (open (Nil))
                      (performed (Nil)))))
@@ -2333,7 +2316,7 @@
         (concatenate (map (lambda (item)
                             (match item
                               ((Define name value)
-                               (match (annotated-scheme (program-of ck) name)
+                               (match (annotated-scheme (● ck program) name)
                                  ((None) (list (new Definition (name name) (value value))))
                                  ((Some _) (Nil))))
                               (_ (Nil))))
@@ -2347,7 +2330,7 @@
          (match (table-ref results name)
            ((Some checked) (new Pair (first (Define name checked)) (second ck)))
            ((None)
-            (match (annotated-scheme (program-of ck) name)
+            (match (annotated-scheme (● ck program) name)
               ((Some scheme) (check-annotated ck (new Definition (name name) (value value)) scheme))
               ((None) (panic "internal error: unchecked definition"))))))
         (_ (new Pair (first item) (second ck)))))
@@ -2375,7 +2358,7 @@
         (● (fold-left (lambda (ck item)
                         (match item
                           ((Define name _)
-                           (match (annotated-scheme (program-of ck) name)
+                           (match (annotated-scheme (● ck program) name)
                              ((Some scheme) (set-scheme ck name scheme))
                              ((None) ck)))
                           (_ ck)))
