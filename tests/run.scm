@@ -23,7 +23,6 @@
  (only (snail shell compiler specialize) test-specialize)
  (only (snail shell compiler prepare) test-prepare)
  (only (snail shell compiler wasm) test-wasm)
- (only (snail shell project plan) test-plan)
  (only (snail shell project) test-project))
 
 ;; ---- Cases ----
@@ -413,13 +412,13 @@
     (or (zero? (caddr result))
         (report "project resources" "failed" (string-append (car result) (cadr result))))))
 
-(define (check-project-artifacts root)
+(define (check-embedding root)
   (let ((result (capture-process (list "node"
                                        "--no-warnings"
-                                       (path-join root "tests/project-artifacts.mjs")
+                                       (path-join root "tests/embedding.mjs")
                                        root))))
     (or (zero? (caddr result))
-        (report "project artifacts" "failed" (string-append (car result) (cadr result))))))
+        (report "embedding" "failed" (string-append (car result) (cadr result))))))
 
 ;; `snail-scheme lsp` answers an editor for a project of its own.
 (define (check-language-server root)
@@ -522,41 +521,6 @@
                                        program))))
     (or (zero? (caddr result))
         (report "termination" "failed" (string-append (car result) (cadr result))))))
-
-;; A compiler running as Wasm resolves concrete file snapshots, then emits
-;; static and cached library builds whose current bytes are executed. It
-;; assembles them itself, so it links with the toolchain's runtime.
-(define (compile-artifacts root)
-  (lambda ()
-    (guard (failure (#t (report "artifacts" "compile failed" (error-text failure))))
-      (let* ((output (path-join root "build/tests/artifacts"))
-             (compiler (build-toolchain-tool root
-                                             (path-join root "tests/artifacts/compiler.sld")
-                                             (path-join output "compiler.wasm")
-                                             (standard-directories root))))
-        (for-each (lambda (name) (create-directory* (path-join output name)))
-                  '("first" "unchanged" "changed"))
-        (check-artifacts root output compiler)))))
-
-(define (check-artifacts root output compiler)
-  (let ((compiled (capture-process
-                   (append (program-command root compiler)
-                           (append (list (path-join root "tests/artifacts/main.sld") output)
-                                   (standard-directories root)
-                                   (list (path-join root "tests/artifacts/lib")))))))
-    (if (not (zero? (caddr compiled)))
-        (report "artifacts"
-                "fixture compiler failed"
-                (string-append (car compiled) (cadr compiled)))
-        (let ((result (capture-process
-                       (list "node" "--no-warnings" (path-join root "tests/artifacts/check.mjs")
-                             (build-runtime root #f)
-                             output
-                             (path-join root "tests/artifacts/main.out")))))
-          (or (zero? (caddr result))
-              (report "artifacts"
-                      "execution failed"
-                      (string-append (car result) (cadr result))))))))
 
 ;; ---- Linked modules ----
 
@@ -703,7 +667,6 @@
   (test-prepare)
   (test-wasm)
   (test-expand (path-join root "build/tests/expand") (path-join root "src"))
-  (test-plan (path-join root "build/tests/plan") (path-join root "src"))
   (test-project)
   (let* ((cases (append (run-suite root "examples" '("examples") selected)
                         (run-suite root
@@ -725,7 +688,7 @@
                                   (lambda () (check-project-run root))
                                   (lambda () (check-scripts root))
                                   (lambda () (check-project-failures root))
-                                  (lambda () (check-project-artifacts root))
+                                  (lambda () (check-embedding root))
                                   (lambda () (check-project-resources root))
                                   (lambda () (check-launcher root))
                                   (lambda () (check-language-server root))
@@ -737,7 +700,6 @@
                                   (lambda ()
                                     (and (check-exposed-values root "host-values")
                                          (check-host-boundary root)))
-                                  (compile-artifacts root)
                                   (compile-socket-boundary root)
                                   (compile-async-files root)
                                   (compile-termination root)

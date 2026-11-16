@@ -38,7 +38,6 @@
    diagnostics->string
    CompilerRequest
    GenerateInput
-   ArtifactInput
    compile
    fail
    need
@@ -238,13 +237,9 @@
                       (more (Nil))))))
 
     ;; What a compile asks its caller for when it was not supplied it: the
-    ;; output of the producer printed under `key`, or a project target's
-    ;; files, for the `artifact-files` use at `source`.
+    ;; output of the producer printed under `key`.
     (enum CompilerRequest
-      (GenerateInput ((key String)))
-      (ArtifactInput
-       ((name String)
-        (source Loc))))
+      (GenerateInput ((key String))))
 
     ;; A compile stops, short of its result, when the source is wrong or
     ;; when it needs an input it was not supplied. Neither operation returns

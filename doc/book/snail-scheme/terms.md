@@ -367,7 +367,6 @@ remains proposed.
 | Project | One directory of source files and its project description. A plain directory can be edited before a description is added. |
 | Workspace | A collection of projects. The tools support one project; they do not introduce a workspace object. |
 | Build target | A named description of what to build. It produces one output directory, which may contain multiple files. |
-| Artifact bundle | The complete output of a browser build target, resolved by name during compilation. |
 | Run target | A named command for running a program build with its arguments. |
 | Build attempt | One invocation of project building, with an ID, diagnostics and a success/failure result. |
 | Application process | An OS process running a program. A browser frontend is a client of a server process, not a run target. |

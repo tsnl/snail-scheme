@@ -30,8 +30,7 @@
                (and (>= (length name) 3) (equal? (list-head name 3) '(snail shell compiler))))
            (string-append root "/src/" path ".sld")]
           [(and test-feature? (or (equal? name '(snail stage0 testing))
-                                  (equal? name '(snail shell project))
-                                  (equal? name '(snail shell project plan))))
+                                  (equal? name '(snail shell project))))
            (string-append root "/tests/" path ".sld")]
           [else (error 'bootstrap "library is outside the compiler's stage-zero closure" name)])))
 

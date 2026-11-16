@@ -238,7 +238,7 @@
             "case-id"
             "downcast"
             "constant-array"
-            "artifact-files" "link-handle"))
+            "link-handle"))
 
     (define (builtin-types) (→ (List (Pair String I64)))
       (list (new Pair (first "Any") (second 0))
