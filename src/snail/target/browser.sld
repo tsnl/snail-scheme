@@ -7,7 +7,8 @@
 ;; - screen, the page's canvas.
 ;;
 ;; The page's interface installs `dom` and `fetch` itself, with
-;; `with-page-dom` and `with-page-fetch` ((snail shell ui page)).
+;; `with-page-dom` and `with-page-fetch` ((snail shell ui page)), and a
+;; scene installs `dom` for its HUD ((snail shell app)).
 (define-library (snail target browser)
   (export
    provide

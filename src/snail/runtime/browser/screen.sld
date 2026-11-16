@@ -1,5 +1,7 @@
 ;; The page's screen, as host/browser/host.mjs provides it: one import per
-;; drawing command, each taking scalars. (snail shell app)'s
+;; drawing command, each taking scalars. A picture's address crosses a
+;; scalar at a time: `picture-url` answers how many, and
+;; `picture-url-scalar` reads each. (snail shell app)'s
 ;; `provide-screen` answers `screen` with these.
 (define-library (snail runtime browser screen)
   (export
@@ -16,13 +18,8 @@
    instance
    surface
    frame-end
-   hud-begin
-   panel-begin
-   widget-begin
-   widget-image
-   field
-   text-character
-   hud-end)
+   picture-url
+   picture-url-scalar)
   (import
    (snail core base))
   (begin
@@ -57,19 +54,8 @@
             "surface"
             (Fn F32 F32 I32 I32 I32 I32 I32 I32 I32 I32 → Unit))
     (extern frame-end "snail.runtime.browser.screen" "frame-end" (Fn → Unit))
-    (extern hud-begin "snail.runtime.browser.screen" "hud-begin" (Fn → Unit))
-    (extern panel-begin
+    (extern picture-url "snail.runtime.browser.screen" "picture-url" (Fn I32 → I32))
+    (extern picture-url-scalar
             "snail.runtime.browser.screen"
-            "panel-begin"
-            (Fn I32 I32 I32 I32 → Unit))
-    (extern widget-begin
-            "snail.runtime.browser.screen"
-            "widget-begin"
-            (Fn I32 I32 I32 I32 I32 F32 → Unit))
-    (extern widget-image
-            "snail.runtime.browser.screen"
-            "widget-image"
-            (Fn I32 I32 I32 I32 I32 I32 → Unit))
-    (extern field "snail.runtime.browser.screen" "field" (Fn I32 → Unit))
-    (extern text-character "snail.runtime.browser.screen" "text-character" (Fn Char → Unit))
-    (extern hud-end "snail.runtime.browser.screen" "hud-end" (Fn → Unit))))
+            "picture-url-scalar"
+            (Fn I32 → I32))))
