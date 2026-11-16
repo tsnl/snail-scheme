@@ -6,9 +6,9 @@ struct Light {
 struct Scene {
   count: i32,
   sun: Light,
-  exposure: f32,
+  exposure_bias: f32,
 }
-scene: size 64, align 16, count@0 sun@16 exposure@48
+scene: size 64, align 16, count@0 sun@16 exposure-bias@48
 vertex: stride 32, position@0 uv@16 material@24
   location 0 at 0
   location 1 at 16

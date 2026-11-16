@@ -4,7 +4,9 @@
 ;; copies the
 ;; texture into a buffer that is read back, and decodes a two-texel PNG,
 ;; read back the same way. A second frame finds every object by its path.
-;; tests/browser/gpu.mjs checks what it prints.
+;; Then an atlas's picture is drawn as quads, and two tiles are rasterized
+;; into a G-buffer and lit by the sun pass. tests/browser/gpu.mjs checks
+;; what it prints.
 (import
  (snail core base)
  (snail core io)
@@ -14,6 +16,9 @@
  (snail shell graphics pod)
  (snail shell graphics atlas)
  (snail shell graphics quad)
+ (snail shell graphics mesh)
+ (snail shell graphics raster)
+ (snail shell graphics passes)
  (gpu-test shaders))
 
 (record Paint
@@ -257,6 +262,60 @@
         (first texels)
         (second (atlas-url atlas 1 (new Rect (x 0) (y 0) (width 2) (height 1))))))))
 
+;; Two tiles seen straight down through a parallel lens, filling a 4x4
+;; texture: the left one red and glowing, the right one white under only
+;; ambient light of 0.6, so its texels are 153.
+
+(define (tile (x F32) (color Vec4f) (glow F32)) (→ (Pair Mesh Instance))
+  (new Pair
+    (first (Tile))
+    (second (new Instance
+              (place (new Vec4f (x x) (y 0.0) (z 0.0) (w 0.0)))
+              (scale (new Vec4f (x 1.0) (y 1.0) (z 2.0) (w glow)))
+              (color color)
+              (from (new Vec4f (x x) (y 0.0) (z 0.0) (w 0.0)))
+              (material (new Vec4f (x 0.0) (y 1.0) (z 0.0) (w 0.0)))))))
+
+(define (scene-frame (info DeviceInfo)) (→ Bytes) (! gpu tasks)
+  (let* ((encoder (create-command-encoder))
+         (target (create-texture (new TextureDescriptor
+                                   (path (Some (list "test" "scene")))
+                                   (width 4)
+                                   (height 4)
+                                   (layers 1)
+                                   (mips 1)
+                                   (format (Rgba8Unorm))
+                                   (usage (list (RenderAttachment) (TextureCopySrc))))))
+         (readback (buffer-named "scene-readback" 1024 (list (MapRead) (CopyDst))))
+         (g (gbuffer "test" 4 4))
+         (r (raster (Rgba8Unorm)
+                    (camera-3d (new Vec3f (x 0.0) (y 5.0) (z 0.0))
+                               (new Vec3f (x 0.0) (y 0.0) (z 0.0))
+                               (Parallel 2.0)
+                               1.0
+                               1.0)
+                    (new Sun
+                      (direction (new Vec4f (x 0.0) (y 1.0) (z 0.0) (w 0.0)))
+                      (ambient 0.6))))
+         (pass (begin-gbuffer encoder g)))
+    (raster-meshes pass
+                   r
+                   "tiles"
+                   solid
+                   (meshes (list (tile -0.5 (new Vec4f (x 1.0) (y 0.0) (z 0.0) (w 1.0)) 1.0)
+                                 (tile 0.5 (new Vec4f (x 1.0) (y 1.0) (z 1.0) (w 1.0)) 0.0)))
+                   #t)
+    (end-pass pass)
+    (sun-pass encoder
+              target
+              (Rgba8Unorm)
+              (new Color (red 0.0) (green 0.0) (blue 0.0) (alpha 1.0))
+              g
+              r)
+    (copy-texture-to-buffer encoder (whole-texture target) readback 0 256 4 4)
+    (submit (list (finish encoder)))
+    (read-buffer readback 0 16)))
+
 (let ((info (request-device 67108864)))
   (write-line (string-append "format: " (texture-format-name (● info format))))
   (let ((first-frame (frame info)))
@@ -267,4 +326,5 @@
   (let ((quads (quads-frame)))
     (write-line (string-append "quads: " (texels (● quads first))))
     (write-line (string-append "url: " (● quads second))))
+  (write-line (string-append "scene: " (texels (scene-frame info))))
   (report-ready))

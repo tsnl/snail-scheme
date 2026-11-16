@@ -14,10 +14,11 @@
   (deriving Pod))
 
 ;; A struct field aligns to its largest field, and the size rounds up to it.
+;; A hyphen in a field's name is an underscore in WGSL.
 (record Scene
   ((count I32)
    (sun Light)
-   (exposure F32))
+   (exposure-bias F32))
   (deriving Pod))
 
 (record Vertex
@@ -67,4 +68,4 @@
                                                     (intensity 2.0)
                                                     (color
                                                      (new Vec4f (x 1.0) (y 1.0) (z 1.0) (w 1.0)))))
-                                             (exposure 1.0))))))
+                                             (exposure-bias 1.0))))))
