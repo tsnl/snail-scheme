@@ -2,7 +2,9 @@
 
 Macros are hygienic `syntax-rules` transformers, defined with
 `define-syntax` at the top level or in a local body. Surface forms such as
-`let*`, `cond`, `case` and the variadic `list` are macros in `(snail core base)`.
+`let*`, `cond`, `case` and the variadic `list` are macros in `(snail core base)`,
+and so is what a `deriving` clause expands to: a macro can expand into an
+`instance`, as into any declaration.
 They expand before checking, so generated expressions obey the same types
 and effects rules as handwritten code.
 
