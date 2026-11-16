@@ -4,7 +4,6 @@
 ;; the build that runs the compile takes.
 (define-library (snail shell compiler inputs)
   (export
-   request-input
    generated-syntax
    generating-stack
    read-source-file)

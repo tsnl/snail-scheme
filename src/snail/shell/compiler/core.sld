@@ -11,7 +11,6 @@
    TVar
    TRigid
    empty-row
-   callable-arrow
    mut-row
    unchecked
    Constraint
@@ -132,10 +131,12 @@
 
     ;; ---- Types ----
 
-    ;; `TCon` names a builtin or declared type by its unique name. A row is a
-    ;; set of effect labels, kept sorted, with an optional tail: a type
-    ;; variable standing for more labels. Metavariables exist only inside the
-    ;; checker, which binds their cells.
+    ;; `TCon` names a builtin or declared type by its unique name. `TFun` is
+    ;; the one callable type: a closure that may be called any number of
+    ;; times. A handler's `resume` is one too; the backend panics if it is
+    ;; called a second time. A row is a set of effect labels, kept sorted,
+    ;; with an optional tail: a type variable standing for more labels.
+    ;; Metavariables exist only inside the checker, which binds their cells.
     (enum Type
       (TCon
        ((name String)
@@ -153,17 +154,6 @@
        ((name String))))
 
     (define empty-row (→ Type) (TRow (Nil) (None)))
-
-    ;; ---- Procedure types ----
-
-    ;; Fn is the one callable type: a closure that may be called any number
-    ;; of times. A handler's `resume` is an Fn too; the backend panics if it
-    ;; is called a second time.
-
-    (define (callable-arrow (type Type)) (→ (Option Type))
-      (match type
-        ((TFun _ _ _) (Some type))
-        (_ (None))))
 
     ;; Writing a field changes storage; reading it has no mutation effect.
 
@@ -606,7 +596,7 @@
 
     (define (lambda-expr? (expr Expr)) (→ Bool)
       (match (● expr term)
-        ((Lambda _ _ ) #t)
+        ((Lambda _ _) #t)
         (_ #f)))
 
     ;; Immediate structural children, in source order, including lambda
@@ -616,7 +606,7 @@
       (match (● expr term)
         ((Lit _) (Nil))
         ((Var _ _ _) (Nil))
-        ((Lambda _ body ) (list body))
+        ((Lambda _ body) (list body))
         ((App callee args) (Cons callee args))
         ((New callee fields) (Cons callee (map (lambda (field) (● field value)) fields)))
         ((FieldRead record _ _) (list record))
@@ -787,7 +777,7 @@
 
     (define (value-scheme (value Value)) (→ (Option Scheme))
       (match value
-        ((Defined scheme _ ) scheme)
+        ((Defined scheme _) scheme)
         ((Constructor _ scheme) (Some scheme))
         ((Accessor _ _ scheme) (Some scheme))
         ((Replacer _ _ scheme) (Some scheme))
@@ -1224,10 +1214,6 @@
     (define (primitive-global (name String)) (→ String)
       (string-append "prim:" name))
 
-    ;; What the primitive library adds to a program: its values alone.
-    ;; It has no module, since the backend
-    ;; implements everything it declares, so it records no run of items.
-
     )
 
   ;; ---- Tests ----
@@ -1278,7 +1264,7 @@
                           (wrap (lambda (term) (new Expr (term term) (type unchecked) (loc at))))
                           (read (lambda (name) (wrap (Var name (Nil) (Nil)))))
                           (body (wrap (App (read "later") (list (read "first") (read "last")))))
-                          (handler (wrap (Lambda (list "unused") (read "first") )))
+                          (handler (wrap (Lambda (list "unused") (read "first"))))
                           (expr (wrap (Handle "effect"
                                               (list (new Pair (first "operation") (second handler)))
                                               body))))

@@ -6,8 +6,7 @@
 ;; field holding a record keeps a reference to that object,
 ;; sequences are GC arrays, and functions are closures holding a typed
 ;; function reference. Calls in tail position become `return_call`. A whole
-;; program becomes one module; one library becomes a module that imports
-;; what it uses from the modules of other libraries. A control operation
+;; program becomes one module. A control operation
 ;; leaves a record in one global, which each caller tests after a call that
 ;; may yield, saving the rest of its work as a frame, back to the handle it
 ;; is aimed at; `resume` runs those frames again, once.
@@ -21,8 +20,7 @@
    (snail shell compiler read)
    (snail shell compiler core)
    (only (snail shell compiler specialize)
-         Declarations Binding
-         control-effects)
+         Declarations Binding)
    (only (snail shell compiler prepare)
          Prepared Callees declaration-callees yields
          holds-yield-point?))
@@ -599,7 +597,7 @@
 
     (define (emit-function! (m Module) (name String) (function Expr)) (→ Unit) (! mut)
       (match (● function term)
-        ((Lambda params body )
+        ((Lambda params body)
          (let* ((fn (Fn-exit-set (new-fn m) (function-exit (● function type))))
                 (signature (function-signature m (● function type)))
                 (reps (● signature first)))
@@ -675,7 +673,7 @@
         (match (● expr term)
           ((Lit value) (list (literal fn value type)))
           ((Var name _ _) (list (variable fn name type)))
-          ((Lambda _ _ ) (list (closure fn expr (None))))
+          ((Lambda _ _) (list (closure fn expr (None))))
           ((App callee args) (emit-call fn expr callee args tail?))
           ((If test then otherwise)
            (let* ((test-code (emit1 fn test))
@@ -897,9 +895,6 @@
     (define (definition-of (m Module) (name String)) (→ (Option Binding))
       (table-ref (● (● m declarations) bindings) name))
 
-    (define (function-id (m Module) (name String)) (→ String)
-      (wasm-id name))
-
     ;; An immutable global closure whose code calls `name` with its
     ;; arguments. Each use writes that code again; identical lambdas share
     ;; one function, and a closure without captures one global.
@@ -924,7 +919,7 @@
                         (type result) (loc no-loc))))
            (closure-value m
                           (new Expr
-                            (term (Lambda names call ))
+                            (term (Lambda names call))
                             (type type)
                             (loc no-loc))
                           (None))))
@@ -1031,7 +1026,7 @@
       (→ String)
       (! mut)
       (match (● function term)
-        ((Lambda params body )
+        ((Lambda params body)
          (let* ((signature (function-signature m (● function type)))
                 (reps (● signature first))
                 (base (closure-type m reps (● signature second)))
@@ -1158,7 +1153,7 @@
           (match (definition-of (● fn module) name)
             ((Some definition)
              (list (wat* (call-op tail?)
-                         (Cons (id (function-id (● fn module) name))
+                         (Cons (id (wasm-id name))
                                (Cons (● fn evidence) (emit-args fn args))))))
             ((None) (builtin-call fn expr name args)))))
 
@@ -1181,7 +1176,7 @@
                        (Cons (id (performer m effect name))
                              (Cons (● fn evidence) (emit-args fn args))))))
           ((Some (Foreign import scheme))
-           (host-call m import (● scheme type) (emit-args fn args) (● expr loc)))
+           (host-call m import (● scheme type) (emit-args fn args)))
           (_ (panic (string-append "internal error: cannot call " name))))))
 
     (define (first-arg (args (List Expr))) (→ Expr)
@@ -1447,14 +1442,14 @@
     ;; and the host receives its scalar count or byte-record address.
     ;; A Unit result is no result.
 
-    (define (host-call (m Module) (import Import) (type Type) (args (List Wat)) (loc Loc))
+    (define (host-call (m Module) (import Import) (type Type) (args (List Wat)))
       (→ (List Wat))
       (! mut)
       (match type
         ((TFun params result _)
          (let* ((function-id (import-wat! m
                                           import
-                                          (map nonnull (host-params m params loc))
+                                          (map nonnull (host-params m params))
                                           (if (unit-type? type)
                                               (None)
                                               (Some (nonnull (rep m result))))))
@@ -1462,7 +1457,7 @@
            (if (unit-type? type) (list call (wat "i32.const" (int 0))) (list call))))
         (_ (panic "internal error: a host function needs a function type"))))
 
-    (define (host-params (m Module) (params (List Type)) (loc Loc)) (→ (List Rep)) (! mut)
+    (define (host-params (m Module) (params (List Type))) (→ (List Rep)) (! mut)
       (map-indexed (lambda (index param)
                      (cond ((not (buffer-type? param)) (rep m param))
                            ((= index (- (length params) 1)) (Scalar "i32"))
@@ -1578,7 +1573,7 @@
              (value (export-handover fn
                                      result
                                      (wat* "call"
-                                           (Cons (id (function-id m name))
+                                           (Cons (id (wasm-id name))
                                                  (Cons (evidence-none m) args))))))
         (push-function! m wrapper
                         (wat* "func"
@@ -2699,14 +2694,14 @@
                          body
                          #f))
              (catch (if (null? (● info control)) (wat "nop")
-                        (catch-yield m info type (wat "local.get" (id node)) value (● expr loc)))))
+                        (catch-yield m info type (wat "local.get" (id node)) value))))
         (list (wat "local.set"
                    (id value)
                    (wat* "block" (Cons (id label) (Cons (wat "result" (rep->wat result)) code))))
               catch
               (wat "local.get" (id value)))))
 
-    (define (catch-yield (m Module) (info Effect) (type Type) (node Wat) (value String) (loc Loc))
+    (define (catch-yield (m Module) (info Effect) (type Type) (node Wat) (value String))
       (→ Wat)
       (! mut)
       (wat "if"
@@ -2714,7 +2709,7 @@
            (wat "then"
                 (wat "local.set"
                      (id value)
-                     (wat "call" (id (catcher m info type loc)) node)))))
+                     (wat "call" (id (catcher m info type)) node)))))
 
     ;; What a handle does with the yield that has reached it, for one
     ;; effect and handle result type; the handle site and `resume` both
@@ -2727,7 +2722,7 @@
     ;; tail call, so a handler that resumes in tail position runs in
     ;; constant stack however many times its operation is performed.
 
-    (define (catcher (m Module) (info Effect) (type Type) (loc Loc)) (→ String) (! mut)
+    (define (catcher (m Module) (info Effect) (type Type)) (→ String) (! mut)
       (helper! m "catch" (string-append (● info name) " " (type-key type))
                (lambda (function-id)
                  (wat* "func"
@@ -2735,19 +2730,19 @@
                                                 (wat "param" (Word "$node") (evidence-ref m))
                                                 (wat "result" (rep->wat (rep m type))))
                                           (dispatch-locals m info type)
-                                          (list (pass-on m info type loc))
+                                          (list (pass-on m info type))
                                           (take-continuation m)
                                           (map (lambda (operation)
-                                                 (dispatch-case m info type operation loc))
+                                                 (dispatch-case m info type operation))
                                                (● info control))
                                           (list (wat "unreachable"))))))))
 
-    (define (pass-on (m Module) (info Effect) (type Type) (loc Loc)) (→ Wat) (! mut)
+    (define (pass-on (m Module) (info Effect) (type Type)) (→ Wat) (! mut)
       (let ((node (wat "local.get" (Word "$node"))))
         (wat "if"
              (wat "i32.eqz" (aimed-at? m node))
              (wat "then"
-                  (enclose m (Handling info loc) type node)
+                  (enclose m (Handling info) type node)
                   (wat "return" (default-value (rep m type)))))))
 
     (define (dispatch-locals (m Module) (info Effect) (type Type)) (→ (List Wat)) (! mut)
@@ -2778,7 +2773,7 @@
     ;; The implementation of a control operation, if the record names it,
     ;; taken from the handler at the node.
 
-    (define (dispatch-case (m Module) (info Effect) (type Type) (operation String) (loc Loc))
+    (define (dispatch-case (m Module) (info Effect) (type Type) (operation String))
       (→ Wat)
       (! mut)
       (let* ((index (operation-index info operation))
@@ -2803,11 +2798,7 @@
                                               arguments
                                               (append arguments
                                                       (list
-                                                       (resume-closure m
-                                                                       info
-                                                                       operation
-                                                                       type
-                                                                       loc)))))
+                                                       (resume-closure m info operation type)))))
                                     #t)))))
 
     (define (implementation-local (info Effect) (operation String)) (→ Wat)
@@ -2876,13 +2867,13 @@
     (define (resume-base (m Module) (operation String) (type Type)) (→ String) (! mut)
       (closure-type m (list (rep m (operation-result m operation))) (rep m type)))
 
-    (define (resume-closure (m Module) (info Effect) (operation String) (type Type) (loc Loc))
+    (define (resume-closure (m Module) (info Effect) (operation String) (type Type))
       (→ Wat)
       (! mut)
       (let ((base (resume-base m operation type)))
         (wat "struct.new"
              (id (resume-type m base))
-             (wat "ref.func" (id (resume-code m info operation type loc)))
+             (wat "ref.func" (id (resume-code m info operation type)))
              (wat "local.get" (Word "$continuation")))))
 
     ;; The code of an operation's `resume`: the handle again, run on the
@@ -2890,7 +2881,7 @@
     ;; function to the checker, so a second call is refused here, before
     ;; it could run frames another call has taken.
 
-    (define (resume-code (m Module) (info Effect) (operation String) (type Type) (loc Loc))
+    (define (resume-code (m Module) (info Effect) (operation String) (type Type))
       (→ String)
       (! mut)
       (helper! m "resume" (string-append operation " " (type-key type))
@@ -2922,7 +2913,7 @@
                            (new Pair (first "activate") (second (activate-helper m)))
                            (new Pair
                              (first "rehandle")
-                             (second (rehandler m (Handling info loc) type)))
+                             (second (rehandler m (Handling info) type)))
                            (new Pair (first "resume") (second resume))
                            (new Pair (first "boxed")
                                 (second (wat->text (box-value m
@@ -2936,23 +2927,22 @@
     ;; Each has its own helpers, named by the effect and the handle's type.
     (enum Catch
       (Handling
-       ((info Effect)
-        (loc Loc)))
+       ((info Effect)))
       (Forwarding
        ((info Effect))))
 
     (define (catch-helper (m Module) (catch Catch) (type Type)) (→ String) (! mut)
       (match catch
-        ((Handling info loc) (catcher m info type loc))
+        ((Handling info) (catcher m info type))
         ((Forwarding info) (forwarder m info type))))
 
     (define (catch-prefix (catch Catch) (prefix String)) (→ String)
       (match catch
-        ((Handling _ _) prefix)
+        ((Handling _) prefix)
         ((Forwarding _) (string-append "forward-" prefix))))
 
     (define (catch-key (catch Catch) (type Type)) (→ String)
-      (let ((info (match catch ((Handling info _) info) ((Forwarding info) info))))
+      (let ((info (match catch ((Handling info) info) ((Forwarding info) info))))
         (string-append (● info name) " " (type-key type))))
 
     ;; The handle again, for one catch and handle result type: the
@@ -4312,7 +4302,7 @@
                 (wat "export" (wat-string "main")
                      (wat "func" (id (exposed-function m start (● definition type))))))
          (push! (● m exports)
-                (wat "export" (wat-string "main:body") (wat "func" (id (function-id m start))))))
+                (wat "export" (wat-string "main:body") (wat "func" (id (wasm-id start))))))
         ((None) (panic "internal error: the entry's start has no definition"))))
 
     ;; The fields in the order Wasm requires: types in their recursion

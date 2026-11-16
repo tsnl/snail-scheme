@@ -12,8 +12,7 @@
    specialization-declarations
    specialization-definitions
    start-specialization
-   complete-specializations
-   control-effects)
+   complete-specializations)
   (import
    (snail core base)
    (snail core table)
@@ -284,10 +283,10 @@
       (match term
         ((Lit value) (new Pair (first (Lit value)) (second state)))
         ((Var name types evidence) (new Pair (first (Var name types evidence)) (second state)))
-        ((Lambda params body )
+        ((Lambda params body)
          (threading state
                     ((body (copy-expr inst body)))
-                    (new Pair (first (Lambda params body )) (second state))))
+                    (new Pair (first (Lambda params body)) (second state))))
         ((App callee args)
          (threading state ((callee (copy-expr inst callee)) (args (copy-exprs inst args)))
                     (new Pair (first (App callee args)) (second state))))
@@ -367,24 +366,16 @@
                        (loc Loc))
       (→ (Pair Expr State))
       (match (program-value (specialization-program state) name)
-        ((Some (Defined _ _ )) (definition-reference state name types evidence type loc))
+        ((Some (Defined _ _)) (definition-reference state name types evidence type loc))
         ((Some (Method class _))
          (match evidence
            ((Cons (EvInstance instance instance-types subs) rest)
             (let ((class-arity
-                   (length (● (program-class (specialization-program state) class) params)))
-                  (target (instance-method state instance name)))
-              ;; A record's own field instance names the field's
-              ;; accessor, a builtin, which keeps its name.
-              (match (program-value (specialization-program state) target)
-                ((Some (Defined _ _ ))
-                 (definition-reference state
-                   target
-                   (append instance-types (list-drop types class-arity))
-                   (append subs rest) type loc))
-                (_ (new Pair
-                     (first (new Expr (term (Var target (Nil) (Nil))) (type type) (loc loc)))
-                     (second state))))))
+                   (length (● (program-class (specialization-program state) class) params))))
+              (definition-reference state
+                (instance-method state instance name)
+                (append instance-types (list-drop types class-arity))
+                (append subs rest) type loc)))
            (_ (panic "internal error: a method needs instance evidence"))))
         ;; An operation, like a builtin, keeps its name: a handler answers
         ;; it, and nothing else is reached through it.

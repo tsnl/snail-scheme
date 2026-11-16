@@ -10,7 +10,6 @@
 (define-library (snail shell compiler read)
   (export
    Loc
-   loc->string
    Datum
    DInt
    DFloat
@@ -69,7 +68,6 @@
    TokenLexeme
    EndOfText
    lexeme-at
-   TokenKind
    BooleanToken
    IntegerToken
    FloatToken

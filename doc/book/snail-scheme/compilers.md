@@ -79,8 +79,8 @@ field.
 
 Expansion generates constructors, field operations and requested derived
 instances. Their bodies and evidence then go through ordinary checking.
-No runtime top-level expression is admitted: a producer recipe gets an
-explicit entry function, and a program starts at its root `main`.
+A script's top-level expressions are its entry, in order; a library's top
+level has none, and a producer recipe gets an explicit entry function.
 
 ### Named record construction
 
