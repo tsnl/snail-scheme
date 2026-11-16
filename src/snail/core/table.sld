@@ -9,6 +9,7 @@
    empty-table
    table-ref
    table-set
+   table-remove
    table-contains?
    table-count
    table-keys
@@ -86,6 +87,33 @@
                           table))
                    ((= (i64-and hash bit) 0) (Branch prefix bit (insert zero) one))
                    (else (Branch prefix bit zero (insert one)))))))))
+
+    ;; The table without `key`. A branch left with one side empty is the
+    ;; other side.
+
+    (define (table-remove (table (Table V)) (key String))
+      (→ (Table V))
+      (∀ (V))
+      (let ((hash (string-hash key)))
+        (let remove ((table table))
+          (match table
+            ((Empty) table)
+            ((Leaf leaf-hash entries)
+             (if (= leaf-hash hash)
+                 (match (filter (lambda (entry) (not (string=? (● entry first) key))) entries)
+                   ((Nil) (Empty))
+                   (rest (Leaf hash rest)))
+                 table))
+            ((Branch prefix bit zero one)
+             (if (= (i64-and hash bit) 0)
+                 (branch prefix bit (remove zero) one)
+                 (branch prefix bit zero (remove one))))))))
+
+    (define (branch (prefix I64) (bit I64) (zero (Table V)) (one (Table V))) (→ (Table V)) (∀ (V))
+      (match (new Pair (first zero) (second one))
+        ((Pair (Empty) _) one)
+        ((Pair _ (Empty)) zero)
+        (_ (Branch prefix bit zero one))))
 
     ;; A branch over two tries whose hashes, `a` and `b`, differ. It splits
     ;; on their lowest differing bit.

@@ -5,8 +5,6 @@
 ;; types as fixed declarations.
 (define-library (snail shell compiler specialize)
   (export
-   Specialization
-   prepare-specialization
    Declarations
    Specialized
    specialize)
@@ -20,20 +18,20 @@
 
     ;; ---- Specialization state ----
 
-    ;; Checked facts shared by every library emitted in one build. Preparing
-    ;; them once keeps lookup independent of each library's request lifetime.
-    (record Specialization
+    ;; The checked program copies are made from, with its instances and
+    ;; its definitions' bodies by name.
+    (record Source
       ((typed Typed)
        (instances (Table Instance))
        (definitions (Table Expr))))
 
-    (define (prepare-specialization (typed Typed)) (→ Specialization)
+    (define (checked-source (typed Typed)) (→ Source)
       (let ((instances (fold-left (lambda (table instance)
                                     (table-set table (● instance name) instance))
                                   (empty-table)
                                   (concatenate
                                    (table-values (● (● typed program) instances))))))
-        (new Specialization
+        (new Source
           (typed typed)
           (instances instances)
           (definitions (item-definitions (● typed items))))))
@@ -52,14 +50,14 @@
       ((definitions (List Item))
        (declarations Declarations)))
 
-    ;; `types` holds every reserved name's type, and `queue` the copies
-    ;; still to make, at most 65536 in all.
+    ;; `types` holds every reserved name's type, and `worklist` the copies
+    ;; still to make, the newest first, at most 65536 in all.
     (record State
-      ((input Specialization)
+      ((input Source)
        (control (List String))
        (types (Table Type))
        (remaining I64)
-       (queue (List Recipe))))
+       (worklist (List Recipe))))
 
     ;; A copy to make: `source` at `types`, with `evidence` for its
     ;; requirements, named `name`.
@@ -107,8 +105,7 @@
                                (new Recipe (name spec) (source name) (types types)
                                     (evidence evidence))))))))
 
-    ;; Merely looking up a name never generates code: only reserving one
-    ;; queues its copy.
+    ;; Reserving a name is what adds its copy to the worklist.
 
     (define (reserve (state State) (recipe Recipe)) (→ State)
       (when (= (● state remaining) 0)
@@ -118,7 +115,7 @@
         (new State (input (● state input)) (control (● state control))
              (types (table-set (● state types) (● recipe name) type))
              (remaining (- (● state remaining) 1))
-             (queue (Cons recipe (● state queue))))))
+             (worklist (Cons recipe (● state worklist))))))
 
     (define (requested (state State) (name String)) (→ State)
       (● (request state name (Nil) (Nil)) second))
@@ -127,15 +124,15 @@
       (new Instantiation (vars (zip (● (scheme-of state (● recipe source)) vars) (● recipe types)))
            (evidence (● recipe evidence)) (control (● state control))))
 
-    ;; Copies are made one at a time from the queue. A copy reserves the
+    ;; Copies are made one at a time from the worklist. A copy reserves the
     ;; names it calls; it never copies them itself, so each recipe is made
     ;; exactly once.
 
     (define (complete (state State)) (→ (Pair (List Item) State))
       (let loop ((state state) (items (Nil)))
-        (match (● state queue)
+        (match (● state worklist)
           ((Cons recipe rest)
-           (threading state ((then (State-queue-set rest))
+           (threading state ((then (State-worklist-set rest))
                              (value (copy-expr (instantiation state recipe)
                                                (definition state (● recipe source)))))
                       (loop state (Cons (Define (● recipe name) value) items))))
@@ -208,15 +205,11 @@
         ((EvHole _) (panic "internal error: unsolved evidence"))))
 
     (define (copy-expr (state State) (inst Instantiation) (expr Expr)) (→ (Pair Expr State))
-      (let ((type (ground inst (● expr type))) (loc (● expr loc)))
-        (match (● expr term)
-          ((Var name types evidence)
-           (reference state name (map (lambda (t) (ground inst t)) types)
-                      (map (lambda (e) (ground-evidence inst e)) evidence) type loc))
-          (term (threading state ((copied (copy-term inst term)))
-                           (new Pair
-                             (first (new Expr (term copied) (type type) (loc loc)))
-                             (second state)))))))
+      (threading state ((copied (copy-term inst (● expr term))))
+                 (new Pair
+                   (first
+                    (new Expr (term copied) (type (ground inst (● expr type))) (loc (● expr loc))))
+                   (second state))))
 
     ;; A copy requests the specializations it references, so the copies of
     ;; sibling terms are steps in the order they are written.
@@ -224,13 +217,19 @@
     (define (copy-term (state State) (inst Instantiation) (term Term)) (→ (Pair Term State))
       (match term
         ((Lit value) (new Pair (first (Lit value)) (second state)))
-        ((Var name types evidence) (new Pair (first (Var name types evidence)) (second state)))
+        ((Var name types evidence)
+         (reference state
+                    name
+                    (map (lambda (type) (ground inst type)) types)
+                    (map (lambda (evidence) (ground-evidence inst evidence)) evidence)))
         ((Lambda params body)
          (threading state
                     ((body (copy-expr inst body)))
                     (new Pair (first (Lambda params body)) (second state))))
         ((App callee args)
-         (threading state ((callee (copy-expr inst callee)) (args (copy-exprs inst args)))
+         (threading state
+                    ((callee (copy-expr inst callee))
+                     (args (each (lambda (state arg) (copy-expr state inst arg)) args)))
                     (new Pair (first (App callee args)) (second state))))
         ((If test consequent alternative)
          (threading state ((test (copy-expr inst test))
@@ -267,10 +266,6 @@
          (threading state ((inner (copy-expr inst inner)))
                     (new Pair (first (Downcast inner (ground inst target))) (second state))))))
 
-    (define (copy-exprs (state State) (inst Instantiation) (exprs (List Expr)))
-      (→ (Pair (List Expr) State))
-      (each state (lambda (state expr) (copy-expr state inst expr)) exprs))
-
     (define (copy-clause (state State) (inst Instantiation) (clause Clause)) (→ (Pair Clause State))
       (threading state ((body (copy-expr inst (● clause body))))
                  (new Pair
@@ -301,12 +296,10 @@
     (define (reference (state State)
                        (name String)
                        (types (List Type))
-                       (evidence (List Evidence))
-                       (type Type)
-                       (loc Loc))
-      (→ (Pair Expr State))
+                       (evidence (List Evidence)))
+      (→ (Pair Term State))
       (match (program-value (specialization-program state) name)
-        ((Some (Defined _ _)) (definition-reference state name types evidence type loc))
+        ((Some (Defined _ _)) (definition-reference state name types evidence))
         ((Some (Method class _))
          (match evidence
            ((Cons (EvInstance instance instance-types subs) rest)
@@ -315,13 +308,11 @@
               (definition-reference state
                 (instance-method state instance name)
                 (append instance-types (list-drop types class-arity))
-                (append subs rest) type loc)))
+                (append subs rest))))
            (_ (panic "internal error: a method needs instance evidence"))))
         ;; An operation, like a builtin, keeps its name: a handler answers
         ;; it, and nothing else is reached through it.
-        (_ (new Pair
-             (first (new Expr (term (Var name (Nil) (Nil))) (type type) (loc loc)))
-             (second state)))))
+        (_ (new Pair (first (Var name (Nil) (Nil))) (second state)))))
 
     (define (instance-method (state State) (instance String) (method String)) (→ String)
       (match (table-ref (● (● state input) instances) instance)
@@ -331,28 +322,25 @@
            ((None) (panic "internal error: missing instance method"))))
         ((None) (panic "internal error: unknown instance"))))
 
-    ;; Another library's monomorphic function stays an imported reference;
-    ;; a generic function reserves a concrete specialization in this module.
+    ;; A definition is referred to by the name of its copy at these types.
 
     (define (definition-reference (state State) (name String)
-              (types (List Type)) (evidence (List Evidence))
-              (type Type) (loc Loc))
-      (→ (Pair Expr State))
+              (types (List Type)) (evidence (List Evidence)))
+      (→ (Pair Term State))
       (threading state ((spec (request name types evidence)))
-                 (new Pair
-                   (first (new Expr (term (Var spec (Nil) (Nil))) (type type) (loc loc)))
-                   (second state))))
+                 (new Pair (first (Var spec (Nil) (Nil))) (second state))))
 
     ;; ---- Roots ----
 
     ;; A program keeps only the definitions reached from an entry or an
     ;; exposure. Its declarations keep no syntax items.
 
-    (define (specialize (input Specialization) (roots (List Item))) (→ Specialized)
-      (let* ((program (● (● input typed) program))
+    (define (specialize (typed Typed) (roots (List Item))) (→ Specialized)
+      (let* ((input (checked-source typed))
+             (program (● typed program))
              (control (control-effects program))
              (start (new State (input input) (control control) (types (empty-table))
-                         (remaining 65536) (queue (Nil)))))
+                         (remaining 65536) (worklist (Nil)))))
         (match (complete (fold-left request-root start roots))
           ((Pair definitions state)
            (new Specialized

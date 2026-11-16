@@ -876,7 +876,7 @@
         (match (local-access fn name)
           ((Some access) access)
           ((None)
-           (match (definition-of m name)
+           (match (declared-type m name)
              ((Some _) (function-value m name type))
              ((None)
               (match (program-value (program-of m) name)
@@ -887,10 +887,11 @@
                 ((Some _) (function-value m name type))
                 ((None) (panic (string-append "internal error: unknown variable " name))))))))))
 
-    ;; Signatures suffice to emit references before or after a body is
-    ;; emitted. No definition body lives in the module builder.
+    ;; A specialized definition's type, or none for a name that is not one.
+    ;; Types suffice to emit references before or after a body is emitted:
+    ;; no definition body lives in the module builder.
 
-    (define (definition-of (m Module) (name String)) (→ (Option Type))
+    (define (declared-type (m Module) (name String)) (→ (Option Type))
       (table-ref (● (● m declarations) types) name))
 
     ;; An immutable global closure whose code calls `name` with its
@@ -1148,7 +1149,7 @@
       (! mut)
       (if (local? fn name)
           (closure-call fn callee args tail?)
-          (match (definition-of (● fn module) name)
+          (match (declared-type (● fn module) name)
             ((Some _)
              (list (wat* (call-op tail?)
                          (Cons (id (wasm-id name))
@@ -1220,7 +1221,7 @@
         ((Var name _ _)
          (if (local? fn name)
              (None)
-             (match (definition-of (● fn module) name)
+             (match (declared-type (● fn module) name)
                ((Some _) (None))
                ((None) (program-value (program-of (● fn module)) name)))))
         (_ (None))))
@@ -4215,10 +4216,7 @@
       (let ((m (new-module (● prepared declarations))))
         (for-each (lambda (item)
                     (match item
-                      ((Define name value)
-                       (match (definition-of m name)
-                         ((Some _) (emit-function! m name value))
-                         ((None) (panic "internal error: an emitted definition has no type"))))
+                      ((Define name value) (emit-function! m name value))
                       (_ (panic "internal error: a prepared function must be a definition"))))
                   (● prepared definitions))
         (for-each (lambda (item) (emit-exposure! m item)) (● prepared exposed))
@@ -4246,7 +4244,7 @@
     ;; program to call through a Funcref.
 
     (define (emit-main! (m Module) (start String)) (→ Unit) (! mut)
-      (match (definition-of m start)
+      (match (declared-type m start)
         ((Some type)
          (push! (● m exports)
                 (wat "export" (wat-string "main")
@@ -4301,7 +4299,7 @@
     (define (emit-exposure! (m Module) (item Item)) (→ Unit) (! mut)
       (match item
         ((Expose name symbol _)
-         (match (definition-of m name)
+         (match (declared-type m name)
            ((Some type)
             (push! (● m exports)
                    (wat "export" (wat-string symbol)
