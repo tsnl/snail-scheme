@@ -28,6 +28,7 @@ test-browser:
 	node tests/browser/wasm-instance-identity.mjs "$(CURDIR)"
 	node tests/browser/ui.mjs "$(CURDIR)"
 	node tests/browser/ui-requests.mjs "$(CURDIR)"
+	node tests/browser/gpu.mjs "$(CURDIR)"
 
 # Rebuilds the command line from the compiler's source on Chez, then to a
 # fixpoint.

@@ -1,10 +1,10 @@
 # WebGPU and graphics libraries
 
-**Proposed.** Applications send `Frame` values to
-`host/browser/renderer.mjs`, a fixed JavaScript renderer. This design replaces
-it with two layers written in `snail-scheme`: a `gpu` effect that is a thin wrapper
-around WebGPU, and `(snail shell graphics ...)` libraries of pipelines and
-packers on top of it. Delivery is tracked in
+Applications send `Frame` values to `host/browser/renderer.mjs`, a fixed
+JavaScript renderer. This design replaces it with two layers written in
+`snail-scheme`: a `gpu` effect that is a thin wrapper around WebGPU,
+**implemented**, and `(snail shell graphics ...)` libraries of pipelines and
+packers on top of it, **proposed**. Delivery is tracked in
 [the graphics issue](https://github.com/tsnl/snail-scheme/issues/463).
 
 Device requests, decoding, pipeline creation and readbacks need only ordinary
@@ -14,53 +14,66 @@ here depends on an engine extension.
 
 ## WebGPU through an effect
 
-The `gpu` effect mirrors WebGPU's own operations and descriptors, so code
-using it reads like WebGPU:
+The `gpu` effect of `(snail shell gpu)` mirrors WebGPU's own operations and
+descriptors, so code using it reads like WebGPU:
 
 ```scheme
-(effect gpu
-  ((create-buffer (Fn BufferDescriptor → GpuBuffer))
-   (write-buffer (Fn GpuBuffer I64 Bytes → Unit))
-   (create-texture (Fn TextureDescriptor → GpuTexture))
-   (write-texture (Fn TextureCopy Bytes → Unit))
-   (create-shader-module (Fn ShaderSource → GpuShaderModule))
-   (create-render-pipeline (Fn RenderPipelineDescriptor → GpuRenderPipeline))
-   (create-bind-group (Fn BindGroupDescriptor → GpuBindGroup))
-   (create-command-encoder (Fn → GpuCommandEncoder))
-   (begin-render-pass (Fn GpuCommandEncoder RenderPassDescriptor → GpuRenderPass))
-   (set-pipeline (Fn GpuRenderPass GpuRenderPipeline → Unit))
-   (set-bind-group (Fn GpuRenderPass I32 GpuBindGroup → Unit))
-   (draw-indexed-indirect (Fn GpuRenderPass GpuBuffer I64 → Unit))
-   (end-pass (Fn GpuRenderPass → Unit))
-   (finish (Fn GpuCommandEncoder → GpuCommandBuffer))
-   (submit (Fn (List GpuCommandBuffer) → Unit))
-   (current-texture (Fn → GpuTexture))
-   (destroy (Fn GpuObject → Unit))))
+(let* ((encoder (create-command-encoder))
+       (pass (begin-render-pass encoder
+               (new RenderPassDescriptor
+                 (colors (list (new ColorAttachment
+                                 (view (view-of (current-texture) 1))
+                                 (load (Clear (new Color (red 0.0) (green 0.0) (blue 0.0) (alpha 1.0))))
+                                 (store #t))))
+                 (depth (None))))))
+  (set-pipeline pass pipeline)
+  (set-bind-group pass 0 group)
+  (draw pass 3 1 0 0)
+  (end-pass pass)
+  (submit (list (finish encoder))))
 ```
 
-The calls are procedural; effects keep them reasonable. A `! gpu` row says
-exactly which functions touch the device, and handlers customize what the
-calls do without changing their callers: tracing, recording for tests,
-validating handles, capturing a frame, or decoding compressed textures for a
-device that lacks them.
+Its operations make buffers, textures, samplers, shader modules, render
+pipelines and bind groups, write buffers and textures, encode copies and
+render passes, and submit them; `request-device`, `read-buffer` and
+`decode-image` wait for the host by ticket. The calls are procedural;
+effects keep them reasonable. A `! gpu` row says exactly which functions
+touch the device, and handlers customize what the calls do without
+changing their callers. The browser target installs `provide-gpu`
+(`(snail shell gpu page)`), which runs them on the page's device through
+`host/browser/gpu.mjs`; `with-recorded-gpu` (`(snail shell gpu record)`)
+records them instead, so a library is tested on Node without a device
+(`tests/programs/gpu-record.sld`). `tests/browser/gpu.mjs` draws, reads back
+and decodes on Chromium's software WebGPU.
+
+Both handlers keep the same books, in `(snail shell gpu)`, and the host
+keeps only a table from id to object:
 
 - **Paths.** Long-lived objects are created by resource path, as in
-  `(create-buffer (BufferDescriptor (path "siegework" "materials") size usage))`.
+  `(create-buffer (new BufferDescriptor (path (Some (list "siegework" "materials"))) ...))`.
   The same path and descriptor return the existing object, which is how a
-  reloaded module reattaches to what the last one created.
-- **Lifetimes follow scope.** Objects created under `reset` live for the run;
-  objects created during a frame, such as encoders and transient buffers,
-  are destroyed when it ends; `destroy` stays available.
-- **Eviction.** Each frame marks the objects it uses. Unmarked objects move to
-  an LRU pool and are evicted only when an allocation would exceed the
-  memory budget. If the marked objects alone exceed it, the runtime panics
-  with a report of the largest. An evicted object is created afresh when
-  next requested.
-- **Handles carry generations**, so using an evicted handle is a clear error
-  rather than a WebGPU validation message.
-- **The boundary marshals.** Descriptors cross as staged bytes, and pass
-  commands as small scalar calls that the default handler may batch until
-  `submit`.
+  module that starts again finds what the last one created. A path names
+  one object of each kind, so a pipeline and its bind group may share one.
+  A handle says whether its object is `fresh`, so its contents are still to
+  be written; a changed descriptor replaces the object, and the bind
+  groups that named it.
+- **Lifetimes follow the frame.** An object made without a path, such as
+  an encoder, a pass or a transient buffer, is destroyed when the frame
+  ends, at `submit`; `destroy` stays available.
+- **Eviction.** Each frame marks the objects it uses. When an allocation
+  would exceed the memory budget `request-device` was given, the least
+  recently used unmarked objects that hold memory are evicted, with the
+  bind groups that name them. If the marked objects alone exceed it, the
+  program panics with a report of the largest. An evicted object is
+  created afresh when its path is next asked for.
+- **Handles carry generations**, the count of objects made by their path,
+  and the books check every handle before the host sees it, so using a
+  replaced, evicted or ended object panics with what it was rather than
+  leaving WebGPU to report an invalid object.
+- **The boundary marshals.** Descriptors cross as JSON in WebGPU's names,
+  with `{"object": ID}` for each object they name, and pass commands as
+  small scalar calls. A pipeline's layout is WebGPU's `"auto"`, so a bind
+  group is made against a pipeline and a group index.
 
 ## The `graphics` libraries
 
@@ -106,13 +119,14 @@ Each row is `(snail shell graphics NAME)`:
 
 ## Device baseline
 
-Required features: `texture-compression-bc`, `shader-f16`,
-`indirect-first-instance`, `float32-filterable` and
-`rg11b10ufloat-renderable`; `timestamp-query` when present, for profiling.
-Raised limits: buffer and storage-binding sizes near 1 GiB, 16384-texel
-textures, and 64 bytes of color attachments per sample, since a full
-G-buffer fills the default 32. Texture heaps start uncompressed; a later
-`reset` may choose BC.
+Required features: `indirect-first-instance`, `float32-filterable` and
+`rg11b10ufloat-renderable`. Used when present: `texture-compression-bc`,
+which phones lack, `shader-f16`, which SwiftShader, the tests' adapter,
+lacks, and `timestamp-query`, for profiling; `request-device` answers which
+it got. Raised limits, as far as the adapter allows: buffer and
+storage-binding sizes of 1 GiB, 16384-texel textures, and 64 bytes of color
+attachments per sample, since a full G-buffer fills the default 32. Texture
+heaps start uncompressed; a later `reset` may choose BC.
 
 ## Design choices
 
