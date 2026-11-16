@@ -1,4 +1,4 @@
-// The same explicit-linking identity program as Node and Wasmtime, running in
+// The same explicit-linking identity program as Node runs, in
 // Chromium with the browser's real scalar imports and WebAssembly instances.
 import assert from 'node:assert/strict';
 import {execFile} from 'node:child_process';

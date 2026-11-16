@@ -1,6 +1,13 @@
 ;; The browser target: a page, run by host/browser. `start` runs the
 ;; program's main as the first task of the host's scheduler, inside
-;; `provide`, which handles the portable target's capabilities and
+;; `provide`, which handles the capabilities every host has,
+;;
+;; - output-port, the console;
+;; - clock, the monotonic clock;
+;; - resource, the files the program links;
+;; - wasm, the host's WebAssembly engine;
+;;
+;; and the page's:
 ;;
 ;; - events, the page's input and its lifecycle;
 ;; - storage, the page's saved state;
@@ -18,20 +25,29 @@
    (snail core io)
    (only (snail core forms) host)
    (only (snail shell task) Scheduler tasks dispatch-in)
-   (only (snail shell resource) resource)
-   (only (snail shell wasm) wasm)
+   (only (snail shell resource) resource provide-resource)
+   (only (snail shell wasm) wasm provide-wasm)
    (only (snail shell page) events storage provide-events provide-storage)
-   (only (snail shell app) screen provide-screen)
-   (prefix (snail target portable) portable:))
+   (only (snail shell app) screen provide-screen))
   (begin
 
     (define (provide (work (Fn → T ! output-port clock resource wasm events storage screen e)))
       (→ T)
       (! e)
       (∀ (T e))
-      (portable:provide
+      (provide-shared
        (lambda ()
          (provide-events (lambda () (provide-storage (lambda () (provide-screen work))))))))
+
+    ;; What every host has.
+
+    (define (provide-shared (work (Fn → T ! output-port clock resource wasm e)))
+      (→ T)
+      (! e)
+      (∀ (T e))
+      (provide-output-port
+       (lambda ()
+         (provide-clock (lambda () (provide-resource (lambda () (provide-wasm work))))))))
 
     (define (start (scheduler Scheduler)
                    (main

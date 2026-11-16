@@ -1,10 +1,10 @@
 Usage: snail-scheme build --target TARGET [--release] FILE
        snail-scheme run --target TARGET [--release] FILE [ARGUMENT ...]
-       snail-scheme wat --target node|wasmtime|browser FILE
+       snail-scheme wat --target TARGET FILE
        snail-scheme lsp
        snail-scheme format [--width N] [--check | --write] [FILE ...]
 
-build compiles the script FILE for TARGET: node, wasmtime or browser. Its
+build compiles the script FILE for TARGET: node or browser. Its
 workspace is the nearest folder above it that holds src/, where every
 import resolves. The output, build/PATH in the workspace, where PATH is
 FILE's path there without its extension, is a link to a completed
@@ -13,9 +13,9 @@ and the files it links under store/, shared with every other build through
 build/.snail-store. With --release the module is also optimized by wasm-opt.
 A browser build adds the browser host and the public/ folder beside FILE.
 
-run builds FILE as build does, then becomes its program in the current
-directory, with the ARGUMENTs, retaining terminal IO, exit status and
-signals: on Node for node, on build/snail run-wasm for wasmtime.
+run builds FILE as build does, then becomes its program on Node in the
+current directory, with the ARGUMENTs, retaining terminal IO, exit status
+and signals. A page is not run: serve its output.
 
 wat prints the WebAssembly text of FILE's whole program.
 

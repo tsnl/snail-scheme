@@ -36,7 +36,7 @@ resolve under the `src/` of the nearest folder above it that holds one:
 
 ```sh
 ./snail-scheme run --target node examples/fibonacci.sld
-./snail-scheme build --target wasmtime --release examples/fibonacci.sld
+./snail-scheme build --target node --release examples/fibonacci.sld
 ./snail-scheme wat --target node examples/effects.sld
 ```
 

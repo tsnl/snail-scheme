@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
-import {createWasi, instantiate, linkedFileImports, wasmImports} from '../../host/browser/load.mjs';
+import {createWasi, instantiate} from '../../host/browser/load.mjs';
 
 let api, constructors, memory, number = 42;
 const seen = [], errors = [];
@@ -25,9 +25,9 @@ const host = {'snail.test': {
   },
 }};
 const filename = resolve(process.argv[2]);
-// The target installs the portable capabilities, which this test leaves unused.
+// The target installs Node's capabilities, which this test leaves unused.
 const module = await WebAssembly.compile(await readFile(filename));
-const instance = await instantiate(module, {...wasi.getImportObject(), ...host, ...portable(module)});
+const instance = await instantiate(module, {...unused(module), ...wasi.getImportObject(), ...host});
 wasi.initialize(instance);
 api = constructors = instance.exports;
 memory = api.memory;
@@ -58,9 +58,13 @@ assert.equal(api.value(api.inferred(checkpoint, 43n)), 43n, 'a concrete inferred
 assert.equal(api.later(41n), 42n, "an exposed library function runs under the target's handlers");
 console.log('host boundary: opaque values, typed managed results and staged bytes');
 
-// The imports of the capabilities the target installs and this test leaves
-// unused: the files a program links and the host's WebAssembly.
-function portable(module) {
-  const unread = file => { throw new Error(`this test reads no linked file ${file}`); };
-  return {...linkedFileImports(unread, module), 'snail.runtime.wasm': wasmImports(() => null)};
+// The imports of the capabilities the target installs, each failing if it
+// is called.
+function unused(module) {
+  const imports = {};
+  for (const {module: from, name, kind} of WebAssembly.Module.imports(module)) {
+    if (kind !== 'function' || !from.startsWith('snail.runtime.')) continue;
+    (imports[from] ??= {})[name] = () => { throw new Error(`this test does not provide ${from} ${name}`); };
+  }
+  return imports;
 }

@@ -97,16 +97,10 @@ include an output port can run it. A capability's library declares only the
 effect and its operations; how a target answers them belongs to the target's
 handlers, not to a `default` in the library.
 
-There are three hosts' targets, and one they share, each a library under
-`src/snail/target/`:
+There are two targets, each a library under `src/snail/target/`:
 
-- `portable`, the capabilities every host has, on which the others build;
-- `node`, the program on Node (`host/native`), the `wasmtime` target's
-  capabilities and Node's own;
-- `wasmtime`, the program on the native executable `build/snail run-wasm`
-  (`crates/snail`), the portable ones and the local machine's;
-- `browser`, the program in a page (`host/browser`), the portable ones and
-  the page's.
+- `node`, the program on Node (`host/native`);
+- `browser`, the program in a page (`host/browser`).
 
 A target exports `provide`, which runs a thunk under its handlers, and
 `start`, which runs `main` as the first task of the host's scheduler inside
@@ -114,33 +108,48 @@ A target exports `provide`, which runs a thunk under its handlers, and
 the host, such as `provide-fs` in `(snail core io)`, and a target's
 `provide` installs those it has.
 
-| Capability | Library | `portable` | `node` | `wasmtime` | `browser` |
-| --- | --- | --- | --- | --- | --- |
-| `output-port` | `(snail core io)` | stdout | stdout | stdout | the console |
-| `clock` | `(snail core io)` | ✓ | ✓ | ✓ | ✓ |
-| `resource` | `(snail shell resource)` | ✓ | ✓ | ✓ | ✓ |
-| `wasm` | `(snail shell wasm)` | ✓ | ✓ | ✓ | ✓ |
-| `tasks` | `(snail shell task)` | ✓ | ✓ | ✓ | ✓ |
-| `input-port` | `(snail core io)` | — | stdin | stdin | — |
-| `fs` | `(snail core io)` | — | ✓ | ✓ | — |
-| `files` | `(snail shell async-files)` | — | ✓ | ✓ | — |
-| `process`, `signals` | `(snail shell process)` | — | ✓ | — | — |
-| `tcp`, `udp` | `(snail shell socket)` | — | ✓ | — | — |
-| `dom` | `(snail shell dom)` | — | — | — | ✓ |
-| `page`, `events`, `storage` | `(snail shell page)` | — | — | — | ✓ |
-| `fetch` | `(snail shell fetch)` | — | — | — | ✓ |
-| `screen` | `(snail shell app)` | — | — | — | ✓ |
-| `assembler` | `(snail shell assembler)` | — | ✓ | ✓ | — |
+Capabilities fall into three groups. The portable subset is what both
+targets handle, and what a target for another host, such as
+[workerd](https://github.com/cloudflare/workerd), would handle too; a
+library that asks only for these runs anywhere.
 
-Every capability in the table but `dom`, `fetch` and `assembler` is
-answered by its target's handlers. The page's interface installs `dom` and
-`fetch` itself, with `with-page-dom` and `with-page-fetch`
-(`(snail shell ui page)`), and a tool installs its assembler.
+| Portable capability | Library | On Node | In a page |
+| --- | --- | --- | --- |
+| `output-port` | `(snail core io)` | standard output | the console |
+| `clock` | `(snail core io)` | the monotonic clock | the monotonic clock |
+| `resource` | `(snail shell resource)` | files beside the module | files fetched beside the module |
+| `wasm` | `(snail shell wasm)` | Node's WebAssembly | the page's WebAssembly |
+| `tasks` | `(snail shell task)` | the host's scheduler | the host's scheduler |
 
-The table states the rule the build checks, so changing what a host provides
-means changing this table and the target's handlers together. It replaces
-today's trapping stand-ins: a program that uses `tcp` fails to build for
-`wasmtime` instead of trapping when it connects.
+Node adds the local machine:
+
+| Node's capability | Library |
+| --- | --- |
+| `input-port` | `(snail core io)`, standard input |
+| `fs` | `(snail core io)` |
+| `files` | `(snail shell async-files)` |
+| `process`, `signals` | `(snail shell process)` |
+| `tcp`, `udp` | `(snail shell socket)` |
+| `assembler` | `(snail shell assembler)` |
+
+A page adds itself:
+
+| The page's capability | Library |
+| --- | --- |
+| `events`, `storage` | `(snail shell page)` |
+| `screen` | `(snail shell app)` |
+| `dom` | `(snail shell dom)` |
+| `fetch` | `(snail shell fetch)` |
+
+Every capability here but `dom`, `fetch` and `assembler` is answered by its
+target's handlers. A page's interface installs `dom` and `fetch` itself,
+with `with-page-dom` and `with-page-fetch` (`(snail shell ui page)`), a
+scene installs `dom` for its HUD, and a tool installs its assembler.
+
+The tables state the rule the build checks, so changing what a host
+provides means changing them and the target's handlers together: a program
+that uses `tcp` fails to build for `browser` instead of trapping when it
+connects.
 
 A script that imports `(snail shell assembler)` links with the runtime that
 includes the assembler's services, and any other links with the smaller one.
@@ -157,16 +166,9 @@ documented once:
 The commands:
 
 - `snail-scheme build FLAGS FILE` builds `FILE`.
-- `snail-scheme run FLAGS [--engine ENGINE] FILE [ARGUMENT ...]` builds `FILE`
-  exactly as `build` does, then runs it. Its output stays on disk, so a failure
-  can be diagnosed, and future caching needs no new path.
-
-A target names the capabilities a program may use, not the engine that runs
-it: every build but a page's runs on Node and on the native executable alike.
-`--engine node` or `--engine wasmtime` says which; without it, `run` uses the
-engine the target is named for, and Node for `portable`, which names none. A
-program built for `node` runs on wasmtime until it calls a capability only
-Node has, a process, a signal or a socket, which traps.
+- `snail-scheme run FLAGS FILE [ARGUMENT ...]` builds `FILE` exactly as `build`
+  does, then runs it on Node. Its output stays on disk, so a failure can be
+  diagnosed, and future caching needs no new path.
 - `snail-scheme lsp` and `snail-scheme format` are unchanged.
 
 A producer that calls the compiler passes the same flags, as a record, so a
@@ -184,7 +186,7 @@ fused with the runtime, `main.wasm`, with the files it links under
 `store/sha256/ab/abcdef…`, each named for the SHA-256 of its bytes. Each
 is a hard link to the one copy in the workspace's store,
 `build/.snail-store`, which every build of every script shares.
-Node, `build/snail run-wasm` and a page each run it directly. The output
+Node and a page each run it directly. The output
 folder can be served or run as it is, as `python3 -m http.server
 --directory build/src/apps/siegework/main` serves a browser program.
 
@@ -279,8 +281,6 @@ Each step is a pull request that passes every check on its own.
    - Node's capabilities move into `node`: done. `process`, `signals`,
      `tcp` and `udp` have no `default`, and `node` installs
      `provide-process`, `provide-signals`, `provide-tcp` and `provide-udp`.
-     Under `SNAIL_ENGINE=wasmtime` a test program builds for `wasmtime`
-     unless stage 0's `node-programs` names it.
    - The page's capabilities move into `browser`: done. `events`,
      `storage` and `screen` have no `default`, and `browser` installs
      `provide-events`, `provide-storage` and `provide-screen`. Stage 0's

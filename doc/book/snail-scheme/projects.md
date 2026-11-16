@@ -3,8 +3,8 @@
 A workspace is a folder that holds `src/`. Every library lives under `src/`,
 at the path its name gives, and every import resolves there, then in the
 standard libraries. A script is a source file anywhere in a workspace;
-`snail-scheme build --target TARGET FILE` builds it for `node`, `wasmtime`
-or `browser`, and `snail-scheme run` builds it and becomes its program
+`snail-scheme build --target TARGET FILE` builds it for `node` or
+`browser`, and `snail-scheme run` builds it and becomes its program
 ([scripts](scripts.md)). A script's workspace is the nearest folder above it
 that holds `src/`. There is no project file: what is built, and for which
 platform, is on the command line.
@@ -38,9 +38,8 @@ paths, where each is another name for the store's object, a hard link (a
 copy where the two lie on different file systems). A program's bulky files
 are then on disk once, and its directory still holds them itself, so it
 can be served or shipped on its own. Nothing reclaims the store: delete
-`build/` and rebuild from time to time. Node and
-`build/snail run-wasm` run the module directly, and a page through
-`linkModule` in `load.mjs`.
+`build/` and rebuild from time to time. Node runs the module directly, and
+a page through `linkModule` in `load.mjs`.
 
 A release build, `--release`, differs in one thing: the module is then
 optimized by Binaryen's `wasm-opt -O2`, which can inline the runtime's

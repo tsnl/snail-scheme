@@ -11,7 +11,7 @@ links a single program into one module the same way.
 | `snail-scheme build --release`, `make site` | Release: the same module, optimized |
 
 A script, a single source file, is built and run with an explicit target,
-`node`, `wasmtime` or `browser`
+`node` or `browser`
 ([scripts](scripts.md)): `./snail-scheme run --target node FILE [ARGUMENT ...]`
 builds it into `build/PATH`, PATH being its path in its workspace without
 the extension, and runs it, and `./snail-scheme wat --target TARGET FILE` prints its whole
@@ -21,30 +21,19 @@ include the assembler, exactly when it links `(snail shell assembler)`.
 `wat` runs no producer, so a script that reaches a `generate-library`
 recipe must be built instead.
 
-Compiler contributors also have `build/snail`, which Cargo builds from
-`crates/snail`: a native executable that embeds wasmtime. Its subcommands
-are internal to the driver and the tests:
-
-| Subcommand | Does |
-| --- | --- |
-| `build/snail run-wasm PROGRAM ARGUMENT ...` | Runs a compiled program, one linked module, as `host/native/run-snail.mjs` does, with the same exit statuses; a call to sockets or processes traps. `snail-scheme run --target wasmtime` runs a program this way. |
-| `build/snail link INPUT.wat RUNTIME.wasm OUTPUT.wasm` | Assembles and statically links with `wasm-fuse`, using the same Rust backend as compiled tools: the bootstrap links the command line with it. |
-
-`SNAIL_ENGINE=wasmtime` makes the test suite build each program for it and
-run it there, but for those that need sockets or processes. The
-[bootstrap chapter](bootstrap.md#the-native-executable) explains why Node stays
-the default. Stage 0 links the command line with the native executable. The
-public `./snail-scheme` launcher runs on Node. One native `snail-scheme` that replaces it, running the builder
-and programs as well, is proposed in
+Node runs the command line and every program it builds
+(`host/native/run-snail.mjs`). Stage 0 links the command line with
+`snail-link`, a small native program in `crates/snail-scheme-support`
+([running and linking](bootstrap.md#running-and-linking)). One native
+`snail-scheme` that replaces the launcher is proposed in
 [#562](https://github.com/tsnl/snail-scheme/issues/562).
 
 The [builds chapter](projects.md) defines workspaces, output directories and
 embedding one build in another.
 
-`snail-scheme run --target TARGET [--engine node|wasmtime] FILE [ARGUMENT ...]`
-builds the script and runs that exact completed generation on the engine
-([commands](scripts.md#commands)), passing the arguments after the script
-unchanged. The program inherits the caller's working directory,
+`snail-scheme run --target node FILE [ARGUMENT ...]` builds the script and
+runs that exact completed generation on Node, passing the arguments after
+the script unchanged. The program inherits the caller's working directory,
 environment and terminal IO.
 
 After compiler and scratch cleanup, the native command replaces itself with the
@@ -79,7 +68,7 @@ input rebuilds the bootstrap, and test outputs are rebuilt on every run.
 `link` for a standalone program, taking program text and runtime bytes and
 returning a `Result` of bytes or an error message. The toolchain runtime's
 `assembler` feature provides `wat` and `wasm-fuse`; plain program runtimes
-carry neither. Stage 0 calls the same Rust functions through `build/snail`.
+carry neither. Stage 0 calls the same Rust functions through `snail-link`.
 No Binaryen installation is required.
 
 Linking resolves the program, runtime and diagnostics/cleanup adapter before

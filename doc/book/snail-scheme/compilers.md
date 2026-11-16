@@ -212,9 +212,9 @@ Ordinary evidence copies share their implementation closures; forwarding
 copies rebuild closures over the renewed origin. Nested handled frames
 execute their already renewed continuation without activating it again. The invariants beside these helpers are part of their contract.
 
-This is ordinary calls and explicit frames, not stack switching. V8 and
-Wasmtime execute the same linked code; no JavaScript continuation mechanism
-is required. `call/cc`, `dynamic-wind` and multishot continuation copying are
+This is ordinary calls and explicit frames, not stack switching: any
+WasmGC engine executes the same linked code, and no JavaScript continuation
+mechanism is required. `call/cc`, `dynamic-wind` and multishot continuation copying are
 not language features.
 
 ## Whole programs
@@ -240,8 +240,8 @@ it started; that went with the reload it served.
 ## Linking
 
 A build fuses the program's module with the runtime's into one
-(`link` in `(snail shell assembler)`, the Rust backend `build/snail link`
-also uses), so calls into the runtime are ordinary calls, which
+(`link` in `(snail shell assembler)`, the Rust backend stage 0's
+`snail-link` also uses), so calls into the runtime are ordinary calls, which
 `wasm-opt` can inline in a release build.
 
 WebAssembly treats two GC types as the same only when their whole
@@ -278,13 +278,13 @@ linking.
 `tests/programs/wasm-linking.sld` checks provider selection and failures.
 `wasm-instance-identity.sld` verifies that existing imports keep their original
 provider when a new link uses another instance, and that linking consumers
-does not initialize their providers again. Both run on Node and Wasmtime;
-the identity test also runs in Chromium.
+does not initialize their providers again. Both run on Node; the identity
+test also runs in Chromium.
 
 ### Hosts
 
 The host compiles bytes, lists imports, binds explicit providers and finds
-exports. Node, Wasmtime and the page install these operations; the page's
+exports. Node and the page install these operations; the page's
 are exercised by the Chromium fixture.
 
 Every import module a host provides is named for the runtime interface it
@@ -390,7 +390,7 @@ for good.
 | --- | --- |
 | `src/snail/shell/compiler/driver.sld` | Typed source invocation shared by both hosts, `compile-arguments`: a compile that fails, or that needs an input after publishing its request, exits with status 1. The command line's `compile` action and Chez's `compile` mode call it; the command line's `wat` uses the same compiler. |
 | `host/chez/load.scm` | Chez's unwind boundary, which turns a failure into the same status. |
-| `crates/snail/` | `build/snail`, a native executable embedding wasmtime, which runs programs that need only WASI, linked files and module loading by `run-snail.mjs`'s protocol, and links the command line for the bootstrap. See [the bootstrap](bootstrap.md#the-native-executable). |
+| `crates/snail-scheme-support/src/bin/snail-link.rs` | Stage 0's linker, the assembler and `wasm-fuse` as a native program, which links the command line for the bootstrap. See [the bootstrap](bootstrap.md#running-and-linking). |
 | `host/chez/snail/stage0/build.sld` | The bootstrap of the command line, and nothing else. Each compile has private scratch; rebuilding the command line holds `build/lock`. |
 | `host/chez/snail/stage0/process.sls` | Synchronous tool capture through private output files and a constant shell script with positional arguments. The parent reaps before reading or deleting files; stdin is EOF. The host boundary uses Chez process and file primitives. |
 | `crates/snail-scheme-support/` | Rust scalar services: math, Unicode, float text, console and file IO, directory and path operations, the monotonic clock, panics. External resources use explicit handles; managed references remain engine-traced. Its `assembler` feature builds the toolchain's runtime, which tools written in `snail-scheme` link (`build-toolchain-tool`), with in-process assembly and static linking for `(snail shell assembler)`, shared by the native executable. |
