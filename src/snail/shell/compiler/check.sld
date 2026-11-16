@@ -688,7 +688,6 @@
                         (first (new Expr (term (Seq first rest)) (type (● rest type)) (loc loc)))
                         (second ck))))
           ((Match scrutinee clauses) (infer-match ck scrutinee clauses row loc))
-
           ((Ann inner type)
            (threading ck ((inner (check-value inner type row))
                           (then (fit type (● inner type) loc)))
@@ -705,13 +704,11 @@
                       (new Pair (first (new Expr (term (Downcast inner target))
                                             (type (TCon "snail.core.base:Option" (list target)))
                                             (loc loc)))
-                           (second ck))))
-          )))
+                           (second ck)))))))
 
     (define (infer-lambda (ck Checker)
                           (params (List String))
                           (body Expr)
-
                           (loc Loc))
       (→ (Pair Expr Checker)) (! compile)
       (threading ck ((types (each (lambda (ck param) (fresh-meta ck)) params)))
@@ -722,7 +719,6 @@
     (define (infer-lambda-at (ck Checker)
                              (params (List String))
                              (body Expr)
-
                              (types (List Type))
                              (loc Loc))
       (→ (Pair Expr Checker))
@@ -754,7 +750,6 @@
       (→ (Pair Expr Checker))
       (! compile)
       (match (new Pair (first (● expr term)) (second (prune (solution ck) type)))
-
         ((Pair (New callee fields) _)
          (infer-new ck callee fields row (● expr loc) (Some type)))
         ((Pair (App callee args) _)
@@ -791,7 +786,7 @@
              (infer ck expr row)))
         (_ (infer ck expr row))))
 
-    ;; Infer with the expected type, then unify the resulting type.
+    ;; Infer with the expected type, which the resulting type then meets.
 
     (define (check-result (ck Checker) (expr Expr) (type Type) (row Type))
       (→ (Pair Expr Checker))
@@ -902,8 +897,9 @@
                             (loc loc)))
                         (new Expr (term (App callee args)) (type type) (loc loc)) fields))))
 
-    ;; Matching result constructors carry an explicit storage boundary
-    ;; inward. This also reaches callbacks of producers such as map.
+    ;; A call checked against the type its callee builds meets it before
+    ;; its arguments are checked, so what is expected reaches them, and the
+    ;; callbacks of producers such as map.
 
     (define (result-context (ck Checker) (callee Expr) (expected (Option Type)) (loc Loc))
       (→ Checker)
@@ -1864,7 +1860,6 @@
                                          (pattern (zonk-pattern solution (● clause pattern)))
                                          (body (zonk-expr solution (● clause body)))))
                                      clauses)))
-
                         ((Ann inner type) (Ann (zonk-expr solution inner) (zonk solution type)))
                         ((BoxAny inner) (BoxAny (zonk-expr solution inner)))
                         ((Downcast inner target)
@@ -2126,7 +2121,7 @@
     ;; known once its library is solved. One that states its type has no
     ;; inferred scheme.
 
-    (define (check-value-types (ck Checker) (items (List Item))) (→ Checker) (! compile)
+    (define (check-value-types (ck Checker) (items (List Item))) (→ Unit) (! compile)
       (for-each (lambda (item)
                   (match (value-definition item)
                     ((Some (Pair name loc))
@@ -2137,8 +2132,7 @@
                                          "nothing decides this value's type; state it with (→ Type)")))
                        ((None) (unit))))
                     ((None) (unit))))
-                items)
-      ck)
+                items))
 
     ;; A foreign caller supplies no row argument. Keep an inferred export's
     ;; row open for instance solving instead of quantifying that row. Its
@@ -2270,7 +2264,7 @@
     ;; the host's scheduler under its target's handlers, so its row is the
     ;; one left to the host.
 
-    (define (check-entry (ck Checker) (name String) (start String) (loc Loc)) (→ Checker)
+    (define (check-entry (ck Checker) (name String) (start String) (loc Loc)) (→ Unit)
       (! compile)
       (match (global-scheme ck name)
         ((Some (Scheme (Nil) (Nil) type))
@@ -2296,7 +2290,7 @@
     ;; constructor or an operation has none.
 
     (define (check-exposed (ck Checker) (name String) (loc Loc))
-      (→ Checker)
+      (→ Unit)
       (! compile)
       (match (program-value (program-of ck) name)
         ((Some (Defined _ _)) (unit))
@@ -2310,7 +2304,7 @@
     ;; exports obey the same boundary whether their type was written or inferred.
 
     (define (check-exposed-type (ck Checker) (type Type) (loc Loc))
-      (→ Checker)
+      (→ Unit)
       (! compile)
       (match type
         ((TFun _ _ row) (check-host-effects ck row loc))
@@ -2320,15 +2314,14 @@
     ;; the builtin `mut` and `host`: the program's handlers and its
     ;; target's answer every other.
 
-    (define (check-host-effects (ck Checker) (row Type) (loc Loc)) (→ Checker) (! compile)
+    (define (check-host-effects (ck Checker) (row Type) (loc Loc)) (→ Unit) (! compile)
       (for-each (lambda (label)
                   (unless (member? label (list "mut" "host"))
                     (compile-error loc
                                    (string-append "the effect "
                                                   (short-name label)
                                                   " has no handler here, in the program or its target"))))
-                (● (flatten-row (solution ck) row) first))
-      ck)
+                (● (flatten-row (solution ck) row) first)))
 
     ;; ---- Programs ----
 
@@ -2370,9 +2363,9 @@
                      (open (Nil))
                      (performed (Nil)))))
         (threading ck ((typed (check-items items))
-                       (then (solve-pending))
-                       (then (check-value-types items))
-                       (then (check-exposures items)))
+                       (then (solve-pending)))
+                   (check-value-types ck items)
+                   (check-exposures ck items)
                    (let ((result
                           (new Typed (program program)
                                (items (map (lambda (item) (zonk-item (solution ck) item)) typed))
@@ -2390,13 +2383,13 @@
           (failures-of (lambda (item) (check-operations-item program item))
                        (● typed items))))))
 
-    (define (check-exposures (ck Checker) (items (List Item))) (→ Checker) (! compile)
-      (fold-left (lambda (ck item)
-                   (match item
-                     ((Expose name _ loc) (check-exposed ck name loc))
-                     ((Entry name start loc) (check-entry ck name start loc))
-                     (_ ck)))
-                 ck items))
+    (define (check-exposures (ck Checker) (items (List Item))) (→ Unit) (! compile)
+      (for-each (lambda (item)
+                  (match item
+                    ((Expose name _ loc) (check-exposed ck name loc))
+                    ((Entry name start loc) (check-entry ck name start loc))
+                    (_ (unit))))
+                items))
 
     ;; Checks the definitions without signatures, a group at a time in
     ;; dependency order, then every item with the groups' results by name.
