@@ -21,8 +21,12 @@ import {join} from 'node:path';
 const root = process.argv[2];
 const grammar = join(root, 'editors/tree-sitter-snail-scheme');
 const scratch = mkdtempSync(join(tmpdir(), 'snail-tree-sitter-'));
+// tree-sitter keeps one compiled parser for each grammar name in a cache
+// the user's checkouts share, and takes a newer one for current. The
+// parser is compiled here instead, from this checkout's source.
+const env = {...process.env, TREE_SITTER_LIBDIR: join(scratch, 'lib')};
 const run = (args, cwd) => {
-  const result = spawnSync('tree-sitter', args, {cwd, encoding: 'utf8'});
+  const result = spawnSync('tree-sitter', args, {cwd, encoding: 'utf8', env});
   assert.equal(result.status, 0, `tree-sitter ${args.join(' ')}\n${result.stdout}${result.stderr}`);
   return result.stdout;
 };
@@ -43,7 +47,7 @@ try {
   const paths = join(scratch, 'paths.txt');
   writeFileSync(paths, files.map(file => join(root, file)).join('\n'));
   const parsed = spawnSync('tree-sitter', ['parse', '--grammar-path', grammar, '--quiet', '--paths', paths],
-                           {encoding: 'utf8'});
+                           {encoding: 'utf8', env});
   const failures = parsed.stdout.split('\n').filter(line => /ERROR|MISSING/.test(line));
   assert.deepEqual(failures, [], `files the grammar does not parse:\n${failures.join('\n')}`);
   assert.ok(files.length > 100, `parsed only ${files.length} files`);
