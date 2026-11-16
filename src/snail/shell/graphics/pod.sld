@@ -133,12 +133,17 @@
        (concatenate (list (list "struct " name " {\n")
                           (map (lambda (field)
                                  (string-append "  "
-                                                (● field name)
+                                                (wgsl-name (● field name))
                                                 ": "
                                                 (● field layout wgsl)
                                                 ",\n"))
                                fields)
                           (list "}\n")))))
+
+    ;; WGSL names have no hyphens: a field `view-projection` is
+    ;; `view_projection` in a shader.
+    (define (wgsl-name (name String)) (→ String)
+      (list->string (map (lambda (c) (if (char=? c #\-) #\_ c)) (string->list name))))
 
     ;; A derived field: its label and the layout of its type.
 

@@ -4,7 +4,9 @@
 // over a blue clear, and the two texels of a PNG it decoded, and finds every
 // object by its path in a second frame. It composes the PNG into an atlas
 // with a color swapped, draws it as quads, and reads both the quads' texels
-// and the picture as a PNG data URL. WebGPU reports no error.
+// and the picture as a PNG data URL. It rasterizes two tiles into a
+// G-buffer and lights them, one glowing red and one white under ambient
+// light. WebGPU reports no error.
 //
 //   CHROMIUM=... node tests/browser/gpu.mjs ROOT [SCREENSHOT]
 import assert from 'node:assert/strict';
@@ -51,6 +53,7 @@ try {
     'fresh: #f #f',
     'again: 255 0 0 255 255 0 0 255 255 0 0 255 255 0 0 255',
     'quads: 0 0 255 255 0 0 255 255 0 255 0 255 0 255 0 255',
+    'scene: 255 0 0 255 255 0 0 255 153 153 153 255 153 153 153 255',
   ]);
   // The data URL decodes to the picture: blue for the swapped red, then
   // green.
@@ -64,7 +67,7 @@ try {
     return [...context.getImageData(0, 0, 2, 1).data];
   })()`), [0, 0, 255, 255, 0, 255, 0, 255]);
   if (screenshot) await browser.screenshot(screenshot);
-  console.log('gpu: drawing, readback, decoding, objects by path, atlas composition and quads on a real device passed');
+  console.log('gpu: drawing, readback, decoding, objects by path, atlas composition, quads and a lit G-buffer on a real device passed');
 } finally {
   browser.close();
   server.close();

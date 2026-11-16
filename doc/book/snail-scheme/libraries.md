@@ -54,12 +54,15 @@ the runtime interfaces.
 
 | Library | Contents |
 | --- | --- |
-| `(snail shell app)` | `SceneHandler` and `run-scene`, a canvas application's loop, which draws through `gpu` or `screen`; frames, pictures, materials, sprites, and the `screen` effect. |
+| `(snail shell app)` | `SceneHandler` and `run-scene`, a canvas application's loop, which draws through `gpu`; 3D frames of mesh batches and `draw-frame`, which draws them. |
 | `(snail shell gpu)` | The `gpu` effect: WebGPU's operations and descriptors, with books that find long-lived objects by path, end a frame's objects at `submit`, evict under a budget and check every handle; `(snail shell gpu page)` runs it on the page's device and `(snail shell gpu record)` records it ([WebGPU](../graphics/plan.md)). |
 | `(snail shell graphics pod)` | `Pod`, which a record without parameters derives: its `Shape` gives the WGSL struct declaration, size, alignment and vertex attributes, and `pack` writes values as WGSL lays them out. `Vec2f` to `Mat4x4f` are WGSL's vectors and matrix. |
 | `(snail shell graphics wgsl)` | Shaders as S-expressions, printed to WGSL by `shader-library`, a `generate-library` recipe's library of shader texts. |
 | `(snail shell graphics atlas)` | Pictures of layered image regions with color swaps, composed on the GPU into padded slots of texture-array pages; `atlas-url` reads a region back as a PNG data URL. |
 | `(snail shell graphics quad)` | 2D quads in world units under a 2D camera, pixel-snapped, each a tinted region of a texture-array page; a run of quads is one instanced draw. |
+| `(snail shell graphics mesh)` | Eight shapes in one geometry table, `Pod` instances packed by shape, and one indirect draw per shape from its own first instance. |
+| `(snail shell graphics raster)` | Cameras with their inverses, a G-buffer of albedo, normal, material and depth, mesh instances rasterized into it, and translucent ones lit at once over what is drawn. |
+| `(snail shell graphics passes)` | Full-screen passes: `sun-pass` lights a G-buffer under the sun over a background. |
 | `(snail shell png)` | `rgba->png`, PNG files of RGBA pixels with stored zlib blocks, and `png-data-url`. |
 | `(snail shell sprite)` | Spritebooks: animations on sheets of equal cells, by motion and heading; `cell-at` is the cell a strip shows at a moment. |
 | `(snail shell page)` | The shared browser lifecycle: `run-page` boots from the page's save, or fresh, and saves. The `events` and `storage` effects bind the host's queue, readiness, save timer and persistence. |
@@ -94,7 +97,6 @@ targets to install ([handlers from the host](effects.md#handlers-from-the-host))
 
 | Library | Contents |
 | --- | --- |
-| `(snail runtime browser screen)` | The page's drawing commands, one import per command; `(snail shell app)`'s `provide-screen` answers `screen` with them. |
 | `(snail runtime browser events)` | The page's event queue and its fields, the random seed, the canvas's size and the boot report, and the started and finished wait for the next event. |
 | `(snail runtime browser storage)` | Loading and storing the page's checkpoint, read back a byte at a time. |
 | `(snail runtime browser dom)` | The page's document: nodes and listeners as handles, and text as UTF-8 bytes. `(snail shell dom page)` implements `dom` over it. |

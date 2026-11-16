@@ -1,12 +1,12 @@
 # WebGPU and graphics libraries
 
-Applications send `Frame` values to `host/browser/renderer.mjs`, a fixed
-JavaScript renderer. This design replaces it with two layers written in
-`snail-scheme`: a `gpu` effect that is a thin wrapper around WebGPU, and
-`(snail shell graphics ...)` libraries of pipelines and packers on top of
-it. The effect, `pod`, `wgsl`, `atlas` and `quad` are **implemented**; the
-other libraries are **proposed**. Delivery is tracked in
-[the graphics issue](https://github.com/tsnl/snail-scheme/issues/463).
+Applications draw through two layers written in `snail-scheme`: a `gpu`
+effect that is a thin wrapper around WebGPU, and `(snail shell graphics
+...)` libraries of pipelines and packers on top of it. They replaced a
+fixed JavaScript renderer, `host/browser/renderer.mjs`, and its picture
+store. The effect, `pod`, `wgsl`, `atlas`, `quad`, `mesh`, `raster` and
+`passes` are **implemented**; the rest is **proposed**. Delivery is tracked
+in [the graphics issue](https://github.com/tsnl/snail-scheme/issues/463).
 
 Device requests, decoding, pipeline creation and readbacks need only ordinary
 handlers and the runtime's waits. Those waits are an ordinary effect,
@@ -136,6 +136,37 @@ Slots have transparent gutters, not repeated edge texels: pixel art
 samples nearest, which never reads past a slot's edge, so gutters of
 repeated texels wait for filtered textures, with mips.
 
+## Meshes, the G-buffer and the sun
+
+`(snail shell graphics mesh)` holds eight shapes, each standing on y = 0
+within the unit cell, in one geometry table written once. `meshes` packs a
+batch's `Instance` records grouped by shape, with one `DrawArgs` per
+shape, so a batch is one `drawIndexedIndirect` per shape from its own first
+instance. An instance carries where it is and where it was, its yaw, scale,
+glow, color and material, and whether it turns to face the camera.
+
+`(snail shell graphics raster)` makes a frame's `Raster` once: the
+pipelines found by path and the camera and sun written to uniforms. A
+`Camera3D` carries its view-projection and its inverse, computed in closed
+form for a pinhole or parallel lens, so the sun pass recovers each pixel's
+position from its depth. `raster-meshes` writes albedo, normal, material
+(metalness, roughness, glow) and depth; a revealed batch discards outside
+its disc. `sun-pass` of `(snail shell graphics passes)` clears the target
+to the background and lights each surface by Cook-Torrance under the sun
+and the ambient light (`lighting.wgsl.scm`). `raster-translucent` then
+draws translucent batches over it, lit by the same function, testing the
+G-buffer's depth without writing it.
+
+`(snail shell app)`'s `draw-frame` draws Siegework's `Frame` this way,
+keeping each batch's packed instances in its `Frames` until the batch's
+version changes, so a still frame writes only its uniforms. Siegework's
+frames match the old renderer's shading. On headless Chromium's software
+WebGPU, the page's main thread spends 48 to 50 ms a second in tasks
+against the old renderer's 20: each frame now makes three passes over four
+full-size targets, and per frame the program creates no object, writes 11
+buffers and draws 8 times. Textured meshes and sprites are gone from
+`Frame`; pictures are drawn as quads from an atlas.
+
 ## The `graphics` libraries
 
 The graphics libraries are middleware: composable WebGPU pipelines and packers
@@ -155,10 +186,10 @@ Each row is `(snail shell graphics NAME)`:
 | --- | --- |
 | `pod` | `(deriving Pod)` on a record gives its WGSL layout and alignment, a packer from a list to `Bytes`, its vertex attributes and its WGSL declaration, one source of truth for each shader interface. **Implemented.** |
 | `wgsl` | Shaders as S-expressions: one-to-one with WGSL, read from source files by build-time recipes and printed to WGSL text, with struct declarations from `Pod`. **Implemented.** |
-| `mesh` | The flat glTF-shaped model as records and packers: geometry, material, instance, transform and indirect-draw tables, and lights. |
+| `mesh` | The flat glTF-shaped model as records and packers: geometry, material, instance, transform and indirect-draw tables, and lights. **Implemented** as a geometry table of eight shapes, instances and indirect draws. |
 | `atlas` | Texture-array pages with padded slots and slot tables, uncompressed. Pictures are composed into them on the GPU. **Implemented**, without mips. |
-| `raster` | A deferred G-buffer pipeline with configurable targets: depth, normal, albedo, metal-roughness, emissive, ids and motion. |
-| `passes` | Full-screen passes: a fixed sun, tone mapping, FXAA, copies. |
+| `raster` | A deferred G-buffer pipeline with configurable targets: depth, normal, albedo, metal-roughness, emissive, ids and motion. **Implemented** with fixed albedo, normal, material and depth targets, and a forward pipeline for translucent surfaces. |
+| `passes` | Full-screen passes: a fixed sun, tone mapping, FXAA, copies. **Implemented**: the sun. |
 | `quad` | 2D quads in world units under a 2D camera, pixel-snapped in the vertex shader, sampling a texture array, including earlier passes' targets. **Implemented.** |
 | later | `bvh`, compute ray tracing and `svgf`, for path-traced lighting over the rasterized G-buffer. |
 
@@ -193,7 +224,7 @@ heaps start uncompressed; a later `reset` may choose BC.
 
 - Images are decoded by the host behind `decode-image`, a host operation
   that waits, rather than in `snail-scheme`.
-- `update` stays total: prefetching happens from `view`.
+- `update` stays total: prefetching happens from `draw`.
 - Shader sources are S-expression files printed by `generate-library`
   recipes, since a quoted form is a literal only. A shader's structs come
   from `Pod` at run time: `(string-append (declarations shape) shader)`.

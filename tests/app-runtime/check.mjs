@@ -5,8 +5,9 @@ import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
 import {applicationEntry, createEventQueue, createRuntime, FRAME, HIDDEN} from '../../host/browser/runtime.mjs';
 import {createOverlay, widget, text, fire} from '../document.mjs';
-import {screenImports} from '../../host/browser/host.mjs';
 import {createDom} from '../../host/browser/dom.mjs';
+import {createGpu} from '../../host/browser/gpu.mjs';
+import {fakeGpu, fakeCanvas} from '../fake-gpu.mjs';
 import {createWasi, instantiate, linkedFileImports, wasmImports} from '../../host/browser/load.mjs';
 
 const path = resolve(process.argv[2]);
@@ -67,16 +68,15 @@ function checkFrames() {
 
 async function application(options = {}) {
   const overlay = createOverlay();
-  const observed = {frames: 0, failFrame: false, errors: [], warnings: [], overlay,
+  const gpu = fakeGpu();
+  const observed = {errors: [], warnings: [], overlay,
+                    get frames() { return gpu.frames.length; },
+                    set failFrame(failing) { gpu.failing = failing; },
                     get count() { return text(widget(overlay, 'count')); }};
   const runtime = createRuntime({...options, reportError: error => observed.errors.push(error), warn: text => observed.warnings.push(text)});
-  const screen = screenImports({hasBatch: () => false, draw() {
-    if (observed.failFrame) throw new Error('a deliberate presentation trap');
-    observed.frames++;
-  }}, {has: () => true, url: () => ''});
   const wasi = createWasi({print() {}});
-  const imports = {...runtime.imports, 'snail.runtime.browser.screen': screen,
-                   'snail.runtime.browser.dom': createDom(overlay, runtime).imports};
+  const imports = {...runtime.imports, 'snail.runtime.browser.dom': createDom(overlay, runtime).imports,
+                   'snail.runtime.browser.gpu': createGpu(fakeCanvas(640, 480), runtime, gpu.open).imports};
   const module = await WebAssembly.compile(await readFile(path));
   const program = await instantiate(module, {...wasi.getImportObject(), ...imports, ...portable(module)});
   wasi.initialize(program);
@@ -198,8 +198,5 @@ console.log('app runtime: the scene as a task, storage by ticket, queued input, 
 // whose every function fails if it is called.
 function portable(module) {
   const unread = file => { throw new Error(`this test reads no linked file ${file}`); };
-  const gpu = Object.fromEntries(WebAssembly.Module.imports(module)
-    .filter(entry => entry.module === 'snail.runtime.browser.gpu')
-    .map(entry => [entry.name, () => { throw new Error(`this test has no WebGPU ${entry.name}`); }]));
-  return {...linkedFileImports(unread, module), 'snail.runtime.wasm': wasmImports(() => null), 'snail.runtime.browser.gpu': gpu};
+  return {...linkedFileImports(unread, module), 'snail.runtime.wasm': wasmImports(() => null)};
 }
