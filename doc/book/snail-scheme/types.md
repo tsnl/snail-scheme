@@ -125,9 +125,12 @@ root `main`; importing or linking a library runs nothing.
   their order in the source, and one that nothing reads never runs. An
   initializer that reads its own value, directly or through another, panics
   with `initialization cycle`.
-- **One type.** A value is not generic. Write a generic one as a function of
-  no arguments, `(define (empty) (→ (List A)) (∀ (A)) (Nil))`, which makes a
-  fresh value at each call.
+- **One type.** A value is not generic, since it is one object. What its
+  initializer leaves open, as the element type of `(define empty (Nil))`,
+  the uses in its library decide together; when they decide nothing, state
+  it with `(→ Type)`. Write a generic one as a function of no arguments,
+  `(define (empty) (→ (List A)) (∀ (A)) (Nil))`, which makes a fresh value
+  at each call.
 - **Functions.** A definition whose initializer is a lambda is a function:
   it is code, with nothing to cache, and may be generic, recursive and
   exposed to the host. Any other initializer makes a value, even when the

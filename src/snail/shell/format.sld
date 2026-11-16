@@ -512,20 +512,19 @@
     (define (close-frame (frames (List Frame))) (→ (List Frame))
       (match frames
         ((Cons (Frame _ _ _ (Some (Elements (Element (Named name) _ _ _) _ _ _)))
-               (Cons (Frame column line spaced (Some (Elements head first last count))) rest))
-         (if (member? name (list "→" "!" "∀" "⊨"))
-             (Cons (new Frame
-                     (column column)
-                     (line line)
-                     (spaced spaced)
-                     (elements (Some (new Elements
-                                       (head head)
-                                       (first first)
-                                       (last (Element-head-set last (Clause)))
-                                       (count count)))))
-                   rest)
-             (list-drop frames 1)))
+               (Cons parent rest))
+         (if (member? name (list "→" "!" "∀" "⊨")) (Cons (clause-closed parent) rest)
+             (Cons parent rest)))
         (_ (list-drop frames 1))))
+
+    (define (clause-closed (frame Frame)) (→ Frame)
+      (match (● frame elements)
+        ((Some elements)
+         (Frame-elements-set frame
+                             (Some (Elements-last-set elements
+                                                      (Element-head-set (● elements last)
+                                                                        (Clause))))))
+        ((None) frame)))
 
     ;; A character is not a name.
 

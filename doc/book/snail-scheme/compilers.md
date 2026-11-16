@@ -105,7 +105,9 @@ only for the requested type, and `None` on mismatch. Neither inserts conversions
 at unrelated boundaries or performs an effect.
 Local expressions retain their ordinary inference and effect checking. A
 top-level value's thunk has a type with no row, so its initializer is
-checked to perform nothing.
+checked to perform nothing. The checker knows a value in one place: it does
+not generalize the thunk's type, and refuses one its library leaves
+undecided.
 
 ### Specialization and preparation
 
