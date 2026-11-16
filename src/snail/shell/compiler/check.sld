@@ -1063,13 +1063,15 @@
       (→ (Pair Clause Checker))
       (! compile)
       (let ((body-loc (● (● clause body) loc)))
-        (threading ck ((checked (check-pattern (● clause pattern) scrutinee-type body-loc))
-                       (body (within (● checked scope)
-                                     (lambda (inner)
-                                       (check-result inner (● clause body) result row)))))
-                   (new Pair
-                     (first (new Clause (pattern (● checked pattern)) (body body)))
-                     (second ck)))))
+        (within ck
+                ck
+                (lambda (ck)
+                  (threading ck
+                             ((pattern (check-pattern (● clause pattern) scrutinee-type body-loc))
+                              (body (check-result (● clause body) result row)))
+                             (new Pair
+                               (first (new Clause (pattern pattern) (body body)))
+                               (second ck)))))))
 
     ;; Implementations run in the handler's outer context. The body may
     ;; perform the handled effect plus whatever the context allows: its row
@@ -1225,30 +1227,20 @@
 
     ;; ---- Patterns ----
 
-    ;; The typed pattern, and the checker its body sees: extended by the
-    ;; pattern's variables.
-    ;; A checked pattern: the typed pattern, and the scope its body sees,
-    ;; which is this checker extended by the pattern's variables. Checking a
-    ;; pattern also learns, so it hands back a checker of its own as well.
-    (record Checked
-      ((pattern Pattern)
-       (scope Checker)))
+    ;; A pattern's typed form. The checker it hands back has learned the
+    ;; pattern's types and binds its variables, for the clause body; names
+    ;; are unique, so a constructor's fields bind into one scope in turn.
 
     (define (check-pattern (ck Checker) (pattern Pattern) (type Type) (loc Loc))
-      (→ (Pair Checked Checker))
+      (→ (Pair Pattern Checker))
       (! compile)
       (match pattern
-        ((PWild _) (new Pair (first (new Checked (pattern (PWild type)) (scope ck))) (second ck)))
-        ((PVar name _)
-         (new Pair
-           (first (new Checked (pattern (PVar name type)) (scope (bind-local ck name type))))
-           (second ck)))
+        ((PWild _) (new Pair (first (PWild type)) (second ck)))
+        ((PVar name _) (new Pair (first (PVar name type)) (second (bind-local ck name type))))
         ((PLit value _)
          (threading ck ((literal (literal-type value loc))
                         (then (unify type literal loc)))
-                    (new Pair
-                      (first (new Checked (pattern (PLit value type)) (scope ck)))
-                      (second ck))))
+                    (new Pair (first (PLit value type)) (second ck))))
         ((PCon constructor args _)
          (match (program-value (● ck program) constructor)
            ((Some (Constructor case scheme))
@@ -1263,46 +1255,18 @@
                                                           " fields")))
                           (let ((matched (prune (solution ck) type)))
                             (threading ck ((then (unify matched result loc))
-                                           (checked (check-fields constructor
-                                                                  matched
-                                                                  args
-                                                                  fields
-                                                                  loc)))
-                                       (new Pair (first checked) (second ck)))))
+                                           (args (each (lambda (ck pair)
+                                                         (check-pattern ck
+                                                                        (● pair first)
+                                                                        (● pair second)
+                                                                        loc))
+                                                       (zip args fields))))
+                                       (new Pair
+                                         (first (PCon constructor args matched))
+                                         (second ck)))))
                          (_ (panic "internal error: a constructor is a function")))))
            (_
             (compile-error loc (string-append "not a constructor: " (short-name constructor))))))))
-
-    ;; A constructor pattern's fields, checked in order into one scope:
-    ;; names are unique, so the fields' locals simply join.
-
-    (define (check-fields (ck Checker)
-                          (constructor String)
-                          (type Type)
-                          (args (List Pattern))
-                          (fields (List Type))
-                          (loc Loc))
-      (→ (Pair Checked Checker))
-      (! compile)
-      (threading ck ((done (each (lambda (ck pair)
-                                   (check-pattern ck (● pair first) (● pair second) loc))
-                                 (zip args fields))))
-                 (new Pair
-                   (first (new Checked
-                            (pattern
-                             (PCon constructor
-                                   (map (lambda (record) (● record pattern)) done)
-                                   type))
-                            (scope (fold-left
-                                    (lambda (scope field) (merged-locals scope (● field scope)))
-                                    ck
-                                    done))))
-                   (second ck))))
-
-    ;; Every local a field pattern bound, added to the scope so far.
-
-    (define (merged-locals (scope Checker) (field Checker)) (→ Checker)
-      (Checker-locals-set scope (table-union (● scope locals) (● field locals))))
 
     ;; ---- Coverage ----
 
