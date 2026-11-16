@@ -6,9 +6,10 @@ that any number of names may share; primitive values stay unboxed, and the
 collector reclaims what nothing reaches. Functions use the `Fn` type former
 with the Unicode `→` separator.
 
-Top-level definitions bind functions. Construct values inside those functions
-and pass shared state explicitly. There are no global value initializers or
-implicit caches. Arrays have a fixed length and mutable elements.
+A top-level definition is a value: its initializer runs at most once, on the
+first read, performs no effect, and every read shares the result. A function
+definition is shorthand for defining a lambda. Arrays have a fixed length
+and mutable elements.
 
 This is one language, with no R7RS compatibility layer, `call/cc` or
 `dynamic-wind`. The compiler emits WasmGC and compiles itself; a small Chez

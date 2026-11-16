@@ -1,1 +1,1 @@
-top-level definitions must be functions; put values in a function or an explicit state object
+only a top-level function can be exposed: add-one

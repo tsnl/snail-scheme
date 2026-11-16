@@ -14,8 +14,13 @@ text ──read───▶ located syntax
 ```
 
 `Prepared` contains declarations, concrete function definitions, an optional
-root entry, exports and host exposures. Every definition is function code;
-there are no value getters, initializer functions or cached global values.
+root entry, exports and host exposures. Every definition is function code.
+A top-level value is one too: the expander wraps its initializer as
+`(prim:cached-thunk (lambda () value))` and turns each read into a call, so
+no later pass knows values exist. The backend emits that definition as a
+function over two globals, a state and a slot: it runs the initializer on
+the first call, panics if the initializer reads its own value, and answers
+the slot afterwards.
 
 The compiler is written in `snail-scheme` under `src/snail/shell/compiler/`.
 Its host boundary consists of `(snail core base)`, `(snail core table)` and
@@ -98,8 +103,11 @@ Explicit `(Any value)` and `(downcast T boxed)` become `BoxAny` and
 `Downcast` terms. Packaging preserves type identity; extraction returns `Some`
 only for the requested type, and `None` on mismatch. Neither inserts conversions
 at unrelated boundaries or performs an effect.
-Expansion rejects top-level nonfunctions. Local expressions retain their
-ordinary inference and effect checking.
+Local expressions retain their ordinary inference and effect checking. A
+top-level value's thunk has a type with no row, so its initializer is
+checked to perform nothing. The checker knows a value in one place: it does
+not generalize the thunk's type, and refuses one its library leaves
+undecided.
 
 ### Specialization and preparation
 

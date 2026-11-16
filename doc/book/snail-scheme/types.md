@@ -54,8 +54,19 @@ definition, before its body:
   (fold-left + zero values))
 ```
 
-Local value definitions can carry a type in the same header position,
-for example `(define zero (→ I64) 0)` inside a function body.
+A lambda takes the same header, and `(define (name parameter ...) clause
+... body ...)` is shorthand for defining one:
+
+```scheme
+{{#include ../../../tests/programs/typed-lambdas.sld:lambdas}}
+```
+
+A lambda either writes the whole header, every parameter as `(name Type)`
+and `(→ Result)`, or annotates nothing and has its type inferred from its
+use.
+
+A value definition can carry a type in the same header position, for
+example `(define zero (→ I64) 0)`.
 Class methods use `declare` with the same typed function header and no
 body, for example `(declare (describe (value T)) (→ String))`. A colon
 signature is not a language form. Type-level callable signatures use the Unicode `→`;
@@ -88,39 +99,47 @@ it as `array-ref` and `array-length` read an array, and
 (constant-array-ref (powers) 2) ; 100
 ```
 
-A table is shared through a function, as any value is
-([functions at top level](#functions-at-top-level)), and calling it allocates
-nothing. A table is a data segment of its elements, so it may be as large as
+A table is shared as any [top-level value](#top-level-values) is, and
+reading it allocates nothing. A table is a data segment of its elements, so it may be as large as
 its data. A float table is a table of the floats' bits, an `I64` table read
 through `bits->f64`, since only the assembler knows a float literal's bits. The program
 `tests/programs/constant-arrays.sld` exercises each element type.
 
-## Functions at top level
+## Top-level values
 
-Top-level definitions bind functions. Types, macros, classes, effects, imports
-and exports remain declarations. A program starts by calling its root `main`;
-importing or linking a library runs no source initializer.
-
-Use a function to construct a value:
+A top-level `(define name value)` is a cached thunk. Its initializer runs at
+most once in a program, the first time something reads `name`, and every
+read shares the result: a record or an array defined this way is one object,
+and writes to it are seen by every reader. Types, macros, classes, effects,
+imports and exports remain declarations, and a program starts by calling its
+root `main`; importing or linking a library runs nothing.
 
 ```scheme
-(record Point
-  ((x I64)
-   (y I64)))
-(define (origin) (→ Point) (new Point (x 0) (y 0)))
-(define (empty) (→ (List A)) (∀ (A)) (Nil))
+{{#include ../../../tests/programs/global-values.sld:values}}
 ```
 
-Each call to `origin` makes a fresh point. To share one point, construct it
-once inside a function and pass that object to its users. Persistent application
-state belongs in an explicit state owner or Save. There are no global value
-initializers, lazy caches, initialization-cycle guards, or polymorphic value
-templates. A function returning a closure is an ordinary factory too.
+- **No effects.** An initializer has an empty effect row, checked where it
+  would perform one. Reading a mutable object is not an effect, so a value
+  computed from one depends on when it is first read.
+- **Order.** Values are read in the order expressions reach them, whatever
+  their order in the source, and one that nothing reads never runs. An
+  initializer that reads its own value, directly or through another, panics
+  with `initialization cycle`.
+- **One type.** A value is not generic, since it is one object. What its
+  initializer leaves open, as the element type of `(define empty (Nil))`,
+  the uses in its library decide together; when they decide nothing, state
+  it with `(→ Type)`. Write a generic one as a function of no arguments,
+  `(define (empty) (→ (List A)) (∀ (A)) (Nil))`, which makes a fresh value
+  at each call.
+- **Functions.** A definition whose initializer is a lambda is a function:
+  it is code, with nothing to cache, and may be generic, recursive and
+  exposed to the host. Any other initializer makes a value, even when the
+  value is a function, as `square` above is; calling it reads the value
+  first.
 
-A direct lambda definition also defines function code and can infer its type.
-A computed expression or an alias at top level
-is rejected, even if its result would be a function. Write a forwarding function
-for an alias. Recursive and mutually recursive functions remain ordinary code.
+To have a fresh object at each use, write a function that constructs one.
+Application state that must survive a restart still belongs in an explicit
+Save.
 
 ## Data
 

@@ -31,8 +31,9 @@ each can return if a program needs it.
 - Local bodies are sequential: a local function may call itself but not a
   later local definition.
 - Named functions require an annotation on every parameter. Generic variables
-  and class obligations appear on the definition. Direct lambda definitions
-  can infer their function types; local values also use inference.
+  and class obligations appear on the definition. A lambda either takes
+  that whole header or annotates nothing and is inferred; values also use
+  inference.
 - Effect labels take no type parameters, and operations are monomorphic.
   [Parameterized effects](effects.md#proposed-parameterized-effects) are
   proposed with one fixed application per handler; operation-local
@@ -44,8 +45,8 @@ each can return if a program needs it.
 `snail-scheme` deliberately omits R7RS compatibility, `call/cc`, `dynamic-wind`,
 a dynamic numeric tower, source borrows, callable classes, `dyn`, `impl`,
 `FnMut` and inline records. These are design decisions, not compatibility
-bugs waiting for implementation. Top-level definitions bind functions; there
-are no global values, lazy caches or top-level statement execution. Instance
+bugs waiting for implementation. A library's top level has no statements,
+and a top-level value's initializer performs no effect. Instance
 dispatch, named instance sets, plugins, code pointers, declaration metadata,
 implicit Any conversions and resizable arrays have also been removed.
 

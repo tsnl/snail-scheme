@@ -67,6 +67,13 @@
 
     ;; ---- Memoized functions ----
 
+    ;; A top-level value is its thunk's result, which its module keeps: the
+    ;; expander wraps the initializer of `(define name value)` in this, and
+    ;; a read of `name` calls it. No program names it, so it is not
+    ;; exported. The thunk's type has no row, so an initializer may perform
+    ;; nothing.
+    (primitive cached-thunk (∀ (A) (Fn (Fn → A) → (Fn → A))))
+
     ;; F stands for an entire function signature of any arity. The checker
     ;; requires an empty outward effect row for the safe wrappers, before
     ;; specialization erases ordinary effects. Preparation checks all four

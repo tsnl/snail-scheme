@@ -2336,7 +2336,7 @@
 
     ;; A metavariable becomes a quantified variable (`t1`, `t2`, ...) unless
     ;; something that outlives the group still mentions it: another
-    ;; definition's type, or a constraint of this group.
+    ;; definition's type, a constraint of this group, or a top-level value.
 
     (define (generalize (ck Checker)
                         (definitions (List Item))
@@ -2351,7 +2351,8 @@
                                  (append (concatenate
                                           (map (lambda (want) (wanted-metas (solution ck) want))
                                                wanted))
-                                         (exposed-row-metas ck definitions exposed)))))
+                                         (append (value-metas ck definitions)
+                                                 (exposed-row-metas ck definitions exposed))))))
              (metas (filter (lambda (meta) (not (member? (meta-id meta) fixed)))
                             (delete-duplicates same-meta?
                                                (concatenate (map (lambda (d)
@@ -2388,6 +2389,44 @@
                                                    name)))))))
                        (_ (panic "internal error: expected Define"))))
                    bound definitions)))
+
+    ;; A top-level value is kept in one slot, so it has one type: what its
+    ;; initializer leaves open, as the element of an empty list, its uses
+    ;; in its library decide together.
+
+    (define (value-metas (ck Checker) (definitions (List Item))) (→ (List Type))
+      (concatenate (map (lambda (definition)
+                          (match (value-definition definition)
+                            ((Some (Pair name _)) (free-metas (solution ck) (scheme-type ck name)))
+                            ((None) (Nil))))
+                        definitions)))
+
+    ;; A value's definition as the expander writes it: its global and where
+    ;; it is.
+
+    (define (value-definition (item Item)) (→ (Option (Pair String Loc)))
+      (match item
+        ((Define name (Expr (App (Expr (Var "prim:cached-thunk" _ _) _ _) _) _ loc))
+         (Some (new Pair (first name) (second loc))))
+        (_ (None))))
+
+    ;; An importer's use never decides a type, so an inferred value's is
+    ;; known once its library is solved. One that states its type has no
+    ;; inferred scheme.
+
+    (define (check-value-types (ck Checker) (items (List Item))) (→ Checker) (! compile)
+      (for-each (lambda (item)
+                  (match (value-definition item)
+                    ((Some (Pair name loc))
+                     (match (table-ref (● ck schemes) name)
+                       ((Some scheme)
+                        (when (has-meta? (solution ck) (● scheme type))
+                          (compile-error loc
+                                         "nothing decides this value's type; state it with (→ Type)")))
+                       ((None) (unit))))
+                    ((None) (unit))))
+                items)
+      ck)
 
     ;; A foreign caller supplies no row argument. Keep an inferred export's
     ;; row open for instance solving instead of quantifying that row. Its
@@ -2638,6 +2677,7 @@
                      (performed (Nil)))))
         (threading ck ((typed (check-items items))
                        (then (solve-pending))
+                       (then (check-value-types items))
                        (then (check-exposures items)))
                    (let ((result
                           (new Typed (program program)
