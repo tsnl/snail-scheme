@@ -194,8 +194,12 @@ await checkStorageFailure();
 console.log('app runtime: the scene as a task, storage by ticket, queued input, the HUD\'s presses and hovering, inherited handlers and saves passed');
 
 // The imports of the capabilities the target installs and this test leaves
-// unused: the files a program links and the host's WebAssembly.
+// unused: the files a program links, the host's WebAssembly, and WebGPU,
+// whose every function fails if it is called.
 function portable(module) {
   const unread = file => { throw new Error(`this test reads no linked file ${file}`); };
-  return {...linkedFileImports(unread, module), 'snail.runtime.wasm': wasmImports(() => null)};
+  const gpu = Object.fromEntries(WebAssembly.Module.imports(module)
+    .filter(entry => entry.module === 'snail.runtime.browser.gpu')
+    .map(entry => [entry.name, () => { throw new Error(`this test has no WebGPU ${entry.name}`); }]));
+  return {...linkedFileImports(unread, module), 'snail.runtime.wasm': wasmImports(() => null), 'snail.runtime.browser.gpu': gpu};
 }

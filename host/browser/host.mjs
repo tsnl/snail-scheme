@@ -5,6 +5,7 @@
 
 import {createRenderer} from './renderer.mjs';
 import {createDom} from './dom.mjs';
+import {createGpu} from './gpu.mjs';
 import {createPictures} from './pictures.mjs';
 import {loadSave, storeSave} from './storage.mjs';
 import {createRuntime} from './runtime.mjs';
@@ -115,12 +116,12 @@ export async function startApplication({url, canvas, overlay, storageKey}) {
     frames: {request: requestAnimationFrame.bind(globalThis), cancel: cancelAnimationFrame.bind(globalThis)},
     initial: () => [[8, canvas.clientWidth, canvas.clientHeight], [11, 0]],
     reportError: reportApplicationError});
-  const dom = createDom(overlay, runtime);
+  const dom = createDom(overlay, runtime), gpu = createGpu(canvas, runtime);
   attachInput(canvas, runtime);
   return startPage({runtime,
     imports: {...runtime.imports, 'snail.runtime.browser.screen': screenImports(renderer, pictures),
-              'snail.runtime.browser.dom': dom.imports},
-    reset() { renderer.forget(); pictures.forget(); dom.reset(); }}, url);
+              'snail.runtime.browser.dom': dom.imports, 'snail.runtime.browser.gpu': gpu.imports},
+    reset() { renderer.forget(); pictures.forget(); dom.reset(); gpu.reset(); }}, url);
 }
 
 // Wheel deltas arrive in pixels, lines or pages; the application gets pixels.
