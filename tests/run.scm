@@ -46,7 +46,7 @@
         text)))
 
 (define (report name problem detail)
-  (display (string-append "FAIL " name ": " problem "\n" detail "\n") (current-error-port))
+  (say (current-error-port) (string-append "FAIL " name ": " problem "\n" detail "\n"))
   #f)
 
 ;; ---- Programs ----
@@ -445,7 +445,9 @@
         (expected (read-file (path-join root "tests/async-files/main.out"))))
     (cond ((string=? printed expected) #t)
           ((string=? printed "SKIP: native async file provider unavailable\n")
-           (display "async files: io_uring unavailable; native integration skipped\n") #t)
+           (say (current-output-port)
+                "async files: io_uring unavailable; native integration skipped\n")
+           #t)
           (else (report "async files" "wrong output" printed)))))
 
 (define (run-linked-async-files root)

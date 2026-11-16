@@ -1,12 +1,24 @@
 ;; Synchronous commands write to files, so neither output stream can block
 ;; the other. A private directory and its files have one lexical owner.
+;;
+;; The test runner captures commands from several threads at once, and a
+;; Chez port is not safe to use from two threads at a time. Every use of
+;; the shared output ports from such a thread goes through `port-lock`,
+;; `capture-process`'s flushes and `say`'s writes alike.
 (library (snail stage0 process)
-  (export capture-process test-process)
+  (export capture-process say test-process)
   (import
    (chezscheme)
    (snail stage0 system))
   (define capture-count 0)
   (define counter-lock (make-mutex))
+  (define port-lock (make-mutex))
+
+  ;; Writes `text` to `port`, one of the shared output ports, and flushes it.
+  (define (say port text)
+    (with-mutex port-lock
+                (display text port)
+                (flush-output-port port)))
   (define (capture-directory)
     (let ([number (with-mutex counter-lock
                               (set! capture-count (+ capture-count 1)) capture-count)])
@@ -22,8 +34,9 @@
            [err (make-path directory "stderr")])
       (dynamic-wind (lambda () (void))
           (lambda ()
-            (flush-output-port (current-output-port))
-            (flush-output-port (current-error-port))
+            (with-mutex port-lock
+                        (flush-output-port (current-output-port))
+                        (flush-output-port (current-error-port)))
             (let ([status (run-command-status
                            (append (list "/bin/sh" "-c"
                                          "exec </dev/null >\"$1\" 2>\"$2\"; shift 2; exec \"$@\""
