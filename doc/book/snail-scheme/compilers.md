@@ -29,6 +29,11 @@ Its host boundary consists of `(snail core base)`, `(snail core table)` and
 compiler is itself a linked Wasm program. Most passes thread state through
 pure functions. The emitter uses a locally owned mutable `Module` to collect
 Wasm declarations and intern types. Neither representation requires `Ref`.
+A global or data segment that a module declares once, such as a string
+literal's, comes from a function wrapped in `unsafe-effectful-cache` and held
+in a top-level value: its key is the module and the text that names the
+item, so a second use skips the declaration. Those caches live as long as
+the compiler process, and so does each module they were asked about.
 
 Project builds compile each library to a module of its own and link them
 when the program loads; stage 0 links the complete program with

@@ -148,8 +148,8 @@
     ;; ---- Module state ----
 
     ;; GC types are registered on first use. Functions are kept as text,
-    ;; other fields as trees. `memo` caches closures for global functions, singletons and
-    ;; string literals; `helpers` caches imports and helper functions by key.
+    ;; other fields as trees. `lambdas` holds each lambda's text by its
+    ;; name; `helpers` caches imports and helper functions by key.
     ;; `declarations` is fixed metadata: it holds no source bodies, recipes
     ;; or pending work. Only the Wasm output builders change during emission.
     (record Module
@@ -163,7 +163,7 @@
        (declared (List String))
        (exports (List Wat))
        (data (List Wat))
-       (memo (Table Wat))
+       (lambdas (Table Wat))
        (helpers (Table String))))
 
     ;; Output builders update a selected mutable field. Every use selects
@@ -183,13 +183,12 @@
     (define (push-function! (m Module) (name String) (function Wat)) (→ Unit) (! mut)
       (push! (● m functions) (new Pair (first name) (second (field->string function)))))
 
-    (define (memoize! (m Module) (key String) (make (Fn → Wat ! mut))) (→ Wat) (! mut)
-      (match (table-ref (● m memo) key)
-        ((Some value) value)
-        ((None)
-         (let ((value (make)))
-           (put! (● m memo) key value)
-           value))))
+    ;; A global or data segment that a module declares once, at its first
+    ;; use, is declared by a cached function of the module and what names
+    ;; it: a later use skips the declaration and gets the same reference.
+    ;; `unsafe-effectful-cache` says that skipping is intended. Its keys
+    ;; compare strings and numbers by value and the module by identity, so
+    ;; such a function takes those and nothing else.
 
     ;; An import declared once: the first request for `key` declares it
     ;; under `name`, and later ones find that name.
@@ -736,19 +735,19 @@
 
     ;; String literals are immutable globals, built once.
 
-    (define (string-literal (m Module) (text String)) (→ Wat) (! mut)
-      (memoize! m (string-append "string:" text)
-                (lambda ()
-                  (let ((global (keyed-id "string" text)) (array (array-type m (Scalar "i32"))))
-                    (push! (● m globals)
-                           (wat "global" (id global) (ref-wat array)
-                                (wat* "array.new_fixed"
-                                      (Cons (id array)
-                                            (Cons (int (string-length text))
-                                                  (map (lambda (c)
-                                                         (wat "i32.const" (int (char->integer c))))
-                                                       (string->list text)))))))
-                    (wat "global.get" (id global))))))
+    (define string-literal
+      (unsafe-effectful-cache
+       (lambda ((m Module) (text String)) (→ Wat) (! mut)
+         (let ((global (keyed-id "string" text)) (array (array-type m (Scalar "i32"))))
+           (push! (● m globals)
+                  (wat "global" (id global) (ref-wat array)
+                       (wat* "array.new_fixed"
+                             (Cons (id array)
+                                   (Cons (int (string-length text))
+                                         (map (lambda (c)
+                                                (wat "i32.const" (int (char->integer c))))
+                                              (string->list text)))))))
+           (wat "global.get" (id global))))))
 
     ;; A byte literal is a passive data segment, one byte per byte, so large
     ;; data such as images costs no more than its size. `array.new_data` is
@@ -756,16 +755,18 @@
     ;; a fresh mutable array on every evaluation.
 
     (define (bytes-literal (m Module) (bytes Bytes)) (→ Wat) (! mut)
-      (let ((text (bytes-wat-string bytes)))
-        (memoize! m (string-append "bytes:" text)
-                  (lambda ()
-                    (let ((segment (keyed-id "bytes" text)))
-                      (push! (● m data) (wat "data" (id segment) (Word text)))
-                      (wat "array.new_data"
-                           (id (array-type m (Scalar "i8")))
-                           (id segment)
-                           (wat "i32.const" (int 0))
-                           (wat "i32.const" (int (array-length bytes)))))))))
+      (bytes-segment m (bytes-wat-string bytes) (array-length bytes)))
+
+    (define bytes-segment
+      (unsafe-effectful-cache
+       (lambda ((m Module) (text String) (length I64)) (→ Wat) (! mut)
+         (let ((segment (keyed-id "bytes" text)))
+           (push! (● m data) (wat "data" (id segment) (Word text)))
+           (wat "array.new_data"
+                (id (array-type m (Scalar "i8")))
+                (id segment)
+                (wat "i32.const" (int 0))
+                (wat "i32.const" (int length)))))))
 
     ;; ---- Constant arrays ----
 
@@ -777,29 +778,32 @@
 
     (define (constant-array-literal (m Module) (element String) (values (List Datum))) (→ Wat)
       (! mut)
-      (let ((key (datum->string (DConstants element values))))
-        (memoize! m
-                  (string-append "constants:" key)
-                  (lambda () (integer-table m element values key)))))
+      (integer-table m element (bytes-wat-string (table-bytes element values)) (length values)))
 
-    (define (integer-table (m Module) (element String) (values (List Datum)) (key String)) (→ Wat)
-      (! mut)
-      (let ((array (array-type m (element-rep m (TCon element (Nil)))))
-            (segment (keyed-id "constants" key))
-            (global (keyed-id "table" key)))
-        (push! (● m data)
-               (wat "data" (id segment) (Word (bytes-wat-string (table-bytes element values)))))
-        (push! (● m globals)
-               (wat "global" (id global) (wat "mut" (ref-wat array)) (wat "ref.null" (id array))))
-        (wat "block"
-             (wat "result" (ref-wat array))
-             (wat "if" (wat "ref.is_null" (wat "global.get" (id global)))
-                  (wat "then"
-                       (wat "global.set" (id global)
-                            (wat "array.new_data" (id array) (id segment)
-                                 (wat "i32.const" (int 0))
-                                 (wat "i32.const" (int (length values)))))))
-             (wat "global.get" (id global)))))
+    ;; The table of `count` elements whose bytes are `data`.
+
+    (define integer-table
+      (unsafe-effectful-cache
+       (lambda ((m Module) (element String) (data String) (count I64)) (→ Wat) (! mut)
+         (let* ((array (array-type m (element-rep m (TCon element (Nil)))))
+                (key (string-append element ":" data))
+                (segment (keyed-id "constants" key))
+                (global (keyed-id "table" key)))
+           (push! (● m data) (wat "data" (id segment) (Word data)))
+           (push! (● m globals)
+                  (wat "global"
+                       (id global)
+                       (wat "mut" (ref-wat array))
+                       (wat "ref.null" (id array))))
+           (wat "block"
+                (wat "result" (ref-wat array))
+                (wat "if" (wat "ref.is_null" (wat "global.get" (id global)))
+                     (wat "then"
+                          (wat "global.set" (id global)
+                               (wat "array.new_data" (id array) (id segment)
+                                    (wat "i32.const" (int 0))
+                                    (wat "i32.const" (int count))))))
+                (wat "global.get" (id global)))))))
 
     ;; Each element's bytes, least significant first, at its width in the
     ;; array: one for U8, eight for I64, four otherwise. A negative value is
@@ -903,35 +907,35 @@
              (wasm-id name)))
         ((None) (wasm-id name))))
 
-    ;; An immutable global closure whose code calls `name` with its arguments.
+    ;; An immutable global closure whose code calls `name` with its
+    ;; arguments. Each use writes that code again; identical lambdas share
+    ;; one function, and a closure without captures one global.
 
     (define (function-value (m Module) (name String) (type Type)) (→ Wat) (! mut)
-      (memoize! m (string-append "closure:" name ":" (type-key type))
-                (lambda ()
-                  (match type
-                    ((TFun params result _)
-                     (let* ((names
-                             (map (lambda (index) (string-append "argument." (i64->string index)))
-                                  (iota (length params))))
-                            (call (new Expr
-                                    (term (App (new Expr
-                                                 (term (Var name (Nil) (Nil)))
-                                                 (type type)
-                                                 (loc (no-loc)))
-                                               (map (lambda (pair)
-                                                      (new Expr
-                                                        (term (Var (● pair first) (Nil) (Nil)))
-                                                        (type (● pair second))
-                                                        (loc (no-loc))))
-                                                    (zip names params))))
-                                    (type result) (loc (no-loc)))))
-                       (closure-value m
-                                      (new Expr
-                                        (term (Lambda names call ))
-                                        (type type)
-                                        (loc (no-loc)))
-                                      (None))))
-                    (_ (panic "internal error: a function value needs a function type"))))))
+      (match type
+        ((TFun params result _)
+         (let* ((names
+                 (map (lambda (index) (string-append "argument." (i64->string index)))
+                      (iota (length params))))
+                (call (new Expr
+                        (term (App (new Expr
+                                     (term (Var name (Nil) (Nil)))
+                                     (type type)
+                                     (loc (no-loc)))
+                                   (map (lambda (pair)
+                                          (new Expr
+                                            (term (Var (● pair first) (Nil) (Nil)))
+                                            (type (● pair second))
+                                            (loc (no-loc))))
+                                        (zip names params))))
+                        (type result) (loc (no-loc)))))
+           (closure-value m
+                          (new Expr
+                            (term (Lambda names call ))
+                            (type type)
+                            (loc (no-loc)))
+                          (None))))
+        (_ (panic "internal error: a function value needs a function type"))))
 
     ;; ---- Closures ----
 
@@ -956,17 +960,19 @@
 
     (define (closure-value (m Module) (function Expr) (self (Option String))) (→ Wat) (! mut)
       (let* ((signature (function-signature m (● function type)))
-             (base (closure-type m (● signature first) (● signature second)))
-             (code (lambda-function! m function self (Nil) base)))
-        (memoize! m (string-append "closure-value:" code)
-                  (lambda ()
-                    (let ((global (derived-id "closure" code)))
-                      (push! (● m globals)
-                             (wat "global"
-                                  (id global)
-                                  (ref-wat base)
-                                  (wat "struct.new" (id base) (wat "ref.func" (id code)))))
-                      (wat "global.get" (id global)))))))
+             (base (closure-type m (● signature first) (● signature second))))
+        (closure-global m (lambda-function! m function self (Nil) base) base)))
+
+    (define closure-global
+      (unsafe-effectful-cache
+       (lambda ((m Module) (code String) (base String)) (→ Wat) (! mut)
+         (let ((global (derived-id "closure" code)))
+           (push! (● m globals)
+                  (wat "global"
+                       (id global)
+                       (ref-wat base)
+                       (wat "struct.new" (id base) (wat "ref.func" (id code)))))
+           (wat "global.get" (id global))))))
 
     ;; A closure with captures copies each captured local into its fields.
     (define (closure-with-captures (fn Fn)
@@ -1067,12 +1073,11 @@
                                            hash
                                            (if (= salt 0)
                                                ""
-                                               (string-append "." (i64->string salt))))))
-             (key (string-append "lambda:" name)))
-        (match (table-ref (● m memo) key)
+                                               (string-append "." (i64->string salt)))))))
+        (match (table-ref (● m lambdas) name)
           ((Some stored) (if (wat=? stored draft) name (lambda-id m prefix draft (+ salt 1))))
           ((None)
-           (put! (● m memo) key draft)
+           (put! (● m lambdas) name draft)
            (push! (● m declared) name)
            (push-function! m name (wat-rename "$lambda.self" name draft))
            name))))
@@ -1256,16 +1261,19 @@
                                              (Cons (wat "i32.const" (int (● case tag))) slots)))))))
 
     (define (singleton (m Module) (type Type) (case Case)) (→ Wat) (! mut)
-      (let ((key (string-append (type-key type) ":" (● case name))))
-        (memoize! m (string-append "singleton:" key)
-                  (lambda ()
-                    (let ((global (keyed-id "value" key)) (base (data-type m type)))
-                      (push! (● m globals)
-                             (wat "global" (id global) (ref-wat base)
-                                  (wat "struct.new"
-                                       (id base)
-                                       (wat "i32.const" (int (● case tag))))))
-                      (wat "global.get" (id global)))))))
+      (singleton-global m
+                        (string-append (type-key type) ":" (● case name))
+                        (data-type m type)
+                        (● case tag)))
+
+    (define singleton-global
+      (unsafe-effectful-cache
+       (lambda ((m Module) (key String) (base String) (tag I64)) (→ Wat) (! mut)
+         (let ((global (keyed-id "value" key)))
+           (push! (● m globals)
+                  (wat "global" (id global) (ref-wat base)
+                       (wat "struct.new" (id base) (wat "i32.const" (int tag)))))
+           (wat "global.get" (id global))))))
 
     ;; ---- Arrays ----
 
@@ -4315,7 +4323,7 @@
            (imports (Nil))
            (globals (Nil))
            (functions (Nil)) (declared (Nil)) (exports (Nil)) (data (Nil))
-           (memo (empty-table)) (helpers (empty-table))))
+           (lambdas (empty-table)) (helpers (empty-table))))
 
     (define (module-callees (m Module)) (→ (Option Callees))
       (if (null? (● (● m declarations) control))
