@@ -30,7 +30,7 @@ compiler is itself a linked Wasm program. Most passes thread state through
 pure functions. The emitter uses a locally owned mutable `Module` to collect
 Wasm declarations and intern types. Neither representation requires `Ref`.
 A global or data segment that a module declares once, such as a string
-literal's, comes from a function wrapped in `unsafe-effectful-cache` and held
+literal's, comes from a function wrapped in `cache` and held
 in a top-level value: its key is the module and the text that names the
 item, so a second use skips the declaration. Those caches live as long as
 the compiler process, and so does each module they were asked about.
@@ -176,11 +176,10 @@ allowing recursive object graphs. Finite budgets diagnose expanding type or
 specialization families instead of exhausting the host. Ordinary recursive
 nominal types reuse their existing type entry.
 
-The `cache` and `lru-cache` primitives require a closed, empty callback effect row.
-The checker enforces this at final inferred types before specialization erases
-ordinary effects, including when a primitive is used as a function value.
-`unsafe-effectful-cache` and `unsafe-effectful-lru-cache` instead preserve the
-callback's effect row. All four preserve its parameter and result types.
+The `cache` and `lru-cache` primitives preserve their callback's parameter
+types, result type and effect row. The checker requires a known function
+signature at final inferred types, including when a primitive is used as a
+function value.
 Preparation rejects raw `Funcref` keys and suspending callbacks. The Wasm
 backend builds an ordinary closure capturing its callback and a private typed
 hash table; no module globals are involved. The Chez adapter implements the same wrapper and key
