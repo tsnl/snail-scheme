@@ -1,0 +1,17 @@
+struct Light {
+  direction: vec3f,
+  intensity: f32,
+  color: vec4f,
+}
+struct Scene {
+  count: i32,
+  sun: Light,
+  exposure: f32,
+}
+scene: size 64, align 16, count@0 sun@16 exposure@48
+vertex: stride 32, position@0 uv@16 material@24
+  location 0 at 0
+  location 1 at 16
+  location 2 at 24
+0 0 128 63 0 0 0 64 0 0 128 191 0 0 0 0 0 0 0 63 0 0 128 62 2 1 0 0 0 0 0 0
+64

@@ -80,7 +80,9 @@ field.
 Expansion generates constructors and field operations. A derived instance
 is a use of a `syntax-rules` macro that the class's library defines beside
 the class, `derive-serialize` in `(snail shell wire)` for one; the expander
-writes only that use, from the declaration's head, cases and field labels.
+writes only that use, from the declaration's head, cases, field labels and
+field types. `derive-pod` alone resolves where the declaration is, which
+imports `(snail shell graphics pod)` to derive it.
 Every body and its evidence then go through ordinary checking.
 A script's top-level expressions are its entry, in order; a library's top
 level has none, and a producer recipe gets an explicit entry function.

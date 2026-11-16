@@ -1,5 +1,7 @@
 ;; WebGPU through the `gpu` effect on a real device: a frame clears a 4x4
-;; texture and the canvas and fills both with a uniform's red, copies the
+;; texture and the canvas and fills both with a uniform's red, from a
+;; record deriving Pod and a shader printed from src/gpu-test/paint.wgsl.scm,
+;; copies the
 ;; texture into a buffer that is read back, and decodes a two-texel PNG,
 ;; read back the same way. A second frame finds every object by its path.
 ;; tests/browser/gpu.mjs checks what it prints.
@@ -8,16 +10,17 @@
  (snail core io)
  (snail shell task)
  (snail shell page)
- (snail shell gpu))
+ (snail shell gpu)
+ (snail shell graphics pod)
+ (gpu-test shaders))
 
-(define shader
-  "struct Paint { color: vec4f }
-@group(0) @binding(0) var<uniform> paint: Paint;
-@vertex fn vertex_main(@builtin(vertex_index) i: u32) -> @builtin(position) vec4f {
-  let corners = array(vec2f(-1.0, -3.0), vec2f(3.0, 1.0), vec2f(-1.0, 1.0));
-  return vec4f(corners[i], 0.0, 1.0);
-}
-@fragment fn fragment_main() -> @location(0) vec4f { return paint.color; }")
+(record Paint
+  ((color Vec4f))
+  (deriving Pod))
+
+(define paint-shape (→ (Shape Paint)) (shape))
+
+(define shader (→ String) (string-append (declarations paint-shape) paint))
 
 ;; A red texel beside a green one.
 (define two-texels
@@ -91,14 +94,6 @@
           66
           96 130))
 
-(define (f32-bytes (values (List F32))) (→ Bytes)
-  (array-generate (* 4 (length values))
-                  (lambda (index)
-                    (i32->u8 (i32-and (i32-shift-right/logical
-                                       (f32->bits (list-ref values (quotient index 4)))
-                                       (i64->i32 (* 8 (remainder index 4))))
-                                      255)))))
-
 (define (pipeline-for (module GpuShaderModule) (format TextureFormat) (name String))
   (→ GpuRenderPipeline)
   (! gpu)
@@ -115,11 +110,11 @@
      (cull (CullNone))
      (depth (None)))))
 
-(define (paint (encoder GpuCommandEncoder)
-               (view TextureView)
-               (pipeline GpuRenderPipeline)
-               (color GpuBuffer)
-               (name String))
+(define (fill (encoder GpuCommandEncoder)
+              (view TextureView)
+              (pipeline GpuRenderPipeline)
+              (color GpuBuffer)
+              (name String))
   (→ Unit)
   (! gpu)
   (let ((pass (begin-render-pass encoder
@@ -167,17 +162,19 @@
          (encoder (create-command-encoder)))
     (write-line
      (string-append "fresh: " (show (● target fresh)) " " (show (● (● image texture) fresh))))
-    (write-buffer color 0 (f32-bytes (list 1.0 0.0 0.0 1.0)))
-    (paint encoder
-           (view-of target 1)
-           (pipeline-for module (Rgba8Unorm) "offscreen")
-           color
-           "offscreen")
-    (paint encoder
-           (view-of (current-texture) 1)
-           (pipeline-for module (● info format) "onscreen")
-           color
-           "onscreen")
+    (write-buffer color
+                  0
+                  (pod-bytes (new Paint (color (new Vec4f (x 1.0) (y 0.0) (z 0.0) (w 1.0))))))
+    (fill encoder
+          (view-of target 1)
+          (pipeline-for module (Rgba8Unorm) "offscreen")
+          color
+          "offscreen")
+    (fill encoder
+          (view-of (current-texture) 1)
+          (pipeline-for module (● info format) "onscreen")
+          color
+          "onscreen")
     (copy-texture-to-buffer encoder (whole-texture target) readback 0 256 4 4)
     (copy-texture-to-buffer encoder (whole-texture (● image texture)) readback 1024 256 2 1)
     (submit (list (finish encoder)))
