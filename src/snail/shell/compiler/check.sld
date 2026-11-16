@@ -1826,11 +1826,17 @@
     ;; Validate operations at their final inferred types, before
     ;; specialization erases ordinary effects: what a `set!` writes, the
     ;; signature a cache is built for, and what `Any` and `downcast` may
-    ;; take. `check-final` reports each item's first failure.
-    (define (check-operations-item (program Program) (item Item)) (→ Unit) (! compile)
-      (match item
-        ((Define _ value) (check-operations program value))
-        (_ (unit))))
+    ;; take. Each item's first failure is reported, in source order.
+
+    (define (check-final (typed Typed)) (→ Unit) (! compile)
+      (let ((program (● typed program)))
+        (fail-if-found
+         (in-source-order
+          (failures-of (lambda (item)
+                         (match item
+                           ((Define _ value) (check-operations program value))
+                           (_ (unit))))
+                       (● typed items))))))
 
     (define (check-operations (program Program) (expr Expr)) (→ Unit) (! compile)
       (match (● expr term)
@@ -1863,8 +1869,6 @@
            ((Some (Accessor _ _ _)) #t)
            (_ #f)))
         (_ #f)))
-
-    ;; ---- Explicit Any ----
 
     ;; A box must not hide a callable's effects. Boxing and downcasting
     ;; themselves introduce no effects.
@@ -2241,15 +2245,6 @@
                                (schemes (final-schemes ck items)))))
                      (check-final result)
                      result))))
-
-    ;; Check each item at its final types and report failures in source order.
-
-    (define (check-final (typed Typed)) (→ Unit) (! compile)
-      (let ((program (● typed program)))
-        (fail-if-found
-         (in-source-order
-          (failures-of (lambda (item) (check-operations-item program item))
-                       (● typed items))))))
 
     (define (check-exposures (ck Checker) (items (List Item))) (→ Unit) (! compile)
       (for-each (lambda (item)
