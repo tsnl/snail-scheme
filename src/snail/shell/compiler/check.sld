@@ -1832,8 +1832,10 @@
 
     ;; ---- Checked operations ----
 
-    ;; Validate operations at their final inferred types, including references
-    ;; passed as values. This runs before specialization erases ordinary effects.
+    ;; Validate operations at their final inferred types, before
+    ;; specialization erases ordinary effects: what a `set!` writes, the
+    ;; signature a cache is built for, and what `Any` and `downcast` may
+    ;; take. `check-final` reports each item's first failure.
     (define (check-operations-item (program Program) (item Item)) (→ Unit) (! compile)
       (match item
         ((Define _ value) (check-operations program value))
@@ -1844,12 +1846,11 @@
         ((Var name _ _)
          (when (member? name (list "prim:cache" "prim:lru-cache"))
            (check-cache-signature (● expr type) (● expr loc))))
-        ((App callee (Cons place (Cons _ (Nil))))
-         (match (● callee term)
-           ((Var name _ _)
-            (when (string=? name "prim:set!")
-              (check-place-links program place)))
-           (_ (unit))))
+        ((App (Expr (Var "prim:set!" _ _) _ _) (Cons place (Cons _ (Nil))))
+         (unless (field-place? program place)
+           (compile-error (● place loc) "a place must select a field")))
+        ((BoxAny inner) (refuse-hidden-effects "Any" (● inner type) (● expr loc)))
+        ((Downcast _ target) (refuse-hidden-effects "downcast" target (● expr loc)))
         (_ (unit)))
       (for-each (lambda (child) (check-operations program child)) (expr-children expr)))
 
@@ -1863,49 +1864,19 @@
     ;; A written place selects a record field. Enum fields are destructured
     ;; by match; mutable payloads can themselves be records.
 
-    (define (check-place-links (program Program) (place Expr)) (→ Unit) (! compile)
-      (match (place-link program place)
-        ((Ok _) (unit))
-        ((Err problem) (compile-error (● place loc) problem))))
-
-    (define (place-link (program Program) (expr Expr)) (→ (Result (Pair Field Expr) String))
-      (match (● expr term)
-        ((Ann inner _) (place-link program inner))
-        ((App callee (Cons record (Nil)))
-         (match (● callee term)
-           ((Var name _ evidence)
-            (match (link-field program name)
-              ((Ok field) (Ok (new Pair (first field) (second record))))
-              ((Err problem) (Err problem))))
-           (_ (Err not-a-place))))
-        (_ (Err not-a-place))))
-
-    (define not-a-place (→ String)
-      "a place must select a field")
-
-    (define (link-field (program Program) (name String))
-      (→ (Result Field String))
-      (match (program-value program name)
-        ((Some (Accessor case index _)) (Ok (list-ref (● case fields) index)))
-        (_ (Err not-a-place))))
+    (define (field-place? (program Program) (place Expr)) (→ Bool)
+      (match (● place term)
+        ((Ann inner _) (field-place? program inner))
+        ((App (Expr (Var name _ _) _ _) (Cons _ (Nil)))
+         (match (program-value program name)
+           ((Some (Accessor _ _ _)) #t)
+           (_ #f)))
+        (_ #f)))
 
     ;; ---- Explicit Any ----
 
-    ;; Check boxed types before specialization erases ordinary effect rows.
     ;; A box must not hide a callable's effects. Boxing and downcasting
     ;; themselves introduce no effects.
-
-    (define (check-boxing (item Item)) (→ Unit) (! compile)
-      (match item
-        ((Define _ value) (check-expression-boxing value))
-        (_ (unit))))
-
-    (define (check-expression-boxing (expr Expr)) (→ Unit) (! compile)
-      (match (● expr term)
-        ((BoxAny inner) (refuse-hidden-effects "Any" (● inner type) (● expr loc)))
-        ((Downcast _ target) (refuse-hidden-effects "downcast" target (● expr loc)))
-        (_ (unit)))
-      (for-each check-expression-boxing (expr-children expr)))
 
     (define (refuse-hidden-effects (form String) (type Type) (loc Loc)) (→ Unit) (! compile)
       (match (hidden-effects type)
@@ -2285,7 +2256,6 @@
                           (new Typed (program program)
                                (items (map (lambda (item) (zonk-item (solution ck) item)) typed))
                                (schemes (final-schemes ck items)))))
-                     (for-each check-boxing (● result items))
                      (check-final result)
                      result))))
 
