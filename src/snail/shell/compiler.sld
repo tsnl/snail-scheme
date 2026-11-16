@@ -22,19 +22,6 @@
    (snail shell compiler wasm))
   (begin
 
-    ;; The front of every compile: the program a source path reads, expanded.
-    ;; `generate` runs the producer program of a `generate-library`, given
-    ;; the libraries loading when it was reached, and returns the bytes of
-    ;; the syntax it writes.
-
-    (define (source->expanded (directories (List String))
-                              (source String)
-                              (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
-                              (target (Option (List String))))
-      (→ ExpandedProgram)
-      (! fs compile)
-      (expand-program directories generate target source))
-
     ;; A program read, expanded and checked, before anything is emitted: what
     ;; a build emits, and what an editor asks of the program's names (snail
     ;; shell lsp).
@@ -42,13 +29,17 @@
       ((expanded ExpandedProgram)
        (typed Typed)))
 
+    ;; `generate` runs the producer program of a `generate-library`, given
+    ;; the libraries loading when it was reached, and returns the bytes of
+    ;; the syntax it writes.
+
     (define (source->checked (directories (List String))
                              (source String)
                              (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
                              (target (Option (List String))))
       (→ Checked)
       (! fs compile)
-      (let ((expanded (source->expanded directories source generate target)))
+      (let ((expanded (expand-program directories generate target source)))
         (new Checked (expanded expanded) (typed (check-program (● expanded program))))))
 
     ;; The whole program as one module: its text, the libraries it holds,
