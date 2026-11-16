@@ -59,7 +59,7 @@ jobs:
           restore-keys: |
             cargo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('shell.nix', 'npins/**', 'rust-toolchain.toml', 'crates/*/Cargo.*') }}-
       # Only an exact source/toolchain match may reuse the bootstrap. Never
-      # restore the CPU-specific .cwasm or generated test outputs.
+      # restore generated test outputs.
       - name: Restore the bootstrapped command line
         id: compiler-cache
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5

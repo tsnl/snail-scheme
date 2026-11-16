@@ -3,22 +3,16 @@
 //! The subcommands are internal to the build driver and the tests:
 //!
 //! - `snail run-wasm PROGRAM ARGUMENT ...` runs a compiled program, one
-//!   linked module or a per-library build's manifest, as
-//!   host/native/run-snail.mjs does on Node, when it needs no sockets or
-//!   processes (`program.rs`, with `links.rs` for the files it links and
-//!   `modules.rs` for linking modules). The command line,
-//!   `build/bootstrap/snail-scheme.wasm`, is one such program.
-//! - `snail precompile MODULE OUTPUT` writes Cranelift's machine code for a
-//!   module as a `.cwasm` file, which `run-wasm` loads in place of
-//!   compiling the module again (`engine.rs`).
-//! - `snail assemble INPUT OUTPUT` assembles WAT; `snail link INPUT RUNTIME OUTPUT`
-//!   also links the scalar runtime, using the same backend as compiled tools.
-//! - `snail imports PROGRAM` lists the modules a program imports from, so
-//!   the build driver can tell whether `run-wasm` runs it (`program.rs`).
+//!   linked module, as host/native/run-snail.mjs does on Node, when it
+//!   needs no sockets or processes (`program.rs`, with `links.rs` for the
+//!   files it links and `modules.rs` for the modules it loads). The
+//!   command line, `build/bootstrap/snail-scheme.wasm`, is one such program.
+//! - `snail link INPUT RUNTIME OUTPUT` assembles the compiler's text and
+//!   links the scalar runtime, using the same backend as compiled tools:
+//!   the bootstrap links the command line with it.
 //!
 //! `engine.rs` holds what every subcommand shares: the engine's
-//! configuration, loading a module, the WASI context, and how a failure
-//! is told.
+//! configuration, the WASI context, and how a failure is told.
 
 use std::process::ExitCode;
 
@@ -32,9 +26,6 @@ mod program;
 // ---- Command line ----
 
 const USAGE: &str = "usage: snail run-wasm PROGRAM [ARGUMENT ...]
-       snail precompile MODULE OUTPUT
-       snail imports PROGRAM
-       snail assemble INPUT.wat OUTPUT.wasm
        snail link INPUT.wat RUNTIME.wasm OUTPUT.wasm";
 
 fn main() -> ExitCode {
@@ -44,15 +35,10 @@ fn main() -> ExitCode {
 
 fn dispatch(arguments: &[String]) -> u8 {
     match arguments {
-        [_, command, input, output] if command == "assemble" => assemble::run(input, output, None),
         [_, command, input, runtime, output] if command == "link" => {
-            assemble::run(input, output, Some(runtime))
-        }
-        [_, command, module, output] if command == "precompile" => {
-            engine::precompile(module, output)
+            assemble::run(input, output, runtime)
         }
         [_, command, program, rest @ ..] if command == "run-wasm" => program::run(program, rest),
-        [_, command, program] if command == "imports" => program::imports(program),
         _ => {
             eprintln!("{USAGE}");
             2

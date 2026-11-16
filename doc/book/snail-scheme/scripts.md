@@ -227,12 +227,13 @@ Each step is a pull request that passes every check on its own.
 1. **Drop `watch`.** Done: the development service, `development.sld`,
    `(snail shell project bundle)`, the reload client, relinking and file
    watching (`(snail shell watch)`) are gone, with their tests and chapters.
-2. **The store and manifests.** Done, with the engine moved into the command
-   line, since every program is now linked one library at a time:
+2. **The store and manifests.** Done, and since replaced: every build is
+   one linked module, and the engine that linked per-library programs is
+   gone.
    - Every build keeps a module per library, and the `Debug` and `Development`
      modes merge.
    - All builds share the sharded `build/.snail-store/`, and each writes its
-     `.manifest.datum`. (Since replaced: every build is one linked module.)
+     `.manifest.datum`.
    - Targets still come from `project.datum`.
 3. **Scripts and `run`/`build FILE`.** Done, but for targets' handlers:
    - Top-level statements, and resolution under the workspace's `src/`.
