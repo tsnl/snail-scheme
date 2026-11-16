@@ -311,7 +311,7 @@
     ;; nested compile has scratch of its own, so were that check missed, the
     ;; same producer would be requested inside itself without end; this
     ;; makes it an error instead.
-    (define producing (make-parameter '()))
+    (define producing (make-thread-parameter '()))
 
     ;; ---- The build lock ----
 
