@@ -1,0 +1,15 @@
+(import
+ (snail core base))
+;; Each instance needs the other at the same type, so neither is ever found.
+(typeclass (First T)
+  (declare (first-of (value T)) (→ I64)))
+(typeclass (Second T)
+  (declare (second-of (value T)) (→ I64)))
+(instance (First (List A))
+  (⊨ (Second (List A)))
+  (define (first-of (value (List A))) (→ I64) 1))
+(instance (Second (List A))
+  (⊨ (First (List A)))
+  (define (second-of (value (List A))) (→ I64) 2))
+(define (main) (→ I64)
+  (first-of (list 1)))

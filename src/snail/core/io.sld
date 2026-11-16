@@ -117,7 +117,7 @@
     (define (write-line (text String)) (→ Unit) (! output-port)
       (write-string (string-append text "\n")))
 
-    (define (display (value T)) (→ Unit) (! output-port e) (∀ (T e)) (⊨ (Show e T))
+    (define (display (value T)) (→ Unit) (! output-port) (∀ (T)) (⊨ (Show T))
       (write-string (show value)))
 
     (define (write (value T)) (→ Unit) (! output-port) (∀ (T)) (⊨ (Repr T))
@@ -340,7 +340,7 @@
       (PermissionDenied)
       (OtherError))
 
-    (instance (Show (!) FileError)
+    (instance (Show FileError)
       (define (show (error FileError)) (→ String)
         (match error
           ((NotFound) "no such file or directory")
@@ -549,7 +549,7 @@
       (NotText)
       (ChangedWhileRead))
 
-    (instance (Show (!) TextError)
+    (instance (Show TextError)
       (define (show (error TextError)) (→ String)
         (match error
           ((ReadFailed error) (show error))

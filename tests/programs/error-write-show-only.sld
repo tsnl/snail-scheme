@@ -5,7 +5,7 @@
 (record Presented
   ())
 
-(instance (Show (!) Presented)
+(instance (Show Presented)
   (define (show (value Presented)) (→ String)
     "presentation"))
 

@@ -860,7 +860,6 @@
                        (latent (fresh-meta))
                        (args (unify-call (● callee type) args result latent row loc))
                        (then (improve-types before))
-                       (then (solve-found-rows before row))
                        (then (perform latent row loc)))
                    (new Pair
                      (first (new Expr (term (App callee args)) (type result) (loc loc)))
@@ -879,8 +878,7 @@
                       (threading ck ((fields (each (lambda (ck field)
                                                      (check-initializer ck field params row))
                                                    fields))
-                                     (then (improve-types before))
-                                     (then (solve-found-rows before row)))
+                                     (then (improve-types before)))
                                  (new Pair
                                    (first (lower-new callee fields result loc))
                                    (second ck))))
@@ -1576,10 +1574,7 @@
     ;; Runs once, after every item is checked: literals whose type nothing
     ;; determined default to F64 or I64, every literal is range-checked, and
     ;; every class constraint is solved with the givens it arose under.
-    ;; Field types and associated outputs are improved before and after
-    ;; literal defaulting. A row class also charges the effects its inputs
-    ;; determine: most are solved at their call (`solve-found-rows`), while
-    ;; constraints whose inputs a later use decides wait until here.
+    ;; Field types are improved before and after literal defaulting.
 
     (define (solve-pending (ck Checker)) (→ Checker) (! compile)
       (unless (= (● ck unsolved-fields) (length (waiting-fields ck (● ck pending))))
@@ -1657,131 +1652,9 @@
                          (loc Loc))
       (→ Checker)
       (! compile)
-      (cond ((determined-class? ck (● constraint class))
-             (solve-found ck constraint hole givens (None) loc))
-            (else
-             (match (find-evidence ck constraint givens loc)
-               ((Some (Pair evidence ck)) (with-evidence ck hole evidence))
-               ((None) (compile-error loc (ambiguous-constraint ck constraint)))))))
-
-    ;; Rows and associated outputs are determined arguments. The remaining
-    ;; input arguments select evidence; that evidence establishes outputs
-    ;; by equality and supplies the rows its methods perform.
-
-    (define (determined-class? (ck Checker) (class String)) (→ Bool)
-      (let ((class (program-class (program-of ck) class)))
-        (not (null? (append (● class rows) (● class outputs))))))
-
-    ;; A row class's constraint, solved in the row of the call it was raised
-    ;; in when `context` gives one.
-
-    (define (solve-found (ck Checker)
-                         (constraint Constraint)
-                         (hole I64)
-                         (givens (List Constraint))
-                         (context (Option Type))
-                         (loc Loc))
-      (→ Checker)
-      (! compile)
-      (match (determined-evidence ck constraint givens context loc)
-        ((Pair evidence ck) (with-evidence ck hole evidence))))
-
-    ;; A row class is chosen as any class is, by its types alone: the
-    ;; requirement given for them, or the one instance whose head matches
-    ;; them. What that performs at each row parameter is charged to the
-    ;; constraint's row there.
-
-    (define (determined-evidence (ck Checker)
-                                 (constraint Constraint)
-                                 (givens (List Constraint))
-                                 (context (Option Type))
-                                 (loc Loc))
-      (→ (Pair Evidence Checker))
-      (! compile)
-      (let* ((class (program-class (program-of ck) (● constraint class)))
-             (types (map (lambda (type) (resolve-type (solution ck) type))
-                         (● constraint types))))
-        (when (any? (lambda (type) (has-meta? (solution ck) type)) (type-arguments class types))
-          (compile-error loc (ambiguous-constraint ck constraint)))
-        (match (determined-source ck class types givens loc)
-          ((Pair (Pair evidence performed) ck)
-           (new Pair (first evidence)
-                (second (fold-left (lambda (ck charged)
-                                     (charge ck (● charged first) (● charged second) context loc))
-                                   ck
-                                   (zip performed (row-arguments class types)))))))))
-
-    ;; The evidence for a row class's types, and the row it performs at each
-    ;; row parameter: a requirement given for them performs its own rows.
-
-    (define (determined-source (ck Checker)
-                               (class Class)
-                               (types (List Type))
-                               (givens (List Constraint))
-                               (loc Loc))
-      (→ (Pair (Pair Evidence (List Type)) Checker))
-      (! compile)
-      (match (list-index (lambda (given) (given-for? class types given)) givens)
-        ((Some index)
-         (let ((given (● (list-ref givens index) types)))
-           (new Pair (first (new Pair (first (EvParam index)) (second (row-arguments class given))))
-                (second (unify-outputs ck class given types loc)))))
-        ((None) (determined-instance ck class types givens loc))))
-
-    (define (given-for? (class Class) (types (List Type)) (given Constraint)) (→ Bool)
-      (and (string=? (● class name) (● given class))
-           (types=? (type-arguments class types) (type-arguments class (● given types)))))
-
-    ;; Inputs bind the instance's selecting variables. The remaining row
-    ;; and output variables start fresh, and ordered prerequisites establish
-    ;; them before the selected head constrains the caller's output slots.
-
-    (define (determined-instance (ck Checker)
-                                 (class Class)
-                                 (types (List Type))
-                                 (givens (List Constraint))
-                                 (loc Loc))
-      (→ (Pair (Pair Evidence (List Type)) Checker))
-      (! compile)
-      (match (matching-instance ck class types loc)
-        ((Pair instance bindings)
-         (let ((outer ck) (ck (enter-instance ck class types loc)))
-           (threading ck ((determined (fresh-bindings
-                                       (filter (lambda (var) (not (assoc-contains? bindings var)))
-                                               (● instance vars))))
-                          (evidence
-                           (instance-application instance bindings determined givens loc)))
-                      (let ((head
-                             (map (lambda (type) (substitute (append determined bindings) type))
-                                  (● instance types))))
-                        (new Pair
-                          (first (new Pair (first evidence) (second (row-arguments class head))))
-                          (second (resumed outer (unify-outputs ck class head types loc))))))))))
-
-    (define (enter-instance (ck Checker) (class Class) (types (List Type)) (loc Loc))
-      (→ Checker)
-      (! compile)
-      (when (or (>= (length (● ck resolving)) 128)
-                (any? (lambda (goal) (given-for? class types goal)) (● ck resolving)))
-        (compile-error loc "instance requirements do not terminate"))
-      (Checker-resolving-set ck
-                             (Cons (new Constraint (class (● class name)) (types types))
-                                   (● ck resolving))))
-
-    (define (assoc-contains? (bindings Substitution) (name String)) (→ Bool)
-      (match (assoc-ref bindings name)
-        ((Some _) #t)
-        ((None) #f)))
-
-    (define (unify-outputs (ck Checker)
-                           (class Class)
-                           (established (List Type))
-                           (wanted (List Type))
-                           (loc Loc))
-      (→ Checker)
-      (! compile)
-      (fold-left (lambda (ck pair) (unify ck (● pair first) (● pair second) loc))
-                 ck (zip (output-arguments class established) (output-arguments class wanted))))
+      (match (find-evidence ck constraint givens loc)
+        ((Some (Pair evidence ck)) (with-evidence ck hole evidence))
+        ((None) (compile-error loc (ambiguous-constraint ck constraint)))))
 
     (define (with-evidence (ck Checker) (hole I64) (evidence Evidence)) (→ Checker)
       (Checker-solution-set ck
@@ -1797,74 +1670,8 @@
                                               (● constraint types)))
                      "; add a signature or an annotation"))
 
-    ;; A method performs `performed` in its own row. When that row has
-    ;; joined the call's context, as it has when the method is called there
-    ;; or handed to a callee that calls it, the context performs it too,
-    ;; which a signed body counts (`record-performed`); one only stored, as
-    ;; in a record, charges nothing here.
-
-    (define (charge (ck Checker) (performed Type) (row Type) (context (Option Type)) (loc Loc))
-      (→ Checker)
-      (! compile)
-      (let ((ck (perform ck performed row loc)))
-        (match context
-          ((Some context)
-           (if (same-tail? (● (flatten-row (solution ck) row) second)
-                           (● (flatten-row (solution ck) context) second))
-               (record-performed ck context performed)
-               ck))
-          ((None) ck))))
-
-    ;; A row is charged where it is written: once a call is checked, each
-    ;; constraint of a row class raised in it whose types are known by now
-    ;; is solved in the call's scope, so a signed body is seen to perform
-    ;; what its methods do. One whose types a later use
-    ;; decides waits for `solve-pending`.
-
-    (define (solve-found-rows (ck Checker) (before I64) (context Type)) (→ Checker) (! compile)
-      (let* ((count (- (● ck pending-count) before))
-             (recent (take (● ck pending) count))
-             (older (list-drop (● ck pending) count)))
-        (if (any? (lambda (want) (known-class-inputs? ck want)) recent)
-            (match (fold-left (lambda (progress want) (solve-known-row progress want context))
-                              (new Pair (first (Nil)) (second ck))
-                              (reverse recent))
-              ((Pair kept ck)
-               (Checker-pending-count-set (Checker-pending-set ck (append kept older))
-                                          (+ before (length kept)))))
-            ck)))
-
-    ;; One wanted constraint, oldest first: solved when it is a row class's
-    ;; constraint of known types, and otherwise kept, newest first, as
-    ;; `pending` keeps them.
-
-    (define (solve-known-row (progress (Pair (List Wanted) Checker)) (want Wanted) (context Type))
-      (→ (Pair (List Wanted) Checker)) (! compile)
-      (match progress
-        ((Pair kept ck)
-         (if (not (known-class-inputs? ck want)) (new Pair (first (Cons want kept)) (second ck))
-             (let ((before (● ck pending-count)))
-               (let ((done
-                      (match want
-                        ((WantClass constraint hole givens loc)
-                         (resumed ck (solve-found ck constraint hole givens (Some context) loc)))
-                        (_ ck))))
-                 (new Pair
-                   (first (append (take (● done pending) (- (● done pending-count) before)) kept))
-                   (second done))))))))
-
-    (define (known-class-inputs? (ck Checker) (want Wanted)) (→ Bool)
-      (match want
-        ((WantClass constraint _ _ _)
-         (let ((class (● constraint class)))
-           (and (determined-class? ck class)
-                (every? (lambda (type) (not (has-meta? (solution ck) type)))
-                        (type-arguments (program-class (program-of ck) class)
-                                        (● constraint types))))))
-        (_ #f)))
-
-    ;; Field selections and associated outputs improve together: each
-    ;; established output can determine another selection's receiver.
+    ;; Field selections improve together: each result a selection
+    ;; establishes can determine another selection's receiver.
 
     (define (improve-types (ck Checker) (before I64)) (→ Checker) (! compile)
       (let* ((count (- (● ck pending-count) before))
@@ -1895,22 +1702,11 @@
                              (map (lambda (type) (resolve-type (solution ck) type))
                                   (list (● projection record type) (● projection result)
                                         (● projection row))))
-                            ((WantClass constraint _ _ _)
-                             (map (lambda (type) (resolve-type (solution ck) type))
-                                  (● constraint types)))
                             (_ (Nil)))) wanted)))
 
     (define (improve-output (ck Checker) (want Wanted)) (→ Checker) (! compile)
       (match want
         ((WantField projection) (improve-projection ck projection))
-        ((WantClass constraint _ givens loc)
-         (let ((class (program-class (program-of ck) (● constraint class))))
-           (if (and (not (null? (● class outputs))) (known-class-inputs? ck want))
-               (resumed ck (● (determined-source ck class
-                                                 (map
-                                                  (lambda (type) (resolve-type (solution ck) type))
-                                                  (● constraint types)) givens loc) second))
-               ck)))
         (_ ck)))
 
     ;; Evidence from the enclosing definition's requirements, or from the
@@ -1934,6 +1730,9 @@
         ((Some index) (Some (EvParam index)))
         ((None) (None))))
 
+    ;; An instance's requirements are solved where its head matched. A goal
+    ;; met again while it is being solved, or a chain of 128, would not end.
+
     (define (instance-evidence (ck Checker)
                                (class String)
                                (types (List Type))
@@ -1941,57 +1740,44 @@
                                (loc Loc))
       (→ (Pair Evidence Checker))
       (! compile)
-      (match (matching-instance ck (program-class (program-of ck) class) types loc)
+      (match (matching-instance ck class types loc)
         ((Pair instance bindings)
-         (instance-application ck instance bindings (Nil) givens loc))))
+         (match (each (enter-instance ck (new Constraint (class class) (types types)) loc)
+                      (lambda (ck requirement)
+                        (requirement-evidence ck
+                                              (substitute-constraint bindings requirement)
+                                              givens
+                                              loc))
+                      (● instance requires))
+           ((Pair subs inner)
+            (new Pair
+              (first (EvInstance (● instance name) (applied-types instance bindings) subs))
+              (second (Checker-resolving-set inner (● ck resolving)))))))))
+
+    (define (enter-instance (ck Checker) (goal Constraint) (loc Loc)) (→ Checker) (! compile)
+      (when (or (>= (length (● ck resolving)) 128)
+                (any? (lambda (other)
+                        (and (string=? (● goal class) (● other class))
+                             (types=? (● goal types) (● other types))))
+                      (● ck resolving)))
+        (compile-error loc "instance requirements do not terminate"))
+      (Checker-resolving-set ck (Cons goal (● ck resolving))))
 
     ;; The instance whose head matches a constraint's types, and what that
-    ;; binds its variables to. Rows take no part: they are found from the
-    ;; instance chosen, so no two instances of a class have the same types.
+    ;; binds its variables to. No two instances of a class match the same
+    ;; types.
 
-    (define (matching-instance (ck Checker) (class Class) (types (List Type)) (loc Loc))
+    (define (matching-instance (ck Checker) (class String) (types (List Type)) (loc Loc))
       (→ (Pair Instance Substitution))
       (! compile)
-      (let loop ((instances
-                  (class-instances (program-of ck) (● class name))))
+      (let loop ((instances (class-instances (program-of ck) class)))
         (match instances
           ((Nil)
-           (compile-error loc
-                          (string-append "no instance for "
-                                         (constraint->string (● class name) types))))
+           (compile-error loc (string-append "no instance for " (constraint->string class types))))
           ((Cons instance rest)
-           (match (match-types (● instance vars)
-                               (type-arguments class (● instance types))
-                               (type-arguments class types)
-                               (Nil))
+           (match (match-types (● instance vars) (● instance types) types (Nil))
              ((Some bindings) (new Pair (first instance) (second bindings)))
              ((None) (loop rest)))))))
-
-    ;; An instance applied where its head matched with `bindings`: each of
-    ;; its requirements is satisfied there in turn, with `rows` giving the
-    ;; variables a row class's instance ends its rows with.
-
-    (define (instance-application (ck Checker)
-                                  (instance Instance)
-                                  (bindings Substitution)
-                                  (rows Substitution)
-                                  (givens (List Constraint))
-                                  (loc Loc))
-      (→ (Pair Evidence Checker))
-      (! compile)
-      (match (each ck
-                   (lambda (ck requirement)
-                     (requirement-evidence ck
-                                           (substitute-constraint (append rows bindings)
-                                                                  requirement)
-                                           givens
-                                           loc))
-                   (● instance requires))
-        ((Pair subs ck)
-         (new Pair (first (EvInstance (● instance name)
-                                      (applied-types instance (append rows bindings))
-                                      subs))
-              (second ck)))))
 
     ;; The types the head's match gave the instance's variables, in order.
 
@@ -2002,21 +1788,15 @@
                ((None) (TCon "Unit" (Nil)))))
            (● instance vars)))
 
-    ;; A requirement of a row class, as `(Store e S)`, is solved as its use
-    ;; is: what the type it gives `S` performs is charged to its row `e`.
-    ;; Any other is found as a constraint is.
-
     (define (requirement-evidence (ck Checker)
                                   (requirement Constraint)
                                   (givens (List Constraint))
                                   (loc Loc))
       (→ (Pair Evidence Checker))
       (! compile)
-      (if (determined-class? ck (● requirement class))
-          (determined-evidence ck requirement givens (None) loc)
-          (match (find-evidence ck requirement givens loc)
-            ((Some found) found)
-            ((None) (compile-error loc (ambiguous-requirement requirement))))))
+      (match (find-evidence ck requirement givens loc)
+        ((Some found) found)
+        ((None) (compile-error loc (ambiguous-requirement requirement)))))
 
     (define (ambiguous-requirement (requirement Constraint)) (→ String)
       (string-append "ambiguous requirement "
@@ -2490,28 +2270,10 @@
       (! compile)
       (match definition
         ((Define _ definition-value)
-         (check-associated-givens (program-of ck) (● scheme constraints)
-                                  (● definition-value loc))
          (within ck
                  (Checker-givens-set ck (if (null? (● scheme vars)) (Nil) (● scheme constraints)))
                  (lambda (inner) (check-annotated-value inner definition scheme))))
         (_ (panic "internal error: expected Define"))))
-
-    ;; A projection has one witness. Distinct rows or output equalities
-    ;; cannot disambiguate two requirements with the same selecting inputs.
-
-    (define (check-associated-givens (program Program) (givens (List Constraint)) (loc Loc))
-      (→ Unit)
-      (! compile)
-      (match givens
-        ((Nil) (unit))
-        ((Cons given rest)
-         (let ((class (program-class program (● given class))))
-           (when (and (not (null? (● class outputs)))
-                      (any? (lambda (other) (given-for? class (● given types) other))
-                            rest))
-             (compile-error loc "associated projection matches multiple requirements"))
-           (check-associated-givens program rest loc)))))
 
     (define (check-annotated-value (ck Checker) (definition Item) (scheme Scheme))
       (→ (Pair Item Checker)) (! compile)

@@ -16,7 +16,7 @@
   (Scissors)
   (deriving Repr))
 
-(instance (Show (!) Action)
+(instance (Show Action)
   (define (show (action Action)) (→ String)
 
     (match action
