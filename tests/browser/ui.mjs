@@ -66,7 +66,7 @@ function serve(directory) {
 const directory = await mkdtemp(join(tmpdir(), 'snail-ui-'));
 const app = join(directory, 'notes');
 await cp(join(root, 'tests/apps/notes'), app, {recursive: true, filter: path => basename(path) !== 'build'});
-const built = (await promisify(execFile)(join(root, 'snail-scheme'), ['build', app, 'site'])).stdout.trim();
+const built = (await promisify(execFile)(join(root, 'snail-scheme'), ['build', '--target', 'browser', join(app, 'main.scm')])).stdout.trim();
 const server = await serve(built);
 const browser = await openBrowser();
 const notes = () => browser.evaluate(`[...document.querySelectorAll('#notes li')].map(item => item.firstChild.data).join(',')`);

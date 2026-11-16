@@ -1,4 +1,4 @@
-// Builds the typed project and runs it without a browser: a recording screen host, keys
+// Builds Siegework's script and runs it without a browser: a recording screen host, keys
 // that pan, the opening's banner and pulsing crystals, taps that select
 // cells, an order given through the HUD's card, five minutes of play, a drag
 // of the camera, and a save replayed through the application loop.
@@ -12,7 +12,7 @@ import {screenImports} from '../../host/browser/host.mjs';
 import {createRuntime, applicationEntry} from '../../host/browser/runtime.mjs';
 import {createWasi, linkProgram} from '../../host/browser/load.mjs';
 
-const ELAPSED = 11, PRESS = 9, POINTER_UP = 5, POINTER_MOVE = 4, POINTER_DOWN = 3, KEY_DOWN = 1, KEY_UP = 2;
+const HIDDEN = 12, ELAPSED = 11, PRESS = 9, POINTER_UP = 5, POINTER_MOVE = 4, POINTER_DOWN = 3, KEY_DOWN = 1, KEY_UP = 2;
 const SUGGESTED = 5;
 
 // The browser host's screen with a renderer that records the latest frame and
@@ -33,7 +33,7 @@ const target = host => [host.frames.at(-1).camera.target[0], host.frames.at(-1).
 async function instantiateGame(directory, host, saved) {
   const runtime = createRuntime({seed: 7, load: async () => saved});
   const wasi = createWasi({print: (fd, line) => console.log(line)});
-  const program = await linkProgram(file => readFile(join(directory, file)), 'siegework.manifest.datum', wasi,
+  const program = await linkProgram(file => readFile(join(directory, file)), 'main.manifest.datum', wasi,
     {...runtime.imports, 'snail.runtime.browser.screen': host.imports}, () => runtime.execution.tasks);
   await runtime.start(applicationEntry(program)).ready.promise;
   return runtime;
@@ -55,7 +55,8 @@ const widget = (host, key) => host.widgets.find(entry => entry.key === key);
 const tap = async (game, x, y) => { await send(game, POINTER_DOWN, 1, x, y, 0); await send(game, POINTER_UP, 1, x, y, 0); };
 
 const root = resolve(process.argv[2]);
-const built = await promisify(execFile)(join(root, 'snail-scheme'), ['build', root, 'siegework']);
+const built = await promisify(execFile)(join(root, 'snail-scheme'),
+                                        ['build', '--target', 'browser', 'src/apps/siegework/main.scm'], {cwd: root});
 const path = built.stdout.trim();
 const host = screen();
 const game = await instantiateGame(path, host);
@@ -139,13 +140,16 @@ await send(game, POINTER_UP, 1, 380, 260, 0);
 await send(game, ELAPSED, 0);
 assert.notDeepEqual(host.frames.at(-1).camera, resting, 'the drag moves the camera');
 
-// Save, restore into a fresh instance, and compare what each shows.
-const bytes = (await game.stop()).saved;
+// Hiding the page saves; restore into a fresh instance, and compare what
+// each shows.
+await send(game, HIDDEN);
+const bytes = game.execution.saved;
 const other = screen();
 const started = performance.now();
 const restored = await instantiateGame(path, other, bytes);
 const elapsed = performance.now() - started;
 assert.deepEqual(readouts(other), readouts(host));
 assert.deepEqual(other.frames.at(-1).camera, host.frames.at(-1).camera, 'the restored game looks where the saved one did');
-await restored.stop();
 console.log(`a journal of ${bytes.length} bytes replays the same colony in ${elapsed.toFixed(0)} ms`);
+game.close();
+restored.close();

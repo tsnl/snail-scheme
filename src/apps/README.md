@@ -1,12 +1,13 @@
 # Applications
 
-Applications are named browser targets in the repository's root
-`project.datum`. Each application's libraries live here, under
-`src/apps/NAME/` and named `(apps NAME ...)`, beside its `public/` files,
-including `index.html`; its tests are in `tests/NAME/`.
-From the repository root, `./snail-scheme build --release . NAME` selects an application
-and packages it with the shared browser host from `host/browser` into
-`build/NAME`. `make site` builds both applications this way.
+Each application is a script, `src/apps/NAME/main.scm`, that hands its
+functions to an engine's loop ([application model](../../doc/book/snail-scheme/applications.md)).
+Its libraries live beside it, named `(apps NAME ...)`, with its `public/`
+files, including `index.html`; its tests are in `tests/NAME/`. From the
+repository root, `./snail-scheme build --release --target browser
+src/apps/NAME/main.scm` packages it with the shared browser host from
+`host/browser` into `build/src/apps/NAME/main`. `make site` builds both
+applications this way.
 
 Any static HTTP server serves an application's output directory. Hearsay's art
 comes from `generate-library` recipes; its producers run in every build.

@@ -1,5 +1,0 @@
-((build-target site
-   (browser
-    (entry ((counter application) CounterApplication))
-    (library-roots ("src"))
-    (public "public"))))

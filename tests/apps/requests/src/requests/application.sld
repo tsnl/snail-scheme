@@ -4,7 +4,7 @@
 ;; starting again cannot install an older reply; the request itself runs
 ;; to completion.
 (define-library (requests application)
-  (export RequestsApplication)
+  (export run-requests)
   (import
    (snail core base)
    (only (snail core forms) host)
@@ -12,7 +12,6 @@
    (snail shell dom)
    (snail shell fetch)
    (snail shell ui)
-   (snail shell application)
    (snail shell page)
    (snail shell dom page)
    (snail shell fetch page)
@@ -107,26 +106,17 @@
                             (display display)))
            (clicks (● saved clicks)) (request 0)))
 
-    (record RequestsApplication
-      ())
+    ;; The page runs over the save itself, so a page started again has no
+    ;; request outstanding.
+    (define (run-requests) (→ Unit) (! mut host events storage tasks)
+      (run-page (lambda () (new Save (display (Showing "idle")) (clicks 0)))
+                serialize
+                deserialize
+                present))
 
-    (define-page-state Save)
-
-    (instance (Application (! mut host events storage tasks page) RequestsApplication)
-      (define (start (entry (Entry RequestsApplication)))
-        (→ Unit)
-        (! mut host events storage tasks page)
-
-        (run-page (lambda () (new Save (display (Showing "idle")) (clicks 0)))
-                  serialize
-                  deserialize
-                  present)))
-
-    ;; Save is detached recovery data: a replacement starts with no request
-    ;; outstanding.
     (define (present (saved Save) (checkpoint (Fn Save → Unit ! events storage tasks)))
       (→ Unit)
-      (! mut host events storage tasks page)
+      (! mut host events storage tasks)
       (with-page-dom
        (lambda ()
          (with-page-fetch
@@ -135,10 +125,6 @@
                     (lambda (model message) (update model message))
                     (lambda (model) (view model))
                     (lambda (model) (window model))
-                    (lambda (model) (commit (save model)))
+                    (lambda (model) (report-ready))
                     (lambda (model) (checkpoint (save model))))
-            (unit))))))
-
-    (define (commit (saved Save)) (→ Unit) (! mut events page)
-      (commit-page saved)
-      (report-ready))))
+            (unit))))))))

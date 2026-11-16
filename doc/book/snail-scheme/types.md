@@ -118,8 +118,7 @@ initializers, lazy caches, initialization-cycle guards, or polymorphic value
 templates. A function returning a closure is an ordinary factory too.
 
 A direct lambda definition also defines function code and can infer its type.
-Generated application entries use this to derive their effects from their
-selected `Application` instance. A computed expression or an alias at top level
+A computed expression or an alias at top level
 is rejected, even if its result would be a function. Write a forwarding function
 for an alias. Recursive and mutually recursive functions remain ordinary code.
 

@@ -48,7 +48,6 @@
    meta-key
    dom
    document-root
-   refresh-page
    create-element
    create-text
    set-attribute
@@ -263,7 +262,6 @@
        (unlisten (Fn Listener → Unit))
        (focus-node (Fn Node → Unit))
        (window-node (Fn → Node))
-       (refresh-page (Fn → Unit))
        (confirm (Fn String → Bool))
        (installation-status (Fn → InstallationStatus))
        (install-app (Fn → InstallResult ! tasks))

@@ -6,9 +6,6 @@
   (export
    Project
    ProjectPath
-   ProjectEntry
-   SourceEntry
-   ApplicationEntry
    BuildTarget
    ProgramTarget
    BrowserTarget
@@ -36,28 +33,20 @@
       ((text String)
        (loc Loc)))
 
-    ;; A source program remains useful for scripts and compiler tooling.
-    ;; An application entry selects an exported concrete type in a library.
-    (enum ProjectEntry
-      (SourceEntry ((path ProjectPath)))
-      (ApplicationEntry
-       ((library (List String))
-        (name String))))
-
     ;; A program links with the runtime whose services include the
     ;; assembler exactly when it links (snail shell assembler).
     ;; `platform` is the target library its program runs under, such as
     ;; (snail target node).
     (record ProgramBuild
       ((name String)
-       (entry ProjectEntry)
+       (entry ProjectPath)
        (libraries (List ProjectPath))
        (platform (List String))
        (loc Loc)))
 
     (record BrowserBuild
       ((name String)
-       (entry ProjectEntry)
+       (entry ProjectPath)
        (libraries (List ProjectPath))
        (public (Option ProjectPath))
        (loc Loc)))
@@ -144,13 +133,10 @@
                          "an entry must name a file, not the project directory"))
         path))
 
-    (define (parse-entry (syntax Syntax)) (→ ProjectEntry) (! compile)
+    (define (parse-entry (syntax Syntax)) (→ ProjectPath) (! compile)
       (match syntax
-        ((Atom (DString _) _) (SourceEntry (entry-path syntax)))
-        ((Form (Cons (Form (Cons part parts) _) (Cons name (Nil))) _)
-         (ApplicationEntry (map parse-name (Cons part parts)) (parse-name name)))
-        (_ (compile-error (syntax-loc syntax)
-                          "expected an entry path string or ((library name) ApplicationType)"))))
+        ((Atom (DString _) _) (entry-path syntax))
+        (_ (compile-error (syntax-loc syntax) "expected an entry path string"))))
 
     ;; ---- Build options ----
 
@@ -177,7 +163,7 @@
     (define (build-fields (browser? Bool) (name String) (declaration Loc) (forms (List Syntax)))
       (→ BuildTarget)
       (! compile)
-      (let loop ((forms forms) (entry (ann (None) (Option ProjectEntry)))
+      (let loop ((forms forms) (entry (ann (None) (Option ProjectPath)))
                  (libraries (ann (None) (Option (List ProjectPath))))
                  (public (ann (None) (Option ProjectPath))))
         (match forms
@@ -343,9 +329,7 @@
                      (expect (loc->string (● (● run program) loc)) "project.datum:3:1")
                      (match (car (● project builds))
                        ((BrowserTarget browser)
-                        (match (● browser entry)
-                          ((SourceEntry path) (expect (● path text) "client.sld"))
-                          (_ (expect "application" "source")))
+                        (expect (● (● browser entry) text) "client.sld")
                         (match (● browser public)
                           ((Some path) (expect (● path text) "public"))
                           ((None) (expect "missing public directory" "public"))))
@@ -355,16 +339,6 @@
                        (expect (map (lambda (record) (● record name)) (● printed runs))
                                '("dev" "check"))
                        (expect (● (car (● printed runs)) arguments) '("" "--port" "8080"))))
-                (match (car (● (parse-project
-                                "((build-target app (program (entry ((example output-port) Printer)))))"
-                                "typed.datum") builds))
-                  ((ProgramTarget program)
-                   (match (● program entry)
-                     ((ApplicationEntry library name)
-                      (expect library '("example" "output-port"))
-                      (expect name "Printer"))
-                     (_ (expect "source" "application"))))
-                  (_ (expect "missing application" "application")))
                 (expect (● (parse-project "()" "project.datum") builds) '())
                 (let* ((project
                         (parse-project
@@ -429,8 +403,6 @@
                              "expected an entry path string")
                             ("((build-target x (program (entry (() App)))))"
                              "expected an entry path string")
-                            ("((build-target x (program (entry ((a b) (Generic I64))))))"
-                             "literal target name")
                             ("((build-target x (program (entry \"x\"))) (build-target x (program (entry \"y\"))))"
                              "duplicate build target x")
                             ("((run-target x (run missing)))" "unknown build target missing")

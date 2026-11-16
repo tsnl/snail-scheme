@@ -115,9 +115,8 @@ in `tests/programs/declared-effects.sld`, the `Bool` instance of
 `announce` performs nothing and keeps `! output-port`. `extern`
 declarations, class method signatures and definitions whose value is not
 a lambda are not compared either. A signature that a macro writes is held to each
-expansion. Application entries avoid duplicating such signatures: the selected
-ordinary `Application e A` instance determines the entry's row, and the generated
-browser export infers it ([application model](applications.md)).
+expansion. A script declares no signature at all: its statements' inferred row
+is the program's ([scripts](scripts.md)).
 
 ### Effect polymorphism
 

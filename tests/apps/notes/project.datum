@@ -1,5 +1,0 @@
-((build-target site
-   (browser
-    (entry ((notes application) NotesApplication))
-    (library-roots ("src"))
-    (public "public"))))
