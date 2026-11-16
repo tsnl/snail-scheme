@@ -1224,7 +1224,7 @@
         ((HudEvent listener)
          (match (table-ref (ui:listener-table (● hud shown)) (show listener))
            ((Some message)
-            (let ((input (message (no-event))))
+            (let ((input (message no-event)))
               (scene-input scene save state (hovering hud listener input) input)))
            ((None) (scene-loop scene save state hud since-hud))))
         ((Hidden) (save state) (scene-loop scene save state hud since-hud))
