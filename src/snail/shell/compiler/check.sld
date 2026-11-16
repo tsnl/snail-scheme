@@ -1923,49 +1923,45 @@
 
     ;; ---- Definitions ----
 
+    ;; A definition the checker infers or checks: an item's `Define`, taken
+    ;; apart once where groups are formed.
+    (record Definition
+      ((name String)
+       (value Expr)))
+
     ;; An unannotated group of mutually recursive definitions is inferred
     ;; together and generalized. Typed function headers are checked directly.
 
-    (define (check-group (ck Checker) (definitions (List Item)) (exposed (List String)))
-      (→ (Pair (List Item) Checker))
+    (define (check-group (ck Checker) (definitions (List Definition)) (exposed (List String)))
+      (→ (Pair (List Definition) Checker))
       (! compile)
       (let ((before (● ck pending-count)))
         (threading ck ((then (provisional-schemes definitions))
-                       (results (each infer-definition definitions))
+                       (values (each infer-definition definitions))
                        (then (generalize-group definitions before exposed)))
-                   (new Pair (first (map (lambda (pair)
-                                           (Define (match (● pair first)
-                                                     ((Define definition-name _)
-                                                      definition-name)
-                                                     (_ (panic "internal error: expected Define")))
-                                             (● pair second)))
-                                         (zip definitions results)))
-                        (second (Checker-open-set ck
-                                                  (append (map (lambda (definition)
-                                                                 (match definition
-                                                                   ((Define definition-name
-                                                                      _)
-                                                                    definition-name)
-                                                                   (_ (panic
-                                                                       "internal error: expected Define"))))
-                                                               definitions)
-                                                          (● ck open))))))))
+                   (new Pair
+                     (first
+                      (map (lambda (pair) (Definition-value-set (● pair first) (● pair second)))
+                           (zip definitions values)))
+                     (second (Checker-open-set ck
+                                               (append (definition-names definitions)
+                                                       (● ck open))))))))
+
+    (define (definition-names (definitions (List Definition))) (→ (List String))
+      (map (lambda (definition) (● definition name)) definitions))
 
     ;; Each definition in the group starts with a monomorphic metavariable, so
     ;; the group's members can refer to one another while it is inferred.
 
-    (define (provisional-schemes (ck Checker) (definitions (List Item))) (→ Checker)
+    (define (provisional-schemes (ck Checker) (definitions (List Definition))) (→ Checker)
       (fold-left (lambda (ck definition)
-                   (match definition
-                     ((Define definition-name definition-value)
-                      (threading ck ((type (local-placeholder definition-value)))
-                                 (set-scheme ck definition-name (mono-scheme type))))
-                     (_ (panic "internal error: expected Define"))))
+                   (threading ck ((type (local-placeholder (● definition value))))
+                              (set-scheme ck (● definition name) (mono-scheme type))))
                  ck definitions))
 
     ;; Generalize an inferred function group over the constraints it raised.
 
-    (define (generalize-group (ck Checker) (definitions (List Item))
+    (define (generalize-group (ck Checker) (definitions (List Definition))
                               (before I64) (exposed (List String)))
       (→ Checker)
       (generalize ck definitions
@@ -1973,14 +1969,12 @@
 
     ;; An inferred function, checked against its recursive placeholder.
 
-    (define (infer-definition (ck Checker) (definition Item))
+    (define (infer-definition (ck Checker) (definition Definition))
       (→ (Pair Expr Checker)) (! compile)
-      (match definition
-        ((Define name value)
-         (if (lambda-expr? value)
-             (infer-local-lambda ck value (scheme-type ck name))
-             (check-result ck value (scheme-type ck name) empty-row)))
-        (_ (panic "internal error: expected Define"))))
+      (let ((value (● definition value)) (type (scheme-type ck (● definition name))))
+        (if (lambda-expr? value)
+            (infer-local-lambda ck value type)
+            (check-result ck value type empty-row))))
 
     (define (scheme-type (ck Checker) (name String)) (→ Type)
       (match (table-ref (● ck schemes) name)
@@ -1992,7 +1986,7 @@
     ;; definition's type, a constraint of this group, or a top-level value.
 
     (define (generalize (ck Checker)
-                        (definitions (List Item))
+                        (definitions (List Definition))
                         (wanted (List Wanted))
                         (exposed (List String)))
       (→ Checker)
@@ -2008,17 +2002,11 @@
                                                  (exposed-row-metas ck definitions exposed))))))
              (metas (filter (lambda (meta) (not (member? (meta-id meta) fixed)))
                             (delete-duplicates same-meta?
-                                               (concatenate (map (lambda (d)
-                                                                   (match d
-                                                                     ((Define definition-name
-                                                                        _)
-                                                                      (free-metas (solution ck)
-                                                                                  (scheme-type ck
-                                                                                               definition-name)))
-                                                                     (_
-                                                                      (panic
-                                                                       "internal error: expected Define"))))
-                                                                 definitions)))))
+                                               (concatenate (map (lambda (name)
+                                                                   (free-metas (solution ck)
+                                                                               (scheme-type ck
+                                                                                            name)))
+                                                                 (definition-names definitions))))))
              (names (map (lambda (index) (string-append "t" (i64->string (+ index 1))))
                          (iota (length metas))))
              ;; Generalization binds a metavariable to a quantified name, like
@@ -2026,41 +2014,32 @@
              (bound (fold-left (lambda (ck pair)
                                  (bind-solved ck (● pair first) (TRigid (● pair second))))
                                ck (zip metas names))))
-        (fold-left (lambda (ck definition)
-                     (match definition
-                       ((Define definition-name _)
-                        (let ((name definition-name))
-                          (set-scheme ck
-                                      name
-                                      (new Scheme (vars names)
+        (fold-left (lambda (ck name)
+                     (set-scheme ck name (new Scheme
+                                           (vars names)
                                            (constraints (Nil))
-                                           (type (resolve-type
-                                                  (solution
-                                                   ck)
-                                                  (scheme-type
-                                                   ck
-                                                   name)))))))
-                       (_ (panic "internal error: expected Define"))))
-                   bound definitions)))
+                                           (type
+                                            (resolve-type (solution ck) (scheme-type ck name))))))
+                   bound (definition-names definitions))))
 
     ;; A top-level value is kept in one slot, so it has one type: what its
     ;; initializer leaves open, as the element of an empty list, its uses
     ;; in its library decide together.
 
-    (define (value-metas (ck Checker) (definitions (List Item))) (→ (List Type))
+    (define (value-metas (ck Checker) (definitions (List Definition))) (→ (List Type))
       (concatenate (map (lambda (definition)
-                          (match (value-definition definition)
-                            ((Some (Pair name _)) (free-metas (solution ck) (scheme-type ck name)))
+                          (match (value-loc (● definition value))
+                            ((Some _)
+                             (free-metas (solution ck) (scheme-type ck (● definition name))))
                             ((None) (Nil))))
                         definitions)))
 
-    ;; A value's definition as the expander writes it: its global and where
-    ;; it is.
+    ;; Where a value's definition is, if `value` is one as the expander
+    ;; writes it.
 
-    (define (value-definition (item Item)) (→ (Option (Pair String Loc)))
-      (match item
-        ((Define name (Expr (App (Expr (Var "prim:cached-thunk" _ _) _ _) _) _ loc))
-         (Some (new Pair (first name) (second loc))))
+    (define (value-loc (value Expr)) (→ (Option Loc))
+      (match value
+        ((Expr (App (Expr (Var "prim:cached-thunk" _ _) _ _) _) _ loc) (Some loc))
         (_ (None))))
 
     ;; An importer's use never decides a type, so an inferred value's is
@@ -2069,36 +2048,31 @@
 
     (define (check-value-types (ck Checker) (items (List Item))) (→ Unit) (! compile)
       (for-each (lambda (item)
-                  (match (value-definition item)
-                    ((Some (Pair name loc))
-                     (match (table-ref (● ck schemes) name)
-                       ((Some scheme)
+                  (match item
+                    ((Define name value)
+                     (match (new Pair
+                              (first (value-loc value))
+                              (second (table-ref (● ck schemes) name)))
+                       ((Pair (Some loc) (Some scheme))
                         (when (has-meta? (solution ck) (● scheme type))
                           (compile-error loc
                                          "nothing decides this value's type; state it with (→ Type)")))
-                       ((None) (unit))))
-                    ((None) (unit))))
+                       (_ (unit))))
+                    (_ (unit))))
                 items))
 
     ;; A foreign caller supplies no row argument. Keep an inferred export's
     ;; row open for instance solving instead of quantifying that row. Its
     ;; ordinary type variables still generalize and are refused by expose.
 
-    (define (exposed-row-metas (ck Checker) (definitions (List Item)) (exposed (List String)))
+    (define (exposed-row-metas (ck Checker) (definitions (List Definition)) (exposed (List String)))
       (→ (List Type))
-      (concatenate
-       (map (lambda (definition)
-              (match definition
-                ((Define definition-name _)
-                 (if (member? definition-name exposed)
-                     (match (resolve-type (solution ck)
-                                          (scheme-type ck
-                                                       definition-name))
-                       ((TFun _ _ row)
-                        (free-metas (solution ck) row))
-                       (_ (Nil)))
-                     (Nil)))
-                (_ (panic "internal error: expected Define")))) definitions)))
+      (concatenate (map (lambda (name)
+                          (match (resolve-type (solution ck) (scheme-type ck name))
+                            ((TFun _ _ row) (free-metas (solution ck) row))
+                            (_ (Nil))))
+                        (filter (lambda (name) (member? name exposed))
+                                (definition-names definitions)))))
 
     (define (meta-id (meta Type)) (→ I64)
       (match meta
@@ -2137,25 +2111,21 @@
     ;; `givens` is scope: the requirements hold while this definition is
     ;; checked and no longer, so the sub-check runs under its own checker.
 
-    (define (check-annotated (ck Checker) (definition Item) (scheme Scheme))
+    (define (check-annotated (ck Checker) (definition Definition) (scheme Scheme))
       (→ (Pair Item Checker))
       (! compile)
-      (match definition
-        ((Define _ definition-value)
-         (within ck
-                 (Checker-givens-set ck (if (null? (● scheme vars)) (Nil) (● scheme constraints)))
-                 (lambda (inner) (check-annotated-value inner definition scheme))))
-        (_ (panic "internal error: expected Define"))))
+      (within ck
+              (Checker-givens-set ck (if (null? (● scheme vars)) (Nil) (● scheme constraints)))
+              (lambda (inner) (check-annotated-value inner definition scheme))))
 
-    (define (check-annotated-value (ck Checker) (definition Item) (scheme Scheme))
+    (define (check-annotated-value (ck Checker) (definition Definition) (scheme Scheme))
       (→ (Pair Item Checker)) (! compile)
-      (match definition
-        ((Define name value)
-         (threading ck ((then (want-closed-requirements scheme (● value loc)))
-                        (value (check-result value (● scheme type) empty-row)))
-                    (new Pair (first (Define name value))
-                         (second (want-performed ck definition scheme)))))
-        (_ (panic "internal error: expected Define"))))
+      (let ((value (● definition value)))
+        (threading ck ((then (want-closed-requirements scheme (● value loc)))
+                       (checked (check-result value (● scheme type) empty-row)))
+                   (new Pair
+                     (first (Define (● definition name) checked))
+                     (second (want-performed ck definition scheme))))))
 
     ;; A signature's row says what calling the function may do, so it may
     ;; not name an effect the body never performs. A lambda was checked by
@@ -2164,16 +2134,15 @@
     ;; less of, and a value other than a lambda has no body of its own, so
     ;; neither is held to it.
 
-    (define (want-performed (ck Checker) (definition Item) (scheme Scheme)) (→ Checker)
-      (match definition
-        ((Define definition-name definition-value)
-         (match (new Pair (first (signature-loc (program-of ck) definition-name))
-                     (second (● scheme type)))
-           ((Pair (Some loc) (TFun _ _ row))
-            (if (lambda-expr? definition-value)
-                (want ck (WantPerformed definition-name row (● ck performed) loc)) ck))
-           (_ ck)))
-        (_ (panic "internal error: expected Define"))))
+    (define (want-performed (ck Checker) (definition Definition) (scheme Scheme)) (→ Checker)
+      (match (new Pair
+               (first (signature-loc (program-of ck) (● definition name)))
+               (second (● scheme type)))
+        ((Pair (Some loc) (TFun _ _ row))
+         (if (lambda-expr? (● definition value))
+             (want ck (WantPerformed (● definition name) row (● ck performed) loc))
+             ck))
+        (_ ck)))
 
     (define (check-performed (ck Checker) (want Wanted)) (→ Unit) (! compile)
       (match want
@@ -2360,21 +2329,12 @@
              (groups (each-recovered
                       (new Recovered (checker ck) (values (Nil)) (found (Nil)) (failed (Nil)))
                       group-references
-                      (lambda (group)
-                        (map (lambda (definition)
-                               (match definition
-                                 ((Define definition-name _)
-                                  definition-name)
-                                 (_ (panic "internal error: expected Define"))))
-                             group))
+                      definition-names
                       (lambda (ck group) (check-group ck group exposed))
                       (unannotated-groups ck items)))
-             (results (fold-left
-                       (lambda (results result) (match result
-                                                  ((Define definition-name _)
-                                                   (table-set results definition-name result))
-                                                  (_ (panic "internal error: expected Define"))))
-                       (empty-table) (concatenate (● groups values))))
+             (results (fold-left (lambda (results definition)
+                                   (table-set results (● definition name) (● definition value)))
+                                 (empty-table) (concatenate (● groups values))))
              (checked (each-recovered (new Recovered (checker (● groups checker))
                                            (values (Nil))
                                            (found (● groups found))
@@ -2386,12 +2346,8 @@
         (fail-if-found (in-source-order (● checked found)))
         (new Pair (first (● checked values)) (second (● checked checker)))))
 
-    (define (group-references (definitions (List Item))) (→ (List String))
-      (concatenate (map (lambda (definition) (match definition
-                                               ((Define _ definition-value)
-                                                (expr-references definition-value))
-                                               (_ (panic "internal error: expected Define"))))
-                        definitions)))
+    (define (group-references (definitions (List Definition))) (→ (List String))
+      (concatenate (map (lambda (definition) (expr-references (● definition value))) definitions)))
 
     ;; A definition refers to itself too, so one whose group failed is
     ;; not checked again.
@@ -2402,25 +2358,27 @@
         ((Expose name _ _) (list name))
         ((Entry name start _) (list name start))))
 
-    (define (unannotated-groups (ck Checker) (items (List Item))) (→ (List (List Item)))
+    (define (unannotated-groups (ck Checker) (items (List Item))) (→ (List (List Definition)))
       (definition-groups
-        (filter (lambda (item)
-                  (match item
-                    ((Define name _)
-                     (match (annotated-scheme (program-of ck) name) ((None) #t) ((Some _) #f)))
-                    (_ #f)))
-                items)))
+        (concatenate (map (lambda (item)
+                            (match item
+                              ((Define name value)
+                               (match (annotated-scheme (program-of ck) name)
+                                 ((None) (list (new Definition (name name) (value value))))
+                                 ((Some _) (Nil))))
+                              (_ (Nil))))
+                          items))))
 
-    (define (check-item (ck Checker) (results (Table Item)) (item Item))
+    (define (check-item (ck Checker) (results (Table Expr)) (item Item))
       (→ (Pair Item Checker))
       (! compile)
       (match item
-        ((Define name _)
+        ((Define name value)
          (match (table-ref results name)
-           ((Some result) (new Pair (first result) (second ck)))
+           ((Some checked) (new Pair (first (Define name checked)) (second ck)))
            ((None)
             (match (annotated-scheme (program-of ck) name)
-              ((Some scheme) (check-annotated ck item scheme))
+              ((Some scheme) (check-annotated ck (new Definition (name name) (value value)) scheme))
               ((None) (panic "internal error: unchecked definition"))))))
         (_ (new Pair (first item) (second ck)))))
 
@@ -2526,15 +2484,10 @@
     ;; The definitions in groups that refer to one another, each group after
     ;; the groups it refers to. Definitions are numbered in program order.
 
-    (define (definition-groups (definitions (List Item))) (→ (List (List Item)))
+    (define (definition-groups (definitions (List Definition))) (→ (List (List Definition)))
       (let* ((nodes (list->array definitions))
              (numbers (fold-left (lambda (table index)
-                                   (table-set table
-                                              (match (array-ref nodes index)
-                                                ((Define definition-name _)
-                                                 definition-name)
-                                                (_ (panic "internal error: expected Define")))
-                                              index))
+                                   (table-set table (● (array-ref nodes index) name) index))
                                  (empty-table) (iota (array-length nodes)))))
         (map (lambda (component) (map (lambda (index) (array-ref nodes index)) component))
              (strong-components
@@ -2543,15 +2496,12 @@
     ;; The numbers of the definitions `definition` refers to, in order of
     ;; first reference.
 
-    (define (definition-edges (numbers (Table I64)) (definition Item)) (→ (List I64))
-      (match definition
-        ((Define _ value)
-         (fold-right (lambda (name edges)
-                       (match (table-ref numbers name)
-                         ((Some index) (Cons index edges))
-                         ((None) edges)))
-                     (Nil) (expr-references value)))
-        (_ (Nil))))
+    (define (definition-edges (numbers (Table I64)) (definition Definition)) (→ (List I64))
+      (fold-right (lambda (name edges)
+                    (match (table-ref numbers name)
+                      ((Some index) (Cons index edges))
+                      ((None) edges)))
+                  (Nil) (expr-references (● definition value))))
 
     )
 
