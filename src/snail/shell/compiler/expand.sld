@@ -1664,6 +1664,16 @@
            (fields (form-items fields "a field list"))))
         (_ (compile-error (syntax-loc case) "expected (Case) or (Case ((field type) ...))"))))
 
+    ;; A data type's cases: an enum's as declared, a record's one case named
+    ;; after the record.
+
+    (define (data-cases (form Syntax) (enum? Bool)) (→ (List CaseSyntax)) (! compile)
+      (if enum?
+          (map parse-case (enum-cases form))
+          (list (new CaseSyntax
+                  (name (declared-name (declaration-head form)))
+                  (fields (record-fields form))))))
+
     (define (scan-case (cx Context) (env Env) (case Syntax)) (→ Context) (! compile)
       (bind-member cx env (● (parse-case case) name)))
 
@@ -1766,11 +1776,7 @@
                    ((Some (TypeName id _ _)) id)
                    (_ (panic "internal error: type"))))
              (scope (type-scope env params))
-             (cases (if enum?
-                        (map parse-case (enum-cases form))
-                        (list (new CaseSyntax
-                                (name (declared-name head))
-                                (fields (record-fields form))))))
+             (cases (data-cases form enum?))
              (data (new DataType (name id)
                         (params (ident-names params))
                         (cases (map-indexed (lambda (tag case) (resolve-case cx scope case id tag))
@@ -2944,48 +2950,45 @@
 
     ;; ---- Deriving ----
 
-    ;; A derived instance is a use of a macro that its class's library
-    ;; defines beside the class: `derive-repr-record` and its kin in (snail
-    ;; core base), `derive-serialize` and its kin in (snail shell wire). The
-    ;; expander only writes the use. It marks the macro's name to resolve
-    ;; among the exports of those libraries, whatever the declaring library
-    ;; imports.
+    ;; A derived instance is a use of a macro its class's library defines
+    ;; beside the class: `derive-repr` in (snail core base),
+    ;; `derive-serialize` and `derive-deserialize` in (snail shell wire).
+    ;; The expander writes only the use, marking the macro's name to resolve
+    ;; among those libraries' exports, whatever the declaring library
+    ;; imports. A use is the declaration's own keyword, `record` or `enum`,
+    ;; its head with its parameters, then each case:
+    ;;
+    ;;   (derive-repr enum (Option T) (None "None") (Some "Some" (field0 value "value")))
+    ;;
+    ;; A case is its name, the name as text and, for each field, a fresh
+    ;; variable, the label and the label as text. A macro binds the
+    ;; variable, since a case may repeat a label and `_` binds nothing.
 
     (define implicit-libraries (→ (List (List String)))
       (list (list "snail" "core" "base") (list "snail" "shell" "wire")))
 
+    ;; A declaration that derives nothing loads no implicit library.
+
     (define (derived-instances (cx Context) (form Syntax) (enum? Bool))
       (→ (Pair (List Syntax) Context))
       (! fs compile generator)
-      (each cx
-            (lambda (cx class) (derived-instance cx form enum? class))
-            (derived-classes form)))
+      (match (map deriving-macro (derived-classes form))
+        ((Nil) (new Pair (first (Nil)) (second cx)))
+        (macros
+         (let ((loc (syntax-loc form)))
+           (threading cx ((scope (deriving-scope loc)))
+                      (let* ((d (new Deriver (scope scope) (loc loc)))
+                             (arguments (deriving-arguments d form enum?)))
+                        (new Pair
+                          (first (map (lambda (macro) (Form (Cons (marked d macro) arguments) loc))
+                                      macros))
+                          (second cx))))))))
 
-    ;; The use of the macro that derives `class`: the declaration's head with
-    ;; its parameters, then its cases.
-
-    (define (derived-instance (cx Context) (form Syntax) (enum? Bool) (class Syntax))
-      (→ (Pair Syntax Context))
-      (! fs compile generator)
-      (let ((loc (syntax-loc form)) (macro (deriving-macro class enum?)))
-        (threading cx ((scope (deriving-scope loc)))
-                   (let ((d (new Deriver (scope scope) (loc loc))))
-                     (new Pair
-                       (first (Form (Cons (macro-name cx d macro)
-                                          (Cons (derived-head form)
-                                                (map (lambda (case) (derived-case d case))
-                                                     (deriving-cases form enum?))))
-                                    loc))
-                       (second cx))))))
-
-    ;; The macro that derives a class for a record, or for an enum.
-
-    (define (deriving-macro (class Syntax) (enum? Bool)) (→ String) (! compile)
+    (define (deriving-macro (class Syntax)) (→ String) (! compile)
       (match class
-        ((Ident "Repr" _ _) (if enum? "derive-repr-enum" "derive-repr-record"))
+        ((Ident "Repr" _ _) "derive-repr")
         ((Ident "Serialize" _ _) "derive-serialize")
-        ((Ident "Deserialize" _ _)
-         (if enum? "derive-deserialize-enum" "derive-deserialize-record"))
+        ((Ident "Deserialize" _ _) "derive-deserialize")
         (_ (compile-error (syntax-loc class)
                           "only Repr, Serialize and Deserialize can be derived"))))
 
@@ -3022,38 +3025,25 @@
                           (scope (● deriver scope))))
                loc)))
 
-    ;; A use must name a macro, or it would read as a statement: an
-    ;; implicit library exports each one.
-
-    (define (macro-name (cx Context) (d Deriver) (macro String)) (→ Syntax)
-      (match (resolve cx (scope-env cx (● d scope)) (Ident macro (None) (● d loc)))
-        ((Some (Macro _ _ _ _)) (marked d macro))
-        (_ (panic (string-append "internal error: no implicit library exports " macro)))))
-
-    ;; A macro's pattern takes the head as a list, `(Name parameter ...)`.
-
     (define (derived-head (form Syntax)) (→ Syntax) (! compile)
       (match (declaration-head form)
         ((Form items loc) (Form items loc))
         (name (Form (list name) (syntax-loc name)))))
 
-    ;; A record is one case named after the record.
+    (define (deriving-arguments (d Deriver) (form Syntax) (enum? Bool)) (→ (List Syntax))
+      (! compile)
+      (Cons (form-keyword form)
+            (Cons (derived-head form)
+                  (map (lambda (case) (derived-case d case)) (data-cases form enum?)))))
 
-    (define (deriving-cases (form Syntax) (enum? Bool)) (→ (List CaseSyntax)) (! compile)
-      (if enum?
-          (map parse-case (enum-cases form))
-          (list (new CaseSyntax
-                  (name (declared-name (declaration-head form)))
-                  (fields (record-fields form))))))
-
-    ;; A case as a macro reads it: its name, the name as text and, for each
-    ;; field, a fresh variable, the label and the label as text. A macro
-    ;; binds the variable, since a case may repeat a label and `_` binds
-    ;; nothing.
+    (define (form-keyword (form Syntax)) (→ Syntax)
+      (match form
+        ((Form (Cons keyword _) _) keyword)
+        (_ (panic "internal error: a declaration is a form"))))
 
     (define (derived-case (d Deriver) (case CaseSyntax)) (→ Syntax) (! compile)
       (Form (Cons (● case name)
-                  (Cons (text-atom d (expect-name (● case name) "a constructor"))
+                  (Cons (Atom (DString (expect-name (● case name) "a constructor")) (● d loc))
                         (map-indexed (lambda (index field)
                                        (derived-field d index (● (parse-field field) name)))
                                      (● case fields))))
@@ -3062,11 +3052,8 @@
     (define (derived-field (d Deriver) (index I64) (label Syntax)) (→ Syntax) (! compile)
       (Form (list (marked d (string-append "field" (i64->string index)))
                   label
-                  (text-atom d (expect-name label "a field label")))
+                  (Atom (DString (expect-name label "a field label")) (● d loc)))
             (● d loc)))
-
-    (define (text-atom (d Deriver) (value String)) (→ Syntax)
-      (Atom (DString value) (● d loc)))
 
     ;; ---- Patterns ----
 
