@@ -15,6 +15,6 @@ shoes on the torso: refused
 same character, same fingerprint: yes
 another skin, another fingerprint: yes
 headings: 0 1 2 3 0
-standing toward the viewer: picture 7 at 0,128, 1 frames
-strolling to the right: picture 7 at 64,192, 8 frames
-slashing away: picture 7 at 0,768, 6 frames
+standing toward the viewer: cell at 0,128
+strolling to the right, 200 ms in: cell at 192,192
+slashing away, a full cycle in: cell at 0,768

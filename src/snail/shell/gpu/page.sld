@@ -163,9 +163,11 @@
              (submit (lambda (buffers) (submitted! objects buffers)))
              (current-texture
               (lambda ()
-                (let ((id (transient! objects "canvas")))
-                  (host-current-texture id)
-                  (new GpuTexture (id id) (generation 1) (fresh #t)))))
+                (let* ((id (transient! objects "canvas")) (width (host-current-texture id)))
+                  (new Image
+                    (texture (new GpuTexture (id id) (generation 1) (fresh #t)))
+                    (width width)
+                    (height (host-current-height))))))
              (destroy
               (lambda (object)
                 (gone! (retire! objects

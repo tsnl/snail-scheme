@@ -1,7 +1,5 @@
 ;; The page's screen, as host/browser/host.mjs provides it: one import per
-;; drawing command, each taking scalars. A picture's address crosses a
-;; scalar at a time: `picture-url` answers how many, and
-;; `picture-url-scalar` reads each. (snail shell app)'s
+;; drawing command, each taking scalars. (snail shell app)'s
 ;; `provide-screen` answers `screen` with these.
 (define-library (snail runtime browser screen)
   (export
@@ -17,9 +15,7 @@
    batch-begin
    instance
    surface
-   frame-end
-   picture-url
-   picture-url-scalar)
+   frame-end)
   (import
    (snail core base))
   (begin
@@ -53,9 +49,4 @@
             "snail.runtime.browser.screen"
             "surface"
             (Fn F32 F32 I32 I32 I32 I32 I32 I32 I32 I32 → Unit))
-    (extern frame-end "snail.runtime.browser.screen" "frame-end" (Fn → Unit))
-    (extern picture-url "snail.runtime.browser.screen" "picture-url" (Fn I32 → I32))
-    (extern picture-url-scalar
-            "snail.runtime.browser.screen"
-            "picture-url-scalar"
-            (Fn I32 → I32))))
+    (extern frame-end "snail.runtime.browser.screen" "frame-end" (Fn → Unit))))

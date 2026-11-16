@@ -8,12 +8,13 @@
    LedgerScreen
    new-ledger-screen
    update-ledger-screen
-   view-ledger-screen
+   ledger-pictures
    ledger-screen-hud)
   (import
    (snail core base)
    (snail shell wire)
-   (snail shell app)
+   (except (snail shell app) Quad Picture Layer Source Rect)
+   (only (snail shell graphics atlas) Picture Source)
    (lpc wardrobe)
    (apps hearsay ledger)
    (apps hearsay cast)
@@ -109,12 +110,10 @@
         ((Press action argument) (press screen action argument))
         (_ screen)))
 
-    ;; The scene is empty; its pictures are the rivals' portraits for the
-    ;; HUD, from the sheets `art` gives.
-    (define (view-ledger-screen (screen LedgerScreen) (art (Fn String → (Option Source))))
-      (→ Frame)
-      (empty-frame
-       (map (lambda (who) (walk-picture art (rival-picture who) (rival who))) (list vee kit))))
+    ;; The scene is empty; its pictures are the rivals', for their
+    ;; portraits in the HUD, from the sheets `art` gives.
+    (define (ledger-pictures (art (Fn String → (Option Source)))) (→ (List Picture))
+      (map (lambda (who) (walk-picture art (rival-picture who) (rival who))) (list vee kit)))
 
     ;; ---- Panels ----
 

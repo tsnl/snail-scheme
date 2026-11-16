@@ -22,7 +22,7 @@
    face-region)
   (import
    (snail core base)
-   (snail shell app)
+   (only (snail shell graphics atlas) Rect)
    (snail shell sprite))
   (begin
 

@@ -41,7 +41,8 @@
    end-pass
    finish
    submit
-   current-texture)
+   current-texture
+   current-height)
   (import
    (snail core base))
   (begin
@@ -103,4 +104,5 @@
     (extern end-pass "snail.runtime.browser.gpu" "end-pass" (Fn I32 → Unit))
     (extern finish "snail.runtime.browser.gpu" "finish" (Fn I32 I32 → Unit))
     (extern submit "snail.runtime.browser.gpu" "submit" (Fn Bytes → Unit))
-    (extern current-texture "snail.runtime.browser.gpu" "current-texture" (Fn I32 → Unit))))
+    (extern current-texture "snail.runtime.browser.gpu" "current-texture" (Fn I32 → I32))
+    (extern current-height "snail.runtime.browser.gpu" "current-height" (Fn → I32))))

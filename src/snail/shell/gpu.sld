@@ -185,6 +185,7 @@
    TextureView
    view-of
    layer-view
+   array-view
    BindGroupEntry
    BufferEntry
    TextureEntry
@@ -576,7 +577,8 @@
       (View2d)
       (View2dArray))
 
-    ;; A view of some of a texture's levels and layers.
+    ;; A view of some of a texture's levels and layers; `layers` 0 is every
+    ;; layer from `base-layer` on.
     (record TextureView
       ((texture GpuTexture)
        (dimension ViewDimension)
@@ -585,7 +587,7 @@
        (base-layer I32)
        (layers I32)))
 
-    ;; A view of every level of layer 0, or of a texture's whole array.
+    ;; A view of the first `mips` levels of layer 0.
 
     (define (view-of (texture GpuTexture) (mips I32)) (→ TextureView)
       (new TextureView
@@ -595,6 +597,17 @@
         (mips mips)
         (base-layer 0)
         (layers 1)))
+
+    ;; A texture's whole array, at its first level.
+
+    (define (array-view (texture GpuTexture)) (→ TextureView)
+      (new TextureView
+        (texture texture)
+        (dimension (View2dArray))
+        (base-mip 0)
+        (mips 1)
+        (base-layer 0)
+        (layers 0)))
 
     (define (layer-view (texture GpuTexture) (layer I32)) (→ TextureView)
       (new TextureView
@@ -661,8 +674,9 @@
     ;; which names the image's bytes: the same path answers the texture
     ;; already decoded. `read-buffer` waits until the buffer, made with
     ;; `MapRead`, can be read, and answers the bytes asked for.
-    ;; `current-texture` is the canvas's texture for this frame. `submit`
-    ;; ends the frame.
+    ;; `current-texture` is the canvas's texture for this frame, sized to
+    ;; the canvas's pixels on the screen, and its size. `submit` ends the
+    ;; frame.
     (effect gpu
       ((request-device (Fn I64 → DeviceInfo ! tasks))
        (create-buffer (Fn BufferDescriptor → GpuBuffer))
@@ -691,7 +705,7 @@
        (end-pass (Fn GpuRenderPass → Unit))
        (finish (Fn GpuCommandEncoder → GpuCommandBuffer))
        (submit (Fn (List GpuCommandBuffer) → Unit))
-       (current-texture (Fn → GpuTexture))
+       (current-texture (Fn → Image))
        (destroy (Fn GpuObject → Unit))))
 
     ;; ---- Objects ----
@@ -1227,15 +1241,17 @@
 
     (define (view-json (view TextureView)) (→ Json)
       (JsonObject
-       (list (member "view-of" (object-json (● (● view texture) id)))
-             (member "dimension"
-                     (JsonString (match (● view dimension)
-                                   ((View2d) "2d")
-                                   ((View2dArray) "2d-array"))))
-             (member "baseMipLevel" (integer (● view base-mip)))
-             (member "mipLevelCount" (integer (● view mips)))
-             (member "baseArrayLayer" (integer (● view base-layer)))
-             (member "arrayLayerCount" (integer (● view layers))))))
+       (append (list (member "view-of" (object-json (● (● view texture) id)))
+                     (member "dimension"
+                             (JsonString (match (● view dimension)
+                                           ((View2d) "2d")
+                                           ((View2dArray) "2d-array"))))
+                     (member "baseMipLevel" (integer (● view base-mip)))
+                     (member "mipLevelCount" (integer (● view mips)))
+                     (member "baseArrayLayer" (integer (● view base-layer))))
+               (if (= (● view layers) 0)
+                   (Nil)
+                   (list (member "arrayLayerCount" (integer (● view layers))))))))
 
     (define (entry-json (entry BindGroupEntry)) (→ Json)
       (match entry
