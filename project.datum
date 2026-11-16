@@ -1,13 +1,13 @@
 ((build-target siegework
                (browser
-                (entry ((siegework application) Siegework))
-                (library-roots ("apps/siegework/src"))
-                (public "apps/siegework/public")))
+                (entry ((apps siegework application) Siegework))
+                (library-roots ("src"))
+                (public "src/apps/siegework/public")))
  (build-target hearsay
                (browser
-                (entry ((hearsay application) Hearsay))
-                (library-roots ("apps/hearsay/src"))
-                (public "apps/hearsay/public")))
+                (entry ((apps hearsay application) Hearsay))
+                (library-roots ("src"))
+                (public "src/apps/hearsay/public")))
  (build-target highlight-book
                (program
                 (entry "tools/highlight-book.sld"))))

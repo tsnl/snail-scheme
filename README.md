@@ -54,7 +54,7 @@ the source changes.
 
 ## Siegework
 
-[Siegework](apps/siegework) is a colony game written in `snail-scheme`: explore a
+[Siegework](src/apps/siegework) is a colony game written in `snail-scheme`: explore a
 seeded map, wire an energy network across it, and destroy three nests
 before their attacks destroy your hub. It runs in the browser with WebGPU.
 **[Play it online](https://tsnl.github.io/snail-scheme/play/siegework/)**,
