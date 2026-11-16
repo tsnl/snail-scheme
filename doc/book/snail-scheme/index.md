@@ -28,8 +28,8 @@ The chapters describe implemented behavior and mark proposed toolchain changes:
 - [Bootstrap and self-hosting](bootstrap.md): the erasure property, the two
   hosts and the stages that make the compiler compile itself.
 - [Libraries](libraries.md): the standard library and wire types.
-- [Projects and targets](projects.md): inert descriptions, output directories
-  and embedding one build in another.
+- [Workspaces and builds](projects.md): workspaces, output directories and
+  embedding one build in another.
 - [Compiler architecture](compilers.md): the passes, bootstrap, linking and
   complete rebuilds.
 - [Application model](applications.md): interactive applications in the

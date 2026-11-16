@@ -1,12 +1,12 @@
 // `snail-scheme lsp` speaks the Language Server Protocol over its standard input
-// and output, for a project of its own made here:
+// and output, for a workspace of its own made here:
 //
 //   node tests/lsp.mjs ROOT
 //
-// It answers initialize with what it does; reports a project's failures
-// once the editor is ready and again on each save, at their places, and
-// clears a file once it is fixed; reports a failure of the project itself
-// on project.datum; formats the open text; colours it with semantic
+// It answers initialize with what it does; checks each open script and
+// library when it is opened and saved, reports their failures at their
+// places, once each, and clears a file once it is fixed; formats the open
+// text; colours it with semantic
 // tokens, a line at a time; gives a name's type where it is
 // used, and where it is defined, in another file or in the same one, but
 // not once the open text no longer spells it there; counts
@@ -25,11 +25,6 @@ const put = (name, text) => {
 };
 const uri = name => `file://${join(project, name)}`;
 
-const description = `((build-target main
-   (program
-    (entry "main.sld")
-    (library-roots ("src")))))
-`;
 const library = `(define-library (demo twice)
   (export
    twice)
@@ -107,25 +102,24 @@ const range = (startLine, startCharacter, endLine, endCharacter) => ({
   start: {line: startLine, character: startCharacter},
   end: {line: endLine, character: endCharacter},
 });
-// An edit to the open main.sld, which the editor then saves: the server
-// builds what was saved, and places what it reports in the open text.
+// An edit to the open main.scm, which the editor then saves: the server
+// checks what was saved, and places what it reports in the open text.
 let version = 1;
 const changed = text => {
   version += 1;
   send({method: 'textDocument/didChange',
-        params: {textDocument: {uri: uri('main.sld'), version}, contentChanges: [{text}]}});
+        params: {textDocument: {uri: uri('main.scm'), version}, contentChanges: [{text}]}});
 };
 const saved = name => send({method: 'textDocument/didSave', params: {textDocument: {uri: uri(name)}}});
 const edited = text => {
   changed(text);
-  put('main.sld', text);
-  saved('main.sld');
+  put('main.scm', text);
+  saved('main.scm');
 };
 
 try {
-  put('project.datum', description);
   put('src/demo/twice.sld', library);
-  put('main.sld', program);
+  put('main.scm', program);
 
   // ---- Starting ----
 
@@ -142,36 +136,36 @@ try {
     },
   });
   send({method: 'textDocument/didOpen',
-        params: {textDocument: {uri: uri('main.sld'), languageId: 'snail-scheme', version: 1, text: program}}});
+        params: {textDocument: {uri: uri('main.scm'), languageId: 'snail-scheme', version: 1, text: program}}});
   send({method: 'initialized', params: {}});
 
   // ---- Names ----
 
-  const twice = await ask('textDocument/hover', at('main.sld', 6, 13));
+  const twice = await ask('textDocument/hover', at('main.scm', 6, 13));
   assert.deepEqual(twice.contents, {
     kind: 'markdown',
     value: '```snail\ntwice : (Fn (Fn I64 → I64) I64 → I64)\n```\n\nfrom `demo.twice`',
   });
-  assert.deepEqual(await ask('textDocument/definition', at('main.sld', 6, 15)),
+  assert.deepEqual(await ask('textDocument/definition', at('main.scm', 6, 15)),
                    {uri: uri('src/demo/twice.sld'), range: range(6, 13, 6, 18)});
   // After the snail, `n` is at code unit 40 of its line, its 39th character.
-  assert.equal((await ask('textDocument/hover', at('main.sld', 7, 40))).contents.value,
+  assert.equal((await ask('textDocument/hover', at('main.scm', 7, 40))).contents.value,
                '```snail\nn : I64\n```');
-  assert.deepEqual(await ask('textDocument/definition', at('main.sld', 7, 40)),
-                   {uri: uri('main.sld'), range: range(6, 9, 6, 10)});
-  assert.equal(await ask('textDocument/hover', at('main.sld', 5, 0)), null);
+  assert.deepEqual(await ask('textDocument/definition', at('main.scm', 7, 40)),
+                   {uri: uri('main.scm'), range: range(6, 9, 6, 10)});
+  assert.equal(await ask('textDocument/hover', at('main.scm', 5, 0)), null);
   // An edit not yet saved, nor built, moves what the build saw: the name now
   // at a use's point is not the use's, so it has no answer.
   changed(program.replace('(twice (lambda', '(thrice (lambda'));
-  assert.equal(await ask('textDocument/hover', at('main.sld', 6, 13)), null);
+  assert.equal(await ask('textDocument/hover', at('main.scm', 6, 13)), null);
   changed(program);
 
   // ---- Formatting ----
 
-  assert.deepEqual(await ask('textDocument/formatting', {textDocument: {uri: uri('main.sld')}, options: {}}), []);
+  assert.deepEqual(await ask('textDocument/formatting', {textDocument: {uri: uri('main.scm')}, options: {}}), []);
   const messy = program.replace(' (write-line (show n))', '\n(write-line (show n))');
   changed(messy);
-  assert.deepEqual(await ask('textDocument/formatting', {textDocument: {uri: uri('main.sld')}, options: {}}), [{
+  assert.deepEqual(await ask('textDocument/formatting', {textDocument: {uri: uri('main.scm')}, options: {}}), [{
     range: range(0, 0, 9, 0),
     newText: messy.replace('\n(write-line (show n))', '\n    (write-line (show n))'),
   }]);
@@ -183,7 +177,7 @@ try {
   // columns count it as two units. Names used are not coloured.
   const coloured = '#| one\ntwo |#\n(define (f) (→ String) "🐌" 7)\n';
   changed(coloured);
-  const {data} = await ask('textDocument/semanticTokens/full', {textDocument: {uri: uri('main.sld')}});
+  const {data} = await ask('textDocument/semanticTokens/full', {textDocument: {uri: uri('main.scm')}});
   const tokens = [];
   for (let index = 0, line = 0, column = 0; index < data.length; index += 5) {
     const [dLine, dColumn, length, type, modifiers] = data.slice(index, index + 5);
@@ -206,24 +200,29 @@ try {
   // ---- Diagnostics ----
 
   edited(program.replace('(show n)', '(show "n" n)'));
-  assert.deepEqual(await diagnostics('main.sld'), [{
+  assert.deepEqual(await diagnostics('main.scm'), [{
     range: range(7, 34, 7, 46),
     severity: 1,
     source: 'snail-scheme',
     message: 'expected 1 arguments, found 2',
   }]);
   edited(program);
-  assert.deepEqual(await diagnostics('main.sld'), []);
+  assert.deepEqual(await diagnostics('main.scm'), []);
 
-  put('project.datum', description.replace('"main.sld"', '"missing.sld"'));
-  saved('project.datum');
-  const failure = await diagnostics('project.datum');
-  assert.equal(failure.length, 1);
-  assert.match(failure[0].message, /missing\.sld: no such file or directory/);
-  assert.deepEqual(failure[0].range, range(0, 0, 0, 0));
-  put('project.datum', description);
-  saved('project.datum');
-  assert.deepEqual(await diagnostics('project.datum'), []);
+  // An open library is checked as the program that imports it; its
+  // failure, which the script's check meets too, is reported once.
+  send({method: 'textDocument/didOpen',
+        params: {textDocument: {uri: uri('src/demo/twice.sld'), languageId: 'snail-scheme', version: 1, text: library}}});
+  // The server takes messages in order, so a reply comes after the check.
+  await ask('textDocument/hover', at('main.scm', 5, 0));
+  put('src/demo/twice.sld', library.replace('(f (f x))', '(f (f "x"))'));
+  saved('src/demo/twice.sld');
+  const failure = await diagnostics('src/demo/twice.sld');
+  assert.equal(failure.length, 1, JSON.stringify(failure));
+  assert.equal(failure[0].range.start.line, 7);
+  put('src/demo/twice.sld', library);
+  saved('src/demo/twice.sld');
+  assert.deepEqual(await diagnostics('src/demo/twice.sld'), []);
 
   // ---- Ending ----
 

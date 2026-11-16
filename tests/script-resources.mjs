@@ -1,10 +1,9 @@
-// Linked files are objects of a project build's store, named for the
-// SHA-256 of their bytes, and each host reads one when a task first asks
-// for it.
-//   node tests/project-resources.mjs ROOT
+// Linked files are objects of a workspace's store, named for the SHA-256
+// of their bytes, and each host reads one when a task first asks for it.
+//   node tests/script-resources.mjs ROOT
 //
-// A library links two files beside its source. A program target and a
-// browser target each place them in the project's store, build/.snail-store,
+// A library links two files beside its source. A script built for node and
+// for the browser each place them in the workspace's store, build/.snail-store,
 // and view them at store/sha256/AB/DIGEST in their output, a link in a debug
 // build and a copy beside the one linked module of a release one; the
 // program prints the bytes of one,
@@ -23,8 +22,9 @@ import {createWasi, linkModule, linkProgram, objectPath, programExports, runMain
 import {createTasks, taskExports} from '../host/browser/tasks.mjs';
 
 const execute = promisify(execFile), root = process.argv[2];
-const project = await mkdtemp(join(tmpdir(), 'snail-project-resources-'));
-const build = (target, ...flags) => execute(join(root, 'snail-scheme'), ['build', ...flags, project, target]);
+const project = await mkdtemp(join(tmpdir(), 'snail-workspace-resources-'));
+const build = (target, ...flags) => execute(join(root, 'snail-scheme'), ['build', ...flags, '--target', target === 'cli' ? 'node' : 'browser', 'main.scm'], {cwd: project});
+const output = join(project, 'build/main');
 const run = path => execute(process.execPath, ['--no-warnings', join(root, 'host/native/run-snail.mjs'), path]);
 const write = async (name, contents) => { await mkdir(join(project, name, '..'), {recursive: true}); await writeFile(join(project, name), contents); };
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -69,32 +69,30 @@ try {
     (begin (define (hero) (→ Resource) (link-file "art/hero.bin")) (define (villain) (→ Resource) (link-file "art/villain.bin"))))`);
   await write('src/assets/art/hero.bin', hero);
   await write('src/assets/art/villain.bin', villain);
-  await write('main.sld', `(import (snail core base) (snail core io) (only (snail shell task) tasks) (snail shell resource) (assets sprites))
+  await write('main.scm', `(import (snail core base) (snail core io) (only (snail shell task) tasks) (snail shell resource) (assets sprites))
 (define (main) (→ Unit) (! output-port resource tasks)
   (write-line (string-join (map (lambda (byte) (show (u8->i32 byte))) (array->list (read-resource (hero)))) ",")))\n`);
   await write('public/index.html', '<!doctype html><title>Resources</title>');
-  await write('project.datum', `((build-target cli (program (entry "main.sld") (library-roots ("src"))))
- (build-target page (browser (entry "main.sld") (library-roots ("src")) (public "public"))))`);
 
   await build('cli');
-  assert.deepEqual(await resource(join(project, 'build/cli'), hero), hero, 'the program target places the file');
-  assert.deepEqual(await resource(join(project, 'build/cli'), villain), villain);
-  assert.equal(await viewed(join(project, 'build/cli'), hero), 'link', 'a debug build links to the store');
+  assert.deepEqual(await resource(output, hero), hero, 'the node build places the file');
+  assert.deepEqual(await resource(output, villain), villain);
+  assert.equal(await viewed(output, hero), 'link', 'a debug build links to the store');
   assert.deepEqual(await readFile(join(project, 'build/.snail-store', objectPath(digest(hero)).replace(/^store\//, ''))), hero,
-                   'the project store holds it');
-  assert.equal((await run(join(project, 'build/cli/cli.manifest.datum'))).stdout, '1,2,3,255\n', 'the native host reads it when the task asks');
+                   'the workspace store holds it');
+  assert.equal((await run(join(output, 'main.manifest.datum'))).stdout, '1,2,3,255\n', 'the native host reads it when the task asks');
   await build('cli', '--release');
-  assert.equal(await viewed(join(project, 'build/cli'), hero), 'copy', 'a release build copies it');
-  assert.equal((await run(join(project, 'build/cli/cli.wasm'))).stdout, '1,2,3,255\n', 'beside its one module');
+  assert.equal(await viewed(output, hero), 'copy', 'a release build copies it');
+  assert.equal((await run(join(output, 'main.wasm'))).stdout, '1,2,3,255\n', 'beside its one module');
 
   await build('page');
-  assert.deepEqual(await resource(join(project, 'build/page'), hero), hero, 'the browser target places the file');
-  const page = await pageOutput(join(project, 'build/page'), 'page.manifest.datum');
+  assert.deepEqual(await resource(output, hero), hero, 'the browser build places the file');
+  const page = await pageOutput(output, 'main.manifest.datum');
   assert.equal(page.output, '1,2,3,255', 'the browser host fetches it beside the module');
   assert.ok(page.fetched.includes(`/${objectPath(digest(hero))}`), page.fetched.join(' '));
   assert.ok(!page.fetched.includes(`/${objectPath(digest(villain))}`), 'a file the program never reads is never fetched');
   await build('page', '--release');
-  const released = await pageOutput(join(project, 'build/page'), 'page.wasm');
+  const released = await pageOutput(output, 'main.wasm');
   assert.equal(released.output, '1,2,3,255', 'a release page reads it beside its one module');
   assert.ok(!released.fetched.includes(`/${objectPath(digest(villain))}`), released.fetched.join(' '));
 
@@ -102,7 +100,7 @@ try {
   await assert.rejects(build('cli'), /sprites\.sld:\d+:\d+: the library assets\.sprites links art\/hero\.bin, but there is no file at /);
   await write('src/assets/art/hero.bin', hero);
 
-  console.log('project resources passed');
+  console.log('script resources passed');
 } finally {
   await rm(project, {recursive: true, force: true});
 }

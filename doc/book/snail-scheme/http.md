@@ -185,6 +185,5 @@ with a 400 say; that answer is framed as a GET's is.
 
 Artifact serving, writing event streams after their heads, connection scheduling
 and deadline policy remain
-[networking work](https://github.com/tsnl/snail-scheme/issues/457). Existing
-project file, status and origin policies remain in the native project service.
+[networking work](https://github.com/tsnl/snail-scheme/issues/457). Status and origin policies remain open.
 Persistent connections, pipelining and streaming uploads are not implemented.

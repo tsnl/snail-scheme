@@ -11,8 +11,8 @@ on:
       - host/**
       - scripts/**
       - src/**
+      - tools/**
       - book.toml
-      - project.datum
       - snail
       - Makefile
       - rust-toolchain.toml

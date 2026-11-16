@@ -1,8 +1,9 @@
-# Proposed scripts and builds without `project.datum`
+# Scripts and builds without `project.datum`
 
-**Design proposal for review; not implemented.** The [project chapter](projects.md)
-describes what ships today. This chapter takes the cheapest path to the end
-state: `snail-scheme` behaves like an interpreter first and a compiler second.
+**Implemented, but for the steps still open below.** The
+[builds chapter](projects.md) describes what ships. This chapter took the
+cheapest path to the end state: `snail-scheme` behaves like an interpreter
+first and a compiler second.
 
 ```sh
 ./snail-scheme run --target node src/apps/fibonacci/main.scm
@@ -314,5 +315,8 @@ Each step is a pull request that passes every check on its own.
      the generation it answers; a build runs each producer its compile
      asks for and compiles again. `artifact.sld`, `plan.sld` and the
      compiler's `Inputs` are gone.
-   - Delete `project.sld` and the root `project.datum`.
-   - The language server uses the workspace.
+   - `project.sld` and the root `project.datum` go: done, with the
+     project forms of `build` and `run`; highlight-book is a script.
+   - The language server uses the workspace: done. It checks each open
+     script, a page when a `public/` folder is beside it and Node
+     otherwise, and each open library as the program that imports it.

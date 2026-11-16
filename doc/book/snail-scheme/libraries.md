@@ -77,7 +77,7 @@ the runtime interfaces.
 | `(snail shell explore)` | Bounded model checking of a total state machine's invariant. |
 | `(snail shell lsp)` | `snail-scheme lsp`: `serve-language` answers the Language Server Protocol on standard streams for one project, with diagnostics from each saved build, formatting, and hover and definition from its checked libraries ([editors](toolchain.md#editors)). |
 | `(snail shell project web-app)` | Default installable web manifests and their page links, for browser packaging. |
-| `(snail shell project build)` | A project's build, which `snail-scheme build` and `snail-scheme run` run: `read-project`, `build-project`, which compiles, links and packages each target into a generation of its own, and `publish-project` ([projects](projects.md)). |
+| `(snail shell project build)` | A script's build, which `snail-scheme build` and `snail-scheme run` run: `build-script`, which compiles, links and packages it into a generation of its own and publishes it, and `check-script` and `check-library`, which the language server checks with ([builds](projects.md)). |
 
 ### Runtime interfaces
 

@@ -1,7 +1,7 @@
-// A project build that fails reports the error it met and keeps nothing it
-// made: the generations it created are discarded, and the outputs of earlier
-// builds stay published, as `snail-scheme build` shows from outside.
-//   node tests/project-failures.mjs ROOT
+// A script build that fails reports the error it met and keeps nothing it
+// made: the generation it created is discarded, and the output of an
+// earlier build stays published, as `snail-scheme build` shows from outside.
+//   node tests/script-failures.mjs ROOT
 import assert from 'node:assert/strict';
 import {execFile} from 'node:child_process';
 import fs from 'node:fs';
@@ -10,9 +10,9 @@ import {join} from 'node:path';
 import {promisify} from 'node:util';
 
 const execute = promisify(execFile), root = process.argv[2];
-const project = fs.mkdtempSync(join(tmpdir(), 'snail-failures-project-'));
+const project = fs.mkdtempSync(join(tmpdir(), 'snail-failures-workspace-'));
 const write = (name, text) => { const path = join(project, name); fs.mkdirSync(join(path, '..'), {recursive: true}); fs.writeFileSync(path, text); };
-const build = target => execute(join(root, 'snail-scheme'), ['build', project, target], {timeout: 120_000, killSignal: 'SIGKILL'});
+const build = () => execute(join(root, 'snail-scheme'), ['build', '--target', 'node', 'main.scm'], {cwd: project, timeout: 120_000, killSignal: 'SIGKILL'});
 const inventory = () => fs.readdirSync(join(project, 'build')).sort();
 
 async function throughTheCommandLine() {
@@ -20,42 +20,34 @@ async function throughTheCommandLine() {
   // the passes after specialization the control effects an implementation
   // may not yield to; those errors reach the user through a build as a
   // type error does.
-  write('project.datum', '((build-target main (program (entry "main.sld"))))');
-  write('main.sld', '(import (snail core base)) (define (main) (→ Unit) (ann "wrong type" I64) (unit))');
-  await assert.rejects(build('main'), /expected I64, found String/);
+  fs.mkdirSync(join(project, 'src'));
+  write('main.scm', '(import (snail core base)) (define (main) (→ Unit) (ann "wrong type" I64) (unit))');
+  await assert.rejects(build(), /expected I64, found String/);
   for (const name of ['error-control-implementation', 'error-control-resume-row']) {
-    write('main.sld', fs.readFileSync(join(root, `tests/programs/${name}.sld`), 'utf8'));
+    write('main.scm', fs.readFileSync(join(root, `tests/programs/${name}.sld`), 'utf8'));
     const expected = fs.readFileSync(join(root, `tests/programs/${name}.err`), 'utf8').trim();
-    await assert.rejects(build('main'), error => error.stderr.includes(expected));
+    await assert.rejects(build(), error => error.stderr.includes(expected));
   }
   assert.deepEqual(inventory(), [], 'a failed build discards the generation it created');
-  // An entry that is not there is a diagnostic naming it, as an editor's
-  // deletion leaves it, and not a failure of the builder.
-  fs.rmSync(join(project, 'main.sld'));
-  await assert.rejects(build('main'), error => /main\.sld: no such file or directory/.test(error.stderr)
-    && !/os error/.test(error.stderr));
-  assert.deepEqual(inventory(), [], 'a build of a missing entry makes nothing');
-
   // A producer reads real input files when the build runs it, and is
-  // compiled and run in private compiler scratch, so the project's build
-  // directory holds only the target's generation, its link and the store.
-  write('project.datum', '((build-target main (program (entry "main.sld") (library-roots (".")))))');
-  write('main.sld', '(import (snail core base) (generated flag)) (define (main) (→ Unit) (ann (value) String) (unit))');
+  // compiled and run in private compiler scratch, so the workspace's build
+  // directory holds only the script's generation, its link and the store.
+  write('main.scm', '(import (snail core base) (generated flag)) (define (main) (→ Unit) (ann (value) String) (unit))');
   write('flag.txt', 'valid');
-  write('generated/flag.sld', `(generate-library (generated flag)
+  write('src/generated/flag.sld', `(generate-library (generated flag)
     (import (snail core base) (snail core io) (snail shell syntax))
     (library-syntax (list "generated" "flag") (list "value") (list (list "snail" "core" "base"))
       (list (form "define" (list (form "value" (Nil))
         (form "→" (list (SymbolSyntax "String")))
           (if (string=? (read-file "${project}/flag.txt") "valid")
             (StringSyntax "ok") (SymbolSyntax "unknown-generated-name")))))))`);
-  await build('main');
+  await build();
   const published = fs.readlinkSync(join(project, 'build/main'));
   assert.deepEqual(inventory(), [published, '.snail-store', 'main']);
   assert.deepEqual(fs.readdirSync(join(project, 'build', published)).sort(), ['.snail-target', 'main.manifest.datum', 'store'],
     'producer programs use private compiler scratch');
   write('flag.txt', 'invalid');
-  await assert.rejects(build('main'), /unknown-generated-name/);
+  await assert.rejects(build(), /unknown-generated-name/);
   assert.deepEqual(inventory(), [published, '.snail-store', 'main'], 'a failed build leaves the published generation');
   assert.equal(fs.readlinkSync(join(project, 'build/main')), published);
 }
@@ -65,4 +57,4 @@ try {
 } finally {
   fs.rmSync(project, {recursive: true, force: true});
 }
-console.log('project failures passed');
+console.log('script failures passed');

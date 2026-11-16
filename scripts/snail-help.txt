@@ -1,8 +1,6 @@
 Usage: snail-scheme build --target TARGET [--release] FILE
        snail-scheme run --target TARGET [--release] FILE [ARGUMENT ...]
        snail-scheme wat --target node|wasmtime|browser FILE
-       snail-scheme build [--release] PROJECT BUILD-TARGET
-       snail-scheme run PROJECT RUN-TARGET [ARGUMENT ...]
        snail-scheme lsp
        snail-scheme format [--width N] [--check | --write] [FILE ...]
 
@@ -21,12 +19,11 @@ signals: on Node for node, on build/snail run-wasm for wasmtime.
 
 wat prints the WebAssembly text of FILE's whole program.
 
-The PROJECT forms build and run a target of PROJECT/project.datum, until
-applications become scripts.
-
 lsp serves the Language Server Protocol on standard input and output for
-the folder an editor opens: diagnostics from each saved build, formatting,
-hover, definitions and colours. Zed and VS Code start it through
+the workspace an editor opens: diagnostics from checking each open script
+and library when it is opened and saved, formatting, hover, definitions
+and colours. A script with a public/ folder beside it is checked as a
+page, any other for node. Zed and VS Code start it through
 editors/zed and editors/vscode.
 
 format prints standard input formatted, or with --check fails for each FILE
