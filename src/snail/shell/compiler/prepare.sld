@@ -114,7 +114,7 @@
     ;; called: those its row names.
 
     (define (call-row (type Type)) (→ (List String))
-      (match (fn-arrow type)
+      (match type
         ((TFun _ _ (TRow labels _)) labels)
         (_ (Nil))))
 
@@ -184,7 +184,7 @@
               (Cons effect (operation-latent effect scheme))))
 
     (define (closed-row? (type Type)) (→ Bool)
-      (match (fn-arrow type)
+      (match type
         ((TFun _ _ (TRow _ (None))) #t)
         (_ #f)))
 
@@ -426,7 +426,7 @@
                                       (labels->string labels)))))
 
     (define (function-params (type Type)) (→ (List Type))
-      (match (fn-arrow type)
+      (match type
         ((TFun params _ _) params)
         (_ (panic "internal error: a primitive is a function"))))
 

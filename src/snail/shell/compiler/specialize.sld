@@ -10,7 +10,6 @@
    Binding
    new-state
    specialization-declarations
-   specialization-program
    specialization-definitions
    start-specialization
    complete-specializations
