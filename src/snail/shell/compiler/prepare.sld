@@ -492,7 +492,6 @@
                              callees
                              scrutinee
                              (lambda (scrutinee) (rebuild (Match scrutinee clauses))))))
-
           ((FieldRead _ _ _) (panic "internal error: field selection survived checking"))
           ((New _ _) (panic "internal error: named construction survived checking"))
           ((Ann inner type)
@@ -656,15 +655,15 @@
                                     final
                                     (● entry first)))
                               -1 (zip (iota (length operands)) operands))))
-        (bind-from count callees final 0 operands)))
+        (bind-from count final 0 operands)))
 
-    (define (bind-from (count I64) (callees Callees) (final I64) (index I64) (operands (List Expr)))
+    (define (bind-from (count I64) (final I64) (index I64) (operands (List Expr)))
       (→ (Pair Bound I64))
       (match operands
         ((Cons operand rest)
          (if (and (<= index final) (or (= index final) (not (inert? operand))))
              (let ((name (temporary-name count)) (next (+ count 1)))
-               (threading next ((bound (bind-from callees final (+ index 1) rest)))
+               (threading next ((bound (bind-from final (+ index 1) rest)))
                           (new Pair
                             (first (new Bound
                                      (lets
@@ -672,7 +671,7 @@
                                             (● bound lets)))
                                      (operands (Cons (temporary name operand) (● bound operands)))))
                             (second next))))
-             (threading count ((bound (bind-from callees final (+ index 1) rest)))
+             (threading count ((bound (bind-from final (+ index 1) rest)))
                         (new Pair
                           (first (new Bound
                                    (lets (● bound lets))
@@ -995,8 +994,7 @@
                               (implementation-type (TFun (list i64 resume-type) i64 empty-row))
                               (closing (new Expr (term (Lambda (list "v.1" "resume.1")
                                                                (call inherit
-                                                                     (list (resuming "resume.1")))
-                                                               ))
+                                                                     (list (resuming "resume.1")))))
                                             (type implementation-type)
                                             (loc loc)))
                               (forwarding
@@ -1005,8 +1003,8 @@
                                                              (list (call f (list (number 1)))
                                                                    (call inherit
                                                                          (list
-                                                                          (resuming "resume.2")))))
-                                                       ))
+                                                                          (resuming
+                                                                           "resume.2")))))))
                                     (type implementation-type)
                                     (loc loc))))
                          (expect
@@ -1035,8 +1033,7 @@
                               (caught
                                (new Expr (term (Lambda (list "x.2")
                                                        (handle-abort
-                                                        (call f (list (local "x.2" i64))))
-                                                       ))
+                                                        (call f (list (local "x.2" i64))))))
                                     (type caught-type)
                                     (loc loc)))
                               (reading (test-callees (table-set (empty-table) "t:caught" caught)))

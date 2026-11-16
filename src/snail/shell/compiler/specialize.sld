@@ -306,7 +306,6 @@
                            (clauses (each (lambda (state clause) (copy-clause state inst clause))
                                           clauses)))
                     (new Pair (first (Match scrutinee clauses)) (second state))))
-
         ((FieldRead _ _ _) (panic "internal error: field selection survived checking"))
         ((New _ _) (panic "internal error: named construction survived checking"))
         ((Ann inner type)
@@ -322,7 +321,6 @@
         ((BoxAny inner)
          (threading state ((inner (copy-expr inst inner)))
                     (new Pair (first (BoxAny inner)) (second state))))
-
         ((Downcast inner target)
          (threading state ((inner (copy-expr inst inner)))
                     (new Pair (first (Downcast inner (ground inst target))) (second state))))))
@@ -441,8 +439,7 @@
     (begin
       (define test-specialize
         (lambda () (test-control-rows)
-                (test-spec-keys)
-                ))
+                (test-spec-keys)))
 
       ;; Grounding keeps a row's control effects, in name order, and drops
       ;; the rest, wherever the row sits.

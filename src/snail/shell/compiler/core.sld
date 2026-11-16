@@ -218,8 +218,7 @@
             (new Pair (first "String") (second 0))
             (new Pair (first "Array") (second 1))
             (new Pair (first "ConstantArray") (second 1))
-            (new Pair (first "Fn") (second 0))
-            ))
+            (new Pair (first "Fn") (second 0))))
 
     ;; Whether `name` is one of `builtin-types`. Type queries ask this of
     ;; each declaration they enter, so it matches the names rather than
@@ -523,8 +522,7 @@
         (evidence (List Evidence))))
       (Lambda
        ((params (List String))
-        (body Expr)
-        ))
+        (body Expr)))
       (App
        ((callee Expr)
         (args (List Expr))))
@@ -608,7 +606,6 @@
         ((Let _ value body) (list value body))
         ((Seq first rest) (list first rest))
         ((Match scrutinee clauses) (Cons scrutinee (map (lambda (record) (● record body)) clauses)))
-
         ((Ann inner _) (list inner))
         ((BoxAny inner) (list inner))
         ((Downcast inner _) (list inner))
