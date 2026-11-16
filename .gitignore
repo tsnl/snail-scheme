@@ -8,7 +8,6 @@
 
 # Intermediate build files
 /build/
-/apps/*/build/
 /tests/apps/*/build/
 
 # Cargo names its output `target` relative to wherever the build ran, so

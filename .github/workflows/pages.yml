@@ -3,7 +3,7 @@ name: Pages
 on:
   pull_request:
     paths: &inputs
-      - apps/siegework/**
+      - src/apps/siegework/**
       - bootstrap/**
       - doc/**
       - examples/**
