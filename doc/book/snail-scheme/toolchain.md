@@ -58,17 +58,13 @@ the cold builder's synchronous behavior.
 
 ## Contributor checks
 
-`make test` runs the compiler unit tests, program fixtures, host
-and build checks, and static and linked application checks.
-Each fixture owns its output files and each compile has private scratch, so
-the compiled compiler's fixture checks compile, link and run in the test
-runner's eight child processes. Linked-module cases use the same worker
-limit. `make test-chez` keeps source compilation serial because each Chez
-compiler needs a large heap; its static programs still link and run in parallel.
-Stage 0 places Wasm modules in the object store using the shared SHA-256 implementation,
-with parity tests against the compiler's portable hash. Hashing these large
-binary artifacts stays in the host; the self-hosted compiler keeps its own
-portable implementation.
+`make test` runs the compiler's unit tests on Chez (`tests/unit.scm`), then
+`tests/run.mjs`: every program fixture, built by `./snail-scheme build` as a
+user's is and run on its host, and the host, build and application checks.
+A fixture `NAME.sld` must print `NAME.out`, or fail to build with each line
+of `NAME.err`. Each build has private scratch and its own output, so eight
+run at once. A fixture folder with libraries of its own, as
+`tests/programs`, is a workspace: they live under its `src/`.
 
 CI reports formatting, both Rust crates, tool building and the `snail-scheme` suite
 as separate steps under the required `Complete correctness checks` job. It

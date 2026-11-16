@@ -338,7 +338,7 @@ program, since two builds with different directories may resolve the same
 recipe's imports to different libraries. It reads `KEY.syntax` from the
 compile's scratch when a producer has already written it there. Otherwise it
 prints the producer as `KEY.sld` and requests it. The producer names its
-recipe after its imports, `(recipe "lib/sample/blob.sld")`, and a path its
+recipe after its imports, `(recipe "src/sample/blob.sld")`, and a path its
 own forms write, as a `link-file` in the recipe's expression, resolves
 against that file rather than the printed copy (`written-in` in
 `expand.sld`), so a recipe links files beside itself wherever its producer
@@ -428,7 +428,7 @@ for good.
 | `src/snail/shell/compiler/driver.sld` | Typed source invocation shared by both hosts, `compile-arguments`: a compile that fails, or that needs an input after publishing its request, exits with status 1. The command line's `compile` action and Chez's `compile` mode call it; the command line's `wat` uses the same compiler. |
 | `host/chez/load.scm` | Chez's unwind boundary, which turns a failure into the same status. |
 | `crates/snail/` | `build/snail`, a native executable embedding wasmtime, which runs programs that need only WASI, linked files and module loading by `run-snail.mjs`'s protocol, the compiled compiler among them, when `SNAIL_ENGINE=wasmtime`; it precompiles the compiler to a `.cwasm`. See [the bootstrap](bootstrap.md#the-native-executable). |
-| `host/chez/snail/stage0/build.sld` | The bootstrap of the command line, standalone generated libraries, the test harness's compiles and the native assembler/linker entry point. Each compile has private scratch; rebuilding the command line holds `build/lock`. |
+| `host/chez/snail/stage0/build.sld` | The bootstrap of the command line, and nothing else. Each compile has private scratch; rebuilding the command line holds `build/lock`. |
 | `host/chez/snail/stage0/process.sls` | Synchronous tool capture through private output files and a constant shell script with positional arguments. The parent reaps before reading or deleting files; stdin is EOF. The host boundary uses Chez process and file primitives. |
 | `crates/snail-scheme-support/` | Rust scalar services: math, Unicode, float text, console and file IO, directory and path operations, the monotonic clock, panics. External resources use explicit handles; managed references remain engine-traced. Its `assembler` feature builds the toolchain's runtime, which tools written in `snail-scheme` link (`build-toolchain-tool`), with in-process assembly and static linking for `(snail shell assembler)`, shared by the native executable. |
 | `host/native/run-snail.mjs` | Node/WASI program execution, the compiled compiler's included, on Node's main thread, plus module loading; it drives the program's task scheduler through `host/browser/tasks.mjs`, as the page does. A trap is status 2 and a WASI exit its own, as on wasmtime. |
@@ -441,9 +441,9 @@ task scheduling and resources to the [runtime](../runtimes/index.md).
 
 ## Following and checking a change
 
-`make test` exercises emitted Wasm; `make test-chez` runs the compiler source
-on Chez. `make bootstrap` rebuilds from Chez alone and compares the compiled
-compiler's successive Wasm stages. Keep both hosts working: differences in
+`make test` runs the compiler's unit tests from source on Chez and exercises
+emitted Wasm. `make bootstrap` rebuilds from Chez alone and compares the
+compiled compiler's successive Wasm stages. Keep both hosts working: differences in
 integer overflow, table iteration or evaluation order must not change behavior.
 Backend changes need execution tests, not only successful compilation.
 `make check` checks formatting; `mdbook build` builds the book.

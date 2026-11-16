@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := check
-.PHONY: format check fetch test test-wasmtime test-chez test-browser bootstrap unicode-tables generated-unicode site siegework hearsay pages
+.PHONY: format check fetch test test-wasmtime test-browser bootstrap unicode-tables generated-unicode site siegework hearsay pages
 
 CHEZ ?= scheme
 export CHEZ
@@ -14,23 +14,20 @@ fetch:
 	cargo fetch --locked --manifest-path crates/snail-scheme-support/Cargo.toml
 	cargo fetch --locked --manifest-path crates/snail/Cargo.toml
 
-# The formatter's tests, the compiler's unit tests, the examples and test
-# programs, both games' tests, Siegework headless, and the project builds.
-# Bootstrap the command line, which is also the engine that runs per-library
-# programs, first.
+# The compiler's unit tests, on Chez, then every program and check, built
+# by the command line (tests/run.mjs): the examples and test programs, both
+# games' tests, Siegework headless, the build suites and the formatter's.
+# The command line is bootstrapped first.
 test:
 	./scripts/bootstrap >/dev/null
 	"$(CHEZ)" --script host/chez/load.scm "$(CURDIR)" test
+	node tests/run.mjs "$(CURDIR)"
 
-# The suite with every compile on the native executable's wasmtime instead of
-# Node, plus the check that both engines emit the same text.
+# The suite with each program built for wasmtime and run on the native
+# executable, plus the check that the command line emits the same text on
+# both engines.
 test-wasmtime:
 	SNAIL_ENGINE=wasmtime $(MAKE) test
-
-# The suite with the compiler's source running on Chez instead of as Wasm.
-test-chez:
-	./scripts/bootstrap >/dev/null
-	SNAIL_STAGE0=chez "$(CHEZ)" --script host/chez/load.scm "$(CURDIR)" test
 
 # Browser interfaces in headless Chromium, which CI does
 # not have; CHROMIUM names the browser.
