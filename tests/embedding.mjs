@@ -1,6 +1,7 @@
 // One build embedding another: a server script's generated library builds
 // a client page (tests/embedding) and links every file of it. Producers
 // run in every build, so a changed client file reaches the next server.
+// A script whose producer builds that script is refused, by name.
 // A producer that needs its own library, at once or once another
 // producer has run, is an import cycle, and a producer in one never runs.
 //   node tests/embedding.mjs ROOT
@@ -34,6 +35,8 @@ async function embedding() {
                  'the producer publishes the client build in the workspace');
     await writeFile(join(workspace, 'client/public/nested/data.bin'), Buffer.from([90, 0, 255]));
     assert.equal((await served()).at(-1), '90,0,255', 'the next build embeds the changed file');
+    await assert.rejects(snail(workspace, 'build', '--target', 'node', 'own.scm'),
+                         /a script's build embeds itself: \S*own\.scm → \S*own\.scm/);
   } finally {
     await rm(workspace, {recursive: true, force: true});
   }
@@ -73,4 +76,4 @@ async function producerCycles() {
 
 await producerCycles();
 await embedding();
-console.log('embedding: a build embeds another through a producer; producer cycles fail');
+console.log('embedding: a build embeds another through a producer; cycles of producers and of builds fail');
