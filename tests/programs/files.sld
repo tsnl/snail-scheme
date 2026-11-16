@@ -34,6 +34,7 @@
               (path-followed-status (lambda (name) -1))
               (path-make-link (lambda (names) -1))
               (path-read-link (lambda (name) -1))
+              (path-hard-link (lambda (names) -1))
               (reply-character
                (lambda (index) (if (= index 1) #\null (string-ref "x😀y" (i32->i64 index)))))
               (status-size (lambda () 0))

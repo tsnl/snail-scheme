@@ -30,7 +30,11 @@ extension: the whole program compiled as one and fused with its runtime.
 Each file the program links ([linked files](types.md#linked-files)) is
 copied into `store/` beside it, at `store/sha256/AB/DIGEST`, named for the
 SHA-256 of its bytes and sharded by its first two hex digits, so the
-directory can be served or shipped on its own. Node and
+directory can be served or shipped on its own. A file the script's
+published build already holds is not copied again: the new generation takes
+another name for it, a hard link, so a program's bulky files are on disk
+once however often it is built, and each generation still holds its own
+when another is deleted. Node and
 `build/snail run-wasm` run the module directly, and a page through
 `linkModule` in `load.mjs`.
 

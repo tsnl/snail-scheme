@@ -11,7 +11,7 @@
 import assert from 'node:assert/strict';
 import {execFile} from 'node:child_process';
 import {createHash} from 'node:crypto';
-import {mkdir, mkdtemp, readFile, rm, writeFile} from 'node:fs/promises';
+import {mkdir, mkdtemp, readFile, realpath, rm, stat, writeFile} from 'node:fs/promises';
 import {createServer} from 'node:http';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
@@ -73,8 +73,16 @@ try {
   assert.deepEqual(await resource(output, hero), hero, 'the node build places the file');
   assert.deepEqual(await resource(output, villain), villain);
   assert.equal((await run(join(output, 'main.wasm'))).stdout, '1,2,3,255\n', 'the native host reads it when the task asks');
+  // A build takes the files its script's published build already holds
+  // as other names for them, so a bulky file is on disk once however
+  // often the script is built, and each generation still holds its own.
+  const first = await realpath(output), inode = async directory => (await stat(join(directory, objectPath(digest(hero))))).ino;
   await build('cli', '--release');
+  assert.notEqual(await realpath(output), first);
   assert.deepEqual(await resource(output, hero), hero, 'a release build places it too');
+  assert.equal(await inode(output), await inode(first), 'as another name for the one the last build placed');
+  await rm(first, {recursive: true});
+  assert.deepEqual(await resource(output, hero), hero, 'which outlives that build');
   assert.equal((await run(join(output, 'main.wasm'))).stdout, '1,2,3,255\n', 'beside its optimized module');
 
   await build('page');
@@ -88,6 +96,10 @@ try {
   assert.equal(released.output, '1,2,3,255', 'a release page reads it the same way');
   assert.ok(!released.fetched.includes(`/${objectPath(digest(villain))}`), released.fetched.join(' '));
 
+  // An edited file is new bytes under a new name, copied.
+  await write('src/assets/art/hero.bin', Buffer.from([9, 9]));
+  await build('cli');
+  assert.equal((await run(join(output, 'main.wasm'))).stdout, '9,9\n', 'an edited file is placed anew');
   await rm(join(project, 'src/assets/art/hero.bin'));
   await assert.rejects(build('cli'), /sprites\.sld:\d+:\d+: the library assets\.sprites links art\/hero\.bin, but there is no file at /);
   await write('src/assets/art/hero.bin', hero);

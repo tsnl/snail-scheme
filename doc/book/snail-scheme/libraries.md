@@ -218,6 +218,7 @@ each failure.
 | `(file-status path)` | A `FileStatus`: the `FileKind` (`RegularFile`, `Directory`, `SymbolicLink` or `OtherKind`), the size in bytes and the modification time in nanoseconds since the Unix epoch, without following a link. |
 | `(followed-status path)` | The `FileStatus` of what a read of `path` finds, following each link to the file it names, so never `SymbolicLink`; a link to nothing is `NotFound`, though `file-status` finds the link. |
 | `(make-symbolic-link target path)`, `(read-symbolic-link path)` | A link and its target, kept as given. |
+| `(make-hard-link existing path)` | Another name for a file, which is not copied; it fails across file systems. |
 | `(read-text-file path limit)` | The text of the regular file at `path`, if it holds at most `limit` bytes of UTF-8, as one version of the file: its length and modification time stayed the same while it was read. A link is not followed. Else a `TextError`: `ReadFailed` with a `FileError`, `NotRegularFile`, `TooLong`, `NotText` or `ChangedWhileRead` (`tests/programs/text-files.sld`). |
 | `(write-text-file path text mode)` | Whole-text write with mandatory `WriteMode`: `CreateNew` refuses existing leaves (including dangling symlinks), `ReplaceExisting` refuses missing files, and `CreateOrReplace` permits either. Creating an empty file is writing `""` with `CreateNew`. |
 
