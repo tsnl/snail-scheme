@@ -1,23 +1,26 @@
 ;; `snail-scheme lsp`, the language server editors start: the Language Server
-;; Protocol over standard input and output, for one project, the folder the
-;; editor opened, whose project.datum names its targets. Zed starts it
-;; through editors/zed; any editor that speaks the protocol can.
+;; Protocol over standard input and output, for one workspace, the folder the
+;; editor opened, which holds src/. Zed and VS Code start it through
+;; editors/zed and editors/vscode; any editor that speaks the protocol can.
 ;;
-;; It answers from a debug build of the project, built in this process when
-;; the editor opens the project and each time it saves a file. The build reads the disk, so what it reports is
-;; what was saved:
+;; It answers from checking each document the editor has open, in this
+;; process, as a build would, whenever the editor opens or saves a file: a
+;; script for the platform it is built for, a page when a public/ folder is
+;; beside it and Node otherwise, and a library under src/ as the program
+;; that imports it. A check reads the disk, so what it reports is what was
+;; saved:
 ;;
-;; - diagnostics: each failure the build met, at its place;
+;; - diagnostics: each failure a check met, at its place;
 ;; - hover: a name's type where it is used, as the checker instantiated it;
 ;; - definition: where a name used is defined, a global's definition or
 ;;   the form that binds a local;
 ;; - formatting: the open text as (snail shell format) formats it, which
-;;   needs no build;
+;;   needs no check;
 ;; - colours: the open text's tokens as (snail shell highlight) classes
-;;   them, which needs no build either.
+;;   them, which needs no check either.
 ;;
 ;; The server does one thing at a time: a request that arrives during a
-;; build waits for it. Only messages from the editor drive it, and it ends
+;; check waits for it. Only messages from the editor drive it, and it ends
 ;; when its input does or the editor says to exit.
 (define-library (snail shell lsp)
   (export
@@ -64,7 +67,6 @@
          local-name
          name-owner)
    (only (snail shell compiler check) Typed)
-   (only (snail shell project) target-name)
    (only (snail shell process) process)
    (snail shell project build))
   (begin
@@ -313,33 +315,36 @@
        (message String)))
 
     ;; A diagnostic about no file, or a file that is not there, or a failure
-    ;; of the build's own work, is the project's, and shows on its
-    ;; project.datum. One in line 0 is about its file as a whole.
+    ;; of the check's own work, shows on the document checked. One in line 0
+    ;; is about its file as a whole.
 
-    (define (failure-reports (project String) (failure Failure)) (→ (List Report)) (! fs)
+    (define (failure-reports (document String) (failure Failure)) (→ (List Report)) (! fs)
       (match failure
         ((CompileFailure diagnostics)
-         (map (lambda (diagnostic) (diagnostic-report project diagnostic))
+         (map (lambda (diagnostic) (diagnostic-report document diagnostic))
               (diagnostics->list diagnostics)))
-        ((BuildFailure message) (list (project-report project message)))))
+        ((BuildFailure message) (list (whole-report document message)))))
 
-    (define (diagnostic-report (project String) (diagnostic SourceDiagnostic)) (→ Report) (! fs)
-      (let ((loc (● diagnostic loc)))
-        (cond ((= (string-length (● loc file)) 0) (project-report project (● diagnostic message)))
-              ((not (file-exists? (absolute project (● loc file))))
-               (project-report project (diagnostic->string diagnostic)))
+    (define (diagnostic-report (document String) (diagnostic SourceDiagnostic)) (→ Report) (! fs)
+      (let* ((loc (● diagnostic loc)) (file (● loc file)))
+        (cond ((or (= (string-length file) 0) (not (file-exists? file)))
+               (whole-report document (diagnostic->string diagnostic)))
               ((> (● loc line) 0)
-               (new Report (file (absolute project (● loc file))) (loc (Some loc))
-                    (message (● diagnostic message))))
-              (else
-               (new Report (file (absolute project (● loc file))) (loc (None))
-                    (message (diagnostic->string diagnostic)))))))
+               (new Report (file file) (loc (Some loc)) (message (● diagnostic message))))
+              (else (whole-report file (diagnostic->string diagnostic))))))
 
-    (define (project-report (project String) (message String)) (→ Report)
-      (new Report (file (string-append project "/project.datum")) (loc (None)) (message message)))
+    (define (whole-report (file String) (message String)) (→ Report)
+      (new Report (file file) (loc (None)) (message message)))
 
-    (define (absolute (project String) (file String)) (→ String)
-      (if (has-prefix? file "/") file (string-append project "/" file)))
+    ;; Documents that share a library report its failures once.
+
+    (define (distinct-reports (reports (List Report))) (→ (List Report))
+      (let ((key (lambda (report)
+                   (string-append (● report file)
+                                  (match (● report loc) ((Some loc) (loc-key loc)) ((None) ""))
+                                  " "
+                                  (● report message)))))
+        (delete-duplicates (lambda (a b) (string=? (key a) (key b))) reports)))
 
     ;; Each file's reports, and an empty list for each file reported before
     ;; that has none now, so the editor clears it. Answers the files
@@ -377,7 +382,7 @@
 
     ;; ---- Names ----
 
-    ;; What the checker knows of each name in the build's programs: each
+    ;; What the checker knows of each name in the checked programs: each
     ;; use, by the point it is at, with its type there, and where each name
     ;; is bound. Names are the checker's unique ones, `library:name` for a
     ;; global and `name.N` for a local, so a use leads to one binding.
@@ -427,7 +432,7 @@
         (fold-left index-expr index (expr-children expr))))
 
     ;; The use whose name starts at or runs through `index` in `text`. The
-    ;; text there must still spell it: an open text edited since the build
+    ;; text there must still spell it: an open text edited since the check
     ;; may have moved another token to the point the use was at.
 
     (define (use-at (names Index) (path String) (text String) (index I64)) (→ (Option Use))
@@ -452,19 +457,19 @@
 
     ;; ---- The server ----
 
-    ;; The project is the folder the editor opened, once it says which;
+    ;; The workspace is the folder the editor opened, once it says which;
     ;; `reported` the files whose diagnostics were last published; `names`
-    ;; the last successful build's.
+    ;; those of the programs the last checks typed.
     (record Server
       ((tools Tools)
-       (project (Option String))
+       (workspace (Option String))
        (documents (List Document))
        (reported (List String))
        (names Index)
        (exiting Bool)))
 
     (define (serve-language (tools Tools)) (→ Unit) (! mut fs clock process input-port output-port)
-      (serve (new Server (tools tools) (project (None)) (documents (Nil)) (reported (Nil))
+      (serve (new Server (tools tools) (workspace (None)) (documents (Nil)) (reported (Nil))
                   (names (empty-index)) (exiting #f))))
 
     (define (serve (server Server)) (→ Unit) (! mut fs clock process input-port output-port)
@@ -493,7 +498,7 @@
       (! fs output-port)
       (cond ((string=? method "initialize")
              (respond id (capabilities))
-             (Server-project-set server (project-of params)))
+             (Server-workspace-set server (opened-folder params)))
             ((string=? method "shutdown") (respond id (JsonNull)) server)
             ((string=? method "textDocument/formatting")
              (respond id (formatting server params))
@@ -515,8 +520,9 @@
       (! mut fs clock process output-port)
       (cond ((string=? method "initialized") (checked server))
             ((string=? method "textDocument/didOpen")
-             (opened server (text-at params (list "textDocument" "uri"))
-                     (text-at params (list "textDocument" "text"))))
+             (checked (opened server
+                              (text-at params (list "textDocument" "uri"))
+                              (text-at params (list "textDocument" "text")))))
             ((string=? method "textDocument/didChange")
              (opened server (text-at params (list "textDocument" "uri")) (changed-text params)))
             ((string=? method "textDocument/didClose") (closed server params))
@@ -545,7 +551,7 @@
     ;; The folder opened: the first workspace folder, the root URI, or the
     ;; root path, the protocol's names for it from newest to oldest.
 
-    (define (project-of (params Json)) (→ (Option String))
+    (define (opened-folder (params Json)) (→ (Option String))
       (match (member-at params (list "workspaceFolders"))
         ((Some (JsonArray (Cons folder _)))
          (match (text-at folder (list "uri")) ((Some uri) (uri->path uri)) ((None) (None))))
@@ -582,48 +588,97 @@
     (define (without-document (documents (List Document)) (path String)) (→ (List Document))
       (filter (lambda (document) (not (string=? (● document path) path))) documents))
 
-    ;; ---- Building ----
+    ;; ---- Checking ----
 
-    ;; Builds every target of the project in debug mode, then
-    ;; publishes what failed and keeps the programs' names. A build that
-    ;; failed keeps the names of the last that did not. The generations go
-    ;; once their programs are read: the server publishes nothing.
+    ;; What a document is checked as: a script, for the platform it is
+    ;; built for, or a library of a workspace, by its name.
+    (enum Check
+      (ScriptCheck
+       ((script Script)
+        (platform Platform)))
+      (LibraryCheck
+       ((workspace String)
+        (name (List String)))))
+
+    ;; A .scm file is a script, a page when a public/ folder is beside it;
+    ;; an .sld file under its workspace's src/ is the library its path
+    ;; there names. Its workspace is the nearest folder above it that holds
+    ;; src/, as a build's is, which `workspace`, holding src/, bounds.
+
+    (define (document-check (workspace String) (path String)) (→ (Option Check)) (! fs)
+      (if (and (has-prefix? path (string-append workspace "/")) (file-exists? path))
+          (let* ((script (script-at path)) (src (string-append (● script workspace) "/src/")))
+            (cond ((has-suffix? path ".scm") (Some (ScriptCheck script (platform-beside path))))
+                  ((and (has-suffix? path ".sld") (has-prefix? path src))
+                   (Some (LibraryCheck (● script workspace)
+                                       (split-name (substring path
+                                                              (string-length src)
+                                                              (- (string-length path) 4))))))
+                  (else (None))))
+          (None)))
+
+    (define (platform-beside (path String)) (→ Platform) (! fs)
+      (if (file-exists? (string-append (parent path) "/public")) (Browser) (Node)))
+
+    (define (parent (path String)) (→ String)
+      (let loop ((index (- (string-length path) 1)))
+        (cond ((< index 0) "")
+              ((char=? (string-ref path index) #\/) (substring path 0 index))
+              (else (loop (- index 1))))))
+
+    (define (split-name (path String)) (→ (List String))
+      (match (string-index path #\/)
+        ((Some index)
+         (Cons (substring path 0 index)
+               (split-name (substring path (+ index 1) (string-length path)))))
+        ((None) (list path))))
+
+    (define (has-suffix? (text String) (suffix String)) (→ Bool)
+      (and (>= (string-length text) (string-length suffix))
+           (string=?
+            (substring text (- (string-length text) (string-length suffix)) (string-length text))
+            suffix)))
+
+    ;; A document's check: what failed, at its places, or the program as
+    ;; the checker typed it.
+
+    (define (check-document (tools Tools) (workspace String) (path String))
+      (→ (Pair (List Report) (Option Typed)))
+      (! mut fs clock process)
+      (match (document-check workspace path)
+        ((None) (new Pair (first (Nil)) (second (None))))
+        ((Some check)
+         (match (match check
+                  ((ScriptCheck script platform) (check-script tools script platform))
+                  ((LibraryCheck owner name) (check-library tools owner name)))
+           ((Ok typed) (new Pair (first (Nil)) (second (Some typed))))
+           ((Err failure) (new Pair (first (failure-reports path failure)) (second (None))))))))
+
+    ;; Checks every open document, then publishes what failed and keeps the
+    ;; checked programs' names; when every check failed, those of the last
+    ;; that did not stay.
 
     (define (checked (server Server)) (→ Server) (! mut fs clock process output-port)
-      (match (● server project)
+      (match (● server workspace)
         ((None) server)
-        ((Some project)
-         (if (file-exists? (string-append project "/project.datum"))
-             (let* ((built (project-build (● server tools) project))
-                    (reported (publish (● server documents) (● server reported) (● built first))))
-               (Server-reported-set (match (● built second)
-                                      ((Some names) (Server-names-set server names))
-                                      ((None) server))
-                                    reported))
+        ((Some workspace)
+         (if (file-exists? (string-append workspace "/src"))
+             (let* ((results (map (lambda (document)
+                                    (check-document (● server tools) workspace (● document path)))
+                                  (● server documents)))
+                    (programs (fold-right (lambda (result programs)
+                                            (match (● result second)
+                                              ((Some typed) (Cons typed programs))
+                                              ((None) programs)))
+                                          (Nil)
+                                          results))
+                    (reports (distinct-reports (concatenate (map (lambda (result) (● result first))
+                                                                 results)))))
+               (Server-reported-set (if (null? programs)
+                                        server
+                                        (Server-names-set server (index-programs programs)))
+                                    (publish (● server documents) (● server reported) reports)))
              server))))
-
-    (define (project-build (tools Tools) (project String))
-      (→ (Pair (List Report) (Option Index)))
-      (! mut fs clock process)
-      (match (read-project project)
-        ((Err failure) (new Pair (first (failure-reports project failure)) (second (None))))
-        ((Ok description)
-         (match (build-project tools project description (map target-name (● description builds))
-                               (Debug) (string-append (● tools root) "/build/snail-run")
-                               ".snail-lsp-")
-           ((Err failure) (new Pair (first (failure-reports project failure)) (second (None))))
-           ((Ok candidate)
-            (discard-candidate candidate)
-            (new Pair (first (Nil))
-                 (second (Some (index-programs (programs-of candidate))))))))))
-
-    (define (programs-of (candidate Candidate)) (→ (List Typed))
-      (fold-right (lambda (output programs)
-                    (match (● output typed)
-                      ((Some typed) (Cons typed programs))
-                      ((None) programs)))
-                  (Nil)
-                  (● candidate outputs)))
 
     ;; ---- Requests ----
 

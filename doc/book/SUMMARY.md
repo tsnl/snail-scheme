@@ -11,7 +11,7 @@
   - [Bootstrap and self-hosting](snail-scheme/bootstrap.md)
   - [Libraries](snail-scheme/libraries.md)
   - [HTTP protocol](snail-scheme/http.md)
-  - [Projects and targets](snail-scheme/projects.md)
+  - [Workspaces and builds](snail-scheme/projects.md)
   - [Proposed scripts and builds](snail-scheme/scripts.md)
   - [Compiler architecture](snail-scheme/compilers.md)
   - [Application model](snail-scheme/applications.md)

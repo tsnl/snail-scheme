@@ -40,17 +40,17 @@ every program that needs no sockets or processes. The
 [bootstrap chapter](bootstrap.md#the-native-executable) explains why Node stays
 the default. Stage 0 uses the native executable for assembly and linking on
 both engines. The public `./snail-scheme` launcher is
-unchanged. One native `snail-scheme` that replaces it, running the project builder
+unchanged. One native `snail-scheme` that replaces it, running the builder
 and programs as well, is proposed in
 [#562](https://github.com/tsnl/snail-scheme/issues/562).
 
-The [project chapter](projects.md) defines `project.datum`, named targets,
-output directories and embedding one build in another.
+The [builds chapter](projects.md) defines workspaces, output directories and
+embedding one build in another.
 
-`snail-scheme run PROJECT RUN-TARGET [ARGUMENT ...]` builds the referenced program in
-debug mode and runs that exact completed generation. Configured arguments come
-first; arguments after the target are passed through unchanged. The application
-inherits the caller's working directory, environment and terminal IO.
+`snail-scheme run --target node|wasmtime FILE [ARGUMENT ...]` builds the
+script and runs that exact completed generation, passing the arguments after
+the script unchanged. The program inherits the caller's working directory,
+environment and terminal IO.
 
 After compiler and scratch cleanup, the native command replaces itself with the
 runtime using [Node's process replacement](https://nodejs.org/api/process.html#processexecvefile-args-env).
@@ -60,8 +60,8 @@ the cold builder's synchronous behavior.
 
 ## Contributor checks
 
-`make test` runs the compiler and project unit tests, program fixtures, host
-and project checks, and static and linked application checks.
+`make test` runs the compiler unit tests, program fixtures, host
+and build checks, and static and linked application checks.
 Each fixture owns its output files and each compile has private scratch, so
 the compiled compiler's fixture checks compile, link and run in the test
 runner's eight child processes. Linked-module cases use the same worker
@@ -145,19 +145,24 @@ language, and its queries live with the extension, under
 
 `snail-scheme lsp` is the command line's `lsp`, `(snail shell lsp)`. It reads
 Content-Length framed JSON-RPC on standard input, answers on standard output,
-and serves the project at the root folder the editor opens. It offers:
+and serves the workspace at the root folder the editor opens, which holds
+`src/`. It offers:
 
-- **Diagnostics.** Once the editor is ready, and on each save, it builds the
-  project's targets in development mode, with scratch under
-  `build/snail-run/`, and discards the candidate, publishing nothing. Each
-  failure is reported on its file, over the range `(snail shell highlight)`
-  derives for its point: the token there, or the datum that starts there. A
-  file is cleared once it builds. A failure with no point, or in a file that
-  does not exist, is reported on `project.datum`. The build reads the disk, so
-  diagnostics follow what was saved.
+- **Diagnostics.** When a file is opened and on each save, it checks each
+  open document as a build would, producers and all, with scratch under
+  `build/snail-run/`, writing no output (`check-script` and
+  `check-library`). A `.scm` file is a script, checked as a page when a
+  `public/` folder is beside it and for Node otherwise; an `.sld` file
+  under `src/` is checked as the program that imports it. Each failure is
+  reported on its file, once however many documents meet it, over the
+  range `(snail shell highlight)` derives for its point: the token there,
+  or the datum that starts there. A file is cleared once it checks. A
+  failure with no point, or in a file that does not exist, is reported on
+  the document checked. A check reads the disk, so diagnostics follow what
+  was saved.
 - **Formatting.** The open text, formatted by `(snail shell format)`, as one
   edit of the whole document.
-- **Hover and definition.** The last build's checked libraries give each
+- **Hover and definition.** The last checks' programs give each
   variable's use its type and the binding that introduces it: a top-level
   definition, perhaps in an imported library, a `let` binding or a lambda's
   parameter. Hover shows the name, its type and the library it comes from;
@@ -171,7 +176,7 @@ and serves the project at the root folder the editor opens. It offers:
 
 Positions are counted in UTF-16 code units, as the protocol's default
 encoding is. `tests/lsp.mjs` (in `make test`) drives the server through
-each of these on a project of its own.
+each of these on a workspace of its own.
 
 ### Zed
 
@@ -222,8 +227,8 @@ convention; the formatter does not expand macros or inspect their definitions.
 
 ## Browser packaging
 
-Packaging has three steps: copy host and project assets, generate the default
-manifest only when the project has none, and add typed page metadata. The
+Packaging has three steps: copy host and public assets, generate the default
+manifest only when the public folder has none, and add typed page metadata. The
 manifest is a normal bundled file. `(snail shell project web-app)` renders
 metadata constructors with HTML attribute escaping and inserts them at the
 page's head boundary, preserving the supplied HTML, head attributes, comments
@@ -264,16 +269,16 @@ what `#;` comments out as a comment.
 
 mdbook runs `scripts/highlight-book` as a preprocessor, which `book.toml`
 registers after the `links` preprocessor has included the examples. It is a
-`snail-scheme` program, `tools/highlight-book.sld`, which reads the book as mdbook
+`snail-scheme` script, `tools/highlight-book.scm`, which reads the book as mdbook
 writes it, JSON on its standard input, and writes it back. It replaces each fenced block whose language is `scheme` with a
 `<pre><code class="nohighlight">` of `tok-` spans, one per token but
 whitespace, which `doc/highlight.css` colors for mdbook's light and dark
 themes; highlight.js skips code of class `nohighlight`, and still highlights
-the book's other blocks. The script builds the root project's
-`highlight-book` target first, so `mdbook build` works from a fresh checkout that
-can build the compiler. `tests/highlight-book.mjs` runs the preprocessor on a small book.
+the book's other blocks. `scripts/highlight-book` runs it with
+`snail-scheme run --target node`, so `mdbook build` works from a fresh checkout
+that can build the compiler. `tests/highlight-book.mjs` runs the preprocessor on a small book.
 
-Proposed: once the book is itself a `snail-scheme` project, the classifier can run
+Proposed: once the book is itself built by a `snail-scheme` script, the classifier can run
 in a `generate-library` recipe that writes the highlighted pages, and the mdbook
 preprocessor goes away.
 

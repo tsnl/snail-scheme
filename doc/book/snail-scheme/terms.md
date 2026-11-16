@@ -358,18 +358,16 @@ the extension must not split arbitrary identifier strings after parsing.
 ## Toolchain terms
 
 These names distinguish source organization, compilation and execution.
-Project descriptions, builds and `snail-scheme lsp` are implemented.
+Workspaces, script builds and `snail-scheme lsp` are implemented.
 The [application process and persistence workflow](applications.md#proposed-application-processes)
 remains proposed.
 
 | Term | Meaning |
 | --- | --- |
-| Project | One directory of source files and its project description. A plain directory can be edited before a description is added. |
-| Workspace | A collection of projects. The tools support one project; they do not introduce a workspace object. |
-| Build target | A named description of what to build. It produces one output directory, which may contain multiple files. |
-| Run target | A named command for running a program build with its arguments. |
-| Build attempt | One invocation of project building, with an ID, diagnostics and a success/failure result. |
-| Application process | An OS process running a program. A browser frontend is a client of a server process, not a run target. |
+| Workspace | A folder that holds `src/`, where every library lives and every import resolves. |
+| Script | A source file in a workspace, built for a platform named on the command line. Its build produces one output directory, which may contain multiple files. |
+| Build attempt | One invocation of a script's build, with diagnostics and a success/failure result. |
+| Application process | An OS process running a program. A browser frontend is a client of a server process. |
 | Runtime | The scheduler and effect bindings executing a program's tasks. It is distinct from compilation and the OS process. |
 | Host | The platform environment, such as Node or a browser, providing APIs to the runtime. |
 | Worker | A separate execution agent used for CPU work, such as a Node worker thread; it is not a browser Service Worker or a `snail-scheme` task. |

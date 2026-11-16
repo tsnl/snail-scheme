@@ -35,10 +35,10 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   that form to the same mutable record slots. Stage 0's one product is the
   stage 1 command line, `bootstrap/cli.sld`, built by `scripts/bootstrap`,
   which also holds the engine that links every per-library program; the
-  command line builds everything else: scripts, run as
-  `./snail-scheme run --target node FILE`, and the root project's targets. Every project build writes
-  one module per library into the sharded store `build/.snail-store` and
-  names them in `TARGET.manifest.datum`.
+  command line builds everything else as scripts, run as
+  `./snail-scheme run --target node FILE`. Every debug build writes one
+  module per library into the sharded store `build/.snail-store` and names
+  them in `NAME.manifest.datum`.
   The test harness also compiles through stage 0's driver.
 
 - Every record is a heap object and every field is mutable. Primitive
@@ -166,20 +166,20 @@ An application is a script, `src/apps/NAME/main.scm`. Build it with
 output directory, `build/src/apps/NAME/main`, with any static HTTP server; point
 `tests/browser/page.mjs` at it to see a change. Edit in any editor; in Zed,
 install `editors/zed` as a dev extension for `snail-scheme lsp`'s diagnostics
-on save, formatting, hover and definitions. Each build first runs the
+of each open script and library, formatting, hover and definitions. Each build first runs the
 producers of the `generate-library` recipes it reaches, so Hearsay builds
 too; its producers run every time. What matters when writing code:
 
 - Keep what should survive a page reload in the application's Save.
 - Libraries are checked one at a time, so an importer's use never decides a
   definition's type: give exported functions typed headers.
-- A program runs with `./snail-scheme run . RUN-TARGET`.
+- A program runs with `./snail-scheme run --target node FILE`.
 - Builds in one checkout keep private compiler scratch under `build/snail-run/`.
-  Public `snail-scheme run` executes its completed project generation in the caller's
+  Public `snail-scheme run` executes its completed generation in the caller's
   working directory after removing build scratch. Rebuilding the command line
   takes an exclusive lock on `build/lock`, so `make test` may run beside a
   build.
-- The project suites (in `make test`) cover builds, and `tests/browser/`
+- The script suites (in `make test`) cover builds, and `tests/browser/`
   (`make test-browser`, needs `CHROMIUM`) covers the pages. `tests/lsp.mjs`
   and `tests/tree-sitter.mjs` cover the editor support. See
   [the development toolchain](doc/book/snail-scheme/toolchain.md).
