@@ -13,13 +13,11 @@
    checked->modules
    source->modules
    Built
-   LinkedFile
-   no-inputs)
+   LinkedFile)
   (import
    (snail core base)
    (snail core io)
    (snail shell compiler read)
-   (only (snail shell compiler inputs) Inputs no-inputs)
    (snail shell compiler core)
    (snail shell compiler expand)
    (snail shell compiler check)
@@ -36,11 +34,10 @@
     (define (source->expanded (directories (List String))
                               (source String)
                               (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
-                              (inputs Inputs)
                               (target (Option (List String))))
       (→ ExpandedProgram)
       (! fs compile)
-      (expand-program directories generate inputs target source))
+      (expand-program directories generate target source))
 
     ;; A program compiled to one module: its text, and the files it links,
     ;; which ship beside it.
@@ -59,11 +56,10 @@
     (define (source->checked (directories (List String))
                              (source String)
                              (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
-                             (inputs Inputs)
                              (target (Option (List String))))
       (→ Checked)
       (! fs compile)
-      (let ((expanded (source->expanded directories source generate inputs target)))
+      (let ((expanded (source->expanded directories source generate target)))
         (new Checked (expanded expanded) (typed (check-program (● expanded program))))))
 
     ;; The whole program as one module: its text, the libraries it holds,
@@ -77,11 +73,10 @@
     (define (source->wat (directories (List String))
                          (source String)
                          (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
-                         (inputs Inputs)
                          (target (Option (List String))))
       (→ WholeProgram)
       (! mut fs compile)
-      (checked->wat (source->checked directories source generate inputs target)))
+      (checked->wat (source->checked directories source generate target)))
 
     (define (checked->wat (checked Checked)) (→ WholeProgram) (! mut compile)
       (let ((expanded (● checked expanded)))
@@ -97,11 +92,10 @@
     (define (source->modules (directories (List String))
                              (source String)
                              (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
-                             (inputs Inputs)
                              (target (Option (List String))))
       (→ (List Built))
       (! mut fs compile)
-      (checked->modules (source->checked directories source generate inputs target)))
+      (checked->modules (source->checked directories source generate target)))
 
     (define (checked->modules (checked Checked)) (→ (List Built)) (! mut compile)
       (let* ((expanded (● checked expanded))

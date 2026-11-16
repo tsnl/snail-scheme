@@ -41,12 +41,10 @@
    (snail stage0 process)
    (only (snail core base) match Ok Err list->array make-array array-set!)
    (only (snail shell compiler read)
-         loc->string
          diagnostics->string
          compiling
          Failed
-         GenerateInput
-         ArtifactInput)
+         GenerateInput)
    (snail shell compiler inputs)
    (only (snail shell compiler sha256) sha256 bytes->hex))
   (begin
@@ -269,11 +267,7 @@
         ((GenerateInput key)
          (when (file-exists? (path-join generated (string-append key ".syntax")))
            (error 'snail "compiler requested an already provided generated library" key))
-         (produce! root directories generated key))
-        ((ArtifactInput name loc)
-         (error 'snail (string-append (loc->string loc)
-                                      ": artifact-bundle requires a project build resolver: "
-                                      name)))))
+         (produce! root directories generated key))))
 
     ;; The compiler's message without the host's prefix.
     (define (diagnostic text)
@@ -845,13 +839,15 @@
                                                           (list "wat"
                                                                 "node"
                                                                 (path-join root
-                                                                           "tests/artifacts/native.sld")
+                                                                           "tests/programs/generated.sld")
                                                                 (path-join directory "output.wat")
                                                                 directory
+                                                                (path-join root
+                                                                           "tests/programs/lib")
                                                                 (path-join root "src")))))
                                     (expect (caddr (capture-process command)) 256)
                                     (expect (match (published-request request)
-                                              ((ArtifactInput "client" _) #t) (_ #f)) #t)
+                                              ((GenerateInput _) #t) (_ #f)) #t)
                                     (delete-file request)
                                     (create-directory request)
                                     (let ((failed (capture-process command)))
@@ -869,7 +865,7 @@
                          "stderr"
                          (lambda (directory)
                            (write-file (path-join directory "request.datum")
-                                       "(artifact \"stale\" \"old.sld\" 1 1)"))))
+                                       "(generate \"999\")"))))
          "generate 123")
         (test-request root
                       "stale"
@@ -888,8 +884,6 @@
                                                 (write-file (path-join directory "123.syntax")
                                                             "()"))))
                               "already provided generated library")
-        (expect-request-error (lambda () (test-request root "artifact" (lambda (_) #f)))
-                              "application.sld:3:8: artifact-bundle requires a project build resolver")
         ;; Simulate a reused process id/counter. The allocator must leave
         ;; the previous compile and its stale generated input untouched.
         (let* ((parent (path-join root "build/snail-run"))

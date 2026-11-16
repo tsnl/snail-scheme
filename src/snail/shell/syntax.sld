@@ -120,10 +120,13 @@
 
     ;; Writes the syntax a recipe's expression returns to the file the
     ;; driver names as the producer's argument. The expression runs in a
-    ;; task, so it may read the files its recipe links with `read-resource`.
+    ;; task, so it may read the files its recipe links with `read-resource`,
+    ;; and perform what else it needs, such as building another script
+    ;; ((snail shell project build)'s `build-script`), whose files the
+    ;; library it writes can link.
 
-    (define (write-generated-library (library (Fn → Syntax ! fs resource tasks)))
-      (→ Unit) (! fs resource tasks)
+    (define (write-generated-library (library (Fn → Syntax ! fs resource tasks e)))
+      (→ Unit) (! fs resource tasks e) (∀ (e))
       (match (command-line)
         ((Cons _ (Cons path _)) (write-bytes path (syntax->bytes (library))))
         (_ (panic "a producer writes its library to the path given as its argument"))))

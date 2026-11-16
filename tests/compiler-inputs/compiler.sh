@@ -17,12 +17,9 @@ case "$scenario" in
   success-request)
     printf '(generate "123")\n' > "$generated/request.datum" ;;
   publication-failed)
-    printf '(artifact "client" "application.sld" 3 8)\n' > "$generated/request.datum"
+    printf '(generate "123")\n' > "$generated/request.datum"
     printf 'input publication failed\n' >&2
     exit 2 ;;
-  artifact)
-    printf '(artifact "client" "application.sld" 3 8)\n' > "$generated/request.datum"
-    exit 1 ;;
   generated)
     printf '(generate "123")\n' > "$generated/request.datum"
     exit 1 ;;
