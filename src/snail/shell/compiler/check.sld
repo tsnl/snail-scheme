@@ -713,7 +713,8 @@
       (→ (Pair Expr Checker))
       (! compile)
       (threading ck ((body-row (fresh-meta))
-                     (body (scoped (bind-locals ck params types) body body-row)))
+                     (body (within (lambda (inner)
+                                     (infer (bind-locals inner params types) body body-row)))))
                  (new Pair
                    (first (new Expr
                             (term (Lambda params body))
@@ -721,15 +722,14 @@
                             (loc loc)))
                    (second ck))))
 
-    ;; A sub-check under `inner`'s scope, resumed in this checker's. `inner`
-    ;; is built from this one, so everything it learns flows back; only its
-    ;; scope is discarded.
+    ;; A sub-check that may change the scope, resumed in this checker's:
+    ;; everything it learns flows back, and only its scope is discarded.
 
-    (define (within (ck Checker) (inner Checker) (check (Fn Checker → (Pair A Checker) ! e)))
+    (define (within (ck Checker) (check (Fn Checker → (Pair A Checker) ! e)))
       (→ (Pair A Checker))
       (! e)
       (∀ (A e))
-      (match (check inner)
+      (match (check ck)
         ((Pair value done) (new Pair (first value) (second (resumed ck done))))))
 
     ;; Checks an expression against a known type: a lambda's parameters and
@@ -757,8 +757,11 @@
          (threading ck ((local (local-placeholder value))
                         (value (infer-let-value name local value row))
                         (then (unify local (● value type) (● value loc)))
-                        (body (within (bind-local ck name local)
-                                      (lambda (inner) (check-result inner body type row)))))
+                        (body (within (lambda (inner)
+                                        (check-result (bind-local inner name local)
+                                                      body
+                                                      type
+                                                      row)))))
                     (new Pair
                       (first (new Expr (term (Let name value body)) (type type) (loc (● expr loc))))
                       (second ck))))
@@ -797,8 +800,12 @@
         (threading ck ((row (fresh-meta))
                        (then (unify row body-row (● expr loc)))
                        (body
-                        (within (signed-body (bind-locals ck params param-types) row)
-                                (lambda (inner) (check-result inner body result row)))))
+                        (within (lambda (inner)
+                                  (check-result
+                                   (signed-body (bind-locals inner params param-types) row)
+                                   body
+                                   result
+                                   row)))))
                    (new Pair
                      (first (new Expr (term (Lambda params body)) (type type) (loc (● expr loc))))
                      (second (finish-lambda-scope outer ck))))))
@@ -958,7 +965,7 @@
       (threading ck ((type (local-placeholder value))
                      (value (infer-let-value name type value row))
                      (then (unify type (● value type) (● value loc)))
-                     (body (scoped (bind-local ck name type) body row)))
+                     (body (within (lambda (inner) (infer (bind-local inner name type) body row)))))
                  (new Pair
                    (first (new Expr (term (Let name value body)) (type (● body type)) (loc loc)))
                    (second ck))))
@@ -982,7 +989,7 @@
     (define (infer-let-value (ck Checker) (name String) (type Type) (value Expr) (row Type))
       (→ (Pair Expr Checker)) (! compile)
       (if (local-function? value)
-          (within ck (bind-local ck name type) (lambda (inner) (check-value inner value type row)))
+          (within ck (lambda (inner) (check-value (bind-local inner name type) value type row)))
           (infer ck value row)))
 
     ;; Typed define headers wrap the lambda in an annotation. They retain
@@ -1008,11 +1015,6 @@
         (_ (panic "internal error: a local lambda has a reserved signature"))))
 
     ;; `expr` inferred under `inner`'s scope, resumed in this checker's.
-
-    (define (scoped (ck Checker) (inner Checker) (expr Expr) (row Type))
-      (→ (Pair Expr Checker))
-      (! compile)
-      (within ck inner (lambda (scope) (infer scope expr row))))
 
     (define (infer-match (ck Checker) (scrutinee Expr) (clauses (List Clause)) (row Type) (loc Loc))
       (→ (Pair Expr Checker))
@@ -1064,7 +1066,6 @@
       (! compile)
       (let ((body-loc (● (● clause body) loc)))
         (within ck
-                ck
                 (lambda (ck)
                   (threading ck
                              ((pattern (check-pattern (● clause pattern) scrutinee-type body-loc))
@@ -1243,7 +1244,7 @@
                     (new Pair (first (PLit value type)) (second ck))))
         ((PCon constructor args _)
          (match (program-value (● ck program) constructor)
-           ((Some (Constructor case scheme))
+           ((Some (Constructor _ scheme))
             (threading ck ((use (instantiate scheme loc)))
                        (match (● use type)
                          ((TFun fields result _)
@@ -1253,17 +1254,14 @@
                                                           " has "
                                                           (i64->string (length fields))
                                                           " fields")))
-                          (let ((matched (prune (solution ck) type)))
-                            (threading ck ((then (unify matched result loc))
-                                           (args (each (lambda (ck pair)
-                                                         (check-pattern ck
-                                                                        (● pair first)
-                                                                        (● pair second)
-                                                                        loc))
-                                                       (zip args fields))))
-                                       (new Pair
-                                         (first (PCon constructor args matched))
-                                         (second ck)))))
+                          (threading ck ((then (unify type result loc))
+                                         (args (each (lambda (ck pair)
+                                                       (check-pattern ck
+                                                                      (● pair first)
+                                                                      (● pair second)
+                                                                      loc))
+                                                     (zip args fields))))
+                                     (new Pair (first (PCon constructor args type)) (second ck))))
                          (_ (panic "internal error: a constructor is a function")))))
            (_
             (compile-error loc (string-append "not a constructor: " (short-name constructor))))))))
@@ -2038,8 +2036,12 @@
       (→ (Pair Item Checker))
       (! compile)
       (within ck
-              (Checker-givens-set ck (if (null? (● scheme vars)) (Nil) (● scheme constraints)))
-              (lambda (inner) (check-annotated-value inner definition scheme))))
+              (lambda (inner)
+                (check-annotated-value
+                 (Checker-givens-set inner
+                                     (if (null? (● scheme vars)) (Nil) (● scheme constraints)))
+                 definition
+                 scheme))))
 
     (define (check-annotated-value (ck Checker) (definition Definition) (scheme Scheme))
       (→ (Pair Item Checker)) (! compile)
