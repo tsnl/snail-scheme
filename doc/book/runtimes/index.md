@@ -57,9 +57,9 @@ independently hosted instances.
 ## Direction
 
 Node and the page are today's hosts, not the only ones `snail-scheme` is for.
-Others, such as [wasmtime](https://wasmtime.dev) and
-[workerd](https://github.com/cloudflare/workerd), should be able to run the
-same programs, so nothing a program or library does may depend on
+Others, such as [workerd](https://github.com/cloudflare/workerd), should be
+able to run the same programs, so nothing a program or library does may
+depend on
 JavaScript: a host provides Wasm imports, and JavaScript is the glue that
 provides them on Node and in the page.
 
@@ -70,13 +70,15 @@ instantiates. An engine written in `snail-scheme` once linked programs
 compiled one library at a time
 ([#660](https://github.com/tsnl/snail-scheme/issues/660)); it went when
 every build became one linked module.
-`crates/snail` runs programs that
-need WASI and the native async-file capability on wasmtime, and the suite runs on it with
-`make test-wasmtime`, but moving the toolchain onto it is not planned:
-its collector made the compiler compiling itself take 46 s against
-Node's 1.3 s ([#562](https://github.com/tsnl/snail-scheme/issues/562)).
-workerd's isolates are not OS processes, and its WasmGC and import support
-must be checked before promising compatibility.
+A native executable embedding [wasmtime](https://wasmtime.dev) once ran
+programs that needed only WASI and files; it is removed, since its
+collector made the compiler compiling itself take 46 s against Node's 1.3 s
+([#562](https://github.com/tsnl/snail-scheme/issues/562)) and it was a
+second host to keep for no program that needed it. A target for a new host
+handles the portable subset of capabilities
+([scripts](../snail-scheme/scripts.md)) and adds its own. workerd's isolates
+are not OS processes, and its WasmGC and import support must be checked
+before promising compatibility.
 
 The Rust support module, `snail.core.support` from
 `crates/snail-scheme-support`, is what lies beneath `(snail core …)`, not a

@@ -23,8 +23,7 @@ import {createAsyncFiles} from './async-files.mjs';
 // and one in the first turn ends the program before its other tasks run.
 // A task that traps or exits after the first turn fails the run, status
 // 1. A trap in the first turn, or a failure of the host, is status 2,
-// told as `snail: MESSAGE`. crates/snail/src/program.rs keeps the same
-// protocol on wasmtime, and the compiled compiler is run by it too: a
+// told as `snail: MESSAGE`. The compiled compiler is run by this too: a
 // compile that fails, or needs an input, exits with status 1.
 
 // Node's WASI keeps an exit's status where only `start` reads it, and a

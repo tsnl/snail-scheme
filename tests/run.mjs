@@ -10,9 +10,7 @@
 // - Checks: a fixture built and handed to its check script, the command
 //   line's own contracts, and the suites that are scripts already.
 //
-// With names, only the programs so named run. SNAIL_ENGINE=wasmtime builds
-// each program for wasmtime and runs it on build/snail, but for those that
-// need Node's sockets, processes or signals. Programs build and run eight
+// With names, only the programs so named run. Programs build and run eight
 // at a time. Every build's output is removed first, so nothing here grows.
 import {execFile} from 'node:child_process';
 import {existsSync} from 'node:fs';
@@ -20,9 +18,7 @@ import {mkdir, readFile, readdir, rm, writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
 
 const [root, ...selected] = process.argv.slice(2);
-const wasmtime = process.env.SNAIL_ENGINE === 'wasmtime';
-if (![undefined, '', 'node', 'wasmtime'].includes(process.env.SNAIL_ENGINE)) throw new Error('SNAIL_ENGINE must be node or wasmtime');
-const snail = join(root, 'snail-scheme'), runner = join(root, 'host/native/run-snail.mjs'), native = join(root, 'build/snail');
+const snail = join(root, 'snail-scheme'), runner = join(root, 'host/native/run-snail.mjs');
 const JOBS = 8;
 
 // ---- Commands ----
@@ -39,28 +35,18 @@ function command(program, args, options = {}) {
 
 const node = (...args) => command(process.execPath, ['--no-warnings', ...args]);
 
-// The programs that stay on Node under wasmtime, by their sources.
-const nodePrograms = new Set(['http-exchange', 'http-sockets', 'process-exec', 'process-run', 'process', 'tcp', 'udp']
-  .map(name => `tests/programs/${name}.sld`).concat('tests/socket-boundary/main.sld', 'tests/termination/main.sld'));
-const targetOf = source => wasmtime && !nodePrograms.has(source) ? 'wasmtime' : 'node';
-
 // Builds `source`, a path from the root, for `target`: its module's path,
 // or the failure's text.
-async function build(source, target = targetOf(source)) {
+async function build(source, target = 'node') {
   const built = await command(snail, ['build', '--target', target, source]);
   if (built.status !== 0) return {failure: built.stderr};
   const name = source.split('/').at(-1).replace(/\.[^.]*$/, '');
-  return {module: join(built.stdout.trim(), `${name}.wasm`), target};
+  return {module: join(built.stdout.trim(), `${name}.wasm`)};
 }
 
-// Runs a built module on its host, as `snail-scheme run` would.
-const run = ({module, target}, ...args) =>
-  target === 'wasmtime' ? command(native, ['run-wasm', module, ...args]) : node(runner, module, ...args);
-
-// Wasmtime tells a trap with the Wasm frames after its message, which name
-// the functions the compiler chose; a case's expected output ends with the
-// message.
-const printed = ran => ran.stdout + ran.stderr.split('error while executing at wasm backtrace:\n')[0];
+// Runs a built module on Node, as `snail-scheme run` would.
+const run = ({module}, ...args) => node(runner, module, ...args);
+const printed = ran => ran.stdout + ran.stderr;
 
 // ---- Reporting ----
 
@@ -124,11 +110,10 @@ function script(name, ...flags) {
 }
 
 // The command line's own contracts: `wat` prints a program's text, and a
-// run's status is its program's on either engine: a panic exits with 1,
-// and a trap is 2.
+// run's status is its program's: a panic exits with 1, and a trap is 2.
 async function commandLine() {
-  const target = wasmtime ? 'wasmtime' : 'node', ran = file => command(snail, ['run', '--target', target, file]);
-  const wat = await command(snail, ['wat', '--target', target, 'examples/fibonacci.sld']);
+  const ran = file => command(snail, ['run', '--target', 'node', file]);
+  const wat = await command(snail, ['wat', '--target', 'node', 'examples/fibonacci.sld']);
   if (wat.status !== 0 || !wat.stdout.includes('(func $main')) return fail('command line', 'wat printed no module text', wat.stderr);
   const fibonacci = await ran('examples/fibonacci.sld');
   if (fibonacci.stdout !== '832040\n') return fail('command line', 'run printed', fibonacci.stdout + fibonacci.stderr);
@@ -194,20 +179,6 @@ async function bookHighlighter() {
   return checked.status === 0 || fail('book highlighter', 'failed', checked.stdout + checked.stderr);
 }
 
-// The command line must emit the same text on V8 and on wasmtime, the
-// engines it runs on. The integer and GC subset the backend uses is
-// deterministic by the spec; only NaN payloads could differ. The
-// application fixture exercises classes, effects, tasks and serialization.
-async function engineAgreement() {
-  const [cli, runtime, toolchain] = (await command(join(root, 'scripts/bootstrap'), [])).stdout.split('\n');
-  const arguments_ = ['wat', '--target', 'browser', 'tests/app-runtime/main.sld'];
-  const v8 = await command(snail, arguments_);
-  const other = await command(native, ['run-wasm', cli, root, runtime, toolchain, ...arguments_],
-                              {env: {...process.env, SNAIL_ROOT: root, SNAIL_RUNTIME: runtime}});
-  if (v8.status !== 0 || other.status !== 0) return fail('engine agreement', 'compile failed', v8.stderr + other.stderr);
-  return v8.stdout === other.stdout || fail('engine agreement', 'V8 and wasmtime emit different text for the application fixture');
-}
-
 const checks = () => [
   commandLine,
   typeIds,
@@ -215,14 +186,13 @@ const checks = () => [
   toolchainAssembler,
   bookHighlighter,
   fixture('host values', 'tests/host-values/main.sld', 'tests/host-values/check.mjs', 'node'),
-  fixture('host boundary', 'tests/host-boundary/main.sld', 'tests/host-boundary/check.mjs', 'portable'),
+  fixture('host boundary', 'tests/host-boundary/main.sld', 'tests/host-boundary/check.mjs', 'node'),
   fixture('socket boundary', 'tests/socket-boundary/main.sld', 'tests/socket-boundary/check.mjs', 'node'),
   fixture('termination', 'tests/termination/main.sld', 'tests/termination/check.mjs', 'node'),
   fixture('app runtime', 'tests/app-runtime/main.sld', 'tests/app-runtime/check.mjs', 'browser'),
   ...['scripts', 'script-builds', 'script-run', 'script-failures', 'script-resources', 'embedding', 'launcher', 'lsp',
       'tree-sitter', 'vscode', 'tcp', 'udp', 'format-scheme', 'siegework/headless'].map(name => script(name)),
   script('udp', '--test-udp-no-try-send'),
-  ...(wasmtime ? [engineAgreement] : []),
 ];
 
 // ---- The run ----

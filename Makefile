@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := check
-.PHONY: format check fetch test test-wasmtime test-browser bootstrap unicode-tables generated-unicode site siegework hearsay pages
+.PHONY: format check fetch test test-browser bootstrap unicode-tables generated-unicode site siegework hearsay pages
 
 CHEZ ?= scheme
 export CHEZ
@@ -12,7 +12,6 @@ SCHEME_SOURCES = '*.scm' '*.sld' '*.sls' ':(exclude)editors/zed/languages'
 # build then use offline. Run it once in a new checkout or container.
 fetch:
 	cargo fetch --locked --manifest-path crates/snail-scheme-support/Cargo.toml
-	cargo fetch --locked --manifest-path crates/snail/Cargo.toml
 
 # The compiler's unit tests, on Chez, then every program and check, built
 # by the command line (tests/run.mjs): the examples and test programs, both
@@ -22,12 +21,6 @@ test:
 	./scripts/bootstrap >/dev/null
 	"$(CHEZ)" --script host/chez/load.scm "$(CURDIR)" test
 	node tests/run.mjs "$(CURDIR)"
-
-# The suite with each program built for wasmtime and run on the native
-# executable, plus the check that the command line emits the same text on
-# both engines.
-test-wasmtime:
-	SNAIL_ENGINE=wasmtime $(MAKE) test
 
 # Browser interfaces in headless Chromium, which CI does
 # not have; CHROMIUM names the browser.

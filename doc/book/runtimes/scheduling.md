@@ -2,9 +2,8 @@
 
 The scheduler is written in `snail-scheme` ([task operations](tasks.md)); a
 host only drives it and completes the operations its tasks wait on.
-`host/browser/tasks.mjs` is the driver Node and the browser share, and
-`drive` in `crates/snail/src/program.rs` is wasmtime's. Each runs on one
-execution agent and creates no workers.
+`host/browser/tasks.mjs` is the driver Node and the browser share. It runs
+on one execution agent and creates no workers.
 
 ## Turns
 

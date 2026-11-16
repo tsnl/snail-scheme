@@ -3,8 +3,8 @@
 ;; to a fixpoint ("Bootstrap"). Everything else, every program and the
 ;; test suite's, the command line builds. A compile here runs the command
 ;; line's `compile TARGET SOURCE OUTPUT DIRECTORY ...`, or
-;; the same interface on Chez, and the native executable links through the
-;; Rust backend compiled programs use.
+;; the same interface on Chez, and `snail-link` links through the Rust
+;; backend compiled programs use.
 (define-library (snail stage0 build)
   (export
    bootstrap)
@@ -197,7 +197,6 @@
     ;; the runtime programs link with, then the toolchain's, which the
     ;; launcher passes it.
     (define (bootstrap root)
-      (snail-binary root)
       (let* ((runtime (build-runtime root #f)) (toolchain (build-runtime root #t)))
         (for-each (lambda (path) (write-string path) (newline))
                   (list (current-cli root) runtime toolchain))))
@@ -300,7 +299,7 @@
     (define (build-runtime root assembler?)
       (let ((target (runtime-target root assembler?)))
         (apply run-tool "CARGO" "cargo" (string-append "+" (pinned-channel root))
-               "rustc" "--crate-type=cdylib" "--quiet" "--offline" "--release"
+               "rustc" "--lib" "--crate-type=cdylib" "--quiet" "--offline" "--release"
                "--target" "wasm32-wasip1"
                "--manifest-path" (path-join root "crates/snail-scheme-support/Cargo.toml")
                "--target-dir" target
@@ -324,30 +323,24 @@
     ;; there, which need not have the pinned `wasm32-wasip1` target.
     ;; rust-toolchain.toml holds the one pin; name its channel explicitly.
 
-    ;; ---- The native executable ----
-
-    ;; build/snail: crates/snail built for this machine, an executable that
-    ;; embeds wasmtime and runs the compiled compiler and compiled programs
-    ;; as Node does. Cargo decides whether it is stale, once per process,
-    ;; since every compile and run asks; build/snail links to its output.
-    (define snail-built? #f)
-
-    (define (snail-binary root)
-      (let ((link (path-join root "build/snail")))
-        (unless snail-built?
-          (run-tool "CARGO" "cargo" (string-append "+" (pinned-channel root))
-                    "build" "--quiet" "--offline" "--release"
-                    "--manifest-path" (path-join root "crates/snail/Cargo.toml")
-                    "--target-dir" (path-join root "build/native-snail"))
-          (unless (file-link-status link) (symbolic-link-file "native-snail/release/snail" link))
-          (set! snail-built? #t))
-        link))
-
     ;; ---- Linking ----
+
+    ;; The support crate's `snail-link`, built for this machine beside the
+    ;; toolchain's runtime: the assembler and linker the command line holds,
+    ;; for linking the command line itself. Cargo decides whether it is
+    ;; stale.
+    (define (linker-binary root)
+      (let ((target (runtime-target root #t)))
+        (run-tool "CARGO" "cargo" (string-append "+" (pinned-channel root))
+                  "build" "--quiet" "--offline" "--release"
+                  "--bin" "snail-link" "--features" "assembler"
+                  "--manifest-path" (path-join root "crates/snail-scheme-support/Cargo.toml")
+                  "--target-dir" target)
+        (path-join target "release/snail-link")))
 
     ;; Assembles the compiler's text at `wat` and links it with `runtime`.
     (define (link-wat-file root wat output runtime)
-      (run-command (list (snail-binary root) "link" wat runtime output))
+      (run-command (list (linker-binary root) wat runtime output))
       output)
 
     )
