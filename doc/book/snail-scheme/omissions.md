@@ -47,7 +47,8 @@ a dynamic numeric tower, source borrows, callable classes, `dyn`, `impl`,
 bugs waiting for implementation. Top-level definitions bind functions; there
 are no global values, lazy caches or top-level statement execution. Instance
 dispatch, named instance sets, plugins, code pointers, declaration metadata,
-implicit Any conversions and resizable arrays have also been removed.
+implicit Any conversions, resizable arrays and the memoizing `cache` and
+`lru-cache` wrappers have also been removed.
 
 Mutually recursive local functions, class superclasses, literals at generic
 numeric types and overflow-checked arithmetic remain possible future work.

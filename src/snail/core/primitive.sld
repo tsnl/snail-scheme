@@ -12,7 +12,6 @@
 (define-library (snail core primitive)
   (export
    unit panic unsafe-total unsafe-cast
-   cache lru-cache unsafe-effectful-cache unsafe-effectful-lru-cache
    inherit-handlers
    i32-add i32-sub i32-mul i32-quotient i32-remainder i32-and i32-or i32-xor
    i32-shift-left i32-shift-right i32-shift-right/logical i32-eq i32-lt i32-le i32-gt i32-ge
@@ -64,17 +63,6 @@
     (primitive panic (∀ (A) (Fn String → A)))
     (primitive unsafe-total (∀ (A e) (Fn (Fn → A ! e) → A)))
     (primitive unsafe-cast (∀ (A) (Fn Funcref → A)))
-
-    ;; ---- Memoized functions ----
-
-    ;; F stands for an entire function signature of any arity. The checker
-    ;; requires an empty outward effect row for the safe wrappers, before
-    ;; specialization erases ordinary effects. Preparation checks all four
-    ;; wrappers' keys can be compared and callbacks cannot suspend.
-    (primitive cache (∀ (F) (Fn F → F)))
-    (primitive lru-cache (∀ (F) (Fn I64 F → F)))
-    (primitive unsafe-effectful-cache (∀ (F) (Fn F → F)))
-    (primitive unsafe-effectful-lru-cache (∀ (F) (Fn I64 F → F)))
 
     ;; ---- Inherited handlers ----
 

@@ -288,10 +288,6 @@
          (Some (new Restriction (position 1) (what "a string-generate callback") (allowed (Nil)))))
         (("prim:unsafe-total")
          (Some (new Restriction (position 0) (what "an unsafe-total thunk") (allowed (Nil)))))
-        (("prim:cache" "prim:unsafe-effectful-cache")
-         (Some (new Restriction (position 0) (what "a cache callback") (allowed (Nil)))))
-        (("prim:lru-cache" "prim:unsafe-effectful-lru-cache")
-         (Some (new Restriction (position 1) (what "an lru-cache callback") (allowed (Nil)))))
         (("prim:inherit-handlers")
          (Some (new Restriction
                  (position 0)
@@ -330,7 +326,6 @@
     (define (check-restrictions (callees Callees) (expr Expr)) (→ Unit) (! compile)
       (match (● expr term)
         ((App callee args)
-         (check-cache-primitive callee)
          (match (restriction callee)
            ((Some (Restriction index what allowed))
             (refuse-labels
@@ -340,7 +335,6 @@
            ((None) (check-restrictions callees callee)))
          (for-each (lambda (arg) (check-restrictions callees arg)) args))
         ((Var _ _ _)
-         (check-cache-primitive expr)
          (match (restriction expr)
            ((Some (Restriction index what allowed))
             (refuse-labels
@@ -356,25 +350,6 @@
            (for-each (lambda (entry) (check-restrictions inside (● entry second)))
                      implementations)))
         (_ (for-each (lambda (child) (check-restrictions callees child)) (expr-children expr)))))
-
-    ;; The wrapper has exactly its callback's signature. Its keys are
-    ;; hashed and compared, which a raw Funcref does not support.
-    (define (check-cache-primitive (expr Expr)) (→ Unit) (! compile)
-      (match (● expr term)
-        ((Ann inner _) (check-cache-primitive inner))
-        ((Var name _ _)
-         (when (member? name (list "prim:cache" "prim:lru-cache"
-                                   "prim:unsafe-effectful-cache" "prim:unsafe-effectful-lru-cache"))
-           (match (● expr type)
-             ((TFun _ (TFun params _ _) _)
-              (for-each (lambda (type) (check-cache-key type (● expr loc))) params))
-             (_ (compile-error (● expr loc) "cache requires an ordinary Fn function")))))
-        (_ (unit))))
-
-    (define (check-cache-key (type Type) (loc Loc)) (→ Unit) (! compile)
-      (match type
-        ((TCon "Funcref" _) (compile-error loc "cache keys cannot be raw Funcref values"))
-        (_ (unit))))
 
     ;; A restriction check reads the bodies of the definitions it reaches.
 
@@ -719,9 +694,10 @@
           (normal count callees expr)))
 
     (define (check-item (callees Callees) (item Item)) (→ Unit) (! compile)
-      (match item
-        ((Define _ value) (check-restrictions callees value))
-        (_ (unit))))
+      (unless (null? (callees-control callees))
+        (match item
+          ((Define _ value) (check-restrictions callees value))
+          (_ (unit)))))
 
     )
 
