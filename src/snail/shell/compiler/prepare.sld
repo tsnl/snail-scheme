@@ -51,16 +51,16 @@
     ;; each body on its own.
 
     (define (prepare (input Specialization) (items (List Item))) (→ Prepared) (! compile)
-      (match (complete-specializations (start-specialization (new-state input) items))
-        ((Pair definitions state)
-         (let* ((roots (filter (lambda (item) (match item ((Define _ _) #f) (_ #t))) items))
-                (items (append roots definitions))
-                (callees (specialization-callees state)))
-           (for-each (lambda (item) (check-item callees item)) items)
-           (prepared state (map (lambda (item) (control-item callees item)) items))))))
+      (let* ((specialized (specialize input items))
+             (roots (filter (lambda (item) (match item ((Define _ _) #f) (_ #t))) items))
+             (items (append roots (● specialized definitions)))
+             (callees (specialized-callees specialized)))
+        (for-each (lambda (item) (check-item callees item)) items)
+        (prepared (● specialized declarations)
+                  (map (lambda (item) (control-item callees item)) items))))
 
-    (define (prepared (state State) (items (List Item))) (→ Prepared)
-      (new Prepared (declarations (specialization-declarations state))
+    (define (prepared (declarations Declarations) (items (List Item))) (→ Prepared)
+      (new Prepared (declarations declarations)
            (definitions (filter (lambda (item) (match item ((Define _ _) #t) (_ #f))) items))
            (entry (match (find (lambda (item) (match item ((Entry _ _ _) #t) (_ #f))) items)
                     ((Some (Entry _ start _)) (Some start))
@@ -78,12 +78,13 @@
        (resumes (List (Pair String String)))
        (reading (Option (List String)))))
 
-    (define (specialization-callees (state State)) (→ Callees)
-      (new Callees (declarations (specialization-declarations state))
-           (definitions (if (null? (● state control))
-                            (empty-table)
-                            (specialization-definitions state)))
-           (resumes (Nil)) (reading (None))))
+    (define (specialized-callees (specialized Specialized)) (→ Callees)
+      (let ((declarations (● specialized declarations)))
+        (new Callees (declarations declarations)
+             (definitions (if (null? (● declarations control))
+                              (empty-table)
+                              (item-definitions (● specialized definitions))))
+             (resumes (Nil)) (reading (None)))))
 
     (define (declaration-callees (declarations Declarations)) (→ Callees)
       (new Callees
@@ -119,18 +120,18 @@
       (match (● callee term)
         ((Ann inner _) (callee-row callees inner))
         ((Var name _ _)
-         (match (table-ref (● (● callees declarations) bindings) name)
-           ((Some binding)
+         (match (table-ref (● (● callees declarations) types) name)
+           ((Some type)
             (filter (lambda (label) (member? label (callees-control callees)))
-                    (definition-row callees name binding)))
+                    (definition-row callees name type)))
            ((None) (declared-row callees name (● callee type)))))
         (_ (call-row (● callee type)))))
 
     ;; A contextual check reads the cached source body. Recursive inspection
     ;; uses the declared row.
 
-    (define (definition-row (callees Callees) (name String) (binding Binding)) (→ (List String))
-      (let ((row (call-row (● binding type))))
+    (define (definition-row (callees Callees) (name String) (type Type)) (→ (List String))
+      (let ((row (call-row type)))
         (match (● callees reading)
           ((Some reading)
            (if (member? name reading)
@@ -796,19 +797,15 @@
                                                                                (type (● value
                                                                                         type)))))))
                                                              (empty-table) items))
-                                         (state
-                                          (new-state
-                                           (prepare-specialization (new Typed
-                                                                     (program program)
-                                                                     (items items)
-                                                                     (schemes schemes)))))
+                                         (input (prepare-specialization (new Typed
+                                                                          (program program)
+                                                                          (items items)
+                                                                          (schemes schemes))))
                                          ;; Each definition is a root, as an
                                          ;; exposed function is.
                                          (roots (map (lambda (name) (Expose name name loc))
                                                      (table-keys definitions))))
-                                    (specialization-callees
-                                     (● (complete-specializations
-                                         (start-specialization state roots)) second)))))
+                                    (specialized-callees (specialize input roots)))))
 
           (define callees (test-callees (empty-table)))
 

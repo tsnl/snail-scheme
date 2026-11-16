@@ -20,7 +20,7 @@
    (snail shell compiler read)
    (snail shell compiler core)
    (only (snail shell compiler specialize)
-         Declarations Binding)
+         Declarations)
    (only (snail shell compiler prepare)
          Prepared Callees declaration-callees yields
          holds-yield-point?))
@@ -890,8 +890,8 @@
     ;; Signatures suffice to emit references before or after a body is
     ;; emitted. No definition body lives in the module builder.
 
-    (define (definition-of (m Module) (name String)) (→ (Option Binding))
-      (table-ref (● (● m declarations) bindings) name))
+    (define (definition-of (m Module) (name String)) (→ (Option Type))
+      (table-ref (● (● m declarations) types) name))
 
     ;; An immutable global closure whose code calls `name` with its
     ;; arguments. Each use writes that code again; identical lambdas share
@@ -1149,7 +1149,7 @@
       (if (local? fn name)
           (closure-call fn callee args tail?)
           (match (definition-of (● fn module) name)
-            ((Some definition)
+            ((Some _)
              (list (wat* (call-op tail?)
                          (Cons (id (wasm-id name))
                                (Cons (● fn evidence) (emit-args fn args))))))
@@ -4217,9 +4217,8 @@
                     (match item
                       ((Define name value)
                        (match (definition-of m name)
-                         ((Some binding)
-                          (emit-function! m name value))
-                         ((None) (panic "internal error: an emitted definition has no binding"))))
+                         ((Some _) (emit-function! m name value))
+                         ((None) (panic "internal error: an emitted definition has no type"))))
                       (_ (panic "internal error: a prepared function must be a definition"))))
                   (● prepared definitions))
         (for-each (lambda (item) (emit-exposure! m item)) (● prepared exposed))
@@ -4248,10 +4247,10 @@
 
     (define (emit-main! (m Module) (start String)) (→ Unit) (! mut)
       (match (definition-of m start)
-        ((Some definition)
+        ((Some type)
          (push! (● m exports)
                 (wat "export" (wat-string "main")
-                     (wat "func" (id (exposed-function m start (● definition type))))))
+                     (wat "func" (id (exposed-function m start type)))))
          (push! (● m exports)
                 (wat "export" (wat-string "main:body") (wat "func" (id (wasm-id start))))))
         ((None) (panic "internal error: the entry's start has no definition"))))
@@ -4303,10 +4302,10 @@
       (match item
         ((Expose name symbol _)
          (match (definition-of m name)
-           ((Some definition)
+           ((Some type)
             (push! (● m exports)
                    (wat "export" (wat-string symbol)
-                        (wat "func" (id (exposed-function m name (● definition type)))))))
+                        (wat "func" (id (exposed-function m name type))))))
            ((None) (panic "internal error: an exposed function has no definition"))))
         (_ (panic "internal error: expected a host exposure"))))
 

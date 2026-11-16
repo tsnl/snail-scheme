@@ -1,18 +1,15 @@
-;; Concrete definitions built from checked source. One registry reserves
-;; source functions and imports before visiting their bodies. Each body is instantiated once; source bodies are retained for
-;; preparation's contextual checks. Emission receives fixed declaration metadata.
+;; Concrete definitions built from checked source. From a program's
+;; entry and exposures, each definition reached is copied once for each
+;; set of types it is used at, and each copy's name is reserved before
+;; its body is visited, so recursion ends. Emission receives the copies'
+;; types as fixed declarations.
 (define-library (snail shell compiler specialize)
   (export
    Specialization
    prepare-specialization
-   State
    Declarations
-   Binding
-   new-state
-   specialization-declarations
-   specialization-definitions
-   start-specialization
-   complete-specializations)
+   Specialized
+   specialize)
   (import
    (snail core base)
    (snail core table)
@@ -41,39 +38,36 @@
           (instances instances)
           (definitions (item-definitions (● typed items))))))
 
-    ;; A frozen view of executable bindings. It contains no source templates,
-    ;; pending requests or concrete bodies, so an emitter cannot specialize.
+    ;; A frozen view of executable definitions: each specialized name's
+    ;; type. It holds no source bodies or pending requests, so an emitter
+    ;; cannot specialize.
     (record Declarations
       ((program Program)
        (control (List String))
-       (bindings (Table Binding))))
+       (types (Table Type))))
 
-    (record Binding
-      ((type Type)))
+    ;; What specialization answers: the copies, in the order they were
+    ;; made, and their declarations.
+    (record Specialized
+      ((definitions (List Item))
+       (declarations Declarations)))
 
-    ;; Requests reserve names before visiting bodies, so recursive calls
-    ;; terminate. A recipe becomes a concrete body once.
-    ;; Original bodies survive until preparation has checked every batch.
+    ;; `types` holds every reserved name's type, and `queue` the copies
+    ;; still to make, at most 65536 in all.
     (record State
       ((input Specialization)
        (control (List String))
-       (bindings (Table Definition))
+       (types (Table Type))
        (remaining I64)
-       (pending (List String))))
+       (queue (List Recipe))))
 
-    ;; The registry owns each executable identity and its signature. A body
-    ;; is a recipe or its completed instantiation.
-    (record Definition
-      ((type Type)
-       (body Body)))
-
-    (enum Body
-      (SourceRecipe
-       ((name String)
-        (types (List Type))
-        (evidence (List Evidence))))
-      (SourceBody
-       ((value Expr))))
+    ;; A copy to make: `source` at `types`, with `evidence` for its
+    ;; requirements, named `name`.
+    (record Recipe
+      ((name String)
+       (source String)
+       (types (List Type))
+       (evidence (List Evidence))))
 
     ;; The types and evidence that replace a definition's quantified variables
     ;; and requirements while it is copied.
@@ -105,99 +99,47 @@
       (let ((spec (if (null? types)
                       name
                       (string-append name "<" (string-join (map spec-key types) ",") ">"))))
-        (new Pair (first spec)
-             (second (if (table-contains? (● state bindings) spec)
-                         state
-                         (let ((value (definition state name)))
-                           (reserve state spec
-                                    (new Definition
-                                      (type (ground (instantiation state name types evidence)
-                                                    (● value type)))
-                                      (body (SourceRecipe name types evidence))))))))))
+        (new Pair
+          (first spec)
+          (second (if (table-contains? (● state types) spec)
+                      state
+                      (reserve state
+                               (new Recipe (name spec) (source name) (types types)
+                                    (evidence evidence))))))))
 
-    ;; All executable work uses this reservation rule and this queue. Merely looking up a binding never generates code.
+    ;; Merely looking up a name never generates code: only reserving one
+    ;; queues its copy.
 
-    (define (reserve (state State) (name String) (binding Definition)) (→ State)
-      (if (table-contains? (● state bindings) name)
-          state
-          (begin
-            (when (= (● state remaining) 0)
-              (panic "compilation exceeds the limit of 65536 specialized definitions"))
-            (State-pending-set
-             (State-remaining-set
-              (State-bindings-set state (table-set (● state bindings) name binding))
-              (- (● state remaining) 1))
-             (Cons name (● state pending))))))
+    (define (reserve (state State) (recipe Recipe)) (→ State)
+      (when (= (● state remaining) 0)
+        (panic "compilation exceeds the limit of 65536 specialized definitions"))
+      (let ((type
+             (ground (instantiation state recipe) (● (definition state (● recipe source)) type))))
+        (new State (input (● state input)) (control (● state control))
+             (types (table-set (● state types) (● recipe name) type))
+             (remaining (- (● state remaining) 1))
+             (queue (Cons recipe (● state queue))))))
 
     (define (requested (state State) (name String)) (→ State)
       (● (request state name (Nil) (Nil)) second))
 
-    (define (instantiation (state State)
-                           (name String)
-                           (types (List Type))
-                           (evidence (List Evidence)))
-      (→ Instantiation)
-      (new Instantiation (vars (zip (● (scheme-of state name) vars) types))
-           (evidence evidence) (control (● state control))))
+    (define (instantiation (state State) (recipe Recipe)) (→ Instantiation)
+      (new Instantiation (vars (zip (● (scheme-of state (● recipe source)) vars) (● recipe types)))
+           (evidence (● recipe evidence)) (control (● state control))))
 
-    ;; Complete the entire newly reached graph before a contextual check
-    ;; reads any body. Calls reserve identities; they never instantiate here
-    ;; recursively, so each queued recipe is consumed exactly once.
+    ;; Copies are made one at a time from the queue. A copy reserves the
+    ;; names it calls; it never copies them itself, so each recipe is made
+    ;; exactly once.
 
-    (define (complete-specializations (state State)) (→ (Pair (List Item) State))
+    (define (complete (state State)) (→ (Pair (List Item) State))
       (let loop ((state state) (items (Nil)))
-        (match (next-definition state)
-          ((Pair (Some item) state) (loop state (Cons item items)))
-          ((Pair (None) state) (new Pair (first (reverse items)) (second state))))))
-
-    (define (next-definition (state State)) (→ (Pair (Option Item) State))
-      (match (● state pending)
-        ((Cons name rest)
-         (let ((definition (binding-of state name)))
-           (threading state ((then (State-pending-set rest))
-                             (value (instantiate-body (● definition body)))
-                             (then (complete-definition name definition value)))
-                      (new Pair (first (Some (Define name value))) (second state)))))
-        ((Nil) (new Pair (first (None)) (second state)))))
-
-    (define (complete-definition (state State) (name String) (definition Definition) (value Expr))
-      (→ State)
-      (State-bindings-set state
-                          (table-set (● state bindings) name
-                                     (Definition-body-set definition (SourceBody value)))))
-
-    (define (instantiate-body (state State) (body Body)) (→ (Pair Expr State))
-      (match body
-        ((SourceRecipe name types evidence)
-         (copy-expr state (instantiation state name types evidence) (definition state name)))
-        (_ (panic "internal error: only an unbuilt recipe can be queued"))))
-
-    (define (binding-of (state State) (name String)) (→ Definition)
-      (match (table-ref (● state bindings) name)
-        ((Some binding) binding)
-        ((None) (panic (string-append "internal error: no reserved binding " name)))))
-
-    ;; Freeze signatures and discard all source bodies at the emitter's
-    ;; boundary. The program contributes declarations, not its syntax items.
-
-    (define (specialization-declarations (state State)) (→ Declarations)
-      (new Declarations (program (Program-items-set (specialization-program state) (Nil)))
-           (control (● state control))
-           (bindings (fold-left (lambda (bindings name)
-                                  (table-set bindings
-                                             name
-                                             (new Binding (type (● (binding-of state name) type)))))
-                                (empty-table) (table-keys (● state bindings))))))
-
-    ;; A read-only snapshot of original source instantiations. Missing
-    ;; bodies mean discovery was not closed before analysis.
-
-    (define (specialization-definitions (state State)) (→ (Table Expr))
-      (fold-left (lambda (bodies name)
-                   (match (● (binding-of state name) body)
-                     ((SourceBody value) (table-set bodies name value))
-                     (_ (panic "internal error: analysis requires completed definitions"))))
-                 (empty-table) (table-keys (● state bindings))))
+        (match (● state queue)
+          ((Cons recipe rest)
+           (threading state ((then (State-queue-set rest))
+                             (value (copy-expr (instantiation state recipe)
+                                               (definition state (● recipe source)))))
+                      (loop state (Cons (Define (● recipe name) value) items))))
+          ((Nil) (new Pair (first (reverse items)) (second state))))))
 
     ;; ---- Copying ----
 
@@ -403,10 +345,28 @@
 
     ;; ---- Roots ----
 
-    (define (new-state (input Specialization)) (→ State)
-      (new State (input input)
-           (control (control-effects (● (● input typed) program)))
-           (bindings (empty-table)) (remaining 65536) (pending (Nil))))
+    ;; A program keeps only the definitions reached from an entry or an
+    ;; exposure. Its declarations keep no syntax items.
+
+    (define (specialize (input Specialization) (roots (List Item))) (→ Specialized)
+      (let* ((program (● (● input typed) program))
+             (control (control-effects program))
+             (start (new State (input input) (control control) (types (empty-table))
+                         (remaining 65536) (queue (Nil)))))
+        (match (complete (fold-left request-root start roots))
+          ((Pair definitions state)
+           (new Specialized
+             (definitions definitions)
+             (declarations (new Declarations
+                             (program (Program-items-set program (Nil)))
+                             (control control)
+                             (types (● state types)))))))))
+
+    (define (request-root (state State) (item Item)) (→ State)
+      (match item
+        ((Expose name _ _) (requested state name))
+        ((Entry _ start _) (requested state start))
+        ((Define _ _) state)))
 
     ;; The effects with a control operation, in order of their names.
 
@@ -415,17 +375,6 @@
                  (map (lambda (record) (● record name))
                       (filter (lambda (effect) (not (null? (● effect control))))
                               (table-values (● program effects))))))
-
-    ;; A program keeps only the definitions reached from an entry or an
-    ;; exposure.
-    (define (start-specialization (state State) (items (List Item))) (→ State)
-      (fold-left (lambda (state item)
-                   (match item
-                     ((Expose name _ _) (requested state name))
-                     ((Entry _ start _) (requested state start))
-                     ((Define _ _) state)))
-                 state
-                 items))
 
     )
 
