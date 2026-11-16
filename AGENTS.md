@@ -46,10 +46,12 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   by convention and by their effect signatures. Every value may be shared,
   and the Wasm engine's collector reclaims it: there are no linear types,
   reference counts, finalizers or borrows, and no ownership pass.
-- Top-level definitions bind functions. Values are local to functions or
-  explicit state objects; there are no lazy global caches or initialization
-  guards. Preserve typed define headers and `(Fn ... → ...)`.
-  A direct lambda definition remains function code with an inferred type.
+- A top-level `(define name value)` is a cached thunk: its initializer runs
+  at most once, on the first read, performs no effect, and every read
+  shares the result. `(define (name parameter ...) ...)` is shorthand for
+  defining a lambda, and a lambda takes the same typed header. Preserve
+  typed headers and `(Fn ... → ...)`. A lambda that annotates nothing has
+  its type inferred.
 
 - Use type checking to prove invariants that enable optimization. Preserve
   evidence about representations, effects and foreign boundaries

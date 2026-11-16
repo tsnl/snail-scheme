@@ -25,12 +25,16 @@
     ;; ---- Bindings and environments ----
 
     ;; What an identifier denotes. A record's name is both a type and its
-    ;; constructor. A macro remembers the scope it was defined in by number,
-    ;; because the marks on the identifiers it introduces refer to it.
+    ;; constructor. A top-level value is read by calling its thunk, the
+    ;; global `name`, which keeps the result. A macro remembers the scope it
+    ;; was defined in by number, because the marks on the identifiers it
+    ;; introduces refer to it.
     (enum Binding
       (Local
        ((name String)))
       (Global
+       ((name String)))
+      (Thunk
        ((name String)))
       (TypeName
        ((name String)
@@ -66,6 +70,7 @@
       (match binding
         ((Local name) name)
         ((Global name) name)
+        ((Thunk name) name)
         ((TypeName name _ _) name)
         ((Alias name _ _ _) name)
         ((TypeVar _) "%type-variable")
@@ -1143,6 +1148,7 @@
       (let ((identifier-name (ident-name ident)))
         (match (defined-binding cx env ident "undefined name")
           ((Global name) name)
+          ((Thunk name) name)
           (_ (compile-error (syntax-loc ident)
                             (string-append "not a top-level definition: " identifier-name))))))
 
@@ -1213,20 +1219,71 @@
           ((Nil) (new Pair (first header) (second forms)))
           ((Cons form rest)
            (let ((name (definition-clause form)))
-             (if (string=? name "") (new Pair (first header) (second forms))
+             (if (string=? name "") (new Pair (first header) (second (clause-free forms)))
                  (begin
                    (when (member? name seen)
                      (compile-error (syntax-loc form)
                                     (string-append "duplicate definition clause " name)))
                    (loop rest (definition-header-clause header name form) (Cons name seen)))))))))
 
-    (define (parse-definition (form Syntax)) (→ Definition) (! compile)
+    (define (clause-free (body (List Syntax))) (→ (List Syntax)) (! compile)
+      (for-each (lambda (item)
+                  (unless (string=? (definition-clause item) "")
+                    (compile-error (syntax-loc item) "definition clauses must precede the body")))
+                body)
+      body)
+
+    (define (parse-definition (cx Context) (env Env) (form Syntax)) (→ Definition) (! compile)
       (let ((definition (parse-definition-parts form)))
         (when (null? (● definition body))
           (compile-error (syntax-loc form) "a definition needs a body"))
         (check-definition-header (● definition parameters) (● definition header)
                                  (● definition body) (syntax-loc form))
-        definition))
+        (lambda-definition cx env definition)))
+
+    ;; `(define (name parameter ...) clause ... body ...)` is shorthand for
+    ;; `(define name (lambda (parameter ...) clause ... body ...))`, so a
+    ;; definition whose initializer is a typed lambda is the function
+    ;; definition that lambda spells out.
+
+    (define (lambda-definition (cx Context) (env Env) (definition Definition))
+      (→ Definition)
+      (! compile)
+      (match (new Pair (first (● definition parameters)) (second (● definition body)))
+        ((Pair (None) (Cons initializer (Nil)))
+         (if (and (core-form? cx env initializer "lambda") (typed-lambda? initializer))
+             (match (● (● definition header) result)
+               ((Some _) (compile-error (● definition loc)
+                                        "the lambda states this definition's type; write it once"))
+               ((None) (Definition-name-set (parse-lambda initializer) (● definition name))))
+             definition))
+        (_ definition)))
+
+    ;; A lambda takes a function definition's header: every parameter as
+    ;; (name Type), then (→ Result) and the optional clauses. A lambda that
+    ;; annotates nothing has its type inferred.
+
+    (define (typed-lambda? (form Syntax)) (→ Bool)
+      (match form
+        ((Form (Cons _ (Cons (Form parameters _) rest)) _)
+         (or (any? (lambda (parameter) (match parameter ((Form _ _) #t) (_ #f))) parameters)
+             (match rest
+               ((Cons clause _) (not (string=? (definition-clause clause) "")))
+               ((Nil) #f))))
+        (_ #f)))
+
+    (define (parse-lambda (form Syntax)) (→ Definition) (! compile)
+      (match form
+        ((Form (Cons keyword (Cons (Form parameters _) forms)) loc)
+         (let* ((parsed (definition-header forms))
+                (parameters (Some (map definition-parameter parameters))))
+           (check-definition-header parameters (● parsed first) (● parsed second) loc)
+           (new Definition
+             (name keyword)
+             (parameters parameters)
+             (header (● parsed first))
+             (body (● parsed second)) (loc loc))))
+        (_ (compile-error (syntax-loc form) "expected (lambda (parameter ...) body ...)"))))
 
     ;; Definitions and method declarations have one header grammar. The caller
     ;; decides whether a body is required or forbidden.
@@ -1238,11 +1295,6 @@
                               ((Form (Cons _ parameters) _)
                                (Some (map definition-parameter parameters)))
                               (_ (None)))))
-           (for-each (lambda (item)
-                       (unless (string=? (definition-clause item) "")
-                         (compile-error (syntax-loc item)
-                                        "definition clauses must precede the body")))
-                     (● parsed second))
            (new Definition
              (name (definition-name form))
              (parameters parameters)
@@ -1496,11 +1548,14 @@
          (compile-error (syntax-loc form)
                         "primitives are declared only in (snail core primitive)"))
         ((Some (Core "define"))
-         (let* ((definition (parse-definition form)) (ident (● definition name))
-                (cx (bind-top cx env ident (Global (unique-name cx ident)))))
+         (let* ((definition (parse-definition cx env form)) (ident (● definition name))
+                (value? (top-level-value? cx env definition))
+                (global (unique-name cx ident))
+                (cx (bind-top cx env ident (if value? (Thunk global) (Global global)))))
+           (when value? (check-value-header definition))
            (new Pair
              (first (list (new Pending
-                            (keyword "define")
+                            (keyword (if value? "value" "define"))
                             (form form)
                             (env env)
                             (definition (Some definition)))))
@@ -1548,6 +1603,44 @@
                                       (definition (None)))))
                        (second cx)))))
 
+    ;; A top-level definition whose initializer is not a lambda is a value:
+    ;; a thunk its module runs at most once, on the first read, and whose
+    ;; result every read shares.
+
+    (define (top-level-value? (cx Context) (env Env) (definition Definition)) (→ Bool)
+      (match (● definition parameters)
+        ((Some _) #f)
+        ((None) (not (core-form? cx env (list-ref (● definition body) 0) "lambda")))))
+
+    ;; One slot holds a value, so it has one type.
+
+    (define (check-value-header (definition Definition)) (→ Unit) (! compile)
+      (let ((header (● definition header)))
+        (unless (and (null? (● header variables)) (null? (● header constraints)))
+          (compile-error (● definition loc)
+                         "a top-level value has one type; write a generic one as a function of no arguments"))))
+
+    ;; The type a definition states, if it states one. A value states its
+    ;; result, and its thunk takes nothing and performs nothing.
+
+    (define (stated-type (keyword String) (definition Definition)) (→ (Option Syntax))
+      (match (● (● definition header) result)
+        ((None) (None))
+        ((Some result)
+         (Some (if (string=? keyword "value")
+                   (definition-callable-type (Nil) result (Nil) (● definition loc))
+                   (definition-type definition))))))
+
+    ;; `prim:cached-thunk` keeps a thunk's result for its module. Its type
+    ;; gives the thunk no row, so an initializer that performs an effect is
+    ;; refused where it performs it.
+
+    (define (cached-thunk (value Expr)) (→ Expr)
+      (let ((loc (● value loc)))
+        (expr (App (expr (Var "prim:cached-thunk" (Nil) (Nil)) loc)
+                   (list (expr (Lambda (Nil) value) loc)))
+              loc)))
+
     (define (definition-name (form Syntax)) (→ Syntax) (! compile)
       (match form
         ((Form (Cons _ (Cons (Form (Cons name _) _) _)) _) (expect-ident name "a definition name"))
@@ -1567,12 +1660,14 @@
 
           (("extern") (new Pair (first (Nil)) (second (declare-extern cx env form))))
           (("effect") (new Pair (first (Nil)) (second (declare-effect cx env form))))
-          (("define")
+          (("define" "value")
            (match (● pending definition)
              ((Some definition)
-              (new Pair
-                (first (list (lambda (cx) (define-top-level cx signatures env definition))))
-                (second cx)))
+              (let ((value? (string=? (● pending keyword) "value")))
+                (new Pair
+                  (first (list (lambda (cx)
+                                 (define-top-level cx signatures env definition value?))))
+                  (second cx))))
              (_ (panic "internal error: unparsed definition"))))
           (("expose")
            (new Pair
@@ -1597,23 +1692,16 @@
 
     (define (define-top-level (cx Context)
               (signatures (Table (Pair Scheme (Option Loc))))
-              (env Env) (definition Definition))
+              (env Env) (definition Definition) (value? Bool))
       (→ Context) (! compile)
       (let ((name (global-binding cx env (● definition name))))
         (check-signature cx (table-ref signatures name))
         (threading cx ((value (definition-value env definition)))
-                   (check-global-function value)
                    (let ((binding (match (table-ref signatures name)
                                     ((Some (Pair scheme loc)) (Defined (Some scheme) loc ))
                                     ((None) (Defined (None) (None) )))))
-                     (add-item (add-value cx name binding) (Define name value))))))
-
-    (define (check-global-function (value Expr)) (→ Unit) (! compile)
-      (match (● value term)
-        ((Lambda _ _) (unit))
-        ((Ann inner _) (check-global-function inner))
-        (_ (compile-error (● value loc)
-                          "top-level definitions must be functions; put values in a function or an explicit state object"))))
+                     (add-item (add-value cx name binding)
+                               (Define name (if value? (cached-thunk value) value)))))))
 
     ;; A signature's constraints, checked once every class the library
     ;; declares is in the program.
@@ -1990,11 +2078,11 @@
       (→ (Table (Pair Scheme (Option Loc)))) (! compile)
       (match (● pending definition)
         ((Some definition)
-         (match (● (● definition header) result)
+         (match (stated-type (● pending keyword) definition)
            ((None) signatures)
-           ((Some _)
+           ((Some type)
             (add-signature cx signatures (● pending env) (● definition name)
-                           (definition-type definition) (● definition loc)))))
+                           type (● definition loc)))))
         ((None) signatures)))
 
     (define (add-signature (cx Context)
@@ -2381,7 +2469,7 @@
       (→ (Pair MethodDefinition Context)) (! compile)
       (unless (core-form? cx env definition "define")
         (compile-error (syntax-loc definition) "expected a method definition"))
-      (let* ((parsed (parse-definition definition))
+      (let* ((parsed (parse-definition cx env definition))
              (method (instance-method-name class (● parsed name)))
              (scheme (instance-method-scheme (● cx program) class method instance)))
         (threading cx ((global (fresh-global (short-name method)))
@@ -2414,7 +2502,7 @@
       (match (● (● definition header) result)
         ((None)
          (threading cx ((value (definition-value env definition)))
-                    (check-global-function value)
+                    (check-method-function value)
                     (new Pair (first value) (second cx))))
         ((Some _)
          (let* ((own (resolve-scheme cx env (definition-type definition)))
@@ -2426,9 +2514,17 @@
                   (scope (instance-method-scope env definition own substitution)))
              (check-method-requirements own expected substitution (● definition loc))
              (threading cx ((value (expand-definition-body scope definition)))
-                        (check-global-function value)
+                        (check-method-function value)
                         (new Pair (first (expr (Ann value (substitute substitution (● own type)))
                                                (● definition loc))) (second cx))))))))
+
+    ;; A method's global is code, so its definition is a lambda.
+
+    (define (check-method-function (value Expr)) (→ Unit) (! compile)
+      (match (● value term)
+        ((Lambda _ _) (unit))
+        ((Ann inner _) (check-method-function inner))
+        (_ (compile-error (● value loc) "a method's definition must be a function"))))
 
     ;; A written header cannot add obligations to callers of the class method.
     (define (check-method-requirements (own Scheme) (expected Scheme)
@@ -2976,6 +3072,7 @@
           ((Some (Global name))
            (check-constructor-reference cx name loc)
            (expr (Var name (Nil) (Nil)) loc))
+          ((Some (Thunk name)) (expr (App (expr (Var name (Nil) (Nil)) loc) (Nil)) loc))
           ((Some (TypeName _ _ (Some constructor)))
            (expr (Var (check-constructor-reference cx constructor loc) (Nil) (Nil)) loc))
           ((Some (TypeName _ _ (None)))
@@ -3076,7 +3173,9 @@
         (("lambda")
          (match items
            ((Cons _ (Cons params body))
-            (expand-lambda cx env (form-items params "a parameter list") body  loc))
+            (if (typed-lambda? (Form items loc))
+                (expand-typed-lambda cx env (parse-lambda (Form items loc)))
+                (expand-lambda cx env (form-items params "a parameter list") body loc)))
            (_ (compile-error loc "expected (lambda (parameter ...) body ...)"))))
 
         (("if")
@@ -3146,6 +3245,17 @@
                      (body (expand-body (● locals first) body loc)))
                  (new Pair (first (expr (Lambda (● locals second) body ) loc)) (second cx))))
 
+    ;; A typed lambda is checked against the type its header states, as a
+    ;; local function definition is.
+
+    (define (expand-typed-lambda (cx Context) (env Env) (definition Definition))
+      (→ (Pair Expr Context))
+      (! compile)
+      (threading cx ((value (definition-value env definition)))
+                 (new Pair
+                   (first (annotated-definition-value cx env definition value))
+                   (second cx))))
+
     ;; Binds each identifier to a fresh local, in order; returns the longer
     ;; environment and the unique names.
 
@@ -3205,7 +3315,7 @@
     (define (expand-local-definition (cx Context) (scope Env) (form Syntax)
                                      (rest (List Syntax)) (loc Loc))
       (→ (Pair Expr Context)) (! compile)
-      (let* ((definition (parse-definition form)) (ident (● definition name)))
+      (let* ((definition (parse-definition cx scope form)) (ident (● definition name)))
         (threading cx ((name (fresh (expect-name ident "a local name"))))
                    (let ((inner (extend scope ident (Local name)))
                          (function? (match (● definition parameters)

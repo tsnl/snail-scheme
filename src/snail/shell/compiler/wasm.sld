@@ -613,7 +613,58 @@
                                            (Cons (evidence-param m) (param-wats params reps))
                                            (● signature second)
                                            code)))))
+        ((App (Expr (Var "prim:cached-thunk" _ _) _ _) (Cons thunk (Nil)))
+         (emit-cached-thunk! m name thunk))
         (_ (panic "internal error: not a function"))))
+
+    ;; A top-level value is the result of its thunk, which its module keeps
+    ;; in a slot that starts as zero or null, like any inactive result. State
+    ;; 1 is set before the initializer runs, so one that reads its own value
+    ;; panics instead of recursing without end; state 2 says the slot holds
+    ;; the value.
+
+    (define (emit-cached-thunk! (m Module) (name String) (thunk Expr)) (→ Unit) (! mut)
+      (match (● thunk term)
+        ((Ann inner _) (emit-cached-thunk! m name inner))
+        ((Lambda (Nil) body)
+         (let* ((fn (Fn-exit-set (new-fn m) (function-exit (● thunk type))))
+                (result (rep m (● body type)))
+                (state (wasm-id (string-append name "%state")))
+                (slot (wasm-id (string-append name "%value")))
+                (code (emit fn body #f)))
+           (push! (● m globals)
+                  (wat "global" (id state) (wat "mut" (Word "i32")) (wat "i32.const" (int 0))))
+           (push! (● m globals)
+                  (wat "global" (id slot) (wat "mut" (rep->wat result)) (default-value result)))
+           (push-function! m (wasm-id name)
+                           (function-wat fn
+                                         (wasm-id name)
+                                         (list (evidence-param m))
+                                         result
+                                         (cached-thunk-body m name state slot result code)))))
+        (_ (panic "internal error: a cached thunk is a lambda of no parameters"))))
+
+    (define (cached-thunk-body (m Module)
+                               (name String)
+                               (state String)
+                               (slot String)
+                               (result Rep)
+                               (code (List Wat)))
+      (→ (List Wat))
+      (! mut)
+      (list (wat "if" (wat "i32.eq" (wat "global.get" (id state)) (wat "i32.const" (int 1)))
+                 (wat "then"
+                      (wat "call" (id (panic-helper m))
+                           (string-literal m
+                                           (string-append "initialization cycle: "
+                                                          (short-name name))))))
+            (wat "if" (wat "i32.eqz" (wat "global.get" (id state)))
+                 (wat "then"
+                      (wat "global.set" (id state) (wat "i32.const" (int 1)))
+                      (wat "global.set" (id slot)
+                           (wat* "block" (Cons (wat "result" (rep->wat result)) code)))
+                      (wat "global.set" (id state) (wat "i32.const" (int 2)))))
+            (wat "global.get" (id slot))))
 
     ;; ---- Expressions ----
 

@@ -707,8 +707,9 @@ shown at level 1
 shown when verbose
 ```
 
-Loading a library runs no source initializer: top-level definitions bind
-functions. Each call performs only the effects in its signature.
+Loading a library runs no source initializer: a top-level value's is
+effect-free and runs when the value is first read. Each call performs only
+the effects in its signature.
 
 ## Control handlers
 

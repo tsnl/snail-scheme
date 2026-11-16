@@ -37,8 +37,9 @@ Sharing a value preserves its identity. There is no general `Clone` class or
 implicit deep copy. Construct a new record or copy an array when independent
 mutable state is needed.
 
-Factories construct fresh values. Bind a result once and pass it to its users
-when they should share one object. There is no implicit global instance.
+A function that constructs a value makes a fresh one at each call. A
+[top-level value](types.md#top-level-values) is constructed once and shared
+by every reader.
 
 ## Closures
 

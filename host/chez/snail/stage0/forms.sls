@@ -1,7 +1,8 @@
 ;; The typed source forms erased for the Chez bootstrap. This host executes
 ;; compiler code only; source programs are checked and compiled to WasmGC.
 (library (snail stage0 forms)
-  (export define type ann record new enum match effect handle ● set! test-forms)
+  (export define (rename (typed-lambda lambda)) type ann record new enum match effect handle ● set!
+          test-forms)
   (import
    (rename (chezscheme) (define scheme-define) (set! scheme-set!)))
 
@@ -37,6 +38,14 @@
              #,@(definition-body (syntax-list #'body)))]
         [(_ name . body)
          #`(scheme-define name #,@(definition-body (syntax-list #'body)))])))
+
+  ;; A lambda takes a definition's header, erased the same way.
+  (define-syntax typed-lambda
+    (lambda (form)
+      (syntax-case form ()
+        [(_ parameters . body)
+         #`(lambda #,(parameter-names #'parameters)
+                   #,@(definition-body (syntax-list #'body)))])))
 
   (define-syntax ann (syntax-rules () [(_ expression type) expression]))
   (define-syntax type
@@ -295,6 +304,8 @@
       (set! (● alias value) 2)
       (unless (and (= (● record value) 2) (= (● changed value) 1)
                    (= (typed-sum 20 22) 42)
+                   (= ((typed-lambda ((left I64) (right I64)) (→ I64) (+ left right)) 20 22) 42)
+                   (= ((typed-lambda (left right) (+ left right)) 20 22) 42)
                    (= (handle Read ((read-value (lambda () 10)))
                         (handle Observe ((observe-value (lambda () (read-value))))
                           (handle Read ((read-value (lambda () 20))) (observe-value)))) 10)
