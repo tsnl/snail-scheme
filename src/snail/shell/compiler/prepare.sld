@@ -114,7 +114,7 @@
     ;; called: those its row names.
 
     (define (call-row (type Type)) (→ (List String))
-      (match (fn-arrow type)
+      (match type
         ((TFun _ _ (TRow labels _)) labels)
         (_ (Nil))))
 
@@ -184,7 +184,7 @@
               (Cons effect (operation-latent effect scheme))))
 
     (define (closed-row? (type Type)) (→ Bool)
-      (match (fn-arrow type)
+      (match type
         ((TFun _ _ (TRow _ (None))) #t)
         (_ #f)))
 
@@ -451,21 +451,11 @@
                                       (labels->string labels)))))
 
     (define (function-params (type Type)) (→ (List Type))
-      (match (fn-arrow type)
+      (match type
         ((TFun params _ _) params)
         (_ (panic "internal error: a primitive is a function"))))
 
     ;; ---- A-normal form ----
-
-    ;; Temporaries are numbered, and the count is threaded through the pass
-    ;; as `let*` would write it: each step takes the count as its first
-    ;; argument and hands back its value and the next count.
-    (define-syntax naming
-      (syntax-rules ()
-        ((_ count () body ...) (begin body ...))
-        ((_ count ((name (f argument ...)) step ...) body ...)
-         (match (f count argument ...)
-           ((Pair name count) (naming count (step ...) body ...))))))
 
     ;; Source locals end in `.digits` and globals contain a colon, so these
     ;; names are the pass's own.
@@ -490,41 +480,47 @@
              (lambda (term) (new Expr (term term) (type (● expr type)) (loc (● expr loc))))))
         (match (● expr term)
           ((Lambda params body )
-           (naming count ((body (normal callees body)))
-                   (new Pair (first (rebuild (Lambda params body ))) (second count))))
+           (threading count ((body (normal callees body)))
+                      (new Pair (first (rebuild (Lambda params body ))) (second count))))
           ((App callee args) (normal-call count callees expr callee args))
-          ((If test then otherwise)
-           (naming count ((test (normal callees test))
-                          (then (normal callees then))
-                          (otherwise (normal callees otherwise)))
-                   (named count callees test (lambda (test) (rebuild (If test then otherwise))))))
+          ((If test consequent alternative)
+           (threading count ((test (normal callees test))
+                             (consequent (normal callees consequent))
+                             (alternative (normal callees alternative)))
+                      (named count
+                             callees
+                             test
+                             (lambda (test) (rebuild (If test consequent alternative))))))
           ((Let name value body)
-           (naming count ((value (normal callees value))
-                          (body (normal callees body)))
-                   (new Pair (first (rebuild (Let name value body))) (second count))))
+           (threading count ((value (normal callees value))
+                             (body (normal callees body)))
+                      (new Pair (first (rebuild (Let name value body))) (second count))))
           ((Seq first rest)
-           (naming count ((first (normal callees first))
-                          (rest (normal callees rest)))
-                   (sequence count callees expr first rest)))
+           (threading count ((first (normal callees first))
+                             (rest (normal callees rest)))
+                      (sequence count callees expr first rest)))
           ((Match scrutinee clauses)
-           (naming count ((scrutinee (normal callees scrutinee))
-                          (clauses (normal-clauses callees clauses)))
-                   (named count
-                          callees
-                          scrutinee
-                          (lambda (scrutinee) (rebuild (Match scrutinee clauses))))))
+           (threading count ((scrutinee (normal callees scrutinee))
+                             (clauses (normal-clauses callees clauses)))
+                      (named count
+                             callees
+                             scrutinee
+                             (lambda (scrutinee) (rebuild (Match scrutinee clauses))))))
 
           ((FieldRead _ _ _) (panic "internal error: field selection survived checking"))
           ((New _ _) (panic "internal error: named construction survived checking"))
           ((Ann inner type)
-           (naming count ((inner (normal callees inner)))
-                   (new Pair (first (rebuild (Ann inner type))) (second count))))
+           (threading count ((inner (normal callees inner)))
+                      (new Pair (first (rebuild (Ann inner type))) (second count))))
           ((BoxAny inner)
-           (naming count ((inner (normal callees inner)))
-                   (named count callees inner (lambda (inner) (rebuild (BoxAny inner))))))
+           (threading count ((inner (normal callees inner)))
+                      (named count callees inner (lambda (inner) (rebuild (BoxAny inner))))))
           ((Downcast inner target)
-           (naming count ((inner (normal callees inner)))
-                   (named count callees inner (lambda (inner) (rebuild (Downcast inner target))))))
+           (threading count ((inner (normal callees inner)))
+                      (named count
+                             callees
+                             inner
+                             (lambda (inner) (rebuild (Downcast inner target))))))
           ((Handle effect implementations body)
            (normal-handle count callees expr effect implementations body))
           (_ (new Pair (first expr) (second count))))))
@@ -533,20 +529,20 @@
       (→ (Pair (List Expr) I64))
       (match exprs
         ((Cons expr rest)
-         (naming count ((expr (normal callees expr))
-                        (rest (normal-all callees rest)))
-                 (new Pair (first (Cons expr rest)) (second count))))
+         (threading count ((expr (normal callees expr))
+                           (rest (normal-all callees rest)))
+                    (new Pair (first (Cons expr rest)) (second count))))
         ((Nil) (new Pair (first (Nil)) (second count)))))
 
     (define (normal-clauses (count I64) (callees Callees) (clauses (List Clause)))
       (→ (Pair (List Clause) I64))
       (match clauses
         ((Cons clause rest)
-         (naming count ((body (normal callees (● clause body)))
-                        (rest (normal-clauses callees rest)))
-                 (new Pair
-                   (first (Cons (new Clause (pattern (● clause pattern)) (body body)) rest))
-                   (second count))))
+         (threading count ((body (normal callees (● clause body)))
+                           (rest (normal-clauses callees rest)))
+                    (new Pair
+                      (first (Cons (new Clause (pattern (● clause pattern)) (body body)) rest))
+                      (second count))))
         ((Nil) (new Pair (first (Nil)) (second count)))))
 
     ;; `make` applied to `operand`, or, when the operand may yield, to a
@@ -576,13 +572,13 @@
       (match (new Pair (first (● callee term)) (second args))
         ((Pair (Var "prim:set!" _ _) (Cons place (Cons value (Nil))))
          (normal-write count callees expr callee place value))
-        (_ (naming count ((operands (normal-all callees (Cons callee args)))
-                          (bound (bind-operands callees operands)))
-                   (match (● bound operands)
-                     ((Cons callee args)
-                      (new Pair (first (wrap-lets bound (applied expr callee args)))
-                           (second count)))
-                     ((Nil) (panic "internal error: a call without a callee")))))))
+        (_ (threading count ((operands (normal-all callees (Cons callee args)))
+                             (bound (bind-operands callees operands)))
+                      (match (● bound operands)
+                        ((Cons callee args)
+                         (new Pair (first (wrap-lets bound (applied expr callee args)))
+                              (second count)))
+                        ((Nil) (panic "internal error: a call without a callee")))))))
 
     (define (applied (expr Expr) (callee Expr) (args (List Expr))) (→ Expr)
       (new Expr (term (App callee args)) (type (● expr type)) (loc (● expr loc))))
@@ -597,15 +593,15 @@
                           (place Expr)
                           (value Expr))
       (→ (Pair Expr I64))
-      (naming count ((operands (normal-all callees (list (place-record place) value)))
-                     (bound (bind-operands callees (Cons callee operands))))
-              (match (● bound operands)
-                ((Cons callee (Cons record (Cons value (Nil))))
-                 (new Pair
-                   (first
-                    (wrap-lets bound (applied expr callee (list (place-at place record) value))))
-                   (second count)))
-                (_ (panic "internal error: a write has a place and a value")))))
+      (threading count ((operands (normal-all callees (list (place-record place) value)))
+                        (bound (bind-operands callees (Cons callee operands))))
+                 (match (● bound operands)
+                   ((Cons callee (Cons record (Cons value (Nil))))
+                    (new Pair
+                      (first
+                       (wrap-lets bound (applied expr callee (list (place-at place record) value))))
+                      (second count)))
+                   (_ (panic "internal error: a write has a place and a value")))))
 
     (define (place-record (place Expr)) (→ Expr)
       (match (● place term)
@@ -634,17 +630,17 @@
       (let* ((operations (● (program-effect (callees-program callees) effect) operations))
              (values
               (map (lambda (operation) (implementation-of implementations operation)) operations)))
-        (naming count ((values (normal-all callees values))
-                       (bound (bind-operands callees values))
-                       (body (normal callees body)))
-                (new Pair (first (wrap-lets bound
-                                            (new Expr
-                                              (term (Handle effect
-                                                            (zip operations (● bound operands))
-                                                            body))
-                                              (type (● expr type))
-                                              (loc (● expr loc)))))
-                     (second count)))))
+        (threading count ((values (normal-all callees values))
+                          (bound (bind-operands callees values))
+                          (body (normal callees body)))
+                   (new Pair (first (wrap-lets bound
+                                               (new Expr
+                                                 (term (Handle effect
+                                                               (zip operations (● bound operands))
+                                                               body))
+                                                 (type (● expr type))
+                                                 (loc (● expr loc)))))
+                        (second count)))))
 
     (define (implementation-of (implementations (List (Pair String Expr))) (operation String))
       (→ Expr)
@@ -682,19 +678,20 @@
         ((Cons operand rest)
          (if (and (<= index final) (or (= index final) (not (inert? operand))))
              (let ((name (temporary-name count)) (next (+ count 1)))
-               (naming next ((bound (bind-from callees final (+ index 1) rest)))
-                       (new Pair
-                         (first (new Bound
-                                  (lets
-                                   (Cons (new Pair (first name) (second operand)) (● bound lets)))
-                                  (operands (Cons (temporary name operand) (● bound operands)))))
-                         (second next))))
-             (naming count ((bound (bind-from callees final (+ index 1) rest)))
-                     (new Pair
-                       (first (new Bound
-                                (lets (● bound lets))
-                                (operands (Cons operand (● bound operands)))))
-                       (second count)))))
+               (threading next ((bound (bind-from callees final (+ index 1) rest)))
+                          (new Pair
+                            (first (new Bound
+                                     (lets
+                                      (Cons (new Pair (first name) (second operand))
+                                            (● bound lets)))
+                                     (operands (Cons (temporary name operand) (● bound operands)))))
+                            (second next))))
+             (threading count ((bound (bind-from callees final (+ index 1) rest)))
+                        (new Pair
+                          (first (new Bound
+                                   (lets (● bound lets))
+                                   (operands (Cons operand (● bound operands)))))
+                          (second count)))))
         ((Nil) (new Pair (first (new Bound (lets (Nil)) (operands (Nil)))) (second count)))))
 
     (define (inert? (expr Expr)) (→ Bool)

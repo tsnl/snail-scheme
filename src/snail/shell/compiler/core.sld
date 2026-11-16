@@ -11,8 +11,6 @@
    TVar
    TRigid
    empty-row
-   fn-arrow
-   callable-kind
    callable-arrow
    mut-row
    unchecked
@@ -25,12 +23,10 @@
    require-type-capacity
    never-type?
    local-name
-   string-type?
    bytes-type?
    buffer-type?
    hidden-effects
    labels->string
-   type=?
    types=?
    optional-any-type?
    short-name
@@ -71,7 +67,6 @@
    PCon
    lambda-expr?
    expr-references
-   expr-reference-types
    expr-children
    DataType
    Case
@@ -80,7 +75,6 @@
    row-arguments
    type-arguments
    match-types
-   match-type
    output-arguments
    row-variable
    Instance
@@ -115,7 +109,6 @@
    program-effect
    class-instances
    check-instance-overlap
-   selected-method-arguments
    program-with-value
    program-with-type
    program-with-class
@@ -131,6 +124,8 @@
    type-id
    case-type-id
    any-type-id
+   threading
+   each
    strong-components)
   (import
    (snail core base)
@@ -162,23 +157,11 @@
 
     (define (empty-row) (→ Type) (TRow (Nil) (None)))
 
-    ;; The signature a callable holds; any other type is its own.
-
-    (define (fn-arrow (type Type)) (→ Type)
-      (match (callable-arrow type)
-        ((Some arrow) arrow)
-        ((None) type)))
-
     ;; ---- Procedure types ----
 
     ;; Fn is the one callable type: a closure that may be called any number
     ;; of times. A handler's `resume` is an Fn too; the backend panics if it
     ;; is called a second time.
-
-    (define (callable-kind (type Type)) (→ (Option String))
-      (match type
-        ((TFun _ _ _) (Some "Fn"))
-        (_ (None))))
 
     (define (callable-arrow (type Type)) (→ (Option Type))
       (match type
@@ -672,16 +655,6 @@
                 (new Pair (first (table-set seen name #t)) (second (Cons name names)))))))
         (_ (fold-left collect-references found (expr-children expr)))))
 
-    ;; Local names are unique after resolution. Closure layouts and control
-    ;; frames use the type carried by each resolved read.
-    (define (expr-reference-types (expr Expr)) (→ (Table Type))
-      (collect-reference-types (empty-table) expr))
-
-    (define (collect-reference-types (found (Table Type)) (expr Expr)) (→ (Table Type))
-      (match (● expr term)
-        ((Var name _ _) (table-set found name (● expr type)))
-        (_ (fold-left collect-reference-types found (expr-children expr)))))
-
     ;; ---- Declared entities ----
 
     ;; A record is a data type with one case named after it.
@@ -979,26 +952,6 @@
            (_ #f)))
         (_ #t)))
 
-    ;; A method's use row is opened to its context, but a selected instance
-    ;; supplies the rows it actually performs. Class parameters come first;
-    ;; method-local type arguments follow them and retain their use's types.
-
-    (define (selected-method-arguments (program Program)
-                                       (class String)
-                                       (types (List Type))
-                                       (evidence (List Evidence)))
-      (→ (List Type))
-      (match evidence
-        ((Cons (EvInstance id arguments _) _)
-         (match (find (lambda (instance) (string=? (● instance name) id))
-                      (class-instances program class))
-           ((Some instance)
-            (let ((bindings (zip (● instance vars) arguments)))
-              (append (map (lambda (type) (substitute bindings type)) (● instance types))
-                      (list-drop types (length (● instance types))))))
-           ((None) types)))
-        (_ types)))
-
     ;; Each addition is a larger program, sharing everything else with the
     ;; one it was given.
 
@@ -1161,6 +1114,41 @@
                              (string-append "|" (type-schema program tail params visiting))))
                           ")")))
         (_ (panic "internal error: unresolved type in a schema"))))
+
+    ;; ---- Threading pass state ----
+
+    ;; A sequence of steps that each take a pass's state and hand it back,
+    ;; written as `let*` is. `(name (step argument ...))` is for a step that
+    ;; returns its value paired with the new state, and binds the value;
+    ;; `(then (step argument ...))` is for a step that hands back the state
+    ;; alone. Every step is a call, with the state passed as its first
+    ;; argument, and the state is named by an identifier: each step rebinds
+    ;; that name, so the body and every later step see the newest one and
+    ;; nothing can read a state a step has moved past. `then` is this form's
+    ;; keyword wherever the name is unbound, as `else` is `cond`'s, so a step
+    ;; cannot bind a value under that name.
+    (define-syntax threading
+      (syntax-rules (then)
+        ((_ state () body ...) (begin body ...))
+        ((_ state ((then (f argument ...)) step ...) body ...)
+         (let ((state (f state argument ...))) (threading state (step ...) body ...)))
+        ((_ state ((name (f argument ...)) step ...) body ...)
+         (match (f state argument ...)
+           ((Pair name state) (threading state (step ...) body ...))))))
+
+    ;; `step` over each item in order, threading the state and collecting
+    ;; the values, so a sequence of steps is itself one step.
+
+    (define (each (state S) (step (Fn S A → (Pair B S) ! e)) (items (List A)))
+      (→ (Pair (List B) S))
+      (! e)
+      (∀ (S A B e))
+      (let ((done (fold-left (lambda (done item)
+                               (match (step (● done second) item)
+                                 ((Pair value state)
+                                  (new Pair (first (Cons value (● done first))) (second state)))))
+                             (new Pair (first (Nil)) (second state)) items)))
+        (new Pair (first (reverse (● done first))) (second (● done second)))))
 
     ;; ---- Strongly connected components ----
 
