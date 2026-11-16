@@ -691,7 +691,7 @@
 
     ;; ---- Browser packages ----
 
-    (define (browser-files) (→ (List String))
+    (define browser-files (→ (List String))
       (list "host.mjs"
             "application.mjs"
             "runtime.mjs"
@@ -707,7 +707,7 @@
     ;; A public tree may use none of them.
 
     (define (generated-names (target String)) (→ (List String))
-      (append (list (program-name target) "store" ".snail-target") (browser-files)))
+      (append (list (program-name target) "store" ".snail-target") browser-files))
 
     ;; The browser host's files, then the target's public tree, if it has
     ;; one. The page is the public folder's index.html; none is generated.
@@ -747,7 +747,7 @@
                    (string-append (● (● builder tools) root) "/host/browser/" file)
                    (string-append directory "/" file)
                    (string-append "cannot copy the browser host's " file)))
-                (browser-files))
+                browser-files)
       (match (● target public)
         ((Some path)
          (copy-public (public-directory builder path) directory (generated-names (● target name))))

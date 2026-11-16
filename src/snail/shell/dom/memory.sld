@@ -76,7 +76,7 @@
        (next-listener I32)
        (lines (List String))))
 
-    (define (empty-document) (→ Document)
+    (define empty-document (→ Document)
       (new Document (entries (table-set (table-set (empty-table) "0" (new-entry "#root" ""))
                                         "-1"
                                         (new-entry "#window" "")))
@@ -474,7 +474,7 @@
                       (● found listeners))
            ((Some hearing)
             (Some (Fired (new Listener (id (● hearing id)))
-                         (Event-value-set (no-event)
+                         (Event-value-set no-event
                                           (match (property-of document node "value")
                                             ((Some (Text value)) value)
                                             (_ ""))))))
@@ -527,7 +527,7 @@
       (! mut e)
       (∀ (T e))
       (let ((state
-             (new Memory (document (empty-document)) (cues script) (woken #f) (inputs (Nil)))))
+             (new Memory (document empty-document) (cues script) (woken #f) (inputs (Nil)))))
         (let ((value
                (handle dom
                    ((document-root (lambda () (new Node (handle 0))))

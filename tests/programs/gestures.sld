@@ -26,7 +26,7 @@
                                                                            (map gesture-text
                                                                                 meanings)))))))
                                                         (new Pair
-                                                          (first (no-gestures))
+                                                          (first no-gestures)
                                                           (second (Nil)))
                                                         inputs)
                                              second)

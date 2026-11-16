@@ -210,7 +210,7 @@
 
     ;; A location for code the backend writes itself.
 
-    (define (no-loc) (→ Loc) (new Loc (file "") (line 0) (column 0)))
+    (define no-loc (→ Loc) (new Loc (file "") (line 0) (column 0)))
 
     ;; ---- Names ----
 
@@ -619,11 +619,13 @@
     ;; in a slot that starts as zero or null, like any inactive result. State
     ;; 1 is set before the initializer runs, so one that reads its own value
     ;; panics instead of recursing without end; state 2 says the slot holds
-    ;; the value.
+    ;; the value. A literal needs no slot: evaluating it again gives the
+    ;; same value, so its thunk is an ordinary function.
 
     (define (emit-cached-thunk! (m Module) (name String) (thunk Expr)) (→ Unit) (! mut)
       (match (● thunk term)
         ((Ann inner _) (emit-cached-thunk! m name inner))
+        ((Lambda (Nil) (Expr (Lit _) _ _)) (emit-function! m name thunk))
         ((Lambda (Nil) body)
          (let* ((fn (Fn-exit-set (new-fn m) (function-exit (● thunk type))))
                 (result (rep m (● body type)))
@@ -912,19 +914,19 @@
                         (term (App (new Expr
                                      (term (Var name (Nil) (Nil)))
                                      (type type)
-                                     (loc (no-loc)))
+                                     (loc no-loc))
                                    (map (lambda (pair)
                                           (new Expr
                                             (term (Var (● pair first) (Nil) (Nil)))
                                             (type (● pair second))
-                                            (loc (no-loc))))
+                                            (loc no-loc)))
                                         (zip names params))))
-                        (type result) (loc (no-loc)))))
+                        (type result) (loc no-loc))))
            (closure-value m
                           (new Expr
                             (term (Lambda names call ))
                             (type type)
-                            (loc (no-loc)))
+                            (loc no-loc))
                           (None))))
         (_ (panic "internal error: a function value needs a function type"))))
 
@@ -979,7 +981,7 @@
         (wat* "struct.new"
               (Cons (id subtype)
                     (Cons (wat "ref.func" (id code))
-                          (map (lambda (name) (variable fn name (unchecked))) captured))))))
+                          (map (lambda (name) (variable fn name unchecked)) captured))))))
 
     ;; The captures extend the base struct with their fields. Closures with
     ;; one base and one list of representations share the subtype.
@@ -1058,7 +1060,7 @@
     ;; still depend on the order of emission.
 
     (define (lambda-id (m Module) (prefix String) (draft Wat) (salt I64)) (→ String) (! mut)
-      (let* ((hash (i64->string (wat-hash (fnv-offset) draft)))
+      (let* ((hash (i64->string (wat-hash fnv-offset draft)))
              (name (wasm-id (string-append prefix
                                            "."
                                            hash
@@ -2135,7 +2137,7 @@
     (define (operation-type (m Module) (operation String)) (→ Type)
       (match (program-value (program-of m) operation)
         ((Some (Operation _ (Scheme _ _ (TFun params result _))))
-         (TFun params result (empty-row)))
+         (TFun params result empty-row))
         (_ (panic "internal error: not an operation"))))
 
     (define (operation-result (m Module) (operation String)) (→ Type)
@@ -2442,7 +2444,7 @@
              (saved (wat "local.get" (id temp)))
              (set (wat "local.set" (id temp) (frame fn name value body)))
              (test (yield-test fn saved))
-             (argument (box-value m (● value type) (variable fn name (unchecked)))))
+             (argument (box-value m (● value type) (variable fn name unchecked))))
         (Cons set (append test (list (wat "return_call" (id (frame-runner m)) saved argument))))))
 
     ;; A let's value that holds yield points of its own is a block they
@@ -2533,7 +2535,7 @@
               (emit-join! (Fn-exit-set (new-fn m) (Some (ToRunner))) name value body entries type)))
         (wat* "struct.new"
               (append (list (id type) (wat "ref.func" (id join)) (● fn evidence))
-                      (map (lambda (local) (variable fn local (unchecked))) captured)))))
+                      (map (lambda (local) (variable fn local unchecked)) captured)))))
 
     ;; A let's body as a function of its frame and its boxed value: it
     ;; loads the frame's locals and evidence and binds the value, runs the

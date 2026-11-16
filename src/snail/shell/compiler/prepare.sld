@@ -145,7 +145,7 @@
       (match (program-value (callees-program callees) name)
         ((Some (Operation effect scheme)) (operation-row callees effect scheme))
         ((Some (Primitive scheme))
-         (if (or (closed-row? (● scheme type)) (member? name (closing-primitives)))
+         (if (or (closed-row? (● scheme type)) (member? name closing-primitives))
              (Nil)
              (call-row type)))
         ((Some (Foreign _ _)) (Nil))
@@ -155,7 +155,7 @@
         ((Some (Setter _ _ _)) (Nil))
         (_ (resume-row callees name type))))
 
-    (define (closing-primitives)
+    (define closing-primitives
       (→ (List String))
       (list "prim:inherit-handlers"))
 
@@ -744,11 +744,11 @@
 
           (define f (local "f" (TFun (list i64) i64 abort-row)))
 
-          (define g (local "g" (TFun (list i64) i64 (empty-row))))
+          (define g (local "g" (TFun (list i64) i64 empty-row)))
 
           (define predicate (local "predicate" (TFun (list) bool abort-row)))
 
-          (define add (local "add" (TFun (list i64 i64) i64 (empty-row))))
+          (define add (local "add" (TFun (list i64 i64) i64 empty-row)))
 
           (define operation
             (lambda (effect latent) (Operation effect
@@ -762,7 +762,7 @@
           (define program
             (fold-left (lambda (program entry)
                          (program-with-value program (● entry first) (● entry second)))
-                       (fold-left program-with-effect (empty-program)
+                       (fold-left program-with-effect empty-program
                                   (list
                                    (new Effect
                                      (name "t:Abort")
@@ -847,7 +847,7 @@
                                                               (second (local "catch"
                                                                              (TFun (list i64)
                                                                                    i64
-                                                                                   (empty-row))))))
+                                                                                   empty-row)))))
                                                    body))
                                 (type i64)
                                 (loc loc))))
@@ -869,7 +869,7 @@
             (lambda () (let* ((opened (local "t:pure" (TFun (list i64) i64 abort-row)))
                               (pure
                                (new Expr (term (Lambda (list "x.1") (local "x.1" i64) ))
-                                    (type (TFun (list i64) i64 (empty-row)))
+                                    (type (TFun (list i64) i64 empty-row))
                                     (loc loc)))
                               (defined (test-callees (table-set (empty-table) "t:pure" pure))))
                          (expect (yields defined (call opened (list (number 1)))) (Nil))
@@ -889,8 +889,8 @@
               (expect (normalized (call g (list (call f (list (call f (list (number 1))))))))
                       "(let %control.1% (let %control.0% (f 1) (f %control.0%)) (g %control.1%))")
               (let* ((unit (TCon "Unit" (Nil)))
-                     (write (local "prim:set!" (TFun (list i64 i64) unit (empty-row))))
-                     (read (local "x" (TFun (list i64) i64 (empty-row))))
+                     (write (local "prim:set!" (TFun (list i64 i64) unit empty-row)))
+                     (read (local "x" (TFun (list i64) i64 empty-row)))
                      (record (call g (list (number 1)))))
                 (expect (normalized (call write (list (call read (list record))
                                                       (call f (list (number 2))))))
@@ -959,10 +959,10 @@
           (define test-restrictions
             (lambda () (let* ((thunk-type (TFun (list) i64 abort-row))
                               (total
-                               (local "prim:unsafe-total" (TFun (list thunk-type) i64 (empty-row))))
+                               (local "prim:unsafe-total" (TFun (list thunk-type) i64 empty-row)))
                               (log
                                (new Expr (term (Lambda (list "m.1") (call f (list (number 1))) ))
-                                    (type (TFun (list i64) i64 (empty-row)))
+                                    (type (TFun (list i64) i64 empty-row))
                                     (loc loc))))
                          (expect (refused? (call total (list (local "thunk" thunk-type))))
                                  "an unsafe-total thunk cannot reach a control operation")
@@ -985,7 +985,7 @@
             (lambda () (let* ((resume-type (TFun (list i64) i64 abort-row))
                               (thunk-type (TFun (list) i64 abort-row))
                               (inherit (local "prim:inherit-handlers"
-                                              (TFun (list thunk-type) i64 (empty-row))))
+                                              (TFun (list thunk-type) i64 empty-row)))
                               (resuming (lambda (name)
                                           (new Expr
                                             (term (Lambda (Nil)
@@ -993,7 +993,7 @@
                                                                 (list (number 1)))))
                                             (type thunk-type)
                                             (loc loc))))
-                              (implementation-type (TFun (list i64 resume-type) i64 (empty-row)))
+                              (implementation-type (TFun (list i64 resume-type) i64 empty-row))
                               (closing (new Expr (term (Lambda (list "v.1" "resume.1")
                                                                (call inherit
                                                                      (list (resuming "resume.1")))
@@ -1044,7 +1044,7 @@
                               (thunk-type (TFun (Nil) i64 abort-row))
                               (inherit
                                (local "prim:inherit-handlers"
-                                      (TFun (list thunk-type) i64 (empty-row))))
+                                      (TFun (list thunk-type) i64 empty-row)))
                               (thunk (lambda (body)
                                        (new Expr
                                          (term (Lambda (Nil) body ))
@@ -1062,7 +1062,7 @@
                           "a procedure given to inherit-handlers cannot reach a control operation"))))
 
           (define test-latent
-            (lambda () (let ((fetch (local "t:fetch" (TFun (list i64) i64 (empty-row))))
+            (lambda () (let ((fetch (local "t:fetch" (TFun (list i64) i64 empty-row)))
                              (yielding
                               (new Expr (term (Lambda (list "n.1") (call f (list (number 1))) ))
                                    (type (TFun (list i64) i64 abort-row))
@@ -1070,7 +1070,7 @@
                          (expect (yields callees (call fetch (list (number 1)))) (list "t:Abort"))
                          (expect
                           (yields callees
-                                  (call (local "t:log" (TFun (list i64) i64 (empty-row)))
+                                  (call (local "t:log" (TFun (list i64) i64 empty-row))
                                         (list (number 1))))
                           (Nil))
                          (expect

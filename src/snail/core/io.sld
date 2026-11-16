@@ -293,7 +293,7 @@
     ;; time, and the chunks are joined at the end, so a file of millions of
     ;; characters or bytes costs a few bytes for each rather than a list
     ;; cell.
-    (define (chunk-size) (→ I64) 4096)
+    (define chunk-size (→ I64) 4096)
 
     (define (drain (next (Fn → (Option T) ! e)))
       (→ (Array T))
@@ -301,7 +301,7 @@
       (∀ (T e))
       (let loop ((chunks (Nil)))
         (let ((chunk (next-chunk next)))
-          (if (< (array-length chunk) (chunk-size))
+          (if (< (array-length chunk) chunk-size)
               (array-concatenate (reverse (Cons chunk chunks)))
               (loop (Cons chunk chunks))))))
 
@@ -312,7 +312,7 @@
       (! e)
       (∀ (T e))
       (let loop ((items (Nil)) (count 0))
-        (if (= count (chunk-size))
+        (if (= count chunk-size)
             (list->array (reverse items))
             (match (next)
               ((Some item) (loop (Cons item items) (+ count 1)))

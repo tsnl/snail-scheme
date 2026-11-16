@@ -139,7 +139,7 @@ fn table(out: &mut String, name: &str, element: &str, values: &[i64]) {
         values.iter().all(|value| range.contains(value)),
         "{name} does not fit {element}"
     );
-    writeln!(out, "\n    (define ({name}) (→ (ConstantArray {element}))").unwrap();
+    writeln!(out, "\n    (define {name} (→ (ConstantArray {element}))").unwrap();
     write!(
         out,
         "      (constant-array {element}\n                       ("
@@ -216,15 +216,10 @@ fn main() {
         writeln!(out, "   {name}").unwrap();
     }
     out.push_str("   )\n  (import\n   (snail core base))\n  (begin\n");
+    writeln!(out, "\n    (define unicode-shift (→ I64) {})", stages.shift).unwrap();
     writeln!(
         out,
-        "\n    (define (unicode-shift) (→ I64) {})",
-        stages.shift
-    )
-    .unwrap();
-    writeln!(
-        out,
-        "\n    (define (unicode-checksum) (→ I64) {})",
+        "\n    (define unicode-checksum (→ I64) {})",
         checksum()
     )
     .unwrap();

@@ -37,9 +37,9 @@
 
     ;; ---- Events ----
 
-    (define (hidden-kind) (→ I32) 12)
+    (define hidden-kind (→ I32) 12)
 
-    (define (save-kind) (→ I32) 16)
+    (define save-kind (→ I32) 16)
 
     ;; Waiting for an event, like loading and storing a save below, starts
     ;; on the host and waits by ticket ((snail shell task)'s `through-host`).

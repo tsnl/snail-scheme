@@ -55,9 +55,9 @@
       (BodyTooLarge)
       (InvalidResponse ((reason String))))
 
-    (define (head-limit) (→ I64) 16384)
+    (define head-limit (→ I64) 16384)
 
-    (define (body-limit) (→ I64) 8388608)
+    (define body-limit (→ I64) 8388608)
 
     ;; ---- Request syntax ----
 
@@ -105,7 +105,7 @@
 
     (define (head-end (bytes Bytes)) (→ (Result (Option I64) HttpError))
       (let loop ((index 0))
-        (cond ((= index (head-limit)) (Err (HeadTooLarge)))
+        (cond ((= index head-limit) (Err (HeadTooLarge)))
               ((= index (array-length bytes)) (Ok (None)))
               (else
                (let ((byte (u8->i32 (array-ref bytes index)))
@@ -247,7 +247,7 @@
               (else (match lengths
                       ((Nil) (Ok 0))
                       ((Cons value rest)
-                       (if (null? rest) (decimal value (body-limit) (BodyTooLarge))
+                       (if (null? rest) (decimal value body-limit (BodyTooLarge))
                            (Err (Malformed "duplicate Content-Length")))))))))
 
     (define (framed-request (line (Pair String String)) (headers (List Header)))
@@ -439,7 +439,7 @@
     ;; one byte.
 
     (define (head-bytes (prefix String) (headers (List Header))) (→ (Result Bytes HttpError))
-      (match (response-fields headers (- (- (head-limit) (string-length prefix)) 2))
+      (match (response-fields headers (- (- head-limit (string-length prefix)) 2))
         ((Err error) (Err error))
         ((Ok fields)
          (let ((head (string-concatenate (Cons prefix (append fields (list "\r\n"))))))

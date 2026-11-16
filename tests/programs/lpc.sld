@@ -69,9 +69,9 @@
 
   (report "bodies"
           (concatenate
-           (map (lambda (build) (map (lambda (skin) (● (body-sheet build skin) path)) (skins)))
-                (builds))))
-  (report "heads" (map (lambda (head) (● (head-sheet head (list-ref (skins) 0)) path)) (heads)))
+           (map (lambda (build) (map (lambda (skin) (● (body-sheet build skin) path)) skins))
+                builds)))
+  (report "heads" (map (lambda (head) (● (head-sheet head (list-ref skins 0)) path)) heads))
   (report "garments"
           (concatenate (map (lambda (garment)
                               (map (lambda (build)
@@ -82,13 +82,13 @@
                                        ((Some sheet) (● sheet path))
                                        ((None) "(no sheet)")))
                                    (garment-builds garment)))
-                            (garments))))
+                            garments)))
   (report "hair"
           (concatenate (map (lambda (style)
                               (map (lambda (build)
-                                     (● (hair-sheet build style (list-ref (hair-colors) 0)) path))
+                                     (● (hair-sheet build style (list-ref hair-colors 0)) path))
                                    (list (Male) (Female))))
-                            (hair-styles))))
+                            hair-styles)))
   (write-line (string-append "female: " (describe (dress (Female) (HumanFemale) (olive) (outfit)))))
   (write-line
    (string-append "male in navy pants: " (describe (dress (Male) (HumanMale) (olive) (outfit)))))

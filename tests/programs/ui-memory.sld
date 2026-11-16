@@ -92,10 +92,10 @@
                              (show (● model saved)))))
 
 (define (typed (text String)) (→ Cue)
-  (Fire "draft" "input" (Event-value-set (no-event) text)))
+  (Fire "draft" "input" (Event-value-set no-event text)))
 
 (define (clicked (target String)) (→ Cue)
-  (Fire target "click" (no-event)))
+  (Fire target "click" no-event))
 
 (define (script) (→ (List Cue))
   (list (typed "milk")

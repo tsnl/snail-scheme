@@ -191,7 +191,7 @@
     ;; The program that loads, as an instance whose exports a loaded module
     ;; may import.
 
-    (define (loading-program) (→ Module) (new Module (handle 0)))
+    (define loading-program (→ Module) (new Module (handle 0)))
 
     ;; Links `compiled`, called `name` in a failure, with `providers`, one
     ;; per import in import order, and initializes it when it exports

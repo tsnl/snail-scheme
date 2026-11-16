@@ -152,7 +152,7 @@
       (TRigid
        ((name String))))
 
-    (define (empty-row) (→ Type) (TRow (Nil) (None)))
+    (define empty-row (→ Type) (TRow (Nil) (None)))
 
     ;; ---- Procedure types ----
 
@@ -167,12 +167,12 @@
 
     ;; Writing a field changes storage; reading it has no mutation effect.
 
-    (define (mut-row) (→ Type) (TRow (list "mut") (None)))
+    (define mut-row (→ Type) (TRow (list "mut") (None)))
 
     ;; The type of an expression the checker has not yet seen. The checker
     ;; rebuilds every expression, so no later pass meets it.
 
-    (define (unchecked) (→ Type) (TCon "unchecked" (Nil)))
+    (define unchecked (→ Type) (TCon "unchecked" (Nil)))
 
     (record Constraint
       ((class String)
@@ -191,7 +191,7 @@
     ;; The names of the core forms, which the expander binds in
     ;; (snail core forms) and (snail shell highlight) colors as keywords.
 
-    (define (core-keywords) (→ (List String))
+    (define core-keywords (→ (List String))
       (list "define"
             "lambda"
             "if"
@@ -220,7 +220,7 @@
             "constant-array"
             "link-handle"))
 
-    (define (builtin-types) (→ (List (Pair String I64)))
+    (define builtin-types (→ (List (Pair String I64)))
       (list (new Pair (first "Any") (second 0))
             (new Pair (first "Funcref") (second 0))
             (new Pair (first "U8") (second 0))
@@ -851,7 +851,7 @@
        (items (List Item))
        (libraries (List (Pair String I64)))))
 
-    (define (empty-program) (→ Program)
+    (define empty-program (→ Program)
       (new Program
         (values (empty-table))
         (types (empty-table))
@@ -976,7 +976,7 @@
     ;; `fnv-step` mixes in each code, a code point or a byte, in turn. The
     ;; product stays below 2^56, so it never overflows I64.
 
-    (define (fnv-offset) (→ I64) 2166136261)
+    (define fnv-offset (→ I64) 2166136261)
 
     (define (fnv-step (hash I64) (code I64)) (→ I64)
       (i64-and (* (i64-xor hash code) 16777619) 4294967295))
@@ -985,7 +985,7 @@
 
     (define (fnv-1a (text String)) (→ I64)
       (array-fold (lambda (hash c) (fnv-step hash (char->integer c)))
-                  (fnv-offset)
+                  fnv-offset
                   (string->array text)))
 
     ;; A TypeId is a hash as a signed 32-bit value, which Wasm's i32 holds.
@@ -1242,7 +1242,7 @@
         (lambda () (expect (short-name "snail.core.base:map") "map")
                 (expect (label-union (list "b" "d") (list "c" "a" "b")) (list "a" "b" "c" "d"))
 
-                (expect (every? (lambda (entry) (builtin-type? (● entry first))) (builtin-types))
+                (expect (every? (lambda (entry) (builtin-type? (● entry first))) builtin-types)
                         #t)
                 (expect (builtin-type? "snail.core.base:List") #f)
                 (test-type-identities)
@@ -1253,7 +1253,7 @@
       ;; schemas and nested callback effects must change its identity even
       ;; when all involved Wasm layouts remain identical.
       (define (identity-fixture (label String) (field Type)) (→ Program)
-        (program-with-type (empty-program)
+        (program-with-type empty-program
                            (new DataType (name "test:Payload") (params (Nil))
                                 (cases
                                  (list (new Case (name "test:Payload") (type "test:Payload") (tag 0)
@@ -1262,10 +1262,10 @@
 
       (define (test-type-identities) (→ Unit)
         (let* ((i64 (TCon "I64" (Nil))) (payload (TCon "test:Payload" (Nil)))
-               (callback (TFun (list payload) payload (empty-row)))
+               (callback (TFun (list payload) payload empty-row))
                (old (identity-fixture "before" i64))
                (changed (identity-fixture "after" i64))
-               (pure (identity-fixture "call" (TFun (Nil) i64 (empty-row))))
+               (pure (identity-fixture "call" (TFun (Nil) i64 empty-row)))
                (effectful
                 (identity-fixture "call" (TFun (Nil) i64 (TRow (list "test:Log") (None))))))
           (expect (= (any-type-id old callback) (any-type-id changed callback)) #f)
@@ -1275,7 +1275,7 @@
       ;; implementations, preserving first occurrence while deduplicating.
       (define test-references
         (lambda () (let* ((at (new Loc (file "references") (line 1) (column 1)))
-                          (wrap (lambda (term) (new Expr (term term) (type (unchecked)) (loc at))))
+                          (wrap (lambda (term) (new Expr (term term) (type unchecked) (loc at))))
                           (read (lambda (name) (wrap (Var name (Nil) (Nil)))))
                           (body (wrap (App (read "later") (list (read "first") (read "last")))))
                           (handler (wrap (Lambda (list "unused") (read "first") )))
@@ -1288,18 +1288,18 @@
       ;; depth of the type, and a type variable may be one.
       (define test-hidden-effects
         (lambda () (let* ((i64 (TCon "I64" (Nil)))
-                          (total (TFun (Nil) i64 (empty-row)))
+                          (total (TFun (Nil) i64 empty-row))
                           (logging (TFun (Nil) i64 (TRow (list "t:Log") (None))))
                           (open (TFun (Nil) i64 (TRow (Nil) (Some (TRigid "e"))))))
                      (expect (hidden-effects (TCon "List" (list total))) (None))
-                     (expect (hidden-effects (TFun (list total) i64 (empty-row))) (None))
+                     (expect (hidden-effects (TFun (list total) i64 empty-row)) (None))
                      (expect (hidden-effects logging) (Some logging))
                      (expect (hidden-effects open) (Some open))
                      (expect (hidden-effects (TCon "List" (list logging))) (Some logging))
-                     (expect (hidden-effects (TFun (list logging) i64 (empty-row))) (Some logging))
+                     (expect (hidden-effects (TFun (list logging) i64 empty-row)) (Some logging))
                      (expect (hidden-effects (TCon "Task" (list (TRow (list "t:Log") (None)))))
                              (Some (TRow (list "t:Log") (None))))
-                     (expect (hidden-effects (TCon "Task" (list (empty-row)))) (None))
+                     (expect (hidden-effects (TCon "Task" (list empty-row))) (None))
                      (expect (hidden-effects (TCon "Holder" (list (TRigid "A"))))
                              (Some (TRigid "A"))))))))
    (else)))

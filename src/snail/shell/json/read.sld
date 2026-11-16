@@ -148,7 +148,7 @@
              (read-string chars (+ index 1) (Cons (array-ref chars index) text)))
             (else (None))))
 
-    (define (short-escapes) (→ (List (Pair Char Char)))
+    (define short-escapes (→ (List (Pair Char Char)))
       (list (new Pair (first #\") (second #\"))
             (new Pair (first #\\) (second #\\))
             (new Pair (first #\/) (second #\/))
@@ -164,7 +164,7 @@
       (if (at? chars index #\u)
           (read-unicode chars (+ index 1))
           (match (if (< index (array-length chars))
-                     (assoc-ref (short-escapes) (array-ref chars index))
+                     (assoc-ref short-escapes (array-ref chars index))
                      (None))
             ((Some char) (Some (new Pair (first char) (second (+ index 1)))))
             ((None) (None)))))
