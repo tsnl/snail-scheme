@@ -7,7 +7,9 @@
  (only (snail core forms) host)
  (snail shell task)
  (snail shell app)
- (snail shell wire))
+ (snail shell wire)
+ (only (snail core io) clock)
+ (only (snail shell gpu) gpu))
 
 ;; A task keeps its handlers across its waits, and a child inherits them.
 (effect Marker
@@ -58,16 +60,18 @@
                                     (button "trap" "Trap" 2))
                               (if (● counter leaving?) (list (button "leave" "Leave" 3)) (Nil)))))))
 
-(define (counter) (→ (SceneHandler Counter))
+(define (counter) (→ (SceneHandler Counter Unit))
   (new SceneHandler
     (initialize (lambda (seed width height) (counting 0)))
     (update step)
-    (view draw)
+    (start (lambda () (unit)))
+    (draw (lambda (counter drawing) (render (draw counter)) drawing))
     (hud panels)
+    (image-url (lambda (drawing image) ""))
     (save (lambda (counter) (serialize (new Save (count (● counter count))))))
     (restore (lambda (bytes) (counting (● (ann (deserialize bytes) Save) count))))))
 
-(define (main) (→ Unit) (! mut host screen events storage tasks)
+(define (main) (→ Unit) (! mut host screen gpu clock events storage tasks)
   (handle Marker
       ((marker (lambda () 17)))
     (dispatch (lambda ()

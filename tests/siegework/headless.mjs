@@ -22,12 +22,16 @@ const HIDDEN = 12, ELAPSED = 11, POINTER_UP = 5, POINTER_MOVE = 4, POINTER_DOWN 
 function screen() {
   const host = {frames: [], overlay: createOverlay(), imports: null};
   host.imports = screenImports({hasBatch: () => false, draw: frame => { host.frames = [frame]; }},
-                               {has: () => true, url: () => ''});
+                               {has: () => true});
   return host;
 }
 
 // Where the camera looked in the last frame, on the ground.
 const target = host => [host.frames.at(-1).camera.target[0], host.frames.at(-1).camera.target[2]];
+
+// Siegework draws through `screen`; the target installs `gpu` too, whose
+// every import fails here if it is called.
+const noWebGpu = new Proxy({}, {get: (_, name) => () => { throw new Error(`this test has no WebGPU ${String(name)}`); }});
 
 // The project's actual package. The smaller application-runtime fixture
 // exercises this same lifecycle under both static and dynamic linking.
@@ -36,7 +40,8 @@ async function instantiateGame(directory, host, saved) {
   const wasi = createWasi({print: (fd, line) => console.log(line)});
   const program = await linkModule(file => readFile(join(directory, file)), 'main.wasm', wasi,
     {...runtime.imports, 'snail.runtime.browser.screen': host.imports,
-     'snail.runtime.browser.dom': createDom(host.overlay, runtime).imports}, () => runtime.execution.tasks);
+     'snail.runtime.browser.dom': createDom(host.overlay, runtime).imports,
+     'snail.runtime.browser.gpu': noWebGpu}, () => runtime.execution.tasks);
   await runtime.start(applicationEntry(program)).ready.promise;
   return runtime;
 }

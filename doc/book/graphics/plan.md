@@ -23,7 +23,7 @@ descriptors, so code using it reads like WebGPU:
        (pass (begin-render-pass encoder
                (new RenderPassDescriptor
                  (colors (list (new ColorAttachment
-                                 (view (view-of (current-texture) 1))
+                                 (view (view-of (● (current-texture) texture) 1))
                                  (load (Clear (new Color (red 0.0) (green 0.0) (blue 0.0) (alpha 1.0))))
                                  (store #t))))
                  (depth (None))))))
@@ -119,6 +119,18 @@ a `View2D` camera to buffers named by the run and draws them instanced as
 a triangle strip; the vertex shader snaps each corner to the target's
 pixels (`quad.wgsl.scm`). Both shaders are printed by the recipe
 `(snail shell graphics shaders)`.
+
+Hearsay draws this way (`src/apps/hearsay/drawing.sld`). Its shapes are
+pictures too, white texels and a hexagon drawn by the program as PNGs, so
+each frame is one run of quads in the old renderer's order: ties, markers
+and rings, bases, figures from far to near, then pips. Its frames match
+the old renderer's within a pixel along edges. On headless Chromium's
+software WebGPU, both keep 60 frames a second, and the page's main thread
+spends 53 to 70 ms a second in tasks against the old renderer's 47 to 55:
+the quads are rebuilt and packed every frame, where the old renderer kept
+batches by version. An atlas composes one picture a call, since an LPC
+sheet decodes to 4.4 MB and a character has six; composing eighteen
+characters in one frame exceeded the budget, which the books reported.
 
 Slots have transparent gutters, not repeated edge texels: pixel art
 samples nearest, which never reads past a slot's edge, so gutters of

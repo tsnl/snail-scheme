@@ -1,6 +1,7 @@
 ;; Atlas slots and quad runs, through the recording handler: pictures fill
-;; shelves and pages, a version already there is not composed again, one
-;; that no longer fits clears the pages, and a run of quads is one draw.
+;; shelves and pages, one a call, a version already there is not composed
+;; again, one that no longer fits clears the pages, and a run of quads is
+;; one draw.
 (import
  (snail core base)
  (snail core io)
@@ -126,13 +127,19 @@
     (submit (list (finish encoder)))
     next))
 
+;; Composed a call at a time, `calls` times.
+(define (settled (atlas Atlas) (pictures (List Picture)) (calls I64)) (→ Atlas) (! gpu tasks)
+  (if (= calls 0) atlas (settled (compose atlas pictures) pictures (- calls 1))))
+
 (define (frames) (→ (List Atlas)) (! gpu tasks)
   (request-device 100000000)
-  (let* ((first (compose (make-atlas "test" 64 2)
-                         (list (picture 1 1 30 20) (picture 2 1 30 20) (picture 3 1 30 40))))
+  (let* ((first (settled (make-atlas "test" 64 2)
+                         (list (picture 1 1 30 20) (picture 2 1 30 20) (picture 3 1 30 40))
+                         3))
          (again (compose first (list (picture 1 1 30 20) (picture 2 1 30 20))))
-         (full (compose again (list (picture 4 1 60 60) (picture 5 1 60 60)))))
-    (list first again full)))
+         (fourth (compose again (list (picture 4 1 60 60))))
+         (full (compose fourth (list (picture 4 1 60 60) (picture 5 1 60 60)))))
+    (list first again fourth full)))
 
 (let ((recorded (with-recorded-gpu 100000000 (lambda () (frames)))))
   (for-each (lambda (atlas) (write-line (slots atlas (list 1 2 3 4 5)))) (● recorded first))
@@ -151,7 +158,9 @@
                                                                              (new ColorAttachment
                                                                                (view
                                                                                 (view-of
-                                                                                 (current-texture)
+                                                                                 (●
+                                                                                  (current-texture)
+                                                                                  texture)
                                                                                  1))
                                                                                (load (Keep))
                                                                                (store #t))))

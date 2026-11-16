@@ -173,7 +173,7 @@
           color
           "offscreen")
     (fill encoder
-          (view-of (current-texture) 1)
+          (view-of (● (current-texture) texture) 1)
           (pipeline-for module (● info format) "onscreen")
           color
           "onscreen")

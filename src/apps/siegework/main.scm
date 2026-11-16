@@ -10,7 +10,9 @@
 (run-scene (new SceneHandler
              (initialize new-game)
              (update update-game)
-             (view view-game)
+             (start (lambda () (unit)))
+             (draw (lambda (game drawing) (render (view-game game)) drawing))
              (hud game-hud)
+             (image-url (lambda (drawing image) ""))
              (save (lambda (game) (serialize (game-save game))))
              (restore (lambda (bytes) (game-restore (deserialize bytes))))))

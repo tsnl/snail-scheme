@@ -12,6 +12,7 @@
   (export
    Quad
    View2D
+   View2D-pixels-set
    draw-quads)
   (import
    (snail core base)

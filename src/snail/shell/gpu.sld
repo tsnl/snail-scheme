@@ -674,8 +674,9 @@
     ;; which names the image's bytes: the same path answers the texture
     ;; already decoded. `read-buffer` waits until the buffer, made with
     ;; `MapRead`, can be read, and answers the bytes asked for.
-    ;; `current-texture` is the canvas's texture for this frame. `submit`
-    ;; ends the frame.
+    ;; `current-texture` is the canvas's texture for this frame, sized to
+    ;; the canvas's pixels on the screen, and its size. `submit` ends the
+    ;; frame.
     (effect gpu
       ((request-device (Fn I64 → DeviceInfo ! tasks))
        (create-buffer (Fn BufferDescriptor → GpuBuffer))
@@ -704,7 +705,7 @@
        (end-pass (Fn GpuRenderPass → Unit))
        (finish (Fn GpuCommandEncoder → GpuCommandBuffer))
        (submit (Fn (List GpuCommandBuffer) → Unit))
-       (current-texture (Fn → GpuTexture))
+       (current-texture (Fn → Image))
        (destroy (Fn GpuObject → Unit))))
 
     ;; ---- Objects ----

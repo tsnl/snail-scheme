@@ -13,7 +13,8 @@
 ;; A slot keeps a transparent texel around its picture, so nearest
 ;; sampling at its edge never reads a neighbour. Slots are placed on
 ;; shelves, left to right and down a page; when a picture no longer fits,
-;; every page is cleared and the pictures asked for are placed again.
+;; every page is cleared and the pictures asked for are placed again. A
+;; call composes one picture, so a frame decodes one picture's sources.
 (define-library (snail shell graphics atlas)
   (export
    Source
@@ -50,7 +51,8 @@
       ((x I32)
        (y I32)
        (width I32)
-       (height I32)))
+       (height I32))
+      (deriving Serialize Deserialize))
 
     ;; The texels of `source` within `from`, with their top left at (x, y)
     ;; of the picture; each swap replaces the 0xRRGGBB color first in the
@@ -184,39 +186,37 @@
                                      (TextureCopyDst)
                                      (RenderAttachment))))))
 
-    ;; Every picture placed at its version: those the atlas lacks are
-    ;; composed in passes of `encoder`, which the caller submits. When one
-    ;; does not fit, the pages are cleared and all of `pictures` placed.
+    ;; The first picture the atlas lacks at its version, composed in a pass
+    ;; of `encoder`, which the caller submits: a frame decodes only one
+    ;; picture's sources, and the rest follow, one a call. When it does not
+    ;; fit, the pages are cleared, and the pictures asked for are composed
+    ;; again in later calls.
 
     (define (atlas-pictures (atlas Atlas) (encoder GpuCommandEncoder) (pictures (List Picture)))
       (→ Atlas)
       (! gpu tasks)
       (let* ((texture (atlas-texture atlas))
-             (current (if (● texture fresh) (emptied atlas) atlas))
-             (missing (filter (lambda (picture) (not (composed? current picture))) pictures)))
-        (if (null? missing)
-            current
-            (match (place-all current missing)
-              ((Some next) (compose! encoder texture next missing #f) next)
-              ((None)
-               (match (place-all (emptied atlas) pictures)
-                 ((Some next) (compose! encoder texture next pictures #t) next)
-                 ((None)
-                  (panic
-                   (string-append "atlas: the pictures do not fit atlas " (● atlas name))))))))))
+             (current (if (● texture fresh) (emptied atlas) atlas)))
+        (match (find (lambda (picture) (not (composed? current picture))) pictures)
+          ((None) current)
+          ((Some picture)
+           (match (placed current picture)
+             ((Some next)
+              (compose! encoder texture (● next second) (list picture) #f)
+              (● next second))
+             ((None)
+              (match (placed (emptied atlas) picture)
+                ((Some next)
+                 (compose! encoder texture (● next second) (list picture) #t)
+                 (● next second))
+                ((None)
+                 (panic (string-append "atlas: a picture is larger than the pages of atlas "
+                                       (● atlas name)))))))))))
 
     (define (composed? (atlas Atlas) (picture Picture)) (→ Bool)
       (match (atlas-slot atlas (● picture key))
         ((Some slot) (= (● slot version) (● picture version)))
         ((None) #f)))
-
-    (define (place-all (atlas Atlas) (pictures (List Picture))) (→ (Option Atlas))
-      (match pictures
-        ((Nil) (Some atlas))
-        ((Cons picture rest)
-         (match (placed atlas picture)
-           ((Some next) (place-all (● next second) rest))
-           ((None) (None))))))
 
     ;; One piece for each layer: the page's clip-space rectangle it covers,
     ;; within its picture, the offset from a page pixel to its source

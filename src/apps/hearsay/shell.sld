@@ -6,18 +6,26 @@
    Shell
    new-shell
    update-shell
-   view-shell
+   draw-shell
+   shell-pictures
    shell-hud
    shell-save
    shell-restore)
   (import
    (snail core base)
    (snail shell wire)
-   (snail shell app)
+   (only (snail core io) clock monotonic-nanoseconds)
+   (only (snail shell task) tasks)
+   (only (snail shell gpu) gpu)
+   (except (snail shell app) Quad Picture Layer Source Rect)
+   (snail shell graphics pod)
+   (only (snail shell graphics atlas) Source Picture)
+   (only (snail shell graphics quad) View2D)
    (apps hearsay mill)
    (apps hearsay mill-screen)
    (apps hearsay ledger-screen)
-   (apps hearsay hud))
+   (apps hearsay hud)
+   (apps hearsay drawing))
   (begin
 
     ;; ---- State ----
@@ -28,10 +36,9 @@
       (Favors ((screen LedgerScreen)))
       (deriving Serialize Deserialize))
 
-    ;; `opened` counts the prototypes opened. A ledger's seed comes from
-    ;; it, and so does the first version of a rumor mill's town, so the host
-    ;; never mistakes a new town for one it has already drawn. Each guide
-    ;; opens by itself until its prototype has been opened once.
+    ;; `opened` counts the prototypes opened, and a ledger's seed comes
+    ;; from it. Each guide opens by itself until its prototype has been
+    ;; opened once.
     (record Shell
       ((screen Screen)
        (seed I64)
@@ -77,7 +84,6 @@
               ((and (= action action-scenario) (>= index 0) (< index (length scenarios)))
                (show-opened (Shell-mill-guided-set shell #t)
                             (Rumors (new-mill-screen (list-ref scenarios index)
-                                                     (* opened 1000)
                                                      (● shell width)
                                                      (● shell height)))
                             (● shell mill-guided)))
@@ -107,15 +113,43 @@
          (forward (Shell-height-set (Shell-width-set shell width) height) input))
         (_ (forward shell input))))
 
-    ;; ---- View ----
+    ;; ---- Drawing ----
 
-    ;; `art` gives the bytes of each sheet the cast wears; main.sld passes
-    ;; the embedded ones, and tests may pass none.
-    (define (view-shell (shell Shell) (art (Fn String → (Option Source)))) (→ Frame)
+    ;; The screen's pictures composed and its quads drawn over the
+    ;; backdrop. `art` gives the bytes of each sheet the cast wears;
+    ;; main.scm passes the embedded ones, and tests may pass none. Only
+    ;; the rumor mill has a scene; the ledger's pictures are its rivals'
+    ;; portraits.
+    (define (draw-shell (shell Shell) (drawing Drawing) (art (Fn String → (Option Source))))
+      (→ Drawing)
+      (! gpu clock tasks)
+      (let ((time (quotient (monotonic-nanoseconds) 1000000)))
+        (match (● shell screen)
+          ((Rumors screen)
+           (draw-quads-frame drawing
+                             (shell-pictures shell art)
+                             backdrop
+                             (mill-view screen)
+                             (lambda (atlas) (mill-quads screen atlas time))))
+          (_
+           (draw-quads-frame drawing
+                             (shell-pictures shell art)
+                             backdrop
+                             (still-view shell)
+                             (lambda (atlas) (Nil)))))))
+
+    (define (shell-pictures (shell Shell) (art (Fn String → (Option Source)))) (→ (List Picture))
       (match (● shell screen)
-        ((Menu) (empty-frame (Nil)))
-        ((Rumors screen) (view-mill-screen screen art))
-        ((Favors screen) (view-ledger-screen screen art))))
+        ((Menu) (Nil))
+        ((Rumors _) (mill-pictures art))
+        ((Favors _) (ledger-pictures art))))
+
+    ;; A view for a screen with no scene.
+    (define (still-view (shell Shell)) (→ View2D)
+      (let ((size (new Vec2f
+                    (x (max 1.0 (i32->f32 (● shell width))))
+                    (y (max 1.0 (i32->f32 (● shell height)))))))
+        (new View2D (center (new Vec2f (x 0.0) (y 0.0))) (extent size) (pixels size))))
 
     (define menu-panels (→ (List Panel))
       (list (new Panel (key "menu") (place (At (TopLeft) 0))

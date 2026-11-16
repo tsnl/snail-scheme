@@ -1,18 +1,26 @@
-;; Interactive applications. An application is four total functions over
-;; its state, and two that convert the state to and from what it saves:
+;; Interactive applications. An application is total functions over its
+;; state, two that convert the state to and from what it saves, and two
+;; that draw it, with a drawing state of their own:
 ;;
 ;;   init    : seed width height -> State
 ;;   update  : State Input -> State
-;;   view    : State -> Frame
+;;   start   : -> Drawing
+;;   draw    : State Drawing -> Drawing, through `gpu` or `screen`
 ;;   hud     : State -> (List Panel)
+;;   image-url : Drawing Key -> String, the address of an image the HUD shows
 ;;   save    : State -> Bytes
 ;;   restore : Bytes -> State
 ;;
-;; A script runs one with `run-scene`, given a SceneHandler of the six.
+;; A script runs one with `run-scene`, given a SceneHandler of the eight.
 ;; Its loop draws each event's state; (snail shell page) owns boot,
-;; restore and durable saves for both browser engines.
-;; Time is input, so the state decides how its simulation advances. The
-;; host draws a Frame through `screen`; the HUD is a tree in the page's
+;; restore and durable saves for both browser engines. The drawing state
+;; holds what drawing keeps between frames, such as an atlas and the
+;; images it has read back for the HUD's `Image` widgets; it is never
+;; saved, and starts again with each page or module, as the GPU's objects
+;; do.
+;; Time is input, so the state decides how its simulation advances. A
+;; scene draws with the `gpu` effect, or sends a Frame through `screen`
+;; for the host to draw; the HUD is a tree in the page's
 ;; document, changed through `dom` where it differs after each input
 ;; (after time, at most ten times a second). A durable save may be
 ;; much smaller than the state: a record of how to rebuild it.
@@ -164,6 +172,8 @@
    (only (snail core table) table-ref table-contains?)
    (only (snail shell dom) dom document-root no-event Allow)
    (only (snail shell dom page) with-page-dom)
+   (only (snail core io) clock)
+   (only (snail shell gpu) gpu)
    (prefix (snail shell ui) ui:))
   (begin
 
@@ -606,8 +616,9 @@
     ;; caption beneath its text and a ring around it filled to a fraction,
     ;; when the fraction is not negative. A dial is a round readout. A link
     ;; opens `url` in a new page and reports nothing. A text is a label
-    ;; whose words may be strong in places. An image shows a region of a
-    ;; picture, each texel `scale` pixels wide.
+    ;; whose words may be strong in places. An image shows the
+    ;; application's image `image`, `width` by `height` texels, each
+    ;; `scale` pixels wide; the scene's `image-url` gives its address.
     (enum Widget
       (Label ((look Look) (text String)))
       (Button ((look Look)
@@ -620,7 +631,7 @@
       (Dial ((look Look) (text String) (fraction F32)))
       (Link ((look Look) (text String) (url String)))
       (Text ((look Look) (spans (List Span))))
-      (Image ((look Look) (picture I32) (region Rect) (scale I32))))
+      (Image ((look Look) (image I32) (width I32) (height I32) (scale I32))))
 
     (enum Span
       (Normal ((words String)))
@@ -672,8 +683,7 @@
        (batch-begin (Fn I32 I32 I32 F32 F32 F32 F32 → Bool))
        (instance (Fn I32 F32 F32 F32 F32 F32 F32 F32 I32 F32 F32 F32 F32 → Unit))
        (surface (Fn F32 F32 I32 I32 I32 I32 I32 I32 I32 I32 → Unit))
-       (frame-end (Fn → Unit))
-       (picture-url (Fn I32 → String))))
+       (frame-end (Fn → Unit))))
 
     ;; The page's canvas, through the browser host.
     (define (provide-screen (work (Fn → T ! screen e))) (→ T) (! e) (∀ (T e))
@@ -690,16 +700,8 @@
            (batch-begin host-batch-begin)
            (instance host-instance)
            (surface host-surface)
-           (frame-end host-frame-end)
-           (picture-url host-url))
+           (frame-end host-frame-end))
         (work)))
-
-    ;; A string from the host crosses a scalar at a time.
-
-    (define (host-url (picture I32)) (→ String)
-      (string-generate (i32->i64 (host-picture-url picture))
-                       (lambda (index)
-                         (integer->char (i32->i64 (host-picture-url-scalar (i64->i32 index)))))))
 
     (define (render (frame Frame)) (→ Unit) (! screen)
       (frame-begin (● frame background) (● frame motion))
@@ -864,15 +866,17 @@
     ;; data-badge. A panel or widget keeps its node while its key and tag
     ;; stay, so hover and focus survive the updates; siblings' keys differ,
     ;; as (snail shell ui) requires. A listener's function makes the input
-    ;; its event is.
+    ;; its event is. `url` gives the address of the application's image
+    ;; by its key.
 
-    (define (hud-html (panels (List Panel))) (→ (List (ui:Html Input))) (! screen)
-      (append (map (lambda (corner) (corner-html corner panels))
+    (define (hud-html (panels (List Panel)) (url (Fn I32 → String))) (→ (List (ui:Html Input)))
+      (append (map (lambda (corner) (corner-html corner panels url))
                    (list "top-left" "top-right" "bottom-left" "bottom-right"))
               (list (ui:Element "div"
                                 (list (ui:Attr "class" "banner"))
-                                (map panel-html (placed "banner" panels)))
-                    (dialogs-html (placed "dialog" panels)))))
+                                (map (lambda (panel) (panel-html panel url))
+                                     (placed "banner" panels)))
+                    (dialogs-html (placed "dialog" panels) url))))
 
     ;; Where a panel goes: a corner by its class in the page's style, the
     ;; banner or the dialogs.
@@ -897,19 +901,20 @@
     ;; A corner's columns, column 0 first, each holding its panels in the
     ;; order given.
 
-    (define (corner-html (corner String) (panels (List Panel))) (→ (ui:Html Input)) (! screen)
+    (define (corner-html (corner String) (panels (List Panel)) (url (Fn I32 → String)))
+      (→ (ui:Html Input))
       (let ((here (placed corner panels)))
         (ui:Element "div"
                     (list (ui:Attr "class" (string-append "corner " corner)))
                     (map (lambda (column)
                            (ui:Element "div"
                                        (list (ui:Keyed (show column)) (ui:Attr "class" "column"))
-                                       (map panel-html
+                                       (map (lambda (panel) (panel-html panel url))
                                             (filter (lambda (panel) (= (panel-column panel) column))
                                                     here))))
                          (list-sort < (delete-duplicates = (map panel-column here)))))))
 
-    (define (dialogs-html (dialogs (List Panel))) (→ (ui:Html Input)) (! screen)
+    (define (dialogs-html (dialogs (List Panel)) (url (Fn I32 → String))) (→ (ui:Html Input))
       (let ((dismiss (fold-left (lambda (dismiss panel)
                                   (match (● panel place)
                                     ((Dialog action) action)
@@ -925,21 +930,21 @@
                                                    (Allow)
                                                    (lambda (_) (Press dismiss 0))))
                                       (Nil))
-                          (map panel-html dialogs)))))
+                          (map (lambda (panel) (panel-html panel url)) dialogs)))))
 
-    (define (panel-html (panel Panel)) (→ (ui:Html Input)) (! screen)
+    (define (panel-html (panel Panel) (url (Fn I32 → String))) (→ (ui:Html Input))
       (ui:Element "div"
                   (list (ui:Keyed (● panel key))
                         (ui:Attr "class" "panel")
                         (ui:Attr "data-key" (● panel key)))
-                  (map widget-html (● panel widgets))))
+                  (map (lambda (widget) (widget-html widget url)) (● panel widgets))))
 
     ;; ---- Widgets ----
 
     ;; A widget is an icon the style draws and its text, a button also its
     ;; caption; a text's words are spans, strong in places.
 
-    (define (widget-html (widget Widget)) (→ (ui:Html Input)) (! screen)
+    (define (widget-html (widget Widget) (url (Fn I32 → String))) (→ (ui:Html Input))
       (match widget
         ((Label face text)
          (ui:Element "div" (faced "label" face text) (list (part "icon" "") (part "text" text))))
@@ -965,7 +970,7 @@
                            (ui:Element "span"
                                        (list (ui:Attr "class" "text"))
                                        (map span-html spans)))))
-        ((Image face picture region scale) (image-html face (picture-url picture) region scale))))
+        ((Image face image width height scale) (image-html face (url image) width height scale))))
 
     ;; What every widget but an image says of itself: its class, the key
     ;; that keeps its node, its look for the page's style, and for
@@ -1033,41 +1038,29 @@
                                 (show (remainder tenths 10))
                                 "%"))))
 
-    ;; An image is a window the size of its region at its scale, over the
-    ;; whole picture moved and scaled so the region fills it; the style
-    ;; keeps its texels crisp. Until the host has composed the picture, the
-    ;; window is empty.
+    ;; An image's texels stay crisp at its scale. Until it has a URL, its
+    ;; box is empty.
 
-    (define (image-html (face Look) (url String) (region Rect) (scale I32)) (→ (ui:Html Input))
+    (define (image-html (face Look) (url String) (width I32) (height I32) (scale I32))
+      (→ (ui:Html Input))
       (ui:Element "div"
                   (list (ui:Keyed (● face key))
                         (ui:Attr "class" "image")
                         (ui:Attr "data-key" (● face key))
                         (ui:Attr "title" (● face help))
-                        (ui:Attr "style"
-                                 (string-append "width: "
-                                                (show (* (● region width) scale))
-                                                "px; height: "
-                                                (show (* (● region height) scale))
-                                                "px; overflow: hidden")))
-                  (if (string=? url "") (Nil) (list (picture-html url region scale)))))
+                        (ui:Attr "style" (box-style (* width scale) (* height scale))))
+                  (if (string=? url "")
+                      (Nil)
+                      (list (ui:Element "img"
+                                        (list (ui:Attr "src" url)
+                                              (ui:Attr "style"
+                                                       (string-append
+                                                        (box-style (* width scale) (* height scale))
+                                                        "; image-rendering: pixelated")))
+                                        (Nil))))))
 
-    (define (picture-html (url String) (region Rect) (scale I32)) (→ (ui:Html Input))
-      (ui:Element "img"
-                  (list (ui:Attr "src" url)
-                        (ui:Attr "style"
-                                 (string-append "width: "
-                                                (show (● region width))
-                                                "px; height: "
-                                                (show (● region height))
-                                                "px; object-fit: none; object-position: -"
-                                                (show (● region x))
-                                                "px -"
-                                                (show (● region y))
-                                                "px; transform-origin: 0 0; transform: scale("
-                                                (show scale)
-                                                ")")))
-                  (Nil)))
+    (define (box-style (width I32) (height I32)) (→ String)
+      (string-append "width: " (show width) "px; height: " (show height) "px"))
 
     ;; ---- Picking ----
 
@@ -1167,15 +1160,17 @@
 
     ;; ---- Running a scene ----
 
-    ;; A scene is a handler, in the style of winit's: a record of the six
-    ;; functions over its state, which a script hands to `run-scene` as its
-    ;; last statement.
+    ;; A scene is a handler, in the style of winit's: a record of the
+    ;; functions over its state and its drawing state, which a script hands
+    ;; to `run-scene` as its last statement.
 
-    (record (SceneHandler S)
+    (record (SceneHandler S D)
       ((initialize (Fn I32 I32 I32 → S))
        (update (Fn S Input → S))
-       (view (Fn S → Frame))
+       (start (Fn → D))
+       (draw (Fn S D → D ! screen gpu clock tasks))
        (hud (Fn S → (List Panel)))
+       (image-url (Fn D I32 → String))
        (save (Fn S → Bytes))
        (restore (Fn Bytes → S))))
 
@@ -1183,7 +1178,10 @@
     ;; canvas's size, then the scene's loop, which never returns, over the
     ;; page's document.
 
-    (define (run-scene (scene (SceneHandler S))) (→ Unit) (! screen events storage tasks) (∀ (S))
+    (define (run-scene (scene (SceneHandler S D)))
+      (→ Unit)
+      (! screen gpu clock events storage tasks)
+      (∀ (S D))
       (run-page (lambda ()
                   ((● scene initialize) (random-seed) (canvas-width) (canvas-height)))
                 (● scene save)
@@ -1191,55 +1189,63 @@
                 (lambda (state save)
                   (with-page-dom
                    (lambda ()
-                     (scene-loop scene save state (new Hud (shown (Nil)) (hovered (None))) 0))))))
+                     (scene-loop scene
+                                 save
+                                 state
+                                 ((● scene start))
+                                 (new Hud (shown (Nil)) (hovered (None)))
+                                 0))))))
 
     ;; Each event's state is drawn: a frame draws the scene and, at most ten
     ;; times a second, the HUD; an input shows its HUD. Saves share the
     ;; same queue, independently of display frames. A HUD listener that
     ;; fired gives its input; one the HUD has since dropped gives none.
 
-    (define (scene-loop (scene (SceneHandler S))
+    (define (scene-loop (scene (SceneHandler S D))
                         (save (Fn S → Unit ! events storage tasks))
                         (state S)
+                        (drawing D)
                         (hud Hud)
                         (since-hud I32))
       (→ Unit)
-      (! screen dom events storage tasks)
-      (∀ (S))
+      (! screen gpu clock dom events storage tasks)
+      (∀ (S D))
       (match (next-event)
         ((FrameEvent elapsed)
-         (let ((next ((● scene update) state (Elapsed elapsed)))
-               (show-hud? (>= (+ since-hud elapsed) 100)))
-           (render ((● scene view) next))
-           (let ((shown (if show-hud?
-                            (show-hud scene next hud)
-                            (new Pair (first next) (second hud)))))
-             (report-ready)
-             (scene-loop scene
-                         save
-                         (● shown first)
-                         (● shown second)
-                         (if show-hud? 0 (+ since-hud elapsed))))))
-        ((InputEvent input) (scene-input scene save state hud input))
+         (let* ((next ((● scene update) state (Elapsed elapsed)))
+                (drawn ((● scene draw) next drawing))
+                (show-hud? (>= (+ since-hud elapsed) 100))
+                (shown (if show-hud?
+                           (show-hud scene next drawn hud)
+                           (new Pair (first next) (second hud)))))
+           (report-ready)
+           (scene-loop scene
+                       save
+                       (● shown first)
+                       drawn
+                       (● shown second)
+                       (if show-hud? 0 (+ since-hud elapsed)))))
+        ((InputEvent input) (scene-input scene save state drawing hud input))
         ((HudEvent listener)
          (match (table-ref (ui:listener-table (● hud shown)) (show listener))
            ((Some message)
             (let ((input (message no-event)))
-              (scene-input scene save state (hovering hud listener input) input)))
-           ((None) (scene-loop scene save state hud since-hud))))
-        ((Hidden) (save state) (scene-loop scene save state hud since-hud))
-        ((SaveRequested) (save state) (scene-loop scene save state hud since-hud))))
+              (scene-input scene save state drawing (hovering hud listener input) input)))
+           ((None) (scene-loop scene save state drawing hud since-hud))))
+        ((Hidden) (save state) (scene-loop scene save state drawing hud since-hud))
+        ((SaveRequested) (save state) (scene-loop scene save state drawing hud since-hud))))
 
-    (define (scene-input (scene (SceneHandler S))
+    (define (scene-input (scene (SceneHandler S D))
                          (save (Fn S → Unit ! events storage tasks))
                          (state S)
+                         (drawing D)
                          (hud Hud)
                          (input Input))
       (→ Unit)
-      (! screen dom events storage tasks)
-      (∀ (S))
-      (let ((shown (show-hud scene ((● scene update) state input) hud)))
-        (scene-loop scene save (● shown first) (● shown second) 0)))
+      (! screen gpu clock dom events storage tasks)
+      (∀ (S D))
+      (let ((shown (show-hud scene ((● scene update) state input) drawing hud)))
+        (scene-loop scene save (● shown first) drawing (● shown second) 0)))
 
     ;; ---- Showing the HUD ----
 
@@ -1259,18 +1265,21 @@
     ;; while the pointer is over it never hears the pointer leave, so the
     ;; state is told, and its HUD shown.
 
-    (define (show-hud (scene (SceneHandler S)) (state S) (hud Hud))
+    (define (show-hud (scene (SceneHandler S D)) (state S) (drawing D) (hud Hud))
       (→ (Pair S Hud))
-      (! screen dom)
-      (∀ (S))
+      (! dom)
+      (∀ (S D))
       (let ((shown (ui:patch-children (document-root)
                                       (● hud shown)
-                                      (hud-html ((● scene hud) state)))))
+                                      (hud-html ((● scene hud) state)
+                                                (lambda (image)
+                                                  ((● scene image-url) drawing image))))))
         (if (match (● hud hovered)
               ((Some listener) (not (table-contains? (ui:listener-table shown) (show listener))))
               ((None) #f))
             (show-hud scene
                       ((● scene update) state (Hover 0 0))
+                      drawing
                       (new Hud (shown shown) (hovered (None))))
             (new Pair (first state) (second (new Hud (shown shown) (hovered (● hud hovered))))))))
 
