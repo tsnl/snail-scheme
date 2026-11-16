@@ -26,9 +26,6 @@ wasmtime = { version = "=48.0.7", default-features = false, features = [
     "std",
 ] }
 wasmtime-wasi = { version = "=48.0.7", default-features = false, features = ["p1"] }
-# What wasmtime already builds on: wasmparser reads a program's imports
-# without compiling it.
-wasmparser = { version = "=0.254.2", default-features = false, features = ["std"] }
 
 # Tests assemble their modules from text.
 [dev-dependencies]

@@ -5,7 +5,7 @@ import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
 import {applicationEntry, createEventQueue, createRuntime, FRAME, HIDDEN} from '../../host/browser/runtime.mjs';
 import {screenImports} from '../../host/browser/host.mjs';
-import {createWasi, instantiate, linkedFileImports, linkProgram, wasmImports} from '../../host/browser/load.mjs';
+import {createWasi, instantiate, linkedFileImports, wasmImports} from '../../host/browser/load.mjs';
 
 const path = resolve(process.argv[2]);
 const turn = () => new Promise(setImmediate);
@@ -74,15 +74,9 @@ async function application(options = {}) {
   }});
   const wasi = createWasi({print() {}});
   const imports = {...runtime.imports, 'snail.runtime.browser.screen': screen};
-  let program;
-  if (path.endsWith('.manifest.datum')) {
-    program = await linkProgram(file => readFile(resolve(dirname(path), file)), path, wasi, imports);
-
-  } else {
-    const module = await WebAssembly.compile(await readFile(path));
-    program = await instantiate(module, {...wasi.getImportObject(), ...imports, ...portable(module)});
-    wasi.initialize(program);
-  }
+  const module = await WebAssembly.compile(await readFile(path));
+  const program = await instantiate(module, {...wasi.getImportObject(), ...imports, ...portable(module)});
+  wasi.initialize(program);
   const entry = applicationEntry(program);
   return {observed, runtime, entry};
 }
@@ -167,19 +161,6 @@ async function checkStorageFailure() {
   app.runtime.close();
 }
 
-// A library may not take a name the host provides: the program's modules
-// would import that library in place of the host's interface.
-async function checkReservedName() {
-  if (!path.endsWith('.manifest.datum')) return;
-  const renamed = async file => {
-    const bytes = await readFile(resolve(dirname(path), file));
-    if (resolve(dirname(path), file) !== path) return bytes;
-    return new TextEncoder().encode(new TextDecoder().decode(bytes).replace(/\(module "[^"]+"/, '(module "snail.runtime.wasm"'));
-  };
-  await assert.rejects(linkProgram(renamed, path, createWasi({print() {}}), {}),
-    /no library may be linked as snail\.runtime\.wasm, which the host provides/);
-}
-
 await checkQueue();
 checkFrames();
 await checkStartup();
@@ -187,7 +168,6 @@ await checkTraps();
 await checkUnreadableSave();
 await checkStartupFailures();
 await checkStorageFailure();
-await checkReservedName();
 console.log('app runtime: the scene as a task, storage by ticket, queued input, inherited handlers and saves passed');
 
 // The imports of the capabilities the target installs and this test leaves

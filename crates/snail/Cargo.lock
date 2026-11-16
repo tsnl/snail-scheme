@@ -1138,7 +1138,6 @@ dependencies = [
  "io-uring",
  "libc",
  "snail-scheme-support",
- "wasmparser 0.254.2",
  "wasmtime",
  "wasmtime-wasi",
  "wat",

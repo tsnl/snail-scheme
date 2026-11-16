@@ -390,22 +390,9 @@ own process and handles `compile` around each compile (`producing`): a
 producer, which writes its output into the scratch, and compiles again. No
 request file is written or parsed, and nothing traps.
 
-The command-line driver, `(snail shell compiler driver)`, which stage 0 runs,
-writes its request to `request.datum` in the compile's generated directory,
-then exits with status 1. `(snail shell compiler inputs)` owns this grammar:
-
-```scheme
-(generate "123456")
-```
-
-Each attempt deletes the preceding request before starting the compiler. Only
-exit status 1 permits a request. A request that cannot be written is an
-ordinary failure, status 1 with a diagnostic naming the file and no request
-left behind; any other exit or signal cannot fulfill work from a leftover
-file. Success with a pending
-request and a request already answered are errors. Scratch directories are
-created exclusively, so stale files cannot become inputs. Stderr carries only
-diagnostics.
+The command-line driver, `(snail shell compiler driver)`, which stage 0 runs
+to bootstrap the command line, runs no producer: a program that reaches a
+generated library fails there, and is built by `snail-scheme build`.
 
 ### Linked files
 
@@ -427,7 +414,7 @@ for good.
 | --- | --- |
 | `src/snail/shell/compiler/driver.sld` | Typed source invocation shared by both hosts, `compile-arguments`: a compile that fails, or that needs an input after publishing its request, exits with status 1. The command line's `compile` action and Chez's `compile` mode call it; the command line's `wat` uses the same compiler. |
 | `host/chez/load.scm` | Chez's unwind boundary, which turns a failure into the same status. |
-| `crates/snail/` | `build/snail`, a native executable embedding wasmtime, which runs programs that need only WASI, linked files and module loading by `run-snail.mjs`'s protocol, the compiled compiler among them, when `SNAIL_ENGINE=wasmtime`; it precompiles the compiler to a `.cwasm`. See [the bootstrap](bootstrap.md#the-native-executable). |
+| `crates/snail/` | `build/snail`, a native executable embedding wasmtime, which runs programs that need only WASI, linked files and module loading by `run-snail.mjs`'s protocol, and links the command line for the bootstrap. See [the bootstrap](bootstrap.md#the-native-executable). |
 | `host/chez/snail/stage0/build.sld` | The bootstrap of the command line, and nothing else. Each compile has private scratch; rebuilding the command line holds `build/lock`. |
 | `host/chez/snail/stage0/process.sls` | Synchronous tool capture through private output files and a constant shell script with positional arguments. The parent reaps before reading or deleting files; stdin is EOF. The host boundary uses Chez process and file primitives. |
 | `crates/snail-scheme-support/` | Rust scalar services: math, Unicode, float text, console and file IO, directory and path operations, the monotonic clock, panics. External resources use explicit handles; managed references remain engine-traced. Its `assembler` feature builds the toolchain's runtime, which tools written in `snail-scheme` link (`build-toolchain-tool`), with in-process assembly and static linking for `(snail shell assembler)`, shared by the native executable. |

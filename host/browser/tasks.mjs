@@ -5,27 +5,13 @@
 // finishes it, through another, which takes the outcome the host kept
 // (task.sld's `through-host`). No Wasm stack is ever suspended.
 
-// The exports of the module holding (snail shell task), or null when the
+// The program's exports, which hold (snail shell task)'s, or null when the
 // program does not link it and has no tasks to drive. A program is a
-// per-library build, a loaded whole program, or its bare instance, as
-// `programEntry` takes them. An engine ((snail shell engine)) runs tasks
-// of its own beside the program's, and drives the two as one scheduler
-// through its `engine:` exports, which this names as (snail shell task)
-// does.
+// loaded program or its bare instance, as `programEntry` takes them.
 export function taskExports(program) {
-  const exports = program.names ? program.linked.get('snail.shell.task')?.exports
-    : program.exports ?? program.runtime.exports;
-  if (program.loader && exports?.['engine:turn']) return engineTasks(exports);
+  const exports = program.exports ?? program.runtime.exports;
   return exports?.['tasks:turn'] ? exports : null;
 }
-
-const engineTasks = exports => ({
-  ...exports,
-  'tasks:dispose': exports['engine:close'],
-  'tasks:create': exports['engine:create'],
-  'tasks:turn': exports['engine:turn'], 'tasks:wake': exports['engine:wake'], 'tasks:close': exports['engine:close-tasks'],
-  'tasks:running': exports['engine:running'], 'tasks:live': exports['engine:live'],
-});
 
 // One run of a program's tasks: its outstanding host operations and the
 // loop that turns the scheduler. `exports` gives the scheduler's exports
@@ -33,7 +19,7 @@ const engineTasks = exports => ({
 // and discards every task.
 export function createTasks(exports, {reportError = () => {}} = {}) {
   const outcomes = new Map(), controller = new AbortController();
-  let outstanding = 0, resting = null, scheduler = null, owner = null, active = 0, closed = false, disposing = false, closeStatus = 0;
+  let outstanding = 0, resting = null, scheduler = null, owner = null, active = 0, closed = false;
   const settled = [];
 
   // The run holds the scheduler it created until it closes.
@@ -45,14 +31,14 @@ export function createTasks(exports, {reportError = () => {}} = {}) {
     return scheduler;
   }
   function enter(name, ...args) {
-    if (closed && !(disposing && typeof name === 'string' && name.startsWith('resource:'))) throw new Error('the task scheduler has closed');
+    if (closed) throw new Error('the task scheduler has closed');
     const api = context();
     if (!api) return null;
     active++;
     try { return (typeof name === 'function' ? name : api[name])(owner, ...args); }
     finally {
       active--;
-      if (!active && !disposing) {
+      if (!active) {
         if (closed) release();
         else while (settled.length) settle(...settled.shift());
       }
@@ -61,14 +47,8 @@ export function createTasks(exports, {reportError = () => {}} = {}) {
   function release() {
     if (owner === null) return;
     const value = owner;
-    disposing = true;
-    try {
-      scheduler['tasks:close'](value);
-      closeStatus = Number(scheduler['tasks:dispose']?.(value) ?? 0);
-    } finally {
-      owner = null;
-      disposing = false;
-    }
+    owner = null;
+    scheduler['tasks:close'](value);
   }
 
   // ---- Completions ----
@@ -103,7 +83,6 @@ export function createTasks(exports, {reportError = () => {}} = {}) {
   return {
     signal: controller.signal,
     call: enter,
-    get closeStatus() { return closeStatus; },
     get owner() { if (closed) throw new Error('the task scheduler has closed'); context(); return owner; },
     running() { return owner === null ? 0 : Number(scheduler['tasks:running'](owner)); },
     live() { return owner === null ? 0 : Number(scheduler['tasks:live'](owner)); },

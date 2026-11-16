@@ -2,9 +2,9 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
-import {createWasi, instantiate, linkedFileImports, linkProgram, programExports, wasmImports} from '../../host/browser/load.mjs';
+import {createWasi, instantiate, linkedFileImports, wasmImports} from '../../host/browser/load.mjs';
 
-let program, api, constructors, memory, number = 42;
+let api, constructors, memory, number = 42;
 const seen = [], errors = [];
 const wasi = createWasi({print: (fd, line) => { if (fd === 2) errors.push(line); }});
 const host = {'snail.test': {
@@ -25,20 +25,12 @@ const host = {'snail.test': {
   },
 }};
 const filename = resolve(process.argv[2]);
-if (filename.endsWith('.manifest.datum')) {
-  program = await linkProgram(file => readFile(resolve(dirname(filename), file)), filename, wasi, host);
-  api = programExports(program);
-  constructors = program.linked.get('boundary.value').exports;
-  memory = program.runtime.exports.memory;
-
-} else {
-  // The target installs the portable capabilities, which this test leaves unused.
-  const module = await WebAssembly.compile(await readFile(filename));
-  const instance = await instantiate(module, {...wasi.getImportObject(), ...host, ...portable(module)});
-  wasi.initialize(instance);
-  api = constructors = instance.exports;
-  memory = api.memory;
-}
+// The target installs the portable capabilities, which this test leaves unused.
+const module = await WebAssembly.compile(await readFile(filename));
+const instance = await instantiate(module, {...wasi.getImportObject(), ...host, ...portable(module)});
+wasi.initialize(instance);
+api = constructors = instance.exports;
+memory = api.memory;
 assert.equal(api.echo(null), null);
 assert.equal(api.value(null), -1n);
 const checkpoint = api.create();

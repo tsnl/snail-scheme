@@ -1,14 +1,10 @@
 ;; The requests a compile makes for what it was not supplied, a
 ;; producer's output, and the printed producers they name. A request is
-;; the `compile` effect's `need` (snail shell compiler read): a resident
-;; caller is sent its record, and a process caller finds its datum, which
-;; this library prints and parses.
+;; the `compile` effect's `need` (snail shell compiler read), whose record
+;; the build that runs the compile takes.
 (define-library (snail shell compiler inputs)
   (export
-   request->string
-   parse-request
    request-input
-   publish-request
    generated-syntax
    generating-stack
    read-source-file)
@@ -44,30 +40,6 @@
 
     (define (request-input (request CompilerRequest)) (→ A) (! compile) (∀ (A))
       (absurd (need request)))
-
-    ;; A process caller finds a request as a datum in the compile's
-    ;; generated directory once the compiler has exited with status 1.
-
-    (define (publish-request (directory String) (request CompilerRequest)) (→ Unit) (! fs)
-      (write-file (string-append directory "/request.datum") (request->string request)))
-
-    (define (request->string (request CompilerRequest)) (→ String)
-      (match request
-        ((GenerateInput key) (string-append "(generate " (quoted key) ")\n"))))
-
-    (define (parse-request (text String) (filename String)) (→ CompilerRequest) (! compile)
-      (match (read-text text filename)
-        ((Cons (Form (Cons (Ident "generate" _ _) (Cons (Atom (DString key) _) (Nil))) loc) (Nil))
-         (unless (generated-key? key)
-           (compile-error loc "expected a nonempty decimal generator key"))
-         (GenerateInput key))
-        (_ (compile-error (new Loc (file filename) (line 1) (column 1))
-                          "expected exactly one generate compiler request"))))
-
-    (define (generated-key? (key String)) (→ Bool)
-      (and (> (string-length key) 0)
-           (every? (lambda (c) (let ((value (char->integer c))) (and (>= value 48) (<= value 57))))
-                   (string->list key))))
 
     (define (quoted (text String)) (→ String)
       (datum->string (DString text)))
@@ -150,30 +122,10 @@
     (export test-inputs)
     (import
      (only (chezscheme) list)
-     (only (snail stage0 system) string-contains)
      (snail stage0 testing))
     (begin
-      (define input-error
-        (lambda (text)
-          (or (compile-failure (lambda () (parse-request text "input.datum"))) "accepted")))
-
       (define test-inputs
         (lambda ()
-          (let ((request (GenerateInput "123456")))
-            (expect (parse-request (request->string request) "request.datum") request)
-            (expect (parse-request "(generate \"123456\")" "request.datum") request))
-          (for-each (lambda (text)
-                      (expect
-                       (if (string-contains (input-error text) "input.datum:")
-                           "rejected"
-                           "accepted")
-                       "rejected"))
-                    '(""
-                      "(generate \"\")"
-                      "(generate \"../x\")"
-                      "(generate \"-1\")"
-                      "(generate 123)"
-                      "(generate \"123\") ()" "(generate \"123\" extra)" "(artifact \"x\")"))
           (test-generating-stack)
           (test-producer-key)
           (test-missing-source)))
