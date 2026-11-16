@@ -7,7 +7,6 @@
    ExpandedProgram
    expand-program
    LinkedFile
-   library-links
    program-links)
   (import
    (snail core base)
@@ -15,7 +14,6 @@
    (snail core io)
    (snail shell compiler read)
    (only (snail shell compiler inputs)
-         request-input
          generating-stack
          read-source-file)
    (snail shell compiler library)
@@ -350,7 +348,6 @@
       (! compile)
       (let ((identifier-name (ident-name ident)))
         (match env
-
           ((Top top _)
            (let ((definitions (top-definitions cx top)))
              (when (table-contains? definitions (ident-key ident))
@@ -847,12 +844,6 @@
                                                                (new Expanded
                                                                  (exports exports)
                                                                  (links links))))))))
-
-    (define (spec-library (spec Syntax)) (→ Syntax)
-      (match spec
-        ((Form (Cons (Ident keyword _ _) (Cons inner _)) _)
-         (if (member? keyword (list "only" "except" "prefix" "rename")) (spec-library inner) spec))
-        (_ spec)))
 
     ;; ---- Imports and exports ----
 
@@ -1380,7 +1371,6 @@
          (threading cx ((scanned (each (lambda (cx item) (scan-top-level cx env item))
                                        (form-tail form))))
                     (new Pair (first (concatenate scanned)) (second cx))))
-
         ((Some (Core "define-syntax"))
          (new Pair (first (Nil)) (second (define-top-macro cx env form))))
         ((Some (Core "primitive"))
@@ -1496,7 +1486,6 @@
           (("enum") (new Pair (first (Nil)) (second (declare-data cx env form #t))))
           (("typeclass") (new Pair (first (Nil)) (second (declare-class cx env form))))
           (("instance") (declare-instance cx env form))
-
           (("extern") (new Pair (first (Nil)) (second (declare-extern cx env form))))
           (("effect") (new Pair (first (Nil)) (second (declare-effect cx env form))))
           (("define" "value")
@@ -1534,25 +1523,12 @@
               (env Env) (definition Definition) (value? Bool))
       (→ Context) (! compile)
       (let ((name (global-binding cx env (● definition name))))
-        (check-signature cx (table-ref signatures name))
         (threading cx ((value (definition-value env definition)))
                    (let ((binding (match (table-ref signatures name)
-                                    ((Some (Pair scheme loc)) (Defined (Some scheme) loc ))
-                                    ((None) (Defined (None) (None) )))))
+                                    ((Some (Pair scheme loc)) (Defined (Some scheme) loc))
+                                    ((None) (Defined (None) (None))))))
                      (add-item (add-value cx name binding)
                                (Define name (if value? (cached-thunk value) value)))))))
-
-    ;; A signature's constraints, checked once every class the library
-    ;; declares is in the program.
-
-    (define (check-signature (cx Context) (signature (Option (Pair Scheme (Option Loc)))))
-      (→ Unit)
-      (! compile)
-      (match signature
-        ((Some (Pair scheme (Some loc)))
-         (for-each (lambda (constraint) (check-constraint (● cx program) constraint loc))
-                   (● scheme constraints)))
-        (_ (unit))))
 
     (define (definition-value (cx Context) (env Env) (definition Definition))
       (→ (Pair Expr Context))
@@ -1991,9 +1967,8 @@
       (! compile)
       (match form
         ((Form (Cons _ (Cons (Form (Cons class-ident type-args) _) body)) loc)
-         (let ((parts (split-requires body)))
-           (threading cx ((class (instance-class env class-ident))
-                          (declared (declared-instance env class type-args (● parts first) loc))
+         (let ((parts (split-requires body)) (class (instance-class cx env class-ident)))
+           (threading cx ((declared (declared-instance env class type-args (● parts first) loc))
                           (methods
                            (each (lambda (cx definition)
                                    (instance-method cx
@@ -2015,12 +1990,9 @@
         (_
          (compile-error (syntax-loc form) "expected (instance (Class type ...) definition ...)"))))
 
-    (define (instance-class (cx Context) (env Env) (class-ident Syntax))
-      (→ (Pair Class Context)) (! compile)
+    (define (instance-class (cx Context) (env Env) (class-ident Syntax)) (→ Class) (! compile)
       (match (resolve cx env class-ident)
-        ((Some (ClassName id))
-
-         (new Pair (first (program-class (● cx program) id)) (second cx)))
+        ((Some (ClassName id)) (program-class (● cx program) id))
         (_ (compile-error (syntax-loc class-ident)
                           "instance of something that is not a typeclass"))))
 
@@ -2106,7 +2078,7 @@
              (method (instance-method-name class (● parsed name)))
              (scheme (instance-method-scheme (● cx program) class method instance)))
         (threading cx ((global (fresh-global (short-name method)))
-                       (then (add-value global (Defined (Some scheme) (None) ))))
+                       (then (add-value global (Defined (Some scheme) (None)))))
                    (new Pair (first (new MethodDefinition (method method) (global global)
                                          (expand (lambda (cx)
                                                    (threading cx ((value (instance-method-value env
@@ -2393,62 +2365,38 @@
                                "expected (∀ (variable ...) [(⊨ constraint ...)] type)")))))
         (_ (mono-scheme (resolve-type cx env syntax)))))
 
-    ;; The constraint of a class at resolved types, checked against the
-    ;; class's parameters.
+    ;; The constraint of a class at resolved types, one for each of the
+    ;; class's parameters. The scan put every class the library declares in
+    ;; the program, so a signature may come before its class.
 
     (define (resolve-constraint (cx Context) (env Env) (syntax Syntax)) (→ Constraint) (! compile)
       (match syntax
         ((Form (Cons class types) loc)
          (match (resolve cx env (expect-ident class "a typeclass"))
            ((Some (ClassName id))
-            (let ((constraint
-                   (new Constraint
-                     (class id)
-                     (types (map (lambda (type) (resolve-type cx env type)) types)))))
-              (check-constraint (● cx program) constraint loc)
-              constraint))
+            (let ((types (map (lambda (type) (resolve-type cx env type)) types)))
+              (check-constraint-arity (program-class (● cx program) id) (length types) loc)
+              (new Constraint (class id) (types types))))
            (_ (compile-error loc "expected a typeclass constraint"))))
         (_ (compile-error (syntax-loc syntax) "expected (Class type ...)"))))
 
-    ;; A constraint gives each of its class's parameters. While signatures
-    ;; are resolved, a class the same library declares is not in the program
-    ;; yet, so a definition checks its signature's again
-    ;; (`check-signature`).
-
-    (define (check-constraint (program Program) (constraint Constraint) (loc Loc))
-      (→ Unit)
-      (! compile)
-      (match (table-ref (● program classes) (● constraint class))
-        ((Some class)
-         (unless (= (length (● constraint types)) (length (● class params)))
-           (compile-error loc
-                          (string-append
-                           "a constraint gives each of the class's parameters, as in ("
-                           (string-join (Cons (short-name (● class name))
-                                              (● class params))
-                                        " ")
-                           ")"))))
-        ((None) (unit))))
+    (define (check-constraint-arity (class Class) (count I64) (loc Loc)) (→ Unit) (! compile)
+      (unless (= count (length (● class params)))
+        (compile-error loc
+                       (string-append "a constraint gives each of the class's parameters, as in ("
+                                      (string-join (Cons (short-name (● class name))
+                                                         (● class params))
+                                                   " ")
+                                      ")"))))
 
     (define (resolve-type (cx Context) (env Env) (syntax Syntax)) (→ Type) (! compile)
       (match syntax
         ((Ident _ _ loc) (resolve-type-name cx env syntax (Nil) loc))
         ((Form (Cons (Ident "!" _ _) labels) loc) (resolve-row cx env labels loc))
-        ((Form (Cons (Ident kind _ _) items) loc)
-         (if (string=? kind "Fn")
-             (resolve-callable-arrow cx env items (Nil) loc)
-             (resolve-type-application cx env syntax loc)))
+        ((Form (Cons (Ident "Fn" _ _) items) loc) (resolve-callable-arrow cx env items (Nil) loc))
         ((Form (Cons head args) loc)
          (resolve-type-name cx env (expect-ident head "a type constructor") args loc))
         (_ (compile-error (syntax-loc syntax) "expected a type"))))
-
-    (define (resolve-type-application (cx Context) (env Env) (syntax Syntax) (loc Loc))
-      (→ Type)
-      (! compile)
-      (match syntax
-        ((Form (Cons head args) _)
-         (resolve-type-name cx env (expect-ident head "a type constructor") args loc))
-        (_ (compile-error loc "expected a type application"))))
 
     (define (resolve-type-name (cx Context) (env Env) (ident Syntax) (args (List Syntax)) (loc Loc))
       (→ Type)
@@ -2532,10 +2480,6 @@
                                (string-append "not an effect: " (ident-name item)))))))))
 
     ;; ---- Expressions ----
-
-    ;; Each library owns its uses, including when expansion loads another
-    ;; library during deriving. Record an actual invocation once; unused
-    ;; macro templates never enter this accumulator.
 
     ;; Expands macro uses at the head of a form until the head is not a macro.
 
@@ -2695,7 +2639,6 @@
                 (expand-typed-lambda cx env (parse-lambda (Form items loc)))
                 (expand-lambda cx env (form-items params "a parameter list") body loc)))
            (_ (compile-error loc "expected (lambda (parameter ...) body ...)"))))
-
         (("if")
          ;; `then` is `threading`'s own keyword, so the branches are named
          ;; otherwise.
@@ -2711,7 +2654,6 @@
                          (first (expr (If test consequent (expr (Lit (DUnit)) loc)) loc))
                          (second cx))))
            (_ (compile-error loc "expected (if test then [else])"))))
-
         (("begin") (expand-body cx env (list-tail items 1) loc))
         (("let") (expand-let cx env items loc))
         (("match") (expand-match cx env items loc))
@@ -2755,13 +2697,12 @@
                            (env Env)
                            (params (List Syntax))
                            (body (List Syntax))
-
                            (loc Loc))
       (→ (Pair Expr Context))
       (! compile)
       (threading cx ((locals (bind-locals env params))
                      (body (expand-body (● locals first) body loc)))
-                 (new Pair (first (expr (Lambda (● locals second) body ) loc)) (second cx))))
+                 (new Pair (first (expr (Lambda (● locals second) body) loc)) (second cx))))
 
     ;; A typed lambda is checked against the type its header states, as a
     ;; local function definition is.
@@ -2796,7 +2737,7 @@
       (→ (Pair Expr Context))
       (! compile)
       (when (null? forms) (compile-error loc "empty body"))
-      (expand-body-forms cx env forms  loc))
+      (expand-body-forms cx env forms loc))
 
     ;; A local body is sequential: each definition is visible to the forms
     ;; after it, and a function definition is also visible to itself.
@@ -2804,7 +2745,6 @@
     (define (expand-body-forms (cx Context)
                                (scope Env)
                                (forms (List Syntax))
-
                                (loc Loc))
       (→ (Pair Expr Context))
       (! compile)
@@ -2814,18 +2754,17 @@
          (threading cx ((form (expand-head scope form)))
                     (match (head-binding cx scope form)
                       ((Some (Core "begin"))
-                       (expand-body-forms cx scope (append (form-tail form) rest)  loc))
+                       (expand-body-forms cx scope (append (form-tail form) rest) loc))
                       ((Some (Core "define-syntax"))
                        (threading cx ((inner (define-local-macro scope form)))
-                                  (expand-body-forms cx inner rest  loc)))
-
+                                  (expand-body-forms cx inner rest loc)))
                       ((Some (Core "define"))
-                       (expand-local-definition cx scope form rest  loc))
+                       (expand-local-definition cx scope form rest loc))
                       (_ (threading cx ((value (expand-expr scope form)))
                                     (if (null? rest)
                                         (new Pair (first value) (second cx))
                                         (threading cx ((more
-                                                        (expand-body-forms scope rest  loc)))
+                                                        (expand-body-forms scope rest loc)))
                                                    (new Pair
                                                      (first (expr (Seq value more) (● value loc)))
                                                      (second cx)))))))))))
@@ -3062,7 +3001,6 @@
                                    (fields (map (lambda (field) (● (parse-field field) name))
                                                 (record-fields form)))
                                    (enum? #f))))))
-
         (each cx
               (lambda (cx class)
                 (match class
