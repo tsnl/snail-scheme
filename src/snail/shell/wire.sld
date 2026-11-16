@@ -1,7 +1,7 @@
 ;; Wire values: types that implement Serialize and Deserialize. A record or
 ;; enum value is written as its case's TypeId followed by its fields, so a
-;; reader detects data written for a different schema. `deriving` generates
-;; both instances from a declaration.
+;; reader detects data written for a different schema. `deriving` makes
+;; both instances from a declaration, through the macros defined here.
 (define-library (snail shell wire)
   (export
    Serialize
@@ -12,11 +12,10 @@
    Decoder
    serialize
    deserialize
-   encode-case-id
-   expect-case-id
-   decode-case-id
-   case-id=?)
+   derive-serialize
+   derive-deserialize)
   (import
+   (only (snail core forms) case-id)
    (snail core base)
    (except (snail core primitive) string-append))
   (begin
@@ -106,8 +105,48 @@
       (unless (= (decode-case-id decoder) id)
         (panic "wire data has a different schema")))
 
-    (define (case-id=? (a I32) (b I32)) (→ Bool)
-      (= a b))
+    ;; ---- Derived instances ----
+
+    ;; `(deriving Serialize Deserialize)` on a record or an enum is a use of
+    ;; these macros, in the form the expander's "Deriving" section
+    ;; describes. A value is its case's TypeId, then its fields in order.
+
+    (define-syntax derive-serialize
+      (syntax-rules ()
+        ((_ kind (name param ...) (case text (field label label-text) ...) ...)
+         (instance (Serialize (name param ...))
+           (⊨ (Serialize param) ...)
+           (define encode
+             (lambda (value encoder)
+               (match value
+                 ((case field ...)
+                  (encode-case-id encoder (case-id case))
+                  (encode field encoder) ...
+                  (unit)) ...)))))))
+
+    ;; A record is one case, built by label. For an enum, the TypeId read
+    ;; selects the case; an unknown one is another schema.
+
+    (define-syntax derive-deserialize
+      (syntax-rules (record enum)
+        ((_ record (name param ...) (case text (field label label-text) ...))
+         (instance (Deserialize (name param ...))
+           (⊨ (Deserialize param) ...)
+           (define decode
+             (lambda (decoder)
+               (expect-case-id decoder (case-id case))
+               (let* ((field (decode decoder)) ...)
+                 (new name (label field) ...))))))
+        ((_ enum (name param ...) (case text (field label label-text) ...) ...)
+         (instance (Deserialize (name param ...))
+           (⊨ (Deserialize param) ...)
+           (define decode
+             (lambda (decoder)
+               (let ((id (decode-case-id decoder)))
+                 (cond
+                  ((= id (case-id case)) (let* ((field (decode decoder)) ...) (case field ...)))
+                  ...
+                  (else (panic "wire data has a different schema"))))))))))
 
     ;; ---- Scalars, text and collections ----
 
