@@ -90,7 +90,7 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   boundary — the runtime, a host, a cache with one owner — not for the
   convenience of a pass that could carry its state. When threading would
   nest a function six deep, name the sequence with a local binding form, as
-  `learning` does in `src/snail/shell/compiler/check.sld`, rather than
+  `threading` does in `src/snail/shell/compiler/core.sld`, rather than
   reaching for a cell. The checker went from 58 `! mut` signatures to none
   at no cost in speed; the count per module is worth watching.
 - Prefer cohesive single-file modules with named sections. A large file can
