@@ -94,36 +94,6 @@
        (evidence (List Evidence))
        (control (List String))))
 
-    ;; A sequence of steps that each take the state and hand it back,
-    ;; written as `let*` is, as `learning` threads the checker in check.sld.
-    ;; `(name (step argument ...))` binds the step's value;
-    ;; `(then (step argument ...))` is for a step that hands back the state
-    ;; alone. Every step is a call, with the state passed as its first
-    ;; argument, and the state is named by an identifier: each step rebinds
-    ;; that name, so the body and every later step see the newest one and
-    ;; nothing can read a state a step has moved past.
-    (define-syntax specializing
-      (syntax-rules (then)
-        ((_ state () body ...) (begin body ...))
-        ((_ state ((then (f argument ...)) step ...) body ...)
-         (let ((state (f state argument ...))) (specializing state (step ...) body ...)))
-        ((_ state ((name (f argument ...)) step ...) body ...)
-         (match (f state argument ...)
-           ((Pair name state) (specializing state (step ...) body ...))))))
-
-    ;; `step` over each item in order, threading the state and collecting
-    ;; the values, so a sequence of steps is itself one step.
-
-    (define (each (state State) (step (Fn State A → (Pair B State))) (items (List A)))
-      (→ (Pair (List B) State))
-      (∀ (A B))
-      (let ((done (fold-left (lambda (done item)
-                               (match (step (● done second) item)
-                                 ((Pair value state)
-                                  (new Pair (first (Cons value (● done first))) (second state)))))
-                             (new Pair (first (Nil)) (second state)) items)))
-        (new Pair (first (reverse (● done first))) (second (● done second)))))
-
     (define (specialization-program (state State)) (→ Program)
       (● (● (● state input) typed) program))
 
@@ -196,10 +166,10 @@
       (match (● state pending)
         ((Cons name rest)
          (let ((definition (binding-of state name)))
-           (specializing state ((then (State-pending-set rest))
-                                (value (instantiate-body (● definition body)))
-                                (then (complete-definition name definition value)))
-                         (new Pair (first (Some (Define name value))) (second state)))))
+           (threading state ((then (State-pending-set rest))
+                             (value (instantiate-body (● definition body)))
+                             (then (complete-definition name definition value)))
+                      (new Pair (first (Some (Define name value))) (second state)))))
         ((Nil) (new Pair (first (None)) (second state)))))
 
     (define (complete-definition (state State) (name String) (definition Definition) (value Expr))
@@ -318,10 +288,10 @@
           ((Var name types evidence)
            (reference state name (map (lambda (t) (ground inst t)) types)
                       (map (lambda (e) (ground-evidence inst e)) evidence) type loc))
-          (term (specializing state ((copied (copy-term inst term)))
-                              (new Pair
-                                (first (new Expr (term copied) (type type) (loc loc)))
-                                (second state)))))))
+          (term (threading state ((copied (copy-term inst term)))
+                           (new Pair
+                             (first (new Expr (term copied) (type type) (loc loc)))
+                             (second state)))))))
 
     ;; A copy requests the specializations it references, so the copies of
     ;; sibling terms are steps in the order they are written.
@@ -331,66 +301,66 @@
         ((Lit value) (new Pair (first (Lit value)) (second state)))
         ((Var name types evidence) (new Pair (first (Var name types evidence)) (second state)))
         ((Lambda params body )
-         (specializing state
-                       ((body (copy-expr inst body)))
-                       (new Pair (first (Lambda params body )) (second state))))
+         (threading state
+                    ((body (copy-expr inst body)))
+                    (new Pair (first (Lambda params body )) (second state))))
         ((App callee args)
-         (specializing state ((callee (copy-expr inst callee)) (args (copy-exprs inst args)))
-                       (new Pair (first (App callee args)) (second state))))
+         (threading state ((callee (copy-expr inst callee)) (args (copy-exprs inst args)))
+                    (new Pair (first (App callee args)) (second state))))
         ((If test consequent alternative)
-         (specializing state ((test (copy-expr inst test))
-                              (consequent (copy-expr inst consequent))
-                              (alternative (copy-expr inst alternative)))
-                       (new Pair (first (If test consequent alternative)) (second state))))
+         (threading state ((test (copy-expr inst test))
+                           (consequent (copy-expr inst consequent))
+                           (alternative (copy-expr inst alternative)))
+                    (new Pair (first (If test consequent alternative)) (second state))))
         ((Let name value body)
-         (specializing state ((value (copy-expr inst value)) (body (copy-expr inst body)))
-                       (new Pair (first (Let name value body)) (second state))))
+         (threading state ((value (copy-expr inst value)) (body (copy-expr inst body)))
+                    (new Pair (first (Let name value body)) (second state))))
         ((Seq first rest)
-         (specializing state ((first (copy-expr inst first)) (rest (copy-expr inst rest)))
-                       (new Pair (first (Seq first rest)) (second state))))
+         (threading state ((first (copy-expr inst first)) (rest (copy-expr inst rest)))
+                    (new Pair (first (Seq first rest)) (second state))))
         ((Match scrutinee clauses)
-         (specializing state ((scrutinee (copy-expr inst scrutinee))
-                              (clauses (each (lambda (state clause) (copy-clause state inst clause))
-                                             clauses)))
-                       (new Pair (first (Match scrutinee clauses)) (second state))))
+         (threading state ((scrutinee (copy-expr inst scrutinee))
+                           (clauses (each (lambda (state clause) (copy-clause state inst clause))
+                                          clauses)))
+                    (new Pair (first (Match scrutinee clauses)) (second state))))
 
         ((FieldRead _ _ _) (panic "internal error: field selection survived checking"))
         ((New _ _) (panic "internal error: named construction survived checking"))
         ((Ann inner type)
-         (specializing state
-                       ((inner (copy-expr inst inner)))
-                       (new Pair (first (Ann inner (ground inst type))) (second state))))
+         (threading state
+                    ((inner (copy-expr inst inner)))
+                    (new Pair (first (Ann inner (ground inst type))) (second state))))
         ((Handle effect implementations body)
-         (specializing state ((implementations
-                               (each (lambda (state entry) (copy-implementation state inst entry))
-                                     implementations))
-                              (body (copy-expr inst body)))
-                       (new Pair (first (Handle effect implementations body)) (second state))))
+         (threading state ((implementations
+                            (each (lambda (state entry) (copy-implementation state inst entry))
+                                  implementations))
+                           (body (copy-expr inst body)))
+                    (new Pair (first (Handle effect implementations body)) (second state))))
         ((BoxAny inner)
-         (specializing state ((inner (copy-expr inst inner)))
-                       (new Pair (first (BoxAny inner)) (second state))))
+         (threading state ((inner (copy-expr inst inner)))
+                    (new Pair (first (BoxAny inner)) (second state))))
 
         ((Downcast inner target)
-         (specializing state ((inner (copy-expr inst inner)))
-                       (new Pair (first (Downcast inner (ground inst target))) (second state))))))
+         (threading state ((inner (copy-expr inst inner)))
+                    (new Pair (first (Downcast inner (ground inst target))) (second state))))))
 
     (define (copy-exprs (state State) (inst Instantiation) (exprs (List Expr)))
       (→ (Pair (List Expr) State))
       (each state (lambda (state expr) (copy-expr state inst expr)) exprs))
 
     (define (copy-clause (state State) (inst Instantiation) (clause Clause)) (→ (Pair Clause State))
-      (specializing state ((body (copy-expr inst (● clause body))))
-                    (new Pair
-                      (first
-                       (new Clause (pattern (copy-pattern inst (● clause pattern))) (body body)))
-                      (second state))))
+      (threading state ((body (copy-expr inst (● clause body))))
+                 (new Pair
+                   (first
+                    (new Clause (pattern (copy-pattern inst (● clause pattern))) (body body)))
+                   (second state))))
 
     (define (copy-implementation (state State) (inst Instantiation) (entry (Pair String Expr)))
       (→ (Pair (Pair String Expr) State))
-      (specializing state ((value (copy-expr inst (● entry second))))
-                    (new Pair
-                      (first (new Pair (first (● entry first)) (second value)))
-                      (second state))))
+      (threading state ((value (copy-expr inst (● entry second))))
+                 (new Pair
+                   (first (new Pair (first (● entry first)) (second value)))
+                   (second state))))
 
     (define (copy-pattern (inst Instantiation) (pattern Pattern)) (→ Pattern)
       (match pattern
@@ -456,10 +426,10 @@
       (if (external? state name types)
           (new Pair (first (new Expr (term (Var name (Nil) (Nil))) (type type) (loc loc)))
                (second (import-definition state name (definition state name))))
-          (specializing state ((spec (request name types evidence)))
-                        (new Pair
-                          (first (new Expr (term (Var spec (Nil) (Nil))) (type type) (loc loc)))
-                          (second state)))))
+          (threading state ((spec (request name types evidence)))
+                     (new Pair
+                       (first (new Expr (term (Var spec (Nil) (Nil))) (type type) (loc loc)))
+                       (second state)))))
 
     ;; Imports and emitted definitions share one identity table. In
     ;; particular, exposing an imported function must not enqueue a local
@@ -498,8 +468,8 @@
     ;; Library modules export monomorphic functions.
     ;; Whole programs keep only definitions reached from an entry or exposure.
     (define (start-specialization (state State) (items (List Item))) (→ (Pair (List String) State))
-      (specializing state ((exports (each root-item items)))
-                    (new Pair (first (concatenate exports)) (second state))))
+      (threading state ((exports (each root-item items)))
+                 (new Pair (first (concatenate exports)) (second state))))
 
     (define (root-item (state State) (item Item)) (→ (Pair (List String) State))
       (match item
