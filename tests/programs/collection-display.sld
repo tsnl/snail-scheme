@@ -3,14 +3,14 @@
  (snail core io))
 
 ;; Presentation is a deliberate choice; Repr remains available independently.
-(instance (Show (!) (Option String))
+(instance (Show (Option String))
   (define (show (value (Option String))) (→ String)
 
     (match value
       ((Some text) text)
       ((None) "no input"))))
 
-(instance (Show (!) (List String))
+(instance (Show (List String))
   (define (show (items (List String))) (→ String)
     (string-join items ", ")))
 

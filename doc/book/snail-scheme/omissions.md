@@ -38,7 +38,8 @@ each can return if a program needs it.
   [Parameterized effects](effects.md#proposed-parameterized-effects) are
   proposed with one fixed application per handler; operation-local
   polymorphism remains outside that design.
-- Classes have no superclasses and no higher-kinded parameters.
+- Classes have no superclasses, no associated types, and no row or
+  higher-kinded parameters.
 - Wire TypeIds are 32 bits, and every record and enum value carries its
   case's TypeId.
 

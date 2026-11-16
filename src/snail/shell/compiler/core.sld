@@ -72,11 +72,8 @@
    Case
    Field
    Class
-   row-arguments
-   type-arguments
+   Class-methods-set
    match-types
-   output-arguments
-   row-variable
    Instance
    Instance-methods-set
    Import
@@ -677,38 +674,12 @@
        (type Type)))
 
     ;; Method schemes quantify the class parameters first and require the
-    ;; class itself as their first constraint. `rows` are the parameters
-    ;; its methods perform, as `e` in (Store e S): an instance writes each
-    ;; as a row in its head. `outputs` are hidden trailing associated type
-    ;; arguments. The remaining input parameters choose the evidence that
-    ;; establishes outputs and the rows a method use performs.
+    ;; class itself as their first constraint. Every parameter is a type,
+    ;; and an instance is chosen by matching all of them.
     (record Class
       ((name String)
        (params (List String))
-       (rows (List String))
-       (outputs (List String))
        (methods (List String))))
-
-    ;; The arguments a class's constraint or instance head gives its row
-    ;; parameters, and those it gives its types, each in order.
-
-    (define (row-arguments (class Class) (types (List Type))) (→ (List Type))
-      (map (lambda (record) (● record second))
-           (filter (lambda (pair) (member? (● pair first) (● class rows)))
-                   (zip (● class params) types))))
-
-    (define (type-arguments (class Class) (types (List Type))) (→ (List Type))
-      (map (lambda (record) (● record second))
-           (filter (lambda (pair)
-                     (not (member? (● pair first)
-                                   (append (● class rows) (● class outputs)))))
-                   (zip (● class params) types))))
-
-    ;; Associated members are hidden trailing arguments. Like rows they
-    ;; are established by the selected evidence, never used to select it.
-
-    (define (output-arguments (class Class) (types (List Type))) (→ (List Type))
-      (list-drop types (- (length (● class params)) (length (● class outputs)))))
 
     ;; One-way matching of an instance head; only its own variables bind.
 
@@ -746,13 +717,6 @@
             (match-types vars (Cons result params) (Cons other-result others) bindings))
            (_ (None))))
         (_ (None))))
-
-    ;; The variable a row ends with, as `e` in `(! log e)`, if any.
-
-    (define (row-variable (row Type)) (→ (List String))
-      (match row
-        ((TRow _ (Some (TRigid name))) (list name))
-        (_ (Nil))))
 
     ;; Each method maps to the top-level definition that implements it.
     (record Instance
@@ -923,20 +887,14 @@
         ((Some instances) instances)
         ((None) (Nil))))
 
-    (define (check-instance-overlap (program Program)
-                                    (instance Instance)
-                                    (others (List Instance))
-                                    (loc Loc))
+    (define (check-instance-overlap (instance Instance) (others (List Instance)) (loc Loc))
       (→ Unit)
       (! compile)
-      (let ((class (program-class program (● instance class))))
-        (for-each (lambda (other)
-                    (when (and (not (string=? (● instance name) (● other name)))
-                               (heads-overlap? (type-arguments class (● instance types))
-                                               (type-arguments class (● other types))))
-                      (compile-error loc
-                                     "this instance overlaps another instance of the class on its input types")))
-                  others)))
+      (for-each (lambda (other)
+                  (when (and (not (string=? (● instance name) (● other name)))
+                             (heads-overlap? (● instance types) (● other types)))
+                    (compile-error loc "this instance overlaps another instance of the class")))
+                others))
 
     (define (heads-overlap? (as (List Type)) (bs (List Type))) (→ Bool)
       (and (= (length as) (length bs))

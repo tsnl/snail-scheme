@@ -7,7 +7,7 @@
           ((left b:I64)
            (right b:I64)))
 
-(b:instance (b:Show (!) Pair2)
+(b:instance (b:Show Pair2)
             (b:define show
                       (b:lambda (pair)
                                 (b:string-append (b:show (b:● pair left))
