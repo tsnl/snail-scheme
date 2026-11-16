@@ -460,7 +460,7 @@
           (let ((row (TRow (list "mut" "gen") (Some (TRow (list "abort" "console") (None)))))
                 (control (list "abort" "gen")))
             (expect (erase-rows control row) (TRow (list "abort" "gen") (None)))
-            (expect (erase-rows (Nil) row) (empty-row))
+            (expect (erase-rows (Nil) row) empty-row)
             (expect (erase-rows control (TFun (list (TCon "I64" (Nil))) (TCon "Unit" (Nil)) row))
                     (TFun (list (TCon "I64" (Nil)))
                           (TCon "Unit" (Nil))
@@ -469,7 +469,7 @@
       ;; Without control effects a name is what `type-key` gives, so pure
       ;; code keeps its names; with one, the name says so.
       (define test-spec-keys
-        (lambda () (let ((pure (TFun (list (TCon "I64" (Nil))) (TCon "I64" (Nil)) (empty-row)))
+        (lambda () (let ((pure (TFun (list (TCon "I64" (Nil))) (TCon "I64" (Nil)) empty-row))
                          (control
                           (TFun (list (TCon "I64" (Nil)))
                                 (TCon "I64" (Nil))
@@ -478,4 +478,4 @@
                      (expect (spec-key (TCon "List" (list pure)))
                              (type-key (TCon "List" (list pure))))
                      (expect (spec-key control) "fn<I64->I64>!gen")
-                     (expect (spec-key (empty-row)) "row"))))))))
+                     (expect (spec-key empty-row) "row"))))))))

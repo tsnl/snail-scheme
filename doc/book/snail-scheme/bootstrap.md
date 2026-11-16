@@ -20,7 +20,7 @@ project parser fixture.
 | `snail-scheme` source | Chez execution |
 | --- | --- |
 | Typed `define` and `lambda` headers | Parameter names and function bodies, with type/effect clauses erased. |
-| Top-level values | Ordinary Chez definitions, evaluated when their library loads; the compiler's own source defines none whose order could matter. |
+| Top-level values | Ordinary Chez definitions, evaluated in order when their library loads. In the compiler's own source a value therefore comes after everything its initializer uses, functions included; Chez reports "attempt to reference undefined variable" otherwise. |
 | `record` and `enum` | Distinct constructor identities with mutable fields; pure replacement copies the outer object. |
 | `(new Name (field expression) ...)` | Compile-time field selection and sequential initializer bindings, followed by the private constructor. |
 | `(● object field ...)`, `set!` | Registered field slots, with ordinary object aliasing. |

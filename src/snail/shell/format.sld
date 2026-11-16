@@ -412,10 +412,10 @@
     (define (names-loop? (elements Elements)) (→ Bool)
       (match elements
         ((Elements head (Some (Element (Named name) _ line _)) _ _)
-         (and (= line (● head line)) (member? (string-ref name 0) (loop-name-starts))))
+         (and (= line (● head line)) (member? (string-ref name 0) loop-name-starts)))
         (_ #f)))
 
-    (define (loop-name-starts) (→ (List Char))
+    (define loop-name-starts (→ (List Char))
       (string->list "-abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+*/?!@$%^&_:~"))
 
     ;; ---- Indenting lines ----
@@ -753,7 +753,7 @@
     ;; as the lines they now are and broken in turn, so a line is final once
     ;; it fits or nothing on it can break.
 
-    (define (format-width) (→ I64) 100)
+    (define format-width (→ I64) 100)
 
     ;; How a list breaks, by its head. A call breaks before each argument
     ;; after its first, or before its first when no other is on the line. A
@@ -769,7 +769,7 @@
     ;; Binding forms outside the naming convention, with the element each
     ;; keeps its bindings in. The body follows the bindings.
 
-    (define (binding-forms) (→ (List (Pair String I64)))
+    (define binding-forms (→ (List (Pair String I64)))
       (list (new Pair (first "letrec") (second 1))
             (new Pair (first "letrec*") (second 1))
             (new Pair (first "let-values") (second 1))
@@ -789,7 +789,7 @@
     (define (shape (elements Elements)) (→ Shape)
       (match (● (● elements head) head)
         ((Named name)
-         (match (if (binding-name? name "let*") (Some 1) (assoc-ref (binding-forms) name))
+         (match (if (binding-name? name "let*") (Some 1) (assoc-ref binding-forms name))
            ((Some bindings) (Binding bindings))
            ((None)
             (match (indent-rule name)

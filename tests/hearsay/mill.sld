@@ -65,8 +65,8 @@
                                                      (beliefs-text (person-beliefs mill person))
                                                      (if (quiet? mill person) " [quiet]" ""))))
                         (filter (lambda (person) (= (audience-of person) audience))
-                                (iota (person-count)))))
-            (audiences))
+                                (iota person-count))))
+            audiences)
   (for-each (lambda (text) (write-line (string-append "Liability: " text))) (liabilities mill))
   (for-each (lambda (goal)
               (write-line (string-append "Goal: "

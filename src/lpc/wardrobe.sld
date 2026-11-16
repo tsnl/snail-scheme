@@ -113,8 +113,8 @@
       (new Picture
         (key key)
         (version (fingerprint who))
-        (width (● (walk-region) width))
-        (height (● (walk-region) height))
+        (width (● walk-region width))
+        (height (● walk-region height))
         (layers (lambda ()
                   (concatenate
                    (map (lambda (sheet)
@@ -132,6 +132,6 @@
     ;; The character in picture `key`, shoulders up, each texel `scale`
     ;; pixels wide.
     (define (portrait (look-key String) (key I32) (scale I32)) (→ Widget)
-      (Image (look look-key) key (face-region) scale))
+      (Image (look look-key) key face-region scale))
 
     ))

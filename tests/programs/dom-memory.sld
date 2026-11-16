@@ -32,7 +32,7 @@
                         "keydown"
                         (list (Key) (Value))
                         (Chords (list (new Chord (key "Tab") (modifiers 0))
-                                      (new Chord (key "s") (modifiers (control-key)))))))
+                                      (new Chord (key "s") (modifiers control-key))))))
           (clicks (listen first "click" (Nil) (Always))))
       (unlisten clicks)
       (focus-node field)

@@ -52,7 +52,7 @@
 ;; Each row of the map: . open, # rock, ~ water, = ice, H the hub, N a
 ;; nest, * a crystal.
 (define (map-row (land Land) (y I64)) (→ String)
-  (list->string (map (lambda (x) (cell-char land (new Cell (x x) (y y)))) (iota (map-size)))))
+  (list->string (map (lambda (x) (cell-char land (new Cell (x x) (y y)))) (iota map-size))))
 
 (define (cell-char (land Land) (cell Cell)) (→ Char)
   (cond ((cell=? cell (● land hub)) #\H)
@@ -93,7 +93,7 @@
 
 (define (show-map (land Land)) (→ Unit) (! output-port)
   (write-line (string-append (biome-name (● land biome)) ", seed " (show (● land seed)) ":"))
-  (for-each (lambda (y) (write-line (map-row land y))) (iota (map-size)))
+  (for-each (lambda (y) (write-line (map-row land y))) (iota map-size))
   (write-line (string-append "walking steps from the hub to each nest: " (nest-distances land))))
 
 (define (first-of (biome Biome) (seed I64)) (→ Land)

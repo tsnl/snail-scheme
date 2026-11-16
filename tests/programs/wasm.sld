@@ -109,7 +109,7 @@
          ((Ok _) (write-line "subtract is exported"))
          ((Err error) (write-line (load-error-message error)))))
       ((Err error) (write-line (load-error-message error))))
-    (match (link-module "mislinked" mislinked (list (ExportOf (loading-program) "memory")))
+    (match (link-module "mislinked" mislinked (list (ExportOf loading-program "memory")))
       ((Ok _) (write-line "linked incompatible import"))
       ((Err error) (write-line (load-error-message error)))))
   (unit))

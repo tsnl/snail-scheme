@@ -541,13 +541,13 @@
       (let* ((chunk (read-byte-chunk source index loc))
              (bytes (● chunk first))
              (next (● chunk second)))
-        (if (< (array-length bytes) (byte-chunk))
+        (if (< (array-length bytes) byte-chunk)
             (new Pair
               (first (Atom (DBytes (array-concatenate (reverse (Cons bytes chunks)))) loc))
               (second next))
             (read-bytes source next loc (Cons bytes chunks)))))
 
-    (define (byte-chunk) (→ I64) 4096)
+    (define byte-chunk (→ I64) 4096)
 
     ;; Up to `byte-chunk` bytes, and the index after them: past the closing
     ;; parenthesis when fewer remain.
@@ -556,7 +556,7 @@
       (let loop ((index index) (bytes (Nil)) (count 0))
         (let ((start (skip-atmosphere source index)))
           (cond
-           ((= count (byte-chunk)) (new Pair (first (list->array (reverse bytes))) (second start)))
+           ((= count byte-chunk) (new Pair (first (list->array (reverse bytes))) (second start)))
            ((at-end? source start) (compile-error loc "unclosed byte array"))
            ((char-is? source start #\))
             (new Pair (first (list->array (reverse bytes))) (second (+ start 1))))
@@ -649,7 +649,7 @@
               ((and (<= 65 code) (<= code 70)) (Some (- code 55)))
               (else (None)))))
 
-    (define (character-names) (→ (List (Pair String Char)))
+    (define character-names (→ (List (Pair String Char)))
       (list (new Pair (first "space") (second #\space))
             (new Pair (first "newline") (second #\newline))
             (new Pair (first "tab") (second #\tab))
@@ -670,7 +670,7 @@
               ((= (string-length name) 1) (string-ref name 0))
               ((char=? (string-ref name 0) #\x) (hex-char source (+ start 1) end loc))
               (else
-               (match (find (lambda (entry) (string=? (● entry first) name)) (character-names))
+               (match (find (lambda (entry) (string=? (● entry first) name)) character-names)
                  ((Some entry) (● entry second))
                  ((None) (compile-error loc (string-append "unknown character name " name))))))))
 

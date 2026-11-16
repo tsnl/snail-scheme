@@ -127,7 +127,10 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   behind explicit handles. Resource cleanup must not retain its managed wrapper.
 - Chez is stage 0 of the bootstrap: it must keep running the compiler's
   source, so the compiler avoids behavior the two hosts would disagree on,
-  such as integer overflow and the order of table keys.
+  such as integer overflow and the order of table keys. Chez evaluates a
+  top-level value where it is defined, so in the compiler's source a value
+  comes after everything its initializer uses; `make bootstrap` fails with
+  "undefined variable" when one does not.
 - Update the relevant [book chapter](doc/book/SUMMARY.md) when contracts or
   module responsibilities change; the
   [compiler tour](doc/book/snail-scheme/compilers.md) lives there. Track open
