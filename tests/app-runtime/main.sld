@@ -49,8 +49,7 @@
     (light (new Light (direction (new Vec3 (x 0.3) (y 1.0) (z 0.5))) (sun 0.8) (ambient 0.3)))
     (background (rgb 16 20 28))
     (motion 1.0)
-    (batches (Nil))
-    (pictures (Nil))))
+    (batches (Nil))))
 
 (define (panels (counter Counter)) (→ (List Panel))
   (list (new Panel (key "counter") (place (At (TopLeft) 0))
@@ -60,18 +59,18 @@
                                     (button "trap" "Trap" 2))
                               (if (● counter leaving?) (list (button "leave" "Leave" 3)) (Nil)))))))
 
-(define (counter) (→ (SceneHandler Counter Unit))
+(define (counter) (→ (SceneHandler Counter Frames))
   (new SceneHandler
     (initialize (lambda (seed width height) (counting 0)))
     (update step)
-    (start (lambda () (unit)))
-    (draw (lambda (counter drawing) (render (draw counter)) drawing))
+    (start start-frames)
+    (draw (lambda (counter frames) (draw-frame (draw counter) frames)))
     (hud panels)
     (image-url (lambda (drawing image) ""))
     (save (lambda (counter) (serialize (new Save (count (● counter count))))))
     (restore (lambda (bytes) (counting (● (ann (deserialize bytes) Save) count))))))
 
-(define (main) (→ Unit) (! mut host screen gpu clock events storage tasks)
+(define (main) (→ Unit) (! mut host gpu clock events storage tasks)
   (handle Marker
       ((marker (lambda () 17)))
     (dispatch (lambda ()

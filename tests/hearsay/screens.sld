@@ -5,7 +5,7 @@
 (import
  (snail core base)
  (snail core io)
- (except (snail shell app) Quad Picture Layer Source Rect)
+ (snail shell app)
  (apps hearsay shell)
  (only (apps hearsay hud) guide-next guide-close))
 

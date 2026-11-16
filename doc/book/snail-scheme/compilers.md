@@ -298,7 +298,7 @@ implements, `snail.runtime.…` (#566): `snail.runtime.link` and
 `snail.runtime.wasm`, `snail.runtime.native.socket`,
 `snail.runtime.native.process`, `snail.runtime.native.files` and
 `snail.runtime.native.develop` on Node,
-and `snail.runtime.browser.screen`, `.events`, `.storage`, `.dom` and
+and `snail.runtime.browser.gpu`, `.events`, `.storage`, `.dom` and
 `.fetch` on the page. A `(snail runtime …)` library declares one of these
 interfaces as externs, and nothing else, so it has no items and emits no
 code: the program's module imports from the host itself.

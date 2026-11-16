@@ -137,7 +137,6 @@ A page adds itself:
 | The page's capability | Library |
 | --- | --- |
 | `events`, `storage` | `(snail shell page)` |
-| `screen` | `(snail shell app)` |
 | `gpu` | `(snail shell gpu)` |
 | `dom` | `(snail shell dom)` |
 | `fetch` | `(snail shell fetch)` |
@@ -283,8 +282,8 @@ Each step is a pull request that passes every check on its own.
      `tcp` and `udp` have no `default`, and `node` installs
      `provide-process`, `provide-signals`, `provide-tcp` and `provide-udp`.
    - The page's capabilities move into `browser`: done. `events`,
-     `storage` and `screen` have no `default`, and `browser` installs
-     `provide-events`, `provide-storage` and `provide-screen`. Stage 0's
+     `storage` and `gpu` have no `default`, and `browser` installs
+     `provide-events`, `provide-storage` and `provide-gpu`. Stage 0's
      `browser-programs` names the tests that build for it.
    - `default` goes, and a capability left unhandled fails the build: done.
      An effect declares only its operations. What a host calls, `main`'s

@@ -13,7 +13,7 @@
   (import
    (snail core base)
    (snail shell wire)
-   (except (snail shell app) Quad Picture Layer Source Rect)
+   (snail shell app)
    (only (snail shell graphics atlas) Picture Source)
    (lpc wardrobe)
    (apps hearsay ledger)

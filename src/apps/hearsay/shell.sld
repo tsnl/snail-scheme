@@ -17,7 +17,7 @@
    (only (snail core io) clock monotonic-nanoseconds)
    (only (snail shell task) tasks)
    (only (snail shell gpu) gpu)
-   (except (snail shell app) Quad Picture Layer Source Rect)
+   (snail shell app)
    (snail shell graphics pod)
    (only (snail shell graphics atlas) Source Picture)
    (only (snail shell graphics quad) View2D)

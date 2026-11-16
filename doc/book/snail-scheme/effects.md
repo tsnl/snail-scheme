@@ -212,8 +212,8 @@ Every platform effect is declared the same way. `(snail core io)` declares
 its externs beside its effects, since core imports nothing; a shell
 library imports a `(snail runtime …)` library, which declares the host's
 imports and nothing else, under the prefix `host-`. For example, `(snail
-runtime browser screen)` declares the page's drawing commands, and
-`(snail shell app)`'s `provide-screen` answers each operation with one. An
+runtime browser gpu)` declares the page's WebGPU commands, and
+`(snail shell gpu page)`'s `provide-gpu` answers each operation with them. An
 interface's imports take and answer scalars, and the shell builds its own
 values from them, as `(snail shell socket)` builds a `Connection` from a
 handle ([the native boundary](../runtimes/networking.md#wasm-boundary)).

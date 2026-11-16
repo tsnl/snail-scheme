@@ -19,9 +19,6 @@ each can return if a program needs it.
 - **Incremental compiler state.** Every build expands, checks and emits its
   complete dependency closure. There is no retained compiler Session,
   interface hashing or checked-code/Wasm reuse.
-- **The WGSL backend.** The renderer's shaders are WGSL text that shares no
-  records with `snail-scheme` code beyond fixed instance and material layouts. The
-  runtime and graphics plan proposes shaders written as S-expressions.
 - **Actor destinations.** Tasks schedule one-shot closures and share
   `Mailbox` queues, which are values, not addresses of tasks. Request/reply
   protocols and network transports are application concerns.

@@ -1004,8 +1004,7 @@
                                             (bar-batch game) (link-batch game)
                                             (cursor-batch game) (shimmer-batch game))
                                       (beacon-batches game)
-                                      (list (preview-batch game)))))
-          (pictures (Nil)))))
+                                      (list (preview-batch game))))))))
 
     (define (filter-map (f (Fn A → (Option B))) (items (List A))) (→ (List B)) (∀ (A B))
       (fold-right
