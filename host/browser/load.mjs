@@ -213,6 +213,22 @@ export async function linkProgram(read, manifest, wasi, host, tasks = noTasks) {
   return program;
 }
 
+// Links a release build's program, NAME.wasm: one module holding the
+// runtime and every library, initialized through `wasi`, whose files are
+// objects of store/ beside it, read in the tasks `tasks` gives. Its own
+// exports are the runtime's and the program's. A missing WASI function
+// answers ENOSYS, as for the runtime's own module, and a host service this
+// host lacks links to a function that fails if called, as for a library's
+// (moduleImports).
+export async function linkModule(read, name, wasi, host, tasks = noTasks) {
+  const module = await WebAssembly.compile(await read(name));
+  const imports = {...wasi.getImportObject(), ...host, ...linkedFileImports(read, module, tasks)};
+  const hosted = WebAssembly.Module.imports(module).map(entry => entry.module).filter(hostProvided);
+  const runtime = await instantiate(module, withStubs(module, imports, hosted, missingHost));
+  wasi.initialize(runtime);
+  return {runtime, exports: runtime.exports, host, linked: new Map()};
+}
+
 // What the program's own module, the last, exports.
 export function programExports(program) {
   return program.linked.get(program.names.at(-1)).exports;

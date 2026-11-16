@@ -199,8 +199,8 @@ linked module from `snailc`, since removed:
 taskset -c 2 node --no-warnings --expose-gc scripts/benchmark-cache.mjs build/function-cache.wasm
 ```
 
-Once release builds link a program into one module,
-`./snail-scheme build --target node --release` makes that module again.
+A release build makes such a module again, optimized as well:
+`./snail-scheme build --target node --release FILE` writes `build/PATH/NAME.wasm`.
 
 ## Proposed surface design
 

@@ -266,13 +266,15 @@
       ((Node) (become (● tools node)
                       (Cons "--no-warnings"
                             (Cons (string-append (● tools root) "/host/native/run-snail.mjs")
-                                  (Cons (built-manifest script) (● script arguments))))))
+                                  (Cons (built-program script) (● script arguments))))))
       ((Wasmtime) (become (string-append (● tools root) "/build/snail")
-                          (Cons "run-wasm" (Cons (built-manifest script) (● script arguments)))))
+                          (Cons "run-wasm" (Cons (built-program script) (● script arguments)))))
       ((Browser) (panic "a page is not run here: build it, then serve its output")))))
 
-(define (built-manifest (script Script)) (→ String) (! mut fs clock process)
-  (string-append (build-script script) "/" (manifest-name (script-name script))))
+(define (built-program (script Script)) (→ String) (! mut fs clock process)
+  (string-append (build-script script)
+                 "/"
+                 (program-name (script-name script) (● (● script flags) mode))))
 
 (define (become (program String) (arguments (List String))) (→ Unit) (! process)
   (let ((error (exec (new Command (program program) (arguments arguments) (directory ".")))))
@@ -394,7 +396,7 @@
        (become (● tools node)
                (append (list "--no-warnings"
                              (string-append (● tools root) "/host/native/run-snail.mjs")
-                             (string-append generation "/" (manifest-name name)))
+                             (string-append generation "/" (program-name name (● job mode))))
                        (append (● run arguments) (● job arguments))))))))
 
 ;; ---- Formatting ----

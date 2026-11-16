@@ -142,10 +142,9 @@ means changing this table and the target's handlers together. It replaces
 today's trapping stand-ins: a program that uses `tcp` fails to build for
 `wasmtime` instead of trapping when it connects.
 
-The assembler is a capability too, `assembler`, which `node` and `wasmtime`
-provide. Its handler lives in the runtime that includes the assembler's services,
-so a script whose row has `assembler` links with that runtime, and any other
-links with the smaller one.
+A script that imports `(snail shell assembler)` links with the runtime that
+includes the assembler's services, and any other links with the smaller one.
+Assembling is deterministic, so it is no capability.
 
 ## Commands
 
@@ -175,11 +174,13 @@ That path cannot collide, and it is stable, which is what future caching needs.
 
 - **A debug build keeps one module per library,** linked when the program
   starts, with the runtime as an instance of its own.
-- **A release build is fully linked:** the runtime and every library fused
-  into one module, then optimized with Binaryen's `wasm-opt`, which can
-  inline the runtime's functions into the program. Calls into the runtime
-  are then ordinary calls.
-- **A manifest**, `main.manifest.datum`, names every object the program
+- **A release build is fully linked:** the whole program compiled as one
+  module, fused with the runtime, then optimized with Binaryen's
+  `wasm-opt -O2`, which can inline the runtime's functions into the
+  program. Calls into the runtime are then ordinary calls. It is
+  `main.wasm`, with no manifest; Node, `build/snail run-wasm` and a page
+  each run it directly.
+- **A debug build's manifest**, `main.manifest.datum`, names every object the program
   needs by digest and size: `(runtime "DIGEST" SIZE)`, `(module "LIBRARY"
   "DIGEST" SIZE)` for each library in link order, `(file "DIGEST" SIZE)`
   for each linked file.
@@ -190,10 +191,10 @@ That path cannot collide, and it is stable, which is what future caching needs.
 Nothing reclaims the store. Delete `build/` and rebuild from time to time. A
 `snail-scheme gc` command can come later if it is needed.
 
-The output folder holds the manifest and a view of the objects it names at
-the same paths under its own `store/`: relative links into the store in a debug
-build, copies in a release build. The folder can therefore be served or run as
-it is, as `python3 -m http.server --directory build/src/apps/siegework/main`
+A debug build's output folder holds the manifest and a view of the objects
+it names at the same paths under its own `store/`, relative links into the
+store. A release build's holds `main.wasm` and copies of the files it links
+under `store/`. Either folder can be served or run as it is, as `python3 -m http.server --directory build/src/apps/siegework/main`
 serves a browser program.
 
 ## Linked files
@@ -295,7 +296,10 @@ Each step is a pull request that passes every check on its own.
    - Externs keep the types their libraries declare: no `unsafe-extern`.
      A capability's handler is the abstraction around its externs, and
      `host` stays the builtin row of the entry and the scheduler.
-6. **Release builds fully linked,** with `wasm-opt` from Binaryen.
+6. **Release builds fully linked,** with `wasm-opt` from Binaryen: done.
+   `--release` writes `NAME.wasm` and copies of its linked files. The
+   page's `load.mjs` links such a module with `linkModule`, and producers
+   share the linking. Siegework's release module is 190 KB.
 7. **Applications become scripts.**
    - Prototype the page's top level as a task.
    - Move Siegework and Hearsay to `src/apps/NAME/main.scm`, with a winit-style

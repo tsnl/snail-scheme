@@ -6,7 +6,8 @@
 // A library links two files beside its source. A program target and a
 // browser target each place them in the project's store, build/.snail-store,
 // and view them at store/sha256/AB/DIGEST in their output, a link in a debug
-// build and a copy in a release one; the program prints the bytes of one,
+// build and a copy beside the one linked module of a release one; the
+// program prints the bytes of one,
 // read in a task, natively and through the browser host's loader fetching
 // the page's files over HTTP, which never fetches the file the program does
 // not read.
@@ -18,7 +19,7 @@ import {createServer} from 'node:http';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {promisify} from 'node:util';
-import {createWasi, linkProgram, objectPath, programExports, runMain} from '../host/browser/load.mjs';
+import {createWasi, linkModule, linkProgram, objectPath, programExports, runMain} from '../host/browser/load.mjs';
 import {createTasks, taskExports} from '../host/browser/tasks.mjs';
 
 const execute = promisify(execFile), root = process.argv[2];
@@ -32,9 +33,10 @@ const resource = (directory, bytes) => readFile(join(directory, objectPath(diges
 const viewed = async (directory, bytes) => (await lstat(join(directory, objectPath(digest(bytes))))).isSymbolicLink() ? 'link' : 'copy';
 
 // The browser host fetches a static page's files relative to its module,
-// so serve the output as a page's server would and read through it. The
-// program's lines, and the paths the page fetched.
-async function pageOutput(directory) {
+// so serve the output as a page's server would and read through it: the
+// program a page names, a debug build's manifest or a release build's
+// module. The program's lines, and the paths the page fetched.
+async function pageOutput(directory, name) {
   const fetched = [];
   const server = createServer(async (request, response) => {
     const path = decodeURIComponent(new URL(request.url, 'http://page').pathname);
@@ -43,7 +45,7 @@ async function pageOutput(directory) {
     catch { response.writeHead(404).end(); }
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  const base = `http://127.0.0.1:${server.address().port}/page.manifest.datum`, lines = [];
+  const base = `http://127.0.0.1:${server.address().port}/${name}`, lines = [];
   try {
     const read = async file => {
       const response = await fetch(new URL(file, base));
@@ -53,8 +55,9 @@ async function pageOutput(directory) {
     const wasi = createWasi({print: (fd, line) => lines.push(line)});
     let program;
     const tasks = createTasks(() => program && taskExports(program));
-    program = await linkProgram(read, 'page.manifest.datum', wasi, {}, () => tasks);
-    runMain(programExports(program), tasks);
+    const linked = name.endsWith('.wasm');
+    program = await (linked ? linkModule : linkProgram)(read, name, wasi, {}, () => tasks);
+    runMain(linked ? program.exports : programExports(program), tasks);
     try { await tasks.drive(); }
     finally { tasks.close(); }
     return {output: lines.join('\n'), fetched};
@@ -82,14 +85,18 @@ try {
   assert.equal((await run(join(project, 'build/cli/cli.manifest.datum'))).stdout, '1,2,3,255\n', 'the native host reads it when the task asks');
   await build('cli', '--release');
   assert.equal(await viewed(join(project, 'build/cli'), hero), 'copy', 'a release build copies it');
-  assert.equal((await run(join(project, 'build/cli/cli.manifest.datum'))).stdout, '1,2,3,255\n');
+  assert.equal((await run(join(project, 'build/cli/cli.wasm'))).stdout, '1,2,3,255\n', 'beside its one module');
 
   await build('page');
   assert.deepEqual(await resource(join(project, 'build/page'), hero), hero, 'the browser target places the file');
-  const page = await pageOutput(join(project, 'build/page'));
+  const page = await pageOutput(join(project, 'build/page'), 'page.manifest.datum');
   assert.equal(page.output, '1,2,3,255', 'the browser host fetches it beside the module');
   assert.ok(page.fetched.includes(`/${objectPath(digest(hero))}`), page.fetched.join(' '));
   assert.ok(!page.fetched.includes(`/${objectPath(digest(villain))}`), 'a file the program never reads is never fetched');
+  await build('page', '--release');
+  const released = await pageOutput(join(project, 'build/page'), 'page.wasm');
+  assert.equal(released.output, '1,2,3,255', 'a release page reads it beside its one module');
+  assert.ok(!released.fetched.includes(`/${objectPath(digest(villain))}`), released.fetched.join(' '));
 
   await rm(join(project, 'src/assets/art/hero.bin'));
   await assert.rejects(build('cli'), /sprites\.sld:\d+:\d+: the library assets\.sprites links art\/hero\.bin, but there is no file at /);

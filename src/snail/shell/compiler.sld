@@ -7,6 +7,7 @@
   (export
    WholeProgram
    source->wat
+   checked->wat
    Checked
    source->checked
    checked->modules
@@ -48,22 +49,6 @@
        (text String)
        (links (List LinkedFile))))
 
-    (record WholeProgram
-      ((text String)
-       (links (List LinkedFile))))
-
-    (define (source->wat (directories (List String))
-                         (source String)
-                         (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
-                         (inputs Inputs)
-                         (target (Option (List String))))
-      (→ WholeProgram)
-      (! mut fs compile)
-      (let* ((expanded (source->expanded directories source generate inputs target))
-             (typed (check-program (● expanded program)))
-             (module (emit-module (prepare-program typed))))
-        (new WholeProgram (text (wat->string module)) (links (program-links expanded)))))
-
     ;; A program read, expanded and checked, before anything is emitted: what
     ;; a development build compiles each library from, and what an editor
     ;; asks of the program's names (snail shell lsp).
@@ -80,6 +65,30 @@
       (! fs compile)
       (let ((expanded (source->expanded directories source generate inputs target)))
         (new Checked (expanded expanded) (typed (check-program (● expanded program))))))
+
+    ;; The whole program as one module: its text, the libraries it holds,
+    ;; in program order, and the files it links. A release build and a
+    ;; producer link it with the runtime into a module of its own.
+    (record WholeProgram
+      ((text String)
+       (libraries (List String))
+       (links (List LinkedFile))))
+
+    (define (source->wat (directories (List String))
+                         (source String)
+                         (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
+                         (inputs Inputs)
+                         (target (Option (List String))))
+      (→ WholeProgram)
+      (! mut fs compile)
+      (checked->wat (source->checked directories source generate inputs target)))
+
+    (define (checked->wat (checked Checked)) (→ WholeProgram) (! mut compile)
+      (let ((expanded (● checked expanded)))
+        (new WholeProgram
+          (text (wat->string (emit-module (prepare-program (● checked typed)))))
+          (libraries (map (lambda (library) (● library first)) (● (● expanded program) libraries)))
+          (links (program-links expanded)))))
 
     ;; One module of text per library, and one for the program, in program
     ;; order: each comes after the modules it imports from, with the files

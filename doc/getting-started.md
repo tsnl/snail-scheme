@@ -19,6 +19,7 @@ Whichever you pick, finish with [the first run](#the-first-run).
 | Node.js | 26 | Running programs under WASI. |
 | nixfmt | 1.4 | `make check`'s formatting of `shell.nix`. |
 | mdBook | 0.5.4 | `make pages`, the book. |
+| Binaryen | 132 | `wasm-opt`, which optimizes a release build (`--release`, `make site`). |
 | tree-sitter CLI | 0.26.11 | `make test`'s check of the editors' grammar, which also needs a C compiler. |
 | Chromium | | `make test-browser` and `tests/browser/page.mjs`. Set `CHROMIUM` to its path when it isn't `chromium`. |
 

@@ -1,16 +1,16 @@
 # Development toolchain
 
-A build keeps each library as its own module, with the runtime as a
+A debug build keeps each library as its own module, with the runtime as a
 separate instance, all objects of the workspace's store and named by the
-build's manifest ([output directories](projects.md#output-directories)). Debug
-and release builds have that one shape; `--release` copies the objects into
-the output instead of linking to them, and runs no function-body optimizer.
-Stage 0 still links a single program into one module.
+build's manifest ([output directories](projects.md#output-directories)). A
+release build, `--release`, compiles the whole program to one module, fuses
+it with the runtime, and optimizes it with Binaryen's `wasm-opt`. Stage 0
+also links a single program into one module, unoptimized.
 
 | Command | Build |
 | --- | --- |
 | `snail-scheme build`, `snail-scheme run`, `snail-scheme lsp` | Debug: a module per library, linked to the store |
-| `snail-scheme build --release`, `make site` | Release: a module per library, copied from the store |
+| `snail-scheme build --release`, `make site` | Release: one module, linked and optimized |
 
 A script, a single source file, is built and run with an explicit target,
 `node`, `wasmtime` or `browser`
@@ -95,8 +95,9 @@ Linking resolves the program, runtime and diagnostics/cleanup adapter before
 removing `snail:*` and `diagnostics/*` exports. All other exports survive,
 including GC globals and dynamic functions. A second `wasm-fuse` pass prunes
 unreachable definitions and remaps debug names. Function bodies are not
-optimized. Debug and release use this same backend; the internal source
-driver also continues to accept `--release`.
+optimized here; a release build then runs `wasm-opt -O2` over the linked
+module ([output directories](projects.md#output-directories)). The internal
+source driver also continues to accept `--release`.
 
 Optimization can be a separate user-owned step, with Binaryen installed
 independently:
