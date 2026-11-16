@@ -12,7 +12,7 @@
 (define-library (snail core primitive)
   (export
    unit panic unsafe-total unsafe-cast
-   cache lru-cache unsafe-effectful-cache unsafe-effectful-lru-cache
+   cache lru-cache
    inherit-handlers
    i32-add i32-sub i32-mul i32-quotient i32-remainder i32-and i32-or i32-xor
    i32-shift-left i32-shift-right i32-shift-right/logical i32-eq i32-lt i32-le i32-gt i32-ge
@@ -74,14 +74,12 @@
     ;; nothing.
     (primitive cached-thunk (∀ (A) (Fn (Fn → A) → (Fn → A))))
 
-    ;; F stands for an entire function signature of any arity. The checker
-    ;; requires an empty outward effect row for the safe wrappers, before
-    ;; specialization erases ordinary effects. Preparation checks all four
-    ;; wrappers' keys can be compared and callbacks cannot suspend.
+    ;; F stands for an entire function signature of any arity, effect row
+    ;; included: the wrapper performs what its function does, on a miss.
+    ;; Preparation checks that the keys can be compared and that the
+    ;; callback cannot suspend.
     (primitive cache (∀ (F) (Fn F → F)))
     (primitive lru-cache (∀ (F) (Fn I64 F → F)))
-    (primitive unsafe-effectful-cache (∀ (F) (Fn F → F)))
-    (primitive unsafe-effectful-lru-cache (∀ (F) (Fn I64 F → F)))
 
     ;; ---- Inherited handlers ----
 

@@ -10,7 +10,7 @@
 
 (define (captured-callback) (→ (Fn I64 → I64 ! mut output-port))
   (let ((resource (new Resource (id 90))))
-    (unsafe-effectful-cache (lambda (key) (+ key (● resource id))))))
+    (cache (lambda (key) (+ key (● resource id))))))
 
 ;; A cached function may call itself while it computes a miss.
 (record Reentry
@@ -19,17 +19,17 @@
 
 (define (reentrant-test) (→ Unit) (! mut output-port)
   (let* ((state (new Reentry (callback (None)) (entered #f)))
-         (memo (unsafe-effectful-lru-cache 2
-                                           (lambda (key)
-                                             (if (● state entered) key
-                                                 (begin
-                                                   (set! (● state entered) #t)
-                                                   (match (● state callback)
-                                                     ((None) 0)
-                                                     ((Some inside)
-                                                      (inside 20)
-                                                      (inside 30)
-                                                      (+ (inside key) 1)))))))))
+         (memo (lru-cache 2
+                          (lambda (key)
+                            (if (● state entered) key
+                                (begin
+                                  (set! (● state entered) #t)
+                                  (match (● state callback)
+                                    ((None) 0)
+                                    ((Some inside)
+                                     (inside 20)
+                                     (inside 30)
+                                     (+ (inside key) 1)))))))))
     (set! (● state callback) (Some memo))
     (write-line (show (memo 10)))
     (write-line (show (memo 10)))))
@@ -49,9 +49,9 @@
     (write-line (show (memo 20)))
     (write-line (show (● calls value))))
   (let* ((calls (new Cell (value 0)))
-         (memo (unsafe-effectful-lru-cache 0 (lambda ()
-                                               (set! (● calls value) (+ (● calls value) 1))
-                                               (● calls value)))))
+         (memo (lru-cache 0 (lambda ()
+                              (set! (● calls value) (+ (● calls value) 1))
+                              (● calls value)))))
     (write-line (show (memo)))
     (write-line (show (memo))))
   ;; Nullary enum cases are equal across independently linked modules.
@@ -107,9 +107,9 @@
     (write-line (show (match (● (second) value) ((Some value) value) ((None) 0)))))
   ;; Effects happen only on a miss, without changing the function's row.
   (let* ((calls (new Cell (value 0)))
-         (memo (unsafe-effectful-cache (lambda (key)
-                                         (set! (● calls value) (+ (● calls value) 1))
-                                         (+ key (● calls value)))))
+         (memo (cache (lambda (key)
+                        (set! (● calls value) (+ (● calls value) 1))
+                        (+ key (● calls value)))))
          (alias memo))
     (write-line (show (memo 10)))
     (write-line (show (alias 10)))

@@ -288,9 +288,9 @@
          (Some (new Restriction (position 1) (what "a string-generate callback") (allowed (Nil)))))
         (("prim:unsafe-total")
          (Some (new Restriction (position 0) (what "an unsafe-total thunk") (allowed (Nil)))))
-        (("prim:cache" "prim:unsafe-effectful-cache")
+        (("prim:cache")
          (Some (new Restriction (position 0) (what "a cache callback") (allowed (Nil)))))
-        (("prim:lru-cache" "prim:unsafe-effectful-lru-cache")
+        (("prim:lru-cache")
          (Some (new Restriction (position 1) (what "an lru-cache callback") (allowed (Nil)))))
         (("prim:inherit-handlers")
          (Some (new Restriction
@@ -363,8 +363,7 @@
       (match (● expr term)
         ((Ann inner _) (check-cache-primitive inner))
         ((Var name _ _)
-         (when (member? name (list "prim:cache" "prim:lru-cache"
-                                   "prim:unsafe-effectful-cache" "prim:unsafe-effectful-lru-cache"))
+         (when (member? name (list "prim:cache" "prim:lru-cache"))
            (match (● expr type)
              ((TFun _ (TFun params _ _) _)
               (for-each (lambda (type) (check-cache-key type (● expr loc))) params))

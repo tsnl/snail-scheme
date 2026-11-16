@@ -98,10 +98,9 @@ uses macros (`list`, `string-append`) or lists.
 ## Cached functions
 
 `cache` and `lru-cache` wrap ordinary functions, including lambdas. They preserve
-all argument types and the result type; they work at any fixed arity. They require
-an ordinary `Fn` with a closed, empty outward effect row. An effect-polymorphic
-callback is rejected even if no particular effect is named. The callback
-expression is evaluated once, and evaluating it may itself perform effects.
+all argument types, the result type and the effect row; they work at any fixed
+arity. The callback expression is evaluated once, and evaluating it may itself
+perform effects.
 Each wrapper owns a fresh local cache that remains alive between calls.
 Aliases of that wrapper share its
 cache, while two evaluations of `(cache f)` have separate caches.
@@ -122,22 +121,20 @@ once, so the whole program shares its cache:
 (define square (cache (lambda ((n I64)) (→ I64) (* n n))))
 ```
 
-`unsafe-effectful-cache` and `unsafe-effectful-lru-cache` have the same call shapes
-and storage behavior, but accept effectful callbacks and preserve their effect
-rows. Their names make skipping those effects on cache hits explicit. They still
-reject callbacks whose control operations can escape the call. Handling an effect
-inside a callback is allowed, including for the safe names when the outward row
-is empty.
+A wrapper performs what its function performs, on a miss: a hit skips the
+function's body and so its effects. A function that logs each call logs once
+for each key when cached, which is what caching it asks for. The wrapper keeps
+the function's row either way, since a row says what a call may do. A callback
+whose control operations can escape the call is rejected, because a cache
+cannot be suspended in the middle of a miss; handling an effect inside the
+callback is allowed.
 
-All four names are builtins sharing one runtime implementation. An ordinary
-library wrapper can express the safe signature for a particular arity, but the
-language has no parameter packs to express every arity at once. The compiler
-checks the safe names before specialization erases ordinary effects, including
-when a builtin is passed as a function value. A generic factory must specify a
-known function shape with an empty row, for example:
+Both names are builtins sharing one runtime implementation, since the language
+has no parameter packs to express every arity in a library. A generic factory
+states a known function shape, for example:
 
 ```scheme
-(define (memoize (f (Fn A → B))) (→ (Fn A → B)) (∀ (A B))
+(define (memoize (f (Fn A → B ! e))) (→ (Fn A → B ! e)) (∀ (A B e))
   (cache f))
 ```
 
@@ -163,12 +160,10 @@ components. There is no hidden identity field added to user objects.
 
 Raw `Funcref` host handles cannot be keys. Any other value may be a key or a
 result, including functions, `Any` values, mutable records and arrays.
-Callbacks whose control operations can escape are rejected for all four
-wrappers.
 
-A hit skips the callback body, including any effects allowed by the unsafe names.
-Cache only functions for which that behavior is intended. An empty effect row still permits reading mutable
-objects and captured state, so it does not prove that their answers stay the same.
+Cache only functions for which skipping the body is intended. Even an empty
+effect row permits reading mutable objects and captured state, so no row proves
+that a function's answers stay the same.
 The private cache adds no effect to the function's signature.
 A result is stored only after a successful return.
 Reentrant calls can populate the same cache: the last successful completion for
