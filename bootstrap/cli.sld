@@ -25,8 +25,8 @@
 ;;
 ;; It is also the engine, (snail shell engine), which host/native/run-snail.mjs
 ;; and `snail run-wasm` start through the exports of "The engine" to run a
-;; program compiled one library at a time: SNAIL_MANIFEST names its
-;; manifest.
+;; program compiled one library at a time, as stage 0's test harness
+;; builds them: SNAIL_MANIFEST names its manifest.
 ;;
 ;; A failure prints its message and exits with status 1; the outputs of
 ;; earlier builds stay published.
@@ -142,7 +142,7 @@
 (define (built-program (job ScriptJob)) (→ String) (! mut fs clock process)
   (string-append (build-job job)
                  "/"
-                 (program-name (script-name (● job script)) (● (● job flags) mode))))
+                 (program-name (script-name (● job script)))))
 
 (define (become (program String) (arguments (List String))) (→ Unit) (! process)
   (let ((error (exec (new Command (program program) (arguments arguments) (directory ".")))))

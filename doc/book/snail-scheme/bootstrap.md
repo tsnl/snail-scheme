@@ -84,8 +84,9 @@ input, having written its `request.datum` first.
 `host/native/run-snail.mjs` does on Node, for one that needs of its host
 only WASI, the files it links and loading modules
 (`crates/snail/src/program.rs`).
-PROGRAM is one linked module, or the `NAME.manifest.datum` of a per-library
-build, which the engine runs: `(snail shell engine)`, which the command line
+PROGRAM is one linked module, as every `snail-scheme build` writes, or the
+`NAME.manifest.datum` of a per-library build, which only stage 0's test
+harness makes now and the engine runs: `(snail shell engine)`, which the command line
 holds ("The engine" in `bootstrap/cli.sld`), so the program stage 0 builds is
 also what runs every per-library program. Both hosts start it, from
 `build/bootstrap/snail-scheme.wasm` or `SNAIL_ENGINE_MODULE`, with the

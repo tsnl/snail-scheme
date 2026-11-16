@@ -26,9 +26,8 @@ async function embedding() {
     const first = await served();
     const paths = first.slice(0, -1).map(line => line.split(' ')[0]);
     assert.deepEqual(paths, [...paths].sort(), 'files are listed in path order');
-    for (const path of ['index.html', 'host.mjs', 'main.manifest.datum', 'nested/data.bin'])
+    for (const path of ['index.html', 'host.mjs', 'main.wasm', 'nested/data.bin'])
       assert.ok(paths.includes(path), `the client's ${path} is linked`);
-    assert.ok(paths.some(path => path.startsWith('store/sha256/')), 'with the objects of its store view');
     assert.ok(first.includes('nested/data.bin 3'));
     assert.equal(first.at(-1), '65,0,255');
     assert.match(await readFile(join(workspace, 'build/client/main/index.html'), 'utf8'), /client/,

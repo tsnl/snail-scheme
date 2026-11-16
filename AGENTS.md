@@ -36,9 +36,8 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   stage 1 command line, `bootstrap/cli.sld`, built by `scripts/bootstrap`,
   which also holds the engine that links every per-library program; the
   command line builds everything else as scripts, run as
-  `./snail-scheme run --target node FILE`. Every debug build writes one
-  module per library into the sharded store `build/.snail-store` and names
-  them in `NAME.manifest.datum`.
+  `./snail-scheme run --target node FILE`. Every build writes one linked
+  module, `NAME.wasm`, which `--release` also optimizes.
   The test harness also compiles through stage 0's driver.
 
 - Every record is a heap object and every field is mutable. Primitive

@@ -1,24 +1,22 @@
-// Linked files are objects of a workspace's store, named for the SHA-256
-// of their bytes, and each host reads one when a task first asks for it.
+// Linked files are objects of a build's store, named for the SHA-256 of
+// their bytes, and each host reads one when a task first asks for it.
 //   node tests/script-resources.mjs ROOT
 //
 // A library links two files beside its source. A script built for node and
-// for the browser each place them in the workspace's store, build/.snail-store,
-// and view them at store/sha256/AB/DIGEST in their output, a link in a debug
-// build and a copy beside the one linked module of a release one; the
-// program prints the bytes of one,
-// read in a task, natively and through the browser host's loader fetching
-// the page's files over HTTP, which never fetches the file the program does
-// not read.
+// for the browser each copy them to store/sha256/AB/DIGEST beside the
+// program's module, debug or release; the program prints the bytes of
+// one, read in a task, natively and through the browser host's loader
+// fetching the page's files over HTTP, which never fetches the file the
+// program does not read.
 import assert from 'node:assert/strict';
 import {execFile} from 'node:child_process';
 import {createHash} from 'node:crypto';
-import {lstat, mkdir, mkdtemp, readFile, rm, writeFile} from 'node:fs/promises';
+import {mkdir, mkdtemp, readFile, rm, writeFile} from 'node:fs/promises';
 import {createServer} from 'node:http';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {promisify} from 'node:util';
-import {createWasi, linkModule, linkProgram, objectPath, programExports, runMain} from '../host/browser/load.mjs';
+import {createWasi, linkModule, objectPath, runMain} from '../host/browser/load.mjs';
 import {createTasks, taskExports} from '../host/browser/tasks.mjs';
 
 const execute = promisify(execFile), root = process.argv[2];
@@ -30,12 +28,10 @@ const write = async (name, contents) => { await mkdir(join(project, name, '..'),
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 const hero = Buffer.from([1, 2, 3, 255]), villain = Buffer.from([7]);
 const resource = (directory, bytes) => readFile(join(directory, objectPath(digest(bytes))));
-const viewed = async (directory, bytes) => (await lstat(join(directory, objectPath(digest(bytes))))).isSymbolicLink() ? 'link' : 'copy';
 
 // The browser host fetches a static page's files relative to its module,
 // so serve the output as a page's server would and read through it: the
-// program a page names, a debug build's manifest or a release build's
-// module. The program's lines, and the paths the page fetched.
+// module a page names. The program's lines, and the paths the page fetched.
 async function pageOutput(directory, name) {
   const fetched = [];
   const server = createServer(async (request, response) => {
@@ -55,9 +51,8 @@ async function pageOutput(directory, name) {
     const wasi = createWasi({print: (fd, line) => lines.push(line)});
     let program;
     const tasks = createTasks(() => program && taskExports(program));
-    const linked = name.endsWith('.wasm');
-    program = await (linked ? linkModule : linkProgram)(read, name, wasi, {}, () => tasks);
-    runMain(linked ? program.exports : programExports(program), tasks);
+    program = await linkModule(read, name, wasi, {}, () => tasks);
+    runMain(program.exports, tasks);
     try { await tasks.drive(); }
     finally { tasks.close(); }
     return {output: lines.join('\n'), fetched};
@@ -77,23 +72,20 @@ try {
   await build('cli');
   assert.deepEqual(await resource(output, hero), hero, 'the node build places the file');
   assert.deepEqual(await resource(output, villain), villain);
-  assert.equal(await viewed(output, hero), 'link', 'a debug build links to the store');
-  assert.deepEqual(await readFile(join(project, 'build/.snail-store', objectPath(digest(hero)).replace(/^store\//, ''))), hero,
-                   'the workspace store holds it');
-  assert.equal((await run(join(output, 'main.manifest.datum'))).stdout, '1,2,3,255\n', 'the native host reads it when the task asks');
+  assert.equal((await run(join(output, 'main.wasm'))).stdout, '1,2,3,255\n', 'the native host reads it when the task asks');
   await build('cli', '--release');
-  assert.equal(await viewed(output, hero), 'copy', 'a release build copies it');
-  assert.equal((await run(join(output, 'main.wasm'))).stdout, '1,2,3,255\n', 'beside its one module');
+  assert.deepEqual(await resource(output, hero), hero, 'a release build places it too');
+  assert.equal((await run(join(output, 'main.wasm'))).stdout, '1,2,3,255\n', 'beside its optimized module');
 
   await build('page');
   assert.deepEqual(await resource(output, hero), hero, 'the browser build places the file');
-  const page = await pageOutput(output, 'main.manifest.datum');
+  const page = await pageOutput(output, 'main.wasm');
   assert.equal(page.output, '1,2,3,255', 'the browser host fetches it beside the module');
   assert.ok(page.fetched.includes(`/${objectPath(digest(hero))}`), page.fetched.join(' '));
   assert.ok(!page.fetched.includes(`/${objectPath(digest(villain))}`), 'a file the program never reads is never fetched');
   await build('page', '--release');
   const released = await pageOutput(output, 'main.wasm');
-  assert.equal(released.output, '1,2,3,255', 'a release page reads it beside its one module');
+  assert.equal(released.output, '1,2,3,255', 'a release page reads it the same way');
   assert.ok(!released.fetched.includes(`/${objectPath(digest(villain))}`), released.fetched.join(' '));
 
   await rm(join(project, 'src/assets/art/hero.bin'));

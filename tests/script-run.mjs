@@ -36,7 +36,7 @@ try {
   execution.child.stdin.end('from stdin\n');
   const result = await execution, lines = result.stdout.split('\n');
   const first = await realpath(join(project, 'build/main'));
-  assert.equal(lines[0], join(first, 'main.manifest.datum'), 'argv names the exact generation');
+  assert.equal(lines[0], join(first, 'main.wasm'), 'argv names the exact generation');
   assert.match(dirname(lines[0]), /\/\.snail-[^/]+$/);
   assert.deepEqual(lines.slice(1), ['', 'λ', '--flag', 'quote" with spaces', '$(shell-looking)', 'from stdin', '']);
   assert.equal(result.stderr, '');

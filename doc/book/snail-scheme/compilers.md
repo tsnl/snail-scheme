@@ -395,14 +395,12 @@ A linked file's bytes are an input of the compile, as their digest: the
 module imports its handle under that name. Each build binds the current linked
 files during expansion. A missing file fails with the library and path;
 changed bytes bind a new digest. Every build compiles all libraries and
-places every linked file as an
-object of a store, `store/sha256/AB/DIGEST` beside a linked program or the
-project's store, `build/.snail-store`, checking that the bytes
-it copies have the digest the compile read; a file edited during the build
-fails it, and the next build compiles against the new bytes. Modules and
-objects are named for their contents, so a generation's digest takes only
-their names. The bytes under such a name never change, so a server can let
-a browser cache them for good.
+places every linked file as an object of the program's store,
+`store/sha256/AB/DIGEST` beside its module, checking that the bytes it
+copies have the digest the compile read; a file edited during the build
+fails it, and the next build compiles against the new bytes. The bytes
+under such a name never change, so a server can let a browser cache them
+for good.
 
 ## Supporting modules
 

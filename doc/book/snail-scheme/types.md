@@ -406,8 +406,7 @@ package's data, and the library reads it when it needs it:
   program's store, at `STORE/sha256/AB/DIGEST`, where DIGEST is the
   SHA-256 of its bytes in hex and AB its first two digits, in every build
   that produces one. A program's store
-  is `store/` beside its module or its `NAME.manifest.datum`, which lists
-  each object with its size. The name is
+  is `store/` beside its module. The name is
   never a path or a library's: libraries that link the same bytes ship one
   object, an object is written once and never rewritten, and a file's name
   changes exactly when its bytes do. The module itself records what it

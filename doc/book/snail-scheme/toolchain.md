@@ -1,16 +1,14 @@
 # Development toolchain
 
-A debug build keeps each library as its own module, with the runtime as a
-separate instance, all objects of the workspace's store and named by the
-build's manifest ([output directories](projects.md#output-directories)). A
-release build, `--release`, compiles the whole program to one module, fuses
-it with the runtime, and optimizes it with Binaryen's `wasm-opt`. Stage 0
-also links a single program into one module, unoptimized.
+Every build compiles the whole program to one module and fuses it with the
+runtime ([output directories](projects.md#output-directories)). A release
+build, `--release`, also optimizes it with Binaryen's `wasm-opt`. Stage 0
+links a single program into one module the same way.
 
 | Command | Build |
 | --- | --- |
-| `snail-scheme build`, `snail-scheme run`, `snail-scheme lsp` | Debug: a module per library, linked to the store |
-| `snail-scheme build --release`, `make site` | Release: one module, linked and optimized |
+| `snail-scheme build`, `snail-scheme run` | Debug: one linked module |
+| `snail-scheme build --release`, `make site` | Release: the same module, optimized |
 
 A script, a single source file, is built and run with an explicit target,
 `node`, `wasmtime` or `browser`

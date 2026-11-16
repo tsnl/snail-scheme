@@ -10,7 +10,7 @@ import {promisify} from 'node:util';
 import assert from 'node:assert/strict';
 import {screenImports} from '../../host/browser/host.mjs';
 import {createRuntime, applicationEntry} from '../../host/browser/runtime.mjs';
-import {createWasi, linkProgram} from '../../host/browser/load.mjs';
+import {createWasi, linkModule} from '../../host/browser/load.mjs';
 
 const HIDDEN = 12, ELAPSED = 11, PRESS = 9, POINTER_UP = 5, POINTER_MOVE = 4, POINTER_DOWN = 3, KEY_DOWN = 1, KEY_UP = 2;
 const SUGGESTED = 5;
@@ -33,7 +33,7 @@ const target = host => [host.frames.at(-1).camera.target[0], host.frames.at(-1).
 async function instantiateGame(directory, host, saved) {
   const runtime = createRuntime({seed: 7, load: async () => saved});
   const wasi = createWasi({print: (fd, line) => console.log(line)});
-  const program = await linkProgram(file => readFile(join(directory, file)), 'main.manifest.datum', wasi,
+  const program = await linkModule(file => readFile(join(directory, file)), 'main.wasm', wasi,
     {...runtime.imports, 'snail.runtime.browser.screen': host.imports}, () => runtime.execution.tasks);
   await runtime.start(applicationEntry(program)).ready.promise;
   return runtime;
