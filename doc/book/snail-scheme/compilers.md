@@ -55,6 +55,12 @@ children execute, bind names or start a new scope. Data fields contain a
 name and type, with no mutable/immutable flag. Every source field has one
 runtime slot.
 
+`library.sld` reads a library's file before any of it is expanded: where the
+source is among the search directories, and what the file declares, a
+`define-library`'s sections through its `cond-expand`s or a
+`generate-library`'s producer program. It knows no binding and holds no
+state.
+
 `expand.sld` alone knows binding syntax. It loads libraries, resolves import
 sets, expands hygienic `syntax-rules`, assigns unique names and converts
 forms into expressions and declarations. Top-level names are discovered
