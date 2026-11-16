@@ -1,0 +1,42 @@
+fresh, then found: #t #f
+request-device 1000
+create buffer 1 {"label":"test/vertices","size":64,"usage":40}
+create shader 2 {"label":"test/shader","code":"@vertex fn v() -> @builtin(position) vec4f { return vec4f(); }"}
+create render-pipeline 3 {"label":"test/pipeline","layout":"auto","vertex":{"module":{"object":2},"entryPoint":"v","buffers":[]},"fragment":{"module":{"object":2},"entryPoint":"f","targets":[{"format":"bgra8unorm","blend":{"color":{"operation":"add","srcFactor":"src-alpha","dstFactor":"one-minus-src-alpha"},"alpha":{"operation":"add","srcFactor":"one","dstFactor":"one-minus-src-alpha"}}}]},"primitive":{"topology":"triangle-list","cullMode":"none"}}
+create bind-group 4 {"label":"test/group","layout":{"layout-of":{"object":3},"group":0},"entries":[{"binding":0,"resource":{"buffer":{"object":1},"offset":0}}]}
+encoder 5
+canvas 6
+pass 7 5 {"colorAttachments":[{"view":{"view-of":{"object":6},"dimension":"2d","baseMipLevel":0,"mipLevelCount":1,"baseArrayLayer":0,"arrayLayerCount":1},"loadOp":"clear","clearValue":{"r":0.0,"g":0.5,"b":1.0,"a":1.0},"storeOp":"store"}]}
+write-buffer 1 0 64
+set-pipeline 7 3
+set-bind-group 7 0 4
+draw 7 3 1 0 0
+end-pass 7
+command-buffer 8 5
+submit 8
+and later:
+fresh, then found: #t #f
+request-device 1000
+create buffer 1 {"label":"test/vertices","size":64,"usage":40}
+create shader 2 {"label":"test/shader","code":"@vertex fn v() -> @builtin(position) vec4f { return vec4f(); }"}
+create render-pipeline 3 {"label":"test/pipeline","layout":"auto","vertex":{"module":{"object":2},"entryPoint":"v","buffers":[]},"fragment":{"module":{"object":2},"entryPoint":"f","targets":[{"format":"bgra8unorm","blend":{"color":{"operation":"add","srcFactor":"src-alpha","dstFactor":"one-minus-src-alpha"},"alpha":{"operation":"add","srcFactor":"one","dstFactor":"one-minus-src-alpha"}}}]},"primitive":{"topology":"triangle-list","cullMode":"none"}}
+create bind-group 4 {"label":"test/group","layout":{"layout-of":{"object":3},"group":0},"entries":[{"binding":0,"resource":{"buffer":{"object":1},"offset":0}}]}
+encoder 5
+canvas 6
+pass 7 5 {"colorAttachments":[{"view":{"view-of":{"object":6},"dimension":"2d","baseMipLevel":0,"mipLevelCount":1,"baseArrayLayer":0,"arrayLayerCount":1},"loadOp":"clear","clearValue":{"r":0.0,"g":0.5,"b":1.0,"a":1.0},"storeOp":"store"}]}
+write-buffer 1 0 64
+set-pipeline 7 3
+set-bind-group 7 0 4
+draw 7 3 1 0 0
+end-pass 7
+command-buffer 8 5
+submit 8
+destroy 1
+destroy 4
+create buffer 9 {"label":"test/vertices","size":128,"usage":32}
+submit
+destroy 9
+create buffer 10 {"label":"test/big","size":900,"usage":128}
+and a handle to the evicted buffer:
+fresh, then found: #t #f
+snail: gpu: object 9, buffer test/vertices generation 2, was evicted
