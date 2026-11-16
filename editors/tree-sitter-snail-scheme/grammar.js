@@ -24,6 +24,13 @@
 // `.` or `#x1F`, is a name here: the compiler reports it, and the editor
 // still sees where it ends. So Chez's own syntax, in host/chez/, parses too.
 
+// tree-sitter's generator (0.26) leaves U+017F, the long s, and U+212A, the
+// Kelvin sign, out of every negated class and out of `.`: the two scalars
+// that case-fold to an ASCII letter. A string or a comment holding one
+// would end there, so each such class names them beside it.
+const folded = /[\u017F\u212A]/;
+const any = pattern => choice(pattern, folded);
+
 module.exports = grammar({
   name: 'snail_scheme',
 
@@ -54,9 +61,9 @@ module.exports = grammar({
 
     quote: $ => seq('\'', $._datum),
 
-    string: _ => token(seq('"', repeat(choice(/[^"\\]/, /\\[\s\S]/)), '"')),
+    string: _ => token(seq('"', repeat(choice(any(/[^"\\]/), seq('\\', any(/[\s\S]/)))), '"')),
 
-    line_comment: _ => token(seq(';', /.*/)),
+    line_comment: _ => token(seq(';', repeat(any(/./)))),
 
     datum_comment: $ => seq('#;', $._datum),
   },

@@ -250,9 +250,7 @@ static bool ts_lex(TSLexer *lexer, TSStateId state) {
     case 1:
       if (lookahead == '"') ADVANCE(13);
       if (lookahead == '\\') ADVANCE(5);
-      if (lookahead != 0 &&
-          lookahead != 0x17f &&
-          lookahead != 0x212a) ADVANCE(1);
+      if (lookahead != 0) ADVANCE(1);
       END_STATE();
     case 2:
       if (lookahead == '(') ADVANCE(11);
@@ -265,9 +263,7 @@ static bool ts_lex(TSLexer *lexer, TSStateId state) {
       if (lookahead == 'u') ADVANCE(3);
       END_STATE();
     case 5:
-      if (lookahead != 0 &&
-          lookahead != 0x17f &&
-          lookahead != 0x212a) ADVANCE(1);
+      if (lookahead != 0) ADVANCE(1);
       END_STATE();
     case 6:
       ACCEPT_TOKEN(ts_builtin_sym_end);
@@ -296,9 +292,7 @@ static bool ts_lex(TSLexer *lexer, TSStateId state) {
     case 14:
       ACCEPT_TOKEN(sym_line_comment);
       if (lookahead != 0 &&
-          lookahead != '\n' &&
-          lookahead != 0x17f &&
-          lookahead != 0x212a) ADVANCE(14);
+          lookahead != '\n') ADVANCE(14);
       END_STATE();
     case 15:
       ACCEPT_TOKEN(anon_sym_POUND_SEMI);

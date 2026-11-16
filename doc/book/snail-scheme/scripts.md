@@ -227,7 +227,6 @@ That is accepted for now.
 ## Deferred
 
 - Reuse between builds, and sharing work between a producer and its consumer.
-- Cycle detection across producers.
 - `snail-scheme watch` and live reload, removed. They come back only if they are needed.
 - Reclaiming the store.
 

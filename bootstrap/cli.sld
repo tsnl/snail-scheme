@@ -70,7 +70,8 @@
     (toolchain toolchain)
     (node (match (environment-variable "NODE")
             ((Some node) node)
-            ((None) "node")))))
+            ((None) "node")))
+    (building (Nil))))
 
 ;; ---- Scripts ----
 

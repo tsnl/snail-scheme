@@ -67,12 +67,15 @@
     ;; `runtime` is the runtime module a program is linked with, `toolchain`
     ;; the one a program that links the assembler is, whose services
     ;; include it, and `node` runs producers. Binaryen's wasm-opt, which
-    ;; optimizes a release build, is found on PATH.
+    ;; optimizes a release build, is found on PATH. `building` holds the
+    ;; scripts whose builds this one is part of, outermost first: a producer
+    ;; is handed its build's, so a script that embeds itself is refused.
     (record Tools
       ((root String)
        (runtime String)
        (toolchain String)
-       (node String)))
+       (node String)
+       (building (List String))))
 
     ;; A debug build leaves a module per library, each an object of the
     ;; project's store, with NAME.manifest.datum naming them in link order,
@@ -148,7 +151,7 @@
     (define (build-script (tools Tools) (script Script) (platform Platform) (mode Mode))
       (→ String)
       (! mut fs clock process)
-      (match (with-builder tools
+      (match (with-builder (building-script tools script)
                            (● script workspace)
                            mode
                            (lambda (builder)
@@ -158,6 +161,16 @@
          (match (publish (● script workspace) output)
            ((Err message) (panic message))
            ((Ok _) (● output directory))))))
+
+    ;; The tools of the script's build, which its producers are run with.
+    ;; A producer that builds a script already being built would be run
+    ;; again by that build, without end, so it stops here.
+
+    (define (building-script (tools Tools) (script Script)) (→ Tools)
+      (let ((building (append (● tools building) (list (● script file)))))
+        (when (member? (● script file) (● tools building))
+          (panic (string-append "a script's build embeds itself: " (string-join building " → "))))
+        (Tools-building-set tools building)))
 
     ;; The build target a script is: a page, with the public/ folder beside
     ;; the script if there is one, or a program.
@@ -193,7 +206,7 @@
     (define (check-script (tools Tools) (script Script) (platform Platform))
       (→ (Result Typed Failure))
       (! mut fs clock process)
-      (checking tools
+      (checking (building-script tools script)
                 (● script workspace)
                 (lambda (working) (script-target tools script platform))))
 
@@ -232,12 +245,18 @@
                                     (● (check-target builder (target working) working) typed))))))
 
     ;; What a producer's build runs, from its command line: a build runs a
-    ;; producer with the path its output goes to, then the build's tools.
+    ;; producer with the path its output goes to, then the build's tools,
+    ;; the scripts being built last.
 
     (define (producer-tools) (→ Tools)
       (match (command-line)
-        ((Cons _ (Cons _ (Cons root (Cons runtime (Cons toolchain (Cons node _))))))
-         (new Tools (root root) (runtime runtime) (toolchain toolchain) (node node)))
+        ((Cons _ (Cons _ (Cons root (Cons runtime (Cons toolchain (Cons node building))))))
+         (new Tools
+           (root root)
+           (runtime runtime)
+           (toolchain toolchain)
+           (node node)
+           (building building)))
         (_ (panic "producer-tools: this program is not a producer a build ran"))))
 
     ;; A path made absolute against the working directory, without empty or
@@ -795,15 +814,16 @@
       (! fs process building)
       (let ((tools (● builder tools)))
         (run-command (new Command (program (● tools node))
-                          (arguments (list "--no-warnings"
-                                           (string-append (● tools root)
-                                                          "/host/native/run-snail.mjs")
-                                           program
-                                           output
-                                           (● tools root)
-                                           (● tools runtime)
-                                           (● tools toolchain)
-                                           (● tools node)))
+                          (arguments (append (list "--no-warnings"
+                                                   (string-append (● tools root)
+                                                                  "/host/native/run-snail.mjs")
+                                                   program
+                                                   output
+                                                   (● tools root)
+                                                   (● tools runtime)
+                                                   (● tools toolchain)
+                                                   (● tools node))
+                                             (● tools building)))
                           (directory (● builder workspace)))
                      "the producer")
         (unless (file-exists? output)
