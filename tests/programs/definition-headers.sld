@@ -6,9 +6,8 @@
 
 (define (twice (value T))
   (→ T)
-  (! E)
-  (∀ (T E))
-  (⊨ (Num E T))
+  (∀ (T))
+  (⊨ (Num T))
   (+ (ann value T) value))
 
 (define (empty)

@@ -153,33 +153,33 @@
 
     ;; ---- Numbers ----
 
-    (typeclass (Num e T)
-      (declare (+ (left T) (right T)) (→ T) (! e))
-      (declare (- (left T) (right T)) (→ T) (! e))
-      (declare (* (left T) (right T)) (→ T) (! e))
-      (declare (negate (value T)) (→ T) (! e)))
+    (typeclass (Num T)
+      (declare (+ (left T) (right T)) (→ T))
+      (declare (- (left T) (right T)) (→ T))
+      (declare (* (left T) (right T)) (→ T))
+      (declare (negate (value T)) (→ T)))
 
-    (typeclass (Ord e T)
-      (declare (= (left T) (right T)) (→ Bool) (! e))
-      (declare (< (left T) (right T)) (→ Bool) (! e))
-      (declare (<= (left T) (right T)) (→ Bool) (! e))
-      (declare (> (left T) (right T)) (→ Bool) (! e))
-      (declare (>= (left T) (right T)) (→ Bool) (! e)))
+    (typeclass (Ord T)
+      (declare (= (left T) (right T)) (→ Bool))
+      (declare (< (left T) (right T)) (→ Bool))
+      (declare (<= (left T) (right T)) (→ Bool))
+      (declare (> (left T) (right T)) (→ Bool))
+      (declare (>= (left T) (right T)) (→ Bool)))
 
-    (typeclass (Integral e T)
-      (declare (quotient (numerator T) (denominator T)) (→ T) (! e))
-      (declare (remainder (numerator T) (denominator T)) (→ T) (! e))
-      (declare (modulo (numerator T) (denominator T)) (→ T) (! e)))
+    (typeclass (Integral T)
+      (declare (quotient (numerator T) (denominator T)) (→ T))
+      (declare (remainder (numerator T) (denominator T)) (→ T))
+      (declare (modulo (numerator T) (denominator T)) (→ T)))
 
-    (typeclass (Fractional e T)
-      (declare (/ (left T) (right T)) (→ T) (! e))
-      (declare (sqrt (value T)) (→ T) (! e))
-      (declare (floor (value T)) (→ T) (! e))
-      (declare (ceiling (value T)) (→ T) (! e))
-      (declare (round (value T)) (→ T) (! e))
-      (declare (truncate (value T)) (→ T) (! e)))
+    (typeclass (Fractional T)
+      (declare (/ (left T) (right T)) (→ T))
+      (declare (sqrt (value T)) (→ T))
+      (declare (floor (value T)) (→ T))
+      (declare (ceiling (value T)) (→ T))
+      (declare (round (value T)) (→ T))
+      (declare (truncate (value T)) (→ T)))
 
-    (instance (Num (!) U8)
+    (instance (Num U8)
       (define (+ (a U8) (b U8)) (→ U8)
         (i32->u8 (i32-add (u8->i32 a) (u8->i32 b))))
       (define (- (a U8) (b U8)) (→ U8)
@@ -189,7 +189,7 @@
       (define (negate (a U8)) (→ U8)
         (i32->u8 (i32-sub 0 (u8->i32 a)))))
 
-    (instance (Ord (!) U8)
+    (instance (Ord U8)
       (define (= (a U8) (b U8)) (→ Bool)
         (i32-eq (u8->i32 a) (u8->i32 b)))
       (define (< (a U8) (b U8)) (→ Bool)
@@ -201,7 +201,7 @@
       (define (>= (a U8) (b U8)) (→ Bool)
         (i32-ge (u8->i32 a) (u8->i32 b))))
 
-    (instance (Num (!) I32)
+    (instance (Num I32)
       (define (+ (left I32) (right I32)) (→ I32)
         (i32-add left right))
       (define (- (left I32) (right I32)) (→ I32)
@@ -211,7 +211,7 @@
       (define (negate (x I32)) (→ I32)
         (i32-sub 0 x)))
 
-    (instance (Num (!) I64)
+    (instance (Num I64)
       (define (+ (left I64) (right I64)) (→ I64)
         (i64-add left right))
       (define (- (left I64) (right I64)) (→ I64)
@@ -221,7 +221,7 @@
       (define (negate (x I64)) (→ I64)
         (i64-sub 0 x)))
 
-    (instance (Num (!) F32)
+    (instance (Num F32)
       (define (+ (left F32) (right F32)) (→ F32)
         (f32-add left right))
       (define (- (left F32) (right F32)) (→ F32)
@@ -231,7 +231,7 @@
       (define (negate (value F32)) (→ F32)
         (f32-negate value)))
 
-    (instance (Num (!) F64)
+    (instance (Num F64)
       (define (+ (left F64) (right F64)) (→ F64)
         (f64-add left right))
       (define (- (left F64) (right F64)) (→ F64)
@@ -241,7 +241,7 @@
       (define (negate (value F64)) (→ F64)
         (f64-negate value)))
 
-    (instance (Ord (!) I32)
+    (instance (Ord I32)
       (define (= (left I32) (right I32)) (→ Bool)
         (i32-eq left right))
       (define (< (left I32) (right I32)) (→ Bool)
@@ -253,7 +253,7 @@
       (define (>= (left I32) (right I32)) (→ Bool)
         (i32-ge left right)))
 
-    (instance (Ord (!) I64)
+    (instance (Ord I64)
       (define (= (left I64) (right I64)) (→ Bool)
         (i64-eq left right))
       (define (< (left I64) (right I64)) (→ Bool)
@@ -265,7 +265,7 @@
       (define (>= (left I64) (right I64)) (→ Bool)
         (i64-ge left right)))
 
-    (instance (Ord (!) F32)
+    (instance (Ord F32)
       (define (= (left F32) (right F32)) (→ Bool)
         (f32-eq left right))
       (define (< (left F32) (right F32)) (→ Bool)
@@ -277,7 +277,7 @@
       (define (>= (left F32) (right F32)) (→ Bool)
         (f32-ge left right)))
 
-    (instance (Ord (!) F64)
+    (instance (Ord F64)
       (define (= (left F64) (right F64)) (→ Bool)
         (f64-eq left right))
       (define (< (left F64) (right F64)) (→ Bool)
@@ -289,7 +289,7 @@
       (define (>= (left F64) (right F64)) (→ Bool)
         (f64-ge left right)))
 
-    (instance (Ord (!) Char)
+    (instance (Ord Char)
       (define (= (a Char) (b Char)) (→ Bool)
         (i32-eq (char->i32 a) (char->i32 b)))
       (define (< (a Char) (b Char)) (→ Bool)
@@ -301,7 +301,7 @@
       (define (>= (a Char) (b Char)) (→ Bool)
         (i32-ge (char->i32 a) (char->i32 b))))
 
-    (instance (Ord (!) Bool)
+    (instance (Ord Bool)
       (define (= (a Bool) (b Bool)) (→ Bool)
         (i32-eq (bool->i32 a) (bool->i32 b)))
       (define (< (a Bool) (b Bool)) (→ Bool)
@@ -313,7 +313,7 @@
       (define (>= (a Bool) (b Bool)) (→ Bool)
         (i32-ge (bool->i32 a) (bool->i32 b))))
 
-    (instance (Ord (!) String)
+    (instance (Ord String)
       (define (= (left String) (right String)) (→ Bool)
         (string=? left right))
       (define (< (a String) (b String)) (→ Bool)
@@ -325,7 +325,7 @@
       (define (>= (a String) (b String)) (→ Bool)
         (i32-ge (string-compare a b) 0)))
 
-    (instance (Integral (!) I32)
+    (instance (Integral I32)
       (define (quotient (left I32) (right I32)) (→ I32)
         (i32-quotient left right))
       (define (remainder (left I32) (right I32)) (→ I32)
@@ -336,7 +336,7 @@
               (i32-add r b)
               r))))
 
-    (instance (Integral (!) I64)
+    (instance (Integral I64)
       (define (quotient (left I64) (right I64)) (→ I64)
         (i64-quotient left right))
       (define (remainder (left I64) (right I64)) (→ I64)
@@ -347,7 +347,7 @@
               (i64-add r b)
               r))))
 
-    (instance (Fractional (!) F32)
+    (instance (Fractional F32)
       (define (/ (left F32) (right F32)) (→ F32)
         (f32-div left right))
       (define (sqrt (value F32)) (→ F32)
@@ -361,7 +361,7 @@
       (define (truncate (value F32)) (→ F32)
         (f32-truncate value)))
 
-    (instance (Fractional (!) F64)
+    (instance (Fractional F64)
       (define (/ (left F64) (right F64)) (→ F64)
         (f64-div left right))
       (define (sqrt (value F64)) (→ F64)
@@ -377,23 +377,20 @@
 
     (define (abs (x T))
       (→ T)
-      (! e)
-      (∀ (T e))
-      (⊨ (Num e T) (Ord e T))
+      (∀ (T))
+      (⊨ (Num T) (Ord T))
       (if (< x (- x x)) (negate x) x))
 
     (define (min (a T) (b T))
       (→ T)
-      (! e)
-      (∀ (T e))
-      (⊨ (Ord e T))
+      (∀ (T))
+      (⊨ (Ord T))
       (if (< b a) b a))
 
     (define (max (a T) (b T))
       (→ T)
-      (! e)
-      (∀ (T e))
-      (⊨ (Ord e T))
+      (∀ (T))
+      (⊨ (Ord T))
       (if (< a b) b a))
 
     ;; Bytes are packed one per array slot.
@@ -540,9 +537,8 @@
 
     (define (member? (value A) (items (List A)))
       (→ Bool)
-      (! e)
-      (∀ (A e))
-      (⊨ (Ord e A))
+      (∀ (A))
+      (⊨ (Ord A))
       (any? (lambda (item) (= item value)) items))
 
     ;; Keeps the first of each group of equal items.
@@ -622,9 +618,8 @@
 
     (define (assoc-ref (entries (List (Pair K V))) (key K))
       (→ (Option V))
-      (! e)
-      (∀ (K V e))
-      (⊨ (Ord e K))
+      (∀ (K V))
+      (⊨ (Ord K))
       (match entries
         ((Nil) (None))
         ((Cons entry rest)
@@ -806,8 +801,8 @@
 
     ;; ---- Showing values ----
 
-    (typeclass (Show e T)
-      (declare (show (value T)) (→ String) (! e)))
+    (typeclass (Show T)
+      (declare (show (value T)) (→ String)))
 
     (define (i64->string (n I64)) (→ String)
       (cond ((= n 0) "0")
@@ -840,39 +835,39 @@
                     (else
                      (loop (+ index 1) (- (* value 10) (digit-value (string-ref text index))))))))))
 
-    (instance (Show (!) I64)
+    (instance (Show I64)
       (define (show (value I64)) (→ String)
         (i64->string value)))
 
-    (instance (Show (!) U8)
+    (instance (Show U8)
       (define (show (n U8)) (→ String)
         (i64->string (i32->i64 (u8->i32 n)))))
 
-    (instance (Show (!) I32)
+    (instance (Show I32)
       (define (show (n I32)) (→ String)
         (i64->string (i32->i64 n))))
 
-    (instance (Show (!) Bool)
+    (instance (Show Bool)
       (define (show (value Bool)) (→ String)
         (if value "#t" "#f")))
 
-    (instance (Show (!) Char)
+    (instance (Show Char)
       (define (show (char Char)) (→ String)
         (make-string 1 char)))
 
-    (instance (Show (!) String)
+    (instance (Show String)
       (define (show (text String)) (→ String)
         text))
 
-    (instance (Show (!) Unit)
+    (instance (Show Unit)
       (define (show (value Unit)) (→ String)
         "()"))
 
-    (instance (Show (!) F64)
+    (instance (Show F64)
       (define (show (value F64)) (→ String)
         (f64->string value)))
 
-    (instance (Show (!) F32)
+    (instance (Show F32)
       (define (show (value F32)) (→ String)
         (f64->string (f32->f64 value))))
 

@@ -48,9 +48,8 @@ definition, before its body:
   (map function values))
 (define (sum (zero T) (values (List T)))
   (→ T)
-  (! e)
-  (∀ (T e))
-  (⊨ (Num e T))
+  (∀ (T))
+  (⊨ (Num T))
   (fold-left + zero values))
 ```
 
@@ -219,115 +218,30 @@ and may require other instances:
 
 The checker chooses each instance when it checks a use and records that
 choice; monomorphization copies the chosen method for each type, so no
-dictionary exists at run time. Active instance heads must not overlap on their
-input parameters. User-defined classes have
+dictionary exists at run time. Instance heads must not overlap. Classes have
 no superclasses: a signature lists every class it needs. Unbound names in an
 instance head are its type variables.
 
-### Rows as parameters
+Every class parameter is a type, and all of them together choose the
+instance. A method writes the row it performs in its declaration; each
+instance's method performs within that row, and may need less of it
+(`tests/programs/declared-effects.sld`). A class takes no row as a
+parameter and has no associated types: a result type that depends on the
+instance is a further class parameter.
 
-A class may take a row as a parameter. A parameter its methods write after
-`!` is a row, and the others are types. Each instance writes its row in its
-head, so the instances of one class may perform different effects:
-
-```scheme
-{{#include ../../../tests/programs/classes-effects.sld:store}}
-```
-
-A use performs what its instance's head says. Reading a `Directory`
-prints, so `fetch-twice` at a `Directory` performs `output-port`; at a `Table`
-it is total, and a total function may call it. The row is found from the
-types, not matched: the types choose the instance, which must be the only
-one for them whatever rows the others write, and its row is charged to the
-call, as a call is charged what its callee performs. A generic function
-that requires `(Store e S)` performs `e`, which its signature names, and
-each caller is charged what its own type's instance performs. A
-requirement may give a closed row instead, as `(Store (!) S)`, which admits
-only the types whose instance performs no more.
-
-An instance's row is closed, or ends with a row variable that its
-requirements of row classes give theirs, which the types they are given
-decide:
-
-```scheme
-{{#include ../../../tests/programs/classes-effects.sld:logged}}
-```
-
-Fetching from a `(Logged Table)` performs `log`, and from a
-`(Logged Directory)`, `log` and `output-port`. Ordinary class rows may name control
-effects; specialization and control lowering preserve them.
+An instance's requirements are solved where its head matches. A requirement
+that leads back to its own goal, or a chain that keeps growing, is refused
+as non-terminating; a requirement at a smaller type, as `(Describe T)` for
+`(Describe (List T))`, is ordinary.
 
 Arithmetic and comparison are the classes `Num`, `Ord`, `Integral` and
-`Fractional`; `Show` converts values to text. These classes all take a
-row followed by a value type, as in `(Num e T)`. Concrete numeric
-instances use `(!)`, so arithmetic remains pure.
+`Fractional`; `Show` converts values to text. Each takes one type, as in
+`(Num T)`, and their methods are pure.
 
 `Repr` is a pure class with one type parameter: `(Repr T)` supplies
 `(repr value) → String`. `(snail core io)`'s `write` prints that
 representation through `output-port`. Records and enums can generate instances
 with `(deriving Repr)`; see [current ports](libraries.md#current-input-and-output-ports).
-
-### Associated output types
-
-A class can declare ordinary associated types. Each instance defines them:
-
-```scheme
-(typeclass (Add e A B)
-  (type Output)
-  (declare (add (left A) (right B)) (→ Output) (! e)))
-
-(instance (Add (!) I64 F64)
-  (type Output F64)
-  (define add (lambda (a b) (+ (i64->f64 a) b))))
-
-
-(define (sum (a A) (b B))
-  (→ (Add.Output e A B))
-  (! e)
-  (∀ (A B e))
-  (⊨ (Add e A B))
-  (add a b))
-```
-
-`A` and `B` select the instance. Its `Output` and row are learned after
-selection; neither an expected result nor permitted effects can select a
-different instance. Thus `sum` at `I64` and `F64` infers `F64`, while an
-annotation demanding `String` fails. Instances with identical inputs and
-different outputs or rows overlap.
-
-Inside a class, `Output` names its own member. Outside, `Add.Output` projects
-from the matching enclosing `⊨` constraint. Write the same class arguments
-as that constraint. A projection needs a unique requirement;
-two requirements with the same input types cannot be distinguished by
-outputs or rows. Export the projection binding explicitly, alongside the
-class and its methods, when a library's clients need it.
-
-A requirement can constrain an output with an equality:
-
-```scheme
-(define (twice (a A))
-  (→ A)
-  (! e)
-  (∀ (A e))
-  (⊨ (Add e A A (type Output A)))
-  (add a a))
-```
-
-The equality checks the selected instance. Merely naming an output or
-requiring an instance does not call a method, inspect an `Any`, or perform
-the method's effects.
-
-Every instance must define each member exactly once. Definitions can use
-input variables and projections from earlier prerequisites. Prerequisites
-are resolved in written order: an earlier output may supply a later input,
-but an expected result cannot supply a prerequisite's otherwise unknown
-input. Recursive resolution rejects repeated input goals and bounds growing
-chains. Ordinary decreasing recursive instances remain possible.
-
-Members have kind `Type`. Associated parameters, defaults, effect-row
-members, and higher-kinded members are not supported. A concrete projection
-without an enclosing requirement is also currently rejected; this is not
-a general type-function evaluator.
 
 ## Effects
 
