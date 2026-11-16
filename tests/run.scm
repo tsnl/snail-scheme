@@ -555,7 +555,6 @@
     ("tests/programs" "control-early-exit")
     ("tests/programs" "control-per-library")
     ("tests/programs" "function-values")
-    ("tests/programs" "function-cache")
     ("tests/programs" "control-placeholders")
     ("tests/programs" "control-generator")
     ("tests/programs" "control-resumable-exception")

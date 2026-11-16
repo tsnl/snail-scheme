@@ -157,16 +157,6 @@ allowing recursive object graphs. Finite budgets diagnose expanding type or
 specialization families instead of exhausting the host. Ordinary recursive
 nominal types reuse their existing type entry.
 
-The `cache` and `lru-cache` primitives require a closed, empty callback effect row.
-The checker enforces this at final inferred types before specialization erases
-ordinary effects, including when a primitive is used as a function value.
-`unsafe-effectful-cache` and `unsafe-effectful-lru-cache` instead preserve the
-callback's effect row. All four preserve its parameter and result types.
-Preparation rejects raw `Funcref` keys and suspending callbacks. The Wasm
-backend builds an ordinary closure capturing its callback and a private typed
-hash table; no module globals are involved. The Chez adapter implements the same wrapper and key
-semantics. See [cached functions](terms.md#cached-functions).
-
 ### Effects, control and frames
 
 Every compiled function receives `$ev`, the evidence for handlers in scope.
