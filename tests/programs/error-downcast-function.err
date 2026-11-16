@@ -1,0 +1,1 @@
+error-downcast-function.sld:10:3: an Any does not record what a function performs, so downcast cannot take (Fn → Unit ! output-port)
