@@ -410,9 +410,6 @@
       (let ((flat (flatten-row (empty-solution) declared)))
         (label-difference (append (● flat first) (tail-variable (● flat second))) performed)))
 
-    (define (total? (solution Solution) (row Type)) (→ Bool)
-      (null? (● (flatten-row solution row) first)))
-
     ;; ---- Subsumption ----
 
     ;; A value fits a type that allows at least the effects its own type
@@ -1917,18 +1914,6 @@
                (zonk solution type)))))
 
     ;; ---- Free variables ----
-
-    ;; The variable reads in `expr` of names it does not bind. Names are
-    ;; unique, so a name bound anywhere inside is bound at all its reads.
-    ;; Keep occurrences: handler captures need each read's method evidence.
-
-    (define (outside-reads (expr Expr)) (→ (List Expr))
-      (let ((bound (binders expr)))
-        (filter (lambda (read)
-                  (match (● read term)
-                    ((Var name _ _) (not (member? name bound)))
-                    (_ #f)))
-                (variable-reads expr))))
 
     (define (variable-reads (expr Expr)) (→ (List Expr))
       (match (● expr term)

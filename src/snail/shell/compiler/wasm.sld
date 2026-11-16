@@ -892,11 +892,6 @@
     (define (definition-of (m Module) (name String)) (→ (Option Binding))
       (table-ref (● (● m declarations) bindings) name))
 
-    (define (external-definition? (m Module) (name String)) (→ Bool)
-      (match (definition-of m name)
-        ((Some binding) (● binding external?))
-        ((None) #f)))
-
     (define (function-id (m Module) (name String)) (→ String) (! mut)
       (match (definition-of m name)
         ((Some binding)
