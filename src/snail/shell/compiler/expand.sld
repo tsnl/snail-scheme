@@ -1677,23 +1677,22 @@
          (new FieldSyntax (name (expect-ident name "a field name")) (type type)))
         (_ (compile-error (syntax-loc field) "expected (field type)"))))
 
-    ;; Only records bind pure replacement functions. Reads and mutations use
-    ;; resolved paths; enum fields are bound by patterns.
+    ;; Only a record's fields have a name a program writes: the pure
+    ;; replacement `Name-label-set`. Reads and writes use resolved paths;
+    ;; enum fields are bound by patterns.
     (define (bind-replacements (cx Context) (env Env) (name Syntax) (fields (List Syntax)))
       (→ Context) (! compile)
       (fold-left (lambda (cx field)
-                   (bind-member cx env (field-ident name (● (parse-field field) name) "-set")))
+                   (bind-member cx env (replacer-ident name (● (parse-field field) name))))
                  cx fields))
 
-    ;; A field identifier shares the mark of its type's name, so a record a
-    ;; macro introduces has accessors only that expansion sees.
-
-    (define (field-ident (name Syntax) (field Syntax) (suffix String)) (→ Syntax) (! compile)
+    (define (replacer-ident (name Syntax) (label Syntax)) (→ Syntax) (! compile)
       (suffixed-ident name
-                      (string-append "-" (expect-name field "a field name") suffix)
-                      (syntax-loc field)))
+                      (string-append "-" (expect-name label "a field name") "-set")
+                      (syntax-loc label)))
 
-    ;; Generated accessors and projections inherit their declaring name's mark.
+    ;; A name made from a declared one shares its mark, so a record a macro
+    ;; introduces has replacers only that expansion sees.
 
     (define (suffixed-ident (name Syntax) (text String) (loc Loc)) (→ Syntax)
       (match name
@@ -1777,7 +1776,7 @@
                         (enum? enum?))))
         (Context-program-set cx
                              (fold-left (lambda (program case)
-                                          (with-case-values program data case (not enum?)))
+                                          (with-case-values program data case))
                                         (program-with-type (● cx program) data)
                                         (● data cases)))))
 
@@ -1803,34 +1802,30 @@
     ;; A case's constructor, and for a record its fields' accessors and
     ;; replacers, all pure: an enum's fields are read by match.
 
-    (define (with-case-values (program Program) (data DataType) (case Case) (record? Bool))
-      (→ Program)
+    (define (with-case-values (program Program) (data DataType) (case Case)) (→ Program)
       (let* ((self (TCon (● data name) (map TRigid (● data params))))
-             (program (program-with-value program
-                                          (● case name)
-                                          (Constructor case
-                                                       (field-scheme data
-                                                                     (map (lambda (field)
-                                                                            (● field type))
-                                                                          (● case fields))
-                                                                     self)))))
-        (if record?
+             (field-types (map (lambda (field) (● field type)) (● case fields)))
+             (constructor (Constructor case (generic-scheme data field-types self)))
+             (program (program-with-value program (● case name) constructor)))
+        (if (● data enum?)
+            program
             (fold-left (lambda (program index) (with-field-values program data case self index))
-                       program (iota (length (● case fields))))
-            program)))
+                       program (iota (length (● case fields)))))))
 
     (define (with-field-values (program Program) (data DataType) (case Case) (self Type)
                                (index I64))
       (→ Program)
-      (let ((field (list-ref (● case fields) index)))
-        (program-with-value
-         (program-with-value program
-                             (accessor-name case index)
-                             (Accessor case index (field-scheme data (list self) (● field type))))
-         (string-append (● case name) "-" (● field name) "-set")
-         (Replacer case index (field-scheme data (list self (● field type)) self)))))
+      (let* ((field (list-ref (● case fields) index)) (type (● field type))
+             (accessor (Accessor case index (generic-scheme data (list self) type)))
+             (replacer (Replacer case index (generic-scheme data (list self type) self))))
+        (program-with-value (program-with-value program (accessor-name case index) accessor)
+                            (string-append (● case name) "-" (● field name) "-set")
+                            replacer)))
 
-    (define (field-scheme (data DataType) (arguments (List Type)) (result Type)) (→ Scheme)
+    ;; A pure function generic over the data type's parameters.
+
+    (define (generic-scheme (data DataType) (arguments (List Type)) (result Type))
+      (→ Scheme)
       (new Scheme
         (vars (● data params))
         (constraints (Nil))

@@ -721,8 +721,8 @@
        (operations (List String))
        (control (List String))))
 
-    ;; The name of the accessor that reads a record's field, which no
-    ;; program can write: a field path resolves to it.
+    ;; The name of the accessor that reads a record's field. A field path
+    ;; resolves to it; the `%` keeps a program from naming it.
 
     (define (accessor-name (case Case) (index I64)) (→ String)
       (string-append "%get:" (● case name) "-" (● (list-ref (● case fields) index) name)))
@@ -731,7 +731,7 @@
     ;; signature's, or none until it is inferred, and `signature` is where
     ;; its typed header was written. Every definition is a function. An
     ;; instance method has its class method's scheme and no signature of
-    ;; its own, and like a default no program names it. A record's fields
+    ;; its own; a program never names one directly. A record's fields
     ;; are read through accessors and replaced through replacers, which
     ;; alone have a source name; a write names the accessor of its place,
     ;; and an enum's fields are read by match.
