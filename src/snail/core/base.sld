@@ -27,7 +27,7 @@
    i32->f32 f32->i32
    f32->bits bits->f32 f64->bits bits->f64
    Show show i64->string string->i64 f64->string
-   Repr repr derive-repr-record derive-repr-enum
+   Repr repr derive-repr
    Option Some None Result Ok Err Pair Never absurd
    List
    Cons
@@ -1125,15 +1125,13 @@
     (typeclass (Repr T)
       (declare (repr (value T)) (→ String)))
 
-    ;; `(deriving Repr)` on a record or an enum is a use of one of these
-    ;; macros, which the expander writes: the head with its parameters,
-    ;; then each case as its name, the name as text and, for each field, a
-    ;; fresh variable, the label and the label as text. A record is one
-    ;; case, written as its construction; an enum's case as its call.
+    ;; `(deriving Repr)` on a record or an enum is a use of this macro, in
+    ;; the form the expander's "Deriving" section describes. A record is
+    ;; written as its construction, an enum's case as its call.
 
-    (define-syntax derive-repr-record
-      (syntax-rules ()
-        ((_ (name param ...) (case text (field label label-text) ...))
+    (define-syntax derive-repr
+      (syntax-rules (record enum)
+        ((_ record (name param ...) (case text (field label label-text) ...))
          (instance (Repr (name param ...))
            (⊨ (Repr param) ...)
            (define repr
@@ -1144,11 +1142,8 @@
                    (list "(new "
                          text
                          (string-append " (" label-text " " (repr field) ")") ...
-                         ")"))))))))))
-
-    (define-syntax derive-repr-enum
-      (syntax-rules ()
-        ((_ (name param ...) (case text (field label label-text) ...) ...)
+                         ")"))))))))
+        ((_ enum (name param ...) (case text (field label label-text) ...) ...)
          (instance (Repr (name param ...))
            (⊨ (Repr param) ...)
            (define repr

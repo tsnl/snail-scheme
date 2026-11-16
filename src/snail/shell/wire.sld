@@ -13,8 +13,7 @@
    serialize
    deserialize
    derive-serialize
-   derive-deserialize-record
-   derive-deserialize-enum)
+   derive-deserialize)
   (import
    (only (snail core forms) case-id)
    (snail core base)
@@ -109,14 +108,12 @@
     ;; ---- Derived instances ----
 
     ;; `(deriving Serialize Deserialize)` on a record or an enum is a use of
-    ;; these macros, which the expander writes: the head with its
-    ;; parameters, then each case as its name, the name as text and, for
-    ;; each field, a fresh variable, the label and the label as text. A
-    ;; value is its case's TypeId, then its fields in order.
+    ;; these macros, in the form the expander's "Deriving" section
+    ;; describes. A value is its case's TypeId, then its fields in order.
 
     (define-syntax derive-serialize
       (syntax-rules ()
-        ((_ (name param ...) (case text (field label label-text) ...) ...)
+        ((_ kind (name param ...) (case text (field label label-text) ...) ...)
          (instance (Serialize (name param ...))
            (⊨ (Serialize param) ...)
            (define encode
@@ -127,24 +124,20 @@
                   (encode field encoder) ...
                   (unit)) ...)))))))
 
-    ;; A record is one case, built by label.
+    ;; A record is one case, built by label. For an enum, the TypeId read
+    ;; selects the case; an unknown one is another schema.
 
-    (define-syntax derive-deserialize-record
-      (syntax-rules ()
-        ((_ (name param ...) (case text (field label label-text) ...))
+    (define-syntax derive-deserialize
+      (syntax-rules (record enum)
+        ((_ record (name param ...) (case text (field label label-text) ...))
          (instance (Deserialize (name param ...))
            (⊨ (Deserialize param) ...)
            (define decode
              (lambda (decoder)
                (expect-case-id decoder (case-id case))
                (let* ((field (decode decoder)) ...)
-                 (new name (label field) ...))))))))
-
-    ;; The TypeId read selects the case; an unknown one is another schema.
-
-    (define-syntax derive-deserialize-enum
-      (syntax-rules ()
-        ((_ (name param ...) (case text (field label label-text) ...) ...)
+                 (new name (label field) ...))))))
+        ((_ enum (name param ...) (case text (field label label-text) ...) ...)
          (instance (Deserialize (name param ...))
            (⊨ (Deserialize param) ...)
            (define decode
