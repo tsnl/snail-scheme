@@ -110,13 +110,12 @@ make test          # the formatter, the compiler, the programs and the games
 make check         # formatting
 cargo test --manifest-path crates/snail-scheme-support/Cargo.toml --offline
 cargo test --manifest-path crates/snail/Cargo.toml --offline
-make test-chez    # the suite with the compiler's source running on Chez
 make bootstrap     # the compiler rebuilt from Chez alone, to a fixpoint
 make test-wasmtime # linked programs on the native Wasmtime host
 make test-browser  # browser interfaces in headless Chromium
 ```
 
 CI runs the first four, and `cargo fmt --check` on both crates. A change to
-the compiler also needs `make test-chez` and `make bootstrap`, and a change
+the compiler also needs `make bootstrap`, and a change
 to the browser host `make test-browser`. The [tour](book/snail-scheme/compilers.md)
 introduces the compiler.

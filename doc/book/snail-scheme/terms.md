@@ -50,7 +50,7 @@ A recipe names the files it reads relative to itself, with the forms any
 library uses: `(link-file "data/table.txt")` declares a packaged resource,
 and `read-resource` reads its bytes when the producer runs. A producer can emit
 those bytes as a byte literal in its generated library.
-`tests/programs/lib/sample/blob.sld` demonstrates this flow.
+`tests/programs/src/sample/blob.sld` demonstrates this flow.
 
 ## Forms
 

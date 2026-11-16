@@ -5,7 +5,7 @@
 ;;   ROOT bootstrap   builds the stage 1 command line (scripts/bootstrap);
 ;;   ROOT compile ... one compile with the compiler's source, the command
 ;;                    line's `compile` interface;
-;;   ROOT test ...    the test suite, tests/run.scm.
+;;   ROOT test        the compiler's unit tests, tests/unit.scm.
 (import
  (chezscheme))
 
@@ -109,7 +109,7 @@
                  (snail shell compiler driver)))
          (eval `(compile-arguments ',(cdddr (command-line))))]
         [(string=? mode "test")
-         (let* ([entry (string-append root "/tests/run.scm")]
+         (let* ([entry (string-append root "/tests/unit.scm")]
                 [imports (call-with-input-file entry read)])
            (for-each (lambda (spec) (load-compiler-library (import-name spec))) (cdr imports))
            (command-line (cons "snail-tests" (cons root (cdddr (command-line)))))

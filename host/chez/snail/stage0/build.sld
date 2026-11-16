@@ -1,144 +1,34 @@
 ;; Stage 0's driver. Its one product is the stage 1 command line,
 ;; bootstrap/cli.sld, which `bootstrap` builds from its source and checks
-;; to a fixpoint ("Bootstrap"); everything else, the engine and every
-;; tool, the command line builds as an ordinary target of
-;; the repository's project. The test harness (tests/run.scm) also compiles
-;; with these functions, so they take any source: a compile runs the
-;; command line's `compile MODE SOURCE OUTPUT GENERATED DIRECTORY ...`, or
-;; the same interface on Chez, and the native executable assembles and
-;; links through the Rust backend compiled programs use.
+;; to a fixpoint ("Bootstrap"). Everything else, every program and the
+;; test suite's, the command line builds. A compile here runs the command
+;; line's `compile MODE TARGET SOURCE OUTPUT GENERATED DIRECTORY ...`, or
+;; the same interface on Chez, and the native executable links through the
+;; Rust backend compiled programs use.
 (define-library (snail stage0 build)
   (export
-   program->wat
-   program->wat-for
-   program-target
-   run-target-compiler
-   run-compiler
-   chez-compiler
-   cli-compiler
-   program->linked-wat
-   place-links!
-   place-object!
-   file-bytes
-   build-program
-   build-modules
-   link-wat
-   build-runtime
-   build-toolchain-tool
-   bootstrap
-   standard-directories
-   with-private-directory
-   program-command
-   wasmtime-engine?
-   path-join
-   absolute
-   read-file
-   copy-file!
-   report-failure)
+   bootstrap)
   (import
    (chezscheme)
    (snail stage0 system)
-   (snail stage0 process)
-   (only (snail core base) match Ok Err list->array make-array array-set!)
-   (only (snail shell compiler read)
-         diagnostics->string
-         compiling
-         Failed
-         GenerateInput)
-   (snail shell compiler inputs)
-   (only (snail shell compiler sha256) sha256 bytes->hex))
+   (snail stage0 process))
   (begin
-
-    ;; ---- Running programs ----
-
-    ;; The command that runs a compiled program, one linked module or the
-    ;; manifest of a per-library build, which the engine links (the
-    ;; command line holds it, where both runners look for it). Node runs it,
-    ;; unless SNAIL_ENGINE=wasmtime asks for build/snail, whose `run-wasm`
-    ;; runs a program that needs of its host only WASI, the files it links
-    ;; and loading modules, and drives its tasks. A program that imports
-    ;; sockets or processes stays on Node.
-    (define (program-command root program)
-      (if (and (wasmtime-engine?) (not (node-hosted? (program-imports root program))))
-          (list (snail-binary root) "run-wasm" program)
-          (node-command root program)))
-
-    (define (node-command root program)
-      (list (or (getenv "NODE") "node")
-            "--no-warnings"
-            (path-join root "host/native/run-snail.mjs")
-            program))
-
-    ;; A program builds for the engine that runs it: for (snail target
-    ;; wasmtime) under SNAIL_ENGINE=wasmtime, unless it is one of the
-    ;; programs that need Node's processes, signals or sockets, and for
-    ;; (snail target node) otherwise. A program built for Node imports
-    ;; Node's host modules, so Node runs it. A page's program builds for
-    ;; (snail target browser), whose host its test emulates.
-    (define (program-target root source)
-      (let ((named?
-             (lambda (paths) (member source (map (lambda (path) (path-join root path)) paths)))))
-        (cond ((named? browser-programs) "browser")
-              ((and (wasmtime-engine?) (not (named? node-programs))) "wasmtime")
-              (else "node"))))
-
-    (define browser-programs
-      '("tests/app-runtime/main.sld"))
-
-    (define node-programs
-      '("tests/programs/http-exchange.sld"
-        "tests/programs/http-sockets.sld"
-        "tests/programs/process-exec.sld"
-        "tests/programs/process-run.sld"
-        "tests/programs/process.sld"
-        "tests/programs/tcp.sld"
-        "tests/programs/udp.sld"
-        "tests/socket-boundary/main.sld"
-        "tests/termination/main.sld"))
-
-    ;; The host modules only Node provides; `run-wasm` links each function
-    ;; of one as a trap (crates/snail/src/program.rs).
-    (define node-hosted-modules
-      '("snail.runtime.native.socket" "snail.runtime.native.process"))
-
-    (define (node-hosted? imports)
-      (and (pair? imports)
-           (or (and (member (car imports) node-hosted-modules) #t) (node-hosted? (cdr imports)))))
-
-    ;; The modules a program's modules import from, which `snail imports`
-    ;; reads from their import sections without compiling them.
-    (define (program-imports root program)
-      (let ((result (capture-process (list (snail-binary root) "imports" program))))
-        (unless (zero? (caddr result))
-          (error 'snail (string-append "snail imports failed:\n" (cadr result))))
-        (text-lines (car result))))
-
-    ;; SNAIL_ENGINE names the engine, so a misspelled one is an error rather
-    ;; than Node without a word.
-    (define (wasmtime-engine?)
-      (let ((engine (getenv "SNAIL_ENGINE")))
-        (cond ((member engine '(#f "" "node")) #f)
-              ((equal? engine "wasmtime") #t)
-              (else (error 'snail "SNAIL_ENGINE must be node or wasmtime" engine)))))
 
     ;; ---- Compiling ----
 
     ;; The command that compiles with the command line `program`, which is
     ;; an ordinary program: its `compile` action, after the root and the two
-    ;; runtimes every action takes. Node runs it through
-    ;; host/native/run-snail.mjs by default, and with SNAIL_ENGINE=wasmtime,
-    ;; build/snail's `run-wasm` does, from its machine code. The native
-    ;; executable stays an opt-in because wasmtime's collector makes a
-    ;; compile 9 to 37 times slower than on V8 (see "The native executable"
-    ;; in doc/book/snail-scheme/bootstrap.md).
+    ;; runtimes every action takes, on Node through
+    ;; host/native/run-snail.mjs.
     (define (compiler-command root program)
-      (cli-command root program (wasmtime-engine?)))
-
-    (define (cli-command root program wasmtime?)
-      (append (if wasmtime?
-                  (list (snail-binary root) "run-wasm" program)
-                  (node-command root program))
-              (list root (runtime-path root #f) (runtime-path root #t) "compile")))
+      (list (or (getenv "NODE") "node")
+            "--no-warnings"
+            (path-join root "host/native/run-snail.mjs")
+            program
+            root
+            (runtime-path root #f)
+            (runtime-path root #t)
+            "compile"))
 
     ;; Chez compiles the erased source closure to native code. The loader
     ;; admits the compiler and its host boundary, never application libraries.
@@ -146,63 +36,21 @@
       (list (or (getenv "CHEZ") "scheme") "--script"
             (path-join root "host/chez/load.scm") root "compile"))
 
-    ;; The command that runs a compiler. The command line is rebuilt first
-    ;; when its source has changed, and on wasmtime it runs from its machine
-    ;; code; SNAIL_STAGE0=chez runs the compiler's source on Chez instead.
-    (define (selected-compiler root)
-      (if (equal? (getenv "SNAIL_STAGE0") "chez")
-          (chez-compiler root)
-          (cli-compiler root (wasmtime-engine?))))
-
-    ;; The current command line's compile on Node, or on wasmtime from its
-    ;; machine code, whatever SNAIL_ENGINE says: the test harness compares
-    ;; the two, and the compiler's source on Chez, for the same program.
-    (define (cli-compiler root wasmtime?)
-      (if wasmtime?
-          (cli-command root (precompiled-cli root) #t)
-          (cli-command root (current-cli root) #f)))
-
-    (define (program->wat root directories source)
-      (program->wat-for root "node" directories source))
-
-    ;; The text of a program built for (snail target TARGET).
-    (define (program->wat-for root target directories source)
-      (run-target-compiler root (selected-compiler root) "wat" target directories source))
-
-    ;; The program's text with the files it links, (TEXT (NAME . PATH) ...),
-    ;; for a caller that links the text itself and places the files.
-    (define (program->linked-wat root directories source)
+    ;; One compile by `command` of the program at `source`, for (snail
+    ;; target node): its text. The compile works in a directory of its own,
+    ;; removed when done, so compiles running at once in one checkout never
+    ;; share a file. The command line reaches no generated library, so a
+    ;; compile that asks for one has failed, as with any other diagnostic.
+    (define (run-compiler root command directories source)
       (with-private-directory root
                               (lambda (directory)
-                                (let ((output (path-join directory "output.wat")))
-                                  (run-compiler-into root
-                                                     (selected-compiler root)
-                                                     "wat"
-                                                     directories
-                                                     source
-                                                     output
-                                                     directory)
-                                  (cons (read-file output) (read-links directory))))))
-
-    ;; Each compile works in a directory of its own, for its output and the
-    ;; libraries its producers generate, and removes it when done, as Cargo
-    ;; gives each unit its own output directory. Compiles running at once in
-    ;; one checkout, as the suite's do, never share a file.
-    (define (run-compiler root command mode directories source)
-      (run-target-compiler root command mode "node" directories source))
-
-    (define (run-target-compiler root command mode target directories source)
-      (with-private-directory root
-                              (lambda (directory)
-                                (let ((output (path-join directory "output.wat")))
-                                  (run-compiler-for root
-                                                    command
-                                                    mode
-                                                    target
-                                                    directories
-                                                    source
-                                                    output
-                                                    directory)
+                                (let* ((output (path-join directory "output.wat"))
+                                       (result (capture-process
+                                                (append command
+                                                        (list "wat" "node" source output directory)
+                                                        directories))))
+                                  (unless (zero? (caddr result))
+                                    (error 'snail (diagnostic (cadr result))))
                                   (read-file output)))))
 
     ;; Programs resolve ordinary libraries under src/. The Chez loader has
@@ -225,49 +73,19 @@
           (error 'snail "cannot create compiler scratch directory" directory))
         (create-staging-directory directory)))
 
-    ;; Remove the old request immediately before starting each process;
-    ;; stderr is only diagnostic text, never a work request. Only the
-    ;; compile's own exit, status 1 (waitpid status 256), can supply a
-    ;; request; a trap or a failure of the host is status 2 and must not
-    ;; consume a partial file.
-    ;; Nested producer compiles have their own scratch.
-    ;; Stage 0 compiles a program for Node's target, (snail target node),
-    ;; unless a test asks for another.
-    (define (run-compiler-into root command mode directories source output generated)
-      (run-compiler-for root command mode "node" directories source output generated))
-
-    (define (run-compiler-for root command mode target directories source output generated)
-      (let ((request (path-join generated "request.datum")))
-        (let loop ()
-          (when (file-link-status request) (delete-file request))
-          (let ((result (capture-process
-                         (append command (list mode target source output generated) directories))))
-            (cond ((zero? (caddr result))
-                   (when (file-link-status request)
-                     (error 'snail "compiler succeeded with a pending input request"))
-                   output)
-                  ((and (= (caddr result) 256) (file-link-status request))
-                   (provide-input! root
-                                   directories
-                                   generated
-                                   (published-request request))
-                   (loop))
-                  (else (error 'snail (diagnostic (cadr result)))))))))
-
-    ;; The request a compile published, read by the compiler's own grammar;
-    ;; a malformed one is an error with its diagnostic.
-    (define (published-request request)
-      (match (compiling (lambda () (parse-request (read-file request) request)))
-        ((Ok parsed) parsed)
-        ((Err (Failed diagnostics)) (error 'snail (diagnostics->string diagnostics)))
-        ((Err stop) (error 'snail "reading a request asked for an input" stop))))
-
-    (define (provide-input! root directories generated request)
-      (match request
-        ((GenerateInput key)
-         (when (file-exists? (path-join generated (string-append key ".syntax")))
-           (error 'snail "compiler requested an already provided generated library" key))
-         (produce! root directories generated key))))
+    ;; Exclusive creation owns exactly this staging directory. A stale name
+    ;; from a reused process id is skipped, never adopted or removed.
+    (define (create-staging-directory output)
+      (let ((number (with-mutex counter-lock
+                                (set! private-count (+ private-count 1)) private-count)))
+        (let ((directory (path-join output
+                                    (string-append ".snail-"
+                                                   (number->string (get-process-id))
+                                                   "-"
+                                                   (number->string number)))))
+          (cond ((create-directory directory #o700) directory)
+                ((file-link-status directory) (create-staging-directory output))
+                (else (error 'snail "cannot stage program in output directory" output))))))
 
     ;; The compiler's message without the host's prefix.
     (define (diagnostic text)
@@ -277,41 +95,6 @@
           (if (and (> end start) (char=? (string-ref text (- end 1)) #\newline))
               (loop (- end 1))
               (substring text start end)))))
-
-    ;; ---- Generated libraries ----
-
-    ;; A `generate-library` recipe becomes a producer program, which
-    ;; the command line's compile writes into the compile's directory under the
-    ;; hash of its text: KEY.sld is the producer, and KEY.syntax the
-    ;; library's syntax, which the producer writes to the path it is given.
-    ;; A producer may read files the key does not cover, so nothing produced
-    ;; outlives the compile that needed it.
-    (define (produce! root directories generated key)
-      (when (member key (producing))
-        (error 'snail "generated library cycle through the producer" key))
-      (parameterize ((producing (cons key (producing))))
-        (let* ((source (path-join generated (string-append key ".sld")))
-               (program (path-join generated (string-append key ".wasm")))
-               (output (path-join generated (string-append key ".syntax")))
-               (result (begin
-                         (build-program root
-                                        directories
-                                        source
-                                        program
-                                        (build-runtime root #f))
-                         (run-wasm root program (list output)))))
-          (unless (zero? (caddr result))
-            (error 'snail (string-append "the producer " source " failed:\n" (cadr result))))
-          (unless (file-exists? output)
-            (error 'snail "the producer did not write its generated library" source)))))
-
-    ;; The keys of the producers being built, innermost first. The compiler
-    ;; reports a producer that leads back to the library it generates as an
-    ;; import cycle, through the `(generating ...)` stack it prints. Each
-    ;; nested compile has scratch of its own, so were that check missed, the
-    ;; same producer would be requested inside itself without end; this
-    ;; makes it an error instead.
-    (define producing (make-thread-parameter '()))
 
     ;; ---- The build lock ----
 
@@ -419,26 +202,16 @@
         (for-each (lambda (path) (write-string path) (newline))
                   (list (current-cli root) runtime toolchain))))
 
-    ;; The current command line as machine code for build/snail's engine,
-    ;; which saves each compile the most of a second Cranelift takes to
-    ;; compile it. It is rebuilt when the command line or the executable is
-    ;; newer; `precompile` renames it into place, so a compile never loads
-    ;; half of one.
-    (define (precompiled-cli root)
-      (let ((module (current-cli root))
-            (binary (snail-binary root))
-            (code (path-join root "build/bootstrap/snail-scheme.cwasm")))
-        (rebuild-if-stale! root code (list module binary)
-                           (lambda () (run-command (list binary "precompile" module code))))))
-
     ;; One compile of the entry by the current command line, linked into
     ;; place; if that command line cannot, the whole fixpoint instead.
     (define (recompile-cli! root)
       (let* ((directory (path-join root "build/bootstrap"))
              (next (path-join directory "next.wasm"))
              (text (guard (failure (#t #f))
-                     (run-compiler root (compiler-command root (cli-path root)) "wat"
-                                   (standard-directories root) (cli-entry root)))))
+                     (run-compiler root
+                                   (compiler-command root (cli-path root))
+                                   (standard-directories root)
+                                   (cli-entry root)))))
         (if text
             (begin (link-cli root text next) (rename-file next (cli-path root)))
             (rebuild-cli! root))))
@@ -468,9 +241,9 @@
         (let ((first (stage1-text root entry)))
           (link-cli root (cdr first) stage1)
           (link-cli root
-                    (run-compiler root (compiler-command root stage1) "wat" sources entry)
+                    (run-compiler root (compiler-command root stage1) sources entry)
                     stage2)
-          (write-file stage3 (run-compiler root (compiler-command root stage2) "wat" sources entry))
+          (write-file stage3 (run-compiler root (compiler-command root stage2) sources entry))
           (unless (equal? (read-file (string-append stage2 ".wat")) (read-file stage3))
             (error 'snail
                    "bootstrap: stage 2 does not reproduce its own text; compare build/bootstrap/stage2.wasm.wat with stage3.wat"))
@@ -485,23 +258,15 @@
       (let* ((previous (cli-path root)) (sources (standard-directories root))
              (reused (and (file-exists? previous)
                           (guard (failure (#t #f))
-                            (run-compiler root
-                                          (compiler-command root previous)
-                                          "wat"
-                                          sources
-                                          entry)))))
+                            (run-compiler root (compiler-command root previous) sources entry)))))
         (if reused
             (cons #f reused)
-            (cons #t (run-compiler root (chez-compiler root) "wat" sources entry)))))
+            (cons #t (run-compiler root (chez-compiler root) sources entry)))))
 
     ;; ---- Files and commands ----
 
     (define (path-join . parts)
       (path-normalize (apply make-path parts)))
-
-    ;; A path the user gave, relative to the current directory.
-    (define (absolute path)
-      (if (path-absolute? path) path (path-join (current-directory) path)))
 
     (define (read-file path)
       (call-with-input-file path
@@ -515,21 +280,6 @@
     (define (write-file path text)
       (create-directory* (path-directory path))
       (call-with-replacing-output-file path (lambda (port) (write-string text port))))
-
-    (define (copy-file! from to)
-      (write-bytes! to (file-bytes from)))
-
-    (define (file-bytes path)
-      (call-with-port (open-binary-input-file path)
-        (lambda (port) (read-bytevector (file-size path) port))))
-
-    (define (write-bytes! path bytes)
-      (call-with-port (open-binary-output-file path)
-        (lambda (port) (write-bytevector bytes port))))
-
-    ;; Runs a compiled program, returning (output error status).
-    (define (run-wasm root program arguments)
-      (capture-process (append (program-command root program) arguments)))
 
     ;; Runs a command, raising its standard error if it fails. Tools can be
     ;; overridden by environment variables such as CARGO.
@@ -574,9 +324,6 @@
     ;; there, which need not have the pinned `wasm32-wasip1` target.
     ;; rust-toolchain.toml holds the one pin; name its channel explicitly.
 
-
-
-
     ;; ---- The native executable ----
 
     ;; build/snail: crates/snail built for this machine, an executable that
@@ -596,185 +343,12 @@
           (set! snail-built? #t))
         link))
 
-    ;; ---- Artifacts ----
+    ;; ---- Linking ----
 
-    ;; Writes OUTPUT from module text, keeping the text beside it.
-    (define (link-wat root text output)
-      (let ((wat (string-append output ".wat")))
-        (write-file wat text)
-        (link-wat-file root wat output (build-runtime root #f))))
-
-    ;; The compiler already wrote this text. Assemble its file directly, and
-    ;; link it with `runtime`; only callers that hold text need link-wat's
-    ;; materialization above.
+    ;; Assembles the compiler's text at `wat` and links it with `runtime`.
     (define (link-wat-file root wat output runtime)
       (run-command (list (snail-binary root) "link" wat runtime output))
       output)
-
-    (define (build-program root directories source output runtime)
-      (let ((wat (string-append output ".wat")))
-        (create-directory* (path-directory output))
-        (let ((links (with-private-directory root
-                                             (lambda (directory)
-                                               (run-compiler-for root
-                                                                 (selected-compiler root)
-                                                                 "wat"
-                                                                 (program-target root source)
-                                                                 directories
-                                                                 source
-                                                                 wat
-                                                                 directory)
-                                               (read-links directory)))))
-          (link-wat-file root wat output runtime)
-          (place-links! links (path-directory output))
-          output)))
-
-    ;; Exclusive creation owns exactly this staging directory. A stale name
-    ;; from a reused process id is skipped, never adopted or removed.
-    (define (create-staging-directory output)
-      (let ((number (with-mutex counter-lock
-                                (set! private-count (+ private-count 1)) private-count)))
-        (let ((directory (path-join output
-                                    (string-append ".snail-"
-                                                   (number->string (get-process-id))
-                                                   "-"
-                                                   (number->string number)))))
-          (cond ((create-directory directory #o700) directory)
-                ((file-link-status directory) (create-staging-directory output))
-                (else (error 'snail "cannot stage program in output directory" output))))))
-
-    ;; ---- Linked files ----
-
-    ;; The files a compile reports its program links, as (DIGEST . PATH)
-    ;; pairs, from the `("DIGEST" "PATH")` lines the driver writes to
-    ;; links.datum in the compile's directory.
-    (define (read-links directory)
-      (call-with-input-file (path-join directory "links.datum")
-        (lambda (port)
-          (let loop ((links '()))
-            (let ((entry (read port)))
-              (if (eof-object? entry)
-                  (reverse links)
-                  (loop (cons (cons (car entry) (cadr entry)) links))))))))
-
-    ;; Each file is an object of the store beside the payload in
-    ;; `directory`, at store/sha256/AB/DIGEST, sharded by the digest's
-    ;; first two hex digits, where its host reads it when the program
-    ;; first asks.
-    (define (place-links! links directory)
-      (for-each (lambda (link) (place-object! directory (file-bytes (cdr link)))) links))
-
-    (define (object-path directory digest)
-      (path-join directory "store" "sha256" (substring digest 0 2) digest))
-
-    ;; Places `bytes` as an object of the store beside the payload in
-    ;; `directory`, unless it is there, answering (DIGEST . SIZE) as a
-    ;; manifest names it. Chez runs the compiler's SHA-256 implementation
-    ;; directly, so both hosts use the same digest algorithm.
-    (define (place-object! directory bytes)
-      (let* ((digest (bytes->hex (sha256 (list->array (bytevector->u8-list bytes)))))
-             (to (object-path directory digest)))
-        (create-directory* (path-directory to))
-        (unless (file-exists? to) (write-bytes! to bytes))
-        (cons digest (bytevector-length bytes))))
-
-    ;; ---- Linked modules ----
-
-    ;; A program linked when it runs: each library's module, assembled but
-    ;; not optimized, the runtime, and the files it links, all objects of
-    ;; store/ in `output`, and program.manifest.datum naming them, the
-    ;; modules in program order, for the loader in host/browser/load.mjs. Each
-    ;; module's NAME.wasm stays beside its text, for a program that loads
-    ;; one by path.
-    (define (build-modules root directories source output)
-      (create-directory* output)
-      (let* ((links (with-private-directory root
-                                            (lambda (generated)
-                                              (run-compiler-for root
-                                                                (selected-compiler root)
-                                                                "modules"
-                                                                (program-target root source)
-                                                                directories
-                                                                source
-                                                                output
-                                                                generated)
-                                              (read-links generated))))
-             (names (read-lines (path-join output "modules"))))
-        (for-each (lambda (name) (assemble root (path-join output name))) names)
-        (let ((runtime (place-object! output (file-bytes (build-runtime root #f))))
-              (modules (map (lambda (name)
-                              (cons name
-                                    (place-object! output
-                                                   (file-bytes (path-join output
-                                                                          (string-append name
-                                                                                         ".wasm"))))))
-                            names)))
-          (write-file (path-join output "program.manifest.datum")
-                      (manifest-text runtime modules links))
-          (place-links! links output)
-          output)))
-
-    ;; PATH.wat to PATH.wasm.
-    (define (assemble root path)
-      (run-command (list (snail-binary root) "assemble"
-                         (string-append path ".wat") (string-append path ".wasm"))))
-
-    (define (read-lines path)
-      (text-lines (read-file path)))
-
-    ;; Each line of TEXT that a newline ends.
-    (define (text-lines text)
-      (let loop ((lines '()) (rest text))
-        (let ((cursor (string-contains rest "\n")))
-          (if cursor
-              (let ((end cursor))
-                (loop (cons (substring rest 0 end) lines)
-                      (substring rest (+ end 1) (string-length rest))))
-              (reverse lines)))))
-
-    ;; The manifest: the runtime, each module by name, and each linked
-    ;; file, every object by digest with its size, an entry a line, as
-    ;; the project builder writes one.
-    (define (manifest-text runtime modules links)
-      (call-with-string-output-port
-       (lambda (port)
-         (write-string "(" port)
-         (write (list 'runtime (car runtime) (cdr runtime)) port)
-         (for-each (lambda (module)
-                     (write-string "\n " port)
-                     (write (list 'module (car module) (cadr module) (cddr module)) port))
-                   modules)
-         (for-each (lambda (link)
-                     (write-string "\n " port)
-                     (write (list 'file (car link) (file-size (cdr link))) port))
-                   links)
-         (write-string ")\n" port))))
-
-    ;; ---- Programs that assemble ----
-
-    ;; A program linked with the toolchain's runtime, which it is rebuilt
-    ;; after, as after its sources: what the test harness builds of the
-    ;; fixtures that assemble and link in-process.
-    (define (build-toolchain-tool root source output directories)
-      (let ((runtime (build-runtime root #t)))
-        (rebuild-if-stale! root
-                           output
-                           (cons runtime (cons source directories))
-                           (lambda () (build-program root directories source output runtime)))))
-
-    ;; ---- Failures ----
-
-    ;; Prints a failure as one diagnostic after the command's name, without
-    ;; Chez's trace, and returns the status the command exits with.
-    (define (report-failure command failure)
-      (let ((port (current-error-port)))
-        (display command port)
-        (display ": " port)
-        (display (failure-message failure) port)
-        (newline port)
-        1))
-
-    (define (failure-message failure) (error-text failure))
 
     )
 
@@ -784,115 +358,19 @@
    (snail-tests
     (export test-build)
     (import
-     (only (snail shell compiler sha256) sha256 bytes->hex)
      (snail stage0 testing))
     (begin
-      ;; Binary bytes and SHA padding boundaries must name the same objects
-      ;; as the portable compiler does, including empty and repeated writes.
-      (define (test-object-store root size)
-        (with-private-directory root
-                                (lambda (directory)
-                                  (let ((bytes (make-bytevector size))
-                                        (values (make-array size 0)))
-                                    (do ((i 0 (+ i 1))) ((= i size))
-                                      (bytevector-u8-set! bytes i (modulo i 256))
-                                      (array-set! values i (modulo i 256)))
-                                    (let* ((digest (bytes->hex (sha256 values)))
-                                           (object (place-object! directory bytes)))
-                                      (expect object (cons digest size))
-                                      (expect (place-object! directory bytes) object)
-                                      (expect
-                                       (file-bytes (object-path directory digest))
-                                       bytes))))))
-
-      (define (request-failure thunk)
-        (guard (failure (#t (failure-message failure))) (thunk) "accepted"))
-
-      (define (test-request root scenario prepare)
-        (with-private-directory root
-                                (lambda (directory)
-                                  (prepare directory)
-                                  (run-compiler-into root
-                                                     (list "sh"
-                                                           (path-join root
-                                                                      "tests/compiler-inputs/compiler.sh")
-                                                           scenario)
-                                                     "wat"
-                                                     '()
-                                                     "source.sld"
-                                                     (path-join directory "output.wat")
-                                                     directory))))
-
-      (define (expect-request-error thunk wanted)
-        (let ((actual (request-failure thunk)))
-          (expect (if (string-contains actual wanted) wanted actual) wanted)))
-
-      ;; Exercise the stage-zero boundary: host exceptions must follow the
-      ;; compiler's exit-1 protocol. A
-      ;; request that cannot be written is an ordinary failure, status 1
-      ;; with a diagnostic naming the file, and leaves no request behind.
-      (define (test-source-request-status root)
-        (with-private-directory root
-                                (lambda (directory)
-                                  (let* ((request (path-join directory "request.datum"))
-                                         (command (append (chez-compiler root)
-                                                          (list "wat"
-                                                                "node"
-                                                                (path-join root
-                                                                           "tests/programs/generated.sld")
-                                                                (path-join directory "output.wat")
-                                                                directory
-                                                                (path-join root
-                                                                           "tests/programs/lib")
-                                                                (path-join root "src")))))
-                                    (expect (caddr (capture-process command)) 256)
-                                    (expect (match (published-request request)
-                                              ((GenerateInput _) #t) (_ #f)) #t)
-                                    (delete-file request)
-                                    (create-directory request)
-                                    (let ((failed (capture-process command)))
-                                      (expect (caddr failed) 256)
-                                      (expect
-                                       (and (string-contains (cadr failed) "request.datum") #t)
-                                       #t))))))
-
+      ;; Simulate a reused process id/counter. The allocator must leave the
+      ;; previous compile's directory untouched.
       (define (test-build root)
-        (for-each (lambda (size) (test-object-store root size)) '(0 55 56 63 64 65 257))
-        (test-source-request-status root)
-        (expect-request-error
-         (lambda ()
-           (test-request root
-                         "stderr"
-                         (lambda (directory)
-                           (write-file (path-join directory "request.datum")
-                                       "(generate \"999\")"))))
-         "generate 123")
-        (test-request root
-                      "stale"
-                      (lambda (directory)
-                        (write-file (path-join directory "request.datum") "(generate \"123\")")))
-        (expect-request-error (lambda () (test-request root "malformed" (lambda (_) #f)))
-                              "expected exactly one")
-        (expect-request-error (lambda () (test-request root "success-request" (lambda (_) #f)))
-                              "succeeded with a pending")
-        (expect-request-error (lambda () (test-request root "publication-failed" (lambda (_) #f)))
-                              "input publication failed")
-        (expect-request-error (lambda ()
-                                (test-request root
-                                              "generated"
-                                              (lambda (directory)
-                                                (write-file (path-join directory "123.syntax")
-                                                            "()"))))
-                              "already provided generated library")
-        ;; Simulate a reused process id/counter. The allocator must leave
-        ;; the previous compile and its stale generated input untouched.
         (let* ((parent (path-join root "build/snail-run"))
                (old (path-join parent
                                (string-append ".snail-"
                                               (number->string (get-process-id))
                                               "-"
                                               (number->string (+ private-count 1)))))
-               (sentinel (path-join old "123.syntax")))
+               (sentinel (path-join old "output.wat")))
+          (create-directory* parent)
           (unless (create-directory old #o700) (error 'snail "test scratch collision" old))
           (write-file sentinel "old compile")
           (dynamic-wind (lambda () #f)

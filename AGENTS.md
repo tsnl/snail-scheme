@@ -38,7 +38,9 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   command line builds everything else as scripts, run as
   `./snail-scheme run --target node FILE`. Every build writes one linked
   module, `NAME.wasm`, which `--release` also optimizes.
-  The test harness also compiles through stage 0's driver.
+  Stage 0 does nothing else: the test suite builds its programs with the
+  command line (`tests/run.mjs`), and only the compiler's unit tests run on
+  Chez (`tests/unit.scm`).
 
 - Every record is a heap object and every field is mutable. Primitive
   numbers and booleans remain unboxed. Keep ordinary compiler passes pure
@@ -151,9 +153,9 @@ Relevant checks are `make test`, `make check`,
 same two for `crates/snail`. Changes to the native
 executable or to how compiles and programs run must also pass
 `make test-wasmtime`. Stage 0 rebuilds the command line whenever its
-source changes; compiler changes must also pass `make test-chez`,
-which runs the source on Chez, and `make bootstrap`, which rebuilds from
-Chez alone.
+source changes; compiler changes must also pass `make bootstrap`, which
+rebuilds from Chez alone and checks that Chez and the compiled compiler
+emit the same text for it.
 Backend changes should execute linked Wasm; compilation alone does not test
 target behavior. `(snail shell format)` is the formatter shared by `snail-scheme lsp`
 and `snail-scheme format`; `make test` checks its CLI and every tracked
