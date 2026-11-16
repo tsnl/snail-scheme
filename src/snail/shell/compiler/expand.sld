@@ -108,6 +108,13 @@
         ((Ident name (None) _) name)
         (_ (panic "internal error: not an identifier"))))
 
+    ;; The name of syntax the caller already knows is an identifier.
+
+    (define (ident-name (ident Syntax)) (→ String)
+      (match ident
+        ((Ident name _ _) name)
+        (_ (panic "internal error: expected Ident"))))
+
     ;; An unbound marked identifier resolves as its original in the scope of
     ;; the macro that introduced it.
 
@@ -347,35 +354,19 @@
     (define (bind-top (cx Context) (env Env) (ident Syntax) (binding Binding))
       (→ Context)
       (! compile)
-      (match ident
-        ((Ident identifier-name _ _)
-         (match env
+      (let ((identifier-name (ident-name ident)))
+        (match env
 
-           ((Top top _)
-            (let ((definitions (top-definitions
-                                cx
-                                top)))
-              (when (table-contains?
-                     definitions
-                     (ident-key ident))
-                (compile-error
-                 (syntax-loc ident)
-                 (string-append
-                  "duplicate top-level definition "
-                  identifier-name)))
-              (Context-tops-set cx
-                                (table-set
-                                 (● cx tops)
-                                 top
-                                 (table-set
-                                  definitions
-                                  (ident-key
-                                   ident)
-                                  binding)))))
-           (_
-            (panic
-             "internal error: not a top level"))))
-        (_ (panic "internal error: expected Ident"))))
+          ((Top top _)
+           (let ((definitions (top-definitions cx top)))
+             (when (table-contains? definitions (ident-key ident))
+               (compile-error (syntax-loc ident)
+                              (string-append "duplicate top-level definition " identifier-name)))
+             (Context-tops-set cx
+                               (table-set (● cx tops)
+                                          top
+                                          (table-set definitions (ident-key ident) binding)))))
+          (_ (panic "internal error: not a top level")))))
 
     ;; ---- The core library ----
 
@@ -1095,15 +1086,13 @@
       (! fs compile generator)
       (threading cx ((entries (import-set spec)))
                  (for-each (lambda (ident)
-                             (match ident
-                               ((Ident identifier-name _ _)
-                                (match (assoc-ref entries identifier-name)
-                                  ((Some _) (unit))
-                                  ((None) (compile-error (syntax-loc ident)
-                                                         (string-append
-                                                          "import names an identifier the library does not export: "
-                                                          identifier-name)))))
-                               (_ (panic "internal error: expected Ident"))))
+                             (let ((identifier-name (ident-name ident)))
+                               (match (assoc-ref entries identifier-name)
+                                 ((Some _) (unit))
+                                 ((None) (compile-error (syntax-loc ident)
+                                                        (string-append
+                                                         "import names an identifier the library does not export: "
+                                                         identifier-name))))))
                            idents)
                  (new Pair (first entries) (second cx))))
 
@@ -1140,24 +1129,20 @@
     (define (defined-binding (cx Context) (env Env) (ident Syntax) (message String))
       (→ Binding)
       (! compile)
-      (match ident
-        ((Ident identifier-name _ _)
-         (match (resolve cx env (expect-ident ident "an identifier"))
-           ((Some binding) binding)
-           ((None)
-            (compile-error (syntax-loc ident) (string-append message ": " identifier-name)))))
-        (_ (panic "internal error: expected Ident"))))
+      (let ((identifier-name (ident-name ident)))
+        (match (resolve cx env (expect-ident ident "an identifier"))
+          ((Some binding) binding)
+          ((None)
+           (compile-error (syntax-loc ident) (string-append message ": " identifier-name))))))
 
     ;; The unique name of a top-level definition the scan bound.
 
     (define (global-binding (cx Context) (env Env) (ident Syntax)) (→ String) (! compile)
-      (match ident
-        ((Ident identifier-name _ _)
-         (match (defined-binding cx env ident "undefined name")
-           ((Global name) name)
-           (_ (compile-error (syntax-loc ident)
-                             (string-append "not a top-level definition: " identifier-name)))))
-        (_ (panic "internal error: expected Ident"))))
+      (let ((identifier-name (ident-name ident)))
+        (match (defined-binding cx env ident "undefined name")
+          ((Global name) name)
+          (_ (compile-error (syntax-loc ident)
+                            (string-append "not a top-level definition: " identifier-name))))))
 
     ;; ---- Top-level bodies ----
 
@@ -1449,10 +1434,7 @@
            (when (contains-itself? (● cx program) (program-type (● cx program) id))
              (compile-error (syntax-loc name)
                             (string-append "the record "
-                                           (match name
-                                             ((Ident identifier-name _ _)
-                                              identifier-name)
-                                             (_ (panic "internal error: expected Ident")))
+                                           (ident-name name)
                                            " can never be built: each of its values would contain another"))))
           (_ (panic "internal error: record")))))
 
@@ -1606,10 +1588,7 @@
            ((Some (Global global)) (Expose global symbol loc))
            (_ (compile-error (syntax-loc name)
                              (string-append "only a top-level function can be exposed: "
-                                            (match name
-                                              ((Ident identifier-name _ _)
-                                               identifier-name)
-                                              (_ (panic "internal error: expected Ident"))))))))
+                                            (ident-name name))))))
         (_ (compile-error (syntax-loc form) (expose-usage)))))
 
     (define (expose-usage) (→ String) "expected (expose name \"symbol\")")
@@ -1759,10 +1738,7 @@
                           "expected (type Output); associated types take no parameters"))))
 
     (define (associated-name (form Syntax)) (→ String) (! compile)
-      (match (associated-identifier form)
-        ((Ident identifier-name _ _)
-         identifier-name)
-        (_ (panic "internal error: expected Ident"))))
+      (ident-name (associated-identifier form)))
 
     (define (scan-class-member (cx Context) (env Env) (class Syntax) (form Syntax))
       (→ Context) (! compile)
@@ -1898,10 +1874,7 @@
     ;; A type parameter scope binds each parameter to a rigid variable.
 
     (define (type-scope (env Env) (params (List Syntax))) (→ Env)
-      (fold-left (lambda (scope param) (match param
-                                         ((Ident identifier-name _ _)
-                                          (extend scope param (TypeVar (TRigid identifier-name))))
-                                         (_ (panic "internal error: expected Ident"))))
+      (fold-left (lambda (scope param) (extend scope param (TypeVar (TRigid (ident-name param)))))
                  env
                  params))
 
@@ -1942,21 +1915,12 @@
              (type (resolve-type cx scope (● parsed type))))))
 
     (define (constructor-name (cx Context) (env Env) (ident Syntax)) (→ String) (! compile)
-      (match ident
-        ((Ident identifier-name _ _)
-         (match (resolve cx env ident)
-           ((Some (Global name)) name)
-           ((Some (TypeName _
-                            _
-                            (Some
-                             constructor)))
-            constructor)
-           (_
-            (compile-error (syntax-loc ident)
-                           (string-append
-                            "not a constructor: "
-                            identifier-name)))))
-        (_ (panic "internal error: expected Ident"))))
+      (let ((identifier-name (ident-name ident)))
+        (match (resolve cx env ident)
+          ((Some (Global name)) name)
+          ((Some (TypeName _ _ (Some constructor))) constructor)
+          (_ (compile-error (syntax-loc ident)
+                            (string-append "not a constructor: " identifier-name))))))
 
     ;; Construction and field reads are pure. Setters perform mut.
     (define (with-case-values (program Program) (data DataType) (case Case) (record? Bool))
@@ -2056,15 +2020,9 @@
              (params (append (declared-params head)
                              (map associated-identifier
                                   (filter associated-form? (list-drop (form-tail form) 1)))))
-             (self (new Constraint (class id) (types (map (lambda (param) (match param
-                                                                            ((Ident identifier-name
-                                                                                    _
-                                                                                    _)
-                                                                             (TRigid
-                                                                              identifier-name))
-                                                                            (_ (panic
-                                                                                "internal error: expected Ident"))))
-                                                          params))))
+             (self (new Constraint
+                     (class id)
+                     (types (map (lambda (param) (TRigid (ident-name param))) params))))
              (scope (EvidenceScope (list self) (type-scope env params))))
         (threading cx ((methods (each (lambda (cx signature)
                                         (declare-method cx env scope id params self signature))
@@ -2489,14 +2447,10 @@
       (EvidenceScope (map (lambda (constraint) (substitute-constraint substitution constraint))
                           (● own constraints))
                      (fold-left (lambda (scope ident)
-                                  (match ident
-                                    ((Ident name _ _)
-                                     (extend scope
-                                             ident
-                                             (TypeVar (substitute substitution (TRigid name)))))
-                                    (_
-                                     (panic
-                                      "internal error: a method type variable is an identifier"))))
+                                  (extend scope
+                                          ident
+                                          (TypeVar (substitute substitution
+                                                               (TRigid (ident-name ident))))))
                                 env (● (● definition header) variables))))
 
     (define (instance-method-scheme (program Program)
@@ -2849,84 +2803,35 @@
     (define (resolve-type-name (cx Context) (env Env) (ident Syntax) (args (List Syntax)) (loc Loc))
       (→ Type)
       (! compile)
-      (match ident
-        ((Ident identifier-name _ _)
-         (match (resolve cx env ident)
-           ((Some (TypeName name arity _))
-            (unless (= arity (length args))
-              (compile-error loc
-                             (string-append
-                              "wrong number of type arguments: "
-                              identifier-name)))
-            (TCon name
-                  (map (lambda (arg)
-                         (resolve-type cx
-                                       env
-                                       arg))
-                       args)))
-           ((Some (Associated class member))
-            (resolve-projection env
-                                class
-                                member
-                                (map
-                                 (lambda (arg)
-                                   (resolve-type
-                                    cx
-                                    env
-                                    arg))
-                                 args)
-                                (program-class
-                                 (● cx
-                                    program)
-                                 class)
-                                loc))
-           ((Some (TypeVar type))
-            (if (null? args)
-                type
-                (compile-error loc
-                               "a type variable takes no arguments")))
-           ((Some (Alias name
-                         params
-                         body
-                         alias-env))
-            (unless (= (length params)
-                       (length args))
-              (compile-error loc
-                             (string-append
-                              "wrong number of alias arguments: "
-                              identifier-name)))
-            (when (member? name
-                           (● cx aliases))
-              (compile-error loc
-                             (string-append
-                              "type alias refers to itself: "
-                              identifier-name)))
-            (let ((scope
-                   (fold-left
-                    (lambda (scope pair)
-                      (extend scope
-                              (● pair first)
-                              (TypeVar
-                               (resolve-type
-                                cx
-                                env
-                                (● pair
-                                   second)))))
-                    alias-env
-                    (zip params args))))
-              (resolve-type
-               (Context-aliases-set cx
-                                    (Cons
-                                     name
-                                     (● cx
-                                        aliases)))
-               scope
-               body)))
-           (_ (compile-error loc
-                             (string-append
-                              "not a type: "
-                              identifier-name)))))
-        (_ (panic "internal error: expected Ident"))))
+      (let ((identifier-name (ident-name ident)))
+        (match (resolve cx env ident)
+          ((Some (TypeName name arity _))
+           (unless (= arity (length args))
+             (compile-error loc (string-append "wrong number of type arguments: " identifier-name)))
+           (TCon name (map (lambda (arg) (resolve-type cx env arg)) args)))
+          ((Some (Associated class member))
+           (resolve-projection env class member
+                               (map (lambda (arg) (resolve-type cx env arg)) args)
+                               (program-class (● cx program) class)
+                               loc))
+          ((Some (TypeVar type))
+           (if (null? args)
+               type
+               (compile-error loc "a type variable takes no arguments")))
+          ((Some (Alias name params body alias-env))
+           (unless (= (length params) (length args))
+             (compile-error loc
+                            (string-append "wrong number of alias arguments: " identifier-name)))
+           (when (member? name (● cx aliases))
+             (compile-error loc (string-append "type alias refers to itself: " identifier-name)))
+           (let ((scope (fold-left (lambda (scope pair)
+                                     (extend scope
+                                             (● pair first)
+                                             (TypeVar (resolve-type cx env (● pair second)))))
+                                   alias-env
+                                   (zip params args))))
+             (resolve-type (Context-aliases-set cx (Cons name (● cx aliases))) scope body)))
+          (_ (compile-error loc (string-append "not a type: " identifier-name))))))
 
     (define (resolve-projection (env Env)
                                 (id String)
@@ -3008,12 +2913,7 @@
                   (TRow labels (Some type))
                   (compile-error loc "a row variable must come last")))
              (_ (compile-error (syntax-loc item)
-                               (string-append "not an effect: "
-                                              (match item
-                                                ((Ident identifier-name _ _)
-                                                 identifier-name)
-                                                (_
-                                                 (panic "internal error: expected Ident")))))))))))
+                               (string-append "not an effect: " (ident-name item)))))))))
 
     ;; ---- Expressions ----
 
@@ -3068,38 +2968,18 @@
       (each cx (lambda (cx form) (expand-expr cx env form)) forms))
 
     (define (expand-reference (cx Context) (env Env) (ident Syntax) (loc Loc)) (→ Expr) (! compile)
-      (match ident
-        ((Ident identifier-name _ _)
-         (match (resolve cx env ident)
-           ((Some (Local name))
-            (expr (Var name (Nil) (Nil))
-                  loc))
-           ((Some (Global name))
-            (check-constructor-reference cx name loc)
-            (expr (Var name (Nil) (Nil))
-                  loc))
-           ((Some (TypeName _
-                            _
-                            (Some
-                             constructor)))
-            (expr
-             (Var (check-constructor-reference cx constructor loc) (Nil) (Nil))
-             loc))
-           ((Some (TypeName _ _ (None)))
-            (compile-error loc
-                           (string-append
-                            "a type is not a value: "
-                            identifier-name)))
-           ((None)
-            (compile-error loc
-                           (string-append
-                            "unbound identifier "
-                            identifier-name)))
-           (_ (compile-error loc
-                             (string-append
-                              "syntax used as a value: "
-                              identifier-name)))))
-        (_ (panic "internal error: expected Ident"))))
+      (let ((identifier-name (ident-name ident)))
+        (match (resolve cx env ident)
+          ((Some (Local name)) (expr (Var name (Nil) (Nil)) loc))
+          ((Some (Global name))
+           (check-constructor-reference cx name loc)
+           (expr (Var name (Nil) (Nil)) loc))
+          ((Some (TypeName _ _ (Some constructor)))
+           (expr (Var (check-constructor-reference cx constructor loc) (Nil) (Nil)) loc))
+          ((Some (TypeName _ _ (None)))
+           (compile-error loc (string-append "a type is not a value: " identifier-name)))
+          ((None) (compile-error loc (string-append "unbound identifier " identifier-name)))
+          (_ (compile-error loc (string-append "syntax used as a value: " identifier-name))))))
 
     (define (check-constructor-reference (cx Context) (name String) (loc Loc))
       (→ String)
@@ -3357,8 +3237,7 @@
            (_ (compile-error loc "expected (let ((name value) ...) body ...)"))))
         (_ (compile-error loc "expected (let ((name value) ...) body ...)"))))
 
-    (define (expand-named-let (cx
-                               Context)
+    (define (expand-named-let (cx Context)
               (env Env)
               (ident Syntax)
               (bindings (List Syntax))
@@ -3366,25 +3245,20 @@
               (loc Loc))
       (→ (Pair Expr Context))
       (! compile)
-      (match ident
-        ((Ident identifier-name _ _)
-         (threading cx ((name (fresh identifier-name))
-                        (loop (expand-lambda (extend env ident (Local name))
-                                             (map binding-name bindings)
-                                             body
-
-                                             loc))
-                        (initial
-                         (each (lambda (cx binding) (expand-expr cx env (binding-value binding)))
-                               bindings)))
-                    (new Pair
-                      (first (expr
-                              (Let name
-                                   loop
-                                   (expr (App (expr (Var name (Nil) (Nil)) loc) initial) loc))
-                              loc))
-                      (second cx))))
-        (_ (panic "internal error: expected Ident"))))
+      (threading cx ((name (fresh (ident-name ident)))
+                     (loop (expand-lambda (extend env ident (Local name))
+                                          (map binding-name bindings)
+                                          body
+                                          loc))
+                     (initial
+                      (each (lambda (cx binding) (expand-expr cx env (binding-value binding)))
+                            bindings)))
+                 (new Pair
+                   (first (expr (Let name
+                                     loop
+                                     (expr (App (expr (Var name (Nil) (Nil)) loc) initial) loc))
+                                loc))
+                   (second cx))))
 
     (define (expand-plain-let (cx
                                Context)
@@ -3424,13 +3298,7 @@
          (let ((id (match (resolve cx env (expect-ident effect "an effect name"))
                      ((Some (EffectName id)) id)
                      (_ (compile-error (syntax-loc effect)
-                                       (string-append "not an effect: "
-                                                      (match effect
-                                                        ((Ident identifier-name _ _)
-                                                         identifier-name)
-                                                        (_
-                                                         (panic
-                                                          "internal error: expected Ident")))))))))
+                                       (string-append "not an effect: " (ident-name effect)))))))
            (when (member? id (list "mut" "host"))
              (compile-error (syntax-loc effect)
                             (string-append "the builtin effect "
@@ -3808,25 +3676,14 @@
     (define (pattern-variables (syntax Syntax)) (→ (List Syntax)) (! compile)
       (let ((variables (pattern-idents syntax)))
         (for-each (lambda (variable)
-                    (match variable
-                      ((Ident identifier-name _ _)
-                       (when (< 1
-                                (length
-                                 (filter
-                                  (lambda (other)
-                                    (string=?
-                                     (ident-key
-                                      other)
-                                     (ident-key
-                                      variable)))
-                                  variables)))
-                         (compile-error
-                          (syntax-loc
-                           variable)
-                          (string-append
-                           "pattern variable bound twice: "
-                           identifier-name))))
-                      (_ (panic "internal error: expected Ident"))))
+                    (let ((identifier-name (ident-name variable)))
+                      (when (< 1
+                               (length (filter (lambda (other)
+                                                 (string=? (ident-key other) (ident-key variable)))
+                                               variables)))
+                        (compile-error (syntax-loc variable)
+                                       (string-append "pattern variable bound twice: "
+                                                      identifier-name)))))
                   variables)
         variables))
 
@@ -3982,30 +3839,19 @@
 
     (define (same-binding? (cx Context) (env Env) (input Syntax) (macro-env Env) (literal Syntax))
       (→ Bool)
-      (match literal
-        ((Ident identifier-name _ _)
-         (match input
-           ((Ident name _ _)
-            (match (resolve cx env input)
-              ((Some a)
-               (match (resolve cx
-                               macro-env
-                               literal)
-                 ((Some b)
-                  (string=?
-                   (binding-identity a)
-                   (binding-identity b)))
-                 ((None) #f)))
-              ((None)
-               (match (resolve cx
-                               macro-env
-                               literal)
-                 ((Some _) #f)
-                 ((None)
-                  (string=? name
-                            identifier-name))))))
-           (_ #f)))
-        (_ (panic "internal error: expected Ident"))))
+      (let ((identifier-name (ident-name literal)))
+        (match input
+          ((Ident name _ _)
+           (match (resolve cx env input)
+             ((Some a)
+              (match (resolve cx macro-env literal)
+                ((Some b) (string=? (binding-identity a) (binding-identity b)))
+                ((None) #f)))
+             ((None)
+              (match (resolve cx macro-env literal)
+                ((Some _) #f)
+                ((None) (string=? name identifier-name))))))
+          (_ #f))))
 
     (define (match-items (cx Context)
                          (patterns (List Syntax))
@@ -4155,18 +4001,12 @@
     ;; stamp, resolved in the macro's scope.
 
     (define (rename-ident (ident Syntax) (expansion Expansion)) (→ Syntax)
-      (match ident
-        ((Ident identifier-name _ _)
-         (Ident identifier-name
-                (Some
-                 (new Mark (key (string-append
-                                 (ident-key ident)
-                                 "%"
-                                 (● expansion stamp)))
-                      (original ident)
-                      (scope (● expansion scope))))
-                (● expansion loc)))
-        (_ (panic "internal error: expected Ident"))))
+      (let ((identifier-name (ident-name ident)))
+        (Ident identifier-name
+               (Some (new Mark (key (string-append (ident-key ident) "%" (● expansion stamp)))
+                          (original ident)
+                          (scope (● expansion scope))))
+               (● expansion loc))))
 
     )
 
