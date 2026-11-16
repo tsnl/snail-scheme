@@ -81,7 +81,7 @@ The [typed-state API](doc/book/snail-scheme/state.md) remains under review.
 - [The compiler architecture](doc/book/snail-scheme/compilers.md) follows a program
   through the passes, linking and incremental caches.
 - [Projects and targets](doc/book/snail-scheme/projects.md) defines inert descriptions,
-  directory outputs and artifact bundles.
+  directory outputs and embedding one build in another.
 - [The development toolchain](doc/book/snail-scheme/toolchain.md) explains the
   commands, the language server and the editor grammar.
 - [GitHub issues](https://github.com/tsnl/snail-scheme/issues) track open work.

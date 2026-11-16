@@ -22,7 +22,7 @@ measurements ask for it.
 | `library-roots` | The workspace's `src/` |
 | `(entry ((lib) Type))` and the `Application` class | Top-level statements in the script |
 | `(runtime toolchain)` | The `assembler` capability, handled by the target |
-| `artifact-bundle`, the planner (`project/plan.sld`) | A `generate-library` producer that calls the compiler |
+| `artifact-bundle`, the planner (`project/plan.sld`) | A `generate-library` producer that builds a script (removed) |
 | `snail-scheme watch`, the reload client, relinking | Nothing, for now (removed) |
 | `snailc`, `-o` | `snail-scheme run FILE` and `build FILE` |
 
@@ -309,7 +309,10 @@ Each step is a pull request that passes every check on its own.
      `define-page-entry` and the page's in-memory checkpoint. A trap ends
      the page, which keeps its last save.
 8. **Embedding, then no project file.**
-   - Producers call the compiler, and `link-file` is loosened.
-   - Port the `artifact-bundle` tests, then delete `artifact.sld`, `plan.sld`,
-     `project.sld` and the root `project.datum`.
+   - Producers build scripts, and `link-file` takes `..` and absolute
+     paths: done. A producer calls `build-script` and links the files of
+     the generation it answers; a build runs each producer its compile
+     asks for and compiles again. `artifact.sld`, `plan.sld` and the
+     compiler's `Inputs` are gone.
+   - Delete `project.sld` and the root `project.datum`.
    - The language server uses the workspace.

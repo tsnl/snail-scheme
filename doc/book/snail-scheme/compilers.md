@@ -308,62 +308,32 @@ startup and when the program loads one (`hostProvided` in `load.mjs`,
 
 ## Compiler inputs
 
-Each compiler invocation takes library directories, the current generated-library
-provider, and an `Inputs` value supplied by the build. The provider receives each
-producer with the libraries loading when it was reached:
+Each compiler invocation takes library directories, the current
+generated-library provider and its target. The provider receives each
+producer with the libraries loading when it was reached, and answers the
+bytes of the syntax the producer wrote.
 
-```scheme
-(record Generated ((text String) (bytes Bytes)))
-(record Inputs ((artifacts (Table ArtifactFiles)) (generated (Table Generated))))
-```
+The builder's provider, `generated-syntax` in
+`(snail shell compiler inputs)`, keys a producer by a hash of its text,
+`producer-text`: the library directories its imports resolve in, then its
+program, since two builds with different directories may resolve the same
+recipe's imports to different libraries. It reads `KEY.syntax` from the
+compile's scratch when a producer has already written it there. Otherwise it
+prints the producer as `KEY.sld` and requests it. The producer names its
+recipe after its imports, `(recipe "lib/sample/blob.sld")`, and a path its
+own forms write, as a `link-file` in the recipe's expression, resolves
+against that file rather than the printed copy (`written-in` in
+`expand.sld`), so a recipe links files beside itself wherever its producer
+is printed. The recipe's path is part of the producer's text, and so of its
+key, since the files it links depend on it. The producer computes the
+recipe's expression in a task, as `(write-generated-library (lambda ()
+EXPR))`, so the expression may read what the recipe links with
+`read-resource`, run processes and build other scripts
+([embedding](projects.md#embedding-a-build)).
 
-`artifacts` maps target names to ordered file snapshots, each a
-`(List (Pair String Bytes))`. The native builder establishes
-unique, canonical relative paths sorted by path, with bytes loaded from one
-completed immutable output. Artifact expansion performs only memory lookups;
-it has no filesystem capability. Inputs belong to the current invocation.
-`(no-inputs)` constructs an empty input set.
-
-`generated` maps a producer's key to what it wrote. The key hashes the
-producer's text, `producer-text` in `(snail shell compiler inputs)`: the
-library directories its imports resolve in, then its program. One table can
-serve every target of a build, and two targets with different directories may
-resolve the same recipe's imports to different libraries, so the directories
-belong to the producer. The entry keeps that text beside the bytes and a
-lookup compares it, so a collision of keys is a miss, never another
-producer's output. The expander looks a producer up there first; only a miss
-reaches the provider, which prints the producer into scratch under the same
-key and requests it. The producer names its recipe after its imports,
-`(recipe "lib/sample/blob.sld")`, and a path its own forms write, as a
-`link-file` in the recipe's expression, resolves against that file rather
-than the printed copy (`written-in` in `expand.sld`), so a recipe links files
-beside itself wherever its producer is printed. The recipe's path is part of
-the producer's text, and so of its key, since the files it links depend on
-it. The producer computes the recipe's
-expression in a task, as `(write-generated-library (lambda () EXPR))`, so
-the expression may read what the recipe links with `read-resource`. The project builder reads a printed producer back
-(`printed-producer-text`), checks that it has the key it was printed under,
-and adds the output it wrote (`supply-generated`).
-
-The planner owns target lookup, browser-kind checking, ordering and cycle
-detection; the native builder runs the phases it hands out. A missing input
-records a typed request and aborts the invocation. The Chez driver services
-the request after the compiler stack has unwound; the native builder, whose
-compiles the plan has already supplied, never does.
-
-Each build expands current declarations and requests only their current inputs.
-Removing an artifact invocation therefore removes its dependency. Every input
-comes from the supplied snapshot; no lookup rereads a backing file. A missing
-input fails that build.
-
-Artifact files carry canonical paths, byte lengths and content hashes. The
-build supplies their current bytes before compilation, and successful output
-records which resources it links. Failed builds publish no replacement generation.
-
-Generated syntax is obtained before expanding its library.
-The native project builder runs each producer once per build, as a phase of its
-plan, and its output serves every later compile of that build. Persistent
-producer caching remains separate work.
+Generated syntax is obtained before expanding its library. A build runs each
+producer its compiles reach once, and the output serves every later compile
+in that scratch. Persistent producer caching remains separate work.
 
 A producer is compiled as a program of its own while the library it generates
 is still loading, so the expander's stack of loading libraries crosses into
@@ -386,32 +356,28 @@ stack ever miss a cycle.
 
 ### Missing inputs and retry
 
-The compiler cannot start a producer or build another project target. A pass
-that needs an input it was not supplied performs `need`, an operation of the
-`compile` effect in `(snail shell compiler read)`, with its `CompilerRequest`.
-The operation answers `Never`, so nothing after it runs and its yields save no
-frames. Each signature on the way from the request to an entry point names
-`compile`, and each entry point handles it with `compiling`, which turns the
-compile into a `Result`, here `(Err (Requested request))`, as it does a
-source error into `(Err (Failed diagnostics))`. Artifact expansion and request
-signaling have no filesystem effects; library loading and generated-source IO
-still do.
+The compiler cannot start a producer. A pass that needs a producer's output
+it was not given performs `need`, an operation of the `compile` effect in
+`(snail shell compiler read)`, with its `CompilerRequest`,
+`(GenerateInput key)`. The operation answers `Never`, so nothing after it
+runs and its yields save no frames. Each signature on the way from the
+request to an entry point names `compile`, and each entry point handles it
+with `compiling`, which turns the compile into a `Result`, here
+`(Err (Requested request))`, as it does a source error into
+`(Err (Failed diagnostics))`.
 
-Discovery records artifact uses instead of asking for their files. The plan
-has already supplied every producer's output; reaching a missing one is an
-internal error. Discovery therefore cannot request inputs and needs no
-separate request handler. Source diagnostics propagate through `compile` to
-the project builder's handler.
+The project builder, `(snail shell project build)`, calls the compiler in its
+own process and handles `compile` around each compile (`producing`): a
+`fail` stops the build with its diagnostics, and a request runs the printed
+producer, which writes its output into the scratch, and compiles again. No
+request file is written or parsed, and nothing traps.
 
-Standalone source builds service generated-library requests and reject artifact
-requests with their source location: an artifact needs a project build. The
-command-line driver, `(snail shell compiler driver)`, writes its request to
-`request.datum` in the compile's generated directory, then exits with status 1.
-`(snail shell compiler inputs)` owns this grammar:
+The command-line driver, `(snail shell compiler driver)`, which stage 0 runs,
+writes its request to `request.datum` in the compile's generated directory,
+then exits with status 1. `(snail shell compiler inputs)` owns this grammar:
 
 ```scheme
 (generate "123456")
-(artifact "client" "server/main.sld" 12 8)
 ```
 
 Each attempt deletes the preceding request before starting the compiler. Only
@@ -421,23 +387,7 @@ left behind; any other exit or signal cannot fulfill work from a leftover
 file. Success with a pending
 request and a request already answered are errors. Scratch directories are
 created exclusively, so stale files cannot become inputs. Stderr carries only
-diagnostics. Standalone builds have no artifact resolver or reply accumulation.
-
-The project builder, `(snail shell project build)`, calls the compiler in its
-own process and handles `compile` around each compile (`compiled`): a `fail`
-stops the build with its diagnostics, and a request is an internal error,
-since the builder plans the build first, so a request names an input the plan
-missed. No request file is written or parsed, and nothing traps.
-
-The builder supplies each completed target's canonical file inventory
-(`supply-artifact`) before the first phase that embeds it, and each producer's
-output (`supply-generated`) once the producer has run. Each reads the bytes
-once and returns new immutable inputs; the preceding inputs remain usable.
-
-One `Inputs` value serves every phase of a build, and is passed to each
-compile and to `refine-plan`. It belongs to that build attempt. Applications
-embed the bytes and need
-no runtime file access.
+diagnostics.
 
 ### Linked files
 

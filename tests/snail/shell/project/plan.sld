@@ -1,1 +1,0 @@
-../../../../src/snail/shell/project/plan.sld

@@ -61,10 +61,10 @@
         (if (string=? mode "modules")
             (write-modules output
                            generated
-                           (source->modules directories source generate (no-inputs) target))
+                           (source->modules directories source generate target))
             (write-program output
                            generated
-                           (source->wat directories source generate (no-inputs) target)))))
+                           (source->wat directories source generate target)))))
 
     (define (write-program (output String) (generated String) (program WholeProgram))
       (→ Unit)

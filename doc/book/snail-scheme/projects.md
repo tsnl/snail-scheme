@@ -38,8 +38,8 @@ An editor opening the root runs `snail-scheme lsp` over the same project
 
 A single script needs no project:
 `snail-scheme build --target node FILE` builds it ([scripts](scripts.md)).
-`snail-scheme build [--release] PROJECT BUILD-TARGET` publishes one selected target and
-its required artifacts. `snail-scheme run PROJECT RUN-TARGET [ARGUMENT ...]` builds and
+`snail-scheme build [--release] PROJECT BUILD-TARGET` publishes one selected target.
+`snail-scheme run PROJECT RUN-TARGET [ARGUMENT ...]` builds and
 runs a named program, and `snail-scheme lsp` answers an editor for the project it
 opens. The [toolchain](toolchain.md) describes command lifetimes. Durable
 application data remains in progress.
@@ -144,58 +144,42 @@ generations. Publication consumes the candidate even on failure; callers must
 not discard it again. These guarantees concern complete outputs, not an atomic
 source snapshot or power-loss durability.
 
-A build that embeds a generation ([artifact bundles](#artifact-bundles)) gets
-its files with the objects of its `store/` view read in, so the embedded
-page is complete wherever it is served from.
+## Embedding a build
 
-## Artifact bundles
+A build embeds another through a `generate-library` recipe whose producer
+builds it. `build-script` in `(snail shell project build)` builds and
+publishes a script as `snail-scheme build` does, and answers its
+generation's directory; `producer-tools` reads the tools the build ran the
+producer with from its command line. The library the recipe returns links
+each file of that generation, so the embedding program reads them as
+resources, and the files ship with it:
 
 ```scheme
-(import
- (snail core base)
- (snail shell artifact))
-
-
-(define (frontend) (→ ArtifactBundle) (artifact-bundle "client"))
-
-;; A lookup in embedded data, without file IO or a runtime build.
-(artifact-ref (frontend) "index.html")
+(generate-library (embedded client)
+                  (import
+                   (snail core base)
+                   (snail shell project build)
+                   (embedded linking))
+                  (files-library (list "embedded" "client")
+                                 "client-files"
+                                 (build-script (producer-tools)
+                                               (script-at "client/main.scm")
+                                               (Browser)
+                                               (Debug))))
 ```
 
-The name must be a literal string naming a browser target in the same project.
-The macro constructs an ordinary `ArtifactBundle` containing `ArtifactFile`
-records with relative `path` and immutable `bytes`. `artifact-ref` returns
-`Option Bytes`; field paths expose the file list. MIME types, routes and
-transport policy belong to serving code. No special backend representation or
-runtime artifact service is involved.
+`files-library`, in the test's own `(embedded linking)`, lists the generation
+and links each file by its absolute path (`tests/embedding/`). `link-file`
+takes a path relative to the recipe, `..` included, or an absolute one. A
+debug generation's `store/` view is links into the workspace's store, and a
+linked file is read through its link, so the embedded page is complete
+wherever it is served from.
 
-Uses arise during expression expansion, including macro uses, generated
-libraries and the programs of their producers. An unused macro template makes
-no use. Constructor names retain their definition scope, so importing only
-the macro, renaming it or shadowing constructors does not change its meaning.
-
-The project planner orders a build before running any of it
-(`src/snail/shell/project/plan.sld`): a walk of each program's import closure
-finds the producers it needs, and a discovery expansion, the expander itself
-supplied no files, finds the targets it embeds. There is no source scanner
-that a macro could hide a use from. Each target is built once per invocation,
-before the first phase that embeds it, and a cycle, such as
-`client -> admin -> client`, fails before any phase runs. Generated syntax can
-embed a target that only its producer's output names, so a phase that waits
-for a producer is planned again once the producer has run, and a cycle it
-closes fails then, before anything after it runs. Missing or non-browser
-targets fail at the using source point. Standalone source commands cannot
-resolve project artifacts; use a project build.
-
-Packaging and enumeration finish before a generation can supply an artifact.
-The inventory contains canonical relative paths sorted by path, including hidden
-and nested files but excluding the root `.snail-target` marker. Unreadable
-directories, symlinks and nonregular entries are rejected. Inventories name files
-in the completed generation directly, never through the replaceable public link.
-Repeated uses therefore see the same bytes throughout one invocation.
-
-The compiler takes snapshots of those bytes through its
-[input boundary](compilers.md#compiler-inputs); expansion never rereads backing
-files. Each project attempt regenerates producer output, obtains current
-artifacts, and checks and emits the complete dependency closure. A discarded
-candidate contributes no state to the next compilation.
+A producer runs in its workspace's directory, in every build that reaches
+it, so a changed client file reaches the next build of the server. A build
+that compiles a generated library whose output it has not yet produced
+prints the producer into its scratch, compiles, links and runs it, and
+compiles again (`producing` in `build.sld`). The producer's own compile does
+the same, and the libraries loading when it was reached begin its source,
+so a producer that needs the library it generates, at once or once another
+producer has run, is an import cycle and never runs.

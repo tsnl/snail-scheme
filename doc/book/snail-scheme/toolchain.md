@@ -45,7 +45,7 @@ and programs as well, is proposed in
 [#562](https://github.com/tsnl/snail-scheme/issues/562).
 
 The [project chapter](projects.md) defines `project.datum`, named targets,
-output directories and artifact bundles.
+output directories and embedding one build in another.
 
 `snail-scheme run PROJECT RUN-TARGET [ARGUMENT ...]` builds the referenced program in
 debug mode and runs that exact completed generation. Configured arguments come

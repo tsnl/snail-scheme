@@ -1,10 +1,7 @@
 ;; A project's build: each target compiled, linked and packaged into a
 ;; generation of its own, then published by replacing the target's link at
-;; once. The project planner (snail shell project plan) hands out waves
-;; of phases that can run now, dependencies first: a
-;; phase builds a target into its generation, or runs a producer, whose
-;; output refines the plan. A phase that embeds a target's files is first
-;; given those of each target it embeds, built in an earlier phase.
+;; once. A compile that reaches a generated library runs its producer
+;; first, and then compiles again.
 ;;
 ;; Every build, debug or release, compiles each target library afresh and
 ;; assembles it in-process (snail shell assembler) into a module of its
@@ -28,6 +25,18 @@
    Output
    Candidate
    program-name
+   Platform
+   Node
+   Wasmtime
+   Browser
+   platform-library
+   Script
+   script-at
+   script-name
+   build-script
+   generation-of
+   producer-tools
+   resolved
    read-project
    build-project
    publish-project
@@ -44,11 +53,11 @@
          compiling
          Failed
          Requested
+         GenerateInput
          Diagnostics
          diagnostics->string)
    (snail shell compiler inputs)
    (only (snail shell compiler check) Typed)
-   (snail shell project plan)
    (snail shell process)
    (snail shell assembler)
    (snail shell json)
@@ -83,6 +92,158 @@
       (Debug)
       (Release))
 
+    ;; ---- Scripts ----
+
+    ;; Where a script's program runs: on Node, on the native executable, or
+    ;; in a page.
+    (enum Platform
+      (Node)
+      (Wasmtime)
+      (Browser))
+
+    (define (platform-library (platform Platform)) (→ (List String))
+      (list "snail"
+            "target"
+            (match platform
+              ((Node) "node")
+              ((Wasmtime) "wasmtime")
+              ((Browser) "browser"))))
+
+    ;; A script: `file`, an absolute path, in `workspace`, the nearest folder
+    ;; above it that holds src/, where every import resolves.
+    (record Script
+      ((file String)
+       (workspace String)))
+
+    (define (script-at (path String)) (→ Script) (! fs)
+      (let ((file (resolved path)))
+        (unless (file-exists? file) (panic (string-append "there is no script at " file)))
+        (new Script (file file) (workspace (workspace-of file (directory-of file))))))
+
+    (define (workspace-of (file String) (directory String)) (→ String) (! fs)
+      (cond ((file-exists? (string-append directory "/src")) directory)
+            ((string=? directory "") (panic (string-append "no folder above " file " holds src/")))
+            (else (workspace-of file (directory-of directory)))))
+
+    (define (directory-of (path String)) (→ String)
+      (let loop ((index (- (string-length path) 1)))
+        (cond ((< index 0) "")
+              ((char=? (string-ref path index) #\/) (substring path 0 index))
+              (else (loop (- index 1))))))
+
+    ;; The script's path in its workspace, and without its extension, the
+    ;; name of its build: build/NAME holds its output.
+
+    (define (script-path (script Script)) (→ String)
+      (let ((workspace (● script workspace)) (file (● script file)))
+        (substring file (+ (string-length workspace) 1) (string-length file))))
+
+    (define (script-name (script Script)) (→ String)
+      (let ((path (script-path script)))
+        (let loop ((index (- (string-length path) 1)))
+          (cond ((< index 0) path)
+                ((char=? (string-ref path index) #\/) path)
+                ((char=? (string-ref path index) #\.) (substring path 0 index))
+                (else (loop (- index 1)))))))
+
+    ;; Builds the script for `platform` and publishes it; answers its
+    ;; generation. A producer can call this too, with `producer-tools`, to
+    ;; embed another build: its generated library links the files.
+
+    (define (build-script (tools Tools) (script Script) (platform Platform) (mode Mode))
+      (→ String)
+      (! mut fs clock process)
+      (let ((name (script-name script)))
+        (match (build-project tools
+                              (● script workspace)
+                              (script-project script platform)
+                              (list name)
+                              mode
+                              (string-append (● tools root) "/build/snail-run")
+                              ".snail-")
+          ((Err failure) (panic (failure->string failure)))
+          ((Ok candidate)
+           (match (publish-project candidate)
+             ((Err message) (panic message))
+             ((Ok _) (generation-of candidate name)))))))
+
+    (define (generation-of (candidate Candidate) (name String)) (→ String)
+      (match (find (lambda (output) (string=? (● output name) name)) (● candidate outputs))
+        ((Some output) (● output directory))
+        ((None) (panic (string-append "internal error: the build did not build " name)))))
+
+    ;; The one build target a script is: a page's, with the public/ folder
+    ;; beside the script if there is one, or a program's.
+
+    (define (script-project (script Script) (platform Platform)) (→ Project) (! fs)
+      (let* ((loc (new Loc (file (● script file)) (line 1) (column 1)))
+             (path (lambda (text) (new ProjectPath (text text) (loc loc))))
+             (entry (path (script-path script)))
+             (name (script-name script))
+             (roots (list (path "src"))))
+        (new Project
+          (builds (list (match platform
+                          ((Browser)
+                           (BrowserTarget (new BrowserBuild
+                                            (name name)
+                                            (entry entry)
+                                            (libraries roots)
+                                            (public (script-public script path))
+                                            (loc loc))))
+                          (_
+                           (ProgramTarget (new ProgramBuild
+                                            (name name)
+                                            (entry entry)
+                                            (libraries roots)
+                                            (platform (platform-library platform))
+                                            (loc loc)))))))
+          (runs (Nil)))))
+
+    (define (script-public (script Script) (path (Fn String → ProjectPath)))
+      (→ (Option ProjectPath))
+      (! fs)
+      (let ((public (string-append (directory-of (script-path script)) "/public")))
+        (if (file-exists? (string-append (● script workspace) "/" public))
+            (Some (path public))
+            (None))))
+
+    ;; What a producer's build runs, from its command line: a build runs a
+    ;; producer with the path its output goes to, then the build's tools.
+
+    (define (producer-tools) (→ Tools)
+      (match (command-line)
+        ((Cons _ (Cons _ (Cons root (Cons runtime (Cons toolchain (Cons node _))))))
+         (new Tools (root root) (runtime runtime) (toolchain toolchain) (node node)))
+        (_ (panic "producer-tools: this program is not a producer a build ran"))))
+
+    ;; A path made absolute against the working directory, without empty or
+    ;; "." components, and with each ".." taking the component before it.
+
+    (define (resolved (path String)) (→ String)
+      (let* ((absolute (if (and (> (string-length path) 0) (char=? (string-ref path 0) #\/))
+                           path
+                           (string-append (match (working-directory)
+                                            ((Some directory) directory)
+                                            ((None) (panic "there is no working directory")))
+                                          "/"
+                                          path)))
+             (parts (fold-left (lambda (kept part)
+                                 (cond ((or (string=? part "") (string=? part ".")) kept)
+                                       ((string=? part "..") (match kept
+                                                               ((Cons _ rest) rest)
+                                                               ((Nil) (Nil))))
+                                       (else (Cons part kept))))
+                               (Nil)
+                               (path-parts absolute))))
+        (string-append "/" (string-join (reverse parts) "/"))))
+
+    (define (path-parts (path String)) (→ (List String))
+      (match (string-index path #\/)
+        ((Some index)
+         (Cons (substring path 0 index)
+               (path-parts (substring path (+ index 1) (string-length path)))))
+        ((None) (list path))))
+
     ;; ---- Failures ----
 
     ;; Why a build stopped: a compile's diagnostics, each naming its source
@@ -111,9 +272,8 @@
           ((stop (lambda (failure) (Err failure))))
         (Ok (work))))
 
-    ;; A compile that fails stops the build with its diagnostic. The plan
-    ;; supplies every input a phase needs before it runs, so a compile that
-    ;; asks for one names a need the planner missed.
+    ;; A compile that fails stops the build with its diagnostic. One that
+    ;; needs no producer asks for nothing.
 
     (define (compiled (work (Fn → T ! compile e)))
       (→ T)
@@ -123,7 +283,7 @@
         ((Ok value) value)
         ((Err (Failed diagnostics)) (absurd (stop (CompileFailure diagnostics))))
         ((Err (Requested request))
-         (fail-build (string-append "internal error: the build plan did not supply the input "
+         (fail-build (string-append "internal error: a compile asked for "
                                     (request->string request))))))
 
     ;; ---- Projects ----
@@ -197,6 +357,17 @@
 
     ;; ---- A build ----
 
+    ;; A project build target, resolved: its name, whether it is a browser
+    ;; build, the target library its program runs under, its entry
+    ;; program's path, and the directories its libraries are found in.
+    (record Target
+      ((name String)
+       (browser? Bool)
+       (platform (List String))
+       (entry String)
+       (directories (List String))
+       (loc Loc)))
+
     ;; A target's generation: the target's name, the directory that holds
     ;; what was built for it, and its digest, which a change to any file in
     ;; it changes and nothing else does. `files` are the digests of its files
@@ -213,27 +384,10 @@
        (typed (Option Typed))))
 
     ;; What a build made and has not published: each target's generation,
-    ;; in plan order, which puts the first root first.
+    ;; in the order the build was asked for them.
     (record Candidate
       ((project String)
        (outputs (List Output))))
-
-    ;; A built target: its node in the plan, its generation, and the files
-    ;; in it, each relative name with its path, in name order.
-    (record Generation
-      ((node I64)
-       (output Output)
-       (files (List (Pair String String)))))
-
-    ;; What a build has made so far: the inputs the next phase compiles
-    ;; with, the targets built, the names of those whose files the inputs
-    ;; already hold, and the failure that stopped this attempt, if one did.
-    ;; No phase runs after a failure.
-    (record Progress
-      ((inputs Inputs)
-       (generations (List Generation))
-       (supplied (List String))
-       (failure (Option Failure))))
 
     ;; Build a complete candidate in private scratch. Failure preserves all
     ;; published generations; no compiler state survives this invocation.
@@ -243,179 +397,57 @@
       (match (attempt (lambda () (fresh-scratch scratch)))
         ((Err failure) (Err failure))
         ((Ok working)
-         (let ((built (build-roots (new Builder
-                                     (tools tools)
-                                     (project directory)
-                                     (description project)
-                                     (mode mode)
-                                     (scratch working)
-                                     (prefix prefix))
-                                   names)))
+         (let* ((builder (new Builder
+                           (tools tools)
+                           (project directory)
+                           (description project)
+                           (mode mode)
+                           (scratch working)
+                           (prefix prefix)))
+                (built (attempt (lambda () (build-roots builder names (Nil))))))
            (remove-tree working)
-           built))))
+           (match built
+             ((Ok outputs) (Ok (new Candidate (project directory) (outputs outputs))))
+             ((Err failure) (Err failure)))))))
 
     (define (fresh-scratch (scratch String)) (→ String) (! fs clock building)
       (expect-done (make-directories scratch) (string-append "cannot make " scratch))
       (fresh-directory (string-append scratch "/build-") "" (monotonic-nanoseconds)))
 
-    (define (build-roots (builder Builder) (names (List String)))
-      (→ (Result Candidate Failure)) (! mut fs clock process)
-      (match (attempt (lambda () (plan-roots builder names)))
-        ((Err failure) (Err failure))
-        ((Ok plan)
-         (outcome builder
-                  (run-waves builder
-                             plan
-                             (new Progress
-                               (inputs (no-inputs))
-                               (generations (Nil))
-                               (supplied (Nil))
-                               (failure (None))))))))
+    ;; Each named target, in order. A failure removes the generations built
+    ;; before it.
 
-    (define (plan-roots (builder Builder) (names (List String))) (→ Plan) (! fs building)
-      (let* ((targets (plan-targets builder))
-             (file (project-file (● builder project)))
-             (roots (map (lambda (name) (root-target targets file name)) names))
-             (printed (in-scratch builder "plan")))
-        (expect-done (make-directories printed) (string-append "cannot make " printed))
-        (compiled (lambda () (plan-build targets roots (no-inputs) printed)))))
-
-    ;; A build that failed discards every generation it made.
-
-    (define (outcome (builder Builder) (progress Progress)) (→ (Result Candidate Failure)) (! fs)
-      (match (● progress failure)
-        ((Some failure)
-         (discard (map (lambda (record) (● record output)) (● progress generations)))
-         (Err failure))
-        ((None)
-         (Ok (new Candidate (project (● builder project))
-                  (outputs (map (lambda (record) (● record output))
-                                (by-node (● progress generations)))))))))
-
-    ;; Runs each wave's phases in order. A wave that leaves phases waiting
-    ;; has run the producers whose outputs they need, and the plan refined
-    ;; with them hands out the next.
-
-    (define (run-waves (builder Builder) (plan Plan) (progress Progress))
-      (→ Progress)
-      (! mut fs clock process)
-      (let* ((wave (next-phases plan))
-             (plan (● wave second))
-             (progress (fold-left (lambda (progress entry) (run-phase builder plan entry progress))
-                                  progress
-                                  (● wave first))))
-        (if (and (phases-left? plan) (not (failed? progress)))
-            (match (attempt (lambda ()
-                              (compiled (lambda () (refine-plan plan (● progress inputs))))))
-              ((Ok refined) (run-waves builder refined progress))
-              ((Err failure) (Progress-failure-set progress (Some failure))))
-            progress)))
-
-    (define (failed? (progress Progress)) (→ Bool)
-      (match (● progress failure)
-        ((Some _) #t)
-        ((None) #f)))
-
-    ;; A phase after a failure does not run; a phase that fails records it.
-
-    (define (run-phase (builder Builder) (plan Plan) (entry (Pair I64 Phase)) (progress Progress))
-      (→ Progress)
-      (! mut fs clock process)
-      (if (failed? progress)
-          progress
-          (match (attempt (lambda () (phase-work builder plan entry progress)))
-            ((Ok advanced) advanced)
-            ((Err failure) (Progress-failure-set progress (Some failure))))))
-
-    (define (phase-work (builder Builder) (plan Plan) (entry (Pair I64 Phase)) (progress Progress))
-      (→ Progress)
+    (define (build-roots (builder Builder) (names (List String)) (built (List Output)))
+      (→ (List Output))
       (! mut fs clock process building)
-      (let ((progress (supply-embedded builder (embedded-names plan (● entry first)) progress)))
-        (match (● entry second)
-          ((ProducePhase producer)
-           (Progress-inputs-set progress
-                                (produce builder
-                                         (● entry first)
-                                         producer
-                                         (● progress inputs))))
-          ((BuildPhase target) (build-target builder (● entry first) target progress)))))
-
-    ;; The targets whose files the phase at `node` embeds: the builds among
-    ;; its needs, each built in an earlier wave, or earlier in this one.
-
-    (define (embedded-names (plan Plan) (node I64)) (→ (List String))
-      (let ((steps (● plan steps)))
-        (match (● (array-ref steps node) needs)
-          ((Known nodes)
-           (concatenate (map (lambda (need)
-                               (match (● (array-ref steps need) phase)
-                                 ((BuildPhase target) (list (● target name)))
-                                 (_ (Nil))))
-                             nodes)))
-          ((Waiting _ _) (panic "internal error: a wave handed out a waiting phase")))))
-
-    ;; Each embedded target's files join the inputs once, read as they are
-    ;; in its generation.
-
-    (define (supply-embedded (builder Builder) (names (List String)) (progress Progress))
-      (→ Progress)
-      (! fs)
-      (fold-left (lambda (progress name)
-                   (if (member? name (● progress supplied))
-                       progress
-                       (Progress-supplied-set
-                        (Progress-inputs-set progress
-                                             (supply-artifact (● progress inputs)
-                                                              name
-                                                              (snapshot (generation-named progress
-                                                                                          name))))
-                        (Cons name (● progress supplied)))))
-                 progress
-                 names))
-
-    (define (generation-named (progress Progress) (name String)) (→ Generation)
-      (match (find
-              (lambda (generation) (string=? (● (● generation output) name) name))
-              (● progress generations))
-        ((Some generation) generation)
-        ((None) (panic (string-append "internal error: the build plan embeds " name
-                                      " before building it")))))
-
-    ;; An embedding build gets a generation's files, the objects of its
-    ;; store/ view among them, read as they are, so an embedded page is
-    ;; complete wherever it is served from.
-
-    (define (snapshot (generation Generation)) (→ ArtifactFiles) (! fs)
-      (map (lambda (file) (new Pair (first (● file first)) (second (read-bytes (● file second)))))
-           (● generation files)))
-
-    (define (by-node (generations (List Generation))) (→ (List Generation))
-      (list-sort (lambda (a b) (< (● a node) (● b node))) generations))
+      (match names
+        ((Nil) (reverse built))
+        ((Cons name rest)
+         (match (attempt (lambda ()
+                           (build-target builder
+                                         (root-target (plan-targets builder)
+                                                      (project-file (● builder project))
+                                                      name))))
+           ((Ok output) (build-roots builder rest (Cons output built)))
+           ((Err failure)
+            (discard built)
+            (absurd (stop failure)))))))
 
     ;; ---- Targets ----
 
     ;; Builds a target into a new generation, which goes if the build of it
-    ;; fails. A packaging failure also removes the candidate directory.
+    ;; fails.
 
-    (define (build-target (builder Builder) (node I64) (target Target) (progress Progress))
-      (→ Progress)
+    (define (build-target (builder Builder) (target Target))
+      (→ Output)
       (! mut fs clock process building)
       (let* ((name (● target name))
-             (directory (prepare-generation builder name))
-             (program (removing directory
-                                (lambda ()
-                                  (build-program builder node target directory progress)))))
-        (match (attempt (lambda () (package builder target directory)))
-          ((Ok files)
-           (Progress-generations-set progress
-                                     (Cons (new Generation (node node)
-                                                (output
-                                                 (program-output program name directory files))
-                                                (files files))
-                                           (● progress generations))))
-          ((Err failure)
-           (remove-tree directory)
-           (Progress-failure-set progress (Some failure))))))
+             (directory (prepare-generation builder name)))
+        (removing directory
+                  (lambda ()
+                    (let* ((program (build-program builder target directory))
+                           (files (package builder target directory)))
+                      (program-output program name directory files))))))
 
     ;; `work`'s value; when it fails, `directory` goes before the failure
     ;; does.
@@ -455,27 +487,24 @@
     ;; the files it links. Content digests name objects; they do not decide
     ;; whether compilation runs.
 
-    (define (build-program (builder Builder)
-                           (node I64)
-                           (target Target)
-                           (directory String)
-                           (progress Progress))
+    (define (build-program (builder Builder) (target Target) (directory String))
       (→ Program)
       (! mut fs process building)
-      (in-working builder node (lambda (working)
-                                 (let ((checked (check-target target working progress)))
-                                   (write-program builder target directory working checked)))))
+      (in-working builder (● target name)
+                  (lambda (working)
+                    (let ((checked (check-target builder target working)))
+                      (write-program builder target directory working checked)))))
 
-    (define (check-target (target Target) (working String) (progress Progress)) (→ Checked)
-      (! fs building)
+    (define (check-target (builder Builder) (target Target) (working String)) (→ Checked)
+      (! mut fs process building)
       (let ((directories (● target directories)))
-        (compiled (lambda ()
-                    (source->checked directories
-                                     (● target entry)
-                                     (lambda (loading forms)
-                                       (generated-syntax working directories loading forms))
-                                     (● progress inputs)
-                                     (Some (● target platform)))))))
+        (producing builder working directories
+                   (lambda ()
+                     (source->checked directories
+                                      (● target entry)
+                                      (lambda (loading forms)
+                                        (generated-syntax working directories loading forms))
+                                      (Some (● target platform)))))))
 
     (define (write-program (builder Builder)
                            (target Target)
@@ -532,11 +561,11 @@
 
     ;; `work` in a directory of its own in the build's scratch, removed after.
 
-    (define (in-working (builder Builder) (node I64) (work (Fn String → T ! fs e)))
+    (define (in-working (builder Builder) (name String) (work (Fn String → T ! fs e)))
       (→ T)
       (! fs e)
       (∀ (T e))
-      (let ((working (in-scratch builder (string-append "phase-" (show node)))))
+      (let ((working (in-scratch builder (string-append "target-" (base-name name)))))
         (make-directories working)
         (let ((result (work working)))
           (remove-tree working)
@@ -564,21 +593,20 @@
     (define (link-program (builder Builder)
                           (entry String)
                           (directories (List String))
-                          (inputs Inputs)
                           (working String)
                           (output String))
       (→ (List LinkedFile))
-      (! mut fs building)
-      (let ((program (compiled (lambda ()
-                                 (source->wat directories
-                                              entry
-                                              (lambda (loading forms)
-                                                (generated-syntax working
-                                                                  directories
-                                                                  loading
-                                                                  forms))
-                                              inputs
-                                              (Some (list "snail" "target" "node")))))))
+      (! mut fs process building)
+      (let ((program (producing builder working directories
+                                (lambda ()
+                                  (source->wat directories
+                                               entry
+                                               (lambda (loading forms)
+                                                 (generated-syntax working
+                                                                   directories
+                                                                   loading
+                                                                   forms))
+                                               (Some (list "snail" "target" "node")))))))
         (write-bytes output (linked-program builder program))
         (● program links)))
 
@@ -667,11 +695,15 @@
 
     ;; A file is named for the digest of the bytes its compile read, so the
     ;; bytes placed must be those: a file edited since fails the build, and
-    ;; the next one compiles against its new bytes.
+    ;; the next one compiles against its new bytes. A link to a file is
+    ;; read through, as the compile read it: an embedded debug build's store
+    ;; view is links.
 
     (define (place-link (store String) (token String) (link LinkedFile)) (→ Object) (! fs building)
       (let ((from (● link path)))
-        (unless (kind-is? from (RegularFile))
+        (unless (match (followed-status from)
+                  ((Ok status) (match (● status kind) ((RegularFile) #t) (_ #f)))
+                  ((Err _) #f))
           (fail-build
            (string-append "cannot place the linked file " from ": there is no file there")))
         (let ((object (place-object store token (read-bytes from))))
@@ -813,28 +845,40 @@
 
     ;; ---- Producers ----
 
-    ;; A producer is compiled from the source the planner printed, linked,
-    ;; and run to write its library's syntax, which the
-    ;; inputs supply from then on.
+    ;; A compile, with each producer it asks for run first. A compile that
+    ;; reaches a generated library whose output `working` does not hold
+    ;; prints the producer there and asks for it; the producer is compiled,
+    ;; linked and run, writing that output, and the compile starts again.
+    ;; The producer's own compile does the same, and the libraries loading
+    ;; when it was reached begin its source, so one that needs its own
+    ;; library is an import cycle.
 
-    (define (produce (builder Builder) (node I64) (producer Producer) (inputs Inputs))
-      (→ Inputs)
+    (define (producing (builder Builder)
+                       (working String)
+                       (directories (List String))
+                       (work (Fn → T ! compile e)))
+      (→ T)
+      (! mut fs process building e)
+      (∀ (T e))
+      (match (compiling work)
+        ((Ok value) value)
+        ((Err (Failed diagnostics)) (absurd (stop (CompileFailure diagnostics))))
+        ((Err (Requested (GenerateInput key)))
+         (produce builder working directories key)
+         (producing builder working directories work))))
+
+    (define (produce (builder Builder) (working String) (directories (List String)) (key String))
+      (→ Unit)
       (! mut fs process building)
-      (in-working builder
-                  node
-                  (lambda (working)
-                    (let ((program (string-append working "/producer.wasm"))
-                          (output (string-append working "/output.syntax")))
-                      (place-links builder
+      (let ((program (string-append working "/" key ".wasm")))
+        (place-links builder
+                     working
+                     (link-program builder
+                                   (string-append working "/" key ".sld")
+                                   directories
                                    working
-                                   (link-program builder
-                                                 (● producer source)
-                                                 (● producer directories)
-                                                 inputs
-                                                 working
-                                                 program))
-                      (run-producer builder program output)
-                      (supply-producer producer inputs output)))))
+                                   program))
+        (run-producer builder program (string-append working "/" key ".syntax"))))
 
     ;; A linked module's files, a producer's or a release build's, are
     ;; objects of store/ beside it, copied there from the project's store.
@@ -849,6 +893,9 @@
                                (string-append "cannot copy " (● link path)))))
                 (distinct-links links)))
 
+    ;; A producer runs in the project's directory, and its command line
+    ;; names its output's path and then the build's tools (`producer-tools`).
+
     (define (run-producer (builder Builder) (program String) (output String))
       (→ Unit)
       (! fs process building)
@@ -858,24 +905,15 @@
                                            (string-append (● tools root)
                                                           "/host/native/run-snail.mjs")
                                            program
-                                           output))
-                          (directory "."))
+                                           output
+                                           (● tools root)
+                                           (● tools runtime)
+                                           (● tools toolchain)
+                                           (● tools node)))
+                          (directory (● builder project)))
                      "the producer")
         (unless (file-exists? output)
           (fail-build "the producer did not write its generated library"))))
-
-    ;; The producer is read back from its printed source, so the inputs
-    ;; hold the text a compile looks its output up by.
-
-    (define (supply-producer (producer Producer) (inputs Inputs) (output String))
-      (→ Inputs)
-      (! fs building)
-      (let ((text (compiled (lambda ()
-                              (printed-producer-text (● producer directories)
-                                                     (● producer source))))))
-        (unless (string=? (producer-key text) (● producer key))
-          (panic "internal error: a producer's printed text does not have its key"))
-        (supply-generated inputs text (read-bytes output))))
 
     ;; ---- Browser packages ----
 

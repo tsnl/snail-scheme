@@ -16,7 +16,7 @@ Chez libraries. `host/chez/` supplies `(snail core base)`, `(snail core table)`,
 `(snail core io)` and the typed-form adapter, plus the build driver. Compiler
 modules come from `src/snail/shell/compiler/`. An application library outside
 that closure is rejected. Test mode additionally admits the test support and
-project parser/planner fixtures.
+project parser fixture.
 
 | `snail-scheme` source | Chez execution |
 | --- | --- |
