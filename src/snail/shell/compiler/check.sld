@@ -20,10 +20,8 @@
     ;; Learning holds the substitutions and obligations accumulated so far.
     ;; A signed body's row identity records which declared effects it uses;
     ;; nested lambdas restore the enclosing body's record on return.
-    ;; `unsolved-fields` counts the field selections in `pending` whose
-    ;; projection is not yet solved, so that improving types after a call
-    ;; knows whether an older one is still waiting without searching the
-    ;; whole library's obligations.
+    ;; `waiting` holds the field selections in `pending` whose receiver's
+    ;; type is not yet known, newest first.
     (record Checker
       ((program Program)
        (locals (Table Type))
@@ -34,8 +32,7 @@
        (solution Solution)
        (schemes (Table Scheme))
        (pending (List Wanted))
-       (pending-count I64)
-       (unsolved-fields I64)
+       (waiting (List Projection))
        (open (List String))
        (performed (List Type))))
 
@@ -54,8 +51,7 @@
            (solution (● inner solution))
            (schemes (● inner schemes))
            (pending (● inner pending))
-           (pending-count (● inner pending-count))
-           (unsolved-fields (● inner unsolved-fields))
+           (waiting (● inner waiting))
            (open (● inner open))
            (performed (● inner performed))))
 
@@ -538,11 +534,7 @@
     ;; ---- Instantiation ----
 
     (define (want (ck Checker) (wanted Wanted)) (→ Checker)
-      (let ((ck (Checker-pending-count-set (Checker-pending-set ck (Cons wanted (● ck pending)))
-                                           (+ (● ck pending-count) 1))))
-        (match wanted
-          ((WantField _) (Checker-unsolved-fields-set ck (+ (● ck unsolved-fields) 1)))
-          (_ ck))))
+      (Checker-pending-set ck (Cons wanted (● ck pending))))
 
     (define (want-class (ck Checker) (constraint Constraint) (loc Loc)) (→ (Pair Evidence Checker))
       (threading ck ((hole (fresh-identity))
@@ -836,18 +828,17 @@
                        (expected (Option Type)))
       (→ (Pair Expr Checker))
       (! compile)
-      (let ((before (● ck pending-count)))
-        (threading ck ((callee (infer callee row))
-                       (then (result-context callee expected loc))
-                       (args (infer-arguments callee args row))
-                       (result (fresh-meta))
-                       (latent (fresh-meta))
-                       (then (unify-call (● callee type) args result latent loc))
-                       (then (improve-types before))
-                       (then (perform latent row loc)))
-                   (new Pair
-                     (first (new Expr (term (App callee args)) (type result) (loc loc)))
-                     (second ck)))))
+      (threading ck ((callee (infer callee row))
+                     (then (result-context callee expected loc))
+                     (args (infer-arguments callee args row))
+                     (result (fresh-meta))
+                     (latent (fresh-meta))
+                     (then (unify-call (● callee type) args result latent loc))
+                     (then (improve-types))
+                     (then (perform latent row loc)))
+                 (new Pair
+                   (first (new Expr (term (App callee args)) (type result) (loc loc)))
+                   (second ck))))
 
     ;; Check each initializer with its declared field type, including the
     ;; expected record's generic arguments. Only evaluation order is novel;
@@ -855,18 +846,15 @@
     (define (infer-new (ck Checker) (callee Expr) (fields (List Initializer))
                        (row Type) (loc Loc) (expected (Option Type)))
       (→ (Pair Expr Checker)) (! compile)
-      (let ((before (● ck pending-count)))
-        (threading ck ((callee (infer callee row)) (then (result-context callee expected loc)))
-                   (match (● callee type)
-                     ((TFun params result _)
-                      (threading ck ((fields (each (lambda (ck field)
-                                                     (check-initializer ck field params row))
-                                                   fields))
-                                     (then (improve-types before)))
-                                 (new Pair
-                                   (first (lower-new callee fields result loc))
-                                   (second ck))))
-                     (_ (panic "internal error: record constructor is not a function"))))))
+      (threading ck ((callee (infer callee row)) (then (result-context callee expected loc)))
+                 (match (● callee type)
+                   ((TFun params result _)
+                    (threading ck ((fields (each (lambda (ck field)
+                                                   (check-initializer ck field params row))
+                                                 fields))
+                                   (then (improve-types)))
+                               (new Pair (first (lower-new callee fields result loc)) (second ck))))
+                   (_ (panic "internal error: record constructor is not a function")))))
 
     (define (check-initializer (ck Checker) (field Initializer) (params (List Type)) (row Type))
       (→ (Pair Initializer Checker)) (! compile)
@@ -1436,51 +1424,49 @@
 
     (define (infer-field-read (ck Checker) (record Expr) (label String) (row Type) (loc Loc))
       (→ (Pair Expr Checker)) (! compile)
-      (let ((before (● ck pending-count)))
-        (threading ck ((record (infer record row))
-                       (result (fresh-meta))
-                       (hole (fresh-identity))
-                       (then
-                        (want (WantField (new Projection
-                                           (record record)
-                                           (label label)
-                                           (result result)
-                                           (row row)
-                                           (hole hole)
-                                           (loc loc)))))
-                       (then (improve-types before)))
-                   (new Pair
-                     (first
-                      (new Expr
-                        (term (FieldRead record label (Some hole)))
-                        (type result)
-                        (loc loc)))
-                     (second ck)))))
+      (threading ck ((record (infer record row))
+                     (result (fresh-meta))
+                     (hole (fresh-identity))
+                     (then (wait-for-field (new Projection
+                                             (record record)
+                                             (label label)
+                                             (result result)
+                                             (row row)
+                                             (hole hole)
+                                             (loc loc))))
+                     (then (improve-types)))
+                 (new Pair
+                   (first
+                    (new Expr (term (FieldRead record label (Some hole))) (type result) (loc loc)))
+                   (second ck))))
 
-    (define (projection-solved? (ck Checker) (projection Projection)) (→ Bool)
-      (table-contains? (● (solution ck) projections) (identity-key (● projection hole))))
+    ;; A selection is an obligation of the definition it is in, which keeps
+    ;; the types it mentions from being generalized, and waits for its
+    ;; receiver's type.
+
+    (define (wait-for-field (ck Checker) (projection Projection)) (→ Checker)
+      (Checker-waiting-set (want ck (WantField projection)) (Cons projection (● ck waiting))))
+
+    ;; A selection whose receiver's type is now known reads its field;
+    ;; one whose is not waits again.
 
     (define (improve-projection (ck Checker) (projection Projection)) (→ Checker) (! compile)
-      (if (projection-solved? ck projection) ck
-          (match (resolve-projection ck (● projection record) (● projection label)
-                                     (● projection loc))
-            ((None) ck)
-            ((Some (Pair value effects))
-             (threading ck ((then (unify (● projection result) (● value type) (● projection loc)))
-                            (then (perform effects (● projection row) (● projection loc))))
-                        (Checker-solution-set (Checker-unsolved-fields-set ck
-                                                                           (- (● ck unsolved-fields)
-                                                                              1))
-                                              (Solution-projections-set (solution ck)
-                                                                        (table-set (● (solution ck)
-                                                                                      projections)
-                                                                                   (identity-key
-                                                                                    (● projection
-                                                                                       hole))
-                                                                                   value))))))))
+      (match (resolve-projection ck (● projection record) (● projection label) (● projection loc))
+        ((None) (Checker-waiting-set ck (Cons projection (● ck waiting))))
+        ((Some (Pair value effects))
+         (threading ck ((then (unify (● projection result) (● value type) (● projection loc)))
+                        (then (perform effects (● projection row) (● projection loc))))
+                    (with-projection ck (● projection hole) value)))))
+
+    (define (with-projection (ck Checker) (hole I64) (value Expr)) (→ Checker)
+      (Checker-solution-set ck
+                            (Solution-projections-set (solution ck)
+                                                      (table-set (● (solution ck) projections)
+                                                                 (identity-key hole)
+                                                                 value))))
 
     (define (check-projection (ck Checker) (projection Projection)) (→ Unit) (! compile)
-      (unless (projection-solved? ck projection)
+      (unless (table-contains? (● (solution ck) projections) (identity-key (● projection hole)))
         (compile-error (● projection loc)
                        (string-append "field " (● projection label)
                                       " requires a known record type; annotate the receiver"))))
@@ -1532,13 +1518,11 @@
     ;; Field types are improved before and after literal defaulting.
 
     (define (solve-pending (ck Checker)) (→ Checker) (! compile)
-      (unless (= (● ck unsolved-fields) (length (waiting-fields ck (● ck pending))))
-        (panic "internal error: the checker miscounted its unsolved field selections"))
       (let ((pending (reverse (● ck pending))))
-        (threading ck ((then (improve-types 0))
+        (threading ck ((then (improve-types))
                        (then (default-literals pending #t))
                        (then (default-literals pending #f))
-                       (then (improve-types 0)))
+                       (then (improve-types)))
                    (for-each (lambda (want)
                                (match want
                                  ((WantField projection) (check-projection ck projection))
@@ -1626,43 +1610,13 @@
                      "; add a signature or an annotation"))
 
     ;; Field selections improve together: each result a selection
-    ;; establishes can determine another selection's receiver.
+    ;; establishes can determine another selection's receiver, so the
+    ;; waiting ones are retried, oldest first, until a round solves none.
 
-    (define (improve-types (ck Checker) (before I64)) (→ Checker) (! compile)
-      (let* ((count (- (● ck pending-count) before))
-             (recent (take (● ck pending) count))
-             (deferred (if (= (● ck unsolved-fields) (length (waiting-fields ck recent))) (Nil)
-                           (waiting-fields ck (list-drop (● ck pending) count))))
-             (wanted (reverse (append recent deferred))))
-        (let loop ((ck ck))
-          (let ((next (fold-left improve-output ck wanted)))
-            (if (types=? (improvement-types ck wanted) (improvement-types next wanted))
-                next (loop next))))))
-
-    ;; The field selections among `wanted` still waiting for their record's
-    ;; type. When the recent ones are all that wait, no older one is
-    ;; searched for.
-
-    (define (waiting-fields (ck Checker) (wanted (List Wanted))) (→ (List Wanted))
-      (filter (lambda (want)
-                (match want
-                  ((WantField projection) (not (projection-solved? ck projection)))
-                  (_ #f)))
-              wanted))
-
-    (define (improvement-types (ck Checker) (wanted (List Wanted))) (→ (List Type))
-      (concatenate (map (lambda (want)
-                          (match want
-                            ((WantField projection)
-                             (map (lambda (type) (resolve-type (solution ck) type))
-                                  (list (● projection record type) (● projection result)
-                                        (● projection row))))
-                            (_ (Nil)))) wanted)))
-
-    (define (improve-output (ck Checker) (want Wanted)) (→ Checker) (! compile)
-      (match want
-        ((WantField projection) (improve-projection ck projection))
-        (_ ck)))
+    (define (improve-types (ck Checker)) (→ Checker) (! compile)
+      (let* ((waiting (● ck waiting))
+             (ck (fold-left improve-projection (Checker-waiting-set ck (Nil)) (reverse waiting))))
+        (if (= (length (● ck waiting)) (length waiting)) ck (improve-types ck))))
 
     ;; Evidence from the enclosing definition's requirements, or from the
     ;; unique instance whose head matches. None while the types are ambiguous.
@@ -1964,15 +1918,18 @@
     ;; ---- Definitions ----
 
     ;; An unannotated group of mutually recursive definitions is inferred
-    ;; together and generalized. Typed function headers are checked directly.
+    ;; together and generalized over the obligations it raised, which it
+    ;; collects apart from the library's and then adds to them. Typed
+    ;; function headers are checked directly.
 
     (define (check-group (ck Checker) (definitions (List Item)) (exposed (List String)))
       (→ (Pair (List Item) Checker))
       (! compile)
-      (let ((before (● ck pending-count)))
-        (threading ck ((then (provisional-schemes definitions))
+      (let ((outer (● ck pending)))
+        (threading ck ((then (Checker-pending-set (Nil)))
+                       (then (provisional-schemes definitions))
                        (results (each infer-definition definitions))
-                       (then (generalize-group definitions before exposed)))
+                       (then (generalize definitions (● ck pending) exposed)))
                    (new Pair (first (map (lambda (pair)
                                            (Define (match (● pair first)
                                                      ((Define definition-name _)
@@ -1980,16 +1937,17 @@
                                                      (_ (panic "internal error: expected Define")))
                                              (● pair second)))
                                          (zip definitions results)))
-                        (second (Checker-open-set ck
-                                                  (append (map (lambda (definition)
-                                                                 (match definition
-                                                                   ((Define definition-name
-                                                                      _)
-                                                                    definition-name)
-                                                                   (_ (panic
-                                                                       "internal error: expected Define"))))
-                                                               definitions)
-                                                          (● ck open))))))))
+                        (second
+                         (Checker-open-set (Checker-pending-set ck (append (● ck pending) outer))
+                                           (append (map (lambda (definition)
+                                                          (match definition
+                                                            ((Define definition-name
+                                                               _)
+                                                             definition-name)
+                                                            (_ (panic
+                                                                "internal error: expected Define"))))
+                                                        definitions)
+                                                   (● ck open))))))))
 
     ;; Each definition in the group starts with a monomorphic metavariable, so
     ;; the group's members can refer to one another while it is inferred.
@@ -2002,14 +1960,6 @@
                                  (set-scheme ck definition-name (mono-scheme type))))
                      (_ (panic "internal error: expected Define"))))
                  ck definitions))
-
-    ;; Generalize an inferred function group over the constraints it raised.
-
-    (define (generalize-group (ck Checker) (definitions (List Item))
-                              (before I64) (exposed (List String)))
-      (→ Checker)
-      (generalize ck definitions
-                  (take (● ck pending) (- (● ck pending-count) before)) exposed))
 
     ;; An inferred function, checked against its recursive placeholder.
 
@@ -2344,8 +2294,7 @@
                      (solution empty-solution)
                      (schemes schemes)
                      (pending (Nil))
-                     (pending-count 0)
-                     (unsolved-fields 0)
+                     (waiting (Nil))
                      (open (Nil))
                      (performed (Nil)))))
         (threading ck ((typed (check-items items))
