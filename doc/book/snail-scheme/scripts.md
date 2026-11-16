@@ -157,9 +157,16 @@ documented once:
 The commands:
 
 - `snail-scheme build FLAGS FILE` builds `FILE`.
-- `snail-scheme run FLAGS FILE [ARGUMENT ...]` builds `FILE` exactly as `build`
-  does, then runs it. Its output stays on disk, so a failure can be diagnosed, and
-  future caching needs no new path.
+- `snail-scheme run FLAGS [--engine ENGINE] FILE [ARGUMENT ...]` builds `FILE`
+  exactly as `build` does, then runs it. Its output stays on disk, so a failure
+  can be diagnosed, and future caching needs no new path.
+
+A target names the capabilities a program may use, not the engine that runs
+it: every build but a page's runs on Node and on the native executable alike.
+`--engine node` or `--engine wasmtime` says which; without it, `run` uses the
+engine the target is named for, and Node for `portable`, which names none. A
+program built for `node` runs on wasmtime until it calls a capability only
+Node has, a process, a signal or a socket, which traps.
 - `snail-scheme lsp` and `snail-scheme format` are unchanged.
 
 A producer that calls the compiler passes the same flags, as a record, so a

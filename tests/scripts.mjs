@@ -37,6 +37,16 @@ try {
     assert.equal(ran.stdout, 'hello from src\none\ntwo words\n', `${target} runs the script with its arguments`);
   }
 
+  for (const flags of [['--target', 'portable'], ['--target', 'portable', '--engine', 'wasmtime'],
+    ['--engine', 'wasmtime', '--target', 'node'], ['--target', 'wasmtime', '--engine', 'node']]) {
+    const ran = await command('run', ...flags, 'apps/hello/main.scm', 'one');
+    assert.equal(ran.stdout, 'hello from src\none\n', `run ${flags.join(' ')} runs the script`);
+  }
+  await assert.rejects(command('run', '--target', 'node', '--engine', 'deno', 'apps/hello/main.scm'), /unknown engine deno/);
+  for (const action of ['build', 'wat'])
+    await assert.rejects(command(action, '--target', 'node', '--engine', 'node', 'apps/hello/main.scm'),
+      /--engine belongs to run/, `${action} takes no engine`);
+
   const debugSize = (await stat(join(generation, 'main.wasm'))).size;
   await command('build', '--release', '--target', 'node', 'apps/hello/main.scm');
   const release = await realpath(output);
@@ -53,7 +63,8 @@ try {
   assert.match(await readFile(join(page, 'index.html'), 'utf8'), /content="\.\/main\.wasm"/,
     'a page names its module');
   assert.ok((await readdir(page)).includes('host.mjs'), 'a page holds the browser host');
-  await assert.rejects(command('run', '--target', 'browser', 'apps/hello/main.scm'), /a page is not run here/);
+  for (const engine of [[], ['--engine', 'node']])
+    await assert.rejects(command('run', '--target', 'browser', ...engine, 'apps/hello/main.scm'), /a page is not run here/);
   await command('build', '--release', '--target', 'browser', 'apps/hello/main.scm');
   assert.match(await readFile(join(await realpath(output), 'index.html'), 'utf8'), /content="\.\/main\.wasm"/,
     'as a release page does');
