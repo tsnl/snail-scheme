@@ -1090,10 +1090,10 @@
     (define (infer-local-lambda (ck Checker) (value Expr) (type Type))
       (→ (Pair Expr Checker))
       (! compile)
-      (match (new Pair (first (● value term)) (second (fn-arrow type)))
+      (match (new Pair (first (● value term)) (second type))
         ((Pair (Lambda params body ) (TFun types _ _))
          (learning ck ((value (infer-lambda-at params body  types (● value loc)))
-                       (then (unify (fn-arrow type) (● value type) (● value loc))))
+                       (then (unify type (● value type) (● value loc))))
                    (new Pair
                      (first (new Expr (term (● value term)) (type type) (loc (● value loc))))
                      (second ck))))
@@ -2261,21 +2261,17 @@
     ;; A box must not hide a callable's effects. Boxing and downcasting
     ;; themselves introduce no effects.
 
-    (define (check-boxing (program Program) (item Item)) (→ Unit) (! compile)
+    (define (check-boxing (item Item)) (→ Unit) (! compile)
       (match item
-        ((Define _ value) (check-expression-boxing program value))
+        ((Define _ value) (check-expression-boxing value))
         (_ (unit))))
 
-    (define (check-expression-boxing (program Program) (expr Expr)) (→ Unit) (! compile)
+    (define (check-expression-boxing (expr Expr)) (→ Unit) (! compile)
       (match (● expr term)
-        ((BoxAny inner) (check-boxed-type program "Any" (● inner type) (● expr loc)))
-        ((Downcast _ target) (check-boxed-type program "downcast" target (● expr loc)))
+        ((BoxAny inner) (refuse-hidden-effects "Any" (● inner type) (● expr loc)))
+        ((Downcast _ target) (refuse-hidden-effects "downcast" target (● expr loc)))
         (_ (unit)))
-      (for-each (lambda (child) (check-expression-boxing program child)) (expr-children expr)))
-
-    (define (check-boxed-type (program Program) (form String) (type Type) (loc Loc))
-      (→ Unit) (! compile)
-      (refuse-hidden-effects form type loc))
+      (for-each check-expression-boxing (expr-children expr)))
 
     (define (refuse-hidden-effects (form String) (type Type) (loc Loc)) (→ Unit) (! compile)
       (match (hidden-effects type)
@@ -2424,10 +2420,9 @@
               (match definition
                 ((Define definition-name _)
                  (if (member? definition-name exposed)
-                     (match (fn-arrow
-                             (resolve-type (solution ck)
-                                           (scheme-type ck
-                                                        definition-name)))
+                     (match (resolve-type (solution ck)
+                                          (scheme-type ck
+                                                       definition-name))
                        ((TFun _ _ row)
                         (free-metas (solution ck) row))
                        (_ (Nil)))
@@ -2520,7 +2515,7 @@
       (match definition
         ((Define definition-name definition-value)
          (match (new Pair (first (signature-loc (program-of ck) definition-name))
-                     (second (fn-arrow (● scheme type))))
+                     (second (● scheme type)))
            ((Pair (Some loc) (TFun _ _ row))
             (if (lambda-expr? definition-value)
                 (want ck (WantPerformed definition-name row (● ck performed) loc)) ck))
@@ -2604,7 +2599,7 @@
     (define (check-exposed-type (ck Checker) (type Type) (loc Loc))
       (→ Checker)
       (! compile)
-      (match (fn-arrow type)
+      (match type
         ((TFun _ _ row) (check-host-effects ck row loc))
         (_ (compile-error loc "an exposed function must be a monomorphic function"))))
 
@@ -2668,7 +2663,7 @@
                          (new Typed (program program)
                               (items (map (lambda (item) (zonk-item (solution ck) item)) typed))
                               (schemes (final-schemes ck items)))))
-                    (for-each (lambda (item) (check-boxing program item)) (● result items))
+                    (for-each check-boxing (● result items))
                     (check-final result)
                     result))))
 

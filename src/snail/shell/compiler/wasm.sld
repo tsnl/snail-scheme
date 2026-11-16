@@ -429,7 +429,7 @@
         ((None) (panic "internal error: closure without a code type"))))
 
     (define (function-signature (m Module) (type Type)) (→ (Pair (List Rep) Rep)) (! mut)
-      (match (fn-arrow type)
+      (match type
         ((TFun params result _)
          (new Pair (first (map (lambda (param) (rep m param)) params)) (second (rep m result))))
         (_ (panic "internal error: not a function type"))))
@@ -862,7 +862,7 @@
     (define (function-value (m Module) (name String) (type Type)) (→ Wat) (! mut)
       (memoize! m (string-append "closure:" name ":" (type-key type))
                 (lambda ()
-                  (match (fn-arrow type)
+                  (match type
                     ((TFun params result _)
                      (let* ((names
                              (map (lambda (index) (string-append "argument." (i64->string index)))
@@ -1152,7 +1152,7 @@
       (→ (List Wat))
       (! mut)
       (let* ((m (● fn module))
-             (signature (function-signature m (procedure-type (● callee type))))
+             (signature (function-signature m (● callee type)))
              (base (closure-type m (● signature first) (● signature second)))
              (value (emit1 fn callee)))
         (if (variable-read? value)
@@ -1164,9 +1164,6 @@
                                       (wat "local.get" (id temp))
                                       (Cons (● fn evidence) (emit-args fn args))
                                       tail?))))))
-
-    (define (procedure-type (type Type)) (→ Type)
-      (fn-arrow type))
 
     ;; The arguments begin with the evidence.
 
@@ -1515,7 +1512,7 @@
                             (wat "ref.cast" (ref-wat some) read)))))))
 
     (define (exposed-function (m Module) (name String) (type Type)) (→ String) (! mut)
-      (match (fn-arrow type)
+      (match type
         ((TFun params result _) (handover-wrapper! m name params result))
         (_ (panic "internal error: exposed value is not a function"))))
 
@@ -2107,15 +2104,6 @@
     (define (answers-never? (m Module) (operation String)) (→ Bool)
       (never-type? (operation-result m operation)))
 
-    ;; The implementations are values of the surrounding evidence; the body
-    ;; runs with the new node as its evidence. A handle of a control effect
-    ;; also catches the yields aimed at its node (see Control).
-
-    (define (emit-handle (fn Fn) (expr Expr) (effect String)
-                         (implementations (List (Pair String Expr))) (body Expr))
-      (→ (List Wat)) (! mut)
-      (emit-control-handle fn expr effect implementations body))
-
     ;; A new evidence node in a local: the local's name, and the instruction
     ;; that sets it to the node holding the handler.
 
@@ -2311,7 +2299,7 @@
       (ToRunner))
 
     (define (function-exit (type Type)) (→ (Option Exit))
-      (match (fn-arrow type)
+      (match type
         ((TFun _ result _) (Some (ToCaller result)))
         (_ (panic "internal error: not a function type"))))
 
@@ -2646,17 +2634,19 @@
                                       (map (lambda (param) (wat "field" (rep->wat param)))
                                            params))))))))
 
-    ;; A handle of a control effect runs its body in a block, which a yield
-    ;; leaves by branching to its end with zero or null. There the handle
-    ;; catches a yield aimed at its own node; any other yield leaves the
-    ;; inactive result as the handle's value, and the record set for its caller,
-    ;; with the handle saved as a frame of its own (see Resuming).
+    ;; The implementations are values of the surrounding evidence; the body
+    ;; runs with the new node as its evidence. A handle of a control effect
+    ;; runs its body in a block, which a yield leaves by branching to its end
+    ;; with zero or null. There the handle catches a yield aimed at its own
+    ;; node; any other yield leaves the inactive result as the handle's value,
+    ;; and the record set for its caller, with the handle saved as a frame of
+    ;; its own (see Resuming).
 
-    (define (emit-control-handle (fn Fn)
-                                 (expr Expr)
-                                 (effect String)
-                                 (implementations (List (Pair String Expr)))
-                                 (body Expr))
+    (define (emit-handle (fn Fn)
+                         (expr Expr)
+                         (effect String)
+                         (implementations (List (Pair String Expr)))
+                         (body Expr))
       (→ (List Wat))
       (! mut)
       (let* ((info (program-effect (program-of (● fn module)) effect))
@@ -3092,9 +3082,9 @@
     ;; yield after the implementation is resumed is re-aimed too. Resumed
     ;; elsewhere, the implementation keeps the evidence outside its handler,
     ;; whose handles may have returned; that is sound because its yields go
-    ;; only to forwarded effects (see control.sld), so only ordinary
-    ;; operations reach that evidence. The builtin effects, mut and host,
-    ;; which no evidence carries, need no node.
+    ;; only to forwarded effects (see Restrictions in prepare.sld), so only
+    ;; ordinary operations reach that evidence. The builtin effects, mut and
+    ;; host, which no evidence carries, need no node.
 
     (define (forwarded-effects (m Module) (operation String)) (→ (List Effect))
       (match (program-value (program-of m) operation)

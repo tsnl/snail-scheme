@@ -27,7 +27,6 @@
    Mark
    syntax-loc
    datum=?
-   bytes=?
    datum->string
    syntax->string
    compile-error

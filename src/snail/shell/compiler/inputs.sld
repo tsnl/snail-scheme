@@ -10,7 +10,6 @@
    request-input
    publish-request
    generated-syntax
-   print-producer
    generating-stack
    read-source-file)
   (import
