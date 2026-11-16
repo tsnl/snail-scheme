@@ -1,0 +1,45 @@
+;; Shaders as S-expressions printed to WGSL: every kind of form once, and a
+;; mistake reported at its place.
+(import
+ (snail core base)
+ (snail core io)
+ (snail shell compiler read)
+ (snail shell graphics wgsl))
+
+(define shader
+  "(enable f16)
+(alias Color vec4f)
+(struct VertexOut
+  ((@builtin position) position vec4f)
+  ((@location 0) uv vec2f))
+((var uniform) (@group 0) (@binding 0) (camera Camera))
+((var storage read) (@group 0) (@binding 1) (lights (array Light)))
+(const steps 4)
+(fn (@vertex) vertex_main (((@builtin vertex_index) index u32) (base f32))
+    (-> VertexOut)
+  (var (out VertexOut))
+  (let corner ((vec2 f32) (f32 (bit-and index 1u)) (f32 (>> index 1u))))
+  (= (get out position) ((vec4 f32) (- (* corner 2.0) 1.0) 0.0 1.0))
+  (= (get out uv) corner)
+  (return out))
+(fn (@fragment) fragment_main ((in VertexOut)) (-> (@location 0) Color)
+  (var total 0.0)
+  (for ((var i 0) (< i steps) (+= i 1))
+    (if ((== (at (get camera mask) i) 0) (continue))
+        ((and (> total 1.0) (not (get camera keep))) (break))
+        (else (+= total (* 0.25 (get in uv x))))))
+  (loop (if ((>= total 0.0) (break))))
+  (while (< total 0.0) (= total (- total)))
+  (if ((< total 0.0) (discard)))
+  (return ((vec4 f32) total (f32 ((bitcast u32) total)) ((bitcast f32) (bit-or 1u 2u)) 1.0)))")
+
+(define (printed (text String)) (→ String)
+  (match (compiling (lambda () (wgsl-text (read-text text "shader"))))
+    ((Ok wgsl) wgsl)
+    ((Err (Failed diagnostics)) (diagnostics->string diagnostics))
+    ((Err _) "requested")))
+
+(write-string (printed shader))
+(write-line (printed "(fn main (x) (return x))"))
+(write-line (printed "(struct S (x))"))
+(write-line (printed "(fn main () (return \"text\"))"))

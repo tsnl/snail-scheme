@@ -2,9 +2,10 @@
 
 Applications send `Frame` values to `host/browser/renderer.mjs`, a fixed
 JavaScript renderer. This design replaces it with two layers written in
-`snail-scheme`: a `gpu` effect that is a thin wrapper around WebGPU,
-**implemented**, and `(snail shell graphics ...)` libraries of pipelines and
-packers on top of it, **proposed**. Delivery is tracked in
+`snail-scheme`: a `gpu` effect that is a thin wrapper around WebGPU, and
+`(snail shell graphics ...)` libraries of pipelines and packers on top of
+it. The effect, `pod` and `wgsl` are **implemented**; the other libraries
+are **proposed**. Delivery is tracked in
 [the graphics issue](https://github.com/tsnl/snail-scheme/issues/463).
 
 Device requests, decoding, pipeline creation and readbacks need only ordinary
@@ -75,6 +76,27 @@ keeps only a table from id to object:
   small scalar calls. A pipeline's layout is WebGPU's `"auto"`, so a bind
   group is made against a pipeline and a group index.
 
+## Pod and WGSL
+
+A record of `F32`, `I32`, WGSL's vectors (`Vec2f`, `Vec3f`, `Vec4f`,
+`Vec2i`, `Vec4i`), `Mat4x4f` and other such records derives `Pod`. Its
+`Shape`, found by type with `(shape)`, holds its WGSL layout: offsets by
+WGSL's rules, so a `vec3f` aligns to 16 and an `f32` may follow it in the
+same 16 bytes; the struct declarations it needs; and, for a vertex buffer,
+`vertex-layout`'s attributes. `pack` writes a list of values at the
+shape's stride, and `pod-bytes` one value. `derive-pod` is a macro beside
+the class, as the other derivations are; a deriving macro receives each
+field's type, so a shape needs no value.
+
+A shader is a file of forms, one per WGSL construct, which
+`shader-library` prints when its recipe runs; its header in
+`src/snail/shell/graphics/wgsl.sld` tabulates the forms. A form the
+printer does not know fails the build at its line. The device test
+(`tests/gpu/`) draws with a shader from `src/gpu-test/paint.wgsl.scm` and a
+uniform from a `Pod` record, so the browser's WGSL compiler checks what the
+printer writes; `tests/programs/graphics-wgsl.sld` and `graphics-pod.sld`
+check the printing and the layouts.
+
 ## The `graphics` libraries
 
 The graphics libraries are middleware: composable WebGPU pipelines and packers
@@ -92,8 +114,8 @@ Each row is `(snail shell graphics NAME)`:
 
 | Library | Provides |
 | --- | --- |
-| `pod` | `(deriving Pod)` on a record gives its WGSL layout and alignment, a packer from a list to `Bytes`, and its WGSL declaration, one source of truth for each shader interface. |
-| `wgsl` | Shaders as S-expressions: one-to-one with WGSL, read from source files by build-time recipes and printed to WGSL text, with struct declarations from `Pod`. |
+| `pod` | `(deriving Pod)` on a record gives its WGSL layout and alignment, a packer from a list to `Bytes`, its vertex attributes and its WGSL declaration, one source of truth for each shader interface. **Implemented.** |
+| `wgsl` | Shaders as S-expressions: one-to-one with WGSL, read from source files by build-time recipes and printed to WGSL text, with struct declarations from `Pod`. **Implemented.** |
 | `mesh` | The flat glTF-shaped model as records and packers: geometry, material, instance, transform and indirect-draw tables, and lights. |
 | `atlas` | Texture-array pages with padded slots, slot tables, mips, and texture encoders, uncompressed first. |
 | `raster` | A deferred G-buffer pipeline with configurable targets: depth, normal, albedo, metal-roughness, emissive, ids and motion. |
@@ -133,5 +155,6 @@ heaps start uncompressed; a later `reset` may choose BC.
 - Images are decoded by the host behind `decode-image`, a host operation
   that waits, rather than in `snail-scheme`.
 - `update` stays total: prefetching happens from `view`.
-- Open: shader sources as S-expression files compiled by `generate-library`
-  recipes, the default here, or as S-expressions built in `snail-scheme` code.
+- Shader sources are S-expression files printed by `generate-library`
+  recipes, since a quoted form is a literal only. A shader's structs come
+  from `Pod` at run time: `(string-append (declarations shape) shader)`.

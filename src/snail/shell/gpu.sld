@@ -127,6 +127,9 @@
    Uint32x2
    Uint32x3
    Uint32x4
+   Sint32
+   Sint32x2
+   Sint32x4
    Unorm8x4
    VertexAttribute
    VertexStep
@@ -463,6 +466,9 @@
       (Uint32x2)
       (Uint32x3)
       (Uint32x4)
+      (Sint32)
+      (Sint32x2)
+      (Sint32x4)
       (Unorm8x4))
 
     (record VertexAttribute
@@ -1081,6 +1087,9 @@
         ((Uint32x2) "uint32x2")
         ((Uint32x3) "uint32x3")
         ((Uint32x4) "uint32x4")
+        ((Sint32) "sint32")
+        ((Sint32x2) "sint32x2")
+        ((Sint32x4) "sint32x4")
         ((Unorm8x4) "unorm8x4")))
 
     (define (layout-json (layout VertexBufferLayout)) (→ Json)
