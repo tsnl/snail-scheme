@@ -83,12 +83,13 @@ effect left in the row after those handlers is a build error naming each
 capability the target lacks. An effect the program handles itself, such as
 the compiler's `compile`, never reaches the target.
 
-The handlers answer by calling the host: every `extern` declares
-`unsafe-extern`, a marker effect with no operations, in its type, so no
-foreign call looks pure. It is the one effect the runtime itself provides.
-The handful of foreign functions that were pure, the math functions,
-Unicode tables and float printing, have moved into `snail-scheme` code, so no
-declaration claims purity across the boundary.
+The handlers answer by calling the host through `extern` imports. An
+extern's type is its library author's claim, trusted as written, and calling
+one needs no effect: a file or socket extern is declared as a plain function,
+and its library keeps it behind the capability's handler, so code outside
+sees only `fs` or `tcp`. Building a sensible abstraction over its externs is
+the library's job. The foreign functions that were pure, the math functions,
+Unicode tables and float printing, have moved into `snail-scheme` code.
 
 Code meant for several targets asks only for the capabilities it uses. A library
 that writes text needs `output-port`, not "Node", so any target whose handlers
@@ -291,7 +292,9 @@ Each step is a pull request that passes every check on its own.
      start and each exposed function, may leave only `mut` and `host`
      unhandled, and anything else is an error naming the effect; an
      operation that reaches no handler at run time panics.
-   - `host` becomes `unsafe-extern`, which every `extern` declares.
+   - Externs keep the types their libraries declare: no `unsafe-extern`.
+     A capability's handler is the abstraction around its externs, and
+     `host` stays the builtin row of the entry and the scheduler.
 6. **Release builds fully linked,** with `wasm-opt` from Binaryen.
 7. **Applications become scripts.**
    - Prototype the page's top level as a task.

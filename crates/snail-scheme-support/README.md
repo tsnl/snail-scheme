@@ -36,8 +36,7 @@ The crate is what lies beneath `(snail core …)`, and it can shrink:
   memory 0 to call WASI through externs itself. Those primitives generalize
   the shared-memory layer of #553.
 
-The pure services have moved already, so no foreign function is pure and
-every `extern` can declare `unsafe-extern`
+The pure services have moved already
 ([scripts](../../doc/book/snail-scheme/scripts.md)). The crate's
 `unicode-tables` example (`make unicode-tables`) writes the Unicode
 properties and case mapping as constant arrays, `(snail shell text unicode)`;
