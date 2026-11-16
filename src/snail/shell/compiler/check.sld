@@ -32,7 +32,6 @@
        (solution Solution)
        (schemes (Table Scheme))
        (pending (List Wanted))
-       (pending-count I64)
        (waiting (List Projection))
        (open (List String))
        (performed (List Type))))
@@ -52,7 +51,6 @@
            (solution (● inner solution))
            (schemes (● inner schemes))
            (pending (● inner pending))
-           (pending-count (● inner pending-count))
            (waiting (● inner waiting))
            (open (● inner open))
            (performed (● inner performed))))
@@ -536,8 +534,7 @@
     ;; ---- Instantiation ----
 
     (define (want (ck Checker) (wanted Wanted)) (→ Checker)
-      (Checker-pending-count-set (Checker-pending-set ck (Cons wanted (● ck pending)))
-                                 (+ (● ck pending-count) 1)))
+      (Checker-pending-set ck (Cons wanted (● ck pending))))
 
     (define (want-class (ck Checker) (constraint Constraint) (loc Loc)) (→ (Pair Evidence Checker))
       (threading ck ((hole (fresh-identity))
@@ -1450,9 +1447,6 @@
     (define (wait-for-field (ck Checker) (projection Projection)) (→ Checker)
       (Checker-waiting-set (want ck (WantField projection)) (Cons projection (● ck waiting))))
 
-    (define (projection-solved? (ck Checker) (projection Projection)) (→ Bool)
-      (table-contains? (● (solution ck) projections) (identity-key (● projection hole))))
-
     ;; A selection whose receiver's type is now known reads its field;
     ;; one whose is not waits again.
 
@@ -1462,17 +1456,17 @@
         ((Some (Pair value effects))
          (threading ck ((then (unify (● projection result) (● value type) (● projection loc)))
                         (then (perform effects (● projection row) (● projection loc))))
-                    (Checker-solution-set ck (solved-projection (solution ck) projection value))))))
+                    (with-projection ck (● projection hole) value)))))
 
-    (define (solved-projection (solution Solution) (projection Projection) (value Expr))
-      (→ Solution)
-      (Solution-projections-set solution
-                                (table-set (● solution projections)
-                                           (identity-key (● projection hole))
-                                           value)))
+    (define (with-projection (ck Checker) (hole I64) (value Expr)) (→ Checker)
+      (Checker-solution-set ck
+                            (Solution-projections-set (solution ck)
+                                                      (table-set (● (solution ck) projections)
+                                                                 (identity-key hole)
+                                                                 value))))
 
     (define (check-projection (ck Checker) (projection Projection)) (→ Unit) (! compile)
-      (unless (projection-solved? ck projection)
+      (unless (table-contains? (● (solution ck) projections) (identity-key (● projection hole)))
         (compile-error (● projection loc)
                        (string-append "field " (● projection label)
                                       " requires a known record type; annotate the receiver"))))
@@ -1930,22 +1924,26 @@
        (value Expr)))
 
     ;; An unannotated group of mutually recursive definitions is inferred
-    ;; together and generalized. Typed function headers are checked directly.
+    ;; together and generalized over the obligations it raised, which it
+    ;; collects apart from the library's and then adds to them. Typed
+    ;; function headers are checked directly.
 
     (define (check-group (ck Checker) (definitions (List Definition)) (exposed (List String)))
       (→ (Pair (List Definition) Checker))
       (! compile)
-      (let ((before (● ck pending-count)))
-        (threading ck ((then (provisional-schemes definitions))
+      (let ((outer (● ck pending)))
+        (threading ck ((then (Checker-pending-set (Nil)))
+                       (then (provisional-schemes definitions))
                        (values (each infer-definition definitions))
-                       (then (generalize-group definitions before exposed)))
+                       (then (generalize definitions (● ck pending) exposed)))
                    (new Pair
                      (first
                       (map (lambda (pair) (Definition-value-set (● pair first) (● pair second)))
                            (zip definitions values)))
-                     (second (Checker-open-set ck
-                                               (append (definition-names definitions)
-                                                       (● ck open))))))))
+                     (second
+                      (Checker-open-set (Checker-pending-set ck (append (● ck pending) outer))
+                                        (append (definition-names definitions)
+                                                (● ck open))))))))
 
     (define (definition-names (definitions (List Definition))) (→ (List String))
       (map (lambda (definition) (● definition name)) definitions))
@@ -1958,14 +1956,6 @@
                    (threading ck ((type (local-placeholder (● definition value))))
                               (set-scheme ck (● definition name) (mono-scheme type))))
                  ck definitions))
-
-    ;; Generalize an inferred function group over the constraints it raised.
-
-    (define (generalize-group (ck Checker) (definitions (List Definition))
-                              (before I64) (exposed (List String)))
-      (→ Checker)
-      (generalize ck definitions
-                  (take (● ck pending) (- (● ck pending-count) before)) exposed))
 
     ;; An inferred function, checked against its recursive placeholder.
 
@@ -2273,7 +2263,6 @@
                      (solution empty-solution)
                      (schemes schemes)
                      (pending (Nil))
-                     (pending-count 0)
                      (waiting (Nil))
                      (open (Nil))
                      (performed (Nil)))))
