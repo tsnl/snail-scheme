@@ -242,37 +242,6 @@
            (top-count (● inner top-count))
            (deriving (● inner deriving))))
 
-    ;; A sequence of steps that each take the context and hand it back,
-    ;; written as `let*` is, as `learning` threads the checker in check.sld.
-    ;; `(name (step argument ...))` binds the step's value;
-    ;; `(then (step argument ...))` is for a step that hands back the
-    ;; context alone. Every step is a call, with the context passed as its
-    ;; first argument, and the context is named by an identifier: each step
-    ;; rebinds that name, so the body and every later step see the newest
-    ;; one and nothing can read a context a step has moved past.
-    (define-syntax expanding
-      (syntax-rules (then)
-        ((_ cx () body ...) (begin body ...))
-        ((_ cx ((then (f argument ...)) step ...) body ...)
-         (let ((cx (f cx argument ...))) (expanding cx (step ...) body ...)))
-        ((_ cx ((name (f argument ...)) step ...) body ...)
-         (match (f cx argument ...)
-           ((Pair name cx) (expanding cx (step ...) body ...))))))
-
-    ;; `step` over each item in order, threading the context and collecting
-    ;; the values, so a sequence of steps is itself one step.
-
-    (define (each (cx Context) (step (Fn Context A → (Pair B Context) ! e)) (items (List A)))
-      (→ (Pair (List B) Context))
-      (! e)
-      (∀ (A B e))
-      (let ((done (fold-left (lambda (done item)
-                               (match (step (● done second) item)
-                                 ((Pair value cx)
-                                  (new Pair (first (Cons value (● done first))) (second cx)))))
-                             (new Pair (first (Nil)) (second cx)) items)))
-        (new Pair (first (reverse (● done first))) (second (● done second)))))
-
     (type Exports (List (Pair String Binding)))
 
     ;; A file a library links rather than embeds, which the build places
@@ -752,7 +721,7 @@
     (define (expand-sections (cx Context) (sections (List (Pair String (List Syntax)))))
       (→ (Pair Exports Context))
       (! fs compile generator)
-      (expanding cx ((env (import-env (section-items sections "import"))))
+      (threading cx ((env (import-env (section-items sections "import"))))
                  (let ((cx (Context-items-set (Context-links-set cx (Nil)) (Nil))))
                    (expand-recorded cx sections env))))
 
@@ -801,7 +770,7 @@
     (define (with-entry (cx Context)) (→ Context) (! fs compile generator)
       (match (new Pair (first (● cx target)) (second (entry-loc cx)))
         ((Pair (Some library) (Some loc))
-         (expanding cx ((exports (load-library library loc)))
+         (threading cx ((exports (load-library library loc)))
                     (with-target-exposures
                      (with-target-main cx (target-function exports library "start" loc))
                      (target-function exports library "provide" loc))))
@@ -875,7 +844,7 @@
         ((Expose name symbol loc)
          (match (exposed-arity cx name)
            ((Some arity)
-            (expanding cx ((params (each (lambda (cx index) (fresh cx "argument")) (iota arity))))
+            (threading cx ((params (each (lambda (cx index) (fresh cx "argument")) (iota arity))))
                        (let* ((var (lambda (name) (expr (Var name (Nil) (Nil)) loc)))
                               (call (expr (App (var name) (map var params)) loc))
                               (body (App (var provide) (list (expr (Lambda (Nil) call) loc))))
@@ -1030,7 +999,7 @@
                              (sections (List (Pair String (List Syntax))))
                              (env Env))
       (→ (Pair Exports Context)) (! fs compile generator)
-      (expanding cx ((exports (expand-library-body sections env))
+      (threading cx ((exports (expand-library-body sections env))
                      (links (bind-links (reverse (● cx links)))))
                  (new Pair (first exports)
                       (second (Context-expanded-set cx
@@ -1058,7 +1027,7 @@
         (match specs
           ((Nil) (new-top cx imports))
           ((Cons spec rest)
-           (expanding cx ((entries (import-set spec)))
+           (threading cx ((entries (import-set spec)))
                       (loop cx
                             rest
                             (fold-left (lambda (imports entry)
@@ -1084,19 +1053,19 @@
       (match spec
         ((Form (Cons (Ident "only" _ _) (Cons inner idents)) _)
          (let ((names (ident-names idents)))
-           (expanding cx ((entries (checked-import-set inner idents)))
+           (threading cx ((entries (checked-import-set inner idents)))
                       (new Pair
                         (first (filter (lambda (entry) (member? (● entry first) names)) entries))
                         (second cx)))))
         ((Form (Cons (Ident "except" _ _) (Cons inner idents)) _)
          (let ((names (ident-names idents)))
-           (expanding cx ((entries (checked-import-set inner idents)))
+           (threading cx ((entries (checked-import-set inner idents)))
                       (new Pair
                         (first
                          (filter (lambda (entry) (not (member? (● entry first) names))) entries))
                         (second cx)))))
         ((Form (Cons (Ident "prefix" _ _) (Cons inner (Cons (Ident prefix _ _) (Nil)))) _)
-         (expanding cx ((entries (import-set inner)))
+         (threading cx ((entries (import-set inner)))
                     (new Pair (first (map (lambda (entry)
                                             (new Pair (first (string-append prefix (● entry first)))
                                                  (second (● entry second))))
@@ -1104,7 +1073,7 @@
                          (second cx))))
         ((Form (Cons (Ident "rename" _ _) (Cons inner pairs)) _)
          (let ((renames (map rename-pair pairs)))
-           (expanding cx ((entries (checked-import-set inner
+           (threading cx ((entries (checked-import-set inner
                                                        (map (lambda (pair)
                                                               (match pair
                                                                 ((Form (Cons from _) _) from)
@@ -1124,7 +1093,7 @@
     (define (checked-import-set (cx Context) (spec Syntax) (idents (List Syntax)))
       (→ (Pair Exports Context))
       (! fs compile generator)
-      (expanding cx ((entries (import-set spec)))
+      (threading cx ((entries (import-set spec)))
                  (for-each (lambda (ident)
                              (match ident
                                ((Ident identifier-name _ _)
@@ -1381,13 +1350,13 @@
     (define (expand-top-level (cx Context) (env Env) (forms (List Syntax)))
       (→ Context)
       (! fs compile generator)
-      (expanding cx ((scanned (each (lambda (cx form) (scan-top-level cx env form)) forms))
+      (threading cx ((scanned (each (lambda (cx form) (scan-top-level cx env form)) forms))
                      (pending (with-statements env (concatenate scanned))))
                  (let* ((signatures
                          (fold-left (lambda (table entry) (with-signature cx table entry))
                                     (empty-table)
                                     pending)))
-                   (expanding cx ((bodies (each (lambda (cx entry) (declare cx signatures entry))
+                   (threading cx ((bodies (each (lambda (cx entry) (declare cx signatures entry))
                                                 pending)))
                               (check-buildable-records cx pending)
                               (expand-bodies cx (concatenate bodies))))))
@@ -1525,7 +1494,7 @@
 
     (define (scan-top-level (cx Context) (env Env) (form Syntax))
       (→ (Pair (List Pending) Context)) (! fs compile generator)
-      (expanding cx ((form (expand-head env form)))
+      (threading cx ((form (expand-head env form)))
                  (scan-top-level-form cx env form)))
 
     (define (scan-top-level-form (cx Context) (env Env) (form Syntax))
@@ -1533,7 +1502,7 @@
       (! fs compile generator)
       (match (head-binding cx env form)
         ((Some (Core "begin"))
-         (expanding cx ((scanned (each (lambda (cx item) (scan-top-level cx env item))
+         (threading cx ((scanned (each (lambda (cx item) (scan-top-level cx env item))
                                        (form-tail form))))
                     (new Pair (first (concatenate scanned)) (second cx))))
 
@@ -1573,9 +1542,9 @@
     (define (scan-declared (cx Context) (env Env) (keyword String) (form Syntax))
       (→ (Pair (List Pending) Context))
       (! fs compile generator)
-      (expanding cx ((then (scan-declaration env keyword form)))
+      (threading cx ((then (scan-declaration env keyword form)))
                  (if (or (string=? keyword "record") (string=? keyword "enum"))
-                     (expanding cx ((derived (derived-instances form (string=? keyword "enum")))
+                     (threading cx ((derived (derived-instances form (string=? keyword "enum")))
                                     (scanned
                                      (each (lambda (cx instance) (scan-top-level cx env instance))
                                            derived)))
@@ -1651,7 +1620,7 @@
       (→ Context) (! compile)
       (let ((name (global-binding cx env (● definition name))))
         (check-signature cx (table-ref signatures name))
-        (expanding cx ((value (definition-value env definition)))
+        (threading cx ((value (definition-value env definition)))
                    (check-global-function value)
                    (let ((binding (match (table-ref signatures name)
                                     ((Some (Pair scheme loc)) (Defined (Some scheme) loc ))
@@ -2097,7 +2066,7 @@
                                                                                 "internal error: expected Ident"))))
                                                           params))))
              (scope (EvidenceScope (list self) (type-scope env params))))
-        (expanding cx ((methods (each (lambda (cx signature)
+        (threading cx ((methods (each (lambda (cx signature)
                                         (declare-method cx env scope id params self signature))
                                       (filter (lambda (form) (not (associated-form? form)))
                                               (list-drop (form-tail form) 1)))))
@@ -2181,7 +2150,7 @@
       (match form
         ((Form (Cons _ (Cons (Form (Cons class-ident type-args) _) body)) loc)
          (let ((parts (split-requires body)))
-           (expanding cx ((class (instance-class env class-ident))
+           (threading cx ((class (instance-class env class-ident))
                           (declared (declared-instance env class type-args (● parts first)
                                                        (filter associated-form? (● parts second))
                                                        loc))
@@ -2387,7 +2356,7 @@
                            (- (length (● class params)) (length (● class outputs))))))
           (compile-error loc
                          "instance head gives each declared class parameter; associated types belong in its body"))
-        (expanding cx ((name (fresh-global (short-name (● class name)))))
+        (threading cx ((name (fresh-global (short-name (● class name)))))
                    (new Pair
                      (first (new Pair
                               (first (new Instance
@@ -2429,7 +2398,7 @@
         (_ (compile-error (syntax-loc syntax) "expected (type Output Type)"))))
 
     (define (fresh-global (cx Context) (base String)) (→ (Pair String Context))
-      (expanding cx ((name (fresh base)))
+      (threading cx ((name (fresh base)))
                  (new Pair (first (global-name cx name)) (second cx))))
 
     ;; A body may start with `(⊨ (Class type ...) ...)`.
@@ -2455,11 +2424,11 @@
       (let* ((parsed (parse-definition definition))
              (method (instance-method-name class (● parsed name)))
              (scheme (instance-method-scheme (● cx program) class method instance)))
-        (expanding cx ((global (fresh-global (short-name method)))
+        (threading cx ((global (fresh-global (short-name method)))
                        (then (add-value global (Defined (Some scheme) (None) ))))
                    (new Pair (first (new MethodDefinition (method method) (global global)
                                          (expand (lambda (cx)
-                                                   (expanding cx ((value (instance-method-value env
+                                                   (threading cx ((value (instance-method-value env
                                                                                                 instance
                                                                                                 scheme
                                                                                                 parsed)))
@@ -2484,7 +2453,7 @@
       (→ (Pair Expr Context)) (! compile)
       (match (● (● definition header) result)
         ((None)
-         (expanding cx ((value (definition-value env definition)))
+         (threading cx ((value (definition-value env definition)))
                     (check-global-function value)
                     (new Pair (first value) (second cx))))
         ((Some _)
@@ -2496,7 +2465,7 @@
            (let* ((substitution (zip (● own vars) (map TRigid names)))
                   (scope (instance-method-scope env definition own substitution)))
              (check-method-requirements own expected substitution (● definition loc))
-             (expanding cx ((value (expand-definition-body scope definition)))
+             (threading cx ((value (expand-definition-body scope definition)))
                         (check-global-function value)
                         (new Pair (first (expr (Ann value (substitute substitution (● own type)))
                                                (● definition loc))) (second cx))))))))
@@ -2640,7 +2609,7 @@
          (let ((id (match (resolve cx env name)
                      ((Some (EffectName id)) id)
                      (_ (panic "internal error: effect")))))
-           (expanding cx ((declared
+           (threading cx ((declared
                            (each (lambda (cx operation) (declare-operation cx env id operation))
                                  (form-items operations "a list of operations"))))
                       (Context-program-set
@@ -3059,7 +3028,7 @@
       (! compile)
       (match (head-binding cx env syntax)
         ((Some (Macro _ literals rules scope))
-         (expanding cx ((expanded (apply-macro env syntax literals rules scope)))
+         (threading cx ((expanded (apply-macro env syntax literals rules scope)))
                     (expand-head cx env expanded)))
         (_ (new Pair (first syntax) (second cx)))))
 
@@ -3067,7 +3036,7 @@
       (new Expr (term term) (type (unchecked)) (loc loc)))
 
     (define (expand-expr (cx Context) (env Env) (syntax Syntax)) (→ (Pair Expr Context)) (! compile)
-      (expanding cx ((syntax (expand-head env syntax)))
+      (threading cx ((syntax (expand-head env syntax)))
                  (match syntax
                    ((Atom value loc) (new Pair (first (expr (Lit value) loc)) (second cx)))
                    ((Ident _ _ loc)
@@ -3085,10 +3054,10 @@
            ((Some (TypeName "Any" _ _))
             (match args
               ((Cons value (Nil))
-               (expanding cx ((value (expand-expr env value)))
+               (threading cx ((value (expand-expr env value)))
                           (new Pair (first (expr (BoxAny value) loc)) (second cx))))
               (_ (compile-error loc "expected (Any expression)"))))
-           (_ (expanding cx ((callee (expand-expr env head))
+           (_ (threading cx ((callee (expand-expr env head))
                              (arguments (expand-each env args)))
                          (new Pair (first (expr (App callee arguments) loc)) (second cx))))))
         (_ (panic "internal error: not an application"))))
@@ -3151,7 +3120,7 @@
          (let ((labels (map (lambda (label)
                               (expect-name label "a field label"))
                             (Cons first rest))))
-           (expanding cx ((value (expand-expr env receiver)))
+           (threading cx ((value (expand-expr env receiver)))
                       (new Pair (first (fold-left (lambda (value label)
                                                     (expr (FieldRead value label (None)) loc))
                                                   value labels)) (second cx)))))
@@ -3165,7 +3134,7 @@
         ((Cons name entries)
          (let* ((case (new-case cx env name))
                 (labels (map (lambda (field) (● field name)) (● case fields))))
-           (expanding cx ((fields (each (lambda (cx entry) (expand-initializer cx env labels entry))
+           (threading cx ((fields (each (lambda (cx entry) (expand-initializer cx env labels entry))
                                         entries)))
                       (check-initializers fields labels loc)
                       (new Pair
@@ -3191,7 +3160,7 @@
                 (slot (list-index (lambda (name) (string=? name label)) labels)))
            (match slot
              ((Some slot)
-              (expanding cx ((name (fresh "field")) (value (expand-expr env value)))
+              (threading cx ((name (fresh "field")) (value (expand-expr env value)))
                          (new Pair
                            (first (new Initializer (slot slot) (name name) (value value)))
                            (second cx))))
@@ -3229,16 +3198,16 @@
            (_ (compile-error loc "expected (lambda (parameter ...) body ...)"))))
 
         (("if")
-         ;; `then` is `expanding`'s own keyword, so the branches are named
+         ;; `then` is `threading`'s own keyword, so the branches are named
          ;; otherwise.
          (match items
            ((Cons _ (Cons test (Cons consequent (Cons alternative (Nil)))))
-            (expanding cx ((test (expand-expr env test))
+            (threading cx ((test (expand-expr env test))
                            (consequent (expand-expr env consequent))
                            (alternative (expand-expr env alternative)))
                        (new Pair (first (expr (If test consequent alternative) loc)) (second cx))))
            ((Cons _ (Cons test (Cons consequent (Nil))))
-            (expanding cx ((test (expand-expr env test)) (consequent (expand-expr env consequent)))
+            (threading cx ((test (expand-expr env test)) (consequent (expand-expr env consequent)))
                        (new Pair
                          (first (expr (If test consequent (expr (Lit (DUnit)) loc)) loc))
                          (second cx))))
@@ -3251,7 +3220,7 @@
         (("ann")
          (match items
            ((Cons _ (Cons value (Cons type (Nil))))
-            (expanding cx ((value (expand-expr env value)))
+            (threading cx ((value (expand-expr env value)))
                        (new Pair
                          (first (expr (Ann value (resolve-type cx env type)) loc))
                          (second cx))))
@@ -3261,7 +3230,7 @@
         (("downcast")
          (match items
            ((Cons _ (Cons type (Cons value (Nil))))
-            (expanding cx ((value (expand-expr env value)))
+            (threading cx ((value (expand-expr env value)))
                        (new Pair
                          (first (expr (Downcast value (resolve-type cx env type)) loc))
                          (second cx))))
@@ -3291,7 +3260,7 @@
                            (loc Loc))
       (→ (Pair Expr Context))
       (! compile)
-      (expanding cx ((locals (bind-locals env params))
+      (threading cx ((locals (bind-locals env params))
                      (body (expand-body (● locals first) body loc)))
                  (new Pair (first (expr (Lambda (● locals second) body ) loc)) (second cx))))
 
@@ -3301,7 +3270,7 @@
     (define (bind-locals (cx Context) (env Env) (idents (List Syntax)))
       (→ (Pair (Pair Env (List String)) Context))
       (! compile)
-      (expanding cx ((names (each (lambda (cx ident)
+      (threading cx ((names (each (lambda (cx ident)
                                     (fresh cx (expect-name ident "a variable name")))
                                   idents)))
                  (new Pair (first (new Pair (first (fold-left (lambda (env bound)
@@ -3332,20 +3301,20 @@
       (match forms
         ((Nil) (compile-error loc "a body must end with an expression"))
         ((Cons form rest)
-         (expanding cx ((form (expand-head scope form)))
+         (threading cx ((form (expand-head scope form)))
                     (match (head-binding cx scope form)
                       ((Some (Core "begin"))
                        (expand-body-forms cx scope (append (form-tail form) rest)  loc))
                       ((Some (Core "define-syntax"))
-                       (expanding cx ((inner (define-local-macro scope form)))
+                       (threading cx ((inner (define-local-macro scope form)))
                                   (expand-body-forms cx inner rest  loc)))
 
                       ((Some (Core "define"))
                        (expand-local-definition cx scope form rest  loc))
-                      (_ (expanding cx ((value (expand-expr scope form)))
+                      (_ (threading cx ((value (expand-expr scope form)))
                                     (if (null? rest)
                                         (new Pair (first value) (second cx))
-                                        (expanding cx ((more
+                                        (threading cx ((more
                                                         (expand-body-forms scope rest  loc)))
                                                    (new Pair
                                                      (first (expr (Seq value more) (● value loc)))
@@ -3355,7 +3324,7 @@
                                      (rest (List Syntax)) (loc Loc))
       (→ (Pair Expr Context)) (! compile)
       (let* ((definition (parse-definition form)) (ident (● definition name)))
-        (expanding cx ((name (fresh (expect-name ident "a local name"))))
+        (threading cx ((name (fresh (expect-name ident "a local name"))))
                    (let ((inner (extend scope ident (Local name)))
                          (function? (match (● definition parameters)
                                       ((Some _) #t)
@@ -3364,7 +3333,7 @@
                                                    scope
                                                    (list-ref (● definition body) 0)
                                                    "lambda")))))
-                     (expanding cx ((value (definition-value (if function? inner scope) definition))
+                     (threading cx ((value (definition-value (if function? inner scope) definition))
                                     (body (expand-body-forms inner rest loc)))
                                 (new Pair (first (expr (Let name
                                                             (annotated-definition-value cx
@@ -3399,7 +3368,7 @@
       (! compile)
       (match ident
         ((Ident identifier-name _ _)
-         (expanding cx ((name (fresh identifier-name))
+         (threading cx ((name (fresh identifier-name))
                         (loop (expand-lambda (extend env ident (Local name))
                                              (map binding-name bindings)
                                              body
@@ -3425,7 +3394,7 @@
               (loc Loc))
       (→ (Pair Expr Context))
       (! compile)
-      (expanding cx ((values
+      (threading cx ((values
                       (each (lambda (cx binding) (expand-expr cx env (binding-value binding)))
                             bindings))
                      (locals (bind-locals env (map binding-name bindings)))
@@ -3467,7 +3436,7 @@
                             (string-append "the builtin effect "
                                            id
                                            " has no operations to handle")))
-           (expanding cx ((implementations (each (lambda (cx implementation)
+           (threading cx ((implementations (each (lambda (cx implementation)
                                                    (expand-implementation cx env id implementation))
                                                  implementations))
                           (body (expand-body env body loc)))
@@ -3481,7 +3450,7 @@
       (match implementation
         ((Form (Cons name (Cons value (Nil))) _)
          (let ((operation (operation-name cx effect name)))
-           (expanding cx ((value (expand-expr env value)))
+           (threading cx ((value (expand-expr env value)))
                       (new Pair (first (new Pair (first operation) (second value))) (second cx)))))
         (_ (compile-error (syntax-loc implementation) "expected (operation implementation)"))))
 
@@ -3615,7 +3584,7 @@
       (match (● cx deriving)
         ((Some scope) (new Pair (first scope) (second cx)))
         ((None)
-         (expanding cx ((exports
+         (threading cx ((exports
                          (each (lambda (cx name) (load-library cx name loc)) (implicit-libraries)))
                         (env (new-top (fold-left (lambda (table entry)
                                                    (table-set table
@@ -3665,7 +3634,7 @@
     (define (repr-instance (cx Context) (head Syntax) (cases (List DerivingCase)) (loc Loc))
       (→ (Pair Syntax Context))
       (! fs compile generator)
-      (expanding cx ((scope (deriving-scope loc)))
+      (threading cx ((scope (deriving-scope loc)))
                  (let* ((d (new Deriver (scope scope) (loc loc))) (value (w d "value"))
                         (body (f d (Cons (w d "match")
                                          (Cons value
@@ -3706,7 +3675,7 @@
                                 (loc Loc))
       (→ (Pair Syntax Context))
       (! fs compile generator)
-      (expanding cx ((scope (deriving-scope loc)))
+      (threading cx ((scope (deriving-scope loc)))
                  (let* ((d (new Deriver (scope scope) (loc loc)))
                         (value (w d "value"))
                         (encoder (w d "encoder")))
@@ -3743,7 +3712,7 @@
                                   (loc Loc))
       (→ (Pair Syntax Context))
       (! fs compile generator)
-      (expanding cx ((scope (deriving-scope loc)))
+      (threading cx ((scope (deriving-scope loc)))
                  (let* ((d (new Deriver (scope scope) (loc loc)))
                         (decoder (w d "decoder"))
                         (id (w d "id")))
@@ -3812,7 +3781,7 @@
       (! compile)
       (match items
         ((Cons _ (Cons scrutinee clauses))
-         (expanding cx ((scrutinee (expand-expr env scrutinee))
+         (threading cx ((scrutinee (expand-expr env scrutinee))
                         (clauses (each (lambda (cx clause) (expand-clause cx env clause)) clauses)))
                     (new Pair (first (expr (Match scrutinee clauses) loc)) (second cx))))
         (_ (compile-error loc "expected (match expression clause ...)"))))
@@ -3825,10 +3794,10 @@
       (! compile)
       (match (form-items clause "a match clause")
         ((Cons pattern body)
-         (expanding cx ((locals (bind-locals env (pattern-variables pattern))))
+         (threading cx ((locals (bind-locals env (pattern-variables pattern))))
                     (let* ((scope (● locals first))
                            (pattern (expand-pattern cx env scope pattern)))
-                      (expanding cx ((body (expand-body scope body (syntax-loc clause))))
+                      (threading cx ((body (expand-body scope body (syntax-loc clause))))
                                  (new Pair
                                    (first (new Clause (pattern pattern) (body body)))
                                    (second cx))))))
@@ -3919,7 +3888,7 @@
 
     (define (define-top-macro (cx Context) (env Env) (form Syntax)) (→ Context) (! compile)
       (let ((parts (macro-form form)))
-        (expanding cx ((id (fresh "%macro")) (scope (register-scope env)))
+        (threading cx ((id (fresh "%macro")) (scope (register-scope env)))
                    (bind-top cx
                              env
                              (● parts name)
@@ -3929,7 +3898,7 @@
       (→ (Pair Env Context))
       (! compile)
       (let ((parts (macro-form form)))
-        (expanding cx ((scope (register-scope env)) (id (fresh "%macro")))
+        (threading cx ((scope (register-scope env)) (id (fresh "%macro")))
                    (let ((inner (extend env
                                         (● parts name)
                                         (Macro id
@@ -3959,7 +3928,7 @@
                                     env
                                     (scope-env cx scope))
                 ((Some bindings)
-                 (expanding cx ((stamp (fresh "m")))
+                 (threading cx ((stamp (fresh "m")))
                             (new Pair
                               (first (transcribe template
                                                  bindings

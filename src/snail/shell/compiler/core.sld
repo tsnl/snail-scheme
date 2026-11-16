@@ -124,6 +124,8 @@
    type-id
    case-type-id
    any-type-id
+   threading
+   each
    strong-components)
   (import
    (snail core base)
@@ -1112,6 +1114,41 @@
                              (string-append "|" (type-schema program tail params visiting))))
                           ")")))
         (_ (panic "internal error: unresolved type in a schema"))))
+
+    ;; ---- Threading pass state ----
+
+    ;; A sequence of steps that each take a pass's state and hand it back,
+    ;; written as `let*` is. `(name (step argument ...))` is for a step that
+    ;; returns its value paired with the new state, and binds the value;
+    ;; `(then (step argument ...))` is for a step that hands back the state
+    ;; alone. Every step is a call, with the state passed as its first
+    ;; argument, and the state is named by an identifier: each step rebinds
+    ;; that name, so the body and every later step see the newest one and
+    ;; nothing can read a state a step has moved past. `then` is this form's
+    ;; keyword wherever the name is unbound, as `else` is `cond`'s, so a step
+    ;; cannot bind a value under that name.
+    (define-syntax threading
+      (syntax-rules (then)
+        ((_ state () body ...) (begin body ...))
+        ((_ state ((then (f argument ...)) step ...) body ...)
+         (let ((state (f state argument ...))) (threading state (step ...) body ...)))
+        ((_ state ((name (f argument ...)) step ...) body ...)
+         (match (f state argument ...)
+           ((Pair name state) (threading state (step ...) body ...))))))
+
+    ;; `step` over each item in order, threading the state and collecting
+    ;; the values, so a sequence of steps is itself one step.
+
+    (define (each (state S) (step (Fn S A → (Pair B S) ! e)) (items (List A)))
+      (→ (Pair (List B) S))
+      (! e)
+      (∀ (S A B e))
+      (let ((done (fold-left (lambda (done item)
+                               (match (step (● done second) item)
+                                 ((Pair value state)
+                                  (new Pair (first (Cons value (● done first))) (second state)))))
+                             (new Pair (first (Nil)) (second state)) items)))
+        (new Pair (first (reverse (● done first))) (second (● done second)))))
 
     ;; ---- Strongly connected components ----
 
