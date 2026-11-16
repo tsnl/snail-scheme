@@ -1210,34 +1210,22 @@
     ;;
     ;; What pass 1 leaves of a top-level form is its kind, decided once from
     ;; its head, with what that kind's later work needs. A type alias leaves
-    ;; nothing: binding its name is all of it.
+    ;; nothing: binding its name is all of it. Every form, a macro's
+    ;; expansion and a derived instance among them, resolves in the
+    ;; library's one top level, which the later passes take beside it.
     (enum Pending
       (PendingDefinition
        ((definition Definition)
-        (value? Bool)
-        (env Env)))
-      (PendingStatement
-       ((form Syntax)
-        (env Env)))
+        (value? Bool)))
+      (PendingStatement ((form Syntax)))
       (PendingData
        ((form Syntax)
-        (enum? Bool)
-        (env Env)))
-      (PendingClass
-       ((form Syntax)
-        (env Env)))
-      (PendingInstance
-       ((form Syntax)
-        (env Env)))
-      (PendingExtern
-       ((form Syntax)
-        (env Env)))
-      (PendingEffect
-       ((form Syntax)
-        (env Env)))
-      (PendingExposure
-       ((form Syntax)
-        (env Env))))
+        (enum? Bool)))
+      (PendingClass ((form Syntax)))
+      (PendingInstance ((form Syntax)))
+      (PendingExtern ((form Syntax)))
+      (PendingEffect ((form Syntax)))
+      (PendingExposure ((form Syntax))))
 
     (define (expand-top-level (cx Context) (env Env) (forms (List Syntax)))
       (→ Context)
@@ -1245,12 +1233,13 @@
       (threading cx ((scanned (each (lambda (cx form) (scan-top-level cx env form)) forms))
                      (pending (with-statements env (concatenate scanned))))
                  (let* ((signatures
-                         (fold-left (lambda (table entry) (with-signature cx table entry))
+                         (fold-left (lambda (table entry) (with-signature cx env table entry))
                                     (empty-table)
                                     pending)))
-                   (threading cx ((bodies (each (lambda (cx entry) (declare cx signatures entry))
-                                                pending)))
-                              (check-buildable-records cx pending)
+                   (threading cx
+                              ((bodies (each (lambda (cx entry) (declare cx env signatures entry))
+                                             pending)))
+                              (check-buildable-records cx env pending)
                               (expand-bodies cx (concatenate bodies))))))
 
     ;; A script's statements, the root program's top-level expressions, are
@@ -1270,29 +1259,29 @@
                  (compile-error loc "a script with statements defines no main: they are its entry"))
                (new Pair
                  (first (append (filter (lambda (entry) (not (statement? entry))) pending)
-                                (list (script-entry env name (Cons first statements) loc))))
+                                (list (script-entry name (Cons first statements) loc))))
                  (second (bind-top cx env name (Global (unique-name cx name))))))
              (new Pair (first pending) (second cx))))
         ((Nil) (new Pair (first pending) (second cx)))))
 
     (define (statement? (entry Pending)) (→ Bool)
       (match entry
-        ((PendingStatement _ _) #t)
+        ((PendingStatement _) #t)
         (_ #f)))
 
     (define (statement-forms (pending (List Pending))) (→ (List Syntax))
       (concatenate (map (lambda (entry)
                           (match entry
-                            ((PendingStatement form _) (list form))
+                            ((PendingStatement form) (list form))
                             (_ (Nil))))
                         pending)))
 
     (define (defines-main? (entry Pending)) (→ Bool)
       (match entry
-        ((PendingDefinition (Definition (Ident "main" _ _) _ _ _ _) _ _) #t)
+        ((PendingDefinition (Definition (Ident "main" _ _) _ _ _ _) _) #t)
         (_ #f)))
 
-    (define (script-entry (env Env) (name Syntax) (statements (List Syntax)) (loc Loc)) (→ Pending)
+    (define (script-entry (name Syntax) (statements (List Syntax)) (loc Loc)) (→ Pending)
       (PendingDefinition (new Definition
                            (name name)
                            (parameters (Some (Nil)))
@@ -1303,8 +1292,7 @@
                                      (constraints (Nil))))
                            (body (append statements (list (Atom (DUnit) loc))))
                            (loc loc))
-                         #f
-                         env))
+                         #f))
 
     ;; A body that fails leaves the context as it was before it, and the
     ;; bodies after it are expanded all the same, so one compile reports
@@ -1334,10 +1322,11 @@
     ;; library is in, each record is checked where it is declared. An empty
     ;; type is an enum with no cases.
 
-    (define (check-buildable-records (cx Context) (pending (List Pending))) (→ Unit) (! compile)
+    (define (check-buildable-records (cx Context) (env Env) (pending (List Pending))) (→ Unit)
+      (! compile)
       (for-each (lambda (entry)
                   (match entry
-                    ((PendingData form #f env) (check-buildable cx env form))
+                    ((PendingData form #f) (check-buildable cx env form))
                     (_ (unit))))
                 pending))
 
@@ -1411,16 +1400,16 @@
         ((Some (Core "enum")) (scan-data cx env form #t))
         ((Some (Core "type")) (new Pair (first (Nil)) (second (scan-alias cx env form))))
         ((Some (Core "typeclass"))
-         (new Pair (first (list (PendingClass form env))) (second (scan-class cx env form))))
+         (new Pair (first (list (PendingClass form))) (second (scan-class cx env form))))
         ((Some (Core "extern"))
          (new Pair
-           (first (list (PendingExtern form env)))
+           (first (list (PendingExtern form)))
            (second (bind-member cx env (declaration-head form)))))
         ((Some (Core "effect"))
-         (new Pair (first (list (PendingEffect form env))) (second (scan-effect cx env form))))
-        ((Some (Core "instance")) (scan-nameless cx form (PendingInstance form env)))
-        ((Some (Core "expose")) (scan-nameless cx form (PendingExposure form env)))
-        (_ (new Pair (first (list (PendingStatement form env))) (second cx)))))
+         (new Pair (first (list (PendingEffect form))) (second (scan-effect cx env form))))
+        ((Some (Core "instance")) (new Pair (first (list (PendingInstance form))) (second cx)))
+        ((Some (Core "expose")) (new Pair (first (list (PendingExposure form))) (second cx)))
+        (_ (new Pair (first (list (PendingStatement form))) (second cx)))))
 
     (define (scan-definition (cx Context) (env Env) (form Syntax))
       (→ (Pair (List Pending) Context))
@@ -1430,7 +1419,7 @@
              (global (unique-name cx ident))
              (cx (bind-top cx env ident (if value? (Thunk global) (Global global)))))
         (when value? (check-value-header definition))
-        (new Pair (first (list (PendingDefinition definition value? env))) (second cx))))
+        (new Pair (first (list (PendingDefinition definition value?))) (second cx))))
 
     ;; A record or enum binds its names, then the instances it derives are
     ;; scanned after it.
@@ -1443,17 +1432,8 @@
                        (scanned (each (lambda (cx instance) (scan-top-level cx env instance))
                                       derived)))
                    (new Pair
-                     (first (Cons (PendingData form enum? env) (concatenate scanned)))
+                     (first (Cons (PendingData form enum?) (concatenate scanned)))
                      (second cx)))))
-
-    ;; An instance or an exposure binds no name, and is a declaration all
-    ;; the same: it has a head.
-
-    (define (scan-nameless (cx Context) (form Syntax) (pending Pending))
-      (→ (Pair (List Pending) Context))
-      (! compile)
-      (declaration-head form)
-      (new Pair (first (list pending)) (second cx)))
 
     ;; A top-level definition whose initializer is not a lambda is a value:
     ;; a thunk its module runs at most once, on the first read, and whose
@@ -1503,25 +1483,26 @@
     ;; Pass 2: a declaration enters the program now; a definition or an
     ;; exposure answers the step that expands it once every declaration is in.
 
-    (define (declare (cx Context) (signatures (Table (Pair Scheme (Option Loc)))) (pending Pending))
+    (define (declare (cx Context) (env Env) (signatures (Table (Pair Scheme (Option Loc))))
+              (pending Pending))
       (→ (Pair (List (Fn Context → Context ! compile)) Context))
       (! compile)
       (match pending
-        ((PendingData form enum? env)
+        ((PendingData form enum?)
          (new Pair (first (Nil)) (second (declare-data cx env form enum?))))
-        ((PendingClass form env) (new Pair (first (Nil)) (second (declare-class cx env form))))
-        ((PendingInstance form env) (declare-instance cx env form))
-        ((PendingExtern form env) (new Pair (first (Nil)) (second (declare-extern cx env form))))
-        ((PendingEffect form env) (new Pair (first (Nil)) (second (declare-effect cx env form))))
-        ((PendingDefinition definition value? env)
+        ((PendingClass form) (new Pair (first (Nil)) (second (declare-class cx env form))))
+        ((PendingInstance form) (declare-instance cx env form))
+        ((PendingExtern form) (new Pair (first (Nil)) (second (declare-extern cx env form))))
+        ((PendingEffect form) (new Pair (first (Nil)) (second (declare-effect cx env form))))
+        ((PendingDefinition definition value?)
          (new Pair
            (first (list (lambda (cx) (define-top-level cx signatures env definition value?))))
            (second cx)))
-        ((PendingExposure form env)
+        ((PendingExposure form)
          (new Pair
            (first (list (lambda (cx) (add-item cx (expose-item cx env form)))))
            (second cx)))
-        ((PendingStatement form _)
+        ((PendingStatement form)
          (compile-error (syntax-loc form)
                         "a library's top level has no statements; only a script's does"))))
 
@@ -1662,6 +1643,16 @@
            (fields (form-items fields "a field list"))))
         (_ (compile-error (syntax-loc case) "expected (Case) or (Case ((field type) ...))"))))
 
+    ;; A data type's cases: an enum's as declared, a record's one case named
+    ;; after the record.
+
+    (define (data-cases (form Syntax) (enum? Bool)) (→ (List CaseSyntax)) (! compile)
+      (if enum?
+          (map parse-case (enum-cases form))
+          (list (new CaseSyntax
+                  (name (declared-name (declaration-head form)))
+                  (fields (record-fields form))))))
+
     (define (scan-case (cx Context) (env Env) (case Syntax)) (→ Context) (! compile)
       (bind-member cx env (● (parse-case case) name)))
 
@@ -1764,11 +1755,7 @@
                    ((Some (TypeName id _ _)) id)
                    (_ (panic "internal error: type"))))
              (scope (type-scope env params))
-             (cases (if enum?
-                        (map parse-case (enum-cases form))
-                        (list (new CaseSyntax
-                                (name (declared-name head))
-                                (fields (record-fields form))))))
+             (cases (data-cases form enum?))
              (data (new DataType (name id)
                         (params (ident-names params))
                         (cases (map-indexed (lambda (tag case) (resolve-case cx scope case id tag))
@@ -1834,11 +1821,11 @@
     ;; Resolve definition headers before expanding bodies so recursive calls
     ;; and importers see the same declared contract.
 
-    (define (with-signature (cx Context) (signatures (Table (Pair Scheme (Option Loc))))
+    (define (with-signature (cx Context) (env Env) (signatures (Table (Pair Scheme (Option Loc))))
                             (pending Pending))
       (→ (Table (Pair Scheme (Option Loc)))) (! compile)
       (match pending
-        ((PendingDefinition definition value? env)
+        ((PendingDefinition definition value?)
          (match (stated-type definition value?)
            ((None) signatures)
            ((Some type)
@@ -2941,48 +2928,45 @@
 
     ;; ---- Deriving ----
 
-    ;; A derived instance is a use of a macro that its class's library
-    ;; defines beside the class: `derive-repr-record` and its kin in (snail
-    ;; core base), `derive-serialize` and its kin in (snail shell wire). The
-    ;; expander only writes the use. It marks the macro's name to resolve
-    ;; among the exports of those libraries, whatever the declaring library
-    ;; imports.
+    ;; A derived instance is a use of a macro its class's library defines
+    ;; beside the class: `derive-repr` in (snail core base),
+    ;; `derive-serialize` and `derive-deserialize` in (snail shell wire).
+    ;; The expander writes only the use, marking the macro's name to resolve
+    ;; among those libraries' exports, whatever the declaring library
+    ;; imports. A use is the declaration's own keyword, `record` or `enum`,
+    ;; its head with its parameters, then each case:
+    ;;
+    ;;   (derive-repr enum (Option T) (None "None") (Some "Some" (field0 value "value")))
+    ;;
+    ;; A case is its name, the name as text and, for each field, a fresh
+    ;; variable, the label and the label as text. A macro binds the
+    ;; variable, since a case may repeat a label and `_` binds nothing.
 
     (define implicit-libraries (→ (List (List String)))
       (list (list "snail" "core" "base") (list "snail" "shell" "wire")))
 
+    ;; A declaration that derives nothing loads no implicit library.
+
     (define (derived-instances (cx Context) (form Syntax) (enum? Bool))
       (→ (Pair (List Syntax) Context))
       (! fs compile generator)
-      (each cx
-            (lambda (cx class) (derived-instance cx form enum? class))
-            (derived-classes form)))
+      (match (map deriving-macro (derived-classes form))
+        ((Nil) (new Pair (first (Nil)) (second cx)))
+        (macros
+         (let ((loc (syntax-loc form)))
+           (threading cx ((scope (deriving-scope loc)))
+                      (let* ((d (new Deriver (scope scope) (loc loc)))
+                             (arguments (deriving-arguments d form enum?)))
+                        (new Pair
+                          (first (map (lambda (macro) (Form (Cons (marked d macro) arguments) loc))
+                                      macros))
+                          (second cx))))))))
 
-    ;; The use of the macro that derives `class`: the declaration's head with
-    ;; its parameters, then its cases.
-
-    (define (derived-instance (cx Context) (form Syntax) (enum? Bool) (class Syntax))
-      (→ (Pair Syntax Context))
-      (! fs compile generator)
-      (let ((loc (syntax-loc form)) (macro (deriving-macro class enum?)))
-        (threading cx ((scope (deriving-scope loc)))
-                   (let ((d (new Deriver (scope scope) (loc loc))))
-                     (new Pair
-                       (first (Form (Cons (macro-name cx d macro)
-                                          (Cons (derived-head form)
-                                                (map (lambda (case) (derived-case d case))
-                                                     (deriving-cases form enum?))))
-                                    loc))
-                       (second cx))))))
-
-    ;; The macro that derives a class for a record, or for an enum.
-
-    (define (deriving-macro (class Syntax) (enum? Bool)) (→ String) (! compile)
+    (define (deriving-macro (class Syntax)) (→ String) (! compile)
       (match class
-        ((Ident "Repr" _ _) (if enum? "derive-repr-enum" "derive-repr-record"))
+        ((Ident "Repr" _ _) "derive-repr")
         ((Ident "Serialize" _ _) "derive-serialize")
-        ((Ident "Deserialize" _ _)
-         (if enum? "derive-deserialize-enum" "derive-deserialize-record"))
+        ((Ident "Deserialize" _ _) "derive-deserialize")
         (_ (compile-error (syntax-loc class)
                           "only Repr, Serialize and Deserialize can be derived"))))
 
@@ -3019,38 +3003,25 @@
                           (scope (● deriver scope))))
                loc)))
 
-    ;; A use must name a macro, or it would read as a statement: an
-    ;; implicit library exports each one.
-
-    (define (macro-name (cx Context) (d Deriver) (macro String)) (→ Syntax)
-      (match (resolve cx (scope-env cx (● d scope)) (Ident macro (None) (● d loc)))
-        ((Some (Macro _ _ _ _)) (marked d macro))
-        (_ (panic (string-append "internal error: no implicit library exports " macro)))))
-
-    ;; A macro's pattern takes the head as a list, `(Name parameter ...)`.
-
     (define (derived-head (form Syntax)) (→ Syntax) (! compile)
       (match (declaration-head form)
         ((Form items loc) (Form items loc))
         (name (Form (list name) (syntax-loc name)))))
 
-    ;; A record is one case named after the record.
+    (define (deriving-arguments (d Deriver) (form Syntax) (enum? Bool)) (→ (List Syntax))
+      (! compile)
+      (Cons (form-keyword form)
+            (Cons (derived-head form)
+                  (map (lambda (case) (derived-case d case)) (data-cases form enum?)))))
 
-    (define (deriving-cases (form Syntax) (enum? Bool)) (→ (List CaseSyntax)) (! compile)
-      (if enum?
-          (map parse-case (enum-cases form))
-          (list (new CaseSyntax
-                  (name (declared-name (declaration-head form)))
-                  (fields (record-fields form))))))
-
-    ;; A case as a macro reads it: its name, the name as text and, for each
-    ;; field, a fresh variable, the label and the label as text. A macro
-    ;; binds the variable, since a case may repeat a label and `_` binds
-    ;; nothing.
+    (define (form-keyword (form Syntax)) (→ Syntax)
+      (match form
+        ((Form (Cons keyword _) _) keyword)
+        (_ (panic "internal error: a declaration is a form"))))
 
     (define (derived-case (d Deriver) (case CaseSyntax)) (→ Syntax) (! compile)
       (Form (Cons (● case name)
-                  (Cons (text-atom d (expect-name (● case name) "a constructor"))
+                  (Cons (Atom (DString (expect-name (● case name) "a constructor")) (● d loc))
                         (map-indexed (lambda (index field)
                                        (derived-field d index (● (parse-field field) name)))
                                      (● case fields))))
@@ -3059,11 +3030,8 @@
     (define (derived-field (d Deriver) (index I64) (label Syntax)) (→ Syntax) (! compile)
       (Form (list (marked d (string-append "field" (i64->string index)))
                   label
-                  (text-atom d (expect-name label "a field label")))
+                  (Atom (DString (expect-name label "a field label")) (● d loc)))
             (● d loc)))
-
-    (define (text-atom (d Deriver) (value String)) (→ Syntax)
-      (Atom (DString value) (● d loc)))
 
     ;; ---- Patterns ----
 

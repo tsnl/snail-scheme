@@ -181,11 +181,9 @@ A record or enum can request constructor notation with `(deriving Repr)`:
 (write (Rock)) ; prints (Rock)
 ```
 
-Deriving makes a pure instance that matches each constructor and
+Deriving generates a pure instance that matches each constructor and
 represents its fields in declaration order. Generic type parameters require
-`Repr`. The instance comes from a macro, `derive-repr-record` or
-`derive-repr-enum`, that `(snail core base)` defines beside the class; a
-`deriving` clause is a use of it. Records print named construction syntax, `(new Name (field value) ...)`; enum
+`Repr`. Records print named construction syntax, `(new Name (field value) ...)`; enum
 cases keep positional notation.
 An explicit `(instance (Repr T) (define repr (lambda (value) ...)))` chooses custom
 notation. A `Show` instance alone does not supply `Repr`; missing instances
@@ -256,9 +254,8 @@ program's runtime for staging memory. See [linking by hand](compilers.md#linking
 
 ## Wire types
 
-`(deriving Serialize Deserialize)` at the end of a record or enum makes
-instances of `(snail shell wire)`'s classes, through the `derive-serialize`
-and `derive-deserialize` macros that library defines. `serialize` writes a value as bytes and
+`(deriving Serialize Deserialize)` at the end of a record or enum generates
+instances of `(snail shell wire)`'s classes. `serialize` writes a value as bytes and
 `deserialize` reads it back:
 
 ```scheme
