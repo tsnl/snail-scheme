@@ -7,6 +7,7 @@
    JsonNull
    JsonBool
    JsonInteger
+   JsonNumber
    JsonString
    JsonArray
    JsonObject
@@ -17,8 +18,9 @@
 
     ;; ---- Values ----
 
-    ;; Numbers are integers, which is all a program here needs to say: ids,
-    ;; sizes, counts and exit codes. An object is its members in order, so
+    ;; Numbers are integers, which ids, sizes, counts and exit codes are,
+    ;; or finite floats, such as a color's channels, written as
+    ;; `f64->string` writes them, which JSON reads as the same double. An object is its members in order, so
     ;; its text is the same on every run; a name given twice is written
     ;; twice. JavaScript reads an integer beyond 2^53 to the nearest double,
     ;; so one that must survive exactly goes as a string. A JavaScript
@@ -28,6 +30,7 @@
       (JsonNull)
       (JsonBool ((value Bool)))
       (JsonInteger ((value I64)))
+      (JsonNumber ((value F64)))
       (JsonString ((value String)))
       (JsonArray ((items (List Json))))
       (JsonObject ((members (List (Pair String Json))))))
@@ -88,9 +91,17 @@
         ((JsonNull) (Cons "null" pieces))
         ((JsonBool flag) (Cons (if flag "true" "false") pieces))
         ((JsonInteger number) (Cons (i64->string number) pieces))
+        ((JsonNumber number) (Cons (number-text number) pieces))
         ((JsonString text) (string-pieces text pieces))
         ((JsonArray items) (Cons "]" (separated value-pieces items (Cons "[" pieces))))
         ((JsonObject members) (Cons "}" (separated member-pieces members (Cons "{" pieces))))))
+
+    ;; JSON has no NaN or infinity.
+
+    (define (number-text (number F64)) (→ String)
+      (if (and (= number number) (< (abs number) 1.7976931348623157e308))
+          (f64->string number)
+          (panic (string-append "JSON has no number " (f64->string number)))))
 
     (define (member-pieces (member (Pair String Json)) (pieces (List String))) (→ (List String))
       (value-pieces (● member second) (Cons ":" (string-pieces (● member first) pieces))))

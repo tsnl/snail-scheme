@@ -11,7 +11,8 @@
 ;;
 ;; - events, the page's input and its lifecycle;
 ;; - storage, the page's saved state;
-;; - screen, the page's canvas.
+;; - screen, the page's canvas, drawn by host/browser/renderer.mjs;
+;; - gpu, the page's WebGPU device.
 ;;
 ;; The page's interface installs `dom` and `fetch` itself, with
 ;; `with-page-dom` and `with-page-fetch` ((snail shell ui page)), and a
@@ -28,16 +29,20 @@
    (only (snail shell resource) resource provide-resource)
    (only (snail shell wasm) wasm provide-wasm)
    (only (snail shell page) events storage provide-events provide-storage)
-   (only (snail shell app) screen provide-screen))
+   (only (snail shell app) screen provide-screen)
+   (only (snail shell gpu) gpu)
+   (only (snail shell gpu page) provide-gpu))
   (begin
 
-    (define (provide (work (Fn → T ! output-port clock resource wasm events storage screen e)))
+    (define (provide (work (Fn → T ! output-port clock resource wasm events storage screen gpu e)))
       (→ T)
-      (! e)
+      (! mut e)
       (∀ (T e))
       (provide-shared
        (lambda ()
-         (provide-events (lambda () (provide-storage (lambda () (provide-screen work))))))))
+         (provide-events
+          (lambda ()
+            (provide-storage (lambda () (provide-screen (lambda () (provide-gpu work))))))))))
 
     ;; What every host has.
 
@@ -51,7 +56,9 @@
 
     (define (start (scheduler Scheduler)
                    (main
-                    (Fn → Unit ! tasks output-port clock resource wasm events storage screen e)))
+                    (Fn →
+                        Unit
+                        ! tasks output-port clock resource wasm events storage screen gpu e)))
       (→ Unit)
       (! mut host e)
       (∀ (e))
