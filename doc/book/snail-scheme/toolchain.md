@@ -41,9 +41,10 @@ and programs as well, is proposed in
 The [builds chapter](projects.md) defines workspaces, output directories and
 embedding one build in another.
 
-`snail-scheme run --target node|wasmtime FILE [ARGUMENT ...]` builds the
-script and runs that exact completed generation, passing the arguments after
-the script unchanged. The program inherits the caller's working directory,
+`snail-scheme run --target TARGET [--engine node|wasmtime] FILE [ARGUMENT ...]`
+builds the script and runs that exact completed generation on the engine
+([commands](scripts.md#commands)), passing the arguments after the script
+unchanged. The program inherits the caller's working directory,
 environment and terminal IO.
 
 After compiler and scratch cleanup, the native command replaces itself with the
