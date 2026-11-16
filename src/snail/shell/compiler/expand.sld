@@ -1210,34 +1210,22 @@
     ;;
     ;; What pass 1 leaves of a top-level form is its kind, decided once from
     ;; its head, with what that kind's later work needs. A type alias leaves
-    ;; nothing: binding its name is all of it.
+    ;; nothing: binding its name is all of it. Every form, a macro's
+    ;; expansion and a derived instance among them, resolves in the
+    ;; library's one top level, which the later passes take beside it.
     (enum Pending
       (PendingDefinition
        ((definition Definition)
-        (value? Bool)
-        (env Env)))
-      (PendingStatement
-       ((form Syntax)
-        (env Env)))
+        (value? Bool)))
+      (PendingStatement ((form Syntax)))
       (PendingData
        ((form Syntax)
-        (enum? Bool)
-        (env Env)))
-      (PendingClass
-       ((form Syntax)
-        (env Env)))
-      (PendingInstance
-       ((form Syntax)
-        (env Env)))
-      (PendingExtern
-       ((form Syntax)
-        (env Env)))
-      (PendingEffect
-       ((form Syntax)
-        (env Env)))
-      (PendingExposure
-       ((form Syntax)
-        (env Env))))
+        (enum? Bool)))
+      (PendingClass ((form Syntax)))
+      (PendingInstance ((form Syntax)))
+      (PendingExtern ((form Syntax)))
+      (PendingEffect ((form Syntax)))
+      (PendingExposure ((form Syntax))))
 
     (define (expand-top-level (cx Context) (env Env) (forms (List Syntax)))
       (→ Context)
@@ -1245,12 +1233,13 @@
       (threading cx ((scanned (each (lambda (cx form) (scan-top-level cx env form)) forms))
                      (pending (with-statements env (concatenate scanned))))
                  (let* ((signatures
-                         (fold-left (lambda (table entry) (with-signature cx table entry))
+                         (fold-left (lambda (table entry) (with-signature cx env table entry))
                                     (empty-table)
                                     pending)))
-                   (threading cx ((bodies (each (lambda (cx entry) (declare cx signatures entry))
-                                                pending)))
-                              (check-buildable-records cx pending)
+                   (threading cx
+                              ((bodies (each (lambda (cx entry) (declare cx env signatures entry))
+                                             pending)))
+                              (check-buildable-records cx env pending)
                               (expand-bodies cx (concatenate bodies))))))
 
     ;; A script's statements, the root program's top-level expressions, are
@@ -1270,29 +1259,29 @@
                  (compile-error loc "a script with statements defines no main: they are its entry"))
                (new Pair
                  (first (append (filter (lambda (entry) (not (statement? entry))) pending)
-                                (list (script-entry env name (Cons first statements) loc))))
+                                (list (script-entry name (Cons first statements) loc))))
                  (second (bind-top cx env name (Global (unique-name cx name))))))
              (new Pair (first pending) (second cx))))
         ((Nil) (new Pair (first pending) (second cx)))))
 
     (define (statement? (entry Pending)) (→ Bool)
       (match entry
-        ((PendingStatement _ _) #t)
+        ((PendingStatement _) #t)
         (_ #f)))
 
     (define (statement-forms (pending (List Pending))) (→ (List Syntax))
       (concatenate (map (lambda (entry)
                           (match entry
-                            ((PendingStatement form _) (list form))
+                            ((PendingStatement form) (list form))
                             (_ (Nil))))
                         pending)))
 
     (define (defines-main? (entry Pending)) (→ Bool)
       (match entry
-        ((PendingDefinition (Definition (Ident "main" _ _) _ _ _ _) _ _) #t)
+        ((PendingDefinition (Definition (Ident "main" _ _) _ _ _ _) _) #t)
         (_ #f)))
 
-    (define (script-entry (env Env) (name Syntax) (statements (List Syntax)) (loc Loc)) (→ Pending)
+    (define (script-entry (name Syntax) (statements (List Syntax)) (loc Loc)) (→ Pending)
       (PendingDefinition (new Definition
                            (name name)
                            (parameters (Some (Nil)))
@@ -1303,8 +1292,7 @@
                                      (constraints (Nil))))
                            (body (append statements (list (Atom (DUnit) loc))))
                            (loc loc))
-                         #f
-                         env))
+                         #f))
 
     ;; A body that fails leaves the context as it was before it, and the
     ;; bodies after it are expanded all the same, so one compile reports
@@ -1334,10 +1322,11 @@
     ;; library is in, each record is checked where it is declared. An empty
     ;; type is an enum with no cases.
 
-    (define (check-buildable-records (cx Context) (pending (List Pending))) (→ Unit) (! compile)
+    (define (check-buildable-records (cx Context) (env Env) (pending (List Pending))) (→ Unit)
+      (! compile)
       (for-each (lambda (entry)
                   (match entry
-                    ((PendingData form #f env) (check-buildable cx env form))
+                    ((PendingData form #f) (check-buildable cx env form))
                     (_ (unit))))
                 pending))
 
@@ -1411,16 +1400,16 @@
         ((Some (Core "enum")) (scan-data cx env form #t))
         ((Some (Core "type")) (new Pair (first (Nil)) (second (scan-alias cx env form))))
         ((Some (Core "typeclass"))
-         (new Pair (first (list (PendingClass form env))) (second (scan-class cx env form))))
+         (new Pair (first (list (PendingClass form))) (second (scan-class cx env form))))
         ((Some (Core "extern"))
          (new Pair
-           (first (list (PendingExtern form env)))
+           (first (list (PendingExtern form)))
            (second (bind-member cx env (declaration-head form)))))
         ((Some (Core "effect"))
-         (new Pair (first (list (PendingEffect form env))) (second (scan-effect cx env form))))
-        ((Some (Core "instance")) (scan-nameless cx form (PendingInstance form env)))
-        ((Some (Core "expose")) (scan-nameless cx form (PendingExposure form env)))
-        (_ (new Pair (first (list (PendingStatement form env))) (second cx)))))
+         (new Pair (first (list (PendingEffect form))) (second (scan-effect cx env form))))
+        ((Some (Core "instance")) (new Pair (first (list (PendingInstance form))) (second cx)))
+        ((Some (Core "expose")) (new Pair (first (list (PendingExposure form))) (second cx)))
+        (_ (new Pair (first (list (PendingStatement form))) (second cx)))))
 
     (define (scan-definition (cx Context) (env Env) (form Syntax))
       (→ (Pair (List Pending) Context))
@@ -1430,7 +1419,7 @@
              (global (unique-name cx ident))
              (cx (bind-top cx env ident (if value? (Thunk global) (Global global)))))
         (when value? (check-value-header definition))
-        (new Pair (first (list (PendingDefinition definition value? env))) (second cx))))
+        (new Pair (first (list (PendingDefinition definition value?))) (second cx))))
 
     ;; A record or enum binds its names, then the instances it derives are
     ;; scanned after it.
@@ -1443,17 +1432,8 @@
                        (scanned (each (lambda (cx instance) (scan-top-level cx env instance))
                                       derived)))
                    (new Pair
-                     (first (Cons (PendingData form enum? env) (concatenate scanned)))
+                     (first (Cons (PendingData form enum?) (concatenate scanned)))
                      (second cx)))))
-
-    ;; An instance or an exposure binds no name, and is a declaration all
-    ;; the same: it has a head.
-
-    (define (scan-nameless (cx Context) (form Syntax) (pending Pending))
-      (→ (Pair (List Pending) Context))
-      (! compile)
-      (declaration-head form)
-      (new Pair (first (list pending)) (second cx)))
 
     ;; A top-level definition whose initializer is not a lambda is a value:
     ;; a thunk its module runs at most once, on the first read, and whose
@@ -1503,25 +1483,26 @@
     ;; Pass 2: a declaration enters the program now; a definition or an
     ;; exposure answers the step that expands it once every declaration is in.
 
-    (define (declare (cx Context) (signatures (Table (Pair Scheme (Option Loc)))) (pending Pending))
+    (define (declare (cx Context) (env Env) (signatures (Table (Pair Scheme (Option Loc))))
+              (pending Pending))
       (→ (Pair (List (Fn Context → Context ! compile)) Context))
       (! compile)
       (match pending
-        ((PendingData form enum? env)
+        ((PendingData form enum?)
          (new Pair (first (Nil)) (second (declare-data cx env form enum?))))
-        ((PendingClass form env) (new Pair (first (Nil)) (second (declare-class cx env form))))
-        ((PendingInstance form env) (declare-instance cx env form))
-        ((PendingExtern form env) (new Pair (first (Nil)) (second (declare-extern cx env form))))
-        ((PendingEffect form env) (new Pair (first (Nil)) (second (declare-effect cx env form))))
-        ((PendingDefinition definition value? env)
+        ((PendingClass form) (new Pair (first (Nil)) (second (declare-class cx env form))))
+        ((PendingInstance form) (declare-instance cx env form))
+        ((PendingExtern form) (new Pair (first (Nil)) (second (declare-extern cx env form))))
+        ((PendingEffect form) (new Pair (first (Nil)) (second (declare-effect cx env form))))
+        ((PendingDefinition definition value?)
          (new Pair
            (first (list (lambda (cx) (define-top-level cx signatures env definition value?))))
            (second cx)))
-        ((PendingExposure form env)
+        ((PendingExposure form)
          (new Pair
            (first (list (lambda (cx) (add-item cx (expose-item cx env form)))))
            (second cx)))
-        ((PendingStatement form _)
+        ((PendingStatement form)
          (compile-error (syntax-loc form)
                         "a library's top level has no statements; only a script's does"))))
 
@@ -1840,11 +1821,11 @@
     ;; Resolve definition headers before expanding bodies so recursive calls
     ;; and importers see the same declared contract.
 
-    (define (with-signature (cx Context) (signatures (Table (Pair Scheme (Option Loc))))
+    (define (with-signature (cx Context) (env Env) (signatures (Table (Pair Scheme (Option Loc))))
                             (pending Pending))
       (→ (Table (Pair Scheme (Option Loc)))) (! compile)
       (match pending
-        ((PendingDefinition definition value? env)
+        ((PendingDefinition definition value?)
          (match (stated-type definition value?)
            ((None) signatures)
            ((Some type)
