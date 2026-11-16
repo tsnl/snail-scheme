@@ -137,7 +137,16 @@ export function createGpu(canvas, runtime) {
     'end-pass'(pass) { object(pass).end(); },
     finish(encoder, id) { objects.set(id, object(encoder).finish()); },
     submit(address) { gpu.device.queue.submit(JSON.parse(decoder.decode(bytes(address))).map(object)); },
-    'current-texture'(id) { objects.set(id, gpu.context.getCurrentTexture()); },
+    // The canvas holds as many pixels as it covers on the screen.
+    'current-texture'(id) {
+      const width = Math.max(1, Math.round(canvas.clientWidth * devicePixelRatio));
+      const height = Math.max(1, Math.round(canvas.clientHeight * devicePixelRatio));
+      if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
+      const texture = gpu.context.getCurrentTexture();
+      objects.set(id, texture);
+      return texture.width;
+    },
+    'current-height': () => canvas.height,
   };
 
   // A program that starts again, cold or after a reload, knows no ids, so

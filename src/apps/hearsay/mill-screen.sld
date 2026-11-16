@@ -9,19 +9,25 @@
    MillScreen
    new-mill-screen
    update-mill-screen
-   view-mill-screen
+   mill-pictures
+   mill-view
+   mill-quads
    mill-screen-hud)
   (import
    (snail core base)
    (snail shell wire)
-   (snail shell app)
+   (except (snail shell app) Quad Picture Layer Source Rect)
    (snail shell math)
    (snail shell sprite)
+   (snail shell graphics pod)
+   (only (snail shell graphics atlas) Atlas Picture Source)
+   (only (snail shell graphics quad) Quad View2D)
    (only (lpc layout) Stand Stroll walk-book)
    (lpc wardrobe)
    (apps hearsay mill)
    (apps hearsay cast)
-   (apps hearsay hud))
+   (apps hearsay hud)
+   (apps hearsay drawing))
   (begin
 
     ;; ---- State ----
@@ -29,9 +35,8 @@
     ;; `message` is what the last shift did, a line each, or why it could
     ;; not be taken. `fresh` lists who heard something new in it. The
     ;; forecast takes simulating several shifts, so it is worked out once
-    ;; per shift rather than every frame. `version` changes with every
-    ;; shift, so the host redraws the town only then. `guide` is the guide's
-    ;; open page, if any.
+    ;; per shift rather than every frame. `guide` is the guide's open page,
+    ;; if any.
     (record MillScreen
       ((mill Mill)
        (forecast (List String))
@@ -39,14 +44,12 @@
        (hover (Option I64))
        (message (List String))
        (fresh (List I64))
-       (version I64)
        (guide (Option I64))
        (width I32)
        (height I32))
       (deriving Serialize Deserialize))
 
-    ;; `version` must differ from any town the host has drawn before.
-    (define (new-mill-screen (scenario Scenario) (version I64) (width I32) (height I32))
+    (define (new-mill-screen (scenario Scenario) (width I32) (height I32))
       (→ MillScreen)
       (let ((mill (new-mill scenario)))
         (new MillScreen
@@ -56,7 +59,6 @@
           (hover (None))
           (message (Nil))
           (fresh (Nil))
-          (version version)
           (guide (None))
           (width width)
           (height height))))
@@ -78,22 +80,35 @@
     (define (hud-column (width F32)) (→ F32)
       (if (< width 800.0) (* 0.2 width) 318.0))
 
-    (define (camera-of (screen MillScreen)) (→ Camera)
+    (define (pixels-per-unit (screen MillScreen)) (→ F32)
       (let* ((width (max 1.0 (i32->f32 (● screen width))))
              (height (max 1.0 (i32->f32 (● screen height))))
              (across (max 120.0 (- width (* 2.0 (hud-column width)))))
-             (down (max 120.0 (- height 24.0)))
-             (pixels-per-unit
-              (min (/ across (- town-right town-left)) (/ down (- town-bottom town-top))))
-             (x (/ (+ town-left town-right) 2.0)) (z (/ (+ town-top town-bottom) 2.0)))
-        (new Camera
-          (eye (new Vec3 (x x) (y 40.0) (z z)))
-          (target (new Vec3 (x x) (y 0.0) (z z)))
-          (projection (Orthographic (/ height pixels-per-unit))))))
+             (down (max 120.0 (- height 24.0))))
+        (min (/ across (- town-right town-left)) (/ down (- town-bottom town-top)))))
 
-    (define sunlight
-      (→ Light)
-      (new Light (direction (new Vec3 (x 0.0) (y 1.0) (z 0.0))) (sun 0.0) (ambient 1.0)))
+    (define town-x (→ F32) (/ (+ town-left town-right) 2.0))
+    (define town-z (→ F32) (/ (+ town-top town-bottom) 2.0))
+
+    ;; The camera picking casts rays from, and the same view in the plane
+    ;; of the screen, where a ground point (x, z) lies at (x, -z): the
+    ;; camera looks straight down, with -z up the screen.
+
+    (define (camera-of (screen MillScreen)) (→ Camera)
+      (new Camera
+        (eye (new Vec3 (x town-x) (y 40.0) (z town-z)))
+        (target (new Vec3 (x town-x) (y 0.0) (z town-z)))
+        (projection
+         (Orthographic (/ (max 1.0 (i32->f32 (● screen height))) (pixels-per-unit screen))))))
+
+    (define (mill-view (screen MillScreen)) (→ View2D)
+      (let ((width (max 1.0 (i32->f32 (● screen width))))
+            (height (max 1.0 (i32->f32 (● screen height))))
+            (scale (pixels-per-unit screen)))
+        (new View2D
+          (center (new Vec2f (x town-x) (y (negate town-z))))
+          (extent (new Vec2f (x (/ width scale)) (y (/ height scale))))
+          (pixels (new Vec2f (x width) (y height))))))
 
     ;; Audiences sit on a triangle, each person on a ring of radius 2.8.
     (define (person-point (person I64)) (→ Vec3)
@@ -175,9 +190,8 @@
       (→ MillScreen)
       (let* ((screen (MillScreen-mill-set screen after))
              (screen (MillScreen-forecast-set screen (forecast after)))
-             (screen (MillScreen-message-set screen message))
-             (screen (MillScreen-fresh-set screen (newly-heard before after))))
-        (MillScreen-version-set screen (+ (● screen version) 1))))
+             (screen (MillScreen-message-set screen message)))
+        (MillScreen-fresh-set screen (newly-heard before after))))
 
     (define (press (screen MillScreen) (action I32)) (→ MillScreen)
       (cond ((guide-action? action)
@@ -186,10 +200,7 @@
             ((>= action action-choose)
              (MillScreen-selected-set screen (Some (i32->i64 (- action action-choose)))))
             ((= action action-restart)
-             (new-mill-screen (● (● screen mill) scenario)
-                              (+ (● screen version) 1)
-                              (● screen width)
-                              (● screen height)))
+             (new-mill-screen (● (● screen mill) scenario) (● screen width) (● screen height)))
             ((= action action-wait) (act screen (Wait)))
             (else (match (● screen selected)
                     ((Some person) (act screen (person-action action person)))
@@ -208,28 +219,27 @@
 
     ;; ---- Town ----
 
-    ;; The map is drawn in its own colors, unlit. Seen straight down, what
-    ;; lies higher hides what lies below: ties, then markers and rings, then
-    ;; bases, then figures, nearer the bottom of the map over farther, and
-    ;; pips over all.
-    (define (flat (thing Item)) (→ Item)
-      (Item-glow-set thing 1.0))
+    ;; The map is drawn in its own colors, as quads, each covering those
+    ;; before it: ties, then markers and rings, then bases, then figures,
+    ;; nearer the bottom of the map over farther, and pips over all.
 
     (define dark (→ I32) (rgb 70 78 92))
 
-    ;; A thin box from a to b on the ground. A box's length runs along x, and
-    ;; the renderer turns x toward (cos yaw, -sin yaw).
-    (define (segment (a Vec3) (b Vec3)) (→ Item)
+    ;; A thin bar from a to b on the ground.
+    (define (segment (atlas Atlas) (a Vec3) (b Vec3)) (→ (Option Quad))
       (let* ((dx (- (● b x) (● a x))) (dz (- (● b z) (● a z))))
-        (flat
-         (item (Box)
-               (new Vec3 (x (* 0.5 (+ (● a x) (● b x)))) (y 0.0) (z (* 0.5 (+ (● a z) (● b z)))))
-               (new Vec3 (x (sqrt (+ (* dx dx) (* dz dz)))) (y 0.01) (z 0.08))
-               (f64->f32 (atan2 (f32->f64 (negate dz)) (f32->f64 dx)))
-               dark))))
+        (tinted atlas
+                white
+                (None)
+                (* 0.5 (+ (● a x) (● b x)))
+                (negate (* 0.5 (+ (● a z) (● b z))))
+                (sqrt (+ (* dx dx) (* dz dz)))
+                0.08
+                (f64->f32 (atan2 (f32->f64 (negate dz)) (f32->f64 dx)))
+                dark)))
 
-    (define tie-items (→ (List Item))
-      (map (lambda (tie) (segment (person-point (● tie first)) (person-point (● tie second))))
+    (define (tie-quads (atlas Atlas)) (→ (List (Option Quad)))
+      (map (lambda (tie) (segment atlas (person-point (● tie first)) (person-point (● tie second))))
            ties))
 
     (define (audience-color (audience I64)) (→ I32)
@@ -239,93 +249,122 @@
     (define (base-size (person I64)) (→ F32)
       (if (hub? person) 1.7 1.3))
 
-    ;; A flat hexagon around a person's feet, `size` across, its top at
-    ;; `height`.
-    (define (hexagon (person I64) (size F32) (height F32) (color I32)) (→ Item)
-      (flat (item (Prism) (person-point person) (new Vec3 (x size) (y height) (z size)) 0.0 color)))
+    ;; A hexagon around a person's feet, `size` from point to point.
+    (define (hexagon-quad (atlas Atlas) (person I64) (size F32) (color I32)) (→ (Option Quad))
+      (let ((at (person-point person)))
+        (tinted atlas hexagon (None) (● at x) (negate (● at z)) size size 0.0 color)))
 
     ;; Pips over a person's head for what they believe on one pair of
     ;; traits, one pip per point of intensity, colored by trait: the danger
     ;; pair grows leftward from the middle, the word pair rightward.
-    (define (pips (mill Mill)
+    (define (pips (atlas Atlas)
+                  (mill Mill)
                   (person I64)
                   (first Trait)
                   (second Trait)
                   (first-color I32)
                   (second-color I32)
                   (direction F32))
-      (→ (List Item))
+      (→ (List (Option Quad)))
       (let* ((a (belief mill person first))
              (b (belief mill person second))
              (at (person-point person))
              (color (if (> a 0) first-color second-color)))
         (map (lambda (index)
-               (flat (item (Tile)
-                           (new Vec3
-                             (x (+ (● at x) (* direction (+ 0.24 (* 0.36 (i64->f32 index))))))
-                             (y 0.6)
-                             (z (- (● at z) 1.55)))
-                           (new Vec3 (x 0.3) (y 1.0) (z 0.3)) 0.0 color)))
+               (tinted atlas
+                       white
+                       (None)
+                       (+ (● at x) (* direction (+ 0.24 (* 0.36 (i64->f32 index)))))
+                       (negate (- (● at z) 1.55))
+                       0.3
+                       0.3
+                       0.0
+                       color))
              (iota (max a b)))))
 
-    ;; A person is their figure on their audience's base. Those who heard
-    ;; something new stroll in place on a yellow ring; quiet ones stand on a
-    ;; dark one, which wins for a quiet person who heard something, as
-    ;; keeping quiet lasts while the news is one shift's, and the stroll
-    ;; still shows it.
-    (define (person-items (screen MillScreen) (person I64)) (→ (List Item))
-      (let* ((mill (● screen mill)) (at (person-point person)) (size (base-size person))
-             (fresh? (member? person (● screen fresh)))
-             (layer (+ 0.1 (* 0.01 (- (● at z) town-top)))))
-        (concatenate
-         (list (list (hexagon person size 0.03 (audience-color (audience-of person)))
-                     (pose-flat (walk-book (person-picture person)) (if fresh? (Stroll) (Stand))
-                                (new Vec3 (x (● at x)) (y layer) (z (+ (● at z) feet-offset)))
-                                toward-viewer
-                                figure-size
-                                (camera-of screen)))
-               (pips mill person (Dangerous) (Harmless) (rgb 225 70 60) (rgb 140 190 245) -1.0)
-               (pips mill person (Reliable) (Unreliable) (rgb 90 205 110) (rgb 245 150 40) 1.0)
-               (cond
-                ((quiet? mill person) (list (hexagon person (+ size 0.45) 0.02 (rgb 30 30 36))))
-                (fresh? (list (hexagon person (+ size 0.45) 0.02 (rgb 235 205 70))))
-                (else (Nil)))))))
+    (define (pip-quads (atlas Atlas) (mill Mill) (person I64)) (→ (List (Option Quad)))
+      (append (pips atlas mill person (Dangerous) (Harmless) (rgb 225 70 60) (rgb 140 190 245) -1.0)
+              (pips atlas
+                    mill
+                    person
+                    (Reliable)
+                    (Unreliable)
+                    (rgb 90 205 110)
+                    (rgb 245 150 40)
+                    1.0)))
+
+    ;; Those who heard something new stroll in place on a yellow ring; quiet
+    ;; ones stand on a dark one, which wins for a quiet person who heard
+    ;; something, as keeping quiet lasts while the news is one shift's, and
+    ;; the stroll still shows it.
+    (define (ring-quads (atlas Atlas) (screen MillScreen) (person I64)) (→ (List (Option Quad)))
+      (let ((size (+ (base-size person) 0.45)))
+        (cond
+         ((quiet? (● screen mill) person) (list (hexagon-quad atlas person size (rgb 30 30 36))))
+         ((member? person (● screen fresh))
+          (list (hexagon-quad atlas person size (rgb 235 205 70))))
+         (else (Nil)))))
+
+    ;; A person's figure, its feet at the middle of their base, facing the
+    ;; viewer.
+    (define (figure-quad (atlas Atlas) (screen MillScreen) (person I64) (time I64))
+      (→ (Option Quad))
+      (let ((at (person-point person))
+            (gait (if (member? person (● screen fresh)) (Stroll) (Stand))))
+        (tinted atlas
+                (person-picture person)
+                (Some (cell-at (walk-book (person-picture person)) gait (heading 4 0.0 -1.0) time))
+                (● at x)
+                (+ (negate (+ (● at z) feet-offset)) (/ figure-size 2.0))
+                figure-size
+                figure-size
+                0.0
+                (rgb 255 255 255))))
 
     ;; The chosen person's base has a pale border, the one under the pointer
-    ;; a grey one.
-    (define (marker-items (screen MillScreen)) (→ (List Item))
+    ;; a grey one over it.
+    (define (marker-quads (atlas Atlas) (screen MillScreen)) (→ (List (Option Quad)))
       (append (match (● screen selected)
                 ((Some person)
-                 (list (hexagon person (+ (base-size person) 0.8) 0.015 (rgb 190 200 215))))
+                 (list (hexagon-quad atlas person (+ (base-size person) 0.8) (rgb 190 200 215))))
                 ((None) (Nil)))
               (match (● screen hover)
                 ((Some person)
-                 (list (hexagon person (+ (base-size person) 0.65) 0.016 (rgb 110 118 132))))
+                 (list (hexagon-quad atlas person (+ (base-size person) 0.65) (rgb 110 118 132))))
                 ((None) (Nil)))))
 
-    (define (marker-version (screen MillScreen)) (→ I32)
-      (let ((code (lambda (choice) (match choice ((Some person) (+ person 1)) ((None) 0)))))
-        (i64->i32 (+ (* 32 (code (● screen selected))) (code (● screen hover))))))
+    ;; The town at `time` milliseconds, in drawing order.
+    (define (mill-quads (screen MillScreen) (atlas Atlas) (time I64)) (→ (List Quad))
+      (let ((people (iota person-count))
+            (far-first (list-sort (lambda (a b) (< (● (person-point a) z) (● (person-point b) z)))
+                                  (iota person-count))))
+        (present
+         (concatenate
+          (list (tie-quads atlas)
+                (marker-quads atlas screen)
+                (concatenate (map (lambda (person) (ring-quads atlas screen person)) people))
+                (map (lambda (person)
+                       (hexagon-quad atlas
+                                     person
+                                     (base-size person)
+                                     (audience-color (audience-of person))))
+                     people)
+                (map (lambda (person) (figure-quad atlas screen person time)) far-first)
+                (concatenate
+                 (map (lambda (person) (pip-quads atlas (● screen mill) person)) people)))))))
+
+    ;; The quads whose pictures the atlas holds.
+    (define (present (quads (List (Option Quad)))) (→ (List Quad))
+      (concatenate (map (lambda (quad)
+                          (match quad
+                            ((Some it) (list it))
+                            ((None) (Nil))))
+                        quads)))
 
     ;; `art` gives the bytes of each sheet the cast wears.
-    (define (view-mill-screen (screen MillScreen) (art (Fn String → (Option Source))))
-      (→ Frame)
-      (new Frame (camera (camera-of screen)) (light sunlight) (background backdrop) (motion 1.0)
-           (batches
-            (list (new Batch (key 0) (version 0) (style (Solid)) (items (lambda () tie-items)))
-                  (new Batch (key 1) (version (i64->i32 (● screen version))) (style (Solid))
-                       (items (lambda ()
-                                (concatenate
-                                 (map (lambda (person) (person-items screen person))
-                                      (iota person-count))))))
-                  (new Batch
-                    (key 2)
-                    (version (marker-version screen))
-                    (style (Solid))
-                    (items (lambda () (marker-items screen))))))
-           (pictures
-            (map (lambda (person) (walk-picture art (person-picture person) (resident person)))
-                 (iota person-count)))))
+    (define (mill-pictures (art (Fn String → (Option Source)))) (→ (List Picture))
+      (map (lambda (person) (walk-picture art (person-picture person) (resident person)))
+           (iota person-count)))
 
     ;; ---- Status ----
 

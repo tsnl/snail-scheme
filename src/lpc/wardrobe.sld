@@ -16,7 +16,8 @@
   (import
    (snail core base)
    (snail shell wire)
-   (snail shell app)
+   (only (snail shell app) Widget Image look)
+   (only (snail shell graphics atlas) Rect Source Layer Picture)
    (lpc layout)
    (lpc catalog))
   (begin
@@ -130,8 +131,8 @@
                         (● who sheets)))))))
 
     ;; The character in picture `key`, shoulders up, each texel `scale`
-    ;; pixels wide.
+    ;; pixels wide: the scene's image `key` is `face-region` of the picture.
     (define (portrait (look-key String) (key I32) (scale I32)) (→ Widget)
-      (Image (look look-key) key face-region scale))
+      (Image (look look-key) key (● face-region width) (● face-region height) scale))
 
     ))

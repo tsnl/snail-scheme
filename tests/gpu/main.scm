@@ -12,6 +12,8 @@
  (snail shell page)
  (snail shell gpu)
  (snail shell graphics pod)
+ (snail shell graphics atlas)
+ (snail shell graphics quad)
  (gpu-test shaders))
 
 (record Paint
@@ -171,7 +173,7 @@
           color
           "offscreen")
     (fill encoder
-          (view-of (current-texture) 1)
+          (view-of (● (current-texture) texture) 1)
           (pipeline-for module (● info format) "onscreen")
           color
           "onscreen")
@@ -183,6 +185,78 @@
 (define (texels (bytes Bytes)) (→ String)
   (string-join (map (lambda (byte) (show (u8->i32 byte))) (array->list bytes)) " "))
 
+;; The two texels composed into an atlas with red swapped for blue, then
+;; drawn as two quads across a 4x2 texture: blue on the left, green on the
+;; right. The picture also reads back as a PNG data URL.
+
+(define two-texel-picture
+  (→ Picture)
+  (new Picture
+    (key 1)
+    (version 1)
+    (width 2)
+    (height 1)
+    (layers (lambda ()
+              (list (new Layer
+                      (source (new Source (key 1) (bytes (lambda () two-texels))))
+                      (from (new Rect (x 0) (y 0) (width 2) (height 1)))
+                      (x 0)
+                      (y 0)
+                      (swaps (list (new Pair (first 16711680) (second 255))))))))))
+
+(define (texel-quad (atlas Atlas) (column I32) (x F32)) (→ Quad)
+  (match (atlas-slot atlas 1)
+    ((Some slot)
+     (let ((place (slot-region slot (new Rect (x column) (y 0) (width 1) (height 1)))))
+       (new Quad
+         (center (new Vec2f (x x) (y 1.0)))
+         (size (new Vec2f (x 2.0) (y 2.0)))
+         (angle 0.0)
+         (page (● place first))
+         (region (● place second))
+         (color (new Vec4f (x 1.0) (y 1.0) (z 1.0) (w 1.0))))))
+    ((None) (panic "the picture has no slot"))))
+
+(define (quads-frame) (→ (Pair Bytes String)) (! gpu tasks)
+  (let* ((encoder (create-command-encoder))
+         (atlas (atlas-pictures (make-atlas "test" 16 1) encoder (list two-texel-picture)))
+         (target (create-texture (new TextureDescriptor
+                                   (path (Some (list "test" "quads")))
+                                   (width 4)
+                                   (height 2)
+                                   (layers 1)
+                                   (mips 1)
+                                   (format (Rgba8Unorm))
+                                   (usage (list (RenderAttachment) (TextureCopySrc))))))
+         (readback (buffer-named "quads-readback" 512 (list (MapRead) (CopyDst))))
+         (pass (begin-render-pass encoder
+                                  (new RenderPassDescriptor
+                                    (colors (list (new ColorAttachment
+                                                    (view (view-of target 1))
+                                                    (load (Clear (new Color
+                                                                   (red 0.0)
+                                                                   (green 0.0)
+                                                                   (blue 0.0)
+                                                                   (alpha 0.0))))
+                                                    (store #t))))
+                                    (depth (None))))))
+    (draw-quads pass
+                "test"
+                (Rgba8Unorm)
+                (new View2D
+                  (center (new Vec2f (x 2.0) (y 1.0)))
+                  (extent (new Vec2f (x 4.0) (y 2.0)))
+                  (pixels (new Vec2f (x 4.0) (y 2.0))))
+                (atlas-texture atlas)
+                (list (texel-quad atlas 0 1.0) (texel-quad atlas 1 3.0)))
+    (end-pass pass)
+    (copy-texture-to-buffer encoder (whole-texture target) readback 0 256 4 2)
+    (submit (list (finish encoder)))
+    (let ((texels (read-buffer readback 0 16)))
+      (new Pair
+        (first texels)
+        (second (atlas-url atlas 1 (new Rect (x 0) (y 0) (width 2) (height 1))))))))
+
 (let ((info (request-device 67108864)))
   (write-line (string-append "format: " (texture-format-name (● info format))))
   (let ((first-frame (frame info)))
@@ -190,4 +264,7 @@
     (write-line (string-append "image: " (texels (● first-frame second)))))
   (let ((second-frame (frame info)))
     (write-line (string-append "again: " (texels (● second-frame first)))))
+  (let ((quads (quads-frame)))
+    (write-line (string-append "quads: " (texels (● quads first))))
+    (write-line (string-append "url: " (● quads second))))
   (report-ready))

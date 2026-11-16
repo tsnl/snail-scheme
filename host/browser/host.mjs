@@ -72,7 +72,7 @@ function frameImports(renderer) {
 // Pictures and the sources they need go to the picture store, which may
 // already hold them.
 function pictureImports(pictures) {
-  let picture = null, source = null, url = [];
+  let picture = null, source = null;
   return {
     'picture-begin'(key, version, width, height) {
       if (pictures.has(key, version)) return 1;
@@ -98,12 +98,6 @@ function pictureImports(pictures) {
     'picture-end'() {
       pictures.finish(picture);
     },
-    // A picture's address, answered a scalar at a time.
-    'picture-url'(key) {
-      url = [...pictures.url(key)];
-      return url.length;
-    },
-    'picture-url-scalar': index => url[index].codePointAt(0),
   };
 }
 

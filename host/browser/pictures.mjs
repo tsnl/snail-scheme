@@ -2,7 +2,7 @@
 // application sends as bytes. Sources are decoded once by key; a picture is
 // composed on a canvas once all its sources have decoded, and kept until the
 // application sends another version. The renderer uploads a composed
-// picture as a texture, and the HUD's images show one by its address.
+// picture as a texture.
 
 // ---- Sources ----
 
@@ -51,22 +51,12 @@ export function createPictures() {
     picture.canvas = canvas;
   }
 
-  // The composed picture as a file an image element can show. A version
-  // that is no longer the picture's keeps the address it had.
-  async function encode(picture) {
-    const blob = await picture.canvas.convertToBlob();
-    if (pictures.get(picture.key) !== picture) return;
-    URL.revokeObjectURL(picture.url);
-    picture.url = URL.createObjectURL(blob);
-  }
-
   return {
     has(key, version) { return pictures.get(key)?.version === version; },
     hasSource(key) { return sources.has(key); },
     // Starts a picture; its layers follow, then `finish`.
     define(key, version, width, height) {
-      const picture = {key, version, width, height, layers: [], canvas: null, encoding: null,
-                       url: pictures.get(key)?.url ?? ''};
+      const picture = {key, version, width, height, layers: [], canvas: null};
       pictures.set(key, picture);
       return picture;
     },
@@ -83,14 +73,6 @@ export function createPictures() {
     forget() {
       sources.clear();
       for (const picture of pictures.values()) picture.version = null;
-    },
-    // The address of the picture for an image element, or '' until it has
-    // one. A version is encoded when first asked for, and the version
-    // before it stays shown until then.
-    url(key) {
-      const picture = pictures.get(key);
-      if (picture?.canvas) picture.encoding ??= encode(picture).catch(error => console.error(`picture ${key}:`, error.message));
-      return picture?.url ?? '';
     },
   };
 }
