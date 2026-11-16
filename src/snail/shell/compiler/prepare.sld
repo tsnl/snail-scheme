@@ -152,7 +152,6 @@
         ((Some (Constructor _ _)) (Nil))
         ((Some (Accessor _ _ _)) (Nil))
         ((Some (Replacer _ _ _)) (Nil))
-        ((Some (Setter _ _ _)) (Nil))
         (_ (resume-row callees name type))))
 
     (define closing-primitives

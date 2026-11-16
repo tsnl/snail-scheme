@@ -931,24 +931,10 @@
       (match (prune (solution ck) (● callee type))
         ((TFun params _ _)
          (if (= (length params) (length args))
-             (each ck (lambda (ck pair)
-                        (if (projection-call? ck callee)
-                            (check-value ck (● pair second) (● pair first) row)
-                            (check-result ck (● pair second) (● pair first) row)))
+             (each ck (lambda (ck pair) (check-result ck (● pair second) (● pair first) row))
                    (zip params args))
              (each ck (lambda (ck arg) (infer ck arg row)) args)))
         (_ (each ck (lambda (ck arg) (infer ck arg row)) args))))
-
-    ;; Projections first inspect their receiver to select its field type.
-    ;; Other parameters constrain later arguments.
-
-    (define (projection-call? (ck Checker) (callee Expr)) (→ Bool)
-      (match (● callee term)
-        ((Var name _ _)
-         (match (program-value (program-of ck) name)
-           ((Some (Accessor _ _ _)) #t)
-           (_ #f)))
-        (_ #f)))
 
     ;; Arguments are compared one by one, so a mismatch names its argument,
     ;; and each meets its parameter's type (`fit`).
@@ -1536,7 +1522,7 @@
       (→ (Option (Pair Expr Type)))
       (let* ((field (list-ref (● case fields) index))
              (result (substitute (zip (● data params) args) (● field type)))
-             (callee (new Expr (term (Var (field-operation-name case index "get") args (Nil)))
+             (callee (new Expr (term (Var (accessor-name case index) args (Nil)))
                           (type (TFun (list (● record type)) result empty-row)) (loc loc))))
         (Some (new Pair
                 (first (new Expr (term (App callee (list record))) (type result) (loc loc)))

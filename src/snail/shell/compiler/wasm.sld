@@ -1164,12 +1164,9 @@
         (match (program-value (program-of m) name)
           ((Some (Constructor case _))
            (list (construct fn case (● expr type) args)))
-          ((Some (Accessor case index _)) (list (field-access fn case index (first-arg args))))
+          ((Some (Accessor _ index _)) (list (field-access fn index (first-arg args))))
           ((Some (Replacer case index _))
            (list (replace-field fn case index (first-arg args) (list-ref args 1))))
-          ((Some (Setter case index _))
-           (list (set-field fn case index (first-arg args) (list-ref args 1))
-                 (wat "i32.const" (int 0))))
           ((Some (Primitive _)) (emit-primitive fn name args (● expr type)))
           ((Some (Operation effect _))
            (list (wat* "call"
@@ -1354,69 +1351,28 @@
 
     ;; ---- Fields ----
 
-    ;; A projection follows one reference and reads one declared field. Enum
-    ;; accessors first establish the case subtype, whose fields follow its tag.
-    (define (field-access (fn Fn) (case Case) (index I64) (value Expr)) (→ Wat) (! mut)
-      (let* ((m (● fn module)) (type (● value type)))
-        (wat "struct.get" (id (field-holder m type case)) (int (+ index (field-offset m type)))
-             (field-record fn case value))))
+    ;; Only a record's fields are read and written this way; an enum's are
+    ;; read where a pattern matches its case. A record's reference has its
+    ;; own struct type, so a field is one `struct.get` or `struct.set`.
 
-    (define (field-holder (m Module) (type Type) (case Case)) (→ String) (! mut)
-      (if (● (data-type-of m (● case type)) enum?) (case-type m type case) (data-type m type)))
+    (define (field-access (fn Fn) (index I64) (record Expr)) (→ Wat) (! mut)
+      (wat "struct.get" (id (data-type (● fn module) (● record type))) (int index)
+           (emit1 fn record)))
 
-    ;; An enum case's fields follow its tag.
-    (define (field-offset (m Module) (type Type)) (→ I64)
-      (if (● (data-type-of m (type-name type)) enum?) 1 0))
-
-    (define (field-record (fn Fn) (case Case) (record Expr)) (→ Wat) (! mut)
-      (case-record (● fn module) (● record type) case (emit1 fn record)))
-
-    ;; The accessor names the case, and the cast checks it, even when two
-    ;; case layouts share the same structural Wasm subtype.
-    (define (case-record (m Module) (type Type) (case Case) (record Wat)) (→ Wat) (! mut)
-      (wat "ref.cast" (ref-wat (field-holder m type case)) record))
-
-    ;; Wasm evaluates the receiver before the incoming value, each once.
-    ;; The case check is inside the helper, after both call operands run.
-    (define (set-field (fn Fn) (case Case) (index I64) (record Expr) (content Expr))
-      (→ Wat) (! mut)
-      (let* ((m (● fn module)) (type (● record type)))
-        (wat "call" (id (field-set-helper m type case (+ index (field-offset m type))
-                                          (rep m (● content type))))
-             (emit1 fn record) (emit1 fn content))))
-
-    ;; Checking has resolved a place to an actual mutable field. The target
-    ;; expression may itself follow any number of ordinary object references.
-    (record FieldTarget
-      ((case Case)
-       (index I64)
-       (record Expr)))
-
-    (define (place-field (fn Fn) (place Expr)) (→ FieldTarget) (! mut)
-      (match (● place term)
-        ((Ann inner _) (place-field fn inner))
-        ((App callee (Cons record (Nil)))
-         (match (builtin-of fn callee)
-           ((Some (Accessor case index _))
-            (new FieldTarget (case case) (index index) (record record)))
-           (_ (panic "internal error: a place reads a field"))))
-        (_ (panic "internal error: a place reads a field"))))
+    ;; Checking has resolved a place to a record's field, whose record may
+    ;; itself follow any number of ordinary object references. Wasm
+    ;; evaluates the record before the incoming value, each once.
 
     (define (place-write (fn Fn) (place Expr) (value Expr)) (→ Wat) (! mut)
-      (let ((target (place-field fn place)))
-        (set-field fn (● target case) (● target index) (● target record) value)))
-
-    (define (field-set-helper (m Module) (record-type Type) (case Case) (index I64) (content Rep))
-      (→ String) (! mut)
-      (let ((base (data-type m record-type)) (holder (field-holder m record-type case)))
-        (helper! m "set-field" (string-append holder "." (i64->string index))
-                 (lambda (function-id)
-                   (wat "func" (id function-id)
-                        (wat "param" (Word "$record") (ref-wat base))
-                        (wat "param" (Word "$value") (rep->wat content))
-                        (wat "struct.set" (id holder) (int index)
-                             (case-record m record-type case (wat "local.get" (Word "$record")))
-                             (wat "local.get" (Word "$value"))))))))
+      (match (● place term)
+        ((Ann inner _) (place-write fn inner value))
+        ((App callee (Cons record (Nil)))
+         (match (builtin-of fn callee)
+           ((Some (Accessor _ index _))
+            (wat "struct.set" (id (data-type (● fn module) (● record type))) (int index)
+                 (emit1 fn record) (emit1 fn value)))
+           (_ (panic "internal error: a place reads a field"))))
+        (_ (panic "internal error: a place reads a field"))))
 
     ;; A pure replacement makes a new record that shares the unchanged field
     ;; values. Evaluate both operands before reading the remaining fields.

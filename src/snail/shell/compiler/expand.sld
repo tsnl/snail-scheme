@@ -1805,63 +1805,41 @@
           (_ (compile-error (syntax-loc ident)
                             (string-append "not a constructor: " identifier-name))))))
 
-    ;; Construction and field reads are pure. Setters perform mut.
+    ;; A case's constructor, and for a record its fields' accessors and
+    ;; replacers, all pure: an enum's fields are read by match.
+
     (define (with-case-values (program Program) (data DataType) (case Case) (record? Bool))
       (→ Program)
-      (let* ((params (● data params)) (self (TCon (● data name) (map TRigid params)))
-             (constructor (Constructor case
-                                       (new Scheme (vars params)
-                                            (constraints (Nil))
-                                            (type (TFun (map (lambda (record) (● record type))
-                                                             (● case fields))
-                                                        self
-                                                        empty-row))))))
-        (fold-left (lambda (program indexed)
-                     (with-field-values program
-                                        data
-                                        case
-                                        (● indexed first)
-                                        (● indexed second)
-                                        record?))
-                   (program-with-value program (● case name) constructor)
-                   (zip (iota (length (● case fields))) (● case fields)))))
+      (let* ((self (TCon (● data name) (map TRigid (● data params))))
+             (program (program-with-value program
+                                          (● case name)
+                                          (Constructor case
+                                                       (field-scheme data
+                                                                     (map (lambda (field)
+                                                                            (● field type))
+                                                                          (● case fields))
+                                                                     self)))))
+        (if record?
+            (fold-left (lambda (program index) (with-field-values program data case self index))
+                       program (iota (length (● case fields))))
+            program)))
 
-    (define (with-field-values (program Program) (data DataType) (case Case)
-                               (index I64) (field Field) (record? Bool))
+    (define (with-field-values (program Program) (data DataType) (case Case) (self Type)
+                               (index I64))
       (→ Program)
-      (let* ((params (● data params)) (self (TCon (● data name) (map TRigid params)))
-             (type (● field type)) (name (string-append (● case name) "-" (● field name)))
-             (program (program-with-value program (field-operation-name case index "get")
-                                          (Accessor case
-                                                    index
-                                                    (field-scheme params
-                                                                  (list self)
-                                                                  type
-                                                                  empty-row))))
-             (program (if record?
-                          (program-with-value program (string-append name "-set")
-                                              (Replacer case
-                                                        index
-                                                        (field-scheme params
-                                                                      (list self type)
-                                                                      self
-                                                                      empty-row)))
-                          program)))
-        (if (not record?) program
-            (program-with-value program (field-operation-name case index "set!")
-                                (Setter case
-                                        index
-                                        (field-scheme params
-                                                      (list self type)
-                                                      (TCon "Unit" (Nil))
-                                                      mut-row))))))
+      (let ((field (list-ref (● case fields) index)))
+        (program-with-value
+         (program-with-value program
+                             (accessor-name case index)
+                             (Accessor case index (field-scheme data (list self) (● field type))))
+         (string-append (● case name) "-" (● field name) "-set")
+         (Replacer case index (field-scheme data (list self (● field type)) self)))))
 
-    (define (field-scheme (params (List String)) (arguments (List Type)) (result Type) (row Type))
-      (→ Scheme)
+    (define (field-scheme (data DataType) (arguments (List Type)) (result Type)) (→ Scheme)
       (new Scheme
-        (vars params)
+        (vars (● data params))
         (constraints (Nil))
-        (type (TFun arguments result row))))
+        (type (TFun arguments result empty-row))))
 
     ;; Resolve definition headers before expanding bodies so recursive calls
     ;; and importers see the same declared contract.
@@ -3615,7 +3593,7 @@
                            (TFun (Nil) (TCon "Unit" (Nil)) empty-row))
                 (expect (callable-signature "(I64 (Array String) → Bool ! mut)")
                         (TFun (list (TCon "I64" (Nil)) (TCon "Array" (list (TCon "String" (Nil)))))
-                              (TCon "Bool" (Nil)) mut-row))
+                              (TCon "Bool" (Nil)) (TRow (list "mut") (None))))
                 (for-each (lambda (source)
                             (expect
                              (and (compile-failure (lambda () (callable-signature source))) #t)
