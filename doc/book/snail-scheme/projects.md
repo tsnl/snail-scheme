@@ -86,20 +86,18 @@ duplicate target errors identify both declarations, duplicate fields the second.
 
 ## Output directories
 
-Each build target produces one directory at `PROJECT/build/TARGET`, the same
-shape in a debug or a release build. Every library is compiled to a module of
-its own. The modules, the runtime they link with and each file the program
-links ([linked files](types.md#linked-files)) are objects of the project's
+Each build target produces one directory at `PROJECT/build/TARGET`. In a
+debug build every library is compiled to a module of its own. The modules,
+the runtime they link with and each file the program links
+([linked files](types.md#linked-files)) are objects of the project's
 store, `PROJECT/build/.snail-store/sha256/AB/DIGEST`, named for the SHA-256
 of their bytes and sharded by its first two hex digits. A build adds only the
 objects whose bytes are new; an object is written once and never rewritten,
 and nothing reclaims the store: delete it and rebuild from time to time.
 
-The directory holds the program's manifest, `TARGET.manifest.datum`, and a
-view of the objects it names at the same paths under its own `store/`: links
-into the project's store in a debug build, copies in a release build, so a
-release directory can be served or shipped on its own. The manifest is one
-list of entries:
+A debug directory holds the program's manifest, `TARGET.manifest.datum`, and
+a view of the objects it names at the same paths under its own `store/`,
+links into the project's store. The manifest is one list of entries:
 
 ```scheme
 ((runtime "DIGEST" SIZE)
@@ -111,15 +109,26 @@ list of entries:
 the runtime, each library's module in program order, then each file the
 program links. Every host links the program from it: Node and
 `build/snail run-wasm` through the engine the command line holds, a page
-through `load.mjs`. A browser build adds the shared browser host and
+through `load.mjs`.
+
+A release directory, `--release`, holds one module instead, `TARGET.wasm`:
+the whole program compiled as one, fused with its runtime, then optimized
+by Binaryen's `wasm-opt -O2`, which can inline the runtime's functions into
+the program. Each file the program links is copied into its `store/`, at
+the same path, so the directory can be served or shipped on its own. Node
+and `build/snail run-wasm` run the module directly, and a page through
+`linkModule` in `load.mjs`. `wasm-opt` is found on `PATH`.
+
+A browser build adds the shared browser host and
 recursively copies `public`, if specified. Supply `index.html` there; no
-page is generated. The builder names the manifest in the page, with a
+page is generated. The builder names the program, the manifest or the
+module, in the page, with a
 `snail-modules` meta element, which `host.mjs`, or `ui.mjs` for a
 [document interface](applications.md#document-interfaces), links the
 program from; a linked file is fetched when the program first reads it.
 
 Public files cannot overwrite generated files. At the root, every name the
-build generates is reserved: the manifest, `store`, the browser host's files
+build generates is reserved: the manifest, the release module, `store`, the browser host's files
 and the `.snail-target` ownership marker. `.snail-publish` is reserved at
 every depth. Public trees must
 contain only regular files and directories, include no project build output,

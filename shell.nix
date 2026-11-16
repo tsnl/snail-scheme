@@ -18,5 +18,6 @@ pkgs.mkShell {
     nodejs_26
     mdbook
     tree-sitter
+    binaryen
   ];
 }
