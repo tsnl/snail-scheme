@@ -133,13 +133,13 @@
                   "POST / HTTP/1.1\r\nHost: a\r\nContent-Length: 3\r\nExpect: 100-continue\r\n\r\n"))
   (write-line "framing errors")
   (let* ((prefix "GET / HTTP/1.1\r\nHost: a\r\nX: ") (suffix "\r\n\r\n")
-         (count (- (- (head-limit) (string-length prefix)) (string-length suffix)))
+         (count (- (- head-limit (string-length prefix)) (string-length suffix)))
          (exact (string-append prefix (make-string count #\x) suffix)))
-    (assert (= (● (parsed (ascii exact)) end) (head-limit)))
+    (assert (= (● (parsed (ascii exact)) end) head-limit))
     (reject-head (string-append prefix (make-string (+ count 1) #\x) suffix) "head-limit"))
-  (reject-head (make-string (head-limit) #\x) "head-limit")
+  (reject-head (make-string head-limit #\x) "head-limit")
   (let* ((head (ascii "GET / HTTP/1.1\r\nHost: a\r\n\r\n"))
-         (with-body (array-append head (make-array (+ (head-limit) 1) (i32->u8 255)))))
+         (with-body (array-append head (make-array (+ head-limit 1) (i32->u8 255)))))
     (assert (= (● (parsed with-body) end) (array-length head))))
   (for-each (lambda (byte)
               (let ((head (array-concatenate (list (ascii "GET / HTTP/1.1\r\nHost: a\r\nX: ")
@@ -149,7 +149,7 @@
                   ((Ok _) (panic "accepted control or non-ASCII head byte")))))
             (list (i32->u8 0) (i32->u8 127) (i32->u8 255)))
   (let* ((prefix "GET / HTTP/1.1\r\nHost: a\r\n")
-         (count (quotient (- (- (head-limit) (string-length prefix)) 2) 4))
+         (count (quotient (- (- head-limit (string-length prefix)) 2) 4))
          (source
           (string-append prefix
                          (string-concatenate (map (lambda (_) "x:\r\n") (iota count)))
@@ -159,7 +159,7 @@
   (let ((request
          (● (parsed (ascii "POST / HTTP/1.1\r\nHost: a:0\r\nContent-Length: 8388608\r\n\r\n"))
             request)))
-    (assert (= (● request body-length) (body-limit))))
+    (assert (= (● request body-length) body-limit)))
   (reject-head "POST / HTTP/1.1\r\nHost: a\r\nContent-Length: 8388609\r\n\r\n" "body-limit")
   (reject-head
    (string-append "POST / HTTP/1.1\r\nHost: a\r\nContent-Length: "
@@ -203,17 +203,17 @@
   (reject-response "bad method" 200 (Nil) "response")
   (reject-response "CONNECT" 200 (Nil) "unsupported")
   (let* ((base "HTTP/1.1 200 \r\nConnection: close\r\nContent-Length: 0\r\n\r\n")
-         (count (- (- (head-limit) (string-length base)) 5))
+         (count (- (- head-limit (string-length base)) 5))
          (header (new Header (name "X") (value (make-string count #\x)))))
     (assert
-     (= (array-length (● (encoded "GET" 200 (list header) #u8()) head)) (head-limit)))
+     (= (array-length (● (encoded "GET" 200 (list header) #u8()) head)) head-limit))
     (reject-response "GET"
                      200
                      (list (new Header (name "X") (value (make-string (+ count 1) #\x))))
                      "head-limit")
     (let ((many (map (lambda (_) (new Header (name "x") (value "")))
-                     (iota (quotient (- (head-limit) (string-length base)) 5)))))
-      (assert (<= (array-length (● (encoded "GET" 200 many #u8()) head)) (head-limit)))))
+                     (iota (quotient (- head-limit (string-length base)) 5)))))
+      (assert (<= (array-length (● (encoded "GET" 200 many #u8()) head)) head-limit))))
   (write-line "safe output")
   (for-each (lambda (source) (write-line (target-text source)))
             (list "/"
@@ -265,7 +265,7 @@
                   (new Header (name "Transfer-Encoding") (value "chunked"))
                   (new Header (name "X") (value "bad\r\nInjected: value"))))
   (assert
-   (string=? (stream-head 200 (list (new Header (name "X") (value (make-string (head-limit) #\x)))))
+   (string=? (stream-head 200 (list (new Header (name "X") (value (make-string head-limit #\x)))))
              "error head-limit"))
   (write-line "stream heads")
   (unit))

@@ -27,7 +27,7 @@
                                    (string-append "spent " (show (● ledger spent)))
                                    (string-append "balanced "
                                                   (show (= (● world energy)
-                                                           (- (+ (starting-energy)
+                                                           (- (+ starting-energy
                                                                  (● ledger produced))
                                                               (● ledger spent))))))
                              ", "))))

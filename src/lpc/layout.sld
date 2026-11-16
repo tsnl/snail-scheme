@@ -28,11 +28,11 @@
 
     ;; ---- Cells ----
 
-    (define (cell) (→ I32) 64)
+    (define cell (→ I32) 64)
 
     ;; The four walking rows alone. Their first frame is the figure standing
     ;; still; the other eight are its stride.
-    (define (walk-region) (→ Rect) (new Rect (x 0) (y 512) (width 576) (height 256)))
+    (define walk-region (→ Rect) (new Rect (x 0) (y 512) (width 576) (height 256)))
 
     ;; The row within a motion's four for a spritebook heading: heading 0
     ;; faces the viewer (the sheet's third row), 1 their right (the fourth),
@@ -65,8 +65,8 @@
     (define (universal-book (picture I32)) (→ (Spritebook Motion))
       (new Spritebook
         (picture picture)
-        (cell-width (cell))
-        (cell-height (cell))
+        (cell-width cell)
+        (cell-height cell)
         (headings 4)
         (strip motion-strip)))
 
@@ -86,13 +86,13 @@
     (define (walk-book (picture I32)) (→ (Spritebook Gait))
       (new Spritebook
         (picture picture)
-        (cell-width (cell))
-        (cell-height (cell))
+        (cell-width cell)
+        (cell-height cell)
         (headings 4)
         (strip gait-strip)))
 
     ;; In such a picture, the standing figure facing the viewer from the
     ;; shoulders up, room left for tall hair: a portrait.
-    (define (face-region) (→ Rect) (new Rect (x 12) (y 130) (width 40) (height 40)))
+    (define face-region (→ Rect) (new Rect (x 12) (y 130) (width 40) (height 40)))
 
     ))

@@ -69,7 +69,7 @@
        (evidence (Table Evidence))
        (projections (Table Expr))))
 
-    (define (empty-solution)
+    (define empty-solution
       (→ Solution)
       (new Solution (types (empty-table)) (evidence (empty-table)) (projections (empty-table))))
 
@@ -381,7 +381,7 @@
                           (threading ck ((agreed (unify? (tail-type (● source second))
                                                          (match (● target second)
                                                            ((Some tail) tail)
-                                                           ((None) (empty-row))))))
+                                                           ((None) empty-row)))))
                                      (if agreed ck (effect-refusal ck latent loc)))))))
         (_ ck)))
 
@@ -407,7 +407,7 @@
     ;; and its tail variable, less those `performed` records.
 
     (define (unperformed-effects (declared Type) (performed (List String))) (→ (List String))
-      (let ((flat (flatten-row (empty-solution) declared)))
+      (let ((flat (flatten-row empty-solution declared)))
         (label-difference (append (● flat first) (tail-variable (● flat second))) performed)))
 
     ;; ---- Subsumption ----
@@ -1375,7 +1375,7 @@
              (compile-error loc "unreachable match clause"))
            (loop (Cons (list pattern) rows) rest))
           ((Nil) (unit))))
-      (when (useful? ck (map (lambda (pattern) (list pattern)) patterns) (list (PWild (unchecked))))
+      (when (useful? ck (map (lambda (pattern) (list pattern)) patterns) (list (PWild unchecked)))
         (compile-error loc "match is not exhaustive")))
 
     ;; A pattern's head is a constructor and its arity, or a literal, which
@@ -1409,7 +1409,7 @@
         (_ (Nil))))
 
     (define (wildcards (count I64)) (→ (List Pattern))
-      (map (lambda (index) (PWild (unchecked))) (iota count)))
+      (map (lambda (index) (PWild unchecked)) (iota count)))
 
     (define (specialize (rows (List (List Pattern))) (head Head)) (→ (List (List Pattern)))
       (concatenate
@@ -1561,10 +1561,10 @@
       (let* ((field (list-ref (● case fields) index))
              (result (substitute (zip (● data params) args) (● field type)))
              (callee (new Expr (term (Var (field-operation-name case index "get") args (Nil)))
-                          (type (TFun (list (● record type)) result (empty-row))) (loc loc))))
+                          (type (TFun (list (● record type)) result empty-row)) (loc loc))))
         (Some (new Pair
                 (first (new Expr (term (App callee (list record))) (type result) (loc loc)))
-                (second (empty-row))))))
+                (second empty-row)))))
 
     ;; ---- Solving ----
 
@@ -1983,17 +1983,17 @@
             (match (link-field program name)
               ((Ok field) (Ok (new Pair (first field) (second record))))
               ((Err problem) (Err problem))))
-           (_ (Err (not-a-place)))))
-        (_ (Err (not-a-place)))))
+           (_ (Err not-a-place))))
+        (_ (Err not-a-place))))
 
-    (define (not-a-place) (→ String)
+    (define not-a-place (→ String)
       "a place must select a field")
 
     (define (link-field (program Program) (name String))
       (→ (Result Field String))
       (match (program-value program name)
         ((Some (Accessor case index _)) (Ok (list-ref (● case fields) index)))
-        (_ (Err (not-a-place)))))
+        (_ (Err not-a-place))))
 
     ;; ---- Explicit Any ----
 
@@ -2086,7 +2086,7 @@
         ((Define name value)
          (if (lambda-expr? value)
              (infer-local-lambda ck value (scheme-type ck name))
-             (check-result ck value (scheme-type ck name) (empty-row))))
+             (check-result ck value (scheme-type ck name) empty-row)))
         (_ (panic "internal error: expected Define"))))
 
     (define (scheme-type (ck Checker) (name String)) (→ Type)
@@ -2260,7 +2260,7 @@
       (match definition
         ((Define name value)
          (threading ck ((then (want-closed-requirements scheme (● value loc)))
-                        (value (check-result value (● scheme type) (empty-row))))
+                        (value (check-result value (● scheme type) empty-row)))
                     (new Pair (first (Define name value))
                          (second (want-performed ck definition scheme)))))
         (_ (panic "internal error: expected Define"))))
@@ -2410,7 +2410,7 @@
                      (resolving (Nil))
                      (signed (None))
                      (counter 0)
-                     (solution (empty-solution))
+                     (solution empty-solution)
                      (schemes schemes)
                      (pending (Nil))
                      (pending-count 0)

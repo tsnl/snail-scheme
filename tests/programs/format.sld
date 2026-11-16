@@ -33,7 +33,7 @@
 
 (define (main) (→ Unit) (! output-port)
   (define broken (format-source (long) 40))
-  (write-string (format-source (source) (format-width)))
+  (write-string (format-source (source) format-width))
   (write-string broken)
   ;; Formatting what formatting made changes nothing.
   (write-line (if (string=? broken (format-source broken 40))
@@ -41,7 +41,7 @@
                   "not idempotent"))
   ;; Reindenting only the second line leaves the third as it was.
   (write-string (indent-lines "(foo bar\nbaz\n  qux)\n" 1 1))
-  (write-string (format-source (result-bindings) (format-width)))
+  (write-string (format-source (result-bindings) format-width))
   (write-string (indent-lines (result-bindings) 1 1))
   ;; The editor's line indentation uses the naming convention too, without
   ;; knowing these macros. Names that only contain `let` remain ordinary calls.

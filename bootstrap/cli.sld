@@ -225,7 +225,7 @@
        ((Some width)
         (if (> width 0) (new FormatRequest (width width) (input (format-input rest))) (bad-width)))
        ((None) (bad-width))))
-    (_ (new FormatRequest (width (format-width)) (input (format-input arguments))))))
+    (_ (new FormatRequest (width format-width) (input (format-input arguments))))))
 
 (define (bad-width) (→ FormatRequest)
   (panic "snail-scheme format: --width takes a positive number of columns"))

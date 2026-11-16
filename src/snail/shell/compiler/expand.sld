@@ -284,7 +284,7 @@
         (aliases (Nil))
         (links (Nil))
         (items (Nil))
-        (program (empty-program))
+        (program empty-program)
         (expanded (empty-table))
         (counter 0)
         (scopes (empty-table))
@@ -372,12 +372,12 @@
     ;; by `inherit-handlers`. Every other library, (snail core primitive)
     ;; among them, is a file.
 
-    (define (core-library) (→ Exports)
-      (append (map (lambda (name) (new Pair (first name) (second (Core name)))) (core-keywords))
+    (define core-library (→ Exports)
+      (append (map (lambda (name) (new Pair (first name) (second (Core name)))) core-keywords)
               (append (map (lambda (entry)
                              (new Pair (first (● entry first))
                                   (second (TypeName (● entry first) (● entry second) (None)))))
-                           (builtin-types))
+                           builtin-types)
                       (list (new Pair (first "mut") (second (EffectName "mut")))
                             (new Pair (first "host") (second (EffectName "host")))))))
 
@@ -395,7 +395,7 @@
       (→ (Pair Exports Context))
       (! fs compile generator)
       (let ((key (string-join name ".")))
-        (cond ((builtin-library? key) (new Pair (first (core-library)) (second cx)))
+        (cond ((builtin-library? key) (new Pair (first core-library) (second cx)))
               ((member? key (● cx loading))
                (compile-error loc (string-append "library import cycle through " key)))
               (else (match (table-ref (● cx expanded) key)
@@ -576,7 +576,7 @@
 
     (define (link-import (file LinkedFile)) (→ Value)
       (Foreign (new Import (module "snail.runtime.link") (symbol (● file digest)))
-               (mono-scheme (TFun (Nil) (TCon "I32" (Nil)) (empty-row)))))
+               (mono-scheme (TFun (Nil) (TCon "I32" (Nil)) empty-row))))
 
     (define (file-digest (path String)) (→ String) (! fs)
       (bytes->hex (sha256 (read-bytes path))))
@@ -1222,7 +1222,7 @@
        (env Env)
        (definition (Option Definition))))
 
-    (define (declaration-keywords) (→ (List String))
+    (define declaration-keywords (→ (List String))
       (list "record" "enum" "type" "typeclass" "instance" "extern" "effect" "expose"))
 
     (define (expand-top-level (cx Context) (env Env) (forms (List Syntax)))
@@ -1400,7 +1400,7 @@
                             (definition (Some definition)))))
              (second cx))))
         ((Some (Core keyword))
-         (if (member? keyword (declaration-keywords))
+         (if (member? keyword declaration-keywords)
              (scan-declared cx env keyword form)
              (new Pair
                (first (list (new Pending
@@ -1525,9 +1525,9 @@
            (_ (compile-error (syntax-loc name)
                              (string-append "only a top-level function can be exposed: "
                                             (ident-name name))))))
-        (_ (compile-error (syntax-loc form) (expose-usage)))))
+        (_ (compile-error (syntax-loc form) expose-usage))))
 
-    (define (expose-usage) (→ String) "expected (expose name \"symbol\")")
+    (define expose-usage (→ String) "expected (expose name \"symbol\")")
 
     (define (define-top-level (cx Context)
               (signatures (Table (Pair Scheme (Option Loc))))
@@ -1836,7 +1836,7 @@
                                             (type (TFun (map (lambda (record) (● record type))
                                                              (● case fields))
                                                         self
-                                                        (empty-row)))))))
+                                                        empty-row))))))
         (fold-left (lambda (program indexed)
                      (with-field-values program
                                         data
@@ -1858,7 +1858,7 @@
                                                     (field-scheme params
                                                                   (list self)
                                                                   type
-                                                                  (empty-row)))))
+                                                                  empty-row))))
              (program (if record?
                           (program-with-value program (string-append name "-set")
                                               (Replacer case
@@ -1866,7 +1866,7 @@
                                                         (field-scheme params
                                                                       (list self type)
                                                                       self
-                                                                      (empty-row))))
+                                                                      empty-row)))
                           program)))
         (if (not record?) program
             (program-with-value program (field-operation-name case index "set!")
@@ -1875,7 +1875,7 @@
                                         (field-scheme params
                                                       (list self type)
                                                       (TCon "Unit" (Nil))
-                                                      (mut-row)))))))
+                                                      mut-row))))))
 
     (define (field-scheme (params (List String)) (arguments (List Type)) (result Type) (row Type))
       (→ Scheme)
@@ -2509,7 +2509,7 @@
         ((Cons (Ident "→" _ _) _) (compile-error loc "a callable signature has only one →"))
         ((Cons (Ident "!" _ _) _)
          (compile-error loc "a callable signature needs a result before !"))
-        ((Cons result (Nil)) (TFun params (resolve-type cx env result) (empty-row)))
+        ((Cons result (Nil)) (TFun params (resolve-type cx env result) empty-row))
         ((Cons result (Cons (Ident "!" _ _) labels))
          (TFun params (resolve-type cx env result) (resolve-row cx env labels loc)))
         (_ (compile-error loc
@@ -2549,7 +2549,7 @@
         (_ (new Pair (first syntax) (second cx)))))
 
     (define (expr (term Term) (loc Loc)) (→ Expr)
-      (new Expr (term term) (type (unchecked)) (loc loc)))
+      (new Expr (term term) (type unchecked) (loc loc)))
 
     (define (expand-expr (cx Context) (env Env) (syntax Syntax)) (→ (Pair Expr Context)) (! compile)
       (threading cx ((syntax (expand-head env syntax)))
@@ -3036,7 +3036,7 @@
     ;; Identifiers they introduce are marked to resolve in an environment of
     ;; the implicit libraries, whatever the declaring library imports.
 
-    (define (implicit-libraries) (→ (List (List String)))
+    (define implicit-libraries (→ (List (List String)))
       (list (list "snail" "core" "forms")
             (list "snail" "core" "primitive")
             (list "snail" "core" "base")
@@ -3083,7 +3083,7 @@
         ((Some scope) (new Pair (first scope) (second cx)))
         ((None)
          (threading cx ((exports
-                         (each (lambda (cx name) (load-library cx name loc)) (implicit-libraries)))
+                         (each (lambda (cx name) (load-library cx name loc)) implicit-libraries))
                         (env (new-top (fold-left (lambda (table entry)
                                                    (table-set table
                                                               (● entry first)
@@ -3331,17 +3331,17 @@
       (→ Pattern)
       (! compile)
       (match syntax
-        ((Ident "_" _ _) (PWild (unchecked)))
+        ((Ident "_" _ _) (PWild unchecked))
         ((Ident _ _ _)
          (match (resolve cx scope syntax)
-           ((Some (Local name)) (PVar name (unchecked)))
+           ((Some (Local name)) (PVar name unchecked))
            (_ (panic "internal error: unbound pattern variable"))))
         ((Atom (DBytes _) loc) (compile-error loc "a byte array cannot be a pattern"))
-        ((Atom value _) (PLit value (unchecked)))
+        ((Atom value _) (PLit value unchecked))
         ((Form (Cons head args) _)
          (PCon (pattern-constructor cx env head)
                (map (lambda (arg) (expand-pattern cx env scope arg)) args)
-               (unchecked)))
+               unchecked))
         (_ (compile-error (syntax-loc syntax) "expected a pattern"))))
 
     (define (pattern-constructor (cx Context) (env Env) (head Syntax)) (→ String) (! compile)
@@ -3661,10 +3661,10 @@
 
       (define test-callable-signatures
         (lambda () (expect (callable-signature "(→ Unit)")
-                           (TFun (Nil) (TCon "Unit" (Nil)) (empty-row)))
+                           (TFun (Nil) (TCon "Unit" (Nil)) empty-row))
                 (expect (callable-signature "(I64 (Array String) → Bool ! mut)")
                         (TFun (list (TCon "I64" (Nil)) (TCon "Array" (list (TCon "String" (Nil)))))
-                              (TCon "Bool" (Nil)) (mut-row)))
+                              (TCon "Bool" (Nil)) mut-row))
                 (for-each (lambda (source)
                             (expect
                              (and (compile-failure (lambda () (callable-signature source))) #t)
@@ -3678,7 +3678,7 @@
           (let* ((cx (new-context (Nil) (None)))
                  (imports (fold-left (lambda (table entry)
                                        (table-set table (● entry first) (● entry second)))
-                                     (empty-table) (core-library)))
+                                     (empty-table) core-library))
                  (env (● (new-top cx imports) first)))
             (match (read-text text "callable.sld")
               ((Cons (Form items loc) (Nil)) (resolve-callable-arrow cx env items (Nil) loc))))))

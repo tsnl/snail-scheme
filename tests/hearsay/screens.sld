@@ -96,7 +96,7 @@
          (shell
           (step shell "two faces with its guide open" (list (new Pair (first 9000) (second 0)))))
          (shell (step shell "two faces after delivering a job for Mo"
-                      (list (new Pair (first (guide-close)) (second 0))
+                      (list (new Pair (first guide-close) (second 0))
                             (new Pair (first 112) (second 0))
                             (new Pair (first 3) (second 0))
                             (new Pair (first 9) (second 0)))))
@@ -104,13 +104,13 @@
                       "ledger with its guide on the last page"
                       (list (new Pair (first 9999) (second 0))
                             (new Pair (first 9100) (second 0))
-                            (new Pair (first (guide-next)) (second 0))
-                            (new Pair (first (guide-next)) (second 0))
-                            (new Pair (first (guide-next)) (second 0))
-                            (new Pair (first (guide-next)) (second 0)))))
+                            (new Pair (first guide-next) (second 0))
+                            (new Pair (first guide-next) (second 0))
+                            (new Pair (first guide-next) (second 0))
+                            (new Pair (first guide-next) (second 0)))))
          (shell (step shell
                       "ledger after doing job 2 and ending the round"
-                      (list (new Pair (first (guide-next)) (second 0))
+                      (list (new Pair (first guide-next) (second 0))
                             (new Pair (first 3) (second 1))
                             (new Pair (first 5) (second 0))))))
     (unit))

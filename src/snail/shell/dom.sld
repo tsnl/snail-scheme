@@ -127,13 +127,13 @@
       ((key String)
        (modifiers I32)))
 
-    (define (control-key) (→ I32) 1)
+    (define control-key (→ I32) 1)
 
-    (define (shift-key) (→ I32) 2)
+    (define shift-key (→ I32) 2)
 
-    (define (alt-key) (→ I32) 4)
+    (define alt-key (→ I32) 4)
 
-    (define (meta-key) (→ I32) 8)
+    (define meta-key (→ I32) 8)
 
     ;; The captures as the host's bits, each kind's bit its position in
     ;; `Capture`.
@@ -168,7 +168,7 @@
        (selection-end I32)
        (checked Bool)))
 
-    (define (no-event)
+    (define no-event
       (→ Event)
       (new Event
         (value "")

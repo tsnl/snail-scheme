@@ -50,12 +50,12 @@
         ((HumanFemaleElderly) #t)
         (_ #f)))
 
-    (define (human-skins)
+    (define human-skins
       (→ (List Skin))
       (map (lambda (%field0) (new Skin (name %field0)))
            (list "light" "amber" "olive" "taupe" "bronze" "brown" "black")))
 
-    (define (cuts) (→ (List HairStyle))
+    (define cuts (→ (List HairStyle))
       (map (lambda (%field0) (new HairStyle (name %field0)))
            (list "bob"
                  "buzzcut"
@@ -83,10 +83,10 @@
         ((Female) (list (Pants) (Skirt) (Leggings)))
         (_ (list (Pants)))))
 
-    (define (footwear) (→ (List Garment)) (list (Shoes) (Boots)))
+    (define footwear (→ (List Garment)) (list (Shoes) (Boots)))
 
     ;; Dark enough to tell from skin and floor at sprite size.
-    (define (shoe-dyes)
+    (define shoe-dyes
       (→ (List Dye))
       (map (lambda (%field0) (new Dye (name %field0))) (list "black" "charcoal" "walnut")))
 
@@ -117,7 +117,7 @@
       (let* ((r (make-random seed))
              (build (deal r (list (Male) (Female) (Teen))))
              (head (deal (● build second) (build-heads (● build first))))
-             (skin (deal (● head second) (human-skins))) (cut (deal (● skin second) (cuts)))
+             (skin (deal (● head second) human-skins)) (cut (deal (● skin second) cuts))
              (shade (deal (● cut second) (hair-shades (● head first)))))
         (outfitted (● build first)
                    (● head first)
@@ -136,8 +136,8 @@
       (let* ((top (deal r (tops build))) (top-dye (deal (● top second) palette))
              (bottom (deal (● top-dye second) (bottoms build)))
              (bottom-dye (deal (● bottom second) palette))
-             (shoe (deal (● bottom-dye second) (footwear)))
-             (shoe-dye (deal (● shoe second) (shoe-dyes))))
+             (shoe (deal (● bottom-dye second) footwear))
+             (shoe-dye (deal (● shoe second) shoe-dyes)))
         (dressed build head skin
                  (new Outfit
                    (hair (Some hair))
@@ -152,7 +152,7 @@
 
     ;; The favor ledger's rivals, by fixer: Vee, and otherwise Kit.
     (define (rival (who I64)) (→ Character)
-      (if (= who (vee))
+      (if (= who vee)
           (dressed (Female) (HumanFemale) (new Skin (name "bronze"))
                    (new Outfit
                      (hair (Some (new Hair
@@ -171,8 +171,8 @@
                      (feet (Some (new Worn (garment (Shoes)) (dye (new Dye (name "black"))))))))))
 
     ;; Everyone drawn, for embedding their art.
-    (define (everyone) (→ (List Character))
-      (append (map resident (iota (person-count))) (list (rival (vee)) (rival (kit)))))
+    (define everyone (→ (List Character))
+      (append (map resident (iota person-count)) (list (rival vee) (rival kit))))
 
     ;; ---- Pictures ----
 
