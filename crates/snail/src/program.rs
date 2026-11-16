@@ -2,10 +2,9 @@
 //! Node, for a program that needs of its host only WASI, the files it links
 //! (links.rs) and loading modules (modules.rs).
 //!
-//! `snail run-wasm PROGRAM ARGUMENT ...` runs PROGRAM, one linked module or
-//! the manifest of a program compiled one library at a time
-//! (modules.rs). WASI gives it PROGRAM and the arguments, the environment
-//! with SNAIL_CWD, and `/` (engine.rs). The protocol:
+//! `snail run-wasm PROGRAM ARGUMENT ...` runs PROGRAM, one linked module.
+//! WASI gives it PROGRAM and the arguments, the environment with SNAIL_CWD,
+//! and `/` (engine.rs). The protocol:
 //!
 //! 1. instantiate, then call `_initialize`;
 //! 2. create the scheduler and call `main` with it, which starts the
@@ -24,27 +23,24 @@
 //! with the Wasm frames after it on standard error.
 //!
 //! Sockets and processes are Node's (host/native/socket-imports.mjs and
-//! process-imports.mjs), so a program that imports them is refused before
-//! it is compiled. `snail imports PROGRAM` lists the modules a program
-//! imports from, so the build driver can run such a program on Node
-//! instead.
+//! process-imports.mjs): a program that imports them links here, and a
+//! call to one traps, saying so.
 
-use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use wasmtime::{
-    AnyRef, AsContext, AsContextMut, Engine, ExternType, Instance, Linker, Module, OwnedRooted,
-    RootScope, Rooted, Store, Val, bail, format_err,
+    AnyRef, AsContextMut, Engine, ExternType, Instance, Linker, Module, OwnedRooted, RootScope,
+    Rooted, Store, Val, bail, format_err,
 };
 use wasmtime_wasi::I32Exit;
 use wasmtime_wasi::p1::{self, WasiP1Ctx};
 
 use crate::async_files;
-use crate::engine::{call, engine, exit_status, is_precompiled, load, report, wasi};
+use crate::engine::{call, engine, exit_status, report, wasi};
 use crate::links::{self, Files};
-use crate::modules::{self, Loading, Manifest};
+use crate::modules::{self, Loading};
 
 // ---- Running ----
 
@@ -75,14 +71,8 @@ pub fn run(path: &str, arguments: &[String]) -> u8 {
     }
 }
 
-// One linked module is the program; a manifest is run by the engine
-// ((snail shell engine), which the command line holds, at
-// SNAIL_ENGINE_MODULE or build/bootstrap/snail-scheme.wasm beside this
-// executable's build), started with the manifest in
-// SNAIL_MANIFEST, which links the program's objects through the Wasm
-// primitives of modules.rs, runs each main, serves the files it links, and
-// forwards its scheduler as its own exports. A file a linked module links
-// is an object of store/ beside it, read when a task first asks for it.
+// One linked module is the program. A file it links is an object of
+// store/ beside it, read when a task first asks for it.
 fn execute(path: &str, arguments: &[String]) -> wasmtime::Result<u8> {
     let engine = engine()?;
     let payload = Payload::compile(&engine, Path::new(path))?;
@@ -91,7 +81,7 @@ fn execute(path: &str, arguments: &[String]) -> wasmtime::Result<u8> {
     let mut linker = host_linker(&engine, &names)?;
     define_node_only(&mut linker, &payload.module)?;
     let host = Host {
-        wasi: wasi(path, arguments, &payload.environment)?,
+        wasi: wasi(path, arguments, &[])?,
         files,
         async_files: async_files::Files::default(),
         loading: Loading::new(linker.clone()),
@@ -99,7 +89,7 @@ fn execute(path: &str, arguments: &[String]) -> wasmtime::Result<u8> {
     };
     let mut store = Store::new(&engine, host);
     let program = link_module(&mut store, &mut linker, &payload.module)?;
-    store.data_mut().entry = Entry::create(&mut store, program.runtime, payload.engine)?;
+    store.data_mut().entry = Entry::create(&mut store, program.runtime)?;
     let ran = start(&mut store);
     let closed = close(&mut store, &program);
     settle(ran, closed)
@@ -107,7 +97,7 @@ fn execute(path: &str, arguments: &[String]) -> wasmtime::Result<u8> {
 
 // What a program run here may import of its host: WASI, the files the
 // payload links, loading modules, and the platform's error report, which
-// a runtime the engine links imports.
+// a runtime a program links imports.
 fn host_linker(engine: &Engine, links: &[String]) -> wasmtime::Result<Linker<Host>> {
     let mut linker = Linker::new(engine);
     p1::add_to_linker_sync(&mut linker, |host: &mut Host| &mut host.wasi)?;
@@ -118,8 +108,8 @@ fn host_linker(engine: &Engine, links: &[String]) -> wasmtime::Result<Linker<Hos
     Ok(linker)
 }
 
-// The program's resources close, the engine's program's through
-// `engine:close` first; a status other than 0 is a resource left open.
+// The program's resources close; a status other than 0 is a resource left
+// open.
 fn close(store: &mut Store<Host>, program: &Linked) -> wasmtime::Result<i32> {
     // Keep services and the root live while queue disposal calls cleanup.
     // Attempt each teardown even if a previous one trapped.
@@ -128,11 +118,6 @@ fn close(store: &mut Store<Host>, program: &Linked) -> wasmtime::Result<i32> {
     } else {
         Ok(())
     };
-    let children = if engine_entry(&*store) {
-        entry_call(&mut *store, "engine:close", &[])
-    } else {
-        Ok(0)
-    };
     if let Some(entry) = store.data_mut().entry.as_mut() {
         entry.scheduler = None;
     }
@@ -140,22 +125,14 @@ fn close(store: &mut Store<Host>, program: &Linked) -> wasmtime::Result<i32> {
     let own = call::<i32>(&mut *store, &program.runtime, program.close);
     queues?;
     files?;
-    let children = children?;
-    let own = own?;
-    Ok(if children != 0 { children as i32 } else { own })
+    own
 }
 
 // A source program has one explicit main, which takes the scheduler and
-// starts the program's main as its first task. The engine links a program
-// in its first task and starts that main under the same scheduler. The
-// first turn runs here, so a trap in it fails the start, status 2.
+// starts the program's main as its first task. The first turn runs here,
+// so a trap in it fails the start, status 2.
 fn start(store: &mut Store<Host>) -> wasmtime::Result<u8> {
-    let main = if engine_entry(&*store) {
-        "engine:start"
-    } else {
-        "main"
-    };
-    let started = entry_call(&mut *store, main, &[])
+    let started = entry_call(&mut *store, "main", &[])
         .and_then(|_| entry_task(&mut *store, "turn", &[Val::I64(now())]));
     if let Err(error) = started {
         return exit_status(Err(error));
@@ -180,49 +157,30 @@ fn settle(ran: wasmtime::Result<u8>, closed: wasmtime::Result<i32>) -> wasmtime:
 
 // ---- Entries ----
 
-/// The scheduler the program's `create` made, and the instance whose
+/// The scheduler the program's `tasks:create` made, and the instance whose
 /// exports take it. Closing the run lets go of it, so no later import
 /// wrapper can call in.
 pub struct Entry {
     instance: Instance,
     scheduler: Option<OwnedRooted<AnyRef>>,
-    prefix: &'static str,
 }
 
 impl Entry {
-    // The engine's exports when it runs a manifest; otherwise the
-    // program's own scheduler, which the command line also has.
-    fn create(
-        store: &mut Store<Host>,
-        instance: Instance,
-        engine: bool,
-    ) -> wasmtime::Result<Option<Entry>> {
-        for prefix in [if engine { "engine" } else { "tasks" }] {
-            let Some(create) = instance.get_func(&mut *store, &format!("{prefix}:create")) else {
-                continue;
-            };
-            let mut scope = RootScope::new(&mut *store);
-            let value = create
-                .typed::<(), Rooted<AnyRef>>(&scope)?
-                .call(&mut scope, ())?;
-            let scheduler = Some(value.to_owned_rooted(&mut scope)?);
-            return Ok(Some(Entry {
-                instance,
-                scheduler,
-                prefix,
-            }));
-        }
-        Ok(None)
+    // None for a program that links no tasks.
+    fn create(store: &mut Store<Host>, instance: Instance) -> wasmtime::Result<Option<Entry>> {
+        let Some(create) = instance.get_func(&mut *store, "tasks:create") else {
+            return Ok(None);
+        };
+        let mut scope = RootScope::new(&mut *store);
+        let value = create
+            .typed::<(), Rooted<AnyRef>>(&scope)?
+            .call(&mut scope, ())?;
+        let scheduler = Some(value.to_owned_rooted(&mut scope)?);
+        Ok(Some(Entry {
+            instance,
+            scheduler,
+        }))
     }
-}
-
-pub fn engine_entry(store: impl AsContext<Data = Host>) -> bool {
-    store
-        .as_context()
-        .data()
-        .entry
-        .as_ref()
-        .is_some_and(|entry| entry.prefix == "engine")
 }
 
 /// Import wrappers pass the scheduler to each call, never a copy of their
@@ -267,14 +225,7 @@ fn entry_task(
     name: &str,
     args: &[Val],
 ) -> wasmtime::Result<i64> {
-    let engine = engine_entry(&store);
-    let prefix = if engine { "engine" } else { "tasks" };
-    let name = if engine && name == "close" {
-        "close-tasks"
-    } else {
-        name
-    };
-    entry_call(&mut store, &format!("{prefix}:{name}"), args)
+    entry_call(&mut store, &format!("tasks:{name}"), args)
 }
 
 // ---- Tasks ----
@@ -333,64 +284,22 @@ fn now() -> i64 {
 
 // ---- Payloads ----
 
-/// What `run-wasm` was given, compiled: one linked module, or the engine,
-/// given a manifest to run through SNAIL_MANIFEST; the store the files the
-/// module links are objects of, `store/` beside it; what the module's
-/// environment says beyond the host's; and whether it is the engine.
+/// What `run-wasm` was given, compiled: one linked module, and the store
+/// the files it links are objects of, `store/` beside it.
 struct Payload {
     module: Module,
     store: PathBuf,
-    environment: Vec<(String, String)>,
-    engine: bool,
 }
 
 impl Payload {
     fn compile(engine: &Engine, path: &Path) -> wasmtime::Result<Payload> {
-        let (file, environment) = if is_manifest(path) {
-            let manifest = std::path::absolute(path)?.to_string_lossy().into_owned();
-            (
-                engine_module()?,
-                vec![("SNAIL_MANIFEST".to_string(), manifest)],
-            )
-        } else {
-            (path.to_path_buf(), Vec::new())
-        };
+        let bytes = std::fs::read(path)
+            .map_err(|error| format_err!("cannot read {}: {error}", path.display()))?;
         Ok(Payload {
-            module: compile_module(engine, &file)?,
-            store: file.parent().unwrap_or(Path::new("")).join("store"),
-            environment,
-            engine: is_manifest(path),
+            module: Module::new(engine, bytes)?,
+            store: path.parent().unwrap_or(Path::new("")).join("store"),
         })
     }
-}
-
-// The engine's module: SNAIL_ENGINE_MODULE, or the command line in the
-// build directory this executable was built into, as machine code when
-// stage 0 has precompiled the current one.
-fn engine_module() -> wasmtime::Result<PathBuf> {
-    if let Some(path) = std::env::var_os("SNAIL_ENGINE_MODULE") {
-        return Ok(PathBuf::from(path));
-    }
-    let executable = std::env::current_exe()?;
-    let build = executable
-        .ancestors()
-        .find(|directory| directory.file_name().is_some_and(|name| name == "build"))
-        .ok_or_else(|| format_err!("the engine's module is not found: set SNAIL_ENGINE_MODULE"))?;
-    let module = build.join("bootstrap").join("snail-scheme.wasm");
-    let code = module.with_extension("cwasm");
-    let modified = |path: &Path| {
-        std::fs::metadata(path)
-            .and_then(|data| data.modified())
-            .ok()
-    };
-    Ok(match (modified(&code), modified(&module)) {
-        (Some(code_time), Some(module_time)) if code_time >= module_time => code,
-        _ => module,
-    })
-}
-
-fn is_manifest(path: &Path) -> bool {
-    path.to_string_lossy().ends_with(".manifest.datum")
 }
 
 // One linked module holds the runtime itself, so it closes its own
@@ -418,21 +327,10 @@ pub const NODE_ONLY: [&str; 2] = [
     "snail.runtime.native.process",
 ];
 
-/// The module in `file`, compiled. A `.cwasm` file is machine code
-/// `snail precompile` wrote, as the command line's is.
-pub fn compile_module(engine: &Engine, file: &Path) -> wasmtime::Result<Module> {
-    if is_precompiled(file) {
-        return load(engine, file);
-    }
-    Module::new(engine, read(file)?)
-}
-
 /// Each function `module` imports of what only Node provides, as one that
 /// traps when it is called, saying so: the command line imports processes
-/// for `run`, and its `compile` calls none,
-/// so it compiles here. Stage 0 runs a program that does call them on
-/// Node, having asked `snail imports`; a module loaded while the program
-/// runs gets the same stand-ins (modules.rs).
+/// for `run`, and its `wat` calls none, so it runs here. A module loaded
+/// while the program runs gets the same stand-ins (modules.rs).
 fn define_node_only(linker: &mut Linker<Host>, module: &Module) -> wasmtime::Result<()> {
     for import in module.imports() {
         if !NODE_ONLY.contains(&import.module()) {
@@ -448,60 +346,11 @@ fn define_node_only(linker: &mut Linker<Host>, module: &Module) -> wasmtime::Res
     Ok(())
 }
 
-fn read(file: &Path) -> wasmtime::Result<Vec<u8>> {
-    std::fs::read(file).map_err(|error| format_err!("cannot read {}: {error}", file.display()))
-}
-
-// ---- What a program imports ----
-
-/// `snail imports PROGRAM`: each module PROGRAM's modules import from, a
-/// line each in sorted order, read from their import sections without
-/// compiling them.
-pub fn imports(path: &str) -> u8 {
-    match program_imports(Path::new(path)) {
-        Ok(modules) => {
-            modules.iter().for_each(|module| println!("{module}"));
-            0
-        }
-        Err(error) => {
-            report(&error, false);
-            2
-        }
-    }
-}
-
-fn program_imports(path: &Path) -> wasmtime::Result<BTreeSet<String>> {
-    let files = if is_manifest(path) {
-        Manifest::read(path)?.files()
-    } else {
-        vec![path.into()]
-    };
-    let mut modules = BTreeSet::new();
-    for file in files {
-        modules.extend(import_modules(&read(&file)?)?);
-    }
-    Ok(modules)
-}
-
-// The modules a module's import section names.
-fn import_modules(bytes: &[u8]) -> wasmtime::Result<BTreeSet<String>> {
-    let mut modules = BTreeSet::new();
-    for payload in wasmparser::Parser::new(0).parse_all(bytes) {
-        if let wasmparser::Payload::ImportSection(section) = payload? {
-            for import in section.into_imports() {
-                modules.insert(import?.module.to_string());
-            }
-        }
-    }
-    Ok(modules)
-}
-
 // ---- Tests ----
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::engine::precompile;
     use crate::engine::tests::module_file;
 
     // A program importing `imports` whose main is `main`, whose turns do
@@ -604,37 +453,6 @@ mod tests {
         assert_eq!(run(&file, &[]), 2);
     }
 
-    // The compiled compiler runs from its machine code, which says what it
-    // imports only once it loads.
-    #[test]
-    fn a_precompiled_program_runs_as_its_module_does() {
-        let precompiled = |name: &str, imports: &str, main: &str| {
-            let source = module_file(name, &program(imports, main, 0, &[]));
-            let output = source.replace(".wasm", ".cwasm");
-            assert_eq!(precompile(&source, &output), 0);
-            output
-        };
-        assert_eq!(
-            run(
-                &precompiled(
-                    "precompiled-program",
-                    "",
-                    "(call $exit (i32.const 3)) (i32.const 0)"
-                ),
-                &[]
-            ),
-            3
-        );
-        let sockets =
-            r#"(import "snail.runtime.native.socket" "start-read" (func $read (param i64)))"#;
-        let called = precompiled(
-            "precompiled-sockets",
-            sockets,
-            "(call $read (i64.const 0)) (i32.const 0)",
-        );
-        assert_eq!(run(&called, &[]), 2);
-    }
-
     #[test]
     fn tasks_are_driven_until_none_is_live() {
         let file = module_file(
@@ -687,16 +505,5 @@ mod tests {
             &program("", "(i32.const 0)", 0, &[Turn::Answer(0), Turn::Answer(-2)]),
         );
         assert_eq!(run(&file, &[]), 2);
-    }
-
-    #[test]
-    fn imports_are_read_without_compiling() {
-        let imports = r#"(import "snail.runtime.native.socket" "open" (func (result i32)))"#;
-        let file = module_file("imports", &program(imports, "(i32.const 0)", 0, &[]));
-        let read = program_imports(Path::new(&file)).unwrap();
-        assert_eq!(
-            read.into_iter().collect::<Vec<_>>(),
-            ["snail.runtime.native.socket", "wasi_snapshot_preview1"]
-        );
     }
 }

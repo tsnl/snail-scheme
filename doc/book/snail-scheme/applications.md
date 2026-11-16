@@ -214,8 +214,8 @@ program starts. `tests/apps/notes/main.scm` is the example, and
 own.
 
 Both `ui.mjs` and the scene's `host.mjs` delegate loading to
-`host/browser/application.mjs`. Document applications support per-library and
-linked builds, and periodic saves, as scenes do.
+`host/browser/application.mjs`. Document applications support periodic
+saves, as scenes do.
 
 ### Commands and late replies
 

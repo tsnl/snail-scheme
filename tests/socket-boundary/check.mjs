@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
 import {setImmediate as turn} from 'node:timers/promises';
-import {createWasi, instantiate, linkedFileImports, linkProgram, wasmImports} from '../../host/browser/load.mjs';
+import {createWasi, instantiate, linkedFileImports, wasmImports} from '../../host/browser/load.mjs';
 import {programEntry} from '../../host/browser/entry.mjs';
 import {createTasks, taskExports} from '../../host/browser/tasks.mjs';
 import {createTcp} from '../../host/native/tcp.mjs';
@@ -84,14 +84,10 @@ const native = {listen: tcp.listen, connect: tcp.connect, accept: tcp.accept, re
 const timeout = setTimeout(() => { throw new Error('socket boundary test timed out'); }, 30_000);
 
 try {
-  if (filename.endsWith('.manifest.datum')) {
-    program = await linkProgram(file => readFile(resolve(dirname(filename), file)), filename, wasi, host);
-  } else {
-    const module = await WebAssembly.compile(await readFile(filename));
-    const runtime = await instantiate(module, {...wasi.getImportObject(), ...host, ...portable(module)});
-    wasi.initialize(runtime);
-    program = {runtime, linked: new Map()};
-  }
+  const module = await WebAssembly.compile(await readFile(filename));
+  const runtime = await instantiate(module, {...wasi.getImportObject(), ...host, ...portable(module)});
+  wasi.initialize(runtime);
+  program = {runtime};
   api = programEntry(program).exports;
 
   const listener = api['listener'](await invoke('open').done), port = api['port'](listener);

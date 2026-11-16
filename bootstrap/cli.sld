@@ -19,23 +19,15 @@
 ;;     formats standard input to standard output, or reports or rewrites
 ;;     each file (snail shell format) would change, as ./snail-scheme
 ;;     format does;
-;;   compile MODE SOURCE OUTPUT GENERATED [DIRECTORY ...]
+;;   compile TARGET SOURCE OUTPUT [DIRECTORY ...]
 ;;     makes one compile, (snail shell compiler driver): the interface stage
 ;;     0 bootstraps this program through.
-;;
-;; It is also the engine, (snail shell engine), which host/native/run-snail.mjs
-;; and `snail run-wasm` start through the exports of "The engine" to run a
-;; program compiled one library at a time: SNAIL_MANIFEST names its
-;; manifest.
 ;;
 ;; A failure prints its message and exits with status 1; the outputs of
 ;; earlier builds stay published.
 (import
  (snail core base)
  (snail core io)
- (only (snail core forms) host)
- (snail shell engine)
- (only (snail shell wasm) wasm)
  (snail shell project build)
  (snail shell lsp)
  (only (snail shell format) format-source format-width)
@@ -243,41 +235,6 @@
     ((StandardInput) (write-string (format-source (read-input) (● request width))))
     ((CheckFiles paths) (check-files (● request width) paths))
     ((WriteFiles paths) (format-files (● request width) #t paths) (unit))))
-
-;; ---- The engine ----
-
-;; The store is files: an object is read at once, and one that is not
-;; there is none.
-
-(define (with-files (body (Fn → A ! linked-content-store e))) (→ A) (! fs e) (∀ (A e))
-  (handle linked-content-store
-      ((read-object (lambda (path)
-                      (if (file-exists? path)
-                          (Some (read-bytes path))
-                          (None)))))
-    (body)))
-
-(define (read-file-resource (engine Engine) (ticket I64) (handle I32)) (→ Unit) (! mut host fs)
-  (with-files (lambda () (resource-read engine ticket handle))))
-
-(expose engine-turn "engine:turn")
-(expose engine-wake "engine:wake")
-(expose engine-close-tasks "engine:close-tasks")
-(expose engine-running "engine:running")
-(expose engine-live "engine:live")
-(expose read-file-resource "resource:read")
-(expose resource-finish "resource:finish")
-(expose resource-byte "resource:byte")
-(expose close-program "engine:close")
-
-(define (start-engine (engine Engine)) (→ Unit) (! mut host fs wasm)
-  (match (environment-variable "SNAIL_MANIFEST")
-    ((Some manifest)
-     (with-files (lambda () (run-manifest engine manifest (read-file manifest)))))
-    ((None) (panic "the engine needs SNAIL_MANIFEST, the manifest of the program to run"))))
-
-(expose make-engine "engine:create")
-(expose start-engine "engine:start")
 
 ;; ---- The invocation ----
 

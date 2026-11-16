@@ -317,9 +317,8 @@
       (match (compiling work)
         ((Ok value) value)
         ((Err (Failed diagnostics)) (absurd (stop (CompileFailure diagnostics))))
-        ((Err (Requested request))
-         (fail-build (string-append "internal error: a compile asked for "
-                                    (request->string request))))))
+        ((Err (Requested (GenerateInput key)))
+         (fail-build (string-append "internal error: a compile asked for the producer " key)))))
 
     ;; ---- Builders ----
 

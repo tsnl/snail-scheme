@@ -1,13 +1,11 @@
 //! What every subcommand shares: one engine configured for what the
-//! compiler's backend emits, modules loaded from `.wasm` or precompiled
-//! `.cwasm` files, the WASI context Node's hosts give a module, calls into
-//! a reactor's exports, and failures told as `snail: MESSAGE`.
+//! compiler's backend emits, the WASI context Node's hosts give a module,
+//! calls into a reactor's exports, and failures told as `snail: MESSAGE`.
 
 use std::num::NonZeroUsize;
-use std::path::Path;
 
 use wasmtime::{
-    AsContextMut, Collector, Config, Engine, Instance, Module, OptLevel, Trap, Val, WasmBacktrace,
+    AsContextMut, Collector, Config, Engine, Instance, OptLevel, Trap, Val, WasmBacktrace,
     WasmResults,
 };
 use wasmtime_wasi::p1::WasiP1Ctx;
@@ -38,45 +36,6 @@ pub fn engine() -> wasmtime::Result<Engine> {
         .wasm_backtrace_max_frames(NonZeroUsize::new(32))
         .cranelift_opt_level(OptLevel::Speed);
     Engine::new(&config)
-}
-
-// A `.cwasm` file is machine code `snail precompile` wrote; anything else
-// is a module to compile.
-pub fn is_precompiled(path: &Path) -> bool {
-    path.extension()
-        .is_some_and(|extension| extension == "cwasm")
-}
-
-pub fn load(engine: &Engine, path: &Path) -> wasmtime::Result<Module> {
-    if is_precompiled(path) {
-        // SAFETY: deserializing trusts the file to be wasmtime's own output,
-        // which the build driver writes beside the module it compiled.
-        // Wasmtime still refuses one from another version or configuration.
-        unsafe { Module::deserialize_file(engine, path) }
-    } else {
-        Module::from_file(engine, path)
-    }
-}
-
-// Compiling the compiler takes Cranelift most of a second, which every
-// compile would otherwise pay again. A `.cwasm` file is specific to this
-// binary's wasmtime version and configuration and to the CPU, so it is a
-// build output beside its module and is never committed. It is written
-// beside OUTPUT and renamed into place, so no run loads half of one.
-pub fn precompile(module: &str, output: &str) -> u8 {
-    let written = engine().and_then(|engine| {
-        let code = engine.precompile_module(&std::fs::read(module)?)?;
-        let partial = format!("{output}.{}.partial", std::process::id());
-        std::fs::write(&partial, code)?;
-        Ok(std::fs::rename(&partial, output)?)
-    });
-    match written {
-        Ok(()) => 0,
-        Err(error) => {
-            report(&error, false);
-            2
-        }
-    }
 }
 
 // ---- WASI ----
@@ -210,25 +169,6 @@ pub mod tests {
             trap_message(Trap::StackOverflow),
             "Maximum call stack size exceeded"
         );
-    }
-
-    #[test]
-    fn a_precompiled_module_loads_in_place_of_its_source() {
-        let source = module_file(
-            "precompiled",
-            "(module (func (export \"answer\") (result i32) (i32.const 42)))",
-        );
-        let precompiled = source.replace(".wasm", ".cwasm");
-        assert_eq!(precompile(&source, &precompiled), 0);
-        let engine = engine().unwrap();
-        let mut store = wasmtime::Store::new(&engine, ());
-        let instance = Instance::new(
-            &mut store,
-            &load(&engine, Path::new(&precompiled)).unwrap(),
-            &[],
-        )
-        .unwrap();
-        assert_eq!(call::<i32>(&mut store, &instance, "answer").unwrap(), 42);
     }
 
     #[test]

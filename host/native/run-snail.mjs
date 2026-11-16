@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
-import {fileURLToPath} from 'node:url';
 import {WASI} from 'node:wasi';
-import {instantiate, linkedFileImports, runMain, wasmImports} from '../browser/load.mjs';
+import {linkedFileImports, runMain, wasmImports} from '../browser/load.mjs';
 import {createTasks, taskExports} from '../browser/tasks.mjs';
 import {createTcp} from './tcp.mjs';
 import {createUdp} from './udp.mjs';
@@ -14,19 +13,11 @@ import {createAsyncFiles} from './async-files.mjs';
 
 // ---- One reactor initialization and one program invocation ----
 //
-// A program is one linked module, or a manifest naming the modules of a
-// program compiled one library at a time, which the engine links
-// ((snail shell engine), which the command line holds:
-// build/bootstrap/snail-scheme.wasm, or where
-// SNAIL_ENGINE_MODULE says): this host starts the engine with the manifest
-// in SNAIL_MANIFEST, and the engine reads the objects from the store,
-// links them through the Wasm primitives of load.mjs, runs each main, and
-// forwards the program's scheduler as its own exports. Either may load
-// modules while it runs, through (snail shell wasm); a linked module links
-// only against what the program kept exported, which for one linked module
-// is nothing of the runtime's. The files a linked module links are objects
-// of store/ beside it, read when a task first reads each; the engine serves
-// a linked program's.
+// A program is one linked module, as every build writes. It may load
+// modules while it runs, through (snail shell wasm); a loaded module links
+// only against what the program kept exported, which is nothing of the
+// runtime's. The files the program links are objects of store/ beside it,
+// read when a task first reads each.
 
 // The status: 0 when every task finishes. A WASI exit is its own status,
 // and one in the first turn ends the program before its other tasks run.
@@ -55,9 +46,9 @@ function exiting(wasi) {
 }
 
 async function run(filename, arguments_) {
-  const freshWasi = (env = {}) => exiting(new WASI({version: 'preview1', args: [filename, ...arguments_],
-    env: {...process.env, SNAIL_CWD: process.cwd(), ...env}, preopens: {'/': '/'}}));
-  const wasi = freshWasi(isManifest(filename) ? {SNAIL_MANIFEST: resolve(filename)} : {});
+  const freshWasi = () => exiting(new WASI({version: 'preview1', args: [filename, ...arguments_],
+    env: {...process.env, SNAIL_CWD: process.cwd()}, preopens: {'/': '/'}}));
+  const wasi = freshWasi();
   let program, failed = false, status = 0;
   const tcp = createTcp(), udp = createUdp(), processes = createProcesses();
   const termination = createTermination();
@@ -74,9 +65,11 @@ async function run(filename, arguments_) {
   const keepAlive = setInterval(() => {}, 60_000);
   try {
     program = await loadProgram(resolve(filename), wasi, host, () => tasks);
-    program.wasi = () => freshWasi();
-    program.entry = tasks;
-    startProgram(program, tasks);
+    program.wasi = freshWasi;
+    runMain(program.exports, tasks);
+    // Main is a task, and its first turn runs here, so a trap in it fails
+    // the start.
+    tasks.call('tasks:turn', BigInt(Date.now()));
     await tasks.drive().catch(report);
     if (failed) status = 1;
   } catch (error) {
@@ -89,46 +82,20 @@ async function run(filename, arguments_) {
     }
     finally {
       clearInterval(keepAlive);
-      if (program) {
-        const closed = [tasks.closeStatus, program.exports['close-resources']()];
-        if (closed.some(result => result !== 0) && status === 0) status = 1;
-      }
+      if (program && program.exports['close-resources']() !== 0 && status === 0) status = 1;
     }
   }
   return status;
 }
 
-// A linked module is the program's runtime and its one module. A manifest
-// is run by the engine: the instance started here is the loader, and the
-// program's runtime is the instance the engine names snail.core.support,
-// whose memory stages the Bytes the host's services read.
+// The program's one module, which holds its runtime.
 async function loadProgram(filename, wasi, host, tasks) {
   const read = file => readFile(resolve(dirname(filename), file));
-  const engine = isManifest(filename);
-  const module = await WebAssembly.compile(await readFile(engine ? engineModule() : filename));
-  const program = {runtime: null, exports: null, host, linked: new Map()};
-  // The engine links no files of its own, but its target installs the
-  // resource handler, so it imports the reads it never makes.
+  const module = await WebAssembly.compile(await readFile(filename));
   const imports = {...wasi.getImportObject(), ...host, ...linkedFileImports(read, module, tasks)};
-  const instance = await (engine ? instantiate(module, imports) : WebAssembly.instantiate(module, imports));
+  const instance = await WebAssembly.instantiate(module, imports);
   wasi.initialize(instance);
-  Object.assign(program, {runtime: instance, exports: instance.exports, loader: engine ? instance : null});
-  return program;
-}
-
-function engineModule() {
-  return process.env.SNAIL_ENGINE_MODULE ?? fileURLToPath(new URL('../../build/bootstrap/snail-scheme.wasm', import.meta.url));
-}
-
-const isManifest = filename => filename.endsWith('.manifest.datum');
-
-// The program's main, or the engine's, whose first task links the program
-// and starts its main. Either way main is a task, and the first turn runs
-// here, so a trap in it fails the start.
-function startProgram(program, tasks) {
-  if (program.loader) tasks.call('engine:start');
-  else runMain(program.exports, tasks);
-  tasks.call('tasks:turn', BigInt(Date.now()));
+  return {runtime: instance, exports: instance.exports, host};
 }
 
 // ---- The program on the main thread ----

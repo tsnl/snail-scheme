@@ -1,8 +1,9 @@
-//! Stage 0's file boundary for the same assembler/linker compiled tools use.
+//! Stage 0's file boundary for the linker compiled tools use: the
+//! compiler's text, assembled and fused with the scalar runtime.
 
-use snail_scheme_support::assembler::{assemble, link};
+use snail_scheme_support::assembler::link;
 
-pub fn run(input: &str, output: &str, runtime: Option<&str>) -> u8 {
+pub fn run(input: &str, output: &str, runtime: &str) -> u8 {
     match write_module(input, output, runtime) {
         Ok(()) => 0,
         Err(error) => {
@@ -15,12 +16,9 @@ pub fn run(input: &str, output: &str, runtime: Option<&str>) -> u8 {
 fn write_module(
     input: &str,
     output: &str,
-    runtime: Option<&str>,
+    runtime: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let text = std::fs::read_to_string(input)?;
-    let module = match runtime {
-        Some(path) => link(&text, &std::fs::read(path)?)?,
-        None => assemble(&text)?,
-    };
+    let module = link(&text, &std::fs::read(runtime)?)?;
     Ok(std::fs::write(output, module)?)
 }

@@ -1,7 +1,7 @@
 // The JavaScript side of running `snail-scheme`, the same in Node and in a browser:
 // the WASI a module that opens no files needs, the files a program links,
-// linking a program compiled one library at a time, and how `snail-scheme`
-// passes a host strings. It decides nothing about what a program is for: the
+// instantiating a program's module, the WebAssembly operations (snail shell
+// wasm) loads modules with, and how `snail-scheme` passes a host strings. It decides nothing about what a program is for: the
 // browser host (host.mjs) and host/native/run-snail.mjs build on it.
 
 const encoder = new TextEncoder(), decoder = new TextDecoder();
@@ -117,9 +117,9 @@ async function readLinked({name, read}) {
   catch (error) { throw new Error(`cannot read the linked file ${name}: ${error.message}`, {cause: error}); }
 }
 
-// Reads an object by its digest from store/ beside the program or its
-// manifest, sharded by the digest's first two hex digits, as every build
-// lays out its store (the project builder's "Objects").
+// Reads an object by its digest from store/ beside the program, sharded by
+// the digest's first two hex digits, as every build lays out its store
+// (the builder's "Linked files").
 export const objectPath = digest => `store/sha256/${digest.slice(0, 2)}/${digest}`;
 const objectReader = read => digest => read(objectPath(digest));
 
@@ -154,133 +154,24 @@ export function linkedFileImports(read, module, tasks = noTasks) {
 
 // ---- Linking ----
 
-// A program is named by its manifest, NAME.manifest.datum, a list of
-// entries: `(runtime "DIGEST" SIZE)`, then `(module "LIBRARY" "DIGEST"
-// SIZE)` for each library in program order, then `(file "DIGEST" SIZE)`
-// for each file the program links. Every object is read from store/ beside
-// the manifest by its digest (objectPath).
-export function readManifest(bytes) {
-  const [[kind, digest, size] = [], ...entries] = readDatum(decoder.decode(bytes));
-  if (kind !== 'runtime') throw new Error('a manifest begins with its runtime');
-  const manifest = {runtime: {digest, size}, modules: [], files: []};
-  for (const [kind, ...fields] of entries) {
-    if (kind === 'module') manifest.modules.push({name: fields[0], digest: fields[1], size: fields[2]});
-    else if (kind === 'file') manifest.files.push({digest: fields[0], size: fields[1]});
-    else throw new Error(`a manifest has no entry ${kind}`);
-  }
-  return manifest;
-}
-
-// The one datum of `text`, of the kinds a manifest holds: lists, strings
-// with \" and \\ escapes, integers and symbols, which read as strings.
-function readDatum(text) {
-  const tokens = text.match(/"(?:[^"\\]|\\.)*"|[()]|[^\s()";]+|;[^\n]*/g).filter(token => token[0] !== ';');
-  let at = 0;
-  const datum = () => {
-    const token = tokens[at++];
-    if (token === '(') {
-      const items = [];
-      while (tokens[at] !== ')') {
-        if (at >= tokens.length) throw new Error('a manifest ends inside a list');
-        items.push(datum());
-      }
-      at++;
-      return items;
-    }
-    if (token[0] === '"') return token.slice(1, -1).replace(/\\(.)/g, '$1');
-    return /^-?\d+$/.test(token) ? Number(token) : token;
-  };
-  const value = datum();
-  if (at !== tokens.length) throw new Error('a manifest holds more than one datum');
-  return value;
-}
-
-// Links the program a manifest names: the Rust runtime, initialized
-// through `wasi`, then each library's module in program order, so every
-// module comes after those it imports from. `read` gives a file's bytes by
-// its path, which may be relative to the manifest's. Libraries have no
-// startup code. A program is the runtime instance, the host's imports, each
-// library's instance by name, the library names in program order, the
-// files its modules link, and the tasks `tasks` gives, in which a program
-// reads them.
-export async function linkProgram(read, manifest, wasi, host, tasks = noTasks) {
-  const {runtime, modules} = readManifest(await read(manifest));
-  const object = objectReader(read);
-  const [runtimeModule, compiled] = await Promise.all([compileObject(object, runtime), compileModules(object, modules)]);
-  const program = {read, manifest, runtime: await instantiateRuntime(runtimeModule, wasi), host, linked: new Map(),
-                   names: modules.map(entry => entry.name), files: [], links: {}, tasks};
-  await linkModules(program, compiled);
-  return program;
-}
-
-// Links a release build's program, NAME.wasm: one module holding the
-// runtime and every library, initialized through `wasi`, whose files are
-// objects of store/ beside it, read in the tasks `tasks` gives. Its own
-// exports are the runtime's and the program's. A missing WASI function
-// answers ENOSYS, as for the runtime's own module, and a host service this
-// host lacks links to a function that fails if called, as for a library's
-// (moduleImports).
+// Links a build's program, NAME.wasm: one module holding the runtime and
+// every library, initialized through `wasi`, whose files are objects of
+// store/ beside it, read in the tasks `tasks` gives. Its own exports are
+// the runtime's and the program's. A missing WASI function answers ENOSYS.
+// The module holds every function of its libraries, so it may import host
+// services, such as the screen, that this host lacks and the program never
+// calls: such an import links to a function that fails if called.
 export async function linkModule(read, name, wasi, host, tasks = noTasks) {
   const module = await WebAssembly.compile(await read(name));
   const imports = {...wasi.getImportObject(), ...host, ...linkedFileImports(read, module, tasks)};
   const hosted = WebAssembly.Module.imports(module).map(entry => entry.module).filter(hostProvided);
   const runtime = await instantiate(module, withStubs(module, imports, hosted, missingHost));
   wasi.initialize(runtime);
-  return {runtime, exports: runtime.exports, host, linked: new Map()};
+  return {runtime, exports: runtime.exports, host};
 }
 
-// What the program's own module, the last, exports.
-export function programExports(program) {
-  return program.linked.get(program.names.at(-1)).exports;
-}
-
-const compileObject = async (object, {digest}) => WebAssembly.compile(await object(digest));
-
-function compileModules(object, modules) {
-  return Promise.all(modules.map(async entry => ({name: entry.name, module: await compileObject(object, entry)})));
-}
-
-// The runtime reports a panic through its own export, which the platform
-// import forwards to once the instance exists.
-async function instantiateRuntime(module, wasi) {
-  let runtime = null;
-  const platform = {'diagnostics/report-error': (pointer, length) => runtime.exports['snail:report-error'](pointer, length)};
-  runtime = await instantiate(module, {...wasi.getImportObject(), 'snail.platform': platform});
-  wasi.initialize(runtime);
-  return runtime;
-}
-
-// The names only a host or the runtime gives a module: the runtime
-// interfaces, `snail.runtime.…`, and the Rust support module. A library
-// linked under one would take the place of what every module imports from
-// there, so none may be.
-export const hostProvided = name => name.startsWith('snail.runtime.') || name === 'snail.core.support';
-
-// Instantiates the modules in order into the program's instances, where a
-// module may take the place of one of the same name, with handles for the
-// files they link.
-async function linkModules(program, modules) {
-  const reserved = modules.find(entry => hostProvided(entry.name));
-  if (reserved) throw new Error(`no library may be linked as ${reserved.name}, which the host provides`);
-  program.links = linkImports(objectReader(program.read), modules.map(entry => entry.module), program.files);
-  const libraries = new Set(['snail.core.support', ...program.linked.keys(), ...modules.map(entry => entry.name)]);
-  for (const {name, module} of modules) program.linked.set(name, await WebAssembly.instantiate(module, moduleImports(program, libraries, module)));
-}
-
-// A module sees the runtime, the modules linked before it under their
-// library names, and the host's modules. A library's module holds all of
-// its functions, so it may import host services, such as the screen, that
-// this host lacks and the program never calls. Such an import links to a
-// function that fails if called, as a statically linked program would have
-// left it out. A missing import from the runtime or a library's module
-// still fails to link.
-function moduleImports(program, libraries, module) {
-  const imports = {...program.host, 'snail.core.support': program.runtime.exports, 'snail.runtime.link': program.links ?? {},
-                   'snail.runtime.resource': resourceImports(program.files ?? [], program.tasks ?? noTasks)};
-  for (const [library, instance] of program.linked) imports[library] = instance.exports;
-  const hosted = WebAssembly.Module.imports(module).map(entry => entry.module).filter(from => !libraries.has(from));
-  return withStubs(module, imports, hosted, missingHost);
-}
+// The modules a host gives a program: the runtime's interfaces.
+const hostProvided = name => name.startsWith('snail.runtime.') || name === 'snail.core.support';
 
 const missingHost = (from, name) => () => { throw new Error(`this host does not provide ${from} ${name}`); };
 
@@ -301,22 +192,20 @@ const missingHost = (from, name) => () => { throw new Error(`this host does not 
 // `snail.platform` reports errors through the instance's own export. A
 // loaded module given `snail.runtime.wasm` gets these same operations
 // over the program's runtime, whose memory stages its Bytes. Instance 0
-// is the loading program, `program().loader`, or its runtime, whose
-// exports a loaded module may import. `bind-runtime` selects the program's
-// runtime for staging memory, independently of its loader. `call-export`
-// calls an export of no argument or one i64, such as `main` or
-// `tasks:turn`, for its result as an i64. The program waits for each
-// operation, so they are synchronous. `program()` gives the program that
-// loads, which the host links after making these imports; `memory()`
-// gives the memory the caller's Bytes are staged in, the loader's own
-// when there is one.
+// is the loading program, whose exports a loaded module may import.
+// `bind-runtime` selects another instance as the program's runtime, for
+// staging memory. `call-export` calls an export of no argument or one
+// i64, such as `main` or `tasks:turn`, for its result as an i64. The
+// program waits for each operation, so they are synchronous. `program()`
+// gives the program that loads, which the host links after making these
+// imports; `memory()` gives the memory the caller's Bytes are staged in.
 const INVALID_MODULE = -1, LINK_FAILED = -2;
 const IMPORT_KINDS = ['function', 'table', 'memory', 'global'];
 const WASI = 'wasi_snapshot_preview1', PLATFORM = 'snail.platform', LOADING = 'snail.runtime.wasm';
 
-export function wasmImports(program, memory = () => (program().loader ?? program().runtime).exports.memory) {
+export function wasmImports(program, memory = () => program().runtime.exports.memory) {
   const modules = [], instances = [null], strings = stagedStrings();
-  const instance = handle => (handle === 0 ? program().loader ?? program().runtime : instances[handle]);
+  const instance = handle => (handle === 0 ? program().runtime : instances[handle]);
   let held = ['', ''], prepared = null, loaded = null;
   // The import the next provider is for.
   function current() {
@@ -341,11 +230,6 @@ export function wasmImports(program, memory = () => (program().loader ?? program
       return (pointer, length) => link.instance.exports['snail:report-error'](pointer, length);
     }
     if (from === LOADING) return (loaded ??= wasmImports(program, () => program().runtime.exports.memory))[name];
-    if (from === 'snail.runtime.resource' && program().entry) {
-      // Import wrappers call through the session's entry each time, so no
-      // module holds another's scheduler.
-      return (...args) => program().entry.call(`resource:${name}`, ...args);
-    }
     return program().host[from]?.[name];
   }
   return {

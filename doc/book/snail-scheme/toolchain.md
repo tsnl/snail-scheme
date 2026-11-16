@@ -27,18 +27,14 @@ are internal to the driver and the tests:
 
 | Subcommand | Does |
 | --- | --- |
-| `build/snail run-wasm PROGRAM ARGUMENT ...` | Runs a compiled program, one linked module, its `.cwasm`, or a per-library build's `NAME.manifest.datum`, which the engine in the command line links (`build/bootstrap/snail-scheme.wasm`, or its `.cwasm`), as `host/native/run-snail.mjs` does, with the same exit statuses; a call to sockets or processes traps. The command line's `compile` is one such program. |
-| `build/snail precompile MODULE OUTPUT` | Writes the module's machine code as a `.cwasm` file, which `run-wasm` loads in place of the module. |
-| `build/snail assemble INPUT.wat OUTPUT.wasm` | Assembles text with `wat`. |
-| `build/snail link INPUT.wat RUNTIME.wasm OUTPUT.wasm` | Assembles and statically links with `wasm-fuse`, using the same Rust backend as compiled tools. |
-| `build/snail imports PROGRAM` | Lists the modules a program's modules import from, a line each, without compiling them. |
+| `build/snail run-wasm PROGRAM ARGUMENT ...` | Runs a compiled program, one linked module, as `host/native/run-snail.mjs` does, with the same exit statuses; a call to sockets or processes traps. `snail-scheme run --target wasmtime` runs a program this way. |
+| `build/snail link INPUT.wat RUNTIME.wasm OUTPUT.wasm` | Assembles and statically links with `wasm-fuse`, using the same Rust backend as compiled tools: the bootstrap links the command line with it. |
 
-`SNAIL_ENGINE=wasmtime` makes the driver run every compile on it, and
-every program that needs no sockets or processes. The
+`SNAIL_ENGINE=wasmtime` makes the test suite build each program for it and
+run it there, but for those that need sockets or processes. The
 [bootstrap chapter](bootstrap.md#the-native-executable) explains why Node stays
-the default. Stage 0 uses the native executable for assembly and linking on
-both engines. The public `./snail-scheme` launcher is
-unchanged. One native `snail-scheme` that replaces it, running the builder
+the default. Stage 0 links the command line with the native executable. The
+public `./snail-scheme` launcher runs on Node. One native `snail-scheme` that replaces it, running the builder
 and programs as well, is proposed in
 [#562](https://github.com/tsnl/snail-scheme/issues/562).
 

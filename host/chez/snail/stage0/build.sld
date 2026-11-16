@@ -2,7 +2,7 @@
 ;; bootstrap/cli.sld, which `bootstrap` builds from its source and checks
 ;; to a fixpoint ("Bootstrap"). Everything else, every program and the
 ;; test suite's, the command line builds. A compile here runs the command
-;; line's `compile MODE TARGET SOURCE OUTPUT GENERATED DIRECTORY ...`, or
+;; line's `compile TARGET SOURCE OUTPUT DIRECTORY ...`, or
 ;; the same interface on Chez, and the native executable links through the
 ;; Rust backend compiled programs use.
 (define-library (snail stage0 build)
@@ -47,7 +47,7 @@
                                 (let* ((output (path-join directory "output.wat"))
                                        (result (capture-process
                                                 (append command
-                                                        (list "wat" "node" source output directory)
+                                                        (list "node" source output)
                                                         directories))))
                                   (unless (zero? (caddr result))
                                     (error 'snail (diagnostic (cadr result))))

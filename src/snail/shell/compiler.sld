@@ -10,9 +10,6 @@
    checked->wat
    Checked
    source->checked
-   checked->modules
-   source->modules
-   Built
    LinkedFile)
   (import
    (snail core base)
@@ -22,7 +19,6 @@
    (snail shell compiler expand)
    (snail shell compiler check)
    (snail shell compiler prepare)
-   (only (snail shell compiler specialize) control-effects prepare-specialization)
    (snail shell compiler wasm))
   (begin
 
@@ -39,16 +35,9 @@
       (! fs compile)
       (expand-program directories generate target source))
 
-    ;; A program compiled to one module: its text, and the files it links,
-    ;; which ship beside it.
-    (record Built
-      ((name String)
-       (text String)
-       (links (List LinkedFile))))
-
     ;; A program read, expanded and checked, before anything is emitted: what
-    ;; a development build compiles each library from, and what an editor
-    ;; asks of the program's names (snail shell lsp).
+    ;; a build emits, and what an editor asks of the program's names (snail
+    ;; shell lsp).
     (record Checked
       ((expanded ExpandedProgram)
        (typed Typed)))
@@ -63,8 +52,8 @@
         (new Checked (expanded expanded) (typed (check-program (● expanded program))))))
 
     ;; The whole program as one module: its text, the libraries it holds,
-    ;; in program order, and the files it links. A release build and a
-    ;; producer link it with the runtime into a module of its own.
+    ;; in program order, and the files it links. A build links it with the
+    ;; runtime into a module of its own.
     (record WholeProgram
       ((text String)
        (libraries (List String))
@@ -84,33 +73,5 @@
           (text (wat->string (emit-module (prepare-program (● checked typed)))))
           (libraries (map (lambda (library) (● library first)) (● (● expanded program) libraries)))
           (links (program-links expanded)))))
-
-    ;; One module of text per library, and one for the program, in program
-    ;; order: each comes after the modules it imports from, with the files
-    ;; its library links. Every library is checked and emitted in this build.
-
-    (define (source->modules (directories (List String))
-                             (source String)
-                             (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
-                             (target (Option (List String))))
-      (→ (List Built))
-      (! mut fs compile)
-      (checked->modules (source->checked directories source generate target)))
-
-    (define (checked->modules (checked Checked)) (→ (List Built)) (! mut compile)
-      (let* ((expanded (● checked expanded))
-             (typed (● checked typed))
-             (input (prepare-specialization typed)))
-        (append (if (null? (control-effects (● typed program))) (Nil)
-                    (list (new Built (name "snail.core.control")
-                               (text (wat->string (emit-control-module (● typed program))))
-                               (links (Nil)))))
-                (map (lambda (library)
-                       (new Built (name (● library first))
-                            (text (wat->string (emit-module (prepare-library input (● library first)
-                                                                             (● library second)))))
-                            (links (library-links expanded (● library first)))))
-                     (filter (lambda (library) (not (null? (● library second))))
-                             (library-items (● typed program) (● typed items)))))))
 
     ))
