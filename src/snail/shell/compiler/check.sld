@@ -21,9 +21,7 @@
     ;; A signed body's row identity records which declared effects it uses;
     ;; nested lambdas restore the enclosing body's record on return.
     ;; `waiting` holds the field selections whose receiver's type is not
-    ;; yet known, newest first; each is also an obligation, in `wanted` or,
-    ;; while a definition group is checked, in the library's obligations
-    ;; the group set aside.
+    ;; yet known, newest first.
     (record Checker
       ((program Program)
        (locals (Table Type))
@@ -84,12 +82,11 @@
       (table-ref (● solution evidence) (identity-key id)))
 
     ;; A field selection waits for its receiver's nominal type; its result
-    ;; and surrounding row participate in inference.
+    ;; participates in inference.
     (record Projection
       ((record Expr)
        (label String)
        (result Type)
-       (row Type)
        (hole I64)
        (loc Loc)))
 
@@ -98,7 +95,6 @@
     (enum Wanted
       (WantPerformed ((name String) (declared Type) (performed (List Type)) (loc Loc)))
       (WantInclusion ((latent Type) (context Type) (loc Loc)))
-      (WantField ((projection Projection)))
       (WantClass ((constraint Constraint)
                   (hole I64)
                   (givens (List Constraint))
@@ -1393,7 +1389,6 @@
                                              (record record)
                                              (label label)
                                              (result result)
-                                             (row row)
                                              (hole hole)
                                              (loc loc))))
                      (then (improve-types)))
@@ -1402,19 +1397,19 @@
                     (new Expr (term (FieldRead record label (Some hole))) (type result) (loc loc)))
                    (second ck))))
 
-    ;; A selection is an obligation of the definition it is in, which keeps
-    ;; the types it mentions from being generalized, and waits for its
-    ;; receiver's type.
+    ;; Until its receiver's type is known, a selection keeps the types it
+    ;; mentions from being generalized; once it reads its field, it is
+    ;; ordinary inference and keeps nothing.
 
     (define (wait-for-field (ck Checker) (projection Projection)) (→ Checker)
-      (Checker-waiting-set (want ck (WantField projection)) (Cons projection (● ck waiting))))
+      (Checker-waiting-set ck (Cons projection (● ck waiting))))
 
     ;; A selection whose receiver's type is now known reads its field;
     ;; one whose is not waits again.
 
     (define (improve-projection (ck Checker) (projection Projection)) (→ Checker) (! compile)
       (match (resolve-projection ck (● projection record) (● projection label) (● projection loc))
-        ((None) (Checker-waiting-set ck (Cons projection (● ck waiting))))
+        ((None) (wait-for-field ck projection))
         ((Some value)
          (threading ck ((then (unify (● projection result) (● value type) (● projection loc))))
                     (with-projection ck (● projection hole) value)))))
@@ -1426,11 +1421,10 @@
                                                                  (identity-key hole)
                                                                  value))))
 
-    (define (check-projection (ck Checker) (projection Projection)) (→ Unit) (! compile)
-      (unless (table-contains? (● (solution ck) projections) (identity-key (● projection hole)))
-        (compile-error (● projection loc)
-                       (string-append "field " (● projection label)
-                                      " requires a known record type; annotate the receiver"))))
+    (define (unresolved-field (projection Projection)) (→ Unit) (! compile)
+      (compile-error (● projection loc)
+                     (string-append "field " (● projection label)
+                                    " requires a known record type; annotate the receiver")))
 
     ;; Each label selects one stored field of the current nominal object.
     (define (resolve-projection (ck Checker) (record Expr) (label String) (loc Loc))
@@ -1482,9 +1476,9 @@
                        (then (default-literals wanted #t))
                        (then (default-literals wanted #f))
                        (then (improve-types)))
+                   (for-each unresolved-field (reverse (● ck waiting)))
                    (for-each (lambda (want)
                                (match want
-                                 ((WantField projection) (check-projection ck projection))
                                  ((WantLiteral value type loc) (check-literal ck value type loc))
                                  (_ (unit))))
                              wanted)
@@ -1869,6 +1863,7 @@
         (threading ck ((then (Checker-wanted-set (Nil)))
                        (then (provisional-schemes definitions))
                        (values (each infer-definition definitions))
+                       (then (improve-types))
                        (then (generalize definitions (● ck wanted) exposed)))
                    (new Pair
                      (first
@@ -1907,7 +1902,8 @@
 
     ;; A metavariable becomes a quantified variable (`t1`, `t2`, ...) unless
     ;; something that outlives the group still mentions it: another
-    ;; definition's type, a constraint of this group, or a top-level value.
+    ;; definition's type, a constraint of this group, a field selection
+    ;; still waiting for its receiver, or a top-level value.
 
     (define (generalize (ck Checker)
                         (definitions (List Definition))
@@ -1919,6 +1915,7 @@
                           (list (scheme-metas ck (● ck open))
                                 (concatenate (map (lambda (want) (wanted-metas (solution ck) want))
                                                   wanted))
+                                (waiting-metas ck)
                                 (value-metas ck definitions)
                                 (exposed-row-metas ck definitions exposed)))))
              (metas (filter (lambda (meta) (not (member? (meta-id meta) fixed)))
@@ -2000,16 +1997,18 @@
         ((TVar id) id)
         (_ -1)))
 
+    (define (waiting-metas (ck Checker)) (→ (List Type))
+      (concatenate (map (lambda (projection)
+                          (append (free-metas (solution ck) (● projection record type))
+                                  (free-metas (solution ck) (● projection result))))
+                        (● ck waiting))))
+
     (define (wanted-metas (solution Solution) (want Wanted)) (→ (List Type))
       (match want
         ((WantPerformed _ _ rows _)
          (concatenate (map (lambda (row) (free-metas solution row)) rows)))
         ((WantInclusion latent row _)
          (append (free-metas solution latent) (free-metas solution row)))
-        ((WantField projection)
-         (concatenate (map (lambda (type) (free-metas solution type))
-                           (list (● projection record type) (● projection result)
-                                 (● projection row)))))
         ((WantClass constraint _ _ _)
          (concatenate
           (map (lambda (type) (free-metas solution type)) (● constraint types))))
