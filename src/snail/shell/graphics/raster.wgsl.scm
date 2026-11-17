@@ -7,7 +7,12 @@
 ;; `place` as the camera's motion goes from 0 to 1, turns by its yaw,
 ;; `place.w`, and, when `before.w` is 1, turns to
 ;; face the camera as an upright sprite does. Its scale's w is its glow, and
-;; its material is metalness then roughness.
+;; its material is metalness then roughness, with its id in w.
+;;
+;; The G-buffer's motion is in texture coordinates from where the surface
+;; was in the last frame, under its camera and its motion; its id is the
+;; instance's. Where the pipeline has no target for either, the output is
+;; dropped.
 ((var uniform) (@group 0) (@binding 0) (camera Camera3D))
 
 ((var uniform) (@group 1) (@binding 0) (style Style))
@@ -19,7 +24,10 @@
         ((@location 0) color vec3f)
         ((@location 1) normal vec3f)
         ((@location 2) world vec3f)
-        ((@location 3) material vec3f))
+        ((@location 3) material vec3f)
+        ((@location 4) clip_now vec4f)
+        ((@location 5) clip_before vec4f)
+        ((@location 6) (@interpolate flat) id u32))
 
 (fn (@vertex)
     surface_vertex
@@ -39,13 +47,16 @@
     (let s (sin yaw))
     (let p (* position (get scale xyz)))
     (let n (/ normal (get scale xyz)))
-    (let origin (mix (get before xyz) (get place xyz) (get camera forward w)))
-    (let world (+ (vec3f (+ (* c (get p x)) (* s (get p z)))
-                         (get p y)
-                         (- (* c (get p z)) (* s (get p x))))
-                  origin))
+    (let turned (vec3f (+ (* c (get p x)) (* s (get p z)))
+                       (get p y)
+                       (- (* c (get p z)) (* s (get p x)))))
+    (let world (+ turned (mix (get before xyz) (get place xyz) (get camera forward w))))
+    (let was (+ turned (mix (get before xyz) (get place xyz) (get camera previous_motion))))
     (var (out Surface))
     (= (get out position) (* (get camera view_projection) (vec4f world 1.0)))
+    (= (get out clip_now) (get out position))
+    (= (get out clip_before) (* (get camera previous) (vec4f was 1.0)))
+    (= (get out id) (u32 (get material w)))
     (= (get out normal)
        (select
         (vec3f (+ (* c (get n x)) (* s (get n z))) (get n y) (- (* c (get n z)) (* s (get n x))))
@@ -65,7 +76,9 @@
 (struct GBuffer
         ((@location 0) albedo vec4f)
         ((@location 1) normal vec4f)
-        ((@location 2) material vec4f))
+        ((@location 2) material vec4f)
+        ((@location 3) motion vec2f)
+        ((@location 4) id u32))
 
 (fn (@fragment) gbuffer_fragment ((in Surface)) (-> GBuffer)
     (if ((hidden (get in world)) (discard)))
@@ -73,6 +86,10 @@
     (= (get out albedo) (vec4f (get in color) 1.0))
     (= (get out normal) (vec4f (normalize (get in normal)) 0.0))
     (= (get out material) (vec4f (get in material) 1.0))
+    (let now (/ (get in clip_now xy) (get in clip_now w)))
+    (let before (/ (get in clip_before xy) (get in clip_before w)))
+    (= (get out motion) (* (- now before) (vec2f 0.5 -0.5)))
+    (= (get out id) (get in id))
     (return out))
 
 ;; The direction toward the eye: the same everywhere for an orthographic

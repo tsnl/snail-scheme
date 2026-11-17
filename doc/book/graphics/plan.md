@@ -165,6 +165,17 @@ view-projection and its inverse, computed in closed form for a pinhole or
 parallel lens, so the sun pass recovers each pixel's position from its
 depth. A solid surface writes albedo, normal, material (metalness,
 roughness, glow) and depth; a revealed batch discards outside its disc.
+
+The `Raster` and the `GBuffer` are made for the same `Planes`, which may
+add two more. Motion, `rg16float`, is the screen motion in texture
+coordinates from where the pixel's surface was in the last frame:
+`write-raster` returns the raster with the frame's camera kept, so the
+next frame's vertices are placed under both cameras. Ids, `r32uint`, are
+the w of each instance's material, 0 where nothing is drawn; `read-id`
+copies one pixel back, to pick what a tap is on. A plane left out has no
+target in the pipeline and no attachment in the pass, WebGPU's null
+target, so the shader's output there costs nothing. Siegework draws with
+`color-planes`, the four without motion or ids.
 A second pass, `begin-lit`, clears the target to the background and holds
 the G-buffer's depth read-only, so the pass can both sample it and test
 against it. In it, `draw-sun` of `(snail shell graphics passes)`, through
@@ -220,7 +231,7 @@ Each row is `(snail shell graphics NAME)`:
 | `wgsl` | Shaders as S-expressions: one-to-one with WGSL, read from source files by build-time recipes and printed to WGSL text, with struct declarations from `Pod`. **Implemented.** |
 | `mesh` | The flat glTF-shaped model as records and packers: geometry, material, instance, transform and indirect-draw tables, and lights. **Implemented** as a geometry table of eight shapes, instances and indirect draws. |
 | `atlas` | Texture-array pages with padded slots and slot tables, uncompressed. Pictures are composed into them on the GPU. **Implemented**, without mips. |
-| `raster` | A deferred G-buffer pipeline with configurable targets: depth, normal, albedo, metal-roughness, emissive, ids and motion. **Implemented** with fixed albedo, normal, material and depth targets, and a forward pipeline for translucent surfaces. |
+| `raster` | A deferred G-buffer pipeline with configurable targets: depth, normal, albedo, metal-roughness, emissive, ids and motion. **Implemented**: albedo, normal, material and depth, with motion and ids when asked, and a forward pipeline for translucent surfaces. |
 | `passes` | Full-screen passes: a fixed sun, tone mapping, FXAA, copies. **Implemented**: the sun, tone mapping and FXAA. |
 | `quad` | 2D quads in world units under a 2D camera, pixel-snapped in the vertex shader, sampling a texture array, including earlier passes' targets. **Implemented.** |
 | later | `bvh`, compute ray tracing and `svgf`, for path-traced lighting over the rasterized G-buffer. |

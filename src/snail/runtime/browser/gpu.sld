@@ -35,6 +35,7 @@
    copy-texture-to-buffer
    copy-texture
    pass-color
+   pass-no-color
    pass-depth
    begin-pass
    set-pipeline
@@ -98,6 +99,7 @@
             "snail.runtime.browser.gpu"
             "pass-color"
             (Fn I32 I32 F64 F64 F64 F64 I32 → Unit))
+    (extern pass-no-color "snail.runtime.browser.gpu" "pass-no-color" (Fn → Unit))
     (extern pass-depth "snail.runtime.browser.gpu" "pass-depth" (Fn I32 I32 F64 I32 → Unit))
     (extern begin-pass "snail.runtime.browser.gpu" "begin-pass" (Fn I32 → I32))
     (extern set-pipeline "snail.runtime.browser.gpu" "set-pipeline" (Fn I32 I32 → Unit))

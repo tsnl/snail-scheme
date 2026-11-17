@@ -303,18 +303,10 @@
 
     (define (pass-words (descriptor RenderPassDescriptor)) (→ (List String))
       (append (concatenate
-               (map (lambda (attachment)
-                      (concatenate
-                       (list (list (show (● attachment view id)))
-                             (match (● attachment load)
-                               ((Clear color)
-                                (list "clear"
-                                      (show (● color red))
-                                      (show (● color green))
-                                      (show (● color blue))
-                                      (show (● color alpha))))
-                               ((Keep) (list "load")))
-                             (list (if (● attachment store) "store" "discard")))))
+               (map (lambda (optional)
+                      (match optional
+                        ((Some attachment) (attachment-words attachment))
+                        ((None) (list "none"))))
                     (● descriptor colors)))
               (match (● descriptor depth)
                 ((Some attachment)
@@ -326,6 +318,18 @@
                           ((ReadOnlyDepth) (list "read-only")))
                         (list (if (● attachment store) "store" "discard")))))
                 ((None) (Nil)))))
+
+    (define (attachment-words (attachment ColorAttachment)) (→ (List String))
+      (concatenate (list (list (show (● attachment view id)))
+                         (match (● attachment load)
+                           ((Clear color)
+                            (list "clear"
+                                  (show (● color red))
+                                  (show (● color green))
+                                  (show (● color blue))
+                                  (show (● color alpha))))
+                           ((Keep) (list "load")))
+                         (list (if (● attachment store) "store" "discard")))))
 
     (define (copy-text (copy TextureCopy)) (→ String)
       (string-append "mip "
