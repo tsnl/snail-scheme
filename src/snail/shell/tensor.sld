@@ -83,6 +83,7 @@
    Copy
    Place
    Gather
+   Concat
    ScatterAdd
    Sort
    PrefixSum
@@ -144,6 +145,8 @@
    squeeze
    unsqueeze
    gather
+   concat
+   stack
    scatter-add
    sort-pairs
    exclusive-scan
@@ -310,7 +313,8 @@
     ;; gives, the adjoint of seeing a port through that accessor; a
     ;; `Gather` takes the rows of its first argument at the indices of its
     ;; second; a `ScatterAdd` adds each row of its first argument to row
-    ;; `index` of `rows` zero rows; a `Sort` sorts u32 keys and values on
+    ;; `index` of `rows` zero rows; a `Concat` joins its arguments along an
+    ;; axis; a `Sort` sorts u32 keys and values on
     ;; their low `bits` bits, stably; a `PrefixSum` replaces each u32
     ;; number by the sum of those before it.
     (enum Kind
@@ -324,6 +328,7 @@
       (Place ((accessor Accessor)))
       (Gather)
       (ScatterAdd ((rows I64)))
+      (Concat ((axis I64)))
       (Sort ((bits I64)))
       (PrefixSum)
       (CustomKind ((custom Custom))))
@@ -340,6 +345,7 @@
         ((Place accessor) (string-append "place " (accessor-text accessor)))
         ((Gather) "gather")
         ((ScatterAdd rows) (string-append "scatter-add " (show rows)))
+        ((Concat axis) (string-append "concat " (show axis)))
         ((Sort bits) (string-append "sort " (show bits)))
         ((PrefixSum) "scan")
         ((CustomKind c) (string-append "custom " (● c name)))))
@@ -419,6 +425,13 @@
         (and (= (● a offset) 0)
              (equal-lists? (● a shape) (● port shape))
              (equal-lists? (● a pitch) (contiguous-pitch (● a shape))))))
+
+    ;; Whether a view reads its port's buffer in order, every element once,
+    ;; in any shape.
+    (define (whole-buffer? (view View)) (→ Bool)
+      (and (= (● view accessor offset) 0)
+           (dense? view)
+           (= (element-count view) (product (● (port-of (● view node) (● view port)) shape)))))
 
     ;; Whether a view's elements are adjacent and in order, from its offset.
     (define (dense? (view View)) (→ Bool)
@@ -683,6 +696,44 @@
               (Cons rows (list-tail (shape-of source) 1))
               (etype-of source)))
 
+    ;; ---- Joining ----
+
+    ;; The views joined along `axis`, of one type and equal on every other
+    ;; axis. A node joins at most six, so its kernel binds at most the
+    ;; eight storage buffers every device allows; more are joined in a
+    ;; tree.
+    (define (concat (views (List View)) (axis I64)) (→ View)
+      (if (<= (length views) 6)
+          (joined views axis)
+          (concat (map (lambda (k)
+                         (joined (take (list-drop views (* 6 k)) (min 6 (- (length views) (* 6 k))))
+                                 axis))
+                       (iota (quotient (+ (length views) 5) 6)))
+                  axis)))
+
+    (define (joined (views (List View)) (axis I64)) (→ View)
+      (let* ((first-view (list-ref views 0))
+             (shape (shape-of first-view)))
+        (unless (every? (lambda (v)
+                          (and (same-etype? (etype-of v) (etype-of first-view))
+                               (equal-lists? (without (shape-of v) axis) (without shape axis))))
+                        views)
+          (panic "tensor: concat of views that differ off its axis"))
+        (single (Concat axis)
+                views
+                (map-indexed (lambda (k size)
+                               (if (= k axis)
+                                   (fold-left +
+                                              0
+                                              (map (lambda (v) (list-ref (shape-of v) axis)) views))
+                                   size))
+                             shape)
+                (etype-of first-view))))
+
+    ;; Views of one shape along a new axis.
+    (define (stack (views (List View)) (axis I64)) (→ View)
+      (concat (map (lambda (v) (unsqueeze v axis)) views) axis))
+
     ;; ---- Sorting and scanning ----
 
     ;; u32 keys and their u32 values sorted by the keys' low `bits` bits,
@@ -703,10 +754,11 @@
 
     ;; ---- Custom nodes ----
 
-    ;; A custom node's ports, each seen whole, in order; its arguments are
-    ;; made dense first.
+    ;; A custom node's ports, each seen whole, in order; an argument that is
+    ;; not a whole port's buffer in order is copied into one first.
     (define (custom (c Custom) (args (List View)) (ports (List Port))) (→ (List View))
-      (let ((n (node (CustomKind c) (map (lambda (a) (if (identity? a) a (copy a))) args) ports)))
+      (let ((n
+             (node (CustomKind c) (map (lambda (a) (if (whole-buffer? a) a (copy a))) args) ports)))
         (map (lambda (port) (node-view n (● port name))) ports)))
 
     ;; ---- Order ----

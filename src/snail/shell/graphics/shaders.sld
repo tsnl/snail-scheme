@@ -2,7 +2,10 @@
 ;; built, each from the file of its name: `quad-shader` from
 ;; quad.wgsl.scm, and so `atlas-shader`, `lighting-shader`, `raster-shader`,
 ;; `sun-shader`, `post-shader`, `scan-shader`, `radix-sort-shader`,
-;; `splat-project-shader` and `splat-draw-shader`.
+;; `splat-project-shader` and `splat-draw-shader`, and training's
+;; `splat-tiles-shader`, `splat-count-shader`, `splat-keys-shader`,
+;; `splat-ranges-shader`, `splat-forward-shader`, `splat-backward-shader`
+;; and `splat-blur-shader`.
 (generate-library (snail shell graphics shaders)
                   (import
                    (snail core base)
@@ -38,4 +41,25 @@
                                           (second (link-file "splat-project.wgsl.scm")))
                                         (new Pair
                                           (first "splat-draw-shader")
-                                          (second (link-file "splat-draw.wgsl.scm"))))))
+                                          (second (link-file "splat-draw.wgsl.scm")))
+                                        (new Pair
+                                          (first "splat-tiles-shader")
+                                          (second (link-file "splat-tiles.wgsl.scm")))
+                                        (new Pair
+                                          (first "splat-count-shader")
+                                          (second (link-file "splat-count.wgsl.scm")))
+                                        (new Pair
+                                          (first "splat-keys-shader")
+                                          (second (link-file "splat-keys.wgsl.scm")))
+                                        (new Pair
+                                          (first "splat-ranges-shader")
+                                          (second (link-file "splat-ranges.wgsl.scm")))
+                                        (new Pair
+                                          (first "splat-forward-shader")
+                                          (second (link-file "splat-forward.wgsl.scm")))
+                                        (new Pair
+                                          (first "splat-backward-shader")
+                                          (second (link-file "splat-backward.wgsl.scm")))
+                                        (new Pair
+                                          (first "splat-blur-shader")
+                                          (second (link-file "splat-blur.wgsl.scm"))))))
