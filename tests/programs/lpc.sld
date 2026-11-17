@@ -1,11 +1,11 @@
 ;; The LPC libraries against the packs checked in under src/lpc: every sheet
 ;; the catalog names exists, dressing refuses what no pack draws, layers come
-;; in drawing order, heads are recolored ramp for ramp, and a pose picks the
-;; strip a viewer should see.
+;; in drawing order, heads are recolored ramp for ramp, and a spritebook
+;; picks the heading a viewer should see and the cell its strip shows.
 (import
  (snail core base)
  (snail core io)
- (snail shell app)
+ (only (snail shell graphics atlas) Rect)
  (snail shell sprite)
  (lpc layout)
  (lpc catalog)
@@ -42,28 +42,8 @@
     ((Pair (Some one) (Some other)) (= (fingerprint one) (fingerprint other)))
     (_ #f)))
 
-;; A camera looking down -z: a figure facing +z faces the viewer, one
-;; facing +x their right.
-(define (camera)
-  (→ Camera)
-  (new Camera
-    (eye (new Vec3 (x 0.0) (y 5.0) (z 10.0)))
-    (target (new Vec3 (x 0.0) (y 0.0) (z 0.0)))
-    (projection (Perspective 0.8))))
-
-(define (texture-text (item Item)) (→ String)
-  (match (● (● item material) texture)
-    ((Some (Texture picture region frames period))
-     (string-append "picture "
-                    (show picture)
-                    " at "
-                    (show (● region x))
-                    ","
-                    (show (● region y))
-                    ", "
-                    (show frames)
-                    " frames"))
-    ((None) "untextured")))
+(define (cell-text (cell Rect)) (→ String)
+  (string-append "cell at " (show (● cell x)) "," (show (● cell y))))
 
 (define (main) (→ Unit) (! fs output-port)
 
@@ -138,33 +118,21 @@
                                     "no"
                                     "yes"))))
     ((None) (write-line "refused")))
+  ;; Down the screen faces the viewer, +x their right.
   (write-line (string-append "headings: "
-                             (string-join (map (lambda (facing) (show (heading 4 facing (camera))))
-                                               (list (new Vec3 (x 0.0) (y 0.0) (z 1.0))
-                                                     (new Vec3 (x 1.0) (y 0.0) (z 0.0))
-                                                     (new Vec3 (x 0.0) (y 0.0) (z -1.0))
-                                                     (new Vec3 (x -1.0) (y 0.0) (z 0.0))
-                                                     (new Vec3 (x 0.7) (y 0.0) (z 0.8))))
+                             (string-join (map (lambda (facing)
+                                                 (show
+                                                  (heading 4 (● facing first) (● facing second))))
+                                               (list (new Pair (first 0.0) (second -1.0))
+                                                     (new Pair (first 1.0) (second 0.0))
+                                                     (new Pair (first 0.0) (second 1.0))
+                                                     (new Pair (first -1.0) (second 0.0))
+                                                     (new Pair (first 0.7) (second -0.8))))
                                           " ")))
   (write-line (string-append "standing toward the viewer: "
-                             (texture-text (pose (walk-book 7)
-                                                 (Stand)
-                                                 (new Vec3 (x 0.0) (y 0.0) (z 0.0))
-                                                 (new Vec3 (x 0.0) (y 0.0) (z 1.0))
-                                                 2.0
-                                                 (camera)))))
-  (write-line (string-append "strolling to the right: "
-                             (texture-text (pose (walk-book 7)
-                                                 (Stroll)
-                                                 (new Vec3 (x 0.0) (y 0.0) (z 0.0))
-                                                 (new Vec3 (x 1.0) (y 0.0) (z 0.0))
-                                                 2.0
-                                                 (camera)))))
-  (write-line (string-append "slashing away: "
-                             (texture-text (pose (universal-book 7)
-                                                 (Slash)
-                                                 (new Vec3 (x 0.0) (y 0.0) (z 0.0))
-                                                 (new Vec3 (x 0.0) (y 0.0) (z -1.0))
-                                                 2.0
-                                                 (camera)))))
+                             (cell-text (cell-at (walk-book 7) (Stand) 0 5000))))
+  (write-line (string-append "strolling to the right, 200 ms in: "
+                             (cell-text (cell-at (walk-book 7) (Stroll) 1 200))))
+  (write-line (string-append "slashing away, a full cycle in: "
+                             (cell-text (cell-at (universal-book 7) (Slash) 2 480))))
   (unit))

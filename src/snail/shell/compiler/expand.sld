@@ -2935,10 +2935,10 @@
     ;; imports. A use is the declaration's own keyword, `record` or `enum`,
     ;; its head with its parameters, then each case:
     ;;
-    ;;   (derive-repr enum (Option T) (None "None") (Some "Some" (field0 value "value")))
+    ;;   (derive-repr enum (Option T) (None "None") (Some "Some" (field0 value "value" T)))
     ;;
     ;; A case is its name, the name as text and, for each field, a fresh
-    ;; variable, the label and the label as text. A macro binds the
+    ;; variable, the label, the label as text and the field's type. A macro binds the
     ;; variable, since a case may repeat a label and `_` binds nothing.
 
     (define implicit-libraries (→ (List (List String)))
@@ -2949,25 +2949,31 @@
     (define (derived-instances (cx Context) (form Syntax) (enum? Bool))
       (→ (Pair (List Syntax) Context))
       (! fs compile generator)
-      (match (map deriving-macro (derived-classes form))
+      (match (derived-classes form)
         ((Nil) (new Pair (first (Nil)) (second cx)))
-        (macros
+        (classes
          (let ((loc (syntax-loc form)))
            (threading cx ((scope (deriving-scope loc)))
                       (let* ((d (new Deriver (scope scope) (loc loc)))
                              (arguments (deriving-arguments d form enum?)))
                         (new Pair
-                          (first (map (lambda (macro) (Form (Cons (marked d macro) arguments) loc))
-                                      macros))
+                          (first (map (lambda (class)
+                                        (Form (Cons (deriving-macro d class) arguments) loc))
+                                      classes))
                           (second cx))))))))
 
-    (define (deriving-macro (class Syntax)) (→ String) (! compile)
+    ;; `derive-pod` is the one macro outside the implicit libraries: a
+    ;; declaration deriving Pod imports (snail shell graphics pod), so its
+    ;; name resolves where the declaration is.
+
+    (define (deriving-macro (d Deriver) (class Syntax)) (→ Syntax) (! compile)
       (match class
-        ((Ident "Repr" _ _) "derive-repr")
-        ((Ident "Serialize" _ _) "derive-serialize")
-        ((Ident "Deserialize" _ _) "derive-deserialize")
+        ((Ident "Repr" _ _) (marked d "derive-repr"))
+        ((Ident "Serialize" _ _) (marked d "derive-serialize"))
+        ((Ident "Deserialize" _ _) (marked d "derive-deserialize"))
+        ((Ident "Pod" _ _) (Ident "derive-pod" (None) (syntax-loc class)))
         (_ (compile-error (syntax-loc class)
-                          "only Repr, Serialize and Deserialize can be derived"))))
+                          "only Repr, Serialize, Deserialize and Pod can be derived"))))
 
     ;; The scope derived instances resolve in, made at the build's first
     ;; deriving clause, which loads the implicit libraries, and shared by
@@ -3021,15 +3027,16 @@
     (define (derived-case (d Deriver) (case CaseSyntax)) (→ Syntax) (! compile)
       (Form (Cons (● case name)
                   (Cons (Atom (DString (expect-name (● case name) "a constructor")) (● d loc))
-                        (map-indexed (lambda (index field)
-                                       (derived-field d index (● (parse-field field) name)))
-                                     (● case fields))))
+                        (map-indexed
+                         (lambda (index field) (derived-field d index (parse-field field)))
+                         (● case fields))))
             (● d loc)))
 
-    (define (derived-field (d Deriver) (index I64) (label Syntax)) (→ Syntax) (! compile)
+    (define (derived-field (d Deriver) (index I64) (field FieldSyntax)) (→ Syntax) (! compile)
       (Form (list (marked d (string-append "field" (i64->string index)))
-                  label
-                  (Atom (DString (expect-name label "a field label")) (● d loc)))
+                  (● field name)
+                  (Atom (DString (expect-name (● field name) "a field label")) (● d loc))
+                  (● field type))
             (● d loc)))
 
     ;; ---- Patterns ----

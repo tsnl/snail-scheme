@@ -47,7 +47,7 @@
       (! fs)
       (library-syntax name
                       (list "art")
-                      (list (list "snail" "core" "base") (list "snail" "shell" "app"))
+                      (list (list "snail" "core" "base") (list "snail" "shell" "graphics" "atlas"))
                       (append
                        (lookup-definitions "art" (form "Option" (list (SymbolSyntax "Source")))
                                            (map-indexed

@@ -16,8 +16,7 @@ const OPTIONAL = ['texture-compression-bc', 'shader-f16', 'timestamp-query'];
 
 // ---- The device ----
 
-// One device per page, configured on its canvas, which the scene renderer
-// shares while it remains.
+// One device per page, configured on its canvas.
 let shared = null;
 export function pageDevice(canvas) {
   shared ??= requestDevice(canvas);
@@ -47,8 +46,9 @@ async function requestDevice(canvas) {
 // ---- Objects ----
 
 // The runtime gives the running program's memory, to read Bytes from
-// staging, and its tasks, to wait in.
-export function createGpu(canvas, runtime) {
+// staging, and its tasks, to wait in. `open` answers the device, its
+// canvas context, format and optional features: the page's, or a test's.
+export function createGpu(canvas, runtime, open = pageDevice) {
   const decoder = new TextDecoder(), objects = new Map();
   let gpu = null, reply = [], held = new Uint8Array(), decoded = null;
   const bytes = address => byteSnapshot(runtime.execution.entry.memory, address);
@@ -72,7 +72,7 @@ export function createGpu(canvas, runtime) {
     // A page without the baseline answers 1, which the program reports.
     'start-device'(ticket) {
       tasks().start(Number(ticket), async () => {
-        try { gpu = await pageDevice(canvas); return 0; } catch (error) { console.error(error.message); return 1; }
+        try { gpu = await open(canvas); return 0; } catch (error) { console.error(error.message); return 1; }
       }, status => status);
     },
     'finish-device': ticket => tasks().finish(Number(ticket)),
@@ -137,13 +137,23 @@ export function createGpu(canvas, runtime) {
     'end-pass'(pass) { object(pass).end(); },
     finish(encoder, id) { objects.set(id, object(encoder).finish()); },
     submit(address) { gpu.device.queue.submit(JSON.parse(decoder.decode(bytes(address))).map(object)); },
-    'current-texture'(id) { objects.set(id, gpu.context.getCurrentTexture()); },
+    // The canvas holds as many pixels as it covers on the screen.
+    'current-texture'(id) {
+      const ratio = globalThis.devicePixelRatio ?? 1;
+      const width = Math.max(1, Math.round(canvas.clientWidth * ratio));
+      const height = Math.max(1, Math.round(canvas.clientHeight * ratio));
+      if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
+      const texture = gpu.context.getCurrentTexture();
+      objects.set(id, texture);
+      return texture.width;
+    },
+    'current-height': () => canvas.height,
   };
 
   // A program that starts again, cold or after a reload, knows no ids, so
   // the objects its last run made go.
   function reset() {
-    for (const value of objects.values()) if (value instanceof GPUBuffer || value instanceof GPUTexture) value.destroy();
+    for (const value of objects.values()) value.destroy?.();
     objects.clear();
     decoded?.destroy();
     decoded = null;

@@ -1,7 +1,7 @@
 ;; Clicks through both prototypes in the browser shell without a browser:
 ;; each HUD's panels are printed with their place, buttons in brackets with
 ;; their caption and marked - when disabled, and labels with their tone when
-;; it is not plain, with the number of shapes in each scene batch.
+;; it is not plain, with the number of pictures each screen draws from.
 (import
  (snail core base)
  (snail core io)
@@ -20,7 +20,7 @@
     ((Dial face text fraction) text)
     ((Link face text url) (string-append text " <" url ">"))
     ((Text face spans) (string-concatenate (map span-words spans)))
-    ((Image face picture region scale) (string-append "<picture " (show picture) ">"))))
+    ((Image face image width height scale) (string-append "<image " (show image) ">"))))
 
 (define (span-words (span Span)) (→ String)
   (match span
@@ -50,16 +50,9 @@
     ((Dialog dismiss) "dialog")
     ((Banner) "banner")))
 
-(define (show-batches (frame Frame)) (→ Unit) (! output-port)
-  (match frame
-    ((Frame camera light background motion batches pictures)
-     (write-line (string-append "batches: "
-                                (string-join (map (lambda (batch)
-                                                    (match batch
-                                                      ((Batch key version style items)
-                                                       (show (length (items))))))
-                                                  batches)
-                                             " "))))))
+(define (show-pictures (shell Shell)) (→ Unit) (! output-port)
+  (write-line
+   (string-append "pictures: " (show (length (shell-pictures shell (lambda (path) (None))))))))
 
 (define (show-panel (panel Panel)) (→ Unit) (! output-port)
   (match panel
@@ -78,7 +71,7 @@
   (! output-port)
   (let ((shell (click shell presses)))
     (write-line (string-append "==== " title))
-    (show-batches (view-shell shell (lambda (path) (None))))
+    (show-pictures shell)
     (for-each show-panel (shell-hud shell))
     shell))
 
