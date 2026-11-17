@@ -1,66 +1,69 @@
 pinhole inverse within 1e-4: #t
 parallel inverse within 1e-4: #t
-request-device 100000000
-encoder 1
-canvas 2
-create texture 3 gbuffer/test/albedo
-create texture 4 gbuffer/test/normal
-create texture 5 gbuffer/test/material
-create texture 6 gbuffer/test/depth
-create shader 7 raster/shader
-create render-pipeline 8 raster/gbuffer_fragment/rgba8unorm/rgba16float/rgba8unorm
-create render-pipeline 9 raster/forward_fragment/bgra8unorm
-create buffer 10 raster/camera
-write-buffer 10 0 160
-create buffer 11 raster/sun
-write-buffer 11 0 32
-pass 12 1
-set-pipeline 12 8
-create bind-group 13 raster/camera
-set-bind-group 12 0 13
-create buffer 14 raster/ground
-write-buffer 14 0 16
-create bind-group 15 raster/ground
-set-bind-group 12 1 15
-create buffer 16 mesh/ground/instances
-write-buffer 16 0 80
-create buffer 17 mesh/ground/draws
-write-buffer 17 0 160
-create buffer 18 mesh/geometry/vertices
-write-buffer 18 0 16320
-set-vertex-buffer 12 0 18 0
-set-vertex-buffer 12 1 16 0
-create buffer 19 mesh/geometry/indices
-write-buffer 19 0 1848
-set-index-buffer 12 19 uint32 0
-draw-indexed-indirect 12 17 80
-end-pass 12
-pass 20 1
-create shader 21 passes/sun
-create render-pipeline 22 passes/sun/bgra8unorm
-set-pipeline 20 22
-create bind-group 23 passes/sun
-set-bind-group 20 0 23
-draw 20 3 1 0 0
-end-pass 20
-pass 24 1
-set-pipeline 24 9
-create bind-group 25 raster/forward/camera
-set-bind-group 24 0 25
+request-device
+create shader 1 raster
+create render-pipeline 2 raster/gbuffer_fragment
+create render-pipeline 3 raster/forward_fragment
+create buffer 4 raster/camera
+create buffer 5 raster/sun
+create buffer 6 mesh/geometry/vertices
+write-buffer 6 0 16320
+create buffer 7 mesh/geometry/indices
+write-buffer 7 0 1848
+create bind-group 8 raster/camera
+create bind-group 9 raster/forward/camera
+create bind-group 10 raster/sun
+create texture 11 gbuffer/albedo
+create texture 12 gbuffer/normal
+create texture 13 gbuffer/material
+create texture 14 gbuffer/depth
+create view 15 11
+create view 16 12
+create view 17 13
+create view 18 14
+create shader 19 passes/sun
+create render-pipeline 20 passes/sun
+create bind-group 21 passes/sun
+create buffer 22 raster/ground
+write-buffer 22 0 16
+create bind-group 23 raster/ground
+create buffer 24 mesh/ground/instances
+write-buffer 24 0 80
+create buffer 25 mesh/ground/draws
+write-buffer 25 0 160
 create buffer 26 raster/water
 write-buffer 26 0 16
-create bind-group 27 raster/forward/water
-set-bind-group 24 1 27
-create bind-group 28 raster/sun
-set-bind-group 24 2 28
-create buffer 29 mesh/water/instances
-write-buffer 29 0 80
-create buffer 30 mesh/water/draws
-write-buffer 30 0 160
-set-vertex-buffer 24 0 18 0
-set-vertex-buffer 24 1 29 0
-set-index-buffer 24 19 uint32 0
-draw-indexed-indirect 24 30 0
-end-pass 24
-command-buffer 31 1
-submit 31
+create bind-group 27 raster/water
+create buffer 28 mesh/water/instances
+write-buffer 28 0 80
+create buffer 29 mesh/water/draws
+write-buffer 29 0 160
+canvas 30
+create view 31 30
+encoder 32
+write-buffer 4 0 160
+write-buffer 5 0 32
+pass 33 32
+set-pipeline 33 2
+set-bind-group 33 0 8
+set-bind-group 33 1 23
+set-vertex-buffer 33 0 6 0
+set-vertex-buffer 33 1 24 0
+set-index-buffer 33 7 uint32 0
+draw-indexed-indirect 33 25 80
+end-pass 33
+pass 34 32
+set-pipeline 34 20
+set-bind-group 34 0 21
+draw 34 3 1 0 0
+set-pipeline 34 3
+set-bind-group 34 0 9
+set-bind-group 34 2 10
+set-bind-group 34 1 27
+set-vertex-buffer 34 0 6 0
+set-vertex-buffer 34 1 28 0
+set-index-buffer 34 7 uint32 0
+draw-indexed-indirect 34 29 0
+end-pass 34
+command-buffer 35 32
+submit 35

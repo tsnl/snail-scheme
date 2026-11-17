@@ -1,12 +1,14 @@
-;; A scene's frame through the recording handler: the G-buffer pass, the
-;; sun pass and a translucent pass. A camera's inverse undoes its
-;; view-projection for either lens.
+;; A scene's objects, made once, and its frame through the recording
+;; handler: the G-buffer pass, then the lit pass, the sun and a translucent
+;; surface over the G-buffer's read-only depth. A camera's inverse undoes
+;; its view-projection for either lens.
 (import
  (snail core base)
  (snail core io)
  (snail shell math)
  (snail shell gpu)
  (snail shell gpu record)
+ (only (snail shell task) tasks)
  (snail shell graphics pod)
  (snail shell graphics mesh)
  (snail shell graphics raster)
@@ -45,7 +47,7 @@
       (from (new Vec4f (x x) (y 0.0) (z 0.0) (w 0.0)))
       (material (new Vec4f (x 0.0) (y 1.0) (z 0.0) (w 0.0))))))
 
-;; A created object's kind, id and path, and a pass's id and encoder,
+;; A created object's kind, id and label, and a pass's id and encoder,
 ;; without their descriptors.
 (define (heads (lines (List String))) (→ (List String))
   (map (lambda (line)
@@ -65,51 +67,35 @@
                            (show (< (error-of (camera (Pinhole 0.8))) 0.0001))))
 (write-line (string-append "parallel inverse within 1e-4: "
                            (show (< (error-of (camera (Parallel 20.0))) 0.0001))))
-(for-each write-line
-          (heads (● (with-recorded-gpu 100000000
-                                       (lambda ()
-                                         (request-device 100000000)
-                                         (let* ((encoder (create-command-encoder))
-                                                (canvas (● (current-texture) texture))
-                                                (g (gbuffer "test" 640 480))
-                                                (view (camera (Parallel 20.0)))
-                                                (sun (new Sun
-                                                       (direction
-                                                        (new Vec4f (x 0.3) (y 1.0) (z 0.5) (w 0.8)))
-                                                       (ambient 0.3)))
-                                                (r (raster (Bgra8Unorm) view sun))
-                                                (pass (begin-gbuffer encoder g)))
-                                           (raster-meshes pass
-                                                          r
-                                                          "ground"
-                                                          solid
-                                                          (meshes (list (new Pair
-                                                                          (first (Tile))
-                                                                          (second (instance 0.0)))))
-                                                          #t)
-                                           (end-pass pass)
-                                           (sun-pass encoder
-                                                     canvas
-                                                     (Bgra8Unorm)
-                                                     (new Color
-                                                       (red 0.0)
-                                                       (green 0.0)
-                                                       (blue 0.0)
-                                                       (alpha 1.0))
-                                                     g
-                                                     r)
-                                           (let ((pass (begin-forward encoder canvas g)))
-                                             (raster-translucent pass r "water"
-                                                                 (new Style
-                                                                   (opacity 0.5)
-                                                                   (center-x 0.0)
-                                                                   (center-z 0.0)
-                                                                   (radius -1.0))
-                                                                 (meshes (list (new Pair
-                                                                                 (first (Box))
-                                                                                 (second
-                                                                                  (instance 1.0)))))
-                                                                 #t)
-                                             (end-pass pass))
-                                           (submit (list (finish encoder))))))
-                    second)))
+(define (instances (mesh Mesh) (x F32)) (→ Meshes)
+  (meshes (list (new Pair (first mesh) (second (instance x))))))
+
+(define (frame) (→ Unit) (! gpu tasks)
+  (request-device)
+  (let* ((r (make-raster (Bgra8Unorm)))
+         (g (make-gbuffer 640 480))
+         (light (make-sunlight (Bgra8Unorm) g r))
+         (ground (make-surface r "ground" #f solid (instances (Tile) 0.0)))
+         (water (make-surface r
+                              "water"
+                              #t
+                              (new Style (opacity 0.5) (center-x 0.0) (center-z 0.0) (radius -1.0))
+                              (instances (Box) 1.0)))
+         (canvas (view-of (● (current-texture) texture) 1))
+         (encoder (create-command-encoder)))
+    (write-raster r
+                  (camera (Parallel 20.0))
+                  (new Sun (direction (new Vec4f (x 0.3) (y 1.0) (z 0.5) (w 0.8))) (ambient 0.3)))
+    (let ((pass (begin-gbuffer encoder g)))
+      (draw-surface pass r ground)
+      (end-pass pass))
+    (let ((pass (begin-lit encoder
+                           canvas
+                           (new Color (red 0.0) (green 0.0) (blue 0.0) (alpha 1.0))
+                           g)))
+      (draw-sun pass light)
+      (draw-surface pass r water)
+      (end-pass pass))
+    (submit (list (finish encoder)))))
+
+(for-each write-line (heads (● (with-recorded-gpu frame) second)))

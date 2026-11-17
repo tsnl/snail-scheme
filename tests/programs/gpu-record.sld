@@ -1,8 +1,6 @@
-;; The books (snail shell gpu) keeps, through the recording handler: a path
-;; answers the object it made while its descriptor stays, a frame's objects
-;; end at `submit`, a changed descriptor replaces its object, an object
-;; over the budget evicts the least recently used one, and a handle to an
-;; evicted object panics with what it was.
+;; What the recording handler notes of a frame: each object numbered as it
+;; is made, with its descriptor's fields; the commands that use them; and
+;; an object let go.
 (import
  (snail core base)
  (snail core io)
@@ -10,23 +8,19 @@
  (snail shell gpu record)
  (only (snail shell task) tasks))
 
-(define (vertices) (→ BufferDescriptor)
-  (new BufferDescriptor
-    (path (Some (list "test" "vertices")))
-    (size 64)
-    (usage (list (Vertex) (CopyDst)))))
-
 (define shader "@vertex fn v() -> @builtin(position) vec4f { return vec4f(); }")
 
-(define (frame) (→ GpuBuffer) (! gpu tasks output-port)
-  (request-device 1000)
-  (let* ((buffer (create-buffer (vertices)))
-         (again (create-buffer (vertices)))
-         (module (create-shader-module
-                  (new ShaderModuleDescriptor (path (Some (list "test" "shader"))) (code shader))))
+(define (frame) (→ Unit) (! gpu tasks)
+  (request-device)
+  (let* ((buffer (create-buffer
+                  (new BufferDescriptor
+                    (label "vertices")
+                    (size 64)
+                    (usage (list (Vertex) (CopyDst))))))
+         (module (create-shader-module (new ShaderModuleDescriptor (label "shader") (code shader))))
          (pipeline (create-render-pipeline
                     (new RenderPipelineDescriptor
-                      (path (Some (list "test" "pipeline")))
+                      (label "pipeline")
                       (module module)
                       (vertex-entry "v")
                       (buffers (Nil))
@@ -40,7 +34,7 @@
                       (depth (None)))))
          (group (create-bind-group
                  (new BindGroupDescriptor
-                   (path (Some (list "test" "group")))
+                   (label "group")
                    (pipeline pipeline)
                    (group 0)
                    (entries (list (BufferEntry 0 buffer 0 0))))))
@@ -56,33 +50,12 @@
                                                                    (alpha 1.0))))
                                                     (store #t))))
                                     (depth (None))))))
-    (write-line
-     (string-append "fresh, then found: " (show (● buffer fresh)) " " (show (● again fresh))))
     (write-buffer buffer 0 (make-array 64 (i32->u8 0)))
     (set-pipeline pass pipeline)
     (set-bind-group pass 0 group)
     (draw pass 3 1 0 0)
     (end-pass pass)
     (submit (list (finish encoder)))
-    buffer))
+    (destroy (BufferObject buffer))))
 
-(define (bigger) (→ BufferDescriptor)
-  (new BufferDescriptor (path (Some (list "test" "vertices"))) (size 128) (usage (list (Vertex)))))
-
-(define (big) (→ BufferDescriptor)
-  (new BufferDescriptor (path (Some (list "test" "big"))) (size 900) (usage (list (Storage)))))
-
-;; A new descriptor replaces the buffer; the next frame's big buffer evicts
-;; it, and the bind group that named the first one.
-
-(define (evicting) (→ GpuBuffer) (! gpu)
-  (let ((replaced (create-buffer (bigger))))
-    (submit (Nil))
-    (create-buffer (big))
-    replaced))
-
-(for-each write-line (● (with-recorded-gpu 1000 (lambda () (frame))) second))
-(write-line "and later:")
-(for-each write-line (● (with-recorded-gpu 1000 (lambda () (frame) (evicting))) second))
-(write-line "and a handle to the evicted buffer:")
-(with-recorded-gpu 1000 (lambda () (frame) (write-buffer (evicting) 0 (make-array 4 (i32->u8 0)))))
+(for-each write-line (● (with-recorded-gpu (lambda () (frame))) second))

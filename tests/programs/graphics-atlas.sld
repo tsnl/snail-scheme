@@ -141,7 +141,7 @@
   (if (= calls 0) atlas (settled (compose atlas pictures) pictures (- calls 1))))
 
 (define (frames) (→ (List Atlas)) (! gpu tasks)
-  (request-device 100000000)
+  (request-device)
   (let* ((first (settled (make-atlas "test" 64 2)
                          (list (picture 1 1 30 20) (picture 2 1 30 20) (picture 3 1 30 40))
                          3))
@@ -150,57 +150,48 @@
          (full (compose fourth (list (picture 4 1 60 60) (picture 5 1 60 60)))))
     (list first again fourth full)))
 
-(let ((recorded (with-recorded-gpu 100000000 (lambda () (frames)))))
+(let ((recorded (with-recorded-gpu frames)))
   (for-each (lambda (atlas) (write-line (slots atlas (list 1 2 3 4 5)))) (● recorded first))
   (for-each write-line (heads (● recorded second))))
 
+(define (quad (index I64)) (→ Quad)
+  (new Quad
+    (center (new Vec2f (x (i64->f32 index)) (y 0.0)))
+    (size (new Vec2f (x 1.0) (y 1.0)))
+    (angle 0.0)
+    (page 0)
+    (region (new Vec4f (x 0.0) (y 0.0) (z 2.0) (w 1.0)))
+    (color (new Vec4f (x 1.0) (y 1.0) (z 1.0) (w 1.0)))))
+
+;; A frame's run of quads, over a cleared canvas.
+(define (quad-frame (quads Quads) (count I64)) (→ Quads) (! gpu)
+  (let* ((encoder (create-command-encoder))
+         (pass (begin-render-pass encoder
+                                  (new RenderPassDescriptor
+                                    (colors (list (new ColorAttachment
+                                                    (view (view-of (● (current-texture) texture) 1))
+                                                    (load (Keep))
+                                                    (store #t))))
+                                    (depth (None)))))
+         (quads (draw-quads pass
+                            quads
+                            (new View2D
+                              (center (new Vec2f (x 0.0) (y 0.0)))
+                              (extent (new Vec2f (x 10.0) (y 10.0)))
+                              (pixels (new Vec2f (x 100.0) (y 100.0))))
+                            (map quad (iota count)))))
+    (end-pass pass)
+    (submit (list (finish encoder)))
+    quads))
+
+;; A run of three, then runs of a hundred and of two hundred, which grow
+;; the instances: the outgrown buffer goes at its frame's submit.
+(define (quad-frames) (→ Unit) (! gpu tasks)
+  (request-device)
+  (fold-left quad-frame
+             (make-quads "test" (Bgra8Unorm) (● (make-atlas "test" 64 2) texture))
+             (list 3 100 200))
+  (unit))
+
 (write-line "quads:")
-(for-each write-line
-          (heads (● (with-recorded-gpu 100000000
-                                       (lambda ()
-                                         (request-device 100000000)
-                                         (let* ((encoder (create-command-encoder))
-                                                (pass (begin-render-pass encoder
-                                                                         (new RenderPassDescriptor
-                                                                           (colors
-                                                                            (list
-                                                                             (new ColorAttachment
-                                                                               (view
-                                                                                (view-of
-                                                                                 (●
-                                                                                  (current-texture)
-                                                                                  texture)
-                                                                                 1))
-                                                                               (load (Keep))
-                                                                               (store #t))))
-                                                                           (depth (None))))))
-                                           (draw-quads pass
-                                                       "test"
-                                                       (Bgra8Unorm)
-                                                       (new View2D
-                                                         (center (new Vec2f (x 0.0) (y 0.0)))
-                                                         (extent (new Vec2f (x 10.0) (y 10.0)))
-                                                         (pixels (new Vec2f (x 100.0) (y 100.0))))
-                                                       (atlas-texture (make-atlas "test" 64 2))
-                                                       (map (lambda (index)
-                                                              (new Quad
-                                                                (center (new Vec2f
-                                                                          (x (i64->f32 index))
-                                                                          (y 0.0)))
-                                                                (size (new Vec2f (x 1.0) (y 1.0)))
-                                                                (angle 0.0)
-                                                                (page 0)
-                                                                (region (new Vec4f
-                                                                          (x 0.0)
-                                                                          (y 0.0)
-                                                                          (z 2.0)
-                                                                          (w 1.0)))
-                                                                (color (new Vec4f
-                                                                         (x 1.0)
-                                                                         (y 1.0)
-                                                                         (z 1.0)
-                                                                         (w 1.0)))))
-                                                            (iota 3)))
-                                           (end-pass pass)
-                                           (submit (list (finish encoder))))))
-                    second)))
+(for-each write-line (heads (● (with-recorded-gpu quad-frames) second)))

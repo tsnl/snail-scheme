@@ -47,10 +47,8 @@ try {
   const printed = lines.filter(line => line.startsWith('log: ')).map(line => line.slice(5));
   assert.match(printed[0], /^format: (bgra8unorm|rgba8unorm)$/);
   assert.deepEqual(printed.slice(1).filter(line => !line.startsWith('url: ')), [
-    'fresh: #t #t',
     'target: 255 0 0 255 255 0 0 255 255 0 0 255 255 0 0 255',
     'image: 255 0 0 255 0 255 0 255',
-    'fresh: #f #f',
     'again: 255 0 0 255 255 0 0 255 255 0 0 255 255 0 0 255',
     'quads: 0 0 255 255 0 0 255 255 0 255 0 255 0 255 0 255',
     'scene: 255 0 0 255 255 0 0 255 153 153 153 255 153 153 153 255',
@@ -67,7 +65,7 @@ try {
     return [...context.getImageData(0, 0, 2, 1).data];
   })()`), [0, 0, 255, 255, 0, 255, 0, 255]);
   if (screenshot) await browser.screenshot(screenshot);
-  console.log('gpu: drawing, readback, decoding, objects by path, atlas composition, quads and a lit G-buffer on a real device passed');
+  console.log('gpu: drawing, readback, decoding, objects kept across frames, atlas composition, quads and a lit G-buffer on a real device passed');
 } finally {
   browser.close();
   server.close();

@@ -1,11 +1,14 @@
 // The `gpu` effect's host, as (snail shell gpu page) calls it: the page's
-// WebGPU device and the objects the program made on it, by the ids the
-// program's books gave them. The books decide every lifetime; this file
-// makes, uses and drops objects as it is told. The descriptor of an object
-// being made arrives as staged words and texts in the order
-// (snail shell gpu)'s "Descriptors as fields" gives, which `made` below
-// reads into the dictionary WebGPU takes. A render pass arrives as calls,
-// an attachment at a time.
+// WebGPU device and the objects the program made on it, each by the id
+// this file gave it when it made it. The program keeps an object as long
+// as it likes and lets it go with `destroy`, which takes effect at the next
+// submit, after the commands that use it; an encoder, a pass and a command
+// buffer go once used, and the canvas's texture and its views at the next
+// `current-texture`. The descriptor of an object being made
+// arrives as staged words and texts in the order (snail shell gpu)'s
+// "Descriptors as fields" gives, which `made` below reads into the
+// dictionary WebGPU takes. A render pass arrives as calls, an attachment
+// at a time.
 
 import {byteSnapshot, byteView} from './load.mjs';
 
@@ -51,16 +54,17 @@ async function requestDevice(canvas) {
 // canvas context, format and optional features: the page's, or a test's.
 export function createGpu(canvas, runtime, open = pageDevice) {
   const objects = new Map();
-  let gpu = null, reply = [], held = new Uint8Array(), decoded = null, pass = null, queued = [];
+  let gpu = null, next = 1, reply = [], held = new Uint8Array(), decoded = null, pass = null, queued = [];
+  let canvasIds = [], retired = [];
   const memory = () => runtime.execution.entry.memory;
   const tasks = () => runtime.execution.tasks;
   const object = id => objects.get(id);
+  const keep = value => { objects.set(next, value); return next++; };
+  // An object used up: answered, and forgotten.
+  const take = id => { const value = objects.get(id); objects.delete(id); return value; };
   // A string answered a scalar at a time.
   const answer = text => { reply = [...text]; return reply.length; };
   const copy = (texture, mipLevel, x, y, layer) => ({texture: object(texture), mipLevel, origin: [x, y, layer]});
-  const view = (texture, array, baseMipLevel, mipLevelCount, baseArrayLayer, layers) =>
-    object(texture).createView({dimension: array ? '2d-array' : '2d', baseMipLevel, mipLevelCount, baseArrayLayer,
-                                arrayLayerCount: layers || undefined});
 
   const imports = {
     // A page without the baseline answers 1, which the program reports.
@@ -73,9 +77,15 @@ export function createGpu(canvas, runtime, open = pageDevice) {
     'device-format': () => answer(gpu.format),
     'device-features': () => answer(gpu.optional.join(' ')),
     'reply-scalar': index => reply[index].codePointAt(0),
-    create(kind, id, address) { objects.set(id, made[kind](gpu.device, fields(byteView(memory(), address)), object, view)); },
-    destroy(id) { object(id)?.destroy?.(); objects.delete(id); },
-    release(id) { objects.delete(id); },
+    create: (kind, address) => keep(made[kind](gpu.device, fields(byteView(memory(), address)), object)),
+    'create-view'(texture, address) {
+      const id = keep(viewOf(object(texture), fields(byteView(memory(), address))));
+      if (canvasIds.includes(texture)) canvasIds.push(id);
+      return id;
+    },
+    // At the next submit a buffer or texture frees its memory; any other
+    // object is forgotten.
+    destroy(id) { retired.push(id); },
     'write-buffer'(id, offset, address) { gpu.device.queue.writeBuffer(object(id), offset, byteView(memory(), address)); },
     'write-texture'(id, mip, x, y, layer, bytesPerRow, width, height, address) {
       gpu.device.queue.writeTexture(copy(id, mip, x, y, layer), byteView(memory(), address), {bytesPerRow, rowsPerImage: height}, [width, height, 1]);
@@ -91,7 +101,7 @@ export function createGpu(canvas, runtime, open = pageDevice) {
     },
     'finish-read': ticket => tasks().finish(Number(ticket)),
     'read-byte': index => held[index],
-    // The decoded texture is held until the books give it an id.
+    // The decoded texture is held until the program keeps it.
     'start-decode'(ticket, usage, address) {
       const encoded = byteSnapshot(memory(), address);
       tasks().start(Number(ticket), async () => {
@@ -104,9 +114,8 @@ export function createGpu(canvas, runtime, open = pageDevice) {
     },
     'finish-decode': ticket => tasks().finish(Number(ticket)),
     'decoded-height': () => decoded.height,
-    'keep-decoded'(id) { objects.set(id, decoded); decoded = null; },
-    'drop-decoded'() { decoded.destroy(); decoded = null; },
-    encoder(id) { objects.set(id, gpu.device.createCommandEncoder()); },
+    'keep-decoded'() { const id = keep(decoded); decoded = null; return id; },
+    encoder: () => keep(gpu.device.createCommandEncoder()),
     'copy-buffer'(encoder, source, sourceOffset, destination, destinationOffset, size) {
       object(encoder).copyBufferToBuffer(object(source), sourceOffset, object(destination), destinationOffset, size);
     },
@@ -117,24 +126,23 @@ export function createGpu(canvas, runtime, open = pageDevice) {
     'copy-texture'(encoder, source, sourceMip, sx, sy, sourceLayer, destination, mip, x, y, layer, width, height) {
       object(encoder).copyTextureToTexture(copy(source, sourceMip, sx, sy, sourceLayer), copy(destination, mip, x, y, layer), [width, height, 1]);
     },
-    // A pass's attachments come first, each its view and then its load and
-    // store; a layer count of 0 means the rest.
-    'pass-view'(texture, array, baseMip, mips, baseLayer, layers) {
+    // A pass's attachments come first, each its view, load and store.
+    'pass-color'(view, clear, r, g, b, a, store) {
       pass ??= {colorAttachments: []};
-      pass.view = view(texture, array, baseMip, mips, baseLayer, layers);
-    },
-    'pass-color'(clear, r, g, b, a, store) {
-      pass.colorAttachments.push({view: pass.view, loadOp: clear ? 'clear' : 'load', clearValue: {r, g, b, a},
+      pass.colorAttachments.push({view: object(view), loadOp: clear ? 'clear' : 'load', clearValue: {r, g, b, a},
                                   storeOp: store ? 'store' : 'discard'});
     },
-    'pass-depth'(clear, depth, store) {
-      pass.depthStencilAttachment = {view: pass.view, depthLoadOp: clear ? 'clear' : 'load', depthClearValue: depth,
-                                     depthStoreOp: store ? 'store' : 'discard'};
+    // A depth attachment loads (0), clears (1), or is read-only (2).
+    'pass-depth'(view, load, depth, store) {
+      pass ??= {colorAttachments: []};
+      pass.depthStencilAttachment = load === 2 ? {view: object(view), depthReadOnly: true}
+        : {view: object(view), depthLoadOp: load ? 'clear' : 'load', depthClearValue: depth,
+           depthStoreOp: store ? 'store' : 'discard'};
     },
-    'begin-pass'(encoder, id) {
-      const {view: _, ...descriptor} = pass;
+    'begin-pass'(encoder) {
+      const descriptor = pass;
       pass = null;
-      objects.set(id, object(encoder).beginRenderPass(descriptor));
+      return keep(object(encoder).beginRenderPass(descriptor));
     },
     'set-pipeline'(pass, pipeline) { object(pass).setPipeline(object(pipeline)); },
     'set-bind-group'(pass, index, group) { object(pass).setBindGroup(index, object(group)); },
@@ -146,20 +154,28 @@ export function createGpu(canvas, runtime, open = pageDevice) {
       object(pass).drawIndexed(indices, instances, firstIndex, baseVertex, firstInstance);
     },
     'draw-indexed-indirect'(pass, buffer, offset) { object(pass).drawIndexedIndirect(object(buffer), offset); },
-    'end-pass'(pass) { object(pass).end(); },
-    finish(encoder, id) { objects.set(id, object(encoder).finish()); },
-    'queue-buffer'(id) { queued.push(object(id)); },
-    submit() { gpu.device.queue.submit(queued); queued = []; },
-    // The canvas holds as many pixels as it covers on the screen.
-    'current-texture'(id) {
+    'end-pass'(pass) { take(pass).end(); },
+    finish: encoder => keep(take(encoder).finish()),
+    'queue-buffer'(id) { queued.push(take(id)); },
+    submit() {
+      gpu.device.queue.submit(queued);
+      queued = [];
+      for (const id of retired) take(id)?.destroy?.();
+      retired = [];
+    },
+    // The canvas holds as many pixels as it covers on the screen. Last
+    // frame's texture and its views go.
+    'current-texture'() {
+      for (const id of canvasIds) objects.delete(id);
       const ratio = globalThis.devicePixelRatio ?? 1;
       const width = Math.max(1, Math.round(canvas.clientWidth * ratio));
       const height = Math.max(1, Math.round(canvas.clientHeight * ratio));
       if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
-      const texture = gpu.context.getCurrentTexture();
-      objects.set(id, texture);
-      return texture.width;
+      const id = keep(gpu.context.getCurrentTexture());
+      canvasIds = [id];
+      return id;
     },
+    'current-width': () => canvas.width,
     'current-height': () => canvas.height,
   };
 
@@ -168,6 +184,8 @@ export function createGpu(canvas, runtime, open = pageDevice) {
   function reset() {
     for (const value of objects.values()) value.destroy?.();
     objects.clear();
+    canvasIds = [];
+    retired = [];
     decoded?.destroy();
     decoded = null;
   }
@@ -217,16 +235,21 @@ const made = [
     const depthStencil = f.flag() ? {format: f.text(), depthWriteEnabled: f.flag(), depthCompare: f.text()} : undefined;
     return device.createRenderPipeline({label, layout: 'auto', vertex, fragment, primitive, depthStencil});
   },
-  (device, f, object, view) => {
+  (device, f, object) => {
     const label = f.text(), layout = object(f.word()).getBindGroupLayout(f.word());
     const entries = f.list(() => {
       const binding = f.word(), kind = f.word();
       if (kind === 0) { const buffer = object(f.word()), offset = f.word(), size = f.word();
                         return {binding, resource: {buffer, offset, size: size || undefined}}; }
-      if (kind === 1) { const texture = f.word(), dimension = f.text();
-                        return {binding, resource: view(texture, dimension === '2d-array', f.word(), f.word(), f.word(), f.word())}; }
       return {binding, resource: object(f.word())};
     });
     return device.createBindGroup({label, layout, entries});
   },
 ];
+
+// A view's dimension, first level and count, and first layer and count,
+// 0 meaning the rest.
+function viewOf(texture, f) {
+  return texture.createView({dimension: f.text(), baseMipLevel: f.word(), mipLevelCount: f.word(),
+                             baseArrayLayer: f.word(), arrayLayerCount: f.word() || undefined});
+}

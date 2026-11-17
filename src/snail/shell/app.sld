@@ -155,7 +155,7 @@
    (only (snail shell dom) dom document-root no-event Allow)
    (only (snail shell dom page) with-page-dom)
    (only (snail core io) clock)
-   (except (snail shell gpu) Image)
+   (rename (snail shell gpu) (Image GpuImage))
    (snail shell graphics pod)
    (snail shell graphics mesh)
    (rename (snail shell graphics raster) (Style Raster-style) (solid solid-style))
@@ -538,65 +538,121 @@
 
     ;; ---- Drawing ----
 
-    ;; What drawing frames keeps: the device's answer once asked, and each
-    ;; batch's version with its instances packed, by batch key.
-    (record Frames
-      ((device (Option DeviceInfo))
-       (batches (Table (Pair I32 Meshes)))))
+    ;; What drawing keeps across frames, from the first, once the device
+    ;; answers: the raster, the G-buffer for the canvas's size with the
+    ;; sunlight over it, and a surface for each of the last frame's batches,
+    ;; in its order.
+    (record Drawn
+      ((raster Raster)
+       (gbuffer GBuffer)
+       (width I32)
+       (height I32)
+       (light Sunlight)
+       (surfaces (List Kept))))
 
-    (define (start-frames) (→ Frames) (new Frames (device (None)) (batches (empty-table))))
+    ;; A batch's surface, and the version it shows.
+    (record Kept
+      ((key I32)
+       (version I32)
+       (surface Surface)))
+
+    (record Frames
+      ((drawn (Option Drawn))))
+
+    (define (start-frames) (→ Frames) (new Frames (drawn (None))))
 
     ;; The frame drawn to the canvas: solid and revealed batches into the
     ;; G-buffer, lit by the sun over the background, then translucent ones
-    ;; over them. A batch's instances are packed and written only when its
-    ;; version is new.
+    ;; over them. A batch's surface is made only when its version is new.
     (define (draw-frame (frame Frame) (frames Frames)) (→ Frames) (! gpu tasks)
-      (let* ((before frames)
-             (format (● (frames-device frames) format))
-             (frames (fold-left packed
-                                (Frames-device-set frames (Some (frames-device frames)))
-                                (● frame batches)))
-             (fresh? (lambda (batch) (not (current? before batch))))
-             (canvas (current-texture))
-             (g (gbuffer "frame" (● canvas width) (● canvas height)))
-             (r (raster format
-                        (frame-camera frame (● canvas width) (● canvas height))
-                        (frame-sun (● frame light))))
-             (encoder (create-command-encoder))
-             (pass (begin-gbuffer encoder g)))
-        (for-each (lambda (batch) (raster-batch pass frames r batch (fresh? batch)))
-                  (filter (lambda (batch) (not (translucent? batch))) (● frame batches)))
-        (end-pass pass)
-        (sun-pass encoder (● canvas texture) format (backdrop (● frame background)) g r)
-        (let ((pass (begin-forward encoder (● canvas texture) g)))
-          (for-each (lambda (batch) (blend-batch pass frames r batch (fresh? batch)))
-                    (filter translucent? (● frame batches)))
+      (match (● frames drawn)
+        ((Some drawn) (drawn-frame frame drawn (current-texture)))
+        ((None)
+         (let* ((format (● (request-device) format)) (canvas (current-texture)))
+           (drawn-frame frame (started format canvas) canvas)))))
+
+    (define (started (format TextureFormat) (canvas GpuImage)) (→ Drawn) (! gpu)
+      (let* ((r (make-raster format)) (g (make-gbuffer (● canvas width) (● canvas height))))
+        (new Drawn
+          (raster r)
+          (gbuffer g)
+          (width (● canvas width))
+          (height (● canvas height))
+          (light (make-sunlight format g r))
+          (surfaces (Nil)))))
+
+    (define (drawn-frame (frame Frame) (drawn Drawn) (canvas GpuImage)) (→ Frames) (! gpu)
+      (let* ((drawn (surfaced (resized drawn canvas) frame))
+             (target (view-of (● canvas texture) 1))
+             (encoder (create-command-encoder)))
+        (write-raster (● drawn raster)
+                      (frame-camera frame (● canvas width) (● canvas height))
+                      (frame-sun (● frame light)))
+        (let ((pass (begin-gbuffer encoder (● drawn gbuffer))))
+          (draw-surfaces pass drawn #f)
+          (end-pass pass))
+        (let ((pass (begin-lit encoder target (backdrop (● frame background)) (● drawn gbuffer))))
+          (draw-sun pass (● drawn light))
+          (draw-surfaces pass drawn #t)
           (end-pass pass))
         (submit (list (finish encoder)))
-        frames))
+        (new Frames (drawn (Some drawn)))))
 
-    (define (frames-device (frames Frames)) (→ DeviceInfo) (! gpu tasks)
-      (match (● frames device)
-        ((Some info) info)
-        ((None) (request-device 268435456))))
+    ;; The G-buffer remade, and the sunlight over it, when the canvas's size
+    ;; changes.
+    (define (resized (drawn Drawn) (canvas GpuImage)) (→ Drawn) (! gpu)
+      (if (and (= (● drawn width) (● canvas width)) (= (● drawn height) (● canvas height)))
+          drawn
+          (let ((g (make-gbuffer (● canvas width) (● canvas height))))
+            (release-gbuffer (● drawn gbuffer))
+            (new Drawn
+              (raster (● drawn raster))
+              (gbuffer g)
+              (width (● canvas width))
+              (height (● canvas height))
+              (light (relight (● drawn light) g (● drawn raster)))
+              (surfaces (● drawn surfaces))))))
 
-    ;; Frames with `batch`'s instances packed, unless they are for its
-    ;; version already.
-    (define (packed (frames Frames) (batch Batch)) (→ Frames)
-      (if (current? frames batch)
-          frames
-          (Frames-batches-set frames
-                              (table-set (● frames batches)
-                                         (show (● batch key))
-                                         (new Pair
-                                           (first (● batch version))
-                                           (second
-                                            (meshes (map instance-of ((● batch items))))))))))
+    ;; A surface for each of the frame's batches; those of batches gone
+    ;; from it are released.
+    (define (surfaced (drawn Drawn) (frame Frame)) (→ Drawn) (! gpu)
+      (let ((surfaces (map (lambda (batch) (batch-surface drawn batch)) (● frame batches))))
+        (for-each (lambda (kept)
+                    (unless (any? (lambda (now) (= (● now key) (● kept key))) surfaces)
+                      (release-surface (● kept surface))))
+                  (● drawn surfaces))
+        (Drawn-surfaces-set drawn surfaces)))
 
-    (define (current? (frames Frames) (batch Batch)) (→ Bool)
-      (match (table-ref (● frames batches) (show (● batch key)))
-        ((Some kept) (= (● kept first) (● batch version)))
-        ((None) #f)))
+    ;; The batch's surface, restyled when it shows the batch's version, and
+    ;; made afresh, releasing the old, when it does not.
+    (define (batch-surface (drawn Drawn) (batch Batch)) (→ Kept) (! gpu)
+      (match (find (lambda (kept) (= (● kept key) (● batch key))) (● drawn surfaces))
+        ((Some kept)
+         (if (and (= (● kept version) (● batch version))
+                  (if (● kept surface translucent) (translucent? batch) (not (translucent? batch))))
+             (Kept-surface-set kept (restyle-surface (● kept surface) (batch-style batch)))
+             (begin
+               (release-surface (● kept surface))
+               (new-surface drawn batch))))
+        ((None) (new-surface drawn batch))))
+
+    (define (new-surface (drawn Drawn) (batch Batch)) (→ Kept) (! gpu)
+      (new Kept
+        (key (● batch key))
+        (version (● batch version))
+        (surface (make-surface (● drawn raster)
+                               (batch-name batch)
+                               (translucent? batch)
+                               (batch-style batch)
+                               (meshes (map instance-of ((● batch items))))))))
+
+    ;; The kept surfaces that are translucent, or not, in order.
+    (define (draw-surfaces (pass GpuRenderPass) (drawn Drawn) (translucent Bool)) (→ Unit) (! gpu)
+      (for-each (lambda (kept)
+                  (let ((surface (● kept surface)))
+                    (when (if translucent (● surface translucent) (not (● surface translucent)))
+                      (draw-surface pass (● drawn raster) surface))))
+                (● drawn surfaces)))
 
     (define (instance-of (item Item)) (→ (Pair Mesh Instance))
       (let ((position (● item position))
@@ -649,42 +705,8 @@
         ((Translucent _) #t)
         (_ #f)))
 
-    ;; Batch k's buffers are named "batch k", and written when its version
-    ;; is new this frame.
-    (define (raster-batch (pass GpuRenderPass)
-                          (frames Frames)
-                          (r Raster)
-                          (batch Batch)
-                          (write? Bool))
-      (→ Unit)
-      (! gpu)
-      (raster-meshes pass
-                     r
-                     (batch-name batch)
-                     (batch-style batch)
-                     (batch-meshes frames batch)
-                     write?))
-
-    (define (blend-batch (pass GpuRenderPass)
-                         (frames Frames)
-                         (r Raster)
-                         (batch Batch)
-                         (write? Bool))
-      (→ Unit)
-      (! gpu)
-      (raster-translucent pass
-                          r
-                          (batch-name batch)
-                          (batch-style batch)
-                          (batch-meshes frames batch)
-                          write?))
-
+    ;; Batch k's objects are labelled "batch k".
     (define (batch-name (batch Batch)) (→ String) (string-append "batch " (show (● batch key))))
-
-    (define (batch-meshes (frames Frames) (batch Batch)) (→ Meshes)
-      (match (table-ref (● frames batches) (show (● batch key)))
-        ((Some kept) (● kept second))
-        ((None) (panic "draw-frame: a batch was not packed"))))
 
     (define (batch-style (batch Batch)) (→ Raster-style)
       (match (● batch style)

@@ -47,42 +47,40 @@ records them instead, so a library is tested on Node without a device
 (`tests/programs/gpu-record.sld`). `tests/browser/gpu.mjs` draws, reads back
 and decodes on Chromium's software WebGPU.
 
-Both handlers keep the same books, in `(snail shell gpu)`, and the host
-keeps only a table from id to object:
+It is WebGPU itself, without bookkeeping:
 
-- **Paths.** Long-lived objects are created by resource path, as in
-  `(create-buffer (new BufferDescriptor (path (Some (list "siegework" "materials"))) ...))`.
-  The same path and descriptor return the existing object, which is how a
-  module that starts again finds what the last one created. A path names
-  one object of each kind, so a pipeline and its bind group may share one.
-  A handle says whether its object is `fresh`, so its contents are still to
-  be written; a changed descriptor replaces the object, and the bind
-  groups that named it.
-- **Lifetimes follow the frame.** An object made without a path, such as
-  an encoder, a pass or a transient buffer, is destroyed when the frame
-  ends, at `submit`; `destroy` stays available.
-- **Eviction.** Each frame marks the objects it uses. When an allocation
-  would exceed the memory budget `request-device` was given, the least
-  recently used unmarked objects that hold memory are evicted, with the
-  bind groups that name them. If the marked objects alone exceed it, the
-  program panics with a report of the largest. An evicted object is
-  created afresh when its path is next asked for.
-- **Handles carry generations**, the count of objects made by their path,
-  and the books check every handle before the host sees it, so using a
-  replaced, evicted or ended object panics with what it was rather than
-  leaving WebGPU to report an invalid object.
+- **Objects are kept by the program.** Each `create-...` call makes an
+  object and answers a handle, the id the host gave it. A program makes its
+  pipelines, bind groups, buffers and textures once, keeps them in its
+  state across frames, and makes them again only when what they depend on
+  changes, as a WebGPU program in JavaScript keeps its objects. `destroy`
+  lets an object go at the next `submit`, after the commands that use it:
+  a buffer's or texture's memory is freed, as WebGPU's `destroy` does, and
+  the host forgets any other kind, as JavaScript's collector would. So a
+  library destroys what it replaces as soon as it replaces it.
+- **A frame's objects go once used.** An encoder goes at `finish`, a pass
+  at `end-pass`, a command buffer at `submit`, and the canvas's texture and
+  its views at the next `current-texture`.
+- **Misuse is WebGPU's to report.** The handlers check nothing a device
+  checks: a destroyed object reaches WebGPU's validation, which reports it
+  on the page's console.
 - **Descriptors are fields.** A descriptor is a list of words and texts in
   a fixed order per kind: an object it names is its id, an enum value
-  WebGPU's name for it, a list its count and then its items. The books
-  compare those lists to find an object by its path, so a lookup encodes
-  nothing. Only an object being made crosses to the host, as staged bytes
-  that `host/browser/gpu.mjs` reads with a `DataView` into the dictionary
-  WebGPU takes. A render pass and every other command crosses as calls
-  with scalar arguments, an attachment's view and then its load and store.
+  WebGPU's name for it, a list its count and then its items. An object
+  being made crosses to the host as those fields' staged bytes, which
+  `host/browser/gpu.mjs` reads with a `DataView` into the dictionary WebGPU
+  takes. A render pass and every other command crosses as calls with
+  scalar arguments, an attachment's view and then its load and store.
   Buffer and texture contents cross as `Bytes`, which the host hands to
   WebGPU as a view of the program's memory, without a copy. A pipeline's
   layout is WebGPU's `"auto"`, so a bind group is made against a pipeline
   and a group index.
+
+An earlier version kept books on the program's behalf: objects found by a
+resource path each frame, ended at `submit`, evicted under a memory budget
+and checked by generation. Finding every object again each frame cost
+Siegework more than the old JavaScript renderer spent drawing, so the books
+are gone and the program keeps what it makes.
 
 ## Pod and WGSL
 
@@ -107,25 +105,29 @@ check the printing and the layouts.
 
 ## Atlas and quads
 
-An `Atlas` is a value the application keeps: its pages' size and count,
-the packer's cursor, and a table of slots, each a picture's page, corner
-and version. Its pages are one `rgba8unorm` texture array made by path.
+An `Atlas` is a value the application keeps, made with `make-atlas` once
+the device answers: its pages, one `rgba8unorm` texture array; the
+pipeline that composes into them; each source image decoded, by its key;
+the packer's cursor; and a table of slots, each a picture's page, corner
+and version.
 `atlas-pictures` places each picture whose version the atlas lacks on the
 next shelf, a texel of transparency around it, and composes it in a render
 pass of the caller's encoder: each layer is a piece that copies a source
 region texel for texel, its colors swapped by a run of a storage-buffer
 table, over the layers before it (`atlas.wgsl.scm`). A picture that no
 longer fits clears every page, and the pictures asked for are placed
-again; a texture made afresh, after a reload, empties the atlas. Images are
-decoded by the host, once by their source's key. `atlas-url` copies a
+again. The host decodes each source image once, and the atlas keeps it.
+A composing's buffers go at its submit. `atlas-url` copies a
 region back and encodes it as a PNG data URL (`(snail shell png)`), so an
 `img` in the HUD can show a composed portrait.
 
 A `Quad` is a `Pod` record: center and size in world units, an angle, a
-page, a texel region and a tint. `draw-quads` writes a run's instances and
-a `View2D` camera to buffers named by the run and draws them instanced as
-a triangle strip; the vertex shader snaps each corner to the target's
-pixels (`quad.wgsl.scm`). Both shaders are printed by the recipe
+page, a texel region and a tint. A `Quads`, made once for a target's
+format and a texture array, holds the pipeline, the camera's uniform, the
+instance buffer and their bind group; `draw-quads` writes a run's
+instances and its `View2D` camera and draws them instanced as a triangle
+strip, one run a frame. The vertex shader snaps each corner to the
+target's pixels (`quad.wgsl.scm`). Both shaders are printed by the recipe
 `(snail shell graphics shaders)`.
 
 Hearsay draws this way (`src/apps/hearsay/drawing.sld`). Its shapes are
@@ -134,11 +136,10 @@ each frame is one run of quads in the old renderer's order: ties, markers
 and rings, bases, figures from far to near, then pips. Its frames match
 the old renderer's within a pixel along edges. On headless Chromium's
 software WebGPU, both keep 60 frames a second, and the page's main thread
-spends 53 to 70 ms a second in tasks against the old renderer's 47 to 55:
-the quads are rebuilt and packed every frame, where the old renderer kept
-batches by version. An atlas composes one picture a call, since an LPC
-sheet decodes to 4.4 MB and a character has six; composing eighteen
-characters in one frame exceeded the budget, which the books reported.
+spends 58 to 60 ms a second in tasks against the old renderer's 47 to 48:
+Hearsay rebuilds and packs its quads every frame, where the old renderer
+kept batches by version. An atlas composes one picture a call, so a frame
+decodes one character's sheets, each 4.4 MB once decoded.
 
 Slots have transparent gutters, not repeated edge texels: pixel art
 samples nearest, which never reads past a slot's edge, so gutters of
@@ -153,30 +154,37 @@ shape, so a batch is one `drawIndexedIndirect` per shape from its own first
 instance. An instance carries where it is and where it was, its yaw, scale,
 glow, color and material, and whether it turns to face the camera.
 
-`(snail shell graphics raster)` makes a frame's `Raster` once: the
-pipelines found by path and the camera and sun written to uniforms. A
-`Camera3D` carries its view-projection and its inverse, computed in closed
-form for a pinhole or parallel lens, so the sun pass recovers each pixel's
-position from its depth. `raster-meshes` writes albedo, normal, material
-(metalness, roughness, glow) and depth; a revealed batch discards outside
-its disc. `sun-pass` of `(snail shell graphics passes)` clears the target
-to the background and lights each surface by Cook-Torrance under the sun
-and the ambient light (`lighting.wgsl.scm`). `raster-translucent` then
-draws translucent batches over it, lit by the same function, testing the
-G-buffer's depth without writing it.
+`(snail shell graphics raster)` keeps what a scene draws with. A program
+makes its `Raster` once: the G-buffer's and the translucent pipelines, the
+geometry, and the camera's and sun's uniforms with their bind groups; a
+`GBuffer` for the canvas's size, made again when it changes; and a
+`Surface` for each batch, its style's uniform and bind group and its
+instances and indirect draws, made again when the batch changes. A frame
+writes the camera and the sun, and draws. A `Camera3D` carries its
+view-projection and its inverse, computed in closed form for a pinhole or
+parallel lens, so the sun pass recovers each pixel's position from its
+depth. A solid surface writes albedo, normal, material (metalness,
+roughness, glow) and depth; a revealed batch discards outside its disc.
+A second pass, `begin-lit`, clears the target to the background and holds
+the G-buffer's depth read-only, so the pass can both sample it and test
+against it. In it, `draw-sun` of `(snail shell graphics passes)`, through
+its `Sunlight` (the pipeline, and a bind group over the G-buffer), lights
+each surface by Cook-Torrance under the sun and the ambient light
+(`lighting.wgsl.scm`). Translucent surfaces are then drawn over it, lit by
+the same function, tested against the G-buffer's depth.
 
 `(snail shell app)`'s `draw-frame` draws Siegework's `Frame` this way,
-keeping each batch's packed instances in its `Frames` until the batch's
-version changes, so a still frame writes only its uniforms. Siegework's
-frames match the old renderer's shading. On headless Chromium's software
-WebGPU, the page's main thread spends 31 to 33 ms a second in tasks
-against the old renderer's 20 to 21; the GPU's own calls cost both about
-10. Per frame the program creates no object, writes 11 buffers and draws 8
-times, and what remains is spread across finding objects by path, the
-three passes' calls and packing each batch's indirect arguments. Its
-descriptors once crossed as JSON, and the books compared that text on
-every lookup, which cost 51 ms a second. Textured meshes and sprites are gone from
-`Frame`; pictures are drawn as quads from an atlas.
+keeping each batch's surface until the batch's version changes, so a still
+frame writes only the camera and the sun. Siegework's frames match the old
+renderer's shading. On an RTX 5090, through headless Chromium on Vulkan,
+the page's main thread spends 0.28 ms a frame at 60 frames a second,
+against the old renderer's 0.24. Per frame the program makes one object,
+the canvas's view, writes the camera and the sun, and draws 8 times over
+two passes. On Chromium's software WebGPU, three passes and finding every
+object by path each frame cost 31 to 33 ms a second of tasks, and 48 to 52
+when descriptors crossed as JSON, against the old renderer's 20 to 21.
+Textured meshes and sprites are gone from `Frame`; pictures are drawn as
+quads from an atlas.
 
 ## The `graphics` libraries
 
