@@ -19,6 +19,8 @@
     (define (with-page-fetch (work (Fn → T ! fetch e))) (→ T) (! e) (∀ (T e))
       (handle fetch
           ((request page-request)
+           (fetch-bytes page-fetch-bytes)
+           (page-address (lambda () (host-page-address) (host-reply)))
            (stream-open (lambda (url kinds)
                           (new Stream
                             (id (host-stream-open (string->utf8 (string-join (Cons url kinds)
@@ -48,6 +50,16 @@
       (host-request-body (string->utf8 body))
       (let ((status (through-host host-start-request host-finish-request)))
         (if (< status 0) (Err (host-reply)) (Ok (new Reply (status status) (body (host-reply)))))))
+
+    ;; The wait answers the body's length, or -1 with why there is none.
+
+    (define (page-fetch-bytes (url String)) (→ (Result Bytes String)) (! tasks)
+      (host-request-url (string->utf8 url))
+      (let ((count (through-host host-start-bytes host-finish-request)))
+        (if (< count 0)
+            (Err (host-reply))
+            (Ok (array-generate (i32->i64 count)
+                                (lambda (index) (host-reply-byte (i64->i32 index))))))))
 
     ;; A stream opens with its URL and the kinds it hears as one string, a
     ;; NUL between each. The wait answers -1 once the stream is closed, and

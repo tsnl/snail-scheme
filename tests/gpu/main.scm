@@ -8,8 +8,9 @@
 ;; Then an atlas's picture is drawn as quads, two tiles are rasterized
 ;; into a G-buffer and lit by the sun, and a compute pass squares numbers in
 ;; a storage buffer. Last, 300,000 numbers are scanned, 5,000 keys sorted,
-;; and three gaussians splatted under two transform tables.
-;; tests/browser/gpu.mjs checks what it prints.
+;; and three gaussians splatted under two transform tables. The page
+;; reads its own index.html as bytes, and a file it lacks fails; the last
+;; frame's work is waited for. tests/browser/gpu.mjs checks what it prints.
 (import
  (snail core base)
  (snail core io)
@@ -25,6 +26,8 @@
  (snail shell graphics scan)
  (snail shell graphics radix-sort)
  (snail shell graphics splat)
+ (only (snail shell fetch) fetch fetch-bytes)
+ (snail shell fetch page)
  (gpu-test shaders))
 
 (record Paint
@@ -605,22 +608,41 @@
       (write-transforms splats (list quarter-turn))
       (new Pair (first level) (second (splat-texels splats target readback))))))
 
-(let* ((info (request-device)) (p (painting info)))
-  (write-line (string-append "format: " (texture-format-name (● info format))))
-  (let ((first-frame (frame p)))
-    (write-line (string-append "target: " (texels (● first-frame first))))
-    (write-line (string-append "image: " (texels (● first-frame second)))))
-  (let ((second-frame (frame p)))
-    (write-line (string-append "again: " (texels (● second-frame first)))))
-  (let ((quads (quads-frame)))
-    (write-line (string-append "quads: " (texels (● quads first))))
-    (write-line (string-append "url: " (● quads second))))
-  (write-line (string-append "scene: " (texels (scene-frame))))
-  (write-line (string-append "squares: " (words (compute-frame))))
-  (write-line (string-append "planes: " (planes-frame)))
-  (write-line (string-append "scan: " (scan-frame)))
-  (write-line (string-append "sort: " (sort-frame)))
-  (let ((splatted (splat-frames)))
-    (write-line (string-append "splats: " (texels (● splatted first))))
-    (write-line (string-append "turned: " (texels (● splatted second)))))
-  (report-ready))
+;; ---- Files and waits ----
+
+;; The page's first bytes, and why a missing file has none.
+
+(define (fetched) (→ String) (! fetch tasks)
+  (string-append (match (fetch-bytes "index.html")
+                   ((Ok bytes)
+                    (list->string (map (lambda (byte) (integer->char (i32->i64 (u8->i32 byte))))
+                                       (array->list (subarray bytes 0 9)))))
+                   ((Err message) message))
+                 " "
+                 (match (fetch-bytes "missing.bin")
+                   ((Ok _) "found")
+                   ((Err message) message))))
+
+(with-page-fetch
+ (lambda ()
+   (let* ((info (request-device)) (p (painting info)))
+     (write-line (string-append "format: " (texture-format-name (● info format))))
+     (let ((first-frame (frame p)))
+       (write-line (string-append "target: " (texels (● first-frame first))))
+       (write-line (string-append "image: " (texels (● first-frame second)))))
+     (let ((second-frame (frame p)))
+       (write-line (string-append "again: " (texels (● second-frame first)))))
+     (let ((quads (quads-frame)))
+       (write-line (string-append "quads: " (texels (● quads first))))
+       (write-line (string-append "url: " (● quads second))))
+     (write-line (string-append "scene: " (texels (scene-frame))))
+     (write-line (string-append "squares: " (words (compute-frame))))
+     (write-line (string-append "planes: " (planes-frame)))
+     (write-line (string-append "scan: " (scan-frame)))
+     (write-line (string-append "sort: " (sort-frame)))
+     (let ((splatted (splat-frames)))
+       (write-line (string-append "splats: " (texels (● splatted first))))
+       (write-line (string-append "turned: " (texels (● splatted second)))))
+     (work-done)
+     (write-line (string-append "fetched: " (fetched)))
+     (report-ready))))

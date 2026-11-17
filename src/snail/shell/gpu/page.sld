@@ -138,6 +138,7 @@
            (finish
             (lambda (encoder) (new GpuCommandBuffer (id (host-finish (● encoder id))))))
            (submit submitted)
+           (work-done (lambda () (through-host host-start-done host-finish-done) (unit)))
            (current-texture
             (lambda ()
               (let ((id (host-current-texture)))

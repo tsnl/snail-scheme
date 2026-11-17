@@ -64,6 +64,8 @@ try {
     'sort: paired sorted stable permutation',
     'splats: 96 2 0 255 40 209 0 255 7 0 225 255 0 2 0 255',
     'turned: 0 2 0 255 40 209 0 255 0 0 225 255 96 2 0 255',
+    // The page's own first bytes, and the server's 404 for a file it lacks.
+    'fetched: <!doctype 404 fetching missing.bin',
   ]);
   // The data URL decodes to the picture: blue for the swapped red, then
   // green.
@@ -77,7 +79,7 @@ try {
     return [...context.getImageData(0, 0, 2, 1).data];
   })()`), [0, 0, 255, 255, 0, 255, 0, 255]);
   if (screenshot) await browser.screenshot(screenshot);
-  console.log('gpu: drawing, readback, decoding, objects kept across frames, atlas composition, quads, a lit, tone-mapped and smoothed G-buffer, motion and ids, a compute pass, a scan, a sort and splats on a real device passed');
+  console.log('gpu: drawing, readback, decoding, objects kept across frames, atlas composition, quads, a lit, tone-mapped and smoothed G-buffer, motion and ids, a compute pass, a scan, a sort, splats, a wait and a file read as bytes on a real device passed');
 } finally {
   browser.close();
   server.close();
