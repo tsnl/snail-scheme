@@ -56,6 +56,9 @@ try {
     'again: 255 0 0 255 255 0 0 255 255 0 0 255 255 0 0 255',
     'quads: 0 0 255 255 0 0 255 255 0 255 0 255 0 255 0 255',
     'scene: 230 3 3 255 230 3 3 255 153 153 153 255 153 153 153 255',
+    // The same light through Hable's curve and sRGB encoding: the grey
+    // tile's 0.6 is 159, as the curve computed by hand gives.
+    'filmic: 186 0 0 255 186 0 0 255 159 159 159 255 159 159 159 255',
     'squares: 1 4 9 16 10000',
     'planes: -0.25 -0.0 7 9 0',
     // An exclusive scan of i mod 3 over three levels of tiles, checked at

@@ -584,7 +584,7 @@
           (width width)
           (height height)
           (light (make-sunlight light-format g r))
-          (post (make-post format width height))
+          (post (make-post format width height (Neutral)))
           (surfaces (Nil)))))
 
     (define (drawn-frame (frame Frame) (drawn Drawn) (canvas GpuImage)) (→ Frames) (! gpu)
