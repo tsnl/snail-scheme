@@ -34,7 +34,7 @@
 
     (define (provide (work (Fn → T ! output-port clock resource wasm events storage gpu e)))
       (→ T)
-      (! mut e)
+      (! e)
       (∀ (T e))
       (provide-shared
        (lambda ()

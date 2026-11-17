@@ -1,42 +1,17 @@
-fresh, then found: #t #f
-request-device 1000
-create buffer 1 test/vertices 64 40
-create shader 2 test/shader @vertex fn v() -> @builtin(position) vec4f { return vec4f(); }
-create render-pipeline 3 test/pipeline 2 v 0 1 f 1 bgra8unorm 1 add src-alpha one-minus-src-alpha add one one-minus-src-alpha triangle-list none 0
-create bind-group 4 test/group 3 0 1 0 0 1 0 0
+request-device
+create buffer 1 vertices 64 40
+create shader 2 shader @vertex fn v() -> @builtin(position) vec4f { return vec4f(); }
+create render-pipeline 3 pipeline 2 v 0 1 f 1 bgra8unorm 1 add src-alpha one-minus-src-alpha add one one-minus-src-alpha triangle-list none 0
+create bind-group 4 group 3 0 1 0 0 1 0 0
 encoder 5
 canvas 6
-pass 7 5 6 2d 0 1 0 1 clear 0.0 0.5 1.0 1.0 store
+create view 7 6 2d 0 1 0 1
+pass 8 5 7 clear 0.0 0.5 1.0 1.0 store
 write-buffer 1 0 64
-set-pipeline 7 3
-set-bind-group 7 0 4
-draw 7 3 1 0 0
-end-pass 7
-command-buffer 8 5
-submit 8
-and later:
-fresh, then found: #t #f
-request-device 1000
-create buffer 1 test/vertices 64 40
-create shader 2 test/shader @vertex fn v() -> @builtin(position) vec4f { return vec4f(); }
-create render-pipeline 3 test/pipeline 2 v 0 1 f 1 bgra8unorm 1 add src-alpha one-minus-src-alpha add one one-minus-src-alpha triangle-list none 0
-create bind-group 4 test/group 3 0 1 0 0 1 0 0
-encoder 5
-canvas 6
-pass 7 5 6 2d 0 1 0 1 clear 0.0 0.5 1.0 1.0 store
-write-buffer 1 0 64
-set-pipeline 7 3
-set-bind-group 7 0 4
-draw 7 3 1 0 0
-end-pass 7
-command-buffer 8 5
-submit 8
+set-pipeline 8 3
+set-bind-group 8 0 4
+draw 8 3 1 0 0
+end-pass 8
+command-buffer 9 5
+submit 9
 destroy 1
-destroy 4
-create buffer 9 test/vertices 128 32
-submit
-destroy 9
-create buffer 10 test/big 900 128
-and a handle to the evicted buffer:
-fresh, then found: #t #f
-snail: gpu: object 9, buffer test/vertices generation 2, was evicted

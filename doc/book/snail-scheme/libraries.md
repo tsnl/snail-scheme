@@ -55,7 +55,7 @@ the runtime interfaces.
 | Library | Contents |
 | --- | --- |
 | `(snail shell app)` | `SceneHandler` and `run-scene`, a canvas application's loop, which draws through `gpu`; 3D frames of mesh batches and `draw-frame`, which draws them. |
-| `(snail shell gpu)` | The `gpu` effect: WebGPU's operations and descriptors, with books that find long-lived objects by path, end a frame's objects at `submit`, evict under a budget and check every handle; `(snail shell gpu page)` runs it on the page's device and `(snail shell gpu record)` records it ([WebGPU](../graphics/plan.md)). |
+| `(snail shell gpu)` | The `gpu` effect: WebGPU's operations and descriptors, each object a handle the program keeps across frames until it calls `destroy`; `(snail shell gpu page)` runs it on the page's device and `(snail shell gpu record)` records it ([WebGPU](../graphics/plan.md)). |
 | `(snail shell graphics pod)` | `Pod`, which a record without parameters derives: its `Shape` gives the WGSL struct declaration, size, alignment and vertex attributes, and `pack` writes values as WGSL lays them out. `Vec2f` to `Mat4x4f` are WGSL's vectors and matrix. |
 | `(snail shell graphics wgsl)` | Shaders as S-expressions, printed to WGSL by `shader-library`, a `generate-library` recipe's library of shader texts. |
 | `(snail shell graphics atlas)` | Pictures of layered image regions with color swaps, composed on the GPU into padded slots of texture-array pages; `atlas-url` reads a region back as a PNG data URL. |
