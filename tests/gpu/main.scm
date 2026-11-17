@@ -8,7 +8,8 @@
 ;; Then an atlas's picture is drawn as quads, two tiles are rasterized
 ;; into a G-buffer and lit by the sun, and a compute pass squares numbers in
 ;; a storage buffer. Last, 300,000 numbers are scanned, 5,000 keys sorted,
-;; and three gaussians splatted under two transform tables. The page
+;; and three gaussians splatted under two transform tables; tensor
+;; programs are compiled and checked against the CPU. The page
 ;; reads its own index.html as bytes, and a file it lacks fails; the last
 ;; frame's work is waited for. tests/browser/gpu.mjs checks what it prints.
 (import
@@ -28,7 +29,8 @@
  (snail shell graphics splat)
  (only (snail shell fetch) fetch fetch-bytes)
  (snail shell fetch page)
- (gpu-test shaders))
+ (gpu-test shaders)
+ (gpu-test tensor))
 
 (record Paint
   ((color Vec4f))
@@ -643,6 +645,8 @@
      (let ((splatted (splat-frames)))
        (write-line (string-append "splats: " (texels (● splatted first))))
        (write-line (string-append "turned: " (texels (● splatted second)))))
+     (write-line (string-append "tensor: " (tensor-agreement)))
+     (write-line (string-append "fitted: " (fitted-line)))
      (work-done)
      (write-line (string-append "fetched: " (fetched)))
      (report-ready))))
