@@ -68,7 +68,7 @@
     (define (sun-group (pipeline GpuRenderPipeline) (g GBuffer) (r Raster)) (→ GpuBindGroup) (! gpu)
       (create-bind-group (new BindGroupDescriptor
                            (label "passes/sun")
-                           (pipeline pipeline)
+                           (pipeline (RenderPipeline pipeline))
                            (group 0)
                            (entries (list (BufferEntry 0 (● r camera) 0 0)
                                           (BufferEntry 1 (● r sun) 0 0)

@@ -15,3 +15,16 @@ end-pass 8
 command-buffer 9 5
 submit 9
 destroy 1
+compute:
+create shader 1 count @compute @workgroup_size(64) fn c() {}
+create compute-pipeline 2 count 1 c
+create buffer 3 counts 256 128
+create bind-group 4 counts 2 0 1 0 0 3 0 0
+encoder 5
+compute-pass 6 5
+set-compute-pipeline 6 2
+set-compute-bind-group 6 0 4
+dispatch-workgroups 6 4 1 1
+end-compute-pass 6
+command-buffer 7 5
+submit 7

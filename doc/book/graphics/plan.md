@@ -34,9 +34,9 @@ descriptors, so code using it reads like WebGPU:
   (submit (list (finish encoder))))
 ```
 
-Its operations make buffers, textures, samplers, shader modules, render
-pipelines and bind groups, write buffers and textures, encode copies and
-render passes, and submit them; `request-device`, `read-buffer` and
+Its operations make buffers, textures, views, samplers, shader modules,
+render and compute pipelines and bind groups, write buffers and textures,
+encode copies, render passes and compute passes, and submit them; `request-device`, `read-buffer` and
 `decode-image` wait for the host by ticket. The calls are procedural;
 effects keep them reasonable. A `! gpu` row says exactly which functions
 touch the device, and handlers customize what the calls do without
@@ -44,8 +44,8 @@ changing their callers. The browser target installs `provide-gpu`
 (`(snail shell gpu page)`), which runs them on the page's device through
 `host/browser/gpu.mjs`; `with-recorded-gpu` (`(snail shell gpu record)`)
 records them instead, so a library is tested on Node without a device
-(`tests/programs/gpu-record.sld`). `tests/browser/gpu.mjs` draws, reads back
-and decodes on Chromium's software WebGPU.
+(`tests/programs/gpu-record.sld`). `tests/browser/gpu.mjs` draws, reads back,
+decodes and dispatches a compute shader on Chromium's software WebGPU.
 
 It is WebGPU itself, without bookkeeping:
 
@@ -73,8 +73,8 @@ It is WebGPU itself, without bookkeeping:
   scalar arguments, an attachment's view and then its load and store.
   Buffer and texture contents cross as `Bytes`, which the host hands to
   WebGPU as a view of the program's memory, without a copy. A pipeline's
-  layout is WebGPU's `"auto"`, so a bind group is made against a pipeline
-  and a group index.
+  layout is WebGPU's `"auto"`, so a bind group is made against a pipeline,
+  render or compute (`GpuPipeline`), and a group index.
 
 An earlier version kept books on the program's behalf: objects found by a
 resource path each frame, ended at `submit`, evicted under a memory budget

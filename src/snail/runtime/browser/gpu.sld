@@ -46,6 +46,12 @@
    draw-indexed
    draw-indexed-indirect
    end-pass
+   begin-compute
+   set-compute-pipeline
+   set-compute-bind-group
+   dispatch
+   dispatch-indirect
+   end-compute
    finish
    queue-buffer
    submit
@@ -115,6 +121,21 @@
             "draw-indexed-indirect"
             (Fn I32 I32 I32 → Unit))
     (extern end-pass "snail.runtime.browser.gpu" "end-pass" (Fn I32 → Unit))
+    (extern begin-compute "snail.runtime.browser.gpu" "begin-compute" (Fn I32 → I32))
+    (extern set-compute-pipeline
+            "snail.runtime.browser.gpu"
+            "set-compute-pipeline"
+            (Fn I32 I32 → Unit))
+    (extern set-compute-bind-group
+            "snail.runtime.browser.gpu"
+            "set-compute-bind-group"
+            (Fn I32 I32 I32 → Unit))
+    (extern dispatch "snail.runtime.browser.gpu" "dispatch" (Fn I32 I32 I32 I32 → Unit))
+    (extern dispatch-indirect
+            "snail.runtime.browser.gpu"
+            "dispatch-indirect"
+            (Fn I32 I32 I32 → Unit))
+    (extern end-compute "snail.runtime.browser.gpu" "end-compute" (Fn I32 → Unit))
     (extern finish "snail.runtime.browser.gpu" "finish" (Fn I32 → I32))
     (extern queue-buffer "snail.runtime.browser.gpu" "queue-buffer" (Fn I32 → Unit))
     (extern submit "snail.runtime.browser.gpu" "submit" (Fn → Unit))

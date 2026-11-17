@@ -12,7 +12,8 @@
 ;; texture's memory is freed, as WebGPU's `destroy` does, and the host
 ;; forgets any other kind, as JavaScript's collector would. An
 ;; encoder, a pass and a command buffer go once used, at `finish`,
-;; `end-pass` and `submit`, and the canvas's texture and its views at the
+;; `end-pass` (or `end-compute-pass`) and `submit`, and the canvas's
+;; texture and its views at the
 ;; next `current-texture`. Misuse is reported by WebGPU's own validation.
 ;;
 ;; A descriptor crosses to the host as a list of fields, words and texts in
@@ -49,6 +50,13 @@
    draw-indexed
    draw-indexed-indirect
    end-pass
+   create-compute-pipeline
+   begin-compute-pass
+   set-compute-pipeline
+   set-compute-bind-group
+   dispatch-workgroups
+   dispatch-workgroups-indirect
+   end-compute-pass
    finish
    submit
    current-texture
@@ -59,9 +67,14 @@
    GpuSampler
    GpuShaderModule
    GpuRenderPipeline
+   GpuComputePipeline
+   GpuPipeline
+   RenderPipeline
+   ComputePipeline
    GpuBindGroup
    GpuCommandEncoder
    GpuRenderPass
+   GpuComputePass
    GpuCommandBuffer
    GpuObject
    BufferObject
@@ -70,6 +83,7 @@
    SamplerObject
    ModuleObject
    PipelineObject
+   ComputePipelineObject
    BindGroupObject
    Image
    DeviceInfo
@@ -179,6 +193,7 @@
    CompareAlways
    DepthState
    RenderPipelineDescriptor
+   ComputePipelineDescriptor
    ViewDimension
    View2d
    View2dArray
@@ -216,6 +231,7 @@
    sampler-fields
    module-fields
    pipeline-fields
+   compute-pipeline-fields
    bind-group-fields
    view-dimension-name
    buffer-usage-bits
@@ -248,6 +264,14 @@
     (record GpuRenderPipeline
       ((id I32)))
 
+    (record GpuComputePipeline
+      ((id I32)))
+
+    ;; A pipeline of either kind, whose layout a bind group takes.
+    (enum GpuPipeline
+      (RenderPipeline ((pipeline GpuRenderPipeline)))
+      (ComputePipeline ((pipeline GpuComputePipeline))))
+
     (record GpuBindGroup
       ((id I32)))
 
@@ -255,6 +279,9 @@
       ((id I32)))
 
     (record GpuRenderPass
+      ((id I32)))
+
+    (record GpuComputePass
       ((id I32)))
 
     (record GpuCommandBuffer
@@ -268,6 +295,7 @@
       (SamplerObject ((sampler GpuSampler)))
       (ModuleObject ((module GpuShaderModule)))
       (PipelineObject ((pipeline GpuRenderPipeline)))
+      (ComputePipelineObject ((pipeline GpuComputePipeline)))
       (BindGroupObject ((group GpuBindGroup))))
 
     ;; A decoded image: an rgba8unorm texture of its size.
@@ -536,6 +564,12 @@
        (cull CullMode)
        (depth (Option DepthState))))
 
+    ;; A compute pipeline: its module's entry point, with an "auto" layout.
+    (record ComputePipelineDescriptor
+      ((label String)
+       (module GpuShaderModule)
+       (entry String)))
+
     ;; ---- Bind groups ----
 
     (enum ViewDimension
@@ -590,7 +624,7 @@
 
     (record BindGroupDescriptor
       ((label String)
-       (pipeline GpuRenderPipeline)
+       (pipeline GpuPipeline)
        (group I32)
        (entries (List BindGroupEntry))))
 
@@ -669,6 +703,13 @@
        (draw-indexed (Fn GpuRenderPass I32 I32 I32 I32 I32 → Unit))
        (draw-indexed-indirect (Fn GpuRenderPass GpuBuffer I32 → Unit))
        (end-pass (Fn GpuRenderPass → Unit))
+       (create-compute-pipeline (Fn ComputePipelineDescriptor → GpuComputePipeline))
+       (begin-compute-pass (Fn GpuCommandEncoder → GpuComputePass))
+       (set-compute-pipeline (Fn GpuComputePass GpuComputePipeline → Unit))
+       (set-compute-bind-group (Fn GpuComputePass I32 GpuBindGroup → Unit))
+       (dispatch-workgroups (Fn GpuComputePass I32 I32 I32 → Unit))
+       (dispatch-workgroups-indirect (Fn GpuComputePass GpuBuffer I32 → Unit))
+       (end-compute-pass (Fn GpuComputePass → Unit))
        (finish (Fn GpuCommandEncoder → GpuCommandBuffer))
        (submit (Fn (List GpuCommandBuffer) → Unit))
        (current-texture (Fn → Image))
@@ -901,6 +942,13 @@
                       (Text (compare-name (● depth compare)))))
                ((None) (list (flag #f)))))))
 
+    ;; The module and its entry point.
+
+    (define (compute-pipeline-fields (descriptor ComputePipelineDescriptor)) (→ (List Field))
+      (list (Text (● descriptor label))
+            (word (● (● descriptor module) id))
+            (Text (● descriptor entry))))
+
     (define (view-dimension-name (dimension ViewDimension)) (→ String)
       (match dimension
         ((View2d) "2d")
@@ -931,7 +979,9 @@
 
     (define (bind-group-fields (descriptor BindGroupDescriptor)) (→ (List Field))
       (Cons (Text (● descriptor label))
-            (Cons (word (● (● descriptor pipeline) id))
+            (Cons (word (match (● descriptor pipeline)
+                          ((RenderPipeline pipeline) (● pipeline id))
+                          ((ComputePipeline pipeline) (● pipeline id))))
                   (Cons (word (● descriptor group))
                         (counted (● descriptor entries) entry-fields)))))
 
