@@ -72,8 +72,8 @@
 
 (define (frame) (→ Unit) (! gpu tasks)
   (request-device)
-  (let* ((r (make-raster (Bgra8Unorm)))
-         (g (make-gbuffer 640 480))
+  (let* ((r (make-raster color-planes (Bgra8Unorm)))
+         (g (make-gbuffer color-planes 640 480))
          (light (make-sunlight (Bgra8Unorm) g r))
          (ground (make-surface r "ground" #f solid (instances (Tile) 0.0)))
          (water (make-surface r

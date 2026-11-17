@@ -178,7 +178,11 @@
     ;; Each attachment is its view, its load and its store, in one call.
 
     (define (attachments (descriptor RenderPassDescriptor)) (→ Unit)
-      (for-each color-attachment (● descriptor colors))
+      (for-each (lambda (attachment)
+                  (match attachment
+                    ((Some attachment) (color-attachment attachment))
+                    ((None) (host-pass-no-color))))
+                (● descriptor colors))
       (match (● descriptor depth)
         ((Some attachment) (depth-attachment attachment))
         ((None) (unit))))

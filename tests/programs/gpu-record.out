@@ -1,7 +1,7 @@
 request-device
 create buffer 1 vertices 64 40
 create shader 2 shader @vertex fn v() -> @builtin(position) vec4f { return vec4f(); }
-create render-pipeline 3 pipeline 2 v 0 1 f 1 bgra8unorm 1 add src-alpha one-minus-src-alpha add one one-minus-src-alpha triangle-list none 0
+create render-pipeline 3 pipeline 2 v 0 1 f 1 1 bgra8unorm 1 add src-alpha one-minus-src-alpha add one one-minus-src-alpha triangle-list none 0
 create bind-group 4 group 3 0 1 0 0 1 0 0
 encoder 5
 canvas 6
