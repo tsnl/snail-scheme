@@ -185,7 +185,8 @@
       (let ((view (● attachment view id)) (store (store-flag (● attachment store))))
         (match (● attachment load)
           ((ClearDepth depth) (host-pass-depth view 1 depth store))
-          ((KeepDepth) (host-pass-depth view 0 0.0 store)))))
+          ((KeepDepth) (host-pass-depth view 0 0.0 store))
+          ((ReadOnlyDepth) (host-pass-depth view 2 0.0 store)))))
 
     (define (store-flag (store Bool)) (→ I32) (if store 1 0))
 

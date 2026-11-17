@@ -278,7 +278,8 @@
                   (list (list "depth" (show (● attachment view id)))
                         (match (● attachment load)
                           ((ClearDepth depth) (list "clear" (show depth)))
-                          ((KeepDepth) (list "load")))
+                          ((KeepDepth) (list "load"))
+                          ((ReadOnlyDepth) (list "read-only")))
                         (list (if (● attachment store) "store" "discard")))))
                 ((None) (Nil)))))
 
