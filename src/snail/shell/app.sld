@@ -540,14 +540,15 @@
 
     ;; What drawing keeps across frames, from the first, once the device
     ;; answers: the raster, the G-buffer for the canvas's size with the
-    ;; sunlight over it, and a surface for each of the last frame's batches,
-    ;; in its order.
+    ;; sunlight over it and the post passes from its light to the canvas,
+    ;; and a surface for each of the last frame's batches, in its order.
     (record Drawn
       ((raster Raster)
        (gbuffer GBuffer)
        (width I32)
        (height I32)
        (light Sunlight)
+       (post Post)
        (surfaces (List Kept))))
 
     ;; A batch's surface, and the version it shows.
@@ -563,7 +564,8 @@
 
     ;; The frame drawn to the canvas: solid and revealed batches into the
     ;; G-buffer, lit by the sun over the background, then translucent ones
-    ;; over them. A batch's surface is made only when its version is new.
+    ;; over them, into the light, which is tone-mapped and smoothed into the
+    ;; canvas. A batch's surface is made only when its version is new.
     (define (draw-frame (frame Frame) (frames Frames)) (→ Frames) (! gpu tasks)
       (match (● frames drawn)
         ((Some drawn) (drawn-frame frame drawn (current-texture)))
@@ -572,13 +574,17 @@
            (drawn-frame frame (started format canvas) canvas)))))
 
     (define (started (format TextureFormat) (canvas GpuImage)) (→ Drawn) (! gpu)
-      (let* ((r (make-raster format)) (g (make-gbuffer (● canvas width) (● canvas height))))
+      (let* ((width (● canvas width))
+             (height (● canvas height))
+             (r (make-raster light-format))
+             (g (make-gbuffer width height)))
         (new Drawn
           (raster r)
           (gbuffer g)
-          (width (● canvas width))
-          (height (● canvas height))
-          (light (make-sunlight format g r))
+          (width width)
+          (height height)
+          (light (make-sunlight light-format g r))
+          (post (make-post format width height))
           (surfaces (Nil)))))
 
     (define (drawn-frame (frame Frame) (drawn Drawn) (canvas GpuImage)) (→ Frames) (! gpu)
@@ -591,15 +597,19 @@
         (let ((pass (begin-gbuffer encoder (● drawn gbuffer))))
           (draw-surfaces pass drawn #f)
           (end-pass pass))
-        (let ((pass (begin-lit encoder target (backdrop (● frame background)) (● drawn gbuffer))))
+        (let ((pass (begin-lit encoder
+                               (● drawn post targets light-view)
+                               (backdrop (● frame background))
+                               (● drawn gbuffer))))
           (draw-sun pass (● drawn light))
           (draw-surfaces pass drawn #t)
           (end-pass pass))
+        (draw-post encoder target (● drawn post))
         (submit (list (finish encoder)))
         (new Frames (drawn (Some drawn)))))
 
-    ;; The G-buffer remade, and the sunlight over it, when the canvas's size
-    ;; changes.
+    ;; The G-buffer and the post targets remade, and the sunlight over
+    ;; them, when the canvas's size changes.
     (define (resized (drawn Drawn) (canvas GpuImage)) (→ Drawn) (! gpu)
       (if (and (= (● drawn width) (● canvas width)) (= (● drawn height) (● canvas height)))
           drawn
@@ -611,6 +621,7 @@
               (width (● canvas width))
               (height (● canvas height))
               (light (relight (● drawn light) g (● drawn raster)))
+              (post (resize-post (● drawn post) (● canvas width) (● canvas height)))
               (surfaces (● drawn surfaces))))))
 
     ;; A surface for each of the frame's batches; those of batches gone
