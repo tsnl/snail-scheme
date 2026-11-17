@@ -692,6 +692,7 @@
           ((BoxAny inner) (list (to-any (● fn module) (● inner type) (emit1 fn inner))))
           ((Downcast inner target) (list (emit-downcast fn inner target (● expr type))))
           ((FieldRead _ _ _) (panic "internal error: field selection survived checking"))
+          ((FieldWrite _ _ _ _) (panic "internal error: field selection survived checking"))
           ((New _ _) (panic "internal error: named construction survived checking"))
           ((Ann inner _) (emit fn inner tail?)))))
 
@@ -1164,6 +1165,9 @@
           ((Some (Constructor case _))
            (list (construct fn case (● expr type) args)))
           ((Some (Accessor _ index _)) (list (field-access fn index (first-arg args))))
+          ((Some (Writer _ index _))
+           (list (field-write fn index (first-arg args) (list-ref args 1))
+                 (wat "i32.const" (int 0))))
           ((Some (Replacer case index _))
            (list (replace-field fn case index (first-arg args) (list-ref args 1))))
           ((Some (Primitive _)) (emit-primitive fn name args (● expr type)))
@@ -1357,20 +1361,11 @@
       (wat "struct.get" (id (data-type (● fn module) (● record type))) (int index)
            (emit1 fn record)))
 
-    ;; Checking has resolved a place to a record's field, whose record may
-    ;; itself follow any number of ordinary object references. Wasm
-    ;; evaluates the record before the incoming value, each once.
+    ;; Wasm evaluates the record before the incoming value, each once.
 
-    (define (place-write (fn Fn) (place Expr) (value Expr)) (→ Wat) (! mut)
-      (match (● place term)
-        ((Ann inner _) (place-write fn inner value))
-        ((App callee (Cons record (Nil)))
-         (match (builtin-of fn callee)
-           ((Some (Accessor _ index _))
-            (wat "struct.set" (id (data-type (● fn module) (● record type))) (int index)
-                 (emit1 fn record) (emit1 fn value)))
-           (_ (panic "internal error: a place reads a field"))))
-        (_ (panic "internal error: a place reads a field"))))
+    (define (field-write (fn Fn) (index I64) (record Expr) (value Expr)) (→ Wat) (! mut)
+      (wat "struct.set" (id (data-type (● fn module) (● record type))) (int index)
+           (emit1 fn record) (emit1 fn value)))
 
     ;; A pure replacement makes a new record that shares the unchanged field
     ;; values. Evaluate both operands before reading the remaining fields.
@@ -3410,8 +3405,6 @@
       (! mut)
       (let ((operation (substring name 5 (string-length name))))
         (case operation
-          (("set!")
-           (list (place-write fn (first-arg args) (list-ref args 1)) (wat "i32.const" (int 0))))
           (("unsafe-total") (closure-call fn (first-arg args) (Nil) #f))
           (else
            (match (primitive-instruction operation)

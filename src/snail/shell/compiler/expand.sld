@@ -1740,10 +1740,19 @@
       (→ Program)
       (let* ((field (list-ref (● case fields) index)) (type (● field type))
              (accessor (Accessor case index (generic-scheme data (list self) type)))
+             (writer (Writer case index
+                             (new Scheme
+                               (vars (● data params))
+                               (constraints (Nil))
+                               (type (TFun (list self type) (TCon "Unit" (Nil))
+                                           (TRow (list "mut") (None)))))))
              (replacer (Replacer case index (generic-scheme data (list self type) self))))
-        (program-with-value (program-with-value program (accessor-name case index) accessor)
-                            (string-append (● case name) "-" (● field name) "-set")
-                            replacer)))
+        (program-with-value
+         (program-with-value (program-with-value program (accessor-name case index) accessor)
+                             (writer-name case index)
+                             writer)
+         (string-append (● case name) "-" (● field name) "-set")
+         replacer)))
 
     ;; A pure function generic over the data type's parameters.
 
@@ -2445,20 +2454,56 @@
         (_ (unit)))
       name)
 
-    ;; The receiver is expanded once. Each label selects a real record slot;
-    ;; type checking resolves the record type and any pointer traversal.
-    (define (expand-field-read (cx Context) (env Env) (items (List Syntax)) (loc Loc))
-      (→ (Pair Expr Context)) (! compile)
+    ;; `(● receiver label ...)`: the receiver is expanded once, and each
+    ;; label but the last reads a field of the record before it. The last
+    ;; label is the field the path names, which a read reads and a write
+    ;; writes; type checking resolves each record type.
+
+    (record FieldPath
+      ((record Expr)
+       (label String)))
+
+    (define (expand-field-path (cx Context) (env Env) (items (List Syntax)) (loc Loc))
+      (→ (Pair FieldPath Context)) (! compile)
       (match items
         ((Cons receiver (Cons first rest))
-         (let ((labels (map (lambda (label)
-                              (expect-name label "a field label"))
-                            (Cons first rest))))
+         (let ((label (expect-name first "a field label"))
+               (rest (map (lambda (label) (expect-name label "a field label")) rest)))
            (threading cx ((value (expand-expr env receiver)))
-                      (new Pair (first (fold-left (lambda (value label)
-                                                    (expr (FieldRead value label (None)) loc))
-                                                  value labels)) (second cx)))))
+                      (new Pair (first (field-path value label rest loc)) (second cx)))))
         (_ (compile-error loc "expected (● receiver field ...) with at least one field"))))
+
+    (define (field-path (record Expr) (label String) (rest (List String)) (loc Loc)) (→ FieldPath)
+      (match rest
+        ((Nil) (new FieldPath (record record) (label label)))
+        ((Cons next rest) (field-path (expr (FieldRead record label (None)) loc) next rest loc))))
+
+    (define (expand-field-read (cx Context) (env Env) (items (List Syntax)) (loc Loc))
+      (→ (Pair Expr Context)) (! compile)
+      (threading cx ((path (expand-field-path env items loc)))
+                 (new Pair
+                   (first (expr (FieldRead (● path record) (● path label) (None)) loc))
+                   (second cx))))
+
+    ;; `(set! (● receiver label ...) value)` writes the field the path
+    ;; names, and is located where the place is, as a read of it would be.
+    ;; Only a field is a place: a local or a parameter is not.
+
+    (define (expand-field-write (cx Context) (env Env) (items (List Syntax)) (loc Loc))
+      (→ (Pair Expr Context)) (! compile)
+      (match items
+        ((Cons place (Cons value (Nil)))
+         (match (head-binding cx env place)
+           ((Some (Core "●"))
+            (let ((at (syntax-loc place)))
+              (threading cx ((path (expand-field-path env (form-tail place) at))
+                             (value (expand-expr env value)))
+                         (new Pair
+                           (first
+                            (expr (FieldWrite (● path record) (● path label) value (None)) at))
+                           (second cx)))))
+           (_ (compile-error (syntax-loc place) "a place must select a field"))))
+        (_ (compile-error loc "expected (set! (● receiver field ...) value)"))))
 
     ;; Resolve names once into slots. The checker supplies each initializer's
     ;; field type before lowering this form to ordinary bindings and a call.
@@ -2525,6 +2570,7 @@
       (case keyword
         (("new") (expand-new cx env (list-drop items 1) loc))
         (("●") (expand-field-read cx env (list-drop items 1) loc))
+        (("set!") (expand-field-write cx env (list-drop items 1) loc))
         (("lambda")
          (match items
            ((Cons _ (Cons params body))

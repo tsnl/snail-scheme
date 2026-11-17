@@ -56,14 +56,24 @@
            (performed (● inner performed))))
 
     ;; What checking has learned: each metavariable's identity to the type it
-    ;; stands for, and each evidence hole's to its evidence. A `Type` and an
+    ;; stands for, each evidence hole's to its evidence, and each field
+    ;; selection's to the field it selects. A `Type` and an
     ;; `Expr` are plain data, so reading one means reading it through a
     ;; solution. `check-library` allocates one, refines it, and zonks it away
     ;; before returning, so neither it nor a metavariable outlives the call.
     (record Solution
       ((types (Table Type))
        (evidence (Table Evidence))
-       (projections (Table Expr))))
+       (projections (Table Slot))))
+
+    ;; The field a selection resolved to: one of a record case's fields,
+    ;; with the record type's arguments, and the field's type under them.
+
+    (record Slot
+      ((case Case)
+       (index I64)
+       (args (List Type))
+       (type Type)))
 
     (define empty-solution
       (→ Solution)
@@ -652,6 +662,7 @@
           ((App callee args) (infer-app ck callee args row loc (None)))
           ((New callee fields) (infer-new ck callee fields row loc (None)))
           ((FieldRead record label _) (infer-field-read ck record label row loc))
+          ((FieldWrite record label value _) (infer-field-write ck record label value row loc))
           ;; `then` is `threading`'s own keyword, so the branches are named
           ;; for what they are rather than by their field names.
           ((If test consequent alternative)
@@ -1383,19 +1394,48 @@
     (define (infer-field-read (ck Checker) (record Expr) (label String) (row Type) (loc Loc))
       (→ (Pair Expr Checker)) (! compile)
       (threading ck ((record (infer record row))
-                     (result (fresh-meta))
-                     (hole (fresh-identity))
-                     (then (wait-for-field (new Projection
-                                             (record record)
-                                             (label label)
-                                             (result result)
-                                             (hole hole)
-                                             (loc loc))))
-                     (then (improve-types)))
+                     (projection (select-field record label loc)))
                  (new Pair
-                   (first
-                    (new Expr (term (FieldRead record label (Some hole))) (type result) (loc loc)))
+                   (first (new Expr
+                            (term (FieldRead record label (Some (● projection hole))))
+                            (type (● projection result))
+                            (loc loc)))
                    (second ck))))
+
+    ;; A write checks its value against the field's type, and performs
+    ;; `mut`.
+
+    (define (infer-field-write (ck Checker)
+                               (record Expr)
+                               (label String)
+                               (value Expr)
+                               (row Type)
+                               (loc Loc))
+      (→ (Pair Expr Checker)) (! compile)
+      (threading ck ((record (infer record row))
+                     (projection (select-field record label loc))
+                     (value (check-result value (● projection result) row))
+                     (then (perform (TRow (list "mut") (None)) row loc)))
+                 (new Pair
+                   (first (new Expr
+                            (term (FieldWrite record label value (Some (● projection hole))))
+                            (type (TCon "Unit" (Nil)))
+                            (loc loc)))
+                   (second ck))))
+
+    (define (select-field (ck Checker) (record Expr) (label String) (loc Loc))
+      (→ (Pair Projection Checker)) (! compile)
+      (threading ck ((result (fresh-meta))
+                     (hole (fresh-identity)))
+                 (let ((projection (new Projection
+                                     (record record)
+                                     (label label)
+                                     (result result)
+                                     (hole hole)
+                                     (loc loc))))
+                   (new Pair
+                     (first projection)
+                     (second (improve-types (wait-for-field ck projection)))))))
 
     ;; Until its receiver's type is known, a selection keeps the types it
     ;; mentions from being generalized; once it reads its field, it is
@@ -1410,16 +1450,16 @@
     (define (improve-projection (ck Checker) (projection Projection)) (→ Checker) (! compile)
       (match (resolve-projection ck (● projection record) (● projection label) (● projection loc))
         ((None) (wait-for-field ck projection))
-        ((Some value)
-         (threading ck ((then (unify (● projection result) (● value type) (● projection loc))))
-                    (with-projection ck (● projection hole) value)))))
+        ((Some slot)
+         (threading ck ((then (unify (● projection result) (● slot type) (● projection loc))))
+                    (with-projection ck (● projection hole) slot)))))
 
-    (define (with-projection (ck Checker) (hole I64) (value Expr)) (→ Checker)
+    (define (with-projection (ck Checker) (hole I64) (slot Slot)) (→ Checker)
       (Checker-solution-set ck
                             (Solution-projections-set (solution ck)
                                                       (table-set (● (solution ck) projections)
                                                                  (identity-key hole)
-                                                                 value))))
+                                                                 slot))))
 
     (define (unresolved-field (projection Projection)) (→ Unit) (! compile)
       (compile-error (● projection loc)
@@ -1428,17 +1468,17 @@
 
     ;; Each label selects one stored field of the current nominal object.
     (define (resolve-projection (ck Checker) (record Expr) (label String) (loc Loc))
-      (→ (Option Expr)) (! compile)
+      (→ (Option Slot)) (! compile)
       (let ((owner (resolve-type (solution ck) (● record type))))
         (match owner
           ((TVar _) (None))
-          ((TCon _ _) (projection-slot ck record owner label loc))
+          ((TCon _ _) (projection-slot ck owner label loc))
           (_ (compile-error loc (string-append "field " label
                                                " requires a known record type, found "
                                                (type->string owner)))))))
 
-    (define (projection-slot (ck Checker) (record Expr) (owner Type) (label String) (loc Loc))
-      (→ (Option Expr)) (! compile)
+    (define (projection-slot (ck Checker) (owner Type) (label String) (loc Loc))
+      (→ (Option Slot)) (! compile)
       (match owner
         ((TCon name args)
          (match (table-ref (● (● ck program) types) name)
@@ -1447,21 +1487,18 @@
               (compile-error loc "field selection requires a record; match an enum's cases"))
             (let ((case (list-ref (● data cases) 0)))
               (match (list-index (lambda (field) (string=? label (● field name))) (● case fields))
-                ((Some index) (projection-value ck record data case index args loc))
+                ((Some index)
+                 (Some (new Slot
+                         (case case)
+                         (index index)
+                         (args args)
+                         (type (substitute (zip (● data params) args)
+                                           (● (list-ref (● case fields) index) type))))))
                 ((None)
                  (compile-error loc (string-append (type->string owner) " has no field " label))))))
            ((None)
             (compile-error loc (string-append (type->string owner) " has no field " label)))))
         (_ (panic "internal error: a slot has a nominal owner"))))
-
-    (define (projection-value (ck Checker) (record Expr) (data DataType) (case Case)
-                              (index I64) (args (List Type)) (loc Loc))
-      (→ (Option Expr))
-      (let* ((field (list-ref (● case fields) index))
-             (result (substitute (zip (● data params) args) (● field type)))
-             (callee (new Expr (term (Var (accessor-name case index) args (Nil)))
-                          (type (TFun (list (● record type)) result empty-row)) (loc loc))))
-        (Some (new Expr (term (App callee (list record))) (type result) (loc loc)))))
 
     ;; ---- Solving ----
 
@@ -1721,6 +1758,40 @@
                      (map (lambda (sub) (zonk-evidence solution sub)) subs)))
         (_ evidence)))
 
+    (define (selected-slot (solution Solution) (hole (Option I64))) (→ Slot)
+      (match hole
+        ((Some hole)
+         (match (table-ref (● solution projections) (identity-key hole))
+           ((Some slot) slot)
+           ((None) (panic "internal error: unsolved field selection"))))
+        ((None) (panic "internal error: unchecked field selection"))))
+
+    ;; A selection reads its field with the field's accessor; a write, given
+    ;; the value it writes, writes it with the field's writer.
+
+    (define (field-call (solution Solution)
+                        (slot Slot)
+                        (record Expr)
+                        (written (Option Expr))
+                        (loc Loc))
+      (→ Term)
+      (let* ((record (zonk-expr solution record))
+             (field (zonk solution (● slot type)))
+             (args (map (lambda (type) (zonk solution type)) (● slot args)))
+             (callee (lambda (name type)
+                       (new Expr (term (Var (name (● slot case) (● slot index)) args (Nil)))
+                            (type type)
+                            (loc loc)))))
+        (match written
+          ((None) (App (callee accessor-name (TFun (list (● record type)) field empty-row))
+                       (list record)))
+          ((Some value)
+           (App (callee writer-name
+                        (TFun (list (● record type) field)
+                              (TCon "Unit" (Nil))
+                              (TRow (list "mut") (None))))
+                (list record (zonk-expr solution value)))))))
+
     (define (zonk-expr (solution Solution) (expr Expr)) (→ Expr)
       (new Expr (term (match (● expr term)
                         ((Lit value) (Lit value))
@@ -1732,11 +1803,18 @@
                         ((App callee args)
                          (App (zonk-expr solution callee)
                               (map (lambda (arg) (zonk-expr solution arg)) args)))
-                        ((FieldRead _ _ (Some hole))
-                         (match (table-ref (● solution projections) (identity-key hole))
-                           ((Some value) (● (zonk-expr solution value) term))
-                           ((None) (panic "internal error: unsolved field selection"))))
-                        ((FieldRead _ _ (None)) (panic "internal error: unchecked field selection"))
+                        ((FieldRead record _ hole)
+                         (field-call solution
+                                     (selected-slot solution hole)
+                                     record
+                                     (None)
+                                     (● expr loc)))
+                        ((FieldWrite record _ value hole)
+                         (field-call solution
+                                     (selected-slot solution hole)
+                                     record
+                                     (Some value)
+                                     (● expr loc)))
                         ((New _ _) (panic "internal error: unchecked construction"))
                         ((If test then otherwise)
                          (If (zonk-expr solution test)
@@ -1780,32 +1858,28 @@
     ;; ---- Checked operations ----
 
     ;; Validate operations at their final inferred types, before
-    ;; specialization erases ordinary effects: what a `set!` writes, the
-    ;; signature a cache is built for, and what `Any` and `downcast` may
-    ;; take. Each item's first failure is reported, in source order.
+    ;; specialization erases ordinary effects: the signature a cache is
+    ;; built for, and what `Any` and `downcast` may take. Each item's first
+    ;; failure is reported, in source order.
 
     (define (check-final (typed Typed)) (→ Unit) (! compile)
-      (let ((program (● typed program)))
-        (fail-if-found
-         (in-source-order
-          (failures-of (lambda (item)
-                         (match item
-                           ((Define _ value) (check-operations program value))
-                           (_ (unit))))
-                       (● typed items))))))
+      (fail-if-found
+       (in-source-order
+        (failures-of (lambda (item)
+                       (match item
+                         ((Define _ value) (check-operations value))
+                         (_ (unit))))
+                     (● typed items)))))
 
-    (define (check-operations (program Program) (expr Expr)) (→ Unit) (! compile)
+    (define (check-operations (expr Expr)) (→ Unit) (! compile)
       (match (● expr term)
         ((Var name _ _)
          (when (member? name (list "prim:cache" "prim:lru-cache"))
            (check-cache-signature (● expr type) (● expr loc))))
-        ((App (Expr (Var "prim:set!" _ _) _ _) (Cons place (Cons _ (Nil))))
-         (unless (field-place? program place)
-           (compile-error (● place loc) "a place must select a field")))
         ((BoxAny inner) (refuse-hidden-effects "Any" (● inner type) (● expr loc)))
         ((Downcast _ target) (refuse-hidden-effects "downcast" target (● expr loc)))
         (_ (unit)))
-      (for-each (lambda (child) (check-operations program child)) (expr-children expr)))
+      (for-each check-operations (expr-children expr)))
 
     ;; A cache is built for one signature, so an unknown F cannot be cached.
     ;; A generic factory states the function's shape in its header.
@@ -1813,18 +1887,6 @@
       (match type
         ((TFun _ (TFun _ _ _) _) (unit))
         (_ (compile-error loc "cache requires an ordinary Fn function with a known signature"))))
-
-    ;; A written place selects a record field. Enum fields are destructured
-    ;; by match; mutable payloads can themselves be records.
-
-    (define (field-place? (program Program) (place Expr)) (→ Bool)
-      (match (● place term)
-        ((Ann inner _) (field-place? program inner))
-        ((App (Expr (Var name _ _) _ _) (Cons _ (Nil)))
-         (match (program-value program name)
-           ((Some (Accessor _ _ _)) #t)
-           (_ #f)))
-        (_ #f)))
 
     ;; A box must not hide a callable's effects. Boxing and downcasting
     ;; themselves introduce no effects.
