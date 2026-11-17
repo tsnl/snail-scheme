@@ -9,8 +9,8 @@ handles it, both in `snail-scheme`:
 | `(yield)` | Let every other ready task run first. |
 | `(sleep milliseconds)` | Wait for an `I64` number of milliseconds. |
 | `(ticket)` | A fresh `I64` ticket, naming one wait. |
-| `(await ticket)` | Wait until the ticket is woken. |
-| `(tasks-wake! scheduler ticket)` | Ready a task waiting on that ticket; a stale ticket does nothing. |
+| `(await tickets)` | Wait until every ticket in the list is woken. |
+| `(tasks-wake! scheduler ticket)` | Cross the ticket off the task waiting on it, readying the task once none is left; a stale ticket does nothing. |
 | `(tasks-close! scheduler)` | Forget every queued, sleeping and waiting task; none runs again. |
 | `(through-host start finish)` | Wait on a host operation by ticket ([below](#waiting-on-the-host)). |
 | `(make-mailbox)` | A new, empty `(Mailbox T)`: a queue of messages between tasks. |
@@ -94,10 +94,10 @@ The policy is cooperative first-in, first-out, with no priorities:
   timer after every timer due no later, so sleepers with one deadline wake
   in the order they slept. After the ready tasks have run, every timer
   whose deadline has passed joins the ready list, in deadline order.
-- `await` parks the task on its ticket among the waiters. When the host
-  operation settles, the host calls `wake` with the ticket, which moves
-  that one waiter to the ready list. A ticket nothing waits on wakes
-  nothing, as after a trap or a close.
+- `await` parks the task among the waiters, holding its tickets. When a
+  host operation settles, the host calls `wake` with its ticket, which
+  crosses it off; a waiter with none left moves to the ready list. A
+  ticket nothing waits on wakes nothing, as after a trap or a close.
 - Between turns, `turn` answers what the host should do next
   ([driving the scheduler](scheduling.md#turns)): 0 when a task is ready,
   the milliseconds until the earliest deadline, -2 when every live task
@@ -229,7 +229,7 @@ finishes by taking the result the host built for it:
 (define through-host
   (lambda (start finish) (let ((id (ticket)))
     (start id)
-    (await id)
+    (await (list id))
     (finish id))))
 ```
 
@@ -240,6 +240,13 @@ see that it waits, and must do so from a task. Waiting needs no lock,
 because a task runs until it waits: nothing else runs between taking a
 ticket and awaiting it, so neither a post nor a host completion can come
 first.
+
+A task may also start several operations and await them together:
+`(await tickets)` parks it until every one has completed, and each
+completion only crosses its ticket off, so the order they settle in does
+not matter. `read-resources` in `(snail shell resource)` reads a
+program's linked files this way, so a page fetches them together rather
+than one after another.
 
 ## The host boundary
 

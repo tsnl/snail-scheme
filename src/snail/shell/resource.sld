@@ -4,7 +4,8 @@
 ;; file beside the payload, and the program holds a Resource, a handle. A
 ;; host reads a file only when the program asks for it, by
 ;; `read-resource`, which performs `resource` and waits for the host as a
-;; task does, since a page can only fetch the file.
+;; task does, since a page can only fetch the file. `read-resources`
+;; reads several at once: a page fetches them together.
 ;;
 ;; A Resource can only come from `link-file`: the type is exported without
 ;; its constructor, so holding one is evidence that its file ships.
@@ -14,12 +15,13 @@
    link-file
    resource
    provide-resource
-   read-resource)
+   read-resource
+   read-resources)
   (import
    (snail core base)
    (prefix (snail runtime resource) host-)
    (only (snail core forms) link-handle)
-   (only (snail shell task) tasks through-host))
+   (only (snail shell task) tasks ticket await))
   (begin
 
     ;; ---- Resources ----
@@ -39,28 +41,39 @@
 
     ;; ---- Reading ----
 
-    ;; A linked file's bytes, by handle. Under `provide-resource` the host
-    ;; reads the file, an object of the program's store, the first time a
-    ;; task asks for it, and the task waits until it has; a handler can
-    ;; serve it otherwise.
+    ;; Linked files' bytes, by handle, in the order asked. Under
+    ;; `provide-resource` the host reads each file, an object of the
+    ;; program's store, the first time a task asks for it, and the task
+    ;; waits until it has; a handler can serve them otherwise.
     (effect resource
-      ((resource-bytes (Fn I32 → Bytes ! tasks))))
+      ((resource-bytes (Fn (List I32) → (List Bytes) ! tasks))))
 
     (define (provide-resource (work (Fn → T ! resource e))) (→ T) (! e) (∀ (T e))
       (handle resource ((resource-bytes host-bytes)) (work)))
 
-    ;; The host holds the bytes from `finish` until its next `finish`, and
-    ;; nothing between the two calls lets another task run.
+    ;; Every read starts, under a ticket of its own, before the task waits,
+    ;; so the host reads the files together; the task waits once, for all
+    ;; of them, then takes each file's bytes in order.
 
-    (define (host-bytes (handle I32)) (→ Bytes) (! tasks)
-      (through-host (lambda (ticket) (host-read ticket handle))
-                    (lambda (ticket)
-                      (array-generate (i32->i64 (host-finish ticket))
-                                      (lambda (index) (host-byte (i64->i32 index)))))))
+    (define (host-bytes (handles (List I32))) (→ (List Bytes)) (! tasks)
+      (let ((ids (map (lambda (handle) (let ((id (ticket))) (host-read id handle) id)) handles)))
+        (await ids)
+        (map held-bytes ids)))
+
+    ;; The host holds a file's bytes from `finish` until its next `finish`,
+    ;; and nothing between the two calls lets another task run.
+
+    (define (held-bytes (id I64)) (→ Bytes)
+      (array-generate (i32->i64 (host-finish id)) (lambda (index) (host-byte (i64->i32 index)))))
 
     ;; The file's bytes, as they were when the host first read them.
 
     (define (read-resource (linked Resource)) (→ Bytes) (! resource tasks)
-      (resource-bytes ((● linked handle))))
+      (list-ref (read-resources (list linked)) 0))
+
+    ;; Each file's bytes, in the order given, the files read together.
+
+    (define (read-resources (linked (List Resource))) (→ (List Bytes)) (! resource tasks)
+      (resource-bytes (map (lambda (file) ((● file handle))) linked)))
 
     ))

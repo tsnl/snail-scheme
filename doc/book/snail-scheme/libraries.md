@@ -47,7 +47,7 @@ the runtime interfaces.
 | `(snail shell process)` | Child processes with piped standard streams, through the `process` effect: `spawn`, reading output, writing and closing input, signals and exit, `run` to run a command to its end, and `exec` to replace the program with one; and `termination`, SIGINT or SIGTERM as a value, through the `signals` effect ([child processes](../runtimes/networking.md#child-processes)). |
 | `(snail shell socket)` | TCP listeners and connections and UDP sockets, through the `tcp` and `udp` effects, each wait by ticket, and `endpoint`, which parses an IPv4 address and a port once ([native networking](../runtimes/networking.md)). |
 | `(snail shell http)`, `(snail shell http exchange)` | An HTTP/1.1 subset: request heads and targets, response and stream heads, and one exchange over a connection ([HTTP protocol](http.md)). |
-| `(snail shell resource)` | Files a library links rather than embeds: `link-file`, the `Resource` handle, and `read-resource`, which a task waits on, through the `resource` effect ([linked files](types.md#linked-files)). |
+| `(snail shell resource)` | Files a library links rather than embeds: `link-file`, the `Resource` handle, and `read-resource` and `read-resources`, which a task waits on, through the `resource` effect ([linked files](types.md#linked-files)). |
 | `(snail shell wasm)` | Explicit WebAssembly linking for the engine ([below](#loading-webassembly)). |
 
 ### Shell: applications
