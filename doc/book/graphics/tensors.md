@@ -106,14 +106,20 @@ program.
 
 `(snail shell graphics splat-train)` is the renderer 3DGS training descends
 through, built as a tensor graph. `render` draws a `Cloud` of params
-(`splat-params`) from a camera param into an H x W x 3 image.
+(`splat-params`) from a camera param into an H x W x 3 image, and answers
+the projection too, whose centers' gradient densification watches. A
+cloud's spherical harmonics are a param for each degree, each shading only
+while its entry of `degrees` is 1, so a schedule raises them. Its `live`
+mask culls the rows it has not used yet, so a program compiled for a
+capacity holds a cloud that grows.
 
 - **Projection is ordinary tensor operations, so `grad` derives its
   gradient.** Each gaussian's normalized quaternion and exponentiated
   scale make its covariance R S Sᵀ Rᵀ. The camera carries it to the screen
   through the pinhole's Jacobian at its center (EWA splatting), with the
   center's slope clamped and 0.3 pixels² added, as the reference does. Its
-  degree-3 spherical harmonics, seen from the eye, give its color.
+  spherical harmonics, seen from the eye, give its color, each degree's
+  basis times its coefficients as a matrix product.
 - **Binning is custom kernels around the middleware's sorts.** The kernels
   are `splat-count`, `splat-keys` and `splat-ranges`. Gaussians are sorted
   by depth, and each one's tiles emitted in that order at the prefix sum of

@@ -74,7 +74,7 @@ try {
     // does, every param's gradient of L1 and D-SSIM against central
     // differences, and Adam fitting a cloud to a rendered one.
     'splat forward: blends as the paper does',
-    'splat gradients: means agree, scales agree, rotations agree, opacities agree, dc agree, rest agree',
+    'splat gradients: means agree, scales agree, rotations agree, opacities agree, dc agree, degree1 agree, degree2 agree, degree3 agree',
     'splat fit: the loss falls by more than four times',
     // The page's own first bytes, and the server's 404 for a file it lacks.
     'fetched: <!doctype 404 fetching missing.bin',

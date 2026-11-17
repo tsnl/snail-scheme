@@ -57,10 +57,22 @@
               (new Pair
                 (first "dc")
                 (second (each (lambda (s) (list (● s red) 0.2 (- 0.0 (● s red)))))))
-              (new Pair
-                (first "rest")
-                (second (each (lambda (s)
-                                (map (lambda (k) (* 0.05 (sin (+ k (● s x))))) (iota-f 45)))))))))
+              (harmonics "degree1" each 3 0.0)
+              (harmonics "degree2" each 5 9.0)
+              (harmonics "degree3" each 7 24.0))))
+
+    ;; Small coefficients for a degree's `count` harmonics, varying by
+    ;; gaussian and coefficient.
+    (define (harmonics (name String)
+                       (each (Fn (Fn Splat → (List F64)) → (Array F64)))
+                       (count I64)
+                       (from F64))
+      (→ (Pair String (Array F64)))
+      (new Pair
+        (first name)
+        (second (each (lambda (s)
+                        (map (lambda (k) (* 0.05 (sin (+ (+ k from) (● s x)))))
+                             (iota-f (* 3 count))))))))
 
     (define (iota-f (count I64)) (→ (List F64)) (map i64->f64 (iota count)))
 
@@ -78,10 +90,17 @@
       (→ (List Splat))
       (map (lambda (s) (Splat-scale-set s (+ (● s scale) 2.1))) three))
 
+    ;; The params, every gaussian live and every degree shading, and the
+    ;; camera.
     (define (written (program Program) (values (List (Pair String (Array F64))))) (→ Unit) (! gpu)
       (for-each
        (lambda (pair) (write-param program (● pair first) (values->bytes (● pair second) (Float))))
        values)
+      (let ((count (quotient (array-length (● (list-ref values 0) second)) 3)))
+        (write-param program
+                     "live"
+                     (values->bytes (array-generate count (lambda (_) 1.0)) (Float))))
+      (write-param program "degrees" (values->bytes (list->array (list 1.0 1.0 1.0)) (Float)))
       (write-param program "camera" (values->bytes camera-values (Float))))
 
     (define (scalar-sink (program Program)) (→ F64) (! gpu tasks)
@@ -95,7 +114,7 @@
 
     (define (splat-forward-check) (→ String) (! gpu tasks)
       (let* ((cloud (splat-params 1))
-             (image (render cloud (camera-param) sensor))
+             (image (● (render cloud (camera-param) sensor) image))
              (program (compile-program "forward" (list image) (Nil))))
         (written program
                  (list (new Pair (first "means") (second (list->array (list 0.0 0.0 4.0))))
@@ -105,7 +124,9 @@
                        (new Pair (first "rotations") (second (list->array (list 0.0 0.0 0.0 1.0))))
                        (new Pair (first "opacities") (second (list->array (list 0.0))))
                        (new Pair (first "dc") (second (list->array (list 1.0 0.0 -1.0))))
-                       (new Pair (first "rest") (second (array-generate 45 (lambda (_) 0.0))))))
+                       (new Pair (first "degree1") (second (array-generate 9 (lambda (_) 0.0))))
+                       (new Pair (first "degree2") (second (array-generate 15 (lambda (_) 0.0))))
+                       (new Pair (first "degree3") (second (array-generate 21 (lambda (_) 0.0))))))
         (run-program program)
         (let* ((pixels (bytes->values (read-sink program 0) (Float)))
                (variance (+ 6.25 0.3))
@@ -125,7 +146,7 @@
     ;; each element of each param nudged both ways on the device.
 
     (define (loss-of (cloud Cloud)) (→ View)
-      (photometric-loss (render cloud (camera-param) sensor)
+      (photometric-loss (● (render cloud (camera-param) sensor) image)
                         (param "target" (list 48 64 3) (Float))
                         0.2))
 
@@ -151,8 +172,7 @@
           report)))
 
     ;; Whether a param's gradient agrees with central differences, to 5%
-    ;; of the larger and 2e-5, element by element; `rest` checks its
-    ;; first nine elements, degree 1.
+    ;; of the larger and 2e-5, element by element.
     (define (group-report (grads Program)
                           (losses Program)
                           (values (List (Pair String (Array F64))))
@@ -163,11 +183,10 @@
       (let* ((name (● pair first))
              (base (● pair second))
              (analytic (bytes->values (read-sink grads k) (Float)))
-             (checked (min 9 (array-length base)))
              (bad (find (lambda (i)
                           (let ((a (array-ref analytic i)) (d (difference losses name base i)))
                             (> (abs (- a d)) (+ 0.00002 (* 0.05 (max (abs a) (abs d)))))))
-                        (iota (if (string=? name "rest") checked (array-length base))))))
+                        (iota (array-length base)))))
         (match bad
           ((Some i)
            (string-append name " " (show i) ": " (f64->string (array-ref analytic i)) " not "
@@ -201,7 +220,9 @@
     (define (splat-fit-check) (→ String) (! gpu tasks)
       (let* ((truth (splat-params 3))
              (target-program
-              (compile-program "truth" (list (render truth (camera-param) sensor)) (Nil))))
+              (compile-program "truth"
+                               (list (● (render truth (camera-param) sensor) image))
+                               (Nil))))
         (written target-program (cloud-values three))
         (run-program target-program)
         (let ((target (read-sink target-program 0)))
@@ -212,7 +233,7 @@
       (let* ((cloud (splat-params 3))
              (loss (loss-of cloud))
              (grads (grad loss (cloud-views cloud)))
-             (rates (list 0.002 0.005 0.001 0.05 0.0025 0.000125))
+             (rates (list 0.002 0.005 0.001 0.05 0.0025 0.000125 0.000125 0.000125))
              (program (compile-program "fit"
                                        (list loss)
                                        (adam-updates "adam"
@@ -223,7 +244,7 @@
                                                                (list-ref (cloud-views cloud) k))
                                                               (grad (list-ref grads k))
                                                               (rate (scalar (list-ref rates k)))))
-                                                          (iota 6))))))
+                                                          (iota 8))))))
         (written program
                  (cloud-values (map (lambda (s)
                                       (Splat-logit-set (Splat-scale-set s (- (● s scale) 0.5))

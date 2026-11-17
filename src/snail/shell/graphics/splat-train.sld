@@ -4,8 +4,8 @@
 ;; differentiates the loss of that image back to every param.
 ;;
 ;;   (let* ((cloud (splat-params 100000))
-;;          (image (render cloud (camera-param) (new Sensor (width 1237) (height 822) (capacity 4000000))))
-;;          (loss (photometric-loss image (param "target" (list 822 1237 3) (Float)) 0.2)))
+;;          (drawn (render cloud (camera-param) (new Sensor (width 1237) (height 822) (capacity 4000000))))
+;;          (loss (photometric-loss (● drawn image) (param "target" (list 822 1237 3) (Float)) 0.2)))
 ;;     (grad loss (cloud-views cloud)))
 ;;
 ;; Projection is ordinary tensor operations, so `grad` derives its
@@ -31,6 +31,7 @@
    camera-param
    Projection
    project
+   Rendering
    render
    blur
    ssim
@@ -50,15 +51,21 @@
     ;; A cloud's params, each a row a gaussian: its center; the logarithm
     ;; of its scale on each axis; its rotation, a quaternion x y z w not
     ;; yet normalized; its opacity's logit; and its spherical harmonics'
-    ;; coefficients, degree 0 apart from the 15 of degrees 1 to 3, as each
-    ;; is trained at its own rate.
+    ;; coefficients by degree, 1, 3, 5 and 7 of them for each of red, green
+    ;; and blue. Those are trained. `live` is 1 for a gaussian drawn and 0
+    ;; for a row not yet used, and `degrees` 1 or 0 for whether each
+    ;; degree from 1 to 3 shades, which a schedule raises.
     (record Cloud
       ((means View)
        (scales View)
        (rotations View)
        (opacities View)
        (dc View)
-       (rest View)))
+       (degree1 View)
+       (degree2 View)
+       (degree3 View)
+       (live View)
+       (degrees View)))
 
     (define (splat-params (count I64)) (→ Cloud)
       (new Cloud
@@ -67,15 +74,22 @@
         (rotations (param "rotations" (list count 4) (Float)))
         (opacities (param "opacities" (list count 1) (Float)))
         (dc (param "dc" (list count 1 3) (Float)))
-        (rest (param "rest" (list count 15 3) (Float)))))
+        (degree1 (param "degree1" (list count 3 3) (Float)))
+        (degree2 (param "degree2" (list count 5 3) (Float)))
+        (degree3 (param "degree3" (list count 7 3) (Float)))
+        (live (param "live" (list count 1) (Float)))
+        (degrees (param "degrees" (list 3) (Float)))))
 
+    ;; The params a cloud trains.
     (define (cloud-views (cloud Cloud)) (→ (List View))
       (list (● cloud means)
             (● cloud scales)
             (● cloud rotations)
             (● cloud opacities)
             (● cloud dc)
-            (● cloud rest)))
+            (● cloud degree1)
+            (● cloud degree2)
+            (● cloud degree3)))
 
     ;; The image drawn and how many tile entries binning holds; entries
     ;; past it are dropped.
@@ -121,7 +135,7 @@
           (colors (shaded cloud camera))
           (opacities (sigmoid (● cloud opacities)))
           (depths near)
-          (radii (* visible (radius screen (● conic second)))))))
+          (radii (* (* visible (● cloud live)) (radius screen (● conic second)))))))
 
     ;; R S S^T R^T, each gaussian's rotation from its normalized
     ;; quaternion, its scale the exponent of its param.
@@ -208,26 +222,33 @@
     ;; ---- Color ----
 
     ;; Each gaussian's harmonics in the direction from the eye, -R^T t,
-    ;; offset by 0.5 and kept from going below 0.
+    ;; offset by 0.5 and kept from going below 0: each degree's basis, a
+    ;; row, times its coefficients, as a matrix product.
     (define (shaded (cloud Cloud) (camera View)) (→ View)
       (let* ((rotation (reshape (narrow camera 0 0 9) (list 3 3)))
              (eye (negate (matmul (reshape (narrow camera 0 9 3) (list 1 3)) rotation)))
              (toward (- (● cloud means) eye))
              (d (/ toward (sqrt (sum (square toward) (list 1)))))
-             (basis (unsqueeze (harmonic-basis (column d 0) (column d 1) (column d 2)) 2))
-             (coefficients (concat (list (● cloud dc) (● cloud rest)) 1))
-             (count (list-ref (shape-of d) 0)))
-        (maximum (+ (reshape (sum (* coefficients basis) (list 1)) (list count 3)) (scalar 0.5))
-                 (scalar 0.0))))
+             (basis (harmonic-basis (column d 0) (column d 1) (column d 2)))
+             (count (list-ref (shape-of d) 0))
+             (degree (lambda (k coefficients)
+                       (* (narrow (● cloud degrees) 0 (- k 1) 1)
+                          (matmul (unsqueeze (narrow basis 1 (* k k) (+ (* 2 k) 1)) 1)
+                                  coefficients))))
+             (shade (+ (* (scalar 0.28209479177387814) (● cloud dc))
+                       (+ (degree 1 (● cloud degree1))
+                          (+ (degree 2 (● cloud degree2)) (degree 3 (● cloud degree3)))))))
+        (maximum (+ (reshape shade (list count 3)) (scalar 0.5)) (scalar 0.0))))
 
-    ;; The 16 real spherical harmonics to degree 3, with the reference's
-    ;; constants and signs.
+    ;; The real spherical harmonics of degrees 1 to 3, with the reference's
+    ;; constants and signs, at their places among all 16: degree k's are
+    ;; columns k^2 to k^2 + 2k. Column 0, degree 0's constant, is unused.
     (define (harmonic-basis (x View) (y View) (z View)) (→ View)
       (let* ((k (lambda (c) (scalar c)))
              (xx (* x x))
              (yy (* y y))
              (zz (* z z)))
-        (concat (list (* (k 0.28209479177387814) (ones-like x))
+        (concat (list (zeros-like x)
                       (* (k -0.4886025119029199) y)
                       (* (k 0.4886025119029199) z)
                       (* (k -0.4886025119029199) x)
@@ -323,16 +344,26 @@
 
     ;; ---- Rasterizing ----
 
-    ;; The image, H x W x 3, of the projected gaussians.
-    (define (render (cloud Cloud) (camera View) (sensor Sensor)) (→ View)
+    ;; The image, H x W x 3, of the projected gaussians, and the projection
+    ;; it was drawn from, whose centers' gradient densification watches.
+    (record Rendering
+      ((image View)
+       (projection Projection)))
+
+    (define (render (cloud Cloud) (camera View) (sensor Sensor)) (→ Rendering)
       (let* ((p (project cloud camera sensor))
              (bins (binned p sensor)))
-        (only-port (rasterized sensor
-                               (list (● bins first)
-                                     (● bins second)
-                                     (concat
-                                      (list (● p centers) (● p conics) (● p colors) (● p opacities))
-                                      1))))))
+        (new Rendering
+          (image (only-port (rasterized sensor
+                                        (list (● bins first)
+                                              (● bins second)
+                                              (concat
+                                               (list (● p centers)
+                                                     (● p conics)
+                                                     (● p colors)
+                                                     (● p opacities))
+                                               1)))))
+          (projection p))))
 
     (define (rasterized (sensor Sensor) (args (List View))) (→ (List View))
       (custom (forward sensor (list-ref (shape-of (list-ref args 2)) 0))
