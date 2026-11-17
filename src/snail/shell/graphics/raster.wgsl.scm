@@ -7,7 +7,7 @@
 ;; `place` as the camera's motion goes from 0 to 1, turns by its yaw,
 ;; `place.w`, and, when `before.w` is 1, turns to
 ;; face the camera as an upright sprite does. Its scale's w is its glow, and
-;; its material is metalness then roughness, with its id in w.
+;; its material is metalness then roughness. Its picking id is an integer.
 ;;
 ;; The G-buffer's motion is in texture coordinates from where the surface
 ;; was in the last frame, under its camera and its motion; its id is the
@@ -38,7 +38,8 @@
      ((@location 4) scale vec4f)
      ((@location 5) color vec4f)
      ((@location 6) before vec4f)
-     ((@location 7) material vec4f))
+     ((@location 7) material vec2f)
+     ((@location 8) id i32))
     (-> Surface)
     (let back (normalize (+ (- (get camera forward xz)) (vec2f 0.0 1e-6))))
     (let upright (> (get before w) 0.5))
@@ -56,7 +57,7 @@
     (= (get out position) (* (get camera view_projection) (vec4f world 1.0)))
     (= (get out clip_now) (get out position))
     (= (get out clip_before) (* (get camera previous) (vec4f was 1.0)))
-    (= (get out id) (u32 (get material w)))
+    (= (get out id) (u32 id))
     (= (get out normal)
        (select
         (vec3f (+ (* c (get n x)) (* s (get n z))) (get n y) (- (* c (get n z)) (* s (get n x))))

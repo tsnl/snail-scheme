@@ -162,7 +162,8 @@ within the unit cell, in one geometry table written once. `meshes` packs a
 batch's `Instance` records grouped by shape, with one `DrawArgs` per
 shape, so a batch is one `drawIndexedIndirect` per shape from its own first
 instance. An instance carries where it is and where it was, its yaw, scale,
-glow, color and material, and whether it turns to face the camera.
+glow, color and whether it turns to face the camera. Its `material` is a
+`Vec2f` holding metalness and roughness. Its `id` is an `I32` for picking.
 
 `(snail shell graphics raster)` keeps what a scene draws with. A program
 makes its `Raster` once: the G-buffer's and the translucent pipelines, the
@@ -180,11 +181,11 @@ The `Raster` and the `GBuffer` are made for the same `Planes`, which may
 add two more. Motion, `rg16float`, is the screen motion in texture
 coordinates from where the pixel's surface was in the last frame:
 `write-raster` returns the raster with the frame's camera kept, so the
-next frame's vertices are placed under both cameras. Ids, `r32uint`, are
-the w of each instance's material, 0 where nothing is drawn; `read-id`
-copies one pixel back, to pick what a tap is on. A plane left out has no
-target in the pipeline and no attachment in the pass, WebGPU's null
-target, so the shader's output there costs nothing. Siegework draws with
+next frame's vertices are placed under both cameras. The `r32uint` plane
+holds all 32 bits of each instance's `id` field, with 0 where nothing
+is drawn. `read-id` returns those bits as an `I32` for picking. A plane
+left out has no target in the pipeline and no attachment in the pass,
+WebGPU's null target, so the shader's output there costs nothing. Siegework draws with
 `color-planes`, the four without motion or ids.
 A second pass, `begin-lit`, clears the target to the background and holds
 the G-buffer's depth read-only, so the pass can both sample it and test

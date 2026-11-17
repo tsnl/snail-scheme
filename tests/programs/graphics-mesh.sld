@@ -17,7 +17,8 @@
       (scale one)
       (color one)
       (from (new Vec4f (x x) (y 0.0) (z 0.0) (w 0.0)))
-      (material (new Vec4f (x 0.0) (y 1.0) (z 0.0) (w 0.0))))))
+      (material (new Vec2f (x 0.0) (y 1.0)))
+      (id 0))))
 
 (define batch
   (→ Meshes)

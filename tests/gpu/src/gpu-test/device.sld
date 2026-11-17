@@ -77,7 +77,7 @@
     ;; The edge between them is straight down the texture, along which FXAA
     ;; blends nothing.
 
-    (define (tile (x F32) (color Vec4f) (glow F32) (id F32)) (→ (Pair Mesh Instance))
+    (define (tile (x F32) (color Vec4f) (glow F32) (id I32)) (→ (Pair Mesh Instance))
       (new Pair
         (first (Tile))
         (second (new Instance
@@ -85,15 +85,16 @@
                   (scale (new Vec4f (x 1.0) (y 1.0) (z 2.0) (w glow)))
                   (color color)
                   (from (new Vec4f (x x) (y 0.0) (z 0.0) (w 0.0)))
-                  (material (new Vec4f (x 0.0) (y 1.0) (z 0.0) (w id)))))))
+                  (material (new Vec2f (x 0.0) (y 1.0)))
+                  (id id)))))
 
     (define (tiles (r Raster)) (→ Surface) (! gpu)
       (make-surface r
                     "tiles"
                     #f
                     solid
-                    (meshes (list (tile -0.5 (new Vec4f (x 1.0) (y 0.0) (z 0.0) (w 1.0)) 1.0 7.0)
-                                  (tile 0.5 (new Vec4f (x 1.0) (y 1.0) (z 1.0) (w 1.0)) 0.0 9.0)))))
+                    (meshes (list (tile -0.5 (new Vec4f (x 1.0) (y 0.0) (z 0.0) (w 1.0)) 1.0 16777217)
+                                  (tile 0.5 (new Vec4f (x 1.0) (y 1.0) (z 1.0) (w 1.0)) 0.0 -1)))))
 
     (define (looking-down (x F32)) (→ Camera3D)
       (camera-3d (new Vec3f (x x) (y 5.0) (z 0.0))

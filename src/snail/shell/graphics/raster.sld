@@ -245,8 +245,7 @@
 
     ;; The planes beyond albedo, normal, material and depth: the screen
     ;; motion, in texture coordinates, from where each pixel's surface was
-    ;; in the last frame, and the id of its instance, the w of its
-    ;; material, 0 where there is none.
+    ;; in the last frame, and the id of its instance, 0 where there is none.
     (record Planes
       ((motion Bool)
        (ids Bool)))

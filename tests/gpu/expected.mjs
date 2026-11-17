@@ -20,7 +20,7 @@ export const deviceLines = [
   // tile's 0.6 is 159, as the curve computed by hand gives.
   'filmic: 186 0 0 255 186 0 0 255 159 159 159 255 159 159 159 255',
   'squares: 1 4 9 16 10000',
-  'planes: -0.25 -0.0 7 9 0',
+  'planes: -0.25 -0.0 16777217 -1 0',
   // An exclusive scan of i mod 3 over three levels of tiles, checked at
   // every index; a stable sort of 5,000 keys; and splats: red at the
   // left, green over red at the center, blue at the right, faint green
