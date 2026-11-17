@@ -9,7 +9,9 @@
 // share one copy, and each output still holds its files. The program
 // prints the bytes of one, read in a task, natively and through the
 // browser host's loader fetching the page's files over HTTP, which never
-// fetches the file the program does not read.
+// fetches the file the program does not read. The store remembers each
+// file's digest with its size and modification time, which a build trusts
+// while they hold.
 import assert from 'node:assert/strict';
 import {execFile} from 'node:child_process';
 import {createHash} from 'node:crypto';
@@ -75,6 +77,17 @@ try {
   assert.deepEqual(await resource(output, hero), hero, 'the node build places the file');
   assert.deepEqual(await resource(output, villain), villain);
   assert.equal((await run(join(output, 'main.wasm'))).stdout, '1,2,3,255\n', 'the native host reads it when the task asks');
+  // A file is hashed once, not every build: the store remembers its
+  // digest, and a build that finds the file unchanged in size and time
+  // trusts it, as make trusts a time, here even when it is false.
+  const digests = join(project, 'build/.snail-store/digests'), remembered = await readFile(digests, 'utf8');
+  for (const [name, bytes] of [['hero', hero], ['villain', villain]])
+    assert.match(remembered, new RegExp(`^${digest(bytes)} ${bytes.length} \\d+ \\S*art/${name}\\.bin$`, 'm'));
+  await writeFile(digests, remembered.replace(`${digest(hero)} `, `${digest(villain)} `));
+  await build('cli');
+  assert.equal((await run(join(output, 'main.wasm'))).stdout, '7\n', 'a remembered digest is trusted');
+  await writeFile(digests, remembered);
+  await build('cli');
   // The workspace's store holds each file once, and every build names it
   // from there: a rebuild, a release build and another script's build all
   // share the one copy, and each output still holds its files without it.

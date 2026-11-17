@@ -40,6 +40,7 @@
    (snail shell project web-app)
    (snail core base)
    (snail core io)
+   (snail core table)
    (snail shell compiler)
    (only (snail shell compiler read)
          compile
@@ -421,7 +422,8 @@
                                       (● target entry)
                                       (lambda (loading forms)
                                         (generated-syntax working directories loading forms))
-                                      (● target platform))))))
+                                      (● target platform)
+                                      (known-digests builder))))))
 
     ;; The program's one module, NAME.wasm, and copies of the files it links
     ;; in its store/. A release build's is linked in `working` and optimized
@@ -491,7 +493,8 @@
                                                                    directories
                                                                    loading
                                                                    forms))
-                                               (Some (list "snail" "target" "node")))))))
+                                               (Some (list "snail" "target" "node"))
+                                               (known-digests builder))))))
         (write-bytes output (linked-program builder program))
         (● program links)))
 
@@ -565,7 +568,101 @@
                     (expect-done (make-directories (directory-part to))
                                  (string-append "cannot make " to))
                     (name-object object to)))
-                (delete-duplicates (lambda (a b) (string=? (● a digest) (● b digest))) links)))
+                (delete-duplicates (lambda (a b) (string=? (● a digest) (● b digest))) links))
+      (remember-digests builder links (base-name directory)))
+
+    ;; ---- Digests ----
+
+    ;; The digests of linked files the workspace's builds have read, in its
+    ;; store at digests, a line a file: DIGEST SIZE MODIFIED PATH. A
+    ;; compile trusts one while its file keeps that size and modification
+    ;; time, so a large file is hashed once rather than every build. A
+    ;; build that read new ones writes the whole list beside the old and
+    ;; renames it over, so a reader sees one list or the other; of two
+    ;; builds at once, the later rename wins and the other's files are
+    ;; hashed again.
+
+    (define (digests-path (builder Builder)) (→ String)
+      (string-append (workspace-store builder) "/digests"))
+
+    (define (known-digests (builder Builder)) (→ (List LinkedFile)) (! fs)
+      (match (read-text-file (digests-path builder) 1073741824)
+        ((Ok text)
+         (fold-left (lambda (files line)
+                      (match (digest-line (pieces line #\space))
+                        ((Some file) (Cons file files))
+                        ((None) files)))
+                    (Nil)
+                    (pieces text #\newline)))
+        ((Err _) (Nil))))
+
+    ;; `text` cut at each `separator`.
+
+    (define (pieces (text String) (separator Char)) (→ (List String))
+      (map (lambda (chars) (list->string (reverse chars)))
+           (reverse
+            (fold-left (lambda (found char)
+                         (match found
+                           ((Cons piece rest)
+                            (if (char=? char separator)
+                                (Cons (Nil) found)
+                                (Cons (Cons char piece) rest)))
+                           ((Nil) (Nil))))
+                       (list (Nil))
+                       (string->list text)))))
+
+    ;; A line's fields, the path the rest of the line, spaces and all.
+
+    (define (digest-line (fields (List String))) (→ (Option LinkedFile))
+      (match fields
+        ((Cons digest (Cons size (Cons modified (Cons first rest))))
+         (match (string->i64 size)
+           ((Some size)
+            (match (string->i64 modified)
+              ((Some modified)
+               (Some (new LinkedFile
+                       (digest digest)
+                       (path (string-join (Cons first rest) " "))
+                       (size size)
+                       (modified modified))))
+              ((None) (None))))
+           ((None) (None))))
+        (_ (None))))
+
+    ;; The list with `links` in it, written when one is new. A path with a
+    ;; newline in it is not kept.
+
+    (define (remember-digests (builder Builder) (links (List LinkedFile)) (token String)) (→ Unit)
+      (! fs building)
+      (let* ((table (by-path (empty-table) (known-digests builder)))
+             (fresh (filter (lambda (link) (new-digest? table link)) links)))
+        (unless (null? fresh)
+          (let ((path (digests-path builder))
+                (writing (string-append (digests-path builder) ".writing." token)))
+            (write-file writing (digests-text (by-path table fresh)))
+            (expect-done (rename-file writing path) (string-append "cannot write " path))))))
+
+    (define (by-path (table (Table LinkedFile)) (files (List LinkedFile))) (→ (Table LinkedFile))
+      (fold-left (lambda (table file) (table-set table (● file path) file)) table files))
+
+    (define (new-digest? (table (Table LinkedFile)) (link LinkedFile)) (→ Bool)
+      (and (match (string-index (● link path) #\newline) ((Some _) #f) ((None) #t))
+           (match (table-ref table (● link path))
+             ((Some known)
+              (not (and (string=? (● known digest) (● link digest))
+                        (= (● known size) (● link size))
+                        (= (● known modified) (● link modified)))))
+             ((None) #t))))
+
+    (define (digests-text (table (Table LinkedFile))) (→ String)
+      (string-join (map (lambda (file)
+                          (string-join (list (● file digest)
+                                             (show (● file size))
+                                             (show (● file modified))
+                                             (● file path))
+                                       " "))
+                        (table-values table))
+                   "\n"))
 
     ;; A file is named for the digest of the bytes its compile read, so the
     ;; bytes placed must be those: a file edited since fails the build, and

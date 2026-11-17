@@ -9,7 +9,7 @@
 ;; highlight can be brighter than 1, and `draw-post` brings it to the
 ;; screen in two more passes: tone mapping into an 8-bit target, then FXAA
 ;; into the canvas (post.wgsl.scm). A `Post` is made once for the canvas's
-;; format and size, and resized with the canvas.
+;; format and size and a `Tone`, and resized with the canvas.
 (define-library (snail shell graphics passes)
   (export
    Sunlight
@@ -19,6 +19,9 @@
    light-format
    Post
    PostTargets
+   Tone
+   Neutral
+   Filmic
    make-post
    resize-post
    draw-post)
@@ -94,6 +97,13 @@
 
     (define light-format (→ TextureFormat) (Rgba16Float))
 
+    ;; How light becomes the screen's colors: `Neutral` for light already
+    ;; in display terms, which keeps colors below 0.8 as they are;
+    ;; `Filmic`, Hable's curve and sRGB encoding, for physical light.
+    (enum Tone
+      (Neutral)
+      (Filmic))
+
     ;; The tone-mapping and FXAA pipelines, FXAA's sampler, and the targets
     ;; for the canvas's size.
     (record Post
@@ -112,10 +122,16 @@
        (tone-group GpuBindGroup)
        (fxaa-group GpuBindGroup)))
 
-    (define (make-post (format TextureFormat) (width I32) (height I32)) (→ Post) (! gpu)
+    (define (make-post (format TextureFormat) (width I32) (height I32) (curve Tone))
+      (→ Post)
+      (! gpu)
       (let* ((module
               (create-shader-module (new ShaderModuleDescriptor (label "post") (code post-shader))))
-             (tone (screen-pipeline module "tone_fragment" (Rgba8Unorm)))
+             (tone (screen-pipeline module
+                                    (match curve
+                                      ((Neutral) "tone_fragment")
+                                      ((Filmic) "filmic_fragment"))
+                                    (Rgba8Unorm)))
              (fxaa (screen-pipeline module "fxaa_fragment" format))
              (sampler (create-sampler (new SamplerDescriptor
                                         (label "post/bilinear")
