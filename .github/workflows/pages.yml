@@ -25,7 +25,7 @@ on:
   workflow_dispatch:
     inputs:
       publish:
-        description: Publish this ref to Pages (subject to the github-pages environment rules)
+        description: Publish this ref to snail-scheme.tsnl.xyz (subject to the cloudflare environment rules)
         type: boolean
         default: false
 
@@ -58,26 +58,42 @@ jobs:
         run: nix-shell --run 'rustup toolchain install && rustup target add wasm32-wasip1 && make fetch'
       - name: Build the book and Siegework
         run: nix-shell --run 'make pages'
-      - name: Upload Pages artifact
+      - name: Upload the site
         if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.publish)
-        uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
+          name: site
           path: build/pages
+          retention-days: 1
 
+  # Publishes build/pages as the Worker wrangler.jsonc describes, at
+  # https://snail-scheme.tsnl.xyz. The `cloudflare` environment holds
+  # CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID; the build job never sees
+  # them. The repository is public, so the environment, not this file, is
+  # what guards them: a pull request can edit this job but not the
+  # environment, which releases its secrets only to runs from main and only
+  # after tsnl approves each one, with no admin bypass. Keep the two as
+  # environment secrets: repository secrets reach any branch's workflow.
   deploy:
     if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.publish)
     needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    permissions:
-      pages: write
-      id-token: write
     environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      name: cloudflare
+      url: https://snail-scheme.tsnl.xyz
     steps:
-      - name: Configure Pages
-        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+          sparse-checkout: wrangler.jsonc
+          sparse-checkout-cone-mode: false
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: site
+          path: build/pages
       - name: Deploy the book and Siegework
-        id: deployment
-        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@4.164.0 deploy
