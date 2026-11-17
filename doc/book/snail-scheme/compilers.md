@@ -74,8 +74,10 @@ Struct field paths remain unresolved only while the receiver type is
 unknown. Once its nominal type is known, checking substitutes the record's
 type arguments and resolves each label to a declared field. Each hop becomes
 an ordinary accessor operation. Nested fields follow object references;
-there is no inline-layout path to reconstruct. `set!` writes the resolved
-field.
+there is no inline-layout path to reconstruct. `set!` is a form, not a
+function: `(set! (● receiver label ...) value)` resolves its last label the
+same way and becomes a call of that field's writer, so no later pass sees a
+place.
 
 Expansion generates constructors and field operations. A derived instance
 is a use of a `syntax-rules` macro that the class's library defines beside
@@ -142,8 +144,7 @@ Control lowering uses a subset of the same expression language, not a
 separate CPS language. A call that may yield stays in tail position or is
 named by a `let`; operands that execute before it are named first. The
 backend can therefore test for a pending yield before executing the rest
-of the expression. A `set!` whose value may yield names its place's record
-instead of the place, so the place stays a field read.
+of the expression.
 
 Some execution boundaries cannot propagate a yield: raw Wasm loops used by
 sequence generators, arbitrary `unsafe-total` thunks, or work closed over

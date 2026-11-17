@@ -220,8 +220,10 @@ functions use typed parameter pairs and inline result, effect, generic and
 constraint clauses. Definitions continue to use `define`.
 
 Direct field selection is `(● receiver label ...)`: each nominal record type
-supplies its stored fields, and paths follow heap references. Use a
-projection in `set!` to write its final field.
+supplies its stored fields, and paths follow heap references.
+`(set! (● receiver label ...) value)` writes the path's final field; `set!`
+is a form, so it takes a field path where it is written and is not a
+value to pass.
 Every field is mutable. Computed getters are ordinary functions.
 
 Direct-style suspension remains available: the compiler turns the remaining
