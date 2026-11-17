@@ -42,7 +42,7 @@
       (let ((ticket (ticket)))
         (for-each host-path-character (string->list path))
         (let ((id (host-start-read ticket maximum)))
-          (await ticket)
+          (await (list ticket))
           (finish id))))
 
     ;; The host holds bytes only until the next finish; copying does not

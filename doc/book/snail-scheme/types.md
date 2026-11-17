@@ -351,7 +351,9 @@ package's data, and the library reads it when it needs it:
   names a file and nothing more. The type is exported without its
   constructor, so a program cannot make one from a string: holding a
   `Resource` is evidence that its file ships. `(read-resource r)` returns the
-  file's `Bytes` and performs `resource`, which every target handles
+  file's `Bytes`, and `(read-resources (list a b))` the bytes of each, read
+  together: every read starts before the task waits for any. Both perform
+  `resource`, which every target handles
   through `provide-resource`, on Node and in the browser. It is not `fs`: a page has no
   filesystem, and a program with none still reads its own files.
 

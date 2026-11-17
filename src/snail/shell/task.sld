@@ -21,7 +21,7 @@
     (effect tasks
       ((ctl yield (Fn → Unit))
        (ctl sleep (Fn I64 → Unit))
-       (ctl await (Fn I64 → Unit))
+       (ctl await (Fn (List I64) → Unit))
        (ticket (Fn → I64))
        (current-scheduler (Fn → Scheduler))))
 
@@ -56,7 +56,7 @@
        ((delay I64)
         (next (Fn → Step ! host))))
       (Waiting
-       ((ticket I64)
+       ((tickets (List I64))
         (next (Fn → Step ! host)))))
 
     (type Run (Fn → Step ! host))
@@ -66,10 +66,14 @@
       ((id I64)
        (next Run)))
 
-    ;; A task waiting to be woken, by its deadline among the timers or by
-    ;; its ticket among the waiters.
+    ;; A sleeping task, by its deadline.
     (record Pending
       ((key I64)
+       (task Runnable)))
+
+    ;; A task awaiting tickets, with those it still waits for.
+    (record Waiter
+      ((tickets (List I64))
        (task Runnable)))
 
     ;; ---- The scheduler ----
@@ -81,7 +85,7 @@
     (record Scheduler
       ((ready (List Runnable))
        (timers (List Pending))
-       (waiters (List Pending))
+       (waiters (List Waiter))
        (running I64)
        (last-task I64)
        (last-ticket I64)
@@ -111,8 +115,8 @@
                     (Yielded (inherit-handlers (lambda () (resume (unit)))))))
            (sleep (lambda (delay resume)
                     (Sleeping delay (inherit-handlers (lambda () (resume (unit)))))))
-           (await (lambda (ticket resume)
-                    (Waiting ticket (inherit-handlers (lambda () (resume (unit)))))))
+           (await (lambda (tickets resume)
+                    (Waiting tickets (inherit-handlers (lambda () (resume (unit)))))))
            (ticket (lambda () (next-ticket! scheduler)))
            (current-scheduler (lambda () scheduler)))
         (work)
@@ -180,10 +184,13 @@
                  (insert-timer
                   (new Pending (key (+ now delay)) (task (new Runnable (id id) (next next))))
                   (● scheduler timers))))
-          ((Waiting ticket next)
-           (set! (● scheduler waiters)
-                 (Cons (new Pending (key ticket) (task (new Runnable (id id) (next next))))
-                       (● scheduler waiters)))))))
+          ((Waiting tickets next)
+           (let ((task (new Runnable (id id) (next next))))
+             (if (null? tickets)
+                 (push-ready! scheduler task)
+                 (set! (● scheduler waiters)
+                       (Cons (new Waiter (tickets tickets) (task task))
+                             (● scheduler waiters)))))))))
 
     (define (insert-timer (timer Pending) (timers (List Pending))) (→ (List Pending))
       (match timers
@@ -214,23 +221,31 @@
 
     ;; ---- Waking and closing ----
 
+    ;; A completion crosses its ticket off the waiter holding it, and a
+    ;; waiter with none left is ready. A ticket no waiter holds, one woken
+    ;; already or after a close, wakes nothing.
     (define (tasks-wake! (scheduler Scheduler) (ticket I64)) (→ Bool) (! mut)
       (if (● scheduler closed) #f
-          (match (without ticket (● scheduler waiters))
-            ((Pair found rest)
-             (set! (● scheduler waiters) rest)
-             (match found
-               ((Some task) (push-ready! scheduler task) #t)
-               ((None) #f))))))
+          (match (holding ticket (● scheduler waiters))
+            ((Pair (Some waiter) others)
+             (let ((left (filter (lambda (held) (not (= held ticket))) (● waiter tickets))))
+               (if (null? left)
+                   (begin
+                     (set! (● scheduler waiters) others)
+                     (push-ready! scheduler (● waiter task)))
+                   (set! (● scheduler waiters) (Cons (Waiter-tickets-set waiter left) others))))
+             #t)
+            ((Pair (None) _) #f))))
 
-    (define (without (ticket I64) (waiters (List Pending)))
-      (→ (Pair (Option Runnable) (List Pending)))
+    ;; The waiter holding `ticket`, and the others.
+    (define (holding (ticket I64) (waiters (List Waiter)))
+      (→ (Pair (Option Waiter) (List Waiter)))
       (match waiters
         ((Nil) (new Pair (first (None)) (second (Nil))))
         ((Cons first rest)
-         (if (= (● first key) ticket)
-             (new Pair (first (Some (● first task))) (second rest))
-             (match (without ticket rest)
+         (if (member? ticket (● first tickets))
+             (new Pair (first (Some first)) (second rest))
+             (match (holding ticket rest)
                ((Pair found others) (new Pair (first found) (second (Cons first others)))))))))
 
     ;; Closing is idempotent. It forgets every stopped task, which nothing
@@ -266,7 +281,7 @@
       (∀ (A))
       (let ((id (ticket)))
         (start id)
-        (await id)
+        (await (list id))
         (finish id)))
 
     ;; ---- Mailboxes ----
@@ -307,7 +322,7 @@
          (let ((id (ticket)) (scheduler (current-scheduler)))
            (set! (● mailbox receivers)
                  (Cons (lambda () (tasks-wake! scheduler id) (unit)) (● mailbox receivers)))
-           (await id))
+           (await (list id)))
          (mailbox-receive mailbox))))
 
     (define (mailbox-try-receive (mailbox (Mailbox T)))
