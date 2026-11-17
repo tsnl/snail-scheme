@@ -67,9 +67,10 @@ siegework:
 hearsay:
 	./snail-scheme build --release --target browser src/apps/hearsay/main.scm
 
-# The GitHub Pages site in build/pages: the book, with Siegework at
-# play/siegework/. Hearsay stays unpublished: its LPC art must be credited
-# as src/lpc/ATTRIBUTION.md describes, and the page doesn't show credits.
+# The public site in build/pages, which wrangler.jsonc deploys: the book,
+# with Siegework at play/siegework/. Hearsay stays unpublished: its LPC art
+# must be credited as src/lpc/ATTRIBUTION.md describes, and the page doesn't
+# show credits.
 pages: siegework
 	"$(MDBOOK)" build --dest-dir build/pages
 	mkdir -p build/pages/play/siegework

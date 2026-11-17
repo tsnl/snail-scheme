@@ -1,0 +1,25 @@
+// The public site, https://snail-scheme.tsnl.xyz: the book and Siegework,
+// which `make pages` builds into build/pages. It is a Worker with static
+// assets and no script, so every request is served from the assets and none
+// is billed as a Worker invocation. .github/workflows/pages.yml deploys it on
+// each push to main.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "snail-scheme",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "build/pages",
+    // mdBook writes 404.html at the root; unknown paths get it with a 404.
+    "not_found_handling": "404-page"
+  },
+  // The hostname needs the tsnl.xyz zone on this Cloudflare account; deploying
+  // creates its DNS record and certificate.
+  "routes": [
+    {
+      "pattern": "snail-scheme.tsnl.xyz",
+      "custom_domain": true
+    }
+  ],
+  "workers_dev": false,
+  "preview_urls": false
+}
