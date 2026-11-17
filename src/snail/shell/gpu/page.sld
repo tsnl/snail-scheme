@@ -8,9 +8,7 @@
    provide-gpu)
   (import
    (snail core base)
-   (snail shell utf8)
    (snail shell task)
-   (snail shell json)
    (snail shell gpu)
    (prefix (snail runtime browser gpu) host-))
   (begin
@@ -105,10 +103,10 @@
                                    height)))
              (begin-render-pass
               (lambda (encoder descriptor)
-                (let ((pass (pass-json descriptor)) (encoder (used objects (● encoder id))))
-                  (all-used! objects (● pass second))
+                (let ((encoder (used objects (● encoder id))))
+                  (attachments! objects descriptor)
                   (let ((id (transient! objects "pass")))
-                    (host-begin-pass encoder id (string->utf8 (● pass first)))
+                    (host-begin-pass encoder id)
                     (new GpuRenderPass (id id))))))
              (set-pipeline
               (lambda (pass pipeline)
@@ -233,7 +231,9 @@
         ((Existing entry) (new Pair (first entry) (second #f)))
         ((Create entry retired)
          (for-each gone! retired)
-         (host-create (kind-index (● entry kind)) (● entry id) (string->utf8 (● entry descriptor)))
+         (host-create (kind-index (● entry kind))
+                      (● entry id)
+                      (fields-bytes (Cons (Text (● entry path)) (● entry descriptor))))
          (new Pair (first entry) (second #t)))))
 
     (define (transient! (objects Objects) (kind String)) (→ I32) (! mut)
@@ -242,7 +242,7 @@
                      (new Request
                        (kind kind)
                        (path (None))
-                       (descriptor "")
+                       (descriptor (Nil))
                        (bytes 0)
                        (depends (Nil))
                        (width 0)
@@ -262,12 +262,52 @@
           (host-destroy (● entry id))))
 
     (define (submitted! (objects Objects) (buffers (List GpuCommandBuffer))) (→ Unit) (! mut)
-      (host-submit
-       (string->utf8
-        (json->string
-         (JsonArray (map (lambda (buffer) (JsonInteger (i32->i64 (used objects (● buffer id)))))
-                         buffers)))))
+      (for-each (lambda (buffer) (host-queue-buffer (used objects (● buffer id)))) buffers)
+      (host-submit)
       (for-each gone! (end-frame! objects)))
+
+    ;; ---- Passes ----
+
+    ;; Each attachment is its view, then its load and store, as calls.
+
+    (define (attachments! (objects Objects) (descriptor RenderPassDescriptor)) (→ Unit) (! mut)
+      (for-each (lambda (attachment) (color-attachment! objects attachment)) (● descriptor colors))
+      (match (● descriptor depth)
+        ((Some attachment) (depth-attachment! objects attachment))
+        ((None) (unit))))
+
+    (define (color-attachment! (objects Objects) (attachment ColorAttachment)) (→ Unit) (! mut)
+      (pass-view! objects (● attachment view))
+      (match (● attachment load)
+        ((Clear color)
+         (host-pass-color 1
+                          (● color red)
+                          (● color green)
+                          (● color blue)
+                          (● color alpha)
+                          (store-flag (● attachment store))))
+        ((Keep) (host-pass-color 0 0.0 0.0 0.0 0.0 (store-flag (● attachment store))))))
+
+    (define (depth-attachment! (objects Objects) (attachment DepthAttachment)) (→ Unit) (! mut)
+      (pass-view! objects (● attachment view))
+      (match (● attachment load)
+        ((ClearDepth depth) (host-pass-depth 1 depth (store-flag (● attachment store))))
+        ((KeepDepth) (host-pass-depth 0 0.0 (store-flag (● attachment store))))))
+
+    ;; Texture, 0 for a 2D view or 1 for an array, first level and count,
+    ;; first layer and count (0 for the rest).
+
+    (define (pass-view! (objects Objects) (view TextureView)) (→ Unit) (! mut)
+      (host-pass-view (used objects (● (● view texture) id))
+                      (match (● view dimension)
+                        ((View2d) 0)
+                        ((View2dArray) 1))
+                      (● view base-mip)
+                      (● view mips)
+                      (● view base-layer)
+                      (● view layers)))
+
+    (define (store-flag (store Bool)) (→ I32) (if store 1 0))
 
     ;; ---- Waits ----
 

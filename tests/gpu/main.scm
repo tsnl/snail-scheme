@@ -171,7 +171,8 @@
      (string-append "fresh: " (show (● target fresh)) " " (show (● (● image texture) fresh))))
     (write-buffer color
                   0
-                  (pod-bytes (new Paint (color (new Vec4f (x 1.0) (y 0.0) (z 0.0) (w 1.0))))))
+                  (pod-bytes paint-shape
+                             (new Paint (color (new Vec4f (x 1.0) (y 0.0) (z 0.0) (w 1.0))))))
     (fill encoder
           (view-of target 1)
           (pipeline-for module (Rgba8Unorm) "offscreen")

@@ -279,7 +279,7 @@
     (define (meshes (items (List (Pair Mesh Instance)))) (→ Meshes)
       (let ((groups (map (lambda (mesh) (of-mesh mesh items)) all-meshes)))
         (new Meshes
-          (instances (pack (concatenate groups)))
+          (instances (pack instance-shape (concatenate groups)))
           (draws (draw-list groups spans 0)))))
 
     (define (of-mesh (mesh Mesh) (items (List (Pair Mesh Instance)))) (→ (List Instance))
@@ -304,6 +304,8 @@
 
     (define vertex-shape (→ (Shape MeshVertex)) (shape))
     (define instance-shape (→ (Shape Instance)) (shape))
+    (define draw-shape (→ (Shape DrawArgs)) (shape))
+    (define index-shape (→ (Shape I32)) (shape))
 
     ;; Vertices at locations 0 to 2, instances from 3.
     (define mesh-buffers
@@ -316,7 +318,7 @@
     (define (draw-meshes (pass GpuRenderPass) (name String) (batch Meshes) (write? Bool))
       (→ Unit)
       (! gpu)
-      (let ((args (pack (● batch draws))))
+      (let ((args (pack draw-shape (● batch draws))))
         (unless (= (array-length (● batch instances)) 0)
           (let ((instances (filled name "instances" (● batch instances) (Vertex) write?))
                 (draws (filled name "draws" args (Indirect) write?)))
@@ -337,8 +339,10 @@
 
     (define geometry-vertices
       (→ Bytes)
-      (pack (concatenate (map (lambda (g) (● g vertices)) table))))
-    (define geometry-indices (→ Bytes) (pack (concatenate (map (lambda (g) (● g indices)) table))))
+      (pack vertex-shape (concatenate (map (lambda (g) (● g vertices)) table))))
+    (define geometry-indices
+      (→ Bytes)
+      (pack index-shape (concatenate (map (lambda (g) (● g indices)) table))))
 
     ;; A buffer by its path, written when asked or when it is new.
     (define (filled (name String) (part String) (bytes Bytes) (usage BufferUsage) (write? Bool))

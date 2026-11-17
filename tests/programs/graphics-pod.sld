@@ -57,15 +57,22 @@
                                        " at "
                                        (show (● attribute offset)))))
           (● (vertex-layout vertex-shape (PerVertex) 0) attributes))
-(write-line (bytes-text (pack (list (new Vertex
-                                      (position (new Vec3f (x 1.0) (y 2.0) (z -1.0)))
-                                      (uv (new Vec2f (x 0.5) (y 0.25)))
-                                      (material 258))))))
-(write-line (show (array-length (pod-bytes (new Scene
-                                             (count 1)
-                                             (sun (new Light
-                                                    (direction (new Vec3f (x 0.0) (y 1.0) (z 0.0)))
-                                                    (intensity 2.0)
-                                                    (color
-                                                     (new Vec4f (x 1.0) (y 1.0) (z 1.0) (w 1.0)))))
-                                             (exposure-bias 1.0))))))
+(write-line (bytes-text (pack vertex-shape (list (new Vertex
+                                                   (position (new Vec3f (x 1.0) (y 2.0) (z -1.0)))
+                                                   (uv (new Vec2f (x 0.5) (y 0.25)))
+                                                   (material 258))))))
+(write-line (show (array-length (pod-bytes scene-shape (new Scene
+                                                         (count 1)
+                                                         (sun (new Light
+                                                                (direction (new Vec3f
+                                                                             (x 0.0)
+                                                                             (y 1.0)
+                                                                             (z 0.0)))
+                                                                (intensity 2.0)
+                                                                (color
+                                                                 (new Vec4f
+                                                                   (x 1.0)
+                                                                   (y 1.0)
+                                                                   (z 1.0)
+                                                                   (w 1.0)))))
+                                                         (exposure-bias 1.0))))))
