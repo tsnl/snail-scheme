@@ -42,6 +42,7 @@ async function requestDevice(canvas) {
     maxTextureDimension2D: Math.min(limits.maxTextureDimension2D, 16384),
     maxColorAttachmentBytesPerSample: Math.min(limits.maxColorAttachmentBytesPerSample, 64)}});
   device.addEventListener('uncapturederror', event => console.error('WebGPU:', event.error.message));
+  device.lost.then(info => console.error('WebGPU: device lost:', info.reason, info.message));
   const format = navigator.gpu.getPreferredCanvasFormat(), context = canvas.getContext('webgpu');
   context.configure({device, format, alphaMode: 'opaque'});
   return {device, context, format, optional};
@@ -74,6 +75,11 @@ export function createGpu(canvas, runtime, open = pageDevice) {
       }, status => status);
     },
     'finish-device': ticket => tasks().finish(Number(ticket)),
+    // Waits until the device has done the work submitted so far.
+    'start-done'(ticket) {
+      tasks().start(Number(ticket), () => gpu.device.queue.onSubmittedWorkDone().then(() => 0), status => status);
+    },
+    'finish-done': ticket => tasks().finish(Number(ticket)),
     'device-format': () => answer(gpu.format),
     'device-features': () => answer(gpu.optional.join(' ')),
     'reply-scalar': index => reply[index].codePointAt(0),

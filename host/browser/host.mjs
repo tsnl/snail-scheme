@@ -1,10 +1,12 @@
 // The browser host for a `snail-scheme` application built with (snail shell app). It owns no
 // game rules: DOM listeners queue events; the loop runs as a `snail-scheme` task,
 // draws on the canvas through the `gpu` effect, shows its HUD in the overlay
-// through the `dom` effect, and waits on storage by ticket.
+// through the `dom` effect, reads files through the `fetch` effect, and
+// waits on storage by ticket.
 
 import {createDom} from './dom.mjs';
 import {createGpu} from './gpu.mjs';
+import {createFetch} from './fetch.mjs';
 import {loadSave, storeSave} from './storage.mjs';
 import {createRuntime} from './runtime.mjs';
 import {startPage, reportApplicationError} from './application.mjs';
@@ -30,11 +32,12 @@ export async function startApplication({url, canvas, overlay, storageKey}) {
     frames: {request: requestAnimationFrame.bind(globalThis), cancel: cancelAnimationFrame.bind(globalThis)},
     initial: () => [[8, canvas.clientWidth, canvas.clientHeight], [11, 0]],
     reportError: reportApplicationError});
-  const dom = createDom(overlay, runtime), gpu = createGpu(canvas, runtime);
+  const dom = createDom(overlay, runtime), gpu = createGpu(canvas, runtime), requests = createFetch(runtime);
   attachInput(canvas, runtime);
   return startPage({runtime,
-    imports: {...runtime.imports, 'snail.runtime.browser.dom': dom.imports, 'snail.runtime.browser.gpu': gpu.imports},
-    reset() { dom.reset(); gpu.reset(); }}, url);
+    imports: {...runtime.imports, 'snail.runtime.browser.dom': dom.imports, 'snail.runtime.browser.gpu': gpu.imports,
+      'snail.runtime.browser.fetch': requests.imports},
+    reset() { dom.reset(); gpu.reset(); requests.reset(); }}, url);
 }
 
 // Wheel deltas arrive in pixels, lines or pages; the application gets pixels.
