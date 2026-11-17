@@ -26,12 +26,23 @@
     (define (samples-library (name (List String))) (→ Syntax) (! fs)
       (let ((models (models-with-gltf)) (environments (environment-names)))
         (library-syntax name
-                        (list "sample-models" "sample-model" "sample-environments" "sample-environment")
+                        (list "sample-models"
+                              "sample-model"
+                              "sample-environments"
+                              "sample-environment")
                         (list (list "snail" "core" "base") (list "snail" "shell" "resource"))
                         (list (names-definition "sample-models" models)
                               (lookup-definition "sample-model"
-                                                 (form "List" (list (form "Pair" (list (SymbolSyntax "String") (SymbolSyntax "Resource")))))
-                                                 (map (lambda (model) (new Pair (first model) (second (model-files model)))) models)
+                                                 (form "List"
+                                                       (list (form "Pair"
+                                                                   (list (SymbolSyntax "String")
+                                                                         (SymbolSyntax
+                                                                          "Resource")))))
+                                                 (map (lambda (model)
+                                                        (new Pair
+                                                          (first model)
+                                                          (second (model-files model))))
+                                                      models)
                                                  (form "Nil" (Nil)))
                               (names-definition "sample-environments" environments)
                               (lookup-definition "sample-environment"
@@ -39,7 +50,13 @@
                                                  (map (lambda (environment)
                                                         (new Pair
                                                           (first environment)
-                                                          (second (form "Some" (list (linked (string-append "environments/" (string-append environment ".hdr"))))))))
+                                                          (second (form "Some"
+                                                                        (list
+                                                                         (linked (string-append
+                                                                                  "environments/"
+                                                                                  (string-append
+                                                                                   environment
+                                                                                   ".hdr"))))))))
                                                       environments)
                                                  (form "None" (Nil)))))))
 
@@ -70,14 +87,17 @@
 
     (define (ends-with? (text String) (suffix String)) (→ Bool)
       (and (>= (string-length text) (string-length suffix))
-           (string=? (substring text (- (string-length text) (string-length suffix)) (string-length text)) suffix)))
+           (string=?
+            (substring text (- (string-length text) (string-length suffix)) (string-length text))
+            suffix)))
 
     ;; Every file under `path`, relative to it.
     (define (files-under (path String)) (→ (List String)) (! fs)
       (concatenate (map (lambda (name)
                           (let ((inner (string-append path (string-append "/" name))))
                             (if (directory? inner)
-                                (map (lambda (file) (string-append name (string-append "/" file))) (files-under inner))
+                                (map (lambda (file) (string-append name (string-append "/" file)))
+                                     (files-under inner))
                                 (list name))))
                         (listed path))))
 
@@ -93,7 +113,9 @@
                      (form "new"
                            (list (SymbolSyntax "Pair")
                                  (form "first" (list (StringSyntax file)))
-                                 (form "second" (list (linked (string-append directory (string-append "/" file))))))))
+                                 (form "second"
+                                       (list (linked (string-append directory
+                                                                    (string-append "/" file))))))))
                    ordered))))
 
     (define (linked (path String)) (→ Syntax) (form "link-file" (list (StringSyntax path))))
@@ -107,14 +129,20 @@
                   (form "list" (map StringSyntax names)))))
 
     ;; `(define (NAME (key String)) (→ RESULT) (cond ((string=? key "K") VALUE) ... (else FALLBACK)))`.
-    (define (lookup-definition (name String) (result Syntax) (entries (List (Pair String Syntax))) (fallback Syntax))
+    (define (lookup-definition (name String)
+                               (result Syntax)
+                               (entries (List (Pair String Syntax)))
+                               (fallback Syntax))
       (→ Syntax)
       (form "define"
             (list (form name (list (form "key" (list (SymbolSyntax "String")))))
                   (form "→" (list result))
                   (form "cond"
                         (append (map (lambda (entry)
-                                       (ListSyntax (list (form "string=?" (list (SymbolSyntax "key") (StringSyntax (● entry first))))
+                                       (ListSyntax (list (form "string=?"
+                                                               (list (SymbolSyntax "key")
+                                                                     (StringSyntax
+                                                                      (● entry first))))
                                                          (● entry second))))
                                      entries)
                                 (list (form "else" (list fallback))))))))

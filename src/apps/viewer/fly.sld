@@ -12,7 +12,15 @@
    fly-exposure)
   (import
    (snail core base)
-   (only (snail shell app) Input KeyDown KeyUp PointerDown PointerMove PointerUp PointerCancel Wheel)
+   (only (snail shell app)
+         Input
+         KeyDown
+         KeyUp
+         PointerDown
+         PointerMove
+         PointerUp
+         PointerCancel
+         Wheel)
    (only (snail shell math) sin cos atan exp)
    (snail shell graphics pod)
    (only (snail shell graphics raster) Camera3D camera-3d Pinhole))
@@ -37,8 +45,12 @@
     ;; Back from the box's middle along +z by its largest extent, a
     ;; little above, looking at the middle.
     (define (fly-over (low (List F64)) (high (List F64))) (→ Fly)
-      (let* ((middle (map (lambda (axis) (* 0.5 (+ (list-ref low axis) (list-ref high axis)))) (iota 3)))
-             (extent (fold-left max 0.0 (map (lambda (axis) (- (list-ref high axis) (list-ref low axis))) (iota 3))))
+      (let* ((middle
+              (map (lambda (axis) (* 0.5 (+ (list-ref low axis) (list-ref high axis)))) (iota 3)))
+             (extent (fold-left max
+                                0.0
+                                (map (lambda (axis) (- (list-ref high axis) (list-ref low axis)))
+                                     (iota 3))))
              (back (* 1.2 extent)))
         (new Fly
           (x (list-ref middle 0))
@@ -55,7 +67,8 @@
       (match input
         ((KeyDown 91 _) (Fly-stops-set fly (- (● fly stops) 0.5)))
         ((KeyDown 93 _) (Fly-stops-set fly (+ (● fly stops) 0.5)))
-        ((KeyDown key _) (if (member? key (● fly held)) fly (Fly-held-set fly (Cons key (● fly held)))))
+        ((KeyDown key _)
+         (if (member? key (● fly held)) fly (Fly-held-set fly (Cons key (● fly held)))))
         ((KeyUp key) (Fly-held-set fly (filter (lambda (held) (not (= held key))) (● fly held))))
         ((PointerDown _ x y _) (Fly-drag-set fly (Some (new Pair (first x) (second y)))))
         ((PointerMove _ x y) (dragged fly x y))
@@ -68,7 +81,9 @@
       (match (● fly drag)
         ((Some (Pair from-x from-y))
          (let ((turned (Fly-yaw-set fly (- (● fly yaw) (* 0.004 (i32->f64 (- x from-x)))))))
-           (Fly-drag-set (Fly-pitch-set turned (clamped-pitch (- (● fly pitch) (* 0.004 (i32->f64 (- y from-y))))))
+           (Fly-drag-set (Fly-pitch-set turned
+                                        (clamped-pitch
+                                         (- (● fly pitch) (* 0.004 (i32->f64 (- y from-y))))))
                          (Some (new Pair (first x) (second y))))))
         ((None) fly)))
 
@@ -78,7 +93,8 @@
     (define (flown (fly Fly) (milliseconds I32)) (→ Fly)
       (let* ((step (* (● fly speed) (/ (i32->f64 milliseconds) 1000.0)))
              (axis (lambda ((plus I32) (minus I32)) (→ F64)
-                     (- (if (member? plus (● fly held)) 1.0 0.0) (if (member? minus (● fly held)) 1.0 0.0))))
+                     (- (if (member? plus (● fly held)) 1.0 0.0)
+                        (if (member? minus (● fly held)) 1.0 0.0))))
              (ahead (* step (axis 119 115)))
              (across (* step (axis 100 97)))
              (up (* step (axis 101 113)))
@@ -102,14 +118,15 @@
 
     (define (fly-camera (fly Fly) (aspect F64)) (→ Camera3D)
       (let ((forward (looking fly)))
-        (camera-3d (new Vec3f (x (f64->f32 (● fly x))) (y (f64->f32 (● fly y))) (z (f64->f32 (● fly z))))
-                   (new Vec3f
-                     (x (f64->f32 (+ (● fly x) (list-ref forward 0))))
-                     (y (f64->f32 (+ (● fly y) (list-ref forward 1))))
-                     (z (f64->f32 (+ (● fly z) (list-ref forward 2)))))
-                   (Pinhole fov)
-                   aspect
-                   1.0)))
+        (camera-3d
+         (new Vec3f (x (f64->f32 (● fly x))) (y (f64->f32 (● fly y))) (z (f64->f32 (● fly z))))
+         (new Vec3f
+           (x (f64->f32 (+ (● fly x) (list-ref forward 0))))
+           (y (f64->f32 (+ (● fly y) (list-ref forward 1))))
+           (z (f64->f32 (+ (● fly z) (list-ref forward 2)))))
+         (Pinhole fov)
+         aspect
+         1.0)))
 
     ;; Two to the stops.
     (define (fly-exposure (fly Fly)) (→ F32)

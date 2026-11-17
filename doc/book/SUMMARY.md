@@ -41,3 +41,4 @@
   - [Proposed WebGPU libraries](graphics/plan.md)
   - [Tensors and training](graphics/tensors.md)
   - [Path tracing primer](graphics/path-tracing.md)
+  - [The path tracer](graphics/tracer.md)

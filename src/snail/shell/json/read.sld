@@ -88,7 +88,9 @@
         (match exponent
           ((Some (Pair power end))
            (let ((magnitude (scaled (i64->f64 (● fraction digits)) (+ (● fraction scale) power))))
-             (Some (new Pair (first (JsonNumber (if negative (- 0.0 magnitude) magnitude))) (second end)))))
+             (Some (new Pair
+                     (first (JsonNumber (if negative (- 0.0 magnitude) magnitude)))
+                     (second end)))))
           ((None) (None)))))
 
     (record Decimal
@@ -103,7 +105,11 @@
       (if (and (< index (array-length chars)) (char-numeric? (array-ref chars index)))
           (let ((digit (- (char->integer (array-ref chars index)) 48)))
             (if (< digits 100000000000000000)
-                (decimal chars (+ index 1) (+ (* digits 10) digit) (if after-point (- scale 1) scale) after-point)
+                (decimal chars
+                         (+ index 1)
+                         (+ (* digits 10) digit)
+                         (if after-point (- scale 1) scale)
+                         after-point)
                 (decimal chars (+ index 1) digits (if after-point scale (+ scale 1)) after-point)))
           (new Decimal (digits digits) (scale scale) (end index))))
 

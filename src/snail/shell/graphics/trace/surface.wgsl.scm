@@ -88,7 +88,8 @@
 (fn octahedral ((n vec3f)) (-> vec2f)
     (let p (/ (get n xy) (+ (abs (get n x)) (abs (get n y)) (abs (get n z)))))
     (if ((< (get n z) 0.0)
-         (return (* (- 1.0 (abs (get p yx))) (select (vec2f -1.0) (vec2f 1.0) (>= p (vec2f 0.0)))))))
+         (return
+          (* (- 1.0 (abs (get p yx))) (select (vec2f -1.0) (vec2f 1.0) (>= p (vec2f 0.0)))))))
     (return p))
 
 (fn hashed ((p vec2f)) (-> f32)
@@ -105,7 +106,8 @@
     (if ((> (dot (get tangent xyz) (get tangent xyz)) 0.0)
          (let along (normalize (- (get tangent xyz) (* normal (dot normal (get tangent xyz))))))
          (let across (* (cross normal along) (get tangent w)))
-         (return (normalize (+ (* along (get local x)) (* across (get local y)) (* normal (get local z)))))))
+         (return (normalize
+                  (+ (* along (get local x)) (* across (get local y)) (* normal (get local z)))))))
     (let r1 (cross (get f p_y) normal))
     (let r2 (cross normal (get f p_x)))
     (let along (+ (* r1 (get f uv_x x)) (* r2 (get f uv_y x))))
@@ -138,10 +140,14 @@
     (let metal_rough (texel (get m textures y) f))
     (var (out Targets))
     (= (get out normals) (vec4f (octahedral normal) (octahedral geometric)))
-    (= (get out emission) (vec4f (* (get m emissive xyz) (decoded (get (texel (get m textures w) f) xyz))) 1.0))
+    (= (get out emission)
+       (vec4f (* (get m emissive xyz) (decoded (get (texel (get m textures w) f) xyz))) 1.0))
     (= (get out albedo) (vec4f (* (get m base_color xyz) (decoded (get base xyz))) 1.0))
     (= (get out material)
-       (vec4f (* (get m factors x) (get metal_rough z)) (* (get m factors y) (get metal_rough y)) 0.0 1.0))
+       (vec4f (* (get m factors x) (get metal_rough z))
+              (* (get m factors y) (get metal_rough y))
+              0.0
+              1.0))
     (let now (/ (get in clip_now xy) (get in clip_now w)))
     (let before (/ (get in clip_before xy) (get in clip_before w)))
     (= (get out motion) (* (- now before) (vec2f 0.5 -0.5)))

@@ -321,7 +321,7 @@
                             (iota 4))))
              (iota 16))))
 
-;; ---- URIs ----
+    ;; ---- URIs ----
 
     ;; A relative URI as the name of the file it refers to: each %XX
     ;; escape replaced by its byte, the bytes read as UTF-8, and `./`
@@ -382,8 +382,11 @@
                        (map (lambda (placed)
                               (Placed-matrix-set placed
                                                  (map (lambda (index)
-                                                        (let ((x (list-ref (● placed matrix) index)))
-                                                          (if (< (remainder index 4) 3) (* factor x) x)))
+                                                        (let ((x
+                                                               (list-ref (● placed matrix) index)))
+                                                          (if (< (remainder index 4) 3)
+                                                              (* factor x)
+                                                              x)))
                                                       (iota 16))))
                             (● gltf placed))))
 

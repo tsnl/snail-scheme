@@ -62,8 +62,12 @@
 ;; ---- Triangles ----
 
 (fn bvh_corner ((triangle u32) (k u32)) (-> vec3f)
-    (let at_word (+ (* (at bvh_indices (+ (* triangle 3u) k)) (u32 (get bvh_layout shape x))) (u32 (get bvh_layout shape y))))
-    (return (vec3f (at bvh_positions at_word) (at bvh_positions (+ at_word 1u)) (at bvh_positions (+ at_word 2u)))))
+    (let at_word (+
+                  (* (at bvh_indices (+ (* triangle 3u) k)) (u32 (get bvh_layout shape x)))
+                  (u32 (get bvh_layout shape y))))
+    (return (vec3f (at bvh_positions at_word)
+                   (at bvh_positions (+ at_word 1u))
+                   (at bvh_positions (+ at_word 2u)))))
 
 ;; Where the ray first meets the triangle (Möller and Trumbore), as t and
 ;; barycentrics, or t of -1.
@@ -90,17 +94,28 @@
 (fn bvh_entering ((low vec3f) (high vec3f) (origin vec3f) (inverse vec3f) (limit f32)) (-> f32)
     (let t0 (* (- low origin) inverse))
     (let t1 (* (- high origin) inverse))
-    (let near (max (max (min (get t0 x) (get t1 x)) (min (get t0 y) (get t1 y))) (min (get t0 z) (get t1 z))))
-    (let far (min (min (max (get t0 x) (get t1 x)) (max (get t0 y) (get t1 y))) (max (get t0 z) (get t1 z))))
+    (let near (max
+               (max (min (get t0 x) (get t1 x)) (min (get t0 y) (get t1 y)))
+               (min (get t0 z) (get t1 z))))
+    (let far (min
+              (min (max (get t0 x) (get t1 x)) (max (get t0 y) (get t1 y)))
+              (max (get t0 z) (get t1 z))))
     (if ((not (and (<= near far) (>= far 0.0) (<= near limit))) (return -1.0)))
     (return (max near 0.0)))
 
 ;; The hit with the triangle, when it is nearer than the one so far and
 ;; its cutout does not let the ray through.
-(fn bvh_tested ((hit (ptr function RayHit)) (triangle u32) (origin vec3f) (direction vec3f) (seed (ptr function u32)))
+(fn bvh_tested
+    ((hit (ptr function RayHit))
+     (triangle u32)
+     (origin vec3f)
+     (direction vec3f)
+     (seed (ptr function u32)))
     (-> bool)
     (let found (bvh_crossing triangle origin direction))
-    (if ((and (> (get found x) 0.0) (< (get found x) (get (deref hit) t)) (not (cutout triangle (get found yz) seed)))
+    (if ((and (> (get found x) 0.0)
+              (< (get found x) (get (deref hit) t))
+              (not (cutout triangle (get found yz) seed)))
          (= (deref hit) (RayHit (get found x) triangle (get found yz)))
          (return true)))
     (return false))
@@ -111,36 +126,50 @@
 ;; walk goes on into the nearer and keeps the farther. A walk gives up
 ;; after 8192 steps, far more than a ray through Sponza needs, so no ray
 ;; can hold up the device long enough to lose it.
-(fn bvh_traced ((origin vec3f) (direction vec3f) (limit f32) (occlusion bool) (seed (ptr function u32))) (-> RayHit)
+(fn bvh_traced
+    ((origin vec3f) (direction vec3f) (limit f32) (occlusion bool) (seed (ptr function u32)))
+    (-> RayHit)
     (var hit (RayHit limit BVH_NONE (vec2f 0.0)))
     (let inverse (/ (vec3f 1.0) (select direction (vec3f 1e-30) (== direction (vec3f 0.0)))))
     (var (stack (array u32 64)))
     (var top 0)
     (var node 0u)
     (for ((var steps 0) (< steps 8192) (+= steps 1))
-      (let w (at bvh_nodes node))
-      (let tl (bvh_entering (get w left_low) (get w left_high) origin inverse (get hit t)))
-      (var go_left (>= tl 0.0))
-      (if ((and go_left (!= (bit-and (get w left) BVH_TRIANGLE) 0u))
-           (= go_left false)
-           (if ((and (bvh_tested (address-of hit) (bit-xor (get w left) BVH_TRIANGLE) origin direction seed) occlusion)
-                (return hit)))))
-      (let tr (bvh_entering (get w right_low) (get w right_high) origin inverse (get hit t)))
-      (var go_right (>= tr 0.0))
-      (if ((and go_right (!= (bit-and (get w right) BVH_TRIANGLE) 0u))
-           (= go_right false)
-           (if ((and (bvh_tested (address-of hit) (bit-xor (get w right) BVH_TRIANGLE) origin direction seed) occlusion)
-                (return hit)))))
-      (= go_left (and go_left (<= tl (get hit t))))
-      (= go_right (and go_right (<= tr (get hit t))))
-      (if ((and go_left go_right)
-           (let near_left (<= tl tr))
-           (if ((< top 64) (= (at stack top) (select (get w left) (get w right) near_left)) (+= top 1)))
-           (= node (select (get w right) (get w left) near_left)))
-          (go_left (= node (get w left)))
-          (go_right (= node (get w right)))
-          ((== top 0) (break))
-          (else (-= top 1) (= node (at stack top)))))
+         (let w (at bvh_nodes node))
+         (let tl (bvh_entering (get w left_low) (get w left_high) origin inverse (get hit t)))
+         (var go_left (>= tl 0.0))
+         (if ((and go_left (!= (bit-and (get w left) BVH_TRIANGLE) 0u))
+              (= go_left false)
+              (if ((and (bvh_tested (address-of hit)
+                                    (bit-xor (get w left) BVH_TRIANGLE)
+                                    origin
+                                    direction
+                                    seed)
+                        occlusion)
+                   (return hit)))))
+         (let tr (bvh_entering (get w right_low) (get w right_high) origin inverse (get hit t)))
+         (var go_right (>= tr 0.0))
+         (if ((and go_right (!= (bit-and (get w right) BVH_TRIANGLE) 0u))
+              (= go_right false)
+              (if ((and (bvh_tested (address-of hit)
+                                    (bit-xor (get w right) BVH_TRIANGLE)
+                                    origin
+                                    direction
+                                    seed)
+                        occlusion)
+                   (return hit)))))
+         (= go_left (and go_left (<= tl (get hit t))))
+         (= go_right (and go_right (<= tr (get hit t))))
+         (if ((and go_left go_right)
+              (let near_left (<= tl tr))
+              (if ((< top 64)
+                   (= (at stack top) (select (get w left) (get w right) near_left))
+                   (+= top 1)))
+              (= node (select (get w right) (get w left) near_left)))
+             (go_left (= node (get w left)))
+             (go_right (= node (get w right)))
+             ((== top 0) (break))
+             (else (-= top 1) (= node (at stack top)))))
     (return hit))
 
 ;; ---- Queries ----
@@ -152,7 +181,12 @@
 (fn queried ((i u32) (occlusion bool))
     (let ray (at rays i))
     (var seed ((bitcast u32) (get ray direction w)))
-    (= (get (at rays i) hit) (bvh_traced (get ray origin xyz) (get ray direction xyz) (get ray origin w) occlusion (address-of seed))))
+    (= (get (at rays i) hit)
+       (bvh_traced (get ray origin xyz)
+                   (get ray direction xyz)
+                   (get ray origin w)
+                   occlusion
+                   (address-of seed))))
 
 (fn (@compute) (@workgroup_size 64) intersect (((@builtin global_invocation_id) id vec3u))
     (let i (ray_item id))

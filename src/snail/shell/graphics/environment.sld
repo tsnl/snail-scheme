@@ -81,7 +81,8 @@
               (if (or (< width 8) (> width 32767))
                   (Err "rows this wide are not run-length encoded")
                   (match (row-starts bytes data width height)
-                    ((Some rows) (Ok (new Hdr (width width) (height height) (bytes bytes) (rows rows))))
+                    ((Some rows)
+                     (Ok (new Hdr (width width) (height height) (bytes bytes) (rows rows))))
                     ((None) (Err "a row is not run-length encoded"))))))))))
 
     (define (byte-at (bytes Bytes) (index I64)) (→ I64)
@@ -112,7 +113,9 @@
     (define (after-text (bytes Bytes) (at I64) (text String)) (→ (Option I64))
       (let ((chars (string->array text)))
         (if (fold-left (lambda (same index)
-                         (and same (= (byte-at bytes (+ at index)) (char->integer (array-ref chars index)))))
+                         (and same
+                              (= (byte-at bytes (+ at index))
+                                 (char->integer (array-ref chars index)))))
                        #t
                        (iota (array-length chars)))
             (Some (+ at (array-length chars)))
@@ -137,7 +140,10 @@
     (define (words (values (Array I64))) (→ Bytes)
       (array-generate (* 4 (array-length values))
                       (lambda ((index I64)) (→ U8)
-                        (i32->u8 (i64->i32 (remainder (quotient (array-ref values (quotient index 4)) (expt-256 (remainder index 4))) 256))))))
+                        (i32->u8
+                         (i64->i32 (remainder (quotient (array-ref values (quotient index 4))
+                                                        (expt-256 (remainder index 4)))
+                                              256))))))
 
     (define (row-begins? (bytes Bytes) (at I64) (width I64)) (→ Bool)
       (and (= (byte-at bytes at) 2)
@@ -177,8 +183,16 @@
                 (uniform (shape-uniform (sized hdr width height factor)))
                 (kernels (environment-kernels)))
            (let* ((encoder (create-command-encoder)) (pass (begin-compute-pass encoder)))
-             (run pass kernels "unrle" (list (buffer 0 file) (buffer 1 rows) (buffer 2 rgbe) (buffer 3 uniform)) (rows-of (● hdr height)))
-             (run pass kernels "downsample" (list (buffer 2 rgbe) (buffer 3 uniform) (TextureEntry 4 (● radiance view))) (texels-of width height))
+             (run pass
+                  kernels
+                  "unrle"
+                  (list (buffer 0 file) (buffer 1 rows) (buffer 2 rgbe) (buffer 3 uniform))
+                  (rows-of (● hdr height)))
+             (run pass
+                  kernels
+                  "downsample"
+                  (list (buffer 2 rgbe) (buffer 3 uniform) (TextureEntry 4 (● radiance view)))
+                  (texels-of width height))
              (end-compute-pass pass)
              (submit (list (finish encoder))))
            (for-each (lambda (spent) (destroy (BufferObject spent))) (list file rows rgbe uniform))
@@ -186,7 +200,11 @@
 
     (define (sized (hdr Hdr) (width I64) (height I64) (factor I64)) (→ EnvironmentShape)
       (new EnvironmentShape
-        (size (new Vec4i (x (i64->i32 (● hdr width))) (y (i64->i32 (● hdr height))) (z (i64->i32 width)) (w (i64->i32 height))))
+        (size (new Vec4i
+                (x (i64->i32 (● hdr width)))
+                (y (i64->i32 (● hdr height)))
+                (z (i64->i32 width))
+                (w (i64->i32 height))))
         (factor (new Vec4i (x (i64->i32 factor)) (y 0) (z 0) (w 0)))
         (sun (zero))
         (sun-light (zero))
@@ -201,7 +219,11 @@
       (let* ((height (quotient width 2))
              (radiance (plane "environment/radiance" width height (Rgba32Float)))
              (uniform (shape-uniform (new EnvironmentShape
-                                       (size (new Vec4i (x 0) (y 0) (z (i64->i32 width)) (w (i64->i32 height))))
+                                       (size (new Vec4i
+                                               (x 0)
+                                               (y 0)
+                                               (z (i64->i32 width))
+                                               (w (i64->i32 height))))
                                        (factor (new Vec4i (x 1) (y 0) (z 0) (w 0)))
                                        (sun (● sky sun))
                                        (sun-light (● sky sun-light))
@@ -210,7 +232,11 @@
                                        (ground (● sky ground)))))
              (kernels (environment-kernels)))
         (let* ((encoder (create-command-encoder)) (pass (begin-compute-pass encoder)))
-          (run pass kernels "sky" (list (buffer 3 uniform) (TextureEntry 4 (● radiance view))) (texels-of width height))
+          (run pass
+               kernels
+               "sky"
+               (list (buffer 3 uniform) (TextureEntry 4 (● radiance view)))
+               (texels-of width height))
           (end-compute-pass pass)
           (submit (list (finish encoder))))
         (destroy (BufferObject uniform))
@@ -218,14 +244,29 @@
 
     ;; The radiance with its table: each row's distribution, then the
     ;; rows'.
-    (define (with-table (kernels (List (Pair String GpuComputePipeline))) (radiance Plane) (width I64) (height I64))
+    (define (with-table (kernels (List (Pair String GpuComputePipeline)))
+                        (radiance Plane)
+                        (width I64)
+                        (height I64))
       (→ Environment)
       (! gpu)
       (let* ((table (plane "environment/table" (+ width 1) (+ height 1) (R32Float)))
              (sums (storage "environment/sums" (* 4 height))))
         (let* ((encoder (create-command-encoder)) (pass (begin-compute-pass encoder)))
-          (run pass kernels "weigh" (list (TextureEntry 5 (● radiance view)) (buffer 6 sums) (TextureEntry 7 (● table view))) (rows-of height))
-          (run pass kernels "marginal" (list (TextureEntry 5 (● radiance view)) (buffer 6 sums) (TextureEntry 7 (● table view))) (new Dispatch (x 1) (y 1)))
+          (run pass
+               kernels
+               "weigh"
+               (list (TextureEntry 5 (● radiance view))
+                     (buffer 6 sums)
+                     (TextureEntry 7 (● table view)))
+               (rows-of height))
+          (run pass
+               kernels
+               "marginal"
+               (list (TextureEntry 5 (● radiance view))
+                     (buffer 6 sums)
+                     (TextureEntry 7 (● table view)))
+               (new Dispatch (x 1) (y 1)))
           (end-compute-pass pass)
           (submit (list (finish encoder))))
         (destroy (BufferObject sums))
@@ -240,7 +281,9 @@
 
     ;; Group 2 of `pipeline`, a kernel that includes
     ;; `environment-light-shader`.
-    (define (environment-group (pipeline GpuComputePipeline) (environment Environment)) (→ GpuBindGroup) (! gpu)
+    (define (environment-group (pipeline GpuComputePipeline) (environment Environment))
+      (→ GpuBindGroup)
+      (! gpu)
       (create-bind-group (new BindGroupDescriptor
                            (label "environment")
                            (pipeline (ComputePipeline pipeline))
@@ -263,7 +306,8 @@
     (define (environment-kernels) (→ (List (Pair String GpuComputePipeline))) (! gpu)
       (let ((module (create-shader-module (new ShaderModuleDescriptor
                                             (label "environment")
-                                            (code (string-append (declarations shape-shape) environment-shader))))))
+                                            (code (string-append (declarations shape-shape)
+                                                                 environment-shader))))))
         (map (lambda (entry)
                (new Pair
                  (first entry)
@@ -306,7 +350,10 @@
         b))
 
     (define (storage (label String) (size I64)) (→ GpuBuffer) (! gpu)
-      (create-buffer (new BufferDescriptor (label label) (size (i64->i32 (max 16 size))) (usage (list (Storage) (CopyDst))))))
+      (create-buffer (new BufferDescriptor
+                       (label label)
+                       (size (i64->i32 (max 16 size)))
+                       (usage (list (Storage) (CopyDst))))))
 
     (define (filled (label String) (bytes Bytes)) (→ GpuBuffer) (! gpu)
       (let ((b (storage label (array-length bytes))))

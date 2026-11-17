@@ -123,13 +123,16 @@
 ;; triangle's texels per unit of world area, scaled by how obliquely the
 ;; cone meets it.
 (fn level_at ((a Vertex) (b Vertex) (c Vertex) (width f32) (facing f32)) (-> f32)
-    (let world (length (cross (- (get b position) (get a position)) (- (get c position) (get a position)))))
+    (let world (length
+                (cross (- (get b position) (get a position))
+                       (- (get c position) (get a position)))))
     (let du (- (uv_of b) (uv_of a)))
     (let dv (- (uv_of c) (uv_of a)))
     (let texels (* (abs (- (* (get du x) (get dv y)) (* (get du y) (get dv x))))
                    (* (get tracing view y) (get tracing view y))))
     (let ratio (/ texels (max world 1e-20)))
-    (return (max 0.0 (+ (* 0.5 (log2 (max ratio 1e-20))) (log2 (/ (max width 1e-8) (max facing 0.05)))))))
+    (return
+     (max 0.0 (+ (* 0.5 (log2 (max ratio 1e-20))) (log2 (/ (max width 1e-8) (max facing 0.05)))))))
 
 ;; A later hit, from the triangle and its barycentrics, facing `toward`.
 (fn hit_surface ((triangle u32) (b vec2f) (toward vec3f) (width f32)) (-> Surface)
@@ -138,7 +141,9 @@
     (let c (corner triangle 2u))
     (let w (- 1.0 (get b x) (get b y)))
     (let m (at materials (get a material)))
-    (var geometric (normalize (cross (- (get bb position) (get a position)) (- (get c position) (get a position)))))
+    (var geometric
+         (normalize
+          (cross (- (get bb position) (get a position)) (- (get c position) (get a position)))))
     (if ((< (dot geometric toward) 0.0) (= geometric (- geometric))))
     (var normal (+ (* (get a normal) w) (* (get bb normal) (get b x)) (* (get c normal) (get b y))))
     (if ((< (dot normal normal) 1e-12) (= normal geometric)))
@@ -152,15 +157,22 @@
     (= (get s normal) normal)
     (= (get s geometric) geometric)
     (= (get s albedo) (* (get m base_color xyz) (decoded (get base xyz))))
-    (= (get s emission) (* (get m emissive xyz) (decoded (get (texel (get m textures w) uv level) xyz))))
+    (= (get s emission)
+       (* (get m emissive xyz) (decoded (get (texel (get m textures w) uv level) xyz))))
     (= (get s metallic) (* (get m factors x) (get metal_rough z)))
     (= (get s roughness) (* (get m factors y) (get metal_rough y)))
     (return s))
 
 ;; The ray leaves `s` from just above its surface, on the side it goes.
 (fn leaving ((s Surface) (direction vec3f)) (-> vec3f)
-    (let lift (* 1e-4 (max 1.0 (max (abs (get s position x)) (max (abs (get s position y)) (abs (get s position z)))))))
-    (return (+ (get s position) (* (get s geometric) (select (- lift) lift (>= (dot direction (get s geometric)) 0.0))))))
+    (let lift (*
+               1e-4
+               (max 1.0
+                    (max (abs (get s position x))
+                         (max (abs (get s position y)) (abs (get s position z)))))))
+    (return (+ (get s position)
+               (* (get s geometric)
+                  (select (- lift) lift (>= (dot direction (get s geometric)) 0.0))))))
 
 ;; ---- Light ----
 
@@ -177,9 +189,10 @@
     (let sign (select -1.0 1.0 (>= (get n z) 0.0)))
     (let a (/ -1.0 (+ sign (get n z))))
     (let b (* (get n x) (get n y) a))
-    (return (mat3x3f (vec3f (+ 1.0 (* sign (get n x) (get n x) a)) (* sign b) (* (- sign) (get n x)))
-                     (vec3f b (+ sign (* (get n y) (get n y) a)) (- (get n y)))
-                     n)))
+    (return
+     (mat3x3f (vec3f (+ 1.0 (* sign (get n x) (get n x) a)) (* sign b) (* (- sign) (get n x)))
+              (vec3f b (+ sign (* (get n y) (get n y) a)) (- (get n y)))
+              n)))
 
 (fn alpha_of ((s Surface)) (-> f32)
     (return (max (* (get s roughness) (get s roughness)) 0.002)))
@@ -203,9 +216,15 @@
     (if ((or (<= nl 0.0) (<= nv 0.0)) (return (vec3f 0.0))))
     (let h (normalize (+ v l)))
     (let alpha (alpha_of s))
-    (let fresnel (+ (reflectance s) (* (- (vec3f 1.0) (reflectance s)) (pow (- 1.0 (max (dot v h) 0.0)) 5.0))))
-    (let specular (/ (* fresnel (ggx alpha (max (dot (get s normal) h) 0.0)) (masking alpha nv) (masking alpha nl))
-                     (* 4.0 nv nl)))
+    (let fresnel (+
+                  (reflectance s)
+                  (* (- (vec3f 1.0) (reflectance s)) (pow (- 1.0 (max (dot v h) 0.0)) 5.0))))
+    (let specular (/
+                   (* fresnel
+                      (ggx alpha (max (dot (get s normal) h) 0.0))
+                      (masking alpha nv)
+                      (masking alpha nl))
+                   (* 4.0 nv nl)))
     (let diffuse (* (- (vec3f 1.0) fresnel) (- 1.0 (get s metallic)) (/ (get s albedo) PI)))
     (return (* (+ diffuse specular) nl)))
 
@@ -229,7 +248,10 @@
 (fn visible_normal ((v vec3f) (alpha f32) (r vec2f)) (-> vec3f)
     (let vh (normalize (vec3f (* alpha (get v x)) (* alpha (get v y)) (get v z))))
     (let lensq (+ (* (get vh x) (get vh x)) (* (get vh y) (get vh y))))
-    (let t1 (select (vec3f 1.0 0.0 0.0) (/ (vec3f (- (get vh y)) (get vh x) 0.0) (sqrt lensq)) (> lensq 0.0)))
+    (let t1 (select
+             (vec3f 1.0 0.0 0.0)
+             (/ (vec3f (- (get vh y)) (get vh x) 0.0) (sqrt lensq))
+             (> lensq 0.0)))
     (let t2 (cross vh t1))
     (let radius (sqrt (get r x)))
     (let phi (* 2.0 PI (get r y)))
@@ -248,7 +270,10 @@
          (return (reflect (- v) (* frame m)))))
     (let radius (sqrt (get r x)))
     (let phi (* 2.0 PI (get r y)))
-    (return (* frame (vec3f (* radius (cos phi)) (* radius (sin phi)) (sqrt (max 0.0 (- 1.0 (get r x))))))))
+    (return (* frame
+               (vec3f (* radius (cos phi))
+                      (* radius (sin phi))
+                      (sqrt (max 0.0 (- 1.0 (get r x))))))))
 
 ;; Whether every component is a number and not infinite: a NaN fails both
 ;; comparisons.
@@ -262,23 +287,44 @@
     (return (+ (get id x) (* (get id y) 4194240u))))
 
 (fn seeded ((pixel u32) (salt u32)) (-> u32)
-    (return (pcg (bit-xor pixel (pcg (+ (* (u32 (get tracing frame x)) 64u) (* (u32 (get wave step x)) 4u) salt))))))
+    (return (pcg (bit-xor pixel
+                          (pcg (+ (* (u32 (get tracing frame x)) 64u)
+                                  (* (u32 (get wave step x)) 4u)
+                                  salt))))))
 
 (fn ray_from ((s Surface) (direction vec3f) (seed u32) (payload vec4f) (more vec4f)) (-> Ray)
-    (return (Ray (vec4f (leaving s direction) 1e30) (vec4f direction ((bitcast f32) seed)) (RayHit 0.0 0u (vec2f 0.0)) payload more)))
+    (return (Ray (vec4f (leaving s direction) 1e30)
+                 (vec4f direction ((bitcast f32) seed))
+                 (RayHit 0.0 0u (vec2f 0.0))
+                 payload
+                 more)))
 
 ;; From `s`, seen along `v` by a path of `weight`: a shadow ray toward a
 ;; direction in the sun's disc, and the scattered ray, unless the path
 ;; ends there.
-(fn continued ((s Surface) (v vec3f) (path_weight vec3f) (pixel u32) (width f32) (spread f32) (seed (ptr function u32)))
-    (let chosen (environment_sample (vec4f (random seed) (random seed) (random seed) (random seed))))
+(fn continued
+    ((s Surface)
+     (v vec3f)
+     (path_weight vec3f)
+     (pixel u32)
+     (width f32)
+     (spread f32)
+     (seed (ptr function u32)))
+    (let chosen (environment_sample
+                 (vec4f (random seed) (random seed) (random seed) (random seed))))
     (let toward (get chosen xyz))
     (let f (evaluated s v toward))
     (if ((and (> (get chosen w) 0.0) (> (dot f f) 0.0))
-         (let light (* (environment_light toward) (/ (balanced (get chosen w) (density s v toward)) (get chosen w))))
+         (let light (*
+                     (environment_light toward)
+                     (/ (balanced (get chosen w) (density s v toward)) (get chosen w))))
          (let slot (atomicAdd (address-of (at counts (u32 (get wave slots z)))) 1u))
          (= (at shadows slot)
-            (ray_from s toward (pcg (deref seed)) (vec4f (* path_weight f light) ((bitcast f32) pixel)) (vec4f 0.0)))))
+            (ray_from s
+                      toward
+                      (pcg (deref seed))
+                      (vec4f (* path_weight f light) ((bitcast f32) pixel))
+                      (vec4f 0.0)))))
     (let l (scattered s v seed))
     (let p (density s v l))
     (if ((not (and (> p 1e-6) (finite3 l) (> (dot l (get s geometric)) 0.0))) (return)))
@@ -290,7 +336,11 @@
          (/= weight survive)))
     (let slot (atomicAdd (address-of (at counts (u32 (get wave slots y)))) 1u))
     (= (at outgoing slot)
-       (ray_from s l (pcg (deref seed)) (vec4f weight ((bitcast f32) pixel)) (vec4f width (+ spread (* 0.25 (get s roughness))) p 0.0))))
+       (ray_from s
+                 l
+                 (pcg (deref seed))
+                 (vec4f weight ((bitcast f32) pixel))
+                 (vec4f width (+ spread (* 0.25 (get s roughness))) p 0.0))))
 
 ;; ---- Steps ----
 
@@ -306,7 +356,10 @@
     (if ((>= z 1.0)
          (let ndc (- (* (/ (+ (vec2f pixel) 0.5) (vec2f size)) 2.0) 1.0))
          (let far (* (get camera inverse) (vec4f (get ndc x) (- (get ndc y)) 1.0 1.0)))
-         (= (at radiance index) (vec4f (environment_light (normalize (- (/ (get far xyz) (get far w)) (get camera eye xyz)))) 1.0))
+         (= (at radiance index)
+            (vec4f
+             (environment_light (normalize (- (/ (get far xyz) (get far w)) (get camera eye xyz))))
+             1.0))
          (return)))
     (let s (first_surface pixel z))
     (= (at radiance index) (vec4f (get s emission) 1.0))

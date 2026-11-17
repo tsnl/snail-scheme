@@ -108,7 +108,8 @@
                     (environment environment)
                     (surface (surface-pipeline))
                     (steps (path-steps))
-                    (rays (make-ray-kernels (string-append (declarations material-shape) scene-shader)))
+                    (rays
+                     (make-ray-kernels (string-append (declarations material-shape) scene-shader)))
                     (camera (uniform "trace/camera" (stride camera-shape)))
                     (tracing (uniform "trace/tracing" (stride tracing-shape)))
                     (wave (wave-uniform))
@@ -137,7 +138,11 @@
               (new Tracer
                 (kit kit)
                 (targets targets)
-                (svgf (resize-svgf (● tracer svgf) (svgf-inputs kit targets) (● post targets light-view) width height))
+                (svgf (resize-svgf (● tracer svgf)
+                                   (svgf-inputs kit targets)
+                                   (● post targets light-view)
+                                   width
+                                   height))
                 (post post)
                 (last (● tracer last))
                 (still 0)
@@ -197,19 +202,43 @@
         (set-compute-bind-group pass 2 (● targets primary-environment))
         (over-screen pass targets (● steps primary) (● targets primary-group))
         (for-each (lambda (bounce)
-                    (trace-rays pass (● rays occlude) (list-ref (● targets shadow-groups) bounce) (Some (● targets occlude-cutout)) capacity)
-                    (over-queue pass targets (● steps connect) (list-ref (● targets connect-groups) bounce) (None))
-                    (trace-rays pass (● rays intersect) (list-ref (● targets ray-groups) bounce) (Some (● targets intersect-cutout)) capacity)
+                    (trace-rays pass
+                                (● rays occlude)
+                                (list-ref (● targets shadow-groups) bounce)
+                                (Some (● targets occlude-cutout))
+                                capacity)
+                    (over-queue pass
+                                targets
+                                (● steps connect)
+                                (list-ref (● targets connect-groups) bounce)
+                                (None))
+                    (trace-rays pass
+                                (● rays intersect)
+                                (list-ref (● targets ray-groups) bounce)
+                                (Some (● targets intersect-cutout))
+                                capacity)
                     (set-compute-bind-group pass 2 (● targets shade-environment))
-                    (over-queue pass targets (● steps shade) (list-ref (● targets shade-groups) bounce) (Some (● targets shade-scene))))
+                    (over-queue pass
+                                targets
+                                (● steps shade)
+                                (list-ref (● targets shade-groups) bounce)
+                                (Some (● targets shade-scene))))
                   (iota bounces))
         (over-screen pass targets (● steps gather) (● targets gather-group))
         (end-compute-pass pass)))
 
-    (define (over-screen (pass GpuComputePass) (targets Targets) (pipeline GpuComputePipeline) (group GpuBindGroup)) (→ Unit) (! gpu)
+    (define (over-screen (pass GpuComputePass)
+                         (targets Targets)
+                         (pipeline GpuComputePipeline)
+                         (group GpuBindGroup))
+      (→ Unit)
+      (! gpu)
       (set-compute-pipeline pass pipeline)
       (set-compute-bind-group pass 0 group)
-      (dispatch-workgroups pass (quotient (+ (● targets width) 7) 8) (quotient (+ (● targets height) 7) 8) 1))
+      (dispatch-workgroups pass
+                           (quotient (+ (● targets width) 7) 8)
+                           (quotient (+ (● targets height) 7) 8)
+                           1))
 
     (define (over-queue (pass GpuComputePass)
                         (targets Targets)
@@ -271,7 +300,11 @@
                                         (colors (map (lambda (plane)
                                                        (Some (new ColorAttachment
                                                                (view (● plane view))
-                                                               (load (Clear (new Color (red 0.0) (green 0.0) (blue 0.0) (alpha 0.0))))
+                                                               (load (Clear (new Color
+                                                                              (red 0.0)
+                                                                              (green 0.0)
+                                                                              (blue 0.0)
+                                                                              (alpha 0.0))))
                                                                (store #t))))
                                                      (● targets planes)))
                                         (depth (Some (new DepthAttachment
@@ -302,7 +335,9 @@
                                  (make-array 0 (i32->u8 0))
                                  (map (lambda (bounce)
                                         (let ((bytes (pod-bytes wave-shape (wave-of bounce))))
-                                          (array-append bytes (make-array (- 256 (array-length bytes)) (i32->u8 0)))))
+                                          (array-append bytes
+                                                        (make-array (- 256 (array-length bytes))
+                                                                    (i32->u8 0)))))
                                       (iota (+ bounces 1)))))
         b))
 
@@ -351,11 +386,25 @@
 
     (define (targets-for (kit Kit) (width I32) (height I32)) (→ Targets) (! gpu)
       (let* ((pixels (* (i32->i64 (max 1 width)) (i32->i64 (max 1 height))))
-             (planes (map (lambda (format) (screen-plane "trace/gbuffer" width height format (list (RenderAttachment) (TextureBinding))))
+             (planes (map (lambda (format)
+                            (screen-plane "trace/gbuffer"
+                                          width
+                                          height
+                                          format
+                                          (list (RenderAttachment) (TextureBinding))))
                           planes-formats))
-             (depth (screen-plane "trace/depth" width height (Depth32Float) (list (RenderAttachment) (TextureBinding))))
-             (noisy (screen-plane "trace/noisy" width height (Rgba16Float) (list (StorageBinding) (TextureBinding))))
-             (queues (map (lambda (index) (storage "trace/rays" (* ray-size pixels) (Nil))) (iota 2)))
+             (depth (screen-plane "trace/depth"
+                                  width
+                                  height
+                                  (Depth32Float)
+                                  (list (RenderAttachment) (TextureBinding))))
+             (noisy (screen-plane "trace/noisy"
+                                  width
+                                  height
+                                  (Rgba16Float)
+                                  (list (StorageBinding) (TextureBinding))))
+             (queues
+              (map (lambda (index) (storage "trace/rays" (* ray-size pixels) (Nil))) (iota 2)))
              (shadows (storage "trace/shadows" (* ray-size pixels) (Nil)))
              (radiance (storage "trace/radiance" (* 16 pixels) (Nil)))
              (counts (storage "trace/counts" (* 256 (* 2 bounces)) (list (CopyDst)))))
@@ -384,7 +433,11 @@
                                            (TextureEntry 12 (● (list-ref planes 3) view))
                                            (TextureEntry 13 (● depth view)))))
           (shadow-groups (per-bounce (lambda (bounce)
-                                       (ray-group (● kit rays occlude) (● kit bvh) shadows counts (count-at (shadows-word bounce))))))
+                                       (ray-group (● kit rays occlude)
+                                                  (● kit bvh)
+                                                  shadows
+                                                  counts
+                                                  (count-at (shadows-word bounce))))))
           (connect-groups (per-bounce (lambda (bounce)
                                         (step-group (● kit steps connect)
                                                     (list (wave-entry kit bounce)
@@ -401,13 +454,25 @@
                                       (step-group (● kit steps shade)
                                                   (list (BufferEntry 1 (● kit tracing) 0 0)
                                                         (wave-entry kit (+ bounce 1))
-                                                        (BufferEntry 3 (list-ref queues (remainder bounce 2)) 0 0)
-                                                        (BufferEntry 4 (list-ref queues (remainder (+ bounce 1) 2)) 0 0)
+                                                        (BufferEntry 3
+                                                                     (list-ref queues
+                                                                               (remainder bounce 2))
+                                                                     0
+                                                                     0)
+                                                        (BufferEntry 4
+                                                                     (list-ref queues
+                                                                               (remainder
+                                                                                (+ bounce 1)
+                                                                                2))
+                                                                     0
+                                                                     0)
                                                         (BufferEntry 5 shadows 0 0)
                                                         (BufferEntry 6 counts 0 0)
                                                         (BufferEntry 7 radiance 0 0))))))
           (gather-group (step-group (● kit steps gather)
-                                    (list (BufferEntry 7 radiance 0 0) (TextureEntry 13 (● depth view)) (TextureEntry 14 (● noisy view)))))
+                                    (list (BufferEntry 7 radiance 0 0)
+                                          (TextureEntry 13 (● depth view))
+                                          (TextureEntry 14 (● noisy view)))))
           (occlude-cutout (scene-group (● kit rays occlude) (● kit scene)))
           (intersect-cutout (scene-group (● kit rays intersect) (● kit scene)))
           (shade-scene (scene-group (● kit steps shade) (● kit scene)))
@@ -422,7 +487,9 @@
     (define (wave-entry (kit Kit) (bounce I64)) (→ BindGroupEntry)
       (BufferEntry 2 (● kit wave) (i64->i32 (* 256 bounce)) 256))
 
-    (define (step-group (pipeline GpuComputePipeline) (entries (List BindGroupEntry))) (→ GpuBindGroup) (! gpu)
+    (define (step-group (pipeline GpuComputePipeline) (entries (List BindGroupEntry)))
+      (→ GpuBindGroup)
+      (! gpu)
       (group "trace/step" (ComputePipeline pipeline) 0 entries))
 
     ;; Group 1 of a kernel that reads the scene (scene.wgsl.scm).
@@ -463,13 +530,19 @@
                                    (● targets shade-groups))))
       (for-each (lambda (buffer) (destroy (BufferObject buffer)))
                 (concatenate (list (● targets queues)
-                                   (list (● targets shadows) (● targets radiance) (● targets counts)))))
+                                   (list (● targets shadows)
+                                         (● targets radiance)
+                                         (● targets counts)))))
       (for-each (lambda (plane)
                   (destroy (ViewObject (● plane view)))
                   (destroy (TextureObject (● plane texture))))
                 (Cons (● targets depth) (Cons (● targets noisy) (● targets planes)))))
 
-    (define (screen-plane (label String) (width I32) (height I32) (format TextureFormat) (usage (List TextureUsage)))
+    (define (screen-plane (label String)
+                          (width I32)
+                          (height I32)
+                          (format TextureFormat)
+                          (usage (List TextureUsage)))
       (→ Plane)
       (! gpu)
       (let ((texture (create-texture (new TextureDescriptor
@@ -483,20 +556,25 @@
         (new Plane (texture texture) (view (view-of texture 1)))))
 
     (define (storage (label String) (size I64) (more (List BufferUsage))) (→ GpuBuffer) (! gpu)
-      (create-buffer (new BufferDescriptor (label label) (size (i64->i32 (max 16 size))) (usage (Cons (Storage) more)))))
+      (create-buffer (new BufferDescriptor
+                       (label label)
+                       (size (i64->i32 (max 16 size)))
+                       (usage (Cons (Storage) more)))))
 
     ;; ---- Pipelines ----
 
     (define (path-steps) (→ Steps) (! gpu)
       (let ((module (create-shader-module (new ShaderModuleDescriptor
                                             (label "trace/path")
-                                            (code (concatenate-strings (list (declarations camera-shape)
-                                                                             (declarations tracing-shape)
-                                                                             (declarations wave-shape)
-                                                                             (declarations material-shape)
-                                                                             scene-shader
-                                                                             environment-light-shader
-                                                                             path-shader)))))))
+                                            (code
+                                             (concatenate-strings (list (declarations camera-shape)
+                                                                        (declarations tracing-shape)
+                                                                        (declarations wave-shape)
+                                                                        (declarations
+                                                                         material-shape)
+                                                                        scene-shader
+                                                                        environment-light-shader
+                                                                        path-shader)))))))
         (new Steps
           (primary (step module "primary"))
           (connect (step module "connect"))
@@ -507,7 +585,10 @@
       (fold-left (lambda (text part) (string-append text part)) "" parts))
 
     (define (step (module GpuShaderModule) (entry String)) (→ GpuComputePipeline) (! gpu)
-      (create-compute-pipeline (new ComputePipelineDescriptor (label (string-append "trace/" entry)) (module module) (entry entry))))
+      (create-compute-pipeline (new ComputePipelineDescriptor
+                                 (label (string-append "trace/" entry))
+                                 (module module)
+                                 (entry entry))))
 
     (define (surface-pipeline) (→ GpuRenderPipeline) (! gpu)
       (create-render-pipeline
@@ -516,21 +597,34 @@
          (module (create-shader-module (new ShaderModuleDescriptor
                                          (label "trace/surface")
                                          (code (string-append (declarations camera-shape)
-                                                              (string-append (declarations material-shape) surface-shader))))))
+                                                              (string-append
+                                                               (declarations material-shape)
+                                                               surface-shader))))))
          (vertex-entry "surface_vertex")
          (buffers (Nil))
          (fragment (Some (new FragmentState
                            (entry "surface_fragment")
-                           (targets (map (lambda (format) (Some (new ColorTarget (format format) (blend (None)))))
+                           (targets (map (lambda (format)
+                                           (Some (new ColorTarget (format format) (blend (None)))))
                                          planes-formats)))))
          (topology (TriangleList))
          (cull (CullNone))
-         (depth (Some (new DepthState (format (Depth32Float)) (write #t) (compare (CompareLess))))))))
+         (depth
+          (Some (new DepthState (format (Depth32Float)) (write #t) (compare (CompareLess))))))))
 
     (define (uniform (label String) (size I64)) (→ GpuBuffer) (! gpu)
-      (create-buffer (new BufferDescriptor (label label) (size (i64->i32 size)) (usage (list (Uniform) (CopyDst))))))
+      (create-buffer (new BufferDescriptor
+                       (label label)
+                       (size (i64->i32 size))
+                       (usage (list (Uniform) (CopyDst))))))
 
-    (define (group (label String) (pipeline GpuPipeline) (index I32) (entries (List BindGroupEntry))) (→ GpuBindGroup) (! gpu)
-      (create-bind-group (new BindGroupDescriptor (label label) (pipeline pipeline) (group index) (entries entries))))
+    (define (group (label String)
+                   (pipeline GpuPipeline)
+                   (index I32)
+                   (entries (List BindGroupEntry)))
+      (→ GpuBindGroup)
+      (! gpu)
+      (create-bind-group
+       (new BindGroupDescriptor (label label) (pipeline pipeline) (group index) (entries entries))))
 
     ))

@@ -69,8 +69,11 @@
     (return (u32 (get build counts x))))
 
 (fn corner ((triangle u32) (k u32)) (-> vec3f)
-    (let at_word (+ (* (at indices (+ (* triangle 3u) k)) (u32 (get build words x))) (u32 (get build words y))))
-    (return (vec3f (at positions at_word) (at positions (+ at_word 1u)) (at positions (+ at_word 2u)))))
+    (let at_word (+
+                  (* (at indices (+ (* triangle 3u) k)) (u32 (get build words x)))
+                  (u32 (get build words y))))
+    (return
+     (vec3f (at positions at_word) (at positions (+ at_word 1u)) (at positions (+ at_word 2u)))))
 
 ;; Ten bits spread to every third.
 (fn spread ((value u32)) (-> u32)
@@ -90,7 +93,8 @@
     (let unit (clamp (/ (- centroid (get build low xyz)) extent) (vec3f 0.0) (vec3f 1.0)))
     (let cell (min (vec3u (* unit 1024.0)) (vec3u 1023u)))
     (= (at keys i)
-       (bit-or (<< (spread (get cell x)) 2u) (bit-or (<< (spread (get cell y)) 1u) (spread (get cell z)))))
+       (bit-or (<< (spread (get cell x)) 2u)
+               (bit-or (<< (spread (get cell y)) 1u) (spread (get cell z)))))
     (= (at triangles i) i))
 
 ;; Invocation i compares the pair at distance j that it names, ascending
@@ -144,8 +148,8 @@
     (var l 0)
     (var t (/ reach 2))
     (while (>= t 1)
-      (if ((> (delta i (+ i (* (+ l t) d))) lower) (+= l t)))
-      (/= t 2))
+           (if ((> (delta i (+ i (* (+ l t) d))) lower) (+= l t)))
+           (/= t 2))
     (let j (+ i (* l d)))
     (let prefix (delta i j))
     (var s 0)
@@ -167,7 +171,11 @@
     (if ((== (get node right) LEAF) (= (at nodes u) node) (return)))
     (let a (at source (get node left)))
     (let b (at source (get node right)))
-    (= (at nodes u) (Node (min (get a low) (get b low)) (get node left) (max (get a high) (get b high)) (get node right))))
+    (= (at nodes u)
+       (Node (min (get a low) (get b low))
+             (get node left)
+             (max (get a high) (get b high))
+             (get node right))))
 
 (fn pointer ((index u32)) (-> u32)
     (let node (at source index))
@@ -182,4 +190,12 @@
     (if ((> (count) 1u) (= left (get (at source u) left)) (= right (get (at source u) right))))
     (let a (at source left))
     (let b (at source right))
-    (= (at wide u) (Wide (get a low) (pointer left) (get a high) (pointer right) (get b low) 0u (get b high) 0u)))
+    (= (at wide u)
+       (Wide (get a low)
+             (pointer left)
+             (get a high)
+             (pointer right)
+             (get b low)
+             0u
+             (get b high)
+             0u)))

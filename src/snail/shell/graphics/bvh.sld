@@ -98,25 +98,49 @@
                         (pipelines (pipelines-of (create-shader-module
                                                   (new ShaderModuleDescriptor
                                                     (label "bvh")
-                                                    (code (string-append (declarations build-shape) bvh-shader))))))
+                                                    (code (string-append (declarations build-shape)
+                                                                         bvh-shader))))))
                         (build build)
                         (encoder (create-command-encoder)))))
         (let ((pass (begin-compute-pass (● kernels encoder))))
-          (run kernels pass "morton" 0 padded (list (buffer 1 keys) (buffer 2 order) (buffer 3 positions) (buffer 4 indices)))
+          (run kernels
+               pass
+               "morton"
+               0
+               padded
+               (list (buffer 1 keys) (buffer 2 order) (buffer 3 positions) (buffer 4 indices)))
           (for-each (lambda (step)
-                      (run kernels pass "sort_step" (+ 1 step) (quotient padded 2) (list (buffer 1 keys) (buffer 2 order))))
+                      (run kernels
+                           pass
+                           "sort_step"
+                           (+ 1 step)
+                           (quotient padded 2)
+                           (list (buffer 1 keys) (buffer 2 order))))
                     (iota (length steps)))
-          (run kernels pass "build_leaves" 0 n (list (buffer 2 order) (buffer 3 positions) (buffer 4 indices) (buffer 5 nodes)))
+          (run kernels
+               pass
+               "build_leaves"
+               0
+               n
+               (list (buffer 2 order) (buffer 3 positions) (buffer 4 indices) (buffer 5 nodes)))
           (run kernels pass "build_internal" 0 (- n 1) (list (buffer 1 keys) (buffer 5 nodes)))
           (for-each (lambda (refit)
-                      (let ((from (if (= (remainder refit 2) 0) nodes spare)) (to (if (= (remainder refit 2) 0) spare nodes)))
-                        (run kernels pass "refit" 0 (- (* 2 n) 1) (list (buffer 5 to) (buffer 6 from)))))
+                      (let ((from (if (= (remainder refit 2) 0) nodes spare))
+                            (to (if (= (remainder refit 2) 0) spare nodes)))
+                        (run kernels
+                             pass
+                             "refit"
+                             0
+                             (- (* 2 n) 1)
+                             (list (buffer 5 to) (buffer 6 from)))))
                     (iota (refits n)))
           (run kernels pass "pack" 0 (max 1 (- n 1)) (list (buffer 6 nodes) (buffer 7 wide)))
           (end-compute-pass pass))
         (submit (list (finish (● kernels encoder))))
-        (for-each (lambda (spent) (destroy (BufferObject spent))) (list build keys order nodes spare))
-        (for-each (lambda (named) (destroy (ComputePipelineObject (● named second)))) (● kernels pipelines))
+        (for-each (lambda (spent) (destroy (BufferObject spent)))
+                  (list build keys order nodes spare))
+        (for-each (lambda (named) (destroy (ComputePipelineObject (● named second))))
+                  (● kernels pipelines))
         (new Bvh (nodes wide) (triangles triangles) (layout (layout-of triangles)))))
 
     (define (layout-of (triangles Triangles)) (→ GpuBuffer) (! gpu)
@@ -137,7 +161,9 @@
        (build GpuBuffer)
        (encoder GpuCommandEncoder)))
 
-    (define (pipelines-of (module GpuShaderModule)) (→ (List (Pair String GpuComputePipeline))) (! gpu)
+    (define (pipelines-of (module GpuShaderModule))
+      (→ (List (Pair String GpuComputePipeline)))
+      (! gpu)
       (map (lambda (entry)
              (new Pair
                (first entry)
@@ -164,7 +190,10 @@
                                          (label (string-append "bvh/" entry))
                                          (pipeline (ComputePipeline pipeline))
                                          (group 0)
-                                         (entries (Cons (BufferEntry 0 (● kernels build) (i64->i32 (* uniform slot)) (i64->i32 slot))
+                                         (entries (Cons (BufferEntry 0
+                                                                     (● kernels build)
+                                                                     (i64->i32 (* uniform slot))
+                                                                     (i64->i32 slot))
                                                         entries))))))
         (when (> count 0)
           (set-compute-pipeline pass pipeline)
@@ -184,9 +213,16 @@
 
     ;; Slot 0 for every kernel but the sort, then a slot for each of its
     ;; steps.
-    (define (uniforms (triangles Triangles) (n I64) (padded I64) (steps (List (Pair I64 I64)))) (→ GpuBuffer) (! gpu)
+    (define (uniforms (triangles Triangles) (n I64) (padded I64) (steps (List (Pair I64 I64))))
+      (→ GpuBuffer)
+      (! gpu)
       (let* ((slots (Cons (new Pair (first 0) (second 0)) steps))
-             (bytes (concatenate-bytes (map (lambda (step) (slotted (pod-bytes build-shape (build-of triangles n padded step))))
+             (bytes (concatenate-bytes (map (lambda (step)
+                                              (slotted (pod-bytes build-shape
+                                                                  (build-of triangles
+                                                                            n
+                                                                            padded
+                                                                            step))))
                                             slots)))
              (b (create-buffer (new BufferDescriptor
                                  (label "bvh/build")
@@ -222,7 +258,9 @@
     ;; The bitonic sort's steps, j then k: for each block size k from 2,
     ;; distances j from k/2 down to 1.
     (define (sort-steps (padded I64)) (→ (List (Pair I64 I64)))
-      (concatenate (map (lambda (k) (map (lambda (j) (new Pair (first j) (second k))) (halvings (quotient k 2))))
+      (concatenate (map (lambda (k)
+                          (map (lambda (j) (new Pair (first j) (second k)))
+                               (halvings (quotient k 2))))
                         (doublings 2 padded))))
 
     (define (halvings (j I64)) (→ (List I64)) (if (< j 1) (Nil) (Cons j (halvings (quotient j 2)))))
@@ -242,7 +280,10 @@
     (define (bits (n I64)) (→ I64) (if (<= n 1) 0 (+ 1 (bits (quotient n 2)))))
 
     (define (storage (label String) (size I64)) (→ GpuBuffer) (! gpu)
-      (create-buffer (new BufferDescriptor (label label) (size (i64->i32 (max 16 size))) (usage (list (Storage))))))
+      (create-buffer (new BufferDescriptor
+                       (label label)
+                       (size (i64->i32 (max 16 size)))
+                       (usage (list (Storage))))))
 
     ;; ---- Queries ----
 
@@ -263,17 +304,25 @@
       (let ((module (create-shader-module (new ShaderModuleDescriptor
                                             (label "rays")
                                             (code (string-append (declarations layout-shape)
-                                                                 (string-append cutout rays-shader)))))))
+                                                                 (string-append cutout
+                                                                                rays-shader)))))))
         (new RayKernels
           (intersect (query-pipeline module "intersect"))
           (occlude (query-pipeline module "occlude")))))
 
     (define (query-pipeline (module GpuShaderModule) (entry String)) (→ GpuComputePipeline) (! gpu)
-      (create-compute-pipeline (new ComputePipelineDescriptor (label (string-append "rays/" entry)) (module module) (entry entry))))
+      (create-compute-pipeline (new ComputePipelineDescriptor
+                                 (label (string-append "rays/" entry))
+                                 (module module)
+                                 (entry entry))))
 
     ;; Group 0 of `query`, one of the kernels' pipelines, over the BVH and
     ;; a queue: its rays, and its count at byte `count-at` of `counts`.
-    (define (ray-group (query GpuComputePipeline) (bvh Bvh) (rays GpuBuffer) (counts GpuBuffer) (count-at I32))
+    (define (ray-group (query GpuComputePipeline)
+                       (bvh Bvh)
+                       (rays GpuBuffer)
+                       (counts GpuBuffer)
+                       (count-at I32))
       (→ GpuBindGroup)
       (! gpu)
       (create-bind-group (new BindGroupDescriptor

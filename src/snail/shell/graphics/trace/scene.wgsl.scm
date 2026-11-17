@@ -62,7 +62,10 @@
     (if ((== mode 0.0) (return false)))
     (let bb (corner triangle 1u))
     (let c (corner triangle 2u))
-    (let uv (+ (* (uv_of a) (- 1.0 (get b x) (get b y))) (* (uv_of bb) (get b x)) (* (uv_of c) (get b y))))
+    (let uv (+
+             (* (uv_of a) (- 1.0 (get b x) (get b y)))
+             (* (uv_of bb) (get b x))
+             (* (uv_of c) (get b y))))
     (let alpha (* (get m base_color w) (get (texel (get m textures x) uv 2.0) w)))
     (if ((== mode 1.0) (return (< alpha (get m emissive w)))))
     (return (< alpha (random seed))))

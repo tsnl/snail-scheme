@@ -12,3 +12,6 @@ Splats draws gaussians, sorted on the GPU by a radix sort built on a scan.
   gradients, Adam, and the compiler that runs them on the device.
 - The [path tracing primer](path-tracing.md) explains the physics of the
   lighting that plan leaves for after rasterization.
+- [The path tracer](tracer.md) traces glTF scenes with that physics: a
+  BVH, a wavefront of kernels, environment light and SVGF, flown through
+  by `src/apps/viewer`.
