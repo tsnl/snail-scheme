@@ -10,7 +10,7 @@ import {byteView} from './load.mjs';
 
 export function createFetch(runtime) {
   const decoder = new TextDecoder();
-  let parts, streams, nextStream, reply = [];
+  let parts, streams, nextStream, reply = [], bytes = new Uint8Array();
   reset();
 
   // A program that starts knows no streams, so they close with the last.
@@ -45,6 +45,26 @@ export function createFetch(runtime) {
         return {status: -1, text: error.message};
       }
     }, ({status, text}) => { answer(text); return status; });
+  }
+
+  // A GET whose body is read as bytes; a status other than OK is a reason.
+  function startBytes(ticket) {
+    const {url} = parts;
+    parts = {method: 'GET', url: '', headers: [], body: ''};
+    tasks().start(Number(ticket), async signal => {
+      try {
+        const response = await fetch(url, {signal});
+        if (!response.ok) return {failed: `${response.status} fetching ${url}`};
+        return {body: new Uint8Array(await response.arrayBuffer())};
+      } catch (error) {
+        if (signal.aborted) throw error;
+        return {failed: error.message};
+      }
+    }, ({failed, body}) => {
+      if (failed !== undefined) return (answer(failed), -1);
+      bytes = body;
+      return body.length;
+    });
   }
 
   // ---- Streams ----
@@ -96,6 +116,8 @@ export function createFetch(runtime) {
     'request-body': address => { parts.body = text(address); },
     'start-request': start,
     'finish-request': ticket => tasks().finish(Number(ticket)),
+    'start-bytes': startBytes,
+    'reply-byte': index => bytes[index],
     'stream-open': address => open(text(address)),
     'stream-start'(ticket, id) {
       const stream = streams.get(id) ?? {messages: [], closed: true, waiter: null};

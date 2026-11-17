@@ -1,5 +1,5 @@
 ;; JSON text read back into the values (snail shell json) writes: any JSON
-;; text whose numbers are integers, such as a language server message. A library of
+;; text, such as a language server message or a glTF scene. A library of
 ;; its own, so that a program that only writes JSON does not carry it.
 (define-library (snail shell json read)
   (export
@@ -13,8 +13,9 @@
     ;; ---- Reading ----
 
     ;; A text's value, or None unless the text is one value with only
-    ;; whitespace around it. A number must be an integer that fits an I64,
-    ;; as the writer's are. An escape gives the scalar it names, a surrogate
+    ;; whitespace around it. An integer that fits an I64 reads as one, as
+    ;; the writer's are; a number with a fraction or an exponent reads as
+    ;; the F64 its digits scaled by a power of ten give. An escape gives the scalar it names, a surrogate
     ;; pair one scalar and a lone surrogate the Char that `i32->char` makes,
     ;; so what the writer wrote reads back as it was. Each reader takes the
     ;; text and the index where its value starts, and gives the value with
@@ -52,7 +53,7 @@
             ((at? chars index #\t) (read-word chars index "true" (JsonBool #t)))
             ((at? chars index #\f) (read-word chars index "false" (JsonBool #f)))
             ((at? chars index #\n) (read-word chars index "null" (JsonNull)))
-            (else (read-integer chars index))))
+            (else (read-number chars index))))
 
     (define (read-word (chars (Array Char)) (index I64) (word String) (value Json))
       (→ (Option (Pair Json I64)))
@@ -62,16 +63,74 @@
             (Some (new Pair (first value) (second end)))
             (None))))
 
-    ;; An optional minus and digits, which a fraction or an exponent must
-    ;; not follow.
+    ;; An optional minus and digits, then a fraction or an exponent or
+    ;; neither.
 
-    (define (read-integer (chars (Array Char)) (index I64)) (→ (Option (Pair Json I64)))
+    (define (read-number (chars (Array Char)) (index I64)) (→ (Option (Pair Json I64)))
       (let ((end (digits-end chars (if (at? chars index #\-) (+ index 1) index))))
-        (match (if (any? (lambda (char) (at? chars end char)) (list #\. #\e #\E))
-                   (None)
-                   (string->i64 (array->string (subarray chars index end))))
-          ((Some number) (Some (new Pair (first (JsonInteger number)) (second end))))
+        (if (any? (lambda (char) (at? chars end char)) (list #\. #\e #\E))
+            (read-float chars index)
+            (match (string->i64 (array->string (subarray chars index end)))
+              ((Some number) (Some (new Pair (first (JsonInteger number)) (second end))))
+              ((None) (None))))))
+
+    ;; The digits as one integer, with the fraction's length and the
+    ;; exponent giving the power of ten it is scaled by. Digits past the
+    ;; eighteenth only scale it, so the integer cannot overflow.
+
+    (define (read-float (chars (Array Char)) (index I64)) (→ (Option (Pair Json I64)))
+      (let* ((negative (at? chars index #\-))
+             (whole (decimal chars (if negative (+ index 1) index) 0 0 #f))
+             (fraction (if (at? chars (● whole end) #\.)
+                           (decimal chars (+ (● whole end) 1) (● whole digits) (● whole scale) #t)
+                           whole))
+             (exponent (read-exponent chars (● fraction end))))
+        (match exponent
+          ((Some (Pair power end))
+           (let ((magnitude (scaled (i64->f64 (● fraction digits)) (+ (● fraction scale) power))))
+             (Some (new Pair (first (JsonNumber (if negative (- 0.0 magnitude) magnitude))) (second end)))))
           ((None) (None)))))
+
+    (record Decimal
+      ((digits I64)
+       (scale I64)
+       (end I64)))
+
+    ;; Digits from `index` added to `digits`; each after the point lowers
+    ;; the scale, and each beyond what an I64 holds raises it.
+    (define (decimal (chars (Array Char)) (index I64) (digits I64) (scale I64) (after-point Bool))
+      (→ Decimal)
+      (if (and (< index (array-length chars)) (char-numeric? (array-ref chars index)))
+          (let ((digit (- (char->integer (array-ref chars index)) 48)))
+            (if (< digits 100000000000000000)
+                (decimal chars (+ index 1) (+ (* digits 10) digit) (if after-point (- scale 1) scale) after-point)
+                (decimal chars (+ index 1) digits (if after-point scale (+ scale 1)) after-point)))
+          (new Decimal (digits digits) (scale scale) (end index))))
+
+    ;; `e` or `E`, an optional sign and digits, or nothing.
+    (define (read-exponent (chars (Array Char)) (index I64)) (→ (Option (Pair I64 I64)))
+      (if (any? (lambda (char) (at? chars index char)) (list #\e #\E))
+          (let* ((sign (if (at? chars (+ index 1) #\-) -1 1))
+                 (start (if (any? (lambda (char) (at? chars (+ index 1) char)) (list #\- #\+))
+                            (+ index 2)
+                            (+ index 1)))
+                 (end (digits-end chars start)))
+            (match (string->i64 (array->string (subarray chars start end)))
+              ((Some power) (Some (new Pair (first (* sign power)) (second end))))
+              ((None) (None))))
+          (Some (new Pair (first 0) (second index)))))
+
+    ;; `value` times ten to `power`. Powers of ten up to 10^22 are exact
+    ;; doubles, so a number of up to 15 digits and such a power is one
+    ;; rounding from exact; larger powers are applied 22 at a time.
+    (define (scaled (value F64) (power I64)) (→ F64)
+      (cond ((> power 22) (scaled (* value 1e22) (- power 22)))
+            ((< power -22) (scaled (/ value 1e22) (+ power 22)))
+            ((>= power 0) (* value (ten-to power)))
+            (else (/ value (ten-to (- 0 power))))))
+
+    (define (ten-to (power I64)) (→ F64)
+      (if (= power 0) 1.0 (* 10.0 (ten-to (- power 1)))))
 
     (define (digits-end (chars (Array Char)) (index I64)) (→ I64)
       (if (and (< index (array-length chars)) (char-numeric? (array-ref chars index)))

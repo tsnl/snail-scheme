@@ -10,6 +10,7 @@
    StreamEvent
    fetch
    request
+   fetch-bytes
    stream-open
    stream-next
    stream-close)
@@ -51,9 +52,12 @@
     ;; "error" hears one, with no data, each time. One
     ;; task at a time waits on a stream, so a program reading events keeps
     ;; one command waiting on it, and issues the next from the update that
-    ;; handles the event.
+    ;; handles the event. `fetch-bytes url` answers the body of a GET as
+    ;; bytes, such as a scene's buffers and images, or why there was none,
+    ;; a status other than OK among the reasons.
     (effect fetch
       ((request (Fn String String (List Header) String → (Result Reply String) ! tasks))
+       (fetch-bytes (Fn String → (Result Bytes String) ! tasks))
        (stream-open (Fn String (List String) → Stream))
        (stream-next (Fn Stream → (Option StreamEvent) ! tasks))
        (stream-close (Fn Stream → Unit))))))
