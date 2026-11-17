@@ -42,6 +42,14 @@
 
 ;; ---- Views and kinds ----
 
+;; Reusing the caller's upload bytes and label must preserve both constants.
+(define (constants) (→ Unit) (! mut output-port)
+  (let* ((bytes (values->bytes (list->array (list 2.0)) (Signed)))
+         (a (constant "weight" (Nil) (Signed) bytes)))
+    (array-set! bytes 0 (i32->u8 5))
+    (let ((b (constant "weight" (Nil) (Signed) bytes)))
+      (show-values "constants" (only-value (list (stack (list a b) 0)) (empty-table))))))
+
 (define (views) (→ Unit) (! output-port)
   (let* ((x (param "x" (list 2 3) (Float)))
          (inputs (inputs-of (list (new Pair (first "x") (second (ramp 6 1.0 0.0)))))))
@@ -163,6 +171,7 @@
     (check "gather dx" loss x inputs)
     (show-values "gather dx" (only-value (grad loss (list x)) inputs))))
 
+(constants)
 (views)
 (rows)
 (gradients)

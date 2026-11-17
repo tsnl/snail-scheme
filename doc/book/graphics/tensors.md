@@ -41,7 +41,8 @@ A node is known by its key, a 64-bit hash of its kind, its parameters, its
 ports and its arguments' keys and accessors. The language has no reference
 equality, and content addressing gives more: building the same computation
 twice builds the same node, so a graph shares its common parts, and a param
-is known by its name and shape.
+is known by its name and shape. A constant snapshots its input bytes and
+includes them in its key, so constants can reuse a label across uploads.
 
 ## Gradients and Adam
 
