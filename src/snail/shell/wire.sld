@@ -113,7 +113,7 @@
 
     (define-syntax derive-serialize
       (syntax-rules ()
-        ((_ kind (name param ...) (case text (field label label-text) ...) ...)
+        ((_ kind (name param ...) (case text (field label label-text type) ...) ...)
          (instance (Serialize (name param ...))
            (⊨ (Serialize param) ...)
            (define encode
@@ -129,7 +129,7 @@
 
     (define-syntax derive-deserialize
       (syntax-rules (record enum)
-        ((_ record (name param ...) (case text (field label label-text) ...))
+        ((_ record (name param ...) (case text (field label label-text type) ...))
          (instance (Deserialize (name param ...))
            (⊨ (Deserialize param) ...)
            (define decode
@@ -137,7 +137,7 @@
                (expect-case-id decoder (case-id case))
                (let* ((field (decode decoder)) ...)
                  (new name (label field) ...))))))
-        ((_ enum (name param ...) (case text (field label label-text) ...) ...)
+        ((_ enum (name param ...) (case text (field label label-text type) ...) ...)
          (instance (Deserialize (name param ...))
            (⊨ (Deserialize param) ...)
            (define decode

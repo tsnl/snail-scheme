@@ -1131,7 +1131,7 @@
 
     (define-syntax derive-repr
       (syntax-rules (record enum)
-        ((_ record (name param ...) (case text (field label label-text) ...))
+        ((_ record (name param ...) (case text (field label label-text type) ...))
          (instance (Repr (name param ...))
            (⊨ (Repr param) ...)
            (define repr
@@ -1143,7 +1143,7 @@
                          text
                          (string-append " (" label-text " " (repr field) ")") ...
                          ")"))))))))
-        ((_ enum (name param ...) (case text (field label label-text) ...) ...)
+        ((_ enum (name param ...) (case text (field label label-text type) ...) ...)
          (instance (Repr (name param ...))
            (⊨ (Repr param) ...)
            (define repr

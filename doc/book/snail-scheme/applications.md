@@ -31,21 +31,29 @@ Typed session protocols are future library work, expressed through effects.
 ## Scenes
 
 `(snail shell app)`'s `SceneHandler` holds a scene's pure functions over
-immutable state:
+immutable state, and the two that draw it, which keep a drawing state of
+their own:
 
 | Field | Meaning |
 | --- | --- |
 | `initialize : seed width height -> State` | The first state. |
 | `update : State Input -> State` | Applies a key, pointer, HUD button, screen size, or elapsed milliseconds. |
-| `view : State -> Frame` | Drawing data: items, meshes and sprites under a camera and light. |
+| `start : -> Drawing` | The drawing state of a fresh page or module. |
+| `draw : State Drawing -> Drawing` | Draws a frame through `gpu`, and answers what drawing keeps for the next. |
 | `hud : State -> (List Panel)` | Panels of labels, texts, buttons, dials, links and images. |
+| `image-url : Drawing Key -> String` | The address of the image an `Image` widget names, or `""` until there is one. |
 | `save : State -> Bytes` | Encodes the durable state, often a record of how to rebuild the full state. |
 | `restore : Bytes -> State` | Decodes the durable state and reconstructs the running state. |
+
+The drawing state is never saved: it holds what drawing keeps between
+frames, such as an atlas and the portraits read back from it, and starts
+again with each page and each module, as the GPU's objects do.
 
 Serialization is chosen explicitly by the application; these examples use
 `(snail shell wire)`.
 
-`run-scene` performs `screen`, `events`, `storage` and `tasks`, and never
+`run-scene` performs `gpu`, `clock`, `events`, `storage` and `tasks`, and
+never
 returns. `next-event` drains the host queue, then waits by ticket when it is
 empty. `FrameEvent` carries elapsed milliseconds; `InputEvent` carries an
 `Input`. `Hidden` and `SaveRequested` save without stopping. A shared
@@ -57,23 +65,21 @@ time is input, the application decides how its simulation advances. Each task
 keeps its handlers across waits. Libraries have no runtime initialization;
 application state is created by the running script.
 
-Frames are built from batches of items. The host keeps a batch until its
-version changes, so a still scene costs nothing to send; each item also
-carries where it was, and the host moves it toward where it is as the
-frame's motion goes from 0 to 1. Batches may be solid, translucent, or
-revealed within a growing disc. The camera is perspective or orthographic.
+A scene draws with the [graphics libraries](../graphics/plan.md). Hearsay
+composes the pictures it needs into an atlas and draws its map as one run
+of quads ([Atlas and quads](../graphics/plan.md#atlas-and-quads)).
+`(snail shell sprite)` picks the cell a spritebook of any sheet shows for a
+motion, heading and moment, which a quad then draws, and `src/lpc` uses it
+for the Liberated Pixel Cup character art.
 
-Meshes and sprites are both items, drawn by one shader in the
-metallic-roughness model: a `Material` gives an optional texture, the albedo
-of a dielectric or the specular color of a metal, with metalness and
-roughness defaulting to 0 and 1. Textures are regions of `Picture`s, which
-the host composes from layers of encoded image files the program carries,
-recoloring each by swapping colors, and keeps until their version changes.
-A sprite is a textured quad, standing upright toward the camera in a 2.5D
-scene or lying flat under an orthographic camera looking straight down in
-a 2D one, and a texture region can be a strip of frames the host steps
-through by the clock. `(snail shell sprite)` poses figures from spritebooks of any
-sheet, and `src/lpc` uses it for the Liberated Pixel Cup character art.
+Siegework builds a 3D `Frame` from batches of mesh items, which
+`draw-frame` draws, keeping in its `Frames` each batch's packed instances
+until the batch's version changes, so a still scene packs nothing. Each
+item also carries where it was, and moves toward where it is as the
+frame's motion goes from 0 to 1. Items are matte, lit by the sun and the
+ambient light, and glow from 0, lit, to 1, their own color. Batches may be
+solid, translucent, or revealed within a growing disc. The camera is
+perspective or orthographic.
 
 HUD panels, built from widgets such as those `label` and `button` make,
 stack in columns from the screen's corners, appear as dialogs, or sit in a
@@ -84,9 +90,9 @@ the page's document: the scene's loop builds it as `(snail shell ui)`'s
 differs from the one before, so an element keeps its node while its key
 stays, and with it hover and focus. A button's listeners make the presses
 and hovering the scene's `update` takes as input; a button removed while the
-pointer is over it reports the pointer gone. An image shows a region of a
-picture the host has composed, by the address `screen`'s `picture-url`
-answers. `recognize` turns raw pointer events into points, taps, drags
+pointer is over it reports the pointer gone. An image shows the image the
+scene's `image-url` gives the address of; Hearsay's portraits are regions
+of its atlas read back as PNG data URLs. `recognize` turns raw pointer events into points, taps, drags
 and pinches.
 
 [Siegework](https://github.com/tsnl/snail-scheme/tree/main/src/apps/siegework)
@@ -286,8 +292,8 @@ most every 100 milliseconds and periodic saves occur every five seconds.
 Event waits and complete storage operations wait by ticket on the
 `snail-scheme` scheduler. Starting a save copies its byte argument before the
 IndexedDB request begins; a failed save is a warning, and the page keeps
-running. GPU drawing currently uses synchronous screen bindings. No import
-suspends Wasm, so the linear-memory stack of the Rust scalar services is
+running. GPU drawing waits only to request the device, decode an image or read a
+buffer back, by ticket. No import suspends Wasm, so the linear-memory stack of the Rust scalar services is
 never left mid-call.
 
 The engine acknowledges its first completed presentation: a scene handles

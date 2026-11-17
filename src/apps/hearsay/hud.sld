@@ -18,8 +18,7 @@
    guide-action?
    turn-guide
    guide-panels
-   backdrop
-   empty-frame)
+   backdrop)
   (import
    (snail core base)
    (snail shell app))
@@ -137,18 +136,5 @@
 
     ;; The color behind every screen.
     (define backdrop (→ I32) (rgb 16 20 28))
-
-    ;; A scene with nothing in it, carrying `pictures` for the HUD's images.
-    (define (empty-frame (pictures (List Picture))) (→ Frame)
-      (new Frame
-        (camera (new Camera
-                  (eye (new Vec3 (x 0.0) (y 10.0) (z 10.0)))
-                  (target (new Vec3 (x 0.0) (y 0.0) (z 0.0)))
-                  (projection (Perspective 0.8))))
-        (light (new Light (direction (new Vec3 (x 0.0) (y 1.0) (z 0.0))) (sun 0.0) (ambient 1.0)))
-        (background backdrop)
-        (motion 1.0)
-        (batches (Nil))
-        (pictures pictures)))
 
     ))

@@ -1,1 +1,1 @@
-only Repr, Serialize and Deserialize can be derived
+only Repr, Serialize, Deserialize and Pod can be derived

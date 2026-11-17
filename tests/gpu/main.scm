@@ -1,23 +1,33 @@
 ;; WebGPU through the `gpu` effect on a real device: a frame clears a 4x4
-;; texture and the canvas and fills both with a uniform's red, copies the
+;; texture and the canvas and fills both with a uniform's red, from a
+;; record deriving Pod and a shader printed from src/gpu-test/paint.wgsl.scm,
+;; copies the
 ;; texture into a buffer that is read back, and decodes a two-texel PNG,
 ;; read back the same way. A second frame finds every object by its path.
-;; tests/browser/gpu.mjs checks what it prints.
+;; Then an atlas's picture is drawn as quads, and two tiles are rasterized
+;; into a G-buffer and lit by the sun pass. tests/browser/gpu.mjs checks
+;; what it prints.
 (import
  (snail core base)
  (snail core io)
  (snail shell task)
  (snail shell page)
- (snail shell gpu))
+ (snail shell gpu)
+ (snail shell graphics pod)
+ (snail shell graphics atlas)
+ (snail shell graphics quad)
+ (snail shell graphics mesh)
+ (snail shell graphics raster)
+ (snail shell graphics passes)
+ (gpu-test shaders))
 
-(define shader
-  "struct Paint { color: vec4f }
-@group(0) @binding(0) var<uniform> paint: Paint;
-@vertex fn vertex_main(@builtin(vertex_index) i: u32) -> @builtin(position) vec4f {
-  let corners = array(vec2f(-1.0, -3.0), vec2f(3.0, 1.0), vec2f(-1.0, 1.0));
-  return vec4f(corners[i], 0.0, 1.0);
-}
-@fragment fn fragment_main() -> @location(0) vec4f { return paint.color; }")
+(record Paint
+  ((color Vec4f))
+  (deriving Pod))
+
+(define paint-shape (→ (Shape Paint)) (shape))
+
+(define shader (→ String) (string-append (declarations paint-shape) paint))
 
 ;; A red texel beside a green one.
 (define two-texels
@@ -91,14 +101,6 @@
           66
           96 130))
 
-(define (f32-bytes (values (List F32))) (→ Bytes)
-  (array-generate (* 4 (length values))
-                  (lambda (index)
-                    (i32->u8 (i32-and (i32-shift-right/logical
-                                       (f32->bits (list-ref values (quotient index 4)))
-                                       (i64->i32 (* 8 (remainder index 4))))
-                                      255)))))
-
 (define (pipeline-for (module GpuShaderModule) (format TextureFormat) (name String))
   (→ GpuRenderPipeline)
   (! gpu)
@@ -115,11 +117,11 @@
      (cull (CullNone))
      (depth (None)))))
 
-(define (paint (encoder GpuCommandEncoder)
-               (view TextureView)
-               (pipeline GpuRenderPipeline)
-               (color GpuBuffer)
-               (name String))
+(define (fill (encoder GpuCommandEncoder)
+              (view TextureView)
+              (pipeline GpuRenderPipeline)
+              (color GpuBuffer)
+              (name String))
   (→ Unit)
   (! gpu)
   (let ((pass (begin-render-pass encoder
@@ -167,17 +169,19 @@
          (encoder (create-command-encoder)))
     (write-line
      (string-append "fresh: " (show (● target fresh)) " " (show (● (● image texture) fresh))))
-    (write-buffer color 0 (f32-bytes (list 1.0 0.0 0.0 1.0)))
-    (paint encoder
-           (view-of target 1)
-           (pipeline-for module (Rgba8Unorm) "offscreen")
-           color
-           "offscreen")
-    (paint encoder
-           (view-of (current-texture) 1)
-           (pipeline-for module (● info format) "onscreen")
-           color
-           "onscreen")
+    (write-buffer color
+                  0
+                  (pod-bytes (new Paint (color (new Vec4f (x 1.0) (y 0.0) (z 0.0) (w 1.0))))))
+    (fill encoder
+          (view-of target 1)
+          (pipeline-for module (Rgba8Unorm) "offscreen")
+          color
+          "offscreen")
+    (fill encoder
+          (view-of (● (current-texture) texture) 1)
+          (pipeline-for module (● info format) "onscreen")
+          color
+          "onscreen")
     (copy-texture-to-buffer encoder (whole-texture target) readback 0 256 4 4)
     (copy-texture-to-buffer encoder (whole-texture (● image texture)) readback 1024 256 2 1)
     (submit (list (finish encoder)))
@@ -186,6 +190,132 @@
 (define (texels (bytes Bytes)) (→ String)
   (string-join (map (lambda (byte) (show (u8->i32 byte))) (array->list bytes)) " "))
 
+;; The two texels composed into an atlas with red swapped for blue, then
+;; drawn as two quads across a 4x2 texture: blue on the left, green on the
+;; right. The picture also reads back as a PNG data URL.
+
+(define two-texel-picture
+  (→ Picture)
+  (new Picture
+    (key 1)
+    (version 1)
+    (width 2)
+    (height 1)
+    (layers (lambda ()
+              (list (new Layer
+                      (source (new Source (key 1) (bytes (lambda () two-texels))))
+                      (from (new Rect (x 0) (y 0) (width 2) (height 1)))
+                      (x 0)
+                      (y 0)
+                      (swaps (list (new Pair (first 16711680) (second 255))))))))))
+
+(define (texel-quad (atlas Atlas) (column I32) (x F32)) (→ Quad)
+  (match (atlas-slot atlas 1)
+    ((Some slot)
+     (let ((place (slot-region slot (new Rect (x column) (y 0) (width 1) (height 1)))))
+       (new Quad
+         (center (new Vec2f (x x) (y 1.0)))
+         (size (new Vec2f (x 2.0) (y 2.0)))
+         (angle 0.0)
+         (page (● place first))
+         (region (● place second))
+         (color (new Vec4f (x 1.0) (y 1.0) (z 1.0) (w 1.0))))))
+    ((None) (panic "the picture has no slot"))))
+
+(define (quads-frame) (→ (Pair Bytes String)) (! gpu tasks)
+  (let* ((encoder (create-command-encoder))
+         (atlas (atlas-pictures (make-atlas "test" 16 1) encoder (list two-texel-picture)))
+         (target (create-texture (new TextureDescriptor
+                                   (path (Some (list "test" "quads")))
+                                   (width 4)
+                                   (height 2)
+                                   (layers 1)
+                                   (mips 1)
+                                   (format (Rgba8Unorm))
+                                   (usage (list (RenderAttachment) (TextureCopySrc))))))
+         (readback (buffer-named "quads-readback" 512 (list (MapRead) (CopyDst))))
+         (pass (begin-render-pass encoder
+                                  (new RenderPassDescriptor
+                                    (colors (list (new ColorAttachment
+                                                    (view (view-of target 1))
+                                                    (load (Clear (new Color
+                                                                   (red 0.0)
+                                                                   (green 0.0)
+                                                                   (blue 0.0)
+                                                                   (alpha 0.0))))
+                                                    (store #t))))
+                                    (depth (None))))))
+    (draw-quads pass
+                "test"
+                (Rgba8Unorm)
+                (new View2D
+                  (center (new Vec2f (x 2.0) (y 1.0)))
+                  (extent (new Vec2f (x 4.0) (y 2.0)))
+                  (pixels (new Vec2f (x 4.0) (y 2.0))))
+                (atlas-texture atlas)
+                (list (texel-quad atlas 0 1.0) (texel-quad atlas 1 3.0)))
+    (end-pass pass)
+    (copy-texture-to-buffer encoder (whole-texture target) readback 0 256 4 2)
+    (submit (list (finish encoder)))
+    (let ((texels (read-buffer readback 0 16)))
+      (new Pair
+        (first texels)
+        (second (atlas-url atlas 1 (new Rect (x 0) (y 0) (width 2) (height 1))))))))
+
+;; Two tiles seen straight down through a parallel lens, filling a 4x4
+;; texture: the left one red and glowing, the right one white under only
+;; ambient light of 0.6, so its texels are 153.
+
+(define (tile (x F32) (color Vec4f) (glow F32)) (→ (Pair Mesh Instance))
+  (new Pair
+    (first (Tile))
+    (second (new Instance
+              (place (new Vec4f (x x) (y 0.0) (z 0.0) (w 0.0)))
+              (scale (new Vec4f (x 1.0) (y 1.0) (z 2.0) (w glow)))
+              (color color)
+              (from (new Vec4f (x x) (y 0.0) (z 0.0) (w 0.0)))
+              (material (new Vec4f (x 0.0) (y 1.0) (z 0.0) (w 0.0)))))))
+
+(define (scene-frame (info DeviceInfo)) (→ Bytes) (! gpu tasks)
+  (let* ((encoder (create-command-encoder))
+         (target (create-texture (new TextureDescriptor
+                                   (path (Some (list "test" "scene")))
+                                   (width 4)
+                                   (height 4)
+                                   (layers 1)
+                                   (mips 1)
+                                   (format (Rgba8Unorm))
+                                   (usage (list (RenderAttachment) (TextureCopySrc))))))
+         (readback (buffer-named "scene-readback" 1024 (list (MapRead) (CopyDst))))
+         (g (gbuffer "test" 4 4))
+         (r (raster (Rgba8Unorm)
+                    (camera-3d (new Vec3f (x 0.0) (y 5.0) (z 0.0))
+                               (new Vec3f (x 0.0) (y 0.0) (z 0.0))
+                               (Parallel 2.0)
+                               1.0
+                               1.0)
+                    (new Sun
+                      (direction (new Vec4f (x 0.0) (y 1.0) (z 0.0) (w 0.0)))
+                      (ambient 0.6))))
+         (pass (begin-gbuffer encoder g)))
+    (raster-meshes pass
+                   r
+                   "tiles"
+                   solid
+                   (meshes (list (tile -0.5 (new Vec4f (x 1.0) (y 0.0) (z 0.0) (w 1.0)) 1.0)
+                                 (tile 0.5 (new Vec4f (x 1.0) (y 1.0) (z 1.0) (w 1.0)) 0.0)))
+                   #t)
+    (end-pass pass)
+    (sun-pass encoder
+              target
+              (Rgba8Unorm)
+              (new Color (red 0.0) (green 0.0) (blue 0.0) (alpha 1.0))
+              g
+              r)
+    (copy-texture-to-buffer encoder (whole-texture target) readback 0 256 4 4)
+    (submit (list (finish encoder)))
+    (read-buffer readback 0 16)))
+
 (let ((info (request-device 67108864)))
   (write-line (string-append "format: " (texture-format-name (● info format))))
   (let ((first-frame (frame info)))
@@ -193,4 +323,8 @@
     (write-line (string-append "image: " (texels (● first-frame second)))))
   (let ((second-frame (frame info)))
     (write-line (string-append "again: " (texels (● second-frame first)))))
+  (let ((quads (quads-frame)))
+    (write-line (string-append "quads: " (texels (● quads first))))
+    (write-line (string-append "url: " (● quads second))))
+  (write-line (string-append "scene: " (texels (scene-frame info))))
   (report-ready))

@@ -1,0 +1,29 @@
+instance bytes: 240
+draw: 36 indices from 0, vertices from 0, 1 instances from 0
+draw: 18 indices from 36, vertices from 24, 0 instances from 1
+draw: 60 indices from 54, vertices from 40, 2 instances from 1
+draw: 300 indices from 114, vertices from 76, 0 instances from 3
+draw: 6 indices from 414, vertices from 296, 0 instances from 3
+draw: 12 indices from 420, vertices from 300, 0 instances from 3
+draw: 24 indices from 432, vertices from 312, 0 instances from 3
+draw: 6 indices from 456, vertices from 336, 0 instances from 3
+request-device 100000000
+encoder 1
+canvas 2
+pass 3 1 
+create buffer 4 
+write-buffer 4 0 240
+create buffer 5 
+write-buffer 5 0 160
+create buffer 6 
+write-buffer 6 0 16320
+set-vertex-buffer 3 0 6 0
+set-vertex-buffer 3 1 4 0
+create buffer 7 
+write-buffer 7 0 1848
+set-index-buffer 3 7 uint32 0
+draw-indexed-indirect 3 5 0
+draw-indexed-indirect 3 5 40
+end-pass 3
+command-buffer 8 1
+submit 8

@@ -48,7 +48,7 @@
          (pass (begin-render-pass encoder
                                   (new RenderPassDescriptor
                                     (colors (list (new ColorAttachment
-                                                    (view (view-of (current-texture) 1))
+                                                    (view (view-of (● (current-texture) texture) 1))
                                                     (load (Clear (new Color
                                                                    (red 0.0)
                                                                    (green 0.5)

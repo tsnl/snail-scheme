@@ -1,27 +1,34 @@
-;; Interactive applications. An application is four total functions over
-;; its state, and two that convert the state to and from what it saves:
+;; Interactive applications. An application is total functions over its
+;; state, two that convert the state to and from what it saves, and two
+;; that draw it, with a drawing state of their own:
 ;;
 ;;   init    : seed width height -> State
 ;;   update  : State Input -> State
-;;   view    : State -> Frame
+;;   start   : -> Drawing
+;;   draw    : State Drawing -> Drawing, through `gpu`
 ;;   hud     : State -> (List Panel)
+;;   image-url : Drawing Key -> String, the address of an image the HUD shows
 ;;   save    : State -> Bytes
 ;;   restore : Bytes -> State
 ;;
-;; A script runs one with `run-scene`, given a SceneHandler of the six.
+;; A script runs one with `run-scene`, given a SceneHandler of the eight.
 ;; Its loop draws each event's state; (snail shell page) owns boot,
-;; restore and durable saves for both browser engines.
-;; Time is input, so the state decides how its simulation advances. The
-;; host draws a Frame through `screen`; the HUD is a tree in the page's
+;; restore and durable saves for both browser engines. The drawing state
+;; holds what drawing keeps between frames, such as an atlas and the
+;; images it has read back for the HUD's `Image` widgets; it is never
+;; saved, and starts again with each page or module, as the GPU's objects
+;; do.
+;; Time is input, so the state decides how its simulation advances. A
+;; scene draws with the `gpu` effect, itself or as a 3D `Frame` that
+;; `draw-frame` draws; the HUD is a tree in the page's
 ;; document, changed through `dom` where it differs after each input
 ;; (after time, at most ten times a second). A durable save may be
 ;; much smaller than the state: a record of how to rebuild it.
 ;;
-;; Scenes are 3D. Meshes and sprites are both items, drawn by one shader in
-;; the metallic-roughness model; a sprite is a textured quad that stands
-;; upright toward the camera, so 2D and 2.5D are scenes too. Textures are
-;; pictures the host composes from regions of encoded image files that the
-;; program carries, typically as byte literals.
+;; A Frame's items are mesh instances in batches, rasterized into a
+;; G-buffer and lit by the sun in the metallic-roughness model
+;; (`(snail shell graphics raster)`). A 2D scene with pictures draws them
+;; as quads from an atlas (`(snail shell graphics quad)`), as Hearsay does.
 (define-library (snail shell app)
   (export
    Input
@@ -57,18 +64,6 @@
    Tile
    Tetrahedron
    Octahedron
-   Quad
-   Rect
-   Source
-   Layer
-   Picture
-   Texture
-   Texture-region-set
-   still
-   Material
-   plain
-   Facing
-   Fixed
    Upright
    Item
    Item-position-set
@@ -77,11 +72,7 @@
    Item-color-set
    Item-glow-set
    Item-from-set
-   Item-material-set
-   Item-facing-set
    item
-   sprite
-   flat-sprite
    Style
    Solid
    Translucent
@@ -134,9 +125,9 @@
    Panel
    Frame
    rgb
-   screen
-   provide-screen
-   render
+   Frames
+   start-frames
+   draw-frame
    Ray
    pointer-ray
    screen-axes
@@ -157,13 +148,18 @@
   (import
    (except (snail core base) instance)
    (only (snail core forms) host)
-   (prefix (snail runtime browser screen) host-)
    (snail shell task)
    (snail shell math)
    (snail shell page)
-   (only (snail core table) table-ref table-contains?)
+   (snail core table)
    (only (snail shell dom) dom document-root no-event Allow)
    (only (snail shell dom page) with-page-dom)
+   (only (snail core io) clock)
+   (except (snail shell gpu) Image)
+   (snail shell graphics pod)
+   (snail shell graphics mesh)
+   (rename (snail shell graphics raster) (Style Raster-style) (solid solid-style))
+   (snail shell graphics passes)
    (prefix (snail shell ui) ui:))
   (begin
 
@@ -367,17 +363,17 @@
 
     ;; ---- Frames ----
 
-    ;; What the host draws: a camera, the light, a 0xRRGGBB background,
-    ;; how far from 0 to 1 every item has moved from where it was toward
-    ;; where it is, the batches of items, and the pictures the batches and
-    ;; the HUD may use as textures.
+    ;; A 3D scene: a camera, the light, a 0xRRGGBB background, how far from
+    ;; 0 to 1 every item has moved from where it was toward where it is,
+    ;; and the batches of items. Its meshes are those of
+    ;; `(snail shell graphics mesh)`, each standing on y = 0 within the
+    ;; unit cell around the origin.
     (record Frame
       ((camera Camera)
        (light Light)
        (background I32)
        (motion F32)
-       (batches (List Batch))
-       (pictures (List Picture))))
+       (batches (List Batch))))
 
     (record Vec3
       ((x F32)
@@ -405,91 +401,13 @@
        (sun F32)
        (ambient F32)))
 
-    ;; Every mesh stands on y = 0 within the unit cell around the origin; a
-    ;; tile is a flat unit square at y = 0, and a quad an upright one facing
-    ;; +z. Each face maps a texture's whole region.
-    (enum Mesh
-      (Box)
-      (Pyramid)
-      (Prism)
-      (Sphere)
-      (Tile)
-      (Tetrahedron)
-      (Octahedron)
-      (Quad))
-
-    ;; ---- Pictures ----
-
-    ;; A rectangle of pixels: its left and top edges, then its size.
-    (record Rect
-      ((x I32)
-       (y I32)
-       (width I32)
-       (height I32))
-      (deriving Serialize Deserialize))
-
-    ;; An encoded image file, PNG or anything else the browser decodes. The
-    ;; host decodes each key once, so `bytes` runs only when it has not.
-    (record Source
-      ((key I32)
-       (bytes (Fn → Bytes))))
-
-    ;; The pixels of `source` within `from`, drawn with their top left at
-    ;; (x, y) of the picture. Each swap replaces the 0xRRGGBB color first in
-    ;; the pair with the second, keeping alpha: art drawn in one palette can
-    ;; be recolored, as LPC skin ramps are.
-    (record Layer
-      ((source Source)
-       (from Rect)
-       (x I32)
-       (y I32)
-       (swaps (List (Pair I32 I32)))))
-
-    ;; A texture the host composes from layers, drawn in order over
-    ;; transparency. Like a batch, it is kept until its version changes, so
-    ;; `layers` runs only when the host lacks this version.
-    (record Picture
-      ((key I32)
-       (version I32)
-       (width I32)
-       (height I32)
-       (layers (Fn → (List Layer)))))
-
-    ;; A region of a picture. With more than one frame it is a strip: the
-    ;; host shows `frames` regions side by side, starting at `region` and
-    ;; stepping right by its width, each for `period` milliseconds.
-    (record Texture
-      ((picture I32)
-       (region Rect)
-       (frames I32)
-       (period I32)))
-
-    (define (still (picture I32) (region Rect)) (→ Texture)
-      (new Texture (picture picture) (region region) (frames 1) (period 1)))
-
-    ;; How a surface reflects light, in the metallic-roughness model. The
-    ;; texture times the item's color is the albedo of a dielectric, or the
-    ;; specular color of a metal. Transparent texels are not drawn.
-    (record Material
-      ((texture (Option Texture))
-       (metalness F32)
-       (roughness F32)))
-
-    ;; Untextured and fully rough, as a matte dielectric.
-    (define plain (→ Material) (new Material (texture (None)) (metalness 0.0) (roughness 1.0)))
-
-    ;; A fixed item turns by its yaw alone; an upright one also turns about
-    ;; the vertical axis to face the camera, as sprites do.
-    (enum Facing
-      (Fixed)
-      (Upright))
-
     ;; ---- Items ----
 
     ;; A mesh instance: position, scale, rotation about the vertical axis, a
     ;; 0xRRGGBB color, and a glow from 0, lit by the light, to 1, its own
     ;; color. It moves from `from` to `position` as the frame's motion goes
-    ;; from 0 to 1, so the host animates it without asking for new items.
+    ;; from 0 to 1, so a frame animates it without new items. Surfaces are
+    ;; matte.
     (record Item
       ((mesh Mesh)
        (position Vec3)
@@ -497,9 +415,7 @@
        (yaw F32)
        (color I32)
        (glow F32)
-       (from Vec3)
-       (material Material)
-       (facing Facing)))
+       (from Vec3)))
 
     ;; A 0xRRGGBB color.
 
@@ -516,45 +432,7 @@
         (yaw yaw)
         (color color)
         (glow 0.0)
-        (from position)
-        (material plain)
-        (facing (Fixed))))
-
-    ;; A texture on a quad `width` by `height` world units, its bottom center
-    ;; at `position`, standing upright toward the camera: a sprite in a 2.5D
-    ;; scene.
-
-    (define (sprite (texture Texture) (position Vec3) (width F32) (height F32)) (→ Item)
-      (new Item (mesh (Quad))
-           (position position)
-           (scale (new Vec3 (x width) (y height) (z 1.0)))
-           (yaw 0.0)
-           (color (rgb 255 255 255))
-           (glow 0.0)
-           (from position)
-           (material (new Material (texture (Some texture)) (metalness 0.0) (roughness 1.0)))
-           (facing (Upright))))
-
-    ;; A texture lying on the ground, `width` by `height` world units, its
-    ;; top toward -z and the middle of its bottom edge at `position`: a sprite
-    ;; in a 2D scene seen straight down, where -z is the top of the screen.
-    ;; It shows the texture's own colors, unlit.
-
-    (define (flat-sprite (texture Texture) (position Vec3) (width F32) (height F32)) (→ Item)
-      (let ((center
-             (new Vec3
-               (x (● position x))
-               (y (● position y))
-               (z (- (● position z) (/ height 2.0))))))
-        (new Item (mesh (Tile))
-             (position center)
-             (scale (new Vec3 (x width) (y 1.0) (z height)))
-             (yaw 0.0)
-             (color (rgb 255 255 255))
-             (glow 1.0)
-             (from center)
-             (material (new Material (texture (Some texture)) (metalness 0.0) (roughness 1.0)))
-             (facing (Fixed)))))
+        (from position)))
 
     ;; Solid batches hide what is behind them. Translucent ones are drawn
     ;; after, over them. A revealed batch shows only within `radius` of a
@@ -564,8 +442,8 @@
       (Translucent ((opacity F32)))
       (Revealed ((center Vec3) (radius F32))))
 
-    ;; The host keeps each batch's instances until its version changes, so
-    ;; `items` runs only when the host does not already have them.
+    ;; A batch's instances are kept until its version changes, so `items`
+    ;; runs only when its version is new.
     (record Batch
       ((key I32)
        (version I32)
@@ -606,8 +484,9 @@
     ;; caption beneath its text and a ring around it filled to a fraction,
     ;; when the fraction is not negative. A dial is a round readout. A link
     ;; opens `url` in a new page and reports nothing. A text is a label
-    ;; whose words may be strong in places. An image shows a region of a
-    ;; picture, each texel `scale` pixels wide.
+    ;; whose words may be strong in places. An image shows the
+    ;; application's image `image`, `width` by `height` texels, each
+    ;; `scale` pixels wide; the scene's `image-url` gives its address.
     (enum Widget
       (Label ((look Look) (text String)))
       (Button ((look Look)
@@ -620,7 +499,7 @@
       (Dial ((look Look) (text String) (fraction F32)))
       (Link ((look Look) (text String) (url String)))
       (Text ((look Look) (spans (List Span))))
-      (Image ((look Look) (picture I32) (region Rect) (scale I32))))
+      (Image ((look Look) (image I32) (width I32) (height I32) (scale I32))))
 
     (enum Span
       (Normal ((words String)))
@@ -659,200 +538,165 @@
 
     ;; ---- Drawing ----
 
-    (effect screen
-      ((frame-begin (Fn I32 F32 → Unit))
-       (camera (Fn F32 F32 F32 F32 F32 F32 I32 F32 → Unit))
-       (light (Fn F32 F32 F32 F32 F32 → Unit))
-       (picture-begin (Fn I32 I32 I32 I32 → Bool))
-       (layer (Fn I32 I32 I32 I32 I32 I32 I32 → Bool))
-       (source-begin (Fn I32 I32 → Unit))
-       (source-word (Fn I32 → Unit))
-       (swap (Fn I32 I32 → Unit))
-       (picture-end (Fn → Unit))
-       (batch-begin (Fn I32 I32 I32 F32 F32 F32 F32 → Bool))
-       (instance (Fn I32 F32 F32 F32 F32 F32 F32 F32 I32 F32 F32 F32 F32 → Unit))
-       (surface (Fn F32 F32 I32 I32 I32 I32 I32 I32 I32 I32 → Unit))
-       (frame-end (Fn → Unit))
-       (picture-url (Fn I32 → String))))
+    ;; What drawing frames keeps: the device's answer once asked, and each
+    ;; batch's version with its instances packed, by batch key.
+    (record Frames
+      ((device (Option DeviceInfo))
+       (batches (Table (Pair I32 Meshes)))))
 
-    ;; The page's canvas, through the browser host.
-    (define (provide-screen (work (Fn → T ! screen e))) (→ T) (! e) (∀ (T e))
-      (handle screen
-          ((frame-begin host-frame-begin)
-           (camera host-camera)
-           (light host-light)
-           (picture-begin host-picture-begin)
-           (layer host-layer)
-           (source-begin host-source-begin)
-           (source-word host-source-word)
-           (swap host-swap)
-           (picture-end host-picture-end)
-           (batch-begin host-batch-begin)
-           (instance host-instance)
-           (surface host-surface)
-           (frame-end host-frame-end)
-           (picture-url host-url))
-        (work)))
+    (define (start-frames) (→ Frames) (new Frames (device (None)) (batches (empty-table))))
 
-    ;; A string from the host crosses a scalar at a time.
+    ;; The frame drawn to the canvas: solid and revealed batches into the
+    ;; G-buffer, lit by the sun over the background, then translucent ones
+    ;; over them. A batch's instances are packed and written only when its
+    ;; version is new.
+    (define (draw-frame (frame Frame) (frames Frames)) (→ Frames) (! gpu tasks)
+      (let* ((before frames)
+             (format (● (frames-device frames) format))
+             (frames (fold-left packed
+                                (Frames-device-set frames (Some (frames-device frames)))
+                                (● frame batches)))
+             (fresh? (lambda (batch) (not (current? before batch))))
+             (canvas (current-texture))
+             (g (gbuffer "frame" (● canvas width) (● canvas height)))
+             (r (raster format
+                        (frame-camera frame (● canvas width) (● canvas height))
+                        (frame-sun (● frame light))))
+             (encoder (create-command-encoder))
+             (pass (begin-gbuffer encoder g)))
+        (for-each (lambda (batch) (raster-batch pass frames r batch (fresh? batch)))
+                  (filter (lambda (batch) (not (translucent? batch))) (● frame batches)))
+        (end-pass pass)
+        (sun-pass encoder (● canvas texture) format (backdrop (● frame background)) g r)
+        (let ((pass (begin-forward encoder (● canvas texture) g)))
+          (for-each (lambda (batch) (blend-batch pass frames r batch (fresh? batch)))
+                    (filter translucent? (● frame batches)))
+          (end-pass pass))
+        (submit (list (finish encoder)))
+        frames))
 
-    (define (host-url (picture I32)) (→ String)
-      (string-generate (i32->i64 (host-picture-url picture))
-                       (lambda (index)
-                         (integer->char (i32->i64 (host-picture-url-scalar (i64->i32 index)))))))
+    (define (frames-device (frames Frames)) (→ DeviceInfo) (! gpu tasks)
+      (match (● frames device)
+        ((Some info) info)
+        ((None) (request-device 268435456))))
 
-    (define (render (frame Frame)) (→ Unit) (! screen)
-      (frame-begin (● frame background) (● frame motion))
-      (render-camera (● frame camera))
-      (render-light (● frame light))
-      (for-each render-picture (● frame pictures))
-      (for-each render-batch (● frame batches))
-      (frame-end))
+    ;; Frames with `batch`'s instances packed, unless they are for its
+    ;; version already.
+    (define (packed (frames Frames) (batch Batch)) (→ Frames)
+      (if (current? frames batch)
+          frames
+          (Frames-batches-set frames
+                              (table-set (● frames batches)
+                                         (show (● batch key))
+                                         (new Pair
+                                           (first (● batch version))
+                                           (second
+                                            (meshes (map instance-of ((● batch items))))))))))
 
-    ;; Kind 0 is perspective and 1 orthographic, as in host/browser/renderer.mjs.
+    (define (current? (frames Frames) (batch Batch)) (→ Bool)
+      (match (table-ref (● frames batches) (show (● batch key)))
+        ((Some kept) (= (● kept first) (● batch version)))
+        ((None) #f)))
 
-    (define (render-camera (view Camera)) (→ Unit) (! screen)
-      (let ((eye (● view eye)) (target (● view target)))
-        (match (● view projection)
-          ((Perspective fov)
-           (camera (● eye x)
-                   (● eye y)
-                   (● eye z)
-                   (● target x)
-                   (● target y)
-                   (● target z)
-                   0
-                   fov))
-          ((Orthographic height)
-           (camera (● eye x)
-                   (● eye y)
-                   (● eye z)
-                   (● target x)
-                   (● target y)
-                   (● target z)
-                   1
-                   height)))))
+    (define (instance-of (item Item)) (→ (Pair Mesh Instance))
+      (let ((position (● item position))
+            (scale (● item scale))
+            (from (● item from))
+            (color (● item color)))
+        (new Pair
+          (first (● item mesh))
+          (second (new Instance
+                    (place (vec4 position (● item yaw)))
+                    (scale (vec4 scale (● item glow)))
+                    (color (new Vec4f
+                             (x (channel color 16))
+                             (y (channel color 8))
+                             (z (channel color 0))
+                             (w 1.0)))
+                    (from (vec4 from 0.0))
+                    (material (new Vec4f (x 0.0) (y 1.0) (z 0.0) (w 0.0))))))))
 
-    (define (render-light (sunlight Light)) (→ Unit) (! screen)
-      (let ((direction (● sunlight direction)))
-        (light (● direction x)
-               (● direction y)
-               (● direction z)
-               (● sunlight sun)
-               (● sunlight ambient))))
+    (define (vec4 (v Vec3) (w F32)) (→ Vec4f)
+      (new Vec4f (x (● v x)) (y (● v y)) (z (● v z)) (w w)))
 
-    ;; A picture's layers travel only when the host lacks this version, and a
-    ;; source's bytes only when the host has never decoded it.
+    (define (channel (color I32) (shift I32)) (→ F32)
+      (/ (i32->f32 (i32-and (i32-shift-right/logical color shift) 255)) 255.0))
 
-    (define (render-picture (picture Picture)) (→ Unit) (! screen)
-      (unless (picture-begin (● picture key)
-                             (● picture version)
-                             (● picture width)
-                             (● picture height))
-        (for-each render-layer ((● picture layers)))
-        (picture-end)))
+    (define (backdrop (color I32)) (→ Color)
+      (new Color
+        (red (f32->f64 (channel color 16)))
+        (green (f32->f64 (channel color 8)))
+        (blue (f32->f64 (channel color 0)))
+        (alpha 1.0)))
 
-    (define (render-layer (piece Layer)) (→ Unit) (! screen)
-      (let ((from (● piece from)) (source (● piece source)))
-        (unless (layer (● source key)
-                       (● from x)
-                       (● from y)
-                       (● from width)
-                       (● from height)
-                       (● piece x)
-                       (● piece y))
-          (send-source source))
-        (for-each (lambda (pair) (swap (● pair first) (● pair second))) (● piece swaps))))
+    (define (frame-camera (frame Frame) (width I32) (height I32)) (→ Camera3D)
+      (let ((view (● frame camera)))
+        (camera-3d (vec3f (● view eye))
+                   (vec3f (● view target))
+                   (match (● view projection)
+                     ((Perspective fov) (Pinhole (f32->f64 fov)))
+                     ((Orthographic height) (Parallel (f32->f64 height))))
+                   (/ (i32->f64 width) (i32->f64 (max 1 height)))
+                   (● frame motion))))
 
-    ;; Bytes go four at a time, little-endian, the last word padded.
+    (define (vec3f (v Vec3)) (→ Vec3f) (new Vec3f (x (● v x)) (y (● v y)) (z (● v z))))
 
-    (define (send-source (source Source)) (→ Unit) (! screen)
-      (let* ((bytes ((● source bytes))) (count (array-length bytes))
-             (byte (lambda (index) (if (< index count) (u8->i32 (array-ref bytes index)) 0))))
-        (source-begin (● source key) (i64->i32 count))
-        (let loop ((index 0))
-          (when (< index count)
-            (source-word (+ (byte index)
-                            (+ (i32-shift-left (byte (+ index 1)) 8)
-                               (+ (i32-shift-left (byte (+ index 2)) 16)
-                                  (i32-shift-left (byte (+ index 3)) 24)))))
-            (loop (+ index 4))))))
+    (define (frame-sun (light Light)) (→ Sun)
+      (new Sun (direction (vec4 (● light direction) (● light sun))) (ambient (● light ambient))))
 
-    ;; The style travels with every frame; the items only when the host lacks
-    ;; this version. Styles 0 to 2 match the `styles` of host/browser/host.mjs.
+    (define (translucent? (batch Batch)) (→ Bool)
+      (match (● batch style)
+        ((Translucent _) #t)
+        (_ #f)))
 
-    (define (render-batch (batch Batch)) (→ Unit) (! screen)
-      (unless (match (● batch style)
-                ((Solid) (batch-begin (● batch key) (● batch version) 0 1.0 0.0 0.0 0.0))
-                ((Translucent opacity)
-                 (batch-begin (● batch key) (● batch version) 1 opacity 0.0 0.0 0.0))
-                ((Revealed center radius)
-                 (batch-begin (● batch key)
-                              (● batch version)
-                              2
-                              1.0
-                              (● center x)
-                              (● center z)
-                              radius)))
-        (for-each render-item ((● batch items)))))
+    ;; Batch k's buffers are named "batch k", and written when its version
+    ;; is new this frame.
+    (define (raster-batch (pass GpuRenderPass)
+                          (frames Frames)
+                          (r Raster)
+                          (batch Batch)
+                          (write? Bool))
+      (→ Unit)
+      (! gpu)
+      (raster-meshes pass
+                     r
+                     (batch-name batch)
+                     (batch-style batch)
+                     (batch-meshes frames batch)
+                     write?))
 
-    (define (render-item (item Item)) (→ Unit) (! screen)
-      (let ((position (● item position)) (scale (● item scale)) (from (● item from)))
-        (instance (mesh-index (● item mesh))
-          (● position x)
-          (● position y)
-          (● position z)
-          (● scale x)
-          (● scale y)
-          (● scale z)
-          (● item yaw)
-          (● item color)
-          (● item glow)
-          (● from x) (● from y) (● from z))
-        (render-surface (● item material) (● item facing))))
+    (define (blend-batch (pass GpuRenderPass)
+                         (frames Frames)
+                         (r Raster)
+                         (batch Batch)
+                         (write? Bool))
+      (→ Unit)
+      (! gpu)
+      (raster-translucent pass
+                          r
+                          (batch-name batch)
+                          (batch-style batch)
+                          (batch-meshes frames batch)
+                          write?))
 
-    ;; A material and facing follow each instance: an untextured one names
-    ;; picture -1.
+    (define (batch-name (batch Batch)) (→ String) (string-append "batch " (show (● batch key))))
 
-    (define (render-surface (material Material) (facing Facing)) (→ Unit) (! screen)
-      (let ((turn (match facing ((Fixed) 0) ((Upright) 1))))
-        (match (● material texture)
-          ((Some texture)
-           (let ((region (● texture region)))
-             (surface (● material metalness)
-                      (● material roughness)
-                      turn
-                      (● texture picture)
-                      (● region x)
-                      (● region y)
-                      (● region width)
-                      (● region height)
-                      (● texture frames)
-                      (● texture period))))
-          ((None)
-           (surface (● material metalness)
-                    (● material roughness)
-                    turn
-                    -1
-                    0
-                    0
-                    0
-                    0
-                    1
-                    1)))))
+    (define (batch-meshes (frames Frames) (batch Batch)) (→ Meshes)
+      (match (table-ref (● frames batches) (show (● batch key)))
+        ((Some kept) (● kept second))
+        ((None) (panic "draw-frame: a batch was not packed"))))
 
-    ;; The order matches the meshes in host/browser/renderer.mjs.
-
-    (define (mesh-index (mesh Mesh)) (→ I32)
-      (match mesh
-        ((Box) 0)
-        ((Pyramid) 1)
-        ((Prism) 2)
-        ((Sphere) 3)
-        ((Tile) 4)
-        ((Tetrahedron) 5)
-        ((Octahedron) 6)
-        ((Quad) 7)))
+    (define (batch-style (batch Batch)) (→ Raster-style)
+      (match (● batch style)
+        ((Solid) solid-style)
+        ((Translucent opacity)
+         (new Raster-style (opacity opacity) (center-x 0.0) (center-z 0.0) (radius -1.0)))
+        ((Revealed center radius)
+         (new Raster-style
+           (opacity 1.0)
+           (center-x (● center x))
+           (center-z (● center z))
+           (radius radius)))))
 
     ;; ---- The HUD's document ----
 
@@ -864,15 +708,17 @@
     ;; data-badge. A panel or widget keeps its node while its key and tag
     ;; stay, so hover and focus survive the updates; siblings' keys differ,
     ;; as (snail shell ui) requires. A listener's function makes the input
-    ;; its event is.
+    ;; its event is. `url` gives the address of the application's image
+    ;; by its key.
 
-    (define (hud-html (panels (List Panel))) (→ (List (ui:Html Input))) (! screen)
-      (append (map (lambda (corner) (corner-html corner panels))
+    (define (hud-html (panels (List Panel)) (url (Fn I32 → String))) (→ (List (ui:Html Input)))
+      (append (map (lambda (corner) (corner-html corner panels url))
                    (list "top-left" "top-right" "bottom-left" "bottom-right"))
               (list (ui:Element "div"
                                 (list (ui:Attr "class" "banner"))
-                                (map panel-html (placed "banner" panels)))
-                    (dialogs-html (placed "dialog" panels)))))
+                                (map (lambda (panel) (panel-html panel url))
+                                     (placed "banner" panels)))
+                    (dialogs-html (placed "dialog" panels) url))))
 
     ;; Where a panel goes: a corner by its class in the page's style, the
     ;; banner or the dialogs.
@@ -897,19 +743,20 @@
     ;; A corner's columns, column 0 first, each holding its panels in the
     ;; order given.
 
-    (define (corner-html (corner String) (panels (List Panel))) (→ (ui:Html Input)) (! screen)
+    (define (corner-html (corner String) (panels (List Panel)) (url (Fn I32 → String)))
+      (→ (ui:Html Input))
       (let ((here (placed corner panels)))
         (ui:Element "div"
                     (list (ui:Attr "class" (string-append "corner " corner)))
                     (map (lambda (column)
                            (ui:Element "div"
                                        (list (ui:Keyed (show column)) (ui:Attr "class" "column"))
-                                       (map panel-html
+                                       (map (lambda (panel) (panel-html panel url))
                                             (filter (lambda (panel) (= (panel-column panel) column))
                                                     here))))
                          (list-sort < (delete-duplicates = (map panel-column here)))))))
 
-    (define (dialogs-html (dialogs (List Panel))) (→ (ui:Html Input)) (! screen)
+    (define (dialogs-html (dialogs (List Panel)) (url (Fn I32 → String))) (→ (ui:Html Input))
       (let ((dismiss (fold-left (lambda (dismiss panel)
                                   (match (● panel place)
                                     ((Dialog action) action)
@@ -925,21 +772,21 @@
                                                    (Allow)
                                                    (lambda (_) (Press dismiss 0))))
                                       (Nil))
-                          (map panel-html dialogs)))))
+                          (map (lambda (panel) (panel-html panel url)) dialogs)))))
 
-    (define (panel-html (panel Panel)) (→ (ui:Html Input)) (! screen)
+    (define (panel-html (panel Panel) (url (Fn I32 → String))) (→ (ui:Html Input))
       (ui:Element "div"
                   (list (ui:Keyed (● panel key))
                         (ui:Attr "class" "panel")
                         (ui:Attr "data-key" (● panel key)))
-                  (map widget-html (● panel widgets))))
+                  (map (lambda (widget) (widget-html widget url)) (● panel widgets))))
 
     ;; ---- Widgets ----
 
     ;; A widget is an icon the style draws and its text, a button also its
     ;; caption; a text's words are spans, strong in places.
 
-    (define (widget-html (widget Widget)) (→ (ui:Html Input)) (! screen)
+    (define (widget-html (widget Widget) (url (Fn I32 → String))) (→ (ui:Html Input))
       (match widget
         ((Label face text)
          (ui:Element "div" (faced "label" face text) (list (part "icon" "") (part "text" text))))
@@ -965,7 +812,7 @@
                            (ui:Element "span"
                                        (list (ui:Attr "class" "text"))
                                        (map span-html spans)))))
-        ((Image face picture region scale) (image-html face (picture-url picture) region scale))))
+        ((Image face image width height scale) (image-html face (url image) width height scale))))
 
     ;; What every widget but an image says of itself: its class, the key
     ;; that keeps its node, its look for the page's style, and for
@@ -1033,41 +880,29 @@
                                 (show (remainder tenths 10))
                                 "%"))))
 
-    ;; An image is a window the size of its region at its scale, over the
-    ;; whole picture moved and scaled so the region fills it; the style
-    ;; keeps its texels crisp. Until the host has composed the picture, the
-    ;; window is empty.
+    ;; An image's texels stay crisp at its scale. Until it has a URL, its
+    ;; box is empty.
 
-    (define (image-html (face Look) (url String) (region Rect) (scale I32)) (→ (ui:Html Input))
+    (define (image-html (face Look) (url String) (width I32) (height I32) (scale I32))
+      (→ (ui:Html Input))
       (ui:Element "div"
                   (list (ui:Keyed (● face key))
                         (ui:Attr "class" "image")
                         (ui:Attr "data-key" (● face key))
                         (ui:Attr "title" (● face help))
-                        (ui:Attr "style"
-                                 (string-append "width: "
-                                                (show (* (● region width) scale))
-                                                "px; height: "
-                                                (show (* (● region height) scale))
-                                                "px; overflow: hidden")))
-                  (if (string=? url "") (Nil) (list (picture-html url region scale)))))
+                        (ui:Attr "style" (box-style (* width scale) (* height scale))))
+                  (if (string=? url "")
+                      (Nil)
+                      (list (ui:Element "img"
+                                        (list (ui:Attr "src" url)
+                                              (ui:Attr "style"
+                                                       (string-append
+                                                        (box-style (* width scale) (* height scale))
+                                                        "; image-rendering: pixelated")))
+                                        (Nil))))))
 
-    (define (picture-html (url String) (region Rect) (scale I32)) (→ (ui:Html Input))
-      (ui:Element "img"
-                  (list (ui:Attr "src" url)
-                        (ui:Attr "style"
-                                 (string-append "width: "
-                                                (show (● region width))
-                                                "px; height: "
-                                                (show (● region height))
-                                                "px; object-fit: none; object-position: -"
-                                                (show (● region x))
-                                                "px -"
-                                                (show (● region y))
-                                                "px; transform-origin: 0 0; transform: scale("
-                                                (show scale)
-                                                ")")))
-                  (Nil)))
+    (define (box-style (width I32) (height I32)) (→ String)
+      (string-append "width: " (show width) "px; height: " (show height) "px"))
 
     ;; ---- Picking ----
 
@@ -1167,15 +1002,17 @@
 
     ;; ---- Running a scene ----
 
-    ;; A scene is a handler, in the style of winit's: a record of the six
-    ;; functions over its state, which a script hands to `run-scene` as its
-    ;; last statement.
+    ;; A scene is a handler, in the style of winit's: a record of the
+    ;; functions over its state and its drawing state, which a script hands
+    ;; to `run-scene` as its last statement.
 
-    (record (SceneHandler S)
+    (record (SceneHandler S D)
       ((initialize (Fn I32 I32 I32 → S))
        (update (Fn S Input → S))
-       (view (Fn S → Frame))
+       (start (Fn → D))
+       (draw (Fn S D → D ! gpu clock tasks))
        (hud (Fn S → (List Panel)))
+       (image-url (Fn D I32 → String))
        (save (Fn S → Bytes))
        (restore (Fn Bytes → S))))
 
@@ -1183,7 +1020,10 @@
     ;; canvas's size, then the scene's loop, which never returns, over the
     ;; page's document.
 
-    (define (run-scene (scene (SceneHandler S))) (→ Unit) (! screen events storage tasks) (∀ (S))
+    (define (run-scene (scene (SceneHandler S D)))
+      (→ Unit)
+      (! gpu clock events storage tasks)
+      (∀ (S D))
       (run-page (lambda ()
                   ((● scene initialize) (random-seed) (canvas-width) (canvas-height)))
                 (● scene save)
@@ -1191,55 +1031,63 @@
                 (lambda (state save)
                   (with-page-dom
                    (lambda ()
-                     (scene-loop scene save state (new Hud (shown (Nil)) (hovered (None))) 0))))))
+                     (scene-loop scene
+                                 save
+                                 state
+                                 ((● scene start))
+                                 (new Hud (shown (Nil)) (hovered (None)))
+                                 0))))))
 
     ;; Each event's state is drawn: a frame draws the scene and, at most ten
     ;; times a second, the HUD; an input shows its HUD. Saves share the
     ;; same queue, independently of display frames. A HUD listener that
     ;; fired gives its input; one the HUD has since dropped gives none.
 
-    (define (scene-loop (scene (SceneHandler S))
+    (define (scene-loop (scene (SceneHandler S D))
                         (save (Fn S → Unit ! events storage tasks))
                         (state S)
+                        (drawing D)
                         (hud Hud)
                         (since-hud I32))
       (→ Unit)
-      (! screen dom events storage tasks)
-      (∀ (S))
+      (! gpu clock dom events storage tasks)
+      (∀ (S D))
       (match (next-event)
         ((FrameEvent elapsed)
-         (let ((next ((● scene update) state (Elapsed elapsed)))
-               (show-hud? (>= (+ since-hud elapsed) 100)))
-           (render ((● scene view) next))
-           (let ((shown (if show-hud?
-                            (show-hud scene next hud)
-                            (new Pair (first next) (second hud)))))
-             (report-ready)
-             (scene-loop scene
-                         save
-                         (● shown first)
-                         (● shown second)
-                         (if show-hud? 0 (+ since-hud elapsed))))))
-        ((InputEvent input) (scene-input scene save state hud input))
+         (let* ((next ((● scene update) state (Elapsed elapsed)))
+                (drawn ((● scene draw) next drawing))
+                (show-hud? (>= (+ since-hud elapsed) 100))
+                (shown (if show-hud?
+                           (show-hud scene next drawn hud)
+                           (new Pair (first next) (second hud)))))
+           (report-ready)
+           (scene-loop scene
+                       save
+                       (● shown first)
+                       drawn
+                       (● shown second)
+                       (if show-hud? 0 (+ since-hud elapsed)))))
+        ((InputEvent input) (scene-input scene save state drawing hud input))
         ((HudEvent listener)
          (match (table-ref (ui:listener-table (● hud shown)) (show listener))
            ((Some message)
             (let ((input (message no-event)))
-              (scene-input scene save state (hovering hud listener input) input)))
-           ((None) (scene-loop scene save state hud since-hud))))
-        ((Hidden) (save state) (scene-loop scene save state hud since-hud))
-        ((SaveRequested) (save state) (scene-loop scene save state hud since-hud))))
+              (scene-input scene save state drawing (hovering hud listener input) input)))
+           ((None) (scene-loop scene save state drawing hud since-hud))))
+        ((Hidden) (save state) (scene-loop scene save state drawing hud since-hud))
+        ((SaveRequested) (save state) (scene-loop scene save state drawing hud since-hud))))
 
-    (define (scene-input (scene (SceneHandler S))
+    (define (scene-input (scene (SceneHandler S D))
                          (save (Fn S → Unit ! events storage tasks))
                          (state S)
+                         (drawing D)
                          (hud Hud)
                          (input Input))
       (→ Unit)
-      (! screen dom events storage tasks)
-      (∀ (S))
-      (let ((shown (show-hud scene ((● scene update) state input) hud)))
-        (scene-loop scene save (● shown first) (● shown second) 0)))
+      (! gpu clock dom events storage tasks)
+      (∀ (S D))
+      (let ((shown (show-hud scene ((● scene update) state input) drawing hud)))
+        (scene-loop scene save (● shown first) drawing (● shown second) 0)))
 
     ;; ---- Showing the HUD ----
 
@@ -1259,18 +1107,21 @@
     ;; while the pointer is over it never hears the pointer leave, so the
     ;; state is told, and its HUD shown.
 
-    (define (show-hud (scene (SceneHandler S)) (state S) (hud Hud))
+    (define (show-hud (scene (SceneHandler S D)) (state S) (drawing D) (hud Hud))
       (→ (Pair S Hud))
-      (! screen dom)
-      (∀ (S))
+      (! dom)
+      (∀ (S D))
       (let ((shown (ui:patch-children (document-root)
                                       (● hud shown)
-                                      (hud-html ((● scene hud) state)))))
+                                      (hud-html ((● scene hud) state)
+                                                (lambda (image)
+                                                  ((● scene image-url) drawing image))))))
         (if (match (● hud hovered)
               ((Some listener) (not (table-contains? (ui:listener-table shown) (show listener))))
               ((None) #f))
             (show-hud scene
                       ((● scene update) state (Hover 0 0))
+                      drawing
                       (new Hud (shown shown) (hovered (None))))
             (new Pair (first state) (second (new Hud (shown shown) (hovered (● hud hovered))))))))
 
