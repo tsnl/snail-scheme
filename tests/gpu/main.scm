@@ -5,8 +5,9 @@
 ;; texture into a buffer that is read back, and decodes a two-texel PNG,
 ;; read back the same way. A second frame draws again with the objects the
 ;; first made.
-;; Then an atlas's picture is drawn as quads, and two tiles are rasterized
-;; into a G-buffer and lit by the sun pass. tests/browser/gpu.mjs checks
+;; Then an atlas's picture is drawn as quads, two tiles are rasterized
+;; into a G-buffer and lit by the sun, and a compute pass squares numbers in
+;; a storage buffer. tests/browser/gpu.mjs checks
 ;; what it prints.
 (import
  (snail core base)
@@ -119,7 +120,7 @@
 (define (group-for (pipeline GpuRenderPipeline) (color GpuBuffer)) (→ GpuBindGroup) (! gpu)
   (create-bind-group (new BindGroupDescriptor
                        (label "test")
-                       (pipeline pipeline)
+                       (pipeline (RenderPipeline pipeline))
                        (group 0)
                        (entries (list (BufferEntry 0 color 0 0))))))
 
@@ -269,9 +270,13 @@
         (first texels)
         (second (atlas-url atlas 1 (new Rect (x 0) (y 0) (width 2) (height 1))))))))
 
-;; Two tiles seen straight down through a parallel lens, filling a 4x4
-;; texture: the left one red and glowing, the right one white under only
-;; ambient light of 0.6, so its texels are 153.
+;; Two tiles seen straight down through a parallel lens, lit into the
+;; light and brought into a 4x4 texture by tone mapping and FXAA: the left
+;; one red and glowing, whose 1.0 the tone curve's shoulder brings down
+;; to 0.9 and desaturates a little, and the right one white under only
+;; ambient light of 0.6, under the curve's knee, so its texels are 153.
+;; The edge between them is straight down the texture, along which FXAA
+;; blends nothing.
 
 (define (tile (x F32) (color Vec4f) (glow F32)) (→ (Pair Mesh Instance))
   (new Pair
@@ -286,9 +291,10 @@
 (define (scene-frame) (→ Bytes) (! gpu tasks)
   (let* ((target (texture-named "scene" 4 4))
          (readback (buffer-named "scene-readback" 1024 (list (MapRead) (CopyDst))))
-         (r (make-raster (Rgba8Unorm)))
+         (r (make-raster light-format))
          (g (make-gbuffer 4 4))
-         (light (make-sunlight (Rgba8Unorm) g r))
+         (light (make-sunlight light-format g r))
+         (post (make-post (Rgba8Unorm) 4 4))
          (tiles (make-surface r
                               "tiles"
                               #f
@@ -308,14 +314,54 @@
       (draw-surface pass r tiles)
       (end-pass pass))
     (let ((pass (begin-lit encoder
-                           (view-of target 1)
+                           (● post targets light-view)
                            (new Color (red 0.0) (green 0.0) (blue 0.0) (alpha 1.0))
                            g)))
       (draw-sun pass light)
       (end-pass pass))
+    (draw-post encoder (view-of target 1) post)
     (copy-texture-to-buffer encoder (whole-texture target) readback 0 256 4 4)
     (submit (list (finish encoder)))
     (read-buffer readback 0 16)))
+
+;; 1 to 100, squared by 64-wide workgroups, two of them, and the first
+;; four and the last read back.
+
+(define (compute-frame) (→ Bytes) (! gpu tasks)
+  (let* ((module (create-shader-module (new ShaderModuleDescriptor (label "square") (code square))))
+         (pipeline (create-compute-pipeline
+                    (new ComputePipelineDescriptor
+                      (label "square")
+                      (module module)
+                      (entry "square_main"))))
+         (numbers (buffer-named "numbers" 400 (list (Storage) (CopySrc) (CopyDst))))
+         (readback (buffer-named "numbers-readback" 400 (list (MapRead) (CopyDst))))
+         (group (create-bind-group (new BindGroupDescriptor
+                                     (label "square")
+                                     (pipeline (ComputePipeline pipeline))
+                                     (group 0)
+                                     (entries (list (BufferEntry 0 numbers 0 0))))))
+         (encoder (create-command-encoder))
+         (pass (begin-compute-pass encoder)))
+    (write-buffer numbers 0 (pack (shape) (map (lambda (n) (+ 1 (i64->i32 n))) (iota 100))))
+    (set-compute-pipeline pass pipeline)
+    (set-compute-bind-group pass 0 group)
+    (dispatch-workgroups pass 2 1 1)
+    (end-compute-pass pass)
+    (copy-buffer-to-buffer encoder numbers 0 readback 0 400)
+    (submit (list (finish encoder)))
+    (let ((bytes (read-buffer readback 0 400)))
+      (array-append (subarray bytes 0 16) (subarray bytes 396 400)))))
+
+(define (words (bytes Bytes)) (→ String)
+  (string-join (map (lambda (index)
+                      (show (fold-left (lambda (value byte)
+                                         (+ (* value 256)
+                                            (u8->i32 (array-ref bytes (+ (* 4 index) (- 3 byte))))))
+                                       0
+                                       (iota 4))))
+                    (iota (quotient (array-length bytes) 4)))
+               " "))
 
 (let* ((info (request-device)) (p (painting info)))
   (write-line (string-append "format: " (texture-format-name (● info format))))
@@ -328,4 +374,5 @@
     (write-line (string-append "quads: " (texels (● quads first))))
     (write-line (string-append "url: " (● quads second))))
   (write-line (string-append "scene: " (texels (scene-frame))))
+  (write-line (string-append "squares: " (words (compute-frame))))
   (report-ready))

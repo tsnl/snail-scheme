@@ -1239,7 +1239,6 @@
                    (threading cx
                               ((bodies (each (lambda (cx entry) (declare cx env signatures entry))
                                              pending)))
-                              (check-buildable-records cx env pending)
                               (expand-bodies cx (concatenate bodies))))))
 
     ;; A script's statements, the root program's top-level expressions, are
@@ -1313,68 +1312,6 @@
                             bodies)))
         (fail-if-found (● run second))
         (● run first)))
-
-    ;; A record whose every value would contain another value of itself,
-    ;; through record fields only, can never be built: no finite program
-    ;; constructs one, so declaring it is reported as a mistake. Nothing
-    ;; downstream relies on the rule; whether to keep it is open (#796).
-    ;; Once every declaration of the library is in, each record is checked
-    ;; where it is declared. An empty type is an enum with no cases.
-
-    (define (check-buildable-records (cx Context) (env Env) (pending (List Pending))) (→ Unit)
-      (! compile)
-      (for-each (lambda (entry)
-                  (match entry
-                    ((PendingData form #f) (check-buildable cx env form))
-                    (_ (unit))))
-                pending))
-
-    (define (check-buildable (cx Context) (env Env) (form Syntax)) (→ Unit) (! compile)
-      (let ((name (declared-name (declaration-head form))))
-        (match (resolve cx env name)
-          ((Some (TypeName id _ _))
-           (when (contains-itself? (● cx program) (program-type (● cx program) id))
-             (compile-error (syntax-loc name)
-                            (string-append "the record "
-                                           (ident-name name)
-                                           " can never be built: each of its values would contain another"))))
-          (_ (panic "internal error: record")))))
-
-    ;; Whether every value of the record `data` would hold another of
-    ;; itself. The search follows record fields and stops at every other
-    ;; type, each of which has a value that holds no record: an enum's tag,
-    ;; an empty array or string, an Any, a function. A declaration is
-    ;; entered once per path: one that reached its own name would itself
-    ;; contain itself, and the expander refuses it where it is declared.
-
-    (define (contains-itself? (program Program) (data DataType)) (→ Bool)
-      (any? (lambda (field) (reaches? program (● data name) field (Nil)))
-            (record-field-types data (map TRigid (● data params)))))
-
-    (define (reaches? (program Program) (target String) (type Type) (entered (List String)))
-      (→ Bool)
-      (match type
-        ((TCon name args)
-         (cond ((string=? name target) #t)
-               ((or (member? name entered)
-                    (builtin-type? name))
-                #f)
-               (else (let ((data (program-type program name)))
-                       (and (not (● data enum?))
-                            (any?
-                             (lambda (field) (reaches? program target field (Cons name entered)))
-                             (record-field-types data args)))))))
-        (_ #f)))
-
-    ;; The field types of a record's one case, with its parameters bound to
-    ;; `args`.
-
-    (define (record-field-types (data DataType) (args (List Type))) (→ (List Type))
-      (let ((bindings (zip (● data params) args)))
-        (match (● data cases)
-          ((Cons case _)
-           (map (lambda (field) (substitute bindings (● field type))) (● case fields)))
-          ((Nil) (panic "internal error: a record has one case")))))
 
     (define (scan-top-level (cx Context) (env Env) (form Syntax))
       (→ (Pair (List Pending) Context)) (! fs compile generator)
