@@ -1,7 +1,8 @@
 ;; The graphics libraries' shaders, printed to WGSL when this library is
 ;; built, each from the file of its name: `quad-shader` from
 ;; quad.wgsl.scm, and so `atlas-shader`, `lighting-shader`, `raster-shader`,
-;; `sun-shader` and `post-shader`.
+;; `sun-shader`, `post-shader`, `bvh-shader`, `rays-shader` and
+;; `svgf-shader`.
 (generate-library (snail shell graphics shaders)
                   (import
                    (snail core base)
@@ -25,4 +26,13 @@
                                           (second (link-file "sun.wgsl.scm")))
                                         (new Pair
                                           (first "post-shader")
-                                          (second (link-file "post.wgsl.scm"))))))
+                                          (second (link-file "post.wgsl.scm")))
+                                        (new Pair
+                                          (first "bvh-shader")
+                                          (second (link-file "bvh.wgsl.scm")))
+                                        (new Pair
+                                          (first "rays-shader")
+                                          (second (link-file "rays.wgsl.scm")))
+                                        (new Pair
+                                          (first "svgf-shader")
+                                          (second (link-file "svgf.wgsl.scm"))))))

@@ -1,43 +1,49 @@
-;; One path per pixel through a scene, from the first hit the G-buffer
-;; holds (surface.wgsl.scm), each later hit found by walking the BVH
-;; (bvh.wgsl.scm) in this shader, since WebGPU has no ray queries. The
-;; renderer is enlighten's (tsnl/enlighten, archive/main-v1): rasterized
-;; first hits, then a Monte Carlo path with metallic-roughness shading,
-;; Lambert diffuse and GGX reflection sampled by visible normals, mixed
-;; with one probability at every vertex.
+;; A path from every pixel, traced as a wavefront: each step is one
+;; kernel over a queue of rays, so a step's invocations do the same work
+;; and a bounce runs only as many invocations as paths remain. The first
+;; hits come from the G-buffer (surface.wgsl.scm), later ones from the ray
+;; queries of (snail shell graphics bvh). The renderer is enlighten's
+;; (tsnl/enlighten, archive/main-v1): metallic-roughness shading, Lambert
+;; diffuse and GGX reflection sampled by visible normals, mixed with one
+;; probability at every vertex; the sun, a small disc sampled at every
+;; vertex with a shadow ray; the sky a ray sees when it leaves the scene;
+;; emission wherever a path hits it; Russian roulette after the third
+;; bounce; textures at the level of the ray cone's footprint.
 ;;
-;; Light: the sun, a small disc sampled at every vertex with a shadow
-;; ray; the sky, a gradient a scattered ray sees when it leaves the
-;; scene; and emissive surfaces, wherever a path hits them. Russian
-;; roulette ends paths after the third bounce. A masked or blended
-;; material's cutout is tested as rays cross it, so leaves cast the
-;; shadows of their texture. Textures are sampled at the level of the ray
-;; cone's footprint.
+;;   primary    from each pixel's first hit: its emission, or the sky
+;;              behind it, into `radiance`; a shadow ray toward the sun
+;;              into `shadows`; and the scattered ray into `outgoing`
+;;   connect    the sun's light, where a shadow ray met nothing, into
+;;              `radiance` (after the queries' `occlude`)
+;;   shade      at each ray's hit (after `intersect`): the sky if it met
+;;              nothing, else the surface's emission, then, but on the
+;;              last bounce, a shadow ray and the next ray, as `primary`
+;;   gather     `radiance` into the `noisy` plane
 ;;
-;; `Camera3D`, `Tracing` and `SurfaceMaterial` come from Pod. The noisy
-;; radiance goes to `noisy` for the filters to clean.
-(struct Vertex
-        (position vec3f)
-        (u f32)
-        (normal vec3f)
-        (v f32)
-        (tangent vec4f)
-        (material u32)
-        (pad0 u32)
-        (pad1 u32)
-        (pad2 u32))
+;; A frame runs primary, then for each bounce occlude, connect, intersect
+;; and shade, then gather. A pixel has at most one ray in a queue, so
+;; adding to its radiance needs no atomics. Rays are appended with an
+;; atomic count each: bounce b's rays and shadow rays count at `slots.y`
+;; and `slots.z` of `wave`, the rays a shade reads at `slots.x`. A step
+;; over a queue is dispatched over its capacity, a ray a pixel, and
+;; invocations past the count return (bvh.sld says why not indirectly).
+;;
+;; A ray's `payload` is the path's weight and its pixel's index, `more`
+;; the cone's width at the ray's origin and its spread; a shadow ray's
+;; `payload` the light it brings and its pixel. `Camera3D`, `Tracing`,
+;; `Wave` and `SurfaceMaterial` come from Pod; the scene is group 1
+;; (scene.wgsl.scm).
+(struct RayHit
+        (t f32)
+        (triangle u32)
+        (barycentric vec2f))
 
-(struct Node
-        (left_low vec3f)
-        (left u32)
-        (left_high vec3f)
-        (right u32)
-        (right_low vec3f)
-        (pad0 u32)
-        (right_high vec3f)
-        (pad1 u32))
-
-(const TRIANGLE 2147483648u)
+(struct Ray
+        (origin vec4f)
+        (direction vec4f)
+        (hit RayHit)
+        (payload vec4f)
+        (more vec4f))
 
 (const NONE 4294967295u)
 
@@ -47,40 +53,29 @@
 
 ((var uniform) (@group 0) (@binding 1) (tracing Tracing))
 
-((var storage read) (@group 0) (@binding 2) (vertices (array Vertex)))
+((var uniform) (@group 0) (@binding 2) (wave Wave))
 
-((var storage read) (@group 0) (@binding 3) (indices (array u32)))
+((var storage read) (@group 0) (@binding 3) (incoming (array Ray)))
 
-((var storage read) (@group 0) (@binding 4) (nodes (array Node)))
+((var storage read_write) (@group 0) (@binding 4) (outgoing (array Ray)))
 
-((var storage read) (@group 0) (@binding 5) (materials (array SurfaceMaterial)))
+((var storage read_write) (@group 0) (@binding 5) (shadows (array Ray)))
 
-(var (@group 0) (@binding 6) (layers (texture_2d_array f32)))
+((var storage read_write) (@group 0) (@binding 6) (counts (array (atomic u32))))
 
-(var (@group 0) (@binding 7) (repeat sampler))
+((var storage read_write) (@group 0) (@binding 7) (radiance (array vec4f)))
 
-(var (@group 0) (@binding 8) (normals (texture_2d f32)))
+(var (@group 0) (@binding 9) (normals (texture_2d f32)))
 
-(var (@group 0) (@binding 9) (emission (texture_2d f32)))
+(var (@group 0) (@binding 10) (emission (texture_2d f32)))
 
-(var (@group 0) (@binding 10) (albedo (texture_2d f32)))
+(var (@group 0) (@binding 11) (albedo (texture_2d f32)))
 
-(var (@group 0) (@binding 11) (roughness (texture_2d f32)))
+(var (@group 0) (@binding 12) (roughness (texture_2d f32)))
 
-(var (@group 0) (@binding 12) (depth texture_depth_2d))
+(var (@group 0) (@binding 13) (depth texture_depth_2d))
 
-(var (@group 0) (@binding 13) (noisy (texture_storage_2d rgba16float write)))
-
-;; ---- Random numbers ----
-
-(fn pcg ((value u32)) (-> u32)
-    (let state (+ (* value 747796405u) 2891336453u))
-    (let word (* (bit-xor (>> state (+ (>> state 28u) 4u)) state) 277803737u))
-    (return (bit-xor (>> word 22u) word)))
-
-(fn random ((seed (ptr function u32))) (-> f32)
-    (= (deref seed) (pcg (deref seed)))
-    (return (* (f32 (>> (deref seed) 8u)) (/ 1.0 16777216.0))))
+(var (@group 0) (@binding 14) (noisy (texture_storage_2d rgba16float write)))
 
 ;; ---- Surfaces ----
 
@@ -102,13 +97,6 @@
     (+= (get n y) (select t (- t) (>= (get n y) 0.0)))
     (return (normalize n)))
 
-(fn decoded ((c vec3f)) (-> vec3f)
-    (return (select (pow (/ (+ c 0.055) 1.055) (vec3f 2.4)) (/ c 12.92) (<= c (vec3f 0.04045)))))
-
-(fn texel ((layer i32) (uv vec2f) (level f32)) (-> vec4f)
-    (if ((< layer 0) (return (vec4f 1.0))))
-    (return (textureSampleLevel layers repeat uv layer level)))
-
 ;; The first hit, from the G-buffer and depth at `pixel`.
 (fn first_surface ((pixel vec2i) (z f32)) (-> Surface)
     (let size (vec2f (textureDimensions depth)))
@@ -125,13 +113,6 @@
     (= (get s metallic) (get m x))
     (= (get s roughness) (get m y))
     (return s))
-
-;; A triangle's corner.
-(fn corner ((triangle u32) (k u32)) (-> Vertex)
-    (return (at vertices (at indices (+ (* triangle 3u) k)))))
-
-(fn uv_of ((v Vertex)) (-> vec2f)
-    (return (vec2f (get v u) (get v v))))
 
 ;; The texture level a ray cone of width `width` at a hit covers: the
 ;; triangle's texels per unit of world area, scaled by how obliquely the
@@ -170,105 +151,6 @@
     (= (get s metallic) (* (get m factors x) (get metal_rough z)))
     (= (get s roughness) (* (get m factors y) (get metal_rough y)))
     (return s))
-
-;; ---- Rays ----
-
-(struct Hit
-        (t f32)
-        (triangle u32)
-        (barycentric vec2f))
-
-;; Whether a cutout lets the ray through where it crosses `triangle`.
-(fn passes ((triangle u32) (b vec2f) (seed (ptr function u32))) (-> bool)
-    (let a (corner triangle 0u))
-    (let m (at materials (get a material)))
-    (let mode (get m factors w))
-    (if ((== mode 0.0) (return false)))
-    (let bb (corner triangle 1u))
-    (let c (corner triangle 2u))
-    (let uv (+ (* (uv_of a) (- 1.0 (get b x) (get b y))) (* (uv_of bb) (get b x)) (* (uv_of c) (get b y))))
-    (let alpha (* (get m base_color w) (get (texel (get m textures x) uv 2.0) w)))
-    (if ((== mode 1.0) (return (< alpha (get m emissive w)))))
-    (return (< alpha (random seed))))
-
-;; Where the ray first meets the triangle, as t and barycentrics, or t of
-;; -1.
-(fn crossing ((triangle u32) (origin vec3f) (direction vec3f)) (-> vec3f)
-    (let a (get (corner triangle 0u) position))
-    (let e1 (- (get (corner triangle 1u) position) a))
-    (let e2 (- (get (corner triangle 2u) position) a))
-    (let p (cross direction e2))
-    (let det (dot e1 p))
-    (if ((< (abs det) 1e-14) (return (vec3f -1.0))))
-    (let inverse (/ 1.0 det))
-    (let s (- origin a))
-    (let u (* (dot s p) inverse))
-    (let q (cross s e1))
-    (let v (* (dot direction q) inverse))
-    (if ((or (< u 0.0) (< v 0.0) (> (+ u v) 1.0)) (return (vec3f -1.0))))
-    (return (vec3f (* (dot e2 q) inverse) u v)))
-
-;; Where the ray enters the box from low to high, or -1 when it misses
-;; or enters past `limit`; a NaN misses, since every comparison with it
-;; fails. (A miss cannot be `limit` plus one: at 1e30 that is 1e30.)
-(fn entering ((low vec3f) (high vec3f) (origin vec3f) (inverse vec3f) (limit f32)) (-> f32)
-    (let t0 (* (- low origin) inverse))
-    (let t1 (* (- high origin) inverse))
-    (let near (max (max (min (get t0 x) (get t1 x)) (min (get t0 y) (get t1 y))) (min (get t0 z) (get t1 z))))
-    (let far (min (min (max (get t0 x) (get t1 x)) (max (get t0 y) (get t1 y))) (max (get t0 z) (get t1 z))))
-    (if ((not (and (<= near far) (>= far 0.0) (<= near limit))) (return -1.0)))
-    (return (max near 0.0)))
-
-;; The hit with the triangle, when it is nearer than the one so far and
-;; its cutout does not let the ray through.
-(fn tested ((hit (ptr function Hit)) (triangle u32) (origin vec3f) (direction vec3f) (seed (ptr function u32))) (-> bool)
-    (let found (crossing triangle origin direction))
-    (if ((and (> (get found x) 0.0) (< (get found x) (get (deref hit) t)) (not (passes triangle (get found yz) seed)))
-         (= (get (deref hit) t) (get found x))
-         (= (get (deref hit) triangle) triangle)
-         (= (get (deref hit) barycentric) (get found yz))
-         (return true)))
-    (return false))
-
-;; The nearest hit before `limit`, or, for occlusion, the first found.
-;; Each node holds both children's boxes, so a step tests both: a leaf
-;; child's triangle is tested at once, and of two internal children the
-;; walk goes on into the nearer and keeps the farther. A walk gives up
-;; after 8192 steps, far more than a ray through Sponza needs, so no ray
-;; can hold up the device long enough to lose it.
-(fn traced ((origin vec3f) (direction vec3f) (limit f32) (occlusion bool) (seed (ptr function u32))) (-> Hit)
-    (var (hit Hit))
-    (= (get hit t) limit)
-    (= (get hit triangle) NONE)
-    (let inverse (/ (vec3f 1.0) (select direction (vec3f 1e-30) (== direction (vec3f 0.0)))))
-    (var (stack (array u32 64)))
-    (var top 0)
-    (var node 0u)
-    (for ((var steps 0) (< steps 8192) (+= steps 1))
-      (let w (at nodes node))
-      (var tl (entering (get w left_low) (get w left_high) origin inverse (get hit t)))
-      (var go_left (>= tl 0.0))
-      (if ((and go_left (!= (bit-and (get w left) TRIANGLE) 0u))
-           (= go_left false)
-           (if ((and (tested (address-of hit) (bit-xor (get w left) TRIANGLE) origin direction seed) occlusion)
-                (return hit)))))
-      (let tr (entering (get w right_low) (get w right_high) origin inverse (get hit t)))
-      (var go_right (>= tr 0.0))
-      (if ((and go_right (!= (bit-and (get w right) TRIANGLE) 0u))
-           (= go_right false)
-           (if ((and (tested (address-of hit) (bit-xor (get w right) TRIANGLE) origin direction seed) occlusion)
-                (return hit)))))
-      (= go_left (and go_left (<= tl (get hit t))))
-      (= go_right (and go_right (<= tr (get hit t))))
-      (if ((and go_left go_right)
-           (let near_left (<= tl tr))
-           (if ((< top 64) (= (at stack top) (select (get w left) (get w right) near_left)) (+= top 1)))
-           (= node (select (get w right) (get w left) near_left)))
-          (go_left (= node (get w left)))
-          (go_right (= node (get w right)))
-          ((== top 0) (break))
-          (else (-= top 1) (= node (at stack top)))))
-    (return hit))
 
 ;; The ray leaves `s` from just above its surface, on the side it goes.
 (fn leaving ((s Surface) (direction vec3f)) (-> vec3f)
@@ -362,66 +244,104 @@
     (let phi (* 2.0 PI (get r y)))
     (return (* frame (vec3f (* radius (cos phi)) (* radius (sin phi)) (sqrt (max 0.0 (- 1.0 (get r x))))))))
 
-;; The sun's light at `s`, through a direction in its disc.
-(fn sunlit ((s Surface) (v vec3f) (seed (ptr function u32))) (-> vec3f)
-    (let cosine (+ 1.0 (* (random seed) (- (get tracing sun w) 1.0))))
-    (let sine (sqrt (max 0.0 (- 1.0 (* cosine cosine)))))
-    (let phi (* 2.0 PI (random seed)))
-    (let l (* (frame_of (get tracing sun xyz)) (vec3f (* sine (cos phi)) (* sine (sin phi)) cosine)))
-    (let f (evaluated s v l))
-    (if ((== (dot f f) 0.0) (return (vec3f 0.0))))
-    (if ((!= (get (traced (leaving s l) l 1e30 true seed) triangle) NONE) (return (vec3f 0.0))))
-    (return (* f (get tracing sun_light xyz))))
-
-;; ---- Paths ----
-
 ;; Whether every component is a number and not infinite: a NaN fails both
 ;; comparisons.
 (fn finite3 ((v vec3f)) (-> bool)
     (return (and (all (< (abs v) (vec3f 1e30))) (all (>= (abs v) (vec3f 0.0))))))
 
-(fn path ((start_surface Surface) (view vec3f) (seed (ptr function u32))) (-> vec3f)
-    (var s start_surface)
-    (var v view)
-    (var radiance (get start_surface emission))
-    (var weight (vec3f 1.0))
-    (var width 0.0)
-    (var spread (get tracing view x))
-    (let bounces (get tracing frame y))
-    (for ((var bounce 0) (< bounce bounces) (+= bounce 1))
-      (+= radiance (* weight (sunlit s v seed)))
-      (let l (scattered s v seed))
-      (let p (density s v l))
-      (if ((not (and (> p 1e-6) (finite3 l) (> (dot l (get s geometric)) 0.0))) (break)))
-      (*= weight (/ (evaluated s v l) p))
-      (if ((not (finite3 weight)) (break)))
-      (if ((> bounce 2)
-           (let survive (clamp (max (get weight x) (max (get weight y) (get weight z))) 0.05 0.95))
-           (if ((> (random seed) survive) (break)))
-           (/= weight survive)))
-      (let start (leaving s l))
-      (let hit (traced start l 1e30 false seed))
-      (if ((== (get hit triangle) NONE) (+= radiance (* weight (sky l))) (break)))
-      (+= width (* spread (get hit t)))
-      (+= spread (* 0.25 (get s roughness)))
-      (= v (- l))
-      (= s (hit_surface (get hit triangle) (get hit barycentric) v width))
-      (= (get s position) (+ start (* l (get hit t))))
-      (+= radiance (* weight (get s emission))))
-    (return radiance))
+;; ---- Queues ----
 
-(fn (@compute) (@workgroup_size 8 8) trace_main (((@builtin global_invocation_id) id vec3u))
+;; Rows hold 65535 workgroups of 64, every row but the last full.
+(fn queue_item ((id vec3u)) (-> u32)
+    (return (+ (get id x) (* (get id y) 4194240u))))
+
+(fn seeded ((pixel u32) (salt u32)) (-> u32)
+    (return (pcg (bit-xor pixel (pcg (+ (* (u32 (get tracing frame x)) 64u) (* (u32 (get wave step x)) 4u) salt))))))
+
+(fn ray_from ((s Surface) (direction vec3f) (seed u32) (payload vec4f) (more vec4f)) (-> Ray)
+    (return (Ray (vec4f (leaving s direction) 1e30) (vec4f direction ((bitcast f32) seed)) (RayHit 0.0 0u (vec2f 0.0)) payload more)))
+
+;; From `s`, seen along `v` by a path of `weight`: a shadow ray toward a
+;; direction in the sun's disc, and the scattered ray, unless the path
+;; ends there.
+(fn continued ((s Surface) (v vec3f) (path_weight vec3f) (pixel u32) (width f32) (spread f32) (seed (ptr function u32)))
+    (let cosine (+ 1.0 (* (random seed) (- (get tracing sun w) 1.0))))
+    (let sine (sqrt (max 0.0 (- 1.0 (* cosine cosine)))))
+    (let phi (* 2.0 PI (random seed)))
+    (let toward (* (frame_of (get tracing sun xyz)) (vec3f (* sine (cos phi)) (* sine (sin phi)) cosine)))
+    (let f (evaluated s v toward))
+    (if ((> (dot f f) 0.0)
+         (let slot (atomicAdd (address-of (at counts (u32 (get wave slots z)))) 1u))
+         (= (at shadows slot)
+            (ray_from s toward (pcg (deref seed)) (vec4f (* path_weight f (get tracing sun_light xyz)) ((bitcast f32) pixel)) (vec4f 0.0)))))
+    (let l (scattered s v seed))
+    (let p (density s v l))
+    (if ((not (and (> p 1e-6) (finite3 l) (> (dot l (get s geometric)) 0.0))) (return)))
+    (var weight (/ (* path_weight (evaluated s v l)) p))
+    (if ((not (finite3 weight)) (return)))
+    (if ((> (get wave step x) 2)
+         (let survive (clamp (max (get weight x) (max (get weight y) (get weight z))) 0.05 0.95))
+         (if ((> (random seed) survive) (return)))
+         (/= weight survive)))
+    (let slot (atomicAdd (address-of (at counts (u32 (get wave slots y)))) 1u))
+    (= (at outgoing slot)
+       (ray_from s l (pcg (deref seed)) (vec4f weight ((bitcast f32) pixel)) (vec4f width (+ spread (* 0.25 (get s roughness))) 0.0 0.0))))
+
+;; ---- Steps ----
+
+(fn pixel_index ((pixel vec2i)) (-> u32)
+    (return (+ (u32 (get pixel x)) (* (u32 (get pixel y)) (get (textureDimensions depth) x)))))
+
+(fn (@compute) (@workgroup_size 8 8) primary (((@builtin global_invocation_id) id vec3u))
     (let size (textureDimensions depth))
     (if ((or (>= (get id x) (get size x)) (>= (get id y) (get size y))) (return)))
     (let pixel (vec2i (get id xy)))
+    (let index (pixel_index pixel))
     (let z (textureLoad depth pixel 0))
     (if ((>= z 1.0)
          (let ndc (- (* (/ (+ (vec2f pixel) 0.5) (vec2f size)) 2.0) 1.0))
          (let far (* (get camera inverse) (vec4f (get ndc x) (- (get ndc y)) 1.0 1.0)))
-         (let direction (normalize (- (/ (get far xyz) (get far w)) (get camera eye xyz))))
-         (textureStore noisy pixel (vec4f (sky direction) 1.0))
+         (= (at radiance index) (vec4f (sky (normalize (- (/ (get far xyz) (get far w)) (get camera eye xyz)))) 1.0))
          (return)))
-    (var seed (pcg (bit-xor (+ (get id x) (* (get id y) 65521u)) (pcg (u32 (get tracing frame x))))))
     (let s (first_surface pixel z))
-    (let view (normalize (- (get camera eye xyz) (get s position))))
-    (textureStore noisy pixel (vec4f (path s view (address-of seed)) 1.0)))
+    (= (at radiance index) (vec4f (get s emission) 1.0))
+    (var seed (seeded index 0u))
+    (let spread (get tracing view x))
+    (continued s
+               (normalize (- (get camera eye xyz) (get s position)))
+               (vec3f 1.0)
+               index
+               (* spread (distance (get camera eye xyz) (get s position)))
+               spread
+               (address-of seed)))
+
+(fn (@compute) (@workgroup_size 64) connect (((@builtin global_invocation_id) id vec3u))
+    (let i (queue_item id))
+    (if ((>= i (atomicLoad (address-of (at counts (u32 (get wave slots z)))))) (return)))
+    (let ray (at shadows i))
+    (if ((== (get ray hit triangle) NONE)
+         (let pixel ((bitcast u32) (get ray payload w)))
+         (+= (at radiance pixel) (vec4f (get ray payload xyz) 0.0)))))
+
+(fn (@compute) (@workgroup_size 64) shade (((@builtin global_invocation_id) id vec3u))
+    (let i (queue_item id))
+    (if ((>= i (atomicLoad (address-of (at counts (u32 (get wave slots x)))))) (return)))
+    (let ray (at incoming i))
+    (let pixel ((bitcast u32) (get ray payload w)))
+    (let weight (get ray payload xyz))
+    (let l (get ray direction xyz))
+    (let triangle (get ray hit triangle))
+    (if ((== triangle NONE) (+= (at radiance pixel) (vec4f (* weight (sky l)) 0.0)) (return)))
+    (let width (+ (get ray more x) (* (get ray more y) (get ray hit t))))
+    (var s (hit_surface triangle (get ray hit barycentric) (- l) width))
+    (= (get s position) (+ (get ray origin xyz) (* l (get ray hit t))))
+    (+= (at radiance pixel) (vec4f (* weight (get s emission)) 0.0))
+    (if ((!= (get wave step y) 0) (return)))
+    (var seed (seeded pixel 1u))
+    (continued s (- l) weight pixel width (get ray more y) (address-of seed)))
+
+(fn (@compute) (@workgroup_size 8 8) gather (((@builtin global_invocation_id) id vec3u))
+    (let size (textureDimensions depth))
+    (if ((or (>= (get id x) (get size x)) (>= (get id y) (get size y))) (return)))
+    (let pixel (vec2i (get id xy)))
+    (textureStore noisy pixel (vec4f (get (at radiance (pixel_index pixel)) xyz) 1.0)))

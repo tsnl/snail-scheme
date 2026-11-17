@@ -13,7 +13,8 @@
    Scene
    SurfaceMaterial
    load-scene
-   vertex-stride)
+   vertex-stride
+   scene-triangles)
   (import
    (snail core base)
    (snail shell utf8)
@@ -22,6 +23,7 @@
    (snail shell gpu)
    (snail shell graphics pod)
    (snail shell graphics gltf)
+   (only (snail shell graphics bvh) Triangles)
    (snail shell graphics trace shaders))
   (begin
 
@@ -44,6 +46,18 @@
        (high (List F64))))
 
     (define vertex-stride (→ I64) 64)
+
+    ;; The scene's triangles as a BVH reads them: a vertex's position is
+    ;; its first three words.
+    (define (scene-triangles (scene Scene)) (→ Triangles)
+      (new Triangles
+        (positions (● scene vertices))
+        (stride (i64->i32 (quotient vertex-stride 4)))
+        (offset 0)
+        (indices (● scene indices))
+        (count (● scene triangle-count))
+        (low (● scene low))
+        (high (● scene high))))
 
     ;; A material as the shaders read it: its base color; its emission,
     ;; with the alpha cutoff in w; its metalness, roughness, normal scale

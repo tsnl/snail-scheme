@@ -1,5 +1,4 @@
-;; A bounding volume hierarchy over a scene's triangles, built on the
-;; device as a linear BVH (Karras, "Maximizing Parallelism in the
+;; A bounding volume hierarchy over triangles, built on the device as a linear BVH (Karras, "Maximizing Parallelism in the
 ;; Construction of BVHs, Octrees, and k-d Trees", 2012):
 ;;
 ;;   morton          each triangle's centroid, in the scene's box, as a
@@ -21,18 +20,9 @@
 ;; its triangle. The refit reads one node array and writes the other, so
 ;; no invocation reads another's writes within a dispatch: after as many
 ;; passes as the tree is deep, every box is right, and passes beyond
-;; change nothing. `BvhBuild` comes from Pod: the scene's box, then n, the
-;; padded count, and the step's j and k.
-(struct Vertex
-        (position vec3f)
-        (u f32)
-        (normal vec3f)
-        (v f32)
-        (tangent vec4f)
-        (material u32)
-        (pad0 u32)
-        (pad1 u32)
-        (pad2 u32))
+;; change nothing. `BvhBuild` comes from Pod: the triangles' box, then n,
+;; the padded count, and the step's j and k, then where positions are: a
+;; vertex's first word and the words between vertices.
 
 (struct Node
         (low vec3f)
@@ -48,7 +38,7 @@
 
 ((var storage read_write) (@group 0) (@binding 2) (triangles (array u32)))
 
-((var storage read) (@group 0) (@binding 3) (vertices (array Vertex)))
+((var storage read) (@group 0) (@binding 3) (positions (array f32)))
 
 ((var storage read) (@group 0) (@binding 4) (indices (array u32)))
 
@@ -79,7 +69,8 @@
     (return (u32 (get build counts x))))
 
 (fn corner ((triangle u32) (k u32)) (-> vec3f)
-    (return (get (at vertices (at indices (+ (* triangle 3u) k))) position)))
+    (let at_word (+ (* (at indices (+ (* triangle 3u) k)) (u32 (get build words x))) (u32 (get build words y))))
+    (return (vec3f (at positions at_word) (at positions (+ at_word 1u)) (at positions (+ at_word 2u)))))
 
 ;; Ten bits spread to every third.
 (fn spread ((value u32)) (-> u32)
