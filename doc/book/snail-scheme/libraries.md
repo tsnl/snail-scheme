@@ -61,7 +61,7 @@ the runtime interfaces.
 | `(snail shell graphics atlas)` | Pictures of layered image regions with color swaps, composed on the GPU into padded slots of texture-array pages; `atlas-url` reads a region back as a PNG data URL. |
 | `(snail shell graphics quad)` | 2D quads in world units under a 2D camera, pixel-snapped, each a tinted region of a texture-array page; a run of quads is one instanced draw. |
 | `(snail shell graphics mesh)` | Eight shapes in one geometry table, `Pod` instances packed by shape, and one indirect draw per shape from its own first instance. |
-| `(snail shell graphics raster)` | Cameras with their inverses, a G-buffer of albedo, normal, material and depth, mesh instances rasterized into it, and translucent ones lit at once over what is drawn. |
+| `(snail shell graphics raster)` | Cameras with their inverses, a G-buffer of albedo, normal, material and depth, with screen motion and instance ids when its `Planes` ask, mesh instances rasterized into it, and translucent ones lit at once over what is drawn. |
 | `(snail shell graphics passes)` | Full-screen passes: `draw-sun` lights a G-buffer under the sun, in the pass `begin-lit` opens over a background, into an HDR light target that `draw-post` tone-maps and smooths with FXAA into the canvas. |
 | `(snail shell png)` | `rgba->png`, PNG files of RGBA pixels with stored zlib blocks, and `png-data-url`. |
 | `(snail shell sprite)` | Spritebooks: animations on sheets of equal cells, by motion and heading; `cell-at` is the cell a strip shows at a moment. |

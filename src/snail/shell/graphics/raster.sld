@@ -4,7 +4,7 @@
 ;; a `GBuffer` for the canvas's size; and a `Surface` for each batch,
 ;; remade when the batch changes. A frame of a low-poly scene:
 ;;
-;;   (write-raster r camera sun)
+;;   (let ((r (write-raster r camera sun))) ...)
 ;;   (let ((pass (begin-gbuffer encoder g)))
 ;;     (draw-surface pass r terrain)
 ;;     (end-pass pass))
@@ -14,7 +14,10 @@
 ;;     (end-pass pass))
 ;;
 ;; The G-buffer holds each pixel's albedo, its normal, its material
-;; (metalness, roughness and glow) and its depth.
+;; (metalness, roughness and glow) and its depth, and, when its `Planes`
+;; ask, its motion since the last frame and the id of the instance drawn
+;; there. The `Raster` and the `GBuffer` are made for the same `Planes`.
+;; `read-id` reads one pixel's id back, to pick what a tap is on.
 (define-library (snail shell graphics raster)
   (export
    Lens
@@ -25,8 +28,12 @@
    Style
    solid
    Sun
+   Planes
+   color-planes
+   Plane
    GBuffer
    make-gbuffer
+   read-id
    release-gbuffer
    Raster
    make-raster
@@ -44,6 +51,7 @@
    (snail shell gpu)
    (snail shell graphics pod)
    (snail shell graphics mesh)
+   (only (snail shell task) tasks)
    (snail shell graphics shaders))
   (begin
 
@@ -56,13 +64,16 @@
       (Parallel ((height F64))))
 
     ;; The view-projection and its inverse, the eye with 1 in w for a
-    ;; parallel lens, and the direction it looks with the frame's motion in
-    ;; w.
+    ;; parallel lens, the direction it looks with the frame's motion in w,
+    ;; and the last frame's view-projection and motion, which give each
+    ;; pixel's motion.
     (record Camera3D
       ((view-projection Mat4x4f)
        (inverse Mat4x4f)
        (eye Vec4f)
-       (forward Vec4f))
+       (forward Vec4f)
+       (previous Mat4x4f)
+       (previous-motion F32))
       (deriving Pod))
 
     ;; Matrices here are 16 numbers, column by column.
@@ -76,6 +87,8 @@
         (new Camera3D
           (view-projection (matrix (multiply (● projection first) (● view first))))
           (inverse (matrix (multiply (● view second) (● projection second))))
+          (previous (matrix (multiply (● projection first) (● view first))))
+          (previous-motion motion)
           (eye (new Vec4f
                  (x (● eye x))
                  (y (● eye y))
@@ -230,69 +243,124 @@
 
     ;; ---- The G-buffer ----
 
-    ;; Its targets, each with the view the passes draw to and read.
-    (record GBuffer
-      ((albedo GpuTexture)
-       (normal GpuTexture)
-       (material GpuTexture)
-       (depth GpuTexture)
-       (albedo-view GpuTextureView)
-       (normal-view GpuTextureView)
-       (material-view GpuTextureView)
-       (depth-view GpuTextureView)))
+    ;; The planes beyond albedo, normal, material and depth: the screen
+    ;; motion, in texture coordinates, from where each pixel's surface was
+    ;; in the last frame, and the id of its instance, the w of its
+    ;; material, 0 where there is none.
+    (record Planes
+      ((motion Bool)
+       (ids Bool)))
 
-    (define (make-gbuffer (width I32) (height I32)) (→ GBuffer) (! gpu)
-      (let ((albedo (target "albedo" width height (Rgba8Unorm)))
-            (normal (target "normal" width height (Rgba16Float)))
-            (material (target "material" width height (Rgba8Unorm)))
-            (depth (target "depth" width height (Depth24Plus))))
+    (define color-planes (→ Planes) (new Planes (motion #f) (ids #f)))
+
+    ;; A target and the view the passes draw to and read.
+    (record Plane
+      ((texture GpuTexture)
+       (view GpuTextureView)))
+
+    (record GBuffer
+      ((albedo Plane)
+       (normal Plane)
+       (material Plane)
+       (depth Plane)
+       (motion (Option Plane))
+       (ids (Option Plane))))
+
+    (define (make-gbuffer (planes Planes) (width I32) (height I32)) (→ GBuffer) (! gpu)
+      (let ((size (new Pair (first width) (second height))))
         (new GBuffer
-          (albedo albedo)
-          (normal normal)
-          (material material)
-          (depth depth)
-          (albedo-view (view-of albedo 1))
-          (normal-view (view-of normal 1))
-          (material-view (view-of material 1))
-          (depth-view (view-of depth 1)))))
+          (albedo (make-plane "albedo" size (Rgba8Unorm)))
+          (normal (make-plane "normal" size (Rgba16Float)))
+          (material (make-plane "material" size (Rgba8Unorm)))
+          (depth (make-plane "depth" size (Depth24Plus)))
+          (motion (if (● planes motion) (Some (make-plane "motion" size (Rg16Float))) (None)))
+          (ids (if (● planes ids) (Some (make-plane "ids" size (R32Uint))) (None))))))
 
     (define (release-gbuffer (g GBuffer)) (→ Unit) (! gpu)
-      (for-each (lambda (view) (destroy (ViewObject view)))
-                (list (● g albedo-view) (● g normal-view) (● g material-view) (● g depth-view)))
-      (for-each (lambda (texture) (destroy (TextureObject texture)))
-                (list (● g albedo) (● g normal) (● g material) (● g depth))))
+      (for-each (lambda (plane)
+                  (destroy (ViewObject (● plane view)))
+                  (destroy (TextureObject (● plane texture))))
+                (append (list (● g albedo) (● g normal) (● g material) (● g depth))
+                        (present (list (● g motion) (● g ids))))))
 
-    (define (target (part String) (width I32) (height I32) (format TextureFormat))
-      (→ GpuTexture)
+    (define (present (planes (List (Option Plane)))) (→ (List Plane))
+      (fold-right (lambda (plane rest)
+                    (match plane
+                      ((Some plane) (Cons plane rest))
+                      ((None) rest)))
+                  (Nil)
+                  planes))
+
+    (define (make-plane (part String) (size (Pair I32 I32)) (format TextureFormat))
+      (→ Plane)
       (! gpu)
-      (create-texture (new TextureDescriptor
-                        (label (string-append "gbuffer/" part))
-                        (width width)
-                        (height height)
-                        (layers 1)
-                        (mips 1)
-                        (format format)
-                        (usage (list (RenderAttachment) (TextureBinding))))))
+      (let ((texture (create-texture (new TextureDescriptor
+                                       (label (string-append "gbuffer/" part))
+                                       (width (● size first))
+                                       (height (● size second))
+                                       (layers 1)
+                                       (mips 1)
+                                       (format format)
+                                       (usage (list (RenderAttachment)
+                                                    (TextureBinding)
+                                                    (TextureCopySrc)))))))
+        (new Plane (texture texture) (view (view-of texture 1)))))
 
-    (define gbuffer-formats (→ (List TextureFormat)) (list (Rgba8Unorm) (Rgba16Float) (Rgba8Unorm)))
+    ;; A target for each color plane, None where `planes` leaves one out:
+    ;; the G-buffer pass's attachments have the same gaps.
+    (define (gbuffer-targets (planes Planes)) (→ (List (Option ColorTarget)))
+      (map (lambda (format)
+             (match format
+               ((Some format) (Some (new ColorTarget (format format) (blend (None)))))
+               ((None) (None))))
+           (list (Some (Rgba8Unorm))
+                 (Some (Rgba16Float))
+                 (Some (Rgba8Unorm))
+                 (if (● planes motion) (Some (Rg16Float)) (None))
+                 (if (● planes ids) (Some (R32Uint)) (None)))))
+
+    ;; The id of the instance at pixel `x`, `y`, when the G-buffer has ids.
+    (define (read-id (g GBuffer) (x I32) (y I32)) (→ (Option I32)) (! gpu tasks)
+      (match (● g ids)
+        ((Some plane) (Some (texel-word (● plane texture) x y)))
+        ((None) (None))))
+
+    (define (texel-word (texture GpuTexture) (x I32) (y I32)) (→ I32) (! gpu tasks)
+      (let ((readback (create-buffer (new BufferDescriptor
+                                       (label "gbuffer/read-id")
+                                       (size 4)
+                                       (usage (list (MapRead) (CopyDst))))))
+            (encoder (create-command-encoder)))
+        (copy-texture-to-buffer encoder
+                                (new TextureCopy (texture texture) (mip 0) (x x) (y y) (layer 0))
+                                readback 0 256 1 1)
+        (submit (list (finish encoder)))
+        (let ((bytes (read-buffer readback 0 4)))
+          (destroy (BufferObject readback))
+          (fold-right (lambda (byte word) (+ (u8->i32 byte) (* word 256))) 0 (array->list bytes)))))
 
     (define (begin-gbuffer (encoder GpuCommandEncoder) (g GBuffer)) (→ GpuRenderPass) (! gpu)
       (begin-render-pass encoder
                          (new RenderPassDescriptor
-                           (colors (map (lambda (view)
-                                          (new ColorAttachment
-                                            (view view)
-                                            (load (Clear (new Color
-                                                           (red 0.0)
-                                                           (green 0.0)
-                                                           (blue 0.0)
-                                                           (alpha 0.0))))
-                                            (store #t)))
-                                        (list (● g albedo-view)
-                                              (● g normal-view)
-                                              (● g material-view))))
+                           (colors (map (lambda (plane)
+                                          (match plane
+                                            ((Some plane)
+                                             (Some (new ColorAttachment
+                                                     (view (● plane view))
+                                                     (load (Clear (new Color
+                                                                    (red 0.0)
+                                                                    (green 0.0)
+                                                                    (blue 0.0)
+                                                                    (alpha 0.0))))
+                                                     (store #t))))
+                                            ((None) (None))))
+                                        (list (Some (● g albedo))
+                                              (Some (● g normal))
+                                              (Some (● g material))
+                                              (● g motion)
+                                              (● g ids))))
                            (depth (Some (new DepthAttachment
-                                          (view (● g depth-view))
+                                          (view (● g depth view))
                                           (load (ClearDepth 1.0))
                                           (store #t)))))))
 
@@ -308,21 +376,22 @@
       (! gpu)
       (begin-render-pass encoder
                          (new RenderPassDescriptor
-                           (colors (list (new ColorAttachment
-                                           (view canvas)
-                                           (load (Clear background))
-                                           (store #t))))
+                           (colors (list (Some (new ColorAttachment
+                                                 (view canvas)
+                                                 (load (Clear background))
+                                                 (store #t)))))
                            (depth (Some (new DepthAttachment
-                                          (view (● g depth-view))
+                                          (view (● g depth view))
                                           (load (ReadOnlyDepth))
                                           (store #f)))))))
 
     ;; ---- Pipelines and uniforms ----
 
-    ;; The pipelines for the G-buffer and for translucent surfaces on a
-    ;; target of `format`, the meshes' geometry, and the camera's and sun's
-    ;; uniforms with the bind groups that hold them. A pipeline's layout is
-    ;; its own, so each pipeline has its own camera group.
+    ;; The pipelines for the G-buffer's planes and for translucent surfaces
+    ;; on a target of `format`, the meshes' geometry, the camera's and sun's
+    ;; uniforms with the bind groups that hold them, and the last frame's
+    ;; camera. A pipeline's layout is its own, so each pipeline has its own
+    ;; camera group.
     (record Raster
       ((gbuffer-pipeline GpuRenderPipeline)
        (forward-pipeline GpuRenderPipeline)
@@ -331,24 +400,21 @@
        (sun GpuBuffer)
        (gbuffer-camera GpuBindGroup)
        (forward-camera GpuBindGroup)
-       (forward-sun GpuBindGroup)))
+       (forward-sun GpuBindGroup)
+       (last (Option Camera3D))))
 
-    (define (make-raster (format TextureFormat)) (→ Raster) (! gpu)
+    (define (make-raster (planes Planes) (format TextureFormat)) (→ Raster) (! gpu)
       (let* ((module (create-shader-module
                       (new ShaderModuleDescriptor (label "raster") (code raster-code))))
              (gbuffer-pipeline (surface-pipeline module
                                                  "gbuffer_fragment"
-                                                 (map (lambda (format)
-                                                        (new ColorTarget
-                                                          (format format)
-                                                          (blend (None))))
-                                                      gbuffer-formats)
+                                                 (gbuffer-targets planes)
                                                  #t))
              (forward-pipeline (surface-pipeline module
                                                  "forward_fragment"
-                                                 (list (new ColorTarget
-                                                         (format format)
-                                                         (blend (Some over))))
+                                                 (list (Some (new ColorTarget
+                                                               (format format)
+                                                               (blend (Some over)))))
                                                  #f))
              (camera (uniform "raster/camera" (stride camera-shape)))
              (sun (uniform "raster/sun" (stride sun-shape))))
@@ -360,16 +426,26 @@
           (sun sun)
           (gbuffer-camera (group "raster/camera" gbuffer-pipeline 0 camera))
           (forward-camera (group "raster/forward/camera" forward-pipeline 0 camera))
-          (forward-sun (group "raster/sun" forward-pipeline 2 sun)))))
+          (forward-sun (group "raster/sun" forward-pipeline 2 sun))
+          (last (None)))))
 
-    ;; The frame's camera and sun.
-    (define (write-raster (r Raster) (camera Camera3D) (sun Sun)) (→ Unit) (! gpu)
-      (write-buffer (● r camera) 0 (pod-bytes camera-shape camera))
-      (write-buffer (● r sun) 0 (pod-bytes sun-shape sun)))
+    ;; The frame's camera, moving from the last frame's, and its sun. A
+    ;; batch remade since the last frame shows the motion of its new
+    ;; instances.
+    (define (write-raster (r Raster) (camera Camera3D) (sun Sun)) (→ Raster) (! gpu)
+      (let ((camera (match (● r last)
+                      ((Some last)
+                       (Camera3D-previous-motion-set
+                        (Camera3D-previous-set camera (● last view-projection))
+                        (● last forward w)))
+                      ((None) camera))))
+        (write-buffer (● r camera) 0 (pod-bytes camera-shape camera))
+        (write-buffer (● r sun) 0 (pod-bytes sun-shape sun))
+        (Raster-last-set r (Some camera))))
 
     (define (surface-pipeline (module GpuShaderModule)
                               (entry String)
-                              (targets (List ColorTarget))
+                              (targets (List (Option ColorTarget)))
                               (write? Bool))
       (→ GpuRenderPipeline)
       (! gpu)

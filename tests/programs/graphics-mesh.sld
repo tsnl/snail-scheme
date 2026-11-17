@@ -56,10 +56,12 @@
          (encoder (create-command-encoder))
          (pass (begin-render-pass encoder
                                   (new RenderPassDescriptor
-                                    (colors (list (new ColorAttachment
-                                                    (view (view-of (● (current-texture) texture) 1))
-                                                    (load (Keep))
-                                                    (store #t))))
+                                    (colors (list (Some (new ColorAttachment
+                                                          (view
+                                                           (view-of (● (current-texture) texture)
+                                                                    1))
+                                                          (load (Keep))
+                                                          (store #t)))))
                                     (depth (None))))))
     (draw-meshes pass geometry uploaded)
     (end-pass pass)

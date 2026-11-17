@@ -28,9 +28,9 @@
                       (buffers (Nil))
                       (fragment (Some (new FragmentState
                                         (entry "f")
-                                        (targets (list (new ColorTarget
-                                                         (format (Bgra8Unorm))
-                                                         (blend (Some over))))))))
+                                        (targets (list (Some (new ColorTarget
+                                                               (format (Bgra8Unorm))
+                                                               (blend (Some over)))))))))
                       (topology (TriangleList))
                       (cull (CullNone))
                       (depth (None)))))
@@ -43,14 +43,16 @@
          (encoder (create-command-encoder))
          (pass (begin-render-pass encoder
                                   (new RenderPassDescriptor
-                                    (colors (list (new ColorAttachment
-                                                    (view (view-of (● (current-texture) texture) 1))
-                                                    (load (Clear (new Color
-                                                                   (red 0.0)
-                                                                   (green 0.5)
-                                                                   (blue 1.0)
-                                                                   (alpha 1.0))))
-                                                    (store #t))))
+                                    (colors (list (Some (new ColorAttachment
+                                                          (view
+                                                           (view-of (● (current-texture) texture)
+                                                                    1))
+                                                          (load (Clear (new Color
+                                                                         (red 0.0)
+                                                                         (green 0.5)
+                                                                         (blue 1.0)
+                                                                         (alpha 1.0))))
+                                                          (store #t)))))
                                     (depth (None))))))
     (write-buffer buffer 0 (make-array 64 (i32->u8 0)))
     (set-pipeline pass pipeline)

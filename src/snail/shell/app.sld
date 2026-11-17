@@ -576,8 +576,8 @@
     (define (started (format TextureFormat) (canvas GpuImage)) (→ Drawn) (! gpu)
       (let* ((width (● canvas width))
              (height (● canvas height))
-             (r (make-raster light-format))
-             (g (make-gbuffer width height)))
+             (r (make-raster color-planes light-format))
+             (g (make-gbuffer color-planes width height)))
         (new Drawn
           (raster r)
           (gbuffer g)
@@ -589,11 +589,14 @@
 
     (define (drawn-frame (frame Frame) (drawn Drawn) (canvas GpuImage)) (→ Frames) (! gpu)
       (let* ((drawn (surfaced (resized drawn canvas) frame))
+             (drawn (Drawn-raster-set drawn
+                                      (write-raster (● drawn raster)
+                                                    (frame-camera frame
+                                                                  (● canvas width)
+                                                                  (● canvas height))
+                                                    (frame-sun (● frame light)))))
              (target (view-of (● canvas texture) 1))
              (encoder (create-command-encoder)))
-        (write-raster (● drawn raster)
-                      (frame-camera frame (● canvas width) (● canvas height))
-                      (frame-sun (● frame light)))
         (let ((pass (begin-gbuffer encoder (● drawn gbuffer))))
           (draw-surfaces pass drawn #f)
           (end-pass pass))
@@ -613,7 +616,7 @@
     (define (resized (drawn Drawn) (canvas GpuImage)) (→ Drawn) (! gpu)
       (if (and (= (● drawn width) (● canvas width)) (= (● drawn height) (● canvas height)))
           drawn
-          (let ((g (make-gbuffer (● canvas width) (● canvas height))))
+          (let ((g (make-gbuffer color-planes (● canvas width) (● canvas height))))
             (release-gbuffer (● drawn gbuffer))
             (new Drawn
               (raster (● drawn raster))

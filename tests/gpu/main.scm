@@ -112,7 +112,7 @@
      (buffers (Nil))
      (fragment (Some (new FragmentState
                        (entry "fragment_main")
-                       (targets (list (new ColorTarget (format format) (blend (None))))))))
+                       (targets (list (Some (new ColorTarget (format format) (blend (None)))))))))
      (topology (TriangleList))
      (cull (CullNone))
      (depth (None)))))
@@ -132,14 +132,14 @@
   (! gpu)
   (let ((pass (begin-render-pass encoder
                                  (new RenderPassDescriptor
-                                   (colors (list (new ColorAttachment
-                                                   (view view)
-                                                   (load (Clear (new Color
-                                                                  (red 0.0)
-                                                                  (green 0.0)
-                                                                  (blue 1.0)
-                                                                  (alpha 1.0))))
-                                                   (store #t))))
+                                   (colors (list (Some (new ColorAttachment
+                                                         (view view)
+                                                         (load (Clear (new Color
+                                                                        (red 0.0)
+                                                                        (green 0.0)
+                                                                        (blue 1.0)
+                                                                        (alpha 1.0))))
+                                                         (store #t)))))
                                    (depth (None))))))
     (set-pipeline pass pipeline)
     (set-bind-group pass 0 group)
@@ -246,14 +246,14 @@
          (readback (buffer-named "quads-readback" 512 (list (MapRead) (CopyDst))))
          (pass (begin-render-pass encoder
                                   (new RenderPassDescriptor
-                                    (colors (list (new ColorAttachment
-                                                    (view (view-of target 1))
-                                                    (load (Clear (new Color
-                                                                   (red 0.0)
-                                                                   (green 0.0)
-                                                                   (blue 0.0)
-                                                                   (alpha 0.0))))
-                                                    (store #t))))
+                                    (colors (list (Some (new ColorAttachment
+                                                          (view (view-of target 1))
+                                                          (load (Clear (new Color
+                                                                         (red 0.0)
+                                                                         (green 0.0)
+                                                                         (blue 0.0)
+                                                                         (alpha 0.0))))
+                                                          (store #t)))))
                                     (depth (None))))))
     (draw-quads pass
                 (make-quads "test" (Rgba8Unorm) (● atlas texture))
@@ -278,7 +278,7 @@
 ;; The edge between them is straight down the texture, along which FXAA
 ;; blends nothing.
 
-(define (tile (x F32) (color Vec4f) (glow F32)) (→ (Pair Mesh Instance))
+(define (tile (x F32) (color Vec4f) (glow F32) (id F32)) (→ (Pair Mesh Instance))
   (new Pair
     (first (Tile))
     (second (new Instance
@@ -286,30 +286,33 @@
               (scale (new Vec4f (x 1.0) (y 1.0) (z 2.0) (w glow)))
               (color color)
               (from (new Vec4f (x x) (y 0.0) (z 0.0) (w 0.0)))
-              (material (new Vec4f (x 0.0) (y 1.0) (z 0.0) (w 0.0)))))))
+              (material (new Vec4f (x 0.0) (y 1.0) (z 0.0) (w id)))))))
+
+(define (tiles (r Raster)) (→ Surface) (! gpu)
+  (make-surface r
+                "tiles"
+                #f
+                solid
+                (meshes (list (tile -0.5 (new Vec4f (x 1.0) (y 0.0) (z 0.0) (w 1.0)) 1.0 7.0)
+                              (tile 0.5 (new Vec4f (x 1.0) (y 1.0) (z 1.0) (w 1.0)) 0.0 9.0)))))
+
+(define (looking-down (x F32)) (→ Camera3D)
+  (camera-3d (new Vec3f (x x) (y 5.0) (z 0.0))
+             (new Vec3f (x x) (y 0.0) (z 0.0))
+             (Parallel 2.0)
+             1.0
+             1.0))
 
 (define (scene-frame) (→ Bytes) (! gpu tasks)
   (let* ((target (texture-named "scene" 4 4))
          (readback (buffer-named "scene-readback" 1024 (list (MapRead) (CopyDst))))
-         (r (make-raster light-format))
-         (g (make-gbuffer 4 4))
+         (r (make-raster color-planes light-format))
+         (g (make-gbuffer color-planes 4 4))
          (light (make-sunlight light-format g r))
          (post (make-post (Rgba8Unorm) 4 4))
-         (tiles (make-surface r
-                              "tiles"
-                              #f
-                              solid
-                              (meshes
-                               (list (tile -0.5 (new Vec4f (x 1.0) (y 0.0) (z 0.0) (w 1.0)) 1.0)
-                                     (tile 0.5 (new Vec4f (x 1.0) (y 1.0) (z 1.0) (w 1.0)) 0.0)))))
+         (tiles (tiles r))
          (encoder (create-command-encoder)))
-    (write-raster r
-                  (camera-3d (new Vec3f (x 0.0) (y 5.0) (z 0.0))
-                             (new Vec3f (x 0.0) (y 0.0) (z 0.0))
-                             (Parallel 2.0)
-                             1.0
-                             1.0)
-                  (new Sun (direction (new Vec4f (x 0.0) (y 1.0) (z 0.0) (w 0.0))) (ambient 0.6)))
+    (write-raster r (looking-down 0.0) overhead)
     (let ((pass (begin-gbuffer encoder g)))
       (draw-surface pass r tiles)
       (end-pass pass))
@@ -323,6 +326,59 @@
     (copy-texture-to-buffer encoder (whole-texture target) readback 0 256 4 4)
     (submit (list (finish encoder)))
     (read-buffer readback 0 16)))
+
+;; The same tiles into a G-buffer with every plane, the camera moved half a
+;; tile right since the last frame, so the scene moved a quarter of the
+;; texture left: the motion at the left pixel, and the ids of the pixels
+;; two and three over, on the white tile and past it.
+
+(define (planes-frame) (→ String) (! gpu tasks)
+  (let* ((all (new Planes (motion #t) (ids #t)))
+         (r (make-raster all light-format))
+         (g (make-gbuffer all 4 4))
+         (tiles (tiles r))
+         (readback (buffer-named "motion-readback" 4 (list (MapRead) (CopyDst))))
+         (r (write-raster (write-raster r (looking-down 0.0) overhead) (looking-down 0.5) overhead))
+         (encoder (create-command-encoder)))
+    (let ((pass (begin-gbuffer encoder g)))
+      (draw-surface pass r tiles)
+      (end-pass pass))
+    (match (● g motion)
+      ((Some plane)
+       (copy-texture-to-buffer encoder (whole-texture (● plane texture)) readback 0 256 1 1))
+      ((None) (unit)))
+    (submit (list (finish encoder)))
+    (let ((motion (read-buffer readback 0 4)))
+      (string-join (list (show (half motion 0))
+                         (show (half motion 2))
+                         (id-text (read-id g 0 0))
+                         (id-text (read-id g 2 0))
+                         (id-text (read-id g 3 0)))
+                   " "))))
+
+(define overhead
+  (→ Sun)
+  (new Sun (direction (new Vec4f (x 0.0) (y 1.0) (z 0.0) (w 0.0))) (ambient 0.6)))
+
+(define (id-text (id (Option I32))) (→ String)
+  (match id
+    ((Some id) (show id))
+    ((None) "none")))
+
+;; The half float at `at`, little-endian.
+(define (half (bytes Bytes) (at I64)) (→ F64)
+  (let* ((bits (+ (u8->i32 (array-ref bytes at)) (* 256 (u8->i32 (array-ref bytes (+ at 1))))))
+         (sign (if (>= bits 32768) -1.0 1.0))
+         (exponent (remainder (quotient bits 1024) 32))
+         (fraction (i32->f64 (remainder bits 1024))))
+    (if (= exponent 0)
+        (* sign (* fraction (power-of-two -24)))
+        (* sign (* (+ 1.0 (/ fraction 1024.0)) (power-of-two (- exponent 15)))))))
+
+(define (power-of-two (n I32)) (→ F64)
+  (cond ((> n 0) (* 2.0 (power-of-two (- n 1))))
+        ((< n 0) (/ (power-of-two (+ n 1)) 2.0))
+        (else 1.0)))
 
 ;; 1 to 100, squared by 64-wide workgroups, two of them, and the first
 ;; four and the last read back.
@@ -375,4 +431,5 @@
     (write-line (string-append "url: " (● quads second))))
   (write-line (string-append "scene: " (texels (scene-frame))))
   (write-line (string-append "squares: " (words (compute-frame))))
+  (write-line (string-append "planes: " (planes-frame)))
   (report-ready))

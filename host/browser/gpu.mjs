@@ -132,6 +132,11 @@ export function createGpu(canvas, runtime, open = pageDevice) {
       pass.colorAttachments.push({view: object(view), loadOp: clear ? 'clear' : 'load', clearValue: {r, g, b, a},
                                   storeOp: store ? 'store' : 'discard'});
     },
+    // A location left without an attachment.
+    'pass-no-color'() {
+      pass ??= {colorAttachments: []};
+      pass.colorAttachments.push(null);
+    },
     // A depth attachment loads (0), clears (1), or is read-only (2).
     'pass-depth'(view, load, depth, store) {
       pass ??= {colorAttachments: []};
@@ -235,6 +240,7 @@ const made = [
       attributes: f.list(() => ({format: f.text(), offset: f.word(), shaderLocation: f.word()}))}))};
     const component = () => ({operation: f.text(), srcFactor: f.text(), dstFactor: f.text()});
     const fragment = f.flag() ? {module, entryPoint: f.text(), targets: f.list(() => {
+      if (!f.flag()) return null;
       const format = f.text();
       return f.flag() ? {format, blend: {color: component(), alpha: component()}} : {format};
     })} : undefined;

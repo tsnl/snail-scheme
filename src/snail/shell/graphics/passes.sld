@@ -71,7 +71,8 @@
          (buffers (Nil))
          (fragment (Some (new FragmentState
                            (entry "sun_fragment")
-                           (targets (list (new ColorTarget (format format) (blend (None))))))))
+                           (targets
+                            (list (Some (new ColorTarget (format format) (blend (None)))))))))
          (topology (TriangleList))
          (cull (CullNone))
          (depth
@@ -84,10 +85,10 @@
                            (group 0)
                            (entries (list (BufferEntry 0 (● r camera) 0 0)
                                           (BufferEntry 1 (● r sun) 0 0)
-                                          (TextureEntry 2 (● g albedo-view))
-                                          (TextureEntry 3 (● g normal-view))
-                                          (TextureEntry 4 (● g material-view))
-                                          (TextureEntry 5 (● g depth-view)))))))
+                                          (TextureEntry 2 (● g albedo view))
+                                          (TextureEntry 3 (● g normal view))
+                                          (TextureEntry 4 (● g material view))
+                                          (TextureEntry 5 (● g depth view)))))))
 
     ;; ---- Tone mapping and FXAA ----
 
@@ -181,14 +182,14 @@
       (! gpu)
       (let ((pass (begin-render-pass encoder
                                      (new RenderPassDescriptor
-                                       (colors (list (new ColorAttachment
-                                                       (view target)
-                                                       (load (Clear (new Color
-                                                                      (red 0.0)
-                                                                      (green 0.0)
-                                                                      (blue 0.0)
-                                                                      (alpha 1.0))))
-                                                       (store #t))))
+                                       (colors (list (Some (new ColorAttachment
+                                                             (view target)
+                                                             (load (Clear (new Color
+                                                                            (red 0.0)
+                                                                            (green 0.0)
+                                                                            (blue 0.0)
+                                                                            (alpha 1.0))))
+                                                             (store #t)))))
                                        (depth (None))))))
         (set-pipeline pass pipeline)
         (set-bind-group pass 0 group)
@@ -206,7 +207,8 @@
          (buffers (Nil))
          (fragment (Some (new FragmentState
                            (entry entry)
-                           (targets (list (new ColorTarget (format format) (blend (None))))))))
+                           (targets
+                            (list (Some (new ColorTarget (format format) (blend (None)))))))))
          (topology (TriangleList))
          (cull (CullNone))
          (depth (None)))))

@@ -14,13 +14,13 @@ create bind-group 8 raster/camera
 create bind-group 9 raster/forward/camera
 create bind-group 10 raster/sun
 create texture 11 gbuffer/albedo
-create texture 12 gbuffer/normal
-create texture 13 gbuffer/material
-create texture 14 gbuffer/depth
-create view 15 11
-create view 16 12
-create view 17 13
-create view 18 14
+create view 12 11
+create texture 13 gbuffer/normal
+create view 14 13
+create texture 15 gbuffer/material
+create view 16 15
+create texture 17 gbuffer/depth
+create view 18 17
 create shader 19 passes/sun
 create render-pipeline 20 passes/sun
 create bind-group 21 passes/sun
@@ -41,7 +41,7 @@ write-buffer 29 0 160
 canvas 30
 create view 31 30
 encoder 32
-write-buffer 4 0 160
+write-buffer 4 0 240
 write-buffer 5 0 32
 pass 33 32
 set-pipeline 33 2

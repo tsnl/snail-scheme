@@ -329,16 +329,16 @@
       (let* ((target (layer-view (● atlas texture) page))
              (pass (begin-render-pass encoder
                                       (new RenderPassDescriptor
-                                        (colors (list (new ColorAttachment
-                                                        (view target)
-                                                        (load (if clear?
-                                                                  (Clear (new Color
-                                                                           (red 0.0)
-                                                                           (green 0.0)
-                                                                           (blue 0.0)
-                                                                           (alpha 0.0)))
-                                                                  (Keep)))
-                                                        (store #t))))
+                                        (colors (list (Some (new ColorAttachment
+                                                              (view target)
+                                                              (load (if clear?
+                                                                        (Clear (new Color
+                                                                                 (red 0.0)
+                                                                                 (green 0.0)
+                                                                                 (blue 0.0)
+                                                                                 (alpha 0.0)))
+                                                                        (Keep)))
+                                                              (store #t)))))
                                         (depth (None))))))
         (set-pipeline pass (● atlas pipeline))
         (set-vertex-buffer pass 0 instances 0)
@@ -382,7 +382,8 @@
          (fragment (Some (new FragmentState
                            (entry "piece_fragment")
                            (targets
-                            (list (new ColorTarget (format (Rgba8Unorm)) (blend (Some over))))))))
+                            (list
+                             (Some (new ColorTarget (format (Rgba8Unorm)) (blend (Some over)))))))))
          (topology (TriangleStrip))
          (cull (CullNone))
          (depth (None)))))

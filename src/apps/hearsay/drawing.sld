@@ -172,14 +172,14 @@
 
     (define (canvas-pass (canvas Image) (background I32)) (→ RenderPassDescriptor) (! gpu)
       (new RenderPassDescriptor
-        (colors (list (new ColorAttachment
-                        (view (view-of (● canvas texture) 1))
-                        (load (Clear (new Color
-                                       (red (f32->f64 (channel background 16)))
-                                       (green (f32->f64 (channel background 8)))
-                                       (blue (f32->f64 (channel background 0)))
-                                       (alpha 1.0))))
-                        (store #t))))
+        (colors (list (Some (new ColorAttachment
+                              (view (view-of (● canvas texture) 1))
+                              (load (Clear (new Color
+                                             (red (f32->f64 (channel background 16)))
+                                             (green (f32->f64 (channel background 8)))
+                                             (blue (f32->f64 (channel background 0)))
+                                             (alpha 1.0))))
+                              (store #t)))))
         (depth (None))))
 
     ;; The first picture whose portrait is missing or shows another version.

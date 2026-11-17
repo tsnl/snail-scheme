@@ -127,7 +127,8 @@
          (buffers (list (vertex-layout quad-shape (PerInstance) 0)))
          (fragment (Some (new FragmentState
                            (entry "quad_fragment")
-                           (targets (list (new ColorTarget (format format) (blend (Some over))))))))
+                           (targets
+                            (list (Some (new ColorTarget (format format) (blend (Some over)))))))))
          (topology (TriangleStrip))
          (cull (CullNone))
          (depth (None)))))

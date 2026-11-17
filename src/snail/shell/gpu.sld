@@ -105,6 +105,7 @@
    Bgra8Unorm
    Bgra8UnormSrgb
    R32Uint
+   Rg16Float
    R32Float
    Rg32Uint
    Rgba16Float
@@ -354,6 +355,7 @@
       (Bgra8Unorm)
       (Bgra8UnormSrgb)
       (R32Uint)
+      (Rg16Float)
       (R32Float)
       (Rg32Uint)
       (Rgba16Float)
@@ -371,6 +373,7 @@
         ((Bgra8Unorm) "bgra8unorm")
         ((Bgra8UnormSrgb) "bgra8unorm-srgb")
         ((R32Uint) "r32uint")
+        ((Rg16Float) "rg16float")
         ((R32Float) "r32float")
         ((Rg32Uint) "rg32uint")
         ((Rgba16Float) "rgba16float")
@@ -521,9 +524,11 @@
       ((format TextureFormat)
        (blend (Option Blend))))
 
+    ;; A target that is None leaves its location without one, as WebGPU's
+    ;; null target does: the shader's output there is dropped.
     (record FragmentState
       ((entry String)
-       (targets (List ColorTarget))))
+       (targets (List (Option ColorTarget)))))
 
     (enum Topology
       (PointList)
@@ -658,8 +663,10 @@
        (load DepthLoad)
        (store Bool)))
 
+    ;; A color attachment that is None leaves its location empty, matching
+    ;; a pipeline's None target there.
     (record RenderPassDescriptor
-      ((colors (List ColorAttachment))
+      ((colors (List (Option ColorAttachment)))
        (depth (Option DepthAttachment))))
 
     (enum IndexFormat
@@ -882,6 +889,13 @@
 
     ;; Format, then the blend's color and alpha components if it has one.
 
+    ;; A target is a word, 1 when present, before its fields.
+
+    (define (optional-target-fields (target (Option ColorTarget))) (→ (List Field))
+      (match target
+        ((Some target) (Cons (flag #t) (target-fields target)))
+        ((None) (list (flag #f)))))
+
     (define (target-fields (target ColorTarget)) (→ (List Field))
       (Cons (Text (texture-format-name (● target format)))
             (match (● target blend)
@@ -930,7 +944,7 @@
                ((Some fragment)
                 (Cons (flag #t)
                       (Cons (Text (● fragment entry))
-                            (counted (● fragment targets) target-fields))))
+                            (counted (● fragment targets) optional-target-fields))))
                ((None) (list (flag #f))))
              (list (Text (topology-name (● descriptor topology)))
                    (Text (cull-name (● descriptor cull))))
