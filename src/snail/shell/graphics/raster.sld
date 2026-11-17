@@ -1,5 +1,5 @@
 ;; Rasterizing mesh instances into a G-buffer, and translucent ones lit at
-;; once over what is drawn (raster.wgsl.scm). A program makes its `Raster`
+;; once over the lit G-buffer (raster.wgsl.scm). A program makes its `Raster`
 ;; once, its pipelines, its geometry and its camera's and sun's uniforms;
 ;; a `GBuffer` for the canvas's size; and a `Surface` for each batch,
 ;; remade when the batch changes. A frame of a low-poly scene:
@@ -8,8 +8,8 @@
 ;;   (let ((pass (begin-gbuffer encoder g)))
 ;;     (draw-surface pass r terrain)
 ;;     (end-pass pass))
-;;   (sun-pass encoder canvas background light)   ; (snail shell graphics passes)
-;;   (let ((pass (begin-forward encoder canvas g)))
+;;   (let ((pass (begin-lit encoder canvas background g)))
+;;     (draw-sun pass light)                       ; (snail shell graphics passes)
 ;;     (draw-surface pass r water)
 ;;     (end-pass pass))
 ;;
@@ -32,7 +32,7 @@
    make-raster
    write-raster
    begin-gbuffer
-   begin-forward
+   begin-lit
    Surface
    make-surface
    restyle-surface
@@ -296,19 +296,26 @@
                                           (load (ClearDepth 1.0))
                                           (store #t)))))))
 
-    ;; A pass over `canvas` keeping what is drawn, testing against the
-    ;; G-buffer's depth without writing it.
-    (define (begin-forward (encoder GpuCommandEncoder) (canvas GpuTextureView) (g GBuffer))
+    ;; A pass over `canvas`, cleared to `background`, that reads the
+    ;; G-buffer's depth without writing it: the sun lights the G-buffer
+    ;; into it, sampling that depth, and translucent surfaces are drawn
+    ;; over, tested against it.
+    (define (begin-lit (encoder GpuCommandEncoder)
+                       (canvas GpuTextureView)
+                       (background Color)
+                       (g GBuffer))
       (→ GpuRenderPass)
       (! gpu)
       (begin-render-pass encoder
                          (new RenderPassDescriptor
-                           (colors
-                            (list (new ColorAttachment (view canvas) (load (Keep)) (store #t))))
+                           (colors (list (new ColorAttachment
+                                           (view canvas)
+                                           (load (Clear background))
+                                           (store #t))))
                            (depth (Some (new DepthAttachment
                                           (view (● g depth-view))
-                                          (load (KeepDepth))
-                                          (store #t)))))))
+                                          (load (ReadOnlyDepth))
+                                          (store #f)))))))
 
     ;; ---- Pipelines and uniforms ----
 

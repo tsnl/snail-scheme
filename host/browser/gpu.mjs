@@ -132,10 +132,12 @@ export function createGpu(canvas, runtime, open = pageDevice) {
       pass.colorAttachments.push({view: object(view), loadOp: clear ? 'clear' : 'load', clearValue: {r, g, b, a},
                                   storeOp: store ? 'store' : 'discard'});
     },
-    'pass-depth'(view, clear, depth, store) {
+    // A depth attachment loads (0), clears (1), or is read-only (2).
+    'pass-depth'(view, load, depth, store) {
       pass ??= {colorAttachments: []};
-      pass.depthStencilAttachment = {view: object(view), depthLoadOp: clear ? 'clear' : 'load', depthClearValue: depth,
-                                     depthStoreOp: store ? 'store' : 'discard'};
+      pass.depthStencilAttachment = load === 2 ? {view: object(view), depthReadOnly: true}
+        : {view: object(view), depthLoadOp: load ? 'clear' : 'load', depthClearValue: depth,
+           depthStoreOp: store ? 'store' : 'discard'};
     },
     'begin-pass'(encoder) {
       const descriptor = pass;

@@ -1,6 +1,7 @@
 ;; A scene's objects, made once, and its frame through the recording
-;; handler: the G-buffer pass, the sun pass and a translucent pass. A camera's inverse undoes its
-;; view-projection for either lens.
+;; handler: the G-buffer pass, then the lit pass, the sun and a translucent
+;; surface over the G-buffer's read-only depth. A camera's inverse undoes
+;; its view-projection for either lens.
 (import
  (snail core base)
  (snail core io)
@@ -88,8 +89,11 @@
     (let ((pass (begin-gbuffer encoder g)))
       (draw-surface pass r ground)
       (end-pass pass))
-    (sun-pass encoder canvas (new Color (red 0.0) (green 0.0) (blue 0.0) (alpha 1.0)) light)
-    (let ((pass (begin-forward encoder canvas g)))
+    (let ((pass (begin-lit encoder
+                           canvas
+                           (new Color (red 0.0) (green 0.0) (blue 0.0) (alpha 1.0))
+                           g)))
+      (draw-sun pass light)
       (draw-surface pass r water)
       (end-pass pass))
     (submit (list (finish encoder)))))

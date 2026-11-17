@@ -1,14 +1,15 @@
-;; Full-screen passes over a G-buffer. `sun-pass` clears a target to the
-;; background and lights each pixel the G-buffer has a surface at under
-;; the frame's sun and camera (sun.wgsl.scm), with the same lighting as a
-;; translucent surface. Its `Sunlight` is made once, and relit when the
-;; G-buffer is remade.
+;; Full-screen passes over a G-buffer. `draw-sun`, in a pass begun with
+;; `begin-lit` of (snail shell graphics raster), lights each pixel the
+;; G-buffer has a surface at under the frame's sun and camera
+;; (sun.wgsl.scm), with the same lighting as a translucent surface; the
+;; pass's cleared background shows where there is none. Its `Sunlight` is
+;; made once, and relit when the G-buffer is remade.
 (define-library (snail shell graphics passes)
   (export
    Sunlight
    make-sunlight
    relight
-   sun-pass)
+   draw-sun)
   (import
    (snail core base)
    (snail shell gpu)
@@ -42,23 +43,11 @@
       (destroy (BindGroupObject (● light group)))
       (Sunlight-group-set light (sun-group (● light pipeline) g r)))
 
-    (define (sun-pass (encoder GpuCommandEncoder)
-                      (canvas GpuTextureView)
-                      (background Color)
-                      (light Sunlight))
-      (→ Unit)
-      (! gpu)
-      (let ((pass (begin-render-pass encoder
-                                     (new RenderPassDescriptor
-                                       (colors (list (new ColorAttachment
-                                                       (view canvas)
-                                                       (load (Clear background))
-                                                       (store #t))))
-                                       (depth (None))))))
-        (set-pipeline pass (● light pipeline))
-        (set-bind-group pass 0 (● light group))
-        (draw pass 3 1 0 0)
-        (end-pass pass)))
+    ;; One triangle over the whole target, untested by depth.
+    (define (draw-sun (pass GpuRenderPass) (light Sunlight)) (→ Unit) (! gpu)
+      (set-pipeline pass (● light pipeline))
+      (set-bind-group pass 0 (● light group))
+      (draw pass 3 1 0 0))
 
     (define (sun-pipeline (format TextureFormat)) (→ GpuRenderPipeline) (! gpu)
       (create-render-pipeline
@@ -73,7 +62,8 @@
                            (targets (list (new ColorTarget (format format) (blend (None))))))))
          (topology (TriangleList))
          (cull (CullNone))
-         (depth (None)))))
+         (depth
+          (Some (new DepthState (format (Depth24Plus)) (write #f) (compare (CompareAlways))))))))
 
     (define (sun-group (pipeline GpuRenderPipeline) (g GBuffer) (r Raster)) (→ GpuBindGroup) (! gpu)
       (create-bind-group (new BindGroupDescriptor
