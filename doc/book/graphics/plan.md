@@ -71,10 +71,18 @@ keeps only a table from id to object:
   and the books check every handle before the host sees it, so using a
   replaced, evicted or ended object panics with what it was rather than
   leaving WebGPU to report an invalid object.
-- **The boundary marshals.** Descriptors cross as JSON in WebGPU's names,
-  with `{"object": ID}` for each object they name, and pass commands as
-  small scalar calls. A pipeline's layout is WebGPU's `"auto"`, so a bind
-  group is made against a pipeline and a group index.
+- **Descriptors are fields.** A descriptor is a list of words and texts in
+  a fixed order per kind: an object it names is its id, an enum value
+  WebGPU's name for it, a list its count and then its items. The books
+  compare those lists to find an object by its path, so a lookup encodes
+  nothing. Only an object being made crosses to the host, as staged bytes
+  that `host/browser/gpu.mjs` reads with a `DataView` into the dictionary
+  WebGPU takes. A render pass and every other command crosses as calls
+  with scalar arguments, an attachment's view and then its load and store.
+  Buffer and texture contents cross as `Bytes`, which the host hands to
+  WebGPU as a view of the program's memory, without a copy. A pipeline's
+  layout is WebGPU's `"auto"`, so a bind group is made against a pipeline
+  and a group index.
 
 ## Pod and WGSL
 
@@ -161,10 +169,13 @@ G-buffer's depth without writing it.
 keeping each batch's packed instances in its `Frames` until the batch's
 version changes, so a still frame writes only its uniforms. Siegework's
 frames match the old renderer's shading. On headless Chromium's software
-WebGPU, the page's main thread spends 48 to 50 ms a second in tasks
-against the old renderer's 20: each frame now makes three passes over four
-full-size targets, and per frame the program creates no object, writes 11
-buffers and draws 8 times. Textured meshes and sprites are gone from
+WebGPU, the page's main thread spends 31 to 33 ms a second in tasks
+against the old renderer's 20 to 21; the GPU's own calls cost both about
+10. Per frame the program creates no object, writes 11 buffers and draws 8
+times, and what remains is spread across finding objects by path, the
+three passes' calls and packing each batch's indirect arguments. Its
+descriptors once crossed as JSON, and the books compared that text on
+every lookup, which cost 51 ms a second. Textured meshes and sprites are gone from
 `Frame`; pictures are drawn as quads from an atlas.
 
 ## The `graphics` libraries

@@ -215,6 +215,14 @@
     (define style-shape (→ (Shape Style)) (shape))
     (define sun-shape (→ (Shape Sun)) (shape))
 
+    (define raster-code
+      (→ String)
+      (string-append (declarations camera-shape)
+                     (declarations style-shape)
+                     (declarations sun-shape)
+                     lighting-shader
+                     raster-shader))
+
     ;; ---- The G-buffer ----
 
     (record GBuffer
@@ -299,8 +307,8 @@
                                             (list
                                              (new ColorTarget (format format) (blend (Some over))))
                                             #f))
-        (camera (uniform (list "raster" "camera") (pod-bytes camera)))
-        (sun (uniform (list "raster" "sun") (pod-bytes sun)))))
+        (camera (uniform (list "raster" "camera") (pod-bytes camera-shape camera)))
+        (sun (uniform (list "raster" "sun") (pod-bytes sun-shape sun)))))
 
     (define (raster-meshes (pass GpuRenderPass)
                            (r Raster)
@@ -318,7 +326,7 @@
                         (group (list "raster" name)
                                pipeline
                                1
-                               (uniform (list "raster" name) (pod-bytes style))))
+                               (uniform (list "raster" name) (pod-bytes style-shape style))))
         (draw-meshes pass name batch write?)))
 
     (define (raster-translucent (pass GpuRenderPass)
@@ -337,7 +345,7 @@
                         (group (list "raster" "forward" name)
                                pipeline
                                1
-                               (uniform (list "raster" name) (pod-bytes style))))
+                               (uniform (list "raster" name) (pod-bytes style-shape style))))
         (set-bind-group pass 2 (group (list "raster" "sun") pipeline 2 (● r sun)))
         (draw-meshes pass name batch write?)))
 
@@ -353,11 +361,7 @@
          (module (create-shader-module
                   (new ShaderModuleDescriptor
                     (path (Some (list "raster" "shader")))
-                    (code (string-append (declarations camera-shape)
-                                         (declarations style-shape)
-                                         (declarations sun-shape)
-                                         lighting-shader
-                                         raster-shader)))))
+                    (code raster-code))))
          (vertex-entry "surface_vertex")
          (buffers mesh-buffers)
          (fragment (Some (new FragmentState (entry entry) (targets targets))))
