@@ -205,6 +205,49 @@
                           (end-pass
                            (lambda (pass)
                              (note! recording (list "end-pass" (show (● pass id))))))
+                          (create-compute-pipeline
+                           (lambda (descriptor)
+                             (new GpuComputePipeline
+                               (id (made! recording
+                                          "compute-pipeline"
+                                          (compute-pipeline-fields descriptor))))))
+                          (begin-compute-pass
+                           (lambda (encoder)
+                             (new GpuComputePass
+                               (id (transient! recording
+                                               "compute-pass"
+                                               (list (show (● encoder id))))))))
+                          (set-compute-pipeline
+                           (lambda (pass pipeline)
+                             (note! recording
+                                    (list "set-compute-pipeline"
+                                          (show (● pass id))
+                                          (show (● pipeline id))))))
+                          (set-compute-bind-group
+                           (lambda (pass index group)
+                             (note! recording
+                                    (list "set-compute-bind-group"
+                                          (show (● pass id))
+                                          (show index)
+                                          (show (● group id))))))
+                          (dispatch-workgroups
+                           (lambda (pass x y z)
+                             (note! recording
+                                    (list "dispatch-workgroups"
+                                          (show (● pass id))
+                                          (show x)
+                                          (show y)
+                                          (show z)))))
+                          (dispatch-workgroups-indirect
+                           (lambda (pass buffer offset)
+                             (note! recording
+                                    (list "dispatch-workgroups-indirect"
+                                          (show (● pass id))
+                                          (show (● buffer id))
+                                          (show offset)))))
+                          (end-compute-pass
+                           (lambda (pass)
+                             (note! recording (list "end-compute-pass" (show (● pass id))))))
                           (finish
                            (lambda (encoder)
                              (let ((encoder (show (● encoder id))))
@@ -252,6 +295,7 @@
         ((SamplerObject sampler) (● sampler id))
         ((ModuleObject module) (● module id))
         ((PipelineObject pipeline) (● pipeline id))
+        ((ComputePipelineObject pipeline) (● pipeline id))
         ((BindGroupObject group) (● group id))))
 
     ;; A pass's attachments as the page's calls send them: each view, its

@@ -31,7 +31,11 @@
   (loop (if ((>= total 0.0) (break))))
   (while (< total 0.0) (= total (- total)))
   (if ((< total 0.0) (discard)))
-  (return ((vec4 f32) total (f32 ((bitcast u32) total)) ((bitcast f32) (bit-or 1u 2u)) 1.0)))")
+  (return ((vec4 f32) total (f32 ((bitcast u32) total)) ((bitcast f32) (bit-or 1u 2u)) 1.0)))
+((var storage read_write) (@group 1) (@binding 0) (counts (array u32)))
+(fn (@compute) (@workgroup_size 64) count_main (((@builtin global_invocation_id) id vec3u))
+  (let p (address-of (at counts 0)))
+  (if ((< (get id x) (arrayLength (address-of counts))) (+= (deref p) 1u))))")
 
 (define (printed (text String)) (→ String)
   (match (compiling (lambda () (wgsl-text (read-text text "shader"))))

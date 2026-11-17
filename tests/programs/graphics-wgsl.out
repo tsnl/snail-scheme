@@ -45,6 +45,15 @@ const steps = 4;
   }
   return vec4<f32>(total, f32(bitcast<u32>(total)), bitcast<f32>((1u | 2u)), 1.0);
 }
+
+@group(1) @binding(0) var<storage, read_write> counts: array<u32>;
+
+@compute @workgroup_size(64) fn count_main(@builtin(global_invocation_id) id: vec3u) {
+  let p = (&counts[0]);
+  if (id.x < arrayLength((&counts))) {
+    (*p) += 1u;
+  }
+}
 shader:1:11: expected (attribute ... name type)
 shader:1:11: expected (attribute ... name type)
 shader:1:21: WGSL has no such literal

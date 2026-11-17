@@ -155,6 +155,12 @@ export function createGpu(canvas, runtime, open = pageDevice) {
     },
     'draw-indexed-indirect'(pass, buffer, offset) { object(pass).drawIndexedIndirect(object(buffer), offset); },
     'end-pass'(pass) { take(pass).end(); },
+    'begin-compute': encoder => keep(object(encoder).beginComputePass()),
+    'set-compute-pipeline'(pass, pipeline) { object(pass).setPipeline(object(pipeline)); },
+    'set-compute-bind-group'(pass, index, group) { object(pass).setBindGroup(index, object(group)); },
+    dispatch(pass, x, y, z) { object(pass).dispatchWorkgroups(x, y, z); },
+    'dispatch-indirect'(pass, buffer, offset) { object(pass).dispatchWorkgroupsIndirect(object(buffer), offset); },
+    'end-compute'(pass) { take(pass).end(); },
     finish: encoder => keep(take(encoder).finish()),
     'queue-buffer'(id) { queued.push(take(id)); },
     submit() {
@@ -209,9 +215,10 @@ function fields(bytes) {
   return {word, text, flag: () => word() !== 0, list: read => Array.from({length: word()}, read)};
 }
 
-// Each kind's descriptor, in the order of `kind-index` in
-// (snail shell gpu page): its label, then its fields as the matching
-// `...-request` in (snail shell gpu) writes them.
+// Each kind's descriptor, in the order of the kinds `made` in
+// (snail shell gpu page) numbers: its label, then its fields as the
+// matching `...-fields` in (snail shell gpu) writes them. A bind group's
+// pipeline is of either kind.
 const made = [
   (device, f) => device.createBuffer({label: f.text(), size: f.word(), usage: f.word()}),
   (device, f) => device.createTexture({label: f.text(), size: [f.word(), f.word(), f.word()], mipLevelCount: f.word(),
@@ -244,6 +251,10 @@ const made = [
       return {binding, resource: object(f.word())};
     });
     return device.createBindGroup({label, layout, entries});
+  },
+  (device, f, object) => {
+    const label = f.text(), module = object(f.word());
+    return device.createComputePipeline({label, layout: 'auto', compute: {module, entryPoint: f.text()}});
   },
 ];
 

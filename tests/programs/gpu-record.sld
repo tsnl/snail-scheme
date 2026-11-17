@@ -1,6 +1,6 @@
 ;; What the recording handler notes of a frame: each object numbered as it
 ;; is made, with its descriptor's fields; the commands that use them; and
-;; an object let go.
+;; an object let go. Then a compute pass's dispatch.
 (import
  (snail core base)
  (snail core io)
@@ -9,6 +9,8 @@
  (only (snail shell task) tasks))
 
 (define shader "@vertex fn v() -> @builtin(position) vec4f { return vec4f(); }")
+
+(define counting "@compute @workgroup_size(64) fn c() {}")
 
 (define (frame) (→ Unit) (! gpu tasks)
   (request-device)
@@ -35,7 +37,7 @@
          (group (create-bind-group
                  (new BindGroupDescriptor
                    (label "group")
-                   (pipeline pipeline)
+                   (pipeline (RenderPipeline pipeline))
                    (group 0)
                    (entries (list (BufferEntry 0 buffer 0 0))))))
          (encoder (create-command-encoder))
@@ -58,4 +60,26 @@
     (submit (list (finish encoder)))
     (destroy (BufferObject buffer))))
 
+(define (compute) (→ Unit) (! gpu)
+  (let* ((module
+          (create-shader-module (new ShaderModuleDescriptor (label "count") (code counting))))
+         (pipeline (create-compute-pipeline
+                    (new ComputePipelineDescriptor (label "count") (module module) (entry "c"))))
+         (counts (create-buffer
+                  (new BufferDescriptor (label "counts") (size 256) (usage (list (Storage))))))
+         (group (create-bind-group (new BindGroupDescriptor
+                                     (label "counts")
+                                     (pipeline (ComputePipeline pipeline))
+                                     (group 0)
+                                     (entries (list (BufferEntry 0 counts 0 0))))))
+         (encoder (create-command-encoder))
+         (pass (begin-compute-pass encoder)))
+    (set-compute-pipeline pass pipeline)
+    (set-compute-bind-group pass 0 group)
+    (dispatch-workgroups pass 4 1 1)
+    (end-compute-pass pass)
+    (submit (list (finish encoder)))))
+
 (for-each write-line (● (with-recorded-gpu (lambda () (frame))) second))
+(write-line "compute:")
+(for-each write-line (● (with-recorded-gpu compute) second))

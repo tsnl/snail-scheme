@@ -79,7 +79,7 @@
           (room 64)
           (group (create-bind-group (new BindGroupDescriptor
                                       (label (string-append "quad/" label))
-                                      (pipeline pipeline)
+                                      (pipeline (RenderPipeline pipeline))
                                       (group 0)
                                       (entries (list (BufferEntry 0 camera 0 0)
                                                      (TextureEntry 1 (array-view pages))

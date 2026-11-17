@@ -52,6 +52,7 @@ try {
     'again: 255 0 0 255 255 0 0 255 255 0 0 255 255 0 0 255',
     'quads: 0 0 255 255 0 0 255 255 0 255 0 255 0 255 0 255',
     'scene: 255 0 0 255 255 0 0 255 153 153 153 255 153 153 153 255',
+    'squares: 1 4 9 16 10000',
   ]);
   // The data URL decodes to the picture: blue for the swapped red, then
   // green.
@@ -65,7 +66,7 @@ try {
     return [...context.getImageData(0, 0, 2, 1).data];
   })()`), [0, 0, 255, 255, 0, 255, 0, 255]);
   if (screenshot) await browser.screenshot(screenshot);
-  console.log('gpu: drawing, readback, decoding, objects kept across frames, atlas composition, quads and a lit G-buffer on a real device passed');
+  console.log('gpu: drawing, readback, decoding, objects kept across frames, atlas composition, quads, a lit G-buffer and a compute pass on a real device passed');
 } finally {
   browser.close();
   server.close();

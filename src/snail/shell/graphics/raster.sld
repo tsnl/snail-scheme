@@ -396,7 +396,7 @@
       (! gpu)
       (create-bind-group (new BindGroupDescriptor
                            (label label)
-                           (pipeline pipeline)
+                           (pipeline (RenderPipeline pipeline))
                            (group index)
                            (entries (list (BufferEntry 0 buffer 0 0))))))
 

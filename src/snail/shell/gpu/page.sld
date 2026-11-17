@@ -121,6 +121,20 @@
             (lambda (pass buffer offset)
               (host-draw-indexed-indirect (● pass id) (● buffer id) offset)))
            (end-pass (lambda (pass) (host-end-pass (● pass id))))
+           (create-compute-pipeline
+            (lambda (descriptor)
+              (new GpuComputePipeline (id (made 6 (compute-pipeline-fields descriptor))))))
+           (begin-compute-pass
+            (lambda (encoder) (new GpuComputePass (id (host-begin-compute (● encoder id))))))
+           (set-compute-pipeline
+            (lambda (pass pipeline) (host-set-compute-pipeline (● pass id) (● pipeline id))))
+           (set-compute-bind-group
+            (lambda (pass index group)
+              (host-set-compute-bind-group (● pass id) index (● group id))))
+           (dispatch-workgroups (lambda (pass x y z) (host-dispatch (● pass id) x y z)))
+           (dispatch-workgroups-indirect
+            (lambda (pass buffer offset) (host-dispatch-indirect (● pass id) (● buffer id) offset)))
+           (end-compute-pass (lambda (pass) (host-end-compute (● pass id))))
            (finish
             (lambda (encoder) (new GpuCommandBuffer (id (host-finish (● encoder id))))))
            (submit submitted)
@@ -150,6 +164,7 @@
         ((SamplerObject sampler) (● sampler id))
         ((ModuleObject module) (● module id))
         ((PipelineObject pipeline) (● pipeline id))
+        ((ComputePipelineObject pipeline) (● pipeline id))
         ((BindGroupObject group) (● group id))))
 
     ;; Each command buffer is queued, then the queue submitted.
