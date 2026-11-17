@@ -2,12 +2,14 @@
 ;; of regions of encoded images, drawn in order over transparency, each
 ;; with its colors swapped as listed: art drawn in one palette is
 ;; recolored, as LPC skin ramps are. The host decodes the images
-;; (`decode-image`); composing a picture is a render pass into its slot
-;; (atlas.wgsl.scm). The Atlas value records what each slot holds, and the
-;; application keeps it, as it keeps the rest of its state:
+;; (`decode-image`), once each, and the atlas keeps them;
+;; composing a picture is a render pass into its slot (atlas.wgsl.scm).
+;; The Atlas value holds its pages, its pipeline and its decoded sources,
+;; and records what each slot holds; the application keeps it, as it keeps
+;; the rest of its state:
 ;;
 ;;   (let ((atlas (atlas-pictures atlas encoder pictures)))   ; compose the new ones
-;;     (draw-quads pass "figures" format view (atlas-texture atlas) quads)
+;;     (draw-quads pass quads view quad-list)                 ; quads over (● atlas texture)
 ;;     ...)
 ;;
 ;; A slot keeps a transparent texel around its picture, so nearest
@@ -24,7 +26,6 @@
    Slot
    Atlas
    make-atlas
-   atlas-texture
    atlas-pictures
    atlas-slot
    slot-region
@@ -84,32 +85,50 @@
        (height I32)
        (version I32)))
 
-    ;; `size` texels square pages, `pages` of them, in the texture named
-    ;; ("atlas" name). The packer's cursor is on `page` at (x, y), and the
-    ;; shelf it fills is `row` texels tall.
+    ;; `size` texels square pages, `pages` of them, in `texture`. The
+    ;; packer's cursor is on `page` at (x, y), and the shelf it fills is
+    ;; `row` texels tall. `sources` holds each source decoded, by its key.
     (record Atlas
       ((name String)
        (size I32)
        (pages I32)
+       (texture GpuTexture)
+       (pipeline GpuRenderPipeline)
+       (sources (Table GpuTextureView))
        (page I32)
        (x I32)
        (y I32)
        (row I32)
        (slots (Table Slot))))
 
-    (define (make-atlas (name String) (size I32) (pages I32)) (→ Atlas)
+    (define (make-atlas (name String) (size I32) (pages I32)) (→ Atlas) (! gpu)
       (new Atlas
         (name name)
         (size size)
         (pages pages)
+        (texture (create-texture (new TextureDescriptor
+                                   (label (string-append "atlas/" name))
+                                   (width size)
+                                   (height size)
+                                   (layers pages)
+                                   (mips 1)
+                                   (format (Rgba8Unorm))
+                                   (usage (list (TextureBinding)
+                                                (TextureCopySrc)
+                                                (TextureCopyDst)
+                                                (RenderAttachment))))))
+        (pipeline (compose-pipeline))
+        (sources (empty-table))
         (page 0)
         (x 0)
         (y 0)
         (row 0)
         (slots (empty-table))))
 
+    ;; The pages cleared of pictures, keeping the objects.
     (define (emptied (atlas Atlas)) (→ Atlas)
-      (make-atlas (● atlas name) (● atlas size) (● atlas pages)))
+      (Atlas-slots-set (Atlas-row-set (Atlas-y-set (Atlas-x-set (Atlas-page-set atlas 0) 0) 0) 0)
+                       (empty-table)))
 
     (define (atlas-slot (atlas Atlas) (key I32)) (→ (Option Slot))
       (table-ref (● atlas slots) (show key)))
@@ -133,16 +152,9 @@
         (cond
          ((or (> width size) (> height size)) (None))
          ((> (+ (● atlas x) width) size)
-          (placed (new Atlas
-                    (name (● atlas name))
-                    (size size)
-                    (pages (● atlas pages))
-                    (page (● atlas page))
-                    (x 0)
-                    (y (+ (● atlas y) (● atlas row)))
-                    (row 0)
-                    (slots (● atlas slots)))
-                  picture))
+          (placed
+           (Atlas-row-set (Atlas-y-set (Atlas-x-set atlas 0) (+ (● atlas y) (● atlas row))) 0)
+           picture))
          ((> (+ (● atlas y) height) size)
           (if (>= (+ (● atlas page) 1) (● atlas pages))
               (None)
@@ -170,22 +182,6 @@
 
     ;; ---- Composing ----
 
-    ;; The pages, made by their path; a texture made afresh holds nothing,
-    ;; whatever the atlas says.
-
-    (define (atlas-texture (atlas Atlas)) (→ GpuTexture) (! gpu)
-      (create-texture (new TextureDescriptor
-                        (path (Some (list "atlas" (● atlas name))))
-                        (width (● atlas size))
-                        (height (● atlas size))
-                        (layers (● atlas pages))
-                        (mips 1)
-                        (format (Rgba8Unorm))
-                        (usage (list (TextureBinding)
-                                     (TextureCopySrc)
-                                     (TextureCopyDst)
-                                     (RenderAttachment))))))
-
     ;; The first picture the atlas lacks at its version, composed in a pass
     ;; of `encoder`, which the caller submits: a frame decodes only one
     ;; picture's sources, and the rest follow, one a call. When it does not
@@ -195,23 +191,17 @@
     (define (atlas-pictures (atlas Atlas) (encoder GpuCommandEncoder) (pictures (List Picture)))
       (→ Atlas)
       (! gpu tasks)
-      (let* ((texture (atlas-texture atlas))
-             (current (if (● texture fresh) (emptied atlas) atlas)))
-        (match (find (lambda (picture) (not (composed? current picture))) pictures)
-          ((None) current)
-          ((Some picture)
-           (match (placed current picture)
-             ((Some next)
-              (compose! encoder texture (● next second) (list picture) #f)
-              (● next second))
-             ((None)
-              (match (placed (emptied atlas) picture)
-                ((Some next)
-                 (compose! encoder texture (● next second) (list picture) #t)
-                 (● next second))
-                ((None)
-                 (panic (string-append "atlas: a picture is larger than the pages of atlas "
-                                       (● atlas name)))))))))))
+      (match (find (lambda (picture) (not (composed? atlas picture))) pictures)
+        ((None) atlas)
+        ((Some picture)
+         (match (placed atlas picture)
+           ((Some next) (compose encoder (● next second) picture #f))
+           ((None)
+            (match (placed (emptied atlas) picture)
+              ((Some next) (compose encoder (● next second) picture #t))
+              ((None)
+               (panic (string-append "atlas: a picture is larger than the pages of atlas "
+                                     (● atlas name))))))))))
 
     (define (composed? (atlas Atlas) (picture Picture)) (→ Bool)
       (match (atlas-slot atlas (● picture key))
@@ -239,34 +229,43 @@
     (define swap-shape (→ (Shape Vec2i)) (shape))
 
     ;; Each page a pass: cleared first when `clear?`, then each layer over
-    ;; what is there, its source bound with the swap table.
+    ;; what is there, its source bound with the swap table. The atlas
+    ;; answered keeps the sources decoded; the buffers go at the submit.
 
-    (define (compose! (encoder GpuCommandEncoder)
-                      (texture GpuTexture)
-                      (atlas Atlas)
-                      (pictures (List Picture))
-                      (clear? Bool))
-      (→ Unit)
+    (define (compose (encoder GpuCommandEncoder) (atlas Atlas) (picture Picture) (clear? Bool))
+      (→ Atlas)
       (! gpu tasks)
-      (let* ((layers (laid atlas pictures))
+      (let* ((layers (laid atlas (list picture)))
+             (atlas (decoded atlas layers))
              (pieces (numbered-runs layers 0))
-             (pipeline (compose-pipeline))
              (swaps (swap-buffer atlas layers))
              (instances (piece-buffer atlas pieces)))
         (for-each (lambda (page)
                     (let ((on-page (filter (lambda (indexed) (= (● indexed second page) page))
                                            (indexed pieces))))
                       (when (or clear? (not (null? on-page)))
-                        (page-pass! encoder
-                                    texture
-                                    atlas
-                                    page
-                                    pipeline
-                                    swaps
-                                    instances
-                                    on-page
-                                    clear?))))
-                  (map i64->i32 (iota (i32->i64 (● atlas pages)))))))
+                        (page-pass encoder atlas page swaps instances on-page clear?))))
+                  (map i64->i32 (iota (i32->i64 (● atlas pages)))))
+        (destroy (BufferObject swaps))
+        (destroy (BufferObject instances))
+        atlas))
+
+    ;; The atlas with each layer's source decoded.
+
+    (define (decoded (atlas Atlas) (layers (List Placed))) (→ Atlas) (! gpu tasks)
+      (fold-left (lambda (atlas layer)
+                   (let ((key (show (● layer source key))))
+                     (if (table-contains? (● atlas sources) key)
+                         atlas
+                         (Atlas-sources-set atlas
+                                            (table-set (● atlas sources)
+                                                       key
+                                                       (view-of (● (decode-image
+                                                                    ((● layer source bytes)))
+                                                                   texture)
+                                                                1))))))
+                 atlas
+                 layers))
 
     (define (laid (atlas Atlas) (pictures (List Picture))) (→ (List Placed))
       (concatenate (map (lambda (picture)
@@ -318,48 +317,66 @@
       (map-indexed (lambda (index layer) (new Pair (first (i64->i32 index)) (second layer)))
                    layers))
 
-    (define (page-pass! (encoder GpuCommandEncoder)
-                        (texture GpuTexture)
-                        (atlas Atlas)
-                        (page I32)
-                        (pipeline GpuRenderPipeline)
-                        (swaps GpuBuffer)
-                        (instances GpuBuffer)
-                        (layers (List (Pair I32 Placed)))
-                        (clear? Bool))
+    (define (page-pass (encoder GpuCommandEncoder)
+                       (atlas Atlas)
+                       (page I32)
+                       (swaps GpuBuffer)
+                       (instances GpuBuffer)
+                       (layers (List (Pair I32 Placed)))
+                       (clear? Bool))
       (→ Unit)
-      (! gpu tasks)
-      (let ((pass (begin-render-pass encoder
-                                     (new RenderPassDescriptor
-                                       (colors (list (new ColorAttachment
-                                                       (view (layer-view texture page))
-                                                       (load (if clear?
-                                                                 (Clear (new Color
-                                                                          (red 0.0)
-                                                                          (green 0.0)
-                                                                          (blue 0.0)
-                                                                          (alpha 0.0)))
-                                                                 (Keep)))
-                                                       (store #t))))
-                                       (depth (None))))))
-        (set-pipeline pass pipeline)
+      (! gpu)
+      (let* ((target (layer-view (● atlas texture) page))
+             (pass (begin-render-pass encoder
+                                      (new RenderPassDescriptor
+                                        (colors (list (new ColorAttachment
+                                                        (view target)
+                                                        (load (if clear?
+                                                                  (Clear (new Color
+                                                                           (red 0.0)
+                                                                           (green 0.0)
+                                                                           (blue 0.0)
+                                                                           (alpha 0.0)))
+                                                                  (Keep)))
+                                                        (store #t))))
+                                        (depth (None))))))
+        (set-pipeline pass (● atlas pipeline))
         (set-vertex-buffer pass 0 instances 0)
-        (for-each (lambda (indexed)
-                    (set-bind-group pass
-                                    0
-                                    (source-group atlas pipeline swaps (● indexed second source)))
-                    (draw pass 4 1 0 (● indexed first)))
-                  layers)
-        (end-pass pass)))
+        (for-each (lambda (indexed) (draw-layer pass atlas swaps indexed)) layers)
+        (end-pass pass)
+        (destroy (ViewObject target))))
+
+    ;; A layer's draw, with its source and the swaps bound in a group that
+    ;; goes once set: the pass holds what it binds.
+
+    (define (draw-layer (pass GpuRenderPass)
+                        (atlas Atlas)
+                        (swaps GpuBuffer)
+                        (indexed (Pair I32 Placed)))
+      (→ Unit)
+      (! gpu)
+      (let ((group (create-bind-group
+                    (new BindGroupDescriptor
+                      (label (string-append "atlas/" (● atlas name) "/source"))
+                      (pipeline (● atlas pipeline))
+                      (group 0)
+                      (entries (list (TextureEntry 0 (source-view atlas (● indexed second source)))
+                                     (BufferEntry 1 swaps 0 0)))))))
+        (set-bind-group pass 0 group)
+        (draw pass 4 1 0 (● indexed first))
+        (destroy (BindGroupObject group))))
+
+    (define (source-view (atlas Atlas) (source Source)) (→ GpuTextureView)
+      (match (table-ref (● atlas sources) (show (● source key)))
+        ((Some view) view)
+        ((None) (panic "atlas: a source was not decoded"))))
 
     (define (compose-pipeline) (→ GpuRenderPipeline) (! gpu)
       (create-render-pipeline
        (new RenderPipelineDescriptor
-         (path (Some (list "atlas" "compose")))
+         (label "atlas/compose")
          (module (create-shader-module
-                  (new ShaderModuleDescriptor
-                    (path (Some (list "atlas" "shader")))
-                    (code atlas-shader))))
+                  (new ShaderModuleDescriptor (label "atlas") (code atlas-shader))))
          (vertex-entry "piece_vertex")
          (buffers (list (vertex-layout piece-shape (PerInstance) 0)))
          (fragment (Some (new FragmentState
@@ -369,23 +386,6 @@
          (topology (TriangleStrip))
          (cull (CullNone))
          (depth (None)))))
-
-    ;; A source's image, decoded by its key once, and bound with the swaps.
-
-    (define (source-group (atlas Atlas)
-                          (pipeline GpuRenderPipeline)
-                          (swaps GpuBuffer)
-                          (source Source))
-      (→ GpuBindGroup)
-      (! gpu tasks)
-      (let ((image (decode-image (list "atlas" "source" (show (● source key))) ((● source bytes)))))
-        (create-bind-group (new BindGroupDescriptor
-                             (path
-                              (Some (list "atlas" (● atlas name) "source" (show (● source key)))))
-                             (pipeline pipeline)
-                             (group 0)
-                             (entries (list (TextureEntry 0 (view-of (● image texture) 1))
-                                            (BufferEntry 1 swaps 0 0)))))))
 
     ;; Storage needs a binding of at least one entry.
 
@@ -407,7 +407,7 @@
       (→ GpuBuffer)
       (! gpu)
       (let ((buffer (create-buffer (new BufferDescriptor
-                                     (path (Some (list "atlas" (● atlas name) part)))
+                                     (label (string-append "atlas/" (● atlas name) "/" part))
                                      (size (i64->i32 (array-length bytes)))
                                      (usage (list usage (CopyDst)))))))
         (write-buffer buffer 0 bytes)
@@ -417,8 +417,7 @@
 
     ;; A region of a picture as a PNG data URL, for an `img`. It submits
     ;; its own copy and waits for it, so it ends the frame: call it after
-    ;; the frame's own submit. The buffer it reads is long-lived, since
-    ;; the submit ends a transient one.
+    ;; the frame's own submit.
 
     (define (atlas-url (atlas Atlas) (key I32) (region Rect)) (→ String) (! gpu tasks)
       (match (atlas-slot atlas key)
@@ -428,13 +427,13 @@
                 (height (● region height))
                 (row (* 256 (quotient (+ (* 4 width) 255) 256)))
                 (buffer (create-buffer (new BufferDescriptor
-                                         (path (Some (list "atlas" (● atlas name) "readback")))
+                                         (label (string-append "atlas/" (● atlas name) "/readback"))
                                          (size (* row height))
                                          (usage (list (MapRead) (CopyDst))))))
                 (encoder (create-command-encoder)))
            (copy-texture-to-buffer encoder
                                    (new TextureCopy
-                                     (texture (atlas-texture atlas))
+                                     (texture (● atlas texture))
                                      (mip 0)
                                      (x (+ (● slot x) (● region x)))
                                      (y (+ (● slot y) (● region y)))
@@ -445,12 +444,9 @@
                                    width
                                    height)
            (submit (list (finish encoder)))
-           (png-data-url (rgba->png width
-                                    height
-                                    (unpadded (read-buffer buffer 0 (* row height))
-                                              row
-                                              width
-                                              height)))))))
+           (let ((bytes (read-buffer buffer 0 (* row height))))
+             (destroy (BufferObject buffer))
+             (png-data-url (rgba->png width height (unpadded bytes row width height))))))))
 
     (define (unpadded (bytes Bytes) (row I32) (width I32) (height I32)) (→ Bytes)
       (let ((line (* 4 (i32->i64 width))))

@@ -1,20 +1,20 @@
 ;; Rasterizing mesh instances into a G-buffer, and translucent ones lit at
-;; once over what is drawn (raster.wgsl.scm). A frame of a low-poly scene:
+;; once over what is drawn (raster.wgsl.scm). A program makes its `Raster`
+;; once, its pipelines, its geometry and its camera's and sun's uniforms;
+;; a `GBuffer` for the canvas's size; and a `Surface` for each batch,
+;; remade when the batch changes. A frame of a low-poly scene:
 ;;
-;;   (let* ((g (gbuffer "scene" width height))
-;;          (r (raster format camera sun))
-;;          (pass (begin-gbuffer encoder g)))
-;;     (raster-meshes pass r "terrain" solid terrain #t)
-;;     (end-pass pass)
-;;     (sun-pass encoder canvas format background g r)   ; (snail shell graphics passes)
-;;     (let ((pass (begin-forward encoder canvas g)))
-;;       (raster-translucent pass r "water" (Style ...) water #t)
-;;       (end-pass pass)))
+;;   (write-raster r camera sun)
+;;   (let ((pass (begin-gbuffer encoder g)))
+;;     (draw-surface pass r terrain)
+;;     (end-pass pass))
+;;   (sun-pass encoder canvas background light)   ; (snail shell graphics passes)
+;;   (let ((pass (begin-forward encoder canvas g)))
+;;     (draw-surface pass r water)
+;;     (end-pass pass))
 ;;
 ;; The G-buffer holds each pixel's albedo, its normal, its material
-;; (metalness, roughness and glow) and its depth. A frame makes its `Raster`
-;; once: its pipelines, found by path, and its camera and sun, written to
-;; uniform buffers.
+;; (metalness, roughness and glow) and its depth.
 (define-library (snail shell graphics raster)
   (export
    Lens
@@ -26,13 +26,18 @@
    solid
    Sun
    GBuffer
-   gbuffer
+   make-gbuffer
+   release-gbuffer
    Raster
-   raster
+   make-raster
+   write-raster
    begin-gbuffer
-   raster-meshes
    begin-forward
-   raster-translucent)
+   Surface
+   make-surface
+   restyle-surface
+   release-surface
+   draw-surface)
   (import
    (snail core base)
    (snail shell math)
@@ -225,24 +230,43 @@
 
     ;; ---- The G-buffer ----
 
+    ;; Its targets, each with the view the passes draw to and read.
     (record GBuffer
       ((albedo GpuTexture)
        (normal GpuTexture)
        (material GpuTexture)
-       (depth GpuTexture)))
+       (depth GpuTexture)
+       (albedo-view GpuTextureView)
+       (normal-view GpuTextureView)
+       (material-view GpuTextureView)
+       (depth-view GpuTextureView)))
 
-    (define (gbuffer (name String) (width I32) (height I32)) (→ GBuffer) (! gpu)
-      (new GBuffer
-        (albedo (target name "albedo" width height (Rgba8Unorm)))
-        (normal (target name "normal" width height (Rgba16Float)))
-        (material (target name "material" width height (Rgba8Unorm)))
-        (depth (target name "depth" width height (Depth24Plus)))))
+    (define (make-gbuffer (width I32) (height I32)) (→ GBuffer) (! gpu)
+      (let ((albedo (target "albedo" width height (Rgba8Unorm)))
+            (normal (target "normal" width height (Rgba16Float)))
+            (material (target "material" width height (Rgba8Unorm)))
+            (depth (target "depth" width height (Depth24Plus))))
+        (new GBuffer
+          (albedo albedo)
+          (normal normal)
+          (material material)
+          (depth depth)
+          (albedo-view (view-of albedo 1))
+          (normal-view (view-of normal 1))
+          (material-view (view-of material 1))
+          (depth-view (view-of depth 1)))))
 
-    (define (target (name String) (part String) (width I32) (height I32) (format TextureFormat))
+    (define (release-gbuffer (g GBuffer)) (→ Unit) (! gpu)
+      (for-each (lambda (view) (destroy (ViewObject view)))
+                (list (● g albedo-view) (● g normal-view) (● g material-view) (● g depth-view)))
+      (for-each (lambda (texture) (destroy (TextureObject texture)))
+                (list (● g albedo) (● g normal) (● g material) (● g depth))))
+
+    (define (target (part String) (width I32) (height I32) (format TextureFormat))
       (→ GpuTexture)
       (! gpu)
       (create-texture (new TextureDescriptor
-                        (path (Some (list "gbuffer" name part)))
+                        (label (string-append "gbuffer/" part))
                         (width width)
                         (height height)
                         (layers 1)
@@ -255,113 +279,97 @@
     (define (begin-gbuffer (encoder GpuCommandEncoder) (g GBuffer)) (→ GpuRenderPass) (! gpu)
       (begin-render-pass encoder
                          (new RenderPassDescriptor
-                           (colors (map (lambda (texture)
+                           (colors (map (lambda (view)
                                           (new ColorAttachment
-                                            (view (view-of texture 1))
+                                            (view view)
                                             (load (Clear (new Color
                                                            (red 0.0)
                                                            (green 0.0)
                                                            (blue 0.0)
                                                            (alpha 0.0))))
                                             (store #t)))
-                                        (list (● g albedo) (● g normal) (● g material))))
+                                        (list (● g albedo-view)
+                                              (● g normal-view)
+                                              (● g material-view))))
                            (depth (Some (new DepthAttachment
-                                          (view (view-of (● g depth) 1))
+                                          (view (● g depth-view))
                                           (load (ClearDepth 1.0))
                                           (store #t)))))))
 
     ;; A pass over `canvas` keeping what is drawn, testing against the
     ;; G-buffer's depth without writing it.
-    (define (begin-forward (encoder GpuCommandEncoder) (canvas GpuTexture) (g GBuffer))
+    (define (begin-forward (encoder GpuCommandEncoder) (canvas GpuTextureView) (g GBuffer))
       (→ GpuRenderPass)
       (! gpu)
       (begin-render-pass encoder
                          (new RenderPassDescriptor
-                           (colors (list (new ColorAttachment
-                                           (view (view-of canvas 1))
-                                           (load (Keep))
-                                           (store #t))))
+                           (colors
+                            (list (new ColorAttachment (view canvas) (load (Keep)) (store #t))))
                            (depth (Some (new DepthAttachment
-                                          (view (view-of (● g depth) 1))
+                                          (view (● g depth-view))
                                           (load (KeepDepth))
                                           (store #t)))))))
 
-    ;; ---- Drawing ----
+    ;; ---- Pipelines and uniforms ----
 
-    ;; A frame's pipelines for the G-buffer and for translucent surfaces
-    ;; on a target of `format`, and its camera and sun.
+    ;; The pipelines for the G-buffer and for translucent surfaces on a
+    ;; target of `format`, the meshes' geometry, and the camera's and sun's
+    ;; uniforms with the bind groups that hold them. A pipeline's layout is
+    ;; its own, so each pipeline has its own camera group.
     (record Raster
       ((gbuffer-pipeline GpuRenderPipeline)
        (forward-pipeline GpuRenderPipeline)
+       (geometry MeshGeometry)
        (camera GpuBuffer)
-       (sun GpuBuffer)))
+       (sun GpuBuffer)
+       (gbuffer-camera GpuBindGroup)
+       (forward-camera GpuBindGroup)
+       (forward-sun GpuBindGroup)))
 
-    (define (raster (format TextureFormat) (camera Camera3D) (sun Sun)) (→ Raster) (! gpu)
-      (new Raster
-        (gbuffer-pipeline (surface-pipeline "gbuffer_fragment"
-                                            (map (lambda (format)
-                                                   (new ColorTarget (format format) (blend (None))))
-                                                 gbuffer-formats)
-                                            #t))
-        (forward-pipeline (surface-pipeline "forward_fragment"
-                                            (list
-                                             (new ColorTarget (format format) (blend (Some over))))
-                                            #f))
-        (camera (uniform (list "raster" "camera") (pod-bytes camera-shape camera)))
-        (sun (uniform (list "raster" "sun") (pod-bytes sun-shape sun)))))
+    (define (make-raster (format TextureFormat)) (→ Raster) (! gpu)
+      (let* ((module (create-shader-module
+                      (new ShaderModuleDescriptor (label "raster") (code raster-code))))
+             (gbuffer-pipeline (surface-pipeline module
+                                                 "gbuffer_fragment"
+                                                 (map (lambda (format)
+                                                        (new ColorTarget
+                                                          (format format)
+                                                          (blend (None))))
+                                                      gbuffer-formats)
+                                                 #t))
+             (forward-pipeline (surface-pipeline module
+                                                 "forward_fragment"
+                                                 (list (new ColorTarget
+                                                         (format format)
+                                                         (blend (Some over))))
+                                                 #f))
+             (camera (uniform "raster/camera" (stride camera-shape)))
+             (sun (uniform "raster/sun" (stride sun-shape))))
+        (new Raster
+          (gbuffer-pipeline gbuffer-pipeline)
+          (forward-pipeline forward-pipeline)
+          (geometry (make-geometry))
+          (camera camera)
+          (sun sun)
+          (gbuffer-camera (group "raster/camera" gbuffer-pipeline 0 camera))
+          (forward-camera (group "raster/forward/camera" forward-pipeline 0 camera))
+          (forward-sun (group "raster/sun" forward-pipeline 2 sun)))))
 
-    (define (raster-meshes (pass GpuRenderPass)
-                           (r Raster)
-                           (name String)
-                           (style Style)
-                           (batch Meshes)
-                           (write? Bool))
-      (→ Unit)
-      (! gpu)
-      (let ((pipeline (● r gbuffer-pipeline)))
-        (set-pipeline pass pipeline)
-        (set-bind-group pass 0 (group (list "raster" "camera") pipeline 0 (● r camera)))
-        (set-bind-group pass
-                        1
-                        (group (list "raster" name)
-                               pipeline
-                               1
-                               (uniform (list "raster" name) (pod-bytes style-shape style))))
-        (draw-meshes pass name batch write?)))
+    ;; The frame's camera and sun.
+    (define (write-raster (r Raster) (camera Camera3D) (sun Sun)) (→ Unit) (! gpu)
+      (write-buffer (● r camera) 0 (pod-bytes camera-shape camera))
+      (write-buffer (● r sun) 0 (pod-bytes sun-shape sun)))
 
-    (define (raster-translucent (pass GpuRenderPass)
-                                (r Raster)
-                                (name String)
-                                (style Style)
-                                (batch Meshes)
-                                (write? Bool))
-      (→ Unit)
-      (! gpu)
-      (let ((pipeline (● r forward-pipeline)))
-        (set-pipeline pass pipeline)
-        (set-bind-group pass 0 (group (list "raster" "forward" "camera") pipeline 0 (● r camera)))
-        (set-bind-group pass
-                        1
-                        (group (list "raster" "forward" name)
-                               pipeline
-                               1
-                               (uniform (list "raster" name) (pod-bytes style-shape style))))
-        (set-bind-group pass 2 (group (list "raster" "sun") pipeline 2 (● r sun)))
-        (draw-meshes pass name batch write?)))
-
-    (define (surface-pipeline (entry String) (targets (List ColorTarget)) (write? Bool))
+    (define (surface-pipeline (module GpuShaderModule)
+                              (entry String)
+                              (targets (List ColorTarget))
+                              (write? Bool))
       (→ GpuRenderPipeline)
       (! gpu)
       (create-render-pipeline
        (new RenderPipelineDescriptor
-         (path (Some (Cons "raster"
-                           (Cons entry
-                                 (map (lambda (target) (texture-format-name (● target format)))
-                                      targets)))))
-         (module (create-shader-module
-                  (new ShaderModuleDescriptor
-                    (path (Some (list "raster" "shader")))
-                    (code raster-code))))
+         (label (string-append "raster/" entry))
+         (module module)
          (vertex-entry "surface_vertex")
          (buffers mesh-buffers)
          (fragment (Some (new FragmentState (entry entry) (targets targets))))
@@ -370,22 +378,81 @@
          (depth
           (Some (new DepthState (format (Depth24Plus)) (write write?) (compare (CompareLess))))))))
 
-    ;; A uniform buffer by its path, holding `bytes`.
-    (define (uniform (path (List String)) (bytes Bytes)) (→ GpuBuffer) (! gpu)
-      (let ((buffer (create-buffer (new BufferDescriptor
-                                     (path (Some path))
-                                     (size (i64->i32 (array-length bytes)))
-                                     (usage (list (Uniform) (CopyDst)))))))
-        (write-buffer buffer 0 bytes)
-        buffer))
+    (define (uniform (label String) (size I64)) (→ GpuBuffer) (! gpu)
+      (create-buffer (new BufferDescriptor
+                       (label label)
+                       (size (i64->i32 size))
+                       (usage (list (Uniform) (CopyDst))))))
 
-    (define (group (path (List String)) (pipeline GpuRenderPipeline) (index I32) (buffer GpuBuffer))
+    (define (group (label String) (pipeline GpuRenderPipeline) (index I32) (buffer GpuBuffer))
       (→ GpuBindGroup)
       (! gpu)
       (create-bind-group (new BindGroupDescriptor
-                           (path (Some path))
+                           (label label)
                            (pipeline pipeline)
                            (group index)
                            (entries (list (BufferEntry 0 buffer 0 0))))))
+
+    ;; ---- Surfaces ----
+
+    ;; A batch of meshes drawn in one style: into the G-buffer, or, when
+    ;; translucent, over what is drawn. Its style lives in a uniform of its
+    ;; own, rewritten when it changes. Its objects are labelled "raster/"
+    ;; and "mesh/" before its label.
+    (record Surface
+      ((translucent Bool)
+       (style Style)
+       (uniform GpuBuffer)
+       (group GpuBindGroup)
+       (batch MeshBatch)))
+
+    (define (make-surface (r Raster)
+                          (label String)
+                          (translucent Bool)
+                          (style Style)
+                          (batch Meshes))
+      (→ Surface)
+      (! gpu)
+      (let ((buffer (uniform (string-append "raster/" label) (stride style-shape))))
+        (write-buffer buffer 0 (pod-bytes style-shape style))
+        (new Surface
+          (translucent translucent)
+          (style style)
+          (uniform buffer)
+          (group (group (string-append "raster/" label)
+                        (if translucent (● r forward-pipeline) (● r gbuffer-pipeline))
+                        1
+                        buffer))
+          (batch (upload-batch (string-append "mesh/" label) batch)))))
+
+    (define (restyle-surface (surface Surface) (style Style)) (→ Surface) (! gpu)
+      (if (same-style? style (● surface style))
+          surface
+          (begin
+            (write-buffer (● surface uniform) 0 (pod-bytes style-shape style))
+            (Surface-style-set surface style))))
+
+    (define (same-style? (a Style) (b Style)) (→ Bool)
+      (and (= (● a opacity) (● b opacity))
+           (= (● a center-x) (● b center-x))
+           (= (● a center-z) (● b center-z))
+           (= (● a radius) (● b radius))))
+
+    (define (release-surface (surface Surface)) (→ Unit) (! gpu)
+      (destroy (BindGroupObject (● surface group)))
+      (destroy (BufferObject (● surface uniform)))
+      (release-batch (● surface batch)))
+
+    (define (draw-surface (pass GpuRenderPass) (r Raster) (surface Surface)) (→ Unit) (! gpu)
+      (if (● surface translucent)
+          (begin
+            (set-pipeline pass (● r forward-pipeline))
+            (set-bind-group pass 0 (● r forward-camera))
+            (set-bind-group pass 2 (● r forward-sun)))
+          (begin
+            (set-pipeline pass (● r gbuffer-pipeline))
+            (set-bind-group pass 0 (● r gbuffer-camera))))
+      (set-bind-group pass 1 (● surface group))
+      (draw-meshes pass (● r geometry) (● surface batch)))
 
     ))

@@ -6,6 +6,7 @@
  (snail core io)
  (snail shell gpu)
  (snail shell gpu record)
+ (only (snail shell task) tasks)
  (snail shell graphics pod)
  (snail shell graphics mesh))
 
@@ -24,7 +25,7 @@
                 (new Pair (first (Box)) (second (instance 1.0)))
                 (new Pair (first (Prism)) (second (instance 2.0))))))
 
-;; A created object's kind, id and path, and a pass's id and encoder,
+;; A created object's kind, id and label, and a pass's id and encoder,
 ;; without their descriptors.
 (define (heads (lines (List String))) (→ (List String))
   (map (lambda (line)
@@ -48,26 +49,21 @@
                                        ", " (show (● draw instance-count))
                                        " instances from " (show (● draw first-instance)))))
           (● batch draws))
-(for-each write-line
-          (heads (● (with-recorded-gpu 100000000
-                                       (lambda ()
-                                         (request-device 100000000)
-                                         (let* ((encoder (create-command-encoder))
-                                                (pass (begin-render-pass encoder
-                                                                         (new RenderPassDescriptor
-                                                                           (colors
-                                                                            (list
-                                                                             (new ColorAttachment
-                                                                               (view
-                                                                                (view-of
-                                                                                 (●
-                                                                                  (current-texture)
-                                                                                  texture)
-                                                                                 1))
-                                                                               (load (Keep))
-                                                                               (store #t))))
-                                                                           (depth (None))))))
-                                           (draw-meshes pass "test" batch #t)
-                                           (end-pass pass)
-                                           (submit (list (finish encoder))))))
-                    second)))
+(define (frame) (→ Unit) (! gpu tasks)
+  (request-device)
+  (let* ((geometry (make-geometry))
+         (uploaded (upload-batch "mesh/test" batch))
+         (encoder (create-command-encoder))
+         (pass (begin-render-pass encoder
+                                  (new RenderPassDescriptor
+                                    (colors (list (new ColorAttachment
+                                                    (view (view-of (● (current-texture) texture) 1))
+                                                    (load (Keep))
+                                                    (store #t))))
+                                    (depth (None))))))
+    (draw-meshes pass geometry uploaded)
+    (end-pass pass)
+    (submit (list (finish encoder)))
+    (release-batch uploaded)))
+
+(for-each write-line (heads (● (with-recorded-gpu frame) second)))

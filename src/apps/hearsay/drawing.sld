@@ -28,17 +28,26 @@
 
     ;; ---- State ----
 
-    ;; What drawing keeps between frames: the device's answer once asked,
-    ;; the atlas, and each portrait read back, by picture key, with the
-    ;; version it shows.
+    ;; What drawing keeps between frames: the atlas and the quads drawn
+    ;; from it, made on the first frame, once the device answers; and each
+    ;; portrait read back, by picture key, with the version it shows.
     (record Drawing
-      ((device (Option DeviceInfo))
-       (atlas Atlas)
+      ((drawn (Option Drawn))
        (portraits (Table (Pair I32 String)))))
 
+    (record Drawn
+      ((atlas Atlas)
+       (quads Quads)))
+
+    (define (start-drawing) (→ Drawing) (new Drawing (drawn (None)) (portraits (empty-table))))
+
     ;; One page holds the shapes and eighteen walking pictures.
-    (define (start-drawing) (→ Drawing)
-      (new Drawing (device (None)) (atlas (make-atlas "hearsay" 2048 2)) (portraits (empty-table))))
+    (define (drawn-of (drawing Drawing)) (→ Drawn) (! gpu tasks)
+      (match (● drawing drawn)
+        ((Some drawn) drawn)
+        ((None)
+         (let* ((format (● (request-device) format)) (atlas (make-atlas "hearsay" 2048 2)))
+           (new Drawn (atlas atlas) (quads (make-quads "hearsay" format (● atlas texture))))))))
 
     ;; The portrait of picture `key`, or "" until it is read back.
     (define (drawing-url (drawing Drawing) (key I32)) (→ String)
@@ -141,34 +150,27 @@
                               (quads (Fn Atlas → (List Quad))))
       (→ Drawing)
       (! gpu tasks)
-      (let* ((format (● (device-of drawing) format))
+      (let* ((drawn (drawn-of drawing))
              (encoder (create-command-encoder))
-             (atlas (atlas-pictures (● drawing atlas) encoder (append shapes pictures)))
+             (atlas (atlas-pictures (● drawn atlas) encoder (append shapes pictures)))
              (canvas (current-texture))
-             (pass (begin-render-pass encoder (canvas-pass canvas background))))
-        (draw-quads pass
-                    "hearsay"
-                    format
-                    (View2D-pixels-set view
-                                       (new Vec2f
-                                         (x (i32->f32 (● canvas width)))
-                                         (y (i32->f32 (● canvas height)))))
-                    (atlas-texture atlas)
-                    (quads atlas))
+             (pass (begin-render-pass encoder (canvas-pass canvas background)))
+             (kept (draw-quads pass
+                               (● drawn quads)
+                               (View2D-pixels-set view
+                                                  (new Vec2f
+                                                    (x (i32->f32 (● canvas width)))
+                                                    (y (i32->f32 (● canvas height)))))
+                               (quads atlas))))
         (end-pass pass)
         (submit (list (finish encoder)))
         (portrait-read (new Drawing
-                         (device (Some (device-of drawing)))
-                         (atlas atlas)
+                         (drawn (Some (new Drawn (atlas atlas) (quads kept))))
                          (portraits (● drawing portraits)))
+                       atlas
                        pictures)))
 
-    (define (device-of (drawing Drawing)) (→ DeviceInfo) (! gpu tasks)
-      (match (● drawing device)
-        ((Some info) info)
-        ((None) (request-device 268435456))))
-
-    (define (canvas-pass (canvas Image) (background I32)) (→ RenderPassDescriptor)
+    (define (canvas-pass (canvas Image) (background I32)) (→ RenderPassDescriptor) (! gpu)
       (new RenderPassDescriptor
         (colors (list (new ColorAttachment
                         (view (view-of (● canvas texture) 1))
@@ -181,7 +183,9 @@
         (depth (None))))
 
     ;; The first picture whose portrait is missing or shows another version.
-    (define (portrait-read (drawing Drawing) (pictures (List Picture))) (→ Drawing) (! gpu tasks)
+    (define (portrait-read (drawing Drawing) (atlas Atlas) (pictures (List Picture)))
+      (→ Drawing)
+      (! gpu tasks)
       (match (find (lambda (picture) (not (portrayed? drawing picture))) pictures)
         ((Some picture)
          (Drawing-portraits-set drawing
@@ -189,7 +193,7 @@
                                            (show (● picture key))
                                            (new Pair
                                              (first (● picture version))
-                                             (second (atlas-url (● drawing atlas)
+                                             (second (atlas-url atlas
                                                                 (● picture key)
                                                                 face-region))))))
         ((None) drawing)))

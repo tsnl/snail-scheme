@@ -7,23 +7,26 @@ draw: 6 indices from 414, vertices from 296, 0 instances from 3
 draw: 12 indices from 420, vertices from 300, 0 instances from 3
 draw: 24 indices from 432, vertices from 312, 0 instances from 3
 draw: 6 indices from 456, vertices from 336, 0 instances from 3
-request-device 100000000
-encoder 1
-canvas 2
-pass 3 1
-create buffer 4 mesh/test/instances
-write-buffer 4 0 240
-create buffer 5 mesh/test/draws
-write-buffer 5 0 160
-create buffer 6 mesh/geometry/vertices
-write-buffer 6 0 16320
-set-vertex-buffer 3 0 6 0
-set-vertex-buffer 3 1 4 0
-create buffer 7 mesh/geometry/indices
-write-buffer 7 0 1848
-set-index-buffer 3 7 uint32 0
-draw-indexed-indirect 3 5 0
-draw-indexed-indirect 3 5 40
-end-pass 3
-command-buffer 8 1
-submit 8
+request-device
+create buffer 1 mesh/geometry/vertices
+write-buffer 1 0 16320
+create buffer 2 mesh/geometry/indices
+write-buffer 2 0 1848
+create buffer 3 mesh/test/instances
+write-buffer 3 0 240
+create buffer 4 mesh/test/draws
+write-buffer 4 0 160
+encoder 5
+canvas 6
+create view 7 6
+pass 8 5
+set-vertex-buffer 8 0 1 0
+set-vertex-buffer 8 1 3 0
+set-index-buffer 8 2 uint32 0
+draw-indexed-indirect 8 4 0
+draw-indexed-indirect 8 4 40
+end-pass 8
+command-buffer 9 5
+submit 9
+destroy 3
+destroy 4
