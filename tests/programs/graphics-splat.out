@@ -1,0 +1,12 @@
+count: 2
+position: -1.0 2.0 3.0
+transform: 3
+rotation: 0.0 0.0 0.0 1.0
+scale: 1.0 0.3678794503211975 2.7182817459106445
+opacity: 0.5
+colors: 0.5 0.25 0.125 1.0 4.0 7.0 2.0 5.0 8.0 3.0 6.0 9.0 0.0 0.0 0.0
+beyond degree 1: 0.0 0.0 0.0
+ply: only binary little-endian PLY files are read
+ply: every vertex property must be a float
+ply: a 3D Gaussian Splatting property is missing
+1172 1172 37 1 37 1172 1172 37 1 37 1172 1172 37 1 37 1172 1172 37 1 37 1172 1172 37 1 37 1172 1172 37 1 37 1172 1172 37 1 37 1172 1172 37 1 37 1172

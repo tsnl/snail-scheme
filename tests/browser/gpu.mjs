@@ -6,7 +6,9 @@
 // with a color swapped, draws it as quads, and reads both the quads' texels
 // and the picture as a PNG data URL. It rasterizes two tiles into a
 // G-buffer and lights them, one glowing red and one white under ambient
-// light. WebGPU reports no error.
+// light. It squares numbers in a compute pass, scans and sorts on the GPU,
+// and splats gaussians under a transforms table it then changes. WebGPU
+// reports no error.
 //
 //   CHROMIUM=... node tests/browser/gpu.mjs ROOT [SCREENSHOT]
 import assert from 'node:assert/strict';
@@ -54,6 +56,14 @@ try {
     'scene: 230 3 3 255 230 3 3 255 153 153 153 255 153 153 153 255',
     'squares: 1 4 9 16 10000',
     'planes: -0.25 -0.0 7 9 0',
+    // An exclusive scan of i mod 3 over three levels of tiles, checked at
+    // every index; a stable sort of 5,000 keys; and splats: red at the
+    // left, green over red at the center, blue at the right, faint green
+    // above, until turning the red one's transform stands it up.
+    'scan: 0 0 1 3 510 511 513 262143 299998 all',
+    'sort: paired sorted stable permutation',
+    'splats: 96 2 0 255 40 209 0 255 7 0 225 255 0 2 0 255',
+    'turned: 0 2 0 255 40 209 0 255 0 0 225 255 96 2 0 255',
   ]);
   // The data URL decodes to the picture: blue for the swapped red, then
   // green.
@@ -67,7 +77,7 @@ try {
     return [...context.getImageData(0, 0, 2, 1).data];
   })()`), [0, 0, 255, 255, 0, 255, 0, 255]);
   if (screenshot) await browser.screenshot(screenshot);
-  console.log('gpu: drawing, readback, decoding, objects kept across frames, atlas composition, quads, a lit, tone-mapped and smoothed G-buffer, motion and ids, and a compute pass on a real device passed');
+  console.log('gpu: drawing, readback, decoding, objects kept across frames, atlas composition, quads, a lit, tone-mapped and smoothed G-buffer, motion and ids, a compute pass, a scan, a sort and splats on a real device passed');
 } finally {
   browser.close();
   server.close();
