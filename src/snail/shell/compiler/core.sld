@@ -34,7 +34,6 @@
    label-union
    label-difference
    builtin-types
-   builtin-type?
    core-keywords
    Evidence
    EvInstance
@@ -218,28 +217,6 @@
             (new Pair (first "Array") (second 1))
             (new Pair (first "ConstantArray") (second 1))
             (new Pair (first "Fn") (second 0))))
-
-    ;; Whether `name` is one of `builtin-types`. Type queries ask this of
-    ;; each declaration they enter, so it matches the names rather than
-    ;; building the list; the tests keep the two in step.
-
-    (define (builtin-type? (name String)) (→ Bool)
-      (match name
-        ("Any" #t)
-        ("Funcref" #t)
-        ("U8" #t)
-        ("I32" #t)
-        ("I64" #t)
-        ("F32" #t)
-        ("F64" #t)
-        ("Bool" #t)
-        ("Char" #t)
-        ("Unit" #t)
-        ("String" #t)
-        ("Array" #t)
-        ("ConstantArray" #t)
-        ("Fn" #t)
-        (_ #f)))
 
     ;; Unique names look like `snail.core.base:map`; diagnostics show the source
     ;; name. Text is scanned as an array of characters, which both hosts index
@@ -1204,9 +1181,6 @@
         (lambda () (expect (short-name "snail.core.base:map") "map")
                 (expect (label-union (list "b" "d") (list "c" "a" "b")) (list "a" "b" "c" "d"))
 
-                (expect (every? (lambda (entry) (builtin-type? (● entry first))) builtin-types)
-                        #t)
-                (expect (builtin-type? "snail.core.base:List") #f)
                 (test-type-identities)
                 (test-hidden-effects)
                 (test-references)))
