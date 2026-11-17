@@ -173,14 +173,27 @@ each surface by Cook-Torrance under the sun and the ambient light
 (`lighting.wgsl.scm`). Translucent surfaces are then drawn over it, lit by
 the same function, tested against the G-buffer's depth.
 
+The lit pass draws into a light target of `light-format`, `rgba16float`,
+so a highlight may be brighter than 1. `draw-post`, through a `Post` made
+for the canvas's format and size, brings it to the screen in two
+full-screen passes (`post.wgsl.scm`). Tone mapping takes the shoulder of
+Khronos's PBR Neutral curve without its toe: a color whose largest channel
+is under 0.8 passes unchanged, so a scene keeps the colors it was drawn
+in, and a brighter one is scaled toward 1, keeping its hue, and
+desaturated a little. FXAA, in the reduced form of Lottes's algorithm many
+WebGL renderers use, then blends each pixel along the edge its diagonal
+neighbors' brightness shows.
+
 `(snail shell app)`'s `draw-frame` draws Siegework's `Frame` this way,
 keeping each batch's surface until the batch's version changes, so a still
-frame writes only the camera and the sun. Siegework's frames match the old
-renderer's shading. On an RTX 5090, through headless Chromium on Vulkan,
-the page's main thread spends 0.28 ms a frame at 60 frames a second,
-against the old renderer's 0.24. Per frame the program makes one object,
-the canvas's view, writes the camera and the sun, and draws 8 times over
-two passes. On Chromium's software WebGPU, three passes and finding every
+frame writes only the camera and the sun. Siegework's frames keep the old
+renderer's shading below the tone curve's knee, with smoothed edges. On an
+RTX 5090, through headless Chromium on Vulkan, the page's main thread
+spends 0.28 to 0.35 ms a frame at 60 frames a second, against the old
+renderer's 0.24. Per frame the program makes one object, the canvas's
+view, writes the camera and the sun, and draws over four passes: the
+G-buffer, the lit pass, tone mapping and FXAA. On Chromium's software
+WebGPU, three passes and finding every
 object by path each frame cost 31 to 33 ms a second of tasks, and 48 to 52
 when descriptors crossed as JSON, against the old renderer's 20 to 21.
 Textured meshes and sprites are gone from `Frame`; pictures are drawn as
@@ -208,7 +221,7 @@ Each row is `(snail shell graphics NAME)`:
 | `mesh` | The flat glTF-shaped model as records and packers: geometry, material, instance, transform and indirect-draw tables, and lights. **Implemented** as a geometry table of eight shapes, instances and indirect draws. |
 | `atlas` | Texture-array pages with padded slots and slot tables, uncompressed. Pictures are composed into them on the GPU. **Implemented**, without mips. |
 | `raster` | A deferred G-buffer pipeline with configurable targets: depth, normal, albedo, metal-roughness, emissive, ids and motion. **Implemented** with fixed albedo, normal, material and depth targets, and a forward pipeline for translucent surfaces. |
-| `passes` | Full-screen passes: a fixed sun, tone mapping, FXAA, copies. **Implemented**: the sun. |
+| `passes` | Full-screen passes: a fixed sun, tone mapping, FXAA, copies. **Implemented**: the sun, tone mapping and FXAA. |
 | `quad` | 2D quads in world units under a 2D camera, pixel-snapped in the vertex shader, sampling a texture array, including earlier passes' targets. **Implemented.** |
 | later | `bvh`, compute ray tracing and `svgf`, for path-traced lighting over the rasterized G-buffer. |
 

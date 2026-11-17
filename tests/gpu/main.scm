@@ -270,9 +270,13 @@
         (first texels)
         (second (atlas-url atlas 1 (new Rect (x 0) (y 0) (width 2) (height 1))))))))
 
-;; Two tiles seen straight down through a parallel lens, filling a 4x4
-;; texture: the left one red and glowing, the right one white under only
-;; ambient light of 0.6, so its texels are 153.
+;; Two tiles seen straight down through a parallel lens, lit into the
+;; light and brought into a 4x4 texture by tone mapping and FXAA: the left
+;; one red and glowing, whose 1.0 the tone curve's shoulder brings down
+;; to 0.9 and desaturates a little, and the right one white under only
+;; ambient light of 0.6, under the curve's knee, so its texels are 153.
+;; The edge between them is straight down the texture, along which FXAA
+;; blends nothing.
 
 (define (tile (x F32) (color Vec4f) (glow F32)) (→ (Pair Mesh Instance))
   (new Pair
@@ -287,9 +291,10 @@
 (define (scene-frame) (→ Bytes) (! gpu tasks)
   (let* ((target (texture-named "scene" 4 4))
          (readback (buffer-named "scene-readback" 1024 (list (MapRead) (CopyDst))))
-         (r (make-raster (Rgba8Unorm)))
+         (r (make-raster light-format))
          (g (make-gbuffer 4 4))
-         (light (make-sunlight (Rgba8Unorm) g r))
+         (light (make-sunlight light-format g r))
+         (post (make-post (Rgba8Unorm) 4 4))
          (tiles (make-surface r
                               "tiles"
                               #f
@@ -309,11 +314,12 @@
       (draw-surface pass r tiles)
       (end-pass pass))
     (let ((pass (begin-lit encoder
-                           (view-of target 1)
+                           (● post targets light-view)
                            (new Color (red 0.0) (green 0.0) (blue 0.0) (alpha 1.0))
                            g)))
       (draw-sun pass light)
       (end-pass pass))
+    (draw-post encoder (view-of target 1) post)
     (copy-texture-to-buffer encoder (whole-texture target) readback 0 256 4 4)
     (submit (list (finish encoder)))
     (read-buffer readback 0 16)))
