@@ -109,7 +109,6 @@
    program-with-instance
    program-with-effect
    program-with-library
-   table-union
    program-items
    library-items
    fnv-offset
@@ -923,18 +922,6 @@
       (Program-libraries-set (Program-items-set program (append items (● program items)))
                              (Cons (new Pair (first name) (second (length items)))
                                    (● program libraries))))
-
-    ;; `table` with every entry of `additions`, which win where both have a
-    ;; key.
-
-    (define (table-union (table (Table V)) (additions (Table V)))
-      (→ (Table V))
-      (∀ (V))
-      (fold-left (lambda (result key)
-                   (match (table-ref additions key)
-                     ((Some value) (table-set result key value))
-                     ((None) result)))
-                 table (table-keys additions)))
 
     ;; Divides items in program order, such as the program's own or their
     ;; checked copies, into each library's run.
