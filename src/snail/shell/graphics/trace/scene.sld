@@ -73,19 +73,26 @@
 
     (define material-shape (→ (Shape SurfaceMaterial)) (shape))
 
-    ;; The scene whose .gltf is at `path`, every file read by `read`, which
-    ;; takes a path; the .gltf's URIs are relative to its directory. A
-    ;; scene less than a unit across is made one unit across, since a
-    ;; camera clips at a tenth of a unit and rays leave surfaces by a fixed
-    ;; offset.
-    (define (load-scene (read (Fn String → Bytes ! e)) (path String) (layer-size I32)) (→ Scene) (! gpu tasks e) (∀ (e))
-      (let ((gltf (match (read-gltf (text-of read path) (directory-of path))
-                    ((Ok gltf) (at-least-a-unit gltf))
-                    ((Err reason) (panic (string-append "scene: " path ": " reason))))))
+    ;; The scene whose .gltf is at `path`, its files read by `read`, which
+    ;; answers the bytes of each path it is given, in order; the .gltf's
+    ;; URIs are relative to its directory. The buffers and images are
+    ;; asked for together, so a page fetches them at once. A scene less
+    ;; than a unit across is made one unit across, since a camera clips at
+    ;; a tenth of a unit and rays leave surfaces by a fixed offset.
+    (define (load-scene (read (Fn (List String) → (List Bytes) ! e)) (path String) (layer-size I32))
+      (→ Scene)
+      (! gpu tasks e)
+      (∀ (e))
+      (let ((gltf
+             (match (read-gltf (text-of (list-ref (read (list path)) 0) path) (directory-of path))
+               ((Ok gltf) (at-least-a-unit gltf))
+               ((Err reason) (panic (string-append "scene: " path ": " reason))))))
         (let* ((counts (placed-counts gltf))
-               (geometry (unpacked read gltf counts))
+               (buffer-count (length (● gltf buffers)))
+               (files (read (append (● gltf buffers) (● gltf images))))
+               (geometry (unpacked gltf counts (take files buffer-count)))
                (bounds (gltf-bounds gltf))
-               (layers (load-layers read (● gltf images) layer-size)))
+               (layers (load-layers (list-drop files buffer-count) layer-size)))
           (new Scene
             (vertices (● geometry first))
             (indices (● geometry second))
@@ -110,7 +117,9 @@
       (let* ((bounds (gltf-bounds gltf))
              (extent (fold-left max
                                 0.0
-                                (map (lambda (axis) (- (list-ref (● bounds second) axis) (list-ref (● bounds first) axis)))
+                                (map (lambda (axis)
+                                       (- (list-ref (● bounds second) axis)
+                                          (list-ref (● bounds first) axis)))
                                      (iota 3)))))
         (if (and (> extent 0.0) (< extent 1.0)) (gltf-scaled gltf (/ 1.0 extent)) gltf)))
 
@@ -122,8 +131,8 @@
                                     0
                                     (iota (array-length chars))))))
 
-    (define (text-of (read (Fn String → Bytes ! e)) (path String)) (→ String) (! e) (∀ (e))
-      (match (utf8->string (read path))
+    (define (text-of (bytes Bytes) (path String)) (→ String)
+      (match (utf8->string bytes)
         ((Ok text) text)
         ((Err _) (panic (string-append "scene: " path " is not UTF-8")))))
 
@@ -149,7 +158,11 @@
     (define (surface-material (m Material)) (→ SurfaceMaterial)
       (let ((color (map f64->f32 (● m base-color))) (glow (map f64->f32 (● m emissive))))
         (new SurfaceMaterial
-          (base-color (new Vec4f (x (list-ref color 0)) (y (list-ref color 1)) (z (list-ref color 2)) (w (list-ref color 3))))
+          (base-color (new Vec4f
+                        (x (list-ref color 0))
+                        (y (list-ref color 1))
+                        (z (list-ref color 2))
+                        (w (list-ref color 3))))
           (emissive (new Vec4f (x (list-ref glow 0)) (y (list-ref glow 1)) (z (list-ref glow 2))
                          (w (f64->f32 (● m alpha-cutoff)))))
           (factors (new Vec4f
@@ -205,9 +218,12 @@
                                (let ((at (● state first)))
                                  (new Pair
                                    (first (new Pair
-                                            (first (+ (● at first) (● placed primitive positions count)))
-                                            (second (+ (● at second) (index-count (● placed primitive))))))
-                                   (second (Cons (unpack-of placed (● at first) (● at second)) (● state second))))))
+                                            (first
+                                             (+ (● at first) (● placed primitive positions count)))
+                                            (second
+                                             (+ (● at second) (index-count (● placed primitive))))))
+                                   (second (Cons (unpack-of placed (● at first) (● at second))
+                                                 (● state second))))))
                              (new Pair (first (new Pair (first 0) (second 0))) (second (Nil)))
                              (● gltf placed))
                   second)))
@@ -249,39 +265,51 @@
     ;; The inverse transpose of the upper 3x3, up to a positive scale: its
     ;; cofactors, negated when the matrix mirrors, so normals stay outward.
     (define (normal-matrix (m (List F64))) (→ (List F64))
-      (let* ((at (lambda ((r I64) (c I64)) (→ F64) (list-ref m (+ (* 4 (remainder c 3)) (remainder r 3)))))
+      (let* ((at (lambda ((r I64) (c I64))
+                   (→ F64)
+                   (list-ref m (+ (* 4 (remainder c 3)) (remainder r 3)))))
              (cofactor (lambda ((r I64) (c I64)) (→ F64)
                          (- (* (at (+ r 1) (+ c 1)) (at (+ r 2) (+ c 2)))
                             (* (at (+ r 1) (+ c 2)) (at (+ r 2) (+ c 1))))))
-             (det (+ (* (at 0 0) (cofactor 0 0)) (+ (* (at 0 1) (cofactor 0 1)) (* (at 0 2) (cofactor 0 2)))))
+             (det (+ (* (at 0 0) (cofactor 0 0))
+                     (+ (* (at 0 1) (cofactor 0 1)) (* (at 0 2) (cofactor 0 2)))))
              (sign (if (< det 0.0) -1.0 1.0)))
         (concatenate (map (lambda (c)
                             (if (= c 3)
                                 (list 0.0 0.0 0.0 1.0)
-                                (list (* sign (cofactor 0 c)) (* sign (cofactor 1 c)) (* sign (cofactor 2 c)) 0.0)))
+                                (list (* sign (cofactor 0 c))
+                                      (* sign (cofactor 1 c))
+                                      (* sign (cofactor 2 c))
+                                      0.0)))
                           (iota 4)))))
 
     ;; The scene's buffers laid end to end on the device, unpacked into the
     ;; vertex and index buffers.
-    (define (unpacked (read (Fn String → Bytes ! e)) (gltf Gltf) (counts (Pair I64 I64))) (→ (Pair GpuBuffer GpuBuffer)) (! gpu e) (∀ (e))
+    (define (unpacked (gltf Gltf) (counts (Pair I64 I64)) (buffers (List Bytes)))
+      (→ (Pair GpuBuffer GpuBuffer))
+      (! gpu)
       (let* ((data (storage-sized "scene/data" (max 4 (● gltf size)) (list (Storage) (CopyDst))))
              (unpacks (storage-of "scene/unpacks" (pack unpack-shape (unpacks-of gltf))))
-             (vertices (storage-sized "scene/vertices" (max 64 (* vertex-stride (● counts first))) (list (Storage))))
-             (indices (storage-sized "scene/indices" (max 12 (* 4 (● counts second))) (list (Storage) (Index)))))
-        (write-buffers read data (● gltf buffers))
+             (vertices (storage-sized "scene/vertices"
+                                      (max 64 (* vertex-stride (● counts first)))
+                                      (list (Storage))))
+             (indices (storage-sized "scene/indices"
+                                     (max 12 (* 4 (● counts second)))
+                                     (list (Storage) (Index)))))
+        (write-buffers data buffers)
         (run-unpack data unpacks vertices indices (● counts first) (quotient (● counts second) 3))
         (destroy (BufferObject data))
         (destroy (BufferObject unpacks))
         (new Pair (first vertices) (second indices))))
 
     ;; Each buffer at its start, a multiple of 4, padded to one.
-    (define (write-buffers (read (Fn String → Bytes ! e)) (data GpuBuffer) (paths (List String))) (→ Unit) (! gpu e) (∀ (e))
-      (fold-left (lambda ((start I64) (path String)) (→ I64) (! gpu e)
-                   (let* ((bytes (read path)) (padded (padded-bytes bytes)))
+    (define (write-buffers (data GpuBuffer) (buffers (List Bytes))) (→ Unit) (! gpu)
+      (fold-left (lambda (start bytes)
+                   (let ((padded (padded-bytes bytes)))
                      (write-buffer data (i64->i32 start) padded)
                      (+ start (array-length padded))))
                  0
-                 paths)
+                 buffers)
       (unit))
 
     (define (padded-bytes (bytes Bytes)) (→ Bytes)
@@ -298,7 +326,8 @@
       (! gpu)
       (let* ((module (create-shader-module (new ShaderModuleDescriptor
                                              (label "scene/unpack")
-                                             (code (string-append (declarations unpack-shape) unpack-shader)))))
+                                             (code (string-append (declarations unpack-shape)
+                                                                  unpack-shader)))))
              (encoder (create-command-encoder))
              (pass (begin-compute-pass encoder)))
         (for-each (lambda (step)
@@ -322,10 +351,13 @@
                       (destroy (ComputePipelineObject pipeline))))
                   (list (new Pair
                           (first "unpack_vertices")
-                          (second (new Pair (first vertex-count) (second (BufferEntry 2 vertices 0 0)))))
+                          (second
+                           (new Pair (first vertex-count) (second (BufferEntry 2 vertices 0 0)))))
                         (new Pair
                           (first "unpack_triangles")
-                          (second (new Pair (first triangle-count) (second (BufferEntry 3 indices 0 0)))))))
+                          (second (new Pair
+                                    (first triangle-count)
+                                    (second (BufferEntry 3 indices 0 0)))))))
         (end-compute-pass pass)
         (submit (list (finish encoder)))))
 
@@ -337,7 +369,9 @@
                              (i64->i32 (quotient (+ groups 65534) 65535))
                              1)))
 
-    (define (storage-sized (label String) (size I64) (usage (List BufferUsage))) (→ GpuBuffer) (! gpu)
+    (define (storage-sized (label String) (size I64) (usage (List BufferUsage)))
+      (→ GpuBuffer)
+      (! gpu)
       (create-buffer (new BufferDescriptor (label label) (size (i64->i32 size)) (usage usage))))
 
     (define (storage-of (label String) (bytes Bytes)) (→ GpuBuffer) (! gpu)
@@ -349,7 +383,7 @@
 
     ;; A layer for each image, at least one, each image drawn into its
     ;; first level and each next level drawn from the one before.
-    (define (load-layers (read (Fn String → Bytes ! e)) (images (List String)) (size I32)) (→ GpuTexture) (! gpu tasks e) (∀ (e))
+    (define (load-layers (images (List Bytes)) (size I32)) (→ GpuTexture) (! gpu tasks)
       (let* ((layers (create-texture (new TextureDescriptor
                                        (label "scene/layers")
                                        (width size)
@@ -365,9 +399,14 @@
                                         (min-filter (Linear))
                                         (mipmap-filter (Nearest))
                                         (address (ClampToEdge))))))
-        (for-each (lambda ((index I64)) (→ Unit) (! gpu tasks e)
-                    (let ((image (decode-image (read (list-ref images index)))))
-                      (fill-layer layers pipeline sampler (view-of (● image texture) 1) (i64->i32 index) size)
+        (for-each (lambda (index)
+                    (let ((image (decode-image (list-ref images index))))
+                      (fill-layer layers
+                                  pipeline
+                                  sampler
+                                  (view-of (● image texture) 1)
+                                  (i64->i32 index)
+                                  size)
                       (destroy (TextureObject (● image texture)))))
                   (iota (length images)))
         layers))
@@ -415,7 +454,8 @@
                                         (label "scene/layer")
                                         (pipeline (RenderPipeline pipeline))
                                         (group 0)
-                                        (entries (list (TextureEntry 0 source) (SamplerEntry 1 sampler))))))
+                                        (entries
+                                         (list (TextureEntry 0 source) (SamplerEntry 1 sampler))))))
             (pass (begin-render-pass encoder
                                      (new RenderPassDescriptor
                                        (colors (list (Some (new ColorAttachment
@@ -433,12 +473,14 @@
       (create-render-pipeline
        (new RenderPipelineDescriptor
          (label "scene/layer")
-         (module (create-shader-module (new ShaderModuleDescriptor (label "scene/layers") (code layers-shader))))
+         (module (create-shader-module
+                  (new ShaderModuleDescriptor (label "scene/layers") (code layers-shader))))
          (vertex-entry "layer_vertex")
          (buffers (Nil))
          (fragment (Some (new FragmentState
                            (entry "layer_fragment")
-                           (targets (list (Some (new ColorTarget (format (Rgba8Unorm)) (blend (None)))))))))
+                           (targets
+                            (list (Some (new ColorTarget (format (Rgba8Unorm)) (blend (None)))))))))
          (topology (TriangleList))
          (cull (CullNone))
          (depth (None)))))

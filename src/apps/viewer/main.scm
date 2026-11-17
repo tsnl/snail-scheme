@@ -86,9 +86,15 @@
 
 (define (unit (x F64) (y F64) (z F64) (w F64)) (→ Vec4f)
   (let ((length (sqrt (+ (* x x) (+ (* y y) (* z z))))))
-    (new Vec4f (x (f64->f32 (/ x length))) (y (f64->f32 (/ y length))) (z (f64->f32 (/ z length))) (w (f64->f32 w)))))
+    (new Vec4f
+      (x (f64->f32 (/ x length)))
+      (y (f64->f32 (/ y length)))
+      (z (f64->f32 (/ z length)))
+      (w (f64->f32 w)))))
 
-(define (view-loop (tracer Tracer) (fly Fly) (timing (Pair I32 I32))) (→ Unit) (! events gpu output-port tasks)
+(define (view-loop (tracer Tracer) (fly Fly) (timing (Pair I32 I32)))
+  (→ Unit)
+  (! events gpu output-port tasks)
   (match (next-event)
     ((FrameEvent elapsed)
      (let* ((timing (timed timing elapsed))
@@ -124,7 +130,10 @@
           (scene (model-scene (● chosen first)))
           (canvas (current-texture))
           (over (fly-over (● scene low) (● scene high))))
-     (write-line (string-append "scene: " (show (● scene vertex-count)) " vertices, " (show (● scene triangle-count))
+     (write-line (string-append "scene: "
+                                (show (● scene vertex-count))
+                                " vertices, "
+                                (show (● scene triangle-count))
                                 " triangles, from " (string-join (map show (● scene low)) " ")
                                 " to " (string-join (map show (● scene high)) " ")))
      (view-loop (make-tracer scene
@@ -153,18 +162,21 @@
     (speed (● fly speed))
     (stops (● fly stops))))
 
-;; The sample model `name`, each of its files read as the scene asks.
+;; The sample model `name`, its files read together as the scene asks.
 (define (model-scene (name String)) (→ Scene) (! gpu resource tasks)
   (let ((files (sample-model name)))
     (match files
       ((Nil) (panic (string-append "no sample model " name)))
       ((Cons entry _)
-       (load-scene (lambda ((path String)) (→ Bytes) (! resource tasks)
-                     (match (assoc-ref files path)
-                       ((Some file) (read-resource file))
-                       ((None) (panic (string-append name (string-append " has no file " path))))))
+       (load-scene (lambda ((paths (List String))) (→ (List Bytes)) (! resource tasks)
+                     (read-resources (map (lambda (path) (model-file name files path)) paths)))
                    (● entry first)
                    layer-size)))))
+
+(define (model-file (name String) (files (List (Pair String Resource))) (path String)) (→ Resource)
+  (match (assoc-ref files path)
+    ((Some file) file)
+    ((None) (panic (string-append name (string-append " has no file " path))))))
 
 ;; The sample environment `env=` names, or the drawn sky.
 (define (environment-of (name (Option String))) (→ Environment) (! gpu resource tasks)
