@@ -192,11 +192,14 @@ the same function, tested against the G-buffer's depth.
 The lit pass draws into a light target of `light-format`, `rgba16float`,
 so a highlight may be brighter than 1. `draw-post`, through a `Post` made
 for the canvas's format and size, brings it to the screen in two
-full-screen passes (`post.wgsl.scm`). Tone mapping takes the shoulder of
-Khronos's PBR Neutral curve without its toe: a color whose largest channel
-is under 0.8 passes unchanged, so a scene keeps the colors it was drawn
-in, and a brighter one is scaled toward 1, keeping its hue, and
-desaturated a little. FXAA, in the reduced form of Lottes's algorithm many
+full-screen passes (`post.wgsl.scm`). The `Post`'s `Tone` chooses the
+curve. `Neutral`, for light already in display terms, takes the shoulder
+of Khronos's PBR Neutral curve without its toe: a color whose largest
+channel is under 0.8 passes unchanged, so a scene keeps the colors it was
+drawn in, and a brighter one is scaled toward 1, keeping its hue, and
+desaturated a little. `Filmic`, for physical light, is John Hable's curve
+from Uncharted 2 with a white point of 11.2, then encoded as sRGB, since
+the canvas's 8-bit formats are not sRGB formats. FXAA, in the reduced form of Lottes's algorithm many
 WebGL renderers use, then blends each pixel along the edge its diagonal
 neighbors' brightness shows.
 
