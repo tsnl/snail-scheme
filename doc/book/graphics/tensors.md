@@ -68,14 +68,16 @@ gaussians a param holds.
 
 `(compile-program label sinks updates)` turns what the sinks and updates
 need into a `Program`, once. Sinks are views to read back; updates are
-pairs of a param and the value it takes after the run. So a training step
-reads the params it started with and leaves the next ones:
+pairs of a param and the value it takes after the run. Every sink and
+update reads the params as they were at the start of the step. Two params
+can swap values in one run, and an update can initialize a param that no
+sink reads.
 
 ```scheme
 (let ((program (compile-program "fit" (list loss) (adam-updates "adam" settings trained))))
   (write-param program "points" bytes)
   (for-each (lambda (_) (run-program program)) (iota 1000))
-  (read-sink program 0))                 ; the loss after the last step
+  (read-sink program 0))                 ; loss used by the last update
 ```
 
 Each node's kernel is generated as WGSL text whose shapes, pitches and
@@ -100,10 +102,10 @@ takes it. Params, constants, sinks and updated values keep their buffers.
 `tests/programs/tensor.sld` evaluates each kind on the CPU and checks every
 gradient `grad` builds against central differences. On the device, which
 `tests/browser/gpu.mjs` and `tests/gpu.mjs` run, `(gpu-test tensor)`
-compiles eleven sinks covering every generated kernel, reductions in levels,
-float scatters and a sort, and finds each equal to the CPU's evaluation to
-a part in a thousand. It then fits a line with Adam in 1,000 runs of one
-program.
+compiles sinks covering the generated kernels, including reductions in
+levels, float scatters and a sort. It compares integer outputs exactly and
+float outputs to a part in a thousand against the CPU. It then fits a line
+with Adam in 1,000 runs of one program.
 
 ## Differentiable splatting
 

@@ -185,7 +185,7 @@
              (analytic (bytes->values (read-sink grads k) (Float)))
              (bad (find (lambda (i)
                           (let ((a (array-ref analytic i)) (d (difference losses name base i)))
-                            (> (abs (- a d)) (+ 0.00002 (* 0.05 (max (abs a) (abs d)))))))
+                            (not (< (abs (- a d)) (+ 0.00002 (* 0.05 (max (abs a) (abs d))))))))
                         (iota (array-length base)))))
         (match bad
           ((Some i)

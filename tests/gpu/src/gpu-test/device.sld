@@ -44,6 +44,8 @@
         (write-line (string-append "splats: " (texels (● splatted first))))
         (write-line (string-append "turned: " (texels (● splatted second)))))
       (write-line (string-append "tensor: " (tensor-agreement)))
+      (write-line (string-append "swapped: " (swapped-params)))
+      (write-line (string-append "assigned: " (assigned-param)))
       (write-line (string-append "fitted: " (fitted-line)))
       (write-line (string-append "splat forward: " (splat-forward-check)))
       (write-line (string-append "splat gradients: " (splat-gradient-check)))

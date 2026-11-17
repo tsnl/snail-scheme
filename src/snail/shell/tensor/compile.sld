@@ -124,7 +124,10 @@
     (define (compile-program (label String) (sinks (List View)) (updates (List (Pair View View))))
       (→ Program)
       (! gpu)
-      (let* ((roots (append sinks (map (lambda (u) (● u second)) updates)))
+      (let* ((targets (map (lambda (u) (● u first)) updates))
+             (written (pinned-keys targets))
+             (assignments (map (lambda (u) (prepare-update u written)) updates))
+             (roots (append targets (append sinks (map (lambda (u) (● u second)) assignments))))
              (order (filter (needed-in roots) (toposort roots)))
              (last (last-uses order))
              (pinned (pinned-keys roots))
@@ -140,7 +143,10 @@
                            (objects (Nil)))
                          (zip (iota (length order)) order)))
              (sunk (fold-left sink-built (new Pair (first built) (second (Nil))) sinks))
-             (done (fold-left update-built (● sunk first) updates)))
+             (done
+              (fold-left (lambda (b u) (copied-into b (● u second) (view-buffer b (● u first))))
+                         (● sunk first)
+                         assignments)))
         (new Program
           (steps (reverse (● done steps)))
           (params (● done params))
@@ -537,8 +543,10 @@
           (second (Cons (new Sink (buffer (● made second)) (readback readback) (size size))
                         (● state second))))))
 
-    ;; A param's buffer given its new value, after everything else.
-    (define (update-built (b Build) (update (Pair View View))) (→ Build) (! gpu)
+    ;; A view of a param written by this step needs its old contents. Make
+    ;; that read a graph node, so it runs before any assignment. Computed
+    ;; values already have their own buffers.
+    (define (prepare-update (update (Pair View View)) (written (Table Bool))) (→ (Pair View View))
       (let ((target (● update first)) (value (● update second)))
         (unless (and (identity? target)
                      (match (● target node kind)
@@ -547,7 +555,9 @@
           (panic "tensor compile: an update's target must be a whole param"))
         (unless (= (element-count target) (element-count value))
           (panic "tensor compile: an update's value is not its param's size"))
-        (copied-into b value (view-buffer b target))))
+        (if (table-contains? written (● value node key))
+            (new Pair (first target) (second (copy value)))
+            update)))
 
     ;; ---- Running ----
 
@@ -930,7 +940,7 @@
         ((Largest) (match etype
                      ((Float) "-0x1.fffffep+127f")
                      ((Unsigned) "0u")
-                     ((Signed) "i32(-2147483647)")))
+                     ((Signed) "i32(-2147483648)")))
         ((Smallest) (match etype
                       ((Float) "0x1.fffffep+127f")
                       ((Unsigned) "4294967295u")

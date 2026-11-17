@@ -31,7 +31,9 @@ export const deviceLines = [
   'turned: 0 2 0 255 40 209 0 255 0 0 225 255 96 2 0 255',
   // A compiled tensor program computes each of its sinks as the CPU
   // evaluates them, and Adam fits a line in 1,000 runs of another.
-  'tensor: 11 sinks agree',
+  'tensor: 12 sinks agree',
+  'swapped: 5 7 6 8 / 1 2 3 4 / 1 2 3 4',
+  'assigned: 9',
   'fitted: from above 1 to below 1e-4, b 1.0',
   // The differentiable splat renderer: a pixel blended as the paper
   // does, every param's gradient of L1 and D-SSIM against central
