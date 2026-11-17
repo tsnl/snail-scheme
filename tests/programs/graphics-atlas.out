@@ -2,94 +2,168 @@
 1: page 0 at 1,1; 2: page 0 at 33,1; 3: page 0 at 1,23; 4: none; 5: none
 1: page 0 at 1,1; 2: page 0 at 33,1; 3: page 0 at 1,23; 4: page 1 at 1,1; 5: none
 1: none; 2: none; 3: none; 4: none; 5: page 0 at 1,1
-request-device 100000000
-encoder 1
-create texture 2 atlas/test
-create shader 3 atlas/shader
-create render-pipeline 4 atlas/compose
-create buffer 5 atlas/test/swaps
-write-buffer 5 0 8
-create buffer 6 atlas/test/pieces
-write-buffer 6 0 32
-pass 7 1
-set-pipeline 7 4
-set-vertex-buffer 7 0 6 0
-decode-image 8 atlas/source/1 2 1
-create bind-group 9 atlas/test/source/1
-set-bind-group 7 0 9
-draw 7 4 1 0 0
-end-pass 7
-command-buffer 10 1
-submit 10
-encoder 11
-write-buffer 5 0 8
-write-buffer 6 0 32
-pass 12 11
-set-pipeline 12 4
-set-vertex-buffer 12 0 6 0
-set-bind-group 12 0 9
-draw 12 4 1 0 0
-end-pass 12
-command-buffer 13 11
-submit 13
-encoder 14
-write-buffer 5 0 8
-write-buffer 6 0 32
-pass 15 14
-set-pipeline 15 4
-set-vertex-buffer 15 0 6 0
-set-bind-group 15 0 9
-draw 15 4 1 0 0
-end-pass 15
-command-buffer 16 14
-submit 16
-encoder 17
-command-buffer 18 17
-submit 18
-encoder 19
-write-buffer 5 0 8
-write-buffer 6 0 32
-pass 20 19
-set-pipeline 20 4
-set-vertex-buffer 20 0 6 0
-set-bind-group 20 0 9
-draw 20 4 1 0 0
-end-pass 20
-command-buffer 21 19
-submit 21
-encoder 22
-write-buffer 5 0 8
-write-buffer 6 0 32
-pass 23 22
-set-pipeline 23 4
-set-vertex-buffer 23 0 6 0
-set-bind-group 23 0 9
-draw 23 4 1 0 0
-end-pass 23
-pass 24 22
-set-pipeline 24 4
-set-vertex-buffer 24 0 6 0
+request-device
+create texture 1 atlas/test
+create shader 2 atlas
+create render-pipeline 3 atlas/compose
+encoder 4
+decode-image 5 2 1
+create view 6 5
+create buffer 7 atlas/test/swaps
+write-buffer 7 0 8
+create buffer 8 atlas/test/pieces
+write-buffer 8 0 32
+create view 9 1
+pass 10 4
+set-pipeline 10 3
+set-vertex-buffer 10 0 8 0
+create bind-group 11 atlas/test/source
+set-bind-group 10 0 11
+draw 10 4 1 0 0
+destroy 11
+end-pass 10
+destroy 9
+destroy 7
+destroy 8
+command-buffer 12 4
+submit 12
+encoder 13
+create buffer 14 atlas/test/swaps
+write-buffer 14 0 8
+create buffer 15 atlas/test/pieces
+write-buffer 15 0 32
+create view 16 1
+pass 17 13
+set-pipeline 17 3
+set-vertex-buffer 17 0 15 0
+create bind-group 18 atlas/test/source
+set-bind-group 17 0 18
+draw 17 4 1 0 0
+destroy 18
+end-pass 17
+destroy 16
+destroy 14
+destroy 15
+command-buffer 19 13
+submit 19
+encoder 20
+create buffer 21 atlas/test/swaps
+write-buffer 21 0 8
+create buffer 22 atlas/test/pieces
+write-buffer 22 0 32
+create view 23 1
+pass 24 20
+set-pipeline 24 3
+set-vertex-buffer 24 0 22 0
+create bind-group 25 atlas/test/source
+set-bind-group 24 0 25
+draw 24 4 1 0 0
+destroy 25
 end-pass 24
-command-buffer 25 22
-submit 25
+destroy 23
+destroy 21
+destroy 22
+command-buffer 26 20
+submit 26
+encoder 27
+command-buffer 28 27
+submit 28
+encoder 29
+create buffer 30 atlas/test/swaps
+write-buffer 30 0 8
+create buffer 31 atlas/test/pieces
+write-buffer 31 0 32
+create view 32 1
+pass 33 29
+set-pipeline 33 3
+set-vertex-buffer 33 0 31 0
+create bind-group 34 atlas/test/source
+set-bind-group 33 0 34
+draw 33 4 1 0 0
+destroy 34
+end-pass 33
+destroy 32
+destroy 30
+destroy 31
+command-buffer 35 29
+submit 35
+encoder 36
+create buffer 37 atlas/test/swaps
+write-buffer 37 0 8
+create buffer 38 atlas/test/pieces
+write-buffer 38 0 32
+create view 39 1
+pass 40 36
+set-pipeline 40 3
+set-vertex-buffer 40 0 38 0
+create bind-group 41 atlas/test/source
+set-bind-group 40 0 41
+draw 40 4 1 0 0
+destroy 41
+end-pass 40
+destroy 39
+create view 42 1
+pass 43 36
+set-pipeline 43 3
+set-vertex-buffer 43 0 38 0
+end-pass 43
+destroy 42
+destroy 37
+destroy 38
+command-buffer 44 36
+submit 44
 quads:
-request-device 100000000
-encoder 1
-canvas 2
-pass 3 1
-create texture 4 atlas/test
-create shader 5 quad/shader
-create render-pipeline 6 quad/bgra8unorm
-create buffer 7 quad/test/view
-create buffer 8 quad/test/instances
-write-buffer 7 0 24
-write-buffer 8 0 192
-set-pipeline 3 6
+request-device
+create texture 1 atlas/test
+create shader 2 atlas
+create render-pipeline 3 atlas/compose
+create shader 4 quad
+create render-pipeline 5 quad
+create buffer 6 quad/test/view
+create buffer 7 quad/instances
+create view 8 1
 create sampler 9 quad/nearest
 create bind-group 10 quad/test
-set-bind-group 3 0 10
-set-vertex-buffer 3 0 8 0
-draw 3 4 3 0 0
-end-pass 3
-command-buffer 11 1
-submit 11
+encoder 11
+canvas 12
+create view 13 12
+pass 14 11
+write-buffer 6 0 24
+write-buffer 7 0 192
+set-pipeline 14 5
+set-bind-group 14 0 10
+set-vertex-buffer 14 0 7 0
+draw 14 4 3 0 0
+end-pass 14
+command-buffer 15 11
+submit 15
+encoder 16
+canvas 17
+create view 18 17
+pass 19 16
+destroy 7
+create buffer 20 quad/instances
+write-buffer 6 0 24
+write-buffer 20 0 6400
+set-pipeline 19 5
+set-bind-group 19 0 10
+set-vertex-buffer 19 0 20 0
+draw 19 4 100 0 0
+end-pass 19
+command-buffer 21 16
+submit 21
+encoder 22
+canvas 23
+create view 24 23
+pass 25 22
+destroy 20
+create buffer 26 quad/instances
+write-buffer 6 0 24
+write-buffer 26 0 12800
+set-pipeline 25 5
+set-bind-group 25 0 10
+set-vertex-buffer 25 0 26 0
+draw 25 4 200 0 0
+end-pass 25
+command-buffer 27 22
+submit 27

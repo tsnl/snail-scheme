@@ -2,11 +2,14 @@
 ;; indices, an instance table of `Pod` records, and an indirect draw for
 ;; each shape, starting at its own first instance. A pipeline that draws
 ;; them takes two vertex buffers, `mesh-buffers`: vertices, then
-;; instances. The geometry is written once, when its buffers are made.
+;; instances. The geometry's buffers are made and written once; a batch's
+;; are made when it changes, and destroyed with `release-batch`.
 ;;
-;;   (let ((batch (meshes (list (new Pair (first (Box)) (second instance)) ...))))
+;;   (let* ((geometry (make-geometry))
+;;          (batch (upload-batch "terrain"
+;;                               (meshes (list (new Pair (first (Box)) (second instance)) ...)))))
 ;;     (set-pipeline pass pipeline)
-;;     (draw-meshes pass "terrain" batch #t))
+;;     (draw-meshes pass geometry batch))
 (define-library (snail shell graphics mesh)
   (export
    Mesh
@@ -23,6 +26,11 @@
    Meshes
    meshes
    mesh-buffers
+   MeshGeometry
+   make-geometry
+   MeshBatch
+   upload-batch
+   release-batch
    draw-meshes)
   (import
    (snail core base)
@@ -313,47 +321,61 @@
       (list (vertex-layout vertex-shape (PerVertex) 0)
             (vertex-layout instance-shape (PerInstance) 3)))
 
-    ;; The batch's draws in `pass`, whose pipeline is set. Its instances and
-    ;; draws are written when `write?` or when their buffers are new.
-    (define (draw-meshes (pass GpuRenderPass) (name String) (batch Meshes) (write? Bool))
+    ;; The shapes' vertices and indices, on the device.
+    (record MeshGeometry
+      ((vertices GpuBuffer)
+       (indices GpuBuffer)))
+
+    (define (make-geometry) (→ MeshGeometry) (! gpu)
+      (new MeshGeometry
+        (vertices (filled "mesh/geometry/vertices"
+                          (pack vertex-shape (concatenate (map (lambda (g) (● g vertices)) table)))
+                          (Vertex)))
+        (indices (filled "mesh/geometry/indices"
+                         (pack index-shape (concatenate (map (lambda (g) (● g indices)) table)))
+                         (Index)))))
+
+    ;; A batch on the device: its instances, and its draws with the
+    ;; offset of each that has instances.
+    (record MeshBatch
+      ((instances GpuBuffer)
+       (draws GpuBuffer)
+       (offsets (List I32))))
+
+    (define (upload-batch (label String) (batch Meshes)) (→ MeshBatch) (! gpu)
+      (new MeshBatch
+        (instances (filled (string-append label "/instances") (● batch instances) (Vertex)))
+        (draws (filled (string-append label "/draws")
+                       (pack draw-shape (● batch draws))
+                       (Indirect)))
+        (offsets (map (lambda (indexed) (i64->i32 (* 20 (● indexed first))))
+                      (filter (lambda (indexed) (> (● indexed second instance-count) 0))
+                              (map-indexed (lambda (index draw)
+                                             (new Pair (first index) (second draw)))
+                                           (● batch draws)))))))
+
+    (define (release-batch (batch MeshBatch)) (→ Unit) (! gpu)
+      (destroy (BufferObject (● batch instances)))
+      (destroy (BufferObject (● batch draws))))
+
+    ;; The batch's draws in `pass`, whose pipeline is set.
+    (define (draw-meshes (pass GpuRenderPass) (geometry MeshGeometry) (batch MeshBatch))
       (→ Unit)
       (! gpu)
-      (let ((args (pack draw-shape (● batch draws))))
-        (unless (= (array-length (● batch instances)) 0)
-          (let ((instances (filled name "instances" (● batch instances) (Vertex) write?))
-                (draws (filled name "draws" args (Indirect) write?)))
-            (set-vertex-buffer pass
-                               0
-                               (filled "geometry" "vertices" geometry-vertices (Vertex) #f)
-                               0)
-            (set-vertex-buffer pass 1 instances 0)
-            (set-index-buffer pass
-                              (filled "geometry" "indices" geometry-indices (Index) #f)
-                              (Uint32Index)
-                              0)
-            (for-each (lambda (indexed)
-                        (unless (= (● indexed second instance-count) 0)
-                          (draw-indexed-indirect pass draws (i64->i32 (* 20 (● indexed first))))))
-                      (map-indexed (lambda (index draw) (new Pair (first index) (second draw)))
-                                   (● batch draws)))))))
+      (unless (null? (● batch offsets))
+        (set-vertex-buffer pass 0 (● geometry vertices) 0)
+        (set-vertex-buffer pass 1 (● batch instances) 0)
+        (set-index-buffer pass (● geometry indices) (Uint32Index) 0)
+        (for-each (lambda (offset) (draw-indexed-indirect pass (● batch draws) offset))
+                  (● batch offsets))))
 
-    (define geometry-vertices
-      (→ Bytes)
-      (pack vertex-shape (concatenate (map (lambda (g) (● g vertices)) table))))
-    (define geometry-indices
-      (→ Bytes)
-      (pack index-shape (concatenate (map (lambda (g) (● g indices)) table))))
-
-    ;; A buffer by its path, written when asked or when it is new.
-    (define (filled (name String) (part String) (bytes Bytes) (usage BufferUsage) (write? Bool))
-      (→ GpuBuffer)
-      (! gpu)
+    ;; A buffer holding `bytes`, at least a word.
+    (define (filled (label String) (bytes Bytes) (usage BufferUsage)) (→ GpuBuffer) (! gpu)
       (let ((buffer (create-buffer (new BufferDescriptor
-                                     (path (Some (list "mesh" name part)))
-                                     (size (i64->i32 (array-length bytes)))
+                                     (label label)
+                                     (size (i64->i32 (max 4 (array-length bytes))))
                                      (usage (list usage (CopyDst)))))))
-        (when (or write? (● buffer fresh))
-          (write-buffer buffer 0 bytes))
+        (write-buffer buffer 0 bytes)
         buffer))
 
     ))

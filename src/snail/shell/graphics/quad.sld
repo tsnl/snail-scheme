@@ -2,17 +2,22 @@
 ;; its angle, showing a region of one page of a texture array, tinted, over
 ;; what is drawn before it. Corners snap to the target's pixels in the
 ;; vertex shader (quad.wgsl.scm). A run of quads sharing a texture is one
-;; instanced draw:
+;; instanced draw, through a `Quads` made once for the texture and target:
 ;;
-;;   (draw-quads pass "sprites" (Bgra8Unorm) view (atlas-texture atlas) quads)
+;;   (let ((quads (draw-quads pass quads view quad-list)))   ; quads from make-quads
+;;     ...)
 ;;
-;; A run's name keys its buffers and bind group, and a frame writes each
-;; buffer once, so runs in one frame have distinct names.
+;; A Quads draws one run a frame: its buffers are written before the
+;; frame's commands run, so a second run's write would replace the first.
+;; Its instance buffer grows in powers of two, so a run that grows by a few
+;; replaces it rarely.
 (define-library (snail shell graphics quad)
   (export
    Quad
    View2D
    View2D-pixels-set
+   Quads
+   make-quads
    draw-quads)
   (import
    (snail core base)
@@ -51,36 +56,73 @@
 
     ;; ---- Drawing ----
 
-    (define (draw-quads (pass GpuRenderPass)
-                        (name String)
-                        (format TextureFormat)
-                        (view View2D)
-                        (pages GpuTexture)
-                        (quads (List Quad)))
-      (→ Unit)
+    ;; The pipeline for a target's format, the camera's uniform, the
+    ;; instances with room for `room` quads, and the group binding the
+    ;; camera and the pages.
+    (record Quads
+      ((pipeline GpuRenderPipeline)
+       (camera GpuBuffer)
+       (instances GpuBuffer)
+       (room I64)
+       (group GpuBindGroup)))
+
+    (define (make-quads (label String) (format TextureFormat) (pages GpuTexture)) (→ Quads) (! gpu)
+      (let ((pipeline (quad-pipeline format))
+            (camera (create-buffer (new BufferDescriptor
+                                     (label (string-append "quad/" label "/view"))
+                                     (size (i64->i32 (stride view-shape)))
+                                     (usage (list (Uniform) (CopyDst)))))))
+        (new Quads
+          (pipeline pipeline)
+          (camera camera)
+          (instances (instance-buffer 64))
+          (room 64)
+          (group (create-bind-group (new BindGroupDescriptor
+                                      (label (string-append "quad/" label))
+                                      (pipeline pipeline)
+                                      (group 0)
+                                      (entries (list (BufferEntry 0 camera 0 0)
+                                                     (TextureEntry 1 (array-view pages))
+                                                     (SamplerEntry 2 (nearest-sampler))))))))))
+
+    (define (draw-quads (pass GpuRenderPass) (quads Quads) (view View2D) (run (List Quad)))
+      (→ Quads)
       (! gpu)
-      (unless (null? quads)
-        (let* ((pipeline (quad-pipeline format))
-               (camera (quad-buffer name
-                                    "view"
-                                    (array-length (pod-bytes view-shape view))
-                                    (list (Uniform) (CopyDst))))
-               (instances (instance-buffer name quads)))
-          (write-buffer camera 0 (pod-bytes view-shape view))
-          (write-buffer instances 0 (pack quad-shape quads))
-          (set-pipeline pass pipeline)
-          (set-bind-group pass 0 (quad-group name pipeline camera pages))
-          (set-vertex-buffer pass 0 instances 0)
-          (draw pass 4 (i64->i32 (length quads)) 0 0))))
+      (if (null? run)
+          quads
+          (let ((quads (roomy quads (length run))))
+            (write-buffer (● quads camera) 0 (pod-bytes view-shape view))
+            (write-buffer (● quads instances) 0 (pack quad-shape run))
+            (set-pipeline pass (● quads pipeline))
+            (set-bind-group pass 0 (● quads group))
+            (set-vertex-buffer pass 0 (● quads instances) 0)
+            (draw pass 4 (i64->i32 (length run)) 0 0)
+            quads)))
+
+    ;; Room for `count` quads; the smaller buffer goes at the submit.
+
+    (define (roomy (quads Quads) (count I64)) (→ Quads) (! gpu)
+      (if (>= (● quads room) count)
+          quads
+          (let ((room (capacity (* 2 (● quads room)) count)))
+            (destroy (BufferObject (● quads instances)))
+            (Quads-room-set (Quads-instances-set quads (instance-buffer room)) room))))
+
+    (define (capacity (room I64) (count I64)) (→ I64)
+      (if (>= room count) room (capacity (* 2 room) count)))
+
+    (define (instance-buffer (room I64)) (→ GpuBuffer) (! gpu)
+      (create-buffer (new BufferDescriptor
+                       (label "quad/instances")
+                       (size (i64->i32 (* (stride quad-shape) room)))
+                       (usage (list (Vertex) (CopyDst))))))
 
     (define (quad-pipeline (format TextureFormat)) (→ GpuRenderPipeline) (! gpu)
       (create-render-pipeline
        (new RenderPipelineDescriptor
-         (path (Some (list "quad" (texture-format-name format))))
-         (module (create-shader-module
-                  (new ShaderModuleDescriptor
-                    (path (Some (list "quad" "shader")))
-                    (code quad-code))))
+         (label "quad")
+         (module
+          (create-shader-module (new ShaderModuleDescriptor (label "quad") (code quad-code))))
          (vertex-entry "quad_vertex")
          (buffers (list (vertex-layout quad-shape (PerInstance) 0)))
          (fragment (Some (new FragmentState
@@ -90,43 +132,9 @@
          (cull (CullNone))
          (depth (None)))))
 
-    (define (quad-buffer (name String) (part String) (size I64) (usage (List BufferUsage)))
-      (→ GpuBuffer)
-      (! gpu)
-      (create-buffer (new BufferDescriptor
-                       (path (Some (list "quad" name part)))
-                       (size (i64->i32 size))
-                       (usage usage))))
-
-    ;; Room for the quads, in powers of two from 64, so a run that grows
-    ;; by a few replaces its buffer rarely.
-
-    (define (instance-buffer (name String) (quads (List Quad))) (→ GpuBuffer) (! gpu)
-      (quad-buffer name
-                   "instances"
-                   (* (stride quad-shape) (capacity 64 (length quads)))
-                   (list (Vertex) (CopyDst))))
-
-    (define (capacity (room I64) (count I64)) (→ I64)
-      (if (>= room count) room (capacity (* 2 room) count)))
-
-    (define (quad-group (name String)
-                        (pipeline GpuRenderPipeline)
-                        (camera GpuBuffer)
-                        (pages GpuTexture))
-      (→ GpuBindGroup)
-      (! gpu)
-      (create-bind-group (new BindGroupDescriptor
-                           (path (Some (list "quad" name)))
-                           (pipeline pipeline)
-                           (group 0)
-                           (entries (list (BufferEntry 0 camera 0 0)
-                                          (TextureEntry 1 (array-view pages))
-                                          (SamplerEntry 2 (nearest-sampler)))))))
-
     (define (nearest-sampler) (→ GpuSampler) (! gpu)
       (create-sampler (new SamplerDescriptor
-                        (path (Some (list "quad" "nearest")))
+                        (label "quad/nearest")
                         (mag-filter (Nearest))
                         (min-filter (Nearest))
                         (mipmap-filter (Nearest))

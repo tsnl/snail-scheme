@@ -23,9 +23,8 @@ function screen() {
 }
 
 // The last frame: the batches it drew, by key, and where its camera's eye
-// was. A batch k's style is bound as "raster/batch k" (solid) or
-// "raster/forward/batch k" (translucent); the camera is the uniform whose
-// eye follows two 4x4 matrices.
+// was. A batch k's style is bound as "raster/batch k"; the camera is the
+// uniform whose eye follows two 4x4 matrices.
 const frame = host => host.gpu.frames.at(-1);
 const batches = host => [...new Set(frame(host).groups.map(label => label.match(/batch (\d+)$/)?.[1])
                                                      .filter(Boolean).map(Number))];
