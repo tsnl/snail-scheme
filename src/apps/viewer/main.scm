@@ -1,9 +1,11 @@
 ;; A glTF scene path traced in the page: the scene the page's query names,
-;; `?model=Sponza/glTF/Sponza.gltf` under `models/`, lit by a sun and a
-;; sky, flown through with the mouse and keys. `&eye=x,y,z,yaw,pitch`
-;; places the camera; without it, the camera looks at the scene from
-;; outside. A page that names no model shows Sponza from inside its
-;; atrium. The frames average while the camera holds still.
+;; `?model=Sponza/glTF/Sponza.gltf` under `models/`, flown through with
+;; the mouse and keys. `&env=helipad` lights it with an HDR environment
+;; under `environments/`; without one, or with `env=sky`, a drawn sky
+;; and sun light it. `&eye=x,y,z,yaw,pitch` places the camera; without
+;; it, the camera looks at the scene from outside. A page that names no
+;; model shows Sponza from inside its atrium. The frames average while
+;; the camera holds still.
 (import
  (snail core base)
  (snail core io)
@@ -12,12 +14,13 @@
  (only (snail shell task) tasks)
  (only (snail shell app) next-event FrameEvent InputEvent)
  (only (snail shell page) events report-ready)
- (only (snail shell fetch) fetch page-address)
+ (only (snail shell fetch) fetch fetch-bytes page-address)
  (snail shell fetch page)
  (only (snail shell gpu) gpu request-device current-texture view-of work-done)
  (snail shell graphics pod)
  (snail shell graphics raster)
  (snail shell graphics trace scene)
+ (snail shell graphics environment)
  (snail shell graphics trace render)
  (apps viewer fly))
 
@@ -84,7 +87,6 @@
             (tracer (draw-traced (resize-tracer tracer width height)
                                  (view-of (● canvas texture) 1)
                                  (fly-camera fly (/ (i32->f64 width) (i32->f64 (max 1 height))))
-                                 sky
                                  (fly-spread height)
                                  (fly-exposure fly))))
        (work-done)
@@ -113,7 +115,12 @@
      (write-line (string-append "scene: " (show (● scene vertex-count)) " vertices, " (show (● scene triangle-count))
                                 " triangles, from " (string-join (map show (● scene low)) " ")
                                 " to " (string-join (map show (● scene high)) " ")))
-     (view-loop (make-tracer scene (● info format) (● canvas width) (● canvas height) layer-size)
+     (view-loop (make-tracer scene
+                             (environment-of (parameter (page-address) "env"))
+                             (● info format)
+                             (● canvas width)
+                             (● canvas height)
+                             layer-size)
                 (match (● chosen second)
                   ((Some text)
                    (match (eye-of text)
@@ -133,3 +140,17 @@
     (drag (None))
     (speed (● fly speed))
     (stops (● fly stops))))
+
+;; The environment `env=` names, or the drawn sky.
+(define (environment-of (name (Option String))) (→ Environment) (! fetch gpu tasks)
+  (match name
+    ((Some "sky") (sky-environment sky 4096))
+    ((Some name)
+     (let ((url (string-append "environments/" (string-append name ".hdr"))))
+       (match (fetch-bytes url)
+         ((Ok bytes)
+          (match (hdr-environment bytes 4096)
+            ((Ok environment) environment)
+            ((Err why) (panic (string-append url (string-append ": " why))))))
+         ((Err why) (panic why)))))
+    ((None) (sky-environment sky 4096))))

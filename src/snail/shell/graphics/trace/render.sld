@@ -5,16 +5,16 @@
 ;;              (surface.wgsl.scm)
 ;;   paths      a wavefront of kernels (path.wgsl.scm), each bounce's rays
 ;;              traced by (snail shell graphics bvh)'s queries with the
-;;              scene's cutouts (scene.wgsl.scm)
+;;              scene's cutouts (scene.wgsl.scm), lit by an environment
+;;              of (snail shell graphics environment)
 ;;   filters    (snail shell graphics svgf) over the paths and the G-buffer
 ;;   post       (snail shell graphics passes)'s tone mapping and FXAA
 ;;
 ;; A `Tracer` is made once for a scene and the canvas, and resized with it:
 ;;
-;;   (let ((tracer (draw-traced (resize-tracer tracer w h) canvas camera sky spread exposure))) ...)
+;;   (let ((tracer (draw-traced (resize-tracer tracer w h) canvas camera spread exposure))) ...)
 (define-library (snail shell graphics trace render)
   (export
-   Sky
    Tracer
    make-tracer
    resize-tracer
@@ -28,31 +28,18 @@
    (snail shell graphics passes)
    (snail shell graphics bvh)
    (snail shell graphics svgf)
+   (snail shell graphics environment)
+   (only (snail shell graphics shaders) environment-light-shader)
    (snail shell graphics trace scene)
    (snail shell graphics trace shaders))
   (begin
 
-    ;; ---- Light ----
+    ;; ---- Uniforms ----
 
-    ;; The direction toward the sun, the cosine of its angular radius, and
-    ;; the irradiance it gives a surface facing it; the sky's zenith and
-    ;; horizon colors, and the ground's, each with a strength in w.
-    (record Sky
-      ((sun Vec4f)
-       (sun-light Vec4f)
-       (zenith Vec4f)
-       (horizon Vec4f)
-       (ground Vec4f)))
-
-    ;; The uniforms of a frame's paths: the sky, the camera's spread in
-    ;; radians a pixel and the layers' size, then the frame's number.
+    ;; The uniforms of a frame's paths: the camera's spread in radians a
+    ;; pixel and the layers' size, then the frame's number.
     (record Tracing
-      ((sun Vec4f)
-       (sun-light Vec4f)
-       (zenith Vec4f)
-       (horizon Vec4f)
-       (ground Vec4f)
-       (view Vec4f)
+      ((view Vec4f)
        (frame Vec4i))
       (deriving Pod))
 
@@ -81,11 +68,12 @@
        (shade GpuComputePipeline)
        (gather GpuComputePipeline)))
 
-    ;; What is made once: the scene and its BVH, the pipelines and the
-    ;; uniforms.
+    ;; What is made once: the scene and its BVH, the environment, the
+    ;; pipelines and the uniforms.
     (record Kit
       ((scene Scene)
        (bvh Bvh)
+       (environment Environment)
        (surface GpuRenderPipeline)
        (steps Steps)
        (rays RayKernels)
@@ -106,12 +94,18 @@
        (still I32)
        (frame I32)))
 
-    (define (make-tracer (scene Scene) (format TextureFormat) (width I32) (height I32) (layer-size I32))
+    (define (make-tracer (scene Scene)
+                         (environment Environment)
+                         (format TextureFormat)
+                         (width I32)
+                         (height I32)
+                         (layer-size I32))
       (→ Tracer)
       (! gpu)
       (let* ((kit (new Kit
                     (scene scene)
                     (bvh (build-bvh (scene-triangles scene)))
+                    (environment environment)
                     (surface (surface-pipeline))
                     (steps (path-steps))
                     (rays (make-ray-kernels (string-append (declarations material-shape) scene-shader)))
@@ -166,7 +160,6 @@
     (define (draw-traced (tracer Tracer)
                          (canvas GpuTextureView)
                          (camera Camera3D)
-                         (sky Sky)
                          (spread F32)
                          (exposure F32))
       (→ Tracer)
@@ -177,7 +170,7 @@
              (kit (● tracer kit))
              (targets (● tracer targets)))
         (write-buffer (● kit camera) 0 (pod-bytes camera-shape moved))
-        (write-buffer (● kit tracing) 0 (pod-bytes tracing-shape (tracing-of tracer sky spread)))
+        (write-buffer (● kit tracing) 0 (pod-bytes tracing-shape (tracing-of tracer spread)))
         (write-buffer (● targets counts) 0 (make-array (* 256 (* 2 bounces)) (i32->u8 0)))
         (draw-surfaces encoder kit targets)
         (trace-paths encoder kit targets)
@@ -201,11 +194,13 @@
             (steps (● kit steps))
             (rays (● kit rays))
             (capacity (pixels-of targets)))
+        (set-compute-bind-group pass 2 (● targets primary-environment))
         (over-screen pass targets (● steps primary) (● targets primary-group))
         (for-each (lambda (bounce)
                     (trace-rays pass (● rays occlude) (list-ref (● targets shadow-groups) bounce) (Some (● targets occlude-cutout)) capacity)
                     (over-queue pass targets (● steps connect) (list-ref (● targets connect-groups) bounce) (None))
                     (trace-rays pass (● rays intersect) (list-ref (● targets ray-groups) bounce) (Some (● targets intersect-cutout)) capacity)
+                    (set-compute-bind-group pass 2 (● targets shade-environment))
                     (over-queue pass targets (● steps shade) (list-ref (● targets shade-groups) bounce) (Some (● targets shade-scene))))
                   (iota bounces))
         (over-screen pass targets (● steps gather) (● targets gather-group))
@@ -264,13 +259,8 @@
     (define (same-column? (a Vec4f) (b Vec4f)) (→ Bool)
       (and (= (● a x) (● b x)) (= (● a y) (● b y)) (= (● a z) (● b z)) (= (● a w) (● b w))))
 
-    (define (tracing-of (tracer Tracer) (sky Sky) (spread F32)) (→ Tracing)
+    (define (tracing-of (tracer Tracer) (spread F32)) (→ Tracing)
       (new Tracing
-        (sun (● sky sun))
-        (sun-light (● sky sun-light))
-        (zenith (● sky zenith))
-        (horizon (● sky horizon))
-        (ground (● sky ground))
         (view (new Vec4f (x spread) (y (i32->f32 (● tracer kit layer-size))) (z 0.0) (w 0.0)))
         (frame (new Vec4i (x (● tracer frame)) (y 0) (z 0) (w 0)))))
 
@@ -351,7 +341,9 @@
        (gather-group GpuBindGroup)
        (occlude-cutout GpuBindGroup)
        (intersect-cutout GpuBindGroup)
-       (shade-scene GpuBindGroup)))
+       (shade-scene GpuBindGroup)
+       (primary-environment GpuBindGroup)
+       (shade-environment GpuBindGroup)))
 
     (define planes-formats
       (→ (List TextureFormat))
@@ -418,7 +410,9 @@
                                     (list (BufferEntry 7 radiance 0 0) (TextureEntry 13 (● depth view)) (TextureEntry 14 (● noisy view)))))
           (occlude-cutout (scene-group (● kit rays occlude) (● kit scene)))
           (intersect-cutout (scene-group (● kit rays intersect) (● kit scene)))
-          (shade-scene (scene-group (● kit steps shade) (● kit scene))))))
+          (shade-scene (scene-group (● kit steps shade) (● kit scene)))
+          (primary-environment (environment-group (● kit steps primary) (● kit environment)))
+          (shade-environment (environment-group (● kit steps shade) (● kit environment))))))
 
     (define (per-bounce (make (Fn I64 → GpuBindGroup ! gpu))) (→ (List GpuBindGroup)) (! gpu)
       (map make (iota bounces)))
@@ -460,7 +454,9 @@
                                          (● targets gather-group)
                                          (● targets occlude-cutout)
                                          (● targets intersect-cutout)
-                                         (● targets shade-scene))
+                                         (● targets shade-scene)
+                                         (● targets primary-environment)
+                                         (● targets shade-environment))
                                    (● targets shadow-groups)
                                    (● targets connect-groups)
                                    (● targets ray-groups)
@@ -499,6 +495,7 @@
                                                                              (declarations wave-shape)
                                                                              (declarations material-shape)
                                                                              scene-shader
+                                                                             environment-light-shader
                                                                              path-shader)))))))
         (new Steps
           (primary (step module "primary"))

@@ -5,19 +5,23 @@
 ;; queries of (snail shell graphics bvh). The renderer is enlighten's
 ;; (tsnl/enlighten, archive/main-v1): metallic-roughness shading, Lambert
 ;; diffuse and GGX reflection sampled by visible normals, mixed with one
-;; probability at every vertex; the sun, a small disc sampled at every
-;; vertex with a shadow ray; the sky a ray sees when it leaves the scene;
+;; probability at every vertex; light from the environment
+;; (environment-light.wgsl.scm), sampled at every vertex by its light
+;; with a shadow ray and seen by rays that leave the scene, the two
+;; weighted by multiple importance sampling (the power heuristic);
 ;; emission wherever a path hits it; Russian roulette after the third
 ;; bounce; textures at the level of the ray cone's footprint.
 ;;
-;;   primary    from each pixel's first hit: its emission, or the sky
-;;              behind it, into `radiance`; a shadow ray toward the sun
-;;              into `shadows`; and the scattered ray into `outgoing`
-;;   connect    the sun's light, where a shadow ray met nothing, into
-;;              `radiance` (after the queries' `occlude`)
-;;   shade      at each ray's hit (after `intersect`): the sky if it met
-;;              nothing, else the surface's emission, then, but on the
-;;              last bounce, a shadow ray and the next ray, as `primary`
+;;   primary    from each pixel's first hit: its emission, or the
+;;              environment behind it, into `radiance`; a shadow ray
+;;              toward the environment into `shadows`; and the scattered
+;;              ray into `outgoing`
+;;   connect    the environment's light, where a shadow ray met nothing,
+;;              into `radiance` (after the queries' `occlude`)
+;;   shade      at each ray's hit (after `intersect`): the environment
+;;              if it met nothing, else the surface's emission, then, but
+;;              on the last bounce, a shadow ray and the next ray, as
+;;              `primary`
 ;;   gather     `radiance` into the `noisy` plane
 ;;
 ;; A frame runs primary, then for each bounce occlude, connect, intersect
@@ -29,10 +33,11 @@
 ;; invocations past the count return (bvh.sld says why not indirectly).
 ;;
 ;; A ray's `payload` is the path's weight and its pixel's index, `more`
-;; the cone's width at the ray's origin and its spread; a shadow ray's
-;; `payload` the light it brings and its pixel. `Camera3D`, `Tracing`,
-;; `Wave` and `SurfaceMaterial` come from Pod; the scene is group 1
-;; (scene.wgsl.scm).
+;; the cone's width at the ray's origin, its spread, and the density it
+;; was scattered with; a shadow ray's `payload` the light it brings and
+;; its pixel. `Camera3D`, `Tracing`, `Wave` and `SurfaceMaterial` come
+;; from Pod; the scene is group 1 (scene.wgsl.scm), the environment
+;; group 2.
 (struct RayHit
         (t f32)
         (triangle u32)
@@ -159,10 +164,11 @@
 
 ;; ---- Light ----
 
-(fn sky ((direction vec3f)) (-> vec3f)
-    (let up (get direction y))
-    (if ((< up 0.0) (return (* (get tracing ground xyz) (get tracing ground w)))))
-    (return (* (mix (get tracing horizon xyz) (get tracing zenith xyz) (pow up 0.5)) (get tracing zenith w))))
+;; The power heuristic's weight for a sample of density `chosen` that
+;; the other strategy would take with density `other`.
+(fn balanced ((chosen f32) (other f32)) (-> f32)
+    (let c2 (* chosen chosen))
+    (return (/ c2 (max (+ c2 (* other other)) 1e-30))))
 
 ;; ---- Scattering ----
 
@@ -265,15 +271,14 @@
 ;; direction in the sun's disc, and the scattered ray, unless the path
 ;; ends there.
 (fn continued ((s Surface) (v vec3f) (path_weight vec3f) (pixel u32) (width f32) (spread f32) (seed (ptr function u32)))
-    (let cosine (+ 1.0 (* (random seed) (- (get tracing sun w) 1.0))))
-    (let sine (sqrt (max 0.0 (- 1.0 (* cosine cosine)))))
-    (let phi (* 2.0 PI (random seed)))
-    (let toward (* (frame_of (get tracing sun xyz)) (vec3f (* sine (cos phi)) (* sine (sin phi)) cosine)))
+    (let chosen (environment_sample (vec4f (random seed) (random seed) (random seed) (random seed))))
+    (let toward (get chosen xyz))
     (let f (evaluated s v toward))
-    (if ((> (dot f f) 0.0)
+    (if ((and (> (get chosen w) 0.0) (> (dot f f) 0.0))
+         (let light (* (environment_light toward) (/ (balanced (get chosen w) (density s v toward)) (get chosen w))))
          (let slot (atomicAdd (address-of (at counts (u32 (get wave slots z)))) 1u))
          (= (at shadows slot)
-            (ray_from s toward (pcg (deref seed)) (vec4f (* path_weight f (get tracing sun_light xyz)) ((bitcast f32) pixel)) (vec4f 0.0)))))
+            (ray_from s toward (pcg (deref seed)) (vec4f (* path_weight f light) ((bitcast f32) pixel)) (vec4f 0.0)))))
     (let l (scattered s v seed))
     (let p (density s v l))
     (if ((not (and (> p 1e-6) (finite3 l) (> (dot l (get s geometric)) 0.0))) (return)))
@@ -285,7 +290,7 @@
          (/= weight survive)))
     (let slot (atomicAdd (address-of (at counts (u32 (get wave slots y)))) 1u))
     (= (at outgoing slot)
-       (ray_from s l (pcg (deref seed)) (vec4f weight ((bitcast f32) pixel)) (vec4f width (+ spread (* 0.25 (get s roughness))) 0.0 0.0))))
+       (ray_from s l (pcg (deref seed)) (vec4f weight ((bitcast f32) pixel)) (vec4f width (+ spread (* 0.25 (get s roughness))) p 0.0))))
 
 ;; ---- Steps ----
 
@@ -301,7 +306,7 @@
     (if ((>= z 1.0)
          (let ndc (- (* (/ (+ (vec2f pixel) 0.5) (vec2f size)) 2.0) 1.0))
          (let far (* (get camera inverse) (vec4f (get ndc x) (- (get ndc y)) 1.0 1.0)))
-         (= (at radiance index) (vec4f (sky (normalize (- (/ (get far xyz) (get far w)) (get camera eye xyz)))) 1.0))
+         (= (at radiance index) (vec4f (environment_light (normalize (- (/ (get far xyz) (get far w)) (get camera eye xyz)))) 1.0))
          (return)))
     (let s (first_surface pixel z))
     (= (at radiance index) (vec4f (get s emission) 1.0))
@@ -331,7 +336,10 @@
     (let weight (get ray payload xyz))
     (let l (get ray direction xyz))
     (let triangle (get ray hit triangle))
-    (if ((== triangle NONE) (+= (at radiance pixel) (vec4f (* weight (sky l)) 0.0)) (return)))
+    (if ((== triangle NONE)
+         (let seen (balanced (get ray more z) (environment_pdf l)))
+         (+= (at radiance pixel) (vec4f (* weight (environment_light l) seen) 0.0))
+         (return)))
     (let width (+ (get ray more x) (* (get ray more y) (get ray hit t))))
     (var s (hit_surface triangle (get ray hit barycentric) (- l) width))
     (= (get s position) (+ (get ray origin xyz) (* l (get ray hit t))))

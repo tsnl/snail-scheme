@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
-# Fetches Khronos's glTF sample models into a viewer's output directory,
-# for src/apps/viewer: `models/` there holds each model's glTF/ variant,
-# and `models.html` links the viewer to each.
+# Fetches Khronos's glTF sample models and sample environments into a
+# viewer's output directory, for src/apps/viewer: `models/` there holds
+# each model's glTF/ variant, `environments/` each environment's HDR
+# file, and `models.html` links the viewer to each model in a chosen
+# environment.
 #
 #   scripts/fetch-gltf-samples DIR [MODEL ...]
 #
 # With no MODEL, every model with a glTF/ variant. The models come from a
 # sparse, blobless clone in build/gltf-samples, so only the files of the
-# models asked for are downloaded; asking again adds to it.
+# models asked for are downloaded; asking again adds to it. The
+# environments (about 400 MB, through Git LFS) come once into
+# build/gltf-environments.
 set -euo pipefail
 out=${1:?usage: scripts/fetch-gltf-samples DIR [MODEL ...]}
 shift
@@ -26,17 +30,39 @@ fi
 existing=$(git -C "$cache" sparse-checkout list 2>/dev/null || true)
 git -C "$cache" sparse-checkout set --no-cone $existing "${patterns[@]}"
 git -C "$cache" checkout --quiet
+environments=build/gltf-environments
+if [ ! -d "$environments/.git" ]; then
+  GIT_LFS_SKIP_SMUDGE=1 git clone --quiet --depth 1 --filter=blob:none --no-checkout \
+    https://github.com/KhronosGroup/glTF-Sample-Environments.git "$environments"
+  git -C "$environments" sparse-checkout set --no-cone '/*.hdr'
+  GIT_LFS_SKIP_SMUDGE=1 git -C "$environments" checkout --quiet
+  git -C "$environments" lfs install --local >/dev/null
+  git -C "$environments" lfs pull --include='*.hdr'
+fi
 mkdir -p "$out"
 ln -sfn "$(realpath "$cache/Models")" "$out/models"
+ln -sfn "$(realpath "$environments")" "$out/environments"
 {
   echo '<!doctype html><meta charset="utf-8"><title>Models</title>'
   echo '<style>body{font:14px system-ui,sans-serif;background:#111;color:#ddd;margin:24px}a{color:#9cf}li{margin:3px 0}</style>'
-  echo '<h1>glTF sample models</h1><ul>'
+  echo '<h1>glTF sample models</h1>'
+  echo '<p>Environment: <select id="env"><option value="sky">sky</option>'
+  for hdr in "$environments"/*.hdr; do
+    [ -e "$hdr" ] || continue
+    name=$(basename "$hdr" .hdr)
+    echo "<option>$name</option>"
+  done
+  echo '</select></p><ul>'
   for gltf in "$cache"/Models/*/glTF/*.gltf; do
     [ -e "$gltf" ] || continue
     path=${gltf#"$cache/Models/"}
     echo "<li><a href=\"index.html?model=$path\">${path%%/*}</a></li>"
   done
   echo '</ul>'
+  echo '<script>const env = document.getElementById("env");'
+  echo 'try { env.value = localStorage.getItem("env") ?? "footprint_court"; } catch { env.value = "footprint_court"; }'
+  echo 'const go = event => { const a = event.target.closest("a"); if (a) { a.href = a.href.split("&env=")[0] + "&env=" + env.value; } };'
+  echo 'env.onchange = () => { try { localStorage.setItem("env", env.value); } catch {} };'
+  echo 'document.addEventListener("click", go);</script>'
 } > "$out/models.html"
 echo "$out/models.html"
