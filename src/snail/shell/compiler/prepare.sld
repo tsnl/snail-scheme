@@ -39,7 +39,7 @@
     ;; Fixed declarations and concrete function bodies consumed by emission.
     (record Prepared
       ((declarations Declarations)
-       (definitions (List Item))
+       (definitions (List Definition))
        (entry (Option String))
        (exposed (List Item))))
 
@@ -52,9 +52,11 @@
              (specialized (specialize typed items))
              (definitions (● specialized definitions))
              (callees (specialized-callees specialized)))
-        (for-each (lambda (item) (check-item callees item)) definitions)
+        (for-each (lambda (definition) (check-restrictions callees (● definition value)))
+                  definitions)
         (new Prepared (declarations (● specialized declarations))
-             (definitions (map (lambda (item) (control-item callees item)) definitions))
+             (definitions (map (lambda (definition) (control-definition callees definition))
+                               definitions))
              (entry (match (find (lambda (item) (match item ((Entry _ _ _) #t) (_ #f))) items)
                       ((Some (Entry _ start _)) (Some start))
                       (_ (None))))
@@ -78,7 +80,13 @@
       (let ((callees (declaration-callees (● specialized declarations))))
         (if (null? (callees-control callees))
             callees
-            (Callees-definitions-set callees (item-definitions (● specialized definitions))))))
+            (Callees-definitions-set callees
+                                     (fold-left (lambda (table definition)
+                                                  (table-set table
+                                                             (● definition name)
+                                                             (● definition value)))
+                                                (empty-table)
+                                                (● specialized definitions))))))
 
     (define (declaration-callees (declarations Declarations)) (→ Callees)
       (new Callees
@@ -685,20 +693,14 @@
 
     ;; Each function numbers its own temporaries from zero.
 
-    (define (control-item (callees Callees) (item Item)) (→ Item)
-      (match item
-        ((Define name value) (Define name (● (control-expr 0 callees value) first)))
-        (_ item)))
+    (define (control-definition (callees Callees) (definition Definition)) (→ Definition)
+      (Definition-value-set definition
+        (● (control-expr 0 callees (● definition value)) first)))
 
     (define (control-expr (count I64) (callees Callees) (expr Expr)) (→ (Pair Expr I64))
       (if (yield-free? callees expr)
           (new Pair (first expr) (second count))
           (normal count callees expr)))
-
-    (define (check-item (callees Callees) (item Item)) (→ Unit) (! compile)
-      (match item
-        ((Define _ value) (check-restrictions callees value))
-        (_ (unit))))
 
     )
 

@@ -47,7 +47,7 @@
     ;; What specialization answers: the copies, in the order they were
     ;; made, and their declarations.
     (record Specialized
-      ((definitions (List Item))
+      ((definitions (List Definition))
        (declarations Declarations)))
 
     ;; `types` holds every reserved name's type, and `worklist` the copies
@@ -128,14 +128,15 @@
     ;; names it calls; it never copies them itself, so each recipe is made
     ;; exactly once.
 
-    (define (complete (state State)) (→ (Pair (List Item) State))
+    (define (complete (state State)) (→ (Pair (List Definition) State))
       (let loop ((state state) (items (Nil)))
         (match (● state worklist)
           ((Cons recipe rest)
            (threading state ((then (State-worklist-set rest))
                              (value (copy-expr (instantiation state recipe)
                                                (definition state (● recipe source)))))
-                      (loop state (Cons (Define (● recipe name) value) items))))
+                      (loop state
+                            (Cons (new Definition (name (● recipe name)) (value value)) items))))
           ((Nil) (new Pair (first (reverse items)) (second state))))))
 
     ;; ---- Copying ----

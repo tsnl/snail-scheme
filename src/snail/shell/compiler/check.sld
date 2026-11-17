@@ -1845,12 +1845,6 @@
 
     ;; ---- Definitions ----
 
-    ;; A definition the checker infers or checks: an item's `Define` taken
-    ;; apart, so a group holds nothing else.
-    (record Definition
-      ((name String)
-       (value Expr)))
-
     ;; An unannotated group of mutually recursive definitions is inferred
     ;; together and generalized over the obligations it raised, which it
     ;; collects apart from the library's and then adds to them. Typed

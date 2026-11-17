@@ -995,7 +995,7 @@
        (variables (List Syntax))
        (constraints (List Syntax))))
 
-    (record Definition
+    (record DefinitionSyntax
       ((name Syntax)
        (parameters (Option (List (Pair Syntax Syntax))))
        (header DefinitionHeader)
@@ -1065,7 +1065,7 @@
                 body)
       body)
 
-    (define (parse-definition (cx Context) (env Env) (form Syntax)) (→ Definition) (! compile)
+    (define (parse-definition (cx Context) (env Env) (form Syntax)) (→ DefinitionSyntax) (! compile)
       (let ((definition (parse-definition-parts form)))
         (when (null? (● definition body))
           (compile-error (syntax-loc form) "a definition needs a body"))
@@ -1078,8 +1078,8 @@
     ;; definition whose initializer is a typed lambda is the function
     ;; definition that lambda spells out.
 
-    (define (lambda-definition (cx Context) (env Env) (definition Definition))
-      (→ Definition)
+    (define (lambda-definition (cx Context) (env Env) (definition DefinitionSyntax))
+      (→ DefinitionSyntax)
       (! compile)
       (match (new Pair (first (● definition parameters)) (second (● definition body)))
         ((Pair (None) (Cons initializer (Nil)))
@@ -1087,7 +1087,7 @@
              (match (● (● definition header) result)
                ((Some _) (compile-error (● definition loc)
                                         "the lambda states this definition's type; write it once"))
-               ((None) (Definition-name-set (parse-lambda initializer) (● definition name))))
+               ((None) (DefinitionSyntax-name-set (parse-lambda initializer) (● definition name))))
              definition))
         (_ definition)))
 
@@ -1104,13 +1104,13 @@
                ((Nil) #f))))
         (_ #f)))
 
-    (define (parse-lambda (form Syntax)) (→ Definition) (! compile)
+    (define (parse-lambda (form Syntax)) (→ DefinitionSyntax) (! compile)
       (match form
         ((Form (Cons keyword (Cons (Form parameters _) forms)) loc)
          (let* ((parsed (definition-header forms))
                 (parameters (Some (map definition-parameter parameters))))
            (check-definition-header parameters (● parsed first) (● parsed second) loc)
-           (new Definition
+           (new DefinitionSyntax
              (name keyword)
              (parameters parameters)
              (header (● parsed first))
@@ -1119,7 +1119,7 @@
 
     ;; Definitions and method declarations have one header grammar. The caller
     ;; decides whether a body is required or forbidden.
-    (define (parse-definition-parts (form Syntax)) (→ Definition) (! compile)
+    (define (parse-definition-parts (form Syntax)) (→ DefinitionSyntax) (! compile)
       (match (form-tail form)
         ((Cons head forms)
          (let* ((parsed (definition-header forms))
@@ -1127,14 +1127,14 @@
                               ((Form (Cons _ parameters) _)
                                (Some (map definition-parameter parameters)))
                               (_ (None)))))
-           (new Definition
+           (new DefinitionSyntax
              (name (definition-name form))
              (parameters parameters)
              (header (● parsed first))
              (body (● parsed second)) (loc (syntax-loc form)))))
         (_ (compile-error (syntax-loc form) "expected a definition"))))
 
-    (define (parse-declaration (form Syntax)) (→ Definition) (! compile)
+    (define (parse-declaration (form Syntax)) (→ DefinitionSyntax) (! compile)
       (unless (match form ((Form (Cons (Ident "declare" _ _) _) _) #t) (_ #f))
         (compile-error (syntax-loc form)
                        "expected (declare (method (parameter Type) ...) (→ Result) ...), or (type Output)"))
@@ -1172,7 +1172,7 @@
     ;; Reuse the callable and quantified type parsers: this construction is
     ;; the only translation from a definition header to its complete type.
 
-    (define (definition-type (definition Definition)) (→ Syntax)
+    (define (definition-type (definition DefinitionSyntax)) (→ Syntax)
       (let* ((header (● definition header)) (loc (● definition loc))
              (result (match (● header result)
                        ((Some type) type)
@@ -1195,7 +1195,7 @@
                     (append arguments (Cons (Ident "→" (None) loc) (Cons result performs))))
               loc)))
 
-    (define (definition-scope (env Env) (definition Definition)) (→ Env)
+    (define (definition-scope (env Env) (definition DefinitionSyntax)) (→ Env)
       (type-scope env (● (● definition header) variables)))
 
     ;; Pass 1 discovers every top-level name, so definitions may refer to later
@@ -1215,7 +1215,7 @@
     ;; library's one top level, which the later passes take beside it.
     (enum Pending
       (PendingDefinition
-       ((definition Definition)
+       ((definition DefinitionSyntax)
         (value? Bool)))
       (PendingStatement ((form Syntax)))
       (PendingData
@@ -1277,11 +1277,11 @@
 
     (define (defines-main? (entry Pending)) (→ Bool)
       (match entry
-        ((PendingDefinition (Definition (Ident "main" _ _) _ _ _ _) _) #t)
+        ((PendingDefinition (DefinitionSyntax (Ident "main" _ _) _ _ _ _) _) #t)
         (_ #f)))
 
     (define (script-entry (name Syntax) (statements (List Syntax)) (loc Loc)) (→ Pending)
-      (PendingDefinition (new Definition
+      (PendingDefinition (new DefinitionSyntax
                            (name name)
                            (parameters (Some (Nil)))
                            (header (new DefinitionHeader
@@ -1375,14 +1375,14 @@
     ;; a thunk its module runs at most once, on the first read, and whose
     ;; result every read shares.
 
-    (define (top-level-value? (cx Context) (env Env) (definition Definition)) (→ Bool)
+    (define (top-level-value? (cx Context) (env Env) (definition DefinitionSyntax)) (→ Bool)
       (match (● definition parameters)
         ((Some _) #f)
         ((None) (not (core-form? cx env (list-ref (● definition body) 0) "lambda")))))
 
     ;; One slot holds a value, so it has one type.
 
-    (define (check-value-header (definition Definition)) (→ Unit) (! compile)
+    (define (check-value-header (definition DefinitionSyntax)) (→ Unit) (! compile)
       (let ((header (● definition header)))
         (unless (and (null? (● header variables)) (null? (● header constraints)))
           (compile-error (● definition loc)
@@ -1391,7 +1391,7 @@
     ;; The type a definition states, if it states one. A value states its
     ;; result, and its thunk takes nothing and performs nothing.
 
-    (define (stated-type (definition Definition) (value? Bool)) (→ (Option Syntax))
+    (define (stated-type (definition DefinitionSyntax) (value? Bool)) (→ (Option Syntax))
       (match (● (● definition header) result)
         ((None) (None))
         ((Some result)
@@ -1456,7 +1456,7 @@
 
     (define (define-top-level (cx Context)
               (signatures (Table (Pair Scheme (Option Loc))))
-              (env Env) (definition Definition) (value? Bool))
+              (env Env) (definition DefinitionSyntax) (value? Bool))
       (→ Context) (! compile)
       (let ((name (global-binding cx env (● definition name))))
         (threading cx ((value (definition-value env definition)))
@@ -1466,12 +1466,12 @@
                      (add-item (add-value cx name binding)
                                (Define name (if value? (cached-thunk value) value)))))))
 
-    (define (definition-value (cx Context) (env Env) (definition Definition))
+    (define (definition-value (cx Context) (env Env) (definition DefinitionSyntax))
       (→ (Pair Expr Context))
       (! compile)
       (expand-definition-body cx (definition-scope env definition) definition))
 
-    (define (expand-definition-body (cx Context) (scope Env) (definition Definition))
+    (define (expand-definition-body (cx Context) (scope Env) (definition DefinitionSyntax))
       (→ (Pair Expr Context)) (! compile)
       (match (● definition parameters)
         ((Some parameters)
@@ -1479,7 +1479,10 @@
                         (● definition body) (● definition loc)))
         ((None) (expand-expr cx scope (list-ref (● definition body) 0)))))
 
-    (define (annotated-definition-value (cx Context) (env Env) (definition Definition) (value Expr))
+    (define (annotated-definition-value (cx Context)
+                                        (env Env)
+                                        (definition DefinitionSyntax)
+                                        (value Expr))
       (→ Expr)
       (! compile)
       (match (● (● definition header) result)
@@ -1994,7 +1997,7 @@
     ;; Match the method's written binders to its class signature, then resolve
     ;; body annotations in that same scope.
     (define (instance-method-value (cx Context) (env Env) (instance Instance)
-                                   (expected Scheme) (definition Definition))
+                                   (expected Scheme) (definition DefinitionSyntax))
       (→ (Pair Expr Context)) (! compile)
       (match (● (● definition header) result)
         ((None)
@@ -2036,7 +2039,9 @@
                       (● own constraints))
         (compile-error loc "a method header cannot require more than its class and instance")))
 
-    (define (instance-method-scope (env Env) (definition Definition) (substitution Substitution))
+    (define (instance-method-scope (env Env)
+                                   (definition DefinitionSyntax)
+                                   (substitution Substitution))
       (→ Env)
       (fold-left (lambda (scope ident)
                    (extend scope
@@ -2600,7 +2605,7 @@
     ;; A typed lambda is checked against the type its header states, as a
     ;; local function definition is.
 
-    (define (expand-typed-lambda (cx Context) (env Env) (definition Definition))
+    (define (expand-typed-lambda (cx Context) (env Env) (definition DefinitionSyntax))
       (→ (Pair Expr Context))
       (! compile)
       (threading cx ((value (definition-value env definition)))
