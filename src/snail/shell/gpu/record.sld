@@ -1,7 +1,8 @@
 ;; A `gpu` handler that runs nothing: it keeps the same books as the page's,
 ;; and records a line for each operation that would reach the host, so a
 ;; graphics library's test reads what it asked of WebGPU. A buffer reads as
-;; zeros, and an image is as large as its PNG header says.
+;; zeros, an image is as large as its PNG header says, and the canvas is
+;; 640 by 480.
 (define-library (snail shell gpu record)
   (export
    with-recorded-gpu)
@@ -207,10 +208,13 @@
                           (submit (lambda (buffers) (submitted! recording buffers)))
                           (current-texture
                            (lambda ()
-                             (new GpuTexture
-                               (id (transient! recording "canvas" (Nil)))
-                               (generation 1)
-                               (fresh #t))))
+                             (new Image
+                               (texture (new GpuTexture
+                                          (id (transient! recording "canvas" (Nil)))
+                                          (generation 1)
+                                          (fresh #t)))
+                               (width 640)
+                               (height 480))))
                           (destroy
                            (lambda (object)
                              (let ((entry (retire! (● recording objects)

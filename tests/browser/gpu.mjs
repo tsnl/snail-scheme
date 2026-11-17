@@ -2,7 +2,11 @@
 // tests/gpu, a static server serves it, and headless Chromium's software
 // WebGPU runs it. The program reads back what it drew into a texture, red
 // over a blue clear, and the two texels of a PNG it decoded, and finds every
-// object by its path in a second frame; WebGPU reports no error.
+// object by its path in a second frame. It composes the PNG into an atlas
+// with a color swapped, draws it as quads, and reads both the quads' texels
+// and the picture as a PNG data URL. It rasterizes two tiles into a
+// G-buffer and lights them, one glowing red and one white under ambient
+// light. WebGPU reports no error.
 //
 //   CHROMIUM=... node tests/browser/gpu.mjs ROOT [SCREENSHOT]
 import assert from 'node:assert/strict';
@@ -42,15 +46,28 @@ try {
   assert.deepEqual(lines.filter(line => line.startsWith('error:') || line.startsWith('warn:')), [], 'WebGPU reported nothing');
   const printed = lines.filter(line => line.startsWith('log: ')).map(line => line.slice(5));
   assert.match(printed[0], /^format: (bgra8unorm|rgba8unorm)$/);
-  assert.deepEqual(printed.slice(1), [
+  assert.deepEqual(printed.slice(1).filter(line => !line.startsWith('url: ')), [
     'fresh: #t #t',
     'target: 255 0 0 255 255 0 0 255 255 0 0 255 255 0 0 255',
     'image: 255 0 0 255 0 255 0 255',
     'fresh: #f #f',
     'again: 255 0 0 255 255 0 0 255 255 0 0 255 255 0 0 255',
+    'quads: 0 0 255 255 0 0 255 255 0 255 0 255 0 255 0 255',
+    'scene: 255 0 0 255 255 0 0 255 153 153 153 255 153 153 153 255',
   ]);
+  // The data URL decodes to the picture: blue for the swapped red, then
+  // green.
+  const url = lines.find(line => line.startsWith('log: url: ')).slice('log: url: '.length);
+  assert.deepEqual(await browser.evaluate(`(async () => {
+    const image = new Image();
+    image.src = ${JSON.stringify(url)};
+    await image.decode();
+    const canvas = new OffscreenCanvas(2, 1), context = canvas.getContext('2d');
+    context.drawImage(image, 0, 0);
+    return [...context.getImageData(0, 0, 2, 1).data];
+  })()`), [0, 0, 255, 255, 0, 255, 0, 255]);
   if (screenshot) await browser.screenshot(screenshot);
-  console.log('gpu: drawing, readback, decoding and objects by path on a real device passed');
+  console.log('gpu: drawing, readback, decoding, objects by path, atlas composition, quads and a lit G-buffer on a real device passed');
 } finally {
   browser.close();
   server.close();

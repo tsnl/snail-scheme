@@ -80,7 +80,9 @@ field.
 Expansion generates constructors and field operations. A derived instance
 is a use of a `syntax-rules` macro that the class's library defines beside
 the class, `derive-serialize` in `(snail shell wire)` for one; the expander
-writes only that use, from the declaration's head, cases and field labels.
+writes only that use, from the declaration's head, cases, field labels and
+field types. `derive-pod` alone resolves where the declaration is, which
+imports `(snail shell graphics pod)` to derive it.
 Every body and its evidence then go through ordinary checking.
 A script's top-level expressions are its entry, in order; a library's top
 level has none, and a producer recipe gets an explicit entry function.
@@ -298,7 +300,7 @@ implements, `snail.runtime.…` (#566): `snail.runtime.link` and
 `snail.runtime.wasm`, `snail.runtime.native.socket`,
 `snail.runtime.native.process`, `snail.runtime.native.files` and
 `snail.runtime.native.develop` on Node,
-and `snail.runtime.browser.screen`, `.events`, `.storage`, `.dom` and
+and `snail.runtime.browser.gpu`, `.events`, `.storage`, `.dom` and
 `.fetch` on the page. A `(snail runtime …)` library declares one of these
 interfaces as externs, and nothing else, so it has no items and emits no
 code: the program's module imports from the host itself.

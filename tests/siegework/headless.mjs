@@ -1,4 +1,4 @@
-// Builds Siegework's script and runs it without a browser: a recording screen host, keys
+// Builds Siegework's script and runs it without a browser: a recording WebGPU device, keys
 // that pan, the opening's banner and pulsing crystals, taps that select
 // cells, an order given by clicking the HUD's button, five minutes of play, a drag
 // of the camera, and a save replayed through the application loop.
@@ -9,25 +9,33 @@ import {join, resolve} from 'node:path';
 import {promisify} from 'node:util';
 import assert from 'node:assert/strict';
 import {createOverlay, widget as widgetIn, part, text, fire} from '../document.mjs';
-import {screenImports} from '../../host/browser/host.mjs';
 import {createDom} from '../../host/browser/dom.mjs';
+import {createGpu} from '../../host/browser/gpu.mjs';
+import {fakeGpu, fakeCanvas} from '../fake-gpu.mjs';
 import {createRuntime, applicationEntry} from '../../host/browser/runtime.mjs';
 import {createWasi, linkModule} from '../../host/browser/load.mjs';
 
 const HIDDEN = 12, ELAPSED = 11, POINTER_UP = 5, POINTER_MOVE = 4, POINTER_DOWN = 3, KEY_DOWN = 1, KEY_UP = 2;
 
-// The browser host's screen with a renderer that records the latest frame and
-// holds no batch and a picture store that has every picture, and an
-// overlay for the HUD's document.
+// A device that records each frame, and an overlay for the HUD's document.
 function screen() {
-  const host = {frames: [], overlay: createOverlay(), imports: null};
-  host.imports = screenImports({hasBatch: () => false, draw: frame => { host.frames = [frame]; }},
-                               {has: () => true, url: () => ''});
-  return host;
+  return {gpu: fakeGpu(), overlay: createOverlay()};
 }
 
-// Where the camera looked in the last frame, on the ground.
-const target = host => [host.frames.at(-1).camera.target[0], host.frames.at(-1).camera.target[2]];
+// The last frame: the batches it drew, by key, and where its camera's eye
+// was. A batch k's style is bound as "raster/batch k" (solid) or
+// "raster/forward/batch k" (translucent); the camera is the uniform whose
+// eye follows two 4x4 matrices.
+const frame = host => host.gpu.frames.at(-1);
+const batches = host => [...new Set(frame(host).groups.map(label => label.match(/batch (\d+)$/)?.[1])
+                                                     .filter(Boolean).map(Number))];
+const eye = host => [...new Float32Array(frame(host).writes.get('raster/camera').buffer).slice(32, 35)];
+// A batch's instances are 80 bytes each, written when its version is new.
+const instances = (host, key) => (host.gpu.frames.findLast(f => f.writes.has(`mesh/batch ${key}/instances`))
+                                    ?.writes.get(`mesh/batch ${key}/instances`).length ?? 0) / 80;
+
+// Where the camera looked, on the ground: the eye moves as the target does.
+const target = host => [eye(host)[0], eye(host)[2]];
 
 // The project's actual package. The smaller application-runtime fixture
 // exercises this same lifecycle under both static and dynamic linking.
@@ -35,8 +43,9 @@ async function instantiateGame(directory, host, saved) {
   const runtime = createRuntime({seed: 7, load: async () => saved});
   const wasi = createWasi({print: (fd, line) => console.log(line)});
   const program = await linkModule(file => readFile(join(directory, file)), 'main.wasm', wasi,
-    {...runtime.imports, 'snail.runtime.browser.screen': host.imports,
-     'snail.runtime.browser.dom': createDom(host.overlay, runtime).imports}, () => runtime.execution.tasks);
+    {...runtime.imports, 'snail.runtime.browser.dom': createDom(host.overlay, runtime).imports,
+     'snail.runtime.browser.gpu': createGpu(fakeCanvas(960, 640), runtime, host.gpu.open).imports},
+    () => runtime.execution.tasks);
   await runtime.start(applicationEntry(program)).ready.promise;
   return runtime;
 }
@@ -68,16 +77,15 @@ const built = await promisify(execFile)(join(root, 'snail-scheme'),
 const path = built.stdout.trim();
 const host = screen();
 const game = await instantiateGame(path, host);
-const first = host.frames.at(-1);
-assert.deepEqual(first.batches.map(batch => batch.key), [1, 3, 5, 8, 9, 6, 4, 10, 7],
+assert.deepEqual(batches(host).sort((a, b) => a - b), [1, 3, 4, 5, 6, 7, 8, 9, 10],
                  'terrain, structures, motion, bars, links, cursor, shimmer, beacons and preview');
-assert.ok(first.batches[7].items.length > 0, 'the crystals in sight pulse before the game begins');
+assert.ok(instances(host, 10) > 0, 'the crystals in sight pulse before the game begins');
 assert.equal(text(widget(host, 'opening-title')), 'Siegework');
 const spoken = key => part(widget(host, key), 'text').childNodes
   .map(span => span.tagName === 'strong' ? `*${span.textContent}*` : span.textContent).join('');
 assert.equal(spoken('opening-crystal'), 'Click the *glowing crystal*');
 assert.match(widget(host, 'how-to-play').getAttribute('href'), /games\/siegework\.html$/);
-assert.ok(first.batches[0].items.length > 200, 'the explored ground around the hub');
+assert.ok(instances(host, 1) > 200, 'the explored ground around the hub');
 assert.equal(text(widget(host, 'energy')), '160');
 assert.equal(text(widget(host, 'nests')), '☆☆☆');
 // The camera opens on the starter crystal: a tap in the middle offers the
@@ -129,7 +137,7 @@ assert.equal(text(widget(host, 'energy')), '135');
 assert.ok(widget(host, 'scavenge'), 'the first extractor is ready at once');
 assert.ok(!widget(host, 'opening-title'), 'the banner leaves once the game begins');
 await send(game, ELAPSED, 0);
-assert.ok(!host.frames.at(-1).batches.some(batch => batch.key === 10), 'and so do the pulsing crystals');
+assert.ok(!batches(host).includes(10), 'and so do the pulsing crystals');
 // Each tenth of a second advances the world a tick. The first attack
 // raises the alert under the nests.
 let alarm = null;
@@ -143,12 +151,12 @@ const readouts = h => ['health', 'energy', 'threat', 'elapsed'].map(key => text(
 console.log(readouts(host).join(' | '));
 
 // A drag pans the camera away from the hub.
-const resting = host.frames.at(-1).camera;
+const resting = eye(host);
 await send(game, POINTER_DOWN, 1, 480, 320, 0);
 await send(game, POINTER_MOVE, 1, 380, 260, 0);
 await send(game, POINTER_UP, 1, 380, 260, 0);
 await send(game, ELAPSED, 0);
-assert.notDeepEqual(host.frames.at(-1).camera, resting, 'the drag moves the camera');
+assert.notDeepEqual(eye(host), resting, 'the drag moves the camera');
 
 // Hiding the page saves; restore into a fresh instance, and compare what
 // each shows.
@@ -159,7 +167,7 @@ const started = performance.now();
 const restored = await instantiateGame(path, other, bytes);
 const elapsed = performance.now() - started;
 assert.deepEqual(readouts(other), readouts(host));
-assert.deepEqual(other.frames.at(-1).camera, host.frames.at(-1).camera, 'the restored game looks where the saved one did');
+assert.deepEqual(eye(other), eye(host), 'the restored game looks where the saved one did');
 console.log(`a journal of ${bytes.length} bytes replays the same colony in ${elapsed.toFixed(0)} ms`);
 game.close();
 restored.close();

@@ -68,7 +68,7 @@
   (import
    (snail core base)
    (snail shell wire)
-   (snail shell app)
+   (only (snail shell graphics atlas) Rect)
    (lpc layout)
    (lpc skins))
   (begin

@@ -690,9 +690,7 @@
             "runtime.mjs"
             "tasks.mjs"
             "entry.mjs"
-            "renderer.mjs"
             "gpu.mjs"
-            "pictures.mjs"
             "storage.mjs" "load.mjs" "style.css" "ui.mjs" "dom.mjs" "fetch.mjs" "install.mjs"
             "snail-icon.svg" "snail-icon-192.png" "snail-icon-512.png"))
 
