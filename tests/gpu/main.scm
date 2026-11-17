@@ -9,7 +9,8 @@
 ;; into a G-buffer and lit by the sun, and a compute pass squares numbers in
 ;; a storage buffer. Last, 300,000 numbers are scanned, 5,000 keys sorted,
 ;; and three gaussians splatted under two transform tables; tensor
-;; programs are compiled and checked against the CPU. The page
+;; programs are compiled and checked against the CPU, and the splat
+;; renderer's gradients against central differences. The page
 ;; reads its own index.html as bytes, and a file it lacks fails; the last
 ;; frame's work is waited for. tests/browser/gpu.mjs checks what it prints.
 (import
@@ -30,7 +31,8 @@
  (only (snail shell fetch) fetch fetch-bytes)
  (snail shell fetch page)
  (gpu-test shaders)
- (gpu-test tensor))
+ (gpu-test tensor)
+ (gpu-test splat-train))
 
 (record Paint
   ((color Vec4f))
@@ -647,6 +649,9 @@
        (write-line (string-append "turned: " (texels (● splatted second)))))
      (write-line (string-append "tensor: " (tensor-agreement)))
      (write-line (string-append "fitted: " (fitted-line)))
+     (write-line (string-append "splat forward: " (splat-forward-check)))
+     (write-line (string-append "splat gradients: " (splat-gradient-check)))
+     (write-line (string-append "splat fit: " (splat-fit-check)))
      (work-done)
      (write-line (string-append "fetched: " (fetched)))
      (report-ready))))

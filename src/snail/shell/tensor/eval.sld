@@ -101,6 +101,8 @@
           ((ScatterAdd _)
            (list
             (dense-of n default-port (lambda (index) (scattered ports (arg 0) (arg 1) index)))))
+          ((Concat axis)
+           (list (dense-of n default-port (lambda (index) (joined ports (● n args) axis index)))))
           ((Sort bits) (sorted ports (arg 0) (arg 1) bits))
           ((PrefixSum) (list (scanned ports (arg 0))))
           ((CustomKind c)
@@ -164,6 +166,22 @@
                                 sum))
                           0.0
                           (iota (car-of (shape-of source))))))
+
+    ;; The argument whose span of `axis` holds the index, at the index
+    ;; within its span.
+    (define (joined (ports (Table (Array F64))) (args (List View)) (axis I64) (index (List I64)))
+      (→ F64)
+      (let ((at (list-ref index axis)))
+        (match args
+          ((Cons a rest)
+           (let ((size (list-ref (shape-of a) axis)))
+             (if (< at size)
+                 (element ports a index)
+                 (joined ports
+                         rest
+                         axis
+                         (map-indexed (lambda (k i) (if (= k axis) (- i size) i)) index)))))
+          ((Nil) (panic "eval: an index past a concat")))))
 
     ;; Pairs in order of their keys' low bits, equal keys in their order.
     (define (sorted (ports (Table (Array F64))) (keys View) (values View) (bits I64))

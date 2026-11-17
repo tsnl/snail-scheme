@@ -69,6 +69,7 @@
               (sum-all big)
               (amax big (list 0))
               (matmul x w)
+              (stack (list (narrow x 1 0 8) (matmul x w) (absolute (narrow x 1 8 8))) 1)
               (scatter-add (gather x rows) rows 64)
               (list-ref (grad loss (list x)) 0)
               (● sorted first)
