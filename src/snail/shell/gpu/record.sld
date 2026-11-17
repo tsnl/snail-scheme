@@ -8,7 +8,6 @@
    with-recorded-gpu)
   (import
    (snail core base)
-   (snail shell json)
    (snail shell gpu))
   (begin
 
@@ -125,12 +124,10 @@
                                           (show height)))))
                           (begin-render-pass
                            (lambda (encoder descriptor)
-                             (let ((pass (pass-json descriptor))
-                                   (encoder (used recording (● encoder id))))
-                               (all-used! (● recording objects) (● pass second))
+                             (let* ((encoder (used recording (● encoder id)))
+                                    (attachments (pass-words recording descriptor)))
                                (new GpuRenderPass
-                                 (id
-                                  (transient! recording "pass" (list encoder (● pass first))))))))
+                                 (id (transient! recording "pass" (Cons encoder attachments)))))))
                           (set-pipeline
                            (lambda (pass pipeline)
                              (note! recording
@@ -234,7 +231,12 @@
         ((Existing entry) (new Pair (first entry) (second #f)))
         ((Create entry retired)
          (for-each (lambda (gone) (note! recording (list "destroy" (show (● gone id))))) retired)
-         (note! recording (list "create" (● entry kind) (show (● entry id)) (● entry descriptor)))
+         (note! recording
+                (list "create"
+                      (● entry kind)
+                      (show (● entry id))
+                      (● entry path)
+                      (fields-text (● entry descriptor))))
          (new Pair (first entry) (second #t)))))
 
     ;; A frame's object, recorded with what it was made from.
@@ -244,7 +246,7 @@
                      (new Request
                        (kind kind)
                        (path (None))
-                       (descriptor "")
+                       (descriptor (Nil))
                        (bytes 0)
                        (depends (Nil))
                        (width 0)
@@ -258,6 +260,44 @@
 
     (define (used (recording Recording) (id I32)) (→ String) (! mut)
       (show (● (use! (● recording objects) id) id)))
+
+    ;; A pass's attachments as the page's calls send them: each view's
+    ;; texture, dimension, levels and layers, then its load and store.
+
+    (define (pass-words (recording Recording) (descriptor RenderPassDescriptor))
+      (→ (List String))
+      (! mut)
+      (append (concatenate
+               (map (lambda (attachment)
+                      (concatenate
+                       (list (view-words recording (● attachment view))
+                             (match (● attachment load)
+                               ((Clear color)
+                                (list "clear"
+                                      (show (● color red))
+                                      (show (● color green))
+                                      (show (● color blue))
+                                      (show (● color alpha))))
+                               ((Keep) (list "load")))
+                             (list (if (● attachment store) "store" "discard")))))
+                    (● descriptor colors)))
+              (match (● descriptor depth)
+                ((Some attachment)
+                 (concatenate
+                  (list (Cons "depth" (view-words recording (● attachment view)))
+                        (match (● attachment load)
+                          ((ClearDepth depth) (list "clear" (show depth)))
+                          ((KeepDepth) (list "load")))
+                        (list (if (● attachment store) "store" "discard")))))
+                ((None) (Nil)))))
+
+    (define (view-words (recording Recording) (view TextureView)) (→ (List String)) (! mut)
+      (list (used recording (● (● view texture) id))
+            (view-dimension-name (● view dimension))
+            (show (● view base-mip))
+            (show (● view mips))
+            (show (● view base-layer))
+            (show (● view layers))))
 
     (define (copy-text (copy TextureCopy)) (→ String)
       (string-append "mip "

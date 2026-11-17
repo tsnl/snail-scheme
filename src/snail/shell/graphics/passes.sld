@@ -16,6 +16,13 @@
     (define camera-shape (→ (Shape Camera3D)) (shape))
     (define sun-shape (→ (Shape Sun)) (shape))
 
+    (define sun-code
+      (→ String)
+      (string-append (declarations camera-shape)
+                     (declarations sun-shape)
+                     lighting-shader
+                     sun-shader))
+
     (define (sun-pass (encoder GpuCommandEncoder)
                       (canvas GpuTexture)
                       (format TextureFormat)
@@ -44,10 +51,7 @@
          (module (create-shader-module
                   (new ShaderModuleDescriptor
                     (path (Some (list "passes" "sun")))
-                    (code (string-append (declarations camera-shape)
-                                         (declarations sun-shape)
-                                         lighting-shader
-                                         sun-shader)))))
+                    (code sun-code))))
          (vertex-entry "sun_vertex")
          (buffers (Nil))
          (fragment (Some (new FragmentState

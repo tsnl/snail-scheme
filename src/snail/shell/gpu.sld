@@ -24,8 +24,12 @@
 ;;   by its path, so using a handle whose object is gone panics with what
 ;;   it was, rather than leaving WebGPU to report an invalid object.
 ;;
-;; Descriptors cross to the host as JSON, in WebGPU's own names, with each
-;; object they name written `{"object": ID}`.
+;; A descriptor is a list of fields, words and texts in a fixed order per
+;; kind ("Descriptors as fields" below). The books compare those lists to
+;; find an object by its path, encoding nothing; only an object being made
+;; crosses to the host, as staged bytes that host/browser/gpu.mjs reads
+;; with a DataView into the dictionary WebGPU takes. Render passes and
+;; every other command cross as calls with scalar arguments.
 (define-library (snail shell gpu)
   (export
    gpu
@@ -232,15 +236,19 @@
    module-request
    pipeline-request
    bind-group-request
-   pass-json
-   targets-json
+   Field
+   Word
+   Text
+   fields-bytes
+   fields-text
+   view-dimension-name
    buffer-usage-bits
    texture-usage-bits)
   (import
    (snail core base)
    (snail core table)
    (only (snail shell task) tasks)
-   (snail shell json))
+   (only (snail shell utf8) string->utf8))
   (begin
 
     ;; ---- Handles ----
@@ -719,7 +727,7 @@
        (kind String)
        (path String)
        (generation I32)
-       (descriptor String)
+       (descriptor (List Field))
        (bytes I64)
        (frame I64)
        (depends (List I32))
@@ -761,7 +769,7 @@
     (record Request
       ((kind String)
        (path (Option (List String)))
-       (descriptor String)
+       (descriptor (List Field))
        (bytes I64)
        (depends (List I32))
        (width I32)
@@ -798,7 +806,7 @@
            ((Some id)
             (let ((entry (object-entry objects id)))
               (if (and (string=? (● entry kind) (● request kind))
-                       (string=? (● entry descriptor) (● request descriptor)))
+                       (same-fields? (● entry descriptor) (● request descriptor)))
                   (Some entry)
                   (None))))
            ((None) (None))))
@@ -991,47 +999,105 @@
     (define (bind-group-handle (entry Entry) (fresh Bool)) (→ GpuBindGroup)
       (new GpuBindGroup (id (● entry id)) (generation (● entry generation)) (fresh fresh)))
 
-    ;; ---- Descriptors as JSON ----
+    ;; ---- Descriptors as fields ----
 
-    (define (object-json (id I32)) (→ Json)
-      (JsonObject (list (new Pair (first "object") (second (JsonInteger (i32->i64 id)))))))
+    ;; A descriptor field: a 32-bit word, or a text. A text crosses as its
+    ;; UTF-8 length and bytes, padded to a word; an object a descriptor
+    ;; names is its id, a word; an enum value is WebGPU's name for it, a
+    ;; text; an optional part is a word, 1 when present, before it.
+    (enum Field
+      (Word ((value I32)))
+      (Text ((value String))))
 
-    (define (label (path (Option (List String)))) (→ (List (Pair String Json)))
-      (match path
-        ((Some path) (list (new Pair (first "label") (second (JsonString (path-name path))))))
-        ((None) (Nil))))
+    (define (same-fields? (a (List Field)) (b (List Field))) (→ Bool)
+      (match (new Pair (first a) (second b))
+        ((Pair (Nil) (Nil)) #t)
+        ((Pair (Cons x a) (Cons y b)) (and (same-field? x y) (same-fields? a b)))
+        (_ #f)))
 
-    (define (member (name String) (value Json)) (→ (Pair String Json))
-      (new Pair (first name) (second value)))
+    (define (same-field? (a Field) (b Field)) (→ Bool)
+      (match (new Pair (first a) (second b))
+        ((Pair (Word x) (Word y)) (= x y))
+        ((Pair (Text x) (Text y)) (string=? x y))
+        (_ #f)))
 
-    (define (integer (value I32)) (→ Json)
-      (JsonInteger (i32->i64 value)))
+    ;; The fields as the host reads them: words little-endian.
+
+    (define (fields-bytes (fields (List Field))) (→ Bytes)
+      (joined (map field-bytes fields)))
+
+    (define (field-bytes (field Field)) (→ Bytes)
+      (match field
+        ((Word value) (word-bytes value))
+        ((Text value)
+         (let ((text (string->utf8 value)))
+           (joined (list (word-bytes (i64->i32 (array-length text)))
+                         text
+                         (make-array (modulo (- 0 (array-length text)) 4) (i32->u8 0))))))))
+
+    ;; Byte arrays end to end, in a fresh array.
+
+    (define (joined (pieces (List Bytes))) (→ Bytes)
+      (unsafe-total
+       (lambda ()
+         (let ((bytes (make-array
+                       (fold-left (lambda (total piece) (+ total (array-length piece))) 0 pieces)
+                       (i32->u8 0))))
+           (fold-left (lambda (at piece)
+                        (array-copy! bytes at piece 0 (array-length piece))
+                        (+ at (array-length piece)))
+                      0
+                      pieces)
+           bytes))))
+
+    (define (word-bytes (value I32)) (→ Bytes)
+      (array-generate 4
+                      (lambda (index)
+                        (i32->u8
+                         (i32-and (i32-shift-right/logical value (i64->i32 (* 8 index))) 255)))))
+
+    ;; The fields as words of text, as the recorder notes them.
+
+    (define (fields-text (fields (List Field))) (→ String)
+      (string-join (map (lambda (field)
+                          (match field
+                            ((Word value) (show value))
+                            ((Text value) value)))
+                        fields)
+                   " "))
+
+    (define (word (value I32)) (→ Field) (Word value))
+
+    (define (flag (value Bool)) (→ Field) (Word (if value 1 0)))
+
+    ;; A request for an object of `kind` at `path`.
 
     (define (request (kind String)
                      (path (Option (List String)))
-                     (members (List (Pair String Json)))
+                     (fields (List Field))
                      (bytes I64)
                      (depends (List I32)))
       (→ Request)
       (new Request
         (kind kind)
         (path path)
-        (descriptor (json->string (JsonObject (append (label path) members))))
+        (descriptor fields)
         (bytes bytes)
         (depends depends)
         (width 0)
         (height 0)))
 
+    ;; Size, usage.
+
     (define (buffer-request (descriptor BufferDescriptor)) (→ Request)
       (request "buffer"
                (● descriptor path)
-               (list (member "size" (integer (● descriptor size)))
-                     (member "usage" (integer (buffer-usage-bits (● descriptor usage)))))
+               (list (word (● descriptor size)) (word (buffer-usage-bits (● descriptor usage))))
                (i32->i64 (● descriptor size))
                (Nil)))
 
-    ;; A texture's bytes count a third more when it has levels below its
-    ;; first.
+    ;; Width, height, layers, levels, format, usage. A texture's bytes count
+    ;; a third more when it has levels below its first.
 
     (define (texture-request (descriptor TextureDescriptor)) (→ Request)
       (let ((base (* (texel-bytes (● descriptor format))
@@ -1039,14 +1105,12 @@
                         (* (i32->i64 (● descriptor height)) (i32->i64 (● descriptor layers)))))))
         (request "texture"
                  (● descriptor path)
-                 (list (member "size"
-                               (JsonArray (map integer
-                                               (list (● descriptor width)
-                                                     (● descriptor height)
-                                                     (● descriptor layers)))))
-                       (member "mipLevelCount" (integer (● descriptor mips)))
-                       (member "format" (JsonString (texture-format-name (● descriptor format))))
-                       (member "usage" (integer (texture-usage-bits (● descriptor usage)))))
+                 (list (word (● descriptor width))
+                       (word (● descriptor height))
+                       (word (● descriptor layers))
+                       (word (● descriptor mips))
+                       (Text (texture-format-name (● descriptor format)))
+                       (word (texture-usage-bits (● descriptor usage))))
                  (if (> (● descriptor mips) 1) (quotient (* base 4) 3) base)
                  (Nil))))
 
@@ -1056,7 +1120,7 @@
       (new Request
         (kind "image")
         (path (Some path))
-        (descriptor (path-name path))
+        (descriptor (Nil))
         (bytes (* 4 (* (i32->i64 width) (i32->i64 height))))
         (depends (Nil))
         (width width)
@@ -1073,23 +1137,23 @@
         ((Repeat) "repeat")
         ((MirrorRepeat) "mirror-repeat")))
 
+    ;; Magnification, minification and mipmap filters, and the address mode
+    ;; across and down.
+
     (define (sampler-request (descriptor SamplerDescriptor)) (→ Request)
       (request "sampler"
                (● descriptor path)
-               (list (member "magFilter" (JsonString (filter-name (● descriptor mag-filter))))
-                     (member "minFilter" (JsonString (filter-name (● descriptor min-filter))))
-                     (member "mipmapFilter" (JsonString (filter-name (● descriptor mipmap-filter))))
-                     (member "addressModeU" (JsonString (address-name (● descriptor address))))
-                     (member "addressModeV" (JsonString (address-name (● descriptor address)))))
+               (list (Text (filter-name (● descriptor mag-filter)))
+                     (Text (filter-name (● descriptor min-filter)))
+                     (Text (filter-name (● descriptor mipmap-filter)))
+                     (Text (address-name (● descriptor address))))
                0
                (Nil)))
 
+    ;; The WGSL code.
+
     (define (module-request (descriptor ShaderModuleDescriptor)) (→ Request)
-      (request "shader"
-               (● descriptor path)
-               (list (member "code" (JsonString (● descriptor code))))
-               0
-               (Nil)))
+      (request "shader" (● descriptor path) (list (Text (● descriptor code))) 0 (Nil)))
 
     (define (vertex-format-name (format VertexFormat)) (→ String)
       (match format
@@ -1106,23 +1170,23 @@
         ((Sint32x4) "sint32x4")
         ((Unorm8x4) "unorm8x4")))
 
-    (define (layout-json (layout VertexBufferLayout)) (→ Json)
-      (JsonObject
-       (list (member "arrayStride" (integer (● layout stride)))
-             (member "stepMode"
-                     (JsonString (match (● layout step)
-                                   ((PerVertex) "vertex")
-                                   ((PerInstance) "instance"))))
-             (member "attributes"
-                     (JsonArray (map (lambda (attribute)
-                                       (JsonObject
-                                        (list (member "format"
-                                                      (JsonString
-                                                       (vertex-format-name (● attribute format))))
-                                              (member "offset" (integer (● attribute offset)))
-                                              (member "shaderLocation"
-                                                      (integer (● attribute location))))))
-                                     (● layout attributes)))))))
+    ;; A count, then each item's fields.
+
+    (define (counted (items (List T)) (fields-of (Fn T → (List Field)))) (→ (List Field)) (∀ (T))
+      (Cons (word (i64->i32 (length items))) (concatenate (map fields-of items))))
+
+    ;; Stride, step mode, then each attribute's format, offset and location.
+
+    (define (layout-fields (layout VertexBufferLayout)) (→ (List Field))
+      (Cons (word (● layout stride))
+            (Cons (Text (match (● layout step)
+                          ((PerVertex) "vertex")
+                          ((PerInstance) "instance")))
+                  (counted (● layout attributes)
+                           (lambda (attribute)
+                             (list (Text (vertex-format-name (● attribute format)))
+                                   (word (● attribute offset))
+                                   (word (● attribute location))))))))
 
     (define (factor-name (factor BlendFactor)) (→ String)
       (match factor
@@ -1145,24 +1209,23 @@
         ((Min) "min")
         ((Max) "max")))
 
-    (define (component-json (component BlendComponent)) (→ Json)
-      (JsonObject (list (member "operation" (JsonString (operation-name (● component operation))))
-                        (member "srcFactor" (JsonString (factor-name (● component source))))
-                        (member "dstFactor" (JsonString (factor-name (● component destination)))))))
+    ;; Operation, source factor, destination factor.
 
-    (define (targets-json (targets (List ColorTarget))) (→ Json)
-      (JsonArray
-       (map (lambda (target)
-              (JsonObject
-               (Cons (member "format" (JsonString (texture-format-name (● target format))))
-                     (match (● target blend)
-                       ((Some blend)
-                        (list (member "blend"
-                                      (JsonObject
-                                       (list (member "color" (component-json (● blend color)))
-                                             (member "alpha" (component-json (● blend alpha))))))))
-                       ((None) (Nil))))))
-            targets)))
+    (define (component-fields (component BlendComponent)) (→ (List Field))
+      (list (Text (operation-name (● component operation)))
+            (Text (factor-name (● component source)))
+            (Text (factor-name (● component destination)))))
+
+    ;; Format, then the blend's color and alpha components if it has one.
+
+    (define (target-fields (target ColorTarget)) (→ (List Field))
+      (Cons (Text (texture-format-name (● target format)))
+            (match (● target blend)
+              ((Some blend)
+               (Cons (flag #t)
+                     (append (component-fields (● blend color))
+                             (component-fields (● blend alpha)))))
+              ((None) (list (flag #f))))))
 
     (define (topology-name (topology Topology)) (→ String)
       (match topology
@@ -1189,87 +1252,59 @@
         ((CompareGreaterEqual) "greater-equal")
         ((CompareAlways) "always")))
 
+    ;; The module, the vertex entry and buffers, the fragment stage if any
+    ;; (entry, targets), topology, cull mode, and the depth state if any
+    ;; (format, whether it writes, compare). Its layout is "auto".
+
     (define (pipeline-request (descriptor RenderPipelineDescriptor)) (→ Request)
-      (let ((module (object-json (● (● descriptor module) id))))
-        (request "render-pipeline"
-                 (● descriptor path)
-                 (concatenate
-                  (list
-                   (list (member "layout" (JsonString "auto"))
-                         (member "vertex"
-                                 (JsonObject (list (member "module" module)
-                                                   (member "entryPoint"
-                                                           (JsonString (● descriptor vertex-entry)))
-                                                   (member "buffers"
-                                                           (JsonArray (map layout-json
-                                                                           (● descriptor
-                                                                              buffers))))))))
-                   (match (● descriptor fragment)
-                     ((Some fragment)
-                      (list (member "fragment"
-                                    (JsonObject (list (member "module" module)
-                                                      (member "entryPoint"
-                                                              (JsonString (● fragment entry)))
-                                                      (member "targets"
-                                                              (targets-json
-                                                               (● fragment targets))))))))
-                     ((None) (Nil)))
-                   (list (member "primitive"
-                                 (JsonObject (list (member "topology"
-                                                           (JsonString (topology-name
-                                                                        (● descriptor topology))))
-                                                   (member "cullMode"
-                                                           (JsonString
-                                                            (cull-name (● descriptor cull))))))))
-                   (match (● descriptor depth)
-                     ((Some depth)
-                      (list (member "depthStencil"
-                                    (JsonObject (list (member "format"
-                                                              (JsonString (texture-format-name
-                                                                           (● depth format))))
-                                                      (member "depthWriteEnabled"
-                                                              (JsonBool (● depth write)))
-                                                      (member "depthCompare"
-                                                              (JsonString (compare-name
-                                                                           (● depth compare)))))))))
-                     ((None) (Nil)))))
-                 0
-                 (list (● (● descriptor module) id)))))
+      (request "render-pipeline"
+               (● descriptor path)
+               (concatenate
+                (list (list (word (● (● descriptor module) id)) (Text (● descriptor vertex-entry)))
+                      (counted (● descriptor buffers) layout-fields)
+                      (match (● descriptor fragment)
+                        ((Some fragment)
+                         (Cons (flag #t)
+                               (Cons (Text (● fragment entry))
+                                     (counted (● fragment targets) target-fields))))
+                        ((None) (list (flag #f))))
+                      (list (Text (topology-name (● descriptor topology)))
+                            (Text (cull-name (● descriptor cull))))
+                      (match (● descriptor depth)
+                        ((Some depth)
+                         (list (flag #t)
+                               (Text (texture-format-name (● depth format)))
+                               (flag (● depth write))
+                               (Text (compare-name (● depth compare)))))
+                        ((None) (list (flag #f))))))
+               0
+               (list (● (● descriptor module) id))))
 
-    ;; A view crosses as `{"view-of": TEXTURE, ...}`, which the host makes
-    ;; with the texture's `createView`.
+    (define (view-dimension-name (dimension ViewDimension)) (→ String)
+      (match dimension
+        ((View2d) "2d")
+        ((View2dArray) "2d-array")))
 
-    (define (view-json (view TextureView)) (→ Json)
-      (JsonObject
-       (append (list (member "view-of" (object-json (● (● view texture) id)))
-                     (member "dimension"
-                             (JsonString (match (● view dimension)
-                                           ((View2d) "2d")
-                                           ((View2dArray) "2d-array"))))
-                     (member "baseMipLevel" (integer (● view base-mip)))
-                     (member "mipLevelCount" (integer (● view mips)))
-                     (member "baseArrayLayer" (integer (● view base-layer))))
-               (if (= (● view layers) 0)
-                   (Nil)
-                   (list (member "arrayLayerCount" (integer (● view layers))))))))
+    ;; Texture, dimension, first level and count, first layer and count (0
+    ;; for the rest).
 
-    (define (entry-json (entry BindGroupEntry)) (→ Json)
+    (define (view-fields (view TextureView)) (→ (List Field))
+      (list (word (● (● view texture) id))
+            (Text (view-dimension-name (● view dimension)))
+            (word (● view base-mip))
+            (word (● view mips))
+            (word (● view base-layer))
+            (word (● view layers))))
+
+    ;; Binding, then 0 with buffer, offset and size (0 for the rest), 1 with
+    ;; a view, or 2 with a sampler.
+
+    (define (entry-fields (entry BindGroupEntry)) (→ (List Field))
       (match entry
         ((BufferEntry binding buffer offset size)
-         (JsonObject
-          (list (member "binding" (integer binding))
-                (member "resource"
-                        (JsonObject (append (list (member "buffer" (object-json (● buffer id)))
-                                                  (member "offset" (integer offset)))
-                                            (if (= size 0)
-                                                (Nil)
-                                                (list (member "size" (integer size))))))))))
-        ((TextureEntry binding view)
-         (JsonObject
-          (list (member "binding" (integer binding)) (member "resource" (view-json view)))))
-        ((SamplerEntry binding sampler)
-         (JsonObject (list (member "binding" (integer binding))
-                           (member "resource" (object-json (● sampler id))))))))
+         (list (word binding) (word 0) (word (● buffer id)) (word offset) (word size)))
+        ((TextureEntry binding view) (append (list (word binding) (word 1)) (view-fields view)))
+        ((SamplerEntry binding sampler) (list (word binding) (word 2) (word (● sampler id))))))
 
     (define (entry-object (entry BindGroupEntry)) (→ I32)
       (match entry
@@ -1277,66 +1312,16 @@
         ((TextureEntry _ view) (● (● view texture) id))
         ((SamplerEntry _ sampler) (● sampler id))))
 
-    ;; A bind group's layout crosses as `{"layout-of": PIPELINE, "group": N}`.
+    ;; The pipeline whose layout it takes, the group's index, and its
+    ;; entries.
 
     (define (bind-group-request (descriptor BindGroupDescriptor)) (→ Request)
       (request "bind-group"
                (● descriptor path)
-               (list (member "layout"
-                             (JsonObject (list (member "layout-of"
-                                                       (object-json (● (● descriptor pipeline) id)))
-                                               (member "group" (integer (● descriptor group))))))
-                     (member "entries" (JsonArray (map entry-json (● descriptor entries)))))
+               (Cons (word (● (● descriptor pipeline) id))
+                     (Cons (word (● descriptor group))
+                           (counted (● descriptor entries) entry-fields)))
                0
                (Cons (● (● descriptor pipeline) id) (map entry-object (● descriptor entries)))))
-
-    (define (color-json (color Color)) (→ Json)
-      (JsonObject (list (member "r" (JsonNumber (● color red)))
-                        (member "g" (JsonNumber (● color green)))
-                        (member "b" (JsonNumber (● color blue)))
-                        (member "a" (JsonNumber (● color alpha))))))
-
-    (define (store-name (store Bool)) (→ Json)
-      (JsonString (if store "store" "discard")))
-
-    (define (color-attachment-json (attachment ColorAttachment)) (→ Json)
-      (JsonObject
-       (concatenate
-        (list (list (member "view" (view-json (● attachment view))))
-              (match (● attachment load)
-                ((Clear color)
-                 (list (member "loadOp" (JsonString "clear"))
-                       (member "clearValue" (color-json color))))
-                ((Keep) (list (member "loadOp" (JsonString "load")))))
-              (list (member "storeOp" (store-name (● attachment store))))))))
-
-    (define (depth-attachment-json (attachment DepthAttachment)) (→ Json)
-      (JsonObject
-       (concatenate
-        (list (list (member "view" (view-json (● attachment view))))
-              (match (● attachment load)
-                ((ClearDepth depth)
-                 (list (member "depthLoadOp" (JsonString "clear"))
-                       (member "depthClearValue" (JsonNumber depth))))
-                ((KeepDepth) (list (member "depthLoadOp" (JsonString "load")))))
-              (list (member "depthStoreOp" (store-name (● attachment store))))))))
-
-    ;; A pass's descriptor, and the ids of the textures it draws into.
-
-    (define (pass-json (descriptor RenderPassDescriptor)) (→ (Pair String (List I32)))
-      (new Pair
-        (first (json->string
-                (JsonObject
-                 (Cons (member "colorAttachments"
-                               (JsonArray (map color-attachment-json (● descriptor colors))))
-                       (match (● descriptor depth)
-                         ((Some depth)
-                          (list (member "depthStencilAttachment" (depth-attachment-json depth))))
-                         ((None) (Nil)))))))
-        (second (append (map (lambda (attachment) (● (● (● attachment view) texture) id))
-                             (● descriptor colors))
-                        (match (● descriptor depth)
-                          ((Some depth) (list (● (● (● depth view) texture) id)))
-                          ((None) (Nil)))))))
 
     ))
