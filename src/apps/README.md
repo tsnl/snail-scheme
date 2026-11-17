@@ -15,4 +15,5 @@ comes from `generate-library` recipes; its producers run in every build.
 | Application | Purpose |
 | --- | --- |
 | [Siegework](siegework/README.md) | A colony game: explore a seeded map, wire an energy network across it, and destroy three nests before their attacks destroy your hub. |
+| [Splats](splats/README.md) | A gaussian-splat viewer: one cloud posed three times through a transforms table, sorted and drawn on the GPU. |
 | [Hearsay](hearsay/README.md) | A design for a role-playing game that generates stories from what a city believes, with two prototypes. |
