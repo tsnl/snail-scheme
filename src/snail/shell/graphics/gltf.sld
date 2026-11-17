@@ -103,10 +103,10 @@
              (images (list->array (map (lambda (texture) (integer-or texture "source" -1))
                                        (items json "textures")))))
         (new Gltf
-          (buffers (map (lambda (buffer) (string-append base (text-or buffer "uri" "")))
+          (buffers (map (lambda (buffer) (string-append base (unescaped (text-or buffer "uri" ""))))
                         (items json "buffers")))
           (size (fold-left max 0 starts))
-          (images (map (lambda (image) (string-append base (text-or image "uri" "")))
+          (images (map (lambda (image) (string-append base (unescaped (text-or image "uri" ""))))
                        (items json "images")))
           (materials
            (map (lambda (material) (material-of material images)) (items json "materials")))
@@ -319,7 +319,32 @@
                             (iota 4))))
              (iota 16))))
 
-    ;; ---- Bounds ----
+;; ---- URIs ----
+
+    ;; A URI's path with each %XX escape of an ASCII character replaced by
+    ;; the character, as a file's name has it.
+    (define (unescaped (uri String)) (→ String)
+      (list->string (unescaped-chars (string->list uri))))
+
+    (define (unescaped-chars (chars (List Char))) (→ (List Char))
+      (match chars
+        ((Cons #\% (Cons high (Cons low rest)))
+         (match (hex-digit high)
+           ((Some h) (match (hex-digit low)
+                       ((Some l) (Cons (integer->char (+ (* 16 h) l)) (unescaped-chars rest)))
+                       ((None) (Cons #\% (unescaped-chars (Cons high (Cons low rest)))))))
+           ((None) (Cons #\% (unescaped-chars (Cons high (Cons low rest)))))))
+        ((Cons char rest) (Cons char (unescaped-chars rest)))
+        ((Nil) (Nil))))
+
+    (define (hex-digit (char Char)) (→ (Option I64))
+      (let ((code (char->integer char)))
+        (cond ((and (>= code 48) (<= code 57)) (Some (- code 48)))
+              ((and (>= code 65) (<= code 70)) (Some (- code 55)))
+              ((and (>= code 97) (<= code 102)) (Some (- code 87)))
+              (else (None)))))
+
+        ;; ---- Bounds ----
 
     ;; The corners of the box around every placed primitive, from its
     ;; positions' bounds.

@@ -1,8 +1,10 @@
-;; A glTF scene path traced in the page: the scene the page's query names,
-;; `?model=Sponza/glTF/Sponza.gltf` under `models/`, flown through with
-;; the mouse and keys. `&env=helipad` lights it with an HDR environment
-;; under `environments/`; without one, or with `env=sky`, a drawn sky
-;; and sun light it. `&eye=x,y,z,yaw,pitch` places the camera; without
+;; A glTF scene path traced in the page: the Khronos sample model the
+;; page's query names, `?model=Sponza`, flown through with the mouse and
+;; keys. `&env=helipad` lights it with a sample environment; without one,
+;; or with `env=sky`, a drawn sky and sun light it. Both come from
+;; (khronos samples), which links every sample's files, so the page
+;; fetches only the files of the model and environment it shows, as it
+;; reads them. `&eye=x,y,z,yaw,pitch` places the camera; without
 ;; it, the camera looks at the scene from outside. A page that names no
 ;; model shows Sponza from inside its atrium. The frames average while
 ;; the camera holds still.
@@ -14,7 +16,9 @@
  (only (snail shell task) tasks)
  (only (snail shell app) next-event FrameEvent InputEvent)
  (only (snail shell page) events report-ready)
- (only (snail shell fetch) fetch fetch-bytes page-address)
+ (only (snail shell fetch) fetch page-address)
+ (snail shell resource)
+ (khronos samples)
  (snail shell fetch page)
  (only (snail shell gpu) gpu request-device current-texture view-of work-done)
  (snail shell graphics pod)
@@ -38,11 +42,17 @@
 
 (define sponza-eye (→ String) "9,1.6,-0.4,1.5708,0.12")
 
-;; The model and the eye, Sponza's atrium when the page names no model.
+;; The model, Sponza when the page names none, and the eye, Sponza's
+;; atrium when the page names none for it.
 (define (model-of (address String)) (→ (Pair String (Option String)))
-  (match (parameter address "model")
-    ((Some model) (new Pair (first model) (second (parameter address "eye"))))
-    ((None) (new Pair (first "Sponza/glTF/Sponza.gltf") (second (Some sponza-eye))))))
+  (let ((model (match (parameter address "model")
+                 ((Some model) model)
+                 ((None) "Sponza"))))
+    (new Pair
+      (first model)
+      (second (match (parameter address "eye")
+                ((Some eye) (Some eye))
+                ((None) (if (string=? model "Sponza") (Some sponza-eye) (None))))))))
 
 ;; Five numbers, as a JSON array reads them.
 (define (eye-of (text String)) (→ (Option (List F64)))
@@ -109,7 +119,7 @@
  (lambda ()
    (let* ((info (request-device))
           (chosen (model-of (page-address)))
-          (scene (load-scene (string-append "models/" (● chosen first)) layer-size))
+          (scene (model-scene (● chosen first)))
           (canvas (current-texture))
           (over (fly-over (● scene low) (● scene high))))
      (write-line (string-append "scene: " (show (● scene vertex-count)) " vertices, " (show (● scene triangle-count))
@@ -141,16 +151,28 @@
     (speed (● fly speed))
     (stops (● fly stops))))
 
-;; The environment `env=` names, or the drawn sky.
-(define (environment-of (name (Option String))) (→ Environment) (! fetch gpu tasks)
+;; The sample model `name`, each of its files read as the scene asks.
+(define (model-scene (name String)) (→ Scene) (! gpu resource tasks)
+  (let ((files (sample-model name)))
+    (match files
+      ((Nil) (panic (string-append "no sample model " name)))
+      ((Cons entry _)
+       (load-scene (lambda ((path String)) (→ Bytes) (! resource tasks)
+                     (match (assoc-ref files path)
+                       ((Some file) (read-resource file))
+                       ((None) (panic (string-append name (string-append " has no file " path))))))
+                   (● entry first)
+                   layer-size)))))
+
+;; The sample environment `env=` names, or the drawn sky.
+(define (environment-of (name (Option String))) (→ Environment) (! gpu resource tasks)
   (match name
     ((Some "sky") (sky-environment sky 4096))
     ((Some name)
-     (let ((url (string-append "environments/" (string-append name ".hdr"))))
-       (match (fetch-bytes url)
-         ((Ok bytes)
-          (match (hdr-environment bytes 4096)
-            ((Ok environment) environment)
-            ((Err why) (panic (string-append url (string-append ": " why))))))
-         ((Err why) (panic why)))))
+     (match (sample-environment name)
+       ((Some file)
+        (match (hdr-environment (read-resource file) 4096)
+          ((Ok environment) environment)
+          ((Err why) (panic (string-append name (string-append ": " why))))))
+       ((None) (panic (string-append "no sample environment " name)))))
     ((None) (sky-environment sky 4096))))

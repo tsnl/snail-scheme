@@ -19,7 +19,6 @@
    (snail core base)
    (snail shell utf8)
    (only (snail shell task) tasks)
-   (snail shell fetch)
    (snail shell gpu)
    (snail shell graphics pod)
    (snail shell graphics gltf)
@@ -74,17 +73,19 @@
 
     (define material-shape (→ (Shape SurfaceMaterial)) (shape))
 
-    ;; A scene less than a unit across is made one unit across, since a
+    ;; The scene whose .gltf is at `path`, every file read by `read`, which
+    ;; takes a path; the .gltf's URIs are relative to its directory. A
+    ;; scene less than a unit across is made one unit across, since a
     ;; camera clips at a tenth of a unit and rays leave surfaces by a fixed
     ;; offset.
-    (define (load-scene (url String) (layer-size I32)) (→ Scene) (! fetch gpu tasks)
-      (let ((gltf (match (read-gltf (fetched-text url) (directory-of url))
+    (define (load-scene (read (Fn String → Bytes ! e)) (path String) (layer-size I32)) (→ Scene) (! gpu tasks e) (∀ (e))
+      (let ((gltf (match (read-gltf (text-of read path) (directory-of path))
                     ((Ok gltf) (at-least-a-unit gltf))
-                    ((Err reason) (panic (string-append "scene: " url ": " reason))))))
+                    ((Err reason) (panic (string-append "scene: " path ": " reason))))))
         (let* ((counts (placed-counts gltf))
-               (geometry (unpacked gltf counts))
+               (geometry (unpacked read gltf counts))
                (bounds (gltf-bounds gltf))
-               (layers (load-layers (● gltf images) layer-size)))
+               (layers (load-layers read (● gltf images) layer-size)))
           (new Scene
             (vertices (● geometry first))
             (indices (● geometry second))
@@ -121,15 +122,10 @@
                                     0
                                     (iota (array-length chars))))))
 
-    (define (fetched (url String)) (→ Bytes) (! fetch tasks)
-      (match (fetch-bytes url)
-        ((Ok bytes) bytes)
-        ((Err reason) (panic (string-append "scene: " reason)))))
-
-    (define (fetched-text (url String)) (→ String) (! fetch tasks)
-      (match (utf8->string (fetched url))
+    (define (text-of (read (Fn String → Bytes ! e)) (path String)) (→ String) (! e) (∀ (e))
+      (match (utf8->string (read path))
         ((Ok text) text)
-        ((Err _) (panic (string-append "scene: " url " is not UTF-8")))))
+        ((Err _) (panic (string-append "scene: " path " is not UTF-8")))))
 
     ;; A scene without materials draws with glTF's default, white and
     ;; rough.
@@ -267,25 +263,25 @@
 
     ;; The scene's buffers laid end to end on the device, unpacked into the
     ;; vertex and index buffers.
-    (define (unpacked (gltf Gltf) (counts (Pair I64 I64))) (→ (Pair GpuBuffer GpuBuffer)) (! fetch gpu tasks)
+    (define (unpacked (read (Fn String → Bytes ! e)) (gltf Gltf) (counts (Pair I64 I64))) (→ (Pair GpuBuffer GpuBuffer)) (! gpu e) (∀ (e))
       (let* ((data (storage-sized "scene/data" (max 4 (● gltf size)) (list (Storage) (CopyDst))))
              (unpacks (storage-of "scene/unpacks" (pack unpack-shape (unpacks-of gltf))))
              (vertices (storage-sized "scene/vertices" (max 64 (* vertex-stride (● counts first))) (list (Storage))))
              (indices (storage-sized "scene/indices" (max 12 (* 4 (● counts second))) (list (Storage) (Index)))))
-        (write-buffers data (● gltf buffers))
+        (write-buffers read data (● gltf buffers))
         (run-unpack data unpacks vertices indices (● counts first) (quotient (● counts second) 3))
         (destroy (BufferObject data))
         (destroy (BufferObject unpacks))
         (new Pair (first vertices) (second indices))))
 
     ;; Each buffer at its start, a multiple of 4, padded to one.
-    (define (write-buffers (data GpuBuffer) (urls (List String))) (→ Unit) (! fetch gpu tasks)
-      (fold-left (lambda (start url)
-                   (let* ((bytes (fetched url)) (padded (padded-bytes bytes)))
+    (define (write-buffers (read (Fn String → Bytes ! e)) (data GpuBuffer) (paths (List String))) (→ Unit) (! gpu e) (∀ (e))
+      (fold-left (lambda ((start I64) (path String)) (→ I64) (! gpu e)
+                   (let* ((bytes (read path)) (padded (padded-bytes bytes)))
                      (write-buffer data (i64->i32 start) padded)
                      (+ start (array-length padded))))
                  0
-                 urls)
+                 paths)
       (unit))
 
     (define (padded-bytes (bytes Bytes)) (→ Bytes)
@@ -353,7 +349,7 @@
 
     ;; A layer for each image, at least one, each image drawn into its
     ;; first level and each next level drawn from the one before.
-    (define (load-layers (images (List String)) (size I32)) (→ GpuTexture) (! fetch gpu tasks)
+    (define (load-layers (read (Fn String → Bytes ! e)) (images (List String)) (size I32)) (→ GpuTexture) (! gpu tasks e) (∀ (e))
       (let* ((layers (create-texture (new TextureDescriptor
                                        (label "scene/layers")
                                        (width size)
@@ -369,8 +365,8 @@
                                         (min-filter (Linear))
                                         (mipmap-filter (Nearest))
                                         (address (ClampToEdge))))))
-        (for-each (lambda (index)
-                    (let ((image (decode-image (fetched (list-ref images index)))))
+        (for-each (lambda ((index I64)) (→ Unit) (! gpu tasks e)
+                    (let ((image (decode-image (read (list-ref images index)))))
                       (fill-layer layers pipeline sampler (view-of (● image texture) 1) (i64->i32 index) size)
                       (destroy (TextureObject (● image texture)))))
                   (iota (length images)))

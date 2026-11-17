@@ -1,20 +1,21 @@
 #!/usr/bin/env bash
-# Fetches Khronos's glTF sample models and sample environments into a
-# viewer's output directory, for src/apps/viewer: `models/` there holds
-# each model's glTF/ variant, `environments/` each environment's HDR
-# file, and `models.html` links the viewer to each model in a chosen
-# environment.
+# Fetches Khronos's glTF sample models and sample environments for
+# (khronos samples), which links every file: src/khronos/models/ holds
+# each model's glTF/ variant and src/khronos/environments/ each
+# environment's HDR file, and src/apps/viewer/public/models.html links the
+# viewer to each model in a chosen environment.
 #
-#   scripts/fetch-gltf-samples DIR [MODEL ...]
+#   scripts/fetch-khronos-samples [MODEL ...]
 #
 # With no MODEL, every model with a glTF/ variant. The models come from a
 # sparse, blobless clone in build/gltf-samples, so only the files of the
 # models asked for are downloaded; asking again adds to it. The
 # environments (about 400 MB, through Git LFS) come once into
-# build/gltf-environments.
+# build/gltf-environments. src/khronos/models and environments are links
+# into those clones, outside version control, as src/khronos/ATTRIBUTION.md
+# explains.
 set -euo pipefail
-out=${1:?usage: scripts/fetch-gltf-samples DIR [MODEL ...]}
-shift
+cd "$(dirname "$0")/.."
 cache=build/gltf-samples
 if [ ! -d "$cache/.git" ]; then
   git clone --quiet --depth 1 --filter=blob:none --no-checkout \
@@ -39,9 +40,9 @@ if [ ! -d "$environments/.git" ]; then
   git -C "$environments" lfs install --local >/dev/null
   git -C "$environments" lfs pull --include='*.hdr'
 fi
-mkdir -p "$out"
-ln -sfn "$(realpath "$cache/Models")" "$out/models"
-ln -sfn "$(realpath "$environments")" "$out/environments"
+ln -sfn ../../"$cache"/Models src/khronos/models
+ln -sfn ../../"$environments" src/khronos/environments
+page=src/apps/viewer/public/models.html
 {
   echo '<!doctype html><meta charset="utf-8"><title>Models</title>'
   echo '<style>body{font:14px system-ui,sans-serif;background:#111;color:#ddd;margin:24px}a{color:#9cf}li{margin:3px 0}</style>'
@@ -49,20 +50,18 @@ ln -sfn "$(realpath "$environments")" "$out/environments"
   echo '<p>Environment: <select id="env"><option value="sky">sky</option>'
   for hdr in "$environments"/*.hdr; do
     [ -e "$hdr" ] || continue
-    name=$(basename "$hdr" .hdr)
-    echo "<option>$name</option>"
+    echo "<option>$(basename "$hdr" .hdr)</option>"
   done
   echo '</select></p><ul>'
-  for gltf in "$cache"/Models/*/glTF/*.gltf; do
-    [ -e "$gltf" ] || continue
-    path=${gltf#"$cache/Models/"}
-    echo "<li><a href=\"index.html?model=$path\">${path%%/*}</a></li>"
+  for model in "$cache"/Models/*/glTF; do
+    [ -d "$model" ] || continue
+    name=$(basename "$(dirname "$model")")
+    echo "<li><a href=\"index.html?model=$name\">$name</a></li>"
   done
   echo '</ul>'
   echo '<script>const env = document.getElementById("env");'
   echo 'try { env.value = localStorage.getItem("env") ?? "footprint_court"; } catch { env.value = "footprint_court"; }'
-  echo 'const go = event => { const a = event.target.closest("a"); if (a) { a.href = a.href.split("&env=")[0] + "&env=" + env.value; } };'
   echo 'env.onchange = () => { try { localStorage.setItem("env", env.value); } catch {} };'
-  echo 'document.addEventListener("click", go);</script>'
-} > "$out/models.html"
-echo "$out/models.html"
+  echo 'document.addEventListener("click", event => { const a = event.target.closest("a"); if (a) a.href = a.href.split("&env=")[0] + "&env=" + env.value; });</script>'
+} > "$page"
+echo "$page"
