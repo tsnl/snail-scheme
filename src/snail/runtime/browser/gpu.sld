@@ -1,6 +1,9 @@
 ;; The page's WebGPU device, as host/browser/gpu.mjs provides it: objects
-;; are I32 ids the program chooses, and a descriptor crosses as JSON, UTF-8
-;; Bytes, the call's last argument. Requesting the device, reading a
+;; are I32 ids the program chooses, and the descriptor of an object being
+;; made crosses as staged Bytes of words and texts, the call's last
+;; argument ((snail shell gpu)'s `fields-bytes`). A render pass is built by
+;; calls: a view and its color or depth attachment, a call each, then
+;; `begin-pass`. A submit queues each command buffer, then submits. Requesting the device, reading a
 ;; buffer and decoding an image are host operations a task waits for by
 ;; ticket. A string answer crosses a scalar at a time: the call answers
 ;; how many, and `reply-scalar` reads each. (snail shell gpu page)
@@ -29,6 +32,9 @@
    copy-buffer
    copy-texture-to-buffer
    copy-texture
+   pass-view
+   pass-color
+   pass-depth
    begin-pass
    set-pipeline
    set-bind-group
@@ -40,6 +46,7 @@
    draw-indexed-indirect
    end-pass
    finish
+   queue-buffer
    submit
    current-texture
    current-height)
@@ -80,7 +87,10 @@
             "snail.runtime.browser.gpu"
             "copy-texture"
             (Fn I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 I32 → Unit))
-    (extern begin-pass "snail.runtime.browser.gpu" "begin-pass" (Fn I32 I32 Bytes → Unit))
+    (extern pass-view "snail.runtime.browser.gpu" "pass-view" (Fn I32 I32 I32 I32 I32 I32 → Unit))
+    (extern pass-color "snail.runtime.browser.gpu" "pass-color" (Fn I32 F64 F64 F64 F64 I32 → Unit))
+    (extern pass-depth "snail.runtime.browser.gpu" "pass-depth" (Fn I32 F64 I32 → Unit))
+    (extern begin-pass "snail.runtime.browser.gpu" "begin-pass" (Fn I32 I32 → Unit))
     (extern set-pipeline "snail.runtime.browser.gpu" "set-pipeline" (Fn I32 I32 → Unit))
     (extern set-bind-group "snail.runtime.browser.gpu" "set-bind-group" (Fn I32 I32 I32 → Unit))
     (extern set-vertex-buffer
@@ -103,6 +113,7 @@
             (Fn I32 I32 I32 → Unit))
     (extern end-pass "snail.runtime.browser.gpu" "end-pass" (Fn I32 → Unit))
     (extern finish "snail.runtime.browser.gpu" "finish" (Fn I32 I32 → Unit))
-    (extern submit "snail.runtime.browser.gpu" "submit" (Fn Bytes → Unit))
+    (extern queue-buffer "snail.runtime.browser.gpu" "queue-buffer" (Fn I32 → Unit))
+    (extern submit "snail.runtime.browser.gpu" "submit" (Fn → Unit))
     (extern current-texture "snail.runtime.browser.gpu" "current-texture" (Fn I32 → I32))
     (extern current-height "snail.runtime.browser.gpu" "current-height" (Fn → I32))))

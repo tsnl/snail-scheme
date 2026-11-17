@@ -4,18 +4,18 @@
 1: none; 2: none; 3: none; 4: none; 5: page 0 at 1,1
 request-device 100000000
 encoder 1
-create texture 2 
-create shader 3 
-create render-pipeline 4 
-create buffer 5 
+create texture 2 atlas/test
+create shader 3 atlas/shader
+create render-pipeline 4 atlas/compose
+create buffer 5 atlas/test/swaps
 write-buffer 5 0 8
-create buffer 6 
+create buffer 6 atlas/test/pieces
 write-buffer 6 0 32
-pass 7 1 
+pass 7 1
 set-pipeline 7 4
 set-vertex-buffer 7 0 6 0
 decode-image 8 atlas/source/1 2 1
-create bind-group 9 
+create bind-group 9 atlas/test/source/1
 set-bind-group 7 0 9
 draw 7 4 1 0 0
 end-pass 7
@@ -24,7 +24,7 @@ submit 10
 encoder 11
 write-buffer 5 0 8
 write-buffer 6 0 32
-pass 12 11 
+pass 12 11
 set-pipeline 12 4
 set-vertex-buffer 12 0 6 0
 set-bind-group 12 0 9
@@ -35,7 +35,7 @@ submit 13
 encoder 14
 write-buffer 5 0 8
 write-buffer 6 0 32
-pass 15 14 
+pass 15 14
 set-pipeline 15 4
 set-vertex-buffer 15 0 6 0
 set-bind-group 15 0 9
@@ -49,7 +49,7 @@ submit 18
 encoder 19
 write-buffer 5 0 8
 write-buffer 6 0 32
-pass 20 19 
+pass 20 19
 set-pipeline 20 4
 set-vertex-buffer 20 0 6 0
 set-bind-group 20 0 9
@@ -60,13 +60,13 @@ submit 21
 encoder 22
 write-buffer 5 0 8
 write-buffer 6 0 32
-pass 23 22 
+pass 23 22
 set-pipeline 23 4
 set-vertex-buffer 23 0 6 0
 set-bind-group 23 0 9
 draw 23 4 1 0 0
 end-pass 23
-pass 24 22 
+pass 24 22
 set-pipeline 24 4
 set-vertex-buffer 24 0 6 0
 end-pass 24
@@ -76,17 +76,17 @@ quads:
 request-device 100000000
 encoder 1
 canvas 2
-pass 3 1 
-create texture 4 
-create shader 5 
-create render-pipeline 6 
-create buffer 7 
-create buffer 8 
+pass 3 1
+create texture 4 atlas/test
+create shader 5 quad/shader
+create render-pipeline 6 quad/bgra8unorm
+create buffer 7 quad/test/view
+create buffer 8 quad/test/instances
 write-buffer 7 0 24
 write-buffer 8 0 192
 set-pipeline 3 6
-create sampler 9 
-create bind-group 10 
+create sampler 9 quad/nearest
+create bind-group 10 quad/test
 set-bind-group 3 0 10
 set-vertex-buffer 3 0 8 0
 draw 3 4 3 0 0

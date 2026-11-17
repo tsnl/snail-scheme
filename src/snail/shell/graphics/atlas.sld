@@ -236,6 +236,8 @@
 
     (define piece-shape (→ (Shape Piece)) (shape))
 
+    (define swap-shape (→ (Shape Vec2i)) (shape))
+
     ;; Each page a pass: cleared first when `clear?`, then each layer over
     ;; what is there, its source bound with the swap table.
 
@@ -392,11 +394,14 @@
                         (concatenate (map (lambda (layer) (● layer swaps)) layers)))))
         (filled-buffer atlas
                        "swaps"
-                       (pack (if (null? pairs) (list (new Vec2i (x 0) (y 0))) pairs))
+                       (pack swap-shape (if (null? pairs) (list (new Vec2i (x 0) (y 0))) pairs))
                        (Storage))))
 
     (define (piece-buffer (atlas Atlas) (layers (List Placed))) (→ GpuBuffer) (! gpu)
-      (filled-buffer atlas "pieces" (pack (map (lambda (layer) (● layer piece)) layers)) (Vertex)))
+      (filled-buffer atlas
+                     "pieces"
+                     (pack piece-shape (map (lambda (layer) (● layer piece)) layers))
+                     (Vertex)))
 
     (define (filled-buffer (atlas Atlas) (part String) (bytes Bytes) (usage BufferUsage))
       (→ GpuBuffer)

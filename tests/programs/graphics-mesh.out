@@ -10,16 +10,16 @@ draw: 6 indices from 456, vertices from 336, 0 instances from 3
 request-device 100000000
 encoder 1
 canvas 2
-pass 3 1 
-create buffer 4 
+pass 3 1
+create buffer 4 mesh/test/instances
 write-buffer 4 0 240
-create buffer 5 
+create buffer 5 mesh/test/draws
 write-buffer 5 0 160
-create buffer 6 
+create buffer 6 mesh/geometry/vertices
 write-buffer 6 0 16320
 set-vertex-buffer 3 0 6 0
 set-vertex-buffer 3 1 4 0
-create buffer 7 
+create buffer 7 mesh/geometry/indices
 write-buffer 7 0 1848
 set-index-buffer 3 7 uint32 0
 draw-indexed-indirect 3 5 0

@@ -294,6 +294,14 @@ export function byteSnapshot(memory, address) {
   return new Uint8Array(buffer, pointer + 4, length).slice();
 }
 
+// The same bytes in place, without a copy: for a consumer that copies or
+// reads them before it returns, as WebGPU's writes and TextDecoder do.
+export function byteView(memory, address) {
+  const pointer = address >>> 0, buffer = memory.buffer;
+  const length = new DataView(buffer).getUint32(pointer, true);
+  return new Uint8Array(buffer, pointer + 4, length);
+}
+
 // Strings `snail-scheme` sends a character at a time, each ended by
 // `argument-end`; `take` gives those sent since it last took them.
 export function stagedStrings() {

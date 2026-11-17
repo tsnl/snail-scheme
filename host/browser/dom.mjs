@@ -8,7 +8,7 @@
 // view removed its node, so an operation on a freed handle does nothing,
 // and a read of one answers "" or 0.
 
-import {byteSnapshot} from './load.mjs';
+import {byteView} from './load.mjs';
 import {webAppImports} from './install.mjs';
 
 // The kinds of event an interface is fired, after the host's own 11 to 13
@@ -38,7 +38,7 @@ export function createDom(container, runtime) {
     next = 1;
     // Listener ids never repeat: queued events from a replaced view are stale.
   }
-  const text = address => decoder.decode(byteSnapshot(runtime.execution.entry.memory, address));
+  const text = address => decoder.decode(byteView(runtime.execution.entry.memory, address));
   // A name and its value cross as one string, the name ended by a NUL.
   function named(address) {
     const string = text(address), end = string.indexOf('\0');

@@ -6,7 +6,7 @@
 // between waits, and a dropped connection reconnects, as EventSource does,
 // which a stream that hears "error" hears as an event without data.
 
-import {byteSnapshot} from './load.mjs';
+import {byteView} from './load.mjs';
 
 export function createFetch(runtime) {
   const decoder = new TextDecoder();
@@ -20,7 +20,7 @@ export function createFetch(runtime) {
     nextStream = 1;
     parts = {method: 'GET', url: '', headers: [], body: ''};
   }
-  const text = address => decoder.decode(byteSnapshot(runtime.execution.entry.memory, address));
+  const text = address => decoder.decode(byteView(runtime.execution.entry.memory, address));
   const tasks = () => runtime.execution.tasks;
   // The text a finished wait leaves, read a scalar at a time.
   function answer(value) {

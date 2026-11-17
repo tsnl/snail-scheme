@@ -47,6 +47,8 @@
 
     (define view-shape (→ (Shape View2D)) (shape))
 
+    (define quad-code (→ String) (string-append (declarations view-shape) quad-shader))
+
     ;; ---- Drawing ----
 
     (define (draw-quads (pass GpuRenderPass)
@@ -61,11 +63,11 @@
         (let* ((pipeline (quad-pipeline format))
                (camera (quad-buffer name
                                     "view"
-                                    (array-length (pod-bytes view))
+                                    (array-length (pod-bytes view-shape view))
                                     (list (Uniform) (CopyDst))))
                (instances (instance-buffer name quads)))
-          (write-buffer camera 0 (pod-bytes view))
-          (write-buffer instances 0 (pack quads))
+          (write-buffer camera 0 (pod-bytes view-shape view))
+          (write-buffer instances 0 (pack quad-shape quads))
           (set-pipeline pass pipeline)
           (set-bind-group pass 0 (quad-group name pipeline camera pages))
           (set-vertex-buffer pass 0 instances 0)
@@ -78,7 +80,7 @@
          (module (create-shader-module
                   (new ShaderModuleDescriptor
                     (path (Some (list "quad" "shader")))
-                    (code (string-append (declarations view-shape) quad-shader)))))
+                    (code quad-code))))
          (vertex-entry "quad_vertex")
          (buffers (list (vertex-layout quad-shape (PerInstance) 0)))
          (fragment (Some (new FragmentState

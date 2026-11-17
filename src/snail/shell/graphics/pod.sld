@@ -11,7 +11,11 @@
 ;;
 ;;   (define vertex-shape (→ (Shape Vertex)) (shape))
 ;;   (declarations vertex-shape)   ; "struct Vertex {\n  position: vec3f,\n  uv: vec2f,\n}\n"
-;;   (pack (list v0 v1 v2))        ; three 32-byte strides
+;;   (pack vertex-shape (list v0 v1 v2))   ; three 32-byte strides
+;;
+;; A shape is built by walking the record's fields, so a program keeps
+;; each one it uses as a top-level value, made once, and passes it to
+;; `pack` and `pod-bytes`.
 ;;
 ;; Layouts follow WGSL's rules for storage buffers: a field sits at the
 ;; next multiple of its alignment, a struct's alignment is its largest
@@ -189,21 +193,18 @@
 
     ;; The bytes are local to this call, so packing is pure.
 
-    (define (pack (values (List T))) (→ Bytes) (∀ (T)) (⊨ (Pod T))
+    (define (pack (shape (Shape T)) (values (List T))) (→ Bytes) (∀ (T)) (⊨ (Pod T))
       (unsafe-total
        (lambda ()
-         (let* ((step (stride (shape-of values)))
+         (let* ((step (stride shape))
                 (bytes (make-array (* step (length values)) (i32->u8 0))))
            (fold-left (lambda (at value) (pod-write value bytes at) (+ at step)) 0 values)
            bytes))))
 
-    (define (shape-of (values (List T))) (→ (Shape T)) (∀ (T)) (⊨ (Pod T))
-      (shape))
-
     ;; One value, as a uniform buffer holds it.
 
-    (define (pod-bytes (value T)) (→ Bytes) (∀ (T)) (⊨ (Pod T))
-      (pack (list value)))
+    (define (pod-bytes (shape (Shape T)) (value T)) (→ Bytes) (∀ (T)) (⊨ (Pod T))
+      (pack shape (list value)))
 
     ;; A vertex buffer of T: each field an attribute, at consecutive
     ;; locations from `first`. Every field must have a vertex format.
