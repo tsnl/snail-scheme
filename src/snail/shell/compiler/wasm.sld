@@ -4207,10 +4207,8 @@
 
     (define (emit-module (prepared Prepared)) (→ Wat) (! mut)
       (let ((m (new-module (● prepared declarations))))
-        (for-each (lambda (item)
-                    (match item
-                      ((Define name value) (emit-function! m name value))
-                      (_ (panic "internal error: a prepared function must be a definition"))))
+        (for-each (lambda (definition)
+                    (emit-function! m (● definition name) (● definition value)))
                   (● prepared definitions))
         (for-each (lambda (item) (emit-exposure! m item)) (● prepared exposed))
         (match (● prepared entry) ((Some name) (emit-main! m name)) (_ (unit)))
