@@ -19,7 +19,8 @@
    Material
    Placed
    read-gltf
-   gltf-bounds)
+   gltf-bounds
+   gltf-scaled)
   (import
    (snail core base)
    (snail shell json)
@@ -332,6 +333,18 @@
                               (placed-corners placed)))
                  (new Pair (first (list 1e30 1e30 1e30)) (second (list -1e30 -1e30 -1e30)))
                  (● gltf placed)))
+
+    ;; The scene made `factor` times larger about the origin: each
+    ;; placement's matrix with its first three rows scaled.
+    (define (gltf-scaled (gltf Gltf) (factor F64)) (→ Gltf)
+      (Gltf-placed-set gltf
+                       (map (lambda (placed)
+                              (Placed-matrix-set placed
+                                                 (map (lambda (index)
+                                                        (let ((x (list-ref (● placed matrix) index)))
+                                                          (if (< (remainder index 4) 3) (* factor x) x)))
+                                                      (iota 16))))
+                            (● gltf placed))))
 
     (define (pairwise (f (Fn F64 F64 → F64)) (a (List F64)) (b (List F64))) (→ (List F64))
       (map (lambda (index) (f (list-ref a index) (list-ref b index))) (iota (length a))))

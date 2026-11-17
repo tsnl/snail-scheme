@@ -1,6 +1,6 @@
 ;; A camera that flies: dragging turns it, W, A, S and D move it along
 ;; and across where it looks, Q and E down and up, and the wheel changes
-;; its speed. It starts back from a scene's box, looking at its middle.
+;; its speed; [ and ] darken and brighten the exposure by half a stop. It starts back from a scene's box, looking at its middle.
 (define-library (apps viewer fly)
   (export
    Fly
@@ -8,17 +8,19 @@
    steered
    flown
    fly-camera
-   fly-spread)
+   fly-spread
+   fly-exposure)
   (import
    (snail core base)
    (only (snail shell app) Input KeyDown KeyUp PointerDown PointerMove PointerUp PointerCancel Wheel)
-   (only (snail shell math) sin cos atan)
+   (only (snail shell math) sin cos atan exp)
    (snail shell graphics pod)
    (only (snail shell graphics raster) Camera3D camera-3d Pinhole))
   (begin
 
     ;; Where it is, its heading and pitch in radians, the keys held, where
-    ;; a drag last was, and its speed in units a second.
+    ;; a drag last was, its speed in units a second, and its exposure in
+    ;; stops.
     (record Fly
       ((x F64)
        (y F64)
@@ -27,7 +29,8 @@
        (pitch F64)
        (held (List I32))
        (drag (Option (Pair I32 I32)))
-       (speed F64)))
+       (speed F64)
+       (stops F64)))
 
     (define fov (→ F64) 1.0)
 
@@ -45,10 +48,13 @@
           (pitch (- 0.0 (atan (/ (* 0.15 extent) (max back 1e-6)))))
           (held (Nil))
           (drag (None))
-          (speed (max 0.5 (* 0.4 extent))))))
+          (speed (max 0.5 (* 0.4 extent)))
+          (stops 2.0))))
 
     (define (steered (fly Fly) (input Input)) (→ Fly)
       (match input
+        ((KeyDown 91 _) (Fly-stops-set fly (- (● fly stops) 0.5)))
+        ((KeyDown 93 _) (Fly-stops-set fly (+ (● fly stops) 0.5)))
         ((KeyDown key _) (if (member? key (● fly held)) fly (Fly-held-set fly (Cons key (● fly held)))))
         ((KeyUp key) (Fly-held-set fly (filter (lambda (held) (not (= held key))) (● fly held))))
         ((PointerDown _ x y _) (Fly-drag-set fly (Some (new Pair (first x) (second y)))))
@@ -85,7 +91,8 @@
           (pitch (● fly pitch))
           (held (● fly held))
           (drag (● fly drag))
-          (speed (● fly speed)))))
+          (speed (● fly speed))
+          (stops (● fly stops)))))
 
     ;; At yaw 0 it looks along -z.
     (define (looking (fly Fly)) (→ (List F64))
@@ -103,6 +110,10 @@
                    (Pinhole fov)
                    aspect
                    1.0)))
+
+    ;; Two to the stops.
+    (define (fly-exposure (fly Fly)) (→ F32)
+      (f64->f32 (exp (* (● fly stops) 0.6931471805599453))))
 
     ;; The angle one pixel of a canvas `height` tall spans.
     (define (fly-spread (height I32)) (→ F32) (f64->f32 (/ fov (i32->f64 (max 1 height)))))

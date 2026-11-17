@@ -64,9 +64,9 @@
   (→ Sky)
   (new Sky
     (sun (unit 0.3 1.0 0.25 0.99996))
-    (sun-light (new Vec4f (x 4.0) (y 3.8) (z 3.4) (w 0.0)))
-    (zenith (new Vec4f (x 0.25) (y 0.45) (z 0.9) (w 1.0)))
-    (horizon (new Vec4f (x 0.75) (y 0.82) (z 0.95) (w 1.0)))
+    (sun-light (new Vec4f (x 10.0) (y 9.5) (z 8.5) (w 0.0)))
+    (zenith (new Vec4f (x 0.25) (y 0.45) (z 0.9) (w 1.5)))
+    (horizon (new Vec4f (x 0.75) (y 0.82) (z 0.95) (w 1.5)))
     (ground (new Vec4f (x 0.3) (y 0.27) (z 0.24) (w 1.0)))))
 
 (define (unit (x F64) (y F64) (z F64) (w F64)) (→ Vec4f)
@@ -85,7 +85,8 @@
                                  (view-of (● canvas texture) 1)
                                  (fly-camera fly (/ (i32->f64 width) (i32->f64 (max 1 height))))
                                  sky
-                                 (fly-spread height))))
+                                 (fly-spread height)
+                                 (fly-exposure fly))))
        (work-done)
        (report-ready)
        (view-loop tracer fly timing)))
@@ -130,4 +131,5 @@
     (pitch (list-ref eye 4))
     (held (Nil))
     (drag (None))
-    (speed (● fly speed))))
+    (speed (● fly speed))
+    (stops (● fly stops))))

@@ -60,9 +60,12 @@
 
     (define material-shape (→ (Shape SurfaceMaterial)) (shape))
 
+    ;; A scene less than a unit across is made one unit across, since a
+    ;; camera clips at a tenth of a unit and rays leave surfaces by a fixed
+    ;; offset.
     (define (load-scene (url String) (layer-size I32)) (→ Scene) (! fetch gpu tasks)
       (let ((gltf (match (read-gltf (fetched-text url) (directory-of url))
-                    ((Ok gltf) gltf)
+                    ((Ok gltf) (at-least-a-unit gltf))
                     ((Err reason) (panic (string-append "scene: " url ": " reason))))))
         (let* ((counts (placed-counts gltf))
                (geometry (unpacked gltf counts))
@@ -87,6 +90,14 @@
             (triangle-count (quotient (● counts second) 3))
             (low (● bounds first))
             (high (● bounds second))))))
+
+    (define (at-least-a-unit (gltf Gltf)) (→ Gltf)
+      (let* ((bounds (gltf-bounds gltf))
+             (extent (fold-left max
+                                0.0
+                                (map (lambda (axis) (- (list-ref (● bounds second) axis) (list-ref (● bounds first) axis)))
+                                     (iota 3)))))
+        (if (and (> extent 0.0) (< extent 1.0)) (gltf-scaled gltf (/ 1.0 extent)) gltf)))
 
     ;; Up to and with its last slash.
     (define (directory-of (url String)) (→ String)

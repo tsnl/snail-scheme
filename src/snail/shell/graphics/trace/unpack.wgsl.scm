@@ -63,7 +63,7 @@
 ;; Element `index` of an accessor: x is its offset, y its stride, z its
 ;; component type and w whether it is normalized.
 (fn element ((accessor vec4i) (index u32) (part u32)) (-> f32)
-    (let size (select 4u (select 1u 2u (== (get accessor z) 5123)) (== (get accessor z) 5121)))
+    (let size (select (select 4u 2u (== (get accessor z) 5123)) 1u (== (get accessor z) 5121)))
     (return (component_at (+ (u32 (get accessor x)) (* index (u32 (get accessor y))) (* part size))
                           (get accessor z)
                           (get accessor w))))

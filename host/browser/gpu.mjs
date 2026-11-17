@@ -177,9 +177,13 @@ export function createGpu(canvas, runtime, open = pageDevice) {
     submit() {
       gpu.device.queue.submit(queued);
       queued = [];
-      // When the device finishes each submit's work, for measuring: a
-      // page can read `globalThis.snailGpuDone`.
-      gpu.device.queue.onSubmittedWorkDone().then(() => (globalThis.snailGpuDone ??= []).push(performance.now()));
+      // When the device finished the last 240 submits' work, for
+      // measuring: a page can read `globalThis.snailGpuDone`.
+      gpu.device.queue.onSubmittedWorkDone().then(() => {
+        const done = (globalThis.snailGpuDone ??= []);
+        done.push(performance.now());
+        if (done.length > 240) done.shift();
+      });
       for (const id of retired) take(id)?.destroy?.();
       retired = [];
     },
