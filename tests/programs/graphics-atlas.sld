@@ -115,12 +115,21 @@
                "; "))
 
 ;; Only the commands, without their descriptors.
+;; A created object's kind, id and path, and a pass's id and encoder,
+;; without their descriptors.
 (define (heads (lines (List String))) (→ (List String))
   (map (lambda (line)
-         (match (string-index line #\{)
-           ((Some at) (substring line 0 at))
-           ((None) line)))
+         (let ((words (words-of line)))
+           (cond ((string=? (list-ref words 0) "create") (string-join (take words 4) " "))
+                 ((string=? (list-ref words 0) "pass") (string-join (take words 3) " "))
+                 (else line))))
        lines))
+
+(define (words-of (text String)) (→ (List String))
+  (match (string-index text #\space)
+    ((Some at)
+     (Cons (substring text 0 at) (words-of (substring text (+ at 1) (string-length text)))))
+    ((None) (list text))))
 
 (define (compose (atlas Atlas) (pictures (List Picture))) (→ Atlas) (! gpu tasks)
   (let* ((encoder (create-command-encoder)) (next (atlas-pictures atlas encoder pictures)))

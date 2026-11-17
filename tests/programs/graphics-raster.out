@@ -3,59 +3,59 @@ parallel inverse within 1e-4: #t
 request-device 100000000
 encoder 1
 canvas 2
-create texture 3 
-create texture 4 
-create texture 5 
-create texture 6 
-create shader 7 
-create render-pipeline 8 
-create render-pipeline 9 
-create buffer 10 
+create texture 3 gbuffer/test/albedo
+create texture 4 gbuffer/test/normal
+create texture 5 gbuffer/test/material
+create texture 6 gbuffer/test/depth
+create shader 7 raster/shader
+create render-pipeline 8 raster/gbuffer_fragment/rgba8unorm/rgba16float/rgba8unorm
+create render-pipeline 9 raster/forward_fragment/bgra8unorm
+create buffer 10 raster/camera
 write-buffer 10 0 160
-create buffer 11 
+create buffer 11 raster/sun
 write-buffer 11 0 32
-pass 12 1 
+pass 12 1
 set-pipeline 12 8
-create bind-group 13 
+create bind-group 13 raster/camera
 set-bind-group 12 0 13
-create buffer 14 
+create buffer 14 raster/ground
 write-buffer 14 0 16
-create bind-group 15 
+create bind-group 15 raster/ground
 set-bind-group 12 1 15
-create buffer 16 
+create buffer 16 mesh/ground/instances
 write-buffer 16 0 80
-create buffer 17 
+create buffer 17 mesh/ground/draws
 write-buffer 17 0 160
-create buffer 18 
+create buffer 18 mesh/geometry/vertices
 write-buffer 18 0 16320
 set-vertex-buffer 12 0 18 0
 set-vertex-buffer 12 1 16 0
-create buffer 19 
+create buffer 19 mesh/geometry/indices
 write-buffer 19 0 1848
 set-index-buffer 12 19 uint32 0
 draw-indexed-indirect 12 17 80
 end-pass 12
-pass 20 1 
-create shader 21 
-create render-pipeline 22 
+pass 20 1
+create shader 21 passes/sun
+create render-pipeline 22 passes/sun/bgra8unorm
 set-pipeline 20 22
-create bind-group 23 
+create bind-group 23 passes/sun
 set-bind-group 20 0 23
 draw 20 3 1 0 0
 end-pass 20
-pass 24 1 
+pass 24 1
 set-pipeline 24 9
-create bind-group 25 
+create bind-group 25 raster/forward/camera
 set-bind-group 24 0 25
-create buffer 26 
+create buffer 26 raster/water
 write-buffer 26 0 16
-create bind-group 27 
+create bind-group 27 raster/forward/water
 set-bind-group 24 1 27
-create bind-group 28 
+create bind-group 28 raster/sun
 set-bind-group 24 2 28
-create buffer 29 
+create buffer 29 mesh/water/instances
 write-buffer 29 0 80
-create buffer 30 
+create buffer 30 mesh/water/draws
 write-buffer 30 0 160
 set-vertex-buffer 24 0 18 0
 set-vertex-buffer 24 1 29 0
