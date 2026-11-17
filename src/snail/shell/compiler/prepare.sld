@@ -146,6 +146,7 @@
         ((Some (Foreign _ _)) (Nil))
         ((Some (Constructor _ _)) (Nil))
         ((Some (Accessor _ _ _)) (Nil))
+        ((Some (Writer _ _ _)) (Nil))
         ((Some (Replacer _ _ _)) (Nil))
         (_ (resume-row callees name type))))
 
@@ -488,6 +489,7 @@
                              scrutinee
                              (lambda (scrutinee) (rebuild (Match scrutinee clauses))))))
           ((FieldRead _ _ _) (panic "internal error: field selection survived checking"))
+          ((FieldWrite _ _ _ _) (panic "internal error: field selection survived checking"))
           ((New _ _) (panic "internal error: named construction survived checking"))
           ((Ann inner type)
            (threading count ((inner (normal callees inner)))
@@ -549,53 +551,15 @@
 
     (define (normal-call (count I64) (callees Callees) (expr Expr) (callee Expr) (args (List Expr)))
       (→ (Pair Expr I64))
-      (match (new Pair (first (● callee term)) (second args))
-        ((Pair (Var "prim:set!" _ _) (Cons place (Cons value (Nil))))
-         (normal-write count callees expr callee place value))
-        (_ (threading count ((operands (normal-all callees (Cons callee args)))
-                             (bound (bind-operands callees operands)))
-                      (match (● bound operands)
-                        ((Cons callee args)
-                         (new Pair (first (wrap-lets bound (applied expr callee args)))
-                              (second count)))
-                        ((Nil) (panic "internal error: a call without a callee")))))))
+      (threading count ((operands (normal-all callees (Cons callee args)))
+                        (bound (bind-operands callees operands)))
+                 (match (● bound operands)
+                   ((Cons callee args)
+                    (new Pair (first (wrap-lets bound (applied expr callee args))) (second count)))
+                   ((Nil) (panic "internal error: a call without a callee")))))
 
     (define (applied (expr Expr) (callee Expr) (args (List Expr))) (→ Expr)
       (new Expr (term (App callee args)) (type (● expr type)) (loc (● expr loc))))
-
-    ;; A write's place stays a field read, which the backend resolves to
-    ;; the field it writes, so the operand named is the place's record.
-
-    (define (normal-write (count I64)
-                          (callees Callees)
-                          (expr Expr)
-                          (callee Expr)
-                          (place Expr)
-                          (value Expr))
-      (→ (Pair Expr I64))
-      (threading count ((operands (normal-all callees (list (place-record place) value)))
-                        (bound (bind-operands callees (Cons callee operands))))
-                 (match (● bound operands)
-                   ((Cons callee (Cons record (Cons value (Nil))))
-                    (new Pair
-                      (first
-                       (wrap-lets bound (applied expr callee (list (place-at place record) value))))
-                      (second count)))
-                   (_ (panic "internal error: a write has a place and a value")))))
-
-    (define (place-record (place Expr)) (→ Expr)
-      (match (● place term)
-        ((Ann inner _) (place-record inner))
-        ((App _ (Cons record (Nil))) record)
-        (_ (panic "internal error: a place reads a field"))))
-
-    (define (place-at (place Expr) (record Expr)) (→ Expr)
-      (let ((rebuild
-             (lambda (term) (new Expr (term term) (type (● place type)) (loc (● place loc))))))
-        (match (● place term)
-          ((Ann inner type) (rebuild (Ann (place-at inner record) type)))
-          ((App accessor (Cons _ (Nil))) (rebuild (App accessor (list record))))
-          (_ (panic "internal error: a place reads a field")))))
 
     ;; A handle evaluates its implementations in its effect's operation
     ;; order, before its body runs.
@@ -876,14 +840,7 @@
                (normalized (call add (list (call f (list (number 1))) (call g (list (number 2))))))
                "(let %control.0% (f 1) (add %control.0% (g 2)))")
               (expect (normalized (call g (list (call f (list (call f (list (number 1))))))))
-                      "(let %control.1% (let %control.0% (f 1) (f %control.0%)) (g %control.1%))")
-              (let* ((unit (TCon "Unit" (Nil)))
-                     (write (local "prim:set!" (TFun (list i64 i64) unit empty-row)))
-                     (read (local "x" (TFun (list i64) i64 empty-row)))
-                     (record (call g (list (number 1)))))
-                (expect (normalized (call write (list (call read (list record))
-                                                      (call f (list (number 2))))))
-                        "(let %control.0% (g 1) (let %control.1% (f 2) (prim:set! (x %control.0%) %control.1%)))"))))
+                      "(let %control.1% (let %control.0% (f 1) (f %control.0%)) (g %control.1%))")))
 
           (define test-flow
             (lambda () (expect (normalized (call f (list (call g (list (number 1)))))) "(f (g 1))")

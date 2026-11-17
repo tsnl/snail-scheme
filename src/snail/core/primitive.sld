@@ -46,8 +46,7 @@
    string->array array->string
    array-length array-ref array-append subarray make-array array-set array-generate
    constant-array-length constant-array-ref constant-array->array
-   array array-set! array-copy array-copy!
-   set!)
+   array array-set! array-copy array-copy!)
   (import
    (snail core forms))
   (begin
@@ -228,8 +227,5 @@
 
     (primitive array-set! (∀ (A) (Fn (Array A) I64 A → Unit ! mut)))
     (primitive array-copy (∀ (A) (Fn (Array A) → (Array A))))
-    (primitive array-copy! (∀ (A) (Fn (Array A) I64 (Array A) I64 I64 → Unit ! mut)))
+    (primitive array-copy! (∀ (A) (Fn (Array A) I64 (Array A) I64 I64 → Unit ! mut)))))
 
-    ;; `set!` writes a place: a declared field, `(● record count)`, which
-    ;; the checker resolves directly.
-    (primitive set! (∀ (A) (Fn A A → Unit ! mut)))))

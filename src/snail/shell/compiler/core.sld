@@ -49,6 +49,7 @@
    New
    Initializer
    FieldRead
+   FieldWrite
    If
    Let
    Seq
@@ -82,7 +83,9 @@
    Constructor
    Accessor
    accessor-name
+   writer-name
    Replacer
+   Writer
    Method
    Operation
    Primitive
@@ -192,6 +195,7 @@
             "instance"
             "match"
             "●"
+            "set!"
             "ann"
             "extern"
             "primitive"
@@ -530,11 +534,18 @@
       (New
        ((callee Expr)
         (fields (List Initializer))))
-      ;; A nominal field selection. Checking records its resolved accessor
-      ;; expression in the solution; zonking removes this surface operation.
+      ;; A nominal field selection, and a write of the field it selects.
+      ;; Checking records the field each resolves to in the solution, and
+      ;; zonking makes a read a call of the field's accessor and a write a
+      ;; call of its writer, so neither survives checking.
       (FieldRead
        ((record Expr)
         (label String)
+        (resolution (Option I64))))
+      (FieldWrite
+       ((record Expr)
+        (label String)
+        (value Expr)
         (resolution (Option I64))))
       (If
        ((test Expr)
@@ -601,6 +612,7 @@
         ((App callee args) (Cons callee args))
         ((New callee fields) (Cons callee (map (lambda (field) (● field value)) fields)))
         ((FieldRead record _ _) (list record))
+        ((FieldWrite record _ value _) (list record value))
         ((If test then otherwise) (list test then otherwise))
         ((Let _ value body) (list value body))
         ((Seq first rest) (list first rest))
@@ -720,20 +732,24 @@
        (operations (List String))
        (control (List String))))
 
-    ;; The name of the accessor that reads a record's field. A field path
-    ;; resolves to it; the `%` keeps a program from naming it.
+    ;; The names of the accessor that reads a record's field and the writer
+    ;; that writes it. A field path resolves to them; the `%` keeps a
+    ;; program from naming either.
 
     (define (accessor-name (case Case) (index I64)) (→ String)
       (string-append "%get:" (● case name) "-" (● (list-ref (● case fields) index) name)))
+
+    (define (writer-name (case Case) (index I64)) (→ String)
+      (string-append "%set:" (● case name) "-" (● (list-ref (● case fields) index) name)))
 
     ;; What a unique value name denotes. A definition's scheme is its
     ;; signature's, or none until it is inferred, and `signature` is where
     ;; its typed header was written. Every definition is a function. An
     ;; instance method has its class method's scheme and no signature of
     ;; its own; a program never names one directly. A record's fields
-    ;; are read through accessors and replaced through replacers, which
-    ;; alone have a source name; a write names the accessor of its place,
-    ;; and an enum's fields are read by match.
+    ;; are read through accessors, written through writers and replaced
+    ;; through replacers, which alone have a source name; an enum's fields
+    ;; are read by match.
     (enum Value
       (Defined
         ((scheme (Option Scheme))
@@ -742,6 +758,10 @@
        ((case Case)
         (scheme Scheme)))
       (Accessor
+       ((case Case)
+        (index I64)
+        (scheme Scheme)))
+      (Writer
        ((case Case)
         (index I64)
         (scheme Scheme)))
@@ -769,6 +789,7 @@
         ((Defined scheme _) scheme)
         ((Constructor _ scheme) (Some scheme))
         ((Accessor _ _ scheme) (Some scheme))
+        ((Writer _ _ scheme) (Some scheme))
         ((Replacer _ _ scheme) (Some scheme))
         ((Method _ scheme) (Some scheme))
         ((Operation _ scheme) (Some scheme))
