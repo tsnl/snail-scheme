@@ -15,6 +15,10 @@
 ;; `end-pass` (or `end-compute-pass`) and `submit`, and the canvas's
 ;; texture and its views at the
 ;; next `current-texture`. Misuse is reported by WebGPU's own validation.
+;; `work-done` waits until the device has done what was submitted, as
+;; `onSubmittedWorkDone` does: a frame loop whose frames cost the device
+;; more than a display frame waits on the last one, so frames do not
+;; queue up without bound.
 ;;
 ;; A descriptor crosses to the host as a list of fields, words and texts in
 ;; a fixed order per kind ("Descriptors as fields" below), staged as bytes
@@ -59,6 +63,7 @@
    end-compute-pass
    finish
    submit
+   work-done
    current-texture
    destroy
    GpuBuffer
@@ -719,6 +724,7 @@
        (end-compute-pass (Fn GpuComputePass → Unit))
        (finish (Fn GpuCommandEncoder → GpuCommandBuffer))
        (submit (Fn (List GpuCommandBuffer) → Unit))
+       (work-done (Fn → Unit ! tasks))
        (current-texture (Fn → Image))
        (destroy (Fn GpuObject → Unit))))
 

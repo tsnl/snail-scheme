@@ -254,6 +254,7 @@
                                (new GpuCommandBuffer
                                  (id (transient! recording "command-buffer" (list encoder)))))))
                           (submit (lambda (buffers) (submitted! recording buffers)))
+                          (work-done (lambda () (note! recording (list "work-done"))))
                           (current-texture
                            (lambda ()
                              (new Image

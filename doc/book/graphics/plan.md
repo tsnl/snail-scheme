@@ -38,7 +38,10 @@ descriptors, so code using it reads like WebGPU:
 Its operations make buffers, textures, views, samplers, shader modules,
 render and compute pipelines and bind groups, write buffers and textures,
 encode copies, render passes and compute passes, and submit them; `request-device`, `read-buffer` and
-`decode-image` wait for the host by ticket. The calls are procedural;
+`decode-image` wait for the host by ticket, as does `work-done`, which
+waits until the device has done what was submitted, so a loop whose
+frames cost the device more than a display frame does not queue them
+without bound. The calls are procedural;
 effects keep them reasonable. A `! gpu` row says exactly which functions
 touch the device, and handlers customize what the calls do without
 changing their callers. The browser target installs `provide-gpu`
