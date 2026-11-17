@@ -126,11 +126,13 @@ undecided.
 
 ### Specialization and preparation
 
-`specialize.sld` owns one registry and worklist for concrete source
-functions. It reserves an identity before expanding a function's body, which
-permits recursion. Specialization keys contain types and chosen
-class evidence, not runtime handler identities. Cache hits do not spend the
-finite specialization budget again.
+`specialize.sld` is one call, `specialize`: from the program's entry and
+exposures it copies each definition reached once for each set of types it is
+used at, and answers the copies with their declarations, each copy's type. It
+reserves a copy's name, with its type, before copying the body, which
+permits recursion. A copy's name keys its types and control rows, not
+runtime handler identities; asking for a reserved name again does not spend
+the finite specialization budget.
 
 `prepare.sld` specializes the whole reachable graph before inspecting any
 original concrete body, so each check reads complete callees. It checks

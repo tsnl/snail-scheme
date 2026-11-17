@@ -43,47 +43,42 @@
        (entry (Option String))
        (exposed (List Item))))
 
-    (define (prepare-program (typed Typed)) (→ Prepared) (! compile)
-      (prepare (prepare-specialization typed) (● typed items)))
-
     ;; The whole reachable graph is specialized before any original body is
     ;; checked, so each check reads complete callees. Lowering then rewrites
-    ;; each body on its own.
+    ;; each body on its own. The program's entry and exposures name copies.
 
-    (define (prepare (input Specialization) (items (List Item))) (→ Prepared) (! compile)
-      (match (complete-specializations (start-specialization (new-state input) items))
-        ((Pair definitions state)
-         (let* ((roots (filter (lambda (item) (match item ((Define _ _) #f) (_ #t))) items))
-                (items (append roots definitions))
-                (callees (specialization-callees state)))
-           (for-each (lambda (item) (check-item callees item)) items)
-           (prepared state (map (lambda (item) (control-item callees item)) items))))))
-
-    (define (prepared (state State) (items (List Item))) (→ Prepared)
-      (new Prepared (declarations (specialization-declarations state))
-           (definitions (filter (lambda (item) (match item ((Define _ _) #t) (_ #f))) items))
-           (entry (match (find (lambda (item) (match item ((Entry _ _ _) #t) (_ #f))) items)
-                    ((Some (Entry _ start _)) (Some start))
-                    (_ (None))))
-           (exposed (filter (lambda (item) (match item ((Expose _ _ _) #t) (_ #f))) items))))
+    (define (prepare-program (typed Typed)) (→ Prepared) (! compile)
+      (let* ((items (● typed items))
+             (specialized (specialize typed items))
+             (definitions (● specialized definitions))
+             (callees (specialized-callees specialized)))
+        (for-each (lambda (item) (check-item callees item)) definitions)
+        (new Prepared (declarations (● specialized declarations))
+             (definitions (map (lambda (item) (control-item callees item)) definitions))
+             (entry (match (find (lambda (item) (match item ((Entry _ _ _) #t) (_ #f))) items)
+                      ((Some (Entry _ start _)) (Some start))
+                      (_ (None))))
+             (exposed (filter (lambda (item) (match item ((Expose _ _ _) #t) (_ #f))) items)))))
 
     ;; ---- Yields ----
 
     ;; Checks read the original concrete bodies of a closed graph. Emission
     ;; uses the same fixed call contracts with no original bodies attached.
-    ;; Reading/resumption assumptions belong to each inspection, not a binding.
+    ;; What a check assumes about reading and resuming belongs to that
+    ;; check, not to the declarations.
     (record Callees
       ((declarations Declarations)
        (definitions (Table Expr))
        (resumes (List (Pair String String)))
        (reading (Option (List String)))))
 
-    (define (specialization-callees (state State)) (→ Callees)
-      (new Callees (declarations (specialization-declarations state))
-           (definitions (if (null? (● state control))
-                            (empty-table)
-                            (specialization-definitions state)))
-           (resumes (Nil)) (reading (None))))
+    ;; Without control effects nothing yields, so no check reads a body.
+
+    (define (specialized-callees (specialized Specialized)) (→ Callees)
+      (let ((callees (declaration-callees (● specialized declarations))))
+        (if (null? (callees-control callees))
+            callees
+            (Callees-definitions-set callees (item-definitions (● specialized definitions))))))
 
     (define (declaration-callees (declarations Declarations)) (→ Callees)
       (new Callees
@@ -119,18 +114,18 @@
       (match (● callee term)
         ((Ann inner _) (callee-row callees inner))
         ((Var name _ _)
-         (match (table-ref (● (● callees declarations) bindings) name)
-           ((Some binding)
+         (match (table-ref (● (● callees declarations) types) name)
+           ((Some type)
             (filter (lambda (label) (member? label (callees-control callees)))
-                    (definition-row callees name binding)))
+                    (definition-row callees name type)))
            ((None) (declared-row callees name (● callee type)))))
         (_ (call-row (● callee type)))))
 
-    ;; A contextual check reads the cached source body. Recursive inspection
-    ;; uses the declared row.
+    ;; A contextual check reads the callee's specialized body. Recursive
+    ;; inspection uses the declared row.
 
-    (define (definition-row (callees Callees) (name String) (binding Binding)) (→ (List String))
-      (let ((row (call-row (● binding type))))
+    (define (definition-row (callees Callees) (name String) (type Type)) (→ (List String))
+      (let ((row (call-row type)))
         (match (● callees reading)
           ((Some reading)
            (if (member? name reading)
@@ -796,19 +791,15 @@
                                                                                (type (● value
                                                                                         type)))))))
                                                              (empty-table) items))
-                                         (state
-                                          (new-state
-                                           (prepare-specialization (new Typed
-                                                                     (program program)
-                                                                     (items items)
-                                                                     (schemes schemes)))))
+                                         (typed (new Typed
+                                                  (program program)
+                                                  (items items)
+                                                  (schemes schemes)))
                                          ;; Each definition is a root, as an
                                          ;; exposed function is.
                                          (roots (map (lambda (name) (Expose name name loc))
                                                      (table-keys definitions))))
-                                    (specialization-callees
-                                     (● (complete-specializations
-                                         (start-specialization state roots)) second)))))
+                                    (specialized-callees (specialize typed roots)))))
 
           (define callees (test-callees (empty-table)))
 
