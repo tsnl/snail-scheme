@@ -23,11 +23,11 @@
  (gpu-test shaders)
  (gpu-test device))
 
-(record Paint
+(record Paint-uniform
   ((color Vec4f))
   (deriving Pod))
 
-(define paint-shape (→ (Shape Paint)) (shape))
+(define paint-shape (→ (Shape Paint-uniform)) (shape))
 
 (define shader (→ String) (string-append (declarations paint-shape) paint))
 
@@ -168,7 +168,8 @@
     (write-buffer color
                   0
                   (pod-bytes paint-shape
-                             (new Paint (color (new Vec4f (x 1.0) (y 0.0) (z 0.0) (w 1.0))))))
+                             (new Paint-uniform
+                               (color (new Vec4f (x 1.0) (y 0.0) (z 0.0) (w 1.0))))))
     (new Painting
       (target target)
       (target-view (view-of target 1))

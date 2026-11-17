@@ -100,7 +100,9 @@ same 16 bytes; the struct declarations it needs; and, for a vertex buffer,
 `vertex-layout`'s attributes. `pack` writes a list of values at the
 shape's stride, and `pod-bytes` one value. `derive-pod` is a macro beside
 the class, as the other derivations are; a deriving macro receives each
-field's type, so a shape needs no value.
+field's type, so a shape needs no value. Derived record and field names
+use underscores in WGSL wherever their Scheme names have hyphens. For
+example, shaders refer to the record `Paint-uniform` as `Paint_uniform`.
 
 A shader is a file of forms, one per WGSL construct, which
 `shader-library` prints when its recipe runs; its header in
