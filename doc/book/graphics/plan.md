@@ -4,8 +4,10 @@ Applications draw through two layers written in `snail-scheme`: a `gpu`
 effect that is a thin wrapper around WebGPU, and `(snail shell graphics
 ...)` libraries of pipelines and packers on top of it. They replaced a
 fixed JavaScript renderer, `host/browser/renderer.mjs`, and its picture
-store. The effect, `pod`, `wgsl`, `atlas`, `quad`, `mesh`, `raster` and
-`passes` are **implemented**; the rest is **proposed**. Delivery is tracked
+store. The effect, `pod`, `wgsl`, `atlas`, `quad`, `mesh`, `raster`,
+`passes`, `scan`, `radix-sort`, `splat`, `splat-train` and `ply` are
+**implemented**; the
+rest is **proposed**. Delivery is tracked
 in [the graphics issue](https://github.com/tsnl/snail-scheme/issues/463).
 
 Device requests, decoding, pipeline creation and readbacks need only ordinary
@@ -37,7 +39,10 @@ descriptors, so code using it reads like WebGPU:
 Its operations make buffers, textures, views, samplers, shader modules,
 render and compute pipelines and bind groups, write buffers and textures,
 encode copies, render passes and compute passes, and submit them; `request-device`, `read-buffer` and
-`decode-image` wait for the host by ticket. The calls are procedural;
+`decode-image` wait for the host by ticket, as does `work-done`, which
+waits until the device has done what was submitted, so a loop whose
+frames cost the device more than a display frame does not queue them
+without bound. The calls are procedural;
 effects keep them reasonable. A `! gpu` row says exactly which functions
 touch the device, and handlers customize what the calls do without
 changing their callers. The browser target installs `provide-gpu`
@@ -187,11 +192,14 @@ the same function, tested against the G-buffer's depth.
 The lit pass draws into a light target of `light-format`, `rgba16float`,
 so a highlight may be brighter than 1. `draw-post`, through a `Post` made
 for the canvas's format and size, brings it to the screen in two
-full-screen passes (`post.wgsl.scm`). Tone mapping takes the shoulder of
-Khronos's PBR Neutral curve without its toe: a color whose largest channel
-is under 0.8 passes unchanged, so a scene keeps the colors it was drawn
-in, and a brighter one is scaled toward 1, keeping its hue, and
-desaturated a little. FXAA, in the reduced form of Lottes's algorithm many
+full-screen passes (`post.wgsl.scm`). The `Post`'s `Tone` chooses the
+curve. `Neutral`, for light already in display terms, takes the shoulder
+of Khronos's PBR Neutral curve without its toe: a color whose largest
+channel is under 0.8 passes unchanged, so a scene keeps the colors it was
+drawn in, and a brighter one is scaled toward 1, keeping its hue, and
+desaturated a little. `Filmic`, for physical light, is John Hable's curve
+from Uncharted 2 with a white point of 11.2, then encoded as sRGB, since
+the canvas's 8-bit formats are not sRGB formats. FXAA, in the reduced form of Lottes's algorithm many
 WebGL renderers use, then blends each pixel along the edge its diagonal
 neighbors' brightness shows.
 
@@ -209,6 +217,74 @@ object by path each frame cost 31 to 33 ms a second of tasks, and 48 to 52
 when descriptors crossed as JSON, against the old renderer's 20 to 21.
 Textured meshes and sprites are gone from `Frame`; pictures are drawn as
 quads from an atlas.
+
+## Scans, sorts and gaussian splats
+
+`(snail shell graphics scan)` computes an exclusive prefix sum of a storage
+buffer's `u32` numbers in place, by Blelloch's work-efficient scan
+(`scan.wgsl.scm`). A workgroup of 256 invocations scans a tile of 512
+numbers in workgroup memory, an upsweep building a tree of partial sums and
+a downsweep handing each node the sum to its left, and writes the tile's
+total to a buffer of sums one level up. That level is scanned the same way
+until one fits in a tile, and each level's scanned sums are then added back
+to the tiles below it, top down. A `Scan` is made once for a buffer and a
+count, keeping each level's sums, uniform and bind groups, and
+`dispatch-scan` encodes it into a compute pass; dispatches in a pass see
+the writes of those before them.
+
+`(snail shell graphics radix-sort)` sorts `u32` keys and their `u32` values
+in place, least-significant digit first, four bits a pass
+(`radix-sort.wgsl.scm`). A pass counts each block of 256 keys by digit into
+a table laid out digit-major, scans the table with a `Scan`, which gives
+where each block's keys of each digit start, and scatters each key and its
+value there, after the keys of its digit earlier in its block. A key's rank
+in its block is a count of the matching digits before it in workgroup
+memory, the simplest stable ranking, so every pass is stable and the passes
+together sort. A `Sorter` sorts 8, 16, 24 or 32 bits, an even number of
+passes, so they alternate between the given keys and values and a spare
+pair and end where they began. Both libraries are building blocks with no
+knowledge of what they order.
+
+`(snail shell graphics splat)` renders 3D Gaussian Splatting (Kerbl et
+al., 2023) with them. A `Gaussian` is a `Pod` record: its center, the row
+of the transforms table that places it, a unit quaternion, its standard
+deviations and its opacity, already activated; its 16 spherical-harmonic
+colors, to degree 3, sit beside it in a buffer of 48 floats a gaussian. A
+program makes its `Splats` once with room for its gaussians and its
+transforms, writes `Cloud`s of packed gaussians where it likes, and writes
+the transforms table whenever things move, so clouds are posed and
+composed without touching their gaussians. A frame is a compute pass and a
+draw:
+
+- `sort-splats` projects every gaussian, an invocation each
+  (`splat-project.wgsl.scm`): its transform carries its center and its
+  covariance R S Sᵀ Rᵀ into the world, the view and the pinhole's Jacobian
+  at its center carry the covariance to the screen (EWA splatting), 0.3
+  pixels² of blur keeps it at least a pixel wide, and its inverse is the
+  conic the fragment stage evaluates. Its color is its harmonics seen from
+  the eye in its own frame, through the inverse of its transform. Its key
+  is its depth's bits inverted, so a radix sort of the keys puts far before
+  near; a culled gaussian keeps radius 0 and the largest key.
+- `draw-splats` draws a square of each gaussian's radius per instance, in
+  sorted order (`splat-draw.wgsl.scm`), whose fragments blend
+  `exp(-dᵀ conic d / 2)` times its opacity over what is drawn.
+
+This is the reference's math with a global sort and blended quads in place
+of its tiled rasterizer, so it needs no per-tile lists. `(snail shell
+graphics ply)` reads the binary PLY files 3DGS trains into a `Cloud`, its
+header parsed into where each property sits, every gaussian activated and
+given the same transform row. `src/apps/splats` writes one procedural ring
+three times on three transform rows and turns them each frame.
+
+`tests/programs/graphics-splat.sld` reads a PLY file and records the
+dispatches of a frame of 300,000 gaussians; `tests/browser/gpu.mjs` scans
+300,000 numbers in three levels and checks each, sorts 5,000 keys and
+checks the order is stable, and splats three gaussians, then turns one by
+its transform. On an RTX 5090, through headless Chromium on Vulkan, the
+viewer keeps 60 frames a second with room for 60,000, 1,000,000 and
+4,000,000 gaussians, the gaussians it does not write culled but sorted and
+drawn; from submit to the queue's completion takes 3.9, 3.8 and 5.8 ms at
+the median.
 
 ## The `graphics` libraries
 
@@ -234,6 +310,11 @@ Each row is `(snail shell graphics NAME)`:
 | `raster` | A deferred G-buffer pipeline with configurable targets: depth, normal, albedo, metal-roughness, emissive, ids and motion. **Implemented**: albedo, normal, material and depth, with motion and ids when asked, and a forward pipeline for translucent surfaces. |
 | `passes` | Full-screen passes: a fixed sun, tone mapping, FXAA, copies. **Implemented**: the sun, tone mapping and FXAA. |
 | `quad` | 2D quads in world units under a 2D camera, pixel-snapped in the vertex shader, sampling a texture array, including earlier passes' targets. **Implemented.** |
+| `scan` | Blelloch's exclusive prefix sum of `u32` numbers in a storage buffer, over levels of 512-number tiles. **Implemented.** |
+| `radix-sort` | A stable least-significant-digit radix sort of `u32` keys and values, four bits a pass, counting, scanning and scattering by blocks. **Implemented.** |
+| `splat` | 3D Gaussian Splatting: gaussians posed by rows of a transforms table, projected by EWA splatting with spherical harmonics to degree 3, sorted far to near, and blended as quads. **Implemented.** |
+| `ply` | 3D Gaussian Splatting's binary PLY files read into a cloud of activated gaussians. **Implemented.** |
+| `splat-train` | The differentiable splat renderer as a tensor graph: projection by tensor operations, tile binning and a tiled rasterizer as custom nodes with a hand-written backward pass, and L1 with D-SSIM ([tensors](tensors.md#differentiable-splatting)). **Implemented.** |
 | later | `bvh`, compute ray tracing and `svgf`, for path-traced lighting over the rasterized G-buffer. |
 
 - **Sampling an atlas.** Slots carry gutters of repeated edge texels; UVs wrap

@@ -39,4 +39,5 @@
   - [Siegework](games/siegework.md)
 - [Graphics](graphics/index.md)
   - [Proposed WebGPU libraries](graphics/plan.md)
+  - [Tensors and training](graphics/tensors.md)
   - [Path tracing primer](graphics/path-tracing.md)

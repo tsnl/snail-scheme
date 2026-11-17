@@ -33,7 +33,8 @@
                              (source->wat directories
                                           source
                                           (lambda (loading forms) (needs-a-build))
-                                          (Some (list "snail" "target" target)))))
+                                          (Some (list "snail" "target" target))
+                                          (Nil))))
            ((Ok program) (write-file output (● program text)))
            ((Err (Requested _)) (needs-a-build))
            ((Err (Failed diagnostics)) (panic (diagnostics->string diagnostics)))))

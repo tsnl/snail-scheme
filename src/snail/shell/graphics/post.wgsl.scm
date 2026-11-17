@@ -1,8 +1,18 @@
 ;; From the frame's light to the screen, two full-screen triangles. Tone
-;; mapping brings the light into range with the shoulder of Khronos's PBR
-;; Neutral curve: a color whose largest channel is under `knee` passes
-;; unchanged, and a brighter one is scaled down toward 1, keeping its hue,
-;; and desaturated a little, as a bright light looks. FXAA then softens
+;; mapping brings the light into range by one of two curves:
+;;
+;;   tone_fragment    the shoulder of Khronos's PBR Neutral curve, for
+;;                    light already in display terms: a color whose
+;;                    largest channel is under `knee` passes unchanged,
+;;                    and a brighter one is scaled down toward 1, keeping
+;;                    its hue, and desaturated a little, as a bright light
+;;                    looks
+;;   filmic_fragment  John Hable's filmic curve from Uncharted 2, for
+;;                    physical light: each channel through a toe and a
+;;                    shoulder, scaled so `white` maps to 1, then encoded
+;;                    as sRGB, which the canvas's 8-bit format is not
+;;
+;; FXAA then softens
 ;; the edges of what was drawn: it finds an edge's direction from the
 ;; brightness of the four diagonal neighbors and blends along it (Timothy
 ;; Lottes's FXAA, the reduced form many WebGL renderers use).
@@ -31,6 +41,30 @@
 (fn (@fragment) tone_fragment (((@builtin position) position vec4f)) (-> (@location 0) vec4f)
     (let texel (textureLoad light (vec2i (get position xy)) 0))
     (return (vec4f (shoulder (get texel rgb)) 1.0)))
+
+;; Hable's curve: shoulder strength, linear strength and angle, toe
+;; strength, numerator and denominator; the light is doubled first, as
+;; in his, and the white point is 11.2.
+(fn hable ((x vec3f)) (-> vec3f)
+    (let a 0.15)
+    (let b 0.5)
+    (let c 0.1)
+    (let d 0.2)
+    (let e 0.02)
+    (let f 0.3)
+    (return (- (/ (+ (* x (+ (* a x) (* c b))) (* d e)) (+ (* x (+ (* a x) b)) (* d f))) (/ e f))))
+
+(const white 11.2)
+
+(fn srgb ((linear vec3f)) (-> vec3f)
+    (let c (clamp linear (vec3f 0.0) (vec3f 1.0)))
+    (return
+     (select (- (* 1.055 (pow c (vec3f (/ 1.0 2.4)))) 0.055) (* c 12.92) (<= c (vec3f 0.0031308)))))
+
+(fn (@fragment) filmic_fragment (((@builtin position) position vec4f)) (-> (@location 0) vec4f)
+    (let texel (textureLoad light (vec2i (get position xy)) 0))
+    (let mapped (/ (hable (* (max (get texel rgb) (vec3f 0.0)) 2.0)) (hable (vec3f white))))
+    (return (vec4f (srgb mapped) 1.0)))
 
 (fn luma ((color vec3f)) (-> f32)
     (return (dot color (vec3f 0.299 0.587 0.114))))

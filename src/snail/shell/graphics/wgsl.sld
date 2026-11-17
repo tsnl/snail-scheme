@@ -80,7 +80,8 @@
                                    (list (SymbolSyntax (● shader first))
                                          (form "→" (list (SymbolSyntax "String")))
                                          (chunked (shader-text (● shader first)
-                                                               (read-resource (● shader second)))))))
+                                                               (read-resource
+                                                                (● shader second)))))))
                            shaders)))
 
     ;; A long text as literals of at most 8000 characters joined at run
@@ -91,7 +92,9 @@
           (StringSyntax text)
           (form "string-append"
                 (map (lambda (start)
-                       (StringSyntax (substring text (* start 8000) (min (string-length text) (* (+ start 1) 8000)))))
+                       (StringSyntax (substring text
+                                                (* start 8000)
+                                                (min (string-length text) (* (+ start 1) 8000)))))
                      (iota (quotient (+ (string-length text) 7999) 8000))))))
 
     (define (shader-text (name String) (bytes Bytes)) (→ String)

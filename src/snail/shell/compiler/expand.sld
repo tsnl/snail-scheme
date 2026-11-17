@@ -202,6 +202,7 @@
     (record Context
       ((directories (List String))
        (target (Option (List String)))
+       (known (Table LinkedFile))
        (recipe (Option Recipe))
        (prefix String)
        (loading (List String))
@@ -226,6 +227,7 @@
     (define (resumed (outer Context) (inner Context)) (→ Context)
       (new Context (directories (● outer directories))
            (target (● outer target))
+           (known (● outer known))
            (recipe (● outer recipe))
            (prefix (● outer prefix))
            (loading (● outer loading))
@@ -246,10 +248,13 @@
     ;; A file a library links rather than embeds, which the build places
     ;; beside the payload: `digest`, the SHA-256 of its bytes in hex, is the
     ;; name the payload asks its host for and the build ships it under, and
-    ;; `path` is where the build finds the file.
+    ;; `path` is where the build finds the file. `size` and `modified` are
+    ;; the file's when its bytes were read for the digest.
     (record LinkedFile
       ((digest String)
-       (path String)))
+       (path String)
+       (size I64)
+       (modified I64)))
 
     ;; A `link-handle` as the library's body expands: the global its
     ;; expression calls, its path made canonical, where that finds the
@@ -271,11 +276,14 @@
        (libraries (Table Expanded))))
 
     (define (new-context (directories (List String))
-                         (target (Option (List String))))
+                         (target (Option (List String)))
+                         (known (List LinkedFile)))
       (→ Context)
       (new Context
         (directories directories)
         (target target)
+        (known
+         (fold-left (lambda (table file) (table-set table (● file path) file)) (empty-table) known))
         (recipe (None))
         (prefix "")
         (loading (Nil))
@@ -549,7 +557,7 @@
       (→ (Pair (List LinkedFile) Context))
       (! fs compile)
       (let ((linked
-             (map (lambda (use) (new Pair (first use) (second (linked-file (● cx prefix) use))))
+             (map (lambda (use) (new Pair (first use) (second (linked-file cx use))))
                   uses)))
         (new Pair
           (first (delete-duplicates (lambda (a b) (string=? (● a digest) (● b digest)))
@@ -560,16 +568,39 @@
                                           (link-import (● entry second))))
                              cx linked)))))
 
-    ;; The file a use names, read for its digest. A missing file fails the
+    ;; The file a use names, with its digest. A missing file fails the
     ;; library's expansion, naming the library and the path.
 
-    (define (linked-file (library String) (use LinkUse)) (→ LinkedFile) (! fs compile)
+    (define (linked-file (cx Context) (use LinkUse)) (→ LinkedFile) (! fs compile)
       (let ((path (● use path)))
-        (if (file-exists? path)
-            (new LinkedFile (digest (file-digest path)) (path path))
-            (compile-error (● use loc)
-                           (string-append "the library " library " links " (● use relative)
-                                          ", but there is no file at " path)))))
+        (match (followed-status path)
+          ((Ok status) (digested (● cx known) path status))
+          ((Err _)
+           (compile-error (● use loc)
+                          (string-append "the library " (● cx prefix) " links " (● use relative)
+                                         ", but there is no file at " path))))))
+
+    ;; The build's digest of the file, the one it already knows while the
+    ;; file has the size and modification time it had when the build read
+    ;; it, as make trusts a time; otherwise the digest of its bytes. The
+    ;; status is taken before the bytes are read, so a file written in
+    ;; between is read again by the next build.
+
+    (define (digested (known (Table LinkedFile)) (path String) (status FileStatus)) (→ LinkedFile)
+      (! fs)
+      (match (table-ref known path)
+        ((Some file)
+         (if (and (= (● file size) (● status size)) (= (● file modified) (● status modified)))
+             file
+             (read-digest path status)))
+        ((None) (read-digest path status))))
+
+    (define (read-digest (path String) (status FileStatus)) (→ LinkedFile) (! fs)
+      (new LinkedFile
+        (digest (file-digest path))
+        (path path)
+        (size (● status size))
+        (modified (● status modified))))
 
     (define (link-import (file LinkedFile)) (→ Value)
       (Foreign (new Import (module "snail.runtime.link") (symbol (● file digest)))
@@ -775,12 +806,13 @@
     (define (expand-program (directories (List String))
                             (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
                             (target (Option (List String)))
+                            (known (List LinkedFile))
                             (path String))
       (→ ExpandedProgram)
       (! fs compile)
       (handle generator ((run-generator generate))
         (expanded-program
-         (expand-source (new-context directories target) path))))
+         (expand-source (new-context directories target known) path))))
 
     (define (expand-source (cx Context) (path String)) (→ Context) (! fs compile generator)
       (let* ((source (generating-stack (read-source-file path)))
@@ -3430,7 +3462,7 @@
 
       (define callable-signature
         (lambda (text)
-          (let* ((cx (new-context (Nil) (None)))
+          (let* ((cx (new-context (Nil) (None) (Nil)))
                  (imports (fold-left (lambda (table entry)
                                        (table-set table (● entry first) (● entry second)))
                                      (empty-table) core-library))
@@ -3473,6 +3505,7 @@
                 (expand-program (list root)
                                 (lambda (loading forms) (panic "unexpected producer"))
                                 (None)
+                                (Nil)
                                 (string-append root "/main.sld"))))
 
       (define link-error
@@ -3503,6 +3536,7 @@
                                                   (lambda (loading forms)
                                                     (panic "unexpected producer"))
                                                   (None)
+                                                  (Nil)
                                                   (string-append root "/main.sld")) program)))
                   (expect (primitive-scheme program "array-ref")
                           (list (list "A") "(Fn (Array A) I64 → A)"))
@@ -3537,6 +3571,7 @@
                                                  (lambda (loading forms)
                                                    (panic "unexpected producer"))
                                                  (None)
+                                                 (Nil)
                                                  (string-append root "/main.sld"))))
                        (first (expand)))
                   (expect (every? own-run? (expansion-runs first)) #t)

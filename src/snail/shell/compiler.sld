@@ -31,15 +31,18 @@
 
     ;; `generate` runs the producer program of a `generate-library`, given
     ;; the libraries loading when it was reached, and returns the bytes of
-    ;; the syntax it writes.
+    ;; the syntax it writes. `known` are linked files whose digests an
+    ;; earlier build took, trusted while each keeps its size and
+    ;; modification time.
 
     (define (source->checked (directories (List String))
                              (source String)
                              (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
-                             (target (Option (List String))))
+                             (target (Option (List String)))
+                             (known (List LinkedFile)))
       (→ Checked)
       (! fs compile)
-      (let ((expanded (expand-program directories generate target source)))
+      (let ((expanded (expand-program directories generate target known source)))
         (new Checked (expanded expanded) (typed (check-program (● expanded program))))))
 
     ;; The whole program as one module: its text, the libraries it holds,
@@ -53,10 +56,11 @@
     (define (source->wat (directories (List String))
                          (source String)
                          (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
-                         (target (Option (List String))))
+                         (target (Option (List String)))
+                         (known (List LinkedFile)))
       (→ WholeProgram)
       (! mut fs compile)
-      (checked->wat (source->checked directories source generate target)))
+      (checked->wat (source->checked directories source generate target known)))
 
     (define (checked->wat (checked Checked)) (→ WholeProgram) (! mut compile)
       (let ((expanded (● checked expanded)))

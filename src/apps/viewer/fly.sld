@@ -49,7 +49,7 @@
           (held (Nil))
           (drag (None))
           (speed (max 0.5 (* 0.4 extent)))
-          (stops 2.0))))
+          (stops 0.0))))
 
     (define (steered (fly Fly) (input Input)) (→ Fly)
       (match input

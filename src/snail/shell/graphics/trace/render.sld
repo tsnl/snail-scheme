@@ -113,7 +113,7 @@
                     (tracing (uniform "trace/tracing" (stride tracing-shape)))
                     (wave (wave-uniform))
                     (layer-size layer-size)))
-             (post (make-post format width height))
+             (post (make-post format width height (Filmic)))
              (targets (targets-for kit width height)))
         (new Tracer
           (kit kit)
