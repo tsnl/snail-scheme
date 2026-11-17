@@ -20,8 +20,10 @@
     ;; Learning holds the substitutions and obligations accumulated so far.
     ;; A signed body's row identity records which declared effects it uses;
     ;; nested lambdas restore the enclosing body's record on return.
-    ;; `waiting` holds the field selections in `pending` whose receiver's
-    ;; type is not yet known, newest first.
+    ;; `waiting` holds the field selections whose receiver's type is not
+    ;; yet known, newest first; each is also an obligation, in `wanted` or,
+    ;; while a definition group is checked, in the library's obligations
+    ;; the group set aside.
     (record Checker
       ((program Program)
        (locals (Table Type))
@@ -31,7 +33,7 @@
        (counter I64)
        (solution Solution)
        (schemes (Table Scheme))
-       (pending (List Wanted))
+       (wanted (List Wanted))
        (waiting (List Projection))
        (open (List String))
        (performed (List Type))))
@@ -50,7 +52,7 @@
            (counter (● inner counter))
            (solution (● inner solution))
            (schemes (● inner schemes))
-           (pending (● inner pending))
+           (wanted (● inner wanted))
            (waiting (● inner waiting))
            (open (● inner open))
            (performed (● inner performed))))
@@ -81,9 +83,8 @@
     (define (solved-evidence (solution Solution) (id I64)) (→ (Option Evidence))
       (table-ref (● solution evidence) (identity-key id)))
 
-    ;; A class constraint keeps the givens in scope where it arose. A
-    ;; selection waits for its receiver's nominal type; its result and
-    ;; surrounding row participate in inference.
+    ;; A field selection waits for its receiver's nominal type; its result
+    ;; and surrounding row participate in inference.
     (record Projection
       ((record Expr)
        (label String)
@@ -92,6 +93,8 @@
        (hole I64)
        (loc Loc)))
 
+    ;; An obligation. A class constraint keeps the givens in scope where it
+    ;; arose.
     (enum Wanted
       (WantPerformed ((name String) (declared Type) (performed (List Type)) (loc Loc)))
       (WantInclusion ((latent Type) (context Type) (loc Loc)))
@@ -349,12 +352,12 @@
     ;; allocates a fresh tail, so the counter also detects a fixed point.
     (define (propagate-inclusions (ck Checker)) (→ Checker) (! compile)
       (let* ((before (● ck counter))
-             (ck (fold-left propagate-wanted-inclusion ck (reverse (● ck pending)))))
+             (ck (fold-left propagate-wanted-inclusion ck (reverse (● ck wanted)))))
         (if (= before (● ck counter)) ck (propagate-inclusions ck))))
 
     (define (solve-inclusions (ck Checker)) (→ Checker) (! compile)
       (let ((ck (propagate-inclusions ck)))
-        (fold-left finish-wanted-inclusion ck (reverse (● ck pending)))))
+        (fold-left finish-wanted-inclusion ck (reverse (● ck wanted)))))
 
     (define (propagate-wanted-inclusion (ck Checker) (want Wanted)) (→ Checker) (! compile)
       (match want
@@ -531,7 +534,7 @@
     ;; ---- Instantiation ----
 
     (define (want (ck Checker) (wanted Wanted)) (→ Checker)
-      (Checker-pending-set ck (Cons wanted (● ck pending))))
+      (Checker-wanted-set ck (Cons wanted (● ck wanted))))
 
     (define (want-class (ck Checker) (constraint Constraint) (loc Loc)) (→ (Pair Evidence Checker))
       (threading ck ((hole (fresh-identity))
@@ -1316,7 +1319,7 @@
     (define (wildcards (count I64)) (→ (List Pattern))
       (map (lambda (index) (PWild unchecked)) (iota count)))
 
-    (define (specialize (rows (List (List Pattern))) (head Head)) (→ (List (List Pattern)))
+    (define (specialize-rows (rows (List (List Pattern))) (head Head)) (→ (List (List Pattern)))
       (concatenate
        (map (lambda (row)
               (match row
@@ -1349,13 +1352,13 @@
         ((Nil) (null? rows))
         ((Cons first rest)
          (match (head-of first)
-           ((Some head) (useful? ck (specialize rows head) (append (pattern-args first) rest)))
+           ((Some head) (useful? ck (specialize-rows rows head) (append (pattern-args first) rest)))
            ((None)
             (match (complete-signature ck (delete-duplicates head=? (row-heads rows)))
               ((Some all)
                (any? (lambda (head)
                        (useful? ck
-                                (specialize rows head)
+                                (specialize-rows rows head)
                                 (append (wildcards (head-arity head)) rest)))
                      all))
               ((None) (useful? ck (default-rows rows) rest))))))))
@@ -1412,9 +1415,8 @@
     (define (improve-projection (ck Checker) (projection Projection)) (→ Checker) (! compile)
       (match (resolve-projection ck (● projection record) (● projection label) (● projection loc))
         ((None) (Checker-waiting-set ck (Cons projection (● ck waiting))))
-        ((Some (Pair value effects))
-         (threading ck ((then (unify (● projection result) (● value type) (● projection loc)))
-                        (then (perform effects (● projection row) (● projection loc))))
+        ((Some value)
+         (threading ck ((then (unify (● projection result) (● value type) (● projection loc))))
                     (with-projection ck (● projection hole) value)))))
 
     (define (with-projection (ck Checker) (hole I64) (value Expr)) (→ Checker)
@@ -1432,7 +1434,7 @@
 
     ;; Each label selects one stored field of the current nominal object.
     (define (resolve-projection (ck Checker) (record Expr) (label String) (loc Loc))
-      (→ (Option (Pair Expr Type))) (! compile)
+      (→ (Option Expr)) (! compile)
       (let ((owner (resolve-type (solution ck) (● record type))))
         (match owner
           ((TVar _) (None))
@@ -1442,7 +1444,7 @@
                                                (type->string owner)))))))
 
     (define (projection-slot (ck Checker) (record Expr) (owner Type) (label String) (loc Loc))
-      (→ (Option (Pair Expr Type))) (! compile)
+      (→ (Option Expr)) (! compile)
       (match owner
         ((TCon name args)
          (match (table-ref (● (● ck program) types) name)
@@ -1460,14 +1462,12 @@
 
     (define (projection-value (ck Checker) (record Expr) (data DataType) (case Case)
                               (index I64) (args (List Type)) (loc Loc))
-      (→ (Option (Pair Expr Type)))
+      (→ (Option Expr))
       (let* ((field (list-ref (● case fields) index))
              (result (substitute (zip (● data params) args) (● field type)))
              (callee (new Expr (term (Var (accessor-name case index) args (Nil)))
                           (type (TFun (list (● record type)) result empty-row)) (loc loc))))
-        (Some (new Pair
-                (first (new Expr (term (App callee (list record))) (type result) (loc loc)))
-                (second empty-row)))))
+        (Some (new Expr (term (App callee (list record))) (type result) (loc loc)))))
 
     ;; ---- Solving ----
 
@@ -1476,35 +1476,35 @@
     ;; every class constraint is solved with the givens it arose under.
     ;; Field types are improved before and after literal defaulting.
 
-    (define (solve-pending (ck Checker)) (→ Checker) (! compile)
-      (let ((pending (reverse (● ck pending))))
+    (define (solve-wanted (ck Checker)) (→ Checker) (! compile)
+      (let ((wanted (reverse (● ck wanted))))
         (threading ck ((then (improve-types))
-                       (then (default-literals pending #t))
-                       (then (default-literals pending #f))
+                       (then (default-literals wanted #t))
+                       (then (default-literals wanted #f))
                        (then (improve-types)))
                    (for-each (lambda (want)
                                (match want
                                  ((WantField projection) (check-projection ck projection))
                                  ((WantLiteral value type loc) (check-literal ck value type loc))
                                  (_ (unit))))
-                             pending)
+                             wanted)
                    (let ((ck (solve-inclusions
-                              (propagate-inclusions (fold-left solve-pending-class ck pending)))))
-                     (for-each (lambda (want) (check-performed ck want)) pending)
+                              (propagate-inclusions (fold-left solve-wanted-class ck wanted)))))
+                     (for-each (lambda (want) (check-performed ck want)) wanted)
                      ck))))
 
     ;; Class resolution can still add effects to a procedure's inferred row,
     ;; so inclusions are propagated again once every class is solved.
-    (define (solve-pending-class (ck Checker) (want Wanted)) (→ Checker) (! compile)
+    (define (solve-wanted-class (ck Checker) (want Wanted)) (→ Checker) (! compile)
       (match want
         ((WantClass constraint hole givens loc)
          (resumed ck (solve-class ck constraint hole givens loc)))
         (_ ck)))
 
-    (define (default-literals (ck Checker) (pending (List Wanted)) (float? Bool))
+    (define (default-literals (ck Checker) (wanted (List Wanted)) (float? Bool))
       (→ Checker)
       (! compile)
-      (fold-left (lambda (ck want) (default-literal ck want float?)) ck pending))
+      (fold-left (lambda (ck want) (default-literal ck want float?)) ck wanted))
 
     (define (default-literal (ck Checker) (want Wanted) (float? Bool)) (→ Checker) (! compile)
       (match want
@@ -1865,17 +1865,17 @@
     (define (check-group (ck Checker) (definitions (List Definition)) (exposed (List String)))
       (→ (Pair (List Definition) Checker))
       (! compile)
-      (let ((outer (● ck pending)))
-        (threading ck ((then (Checker-pending-set (Nil)))
+      (let ((outer (● ck wanted)))
+        (threading ck ((then (Checker-wanted-set (Nil)))
                        (then (provisional-schemes definitions))
                        (values (each infer-definition definitions))
-                       (then (generalize definitions (● ck pending) exposed)))
+                       (then (generalize definitions (● ck wanted) exposed)))
                    (new Pair
                      (first
                       (map (lambda (pair) (Definition-value-set (● pair first) (● pair second)))
                            (zip definitions values)))
                      (second
-                      (Checker-open-set (Checker-pending-set ck (append (● ck pending) outer))
+                      (Checker-open-set (Checker-wanted-set ck (append (● ck wanted) outer))
                                         (append (definition-names definitions)
                                                 (● ck open))))))))
 
@@ -2028,29 +2028,24 @@
 
     ;; A signature's variables are rigid and its constraints are given. A
     ;; function is checked against it directly, so a mismatch is reported
-    ;; where it occurs.
-    ;; `givens` is scope: the requirements hold while this definition is
-    ;; checked and no longer, so the sub-check runs under its own checker.
+    ;; where it occurs. The givens are scope: they hold while this
+    ;; definition is checked and no longer.
 
     (define (check-annotated (ck Checker) (definition Definition) (scheme Scheme))
       (→ (Pair Item Checker))
       (! compile)
       (within ck
-              (lambda (inner)
-                (check-annotated-value
-                 (Checker-givens-set inner
-                                     (if (null? (● scheme vars)) (Nil) (● scheme constraints)))
-                 definition
-                 scheme))))
-
-    (define (check-annotated-value (ck Checker) (definition Definition) (scheme Scheme))
-      (→ (Pair Item Checker)) (! compile)
-      (let ((value (● definition value)))
-        (threading ck ((then (want-closed-requirements scheme (● value loc)))
-                       (checked (check-result value (● scheme type) empty-row)))
-                   (new Pair
-                     (first (Define (● definition name) checked))
-                     (second (want-performed ck definition scheme))))))
+              (lambda (ck)
+                (let ((value (● definition value))
+                      (ck (Checker-givens-set ck
+                                              (if (null? (● scheme vars))
+                                                  (Nil)
+                                                  (● scheme constraints)))))
+                  (threading ck ((then (want-closed-requirements scheme (● value loc)))
+                                 (checked (check-result value (● scheme type) empty-row)))
+                             (new Pair
+                               (first (Define (● definition name) checked))
+                               (second (want-performed ck definition scheme))))))))
 
     ;; A signature's row says what calling the function may do, so it may
     ;; not name an effect the body never performs. A lambda was checked by
@@ -2125,8 +2120,7 @@
 
     ;; The host may retain values, holding managed references opaquely. The
     ;; trusted host respects `snail-scheme` types and implements the declared
-    ;; effects.
-    ;; What is exposed is a definition's code: a foreign function, a
+    ;; effects. What is exposed is a definition's code: a foreign function, a
     ;; constructor or an operation has none.
 
     (define (check-exposed (ck Checker) (name String) (loc Loc))
@@ -2197,12 +2191,12 @@
                      (counter 0)
                      (solution empty-solution)
                      (schemes schemes)
-                     (pending (Nil))
+                     (wanted (Nil))
                      (waiting (Nil))
                      (open (Nil))
                      (performed (Nil)))))
         (threading ck ((typed (check-items items))
-                       (then (solve-pending)))
+                       (then (solve-wanted)))
                    (check-value-types ck items)
                    (check-exposures ck items)
                    (let ((result
