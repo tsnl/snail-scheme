@@ -1315,12 +1315,11 @@
         (● run first)))
 
     ;; A record whose every value would contain another value of itself,
-    ;; through record fields and cell contents only, can never be built: no
-    ;; finite program constructs one. The backend relies on the rule, since
-    ;; a call that may yield returns a placeholder of its type, a constant
-    ;; it could not write for such a record. Once every declaration of the
-    ;; library is in, each record is checked where it is declared. An empty
-    ;; type is an enum with no cases.
+    ;; through record fields only, can never be built: no finite program
+    ;; constructs one, so declaring it is reported as a mistake. Nothing
+    ;; downstream relies on the rule; whether to keep it is open (#796).
+    ;; Once every declaration of the library is in, each record is checked
+    ;; where it is declared. An empty type is an enum with no cases.
 
     (define (check-buildable-records (cx Context) (env Env) (pending (List Pending))) (→ Unit)
       (! compile)
