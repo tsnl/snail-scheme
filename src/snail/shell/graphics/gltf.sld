@@ -20,9 +20,11 @@
    Placed
    read-gltf
    gltf-bounds
-   gltf-scaled)
+   gltf-scaled
+   uri-path)
   (import
    (snail core base)
+   (snail shell utf8)
    (snail shell json)
    (snail shell json read))
   (begin
@@ -103,10 +105,10 @@
              (images (list->array (map (lambda (texture) (integer-or texture "source" -1))
                                        (items json "textures")))))
         (new Gltf
-          (buffers (map (lambda (buffer) (string-append base (unescaped (text-or buffer "uri" ""))))
+          (buffers (map (lambda (buffer) (string-append base (uri-path (text-or buffer "uri" ""))))
                         (items json "buffers")))
           (size (fold-left max 0 starts))
-          (images (map (lambda (image) (string-append base (unescaped (text-or image "uri" ""))))
+          (images (map (lambda (image) (string-append base (uri-path (text-or image "uri" ""))))
                        (items json "images")))
           (materials
            (map (lambda (material) (material-of material images)) (items json "materials")))
@@ -321,30 +323,44 @@
 
 ;; ---- URIs ----
 
-    ;; A URI's path with each %XX escape of an ASCII character replaced by
-    ;; the character, as a file's name has it.
-    (define (unescaped (uri String)) (→ String)
-      (list->string (unescaped-chars (string->list uri))))
+    ;; A relative URI as the name of the file it refers to: each %XX
+    ;; escape replaced by its byte, the bytes read as UTF-8, and `./`
+    ;; segments dropped. A query string's value is decoded the same way.
+    (define (uri-path (uri String)) (→ String)
+      (match (utf8->string (list->array (unescaped-bytes (array->list (string->utf8 uri)))))
+        ((Ok text) (without-dot-segments text))
+        ((Err _) uri)))
 
-    (define (unescaped-chars (chars (List Char))) (→ (List Char))
-      (match chars
-        ((Cons #\% (Cons high (Cons low rest)))
-         (match (hex-digit high)
-           ((Some h) (match (hex-digit low)
-                       ((Some l) (Cons (integer->char (+ (* 16 h) l)) (unescaped-chars rest)))
-                       ((None) (Cons #\% (unescaped-chars (Cons high (Cons low rest)))))))
-           ((None) (Cons #\% (unescaped-chars (Cons high (Cons low rest)))))))
-        ((Cons char rest) (Cons char (unescaped-chars rest)))
+    (define (unescaped-bytes (bytes (List U8))) (→ (List U8))
+      (match bytes
+        ((Cons percent (Cons high (Cons low rest)))
+         (match (escape (u8->i32 percent) (u8->i32 high) (u8->i32 low))
+           ((Some byte) (Cons byte (unescaped-bytes rest)))
+           ((None) (Cons percent (unescaped-bytes (Cons high (Cons low rest)))))))
+        ((Cons byte rest) (Cons byte (unescaped-bytes rest)))
         ((Nil) (Nil))))
 
-    (define (hex-digit (char Char)) (→ (Option I64))
-      (let ((code (char->integer char)))
-        (cond ((and (>= code 48) (<= code 57)) (Some (- code 48)))
-              ((and (>= code 65) (<= code 70)) (Some (- code 55)))
-              ((and (>= code 97) (<= code 102)) (Some (- code 87)))
-              (else (None)))))
+    (define (escape (percent I32) (high I32) (low I32)) (→ (Option U8))
+      (if (= percent 37)
+          (match (hex-digit high)
+            ((Some h) (match (hex-digit low)
+                        ((Some l) (Some (i32->u8 (+ (* 16 h) l))))
+                        ((None) (None))))
+            ((None) (None)))
+          (None)))
 
-        ;; ---- Bounds ----
+    (define (hex-digit (code I32)) (→ (Option I32))
+      (cond ((and (>= code 48) (<= code 57)) (Some (- code 48)))
+            ((and (>= code 65) (<= code 70)) (Some (- code 55)))
+            ((and (>= code 97) (<= code 102)) (Some (- code 87)))
+            (else (None))))
+
+    (define (without-dot-segments (path String)) (→ String)
+      (if (and (>= (string-length path) 2) (string=? (substring path 0 2) "./"))
+          (without-dot-segments (substring path 2 (string-length path)))
+          path))
+
+    ;; ---- Bounds ----
 
     ;; The corners of the box around every placed primitive, from its
     ;; positions' bounds.

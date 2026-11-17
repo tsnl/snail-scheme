@@ -23,6 +23,7 @@
  (only (snail shell gpu) gpu request-device current-texture view-of work-done)
  (snail shell graphics pod)
  (snail shell graphics raster)
+ (only (snail shell graphics gltf) uri-path)
  (snail shell graphics trace scene)
  (snail shell graphics environment)
  (snail shell graphics trace render)
@@ -30,14 +31,15 @@
 
 (define layer-size (→ I32) 1024)
 
-;; The model the query names after `model=`, up to the next `&`.
+;; The value the query gives `name`, from after `name=` up to the next
+;; `&`, unescaped.
 (define (parameter (address String) (name String)) (→ (Option String))
   (match (found address (string-append name "=") 0)
     ((Some at)
      (let ((rest (substring address (+ at (+ 1 (string-length name))) (string-length address))))
-       (Some (match (string-index rest #\&)
-               ((Some end) (substring rest 0 end))
-               ((None) rest)))))
+       (Some (uri-path (match (string-index rest #\&)
+                         ((Some end) (substring rest 0 end))
+                         ((None) rest))))))
     ((None) (None))))
 
 (define sponza-eye (→ String) "9,1.6,-0.4,1.5708,0.12")
