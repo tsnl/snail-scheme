@@ -56,16 +56,14 @@ pass 34 32
 set-pipeline 34 20
 set-bind-group 34 0 21
 draw 34 3 1 0 0
+set-pipeline 34 3
+set-bind-group 34 0 9
+set-bind-group 34 2 10
+set-bind-group 34 1 27
+set-vertex-buffer 34 0 6 0
+set-vertex-buffer 34 1 28 0
+set-index-buffer 34 7 uint32 0
+draw-indexed-indirect 34 29 0
 end-pass 34
-pass 35 32
-set-pipeline 35 3
-set-bind-group 35 0 9
-set-bind-group 35 2 10
-set-bind-group 35 1 27
-set-vertex-buffer 35 0 6 0
-set-vertex-buffer 35 1 28 0
-set-index-buffer 35 7 uint32 0
-draw-indexed-indirect 35 29 0
-end-pass 35
-command-buffer 36 32
-submit 36
+command-buffer 35 32
+submit 35

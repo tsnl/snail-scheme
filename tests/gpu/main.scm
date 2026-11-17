@@ -307,10 +307,12 @@
     (let ((pass (begin-gbuffer encoder g)))
       (draw-surface pass r tiles)
       (end-pass pass))
-    (sun-pass encoder
-              (view-of target 1)
-              (new Color (red 0.0) (green 0.0) (blue 0.0) (alpha 1.0))
-              light)
+    (let ((pass (begin-lit encoder
+                           (view-of target 1)
+                           (new Color (red 0.0) (green 0.0) (blue 0.0) (alpha 1.0))
+                           g)))
+      (draw-sun pass light)
+      (end-pass pass))
     (copy-texture-to-buffer encoder (whole-texture target) readback 0 256 4 4)
     (submit (list (finish encoder)))
     (read-buffer readback 0 16)))

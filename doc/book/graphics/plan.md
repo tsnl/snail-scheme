@@ -165,22 +165,24 @@ view-projection and its inverse, computed in closed form for a pinhole or
 parallel lens, so the sun pass recovers each pixel's position from its
 depth. A solid surface writes albedo, normal, material (metalness,
 roughness, glow) and depth; a revealed batch discards outside its disc.
-`sun-pass` of `(snail shell graphics passes)`, through its `Sunlight`
-(the pipeline, and a bind group over the G-buffer), clears the target to
-the background and lights each surface by Cook-Torrance under the sun and
-the ambient light (`lighting.wgsl.scm`). Translucent surfaces are then
-drawn over it, lit by the same function, testing the G-buffer's depth
-without writing it.
+A second pass, `begin-lit`, clears the target to the background and holds
+the G-buffer's depth read-only, so the pass can both sample it and test
+against it. In it, `draw-sun` of `(snail shell graphics passes)`, through
+its `Sunlight` (the pipeline, and a bind group over the G-buffer), lights
+each surface by Cook-Torrance under the sun and the ambient light
+(`lighting.wgsl.scm`). Translucent surfaces are then drawn over it, lit by
+the same function, tested against the G-buffer's depth.
 
 `(snail shell app)`'s `draw-frame` draws Siegework's `Frame` this way,
 keeping each batch's surface until the batch's version changes, so a still
 frame writes only the camera and the sun. Siegework's frames match the old
-renderer's shading. On headless Chromium's software WebGPU, the page's
-main thread spends 23 to 25 ms a second in tasks against the old
-renderer's 20 to 21; the GPU's own calls cost both about 10. Per frame the
-program makes one object, the canvas's view, writes the camera and the
-sun, and draws 8 times over three passes. When it found every object by path each frame it
-spent 31 to 33, and 48 to 52 when its descriptors crossed as JSON.
+renderer's shading. On an RTX 5090, through headless Chromium on Vulkan,
+the page's main thread spends 0.28 ms a frame at 60 frames a second,
+against the old renderer's 0.24. Per frame the program makes one object,
+the canvas's view, writes the camera and the sun, and draws 8 times over
+two passes. On Chromium's software WebGPU, three passes and finding every
+object by path each frame cost 31 to 33 ms a second of tasks, and 48 to 52
+when descriptors crossed as JSON, against the old renderer's 20 to 21.
 Textured meshes and sprites are gone from `Frame`; pictures are drawn as
 quads from an atlas.
 

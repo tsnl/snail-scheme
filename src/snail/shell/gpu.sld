@@ -198,6 +198,7 @@
    DepthLoad
    ClearDepth
    KeepDepth
+   ReadOnlyDepth
    ColorAttachment
    DepthAttachment
    RenderPassDescriptor
@@ -605,9 +606,13 @@
       (Clear ((color Color)))
       (Keep))
 
+    ;; A read-only depth attachment neither loads nor stores, and its
+    ;; attachment's `store` is ignored: the pass tests against it and may
+    ;; sample it as a texture too.
     (enum DepthLoad
       (ClearDepth ((depth F64)))
-      (KeepDepth))
+      (KeepDepth)
+      (ReadOnlyDepth))
 
     (record ColorAttachment
       ((view GpuTextureView)
