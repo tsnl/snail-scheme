@@ -358,7 +358,7 @@
       (let ((group (create-bind-group
                     (new BindGroupDescriptor
                       (label (string-append "atlas/" (● atlas name) "/source"))
-                      (pipeline (● atlas pipeline))
+                      (pipeline (RenderPipeline (● atlas pipeline)))
                       (group 0)
                       (entries (list (TextureEntry 0 (source-view atlas (● indexed second source)))
                                      (BufferEntry 1 swaps 0 0)))))))

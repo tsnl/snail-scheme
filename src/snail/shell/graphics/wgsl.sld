@@ -28,6 +28,7 @@
 ;; | `(for (init c update) s …)`, `(while c s …)`, `(loop s …)`, `(begin s …)` | `for (init; c; update) { … }` … |
 ;; | `(+ a b c)`, `(- a)`, `(and a b)`, `(or a b)`, `(not a)` | `(a + b + c)`, `(-a)`, `(a && b)`, `(a \|\| b)`, `(!a)` |
 ;; | `(bit-and a b)`, `(bit-or a b)`, `(bit-xor a b)`, `(bit-not a)` | `(a & b)`, `(a \| b)`, `(a ^ b)`, `(~a)` |
+;; | `(address-of p)`, `(deref p)` | `(&p)`, `(*p)` |
 ;; | `(get e x)`, `(get e x y)`, `(at e i)` | `e.x`, `e.x.y`, `e[i]` |
 ;; | `(f a b)`, `((vec4 f32) a)`, `((bitcast u32) x)` | `f(a, b)`, `vec4<f32>(a)`, `bitcast<u32>(x)` |
 ;; | `(array f32 4)` as a type | `array<f32, 4>` |
@@ -324,6 +325,8 @@
       (cond ((string=? name "-") (Some "-"))
             ((string=? name "not") (Some "!"))
             ((string=? name "bit-not") (Some "~"))
+            ((string=? name "address-of") (Some "&"))
+            ((string=? name "deref") (Some "*"))
             (else (None))))
 
     (define (binary (name String)) (→ (Option String))
