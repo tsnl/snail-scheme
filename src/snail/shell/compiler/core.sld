@@ -95,6 +95,8 @@
    Entry
    Expose
    item-definitions
+   Definition
+   Definition-value-set
    Program
    Program-items-set
    empty-program
@@ -799,6 +801,14 @@
        ((name String)
         (symbol String)
         (loc Loc))))
+
+    ;; A definition taken out of its item: what the checker infers or
+    ;; checks, and what specialization and preparation hand on, which hold
+    ;; nothing else.
+
+    (record Definition
+      ((name String)
+       (value Expr)))
 
     ;; The value of each definition among `items`, by name.
 
