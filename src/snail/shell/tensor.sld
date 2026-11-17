@@ -31,6 +31,7 @@
    Unsigned
    Signed
    etype-wgsl
+   same-etype?
    Accessor
    dense-accessor
    contiguous-pitch

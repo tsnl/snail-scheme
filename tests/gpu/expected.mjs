@@ -21,6 +21,7 @@ export const deviceLines = [
   'filmic: 186 0 0 255 186 0 0 255 159 159 159 255 159 159 159 255',
   'squares: 1 4 9 16 10000',
   'planes: -0.25 -0.0 16777217 -1 0',
+  'billboard: 73 stationary',
   // An exclusive scan of i mod 3 over three levels of tiles, checked at
   // every index; a stable sort of 5,000 keys; and splats: red at the
   // left, green over red at the center, blue at the right, faint green
@@ -39,6 +40,8 @@ export const deviceLines = [
   // does, every param's gradient of L1 and D-SSIM against central
   // differences, and Adam fitting a cloud to a rendered one.
   'splat forward: blends as the paper does',
+  'shared fill: #t',
+  'splat tile ranges: 0 2 2 3 3 4',
   'splat gradients: means agree, scales agree, rotations agree, opacities agree, dc agree, degree1 agree, degree2 agree, degree3 agree',
   'splat fit: the loss falls by more than four times',
 ];

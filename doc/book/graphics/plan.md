@@ -181,7 +181,8 @@ The `Raster` and the `GBuffer` are made for the same `Planes`, which may
 add two more. Motion, `rg16float`, is the screen motion in texture
 coordinates from where the pixel's surface was in the last frame:
 `write-raster` returns the raster with the frame's camera kept, so the
-next frame's vertices are placed under both cameras. The `r32uint` plane
+next frame's vertices are placed under both cameras. An upright sprite
+faces each frame's viewing direction when computing its motion. The `r32uint` plane
 holds all 32 bits of each instance's `id` field, with 0 where nothing
 is drawn. `read-id` returns those bits as an `I32` for picking. A plane
 left out has no target in the pipeline and no attachment in the pass,
