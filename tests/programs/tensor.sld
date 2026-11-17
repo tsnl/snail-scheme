@@ -56,7 +56,9 @@
     (show-values "max" (only-value (list (amax x (list 0 1))) inputs))
     (show-values "where"
                  (only-value (list (where (greater x (fill 2.5 (Nil) (Float))) x (negate x)))
-                             inputs))))
+                             inputs))
+    (show-values "concat" (only-value (list (concat (list x (narrow x 1 0 1)) 1)) inputs))
+    (show-shape "stack" (stack (list x x x) 2))))
 
 (define (rows) (→ Unit) (! output-port)
   (let* ((x (param "x" (list 3 2) (Float)))
@@ -132,7 +134,11 @@
          (smooth (sum-all (* (sigmoid (matmul x w)) (tensor-exp (* (scalar 0.5) (tensor-sin b))))))
          (sliced
           (sum-all (* (narrow (transpose w) 1 1 2) (transpose (narrow (narrow x 0 0 2) 1 1 2)))))
-         (picked (sum-all (absolute (- (amax (matmul x w) (list 1)) (amin y (list 1)))))))
+         (picked (sum-all (absolute (- (amax (matmul x w) (list 1)) (amin y (list 1))))))
+         (stacked (sum-all (square (concat (list (narrow w 1 0 1)
+                                                 (* w (narrow w 1 1 1))
+                                                 (transpose (narrow x 0 0 2)))
+                                           1)))))
     (check "fit dw" fit w inputs)
     (check "fit db" fit b inputs)
     (check "fit dx" fit x inputs)
@@ -142,6 +148,8 @@
     (check "sliced dx" sliced x inputs)
     (check "picked dw" picked w inputs)
     (check "picked dy" picked y inputs)
+    (check "stacked dw" stacked w inputs)
+    (check "stacked dx" stacked x inputs)
     (show-shape "fit dx" (list-ref (grad fit (list x)) 0))))
 
 (define (rows-gradient) (→ Unit) (! output-port)

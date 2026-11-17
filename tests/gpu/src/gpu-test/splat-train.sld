@@ -1,0 +1,242 @@
+;; The differentiable splat renderer on the device, at 64x48 pixels: one
+;; gaussian's pixel against the paper's blend computed by hand; the
+;; gradient of the full loss, L1 and D-SSIM, with respect to each of three
+;; wide gaussians' params against central differences of the loss on the
+;; device; and Adam pulling a perturbed cloud toward a rendered one.
+(define-library (gpu-test splat-train)
+  (export
+   splat-forward-check
+   splat-gradient-check
+   splat-fit-check)
+  (import
+   (snail core base)
+   (snail core table)
+   (only (snail shell task) tasks)
+   (only (snail shell gpu) gpu)
+   (only (snail shell math) exp log sin)
+   (rename (snail shell tensor)
+           (exp tensor-exp)
+           (log tensor-log)
+           (sin tensor-sin))
+   (only (snail shell tensor eval) bytes->values values->bytes)
+   (snail shell tensor grad)
+   (snail shell tensor compile)
+   (snail shell tensor adam)
+   (snail shell graphics splat-train))
+  (begin
+
+    ;; ---- Scenes ----
+
+    (define sensor (→ Sensor) (new Sensor (width 64) (height 48) (capacity 4096)))
+
+    ;; Looking down +z from the origin, 50 pixels a unit at depth 1.
+    (define camera-values
+      (→ (Array F64))
+      (list->array (list 1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 50.0 50.0 32.0 24.0)))
+
+    ;; Each param's values, by name, for gaussians given as rows of
+    ;; x y z, log scale, opacity logit and degree-0 color.
+    (record Splat
+      ((x F64)
+       (y F64)
+       (z F64)
+       (scale F64)
+       (logit F64)
+       (red F64)))
+
+    (define (cloud-values (splats (List Splat))) (→ (List (Pair String (Array F64))))
+      (let ((each (lambda (f) (list->array (concatenate (map f splats))))))
+        (list (new Pair (first "means") (second (each (lambda (s) (list (● s x) (● s y) (● s z))))))
+              (new Pair
+                (first "scales")
+                (second (each (lambda (s) (list (● s scale) (* 1.2 (● s scale)) (● s scale))))))
+              (new Pair
+                (first "rotations")
+                (second (each (lambda (s) (list 0.1 (* 0.5 (● s x)) 0.05 1.0)))))
+              (new Pair (first "opacities") (second (each (lambda (s) (list (● s logit))))))
+              (new Pair
+                (first "dc")
+                (second (each (lambda (s) (list (● s red) 0.2 (- 0.0 (● s red)))))))
+              (new Pair
+                (first "rest")
+                (second (each (lambda (s)
+                                (map (lambda (k) (* 0.05 (sin (+ k (● s x))))) (iota-f 45)))))))))
+
+    (define (iota-f (count I64)) (→ (List F64)) (map i64->f64 (iota count)))
+
+    (define three
+      (→ (List Splat))
+      (list (new Splat (x -0.4) (y -0.1) (z 4.0) (scale -1.6) (logit 0.5) (red 1.0))
+            (new Splat (x 0.3) (y 0.2) (z 4.5) (scale -1.4) (logit 0.0) (red -0.5))
+            (new Splat (x 0.0) (y 0.0) (z 5.0) (scale -1.2) (logit -0.3) (red 0.3))))
+
+    ;; Gaussians 16 to 21 pixels across, so wide that where their alpha
+    ;; falls to 1/255, which the rasterizer skips, is off the image: a
+    ;; pixel crossing that step would move the loss by more than any
+    ;; small nudge's gradient.
+    (define wide
+      (→ (List Splat))
+      (map (lambda (s) (Splat-scale-set s (+ (● s scale) 2.1))) three))
+
+    (define (written (program Program) (values (List (Pair String (Array F64))))) (→ Unit) (! gpu)
+      (for-each
+       (lambda (pair) (write-param program (● pair first) (values->bytes (● pair second) (Float))))
+       values)
+      (write-param program "camera" (values->bytes camera-values (Float))))
+
+    (define (scalar-sink (program Program)) (→ F64) (! gpu tasks)
+      (array-ref (bytes->values (read-sink program 0) (Float)) 0))
+
+    ;; ---- Forward ----
+
+    ;; One gaussian at depth 4 with scale 0.2, 2.5 pixels on the screen,
+    ;; opacity 1/2, color 0.5 + C0 (1, 0, -1), seen from pixel (31, 23),
+    ;; half a pixel from its center on each axis.
+
+    (define (splat-forward-check) (→ String) (! gpu tasks)
+      (let* ((cloud (splat-params 1))
+             (image (render cloud (camera-param) sensor))
+             (program (compile-program "forward" (list image) (Nil))))
+        (written program
+                 (list (new Pair (first "means") (second (list->array (list 0.0 0.0 4.0))))
+                       (new Pair
+                         (first "scales")
+                         (second (list->array (list (log 0.2) (log 0.2) (log 0.2)))))
+                       (new Pair (first "rotations") (second (list->array (list 0.0 0.0 0.0 1.0))))
+                       (new Pair (first "opacities") (second (list->array (list 0.0))))
+                       (new Pair (first "dc") (second (list->array (list 1.0 0.0 -1.0))))
+                       (new Pair (first "rest") (second (array-generate 45 (lambda (_) 0.0))))))
+        (run-program program)
+        (let* ((pixels (bytes->values (read-sink program 0) (Float)))
+               (variance (+ 6.25 0.3))
+               (alpha (* 0.5 (exp (* -0.5 (/ 0.5 variance)))))
+               (expected
+                (map (lambda (c) (* alpha (+ 0.5 (* 0.28209479177387814 c)))) (list 1.0 0.0 -1.0)))
+               (got (map (lambda (k) (array-ref pixels (+ (* 3 (+ (* 23 64) 31)) k))) (iota 3))))
+          (release-program program)
+          (if (every? (lambda (pair) (< (abs (- (● pair first) (● pair second))) 0.001))
+                      (zip got expected))
+              "blends as the paper does"
+              (string-join (map f64->string got) " ")))))
+
+    ;; ---- Gradients ----
+
+    ;; The loss against a gray target, and each param's gradient, then
+    ;; each element of each param nudged both ways on the device.
+
+    (define (loss-of (cloud Cloud)) (→ View)
+      (photometric-loss (render cloud (camera-param) sensor)
+                        (param "target" (list 48 64 3) (Float))
+                        0.2))
+
+    (define (splat-gradient-check) (→ String) (! gpu tasks)
+      (let* ((cloud (splat-params 3))
+             (loss (loss-of cloud))
+             (grads (compile-program "grads" (grad loss (cloud-views cloud)) (Nil)))
+             (losses (compile-program "losses" (list loss) (Nil)))
+             (values (cloud-values wide))
+             (target
+              (array-generate (* 48 (* 64 3)) (lambda (i) (* 0.3 (i64->f64 (remainder i 3)))))))
+        (written grads values)
+        (written losses values)
+        (write-param grads "target" (values->bytes target (Float)))
+        (write-param losses "target" (values->bytes target (Float)))
+        (run-program grads)
+        (let ((report
+               (string-join (map-indexed (lambda (k pair) (group-report grads losses values k pair))
+                                         values)
+                            ", ")))
+          (release-program grads)
+          (release-program losses)
+          report)))
+
+    ;; Whether a param's gradient agrees with central differences, to 5%
+    ;; of the larger and 2e-5, element by element; `rest` checks its
+    ;; first nine elements, degree 1.
+    (define (group-report (grads Program)
+                          (losses Program)
+                          (values (List (Pair String (Array F64))))
+                          (k I64)
+                          (pair (Pair String (Array F64))))
+      (→ String)
+      (! gpu tasks)
+      (let* ((name (● pair first))
+             (base (● pair second))
+             (analytic (bytes->values (read-sink grads k) (Float)))
+             (checked (min 9 (array-length base)))
+             (bad (find (lambda (i)
+                          (let ((a (array-ref analytic i)) (d (difference losses name base i)))
+                            (> (abs (- a d)) (+ 0.00002 (* 0.05 (max (abs a) (abs d)))))))
+                        (iota (if (string=? name "rest") checked (array-length base))))))
+        (match bad
+          ((Some i)
+           (string-append name " " (show i) ": " (f64->string (array-ref analytic i)) " not "
+                          (f64->string (difference losses name base i))))
+          ((None) (string-append name " agree")))))
+
+    (define (difference (losses Program) (name String) (base (Array F64)) (i I64))
+      (→ F64)
+      (! gpu tasks)
+      (let* ((h 0.01)
+             (at (lambda (delta)
+                   (write-param losses name
+                                (values->bytes (array-generate (array-length base)
+                                                               (lambda (j)
+                                                                 (if (= j i)
+                                                                     (+ (array-ref base j) delta)
+                                                                     (array-ref base j))))
+                                               (Float)))
+                   (run-program losses)
+                   (scalar-sink losses)))
+             (above (at h))
+             (below (at (negate h))))
+        (write-param losses name (values->bytes base (Float)))
+        (/ (- above below) (* 2.0 h))))
+
+    ;; ---- Fitting ----
+
+    ;; The three gaussians rendered as a target, then a cloud started half
+    ;; a scale smaller and dimmer fitted to it by Adam for 200 steps.
+
+    (define (splat-fit-check) (→ String) (! gpu tasks)
+      (let* ((truth (splat-params 3))
+             (target-program
+              (compile-program "truth" (list (render truth (camera-param) sensor)) (Nil))))
+        (written target-program (cloud-values three))
+        (run-program target-program)
+        (let ((target (read-sink target-program 0)))
+          (release-program target-program)
+          (fitted target))))
+
+    (define (fitted (target Bytes)) (→ String) (! gpu tasks)
+      (let* ((cloud (splat-params 3))
+             (loss (loss-of cloud))
+             (grads (grad loss (cloud-views cloud)))
+             (rates (list 0.002 0.005 0.001 0.05 0.0025 0.000125))
+             (program (compile-program "fit"
+                                       (list loss)
+                                       (adam-updates "adam"
+                                                     (adam 0.9 0.999 1e-15)
+                                                     (map (lambda (k)
+                                                            (new Trained
+                                                              (param
+                                                               (list-ref (cloud-views cloud) k))
+                                                              (grad (list-ref grads k))
+                                                              (rate (scalar (list-ref rates k)))))
+                                                          (iota 6))))))
+        (written program
+                 (cloud-values (map (lambda (s)
+                                      (Splat-logit-set (Splat-scale-set s (- (● s scale) 0.5))
+                                                       (- (● s logit) 1.0)))
+                                    three)))
+        (write-param program "target" target)
+        (run-program program)
+        (let ((first-loss (scalar-sink program)))
+          (for-each (lambda (_) (run-program program)) (iota 200))
+          (let ((last-loss (scalar-sink program)))
+            (release-program program)
+            (if (< last-loss (* 0.25 first-loss))
+                "the loss falls by more than four times"
+                (string-append (f64->string first-loss) " to " (f64->string last-loss)))))))
+
+    ))

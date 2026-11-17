@@ -32,6 +32,7 @@ nodes.
 | `Matmul` | `(..., m, k)` by `(..., k, n)` |
 | `Copy`, `Place` | A view made dense; a gradient placed at a view's addresses |
 | `Gather`, `ScatterAdd` | Rows by `u32` index, and their adjoint |
+| `Concat` | Views joined along an axis; `stack` joins them along a new one |
 | `Sort`, `PrefixSum` | `u32` keys and values sorted stably; an exclusive prefix sum |
 | `CustomKind` | Kernels a library writes in WGSL, with their own adjoint |
 
@@ -50,7 +51,9 @@ its own adjoint. A view's gradient reaches its port through the view's
 accessor: it is summed over the axes the view broadcasts, then reshaped
 when the view reads its whole port in order, or placed at the addresses it
 reads otherwise. Sorts, prefix sums, comparisons and bit operations pass no
-gradient.
+gradient. A custom node's adjoint that needs the node's other ports, as a
+backward pass needs what its forward pass kept, builds the same node again
+from its arguments, and content addressing gives back the node itself.
 
 `(adam-updates prefix settings trained)` builds Adam's step for each
 `Trained` param, gradient and rate, the rate being a view so a schedule is
@@ -84,13 +87,59 @@ design](plan.md#scans-sorts-and-gaussian-splats)). Every dispatch is in one
 compute pass, so each sees the writes of those before it, and dispatches of
 more than 65,535 workgroups are laid out in rows.
 
+A kernel binds at most the eight storage buffers every device allows, so
+`concat` joins more than six views in a tree, and a custom node packs what
+it reads.
+
 Buffers are pooled by liveness: once the last node reading a port has been
 dispatched, its buffer returns to a pool, and a later port of its size
 takes it. Params, constants, sinks and updated values keep their buffers.
 
 `tests/programs/tensor.sld` evaluates each kind on the CPU and checks every
 gradient `grad` builds against central differences. `tests/browser/gpu.mjs`
-compiles ten sinks covering every generated kernel, reductions in levels,
+compiles eleven sinks covering every generated kernel, reductions in levels,
 float scatters and a sort, and finds each equal to the CPU's evaluation to
 a part in a thousand. It then fits a line with Adam in 1,000 runs of one
 program.
+
+## Differentiable splatting
+
+`(snail shell graphics splat-train)` is the renderer 3DGS training descends
+through, built as a tensor graph. `render` draws a `Cloud` of params
+(`splat-params`) from a camera param into an H x W x 3 image.
+
+- **Projection is ordinary tensor operations, so `grad` derives its
+  gradient.** Each gaussian's normalized quaternion and exponentiated
+  scale make its covariance R S Sᵀ Rᵀ. The camera carries it to the screen
+  through the pinhole's Jacobian at its center (EWA splatting), with the
+  center's slope clamped and 0.3 pixels² added, as the reference does. Its
+  degree-3 spherical harmonics, seen from the eye, give its color.
+- **Binning is custom kernels around the middleware's sorts.** The kernels
+  are `splat-count`, `splat-keys` and `splat-ranges`. Gaussians are sorted
+  by depth, and each one's tiles emitted in that order at the prefix sum of
+  their counts. A stable sort by tile then leaves each 16x16 tile's entries
+  near to far. Binning passes no gradient.
+- **Rasterizing is a custom node** (`splat-forward`), a workgroup per tile.
+  It blends as the paper does and keeps each pixel's final transmittance
+  and its count of entries. Its adjoint is another custom node
+  (`splat-backward`), which walks the entries far to near, undoing the
+  transmittance. It adds each gaussian's nine gradients with a float
+  compare-and-swap loop.
+- **The loss is `photometric-loss`:** (1 − λ) L1 + λ (1 − SSIM), the
+  reference's. SSIM's 11-pixel window is a custom separable blur
+  (`splat-blur`), which is its own adjoint since its weights are symmetric
+  and its edges zero; the rest of SSIM is tensor operations.
+  `rgba8-image` turns texels copied from a texture into the target image.
+
+`tests/browser/gpu.mjs` checks the renderer on the device at 64x48 pixels:
+
+- one gaussian's pixel equals the paper's blend computed by hand;
+- each of three gaussians' 59 params' gradients equals a central difference
+  of the loss on the device, to 5%;
+- Adam brings a dimmer, smaller cloud's loss against a rendered target down
+  by more than four times in 200 steps.
+
+The gradient check's gaussians are wide, so the contour where alpha falls
+to 1/255, which the rasterizer skips, is off the image. A pixel crossing
+that step changes the loss by more than a small nudge's gradient does, and
+the reference's gradient, like this one, ignores the step.

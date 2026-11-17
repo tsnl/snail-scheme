@@ -8,6 +8,8 @@ column add: 0.0 2.0 4.0 3.0 5.0 7.0
 matmul: 5.0 14.0 14.0 50.0
 max: 5.0
 where: 0.0 -1.0 -2.0 3.0 4.0 5.0
+concat: 0.0 1.0 2.0 0.0 3.0 4.0 5.0 3.0
+stack: 2x3x3
 gather: 4.0 5.0 0.0 1.0 4.0 5.0 2.0 3.0
 scatter-add: 0.0 1.0 2.0 3.0 8.0 10.0
 scan: 0.0 2.0 2.0 4.0
@@ -23,6 +25,8 @@ sliced dw: agrees
 sliced dx: agrees
 picked dw: agrees
 picked dy: agrees
+stacked dw: agrees
+stacked dx: agrees
 fit dx: 4x3
 gather dx: agrees
 gather dx: -1.0 -0.5 0.0 0.5 2.0 3.0

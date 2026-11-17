@@ -680,12 +680,11 @@
                    (zip shape (contiguous-pitch shape))))
 
     ;; The address of the element at `index` under an accessor; an axis of
-    ;; one element or of pitch 0 adds nothing.
+    ;; pitch 0 adds nothing.
     (define (address (a Accessor) (index (List String))) (→ String)
       (let ((terms (filter-map (lambda (k)
-                                 (let ((size (list-ref (● a shape) k))
-                                       (pitch (list-ref (● a pitch) k)))
-                                   (if (or (= size 1) (= pitch 0))
+                                 (let ((pitch (list-ref (● a pitch) k)))
+                                   (if (= pitch 0)
                                        (None)
                                        (Some (if (= pitch 1)
                                                  (list-ref index k)
@@ -751,6 +750,7 @@
                                          ";\n"))
                          ((Matmul) (matmul-text n))
                          ((Gather) (gather-text n))
+                         ((Concat axis) (concat-text n axis))
                          ((Reduce op axes) (small-reduce-text n op axes))
                          (_ (panic "tensor compile: no thread kernel for this node"))))))
 
@@ -832,6 +832,48 @@
         (string-append "  out[i] = "
                        (load n 0 (address (● source accessor) (Cons row (list-tail index 1))))
                        ";\n")))
+
+    ;; The output's index on the joined axis picks the argument whose span
+    ;; holds it.
+    (define (concat-text (n Node) (axis I64)) (→ String)
+      (let ((index (indices "i" (● (port-of n default-port) shape))))
+        (string-append "  let c = " (list-ref index axis) ";\n"
+                       (string-join (map-indexed (lambda (k span)
+                                                   (string-append (if (= k 0) "  if" " else if")
+                                                                  " (c < "
+                                                                  (u (+ (● span first)
+                                                                        (● span second)))
+                                                                  ") { out[i] = "
+                                                                  (load n
+                                                                        k
+                                                                        (address
+                                                                         (● (list-ref (● n args) k)
+                                                                            accessor)
+                                                                         (map-indexed
+                                                                          (lambda (j text)
+                                                                            (if (= j axis)
+                                                                                (string-append
+                                                                                 "(c - "
+                                                                                 (u (● span first))
+                                                                                 ")")
+                                                                                text))
+                                                                          index)))
+                                                                  "; }"))
+                                                 (spans-of (● n args) axis))
+                                    "")
+                       "\n")))
+
+    ;; Where each view starts on `axis` when they are joined, and its size.
+    (define (spans-of (views (List View)) (axis I64)) (→ (List (Pair I64 I64)))
+      (reverse (● (fold-left (lambda (state v)
+                               (let ((size (list-ref (shape-of v) axis)))
+                                 (new Pair
+                                   (first (Cons (new Pair (first (● state second)) (second size))
+                                                (● state first)))
+                                   (second (+ (● state second) size)))))
+                             (new Pair (first (Nil)) (second 0))
+                             views)
+                  first)))
 
     ;; Source row r added to output row indices[r], word by word, by a
     ;; compare-and-swap loop for floats.

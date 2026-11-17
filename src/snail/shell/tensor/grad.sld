@@ -106,7 +106,14 @@
     ;; port, or None where an argument has none.
 
     (define (adjoints (n Node) (outs (List (Option View)))) (→ (List (Option View)))
-      (let ((g (first-gradient outs)) (args (● n args)) (y (node-view n default-port)))
+      (match (● n kind)
+        ((CustomKind c) ((● c adjoint) (● n args) outs))
+        ((Sort _) (map (lambda (_) (None)) (● n args)))
+        (_ (single-port-adjoints n (first-gradient outs)))))
+
+    ;; A node of one port, `out`, whose gradient is g.
+    (define (single-port-adjoints (n Node) (g View)) (→ (List (Option View)))
+      (let ((args (● n args)) (y (node-view n default-port)))
         (match (● n kind)
           ((Elementwise op) (elementwise-adjoints op args y g))
           ((Reduce op _) (list (Some (reduce-adjoint op (list-ref args 0) y g))))
@@ -120,8 +127,20 @@
            (list (Some (scatter-add g (list-ref args 1) (list-ref (shape-of (list-ref args 0)) 0)))
                  (None)))
           ((ScatterAdd _) (list (Some (gather g (list-ref args 1))) (None)))
-          ((CustomKind c) ((● c adjoint) args outs))
+          ((Concat axis) (concat-adjoints args axis g))
           (_ (map (lambda (_) (None)) args)))))
+
+    ;; Each argument's span of the joined axis.
+    (define (concat-adjoints (args (List View)) (axis I64) (g View)) (→ (List (Option View)))
+      (reverse (● (fold-left (lambda (state a)
+                               (let ((size (list-ref (shape-of a) axis)))
+                                 (new Pair
+                                   (first (Cons (Some (narrow g axis (● state second) size))
+                                                (● state first)))
+                                   (second (+ (● state second) size)))))
+                             (new Pair (first (Nil)) (second 0))
+                             args)
+                  first)))
 
     (define (first-gradient (outs (List (Option View)))) (→ View)
       (match (find (lambda (out) (not (none? out))) outs)

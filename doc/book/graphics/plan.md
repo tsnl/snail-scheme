@@ -5,7 +5,8 @@ effect that is a thin wrapper around WebGPU, and `(snail shell graphics
 ...)` libraries of pipelines and packers on top of it. They replaced a
 fixed JavaScript renderer, `host/browser/renderer.mjs`, and its picture
 store. The effect, `pod`, `wgsl`, `atlas`, `quad`, `mesh`, `raster`,
-`passes`, `scan`, `radix-sort`, `splat` and `ply` are **implemented**; the
+`passes`, `scan`, `radix-sort`, `splat`, `splat-train` and `ply` are
+**implemented**; the
 rest is **proposed**. Delivery is tracked
 in [the graphics issue](https://github.com/tsnl/snail-scheme/issues/463).
 
@@ -310,6 +311,7 @@ Each row is `(snail shell graphics NAME)`:
 | `radix-sort` | A stable least-significant-digit radix sort of `u32` keys and values, four bits a pass, counting, scanning and scattering by blocks. **Implemented.** |
 | `splat` | 3D Gaussian Splatting: gaussians posed by rows of a transforms table, projected by EWA splatting with spherical harmonics to degree 3, sorted far to near, and blended as quads. **Implemented.** |
 | `ply` | 3D Gaussian Splatting's binary PLY files read into a cloud of activated gaussians. **Implemented.** |
+| `splat-train` | The differentiable splat renderer as a tensor graph: projection by tensor operations, tile binning and a tiled rasterizer as custom nodes with a hand-written backward pass, and L1 with D-SSIM ([tensors](tensors.md#differentiable-splatting)). **Implemented.** |
 | later | `bvh`, compute ray tracing and `svgf`, for path-traced lighting over the rasterized G-buffer. |
 
 - **Sampling an atlas.** Slots carry gutters of repeated edge texels; UVs wrap
