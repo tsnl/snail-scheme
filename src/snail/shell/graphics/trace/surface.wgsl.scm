@@ -1,0 +1,148 @@
+;; A scene's first hits rasterized into the path tracer's G-buffer: one
+;; indexed draw of every triangle, each vertex read from the scene's
+;; vertex buffer (unpack.wgsl.scm), each material from its storage buffer
+;; and its textures from layers of one array (scene.sld). `Camera3D`
+;; comes from Pod.
+;;
+;; Targets, in this order so they fit 32 bytes a pixel:
+;;   0 normals, rgba16float: the shading normal then the geometric one,
+;;     each octahedral, both facing the eye;
+;;   1 emission, rgba16float, linear;
+;;   2 albedo, rgba8unorm-srgb, so 8 bits keep its darks;
+;;   3 material, rgba8unorm: metalness and roughness;
+;;   4 motion, rg16float, in texture coordinates from the last frame.
+;; Depth is depth32float, which the tracer reads to place each pixel.
+;;
+;; A texture's colors are sRGB; its data, normals and metal-roughness,
+;; are linear. A masked material discards below its cutoff and a blended
+;; one at a hashed threshold, so both draw as cutouts.
+(struct Vertex
+        (position vec3f)
+        (u f32)
+        (normal vec3f)
+        (v f32)
+        (tangent vec4f)
+        (material u32)
+        (pad0 u32)
+        (pad1 u32)
+        (pad2 u32))
+
+((var uniform) (@group 0) (@binding 0) (camera Camera3D))
+
+((var storage read) (@group 0) (@binding 1) (vertices (array Vertex)))
+
+((var storage read) (@group 0) (@binding 2) (materials (array SurfaceMaterial)))
+
+(var (@group 0) (@binding 3) (layers (texture_2d_array f32)))
+
+(var (@group 0) (@binding 4) (repeat sampler))
+
+(struct Varying
+        ((@builtin position) position vec4f)
+        ((@location 0) world vec3f)
+        ((@location 1) normal vec3f)
+        ((@location 2) uv vec2f)
+        ((@location 3) tangent vec4f)
+        ((@location 4) (@interpolate flat) material u32)
+        ((@location 5) clip_now vec4f)
+        ((@location 6) clip_before vec4f))
+
+(fn (@vertex) surface_vertex (((@builtin vertex_index) index u32)) (-> Varying)
+    (let vertex (at vertices index))
+    (var (out Varying))
+    (= (get out position) (* (get camera view_projection) (vec4f (get vertex position) 1.0)))
+    (= (get out world) (get vertex position))
+    (= (get out normal) (get vertex normal))
+    (= (get out uv) (vec2f (get vertex u) (get vertex v)))
+    (= (get out tangent) (get vertex tangent))
+    (= (get out material) (get vertex material))
+    (= (get out clip_now) (get out position))
+    (= (get out clip_before) (* (get camera previous) (vec4f (get vertex position) 1.0)))
+    (return out))
+
+(struct Targets
+        ((@location 0) normals vec4f)
+        ((@location 1) emission vec4f)
+        ((@location 2) albedo vec4f)
+        ((@location 3) material vec4f)
+        ((@location 4) motion vec2f))
+
+(fn decoded ((c vec3f)) (-> vec3f)
+    (return (select (pow (/ (+ c 0.055) 1.055) (vec3f 2.4)) (/ c 12.92) (<= c (vec3f 0.04045)))))
+
+;; The screen derivatives of position and uv, taken first, where control
+;; flow is uniform, so textures sample by gradient wherever they are read.
+(struct Footprint
+        (uv vec2f)
+        (uv_x vec2f)
+        (uv_y vec2f)
+        (p_x vec3f)
+        (p_y vec3f))
+
+;; A texture's texel, or white when the layer is -1.
+(fn texel ((layer i32) (f Footprint)) (-> vec4f)
+    (if ((< layer 0) (return (vec4f 1.0))))
+    (return (textureSampleGrad layers repeat (get f uv) layer (get f uv_x) (get f uv_y))))
+
+;; A unit vector folded onto the octahedron, then flattened to a square.
+(fn octahedral ((n vec3f)) (-> vec2f)
+    (let p (/ (get n xy) (+ (abs (get n x)) (abs (get n y)) (abs (get n z)))))
+    (if ((< (get n z) 0.0)
+         (return (* (- 1.0 (abs (get p yx))) (select (vec2f -1.0) (vec2f 1.0) (>= p (vec2f 0.0)))))))
+    (return p))
+
+(fn hashed ((p vec2f)) (-> f32)
+    (return (fract (* 52.9829189 (fract (dot p (vec2f 0.06711056 0.00583715)))))))
+
+;; The normal map's normal in the frame of `normal` and the tangent, or,
+;; without a tangent, a frame from the derivatives of position and uv, as
+;; Schüler's cotangent frame.
+(fn mapped ((m SurfaceMaterial) (f Footprint) (tangent vec4f) (normal vec3f)) (-> vec3f)
+    (let layer (get m textures z))
+    (if ((< layer 0) (return normal)))
+    (let t (- (* 2.0 (get (texel layer f) xyz)) 1.0))
+    (let local (normalize (vec3f (* (get t xy) (get m factors z)) (get t z))))
+    (if ((> (dot (get tangent xyz) (get tangent xyz)) 0.0)
+         (let along (normalize (- (get tangent xyz) (* normal (dot normal (get tangent xyz))))))
+         (let across (* (cross normal along) (get tangent w)))
+         (return (normalize (+ (* along (get local x)) (* across (get local y)) (* normal (get local z)))))))
+    (let r1 (cross (get f p_y) normal))
+    (let r2 (cross normal (get f p_x)))
+    (let along (+ (* r1 (get f uv_x x)) (* r2 (get f uv_y x))))
+    (let across (+ (* r1 (get f uv_x y)) (* r2 (get f uv_y y))))
+    (let scale (inverseSqrt (max (max (dot along along) (dot across across)) 1e-20)))
+    (return (normalize (+ (* along (* scale (get local x)))
+                          (* across (* scale (get local y)))
+                          (* normal (get local z))))))
+
+(fn (@fragment) surface_fragment ((in Varying)) (-> Targets)
+    (var (f Footprint))
+    (= (get f uv) (get in uv))
+    (= (get f uv_x) (dpdx (get in uv)))
+    (= (get f uv_y) (dpdy (get in uv)))
+    (= (get f p_x) (dpdx (get in world)))
+    (= (get f p_y) (dpdy (get in world)))
+    (let m (at materials (get in material)))
+    (let base (texel (get m textures x) f))
+    (let alpha (* (get m base_color w) (get base w)))
+    (if ((and (== (get m factors w) 1.0) (< alpha (get m emissive w))) (discard))
+        ((and (== (get m factors w) 2.0) (< alpha (hashed (get in position xy)))) (discard)))
+    (let toward (normalize (- (get camera eye xyz) (get in world))))
+    (var geometric (normalize (cross (get f p_y) (get f p_x))))
+    (if ((< (dot geometric toward) 0.0) (= geometric (- geometric))))
+    (var normal (get in normal))
+    (if ((< (dot normal normal) 1e-12) (= normal geometric)))
+    (= normal (normalize normal))
+    (if ((< (dot normal geometric) 0.0) (= normal (- normal))))
+    (= normal (mapped m f (get in tangent) normal))
+    (let metal_rough (texel (get m textures y) f))
+    (var (out Targets))
+    (= (get out normals) (vec4f (octahedral normal) (octahedral geometric)))
+    (= (get out emission) (vec4f (* (get m emissive xyz) (decoded (get (texel (get m textures w) f) xyz))) 1.0))
+    (= (get out albedo) (vec4f (* (get m base_color xyz) (decoded (get base xyz))) 1.0))
+    (= (get out material)
+       (vec4f (* (get m factors x) (get metal_rough z)) (* (get m factors y) (get metal_rough y)) 0.0 1.0))
+    (let now (/ (get in clip_now xy) (get in clip_now w)))
+    (let before (/ (get in clip_before xy) (get in clip_before w)))
+    (= (get out motion) (* (- now before) (vec2f 0.5 -0.5)))
+    (return out))

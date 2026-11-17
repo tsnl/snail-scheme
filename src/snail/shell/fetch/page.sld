@@ -20,6 +20,7 @@
       (handle fetch
           ((request page-request)
            (fetch-bytes page-fetch-bytes)
+           (page-address (lambda () (host-page-address) (host-reply)))
            (stream-open (lambda (url kinds)
                           (new Stream
                             (id (host-stream-open (string->utf8 (string-join (Cons url kinds)

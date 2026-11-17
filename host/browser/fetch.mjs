@@ -118,6 +118,7 @@ export function createFetch(runtime) {
     'finish-request': ticket => tasks().finish(Number(ticket)),
     'start-bytes': startBytes,
     'reply-byte': index => bytes[index],
+    'page-address': () => answer(globalThis.location?.href ?? ''),
     'stream-open': address => open(text(address)),
     'stream-start'(ticket, id) {
       const stream = streams.get(id) ?? {messages: [], closed: true, waiter: null};

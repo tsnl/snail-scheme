@@ -1,0 +1,133 @@
+;; A glTF scene path traced in the page: the scene the page's query names,
+;; `?model=Sponza/glTF/Sponza.gltf` under `models/`, lit by a sun and a
+;; sky, flown through with the mouse and keys. `&eye=x,y,z,yaw,pitch`
+;; places the camera; without it, the camera looks at the scene from
+;; outside. A page that names no model shows Sponza from inside its
+;; atrium. The frames average while the camera holds still.
+(import
+ (snail core base)
+ (snail core io)
+ (snail shell json)
+ (snail shell json read)
+ (only (snail shell task) tasks)
+ (only (snail shell app) next-event FrameEvent InputEvent)
+ (only (snail shell page) events report-ready)
+ (only (snail shell fetch) fetch page-address)
+ (snail shell fetch page)
+ (only (snail shell gpu) gpu request-device current-texture view-of work-done)
+ (snail shell graphics pod)
+ (snail shell graphics raster)
+ (snail shell graphics trace scene)
+ (snail shell graphics trace render)
+ (apps viewer fly))
+
+(define layer-size (→ I32) 1024)
+
+;; The model the query names after `model=`, up to the next `&`.
+(define (parameter (address String) (name String)) (→ (Option String))
+  (match (found address (string-append name "=") 0)
+    ((Some at)
+     (let ((rest (substring address (+ at (+ 1 (string-length name))) (string-length address))))
+       (Some (match (string-index rest #\&)
+               ((Some end) (substring rest 0 end))
+               ((None) rest)))))
+    ((None) (None))))
+
+(define sponza-eye (→ String) "9,1.6,-0.4,1.5708,0.12")
+
+;; The model and the eye, Sponza's atrium when the page names no model.
+(define (model-of (address String)) (→ (Pair String (Option String)))
+  (match (parameter address "model")
+    ((Some model) (new Pair (first model) (second (parameter address "eye"))))
+    ((None) (new Pair (first "Sponza/glTF/Sponza.gltf") (second (Some sponza-eye))))))
+
+;; Five numbers, as a JSON array reads them.
+(define (eye-of (text String)) (→ (Option (List F64)))
+  (match (string->json (string-append "[" text "]"))
+    ((Some (JsonArray values))
+     (if (= (length values) 5)
+         (Some (map (lambda (value)
+                      (match value
+                        ((JsonInteger n) (i64->f64 n))
+                        ((JsonNumber n) n)
+                        (_ 0.0)))
+                    values))
+         (None)))
+    (_ (None))))
+
+(define (found (text String) (part String) (from I64)) (→ (Option I64))
+  (cond ((> (+ from (string-length part)) (string-length text)) (None))
+        ((string=? (substring text from (+ from (string-length part))) part) (Some from))
+        (else (found text part (+ from 1)))))
+
+(define sky
+  (→ Sky)
+  (new Sky
+    (sun (unit 0.3 1.0 0.25 0.99996))
+    (sun-light (new Vec4f (x 4.0) (y 3.8) (z 3.4) (w 0.0)))
+    (zenith (new Vec4f (x 0.25) (y 0.45) (z 0.9) (w 1.0)))
+    (horizon (new Vec4f (x 0.75) (y 0.82) (z 0.95) (w 1.0)))
+    (ground (new Vec4f (x 0.3) (y 0.27) (z 0.24) (w 1.0)))))
+
+(define (unit (x F64) (y F64) (z F64) (w F64)) (→ Vec4f)
+  (let ((length (sqrt (+ (* x x) (+ (* y y) (* z z))))))
+    (new Vec4f (x (f64->f32 (/ x length))) (y (f64->f32 (/ y length))) (z (f64->f32 (/ z length))) (w (f64->f32 w)))))
+
+(define (view-loop (tracer Tracer) (fly Fly) (timing (Pair I32 I32))) (→ Unit) (! events gpu output-port tasks)
+  (match (next-event)
+    ((FrameEvent elapsed)
+     (let* ((timing (timed timing elapsed))
+            (canvas (current-texture))
+            (width (● canvas width))
+            (height (● canvas height))
+            (fly (flown fly elapsed))
+            (tracer (draw-traced (resize-tracer tracer width height)
+                                 (view-of (● canvas texture) 1)
+                                 (fly-camera fly (/ (i32->f64 width) (i32->f64 (max 1 height))))
+                                 sky
+                                 (fly-spread height))))
+       (work-done)
+       (report-ready)
+       (view-loop tracer fly timing)))
+    ((InputEvent input) (view-loop tracer (steered fly input) timing))
+    (_ (view-loop tracer fly timing))))
+
+;; Frames and milliseconds since the last report, which comes every two
+;; seconds.
+(define (timed (timing (Pair I32 I32)) (elapsed I32)) (→ (Pair I32 I32)) (! output-port)
+  (let ((frames (+ 1 (● timing first))) (total (+ elapsed (● timing second))))
+    (if (< total 2000)
+        (new Pair (first frames) (second total))
+        (begin
+          (write-line (string-append "frames: " (show frames) " in " (show total) " ms"))
+          (new Pair (first 0) (second 0))))))
+
+(with-page-fetch
+ (lambda ()
+   (let* ((info (request-device))
+          (chosen (model-of (page-address)))
+          (scene (load-scene (string-append "models/" (● chosen first)) layer-size))
+          (canvas (current-texture))
+          (over (fly-over (● scene low) (● scene high))))
+     (write-line (string-append "scene: " (show (● scene vertex-count)) " vertices, " (show (● scene triangle-count))
+                                " triangles, from " (string-join (map show (● scene low)) " ")
+                                " to " (string-join (map show (● scene high)) " ")))
+     (view-loop (make-tracer scene (● info format) (● canvas width) (● canvas height) layer-size)
+                (match (● chosen second)
+                  ((Some text)
+                   (match (eye-of text)
+                     ((Some eye) (placed over eye))
+                     ((None) over)))
+                  ((None) over))
+                (new Pair (first 0) (second 0))))))
+
+(define (placed (fly Fly) (eye (List F64))) (→ Fly)
+  (new Fly
+    (x (list-ref eye 0))
+    (y (list-ref eye 1))
+    (z (list-ref eye 2))
+    (yaw (list-ref eye 3))
+    (pitch (list-ref eye 4))
+    (held (Nil))
+    (drag (None))
+    (speed (● fly speed))))

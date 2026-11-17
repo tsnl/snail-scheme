@@ -56,6 +56,8 @@
    finish
    queue-buffer
    submit
+   start-done
+   finish-done
    current-texture
    current-width
    current-height)
@@ -141,6 +143,8 @@
     (extern finish "snail.runtime.browser.gpu" "finish" (Fn I32 → I32))
     (extern queue-buffer "snail.runtime.browser.gpu" "queue-buffer" (Fn I32 → Unit))
     (extern submit "snail.runtime.browser.gpu" "submit" (Fn → Unit))
+    (extern start-done "snail.runtime.browser.gpu" "start-done" (Fn I64 → Unit))
+    (extern finish-done "snail.runtime.browser.gpu" "finish-done" (Fn I64 → I32))
     (extern current-texture "snail.runtime.browser.gpu" "current-texture" (Fn → I32))
     (extern current-width "snail.runtime.browser.gpu" "current-width" (Fn → I32))
     (extern current-height "snail.runtime.browser.gpu" "current-height" (Fn → I32))))

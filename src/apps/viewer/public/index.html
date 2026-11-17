@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Path traced glTF</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; color: #ddd; font: 13px system-ui, sans-serif; }
+  canvas { display: block; width: 100%; height: 100%; outline: none; }
+  #overlay { position: fixed; left: 12px; bottom: 10px; pointer-events: none; text-shadow: 0 1px 2px #000; }
+  #overlay a { pointer-events: auto; color: #9cf; }
+</style>
+<body>
+  <canvas id="view" tabindex="0" aria-label="Path traced scene"></canvas>
+  <div id="overlay">Drag to look, WASD to fly, Q and E down and up, wheel for speed. <a href="models.html">Models</a></div>
+  <script type="module">
+    import {startApplication} from './host.mjs';
+    const overlay = document.getElementById('overlay');
+    startApplication({canvas: document.getElementById('view'), overlay: document.createElement('div'), storageKey: 'viewer'})
+      .then(() => { document.body.dataset.ready = 'true'; })
+      .catch(error => { document.body.dataset.error = error.message; overlay.textContent = error.message; });
+  </script>
+</body>
+</html>

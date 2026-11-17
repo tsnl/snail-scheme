@@ -223,7 +223,7 @@
                         (layers 1)
                         (mips 1)
                         (format format)
-                        (usage (list (RenderAttachment) (TextureBinding))))))
+                        (usage (list (RenderAttachment) (TextureBinding) (StorageBinding))))))
 
     (define (screen-group (label String)
                           (pipeline GpuRenderPipeline)

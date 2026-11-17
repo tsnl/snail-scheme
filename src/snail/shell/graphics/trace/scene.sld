@@ -88,10 +88,13 @@
             (low (● bounds first))
             (high (● bounds second))))))
 
+    ;; Up to and with its last slash.
     (define (directory-of (url String)) (→ String)
-      (match (string-index-right url #\/)
-        ((Some at) (substring url 0 (+ at 1)))
-        ((None) "")))
+      (let ((chars (string->array url)))
+        (substring url 0 (fold-left (lambda (end index)
+                                      (if (char=? (array-ref chars index) #\/) (+ index 1) end))
+                                    0
+                                    (iota (array-length chars))))))
 
     (define (fetched (url String)) (→ Bytes) (! fetch tasks)
       (match (fetch-bytes url)
@@ -229,7 +232,7 @@
              (cofactor (lambda ((r I64) (c I64)) (→ F64)
                          (- (* (at (+ r 1) (+ c 1)) (at (+ r 2) (+ c 2)))
                             (* (at (+ r 1) (+ c 2)) (at (+ r 2) (+ c 1))))))
-             (det (+ (* (at 0 0) (cofactor 0 0)) (* (at 0 1) (cofactor 0 1)) (* (at 0 2) (cofactor 0 2))))
+             (det (+ (* (at 0 0) (cofactor 0 0)) (+ (* (at 0 1) (cofactor 0 1)) (* (at 0 2) (cofactor 0 2)))))
              (sign (if (< det 0.0) -1.0 1.0)))
         (concatenate (map (lambda (c)
                             (if (= c 3)
@@ -290,15 +293,18 @@
                                      (group 0)
                                      (entries (list (BufferEntry 0 data 0 0)
                                                     (BufferEntry 1 unpacks 0 0)
-                                                    (BufferEntry 2 vertices 0 0)
-                                                    (BufferEntry 3 indices 0 0)))))))
+                                                    (● step second second)))))))
                       (set-compute-pipeline pass pipeline)
                       (set-compute-bind-group pass 0 group)
-                      (dispatch-over pass (● step second))
+                      (dispatch-over pass (● step second first))
                       (destroy (BindGroupObject group))
                       (destroy (ComputePipelineObject pipeline))))
-                  (list (new Pair (first "unpack_vertices") (second vertex-count))
-                        (new Pair (first "unpack_triangles") (second triangle-count))))
+                  (list (new Pair
+                          (first "unpack_vertices")
+                          (second (new Pair (first vertex-count) (second (BufferEntry 2 vertices 0 0)))))
+                        (new Pair
+                          (first "unpack_triangles")
+                          (second (new Pair (first triangle-count) (second (BufferEntry 3 indices 0 0)))))))
         (end-compute-pass pass)
         (submit (list (finish encoder)))))
 

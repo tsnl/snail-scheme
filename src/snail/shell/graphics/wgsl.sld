@@ -79,10 +79,20 @@
                              (form "define"
                                    (list (SymbolSyntax (● shader first))
                                          (form "→" (list (SymbolSyntax "String")))
-                                         (StringSyntax (shader-text (● shader first)
-                                                                    (read-resource
-                                                                     (● shader second)))))))
+                                         (chunked (shader-text (● shader first)
+                                                               (read-resource (● shader second)))))))
                            shaders)))
+
+    ;; A long text as literals of at most 8000 characters joined at run
+    ;; time, since a string literal is one `array.new_fixed`, which V8
+    ;; limits to 10000 elements.
+    (define (chunked (text String)) (→ Syntax)
+      (if (<= (string-length text) 8000)
+          (StringSyntax text)
+          (form "string-append"
+                (map (lambda (start)
+                       (StringSyntax (substring text (* start 8000) (min (string-length text) (* (+ start 1) 8000)))))
+                     (iota (quotient (+ (string-length text) 7999) 8000))))))
 
     (define (shader-text (name String) (bytes Bytes)) (→ String)
       (match (compiling (lambda () (wgsl-text (read-text (utf8-text name bytes) name))))

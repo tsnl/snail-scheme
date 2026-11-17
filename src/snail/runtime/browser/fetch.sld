@@ -12,6 +12,7 @@
    finish-request
    start-bytes
    reply-byte
+   page-address
    stream-open
    stream-start
    stream-finish
@@ -29,6 +30,7 @@
     (extern finish-request "snail.runtime.browser.fetch" "finish-request" (Fn I64 → I32))
     (extern start-bytes "snail.runtime.browser.fetch" "start-bytes" (Fn I64 → Unit))
     (extern reply-byte "snail.runtime.browser.fetch" "reply-byte" (Fn I32 → U8))
+    (extern page-address "snail.runtime.browser.fetch" "page-address" (Fn → I32))
     (extern stream-open "snail.runtime.browser.fetch" "stream-open" (Fn Bytes → I32))
     (extern stream-start "snail.runtime.browser.fetch" "stream-start" (Fn I64 I32 → Unit))
     (extern stream-finish "snail.runtime.browser.fetch" "stream-finish" (Fn I64 → I32))
