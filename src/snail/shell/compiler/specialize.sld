@@ -1,18 +1,13 @@
-;; Concrete definitions built from checked source. One registry reserves
-;; source functions and imports before visiting their bodies. Each body is instantiated once; source bodies are retained for
-;; preparation's contextual checks. Emission receives fixed declaration metadata.
+;; Concrete definitions built from checked source. From a program's
+;; entry and exposures, each definition reached is copied once for each
+;; set of types it is used at, and each copy's name is reserved before
+;; its body is visited, so recursion ends. Emission receives the copies'
+;; types as fixed declarations.
 (define-library (snail shell compiler specialize)
   (export
-   Specialization
-   prepare-specialization
-   State
    Declarations
-   Binding
-   new-state
-   specialization-declarations
-   specialization-definitions
-   start-specialization
-   complete-specializations)
+   Specialized
+   specialize)
   (import
    (snail core base)
    (snail core table)
@@ -23,57 +18,54 @@
 
     ;; ---- Specialization state ----
 
-    ;; Checked facts shared by every library emitted in one build. Preparing
-    ;; them once keeps lookup independent of each library's request lifetime.
-    (record Specialization
+    ;; The checked program copies are made from, with its instances and
+    ;; its definitions' bodies by name.
+    (record Source
       ((typed Typed)
        (instances (Table Instance))
        (definitions (Table Expr))))
 
-    (define (prepare-specialization (typed Typed)) (→ Specialization)
+    (define (checked-source (typed Typed)) (→ Source)
       (let ((instances (fold-left (lambda (table instance)
                                     (table-set table (● instance name) instance))
                                   (empty-table)
                                   (concatenate
                                    (table-values (● (● typed program) instances))))))
-        (new Specialization
+        (new Source
           (typed typed)
           (instances instances)
           (definitions (item-definitions (● typed items))))))
 
-    ;; A frozen view of executable bindings. It contains no source templates,
-    ;; pending requests or concrete bodies, so an emitter cannot specialize.
+    ;; A frozen view of executable definitions: each specialized name's
+    ;; type. It holds no source bodies or pending requests, so an emitter
+    ;; cannot specialize.
     (record Declarations
       ((program Program)
        (control (List String))
-       (bindings (Table Binding))))
+       (types (Table Type))))
 
-    (record Binding
-      ((type Type)))
+    ;; What specialization answers: the copies, in the order they were
+    ;; made, and their declarations.
+    (record Specialized
+      ((definitions (List Item))
+       (declarations Declarations)))
 
-    ;; Requests reserve names before visiting bodies, so recursive calls
-    ;; terminate. A recipe becomes a concrete body once.
-    ;; Original bodies survive until preparation has checked every batch.
+    ;; `types` holds every reserved name's type, and `worklist` the copies
+    ;; still to make, the newest first, at most 65536 in all.
     (record State
-      ((input Specialization)
+      ((input Source)
        (control (List String))
-       (bindings (Table Definition))
+       (types (Table Type))
        (remaining I64)
-       (pending (List String))))
+       (worklist (List Recipe))))
 
-    ;; The registry owns each executable identity and its signature. A body
-    ;; is a recipe or its completed instantiation.
-    (record Definition
-      ((type Type)
-       (body Body)))
-
-    (enum Body
-      (SourceRecipe
-       ((name String)
-        (types (List Type))
-        (evidence (List Evidence))))
-      (SourceBody
-       ((value Expr))))
+    ;; A copy to make: `source` at `types`, with `evidence` for its
+    ;; requirements, named `name`.
+    (record Recipe
+      ((name String)
+       (source String)
+       (types (List Type))
+       (evidence (List Evidence))))
 
     ;; The types and evidence that replace a definition's quantified variables
     ;; and requirements while it is copied.
@@ -105,99 +97,46 @@
       (let ((spec (if (null? types)
                       name
                       (string-append name "<" (string-join (map spec-key types) ",") ">"))))
-        (new Pair (first spec)
-             (second (if (table-contains? (● state bindings) spec)
-                         state
-                         (let ((value (definition state name)))
-                           (reserve state spec
-                                    (new Definition
-                                      (type (ground (instantiation state name types evidence)
-                                                    (● value type)))
-                                      (body (SourceRecipe name types evidence))))))))))
+        (new Pair
+          (first spec)
+          (second (if (table-contains? (● state types) spec)
+                      state
+                      (reserve state
+                               (new Recipe (name spec) (source name) (types types)
+                                    (evidence evidence))))))))
 
-    ;; All executable work uses this reservation rule and this queue. Merely looking up a binding never generates code.
+    ;; Reserving a name is what adds its copy to the worklist.
 
-    (define (reserve (state State) (name String) (binding Definition)) (→ State)
-      (if (table-contains? (● state bindings) name)
-          state
-          (begin
-            (when (= (● state remaining) 0)
-              (panic "compilation exceeds the limit of 65536 specialized definitions"))
-            (State-pending-set
-             (State-remaining-set
-              (State-bindings-set state (table-set (● state bindings) name binding))
-              (- (● state remaining) 1))
-             (Cons name (● state pending))))))
+    (define (reserve (state State) (recipe Recipe)) (→ State)
+      (when (= (● state remaining) 0)
+        (panic "compilation exceeds the limit of 65536 specialized definitions"))
+      (let ((type
+             (ground (instantiation state recipe) (● (definition state (● recipe source)) type))))
+        (new State (input (● state input)) (control (● state control))
+             (types (table-set (● state types) (● recipe name) type))
+             (remaining (- (● state remaining) 1))
+             (worklist (Cons recipe (● state worklist))))))
 
     (define (requested (state State) (name String)) (→ State)
       (● (request state name (Nil) (Nil)) second))
 
-    (define (instantiation (state State)
-                           (name String)
-                           (types (List Type))
-                           (evidence (List Evidence)))
-      (→ Instantiation)
-      (new Instantiation (vars (zip (● (scheme-of state name) vars) types))
-           (evidence evidence) (control (● state control))))
+    (define (instantiation (state State) (recipe Recipe)) (→ Instantiation)
+      (new Instantiation (vars (zip (● (scheme-of state (● recipe source)) vars) (● recipe types)))
+           (evidence (● recipe evidence)) (control (● state control))))
 
-    ;; Complete the entire newly reached graph before a contextual check
-    ;; reads any body. Calls reserve identities; they never instantiate here
-    ;; recursively, so each queued recipe is consumed exactly once.
+    ;; Copies are made one at a time from the worklist. A copy reserves the
+    ;; names it calls; it never copies them itself, so each recipe is made
+    ;; exactly once.
 
-    (define (complete-specializations (state State)) (→ (Pair (List Item) State))
+    (define (complete (state State)) (→ (Pair (List Item) State))
       (let loop ((state state) (items (Nil)))
-        (match (next-definition state)
-          ((Pair (Some item) state) (loop state (Cons item items)))
-          ((Pair (None) state) (new Pair (first (reverse items)) (second state))))))
-
-    (define (next-definition (state State)) (→ (Pair (Option Item) State))
-      (match (● state pending)
-        ((Cons name rest)
-         (let ((definition (binding-of state name)))
-           (threading state ((then (State-pending-set rest))
-                             (value (instantiate-body (● definition body)))
-                             (then (complete-definition name definition value)))
-                      (new Pair (first (Some (Define name value))) (second state)))))
-        ((Nil) (new Pair (first (None)) (second state)))))
-
-    (define (complete-definition (state State) (name String) (definition Definition) (value Expr))
-      (→ State)
-      (State-bindings-set state
-                          (table-set (● state bindings) name
-                                     (Definition-body-set definition (SourceBody value)))))
-
-    (define (instantiate-body (state State) (body Body)) (→ (Pair Expr State))
-      (match body
-        ((SourceRecipe name types evidence)
-         (copy-expr state (instantiation state name types evidence) (definition state name)))
-        (_ (panic "internal error: only an unbuilt recipe can be queued"))))
-
-    (define (binding-of (state State) (name String)) (→ Definition)
-      (match (table-ref (● state bindings) name)
-        ((Some binding) binding)
-        ((None) (panic (string-append "internal error: no reserved binding " name)))))
-
-    ;; Freeze signatures and discard all source bodies at the emitter's
-    ;; boundary. The program contributes declarations, not its syntax items.
-
-    (define (specialization-declarations (state State)) (→ Declarations)
-      (new Declarations (program (Program-items-set (specialization-program state) (Nil)))
-           (control (● state control))
-           (bindings (fold-left (lambda (bindings name)
-                                  (table-set bindings
-                                             name
-                                             (new Binding (type (● (binding-of state name) type)))))
-                                (empty-table) (table-keys (● state bindings))))))
-
-    ;; A read-only snapshot of original source instantiations. Missing
-    ;; bodies mean discovery was not closed before analysis.
-
-    (define (specialization-definitions (state State)) (→ (Table Expr))
-      (fold-left (lambda (bodies name)
-                   (match (● (binding-of state name) body)
-                     ((SourceBody value) (table-set bodies name value))
-                     (_ (panic "internal error: analysis requires completed definitions"))))
-                 (empty-table) (table-keys (● state bindings))))
+        (match (● state worklist)
+          ((Cons recipe rest)
+           (threading state ((then (State-worklist-set rest))
+                             (value (copy-expr (instantiation state recipe)
+                                               (definition state (● recipe source)))))
+                      (loop state (Cons (Define (● recipe name) value) items))))
+          ((Nil) (new Pair (first (reverse items)) (second state))))))
 
     ;; ---- Copying ----
 
@@ -266,15 +205,11 @@
         ((EvHole _) (panic "internal error: unsolved evidence"))))
 
     (define (copy-expr (state State) (inst Instantiation) (expr Expr)) (→ (Pair Expr State))
-      (let ((type (ground inst (● expr type))) (loc (● expr loc)))
-        (match (● expr term)
-          ((Var name types evidence)
-           (reference state name (map (lambda (t) (ground inst t)) types)
-                      (map (lambda (e) (ground-evidence inst e)) evidence) type loc))
-          (term (threading state ((copied (copy-term inst term)))
-                           (new Pair
-                             (first (new Expr (term copied) (type type) (loc loc)))
-                             (second state)))))))
+      (threading state ((copied (copy-term inst (● expr term))))
+                 (new Pair
+                   (first
+                    (new Expr (term copied) (type (ground inst (● expr type))) (loc (● expr loc))))
+                   (second state))))
 
     ;; A copy requests the specializations it references, so the copies of
     ;; sibling terms are steps in the order they are written.
@@ -282,13 +217,19 @@
     (define (copy-term (state State) (inst Instantiation) (term Term)) (→ (Pair Term State))
       (match term
         ((Lit value) (new Pair (first (Lit value)) (second state)))
-        ((Var name types evidence) (new Pair (first (Var name types evidence)) (second state)))
+        ((Var name types evidence)
+         (reference state
+                    name
+                    (map (lambda (type) (ground inst type)) types)
+                    (map (lambda (evidence) (ground-evidence inst evidence)) evidence)))
         ((Lambda params body)
          (threading state
                     ((body (copy-expr inst body)))
                     (new Pair (first (Lambda params body)) (second state))))
         ((App callee args)
-         (threading state ((callee (copy-expr inst callee)) (args (copy-exprs inst args)))
+         (threading state
+                    ((callee (copy-expr inst callee))
+                     (args (each (lambda (state arg) (copy-expr state inst arg)) args)))
                     (new Pair (first (App callee args)) (second state))))
         ((If test consequent alternative)
          (threading state ((test (copy-expr inst test))
@@ -325,10 +266,6 @@
          (threading state ((inner (copy-expr inst inner)))
                     (new Pair (first (Downcast inner (ground inst target))) (second state))))))
 
-    (define (copy-exprs (state State) (inst Instantiation) (exprs (List Expr)))
-      (→ (Pair (List Expr) State))
-      (each state (lambda (state expr) (copy-expr state inst expr)) exprs))
-
     (define (copy-clause (state State) (inst Instantiation) (clause Clause)) (→ (Pair Clause State))
       (threading state ((body (copy-expr inst (● clause body))))
                  (new Pair
@@ -359,12 +296,10 @@
     (define (reference (state State)
                        (name String)
                        (types (List Type))
-                       (evidence (List Evidence))
-                       (type Type)
-                       (loc Loc))
-      (→ (Pair Expr State))
+                       (evidence (List Evidence)))
+      (→ (Pair Term State))
       (match (program-value (specialization-program state) name)
-        ((Some (Defined _ _)) (definition-reference state name types evidence type loc))
+        ((Some (Defined _ _)) (definition-reference state name types evidence))
         ((Some (Method class _))
          (match evidence
            ((Cons (EvInstance instance instance-types subs) rest)
@@ -373,13 +308,11 @@
               (definition-reference state
                 (instance-method state instance name)
                 (append instance-types (list-drop types class-arity))
-                (append subs rest) type loc)))
+                (append subs rest))))
            (_ (panic "internal error: a method needs instance evidence"))))
         ;; An operation, like a builtin, keeps its name: a handler answers
         ;; it, and nothing else is reached through it.
-        (_ (new Pair
-             (first (new Expr (term (Var name (Nil) (Nil))) (type type) (loc loc)))
-             (second state)))))
+        (_ (new Pair (first (Var name (Nil) (Nil))) (second state)))))
 
     (define (instance-method (state State) (instance String) (method String)) (→ String)
       (match (table-ref (● (● state input) instances) instance)
@@ -389,24 +322,39 @@
            ((None) (panic "internal error: missing instance method"))))
         ((None) (panic "internal error: unknown instance"))))
 
-    ;; Another library's monomorphic function stays an imported reference;
-    ;; a generic function reserves a concrete specialization in this module.
+    ;; A definition is referred to by the name of its copy at these types.
 
     (define (definition-reference (state State) (name String)
-              (types (List Type)) (evidence (List Evidence))
-              (type Type) (loc Loc))
-      (→ (Pair Expr State))
+              (types (List Type)) (evidence (List Evidence)))
+      (→ (Pair Term State))
       (threading state ((spec (request name types evidence)))
-                 (new Pair
-                   (first (new Expr (term (Var spec (Nil) (Nil))) (type type) (loc loc)))
-                   (second state))))
+                 (new Pair (first (Var spec (Nil) (Nil))) (second state))))
 
     ;; ---- Roots ----
 
-    (define (new-state (input Specialization)) (→ State)
-      (new State (input input)
-           (control (control-effects (● (● input typed) program)))
-           (bindings (empty-table)) (remaining 65536) (pending (Nil))))
+    ;; A program keeps only the definitions reached from an entry or an
+    ;; exposure. Its declarations keep no syntax items.
+
+    (define (specialize (typed Typed) (roots (List Item))) (→ Specialized)
+      (let* ((input (checked-source typed))
+             (program (● typed program))
+             (control (control-effects program))
+             (start (new State (input input) (control control) (types (empty-table))
+                         (remaining 65536) (worklist (Nil)))))
+        (match (complete (fold-left request-root start roots))
+          ((Pair definitions state)
+           (new Specialized
+             (definitions definitions)
+             (declarations (new Declarations
+                             (program (Program-items-set program (Nil)))
+                             (control control)
+                             (types (● state types)))))))))
+
+    (define (request-root (state State) (item Item)) (→ State)
+      (match item
+        ((Expose name _ _) (requested state name))
+        ((Entry _ start _) (requested state start))
+        ((Define _ _) state)))
 
     ;; The effects with a control operation, in order of their names.
 
@@ -415,17 +363,6 @@
                  (map (lambda (record) (● record name))
                       (filter (lambda (effect) (not (null? (● effect control))))
                               (table-values (● program effects))))))
-
-    ;; A program keeps only the definitions reached from an entry or an
-    ;; exposure.
-    (define (start-specialization (state State) (items (List Item))) (→ State)
-      (fold-left (lambda (state item)
-                   (match item
-                     ((Expose name _ _) (requested state name))
-                     ((Entry _ start _) (requested state start))
-                     ((Define _ _) state)))
-                 state
-                 items))
 
     )
 
