@@ -236,11 +236,19 @@ params:
 - **`opacity-reset`** brings every opacity down to 0.01 and clears its
   moments.
 
-`src/apps/train` runs the reference's schedule in the page. It starts a
+`src/apps/train` runs the reference's schedule, on Node or in a page. The
+trainer performs `dataset` for the scene's files, which a page handles by
+fetching them from the scene's URL and a program on Node by reading them
+from its folder, and is given how a step's image is shown: on the page's
+canvas, or nowhere. It starts a
 gaussian at each sparse point, its scale the root of the mean squared
 distance to its three nearest neighbours (`splat-knn`, on the device), its
 opacity 0.1. Each step trains on a photograph not yet visited in this
-round, copied on the device into the target param. It raises the
+round, copied on the device into the target param. A photograph is read
+and decoded four steps ahead, in a task of its own that posts it to a
+mailbox, and let go after its step, so the device holds five photographs
+and not the scene's: bicycle's 194 at full resolution would take 12.6 GB
+as textures. It raises the
 harmonics' degree every 1,000 steps, densifies every 100 steps from 500 to
 15,000, and resets opacity every 3,000. When more than half the capacity is
 live, up to the page's `gaussians`, or the step's binning asked for more
@@ -254,10 +262,15 @@ that doubling would reach next don't fit a 32 GB RTX 5090. Every eighth
 photograph is held out, and the PSNR on those is reported at the end.
 
 On Mip-NeRF 360's bicycle at `images_4`, the paper's resolution for its
-outdoor scenes, the 30,000 steps take 33 minutes in Chromium on an RTX
-5090. The held-out PSNR is 25.30, against the paper's 25.25. The cloud
-fills its 4,194,304 gaussians by step 9,100 and stays near full until
-densifying stops at 15,000, where the reference's grows to about 6
-million. At full resolution the photographs alone take 12.6 GB as
-textures and the entries grow with the pixels, so the run runs out of
-memory; streaming the photographs is future work.
+outdoor scenes, the 30,000 steps take 33 minutes on an RTX 5090, on Node
+and in Chromium alike. The held-out PSNR is 25.3, 25.28 on Node and 25.34
+in Chromium in one run each, against the paper's 25.25. The cloud fills
+its 4,194,304 gaussians by step 9,100 and stays near full until densifying
+stops at 15,000, where the reference's grows to about 6 million. At full
+resolution the photographs no longer limit a run, since they are streamed;
+the step's own buffers do. With the default cloud, binning's entries reach
+2^27 near step 6,500, and the programs for them no longer fit a 32 GB
+device beside the cloud's 14 GB. A cloud of 2,097,152 leaves them room: the
+30,000 steps then took 46 minutes on Node, and the held-out PSNR at 4946 by
+3286 was 23.77, which the paper, training at a quarter of that width, has
+no number to set beside.
