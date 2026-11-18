@@ -8,6 +8,13 @@
 // device. It loads at the program's first `request-device`, so a program
 // that never asks needs none. Dawn keeps the guards a browser has, which
 // cost little (doc/book/graphics/plan.md, "WebGPU on Node").
+//
+// A browser decodes images and Node does not, so `decode-image` is npm's
+// sharp package (sharp.pixelplumbing.com), a binding to libvips, pinned
+// and installed the same way and loaded at the program's first decode. It
+// reads what a browser reads, JPEG, PNG, WebP, GIF and AVIF among them,
+// and decodes on libuv's threads, so several images decode at once while
+// the program's tasks go on.
 import {createGpu, requestDevice} from '../browser/gpu.mjs';
 
 // `program` gives the running program, whose memory holds staged Bytes;
@@ -37,5 +44,23 @@ async function opened() {
   Object.assign(globalThis, globals);
   const instance = create([]);
   const {device, optional} = await requestDevice(instance);
-  return {device, context: null, format: 'rgba8unorm', optional, instance};
+  return {device, context: null, format: 'rgba8unorm', optional, instance, decode: encoded => nodeImage(device, encoded)};
+}
+
+// An encoded image as sharp decodes it, for host/browser/gpu.mjs's
+// `start-decode`, and as a page's would be: turned as its EXIF
+// orientation says, in sRGB, eight bits a channel, with straight alpha.
+// Bytes sharp decodes no image from answer null.
+let sharp = null;
+async function nodeImage(device, encoded) {
+  sharp ??= import('sharp').then(module => module.default, error => {
+    if (error.code !== 'ERR_MODULE_NOT_FOUND') throw error;
+    throw new Error('Node decodes no images here: install the sharp package with npm');
+  });
+  const decoded = await (await sharp)(encoded).autoOrient().toColourspace('srgb').ensureAlpha().raw({depth: 'uchar'})
+    .toBuffer({resolveWithObject: true}).catch(() => null);
+  if (!decoded) return null;
+  const {data, info: {width, height}} = decoded;
+  return {width, height,
+    write(texture) { device.queue.writeTexture({texture}, data, {bytesPerRow: 4 * width, rowsPerImage: height}, [width, height]); }};
 }

@@ -10,7 +10,8 @@ SCHEME_SOURCES = '*.scm' '*.sld' '*.sls' ':(exclude)editors/zed/languages'
 
 # Downloads the Rust crates in each Cargo.lock, which the tests and every
 # build then use offline, and the npm packages package-lock.json pins:
-# webgpu, for WebGPU on Node. Run it once in a new checkout or container.
+# webgpu, for WebGPU on Node, and sharp, which decodes its images. Run it
+# once in a new checkout or container.
 fetch:
 	cargo fetch --locked --manifest-path crates/snail-scheme-support/Cargo.toml
 	npm ci --no-fund --no-audit

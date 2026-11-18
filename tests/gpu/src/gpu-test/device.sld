@@ -1,7 +1,7 @@
-;; The checks of the `gpu` effect that need only a device, neither a screen
-;; nor an image decoder, so the page (tests/gpu/main.scm) and Node
-;; (tests/gpu/node.scm) run them alike, and the training checks, which
-;; only Node runs. Each writes its line: two tiles
+;; The checks of the `gpu` effect that need only a device and no screen, so
+;; the page (tests/gpu/main.scm) and Node (tests/gpu/node.scm) run them
+;; alike, and the training checks, which only Node runs. Each writes its
+;; line: a PNG's two texels, decoded by the host; two tiles
 ;; rasterized into a G-buffer and lit by the sun, under each tone curve,
 ;; and their motion and 32-bit ids, and a sprite that stays still under an
 ;; orbiting camera; numbers squared in a compute pass; 300,000 numbers
@@ -25,7 +25,8 @@
    training-checks
    buffer-named
    texture-named
-   texels)
+   texels
+   two-texels)
   (import
    (snail core base)
    (snail core io)
@@ -47,6 +48,7 @@
     ;; ---- Checks ----
 
     (define (device-checks) (→ Unit) (! gpu tasks output-port)
+      (write-line (string-append "decoded: " (texels (decoded-texels))))
       (write-line (string-append "scene: " (texels (scene-frame (Neutral)))))
       (write-line (string-append "filmic: " (texels (scene-frame (Filmic)))))
       (write-line (string-append "squares: " (words (compute-frame))))
@@ -86,6 +88,93 @@
                         (mips 1)
                         (format (Rgba8Unorm))
                         (usage (list (RenderAttachment) (TextureCopySrc))))))
+
+    ;; A red texel beside a green one, as a PNG.
+    (define two-texels
+      #u8(137 80
+              78
+              71
+              13
+              10
+              26
+              10
+              0
+              0
+              0
+              13
+              73
+              72
+              68
+              82
+              0
+              0
+              0
+              2
+              0
+              0
+              0
+              1
+              8
+              6
+              0
+              0
+              0
+              244
+              34
+              127
+              138
+              0
+              0
+              0
+              14
+              73
+              68
+              65
+              84
+              120
+              156
+              99
+              248
+              207
+              192
+              240
+              31
+              4
+              1
+              16
+              248
+              3
+              253
+              78
+              149
+              193
+              111
+              0
+              0
+              0
+              0
+              73
+              69
+              78
+              68
+              174
+              66
+              96 130))
+
+    ;; The PNG's texels as the host decodes them: the browser, or sharp
+    ;; on Node.
+    (define (decoded-texels) (→ Bytes) (! gpu tasks)
+      (match (decode-image two-texels)
+        ((Some image)
+         (let ((readback (buffer-named "image-readback" 256 (list (MapRead) (CopyDst))))
+               (encoder (create-command-encoder)))
+           (copy-texture-to-buffer encoder (whole-texture (● image texture)) readback 0 256 2 1)
+           (submit (list (finish encoder)))
+           (let ((read (read-buffer readback 0 8)))
+             (destroy (BufferObject readback))
+             (destroy (TextureObject (● image texture)))
+             read)))
+        ((None) (panic "the two texels did not decode"))))
 
     (define (texels (bytes Bytes)) (→ String)
       (string-join (map (lambda (byte) (show (u8->i32 byte))) (array->list bytes)) " "))
