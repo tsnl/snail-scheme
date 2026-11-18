@@ -685,12 +685,12 @@
     ;; ---- Rows ----
 
     ;; Row `indices[i]` of `source` as row i: (n, ...) at m u32 indices
-    ;; gives (m, ...).
+    ;; gives (m, ...). Rows of one value everywhere are that value.
     (define (gather (source View) (indices View)) (→ View)
-      (single (Gather)
-              (list source indices)
-              (Cons (element-count indices) (list-tail (shape-of source) 1))
-              (etype-of source)))
+      (let ((shape (Cons (element-count indices) (list-tail (shape-of source) 1))))
+        (match (● source node kind)
+          ((Fill value) (fill value shape (etype-of source)))
+          (_ (single (Gather) (list source indices) shape (etype-of source))))))
 
     ;; Each row i of `source` added to row `indices[i]` of `rows` zero rows.
     (define (scatter-add (source View) (indices View) (rows I64)) (→ View)

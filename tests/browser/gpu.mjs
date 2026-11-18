@@ -9,9 +9,10 @@
 // light. It squares numbers in a compute pass, scans and sorts on the GPU,
 // splats gaussians under a transforms table it then changes, and runs
 // compiled tensor programs, checked against their CPU evaluation, among
-// them the differentiable splat renderer's gradients. WebGPU
-// reports no error. tests/gpu.mjs runs the checks that need no screen on
-// Node, and tests/gpu/expected.mjs holds what both print.
+// them fused SSIM's gradient and densification. WebGPU reports no error.
+// tests/gpu.mjs runs the checks that need no screen on Node, with the
+// splat renderer's training checks, and tests/gpu/expected.mjs holds what
+// both print.
 //
 //   CHROMIUM=... node tests/browser/gpu.mjs ROOT [SCREENSHOT]
 import assert from 'node:assert/strict';
@@ -65,7 +66,7 @@ try {
     return [...context.getImageData(0, 0, 2, 1).data];
   })()`), [0, 0, 255, 255, 0, 255, 0, 255]);
   if (screenshot) await browser.screenshot(screenshot);
-  console.log('gpu: drawing, readback, decoding, objects kept across frames, atlas composition, quads, a lit, tone-mapped and smoothed G-buffer, motion and ids, a compute pass, a scan, a sort, splats, tensor programs, the differentiable splat renderer, a wait and a file read as bytes on a real device passed');
+  console.log('gpu: drawing, readback, decoding, objects kept across frames, atlas composition, quads, a lit, tone-mapped and smoothed G-buffer, motion and ids, a compute pass, a scan, a sort, splats, tensor programs, fused SSIM, densification, a wait and a file read as bytes on a real device passed');
 } finally {
   browser.close();
   server.close();
