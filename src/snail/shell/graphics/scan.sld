@@ -11,8 +11,8 @@
 ;;     (dispatch-scan pass scan)       ; in a pass from begin-compute-pass
 ;;     ...)
 ;;
-;; Each level is one dispatch of at most 65535 tiles, so a scan holds at
-;; most 33,553,920 numbers. Sums wrap modulo 2^32.
+;; Each level is one dispatch, its tiles in rows of at most 65535
+;; workgroups. Sums wrap modulo 2^32.
 (define-library (snail shell graphics scan)
   (export
    ScanLevel
@@ -20,7 +20,8 @@
    make-scan
    dispatch-scan
    release-scan
-   tiles)
+   tiles
+   dispatch-rows)
   (import
    (snail core base)
    (snail shell gpu)
@@ -145,7 +146,12 @@
 
     (define (dispatch-level (pass GpuComputePass) (group GpuBindGroup) (count I64)) (→ Unit) (! gpu)
       (set-compute-bind-group pass 0 group)
-      (dispatch-workgroups pass (i64->i32 (tiles count 512)) 1 1))
+      (dispatch-rows pass (tiles count 512)))
+
+    ;; `count` workgroups in rows of at most 65535.
+    (define (dispatch-rows (pass GpuComputePass) (count I64)) (→ Unit) (! gpu)
+      (let ((x (min count 65535)))
+        (dispatch-workgroups pass (i64->i32 x) (i64->i32 (tiles count x)) 1)))
 
     (define (but-last (items (List T))) (→ (List T)) (∀ (T))
       (match items

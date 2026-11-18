@@ -1,6 +1,7 @@
 ;; The checks of the `gpu` effect that need only a device, neither a screen
 ;; nor an image decoder, so the page (tests/gpu/main.scm) and Node
-;; (tests/gpu/node.scm) run them alike. Each writes its line: two tiles
+;; (tests/gpu/node.scm) run them alike, and the training checks, which
+;; only Node runs. Each writes its line: two tiles
 ;; rasterized into a G-buffer and lit by the sun, under each tone curve,
 ;; and their motion and 32-bit ids, and a sprite that stays still under an
 ;; orbiting camera; numbers squared in a compute pass; 300,000 numbers
@@ -8,11 +9,16 @@
 ;; transform tables; tensor programs compiled and checked against the CPU,
 ;; params swapped and assigned, and Adam fitting a line; and the
 ;; differentiable splat renderer checked against the paper's blending, its
-;; tiles past 65,535, and its gradients against central differences.
+;; tiles past 65,535, fused SSIM's gradient against central differences,
+;; and densification's clones, splits and prunes, within the cloud's
+;; capacity. The training checks are the renderer's gradients against
+;; central differences and Adam fitting a cloud: SwiftShader, the page's
+;; device, traps in its GPU process under that much training work (#856).
 ;; tests/gpu/expected.mjs holds the lines.
 (define-library (gpu-test device)
   (export
    device-checks
+   training-checks
    buffer-named
    texture-named
    texels)
@@ -30,7 +36,8 @@
    (snail shell graphics splat)
    (gpu-test shaders)
    (gpu-test tensor)
-   (gpu-test splat-train))
+   (gpu-test splat-train)
+   (gpu-test splat-fit))
   (begin
 
     ;; ---- Checks ----
@@ -53,6 +60,11 @@
       (write-line (string-append "splat forward: " (splat-forward-check)))
       (write-line (string-append "shared fill: " (show (shared-fill))))
       (write-line (string-append "splat tile ranges: " (splat-tile-ranges)))
+      (write-line (string-append "ssim: " (splat-ssim-check)))
+      (write-line (string-append "densify: " (splat-densify-check)))
+      (write-line (string-append "room: " (splat-room-check))))
+
+    (define (training-checks) (→ Unit) (! gpu tasks output-port)
       (write-line (string-append "splat gradients: " (splat-gradient-check)))
       (write-line (string-append "splat fit: " (splat-fit-check))))
 

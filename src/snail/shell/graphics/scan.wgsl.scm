@@ -5,7 +5,8 @@
 ;; downsweep passes each node's sum to the right and the sum left of it to
 ;; the left, leaving each number as the sum of those before it in the
 ;; tile. `add_sums` then adds each tile's scanned total to its numbers.
-;; Numbers past the level's count read as 0 and are not written.
+;; Numbers past the level's count read as 0 and are not written. Tiles
+;; are laid out in rows of workgroups, past 65535 of them.
 ;; `ScanLevel` comes from Pod.
 ((var uniform) (@group 0) (@binding 0) (level ScanLevel))
 
@@ -33,9 +34,13 @@
 (fn (@compute)
     (@workgroup_size 256)
     scan_tiles
-    (((@builtin local_invocation_id) local vec3u) ((@builtin workgroup_id) group vec3u))
+    (((@builtin local_invocation_id) local vec3u)
+     ((@builtin workgroup_id) group vec3u)
+     ((@builtin num_workgroups) groups vec3u))
     (let t (get local x))
-    (let base (* (get group x) 512u))
+    (let tile (+ (* (get group y) (get groups x)) (get group x)))
+    (if ((>= (* tile 512u) (u32 (get level count))) (return)))
+    (let base (* tile 512u))
     (= (at scratch (* 2u t)) (load (+ base (* 2u t))))
     (= (at scratch (+ (* 2u t) 1u)) (load (+ base (* 2u t) 1u)))
     (var offset 1u)
@@ -44,7 +49,7 @@
          (if ((< t d) (+= (at scratch (right_child t offset)) (at scratch (left_child t offset)))))
          (*= offset 2u))
     (workgroupBarrier)
-    (if ((== t 0u) (= (at sums (get group x)) (at scratch 511u)) (= (at scratch 511u) 0u)))
+    (if ((== t 0u) (= (at sums tile) (at scratch 511u)) (= (at scratch 511u) 0u)))
     (for ((var d 1u) (< d 512u) (*= d 2u))
          (= offset (>> offset 1u))
          (workgroupBarrier)
@@ -59,8 +64,12 @@
 (fn (@compute)
     (@workgroup_size 256)
     add_sums
-    (((@builtin local_invocation_id) local vec3u) ((@builtin workgroup_id) group vec3u))
-    (let base (+ (* (get group x) 512u) (* 2u (get local x))))
-    (let total (at sums (get group x)))
+    (((@builtin local_invocation_id) local vec3u)
+     ((@builtin workgroup_id) group vec3u)
+     ((@builtin num_workgroups) groups vec3u))
+    (let tile (+ (* (get group y) (get groups x)) (get group x)))
+    (if ((>= (* tile 512u) (u32 (get level count))) (return)))
+    (let base (+ (* tile 512u) (* 2u (get local x))))
+    (let total (at sums tile))
     (store base (+ (load base) total))
     (store (+ base 1u) (+ (load (+ base 1u)) total)))

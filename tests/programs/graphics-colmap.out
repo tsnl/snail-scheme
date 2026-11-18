@@ -1,0 +1,10 @@
+camera 1: 4946x3286 4649.5 4627.25 2473.0 1643.0
+camera 2: 640x480 500.0 500.0 320.0 240.0
+image 7 _DSC8679.JPG on camera 1
+rotation 0.0 0.0 1.0 1.0 0.0 0.0 0.0 1.0 0.0
+camera param at half size 0.0 0.0 1.0 1.0 0.0 0.0 0.0 1.0 0.0 1.0 -2.0 3.5 2324.75 2313.625 1236.5 821.5
+point -0.5 0.25 2.0 color 1.0 0.0 0.2
+cameras.bin: truncated
+cameras.bin: camera model 4 is not a pinhole; undistort the images first
+images.bin: truncated
+points3D.bin: truncated

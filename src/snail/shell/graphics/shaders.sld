@@ -4,8 +4,10 @@
 ;; `sun-shader`, `post-shader`, `scan-shader`, `radix-sort-shader`,
 ;; `splat-project-shader` and `splat-draw-shader`, and training's
 ;; `splat-tiles-shader`, `splat-count-shader`, `splat-keys-shader`,
-;; `splat-ranges-shader`, `splat-forward-shader`, `splat-backward-shader`
-;; and `splat-blur-shader`, and the path tracer's `bvh-shader`,
+;; `splat-ranges-shader`, `splat-forward-shader`, `splat-backward-shader`,
+;; `splat-ssim-shader`, `splat-ssim-forward-shader`,
+;; `splat-ssim-backward-shader`, `splat-place-shader`, `splat-normals-shader`
+;; and `splat-knn-shader`, and the path tracer's `bvh-shader`,
 ;; `rays-shader`, `svgf-shader`, `environment-shader` and
 ;; `environment-light-shader`.
 (generate-library (snail shell graphics shaders)
@@ -63,8 +65,23 @@
                                           (first "splat-backward-shader")
                                           (second (link-file "splat-backward.wgsl.scm")))
                                         (new Pair
-                                          (first "splat-blur-shader")
-                                          (second (link-file "splat-blur.wgsl.scm")))
+                                          (first "splat-ssim-shader")
+                                          (second (link-file "splat-ssim.wgsl.scm")))
+                                        (new Pair
+                                          (first "splat-ssim-forward-shader")
+                                          (second (link-file "splat-ssim-forward.wgsl.scm")))
+                                        (new Pair
+                                          (first "splat-ssim-backward-shader")
+                                          (second (link-file "splat-ssim-backward.wgsl.scm")))
+                                        (new Pair
+                                          (first "splat-place-shader")
+                                          (second (link-file "splat-place.wgsl.scm")))
+                                        (new Pair
+                                          (first "splat-normals-shader")
+                                          (second (link-file "splat-normals.wgsl.scm")))
+                                        (new Pair
+                                          (first "splat-knn-shader")
+                                          (second (link-file "splat-knn.wgsl.scm")))
                                         (new Pair
                                           (first "bvh-shader")
                                           (second (link-file "bvh.wgsl.scm")))

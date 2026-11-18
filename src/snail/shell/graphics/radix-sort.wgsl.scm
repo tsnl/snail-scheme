@@ -6,7 +6,8 @@
 ;; block's keys of each digit start in the output, every smaller digit's
 ;; keys first and then this digit's in earlier blocks. `scatter` writes each
 ;; key and its value there, after the keys of its digit earlier in its
-;; block, so a pass is stable and the passes together sort.
+;; block, so a pass is stable and the passes together sort. Blocks are
+;; laid out in rows of workgroups, past 65535 of them.
 ;; `SortPass` comes from Pod.
 ((var uniform) (@group 0) (@binding 0) (sorting SortPass))
 
@@ -30,16 +31,20 @@
 (fn (@compute)
     (@workgroup_size 256)
     count_digits
-    (((@builtin local_invocation_id) local vec3u) ((@builtin workgroup_id) group vec3u))
+    (((@builtin local_invocation_id) local vec3u)
+     ((@builtin workgroup_id) group vec3u)
+     ((@builtin num_workgroups) groups vec3u))
     (let t (get local x))
-    (let i (+ (* (get group x) 256u) t))
+    (let block (+ (* (get group y) (get groups x)) (get group x)))
+    (if ((>= block (u32 (get sorting blocks))) (return)))
+    (let i (+ (* block 256u) t))
     (if ((< t 16u) (atomicStore (address-of (at bins t)) 0u)))
     (workgroupBarrier)
     (if
      ((< i (u32 (get sorting count))) (atomicAdd (address-of (at bins (digit (at keys_in i)))) 1u)))
     (workgroupBarrier)
     (if ((< t 16u)
-         (= (at counts (+ (* t (u32 (get sorting blocks))) (get group x)))
+         (= (at counts (+ (* t (u32 (get sorting blocks))) block))
             (atomicLoad (address-of (at bins t)))))))
 
 ;; A key's rank among its block's keys of the same digit is how many come
@@ -49,9 +54,13 @@
 (fn (@compute)
     (@workgroup_size 256)
     scatter
-    (((@builtin local_invocation_id) local vec3u) ((@builtin workgroup_id) group vec3u))
+    (((@builtin local_invocation_id) local vec3u)
+     ((@builtin workgroup_id) group vec3u)
+     ((@builtin num_workgroups) groups vec3u))
     (let t (get local x))
-    (let i (+ (* (get group x) 256u) t))
+    (let block (+ (* (get group y) (get groups x)) (get group x)))
+    (if ((>= block (u32 (get sorting blocks))) (return)))
+    (let i (+ (* block 256u) t))
     (let inside (< i (u32 (get sorting count))))
     (var d 16u)
     (if (inside (= d (digit (at keys_in i)))))
@@ -60,6 +69,6 @@
     (if (inside
          (var rank 0u)
          (for ((var j 0u) (< j t) (+= j 1u)) (if ((== (at digits j) d) (+= rank 1u))))
-         (let to (+ (at counts (+ (* d (u32 (get sorting blocks))) (get group x))) rank))
+         (let to (+ (at counts (+ (* d (u32 (get sorting blocks))) block)) rank))
          (= (at keys_out to) (at keys_in i))
          (= (at values_out to) (at values_in i)))))
