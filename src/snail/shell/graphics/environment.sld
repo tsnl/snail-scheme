@@ -27,6 +27,7 @@
    (snail core base)
    (snail shell gpu)
    (snail shell graphics pod)
+   (snail shell graphics kernel)
    (snail shell graphics raster)
    (snail shell graphics shaders))
   (begin
@@ -184,16 +185,16 @@
              (uniform (shape-uniform (sized hdr width height factor)))
              (kernels (environment-kernels)))
         (let* ((encoder (create-command-encoder)) (pass (begin-compute-pass encoder)))
-          (run pass
-               kernels
-               "unrle"
-               (list (buffer 0 file) (buffer 1 rows) (buffer 2 rgbe) (buffer 3 uniform))
-               (rows-of (● hdr height)))
-          (run pass
-               kernels
-               "downsample"
-               (list (buffer 2 rgbe) (buffer 3 uniform) (TextureEntry 4 (● radiance view)))
-               (texels-of width height))
+          (bound pass
+                 kernels
+                 "unrle"
+                 (list (buffer 0 file) (buffer 1 rows) (buffer 2 rgbe) (buffer 3 uniform)))
+          (dispatch-items pass (● hdr height) 64)
+          (bound pass
+                 kernels
+                 "downsample"
+                 (list (buffer 2 rgbe) (buffer 3 uniform) (TextureEntry 4 (● radiance view))))
+          (dispatch-texels pass (i64->i32 width) (i64->i32 height))
           (end-compute-pass pass)
           (submit (list (finish encoder))))
         (for-each (lambda (spent) (destroy (BufferObject spent))) (list file rows rgbe uniform))
@@ -233,11 +234,8 @@
                                        (ground (● sky ground)))))
              (kernels (environment-kernels)))
         (let* ((encoder (create-command-encoder)) (pass (begin-compute-pass encoder)))
-          (run pass
-               kernels
-               "sky"
-               (list (buffer 3 uniform) (TextureEntry 4 (● radiance view)))
-               (texels-of width height))
+          (bound pass kernels "sky" (list (buffer 3 uniform) (TextureEntry 4 (● radiance view))))
+          (dispatch-texels pass (i64->i32 width) (i64->i32 height))
           (end-compute-pass pass)
           (submit (list (finish encoder))))
         (destroy (BufferObject uniform))
@@ -252,22 +250,15 @@
       (→ Environment)
       (! gpu)
       (let* ((table (plane "environment/table" (+ width 1) (+ height 1) (R32Float)))
-             (sums (storage "environment/sums" (* 4 height))))
+             (sums (storage "environment/sums" (* 4 height)))
+             (entries (list (TextureEntry 5 (● radiance view))
+                            (buffer 6 sums)
+                            (TextureEntry 7 (● table view)))))
         (let* ((encoder (create-command-encoder)) (pass (begin-compute-pass encoder)))
-          (run pass
-               kernels
-               "weigh"
-               (list (TextureEntry 5 (● radiance view))
-                     (buffer 6 sums)
-                     (TextureEntry 7 (● table view)))
-               (rows-of height))
-          (run pass
-               kernels
-               "marginal"
-               (list (TextureEntry 5 (● radiance view))
-                     (buffer 6 sums)
-                     (TextureEntry 7 (● table view)))
-               (new Dispatch (x 1) (y 1)))
+          (bound pass kernels "weigh" entries)
+          (dispatch-items pass height 64)
+          (bound pass kernels "marginal" entries)
+          (dispatch-workgroups pass 1 1 1)
           (end-compute-pass pass)
           (submit (list (finish encoder))))
         (destroy (BufferObject sums))
@@ -275,34 +266,20 @@
         (new Environment (radiance radiance) (table table))))
 
     (define (release-environment (environment Environment)) (→ Unit) (! gpu)
-      (for-each (lambda (plane)
-                  (destroy (ViewObject (● plane view)))
-                  (destroy (TextureObject (● plane texture))))
-                (list (● environment radiance) (● environment table))))
+      (for-each release-plane (list (● environment radiance) (● environment table))))
 
     ;; Group 2 of `pipeline`, a kernel that includes
     ;; `environment-light-shader`.
     (define (environment-group (pipeline GpuComputePipeline) (environment Environment))
       (→ GpuBindGroup)
       (! gpu)
-      (create-bind-group (new BindGroupDescriptor
-                           (label "environment")
-                           (pipeline (ComputePipeline pipeline))
-                           (group 2)
-                           (entries (list (TextureEntry 0 (● environment radiance view))
-                                          (TextureEntry 1 (● environment table view)))))))
+      (kernel-group pipeline
+                    2
+                    "environment"
+                    (list (TextureEntry 0 (● environment radiance view))
+                          (TextureEntry 1 (● environment table view)))))
 
     ;; ---- Kernels ----
-
-    ;; How many workgroups a kernel runs: across and down.
-    (record Dispatch
-      ((x I64)
-       (y I64)))
-
-    (define (rows-of (count I64)) (→ Dispatch) (new Dispatch (x (quotient (+ count 63) 64)) (y 1)))
-
-    (define (texels-of (width I64) (height I64)) (→ Dispatch)
-      (new Dispatch (x (quotient (+ width 7) 8)) (y (quotient (+ height 7) 8))))
 
     (define (environment-kernels) (→ (List (Pair String GpuComputePipeline))) (! gpu)
       (let ((module (create-shader-module (new ShaderModuleDescriptor
@@ -310,51 +287,32 @@
                                             (code (string-append (declarations shape-shape)
                                                                  environment-shader))))))
         (map (lambda (entry)
-               (new Pair
-                 (first entry)
-                 (second (create-compute-pipeline (new ComputePipelineDescriptor
-                                                    (label (string-append "environment/" entry))
-                                                    (module module)
-                                                    (entry entry))))))
+               (new Pair (first entry) (second (compute-kernel module "environment" entry))))
              (list "unrle" "downsample" "sky" "weigh" "marginal"))))
 
-    ;; One dispatch of `entry` with `entries`; its group goes at the
-    ;; submit.
-    (define (run (pass GpuComputePass)
-                 (kernels (List (Pair String GpuComputePipeline)))
-                 (entry String)
-                 (entries (List BindGroupEntry))
-                 (groups Dispatch))
+    ;; The kernel `entry` set over `entries`, for the dispatch that
+    ;; follows; its group goes at the submit.
+    (define (bound (pass GpuComputePass)
+                   (kernels (List (Pair String GpuComputePipeline)))
+                   (entry String)
+                   (entries (List BindGroupEntry)))
       (→ Unit)
       (! gpu)
-      (let* ((pipeline (match (assoc-ref kernels entry)
-                         ((Some pipeline) pipeline)
-                         ((None) (panic (string-append "environment: no kernel " entry)))))
-             (group (create-bind-group (new BindGroupDescriptor
-                                         (label (string-append "environment/" entry))
-                                         (pipeline (ComputePipeline pipeline))
-                                         (group 0)
-                                         (entries entries)))))
-        (set-compute-pipeline pass pipeline)
+      (let* ((kernel (match (assoc-ref kernels entry)
+                       ((Some kernel) kernel)
+                       ((None) (panic (string-append "environment: no kernel " entry)))))
+             (group (kernel-group kernel 0 (string-append "environment/" entry) entries)))
+        (set-compute-pipeline pass kernel)
         (set-compute-bind-group pass 0 group)
-        (dispatch-workgroups pass (i64->i32 (● groups x)) (i64->i32 (● groups y)) 1)
         (destroy (BindGroupObject group))))
 
     (define (buffer (binding I32) (b GpuBuffer)) (→ BindGroupEntry) (BufferEntry binding b 0 0))
 
     (define (shape-uniform (s EnvironmentShape)) (→ GpuBuffer) (! gpu)
-      (let ((b (create-buffer (new BufferDescriptor
-                                (label "environment/shape")
-                                (size (i64->i32 (stride shape-shape)))
-                                (usage (list (Uniform) (CopyDst)))))))
-        (write-buffer b 0 (pod-bytes shape-shape s))
-        b))
+      (uniform-buffer "environment/shape" (pod-bytes shape-shape s)))
 
     (define (storage (label String) (size I64)) (→ GpuBuffer) (! gpu)
-      (create-buffer (new BufferDescriptor
-                       (label label)
-                       (size (i64->i32 (max 16 size)))
-                       (usage (list (Storage) (CopyDst))))))
+      (storage-buffer label size (list (CopyDst))))
 
     (define (filled (label String) (bytes Bytes)) (→ GpuBuffer) (! gpu)
       (let ((b (storage label (array-length bytes))))
@@ -366,14 +324,10 @@
         (if (= extra 0) bytes (array-append bytes (make-array extra (i32->u8 0))))))
 
     (define (plane (label String) (width I64) (height I64) (format TextureFormat)) (→ Plane) (! gpu)
-      (let ((texture (create-texture (new TextureDescriptor
-                                       (label label)
-                                       (width (i64->i32 width))
-                                       (height (i64->i32 height))
-                                       (layers 1)
-                                       (mips 1)
-                                       (format format)
-                                       (usage (list (StorageBinding) (TextureBinding)))))))
-        (new Plane (texture texture) (view (view-of texture 1)))))
+      (make-plane label
+                  (i64->i32 width)
+                  (i64->i32 height)
+                  format
+                  (list (StorageBinding) (TextureBinding))))
 
     ))

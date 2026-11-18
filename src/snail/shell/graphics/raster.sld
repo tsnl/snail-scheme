@@ -31,6 +31,8 @@
    Planes
    color-planes
    Plane
+   make-plane
+   release-plane
    GBuffer
    make-gbuffer
    read-id
@@ -258,10 +260,32 @@
 
     (define color-planes (→ Planes) (new Planes (motion #f) (ids #f)))
 
-    ;; A target and the view the passes draw to and read.
+    ;; A target and the view the passes draw to and read. The two are made
+    ;; together and let go together, so no view outlives its texture.
     (record Plane
       ((texture GpuTexture)
        (view GpuTextureView)))
+
+    (define (make-plane (label String)
+                        (width I32)
+                        (height I32)
+                        (format TextureFormat)
+                        (usage (List TextureUsage)))
+      (→ Plane)
+      (! gpu)
+      (let ((texture (create-texture (new TextureDescriptor
+                                       (label label)
+                                       (width (max 1 width))
+                                       (height (max 1 height))
+                                       (layers 1)
+                                       (mips 1)
+                                       (format format)
+                                       (usage usage)))))
+        (new Plane (texture texture) (view (view-of texture 1)))))
+
+    (define (release-plane (plane Plane)) (→ Unit) (! gpu)
+      (destroy (ViewObject (● plane view)))
+      (destroy (TextureObject (● plane texture))))
 
     (record GBuffer
       ((albedo Plane)
@@ -274,17 +298,15 @@
     (define (make-gbuffer (planes Planes) (width I32) (height I32)) (→ GBuffer) (! gpu)
       (let ((size (new Pair (first width) (second height))))
         (new GBuffer
-          (albedo (make-plane "albedo" size (Rgba8Unorm)))
-          (normal (make-plane "normal" size (Rgba16Float)))
-          (material (make-plane "material" size (Rgba8Unorm)))
-          (depth (make-plane "depth" size (Depth24Plus)))
-          (motion (if (● planes motion) (Some (make-plane "motion" size (Rg16Float))) (None)))
-          (ids (if (● planes ids) (Some (make-plane "ids" size (R32Uint))) (None))))))
+          (albedo (gbuffer-plane "albedo" size (Rgba8Unorm)))
+          (normal (gbuffer-plane "normal" size (Rgba16Float)))
+          (material (gbuffer-plane "material" size (Rgba8Unorm)))
+          (depth (gbuffer-plane "depth" size (Depth24Plus)))
+          (motion (if (● planes motion) (Some (gbuffer-plane "motion" size (Rg16Float))) (None)))
+          (ids (if (● planes ids) (Some (gbuffer-plane "ids" size (R32Uint))) (None))))))
 
     (define (release-gbuffer (g GBuffer)) (→ Unit) (! gpu)
-      (for-each (lambda (plane)
-                  (destroy (ViewObject (● plane view)))
-                  (destroy (TextureObject (● plane texture))))
+      (for-each release-plane
                 (append (list (● g albedo) (● g normal) (● g material) (● g depth))
                         (present (list (● g motion) (● g ids))))))
 
@@ -296,20 +318,14 @@
                   (Nil)
                   planes))
 
-    (define (make-plane (part String) (size (Pair I32 I32)) (format TextureFormat))
+    (define (gbuffer-plane (part String) (size (Pair I32 I32)) (format TextureFormat))
       (→ Plane)
       (! gpu)
-      (let ((texture (create-texture (new TextureDescriptor
-                                       (label (string-append "gbuffer/" part))
-                                       (width (● size first))
-                                       (height (● size second))
-                                       (layers 1)
-                                       (mips 1)
-                                       (format format)
-                                       (usage (list (RenderAttachment)
-                                                    (TextureBinding)
-                                                    (TextureCopySrc)))))))
-        (new Plane (texture texture) (view (view-of texture 1)))))
+      (make-plane (string-append "gbuffer/" part)
+                  (● size first)
+                  (● size second)
+                  format
+                  (list (RenderAttachment) (TextureBinding) (TextureCopySrc))))
 
     ;; A target for each color plane, None where `planes` leaves one out:
     ;; the G-buffer pass's attachments have the same gaps.

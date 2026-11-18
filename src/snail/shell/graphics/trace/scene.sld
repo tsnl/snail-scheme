@@ -24,6 +24,7 @@
    (only (snail shell task) tasks)
    (snail shell gpu)
    (snail shell graphics pod)
+   (snail shell graphics kernel)
    (snail shell graphics gltf)
    (only (snail shell graphics bvh) Triangles)
    (snail shell graphics trace shaders))
@@ -357,14 +358,11 @@
     (define (unpacked (gltf Gltf) (counts (Pair I64 I64)) (buffers (List Bytes)))
       (→ (Pair GpuBuffer GpuBuffer))
       (! gpu)
-      (let* ((data (storage-sized "scene/data" (max 4 (● gltf size)) (list (Storage) (CopyDst))))
+      (let* ((data (storage-buffer "scene/data" (● gltf size) (list (CopyDst))))
              (unpacks (storage-of "scene/unpacks" (pack unpack-shape (unpacks-of gltf))))
-             (vertices (storage-sized "scene/vertices"
-                                      (max 64 (* vertex-stride (● counts first)))
-                                      (list (Storage))))
-             (indices (storage-sized "scene/indices"
-                                     (max 12 (* 4 (● counts second)))
-                                     (list (Storage) (Index)))))
+             (vertices
+              (storage-buffer "scene/vertices" (* vertex-stride (● counts first)) (Nil)))
+             (indices (storage-buffer "scene/indices" (* 4 (● counts second)) (list (Index)))))
         (for-each (lambda (laid)
                     (write-buffer data
                                   (i64->i32 (● laid first start))
@@ -393,53 +391,40 @@
                                              (code (string-append (declarations unpack-shape)
                                                                   unpack-shader)))))
              (encoder (create-command-encoder))
-             (pass (begin-compute-pass encoder)))
-        (for-each (lambda (step)
-                    (let* ((pipeline (create-compute-pipeline
-                                      (new ComputePipelineDescriptor
-                                        (label (string-append "scene/" (● step first)))
-                                        (module module)
-                                        (entry (● step first)))))
-                           (group (create-bind-group
-                                   (new BindGroupDescriptor
-                                     (label "scene/unpack")
-                                     (pipeline (ComputePipeline pipeline))
-                                     (group 0)
-                                     (entries (list (BufferEntry 0 data 0 0)
-                                                    (BufferEntry 1 unpacks 0 0)
-                                                    (● step second second)))))))
-                      (set-compute-pipeline pass pipeline)
-                      (set-compute-bind-group pass 0 group)
-                      (dispatch-over pass (● step second first))
-                      (destroy (BindGroupObject group))
-                      (destroy (ComputePipelineObject pipeline))))
-                  (list (new Pair
-                          (first "unpack_vertices")
-                          (second
-                           (new Pair (first vertex-count) (second (BufferEntry 2 vertices 0 0)))))
-                        (new Pair
-                          (first "unpack_triangles")
-                          (second (new Pair
-                                    (first triangle-count)
-                                    (second (BufferEntry 3 indices 0 0)))))))
+             (pass (begin-compute-pass encoder))
+             (read (list (BufferEntry 0 data 0 0) (BufferEntry 1 unpacks 0 0))))
+        (unpack pass
+                module
+                "unpack_vertices"
+                vertex-count
+                (append read (list (BufferEntry 2 vertices 0 0))))
+        (unpack pass
+                module
+                "unpack_triangles"
+                triangle-count
+                (append read (list (BufferEntry 3 indices 0 0))))
         (end-compute-pass pass)
         (submit (list (finish encoder)))))
 
-    ;; Workgroups of 256 for `count` items, rows of 65535 groups.
-    (define (dispatch-over (pass GpuComputePass) (count I64)) (→ Unit) (! gpu)
-      (let ((groups (max 1 (quotient (+ count 255) 256))))
-        (dispatch-workgroups pass
-                             (i64->i32 (min groups 65535))
-                             (i64->i32 (quotient (+ groups 65534) 65535))
-                             1)))
-
-    (define (storage-sized (label String) (size I64) (usage (List BufferUsage)))
-      (→ GpuBuffer)
+    ;; One kernel of the unpack over `count` items; its pipeline and group
+    ;; go at the submit.
+    (define (unpack (pass GpuComputePass)
+                    (module GpuShaderModule)
+                    (entry String)
+                    (count I64)
+                    (entries (List BindGroupEntry)))
+      (→ Unit)
       (! gpu)
-      (create-buffer (new BufferDescriptor (label label) (size (i64->i32 size)) (usage usage))))
+      (let* ((kernel (compute-kernel module "scene" entry))
+             (group (kernel-group kernel 0 "scene/unpack" entries)))
+        (set-compute-pipeline pass kernel)
+        (set-compute-bind-group pass 0 group)
+        (dispatch-items pass count 256)
+        (destroy (BindGroupObject group))
+        (destroy (ComputePipelineObject kernel))))
 
     (define (storage-of (label String) (bytes Bytes)) (→ GpuBuffer) (! gpu)
-      (let ((buffer (storage-sized label (max 16 (array-length bytes)) (list (Storage) (CopyDst)))))
+      (let ((buffer (storage-buffer label (array-length bytes) (list (CopyDst)))))
         (write-buffer buffer 0 bytes)
         buffer))
 

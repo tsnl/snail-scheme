@@ -21,6 +21,7 @@
    (snail core base)
    (snail shell gpu)
    (snail shell graphics pod)
+   (snail shell graphics kernel)
    (snail shell graphics raster)
    (snail shell graphics shaders))
   (begin
@@ -73,28 +74,18 @@
       (let ((module (create-shader-module (new ShaderModuleDescriptor
                                             (label "svgf")
                                             (code (string-append (declarations camera-shape)
-                                                                 (string-append
-                                                                  (declarations filtering-shape)
-                                                                  svgf-shader)))))))
+                                                                 (declarations filtering-shape)
+                                                                 svgf-shader))))))
         (planned (new Kernels
-                   (temporal (kernel module "temporal"))
-                   (variance (kernel module "variance"))
-                   (atrous (kernel module "atrous"))
-                   (remodulate (kernel module "remodulate"))
-                   (filtering (create-buffer (new BufferDescriptor
-                                               (label "svgf/filtering")
-                                               (size (* 6 256))
-                                               (usage (list (Uniform) (CopyDst)))))))
+                   (temporal (compute-kernel module "svgf" "temporal"))
+                   (variance (compute-kernel module "svgf" "variance"))
+                   (atrous (compute-kernel module "svgf" "atrous"))
+                   (remodulate (compute-kernel module "svgf" "remodulate"))
+                   (filtering (uniform-buffer "svgf/filtering" (filtering-bytes #t 1.0))))
                  inputs
                  light
                  width
                  height)))
-
-    (define (kernel (module GpuShaderModule) (entry String)) (→ GpuComputePipeline) (! gpu)
-      (create-compute-pipeline (new ComputePipelineDescriptor
-                                 (label (string-append "svgf/" entry))
-                                 (module module)
-                                 (entry entry))))
 
     ;; New planes and groups when the inputs or the size change; the
     ;; history starts again.
@@ -114,10 +105,7 @@
                       (concatenate (list (● svgf temporal-groups)
                                          (● svgf variance-groups)
                                          (● svgf atrous-groups)))))
-      (for-each (lambda (plane)
-                  (destroy (ViewObject (● plane view)))
-                  (destroy (TextureObject (● plane texture))))
-                (● svgf planes)))
+      (for-each release-plane (● svgf planes)))
 
     ;; ---- A frame ----
 
@@ -159,25 +147,19 @@
       (! gpu)
       (set-compute-pipeline pass pipeline)
       (set-compute-bind-group pass 0 group)
-      (dispatch-workgroups pass
-                           (quotient (+ (● svgf width) 7) 8)
-                           (quotient (+ (● svgf height) 7) 8)
-                           1))
+      (dispatch-texels pass (● svgf width) (● svgf height)))
 
     ;; Slot 0 for the temporal filter and the light, slots 1 to 5 for the
     ;; à-trous levels' steps.
     (define (filtering-bytes (moved Bool) (exposure F32)) (→ Bytes)
-      (fold-left array-append
-                 (make-array 0 (i32->u8 0))
-                 (map (lambda (limits)
-                        (let ((bytes (pod-bytes filtering-shape (new Filtering (limits limits)))))
-                          (array-append bytes
-                                        (make-array (- 256 (array-length bytes)) (i32->u8 0)))))
-                      (Cons (if moved
-                                (new Vec4f (x 32.0) (y 0.2) (z 0.0) (w exposure))
-                                (new Vec4f (x 4096.0) (y 0.0) (z 0.0) (w exposure)))
-                            (map (lambda (stride) (new Vec4f (x 0.0) (y 0.0) (z stride) (w 0.0)))
-                                 (list 1.0 2.0 4.0 8.0 16.0))))))
+      (uniform-slots filtering-shape
+                     (map (lambda (limits) (new Filtering (limits limits)))
+                          (Cons (if moved
+                                    (new Vec4f (x 32.0) (y 0.2) (z 0.0) (w exposure))
+                                    (new Vec4f (x 4096.0) (y 0.0) (z 0.0) (w exposure)))
+                                (map (lambda (stride)
+                                       (new Vec4f (x 0.0) (y 0.0) (z stride) (w 0.0)))
+                                     (list 1.0 2.0 4.0 8.0 16.0))))))
 
     ;; ---- Planes ----
 
@@ -208,10 +190,14 @@
       (→ Svgf)
       (! gpu)
       (let ((planes (map (lambda (name)
-                           (filter-plane (string-append "svgf/" name)
-                                         width
-                                         height
-                                         (if (string=? name "place") (Rgba32Float) (Rgba16Float))))
+                           (make-plane (string-append "svgf/" name)
+                                       width
+                                       height
+                                       (if (string=? name "place") (Rgba32Float) (Rgba16Float))
+                                       (list (StorageBinding)
+                                             (TextureBinding)
+                                             (TextureCopySrc)
+                                             (TextureCopyDst))))
                          plane-names)))
         (new Svgf
           (kernels kernels)
@@ -236,32 +222,14 @@
                                    (remodulate-entries planes inputs light (● kernels filtering))))
           (parity 0))))
 
-    (define (filter-plane (label String) (width I32) (height I32) (format TextureFormat))
-      (→ Plane)
-      (! gpu)
-      (let ((texture (create-texture (new TextureDescriptor
-                                       (label label)
-                                       (width (max 1 width))
-                                       (height (max 1 height))
-                                       (layers 1)
-                                       (mips 1)
-                                       (format format)
-                                       (usage (list (StorageBinding)
-                                                    (TextureBinding)
-                                                    (TextureCopySrc)
-                                                    (TextureCopyDst)))))))
-        (new Plane (texture texture) (view (view-of texture 1)))))
+
 
     ;; ---- Groups ----
 
     (define (group (pipeline GpuComputePipeline) (entries (List BindGroupEntry)))
       (→ GpuBindGroup)
       (! gpu)
-      (create-bind-group (new BindGroupDescriptor
-                           (label "svgf")
-                           (pipeline (ComputePipeline pipeline))
-                           (group 0)
-                           (entries entries))))
+      (kernel-group pipeline 0 "svgf" entries))
 
     (define (temporal-entries (planes (List Plane))
                               (inputs SvgfInputs)
@@ -281,7 +249,7 @@
             (TextureEntry 10 (● (history planes "moments" index) view))
             (TextureEntry 11 (● (history planes "place" index) view))
             (BufferEntry 16 (● inputs camera) 0 0)
-            (BufferEntry 17 filtering 0 256)))
+            (slot-entry 17 filtering 0)))
 
     (define (variance-entries (planes (List Plane)) (inputs SvgfInputs) (index I64))
       (→ (List BindGroupEntry))
@@ -308,7 +276,7 @@
               (TextureEntry 12 (● from view))
               (TextureEntry 13 (● to view))
               (BufferEntry 16 (● inputs camera) 0 0)
-              (BufferEntry 17 filtering (i64->i32 (* 256 (+ level 1))) 256))))
+              (slot-entry 17 filtering (+ level 1)))))
 
     (define (remodulate-entries (planes (List Plane))
                                 (inputs SvgfInputs)
@@ -321,6 +289,6 @@
             (TextureEntry 4 (● inputs depth))
             (TextureEntry 12 (● (plane planes "pong") view))
             (TextureEntry 15 light)
-            (BufferEntry 17 filtering 0 256)))
+            (slot-entry 17 filtering 0)))
 
     ))
