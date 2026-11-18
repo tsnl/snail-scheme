@@ -2,12 +2,14 @@
 ;; nor an image decoder, so the page (tests/gpu/main.scm) and Node
 ;; (tests/gpu/node.scm) run them alike. Each writes its line: two tiles
 ;; rasterized into a G-buffer and lit by the sun, under each tone curve,
-;; and their motion and ids; numbers squared in a compute pass; 300,000
-;; numbers scanned and 5,000 keys sorted; three gaussians splatted under
-;; two transform tables; tensor programs compiled and checked against the
-;; CPU, and Adam fitting a line; and the differentiable splat renderer
-;; checked against the paper's blending and its gradients against central
-;; differences. tests/gpu/expected.mjs holds the lines.
+;; and their motion and 32-bit ids, and a sprite that stays still under an
+;; orbiting camera; numbers squared in a compute pass; 300,000 numbers
+;; scanned and 5,000 keys sorted; three gaussians splatted under two
+;; transform tables; tensor programs compiled and checked against the CPU,
+;; params swapped and assigned, and Adam fitting a line; and the
+;; differentiable splat renderer checked against the paper's blending, its
+;; tiles past 65,535, and its gradients against central differences.
+;; tests/gpu/expected.mjs holds the lines.
 (define-library (gpu-test device)
   (export
    device-checks
@@ -98,8 +100,9 @@
                     "tiles"
                     #f
                     solid
-                    (meshes (list (tile -0.5 (new Vec4f (x 1.0) (y 0.0) (z 0.0) (w 1.0)) 1.0 16777217)
-                                  (tile 0.5 (new Vec4f (x 1.0) (y 1.0) (z 1.0) (w 1.0)) 0.0 -1)))))
+                    (meshes
+                     (list (tile -0.5 (new Vec4f (x 1.0) (y 0.0) (z 0.0) (w 1.0)) 1.0 16777217)
+                           (tile 0.5 (new Vec4f (x 1.0) (y 1.0) (z 1.0) (w 1.0)) 0.0 -1)))))
 
     (define (looking-down (x F32)) (→ Camera3D)
       (camera-3d (new Vec3f (x x) (y 5.0) (z 0.0))
@@ -163,7 +166,9 @@
       (let* ((all (new Planes (motion #t) (ids #t)))
              (r (make-raster all light-format))
              (g (make-gbuffer all 4 4))
-             (r (write-raster (write-raster r (looking-down 0.0) overhead) (looking-down 0.5) overhead))
+             (r (write-raster (write-raster r (looking-down 0.0) overhead)
+                              (looking-down 0.5)
+                              overhead))
              (motion (surface-motion r g (tiles r) 0 0)))
         (string-join (list (show (half motion 0))
                            (show (half motion 2))

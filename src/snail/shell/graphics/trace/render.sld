@@ -295,7 +295,8 @@
            (eye (● camera eye))
            (forward (● camera forward))
            (previous (● last view-projection))
-           (previous-motion (● camera previous-motion))))
+           (previous-motion (● camera previous-motion))
+           (previous-heading (new Vec2f (x (● last forward x)) (y (● last forward z))))))
         ((None) camera)))
 
     (define (same-camera? (tracer Tracer) (camera Camera3D)) (→ Bool)
