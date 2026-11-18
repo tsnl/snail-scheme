@@ -5,8 +5,8 @@ effect that is a thin wrapper around WebGPU, and `(snail shell graphics
 ...)` libraries of pipelines and packers on top of it. They replaced a
 fixed JavaScript renderer, `host/browser/renderer.mjs`, and its picture
 store. The effect, `pod`, `wgsl`, `atlas`, `quad`, `mesh`, `raster`,
-`passes`, `scan`, `radix-sort`, `splat`, `splat-train` and `ply` are
-**implemented**; the
+`passes`, `scan`, `radix-sort`, `splat`, `splat-train`, `splat-fit`, `colmap`
+and `ply` are **implemented**; the
 rest is **proposed**. Delivery is tracked
 in [the graphics issue](https://github.com/tsnl/snail-scheme/issues/463).
 
@@ -317,11 +317,13 @@ Each row is `(snail shell graphics NAME)`:
 | `raster` | A deferred G-buffer pipeline with configurable targets: depth, normal, albedo, metal-roughness, emissive, ids and motion. **Implemented**: albedo, normal, material and depth, with motion and ids when asked, and a forward pipeline for translucent surfaces. |
 | `passes` | Full-screen passes: a fixed sun, tone mapping, FXAA, copies. **Implemented**: the sun, tone mapping and FXAA. |
 | `quad` | 2D quads in world units under a 2D camera, pixel-snapped in the vertex shader, sampling a texture array, including earlier passes' targets. **Implemented.** |
-| `scan` | Blelloch's exclusive prefix sum of `u32` numbers in a storage buffer, over levels of 512-number tiles. **Implemented.** |
-| `radix-sort` | A stable least-significant-digit radix sort of `u32` keys and values, four bits a pass, counting, scanning and scattering by blocks. **Implemented.** |
+| `scan` | Blelloch's exclusive prefix sum of `u32` numbers in a storage buffer, over levels of 512-number tiles, laid out in rows of workgroups past 65,535 of them. **Implemented.** |
+| `radix-sort` | A stable least-significant-digit radix sort of `u32` keys and values, four bits a pass, counting, scanning and scattering by blocks, in rows of workgroups past 65,535 blocks. **Implemented.** |
 | `splat` | 3D Gaussian Splatting: gaussians posed by rows of a transforms table, projected by EWA splatting with spherical harmonics to degree 3, sorted far to near, and blended as quads. **Implemented.** |
 | `ply` | 3D Gaussian Splatting's binary PLY files read into a cloud of activated gaussians. **Implemented.** |
 | `splat-train` | The differentiable splat renderer as a tensor graph: projection by tensor operations, tile binning and a tiled rasterizer as custom nodes with a hand-written backward pass, and L1 with D-SSIM ([tensors](tensors.md#differentiable-splatting)). **Implemented.** |
+| `splat-fit` | 3D Gaussian Splatting's training as three tensor graphs: a step with Adam and densification's statistics, densification by cloning, splitting and pruning on the device, and the opacity reset ([tensors](tensors.md#training-on-photographs)). **Implemented.** |
+| `colmap` | COLMAP's binary cameras, images and points read into poses and pinhole intrinsics, refusing distorted camera models. **Implemented.** |
 | later | `bvh`, compute ray tracing and `svgf`, for path-traced lighting over the rasterized G-buffer. |
 
 - **Sampling an atlas.** Slots carry gutters of repeated edge texels; UVs wrap
@@ -396,10 +398,12 @@ among them. What Node gains is Dawn in its own process.
 Required features: `indirect-first-instance`, `float32-filterable` and
 `rg11b10ufloat-renderable`. Used when present: `texture-compression-bc`,
 which phones lack, `shader-f16`, which SwiftShader, the tests' adapter,
-lacks, and `timestamp-query`, for profiling; `request-device` answers which
-it got. Raised limits, as far as the adapter allows: buffer and
-storage-binding sizes of 1 GiB, 16384-texel textures, and 64 bytes of color
-attachments per sample, since a full G-buffer fills the default 32. Texture
+lacks, `timestamp-query`, for profiling, and `subgroups`, which splat
+training's backward pass sums over; `request-device` answers which it got.
+Raised limits, as far as the adapter allows: buffer and storage-binding
+sizes of 1 GiB, 16384-texel textures, 64 bytes of color attachments per
+sample, since a full G-buffer fills the default 32, and 32 KiB of
+workgroup memory. Texture
 heaps start uncompressed; a later `reset` may choose BC.
 
 ## Design choices

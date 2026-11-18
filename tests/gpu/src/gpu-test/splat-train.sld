@@ -2,13 +2,15 @@
 ;; gaussian's pixel against the paper's blend computed by hand; the
 ;; gradient of the full loss, L1 and D-SSIM, with respect to each of three
 ;; wide gaussians' params against central differences of the loss on the
-;; device; and Adam pulling a perturbed cloud toward a rendered one.
+;; device; fused SSIM's gradient against central differences of its mean;
+;; and Adam pulling a perturbed cloud toward a rendered one.
 (define-library (gpu-test splat-train)
   (export
    splat-forward-check
    shared-fill
    splat-tile-ranges
    splat-gradient-check
+   splat-ssim-check
    splat-fit-check)
   (import
    (snail core base)
@@ -140,16 +142,17 @@
               "blends as the paper does"
               (string-join (map f64->string got) " ")))))
 
-    ;; Blur reads the Fill through a storage buffer. Addition uses the same
-    ;; Fill as a literal. At the center the normalized blur preserves 3.0.
+    ;; SSIM reads the Fill through storage buffers. Addition uses the same
+    ;; Fill as a literal. At the center, whose window lies inside the image,
+    ;; an image's SSIM with itself is 1, so the sum is 4.
     (define (shared-fill) (→ Bool) (! gpu tasks)
       (let* ((v (fill 3.0 (list 11 11 1) (Float)))
-             (center (narrow (narrow (+ v (blur v)) 0 5 1) 1 5 1))
+             (center (narrow (narrow (+ v (ssim v v)) 0 5 1) 1 5 1))
              (program (compile-program "shared fill" (list center) (Nil))))
         (run-program program)
         (let ((value (scalar-sink program)))
           (release-program program)
-          (< (abs (- value 6.0)) 0.0001))))
+          (< (abs (- value 4.0)) 0.0001))))
 
     ;; Four splats touch one tile each, in depth order 0, 65536, 0, 65535.
     ;; Read the rasterizer's ranges input so the large image needs no buffer.
@@ -243,11 +246,77 @@
         (write-param losses name (values->bytes base (Float)))
         (/ (- above below) (* 2.0 h))))
 
+    ;; ---- SSIM ----
+
+    ;; Mean SSIM of a 20x24 image against another, against the CPU's to a
+    ;; part in 10,000; and its gradient at pixels in each of its four
+    ;; tiles and across their borders, against central differences, to 2%.
+    (define (splat-ssim-check) (→ String) (! gpu tasks)
+      (let* ((x (param "x" (list 20 24 3) (Float)))
+             (loss (mean (ssim x (param "y" (list 20 24 3) (Float)))))
+             (grads (compile-program "ssim-grads" (grad loss (list x)) (Nil)))
+             (losses (compile-program "ssim-losses" (list loss) (Nil)))
+             (xs (array-generate 1440 (lambda (i) (+ 0.5 (* 0.4 (sin (* 0.37 (i64->f64 i))))))))
+             (ys (array-generate 1440 (lambda (i) (+ 0.5 (* 0.3 (sin (* 0.11 (i64->f64 i)))))))))
+        (for-each (lambda (program)
+                    (write-param program "x" (values->bytes xs (Float)))
+                    (write-param program "y" (values->bytes ys (Float))))
+                  (list grads losses))
+        (run-program grads)
+        (run-program losses)
+        (let* ((analytic (bytes->values (read-sink grads 0) (Float)))
+               (mean-ssim (scalar-sink losses))
+               (agrees (lambda (i)
+                         (let ((a (array-ref analytic i)) (b (difference losses "x" xs i)))
+                           (< (abs (- a b)) (* 0.02 (max (abs a) (abs b)))))))
+               (cpu (cpu-ssim-mean xs ys 20 24))
+               (report (string-append (if (< (abs (- mean-ssim cpu)) 0.0001)
+                                          "mean agrees"
+                                          "mean disagrees")
+                                      (if (every? agrees (list 0 100 777 1201 1439))
+                                          ", x agrees"
+                                          ", x disagrees"))))
+          (release-program grads)
+          (release-program losses)
+          report)))
+
+    ;; SSIM's mean by its definition: each moment a sum over the 11x11
+    ;; window of the separable gaussian at sigma 1.5, zeros past the edges.
+    (define (cpu-ssim-mean (xs (Array F64)) (ys (Array F64)) (h I64) (w I64)) (→ F64)
+      (let* ((raw (map (lambda (k) (exp (/ (negate (* (i64->f64 (- k 5)) (i64->f64 (- k 5)))) 4.5)))
+                       (iota 11)))
+             (total (fold-left + 0.0 raw))
+             (weights (list->array (map (lambda (v) (/ v total)) raw)))
+             (texel (lambda (a r c ch)
+                      (if (and (>= r 0) (< r h) (>= c 0) (< c w))
+                          (array-ref a (+ (* 3 (+ (* r w) c)) ch))
+                          0.0)))
+             (moment (lambda (f r c)
+                       (fold-left + 0.0 (map (lambda (k)
+                                               (* (* (array-ref weights (quotient k 11))
+                                                     (array-ref weights (remainder k 11)))
+                                                  (f (+ r (- (quotient k 11) 5))
+                                                     (+ c (- (remainder k 11) 5)))))
+                                             (iota 121)))))
+             (at (lambda (i)
+                   (let* ((ch (remainder i 3))
+                          (r (quotient (quotient i 3) w))
+                          (c (remainder (quotient i 3) w))
+                          (x (lambda (r c) (texel xs r c ch)))
+                          (y (lambda (r c) (texel ys r c ch)))
+                          (mx (moment x r c))
+                          (my (moment y r c))
+                          (sxx (- (moment (lambda (r c) (* (x r c) (x r c))) r c) (* mx mx)))
+                          (syy (- (moment (lambda (r c) (* (y r c) (y r c))) r c) (* my my)))
+                          (sxy (- (moment (lambda (r c) (* (x r c) (y r c))) r c) (* mx my))))
+                     (/ (* (+ (* 2.0 (* mx my)) 0.0001) (+ (* 2.0 sxy) 0.0009))
+                        (* (+ (+ (* mx mx) (* my my)) 0.0001) (+ (+ sxx syy) 0.0009)))))))
+        (/ (fold-left + 0.0 (map at (iota (* 3 (* h w))))) (i64->f64 (* 3 (* h w))))))
+
     ;; ---- Fitting ----
 
     ;; The three gaussians rendered as a target, then a cloud started half
     ;; a scale smaller and dimmer fitted to it by Adam for 200 steps.
-
     (define (splat-fit-check) (→ String) (! gpu tasks)
       (let* ((truth (splat-params 3))
              (target-program

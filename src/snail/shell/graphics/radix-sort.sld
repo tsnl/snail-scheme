@@ -12,8 +12,7 @@
 ;;
 ;; A sorter sorts the low `key-bits` bits of each key, 8, 16, 24 or 32: an
 ;; even number of passes, so the sorted keys end where they began. Each
-;; pass is one dispatch of a workgroup per block, so a sorter holds at most
-;; 16,776,960 keys.
+;; pass dispatches a workgroup per block, in rows of at most 65535.
 (define-library (snail shell graphics radix-sort)
   (export
    SortPass
@@ -186,7 +185,7 @@
       (! gpu)
       (set-compute-pipeline pass pipeline)
       (set-compute-bind-group pass 0 group)
-      (dispatch-workgroups pass (i64->i32 (● sorter blocks)) 1 1))
+      (dispatch-rows pass (● sorter blocks)))
 
     ;; Everything the sorter made, and its scan, goes at the next submit;
     ;; the lane it was given stays.

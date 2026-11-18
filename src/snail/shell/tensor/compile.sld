@@ -20,19 +20,31 @@
 ;; ran, for a later port of its size; params, constants, sinks and updates
 ;; keep theirs. Sorts and scans run on (snail shell graphics radix-sort)
 ;; and (snail shell graphics scan), and a custom node's kernels run as
-;; written, on zeroed ports.
+;; written, on zeroed ports. Programs that take turns on one set of params
+;; share it and their scratch (`compile-program-sharing`), a host grows
+;; them through a stash of the params, and `profile-program` times each
+;; step alone.
 (define-library (snail shell tensor compile)
   (export
    Program
    compile-program
+   compile-program-sharing
    write-param
    read-param
    read-sink
+   param-buffer
+   sink-buffer
+   Stash
+   stash-params
+   unstash-params
    run-program
+   profile-program
+   program-memory
    release-program)
   (import
    (snail core base)
    (snail core table)
+   (only (snail core io) clock monotonic-nanoseconds)
    (only (snail shell task) tasks)
    (only (snail shell gpu)
          gpu
@@ -51,6 +63,7 @@
          end-compute-pass
          finish
          submit
+         work-done
          destroy
          GpuBuffer
          GpuShaderModule
@@ -80,9 +93,16 @@
     ;; ---- Programs ----
 
     ;; One thing a program does in its pass: a dispatch of a pipeline over
-    ;; a bind group, in rows of workgroups, or a sort or a scan in place.
+    ;; a bind group, in rows of workgroups, or a sort or a scan in place. A
+    ;; dispatch keeps its kernel's code and entry, which name it in a
+    ;; profile.
     (enum Step
-      (Dispatch ((pipeline GpuComputePipeline) (group GpuBindGroup) (x I64) (y I64)))
+      (Dispatch ((pipeline GpuComputePipeline)
+                 (group GpuBindGroup)
+                 (x I64)
+                 (y I64)
+                 (code String)
+                 (entry String)))
       (Sorting ((sorter Sorter)))
       (Scanning ((scan Scan))))
 
@@ -97,15 +117,21 @@
        (readback GpuBuffer)
        (size I64)))
 
+    ;; A program's steps, params and sinks, its scratch, the pool's free
+    ;; buffers by size once it is compiled, which hold nothing between
+    ;; runs, and everything to release.
     (record Program
       ((steps (List Step))
        (params (Table Binding))
        (sinks (List Sink))
-       (objects (List GpuObject))))
+       (scratch (Table (List GpuBuffer)))
+       (objects (List GpuObject))
+       (made (List (Pair String I64)))))
 
     ;; What compiling has made so far: every port's buffer by node key and
     ;; port, the pool of free buffers by size in bytes, pipelines by their
-    ;; code and entry, the steps in reverse, and everything to release.
+    ;; code and entry, the steps in reverse, and everything to release;
+    ;; and whether the pool began with another program's scratch.
     (record Build
       ((label String)
        (buffers (Table GpuBuffer))
@@ -113,15 +139,43 @@
        (pipelines (Table GpuComputePipeline))
        (steps (List Step))
        (params (Table Binding))
-       (objects (List GpuObject))))
+       (shared (Table Binding))
+       (objects (List GpuObject))
+       (made (List (Pair String I64)))
+       (borrowing Bool)))
 
     ;; ---- Compiling ----
 
     ;; Every node the sinks and updates need, in order, each one's ports
     ;; given buffers and its kernels dispatched; then each sink made dense
-    ;; and each update written to its param.
+    ;; and each update written to its param. An update's param is a root
+    ;; too, so one only written, never read, still has its buffer.
 
     (define (compile-program (label String) (sinks (List View)) (updates (List (Pair View View))))
+      (→ Program)
+      (! gpu)
+      (compiled label sinks updates (empty-table) (empty-table)))
+
+    ;; A program whose params share the buffers of `other`'s of the same
+    ;; name and size, so programs that take turns, as a training step and
+    ;; densification do, work on one set of params; and whose scratch
+    ;; starts as `other`'s, which holds nothing between runs. `other` keeps
+    ;; them: releasing this program leaves them, and it is released no
+    ;; later than `other`. Its sinks are copied out of the scratch, since
+    ;; `other`'s runs reuse it.
+    (define (compile-program-sharing (label String)
+                                     (sinks (List View))
+                                     (updates (List (Pair View View)))
+                                     (other Program))
+      (→ Program)
+      (! gpu)
+      (compiled label sinks updates (● other params) (● other scratch)))
+
+    (define (compiled (label String)
+                      (sinks (List View))
+                      (updates (List (Pair View View)))
+                      (shared (Table Binding))
+                      (scratch (Table (List GpuBuffer))))
       (→ Program)
       (! gpu)
       (let* ((targets (map (lambda (u) (● u first)) updates))
@@ -136,11 +190,14 @@
                          (new Build
                            (label label)
                            (buffers (empty-table))
-                           (pool (empty-table))
+                           (pool scratch)
                            (pipelines (empty-table))
                            (steps (Nil))
                            (params (empty-table))
-                           (objects (Nil)))
+                           (shared shared)
+                           (objects (Nil))
+                           (made (Nil))
+                           (borrowing (not (null? (table-keys scratch)))))
                          (zip (iota (length order)) order)))
              (sunk (fold-left sink-built (new Pair (first built) (second (Nil))) sinks))
              (done
@@ -151,7 +208,9 @@
           (steps (reverse (● done steps)))
           (params (● done params))
           (sinks (reverse (● sunk second)))
-          (objects (● done objects)))))
+          (scratch (● done pool))
+          (objects (● done objects))
+          (made (● done made)))))
 
     (define (port-key (n Node) (port String)) (→ String) (string-append (● n key) "." port))
 
@@ -250,10 +309,16 @@
            (second buffer)))
         (_
          (let ((buffer (new-buffer (string-append (● b label) "/" label) size)))
-           (new Pair (first (owned b (BufferObject buffer))) (second buffer))))))
+           (new Pair (first (made-buffer b "scratch" buffer size)) (second buffer))))))
 
     (define (owned (b Build) (object GpuObject)) (→ Build)
       (Build-objects-set b (Cons object (● b objects))))
+
+    ;; A buffer the program made, and so releases, noted by its use and
+    ;; size for `program-memory`.
+    (define (made-buffer (b Build) (use String) (buffer GpuBuffer) (size I64)) (→ Build)
+      (Build-made-set (owned b (BufferObject buffer))
+                      (Cons (new Pair (first use) (second size)) (● b made))))
 
     (define (given-back (b Build) (size I64) (buffer GpuBuffer)) (→ Build)
       (let ((free (match (table-ref (● b pool) (show size))
@@ -272,18 +337,31 @@
       (let ((key (port-key n (● port name))))
         (match (● n kind)
           ((Param name)
-           (let ((buffer (new-buffer (string-append (● b label) "/" name) (bytes-of port))))
-             (Build-params-set (buffer-set (owned b (BufferObject buffer)) key buffer)
+           (let ((made (param-buffer-for b name port)))
+             (Build-params-set (buffer-set (● made first) key (● made second))
                                (table-set (● b params)
                                           name
-                                          (new Binding (buffer buffer) (port port))))))
+                                          (new Binding (buffer (● made second)) (port port))))))
           ((Constant name data)
            (let ((buffer (new-buffer (string-append (● b label) "/" name) (bytes-of port))))
              (write-buffer buffer 0 data)
-             (buffer-set (owned b (BufferObject buffer)) key buffer)))
+             (buffer-set (made-buffer b "constant" buffer (bytes-of port)) key buffer)))
           (_
            (let ((pair (taken b key (bytes-of port))))
              (buffer-set (● pair first) key (● pair second)))))))
+
+    ;; A param's buffer: the shared one of its name and size, or its own.
+    (define (param-buffer-for (b Build) (name String) (port Port))
+      (→ (Pair Build GpuBuffer))
+      (! gpu)
+      (match (table-ref (● b shared) name)
+        ((Some binding)
+         (if (= (bytes-of (● binding port)) (bytes-of port))
+             (new Pair (first b) (second (● binding buffer)))
+             (panic (string-append "tensor compile: shared param " name " has another size"))))
+        ((None)
+         (let ((buffer (new-buffer (string-append (● b label) "/" name) (bytes-of port))))
+           (new Pair (first (made-buffer b "param" buffer (bytes-of port))) (second buffer))))))
 
     (define (buffer-set (b Build) (key String) (buffer GpuBuffer)) (→ Build)
       (Build-buffers-set b (table-set (● b buffers) key buffer)))
@@ -291,7 +369,12 @@
     (define (buffer-of (b Build) (n Node) (port String)) (→ GpuBuffer)
       (match (table-ref (● b buffers) (port-key n port))
         ((Some buffer) buffer)
-        ((None) (panic "tensor compile: a port with no buffer"))))
+        ((None)
+         (panic (string-append "tensor compile: "
+                               (● b label)
+                               " reads port "
+                               (port-key n port)
+                               " before it has a buffer")))))
 
     (define (view-buffer (b Build) (view View)) (→ GpuBuffer)
       (buffer-of b (● view node) (● view port)))
@@ -323,7 +406,12 @@
                                  entries)))))
                  (x (min workgroups 65535)))
             (Build-steps-set (owned (● with first) (BindGroupObject group))
-                             (Cons (Dispatch pipeline group x (quotient (+ workgroups (- x 1)) x))
+                             (Cons (Dispatch pipeline
+                                             group
+                                             x
+                                             (quotient (+ workgroups (- x 1)) x)
+                                             code
+                                             entry)
                                    (● with first steps))))))
 
     (define (pipeline-for (b Build) (code String) (entry String))
@@ -513,19 +601,22 @@
       (! gpu)
       (let* ((b (● state first))
              (size (max 4 (* 4 (element-count view))))
-             (direct (and (identity? view) (not (fill? view)) (pooled? (● view node kind))))
+             (direct (and (identity? view)
+                          (not (fill? view))
+                          (pooled? (● view node kind))
+                          (not (● b borrowing))))
              (made (if direct
                        (new Pair (first b) (second (view-buffer b view)))
                        (let ((buffer (new-buffer (string-append (● b label) "/sink") size)))
                          (new Pair
-                           (first (copied-into (owned b (BufferObject buffer)) view buffer))
+                           (first (copied-into (made-buffer b "sink" buffer size) view buffer))
                            (second buffer)))))
              (readback (create-buffer (new BufferDescriptor
                                         (label (string-append (● b label) "/readback"))
                                         (size (i64->i32 size))
                                         (usage (list (MapRead) (CopyDst)))))))
         (new Pair
-          (first (owned (● made first) (BufferObject readback)))
+          (first (made-buffer (● made first) "readback" readback size))
           (second (Cons (new Sink (buffer (● made second)) (readback readback) (size size))
                         (● state second))))))
 
@@ -558,16 +649,33 @@
          (write-buffer (● binding buffer) 0 data))
         ((None) (panic (string-append "tensor: the program has no param " name)))))
 
-    ;; Every step, in one compute pass, submitted.
+    ;; A param's buffer, for a host to copy into on the device, as from a
+    ;; texture; and a sink's, for a pass that draws it. Either holds what
+    ;; the last run that was submitted left.
+
+    (define (param-buffer (program Program) (name String)) (→ GpuBuffer)
+      (match (table-ref (● program params) name)
+        ((Some binding) (● binding buffer))
+        ((None) (panic (string-append "tensor: the program has no param " name)))))
+
+    (define (sink-buffer (program Program) (k I64)) (→ GpuBuffer)
+      (● (list-ref (● program sinks) k) buffer))
+
+    ;; Each param of `to` that `from` has by name copied over, as much as
+    ;; both hold from the start: a cloud's rows, when a program compiled
+    ;; for a larger capacity takes over from one for a smaller.
     (define (run-program (program Program)) (→ Unit) (! gpu)
+      (run-steps (● program steps)))
+
+    (define (run-steps (steps (List Step))) (→ Unit) (! gpu)
       (let* ((encoder (create-command-encoder)) (pass (begin-compute-pass encoder)))
-        (for-each (lambda (step) (run-step pass step)) (● program steps))
+        (for-each (lambda (step) (run-step pass step)) steps)
         (end-compute-pass pass)
         (submit (list (finish encoder)))))
 
     (define (run-step (pass GpuComputePass) (step Step)) (→ Unit) (! gpu)
       (match step
-        ((Dispatch pipeline group x y)
+        ((Dispatch pipeline group x y _ _)
          (set-compute-pipeline pass pipeline)
          (set-compute-bind-group pass 0 group)
          (dispatch-workgroups pass (i64->i32 x) (i64->i32 y) 1))
@@ -611,6 +719,110 @@
                     (_ (unit))))
                 (● program steps))
       (for-each destroy (● program objects)))
+
+    ;; ---- Growing ----
+
+    ;; A copy of every param of a program, made on the device, so a host
+    ;; can release the program and compile a larger one before giving the
+    ;; params back: two programs' scratch need not fit at once.
+    (record Stash
+      ((params (Table Binding))))
+
+    (define (stash-params (program Program)) (→ Stash) (! gpu)
+      (let* ((encoder (create-command-encoder))
+             (copies (map (lambda (name)
+                            (match (table-ref (● program params) name)
+                              ((Some binding)
+                               (let ((copy (new-buffer (string-append "stash/" name)
+                                                       (bytes-of (● binding port)))))
+                                 (copy-buffer-to-buffer encoder
+                                                        (● binding buffer)
+                                                        0
+                                                        copy
+                                                        0
+                                                        (i64->i32 (bytes-of (● binding port))))
+                                 (new Pair
+                                   (first name)
+                                   (second (new Binding (buffer copy) (port (● binding port)))))))
+                              ((None) (panic "tensor: a param went missing"))))
+                          (table-keys (● program params)))))
+        (submit (list (finish encoder)))
+        (new Stash
+          (params (fold-left (lambda (t pair) (table-set t (● pair first) (● pair second)))
+                             (empty-table)
+                             copies)))))
+
+    ;; Each stashed param copied into the program's of the same name, as
+    ;; much of it as both hold, and the stash destroyed.
+    (define (unstash-params (stash Stash) (program Program)) (→ Unit) (! gpu)
+      (let ((encoder (create-command-encoder)))
+        (for-each (lambda (name)
+                    (match (new Pair
+                             (first (table-ref (● stash params) name))
+                             (second (table-ref (● program params) name)))
+                      ((Pair (Some source) (Some target))
+                       (copy-buffer-to-buffer encoder
+                                              (● source buffer)
+                                              0
+                                              (● target buffer)
+                                              0
+                                              (i64->i32 (min (bytes-of (● source port))
+                                                             (bytes-of (● target port))))))
+                      (_ (unit))))
+                  (table-keys (● stash params)))
+        (submit (list (finish encoder)))
+        (for-each (lambda (name)
+                    (match (table-ref (● stash params) name)
+                      ((Some binding) (destroy (BufferObject (● binding buffer))))
+                      ((None) (unit))))
+                  (table-keys (● stash params)))))
+
+    ;; Every step, in one compute pass, submitted.
+    ;; ---- Profiling ----
+
+    ;; Each step run alone and waited for, with the seconds it took, the
+    ;; kernel's entry and code naming a dispatch: slow, since each wait is
+    ;; a round trip to the device, but it shows where a program's time goes.
+    (define (profile-program (program Program)) (→ (List (Pair String F64))) (! clock gpu tasks)
+      (map (lambda (step)
+             (let ((start (monotonic-nanoseconds)))
+               (run-steps (list step))
+               (work-done)
+               (new Pair
+                 (first (step-name step))
+                 (second (/ (i64->f64 (- (monotonic-nanoseconds) start)) 1000000000.0)))))
+           (● program steps)))
+
+    ;; The bytes of the buffers a program made, by use and size, the
+    ;; largest first; its sorts and scans hold their own beside these.
+    (define (program-memory (program Program)) (→ (List (Pair String I64)))
+      (let ((totals (fold-left (lambda (t made)
+                                 (let ((key (string-append (● made first)
+                                                           " of "
+                                                           (show (● made second)))))
+                                   (table-set t
+                                              key
+                                              (+ (● made second)
+                                                 (match (table-ref t key)
+                                                   ((Some total) total)
+                                                   ((None) 0))))))
+                               (empty-table)
+                               (● program made))))
+        (list-sort (lambda (a b) (> (● a second) (● b second)))
+                   (map (lambda (key)
+                          (new Pair
+                            (first key)
+                            (second (match (table-ref totals key)
+                                      ((Some total) total)
+                                      ((None) 0)))))
+                        (table-keys totals)))))
+
+    (define (step-name (step Step)) (→ String)
+      (match step
+        ((Dispatch _ _ x y code entry)
+         (string-append entry " over " (show (* x y)) " workgroups\n" code))
+        ((Sorting _) "a sort")
+        ((Scanning _) "a scan")))
 
     ;; ---- Kernel text ----
 

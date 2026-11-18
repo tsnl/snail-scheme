@@ -15,9 +15,10 @@ import {byteSnapshot, byteView} from './load.mjs';
 
 // The features the graphics libraries need, and those they use when the
 // adapter has them. Phones lack BC compression and SwiftShader, which the
-// tests use, lacks f16 shaders, so both are optional.
+// tests use, lacks f16 shaders, so both are optional; splat training's
+// backward pass sums over subgroups.
 const REQUIRED = ['indirect-first-instance', 'float32-filterable', 'rg11b10ufloat-renderable'];
-const OPTIONAL = ['texture-compression-bc', 'shader-f16', 'timestamp-query'];
+const OPTIONAL = ['texture-compression-bc', 'shader-f16', 'timestamp-query', 'subgroups'];
 
 // ---- The device ----
 
@@ -38,8 +39,8 @@ async function configured(canvas) {
 
 // A device of `gpu`, the page's or Node's, with the baseline features and
 // the optional ones its adapter has. Buffers and storage bindings up to 1
-// GiB, 16384-texel textures and 64 bytes of color attachments per sample,
-// or as much as the adapter has.
+// GiB, 16384-texel textures, 64 bytes of color attachments per sample and
+// 32 KiB of workgroup memory, or as much as the adapter has.
 export async function requestDevice(gpu) {
   const adapter = await gpu.requestAdapter();
   if (!adapter) throw new Error('this host offers no WebGPU adapter');
@@ -50,7 +51,8 @@ export async function requestDevice(gpu) {
     maxBufferSize: Math.min(limits.maxBufferSize, 2 ** 30),
     maxStorageBufferBindingSize: Math.min(limits.maxStorageBufferBindingSize, 2 ** 30),
     maxTextureDimension2D: Math.min(limits.maxTextureDimension2D, 16384),
-    maxColorAttachmentBytesPerSample: Math.min(limits.maxColorAttachmentBytesPerSample, 64)}});
+    maxColorAttachmentBytesPerSample: Math.min(limits.maxColorAttachmentBytesPerSample, 64),
+    maxComputeWorkgroupStorageSize: Math.min(limits.maxComputeWorkgroupStorageSize, 32768)}});
   device.addEventListener('uncapturederror', event => console.error('WebGPU:', event.error.message));
   device.lost.then(info => console.error('WebGPU: device lost:', info.reason, info.message));
   return {device, optional};

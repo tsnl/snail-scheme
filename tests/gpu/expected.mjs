@@ -1,7 +1,7 @@
 // What tests/gpu prints after its format, as tests/browser/gpu.mjs checks
 // it on the page and tests/gpu.mjs on Node: the page's own lines, then the
 // lines of the checks both run ((gpu-test device)), then the page's file
-// read. The values are SwiftShader's, the software device of headless
+// read; Node's training checks follow its device checks. The values are SwiftShader's, the software device of headless
 // Chromium. A GPU may round a texel by a step, or a half float in its
 // last place, so the lines `slack` names may stray that far in each
 // number; every other line must be exact.
@@ -37,11 +37,21 @@ export const deviceLines = [
   'assigned: 9',
   'fitted: from above 1 to below 1e-4, b 1.0',
   // The differentiable splat renderer: a pixel blended as the paper
-  // does, every param's gradient of L1 and D-SSIM against central
-  // differences, and Adam fitting a cloud to a rendered one.
+  // does, and fused SSIM's gradient against central differences.
   'splat forward: blends as the paper does',
   'shared fill: #t',
   'splat tile ranges: 0 2 2 3 3 4',
+  'ssim: mean agrees, x agrees',
+  // Densification clones a small gaussian, splits a large one and
+  // prunes a faint one, the kept first and the new after them; with room
+  // for one row, it clones and leaves the large one whole.
+  'densify: live 1 1 1 1 1 0 0 0 (5), kept then cloned, two children 1.6 times smaller',
+  'room: live 1 1 1 1 (4), cloned, the large one kept whole',
+];
+
+// Every param's gradient of L1 and D-SSIM against central differences,
+// and Adam fitting a cloud to a rendered one.
+export const trainingLines = [
   'splat gradients: means agree, scales agree, rotations agree, opacities agree, dc agree, degree1 agree, degree2 agree, degree3 agree',
   'splat fit: the loss falls by more than four times',
 ];

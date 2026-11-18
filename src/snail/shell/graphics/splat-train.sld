@@ -15,8 +15,9 @@
 ;; gaussians into 16x16-pixel tiles is custom kernels around a sort by
 ;; depth and a stable sort by tile (splat-tiles, splat-count, splat-keys,
 ;; splat-ranges), and passes no gradient. Rasterizing is a custom node
-;; (splat-forward) whose adjoint is another (splat-backward). SSIM's window
-;; is a custom blur (splat-blur), its own adjoint.
+;; (splat-forward) whose adjoint is another (splat-backward). SSIM is
+;; fused into a custom node too (splat-ssim), whose window's moments never
+;; fill a buffer, with an adjoint of its own.
 ;;
 ;; The camera is a param of 16 floats: the world-to-camera rotation's rows,
 ;; its translation, then fx, fy, cx, cy, in COLMAP's convention, the camera
@@ -31,9 +32,10 @@
    camera-param
    Projection
    project
+   rotation-matrices
+   normalized-rows
    Rendering
    render
-   blur
    ssim
    photometric-loss
    rgba8-image)
@@ -108,7 +110,11 @@
 
     ;; What the rasterizer draws a gaussian by: its center in pixels, its
     ;; conic, color and opacity, and for binning its depth and radius in
-    ;; pixels, 0 when culled.
+    ;; pixels. The radius is 0 when the gaussian is culled: behind the near
+    ;; plane, degenerate, or with its square of the radius about its center
+    ;; off the image, as the reference culls. Densification counts the
+    ;; views that drew a gaussian by this radius, so one merely in front of
+    ;; the camera must not count.
     (record Projection
       ((centers View)
        (conics View)
@@ -124,18 +130,30 @@
              (near (maximum depth (scalar 0.2)))
              (screen (screen-covariance (covariance cloud) rotation seen near camera sensor))
              (conic (conic-of screen))
-             (visible (* (greater depth (scalar 0.2)) (greater (● conic second) (scalar 0.0)))))
+             (centers (concat (list (+ (* (camera-scalar camera 12) (/ (column seen 0) near))
+                                       (camera-scalar camera 14))
+                                    (+ (* (camera-scalar camera 13) (/ (column seen 1) near))
+                                       (camera-scalar camera 15)))
+                              1))
+             (r (radius screen (● conic second)))
+             (visible (* (* (greater depth (scalar 0.2)) (greater (● conic second) (scalar 0.0)))
+                         (on-sensor centers r sensor))))
         (new Projection
-          (centers (concat (list (+ (* (camera-scalar camera 12) (/ (column seen 0) near))
-                                    (camera-scalar camera 14))
-                                 (+ (* (camera-scalar camera 13) (/ (column seen 1) near))
-                                    (camera-scalar camera 15)))
-                           1))
+          (centers centers)
           (conics (● conic first))
           (colors (shaded cloud camera))
           (opacities (sigmoid (● cloud opacities)))
           (depths near)
-          (radii (* (* visible (● cloud live)) (radius screen (● conic second)))))))
+          (radii (* (* visible (● cloud live)) r)))))
+
+    ;; 1 where the square of `r` pixels about a center overlaps the image.
+    (define (on-sensor (centers View) (r View) (sensor Sensor)) (→ View)
+      (let ((x (column centers 0))
+            (y (column centers 1)))
+        (* (* (greater (+ x r) (scalar 0.0))
+              (less (- x r) (scalar (i64->f64 (● sensor width)))))
+           (* (greater (+ y r) (scalar 0.0))
+              (less (- y r) (scalar (i64->f64 (● sensor height))))))))
 
     ;; An unused row can have a zero quaternion and sit exactly at the eye.
     ;; Bound its squared norm before sqrt so both the row and its gradient
@@ -304,9 +322,16 @@
     (define (u32-port (name String) (count I64)) (→ Port)
       (new Port (name name) (shape (list count)) (etype (Unsigned))))
 
-    ;; Each tile's entries, near to far: the sorted gaussian ids, and each
-    ;; tile's start and end in them.
-    (define (binned (p Projection) (sensor Sensor)) (→ (Pair View View))
+    ;; Each tile's entries, near to far: the sorted gaussian ids, each
+    ;; tile's start and end in them, and how many entries the gaussians
+    ;; asked for, which past the sensor's capacity were dropped, the
+    ;; farthest first.
+    (record Bins
+      ((ids View)
+       (ranges View)
+       (entries View)))
+
+    (define (binned (p Projection) (sensor Sensor)) (→ Bins)
       (let* ((count (list-ref (shape-of (● p centers)) 0))
              (code (lambda (text) (string-append (constants sensor count) splat-tiles-shader text)))
              (label (lambda (what) (string-append what " " (constants sensor count))))
@@ -350,32 +375,39 @@
                                           (adjoint no-gradient))
                                         (list (● by-tile first))
                                         (list (u32-port "ranges" (* 2 (tile-count sensor))))))))
-        (new Pair (first (● by-tile second)) (second ranges))))
+        (new Bins
+          (ids (● by-tile second))
+          (ranges ranges)
+          (entries (sum-all (convert counts (Float)))))))
 
     (define (only-port (views (List View))) (→ View) (list-ref views 0))
 
     ;; ---- Rasterizing ----
 
-    ;; The image, H x W x 3, of the projected gaussians, and the projection
-    ;; it was drawn from, whose centers' gradient densification watches.
+    ;; The image, H x W x 3, of the projected gaussians, the projection it
+    ;; was drawn from, whose centers' gradient densification watches, and
+    ;; the entries binning asked for, which a host compares with the
+    ;; sensor's capacity.
     (record Rendering
       ((image View)
-       (projection Projection)))
+       (projection Projection)
+       (entries View)))
 
     (define (render (cloud Cloud) (camera View) (sensor Sensor)) (→ Rendering)
       (let* ((p (project cloud camera sensor))
              (bins (binned p sensor)))
         (new Rendering
           (image (only-port (rasterized sensor
-                                        (list (● bins first)
-                                              (● bins second)
+                                        (list (● bins ids)
+                                              (● bins ranges)
                                               (concat
                                                (list (● p centers)
                                                      (● p conics)
                                                      (● p colors)
                                                      (● p opacities))
                                                1)))))
-          (projection p))))
+          (projection p)
+          (entries (● bins entries)))))
 
     (define (rasterized (sensor Sensor) (args (List View))) (→ (List View))
       (custom (forward sensor (list-ref (shape-of (list-ref args 2)) 0))
@@ -428,7 +460,10 @@
     (define (backward (sensor Sensor) (count I64)) (→ Custom)
       (new Custom
         (name (string-append "splat-backward " (constants sensor count)))
-        (kernels (list (kernel (string-append (constants sensor count) splat-backward-shader)
+        (kernels (list (kernel (string-append "enable subgroups;\n"
+                                              "diagnostic(off, subgroup_uniformity);\n"
+                                              (constants sensor count)
+                                              splat-backward-shader)
                                "rasterize_backward"
                                (list 0 1 2 3 4 5 6)
                                (tile-count sensor))))
@@ -436,58 +471,77 @@
 
     ;; ---- Loss ----
 
-    ;; A gaussian blur of an H x W x C image over 11 pixels at sigma 1.5,
-    ;; zeros past its edges: its own adjoint.
-    (define (blur (image View)) (→ View)
-      (let* ((shape (shape-of image))
-             (count (product shape))
-             (consts (string-append "const HEIGHT = " (show (list-ref shape 0)) "u;\n"
-                                    "const WIDTH = " (show (list-ref shape 1)) "u;\n"
-                                    "const CHANNELS = " (show (list-ref shape 2)) "u;\n"
-                                    "var<private> WEIGHTS: array<f32, 11> = array<f32, 11>("
-                                    (string-join (map f64->string blur-weights) ", ")
-                                    ");\n"))
-             (c (new Custom
-                  (name (string-append "splat-blur " consts))
-                  (kernels (list (kernel (string-append consts splat-blur-shader)
-                                         "blur_rows"
-                                         (list 0 1)
-                                         (tiles count 256))
-                                 (kernel (string-append consts splat-blur-shader)
-                                         "blur_columns"
-                                         (list 1 2)
-                                         (tiles count 256))))
-                  (adjoint (lambda (args outs)
-                             (list (match (list-ref outs 1)
-                                     ((Some g) (Some (blur g)))
-                                     ((None) (None)))))))))
-        (list-ref (custom c
-                          (list image)
-                          (list (new Port (name "rows") (shape shape) (etype (Float)))
-                                (new Port (name "blurred") (shape shape) (etype (Float)))))
-                  1)))
+    ;; The structural similarity of two H x W x C images at each pixel and
+    ;; channel, through a gaussian window of 11 pixels at sigma 1.5 with
+    ;; zeros past the edges, as the reference computes it; fused into a
+    ;; custom node (splat-ssim) whose adjoint, another, gives x's gradient.
+    (define (ssim (x View) (y View)) (→ View)
+      (list-ref (ssim-ports x y) 0))
 
-    (define blur-weights
+    ;; The forward node's ports: the map, and three derivatives of it a
+    ;; pixel and channel, which its adjoint reads.
+    (define (ssim-ports (x View) (y View)) (→ (List View))
+      (let ((shape (shape-of x)))
+        (custom (new Custom
+                  (name (string-append "splat-ssim " (ssim-constants shape)))
+                  (kernels (list (kernel (string-append (ssim-constants shape)
+                                                        splat-ssim-shader
+                                                        splat-ssim-forward-shader)
+                                         "ssim_forward"
+                                         (list 0 1 2 3)
+                                         (ssim-tiles shape))))
+                  (adjoint (lambda (args outs) (ssim-adjoint args outs))))
+                (list x y)
+                (list (new Port (name "map") (shape shape) (etype (Float)))
+                      (new Port
+                        (name "partials")
+                        (shape (append shape (list 3)))
+                        (etype (Float)))))))
+
+    (define (ssim-adjoint (args (List View)) (outs (List (Option View)))) (→ (List (Option View)))
+      (match (list-ref outs 0)
+        ((Some g)
+         (let* ((x (list-ref args 0))
+                (y (list-ref args 1))
+                (shape (shape-of x))
+                (backward (new Custom
+                            (name (string-append "splat-ssim-backward " (ssim-constants shape)))
+                            (kernels (list (kernel (string-append (ssim-constants shape)
+                                                                  splat-ssim-shader
+                                                                  splat-ssim-backward-shader)
+                                                   "ssim_backward"
+                                                   (list 0 1 2 3 4)
+                                                   (ssim-tiles shape))))
+                            (adjoint no-gradient))))
+           (list (Some (only-port (custom backward
+                                          (list x y (list-ref (ssim-ports x y) 1) g)
+                                          (list (new Port
+                                                  (name "grad")
+                                                  (shape shape)
+                                                  (etype (Float)))))))
+                 (None))))
+        ((None) (list (None) (None)))))
+
+    (define (ssim-tiles (shape (List I64))) (→ I64)
+      (* (tiles (list-ref shape 0) 16) (tiles (list-ref shape 1) 16)))
+
+    (define (ssim-constants (shape (List I64))) (→ String)
+      (string-append "const HEIGHT = " (show (list-ref shape 0)) "u;\n"
+                     "const WIDTH = " (show (list-ref shape 1)) "u;\n"
+                     "const CHANNELS = " (show (list-ref shape 2)) "u;\n"
+                     "const TILES_X = " (show (tiles (list-ref shape 1) 16)) "u;\n"
+                     "const TILES_Y = " (show (tiles (list-ref shape 0) 16)) "u;\n"
+                     "var<private> WEIGHTS: array<f32, 11> = array<f32, 11>("
+                     (string-join (map f64->string ssim-weights) ", ")
+                     ");\n"))
+
+    (define ssim-weights
       (→ (List F64))
       (let* ((raw (map (lambda (k) (exp (/ (negate (square-f (i64->f64 (- k 5)))) 4.5))) (iota 11)))
              (total (fold-left + 0.0 raw)))
         (map (lambda (w) (/ w total)) raw)))
 
     (define (square-f (x F64)) (→ F64) (* x x))
-
-    ;; The structural similarity of two images at each pixel and channel,
-    ;; through the blur's window, as the reference computes it.
-    (define (ssim (x View) (y View)) (→ View)
-      (let* ((mx (blur x))
-             (my (blur y))
-             (sxx (- (blur (* x x)) (* mx mx)))
-             (syy (- (blur (* y y)) (* my my)))
-             (sxy (- (blur (* x y)) (* mx my)))
-             (c1 (scalar 0.0001))
-             (c2 (scalar 0.0009))
-             (two (scalar 2.0)))
-        (/ (* (+ (* two (* mx my)) c1) (+ (* two sxy) c2))
-           (* (+ (+ (* mx mx) (* my my)) c1) (+ (+ sxx syy) c2)))))
 
     ;; (1 - lambda) L1 + lambda (1 - SSIM), the reference's loss.
     (define (photometric-loss (image View) (target View) (lambda-ssim F64)) (→ View)
