@@ -23,6 +23,7 @@
    Triangles
    Bvh
    build-bvh
+   release-bvh
    ray-size
    opaque-cutout
    RayKernels
@@ -78,6 +79,11 @@
       (deriving Pod))
 
     (define build-shape (→ (Shape BvhBuild)) (shape))
+
+    ;; Its nodes and uniform; the triangles are their owner's.
+    (define (release-bvh (bvh Bvh)) (→ Unit) (! gpu)
+      (destroy (BufferObject (● bvh nodes)))
+      (destroy (BufferObject (● bvh layout))))
 
     ;; Uniforms bind at multiples of 256.
     (define slot (→ I64) 256)

@@ -788,7 +788,14 @@
             "tasks.mjs"
             "entry.mjs"
             "gpu.mjs"
-            "storage.mjs" "load.mjs" "style.css" "ui.mjs" "dom.mjs" "fetch.mjs" "install.mjs"
+            "storage.mjs"
+            "load.mjs"
+            "style.css"
+            "ui.mjs"
+            "dom.mjs"
+            "fetch.mjs"
+            "files.mjs"
+            "install.mjs"
             "snail-icon.svg" "snail-icon-192.png" "snail-icon-512.png"))
 
     ;; The names a build of `target` writes at its generation's root: its

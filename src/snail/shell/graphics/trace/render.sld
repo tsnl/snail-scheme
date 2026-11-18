@@ -18,6 +18,7 @@
    Tracer
    make-tracer
    resize-tracer
+   retrace
    draw-traced
    tracer-frames)
   (import
@@ -147,6 +148,32 @@
                 (last (● tracer last))
                 (still 0)
                 (frame (● tracer frame)))))))
+
+    ;; The tracer drawing another scene in another environment with the
+    ;; same pipelines, from a still camera. Its targets and the old
+    ;; scene's BVH are let go; the old scene and environment are the
+    ;; caller's, as they were given.
+    (define (retrace (tracer Tracer) (scene Scene) (environment Environment)) (→ Tracer) (! gpu)
+      (release-targets (● tracer targets))
+      (release-bvh (● tracer kit bvh))
+      (let* ((width (● tracer targets width))
+             (height (● tracer targets height))
+             (kit (Kit-environment-set (Kit-bvh-set (Kit-scene-set (● tracer kit) scene)
+                                                    (build-bvh (scene-triangles scene)))
+                                       environment))
+             (targets (targets-for kit width height)))
+        (new Tracer
+          (kit kit)
+          (targets targets)
+          (svgf (resize-svgf (● tracer svgf)
+                             (svgf-inputs kit targets)
+                             (● tracer post targets light-view)
+                             width
+                             height))
+          (post (● tracer post))
+          (last (None))
+          (still 0)
+          (frame (● tracer frame)))))
 
     (define (svgf-inputs (kit Kit) (targets Targets)) (→ SvgfInputs)
       (let ((planes (● targets planes)))

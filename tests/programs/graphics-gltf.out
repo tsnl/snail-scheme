@@ -1,8 +1,11 @@
-buffers: models/x/one.bin models/x/two.bin size 72
-images: models/x/a.png models/x/b.jpg
+buffers: models/x/one.bin, data 0 1 2 3 4 5 size 72
+images: models/x/a.png, 1 0 6
 positions: 0 20 5126 3
 uvs: 12 20 5126 3
 indices: 64 2 5123 3
 matrix: -0.0 0.0 -2.0 0.0 0.0 2.0 0.0 0.0 2.0 0.0 -0.0 0.0 0.0 2.0 0.0 1.0
 material: 1.0 0.5 0.25 1.0 texture 1 metallic 0.0 alpha 1 cutoff 0.25 emissive 4.5 4.5 0.0
 bounds: -0.0 2.0 -2.0 to 0.0 4.0 2.0
+glb binary: 9 8 7 6
+glb buffers: chunk, data 1 2
+JSON is not GLB

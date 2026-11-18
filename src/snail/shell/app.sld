@@ -136,6 +136,7 @@
    FrameEvent
    InputEvent
    HudEvent
+   FilesEvent
    Hidden
    SaveRequested
    events
@@ -1016,10 +1017,13 @@
     ;; ---- Application events ----
 
     ;; Frame already names the drawing data above; FrameEvent names a tick.
+    ;; FilesEvent says the user dropped or picked files, which `chosen-files` lists
+    ;; ((snail shell files)).
     (enum Event
       (FrameEvent ((elapsed I32)))
       (InputEvent ((input Input)))
       (HudEvent ((listener I32)))
+      (FilesEvent ((count I32)))
       (Hidden)
       (SaveRequested))
 
@@ -1030,6 +1034,7 @@
         (12 (Hidden))
         (14 (HudEvent (event-field 0)))
         (16 (SaveRequested))
+        (17 (FilesEvent (event-field 0)))
         (kind (InputEvent (decode-input kind
                                         (event-field 0)
                                         (event-field 1)
@@ -1111,7 +1116,8 @@
               (scene-input scene save state drawing (hovering hud listener input) input)))
            ((None) (scene-loop scene save state drawing hud since-hud))))
         ((Hidden) (save state) (scene-loop scene save state drawing hud since-hud))
-        ((SaveRequested) (save state) (scene-loop scene save state drawing hud since-hud))))
+        ((SaveRequested) (save state) (scene-loop scene save state drawing hud since-hud))
+        ((FilesEvent _) (scene-loop scene save state drawing hud since-hud))))
 
     (define (scene-input (scene (SceneHandler S D))
                          (save (Fn S → Unit ! events storage tasks))

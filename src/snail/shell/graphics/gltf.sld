@@ -8,12 +8,19 @@
 ;; Read: triangle primitives, POSITION, NORMAL, TEXCOORD_0 and TANGENT,
 ;; indices of any width, metallic-roughness materials with their base
 ;; color, metal-roughness, normal and emissive textures, alpha modes, and
-;; KHR_materials_emissive_strength. Buffers and images are named by URIs
-;; relative to the scene's; GLB files, data URIs, sparse accessors, other
-;; texture coordinate sets, cameras, skins and animation are not read.
+;; KHR_materials_emissive_strength. Buffers and images are files named by
+;; URIs relative to the scene's, base64 data: URIs, a GLB file's binary
+;; chunk, or for an image a buffer view; sparse accessors, other texture
+;; coordinate sets, cameras, skins and animation are not read.
 (define-library (snail shell graphics gltf)
   (export
    Gltf
+   Source
+   FileSource
+   DataSource
+   ChunkSource
+   ViewSource
+   glb-chunks
    Attribute
    Primitive
    Material
@@ -31,17 +38,27 @@
 
     ;; ---- The scene ----
 
-    ;; The buffers' URIs and where each starts once they are laid end to
-    ;; end, each from a multiple of 4; the images' URIs; the materials; each
+    ;; The buffers' sources and where each starts once they are laid end
+    ;; to end, each from a multiple of 4; the images' sources; the materials; each
     ;; mesh's primitives; and each primitive of the default scene with the
     ;; matrix that places it. Accessors' bounds are read where POSITION names
     ;; them, as its corners.
     (record Gltf
-      ((buffers (List String))
+      ((buffers (List Source))
        (size I64)
-       (images (List String))
+       (images (List Source))
        (materials (List Material))
        (placed (List Placed))))
+
+    ;; Where a buffer's or an image's bytes are: a file beside the scene,
+    ;; its path the URI relative to the scene's directory; a data: URI's
+    ;; bytes; the binary chunk of the GLB file holding the scene; or bytes
+    ;; of a buffer, from an offset.
+    (enum Source
+      (FileSource ((path String)))
+      (DataSource ((bytes Bytes)))
+      (ChunkSource)
+      (ViewSource ((buffer I64) (offset I64) (length I64))))
 
     ;; An accessor: where its first element starts in the laid-out buffers,
     ;; the bytes from one element to the next, its component type (5120 to
@@ -105,14 +122,31 @@
              (images (list->array (map (lambda (texture) (integer-or texture "source" -1))
                                        (items json "textures")))))
         (new Gltf
-          (buffers (map (lambda (buffer) (string-append base (uri-path (text-or buffer "uri" ""))))
-                        (items json "buffers")))
+          (buffers (map (lambda (buffer) (uri-source buffer base)) (items json "buffers")))
           (size (fold-left max 0 starts))
-          (images (map (lambda (image) (string-append base (uri-path (text-or image "uri" ""))))
+          (images (map (lambda (image) (image-source image (items json "bufferViews") base))
                        (items json "images")))
           (materials
            (map (lambda (material) (material-of material images)) (items json "materials")))
           (placed (scene-placed json meshes)))))
+
+    ;; A buffer without a URI is a GLB file's binary chunk.
+    (define (uri-source (holder Json) (base String)) (→ Source)
+      (match (json-member holder "uri")
+        ((Some (JsonString uri))
+         (if (and (>= (string-length uri) 5) (string=? (substring uri 0 5) "data:"))
+             (DataSource (base64-bytes uri))
+             (FileSource (string-append base (uri-path uri)))))
+        (_ (ChunkSource))))
+
+    (define (image-source (image Json) (views (List Json)) (base String)) (→ Source)
+      (match (json-member image "bufferView")
+        ((Some (JsonInteger index))
+         (let ((view (list-ref views index)))
+           (ViewSource (integer-or view "buffer" 0)
+                       (integer-or view "byteOffset" 0)
+                       (integer-or view "byteLength" 0))))
+        (_ (uri-source image base))))
 
     ;; Where each buffer starts, and after the last, where they end.
     (define (buffer-starts (buffers (List Json))) (→ (List I64))
@@ -359,6 +393,58 @@
       (if (and (>= (string-length path) 2) (string=? (substring path 0 2) "./"))
           (without-dot-segments (substring path 2 (string-length path)))
           path))
+
+    ;; A data: URI's bytes, base64 after its comma: four letters for three
+    ;; bytes, the last group short by the `=` that pad it.
+    (define (base64-bytes (uri String)) (→ Bytes)
+      (let* ((from (match (string-index uri #\,)
+                     ((Some at) (+ at 1))
+                     ((None) (string-length uri))))
+             (letters (list->array (filter (lambda (char) (not (char=? char #\=)))
+                                           (string->list
+                                            (substring uri from (string-length uri))))))
+             (sextet (lambda ((index I64)) (→ I64) (letter-value (array-ref letters index)))))
+        (array-generate (quotient (* 3 (array-length letters)) 4)
+                        (lambda (index)
+                          (let* ((at (* 4 (quotient index 3)))
+                                 (k (remainder index 3)))
+                            (i32->u8
+                             (i64->i32 (remainder (+ (* (sextet (+ at k)) (expt-2 (+ 2 (* 2 k))))
+                                                     (quotient (sextet (+ at (+ k 1)))
+                                                               (expt-2 (- 4 (* 2 k)))))
+                                                  256))))))))
+
+    (define (letter-value (char Char)) (→ I64)
+      (let ((code (char->integer char)))
+        (cond ((and (>= code 65) (<= code 90)) (- code 65))
+              ((and (>= code 97) (<= code 122)) (- code 71))
+              ((and (>= code 48) (<= code 57)) (+ code 4))
+              ((= code 43) 62)
+              (else 63))))
+
+    ;; ---- GLB ----
+
+    ;; A GLB file's JSON and binary chunk, empty when it has none, or
+    ;; nothing for bytes that are not GLB: a 12-byte header starting
+    ;; "glTF", then chunks of a length, a type and that many bytes.
+    (define (glb-chunks (bytes Bytes)) (→ (Option (Pair Bytes Bytes)))
+      (if (and (>= (array-length bytes) 20) (= (word bytes 0) 1179937895))
+          (let* ((json-end (+ 20 (word bytes 12)))
+                 (bin (+ 8 json-end))
+                 (bin-end (if (<= bin (array-length bytes)) (+ bin (word bytes json-end)) bin)))
+            (Some (new Pair
+                    (first (subarray bytes 20 json-end))
+                    (second (subarray bytes
+                                      (min bin (array-length bytes))
+                                      (min bin-end (array-length bytes)))))))
+          (None)))
+
+    ;; The little-endian 32-bit word at `at`.
+    (define (word (bytes Bytes) (at I64)) (→ I64)
+      (fold-right
+       (lambda (index value) (+ (i32->i64 (u8->i32 (array-ref bytes (+ at index)))) (* 256 value)))
+       0
+       (iota 4)))
 
     ;; ---- Bounds ----
 
