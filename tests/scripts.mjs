@@ -34,8 +34,9 @@ try {
   assert.deepEqual(await files(generation), nodePackage,
     'a Node build is an npm package around one linked module, named for the script');
   const manifest = async directory => JSON.parse(await readFile(join(directory, 'package.json'), 'utf8'));
-  assert.deepEqual(await manifest(generation), {name: 'main', private: true, bin: {main: 'main.mjs'}},
-    'whose one command runs the module, and which depends on nothing');
+  assert.deepEqual(await manifest(generation),
+    {name: 'main', private: true, scripts: {start: 'node main.mjs'}, bin: {main: 'main.mjs'}},
+    'which npm starts, whose one command runs the module, and which depends on nothing');
 
   const ran = await command('run', '--target', 'node', 'apps/hello/main.scm', 'one', 'two words');
   assert.equal(ran.stdout, 'hello from src\none\ntwo words\n', 'run runs the script with its arguments');
@@ -44,6 +45,9 @@ try {
     await cp(generation, join(elsewhere, 'hello'), {recursive: true});
     const packaged = await execute(process.execPath, [join(elsewhere, 'hello/main.mjs'), 'one', 'two words'], {cwd: tmpdir()});
     assert.deepEqual(packaged, {stdout: ran.stdout, stderr: ''}, 'the package runs on its own, as run does, and warns of nothing');
+    const started = await execute('npm', ['start', '--silent', '--no-update-notifier', '--', 'one', 'two words'],
+      {cwd: join(elsewhere, 'hello')});
+    assert.deepEqual(started, packaged, 'as it does through npm');
   } finally { await rm(elsewhere, {recursive: true, force: true}); }
 
   await write('apps/drawing/main.scm', '(import (snail core base) (snail core io) (snail shell gpu)) (write-line "no device asked for")');

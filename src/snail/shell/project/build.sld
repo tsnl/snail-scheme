@@ -786,7 +786,8 @@
     ;; ---- Node packages ----
 
     ;; A Node build's generation is an npm package around its module, which
-    ;; `node main.mjs ARGUMENT ...` runs wherever it is copied. Its main.mjs
+    ;; runs wherever it is copied: `npm start -- ARGUMENT ...` runs it, as
+    ;; `cargo run` runs a crate, and so does `node main.mjs`. Its main.mjs
     ;; runs NAME.wasm with the native host, whose files it holds under host/
     ;; as the repository keeps them, so their imports are unchanged. A
     ;; program that holds (snail runtime gpu) may ask for a device and
@@ -830,8 +831,8 @@
     ;; The package's entry, which runs NAME.wasm beside it with its own
     ;; arguments. Node warns that WASI is experimental as the runner loads,
     ;; which the command line's --no-warnings silences. The entry silences
-    ;; warnings before it imports the runner, so the package runs alike as
-    ;; `node main.mjs`, as npm's command and in an executable.
+    ;; warnings before it imports the runner, so the package runs alike
+    ;; through npm, as `node main.mjs` and in an executable.
 
     (define (node-main (name String)) (→ String)
       (string-join (list "#!/usr/bin/env node"
@@ -848,7 +849,7 @@
 
     ;; package.json: the package is private, which keeps npm from
     ;; publishing it until its author gives it a version and a name of
-    ;; their own, and its one command, NAME, is main.mjs.
+    ;; their own. `npm start` and its one command, NAME, run main.mjs.
 
     (define (node-manifest (root String) (name String) (libraries (List String))) (→ Json)
       (! fs building)
@@ -856,6 +857,11 @@
         (JsonObject
          (append (list (new Pair (first "name") (second (JsonString command)))
                        (new Pair (first "private") (second (JsonBool #t)))
+                       (new Pair
+                         (first "scripts")
+                         (second (JsonObject (list (new Pair
+                                                     (first "start")
+                                                     (second (JsonString "node main.mjs")))))))
                        (new Pair
                          (first "bin")
                          (second (JsonObject (list (new Pair

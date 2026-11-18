@@ -37,10 +37,7 @@ function nodeDevice() {
 }
 
 async function opened() {
-  const {create, globals} = await import('webgpu').catch(error => {
-    if (error.code !== 'ERR_MODULE_NOT_FOUND') throw error;
-    throw new Error('Node has no WebGPU here: install the webgpu package with npm');
-  });
+  const {create, globals} = await import('webgpu');
   Object.assign(globalThis, globals);
   const instance = create([]);
   const {device, optional} = await requestDevice(instance);
@@ -53,10 +50,7 @@ async function opened() {
 // Bytes sharp decodes no image from answer null.
 let sharp = null;
 async function nodeImage(device, encoded) {
-  sharp ??= import('sharp').then(module => module.default, error => {
-    if (error.code !== 'ERR_MODULE_NOT_FOUND') throw error;
-    throw new Error('Node decodes no images here: install the sharp package with npm');
-  });
+  sharp ??= import('sharp').then(module => module.default);
   const decoded = await (await sharp)(encoded).autoOrient().toColourspace('srgb').ensureAlpha().raw({depth: 'uchar'})
     .toBuffer({resolveWithObject: true}).catch(() => null);
   if (!decoded) return null;
