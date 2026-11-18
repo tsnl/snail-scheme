@@ -7,17 +7,17 @@
  (snail shell graphics pod))
 
 ;; An F32 after a vec3f shares its 16 bytes; the next vec4f aligns to 16.
-(record Light
+(record Sun-light
   ((direction Vec3f)
    (intensity F32)
    (color Vec4f))
   (deriving Pod))
 
 ;; A struct field aligns to its largest field, and the size rounds up to it.
-;; A hyphen in a field's name is an underscore in WGSL.
+;; The nested type and the field use their WGSL spellings in the declaration.
 (record Scene
   ((count I32)
-   (sun Light)
+   (sun Sun-light)
    (exposure-bias F32))
   (deriving Pod))
 
@@ -63,7 +63,7 @@
                                                    (material 258))))))
 (write-line (show (array-length (pod-bytes scene-shape (new Scene
                                                          (count 1)
-                                                         (sun (new Light
+                                                         (sun (new Sun-light
                                                                 (direction (new Vec3f
                                                                              (x 0.0)
                                                                              (y 1.0)

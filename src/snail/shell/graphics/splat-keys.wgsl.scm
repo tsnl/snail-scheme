@@ -1,7 +1,7 @@
 ;; An entry a tile each gaussian covers, keyed by the tile: gaussians in
 ;; order of depth, each from the scanned offset of its count, so a stable
 ;; sort by tile leaves each tile's entries near to far. `pad_keys` keys
-;; every entry past the last 65535, after every tile. Entries past
+;; every unused entry with TILE_COUNT, after every tile. Entries past
 ;; CAPACITY are dropped.
 ((var storage read) (@group 0) (@binding 0) (centers (array f32)))
 
@@ -39,4 +39,4 @@
     (((@builtin global_invocation_id) gid vec3u) ((@builtin num_workgroups) nwg vec3u))
     (let e (invocation gid nwg))
     (let total (+ (at offsets (- COUNT 1u)) (at sorted_counts (- COUNT 1u))))
-    (if ((and (< e CAPACITY) (>= e total)) (= (at keys e) 65535u))))
+    (if ((and (< e CAPACITY) (>= e total)) (= (at keys e) TILE_COUNT))))

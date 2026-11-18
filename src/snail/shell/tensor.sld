@@ -31,6 +31,7 @@
    Unsigned
    Signed
    etype-wgsl
+   same-etype?
    Accessor
    dense-accessor
    contiguous-pitch
@@ -369,10 +370,8 @@
 
     (define default-port (→ String) "out")
 
-    (define (hashed (text String)) (→ I64)
-      (fold-left (lambda (hash c) (* (i64-xor hash (char->integer c)) 1099511628211))
-                 -3750763034362895579
-                 (string->list text)))
+    (define (hash-step (hash I64) (word I64)) (→ I64)
+      (* (i64-xor hash word) 1099511628211))
 
     (define (view-key (view View)) (→ String)
       (string-append (● view node key) "." (● view port) "@" (accessor-text (● view accessor))))
@@ -384,15 +383,19 @@
                      ":"
                      (string-join (map show (● port shape)) ",")))
 
-    ;; A node, its key hashed from all it computes.
+    ;; Constants also hash the bytes they supply to the CPU and GPU.
+    (define (node-key (kind Kind) (args (List View)) (ports (List Port))) (→ String)
+      (let* ((parts (Cons (kind-text kind) (append (map port-text ports) (map view-key args))))
+             (hash (fold-left (lambda (h c) (hash-step h (char->integer c)))
+                              -3750763034362895579
+                              (string->list (string-join parts "|")))))
+        (show (match kind
+                ((Constant _ data)
+                 (array-fold (lambda (h byte) (hash-step h (i32->i64 (u8->i32 byte)))) hash data))
+                (_ hash)))))
+
     (define (node (kind Kind) (args (List View)) (ports (List Port))) (→ Node)
-      (new Node
-        (key (show (hashed (string-join (Cons (kind-text kind)
-                                              (append (map port-text ports) (map view-key args)))
-                                        "|"))))
-        (kind kind)
-        (args args)
-        (ports ports)))
+      (new Node (key (node-key kind args ports)) (kind kind) (args args) (ports ports)))
 
     (define (port-of (node Node) (name String)) (→ Port)
       (match (find (lambda (port) (string=? (● port name) name)) (● node ports))
@@ -446,9 +449,9 @@
     (define (param (name String) (shape (List I64)) (etype Etype)) (→ View)
       (single (Param name) (Nil) shape etype))
 
-    ;; Bytes laid out row-major, as the GPU and `eval` read them.
+    ;; Keep the row-major bytes that established the constant's key.
     (define (constant (name String) (shape (List I64)) (etype Etype) (data Bytes)) (→ View)
-      (single (Constant name data) (Nil) shape etype))
+      (single (Constant name (array-copy data)) (Nil) shape etype))
 
     (define (fill (value F64) (shape (List I64)) (etype Etype)) (→ View)
       (single (Fill value) (Nil) shape etype))

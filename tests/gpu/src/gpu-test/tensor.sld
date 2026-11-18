@@ -6,6 +6,8 @@
 (define-library (gpu-test tensor)
   (export
    tensor-agreement
+   swapped-params
+   assigned-param
    fitted-line)
   (import
    (snail core base)
@@ -73,12 +75,12 @@
               (scatter-add (gather x rows) rows 64)
               (list-ref (grad loss (list x)) 0)
               (● sorted first)
-              (● sorted second))))
+              (● sorted second)
+              (amax (fill -2147483648.0 (list 512) (Signed)) (list 0)))))
 
     ;; ---- Agreement ----
 
-    ;; How many sinks the device computes as the CPU does, to a part in a
-    ;; thousand, or the first element it does not.
+    ;; Integer sinks agree exactly. Float sinks agree to a part in a thousand.
 
     (define (tensor-agreement) (→ String) (! gpu tasks)
       (let* ((roots (sinks))
@@ -105,6 +107,11 @@
         ((Some value) value)
         ((None) (panic key))))
 
+    (define (values-agree? (etype Etype) (got F64) (want F64)) (→ Bool)
+      (match etype
+        ((Float) (< (abs (- got want)) (* 0.001 (max 1.0 (abs want)))))
+        (_ (= got want))))
+
     (define (disagreement (program Program)
                           (roots (List View))
                           (expected (List (Array F64)))
@@ -114,8 +121,9 @@
       (match (new Pair (first roots) (second expected))
         ((Pair (Cons root more) (Cons want rest))
          (let* ((got (bytes->values (read-sink program k) (etype-of root)))
-                (bad (find (lambda (i) (> (abs (- (array-ref got i) (array-ref want i)))
-                                          (* 0.001 (max 1.0 (abs (array-ref want i))))))
+                (bad (find (lambda (i)
+                             (not
+                              (values-agree? (etype-of root) (array-ref got i) (array-ref want i))))
                            (iota (array-length want)))))
            (match bad
              ((Some i)
@@ -125,6 +133,41 @@
                              (f64->string (array-ref want i))))
              ((None) (disagreement program more rest (+ k 1))))))
         (_ (string-append (show k) " sinks agree"))))
+
+    ;; ---- Parameter updates ----
+
+    (define (signed-words (bytes Bytes)) (→ String)
+      (string-join (map (lambda (x) (show (f64->i64 x)))
+                        (array->list (bytes->values bytes (Signed))))
+                   " "))
+
+    ;; A takes B transposed, B takes A, and the sink keeps A before the swap.
+    (define (swapped-params) (→ String) (! gpu tasks)
+      (let* ((a (param "a" (list 2 2) (Signed)))
+             (b (param "b" (list 2 2) (Signed)))
+             (program (compile-program "swap" (list a)
+                                       (list (new Pair (first a) (second (transpose b)))
+                                             (new Pair (first b) (second a))))))
+        (write-param program "a" (values->bytes (list->array (list 1.0 2.0 3.0 4.0)) (Signed)))
+        (write-param program "b" (values->bytes (list->array (list 5.0 6.0 7.0 8.0)) (Signed)))
+        (run-program program)
+        (let ((report (string-join (list (signed-words (read-param program "a"))
+                                         (signed-words (read-param program "b"))
+                                         (signed-words (read-sink program 0)))
+                                   " / ")))
+          (release-program program)
+          report)))
+
+    ;; An assignment can be the only reference to the destination.
+    (define (assigned-param) (→ String) (! gpu tasks)
+      (let* ((a (param "a" (Nil) (Signed)))
+             (program (compile-program "assign" (Nil)
+                                       (list
+                                        (new Pair (first a) (second (fill 9.0 (Nil) (Signed))))))))
+        (run-program program)
+        (let ((report (signed-words (read-param program "a"))))
+          (release-program program)
+          report)))
 
     ;; ---- Training ----
 

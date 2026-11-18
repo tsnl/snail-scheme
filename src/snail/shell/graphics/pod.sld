@@ -97,8 +97,11 @@
     ;; The struct `name` with these fields in order: each at the next
     ;; multiple of its alignment, and the size rounded up to the largest.
 
-    (define (struct-shape (name String) (fields (List (Pair String Layout)))) (→ (Shape T)) (∀ (T))
-      (let* ((placed (place-fields fields 0 (Nil)))
+    (define (struct-shape (record-name String) (fields (List (Pair String Layout))))
+      (→ (Shape T))
+      (∀ (T))
+      (let* ((name (wgsl-name record-name))
+             (placed (place-fields fields 0 (Nil)))
              (align (fold-left max 1 (map (lambda (field) (● field layout align)) placed)))
              (end (fold-left max 0 (map field-end placed))))
         (new Shape
@@ -144,8 +147,7 @@
                                fields)
                           (list "}\n")))))
 
-    ;; WGSL names have no hyphens: a field `view-projection` is
-    ;; `view_projection` in a shader.
+    ;; WGSL spells hyphens in record and field names as underscores.
     (define (wgsl-name (name String)) (→ String)
       (list->string (map (lambda (c) (if (char=? c #\-) #\_ c)) (string->list name))))
 

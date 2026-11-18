@@ -1,11 +1,11 @@
-struct Light {
+struct Sun_light {
   direction: vec3f,
   intensity: f32,
   color: vec4f,
 }
 struct Scene {
   count: i32,
-  sun: Light,
+  sun: Sun_light,
   exposure_bias: f32,
 }
 scene: size 64, align 16, count@0 sun@16 exposure-bias@48

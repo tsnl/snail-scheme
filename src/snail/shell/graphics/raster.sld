@@ -65,15 +65,16 @@
 
     ;; The view-projection and its inverse, the eye with 1 in w for a
     ;; parallel lens, the direction it looks with the frame's motion in w,
-    ;; and the last frame's view-projection and motion, which give each
-    ;; pixel's motion.
+    ;; and the last frame's view-projection, motion and horizontal viewing
+    ;; direction. An upright sprite turns toward each frame's camera.
     (record Camera3D
       ((view-projection Mat4x4f)
        (inverse Mat4x4f)
        (eye Vec4f)
        (forward Vec4f)
        (previous Mat4x4f)
-       (previous-motion F32))
+       (previous-motion F32)
+       (previous-heading Vec2f))
       (deriving Pod))
 
     ;; Matrices here are 16 numbers, column by column.
@@ -83,22 +84,27 @@
       (let* ((e (vec eye))
              (forward (normalized (minus (vec target) e)))
              (projection (projected lens aspect (length-of (minus (vec target) e))))
-             (view (look e forward)))
+             (view (look e forward))
+             (vp (multiply (● projection first) (● view first)))
+             (direction (new Vec4f (x (f64->f32 (list-ref forward 0)))
+                             (y (f64->f32 (list-ref forward 1)))
+                             (z (f64->f32 (list-ref forward 2)))
+                             (w motion))))
         (new Camera3D
-          (view-projection (matrix (multiply (● projection first) (● view first))))
+          (view-projection (matrix vp))
           (inverse (matrix (multiply (● view second) (● projection second))))
-          (previous (matrix (multiply (● projection first) (● view first))))
+          (previous (matrix vp))
           (previous-motion motion)
+          (previous-heading (horizontal-direction direction))
           (eye (new Vec4f
                  (x (● eye x))
                  (y (● eye y))
                  (z (● eye z))
                  (w (match lens ((Pinhole _) 0.0) ((Parallel _) 1.0)))))
-          (forward (new Vec4f
-                     (x (f64->f32 (list-ref forward 0)))
-                     (y (f64->f32 (list-ref forward 1)))
-                     (z (f64->f32 (list-ref forward 2)))
-                     (w motion))))))
+          (forward direction))))
+
+    (define (horizontal-direction (direction Vec4f)) (→ Vec2f)
+      (new Vec2f (x (● direction x)) (y (● direction z))))
 
     ;; The view matrix and its inverse. Looking straight down, the top of
     ;; the screen is -z.
@@ -245,8 +251,7 @@
 
     ;; The planes beyond albedo, normal, material and depth: the screen
     ;; motion, in texture coordinates, from where each pixel's surface was
-    ;; in the last frame, and the id of its instance, the w of its
-    ;; material, 0 where there is none.
+    ;; in the last frame, and the id of its instance, 0 where there is none.
     (record Planes
       ((motion Bool)
        (ids Bool)))
@@ -435,9 +440,11 @@
     (define (write-raster (r Raster) (camera Camera3D) (sun Sun)) (→ Raster) (! gpu)
       (let ((camera (match (● r last)
                       ((Some last)
-                       (Camera3D-previous-motion-set
-                        (Camera3D-previous-set camera (● last view-projection))
-                        (● last forward w)))
+                       (Camera3D-previous-heading-set
+                        (Camera3D-previous-motion-set
+                         (Camera3D-previous-set camera (● last view-projection))
+                         (● last forward w))
+                        (horizontal-direction (● last forward))))
                       ((None) camera))))
         (write-buffer (● r camera) 0 (pod-bytes camera-shape camera))
         (write-buffer (● r sun) 0 (pod-bytes sun-shape sun))

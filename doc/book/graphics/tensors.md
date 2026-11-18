@@ -41,7 +41,8 @@ A node is known by its key, a 64-bit hash of its kind, its parameters, its
 ports and its arguments' keys and accessors. The language has no reference
 equality, and content addressing gives more: building the same computation
 twice builds the same node, so a graph shares its common parts, and a param
-is known by its name and shape.
+is known by its name and shape. A constant snapshots its input bytes and
+includes them in its key, so constants can reuse a label across uploads.
 
 ## Gradients and Adam
 
@@ -67,14 +68,18 @@ gaussians a param holds.
 
 `(compile-program label sinks updates)` turns what the sinks and updates
 need into a `Program`, once. Sinks are views to read back; updates are
-pairs of a param and the value it takes after the run. So a training step
-reads the params it started with and leaves the next ones:
+pairs of a whole param and the value it takes after the run. Both need
+the same element count and element type. Use `convert` for a numeric
+conversion or `bitcast` to reinterpret the stored bits. Every sink and
+update reads the params as they were at the start of the step. Two params
+can swap values in one run, and an update can initialize a param that no
+sink reads.
 
 ```scheme
 (let ((program (compile-program "fit" (list loss) (adam-updates "adam" settings trained))))
   (write-param program "points" bytes)
   (for-each (lambda (_) (run-program program)) (iota 1000))
-  (read-sink program 0))                 ; the loss after the last step
+  (read-sink program 0))                 ; loss used by the last update
 ```
 
 Each node's kernel is generated as WGSL text whose shapes, pitches and
@@ -99,10 +104,10 @@ takes it. Params, constants, sinks and updated values keep their buffers.
 `tests/programs/tensor.sld` evaluates each kind on the CPU and checks every
 gradient `grad` builds against central differences. On the device, which
 `tests/browser/gpu.mjs` and `tests/gpu.mjs` run, `(gpu-test tensor)`
-compiles eleven sinks covering every generated kernel, reductions in levels,
-float scatters and a sort, and finds each equal to the CPU's evaluation to
-a part in a thousand. It then fits a line with Adam in 1,000 runs of one
-program.
+compiles sinks covering the generated kernels, including reductions in
+levels, float scatters and a sort. It compares integer outputs exactly and
+float outputs to a part in a thousand against the CPU. It then fits a line
+with Adam in 1,000 runs of one program.
 
 ## Differentiable splatting
 
@@ -113,7 +118,8 @@ the projection too, whose centers' gradient densification watches. A
 cloud's spherical harmonics are a param for each degree, each shading only
 while its entry of `degrees` is 1, so a schedule raises them. Its `live`
 mask culls the rows it has not used yet, so a program compiled for a
-capacity holds a cloud that grows.
+capacity holds a cloud that grows. Unused rows can be left at zero through
+training.
 
 - **Projection is ordinary tensor operations, so `grad` derives its
   gradient.** Each gaussian's normalized quaternion and exponentiated
@@ -126,7 +132,9 @@ capacity holds a cloud that grows.
   are `splat-count`, `splat-keys` and `splat-ranges`. Gaussians are sorted
   by depth, and each one's tiles emitted in that order at the prefix sum of
   their counts. A stable sort by tile then leaves each 16x16 tile's entries
-  near to far. Binning passes no gradient.
+  near to far. The tile count itself marks padding. The radix sort includes
+  enough bits for that key, including on grids with 65,536 or more tiles.
+  Binning passes no gradient.
 - **Rasterizing is a custom node** (`splat-forward`), a workgroup per tile.
   It blends as the paper does and keeps each pixel's final transmittance
   and its count of entries. Its adjoint is another custom node

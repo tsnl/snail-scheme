@@ -13,7 +13,7 @@
          (let key (at sorted_keys e))
          (let before (at sorted_keys (- (max e 1u) 1u)))
          (let after (at sorted_keys (min (+ e 1u) (- CAPACITY 1u))))
-         (if ((< key 65535u)
+         (if ((< key TILE_COUNT)
               (if ((or (== e 0u) (!= before key)) (= (at ranges (* 2u key)) e)))
               (if ((or (== e (- CAPACITY 1u)) (!= after key))
                    (= (at ranges (+ (* 2u key) 1u)) (+ e 1u)))))))))
