@@ -4,7 +4,8 @@
 [Resin](https://github.com/tsnl/resin)'s: a program builds a lazy graph of
 nodes, rewrites it symbolically for gradients and optimizer steps, and
 compiles it explicitly into WebGPU work that runs as often as a training
-loop likes. All four libraries are **implemented**:
+loop likes, on the page or on Node ([WebGPU on Node](plan.md#webgpu-on-node)).
+All four libraries are **implemented**:
 
 | Library | Provides |
 | --- | --- |
@@ -96,7 +97,8 @@ dispatched, its buffer returns to a pool, and a later port of its size
 takes it. Params, constants, sinks and updated values keep their buffers.
 
 `tests/programs/tensor.sld` evaluates each kind on the CPU and checks every
-gradient `grad` builds against central differences. `tests/browser/gpu.mjs`
+gradient `grad` builds against central differences. On the device, which
+`tests/browser/gpu.mjs` and `tests/gpu.mjs` run, `(gpu-test tensor)`
 compiles eleven sinks covering every generated kernel, reductions in levels,
 float scatters and a sort, and finds each equal to the CPU's evaluation to
 a part in a thousand. It then fits a line with Adam in 1,000 runs of one
@@ -137,7 +139,7 @@ capacity holds a cloud that grows.
   and its edges zero; the rest of SSIM is tensor operations.
   `rgba8-image` turns texels copied from a texture into the target image.
 
-`tests/browser/gpu.mjs` checks the renderer on the device at 64x48 pixels:
+`(gpu-test splat-train)` checks the renderer on the device at 64x48 pixels:
 
 - one gaussian's pixel equals the paper's blend computed by hand;
 - each of three gaussians' 59 params' gradients equals a central difference

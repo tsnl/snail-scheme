@@ -1,14 +1,20 @@
-;; The page's WebGPU device for the `gpu` effect: `provide-gpu` runs each
+;; The host's WebGPU device for the `gpu` effect: `provide-gpu` runs each
 ;; operation on the device host/browser/gpu.mjs holds, which knows each
-;; object by the id it gave it.
-(define-library (snail shell gpu page)
+;; object by the id it gave it. The browser target installs it around a
+;; page's main. A program on Node installs it itself, around the work
+;; that uses the device, as a page installs `fetch`: Node's device is
+;; Dawn's (host/native/gpu.mjs), and it has no screen and decodes no
+;; images, so `current-texture` and `decode-image` fail there.
+;;
+;;   (provide-gpu (lambda () (let ((info (request-device))) ...)))
+(define-library (snail shell gpu host)
   (export
    provide-gpu)
   (import
    (snail core base)
    (snail shell task)
    (snail shell gpu)
-   (prefix (snail runtime browser gpu) host-))
+   (prefix (snail runtime gpu) host-))
   (begin
 
     ;; ---- Handling ----
@@ -212,13 +218,14 @@
 
     ;; ---- The device ----
 
-    ;; The host asks the page's adapter for the baseline features, and for
-    ;; the optional ones it has (host/browser/gpu.mjs).
+    ;; The host asks its adapter for the baseline features, and for the
+    ;; optional ones it has (host/browser/gpu.mjs); it has told why it has
+    ;; no device.
 
     (define (requested) (→ DeviceInfo) (! tasks)
       (let ((status (through-host host-start-device host-finish-device)))
         (unless (= status 0)
-          (panic "gpu: this page has no WebGPU device with the baseline features"))
+          (panic "gpu: this host has no WebGPU device with the baseline features"))
         (new DeviceInfo
           (format (texture-format-named (reply (host-device-format))))
           (features (words (reply (host-device-features)))))))

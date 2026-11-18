@@ -43,7 +43,7 @@ async function instantiateGame(directory, host, saved) {
   const wasi = createWasi({print: (fd, line) => console.log(line)});
   const program = await linkModule(file => readFile(join(directory, file)), 'main.wasm', wasi,
     {...runtime.imports, 'snail.runtime.browser.dom': createDom(host.overlay, runtime).imports,
-     'snail.runtime.browser.gpu': createGpu(fakeCanvas(960, 640), runtime, host.gpu.open).imports},
+     'snail.runtime.gpu': createGpu(fakeCanvas(960, 640), runtime, host.gpu.open).imports},
     () => runtime.execution.tasks);
   await runtime.start(applicationEntry(program)).ready.promise;
   return runtime;

@@ -55,7 +55,7 @@ the runtime interfaces.
 | Library | Contents |
 | --- | --- |
 | `(snail shell app)` | `SceneHandler` and `run-scene`, a canvas application's loop, which draws through `gpu`; 3D frames of mesh batches and `draw-frame`, which draws them. |
-| `(snail shell gpu)` | The `gpu` effect: WebGPU's operations and descriptors, each object a handle the program keeps across frames until it calls `destroy`; `(snail shell gpu page)` runs it on the page's device and `(snail shell gpu record)` records it ([WebGPU](../graphics/plan.md)). |
+| `(snail shell gpu)` | The `gpu` effect: WebGPU's operations and descriptors, each object a handle the program keeps across frames until it calls `destroy`; `(snail shell gpu host)` runs it on the host's device, the page's or Dawn's on Node, and `(snail shell gpu record)` records it ([WebGPU](../graphics/plan.md)). |
 | `(snail shell graphics pod)` | `Pod`, which a record without parameters derives: its `Shape` gives the WGSL struct declaration, size, alignment and vertex attributes, and `pack` writes values as WGSL lays them out. `Vec2f` to `Mat4x4f` are WGSL's vectors and matrix. |
 | `(snail shell graphics wgsl)` | Shaders as S-expressions, printed to WGSL by `shader-library`, a `generate-library` recipe's library of shader texts. |
 | `(snail shell graphics atlas)` | Pictures of layered image regions with color swaps, composed on the GPU into padded slots of texture-array pages; `atlas-url` reads a region back as a PNG data URL. |
@@ -102,6 +102,7 @@ targets to install ([handlers from the host](effects.md#handlers-from-the-host))
 | `(snail runtime browser storage)` | Loading and storing the page's checkpoint, read back a byte at a time. |
 | `(snail runtime browser dom)` | The page's document: nodes and listeners as handles, and text as UTF-8 bytes. `(snail shell dom page)` implements `dom` over it. |
 | `(snail runtime browser fetch)` | The page's requests and event streams, staged a part at a time. `(snail shell fetch page)` implements `fetch` over it. |
+| `(snail runtime gpu)` | The host's WebGPU device, the page's or Dawn's on Node: each object a handle, a descriptor staged as words and texts, and the device, reads and decodes waited for by ticket. `(snail shell gpu host)` implements `gpu` over it. |
 | `(snail runtime native socket)` | Node's TCP and UDP sockets as handles, each wait started under its ticket and answered with numbers, and the bytes an answer holds ([the native boundary](../runtimes/networking.md#wasm-boundary)). |
 | `(snail runtime native process)` | Node's child processes and termination signals, answered as the sockets are, with a command sent a character at a time. |
 | `(snail runtime resource)` | A linked file's bytes, read on every host when a task asks for them. |

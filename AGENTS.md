@@ -161,6 +161,8 @@ target behavior. `(snail shell format)` is the formatter shared by `snail-scheme
 and `snail-scheme format`; `make test` checks its CLI and every tracked
 Scheme file. Browser changes should be seen running:
 `node tests/browser/page.mjs URL SCREENSHOT` drives headless Chromium.
+GPU changes should run on a device: `make test-gpu` runs the GPU checks on
+Node's, through Dawn, and `make test-browser` on the page's.
 
 ## Applications
 

@@ -76,7 +76,7 @@ async function application(options = {}) {
   const runtime = createRuntime({...options, reportError: error => observed.errors.push(error), warn: text => observed.warnings.push(text)});
   const wasi = createWasi({print() {}});
   const imports = {...runtime.imports, 'snail.runtime.browser.dom': createDom(overlay, runtime).imports,
-                   'snail.runtime.browser.gpu': createGpu(fakeCanvas(640, 480), runtime, gpu.open).imports};
+                   'snail.runtime.gpu': createGpu(fakeCanvas(640, 480), runtime, gpu.open).imports};
   const module = await WebAssembly.compile(await readFile(path));
   const program = await instantiate(module, {...wasi.getImportObject(), ...imports, ...portable(module)});
   wasi.initialize(program);

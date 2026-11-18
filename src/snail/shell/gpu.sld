@@ -1,9 +1,9 @@
 ;; WebGPU as an effect: `gpu` mirrors WebGPU's own operations and
 ;; descriptors, so code that uses it reads like WebGPU, and a `! gpu` row
 ;; says exactly which functions touch the device. A handler decides what
-;; the calls do: `provide-gpu` in (snail shell gpu page) runs them on the
-;; page's device, and `with-recorded-gpu` in (snail shell gpu record)
-;; records them, for testing a library without one.
+;; the calls do: `provide-gpu` in (snail shell gpu host) runs them on the
+;; host's device, the page's or Dawn's on Node, and `with-recorded-gpu` in
+;; (snail shell gpu record) records them, for testing a library without one.
 ;;
 ;; It is WebGPU itself, without bookkeeping: a handle is the id of an
 ;; object the host holds, made by each `create-...` call and kept as long as
