@@ -36,7 +36,9 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   stage 1 command line, `bootstrap/cli.sld`, built by `scripts/bootstrap`,
   and the command line builds everything else as scripts, run as
   `./snail-scheme run --target node FILE`. Every build writes one linked
-  module, `NAME.wasm`, which `--release` also optimizes.
+  module, `NAME.wasm`, which `--release` also optimizes; a Node build
+  wraps it in an npm package, and making an executable of that is left to
+  Node's tools.
   Stage 0 does nothing else: the test suite builds its programs with the
   command line (`tests/run.mjs`), and only the compiler's unit tests run on
   Chez (`tests/unit.scm`).

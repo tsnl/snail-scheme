@@ -1,0 +1,8 @@
+{
+  "name": "snail-scheme",
+  "private": true,
+  "description": "The npm packages the repository's Node runs use: webgpu, Dawn's binding, for WebGPU on Node (host/native/gpu.mjs). `make fetch` installs them; a Node build's package pins the same version.",
+  "dependencies": {
+    "webgpu": "0.6.2"
+  }
+}

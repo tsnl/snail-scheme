@@ -38,8 +38,10 @@ paths, where each is another name for the store's object, a hard link (a
 copy where the two lie on different file systems). A program's bulky files
 are then on disk once, and its directory still holds them itself, so it
 can be served or shipped on its own. Nothing reclaims the store: delete
-`build/` and rebuild from time to time. Node runs the module directly, and
-a page through `linkModule` in `load.mjs`.
+`build/` and rebuild from time to time. On Node the native runner,
+`host/native/run-snail.mjs`, runs the module, which a Node build packages
+with it ([a Node package](#a-node-package)), and a page links it through
+`linkModule` in `load.mjs`.
 
 A release build, `--release`, differs in one thing: the module is then
 optimized by Binaryen's `wasm-opt -O2`, which can inline the runtime's
@@ -72,6 +74,54 @@ removes the generation and changes no published output. Publication checks
 the destination, makes a temporary link beside the generation and renames it
 into place, which is atomic. These guarantees concern complete outputs, not
 an atomic source snapshot or power-loss durability.
+
+### A Node package
+
+A Node build's directory is an npm package around its module, which runs
+wherever it is copied:
+
+```text
+build/apps/hello/main/
+  package.json      {"name": "main", "private": true, "bin": {"main": "main.mjs"}}
+  main.mjs          runs main.wasm with its arguments
+  main.wasm
+  store/            the files the program links, if any
+  host/native/      the Node host, as the repository keeps it
+  host/browser/     the three files of the browser host it shares
+```
+
+`node main.mjs ARGUMENT ...` runs the program as `snail-scheme run` does,
+in the caller's directory, with nothing to install. A program that holds
+`(snail runtime gpu)` may ask for a device, so its package depends on npm's
+`webgpu` package, at the version the repository's `package.json` pins,
+and loads it at the program's first `request-device`
+([WebGPU on Node](../graphics/plan.md#webgpu-on-node)). Inside the
+repository, Node finds the copy `make fetch` installed; elsewhere,
+`npm install` in the package fetches it. Other programs depend on nothing.
+
+The package is private, so npm will not publish it until its author gives
+it a name and a version of their own. What becomes of it after that is
+the Node ecosystem's work, not the builder's: `npm install -g` makes the
+command, `npm publish` ships it, and any bundler or packager that takes
+an npm package takes it. A single executable application, for one,
+is Node's own binary with a script built into it
+([SEA](https://nodejs.org/api/single-executable-applications.html)). The
+script can load only Node's built-in modules, so it loads the package
+beside the executable through `createRequire`. `main.mjs` and the host
+avoid top-level `await`, so `require` can load them. The output is a link
+to its generation, which the copy follows:
+
+```sh
+mkdir -p dist && cp -RL build/apps/hello/main dist/hello && (cd dist/hello && npm install)
+echo "require('node:module').createRequire(__filename)('./hello/main.mjs');" > sea-main.cjs
+echo '{"main": "sea-main.cjs", "output": "dist/hello-run"}' > sea-config.json
+node --build-sea sea-config.json
+dist/hello-run ARGUMENT ...
+```
+
+The executable runs with `dist/hello/` beside it. Node 26.9 and later can
+also serve the package from inside the executable, as one file, with
+`"useVfs": true` and the package zipped as its `"vfsArchive"`.
 
 ## Embedding a build
 

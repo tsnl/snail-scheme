@@ -55,6 +55,7 @@
    (snail shell process)
    (snail shell assembler)
    (snail shell json)
+   (snail shell json read)
    (snail shell compiler sha256)
    (snail shell utf8))
   (begin
@@ -78,7 +79,8 @@
 
     ;; Every build compiles the whole program to one module and fuses it
     ;; with the runtime: NAME.wasm, with copies of the files it links, so
-    ;; its directory can be served or shipped on its own. A release build
+    ;; its directory can be served or shipped on its own, a page's with the
+    ;; browser host and a Node program's as an npm package. A release build
     ;; also optimizes the module with wasm-opt, which can inline the
     ;; runtime's functions into the program; that is the modes' one
     ;; difference.
@@ -384,9 +386,10 @@
              (directory (prepare-generation builder name)))
         (removing directory
                   (lambda ()
-                    (build-program builder target directory)
-                    (when (● target browser?)
-                      (package-browser builder target directory))
+                    (let ((libraries (build-program builder target directory)))
+                      (if (● target browser?)
+                          (package-browser builder target directory)
+                          (package-node builder name directory libraries)))
                     (new Output (name name) (directory directory))))))
 
     ;; `work`'s value; when it fails, `directory` goes before the failure
@@ -403,10 +406,10 @@
          (absurd (stop failure)))))
 
     ;; The target's program in its generation, compiled anew, with the
-    ;; files it links.
+    ;; files it links; answers the libraries the program holds.
 
     (define (build-program (builder Builder) (target Target) (directory String))
-      (→ Unit)
+      (→ (List String))
       (! mut fs process building)
       (in-working builder (● target name)
                   (lambda (working)
@@ -426,15 +429,15 @@
                                       (known-digests builder))))))
 
     ;; The program's one module, NAME.wasm, and copies of the files it links
-    ;; in its store/. A release build's is linked in `working` and optimized
-    ;; from there.
+    ;; in its store/; answers the libraries it holds. A release build's is
+    ;; linked in `working` and optimized from there.
 
     (define (write-program (builder Builder)
                            (target Target)
                            (directory String)
                            (working String)
                            (checked Checked))
-      (→ Unit)
+      (→ (List String))
       (! mut fs process building)
       (let* ((program (compiled (lambda () (checked->wat checked))))
              (output (string-append directory "/" (program-name (● target name)))))
@@ -444,7 +447,8 @@
            (let ((linked (string-append working "/linked.wasm")))
              (write-bytes linked (linked-program builder program))
              (optimize linked output))))
-        (place-links builder directory (● program links))))
+        (place-links builder directory (● program links))
+        (● program libraries)))
 
     ;; `work` in a directory of its own in the build's scratch, removed after.
 
@@ -778,6 +782,108 @@
                      "the producer")
         (unless (file-exists? output)
           (fail-build "the producer did not write its generated library"))))
+
+    ;; ---- Node packages ----
+
+    ;; A Node build's generation is an npm package around its module, which
+    ;; `node main.mjs ARGUMENT ...` runs wherever it is copied. Its main.mjs
+    ;; runs NAME.wasm with the native host, whose files it holds under host/
+    ;; as the repository keeps them, so their imports are unchanged. A
+    ;; program that holds (snail runtime gpu) may ask for a device, and
+    ;; depends on the webgpu package at the version the repository's
+    ;; package.json pins; npm installs it in the package, or Node finds the
+    ;; repository's in a folder above. Other programs depend on nothing. An
+    ;; executable made of the package, or its publication, is the work of
+    ;; Node's own tools (doc/book/snail-scheme/projects.md, "A Node package").
+
+    (define node-files (→ (List String))
+      (list "native/run-snail.mjs"
+            "native/answers.mjs"
+            "native/async-files.mjs"
+            "native/gpu.mjs"
+            "native/process-imports.mjs"
+            "native/process.mjs"
+            "native/socket-imports.mjs"
+            "native/tcp.mjs"
+            "native/udp.mjs"
+            "browser/gpu.mjs"
+            "browser/load.mjs"
+            "browser/tasks.mjs"))
+
+    (define (package-node (builder Builder)
+                          (name String)
+                          (directory String)
+                          (libraries (List String)))
+      (→ Unit)
+      (! fs building)
+      (let ((root (● (● builder tools) root)))
+        (for-each (lambda (file)
+                    (copy-into (string-append root "/host/" file)
+                               (string-append directory "/host/" file)
+                               (string-append "cannot copy the native host's " file)))
+                  node-files)
+        (write-file (string-append directory "/main.mjs") (node-main name))
+        (write-file (string-append directory "/package.json")
+                    (json->string (node-manifest root name libraries)))))
+
+    ;; The package's entry, which runs NAME.wasm beside it with its own
+    ;; arguments. Node warns that WASI is experimental as the runner loads,
+    ;; which the command line's --no-warnings silences. The entry silences
+    ;; warnings before it imports the runner, so the package runs alike as
+    ;; `node main.mjs`, as npm's command and in an executable.
+
+    (define (node-main (name String)) (→ String)
+      (string-join (list "#!/usr/bin/env node"
+                         (string-append "// Runs " (program-name name) ", a snail-scheme program.")
+                         "import {join} from 'node:path';"
+                         ""
+                         "process.removeAllListeners('warning');"
+                         (string-append "const program = join(import.meta.dirname, "
+                                        (json->string (JsonString (program-name name)))
+                                        ");")
+                         "import('./host/native/run-snail.mjs').then(({start}) => start(program, process.argv.slice(2)));"
+                         "")
+                   "\n"))
+
+    ;; package.json: the package is private, which keeps npm from
+    ;; publishing it until its author gives it a version and a name of
+    ;; their own, and its one command, NAME, is main.mjs.
+
+    (define (node-manifest (root String) (name String) (libraries (List String))) (→ Json)
+      (! fs building)
+      (let ((command (base-name name)))
+        (JsonObject
+         (append (list (new Pair (first "name") (second (JsonString command)))
+                       (new Pair (first "private") (second (JsonBool #t)))
+                       (new Pair
+                         (first "bin")
+                         (second (JsonObject (list (new Pair
+                                                     (first command)
+                                                     (second (JsonString "main.mjs"))))))))
+                 (if (member? "snail.runtime.gpu" libraries)
+                     (list (new Pair
+                             (first "dependencies")
+                             (second (JsonObject (list (new Pair
+                                                         (first "webgpu")
+                                                         (second (webgpu-version root))))))))
+                     (Nil))))))
+
+    ;; The webgpu version the repository's package.json pins, which its own
+    ;; runs use too.
+
+    (define (webgpu-version (root String)) (→ Json) (! fs building)
+      (let* ((path (string-append root "/package.json"))
+             (manifest (match (read-text-file path 1048576)
+                         ((Ok text) (string->json text))
+                         ((Err _) (None)))))
+        (match (member-of (member-of manifest "dependencies") "webgpu")
+          ((Some (JsonString version)) (JsonString version))
+          (_ (fail-build (string-append path " pins no version of webgpu"))))))
+
+    (define (member-of (value (Option Json)) (name String)) (→ (Option Json))
+      (match value
+        ((Some value) (json-member value name))
+        ((None) (None))))
 
     ;; ---- Browser packages ----
 

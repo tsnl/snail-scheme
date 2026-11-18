@@ -107,11 +107,21 @@ async function loadProgram(filename, wasi, host, tasks) {
 // V8's default stack suits it; a larger young generation, which a caller
 // may give with --max-semi-space-size, helps only a program that copies
 // long lists. A run that ends without a status failed in its host.
-process.exitCode = 2;
-const [filename, ...arguments_] = process.argv.slice(2);
-try {
-  if (!filename) throw new Error('usage: run-snail.mjs MODULE.wasm [ARGUMENT ...]');
-  process.exitCode = await run(filename, arguments_);
-} catch (error) {
-  console.error(`snail: ${error instanceof Error ? error.message : String(error)}`);
+export async function start(filename, arguments_) {
+  process.exitCode = 2;
+  try {
+    if (!filename) throw new Error('usage: run-snail.mjs MODULE.wasm [ARGUMENT ...]');
+    process.exitCode = await run(filename, arguments_);
+  } catch (error) {
+    console.error(`snail: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+// As a command, this runs the module its first argument names; a Node
+// package's main.mjs imports it and names its own. Neither waits at the
+// top level, so `require` can load the package too, as an executable's
+// injected script does (doc/book/snail-scheme/projects.md, "A Node package").
+if (import.meta.main) {
+  const [filename, ...arguments_] = process.argv.slice(2);
+  start(filename, arguments_);
 }

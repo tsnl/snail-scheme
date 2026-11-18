@@ -44,7 +44,8 @@ async function throughTheCommandLine() {
   await build();
   const published = fs.readlinkSync(join(project, 'build/main'));
   assert.deepEqual(inventory(), [published, 'main']);
-  assert.deepEqual(fs.readdirSync(join(project, 'build', published)).sort(), ['.snail-target', 'main.wasm'],
+  assert.deepEqual(fs.readdirSync(join(project, 'build', published)).sort(),
+    ['.snail-target', 'host', 'main.mjs', 'main.wasm', 'package.json'],
     'producer programs use private compiler scratch');
   write('flag.txt', 'invalid');
   await assert.rejects(build(), /unknown-generated-name/);

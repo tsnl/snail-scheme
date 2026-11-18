@@ -2,13 +2,12 @@
 // over Dawn, the WebGPU implementation Chromium uses, through Dawn's own
 // Node binding, dawn.node. Dawn runs in this process and is called
 // directly, where Chromium's runs in a GPU process that every call is sent
-// to. The binding is the webgpu package's (github.com/dawn-gpu/node-webgpu)
-// at SNAIL_WEBGPU, which nix-shell pins and sets (shell.nix). It loads at
-// the program's first `request-device`, so a program that never asks for
-// a device needs none. Dawn keeps the guards a browser has, which cost
-// little (doc/book/graphics/plan.md, "WebGPU on Node").
-import {join} from 'node:path';
-import {pathToFileURL} from 'node:url';
+// to. The binding is npm's webgpu package (github.com/dawn-gpu/node-webgpu),
+// which the repository's package.json pins and `make fetch` installs, and
+// which a Node build's package depends on when its program may ask for a
+// device. It loads at the program's first `request-device`, so a program
+// that never asks needs none. Dawn keeps the guards a browser has, which
+// cost little (doc/book/graphics/plan.md, "WebGPU on Node").
 import {createGpu, requestDevice} from '../browser/gpu.mjs';
 
 // `program` gives the running program, whose memory holds staged Bytes;
@@ -31,9 +30,10 @@ function nodeDevice() {
 }
 
 async function opened() {
-  const where = process.env.SNAIL_WEBGPU;
-  if (!where) throw new Error('Node has no WebGPU here: SNAIL_WEBGPU names the webgpu package, as nix-shell sets it');
-  const {create, globals} = await import(pathToFileURL(join(where, 'index.js')).href);
+  const {create, globals} = await import('webgpu').catch(error => {
+    if (error.code !== 'ERR_MODULE_NOT_FOUND') throw error;
+    throw new Error('Node has no WebGPU here: install the webgpu package with npm');
+  });
   Object.assign(globalThis, globals);
   const instance = create([]);
   const {device, optional} = await requestDevice(instance);
