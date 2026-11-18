@@ -1,28 +1,45 @@
 # Train
 
-3D Gaussian Splatting (Kerbl et al., 2023) trained in the page on a COLMAP
-scene, with `(snail shell graphics splat-fit)` on the tensor library
+3D Gaussian Splatting (Kerbl et al., 2023) trained on a COLMAP scene, with
+`(snail shell graphics splat-fit)` on the tensor library
 ([tensors](../../../doc/book/graphics/tensors.md#training-on-photographs)).
-The page fetches the scene's photographs and sparse reconstruction, starts
-a gaussian at each sparse point, and trains for the reference's 30,000
-steps, densifying as it does; every fiftieth step's image is drawn on the
-canvas, and the console reports the loss every hundred. Every eighth
-photograph, in order of name, is held out, and the PSNR on those is
-reported at the end.
+It reads the scene's photographs and sparse reconstruction, starts a
+gaussian at each sparse point, and trains for the reference's 30,000
+steps, densifying as it does; the console reports the loss every hundred.
+Every eighth photograph, in order of name, is held out, and the PSNR on
+those is reported at the end.
+
+It runs on Node or in a page. `scripts/fetch-mipnerf360 bicycle` downloads
+Mip-NeRF 360's 12.5 GB archive into `~/.cache/snail-scheme/datasets`,
+extracts the scene and links it at `build/datasets/bicycle`.
+
+## On Node
 
 ```sh
-scripts/fetch-mipnerf360 bicycle
+./snail-scheme build --release --target node src/apps/train/node.scm
+node build/src/apps/train/node/main.mjs scene=build/datasets/bicycle/
+```
+
+The GPU is the one Dawn finds, the photographs are decoded by `sharp`
+([WebGPU on Node](../../../doc/book/graphics/plan.md#webgpu-on-node)), and
+nothing is shown. The arguments are the settings below, and `scene` is the
+scene's folder, ending in a slash.
+
+## In a page
+
+```sh
 ./snail-scheme build --release --target browser src/apps/train/main.scm
 python3 -m http.server 4194 --directory build
 ```
 
-`scripts/fetch-mipnerf360` downloads Mip-NeRF 360's 12.5 GB archive into
-`~/.cache/snail-scheme/datasets`, extracts the scene and links it at
-`build/datasets/bicycle`, beside the page. Open
-`http://127.0.0.1:4194/src/apps/train/main/` in a browser with WebGPU and
-its `subgroups` feature. The query chooses:
+Open `http://127.0.0.1:4194/src/apps/train/main/` in a browser with WebGPU
+and its `subgroups` feature. Every fiftieth step's image is drawn on the
+canvas. The page's query gives the settings, and `scene` is the scene's
+URL, by default `/datasets/bicycle/`, beside the page.
 
-- `scene`, the scene's URL, by default `/datasets/bicycle/`, holding
+## Settings
+
+- `scene`, the scene's address, holding
   `sparse/0/{cameras,images,points3D}.bin` and the photographs;
 - `images`, the folder of photographs within it, by default `images_4`,
   a quarter as wide as the originals, at which the paper trains Mip-NeRF
@@ -34,14 +51,29 @@ its `subgroups` feature. The query chooses:
 - `profile=1`, which first runs one step's kernels one at a time and
   prints the slowest and the largest buffers; `steps=0` then trains none.
 
-On bicycle, 30,000 steps take 33 minutes in Chromium on an RTX 5090 and
-reach a held-out PSNR of 25.30; the paper reports 25.25.
+## Photographs
 
-The page decodes every photograph into a texture before training, so a
-scene must fit the device beside the step's buffers. Bicycle's 194
-photographs at full resolution, 4946x3286, take 12.6 GB as textures; with
-the step's buffers, whose entries grow with the pixels, they ran out of a
-32 GB RTX 5090's memory by step 7,300.
+A photograph is on the device only around the step that trains on it. It
+is read and decoded four steps ahead, in a task of its own, and let go
+after its step, so the device holds five photographs, not the scene's.
+Bicycle's 194 at full resolution, 4946x3286, would take 12.6 GB as
+textures. The scene is asked for a photograph each time a step trains on
+it, so a page's scene should be near, or cached.
+
+## Results
+
+On bicycle at `images_4`, on an RTX 5090, 30,000 steps took 33.5 minutes
+on Node and 34.8 in Chromium, one run each, and reached a held-out PSNR of
+25.28 and 25.34; the paper reports 25.25.
+
+At full resolution, `images=images`, the step's own buffers are the limit,
+not the photographs. With the default 4,194,304 gaussians, binning's
+entries reach 2^27 near step 6,500, and the larger programs no longer fit
+a 32 GB device beside the cloud's 14 GB. A smaller cloud leaves them room:
+with `gaussians=2097152`, the 30,000 steps took 46 minutes on Node, the
+entries grew to 2^27, and the held-out PSNR at 4946x3286 was 23.77. The
+paper trains this scene at a quarter of that width, so it has no number to
+set beside this one.
 
 COLMAP's cameras must be pinholes: undistort the photographs first, as
 Mip-NeRF 360's are.
