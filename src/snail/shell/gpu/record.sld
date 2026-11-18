@@ -351,15 +351,16 @@
     ;; A PNG's size is in its header, big-endian after the signature and
     ;; the header's length and type; anything else is one texel.
 
-    (define (decoded! (recording Recording) (bytes Bytes)) (→ Image) (! mut)
+    (define (decoded! (recording Recording) (bytes Bytes)) (→ (Option Image)) (! mut)
       (let* ((png? (and (>= (array-length bytes) 24) (= (array-ref bytes 1) 80)))
              (width (if png? (big-endian bytes 16) 1))
              (height (if png? (big-endian bytes 20) 1)))
-        (new Image
-          (texture (new GpuTexture
-                     (id (transient! recording "decode-image" (list (show width) (show height))))))
-          (width width)
-          (height height))))
+        (Some (new Image
+                (texture
+                 (new GpuTexture
+                   (id (transient! recording "decode-image" (list (show width) (show height))))))
+                (width width)
+                (height height)))))
 
     (define (big-endian (bytes Bytes) (at I64)) (→ I32)
       (fold-left (lambda (value index)

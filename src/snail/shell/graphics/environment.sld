@@ -5,16 +5,20 @@
 ;; `environment-light-shader` and binds `environment-group` as group 2
 ;; to look the environment up and to sample it (environment-light.wgsl.scm).
 ;;
-;;   (match (hdr-environment (fetched bytes) 4096) ((Ok environment) ...) ((Err why) ...))
+;;   (match (read-hdr bytes) ((Ok hdr) (hdr-environment hdr 4096)) ((Err why) ...))
 ;;   (sky-environment sky 2048)
 ;;
-;; A file's header and the start of each of its rows are read here; its
-;; pixels are decoded on the device a row a thread, then averaged down
-;; to at most `max-width` texels across (environment.wgsl.scm).
+;; `read-hdr` reads a file's header and the start of each of its rows,
+;; which is all that can be wrong with one, so a program reads its file
+;; before it puts anything on the device; `hdr-environment` decodes its
+;; pixels there a row a thread, then averages them down to at most
+;; `max-width` texels across (environment.wgsl.scm).
 (define-library (snail shell graphics environment)
   (export
    Sky
    Environment
+   Hdr
+   read-hdr
    hdr-environment
    sky-environment
    environment-group
@@ -167,36 +171,33 @@
 
     ;; ---- Making ----
 
-    ;; The environment of an HDR file's bytes, averaged down by a whole
-    ;; factor to at most `max-width` across.
-    (define (hdr-environment (bytes Bytes) (max-width I64)) (→ (Result Environment String)) (! gpu)
-      (match (read-hdr bytes)
-        ((Err why) (Err why))
-        ((Ok hdr)
-         (let* ((factor (quotient (+ (● hdr width) (- max-width 1)) max-width))
-                (width (quotient (● hdr width) factor))
-                (height (quotient (● hdr height) factor))
-                (file (filled "environment/file" (padded (● hdr bytes))))
-                (rows (filled "environment/rows" (● hdr rows)))
-                (rgbe (storage "environment/rgbe" (* 4 (* (● hdr width) (● hdr height)))))
-                (radiance (plane "environment/radiance" width height (Rgba32Float)))
-                (uniform (shape-uniform (sized hdr width height factor)))
-                (kernels (environment-kernels)))
-           (let* ((encoder (create-command-encoder)) (pass (begin-compute-pass encoder)))
-             (run pass
-                  kernels
-                  "unrle"
-                  (list (buffer 0 file) (buffer 1 rows) (buffer 2 rgbe) (buffer 3 uniform))
-                  (rows-of (● hdr height)))
-             (run pass
-                  kernels
-                  "downsample"
-                  (list (buffer 2 rgbe) (buffer 3 uniform) (TextureEntry 4 (● radiance view)))
-                  (texels-of width height))
-             (end-compute-pass pass)
-             (submit (list (finish encoder))))
-           (for-each (lambda (spent) (destroy (BufferObject spent))) (list file rows rgbe uniform))
-           (Ok (with-table kernels radiance width height))))))
+    ;; The environment of an HDR file, averaged down by a whole factor to
+    ;; at most `max-width` across.
+    (define (hdr-environment (hdr Hdr) (max-width I64)) (→ Environment) (! gpu)
+      (let* ((factor (quotient (+ (● hdr width) (- max-width 1)) max-width))
+             (width (quotient (● hdr width) factor))
+             (height (quotient (● hdr height) factor))
+             (file (filled "environment/file" (padded (● hdr bytes))))
+             (rows (filled "environment/rows" (● hdr rows)))
+             (rgbe (storage "environment/rgbe" (* 4 (* (● hdr width) (● hdr height)))))
+             (radiance (plane "environment/radiance" width height (Rgba32Float)))
+             (uniform (shape-uniform (sized hdr width height factor)))
+             (kernels (environment-kernels)))
+        (let* ((encoder (create-command-encoder)) (pass (begin-compute-pass encoder)))
+          (run pass
+               kernels
+               "unrle"
+               (list (buffer 0 file) (buffer 1 rows) (buffer 2 rgbe) (buffer 3 uniform))
+               (rows-of (● hdr height)))
+          (run pass
+               kernels
+               "downsample"
+               (list (buffer 2 rgbe) (buffer 3 uniform) (TextureEntry 4 (● radiance view)))
+               (texels-of width height))
+          (end-compute-pass pass)
+          (submit (list (finish encoder))))
+        (for-each (lambda (spent) (destroy (BufferObject spent))) (list file rows rgbe uniform))
+        (with-table kernels radiance width height)))
 
     (define (sized (hdr Hdr) (width I64) (height I64) (factor I64)) (→ EnvironmentShape)
       (new EnvironmentShape

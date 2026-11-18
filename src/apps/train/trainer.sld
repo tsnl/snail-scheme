@@ -98,6 +98,11 @@
         ((Ok bytes) bytes)
         ((Err why) (panic why))))
 
+    (define (photograph (url String)) (→ Image) (! fetch gpu tasks)
+      (match (decode-image (fetched url))
+        ((Some image) image)
+        ((None) (panic (string-append url " is no image the page decodes")))))
+
     (define (parsed (result (Result T String))) (→ T) (∀ (T))
       (match result
         ((Ok value) value)
@@ -120,12 +125,10 @@
                                                                 (show (length images)))))
                                    (new Shot
                                      (image image)
-                                     (photo (decode-image (fetched (string-append base
-                                                                                  (● settings
-                                                                                     images)
-                                                                                  "/"
-                                                                                  (● image
-                                                                                     name)))))))
+                                     (photo (photograph (string-append base
+                                                                       (● settings images)
+                                                                       "/"
+                                                                       (● image name))))))
                                  images))
              (width (● (● (list-ref shots 0) photo) width)))
         (new Scene

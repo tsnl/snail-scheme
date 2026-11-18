@@ -1,4 +1,4 @@
-;; A glTF scene on the device, loaded once from its URL: every triangle in
+;; A glTF scene on the device, loaded once from its files: every triangle in
 ;; the world in one vertex and one index buffer, unpacked from the scene's
 ;; buffers by a compute pass (unpack.wgsl.scm); the materials in one
 ;; storage buffer; and every image in one layer of one texture array with
@@ -7,7 +7,10 @@
 ;; a material names its textures by layer. Rasterizing and tracing read
 ;; the same buffers, so what is drawn is what rays hit.
 ;;
-;;   (let ((scene (load-scene read "models/Sponza/glTF/Sponza.gltf" 1024))) ...)
+;;   (match (attempt-reading
+;;           (lambda () (load-scene read "models/Sponza/glTF/Sponza.gltf" 1024)))
+;;     ((Ok scene) ...)
+;;     ((Err why) ...))
 (define-library (snail shell graphics trace scene)
   (export
    Scene
@@ -18,7 +21,6 @@
    scene-triangles)
   (import
    (snail core base)
-   (snail shell utf8)
    (only (snail shell task) tasks)
    (snail shell gpu)
    (snail shell graphics pod)
@@ -78,54 +80,55 @@
     ;; which answers the bytes of each path it is given, in order; the
     ;; scene's URIs are relative to its directory. The files its buffers
     ;; and images name are asked for together, so a page fetches them at
-    ;; once. A scene less
-    ;; than a unit across is made one unit across, since a camera clips at
-    ;; a tenth of a unit and rays leave surfaces by a fixed offset.
-    (define (load-scene (read (Fn (List String) → (List Bytes) ! e)) (path String) (layer-size I32))
+    ;; once. A scene that cannot be read refuses (`reading`, of (snail
+    ;; shell graphics gltf)) and leaves nothing on the device: `read` may
+    ;; refuse a path, the scene may be one `read-gltf` refuses, a file may
+    ;; be shorter than the scene says, or an image one the host does not
+    ;; decode. A scene less than a unit
+    ;; across is made one unit across, since a camera clips at a tenth of
+    ;; a unit and rays leave surfaces by a fixed offset.
+    (define (load-scene (read (Fn (List String) → (List Bytes) ! reading e))
+                        (path String)
+                        (layer-size I32))
       (→ Scene)
-      (! gpu tasks e)
+      (! gpu tasks reading e)
       (∀ (e))
-      (let* ((top (list-ref (read (list path)) 0))
-             (glb (glb-chunks top))
-             (gltf (match (read-gltf (text-of (match glb
-                                                ((Some chunks) (● chunks first))
-                                                ((None) top))
-                                              path)
-                                     (directory-of path))
-                     ((Ok gltf) (at-least-a-unit gltf))
-                     ((Err reason) (panic (string-append "scene: " path ": " reason)))))
-             (paths (file-paths (append (● gltf buffers) (● gltf images))))
-             (files (zip-pairs paths (read paths)))
-             (chunk (match glb
-                      ((Some chunks) (● chunks second))
-                      ((None) (make-array 0 (i32->u8 0)))))
-             (buffers
-              (map (lambda (source) (source-bytes source files chunk (Nil))) (● gltf buffers))))
-        (let* ((counts (placed-counts gltf))
-               (geometry (unpacked gltf counts buffers))
-               (bounds (gltf-bounds gltf))
-               (layers (load-layers (map (lambda (source) (source-bytes source files chunk buffers))
-                                         (● gltf images))
-                                    layer-size)))
-          (new Scene
-            (vertices (● geometry first))
-            (indices (● geometry second))
-            (materials (storage-of "scene/materials"
-                                   (pack material-shape
-                                         (map surface-material (with-default (● gltf materials))))))
-            (layers layers)
-            (layers-view (create-view layers
-                                      (new TextureViewDescriptor
-                                        (dimension (View2dArray))
-                                        (base-mip 0)
-                                        (mips (levels layer-size))
-                                        (base-layer 0)
-                                        (layers 0))))
-            (sampler (repeating-sampler))
-            (vertex-count (● counts first))
-            (triangle-count (quotient (● counts second) 3))
-            (low (● bounds first))
-            (high (● bounds second))))))
+      (let* ((gltf (drawable (read-gltf (list-ref (read (list path)) 0) (directory-of path))))
+             (paths (file-paths gltf))
+             (files (zip paths (read paths)))
+             (buffers (map (lambda (buffer) (buffer-bytes buffer files)) (● gltf buffers)))
+             (layers (load-layers (map (lambda (image) (source-bytes image files buffers))
+                                       (● gltf images))
+                                  layer-size)))
+        (on-device gltf buffers layers layer-size)))
+
+    ;; Nothing refuses once the layers are loaded, so a scene refused
+    ;; leaves nothing on the device.
+    (define (on-device (gltf Gltf) (buffers (List Bytes)) (layers GpuTexture) (layer-size I32))
+      (→ Scene)
+      (! gpu)
+      (let* ((counts (placed-counts gltf))
+             (geometry (unpacked gltf counts buffers))
+             (bounds (gltf-bounds gltf)))
+        (new Scene
+          (vertices (● geometry first))
+          (indices (● geometry second))
+          (materials (storage-of "scene/materials"
+                                 (pack material-shape
+                                       (map surface-material (with-default (● gltf materials))))))
+          (layers layers)
+          (layers-view (create-view layers
+                                    (new TextureViewDescriptor
+                                      (dimension (View2dArray))
+                                      (base-mip 0)
+                                      (mips (levels layer-size))
+                                      (base-layer 0)
+                                      (layers 0))))
+          (sampler (repeating-sampler))
+          (vertex-count (● counts first))
+          (triangle-count (quotient (● counts second) 3))
+          (low (● bounds first))
+          (high (● bounds second)))))
 
     (define (release-scene (scene Scene)) (→ Unit) (! gpu)
       (for-each (lambda (buffer) (destroy (BufferObject buffer)))
@@ -136,38 +139,51 @@
 
     ;; ---- Sources ----
 
-    ;; The files the sources name, each path paired with its bytes once
-    ;; they are read; then each source's bytes.
-    (define (file-paths (sources (List Source))) (→ (List String))
+    ;; The files the scene's buffers and images name.
+    (define (file-paths (gltf Gltf)) (→ (List String))
       (fold-right (lambda (source paths)
                     (match source
                       ((FileSource path) (Cons path paths))
                       (_ paths)))
                   (Nil)
-                  sources))
+                  (append (map (lambda (buffer) (● buffer source)) (● gltf buffers))
+                          (● gltf images))))
 
-    (define (zip-pairs (paths (List String)) (files (List Bytes))) (→ (List (Pair String Bytes)))
-      (match paths
-        ((Cons path paths)
-         (match files
-           ((Cons file files) (Cons (new Pair (first path) (second file)) (zip-pairs paths files)))
-           ((Nil) (Nil))))
-        ((Nil) (Nil))))
-
+    ;; A source's bytes, from the files read and, for an image in a buffer
+    ;; view, the buffers.
     (define (source-bytes (source Source)
                           (files (List (Pair String Bytes)))
-                          (chunk Bytes)
                           (buffers (List Bytes)))
       (→ Bytes)
+      (! reading)
       (match source
         ((FileSource path)
          (match (assoc-ref files path)
            ((Some bytes) bytes)
-           ((None) (panic (string-append "scene: no file " path)))))
+           ((None) (unreadable (string-append path " was not read")))))
         ((DataSource bytes) bytes)
-        ((ChunkSource) chunk)
         ((ViewSource buffer offset length)
-         (subarray (list-ref buffers buffer) offset (+ offset length)))))
+         (let ((bytes (list-ref buffers buffer)))
+           (if (<= (+ offset length) (array-length bytes))
+               (subarray bytes offset (+ offset length))
+               (unreadable "an image of the scene lies outside its buffer"))))))
+
+    ;; The bytes the scene reads of a buffer, which may be the start of a
+    ;; longer file.
+    (define (buffer-bytes (buffer Buffer) (files (List (Pair String Bytes)))) (→ Bytes) (! reading)
+      (let ((bytes (source-bytes (● buffer source) files (Nil))))
+        (if (< (array-length bytes) (● buffer length))
+            (unreadable (string-append (match (● buffer source)
+                                         ((FileSource path) path)
+                                         (_ "a buffer of the scene"))
+                                       " is shorter than the scene says"))
+            (subarray bytes 0 (● buffer length)))))
+
+    ;; A scene with something to draw, at least a unit across.
+    (define (drawable (gltf Gltf)) (→ Gltf) (! reading)
+      (if (null? (● gltf placed))
+          (unreadable "the scene has no triangles")
+          (at-least-a-unit gltf)))
 
     (define (at-least-a-unit (gltf Gltf)) (→ Gltf)
       (let* ((bounds (gltf-bounds gltf))
@@ -187,10 +203,7 @@
                                     0
                                     (iota (array-length chars))))))
 
-    (define (text-of (bytes Bytes) (path String)) (→ String)
-      (match (utf8->string bytes)
-        ((Ok text) text)
-        ((Err _) (panic (string-append "scene: " path " is not UTF-8")))))
+
 
     ;; A scene without materials draws with glTF's default, white and
     ;; rough.
@@ -352,22 +365,17 @@
              (indices (storage-sized "scene/indices"
                                      (max 12 (* 4 (● counts second)))
                                      (list (Storage) (Index)))))
-        (write-buffers data buffers)
+        (for-each (lambda (laid)
+                    (write-buffer data
+                                  (i64->i32 (● laid first start))
+                                  (padded-bytes (● laid second))))
+                  (zip (● gltf buffers) buffers))
         (run-unpack data unpacks vertices indices (● counts first) (quotient (● counts second) 3))
         (destroy (BufferObject data))
         (destroy (BufferObject unpacks))
         (new Pair (first vertices) (second indices))))
 
-    ;; Each buffer at its start, a multiple of 4, padded to one.
-    (define (write-buffers (data GpuBuffer) (buffers (List Bytes))) (→ Unit) (! gpu)
-      (fold-left (lambda (start bytes)
-                   (let ((padded (padded-bytes bytes)))
-                     (write-buffer data (i64->i32 start) padded)
-                     (+ start (array-length padded))))
-                 0
-                 buffers)
-      (unit))
-
+    ;; A write's size is a multiple of 4.
     (define (padded-bytes (bytes Bytes)) (→ Bytes)
       (let ((extra (remainder (- 4 (remainder (array-length bytes) 4)) 4)))
         (if (= extra 0) bytes (array-append bytes (make-array extra (i32->u8 0))))))
@@ -438,8 +446,9 @@
     ;; ---- Textures ----
 
     ;; A layer for each image, at least one, each image drawn into its
-    ;; first level and each next level drawn from the one before.
-    (define (load-layers (images (List Bytes)) (size I32)) (→ GpuTexture) (! gpu tasks)
+    ;; first level and each next level drawn from the one before. An image
+    ;; the host does not decode refuses the scene, and the layers go.
+    (define (load-layers (images (List Bytes)) (size I32)) (→ GpuTexture) (! gpu tasks reading)
       (let* ((layers (create-texture (new TextureDescriptor
                                        (label "scene/layers")
                                        (width size)
@@ -456,15 +465,27 @@
                                         (mipmap-filter (Nearest))
                                         (address (ClampToEdge))))))
         (for-each (lambda (index)
-                    (let ((image (decode-image (list-ref images index))))
-                      (fill-layer layers
-                                  pipeline
-                                  sampler
-                                  (view-of (● image texture) 1)
-                                  (i64->i32 index)
-                                  size)
-                      (destroy (TextureObject (● image texture)))))
+                    (match (decode-image (list-ref images index))
+                      ((Some image)
+                       (fill-layer layers
+                                   pipeline
+                                   sampler
+                                   (view-of (● image texture) 1)
+                                   (i64->i32 index)
+                                   size)
+                       (destroy (TextureObject (● image texture))))
+                      ((None)
+                       (for-each destroy
+                                 (list (TextureObject layers)
+                                       (PipelineObject pipeline)
+                                       (SamplerObject sampler)))
+                       (unreadable
+                        (string-append "image "
+                                       (show index)
+                                       " of the scene is not one read here")))))
                   (iota (length images)))
+        (destroy (PipelineObject pipeline))
+        (destroy (SamplerObject sampler))
         layers))
 
     ;; Levels down to 1 by 1.

@@ -173,7 +173,9 @@
     (new Painting
       (target target)
       (target-view (view-of target 1))
-      (image (decode-image two-texels))
+      (image (match (decode-image two-texels)
+               ((Some image) image)
+               ((None) (panic "the two texels did not decode"))))
       (readback (buffer-named "readback" 1280 (list (MapRead) (CopyDst))))
       (offscreen offscreen)
       (offscreen-group (group-for offscreen color))

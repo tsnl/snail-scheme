@@ -1,4 +1,4 @@
-buffers: models/x/one.bin, data 0 1 2 3 4 5 size 72
+buffers: models/x/one.bin at 0 for 61, data 0 1 2 3 4 5 at 64 for 6 size 72
 images: models/x/a.png, 1 0 6
 positions: 0 20 5126 3
 uvs: 12 20 5126 3
@@ -6,6 +6,14 @@ indices: 64 2 5123 3
 matrix: -0.0 0.0 -2.0 0.0 0.0 2.0 0.0 0.0 2.0 0.0 -0.0 0.0 0.0 2.0 0.0 1.0
 material: 1.0 0.5 0.25 1.0 texture 1 metallic 0.0 alpha 1 cutoff 0.25 emissive 4.5 4.5 0.0
 bounds: -0.0 2.0 -2.0 to 0.0 4.0 2.0
-glb binary: 9 8 7 6
-glb buffers: chunk, data 1 2
-JSON is not GLB
+glb buffers: data 9 8 7 6 at 0 for 4, data 1 2 at 4 for 2
+the scene is not JSON
+the .glb file is cut short
+the scene has no accessor 3
+the scene has no scene 2
+the scene has no node 5
+the scene's nodes form a loop
+an accessor of the scene lies outside its buffer
+the scene has no buffer view 0
+an image of the scene names no file
+the scene needs KHR_draco_mesh_compression, which is not read
