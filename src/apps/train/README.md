@@ -62,9 +62,9 @@ it, so a page's scene should be near, or cached.
 
 ## Results
 
-On bicycle at `images_4`, 30,000 steps take 33 minutes on an RTX 5090, on
-Node and in Chromium alike, and reach a held-out PSNR of 25.3: 25.28 on
-Node and 25.34 in Chromium in one run each, where the paper reports 25.25.
+On bicycle at `images_4`, on an RTX 5090, 30,000 steps took 33.5 minutes
+on Node and 34.8 in Chromium, one run each, and reached a held-out PSNR of
+25.28 and 25.34; the paper reports 25.25.
 
 At full resolution, `images=images`, the step's own buffers are the limit,
 not the photographs. With the default 4,194,304 gaussians, binning's

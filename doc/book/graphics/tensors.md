@@ -262,9 +262,9 @@ that doubling would reach next don't fit a 32 GB RTX 5090. Every eighth
 photograph is held out, and the PSNR on those is reported at the end.
 
 On Mip-NeRF 360's bicycle at `images_4`, the paper's resolution for its
-outdoor scenes, the 30,000 steps take 33 minutes on an RTX 5090, on Node
-and in Chromium alike. The held-out PSNR is 25.3, 25.28 on Node and 25.34
-in Chromium in one run each, against the paper's 25.25. The cloud fills
+outdoor scenes, on an RTX 5090, the 30,000 steps took 33.5 minutes on Node
+and 34.8 in Chromium, one run each. The held-out PSNR was 25.28 and 25.34,
+against the paper's 25.25. The cloud fills
 its 4,194,304 gaussians by step 9,100 and stays near full until densifying
 stops at 15,000, where the reference's grows to about 6 million. At full
 resolution the photographs no longer limit a run, since they are streamed;
