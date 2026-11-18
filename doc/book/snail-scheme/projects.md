@@ -82,7 +82,8 @@ wherever it is copied:
 
 ```text
 build/apps/hello/main/
-  package.json      {"name": "main", "private": true, "bin": {"main": "main.mjs"}}
+  package.json      {"name": "main", "private": true,
+                     "scripts": {"start": "node main.mjs"}, "bin": {"main": "main.mjs"}}
   main.mjs          runs main.wasm with its arguments
   main.wasm
   store/            the files the program links, if any
@@ -90,8 +91,20 @@ build/apps/hello/main/
   host/browser/     the three files of the browser host it shares
 ```
 
-`node main.mjs ARGUMENT ...` runs the program as `snail-scheme run` does,
-in the caller's directory, with nothing to install. A program that holds
+npm runs it as Cargo runs a crate:
+
+```sh
+cd build/apps/hello/main
+npm install                    # fetches its dependencies, if it has any
+npm start -- ARGUMENT ...      # runs it, as `cargo run -- ARGUMENT ...` does
+npm install -g .               # installs its command, `main`, as `cargo install --path .` does
+```
+
+npm prints the command it starts before the program's output; `npm start
+--silent` leaves the output the program's alone. npm runs a script in the
+package's folder, where Cargo stays in the caller's. `node main.mjs
+ARGUMENT ...` runs the program in the caller's directory, as `snail-scheme
+run` does, with nothing to install. A program that holds
 `(snail runtime gpu)` may ask for a device and decode an image, so its
 package depends on npm's `webgpu` and `sharp` packages, at the versions
 the repository's `package.json` pins, and loads each when it is first
@@ -103,9 +116,10 @@ depend on nothing.
 
 The package is private, so npm will not publish it until its author gives
 it a name and a version of their own. What becomes of it after that is
-the Node ecosystem's work, not the builder's: `npm install -g` makes the
-command, `npm publish` ships it, and any bundler or packager that takes
-an npm package takes it. A single executable application, for one,
+the Node ecosystem's work, not the builder's: `npm publish` ships it, and
+any bundler or packager that takes an npm package takes it. Nothing
+installs a dependency but npm, so a package is installed before it is
+packed. A single executable application, for one,
 is Node's own binary with a script built into it
 ([SEA](https://nodejs.org/api/single-executable-applications.html)). The
 script can load only Node's built-in modules, so it loads the package
