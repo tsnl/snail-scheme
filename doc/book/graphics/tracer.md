@@ -23,6 +23,14 @@ targets for a new canvas size, and `draw-traced` draws a frame for a camera.
 A camera that holds still keeps accumulating: `tracer-frames` counts the
 frames since it last moved.
 
+A `Tracer` holds a record for each lifetime: a `Kit` of what is made once,
+the pipelines and uniforms; a `World` of the scene, its BVH and the
+environment; `Targets` of what the canvas's size sets; and `Bindings`,
+every bind group over the three, which `bind` alone makes. `resize-tracer`
+and `retrace` each replace one record and bind again, so no bind group
+names a target or a scene that is gone. The libraries share the few steps
+every set of compute kernels repeats, in `(snail shell graphics kernel)`.
+
 ## The wavefront
 
 A path is not one long kernel but a sequence of small ones, each its own
