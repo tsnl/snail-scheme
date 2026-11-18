@@ -10,7 +10,8 @@
 // splats gaussians under a transforms table it then changes, and runs
 // compiled tensor programs, checked against their CPU evaluation, among
 // them the differentiable splat renderer's gradients. WebGPU
-// reports no error.
+// reports no error. tests/gpu.mjs runs the checks that need no screen on
+// Node, and tests/gpu/expected.mjs holds what both print.
 //
 //   CHROMIUM=... node tests/browser/gpu.mjs ROOT [SCREENSHOT]
 import assert from 'node:assert/strict';
@@ -20,6 +21,7 @@ import {createServer} from 'node:http';
 import {extname, join, normalize} from 'node:path';
 import {promisify} from 'node:util';
 import {openBrowser, until} from './chromium.mjs';
+import {assertLines, deviceLines, fetchedLine, pageLines} from '../gpu/expected.mjs';
 
 const [root, screenshot] = process.argv.slice(2);
 const types = {'.html': 'text/html', '.mjs': 'text/javascript', '.css': 'text/css', '.wasm': 'application/wasm'};
@@ -50,38 +52,7 @@ try {
   assert.deepEqual(lines.filter(line => line.startsWith('error:') || line.startsWith('warn:')), [], 'WebGPU reported nothing');
   const printed = lines.filter(line => line.startsWith('log: ')).map(line => line.slice(5));
   assert.match(printed[0], /^format: (bgra8unorm|rgba8unorm)$/);
-  assert.deepEqual(printed.slice(1).filter(line => !line.startsWith('url: ')), [
-    'target: 255 0 0 255 255 0 0 255 255 0 0 255 255 0 0 255',
-    'image: 255 0 0 255 0 255 0 255',
-    'again: 255 0 0 255 255 0 0 255 255 0 0 255 255 0 0 255',
-    'quads: 0 0 255 255 0 0 255 255 0 255 0 255 0 255 0 255',
-    'scene: 230 3 3 255 230 3 3 255 153 153 153 255 153 153 153 255',
-    // The same light through Hable's curve and sRGB encoding: the grey
-    // tile's 0.6 is 159, as the curve computed by hand gives.
-    'filmic: 186 0 0 255 186 0 0 255 159 159 159 255 159 159 159 255',
-    'squares: 1 4 9 16 10000',
-    'planes: -0.25 -0.0 7 9 0',
-    // An exclusive scan of i mod 3 over three levels of tiles, checked at
-    // every index; a stable sort of 5,000 keys; and splats: red at the
-    // left, green over red at the center, blue at the right, faint green
-    // above, until turning the red one's transform stands it up.
-    'scan: 0 0 1 3 510 511 513 262143 299998 all',
-    'sort: paired sorted stable permutation',
-    'splats: 96 2 0 255 40 209 0 255 7 0 225 255 0 2 0 255',
-    'turned: 0 2 0 255 40 209 0 255 0 0 225 255 96 2 0 255',
-    // A compiled tensor program computes each of its sinks as the CPU
-    // evaluates them, and Adam fits a line in 1,000 runs of another.
-    'tensor: 11 sinks agree',
-    'fitted: from above 1 to below 1e-4, b 1.0',
-    // The differentiable splat renderer: a pixel blended as the paper
-    // does, every param's gradient of L1 and D-SSIM against central
-    // differences, and Adam fitting a cloud to a rendered one.
-    'splat forward: blends as the paper does',
-    'splat gradients: means agree, scales agree, rotations agree, opacities agree, dc agree, degree1 agree, degree2 agree, degree3 agree',
-    'splat fit: the loss falls by more than four times',
-    // The page's own first bytes, and the server's 404 for a file it lacks.
-    'fetched: <!doctype 404 fetching missing.bin',
-  ]);
+  assertLines(printed.slice(1).filter(line => !line.startsWith('url: ')), [...pageLines, ...deviceLines, fetchedLine]);
   // The data URL decodes to the picture: blue for the swapped red, then
   // green.
   const url = lines.find(line => line.startsWith('log: url: ')).slice('log: url: '.length);

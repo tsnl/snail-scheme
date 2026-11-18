@@ -22,6 +22,7 @@ Whichever you pick, finish with [the first run](#the-first-run).
 | Binaryen | 132 | `wasm-opt`, which optimizes a release build (`--release`, `make site`). |
 | tree-sitter CLI | 0.26.11 | `make test`'s check of the editors' grammar, which also needs a C compiler. |
 | Chromium | | `make test-browser` and `tests/browser/page.mjs`. Set `CHROMIUM` to its path when it isn't `chromium`. |
+| The `webgpu` package | 0.6.2 | WebGPU on Node: Dawn's `dawn.node`, which `host/native/gpu.mjs` loads from `SNAIL_WEBGPU`, and `make test-gpu`. On Linux it needs a Vulkan driver for the GPU. |
 
 The first four compile and run programs, including the Scheme formatter used
 by `make check`; the rest format Nix, build or test the site, and test the
@@ -39,7 +40,8 @@ nix-shell
 
 `shell.nix` takes its nixpkgs from the revision pinned in
 `npins/sources.json`, which CI and the devcontainer also use, and provides
-every tool above except Chromium. `npins update nixpkgs` moves the pin.
+every tool above except Chromium and the GPU's driver, which is the
+system's. `npins update nixpkgs` moves the pin.
 
 ## With the devcontainer
 
@@ -111,9 +113,11 @@ make check         # formatting
 cargo test --manifest-path crates/snail-scheme-support/Cargo.toml --offline
 make bootstrap     # the compiler rebuilt from Chez alone, to a fixpoint
 make test-browser  # browser interfaces in headless Chromium
+make test-gpu      # the GPU checks on Node, on the machine's GPU
 ```
 
 CI runs the first three, and `cargo fmt --check` on the crate. A change to
-the compiler also needs `make bootstrap`, and a change
-to the browser host `make test-browser`. The [tour](book/snail-scheme/compilers.md)
+the compiler also needs `make bootstrap`, a change
+to the browser host `make test-browser`, and a change to the `gpu` effect's
+hosts or the graphics and tensor libraries both browser and GPU checks. The [tour](book/snail-scheme/compilers.md)
 introduces the compiler.

@@ -35,7 +35,7 @@ export async function startApplication({url, canvas, overlay, storageKey}) {
   const dom = createDom(overlay, runtime), gpu = createGpu(canvas, runtime), requests = createFetch(runtime);
   attachInput(canvas, runtime);
   return startPage({runtime,
-    imports: {...runtime.imports, 'snail.runtime.browser.dom': dom.imports, 'snail.runtime.browser.gpu': gpu.imports,
+    imports: {...runtime.imports, 'snail.runtime.browser.dom': dom.imports, 'snail.runtime.gpu': gpu.imports,
       'snail.runtime.browser.fetch': requests.imports},
     reset() { dom.reset(); gpu.reset(); requests.reset(); }}, url);
 }

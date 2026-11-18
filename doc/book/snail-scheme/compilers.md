@@ -296,12 +296,12 @@ exports. Node and the page install these operations; the page's
 are exercised by the Chromium fixture.
 
 Every import module a host provides is named for the runtime interface it
-implements, `snail.runtime.…` (#566): `snail.runtime.link` and
-`snail.runtime.resource` on every host,
+implements, `snail.runtime.…` (#566): `snail.runtime.link`,
+`snail.runtime.resource` and `snail.runtime.gpu` on every host,
 `snail.runtime.wasm`, `snail.runtime.native.socket`,
 `snail.runtime.native.process`, `snail.runtime.native.files` and
 `snail.runtime.native.develop` on Node,
-and `snail.runtime.browser.gpu`, `.events`, `.storage`, `.dom` and
+and `snail.runtime.browser.events`, `.storage`, `.dom` and
 `.fetch` on the page. A `(snail runtime …)` library declares one of these
 interfaces as externs, and nothing else, so it has no items and emits no
 code: the program's module imports from the host itself.
