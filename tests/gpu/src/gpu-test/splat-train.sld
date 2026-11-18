@@ -6,6 +6,8 @@
 (define-library (gpu-test splat-train)
   (export
    splat-forward-check
+   shared-fill
+   splat-tile-ranges
    splat-gradient-check
    splat-fit-check)
   (import
@@ -90,16 +92,13 @@
       (→ (List Splat))
       (map (lambda (s) (Splat-scale-set s (+ (● s scale) 2.1))) three))
 
-    ;; The params, every gaussian live and every degree shading, and the
-    ;; camera.
-    (define (written (program Program) (values (List (Pair String (Array F64))))) (→ Unit) (! gpu)
+    ;; The cloud's rows, their live mask, every degree shading, and the camera.
+    (define (written (program Program) (values (List (Pair String (Array F64)))) (live (List F64)))
+      (→ Unit) (! gpu)
       (for-each
        (lambda (pair) (write-param program (● pair first) (values->bytes (● pair second) (Float))))
        values)
-      (let ((count (quotient (array-length (● (list-ref values 0) second)) 3)))
-        (write-param program
-                     "live"
-                     (values->bytes (array-generate count (lambda (_) 1.0)) (Float))))
+      (write-param program "live" (values->bytes (list->array live) (Float)))
       (write-param program "degrees" (values->bytes (list->array (list 1.0 1.0 1.0)) (Float)))
       (write-param program "camera" (values->bytes camera-values (Float))))
 
@@ -126,7 +125,8 @@
                        (new Pair (first "dc") (second (list->array (list 1.0 0.0 -1.0))))
                        (new Pair (first "degree1") (second (array-generate 9 (lambda (_) 0.0))))
                        (new Pair (first "degree2") (second (array-generate 15 (lambda (_) 0.0))))
-                       (new Pair (first "degree3") (second (array-generate 21 (lambda (_) 0.0))))))
+                       (new Pair (first "degree3") (second (array-generate 21 (lambda (_) 0.0)))))
+                 (list 1.0))
         (run-program program)
         (let* ((pixels (bytes->values (read-sink program 0) (Float)))
                (variance (+ 6.25 0.3))
@@ -139,6 +139,37 @@
                       (zip got expected))
               "blends as the paper does"
               (string-join (map f64->string got) " ")))))
+
+    ;; Blur reads the Fill through a storage buffer. Addition uses the same
+    ;; Fill as a literal. At the center the normalized blur preserves 3.0.
+    (define (shared-fill) (→ Bool) (! gpu tasks)
+      (let* ((v (fill 3.0 (list 11 11 1) (Float)))
+             (center (narrow (narrow (+ v (blur v)) 0 5 1) 1 5 1))
+             (program (compile-program "shared fill" (list center) (Nil))))
+        (run-program program)
+        (let ((value (scalar-sink program)))
+          (release-program program)
+          (< (abs (- value 6.0)) 0.0001))))
+
+    ;; Four splats touch one tile each, in depth order 0, 65536, 0, 65535.
+    ;; Read the rasterizer's ranges input so the large image needs no buffer.
+    (define (splat-tile-ranges) (→ String) (! gpu tasks)
+      (let* ((sensor (new Sensor (width 4096) (height 4112) (capacity 8)))
+             (image (● (render (splat-params 4) (camera-param) sensor) image))
+             (ranges (list-ref (● image node args) 1))
+             (bounds (concat (list (narrow ranges 0 0 2) (narrow ranges 0 (* 2 65535) 4)) 0))
+             (program (compile-program "tile ranges" (list bounds) (Nil)))
+             (write (lambda (name values)
+                      (write-param program name (values->bytes (list->array values) (Float))))))
+        (write "camera" (list 1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0 1.0 0.0 0.0))
+        (write "means" (list 8.0 8.0 1.0 16.0 8208.0 2.0 24.0 24.0 3.0 16352.0 16352.0 4.0))
+        (write "scales" (map (lambda (_) -20.0) (iota 12)))
+        (write "rotations" (concatenate (map (lambda (_) (list 0.0 0.0 0.0 1.0)) (iota 4))))
+        (write "live" (list 1.0 1.0 1.0 1.0))
+        (run-program program)
+        (let ((words (bytes->values (read-sink program 0) (Unsigned))))
+          (release-program program)
+          (string-join (map (lambda (word) (show (f64->i64 word))) (array->list words)) " "))))
 
     ;; ---- Gradients ----
 
@@ -158,8 +189,8 @@
              (values (cloud-values wide))
              (target
               (array-generate (* 48 (* 64 3)) (lambda (i) (* 0.3 (i64->f64 (remainder i 3)))))))
-        (written grads values)
-        (written losses values)
+        (written grads values (list 1.0 1.0 1.0))
+        (written losses values (list 1.0 1.0 1.0))
         (write-param grads "target" (values->bytes target (Float)))
         (write-param losses "target" (values->bytes target (Float)))
         (run-program grads)
@@ -185,7 +216,7 @@
              (analytic (bytes->values (read-sink grads k) (Float)))
              (bad (find (lambda (i)
                           (let ((a (array-ref analytic i)) (d (difference losses name base i)))
-                            (> (abs (- a d)) (+ 0.00002 (* 0.05 (max (abs a) (abs d)))))))
+                            (not (< (abs (- a d)) (+ 0.00002 (* 0.05 (max (abs a) (abs d))))))))
                         (iota (array-length base)))))
         (match bad
           ((Some i)
@@ -223,14 +254,14 @@
               (compile-program "truth"
                                (list (● (render truth (camera-param) sensor) image))
                                (Nil))))
-        (written target-program (cloud-values three))
+        (written target-program (cloud-values three) (list 1.0 1.0 1.0))
         (run-program target-program)
         (let ((target (read-sink target-program 0)))
           (release-program target-program)
           (fitted target))))
 
     (define (fitted (target Bytes)) (→ String) (! gpu tasks)
-      (let* ((cloud (splat-params 3))
+      (let* ((cloud (splat-params 4))
              (loss (loss-of cloud))
              (grads (grad loss (cloud-views cloud)))
              (rates (list 0.002 0.005 0.001 0.05 0.0025 0.000125 0.000125 0.000125))
@@ -245,19 +276,34 @@
                                                               (grad (list-ref grads k))
                                                               (rate (scalar (list-ref rates k)))))
                                                           (iota 8))))))
-        (written program
-                 (cloud-values (map (lambda (s)
-                                      (Splat-logit-set (Splat-scale-set s (- (● s scale) 0.5))
-                                                       (- (● s logit) 1.0)))
-                                    three)))
+        (let ((initial (cloud-values (map (lambda (s)
+                                            (Splat-logit-set (Splat-scale-set s (- (● s scale) 0.5))
+                                                             (- (● s logit) 1.0)))
+                                          three))))
+          (written program (map with-spare-row initial) (list 1.0 1.0 1.0 0.0)))
         (write-param program "target" target)
         (run-program program)
         (let ((first-loss (scalar-sink program)))
           (for-each (lambda (_) (run-program program)) (iota 200))
-          (let ((last-loss (scalar-sink program)))
+          (let ((last-loss (scalar-sink program))
+                (spare-zero (every? (lambda (name) (spare-row-zero? program name))
+                                    (list "means" "rotations"))))
             (release-program program)
-            (if (< last-loss (* 0.25 first-loss))
-                "the loss falls by more than four times"
-                (string-append (f64->string first-loss) " to " (f64->string last-loss)))))))
+            (cond ((not spare-zero) "Adam changed the unused row")
+                  ((< last-loss (* 0.25 first-loss)) "the loss falls by more than four times")
+                  (else
+                   (string-append (f64->string first-loss) " to " (f64->string last-loss))))))))
+
+    ;; Leave a fourth gaussian uninitialized as a growing cloud does.
+    (define (with-spare-row (pair (Pair String (Array F64)))) (→ (Pair String (Array F64)))
+      (let ((values (● pair second)))
+        (new Pair (first (● pair first))
+             (second (array-append values (make-array (quotient (array-length values) 3) 0.0))))))
+
+    (define (spare-row-zero? (program Program) (name String)) (→ Bool) (! gpu tasks)
+      (let* ((values (bytes->values (read-param program name) (Float)))
+             (size (array-length values)))
+        (every? (lambda (x) (= x 0.0))
+                (array->list (subarray values (* 3 (quotient size 4)) size)))))
 
     ))

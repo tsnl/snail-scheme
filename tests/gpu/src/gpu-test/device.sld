@@ -2,12 +2,14 @@
 ;; nor an image decoder, so the page (tests/gpu/main.scm) and Node
 ;; (tests/gpu/node.scm) run them alike. Each writes its line: two tiles
 ;; rasterized into a G-buffer and lit by the sun, under each tone curve,
-;; and their motion and ids; numbers squared in a compute pass; 300,000
-;; numbers scanned and 5,000 keys sorted; three gaussians splatted under
-;; two transform tables; tensor programs compiled and checked against the
-;; CPU, and Adam fitting a line; and the differentiable splat renderer
-;; checked against the paper's blending and its gradients against central
-;; differences. tests/gpu/expected.mjs holds the lines.
+;; and their motion and 32-bit ids, and a sprite that stays still under an
+;; orbiting camera; numbers squared in a compute pass; 300,000 numbers
+;; scanned and 5,000 keys sorted; three gaussians splatted under two
+;; transform tables; tensor programs compiled and checked against the CPU,
+;; params swapped and assigned, and Adam fitting a line; and the
+;; differentiable splat renderer checked against the paper's blending, its
+;; tiles past 65,535, and its gradients against central differences.
+;; tests/gpu/expected.mjs holds the lines.
 (define-library (gpu-test device)
   (export
    device-checks
@@ -38,14 +40,19 @@
       (write-line (string-append "filmic: " (texels (scene-frame (Filmic)))))
       (write-line (string-append "squares: " (words (compute-frame))))
       (write-line (string-append "planes: " (planes-frame)))
+      (write-line (string-append "billboard: " (billboard-motion)))
       (write-line (string-append "scan: " (scan-frame)))
       (write-line (string-append "sort: " (sort-frame)))
       (let ((splatted (splat-frames)))
         (write-line (string-append "splats: " (texels (● splatted first))))
         (write-line (string-append "turned: " (texels (● splatted second)))))
       (write-line (string-append "tensor: " (tensor-agreement)))
+      (write-line (string-append "swapped: " (swapped-params)))
+      (write-line (string-append "assigned: " (assigned-param)))
       (write-line (string-append "fitted: " (fitted-line)))
       (write-line (string-append "splat forward: " (splat-forward-check)))
+      (write-line (string-append "shared fill: " (show (shared-fill))))
+      (write-line (string-append "splat tile ranges: " (splat-tile-ranges)))
       (write-line (string-append "splat gradients: " (splat-gradient-check)))
       (write-line (string-append "splat fit: " (splat-fit-check))))
 
@@ -77,7 +84,7 @@
     ;; The edge between them is straight down the texture, along which FXAA
     ;; blends nothing.
 
-    (define (tile (x F32) (color Vec4f) (glow F32) (id F32)) (→ (Pair Mesh Instance))
+    (define (tile (x F32) (color Vec4f) (glow F32) (id I32)) (→ (Pair Mesh Instance))
       (new Pair
         (first (Tile))
         (second (new Instance
@@ -85,15 +92,17 @@
                   (scale (new Vec4f (x 1.0) (y 1.0) (z 2.0) (w glow)))
                   (color color)
                   (from (new Vec4f (x x) (y 0.0) (z 0.0) (w 0.0)))
-                  (material (new Vec4f (x 0.0) (y 1.0) (z 0.0) (w id)))))))
+                  (material (new Vec2f (x 0.0) (y 1.0)))
+                  (id id)))))
 
     (define (tiles (r Raster)) (→ Surface) (! gpu)
       (make-surface r
                     "tiles"
                     #f
                     solid
-                    (meshes (list (tile -0.5 (new Vec4f (x 1.0) (y 0.0) (z 0.0) (w 1.0)) 1.0 7.0)
-                                  (tile 0.5 (new Vec4f (x 1.0) (y 1.0) (z 1.0) (w 1.0)) 0.0 9.0)))))
+                    (meshes
+                     (list (tile -0.5 (new Vec4f (x 1.0) (y 0.0) (z 0.0) (w 1.0)) 1.0 16777217)
+                           (tile 0.5 (new Vec4f (x 1.0) (y 1.0) (z 1.0) (w 1.0)) 0.0 -1)))))
 
     (define (looking-down (x F32)) (→ Camera3D)
       (camera-3d (new Vec3f (x x) (y 5.0) (z 0.0))
@@ -126,36 +135,76 @@
         (submit (list (finish encoder)))
         (read-buffer readback 0 16)))
 
-    ;; The same tiles into a G-buffer with every plane, the camera moved half a
-    ;; tile right since the last frame, so the scene moved a quarter of the
-    ;; texture left: the motion at the left pixel, and the ids of the pixels
-    ;; two and three over, on the white tile and past it.
+    ;; Render one surface and read the motion plane at the given pixel.
 
+    (define (surface-motion (r Raster) (g GBuffer) (surface Surface) (x I32) (y I32))
+      (→ Bytes) (! gpu tasks)
+      (let* ((readback (buffer-named "motion-readback" 4 (list (MapRead) (CopyDst))))
+             (encoder (create-command-encoder)))
+        (let ((pass (begin-gbuffer encoder g)))
+          (draw-surface pass r surface)
+          (end-pass pass))
+        (match (● g motion)
+          ((Some plane)
+           (copy-texture-to-buffer encoder
+                                   (new TextureCopy
+                                     (texture (● plane texture))
+                                     (mip 0)
+                                     (x x)
+                                     (y y)
+                                     (layer 0))
+                                   readback 0 256 1 1))
+          ((None) (panic "missing motion plane")))
+        (submit (list (finish encoder)))
+        (let ((motion (read-buffer readback 0 4)))
+          (destroy (BufferObject readback))
+          motion)))
+
+    ;; The camera moved half a tile right, so the scene moved a quarter of the
+    ;; texture left. Read the motion and the ids on each tile and past them.
     (define (planes-frame) (→ String) (! gpu tasks)
       (let* ((all (new Planes (motion #t) (ids #t)))
              (r (make-raster all light-format))
              (g (make-gbuffer all 4 4))
-             (tiles (tiles r))
-             (readback (buffer-named "motion-readback" 4 (list (MapRead) (CopyDst))))
              (r (write-raster (write-raster r (looking-down 0.0) overhead)
                               (looking-down 0.5)
                               overhead))
-             (encoder (create-command-encoder)))
-        (let ((pass (begin-gbuffer encoder g)))
-          (draw-surface pass r tiles)
-          (end-pass pass))
-        (match (● g motion)
-          ((Some plane)
-           (copy-texture-to-buffer encoder (whole-texture (● plane texture)) readback 0 256 1 1))
-          ((None) (unit)))
-        (submit (list (finish encoder)))
-        (let ((motion (read-buffer readback 0 4)))
-          (string-join (list (show (half motion 0))
-                             (show (half motion 2))
-                             (id-text (read-id g 0 0))
-                             (id-text (read-id g 2 0))
-                             (id-text (read-id g 3 0)))
-                       " "))))
+             (motion (surface-motion r g (tiles r) 0 0)))
+        (string-join (list (show (half motion 0))
+                           (show (half motion 2))
+                           (id-text (read-id g 0 0))
+                           (id-text (read-id g 2 0))
+                           (id-text (read-id g 3 0)))
+                     " ")))
+
+    ;; A stationary sprite faces an orbiting camera in both frames. A pixel
+    ;; near its left edge keeps the same screen position through a quarter turn.
+    (define (billboard-motion) (→ String) (! gpu tasks)
+      (let* ((all (new Planes (motion #t) (ids #t)))
+             (r (make-raster all light-format))
+             (g (make-gbuffer all 8 8))
+             (one (new Vec4f (x 1.0) (y 1.0) (z 1.0) (w 0.0)))
+             (instance (new Instance
+                         (place (new Vec4f (x 0.0) (y 0.0) (z 0.0) (w 0.0)))
+                         (scale one)
+                         (color one)
+                         (from (new Vec4f (x 0.0) (y 0.0) (z 0.0) (w 1.0)))
+                         (material (new Vec2f (x 0.0) (y 1.0)))
+                         (id 73)))
+             (sprite (make-surface r
+                                   "sprite"
+                                   #f
+                                   solid
+                                   (meshes (list (new Pair (first (Upright)) (second instance))))))
+             (camera (lambda (x z)
+                       (camera-3d (new Vec3f (x x) (y 0.5) (z z))
+                                  (new Vec3f (x 0.0) (y 0.5) (z 0.0)) (Parallel 2.0) 1.0 1.0)))
+             (r (write-raster (write-raster r (camera 0.0 5.0) overhead) (camera 5.0 0.0) overhead))
+             (motion (surface-motion r g sprite 2 3)))
+        (string-append (id-text (read-id g 2 3)) " "
+                       (if (and (< (abs (half motion 0)) 0.001) (< (abs (half motion 2)) 0.001))
+                           "stationary"
+                           (string-append (show (half motion 0)) " " (show (half motion 2)))))))
 
     (define overhead
       (→ Sun)

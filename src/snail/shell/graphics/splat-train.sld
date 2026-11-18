@@ -137,11 +137,16 @@
           (depths near)
           (radii (* (* visible (● cloud live)) (radius screen (● conic second)))))))
 
+    ;; An unused row can have a zero quaternion and sit exactly at the eye.
+    ;; Bound its squared norm before sqrt so both the row and its gradient
+    ;; stay finite.
+    (define (normalized-rows (v View)) (→ View)
+      (/ v (sqrt (maximum (sum (square v) (list 1)) (scalar 1e-24)))))
+
     ;; R S S^T R^T, each gaussian's rotation from its normalized
     ;; quaternion, its scale the exponent of its param.
     (define (covariance (cloud Cloud)) (→ View)
-      (let* ((raw (● cloud rotations))
-             (q (/ raw (sqrt (sum (square raw) (list 1)))))
+      (let* ((q (normalized-rows (● cloud rotations)))
              (m (* (rotation-matrices q) (unsqueeze (tensor-exp (● cloud scales)) 1))))
         (matmul m (transpose m))))
 
@@ -227,8 +232,7 @@
     (define (shaded (cloud Cloud) (camera View)) (→ View)
       (let* ((rotation (reshape (narrow camera 0 0 9) (list 3 3)))
              (eye (negate (matmul (reshape (narrow camera 0 9 3) (list 1 3)) rotation)))
-             (toward (- (● cloud means) eye))
-             (d (/ toward (sqrt (sum (square toward) (list 1)))))
+             (d (normalized-rows (- (● cloud means) eye)))
              (basis (harmonic-basis (column d 0) (column d 1) (column d 2)))
              (count (list-ref (shape-of d) 0))
              (degree (lambda (k coefficients)
@@ -271,12 +275,23 @@
     ;; The tiles of the sensor, 16 pixels a side.
     (define (tiles-x (sensor Sensor)) (→ I64) (tiles (● sensor width) 16))
     (define (tiles-y (sensor Sensor)) (→ I64) (tiles (● sensor height) 16))
+    (define (tile-count (sensor Sensor)) (→ I64) (* (tiles-x sensor) (tiles-y sensor)))
+
+    ;; The first unused tile id is the padding key. Sort enough whole bytes
+    ;; to distinguish it from every tile on this sensor.
+    (define (tile-key-bits (sensor Sensor)) (→ I64)
+      (let ((padding (tile-count sensor)))
+        (cond ((< padding 256) 8)
+              ((< padding 65536) 16)
+              ((< padding 16777216) 24)
+              (else 32))))
 
     (define (constants (sensor Sensor) (count I64)) (→ String)
       (string-append "const WIDTH = " (show (● sensor width)) "u;\n"
                      "const HEIGHT = " (show (● sensor height)) "u;\n"
                      "const TILES_X = " (show (tiles-x sensor)) "u;\n"
                      "const TILES_Y = " (show (tiles-y sensor)) "u;\n"
+                     "const TILE_COUNT = TILES_X * TILES_Y;\n"
                      "const COUNT = " (show count) "u;\n"
                      "const CAPACITY = " (show (● sensor capacity)) "u;\n"))
 
@@ -325,7 +340,7 @@
                                 (adjoint no-gradient))
                               (list (● p centers) radii order offsets sorted-counts)
                               (list (u32-port "keys" capacity) (u32-port "ids" capacity))))
-             (by-tile (sort-pairs (list-ref entries 0) (list-ref entries 1) 16))
+             (by-tile (sort-pairs (list-ref entries 0) (list-ref entries 1) (tile-key-bits sensor)))
              (ranges (only-port (custom (new Custom
                                           (name (label "splat-ranges"))
                                           (kernels (list (kernel (code splat-ranges-shader)
@@ -334,10 +349,7 @@
                                                                  (tiles capacity 256))))
                                           (adjoint no-gradient))
                                         (list (● by-tile first))
-                                        (list (u32-port "ranges"
-                                                        (* 2
-                                                           (* (tiles-x sensor)
-                                                              (tiles-y sensor)))))))))
+                                        (list (u32-port "ranges" (* 2 (tile-count sensor))))))))
         (new Pair (first (● by-tile second)) (second ranges))))
 
     (define (only-port (views (List View))) (→ View) (list-ref views 0))
@@ -390,7 +402,7 @@
         (kernels (list (kernel (string-append (constants sensor count) splat-forward-shader)
                                "rasterize"
                                (list 0 1 2 3 4 5)
-                               (* (tiles-x sensor) (tiles-y sensor)))))
+                               (tile-count sensor))))
         (adjoint (lambda (args outs) (rasterizer-adjoint sensor count args outs)))))
 
     (define (rasterizer-adjoint (sensor Sensor)
@@ -419,7 +431,7 @@
         (kernels (list (kernel (string-append (constants sensor count) splat-backward-shader)
                                "rasterize_backward"
                                (list 0 1 2 3 4 5 6)
-                               (* (tiles-x sensor) (tiles-y sensor)))))
+                               (tile-count sensor))))
         (adjoint no-gradient)))
 
     ;; ---- Loss ----

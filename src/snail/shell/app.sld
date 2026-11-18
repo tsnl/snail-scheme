@@ -685,7 +685,8 @@
                              (z (channel color 0))
                              (w 1.0)))
                     (from (vec4 from 0.0))
-                    (material (new Vec4f (x 0.0) (y 1.0) (z 0.0) (w 0.0))))))))
+                    (material (new Vec2f (x 0.0) (y 1.0)))
+                    (id 0))))))
 
     (define (vec4 (v Vec3) (w F32)) (→ Vec4f)
       (new Vec4f (x (● v x)) (y (● v y)) (z (● v z)) (w w)))
