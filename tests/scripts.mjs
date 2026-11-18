@@ -3,7 +3,7 @@
 //   node tests/scripts.mjs ROOT
 import assert from 'node:assert/strict';
 import {execFile} from 'node:child_process';
-import {mkdir, mkdtemp, readFile, readdir, realpath, rm, stat, writeFile} from 'node:fs/promises';
+import {cp, mkdir, mkdtemp, readFile, readdir, realpath, rm, stat, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {dirname, join} from 'node:path';
 import {promisify} from 'node:util';
@@ -29,16 +29,36 @@ try {
     'the output is the script path without its extension');
   const generation = await realpath(output);
   assert.equal(dirname(generation), dirname(output), 'the generation lies beside its link');
-  const files = async directory => (await readdir(directory)).filter(name => !name.startsWith('.'));
-  assert.deepEqual(await files(generation), ['main.wasm'], 'a build is one linked module, named for the script');
+  const files = async directory => (await readdir(directory)).filter(name => !name.startsWith('.')).sort();
+  const nodePackage = ['host', 'main.mjs', 'main.wasm', 'package.json'];
+  assert.deepEqual(await files(generation), nodePackage,
+    'a Node build is an npm package around one linked module, named for the script');
+  const manifest = async directory => JSON.parse(await readFile(join(directory, 'package.json'), 'utf8'));
+  assert.deepEqual(await manifest(generation), {name: 'main', private: true, bin: {main: 'main.mjs'}},
+    'whose one command runs the module, and which depends on nothing');
 
   const ran = await command('run', '--target', 'node', 'apps/hello/main.scm', 'one', 'two words');
   assert.equal(ran.stdout, 'hello from src\none\ntwo words\n', 'run runs the script with its arguments');
+  const elsewhere = await mkdtemp(join(tmpdir(), 'snail-package-'));
+  try {
+    await cp(generation, join(elsewhere, 'hello'), {recursive: true});
+    const packaged = await execute(process.execPath, [join(elsewhere, 'hello/main.mjs'), 'one', 'two words'], {cwd: tmpdir()});
+    assert.deepEqual(packaged, {stdout: ran.stdout, stderr: ''}, 'the package runs on its own, as run does, and warns of nothing');
+  } finally { await rm(elsewhere, {recursive: true, force: true}); }
+
+  await write('apps/drawing/main.scm', '(import (snail core base) (snail core io) (snail shell gpu)) (write-line "no device asked for")');
+  const drawing = join(workspace, 'build/apps/drawing/main');
+  await command('build', '--target', 'node', 'apps/drawing/main.scm');
+  const pinned = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')).dependencies.webgpu;
+  assert.deepEqual((await manifest(drawing)).dependencies, {webgpu: pinned},
+    "a program that may ask for a device depends on the repository's webgpu");
+  assert.equal((await execute(process.execPath, [join(drawing, 'main.mjs')])).stdout, 'no device asked for\n',
+    'and runs without it until it asks');
 
   const debugSize = (await stat(join(generation, 'main.wasm'))).size;
   await command('build', '--release', '--target', 'node', 'apps/hello/main.scm');
   const release = await realpath(output);
-  assert.deepEqual(await files(release), ['main.wasm'], 'a release build is the same module');
+  assert.deepEqual(await files(release), nodePackage, 'a release build is the same package');
   assert.ok((await stat(join(release, 'main.wasm'))).size < debugSize, 'which wasm-opt made smaller');
   const released = await command('run', '--release', '--target', 'node', 'apps/hello/main.scm', 'one');
   assert.equal(released.stdout, 'hello from src\none\n', 'run runs the release build');

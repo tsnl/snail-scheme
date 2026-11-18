@@ -346,11 +346,16 @@ Each row is `(snail shell graphics NAME)`:
 
 On Node the device is [Dawn](https://dawn.googlesource.com/dawn)'s, the
 WebGPU implementation inside Chromium, through Dawn's own Node binding,
-`dawn.node`, as the [`webgpu`](https://github.com/dawn-gpu/node-webgpu)
-package publishes it prebuilt. `shell.nix` pins the package and gives its
-path as `SNAIL_WEBGPU`. On Linux, Dawn reaches the GPU through Vulkan,
-whose loader the binding finds through its runpath and whose driver is the
-system's. `host/native/gpu.mjs` hands Dawn to the same
+`dawn.node`, as npm's [`webgpu`](https://github.com/dawn-gpu/node-webgpu)
+package publishes it prebuilt. The repository's `package.json` pins it and
+`make fetch` installs it; a Node build of a program that may ask for a
+device depends on the same version
+([a Node package](../snail-scheme/projects.md#a-node-package)). On Linux,
+Dawn reaches the GPU through Vulkan, opening the loader by name, and the
+loader finds the system's driver. NixOS keeps no loader where the dynamic
+linker looks, so `shell.nix` names nixpkgs' in `LD_LIBRARY_PATH`; outside
+the shell, NixOS needs the same, or `vulkan-loader` among `nix-ld`'s
+libraries. `host/native/gpu.mjs` hands Dawn to the same
 `host/browser/gpu.mjs` the page uses, at the program's first
 `request-device`, so a program that never asks for a device needs none. A
 program on Node installs the handler itself, as `tests/gpu/node.scm` does:

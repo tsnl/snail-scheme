@@ -22,7 +22,7 @@ Whichever you pick, finish with [the first run](#the-first-run).
 | Binaryen | 132 | `wasm-opt`, which optimizes a release build (`--release`, `make site`). |
 | tree-sitter CLI | 0.26.11 | `make test`'s check of the editors' grammar, which also needs a C compiler. |
 | Chromium | | `make test-browser` and `tests/browser/page.mjs`. Set `CHROMIUM` to its path when it isn't `chromium`. |
-| The `webgpu` package | 0.6.2 | WebGPU on Node: Dawn's `dawn.node`, which `host/native/gpu.mjs` loads from `SNAIL_WEBGPU`, and `make test-gpu`. On Linux it needs a Vulkan driver for the GPU. |
+| The `webgpu` package | 0.6.2 | WebGPU on Node: Dawn's `dawn.node`, which `package.json` pins and `make fetch` installs from npm, for `host/native/gpu.mjs` and `make test-gpu`. On Linux it needs the Vulkan loader and a Vulkan driver for the GPU. |
 
 The first four compile and run programs, including the Scheme formatter used
 by `make check`; the rest format Nix, build or test the site, and test the
@@ -96,8 +96,8 @@ make fetch
 ./snail-scheme run --target node examples/fibonacci.sld
 ```
 
-`make fetch` downloads the Rust crates in each `Cargo.lock` once; builds and
-tests then run offline. The first run bootstraps the command line, which
+`make fetch` downloads the Rust crates in each `Cargo.lock` and the npm
+packages `package-lock.json` pins once; builds and tests then run offline. The first run bootstraps the command line, which
 takes a source compilation with Chez followed by self-compilation, and then
 the command line builds the script into `build/examples/fibonacci` and runs
 it on Node. The command line rebuilds itself whenever its source changes.

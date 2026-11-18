@@ -23,40 +23,15 @@ let
     ];
   });
 
-  # WebGPU for Node: Dawn's own binding, dawn.node, as the webgpu package
-  # publishes it prebuilt, with its binaries for this machine only.
-  # host/native/gpu.mjs loads it from SNAIL_WEBGPU. On Linux, Dawn opens
-  # the Vulkan loader, found through the binding's runpath, which finds
-  # the GPU's driver where the system keeps it.
+  # WebGPU for Node is Dawn's own binding, dawn.node, from npm's webgpu
+  # package, which package.json pins and `make fetch` installs. On Linux,
+  # Dawn opens the Vulkan loader by name, which finds the GPU's driver
+  # where the system keeps it; NixOS keeps no loader where the dynamic
+  # linker looks, so the shell names nixpkgs'.
   linux = pkgs.stdenv.hostPlatform.isLinux;
-  webgpu = pkgs.stdenv.mkDerivation rec {
-    pname = "webgpu";
-    version = "0.6.2";
-    src = pkgs.fetchurl {
-      url = "https://registry.npmjs.org/webgpu/-/webgpu-${version}.tgz";
-      hash = "sha512-3L4GfmqJLvYUIEWJngEQY+2HQiUlAFkg8+P8NDDj3Xx5hHHIFO/r8JW+ynfqBj7kHN4mbnwO74uB+lrRtLhp4Q==";
-    };
-    platform =
-      {
-        x86_64-linux = "linux-x64";
-        aarch64-linux = "linux-arm64";
-        x86_64-darwin = "darwin-universal";
-        aarch64-darwin = "darwin-universal";
-      }
-      .${pkgs.stdenv.hostPlatform.system};
-    nativeBuildInputs = pkgs.lib.optionals linux [ pkgs.autoPatchelfHook ];
-    buildInputs = pkgs.lib.optionals linux [ pkgs.stdenv.cc.cc.lib ];
-    appendRunpaths = pkgs.lib.optionals linux [ "${pkgs.vulkan-loader}/lib" ];
-    dontBuild = true;
-    installPhase = ''
-      mkdir -p $out/dist
-      cp index.js package.json LICENSE.md $out/
-      cp -r dist/$platform $out/dist/
-    '';
-  };
 in
 pkgs.mkShell {
-  SNAIL_WEBGPU = webgpu;
+  LD_LIBRARY_PATH = pkgs.lib.optionalString linux (pkgs.lib.makeLibraryPath [ pkgs.vulkan-loader ]);
   packages = with pkgs; [
     git
     git-filter-repo

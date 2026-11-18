@@ -6,6 +6,9 @@
 # Local agent worktrees
 /.claude/worktrees/
 
+# The npm packages `make fetch` installs
+/node_modules/
+
 # Intermediate build files
 /build/
 /tests/**/build/

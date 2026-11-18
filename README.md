@@ -44,7 +44,8 @@ Chibi Scheme, Rust and Node 26.4 or later are required. `shell.nix` provides
 them from the nixpkgs revision CI uses, and `.devcontainer/` packages the
 same tools for podman. [Getting started](doc/getting-started.md) covers
 both, other package managers and Windows, and the checks. `make fetch`
-downloads the Rust crates once; builds and tests then run offline.
+downloads the Rust crates and npm packages once; builds and tests then run
+offline. A Node build is an npm package, which runs wherever it is copied.
 
 Programs link with Rust scalar services and run under WASI. The
 first run bootstraps the compiler, which takes about a minute: Chibi runs
