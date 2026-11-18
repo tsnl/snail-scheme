@@ -2,8 +2,8 @@
 ;; view and a packed one, a node turned a quarter about y and moved above
 ;; its parent, which scales by 2, and a masked, emissive material; the
 ;; second buffer a data: URI, the second image in a buffer view. Then a
-;; GLB file's chunks, its JSON naming the binary chunk and a padded data:
-;; URI.
+;; GLB file, its JSON naming the binary chunk and a padded data: URI, and
+;; scenes that cannot be read, each with why.
 (import
  (snail core base)
  (snail core io)
@@ -35,7 +35,6 @@
   (match source
     ((FileSource path) path)
     ((DataSource bytes) (string-append "data " (bytes-text bytes)))
-    ((ChunkSource) "chunk")
     ((ViewSource buffer offset length)
      (string-join (map show (list buffer offset length)) " "))))
 
@@ -81,10 +80,22 @@
 (define (numbers (values (List F64))) (→ String)
   (string-join (map (lambda (value) (show (/ (round (* value 1000.0)) 1000.0))) values) " "))
 
-(match (read-gltf scene "models/x/")
+(define (read (file Bytes)) (→ (Result Gltf String))
+  (attempt-reading (lambda () (read-gltf file "models/x/"))))
+
+(define (buffers (gltf Gltf)) (→ String)
+  (string-join (map (lambda (buffer)
+                      (string-append (source-text (● buffer source))
+                                     " at "
+                                     (show (● buffer start))
+                                     " for "
+                                     (show (● buffer length))))
+                    (● gltf buffers))
+               ", "))
+
+(match (read (string->utf8 scene))
   ((Ok gltf)
-   (write-line
-    (string-append "buffers: " (sources (● gltf buffers)) " size " (show (● gltf size))))
+   (write-line (string-append "buffers: " (buffers gltf) " size " (show (● gltf size))))
    (write-line (string-append "images: " (sources (● gltf images))))
    (for-each (lambda (placed)
                (let ((primitive (● placed primitive)))
@@ -111,19 +122,34 @@
       (string-append "bounds: " (numbers (● bounds first)) " to " (numbers (● bounds second))))))
   ((Err reason) (write-line reason)))
 
-(match (glb-chunks
-        (glb
-         "{\"buffers\":[{\"byteLength\":4},{\"uri\":\"data:application/octet-stream;base64,AQI=\",\"byteLength\":2}]}"
-         (list->array (map i32->u8 (list 9 8 7 6)))))
-  ((Some chunks)
-   (write-line (string-append "glb binary: " (bytes-text (● chunks second))))
-   (match (utf8->string (● chunks first))
-     ((Ok text)
-      (match (read-gltf text "models/y/")
-        ((Ok gltf) (write-line (string-append "glb buffers: " (sources (● gltf buffers)))))
-        ((Err reason) (write-line reason))))
-     ((Err _) (write-line "glb JSON is not UTF-8"))))
-  ((None) (write-line "not GLB")))
-(match (glb-chunks (string->utf8 "{\"asset\":{\"version\":\"2.0\"}}"))
-  ((Some _) (write-line "JSON read as GLB"))
-  ((None) (write-line "JSON is not GLB")))
+(define two-buffers
+  (→ Bytes)
+  (glb
+   "{\"buffers\":[{\"byteLength\":4},{\"uri\":\"data:application/octet-stream;base64,AQI=\",\"byteLength\":2}]}"
+   (list->array (map i32->u8 (list 9 8 7 6)))))
+
+(match (read two-buffers)
+  ((Ok gltf) (write-line (string-append "glb buffers: " (buffers gltf))))
+  ((Err reason) (write-line reason)))
+
+;; Each scene that cannot be read, and why.
+(for-each (lambda (file)
+            (match (read file)
+              ((Ok _) (write-line "read"))
+              ((Err reason) (write-line reason))))
+          (list (string->utf8 "glTF, but not JSON")
+                (subarray two-buffers 0 40)
+                (string->utf8
+                 "{\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":3}}]}]}")
+                (string->utf8 "{\"scene\":2,\"scenes\":[{\"nodes\":[0]}]}")
+                (string->utf8 "{\"scenes\":[{\"nodes\":[5]}],\"nodes\":[{}]}")
+                (string->utf8
+                 "{\"scenes\":[{\"nodes\":[0]}],\"nodes\":[{\"children\":[1]},{\"children\":[0]}]}")
+                (string->utf8
+                 (string-append
+                  "{\"buffers\":[{\"uri\":\"a.bin\",\"byteLength\":30}],"
+                  "\"bufferViews\":[{\"buffer\":0,\"byteLength\":30}],"
+                  "\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"}]}"))
+                (string->utf8 "{\"images\":[{\"bufferView\":0}]}")
+                (string->utf8 "{\"images\":[{\"mimeType\":\"image/png\"}]}")
+                (string->utf8 "{\"extensionsRequired\":[\"KHR_draco_mesh_compression\"]}")))

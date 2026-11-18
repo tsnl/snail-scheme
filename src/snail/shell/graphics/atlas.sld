@@ -260,12 +260,14 @@
                          (Atlas-sources-set atlas
                                             (table-set (● atlas sources)
                                                        key
-                                                       (view-of (● (decode-image
-                                                                    ((● layer source bytes)))
-                                                                   texture)
-                                                                1))))))
+                                                       (decoded-view layer))))))
                  atlas
                  layers))
+
+    (define (decoded-view (layer Placed)) (→ GpuTextureView) (! gpu tasks)
+      (match (decode-image ((● layer source bytes)))
+        ((Some image) (view-of (● image texture) 1))
+        ((None) (panic "atlas: a source is no image the host decodes"))))
 
     (define (laid (atlas Atlas) (pictures (List Picture))) (→ (List Placed))
       (concatenate (map (lambda (picture)

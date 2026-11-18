@@ -119,18 +119,20 @@ export function createGpu(canvas, runtime, open = pageDevice) {
     },
     'finish-read': ticket => tasks().finish(Number(ticket)),
     'read-byte': index => held[index],
-    // The decoded texture is held until the program keeps it. Node has no
+    // The decoded texture is held until the program keeps it; bytes that
+    // are no image the browser decodes answer a width of 0. Node has no
     // image decoder.
     'start-decode'(ticket, usage, address) {
       const encoded = byteSnapshot(memory(), address);
       tasks().start(Number(ticket), async () => {
         if (typeof createImageBitmap !== 'function') throw new Error('this host decodes no images');
-        const bitmap = await createImageBitmap(new Blob([encoded]));
+        const bitmap = await createImageBitmap(new Blob([encoded])).catch(() => null);
+        if (!bitmap) return null;
         const texture = gpu.device.createTexture({size: [bitmap.width, bitmap.height], format: 'rgba8unorm', usage});
         gpu.device.queue.copyExternalImageToTexture({source: bitmap}, {texture}, [bitmap.width, bitmap.height]);
         bitmap.close();
         return texture;
-      }, texture => { decoded = texture; return texture.width; });
+      }, texture => { decoded = texture; return texture?.width ?? 0; });
     },
     'finish-decode': ticket => tasks().finish(Number(ticket)),
     'decoded-height': () => decoded.height,

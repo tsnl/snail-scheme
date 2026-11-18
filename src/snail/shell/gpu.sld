@@ -686,7 +686,8 @@
     ;; operation needs it. Offsets and sizes are in bytes. `write-texture`
     ;; takes a copy's start, the bytes of a row, the width and height
     ;; copied, and the texels. `decode-image` decodes an encoded image into
-    ;; a texture of its own. `read-buffer` waits until the buffer, made with
+    ;; a texture of its own, or nothing when the bytes are no image the
+    ;; host decodes. `read-buffer` waits until the buffer, made with
     ;; `MapRead`, can be read, and answers the bytes asked for.
     ;; `current-texture` is the canvas's texture for this frame, sized to
     ;; the canvas's pixels on the screen, and its size.
@@ -698,7 +699,7 @@
        (create-texture (Fn TextureDescriptor → GpuTexture))
        (create-view (Fn GpuTexture TextureViewDescriptor → GpuTextureView))
        (write-texture (Fn TextureCopy I32 I32 I32 Bytes → Unit))
-       (decode-image (Fn Bytes → Image ! tasks))
+       (decode-image (Fn Bytes → (Option Image) ! tasks))
        (create-sampler (Fn SamplerDescriptor → GpuSampler))
        (create-shader-module (Fn ShaderModuleDescriptor → GpuShaderModule))
        (create-render-pipeline (Fn RenderPipelineDescriptor → GpuRenderPipeline))
@@ -1255,19 +1256,22 @@
 
     ;; The host decodes the image and holds its texture until it is kept.
 
-    (define (decoded (bytes Bytes)) (→ Image) (! tasks)
-      (let* ((width (through-host (lambda (ticket)
-                                    (host-start-decode ticket
-                                                       (texture-usage-bits (list (TextureBinding)
-                                                                                 (TextureCopySrc)
-                                                                                 (TextureCopyDst)
-                                                                                 (RenderAttachment)))
-                                                       bytes))
-                                  host-finish-decode))
-             (height (host-decoded-height)))
-        (new Image
-          (texture (new GpuTexture (id (host-keep-decoded))))
-          (width width)
-          (height height))))
+    ;; The host answers a width of 0 for bytes it does not decode.
+    (define (decoded (bytes Bytes)) (→ (Option Image)) (! tasks)
+      (let ((width (through-host (lambda (ticket)
+                                   (host-start-decode ticket
+                                                      (texture-usage-bits (list (TextureBinding)
+                                                                                (TextureCopySrc)
+                                                                                (TextureCopyDst)
+                                                                                (RenderAttachment)))
+                                                      bytes))
+                                 host-finish-decode)))
+        (if (= width 0)
+            (None)
+            (let ((height (host-decoded-height)))
+              (Some (new Image
+                      (texture (new GpuTexture (id (host-keep-decoded))))
+                      (width width)
+                      (height height)))))))
 
     ))
