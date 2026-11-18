@@ -5,26 +5,8 @@
 // to. The binding is the webgpu package's (github.com/dawn-gpu/node-webgpu)
 // at SNAIL_WEBGPU, which nix-shell pins and sets (shell.nix). It loads at
 // the program's first `request-device`, so a program that never asks for
-// a device needs none.
-//
-// SNAIL_DAWN holds Dawn's own options, separated by spaces, as `create`
-// takes them: `backend=vulkan`, `adapter=NAME`, and toggles turned on with
-// `enable-dawn-features=A,B` and off with `disable-dawn-features=A,B`. A
-// browser must guard against the pages it runs, and Dawn does so by
-// default; a program that trusts its own commands and shaders can turn
-// the guards off:
-//
-//   SNAIL_DAWN='enable-dawn-features=skip_validation,disable_robustness,disable_workgroup_init'
-//
-// Dawn then checks no call, compiles shaders without bounds checks on
-// their memory, and leaves workgroup memory as it finds it. A mistake is
-// then undefined behavior, not an error: an invalid shader aborts the
-// process, and reading past an array reads anything. Buffers stay zeroed
-// before their first use, as WebGPU promises and (snail shell tensor)
-// relies on, since a program's params start at zeros; that costs a
-// resource's first use, not each dispatch. On an RTX 5090 the guards cost
-// little: turning them off saves a tenth of a microsecond of the 1.4 that
-// encoding a dispatch takes (doc/book/graphics/plan.md).
+// a device needs none. Dawn keeps the guards a browser has, which cost
+// little (doc/book/graphics/plan.md, "WebGPU on Node").
 import {join} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {createGpu, requestDevice} from '../browser/gpu.mjs';
@@ -53,7 +35,7 @@ async function opened() {
   if (!where) throw new Error('Node has no WebGPU here: SNAIL_WEBGPU names the webgpu package, as nix-shell sets it');
   const {create, globals} = await import(pathToFileURL(join(where, 'index.js')).href);
   Object.assign(globalThis, globals);
-  const instance = create((process.env.SNAIL_DAWN ?? '').split(/\s+/).filter(Boolean));
+  const instance = create([]);
   const {device, optional} = await requestDevice(instance);
   return {device, context: null, format: 'rgba8unorm', optional, instance};
 }

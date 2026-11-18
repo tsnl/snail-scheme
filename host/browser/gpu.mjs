@@ -1,4 +1,4 @@
-// The `gpu` effect's host, as (snail shell gpu host) calls it: the page's
+// The `gpu` effect's host, as (snail shell gpu) calls it: the page's
 // WebGPU device, or Dawn's on Node (host/native/gpu.mjs), and the objects
 // the program made on it, each by the id this file gave it when it made
 // it. The program keeps an object as long
@@ -240,7 +240,7 @@ function fields(bytes) {
 }
 
 // Each kind's descriptor, in the order of the kinds `made` in
-// (snail shell gpu host) numbers: its label, then its fields as the
+// (snail shell gpu) numbers: its label, then its fields as the
 // matching `...-fields` in (snail shell gpu) writes them. A bind group's
 // pipeline is of either kind.
 const made = [

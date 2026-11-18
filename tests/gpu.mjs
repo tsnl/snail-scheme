@@ -1,8 +1,7 @@
 // The `gpu` effect on Node, whose device is Dawn's (host/native/gpu.mjs):
 // tests/gpu/node.scm runs the checks that need only a device, as the page
 // does, on the GPU Dawn finds, and WebGPU reports no error. nix-shell
-// gives Dawn (SNAIL_WEBGPU); SNAIL_DAWN may choose the adapter or turn
-// Dawn's guards off. CI has no GPU, so `make test-gpu` runs this.
+// gives Dawn (SNAIL_WEBGPU). CI has no GPU, so `make test-gpu` runs this.
 //
 //   node tests/gpu.mjs ROOT
 import assert from 'node:assert/strict';

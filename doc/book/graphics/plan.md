@@ -45,7 +45,7 @@ frames cost the device more than a display frame does not queue them
 without bound. The calls are procedural;
 effects keep them reasonable. A `! gpu` row says exactly which functions
 touch the device, and handlers customize what the calls do without
-changing their callers. `provide-gpu` (`(snail shell gpu host)`) runs them
+changing their callers. `provide-gpu`, in `(snail shell gpu)` itself, runs them
 on the host's device through `host/browser/gpu.mjs`: the browser target
 installs it around a page's main, and a program on Node installs it
 itself, around the work that uses Dawn ([WebGPU on Node](#webgpu-on-node)).
@@ -378,24 +378,14 @@ waits on the device often, as a training loop that reads its loss does,
 waits a thirtieth as long on Node. Chromium coarsens the page's clock to
 100 μs, which the last row's range shows.
 
-Dawn guards against the pages a browser runs: it validates every call,
-bounds-checks every shader's memory accesses, zeroes workgroup memory, and
-zeroes each resource before its first use. `SNAIL_DAWN` passes Dawn's own
-options (`host/native/gpu.mjs`), so a program that trusts its own commands
-and shaders can turn the first three off:
-
-```sh
-SNAIL_DAWN='enable-dawn-features=skip_validation,disable_robustness,disable_workgroup_init'
-```
-
-They cost little on the 5090. Without them, encoding a dispatch takes
-1.3 μs instead of 1.4, and a shader that gathers 268 million words at
-computed indices takes the same 7.84 ms. A mistake becomes undefined
-behavior: an invalid shader aborts the process. The fourth guard stays on,
-since WebGPU promises zeroed buffers and a tensor program's params start at
-zeros, Adam's moments among them: without it, the splat fit of
-`tests/gpu.mjs` trains from whatever memory held. So what Node gains is
-Dawn in its own process, not Dawn without its guards.
+Node keeps Dawn's guards, as a browser does: validation of every call,
+bounds checks on shaders' memory, and zeroed workgroup memory and
+resources. Turning the first three off, which Dawn's toggles allow, saved
+0.1 μs of the 1.4 that encoding a dispatch takes on the 5090, and a shader
+that gathers 268 million words at computed indices took the same 7.84 ms
+without bounds checks. The zeroing cannot go: WebGPU promises zeroed
+buffers, and a tensor program's params start at zeros, Adam's moments
+among them. What Node gains is Dawn in its own process.
 
 ## Device baseline
 
