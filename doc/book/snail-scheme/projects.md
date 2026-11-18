@@ -92,12 +92,14 @@ build/apps/hello/main/
 
 `node main.mjs ARGUMENT ...` runs the program as `snail-scheme run` does,
 in the caller's directory, with nothing to install. A program that holds
-`(snail runtime gpu)` may ask for a device, so its package depends on npm's
-`webgpu` package, at the version the repository's `package.json` pins,
-and loads it at the program's first `request-device`
-([WebGPU on Node](../graphics/plan.md#webgpu-on-node)). Inside the
-repository, Node finds the copy `make fetch` installed; elsewhere,
-`npm install` in the package fetches it. Other programs depend on nothing.
+`(snail runtime gpu)` may ask for a device and decode an image, so its
+package depends on npm's `webgpu` and `sharp` packages, at the versions
+the repository's `package.json` pins, and loads each when it is first
+needed, at the program's first `request-device` and its first
+`decode-image` ([WebGPU on Node](../graphics/plan.md#webgpu-on-node)).
+Inside the repository, Node finds the copies `make fetch` installed;
+elsewhere, `npm install` in the package fetches them. Other programs
+depend on nothing.
 
 The package is private, so npm will not publish it until its author gives
 it a name and a version of their own. What becomes of it after that is
