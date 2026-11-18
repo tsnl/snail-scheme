@@ -57,7 +57,7 @@ jobs:
       - name: Install pinned Rust and fetch locked dependencies
         run: nix-shell --run 'rustup toolchain install && rustup target add wasm32-wasip1 && make fetch'
       - name: Build the book, Siegework and the glTF viewer
-        run: nix-shell --run 'make viewer-samples pages'
+        run: nix-shell --run 'make pages'
       - name: Upload Pages artifact
         if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.publish)
         uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4

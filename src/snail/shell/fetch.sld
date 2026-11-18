@@ -11,6 +11,7 @@
    fetch
    request
    fetch-bytes
+   fetch-all-bytes
    page-address
    stream-open
    stream-next
@@ -53,15 +54,20 @@
     ;; "error" hears one, with no data, each time. One
     ;; task at a time waits on a stream, so a program reading events keeps
     ;; one command waiting on it, and issues the next from the update that
-    ;; handles the event. `fetch-bytes url` answers the body of a GET as
-    ;; bytes, such as a scene's buffers and images, or why there was none,
-    ;; a status other than OK among the reasons. `page-address` is the URL
+    ;; handles the event. `fetch-all-bytes urls` answers the body of a GET
+    ;; of each URL as bytes, such as a scene's buffers and images, or why
+    ;; there was none, a status other than OK among the reasons; the
+    ;; requests are made together, and the answers are in the URLs' order.
+    ;; `page-address` is the URL
     ;; of the page the program runs in, which relative URLs resolve
     ;; against and whose query can choose what it shows.
     (effect fetch
       ((request (Fn String String (List Header) String → (Result Reply String) ! tasks))
-       (fetch-bytes (Fn String → (Result Bytes String) ! tasks))
+       (fetch-all-bytes (Fn (List String) → (List (Result Bytes String)) ! tasks))
        (page-address (Fn → String))
        (stream-open (Fn String (List String) → Stream))
        (stream-next (Fn Stream → (Option StreamEvent) ! tasks))
-       (stream-close (Fn Stream → Unit))))))
+       (stream-close (Fn Stream → Unit))))
+
+    (define (fetch-bytes (url String)) (→ (Result Bytes String)) (! fetch tasks)
+      (list-ref (fetch-all-bytes (list url)) 0))))
