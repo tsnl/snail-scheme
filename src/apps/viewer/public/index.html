@@ -6,20 +6,75 @@
 <style>
   html, body { margin: 0; height: 100%; background: #000; color: #ddd; font: 13px system-ui, sans-serif; }
   canvas { display: block; width: 100%; height: 100%; outline: none; }
-  #overlay { position: fixed; left: 12px; bottom: 10px; pointer-events: none; text-shadow: 0 1px 2px #000; }
-  #overlay a { pointer-events: auto; color: #9cf; }
-  #status { position: fixed; left: 12px; top: 10px; pointer-events: none; text-shadow: 0 1px 2px #000; }
+  a { color: #9cf; }
+  #panel { position: fixed; left: 12px; top: 10px; max-width: 34em; padding: 8px 12px; background: #000a; border-radius: 6px; }
+  #panel summary { cursor: pointer; font-weight: 600; }
+  #panel p { margin: 6px 0; line-height: 1.5; }
+  #status { color: #fc9; }
+  #status:empty { display: none; }
+  #keys { position: fixed; left: 12px; bottom: 10px; pointer-events: none; text-shadow: 0 1px 2px #000; }
 </style>
 <body>
   <canvas id="view" tabindex="0" aria-label="Path traced scene"></canvas>
-  <div id="overlay">Drop a .glb, a glTF folder or an .hdr here, or press O to open files and Shift+O a folder. Drag to look, WASD to fly, Q and E down and up, wheel for speed, [ and ] for exposure. <a href="models.html">Samples</a></div>
-  <div id="status" role="status"></div>
+  <div id="panel">
+  <details id="open" open>
+    <summary>Open a scene</summary>
+    <p>Drop a .glb, a glTF folder or an .hdr anywhere on the page, or press O to pick files and Shift+O a folder.</p>
+    <p>Or pick a sample, which your browser fetches from where it is published:</p>
+    <p>
+      <a data-model="FlightHelmet">Flight Helmet</a> ·
+      <a data-model="DamagedHelmet">Damaged Helmet</a> ·
+      <a data-model="SciFiHelmet">SciFi Helmet</a> ·
+      <a data-model="Sponza" data-eye="9,1.6,-0.4,1.5708,0.12">Sponza</a> ·
+      <a data-model="ABeautifulGame">A Beautiful Game</a> ·
+      <a data-model="ToyCar">Toy Car</a> ·
+      <a data-model="ChronographWatch">Chronograph Watch</a> ·
+      <a data-model="Lantern">Lantern</a> ·
+      <a data-model="WaterBottle">Water Bottle</a> ·
+      <a data-model="Corset">Corset</a> ·
+      <a data-model="BoomBox">Boom Box</a> ·
+      <a data-model="AntiqueCamera">Antique Camera</a>
+    </p>
+    <p>Lit by
+      <a data-light="studio_small_08">a studio</a> ·
+      <a data-light="royal_esplanade">an esplanade</a> ·
+      <a data-light="venice_sunset">a sunset</a> ·
+      <a data-light="kloofendal_48d_partly_cloudy_puresky">a cloudy sky</a>
+    </p>
+    <p><small>Models from Khronos's <a href="https://github.com/KhronosGroup/glTF-Sample-Assets/blob/main/Models/Models.md">glTF Sample Assets</a>, each under the license listed there. Environments from <a href="https://polyhaven.com/hdris">Poly Haven</a>, CC0.</small></p>
+  </details>
+  <p id="status" role="status"></p>
+  </div>
+  <div id="keys">Drag to look, WASD to fly, Q and E down and up, wheel for speed, [ and ] for exposure.</div>
   <script type="module">
     import {startApplication} from './host.mjs';
-    const overlay = document.getElementById('overlay');
-    startApplication({canvas: document.getElementById('view'), overlay: document.getElementById('status'), storageKey: 'viewer'})
+    // A sample is a link to its file where it is published. Clicking one
+    // drops the link on the page, as dragging it there would; a model with
+    // an eye is opened by its link instead, whose query places the camera,
+    // as is any link clicked with a modifier key.
+    // The panel folds away once something is dropped.
+    const models = 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/f0920f5b32d172a30efe3f9257e965918831e6ea/Models/';
+    const lights = 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/';
+    const status = document.getElementById('status');
+    addEventListener('drop', () => { document.getElementById('open').open = false; });
+    function drop(address) {
+      const transfer = new DataTransfer();
+      transfer.setData('text/uri-list', address);
+      dispatchEvent(new DragEvent('drop', {dataTransfer: transfer}));
+    }
+    for (const link of document.querySelectorAll('a[data-model], a[data-light]')) {
+      const {model, light, eye} = link.dataset;
+      const address = model ? `${models}${model}/glTF/${model}.gltf` : `${lights}${light}_2k.hdr`;
+      link.href = `?${model ? 'model' : 'env'}=${encodeURIComponent(address)}${eye ? `&eye=${eye}` : ''}`;
+      if (!eye) link.addEventListener('click', event => {
+        if (event.ctrlKey || event.metaKey || event.shiftKey) return;
+        event.preventDefault();
+        drop(address);
+      });
+    }
+    startApplication({canvas: document.getElementById('view'), overlay: status, storageKey: 'viewer'})
       .then(() => { document.body.dataset.ready = 'true'; })
-      .catch(error => { document.body.dataset.error = error.message; overlay.textContent = error.message; });
+      .catch(error => { document.body.dataset.error = error.message; status.textContent = error.message; });
   </script>
 </body>
 </html>

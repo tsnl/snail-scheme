@@ -19,7 +19,7 @@
     (define (with-page-fetch (work (Fn → T ! fetch e))) (→ T) (! e) (∀ (T e))
       (handle fetch
           ((request page-request)
-           (fetch-bytes page-fetch-bytes)
+           (fetch-all-bytes page-fetch-all-bytes)
            (page-address (lambda () (host-page-address) (host-reply)))
            (stream-open (lambda (url kinds)
                           (new Stream
@@ -51,15 +51,26 @@
       (let ((status (through-host host-start-request host-finish-request)))
         (if (< status 0) (Err (host-reply)) (Ok (new Reply (status status) (body (host-reply)))))))
 
-    ;; The wait answers the body's length, or -1 with why there is none.
+    ;; Every request starts, under a ticket of its own, before the task
+    ;; waits, once, for all of them. Finishing one answers its body's
+    ;; length, or -1 with why there is none, and the host holds that body
+    ;; until the next is finished.
 
-    (define (page-fetch-bytes (url String)) (→ (Result Bytes String)) (! tasks)
-      (host-request-url (string->utf8 url))
-      (let ((count (through-host host-start-bytes host-finish-request)))
-        (if (< count 0)
-            (Err (host-reply))
-            (Ok (array-generate (i32->i64 count)
-                                (lambda (index) (host-reply-byte (i64->i32 index))))))))
+    (define (page-fetch-all-bytes (urls (List String))) (→ (List (Result Bytes String))) (! tasks)
+      (let ((ids (map (lambda (url)
+                        (let ((id (ticket)))
+                          (host-request-url (string->utf8 url))
+                          (host-start-bytes id)
+                          id))
+                      urls)))
+        (await ids)
+        (map (lambda (id)
+               (let ((count (host-finish-request id)))
+                 (if (< count 0)
+                     (Err (host-reply))
+                     (Ok (array-generate (i32->i64 count)
+                                         (lambda (index) (host-reply-byte (i64->i32 index))))))))
+             ids)))
 
     ;; A stream opens with its URL and the kinds it hears as one string, a
     ;; NUL between each. The wait answers -1 once the stream is closed, and

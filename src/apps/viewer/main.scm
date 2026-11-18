@@ -1,17 +1,16 @@
 ;; A glTF scene path traced in the page, flown through with the mouse and
-;; keys: a Khronos sample model the page's query names, `?model=Sponza`,
-;; or the user's own. Files dropped on the page, or chosen with O (files)
-;; or Shift+O (a folder), replace the scene: a .glb, or a .gltf with the
-;; files it names, and an .hdr file to light it. `&env=helipad` lights a
-;; sample with a sample environment; without one, or with `env=sky`, a
-;; drawn sky and sun light it. The samples come from (khronos samples),
-;; which links every sample's files, so the page fetches only those of
-;; the model and environment it shows. `&eye=x,y,z,yaw,pitch` places the
-;; camera; without it, the camera looks at the scene from outside. A page
-;; that names no model shows Sponza from inside its atrium, or else
-;; FlightHelmet or the first sample fetched, or nothing until files come.
-;; Files that cannot be shown leave the view as it was, and the page says
-;; why. The frames average while the camera holds still.
+;; keys. The page ships no scene: it shows the files its user chooses, a
+;; .glb, or a .gltf with the files it names, and an .hdr file to light
+;; it; without one, a drawn sky and sun light it. Files come dropped on
+;; the page, or chosen with O (files) or Shift+O (a folder). A link
+;; dropped on the page is a file at its address, and a .gltf at an
+;; address names its files relative to it, so the page's sample links,
+;; to Khronos's sample models and Poly Haven's environments, are fetched
+;; by the browser from where they are published. The page's query chooses
+;; the same way: `?model=ADDRESS&env=ADDRESS`, and `&eye=x,y,z,yaw,pitch`
+;; places the camera; without it, the camera looks at the scene from
+;; outside. Files that cannot be shown leave the view as it was, and the
+;; page says why. The frames average while the camera holds still.
 (import
  (snail core base)
  (snail core io)
@@ -20,13 +19,11 @@
  (only (snail shell task) tasks)
  (only (snail shell app) next-event FrameEvent InputEvent FilesEvent KeyDown)
  (only (snail shell page) events report-ready)
- (only (snail shell fetch) fetch fetch-bytes page-address)
+ (only (snail shell fetch) fetch fetch-all-bytes page-address)
  (only (snail shell dom) dom document-root set-text)
  (only (snail shell dom page) with-page-dom)
  (snail shell files)
  (snail shell files page)
- (snail shell resource)
- (khronos samples)
  (snail shell fetch page)
  (only (snail shell gpu) gpu request-device current-texture view-of work-done TextureFormat)
  (snail shell graphics pod)
@@ -50,41 +47,31 @@
                          ((None) rest))))))
     ((None) (None))))
 
-(define sponza-eye (→ String) "9,1.6,-0.4,1.5708,0.12")
+;; The files the query names, each at its address: `model` and `env`.
+(define (query-files (address String)) (→ (List Chosen))
+  (concatenate (map (lambda (name)
+                      (match (parameter address name)
+                        ((Some file) (list (new Chosen (path file) (address file))))
+                        ((None) (Nil))))
+                    (list "model" "env"))))
 
-;; The sample model the page names, or else Sponza, FlightHelmet or the
-;; first sample fetched.
-(define (model-of (address String)) (→ String) (! reading)
-  (match (parameter address "model")
-    ((Some model) model)
-    ((None)
-     (match (filter (lambda (model) (not (null? (sample-model model))))
-                    (append (list "Sponza" "FlightHelmet") (sample-models)))
-       ((Cons model _) model)
-       ((Nil) (unreadable "No sample models are fetched."))))))
-
-;; Where the page's `eye` puts the fly, or Sponza's atrium for Sponza, or
-;; else where it was.
-(define (eye-of (address String) (model String) (fly Fly)) (→ Fly)
-  (match (match (parameter address "eye")
-           ((Some eye) (numbers-of eye))
-           ((None) (if (string=? model "Sponza") (numbers-of sponza-eye) (None))))
-    ((Some eye) (placed fly eye))
-    ((None) fly)))
-
-;; Five numbers, as a JSON array reads them.
-(define (numbers-of (text String)) (→ (Option (List F64)))
-  (match (string->json (string-append "[" text "]"))
-    ((Some (JsonArray values))
-     (if (= (length values) 5)
-         (Some (map (lambda (value)
-                      (match value
-                        ((JsonInteger n) (i64->f64 n))
-                        ((JsonNumber n) n)
-                        (_ 0.0)))
-                    values))
-         (None)))
-    (_ (None))))
+;; Where the query's `eye` puts the camera: five numbers, as a JSON array
+;; reads them.
+(define (query-eye (address String)) (→ (Option (List F64)))
+  (match (parameter address "eye")
+    ((Some text)
+     (match (string->json (string-append "[" text "]"))
+       ((Some (JsonArray values))
+        (if (= (length values) 5)
+            (Some (map (lambda (value)
+                         (match value
+                           ((JsonInteger n) (i64->f64 n))
+                           ((JsonNumber n) n)
+                           (_ 0.0)))
+                       values))
+            (None)))
+       (_ (None))))
+    ((None) (None))))
 
 (define (found (text String) (part String) (from I64)) (→ (Option I64))
   (cond ((> (+ from (string-length part)) (string-length text)) (None))
@@ -133,7 +120,7 @@
      (open-picker (if shift (Folder) (SomeFiles)))
      (view-loop view fly timing format))
     ((InputEvent input) (view-loop view (steered fly input) timing format))
-    ((FilesEvent _) (opened view fly timing format (chosen-files)))
+    ((FilesEvent _) (opened view fly timing format (chosen-files) (None)))
     (_ (view-loop view fly timing format))))
 
 ;; A frame drawn into the canvas, from where the fly is.
@@ -157,16 +144,18 @@
           (write-line (string-append "frames: " (show frames) " in " (show total) " ms"))
           (new Pair (first 0) (second 0))))))
 
-;; ---- The user's files ----
+;; ---- The files chosen ----
 
-;; The view of the files the user chose, the fly looking at a new scene
-;; from outside; or the view as it was, and why, when they cannot be
-;; shown.
+;; The view of the files chosen, the fly looking at a new scene from
+;; `eye` or else from outside; or the view as it was, and why, when they
+;; cannot be shown. The loop waits here, so one choice is read at a time,
+;; and one that arrives meanwhile is read next.
 (define (opened (view (Option View))
                 (fly Fly)
                 (timing (Pair I32 I32))
                 (format TextureFormat)
-                (files (List Chosen)))
+                (files (List Chosen))
+                (eye (Option (List F64))))
   (→ Unit)
   (! events gpu output-port tasks fetch files dom)
   (set-text (document-root) "Loading…")
@@ -176,7 +165,11 @@
      (view-loop (Some (shown view (● replacing first) (● replacing second) format))
                 (match (● replacing first)
                   ((Some scene)
-                   (Fly-stops-set (fly-over (● scene low) (● scene high)) (● fly stops)))
+                   (let ((over (Fly-stops-set (fly-over (● scene low) (● scene high))
+                                              (● fly stops))))
+                     (match eye
+                       ((Some eye) (placed over eye))
+                       ((None) over))))
                   ((None) fly))
                 timing
                 format))
@@ -197,20 +190,50 @@
   (! gpu output-port tasks fetch reading)
   (let ((model (outermost (ending files (list ".glb" ".gltf"))))
         (light (outermost (ending files (list ".hdr")))))
-    (when (match (new Pair (first model) (second (new Pair (first light) (second view))))
-            ((Pair (Some _) _) #f)
-            ((Pair (None) (Pair (Some _) (Some _))) #f)
-            (_ #t))
+    (when (and (none? model) (or (none? light) (none? view)))
       (unreadable (string-append "nothing to show among " (show (length files)) " files")))
-    (let* ((hdr (within light (lambda (path) (radiance path (chosen-bytes files path)))))
+    (let* ((hdr (within light
+                        (lambda (path) (radiance path (list-ref (read files path (list path)) 0)))))
            (scene (within model
                           (lambda (path)
                             (loaded-scene (lambda ((paths (List String)))
                                             (→ (List Bytes))
                                             (! fetch tasks reading)
-                                            (map (lambda (path) (chosen-bytes files path)) paths))
+                                            (read files path paths))
                                           path)))))
       (new Pair (first scene) (second (within hdr hdr-light))))))
+
+;; The bytes of the paths that the file at `top` names, fetched together.
+(define (read (files (List Chosen)) (top String) (paths (List String)))
+  (→ (List Bytes))
+  (! fetch tasks reading)
+  (fetched (map (lambda (path) (address-of files top path)) paths)))
+
+;; Where a path that the file at `top` names is fetched from: a file
+;; chosen, at its address; or, when `top` is a link, the path itself,
+;; since a scene at an address names its files relative to it. A scene
+;; among the user's files reads nothing they did not choose.
+(define (address-of (files (List Chosen)) (top String) (path String)) (→ String) (! reading)
+  (match (find (lambda (file) (string=? (● file path) path)) files)
+    ((Some file) (● file address))
+    ((None)
+     (if (any? (lambda (file) (and (string=? (● file path) top) (string=? (● file address) top)))
+               files)
+         path
+         (unreadable (string-append path " is not among the files chosen"))))))
+
+;; The bytes at each address, fetched together.
+(define (fetched (addresses (List String))) (→ (List Bytes)) (! fetch tasks reading)
+  (map (lambda (reply)
+         (match reply
+           ((Ok bytes) bytes)
+           ((Err why) (unreadable why))))
+       (fetch-all-bytes addresses)))
+
+(define (none? (option (Option A))) (→ Bool) (∀ (A))
+  (match option
+    ((Some _) #f)
+    ((None) #t)))
 
 ;; `f` of what an option holds.
 (define (within (option (Option A)) (f (Fn A → B ! e))) (→ (Option B)) (! e) (∀ (A B e))
@@ -293,13 +316,7 @@
 (define (depth (path String)) (→ I64)
   (length (filter (lambda (char) (char=? char #\/)) (string->list path))))
 
-(define (chosen-bytes (files (List Chosen)) (path String)) (→ Bytes) (! fetch tasks reading)
-  (match (filter (lambda (file) (string=? (● file path) path)) files)
-    ((Cons file _)
-     (match (fetch-bytes (● file address))
-       ((Ok bytes) bytes)
-       ((Err why) (unreadable (string-append path ": " why)))))
-    ((Nil) (unreadable (string-append path " is not among the files chosen")))))
+
 
 ;; A scene, and a line saying how large it is.
 (define (loaded-scene (read (Fn (List String) → (List Bytes) ! reading e)) (path String))
@@ -323,27 +340,13 @@
     (lambda ()
       (with-page-dom
        (lambda ()
-         (let ((format (● (request-device) format)) (timing (new Pair (first 0) (second 0))))
-           (match (attempt-reading (lambda () (sample-view (page-address) format)))
-             ((Ok sample) (view-loop (Some (● sample first)) (● sample second) timing format))
-             ((Err why)
-              (say why)
-              (view-loop (None)
-                         (fly-over (list -1.0 -1.0 -1.0) (list 1.0 1.0 1.0))
-                         timing
-                         format))))))))))
-
-;; The view of the sample the page names, in the sample environment it
-;; names or the drawn sky, and the fly looking at it.
-(define (sample-view (address String) (format TextureFormat))
-  (→ (Pair View Fly))
-  (! gpu output-port resource tasks reading)
-  (let* ((model (model-of address))
-         (hdr (sample-light (parameter address "env")))
-         (scene (model-scene model)))
-    (new Pair
-      (first (shown (None) (Some scene) (within hdr hdr-light) format))
-      (second (eye-of address model (fly-over (● scene low) (● scene high)))))))
+         (let ((format (● (request-device) format))
+               (fly (fly-over (list -1.0 -1.0 -1.0) (list 1.0 1.0 1.0)))
+               (timing (new Pair (first 0) (second 0)))
+               (address (page-address)))
+           (match (query-files address)
+             ((Nil) (view-loop (None) fly timing format))
+             (files (opened (None) fly timing format files (query-eye address)))))))))))
 
 (define (placed (fly Fly) (eye (List F64))) (→ Fly)
   (new Fly
@@ -356,33 +359,3 @@
     (drag (None))
     (speed (● fly speed))
     (stops (● fly stops))))
-
-;; ---- Samples ----
-
-;; The sample model `name`, its files read together as the scene asks.
-(define (model-scene (name String)) (→ Scene) (! gpu output-port resource tasks reading)
-  (let ((files (sample-model name)))
-    (match files
-      ((Nil) (unreadable (string-append "There is no sample model " name ".")))
-      ((Cons entry _)
-       (loaded-scene (lambda ((paths (List String))) (→ (List Bytes)) (! resource tasks reading)
-                       (read-resources (map (lambda (path) (model-file name files path)) paths)))
-                     (● entry first))))))
-
-(define (model-file (name String) (files (List (Pair String Resource))) (path String))
-  (→ Resource)
-  (! reading)
-  (match (assoc-ref files path)
-    ((Some file) file)
-    ((None) (unreadable (string-append name " has no file " path)))))
-
-;; The file of the sample environment `env=` names; none for the drawn
-;; sky.
-(define (sample-light (name (Option String))) (→ (Option Hdr)) (! resource tasks reading)
-  (match name
-    ((Some "sky") (None))
-    ((Some name)
-     (match (sample-environment name)
-       ((Some file) (Some (radiance name (read-resource file))))
-       ((None) (unreadable (string-append "There is no sample environment " name ".")))))
-    ((None) (None))))
