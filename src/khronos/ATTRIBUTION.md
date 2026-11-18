@@ -14,4 +14,7 @@ license.
 A program that imports `(khronos samples)` ships every file in its store,
 and a page fetches a file only when the program reads it. Whoever
 distributes such a build must credit the models and panoramas as their
-licenses require.
+licenses require. The viewer's `models.html`, which the fetch script
+writes, credits each model from its `metadata.json`. The site publishes
+only the CC0 and CC-BY models `make viewer-samples` fetches, and no
+panoramas.

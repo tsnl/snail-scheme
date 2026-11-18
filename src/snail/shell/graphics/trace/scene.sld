@@ -7,12 +7,13 @@
 ;; a material names its textures by layer. Rasterizing and tracing read
 ;; the same buffers, so what is drawn is what rays hit.
 ;;
-;;   (let ((scene (load-scene "models/Sponza/glTF/Sponza.gltf" 1024))) ...)
+;;   (let ((scene (load-scene read "models/Sponza/glTF/Sponza.gltf" 1024))) ...)
 (define-library (snail shell graphics trace scene)
   (export
    Scene
    SurfaceMaterial
    load-scene
+   release-scene
    vertex-stride
    scene-triangles)
   (import
@@ -73,26 +74,39 @@
 
     (define material-shape (→ (Shape SurfaceMaterial)) (shape))
 
-    ;; The scene whose .gltf is at `path`, its files read by `read`, which
-    ;; answers the bytes of each path it is given, in order; the .gltf's
-    ;; URIs are relative to its directory. The buffers and images are
-    ;; asked for together, so a page fetches them at once. A scene less
+    ;; The scene whose .gltf or .glb is at `path`, its files read by `read`,
+    ;; which answers the bytes of each path it is given, in order; the
+    ;; scene's URIs are relative to its directory. The files its buffers
+    ;; and images name are asked for together, so a page fetches them at
+    ;; once. A scene less
     ;; than a unit across is made one unit across, since a camera clips at
     ;; a tenth of a unit and rays leave surfaces by a fixed offset.
     (define (load-scene (read (Fn (List String) → (List Bytes) ! e)) (path String) (layer-size I32))
       (→ Scene)
       (! gpu tasks e)
       (∀ (e))
-      (let ((gltf
-             (match (read-gltf (text-of (list-ref (read (list path)) 0) path) (directory-of path))
-               ((Ok gltf) (at-least-a-unit gltf))
-               ((Err reason) (panic (string-append "scene: " path ": " reason))))))
+      (let* ((top (list-ref (read (list path)) 0))
+             (glb (glb-chunks top))
+             (gltf (match (read-gltf (text-of (match glb
+                                                ((Some chunks) (● chunks first))
+                                                ((None) top))
+                                              path)
+                                     (directory-of path))
+                     ((Ok gltf) (at-least-a-unit gltf))
+                     ((Err reason) (panic (string-append "scene: " path ": " reason)))))
+             (paths (file-paths (append (● gltf buffers) (● gltf images))))
+             (files (zip-pairs paths (read paths)))
+             (chunk (match glb
+                      ((Some chunks) (● chunks second))
+                      ((None) (make-array 0 (i32->u8 0)))))
+             (buffers
+              (map (lambda (source) (source-bytes source files chunk (Nil))) (● gltf buffers))))
         (let* ((counts (placed-counts gltf))
-               (buffer-count (length (● gltf buffers)))
-               (files (read (append (● gltf buffers) (● gltf images))))
-               (geometry (unpacked gltf counts (take files buffer-count)))
+               (geometry (unpacked gltf counts buffers))
                (bounds (gltf-bounds gltf))
-               (layers (load-layers (list-drop files buffer-count) layer-size)))
+               (layers (load-layers (map (lambda (source) (source-bytes source files chunk buffers))
+                                         (● gltf images))
+                                    layer-size)))
           (new Scene
             (vertices (● geometry first))
             (indices (● geometry second))
@@ -112,6 +126,48 @@
             (triangle-count (quotient (● counts second) 3))
             (low (● bounds first))
             (high (● bounds second))))))
+
+    (define (release-scene (scene Scene)) (→ Unit) (! gpu)
+      (for-each (lambda (buffer) (destroy (BufferObject buffer)))
+                (list (● scene vertices) (● scene indices) (● scene materials)))
+      (destroy (ViewObject (● scene layers-view)))
+      (destroy (TextureObject (● scene layers)))
+      (destroy (SamplerObject (● scene sampler))))
+
+    ;; ---- Sources ----
+
+    ;; The files the sources name, each path paired with its bytes once
+    ;; they are read; then each source's bytes.
+    (define (file-paths (sources (List Source))) (→ (List String))
+      (fold-right (lambda (source paths)
+                    (match source
+                      ((FileSource path) (Cons path paths))
+                      (_ paths)))
+                  (Nil)
+                  sources))
+
+    (define (zip-pairs (paths (List String)) (files (List Bytes))) (→ (List (Pair String Bytes)))
+      (match paths
+        ((Cons path paths)
+         (match files
+           ((Cons file files) (Cons (new Pair (first path) (second file)) (zip-pairs paths files)))
+           ((Nil) (Nil))))
+        ((Nil) (Nil))))
+
+    (define (source-bytes (source Source)
+                          (files (List (Pair String Bytes)))
+                          (chunk Bytes)
+                          (buffers (List Bytes)))
+      (→ Bytes)
+      (match source
+        ((FileSource path)
+         (match (assoc-ref files path)
+           ((Some bytes) bytes)
+           ((None) (panic (string-append "scene: no file " path)))))
+        ((DataSource bytes) bytes)
+        ((ChunkSource) chunk)
+        ((ViewSource buffer offset length)
+         (subarray (list-ref buffers buffer) offset (+ offset length)))))
 
     (define (at-least-a-unit (gltf Gltf)) (→ Gltf)
       (let* ((bounds (gltf-bounds gltf))
