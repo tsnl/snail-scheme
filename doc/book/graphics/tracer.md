@@ -5,8 +5,8 @@ canvas a frame at a time, with one path a pixel, filtered by SVGF and
 tone-mapped. It is composed of graphics middleware, each a library usable
 on its own: a BVH and its ray queries, an environment light, a denoiser.
 The [primer](path-tracing.md) gives the physics; this chapter gives the
-program. `src/apps/viewer` flies through Khronos's glTF sample models
-with it, or through the user's own: **[open the viewer](../play/viewer/)**.
+program. `src/apps/viewer` flies through the user's own scenes with it, or
+through Khronos's glTF sample models: **[open the viewer](../play/viewer/)**.
 
 ## A frame
 
@@ -91,47 +91,49 @@ has the length the scene reads of it and where it starts once the buffers
 are laid end to end, which is where the device gets it.
 `load-scene` of `(snail shell graphics trace scene)` takes a function that
 reads several paths at once, so a page fetches every buffer and image
-together (`read-resources`, [linked files](../snail-scheme/types.md#linked-files)).
+together (`fetch-all-bytes`).
 Only the files the sources name are read; the rest come with the scene's
 file. It unpacks the buffers on the device into one vertex and one index buffer,
 draws each image into a layer of one array texture with its mipmaps, and
 scales a scene less than a unit across up to one.
 
-## The viewer and the samples
+## The viewer
 
 ```sh
-scripts/fetch-khronos-samples            # every sample model and environment
 ./snail-scheme build --target browser src/apps/viewer/main.scm
 ```
 
-`(khronos samples)` is a generated library that links each fetched file:
-`(sample-model "Sponza")` gives a model's files as `Resource`s and
-`(sample-environment "helipad")` an HDR file. A build links all 1.4 GB, and
-a page fetches only what it shows: Sponza reads 67 of 999 objects. The
-files themselves stay outside version control, under `build/`, as
-`src/khronos/ATTRIBUTION.md` explains; without them the library lists none.
+The viewer ships no scene. It shows the files its user chooses: a `.glb`,
+or a `.gltf` with the files it names, and an `.hdr` file to light it;
+without one, a drawn sky and sun light it. Files come dropped on the page,
+a folder at a time or several files, or through the browser's pickers, O
+for files and Shift+O for a folder, which the File System Access API's
+`showDirectoryPicker` opens where the browser has it. `(snail shell files)`
+is that effect: `open-picker` asks the user and returns, a `FilesEvent`
+says files were dropped or picked, and each file the user chose is its
+path within the choice and an address that `fetch` reads, a `blob:` one
+for a file of theirs. `retrace` keeps the tracer's pipelines for the new
+scene, and the old scene and light are destroyed. Drag to look, WASD to
+fly, Q and E down and up, the wheel for speed, `[` and `]` for exposure.
 
-The page's query chooses the scene: `?model=Sponza&env=helipad`, with
-`env=sky` or none for the drawn sky, and `&eye=x,y,z,yaw,pitch` for the
-camera. `models.html` links every model and credits its authors. Drag to
-look, WASD to fly, Q and E down and up, the wheel for speed, `[` and `]`
-for exposure.
-
-The user's own files replace the scene: a `.glb`, or a `.gltf` with the
-files it names, and an `.hdr` file to light it. They come dropped on the
-page, a folder at a time or several files, or through the browser's
-pickers, O for files and Shift+O for a folder, which the File System
-Access API's `showDirectoryPicker` opens where the browser has it.
-`(snail shell files)` is that effect: `open-picker` asks the user and
-returns, a `FilesEvent` says files were dropped or picked, and each file
-the user chose is its path within the choice and a `blob:` address that
-`fetch` reads. `retrace` keeps the tracer's pipelines for the new scene, and the
-old scene and light are destroyed.
+A link dropped on the page is a file too, one whose path is its address,
+and a scene chosen by address names its files relative to it, so the
+browser fetches them from where the scene is published
+(`fetch-all-bytes`, every file of a scene together). The page's samples
+are such links: Khronos's sample models, at a pinned commit of
+[glTF-Sample-Assets](https://github.com/KhronosGroup/glTF-Sample-Assets),
+and four of [Poly Haven](https://polyhaven.com/hdris)'s environments.
+Clicking one drops it on the page. So the site publishes none of them,
+and a model's license is its publisher's to state. The page's query
+chooses the same way: `?model=ADDRESS&env=ADDRESS`, each an address
+`fetch` reads, such as a path on the page's server, and
+`&eye=x,y,z,yaw,pitch` for the camera.
 
 Files that cannot be shown leave the view as it was, and the page says why:
-a `.gltf` chosen without the files it names, a file shorter than the scene
-says, an image the browser does not decode, a scene whose geometry is
-compressed by Draco or meshopt, an HDR file that is not one. Reading a
+a `.gltf` chosen without the files it names, an address that answers 404, a
+file shorter than the scene says, an image the browser does not decode, a
+scene whose geometry is compressed by Draco or meshopt, an HDR file that
+is not one. Reading a
 scene performs `reading`, of `(snail shell graphics gltf)`: `unreadable`
 stops it with a reason, anywhere from the JSON to the last image, and
 `attempt-reading` turns the reading into a `Result`. Nothing refused is
@@ -139,10 +141,6 @@ left on the device, by the order of the work rather than by cleaning up:
 the viewer reads the HDR file (`read-hdr`) before it loads the scene, and
 `load-scene` loads the layers, the one step on the device that can refuse,
 before anything else of the scene.
-
-The site's viewer links seven CC0 and CC-BY models (`make viewer-samples`)
-and no sample environments, whose licenses mostly forbid publishing them;
-it opens on FlightHelmet in the drawn sky.
 
 ## Performance
 
@@ -157,5 +155,6 @@ On an RTX 5090 through Chromium on Vulkan, at 1280 by 657, a frame takes:
 | FlightHelmet, footprint_court | 3.7 ms |
 | SciFiHelmet, sky | 3.2 ms |
 
-All 151 sample models with a glTF variant load and render. Over a network
-40 ms away, Sponza's page is ready in 1.9 s.
+All 151 of Khronos's sample models with a glTF variant load and render.
+Fetched from GitHub by the page's sample links, FlightHelmet was drawn 3.9
+s after its link was clicked and Sponza 7.3 s.

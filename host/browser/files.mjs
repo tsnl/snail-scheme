@@ -5,7 +5,8 @@
 // queues nothing. Listing the choice gives each file's path within it and
 // a blob: address the program fetches it from, and revokes the addresses
 // of the choice listed before: a choice that arrives while the program
-// still reads the last one leaves those addresses readable.
+// still reads the last one leaves those addresses readable. A link
+// dropped on the page is a file whose path is its address.
 //
 // A folder is walked with the File System Access API's directory handles
 // where the browser has them (showDirectoryPicker), and otherwise with an
@@ -83,11 +84,15 @@ export function createFiles(runtime) {
     }
     return files;
   }
-  // Items must be read during the drop event; their files after it.
+  // Items must be read during the drop event; their files after it. The
+  // links dropped are the lines of text/uri-list that are not comments.
   addEventListener('dragover', event => event.preventDefault());
   addEventListener('drop', event => {
     event.preventDefault();
-    dropped(event.dataTransfer.items).then(arrived)
+    const links = event.dataTransfer.getData('text/uri-list').split(/\r?\n/)
+      .filter(line => line && !line.startsWith('#')).map(address => ({path: address, address}));
+    dropped([...event.dataTransfer.items].filter(item => item.kind === 'file'))
+      .then(files => arrived([...files, ...links]))
       .catch(error => console.error('cannot read the dropped files', error));
   });
 
@@ -97,7 +102,7 @@ export function createFiles(runtime) {
     'open-picker': openPicker,
     listing() {
       for (const {address} of listed) URL.revokeObjectURL(address);
-      listed = latest.map(({path, file}) => ({path, address: URL.createObjectURL(file)}));
+      listed = latest.map(({path, file, address}) => ({path, address: address ?? URL.createObjectURL(file)}));
       reply = [...listed.map(({path, address}) => `${path}\0${address}\0`).join('')];
       return reply.length;
     },
