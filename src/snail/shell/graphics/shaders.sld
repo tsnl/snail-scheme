@@ -5,7 +5,9 @@
 ;; `splat-project-shader` and `splat-draw-shader`, and training's
 ;; `splat-tiles-shader`, `splat-count-shader`, `splat-keys-shader`,
 ;; `splat-ranges-shader`, `splat-forward-shader`, `splat-backward-shader`
-;; and `splat-blur-shader`.
+;; and `splat-blur-shader`, and the path tracer's `bvh-shader`,
+;; `rays-shader`, `svgf-shader`, `environment-shader` and
+;; `environment-light-shader`.
 (generate-library (snail shell graphics shaders)
                   (import
                    (snail core base)
@@ -62,4 +64,19 @@
                                           (second (link-file "splat-backward.wgsl.scm")))
                                         (new Pair
                                           (first "splat-blur-shader")
-                                          (second (link-file "splat-blur.wgsl.scm"))))))
+                                          (second (link-file "splat-blur.wgsl.scm")))
+                                        (new Pair
+                                          (first "bvh-shader")
+                                          (second (link-file "bvh.wgsl.scm")))
+                                        (new Pair
+                                          (first "rays-shader")
+                                          (second (link-file "rays.wgsl.scm")))
+                                        (new Pair
+                                          (first "svgf-shader")
+                                          (second (link-file "svgf.wgsl.scm")))
+                                        (new Pair
+                                          (first "environment-shader")
+                                          (second (link-file "environment.wgsl.scm")))
+                                        (new Pair
+                                          (first "environment-light-shader")
+                                          (second (link-file "environment-light.wgsl.scm"))))))

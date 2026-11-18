@@ -2,7 +2,7 @@
 ;; each value is written again unchanged; whitespace and every escape read
 ;; as JavaScript's JSON.parse reads them, and the expected output of the
 ;; valid texts was checked against JSON.stringify(JSON.parse(text)). Text
-;; that is not one JSON value of integers reads as nothing.
+;; that is not one JSON value reads as nothing.
 (import
  (snail core base)
  (snail core io)
@@ -35,6 +35,7 @@
              "{\"a\":1,}"
              "1.5"
              "2e3"
+             "[-0.25,0.1,1.25e-3,6.02E+23,0.30000000000000004]"
              "tru"
              "\"\\x\""
              "[1] 2"

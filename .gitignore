@@ -18,3 +18,8 @@ target/
 
 # Scratch from a local experiment, which nothing in the tree references.
 /wasm-native/
+
+# Khronos's glTF samples, fetched by scripts/fetch-khronos-samples.
+/src/khronos/models
+/src/khronos/environments
+/src/apps/viewer/public/models.html

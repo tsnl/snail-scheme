@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# Fetches Khronos's glTF sample models and sample environments for
+# (khronos samples), which links every file: src/khronos/models/ holds
+# each model's glTF/ variant and src/khronos/environments/ each
+# environment's HDR file, and src/apps/viewer/public/models.html links the
+# viewer to each model in a chosen environment.
+#
+#   scripts/fetch-khronos-samples [MODEL ...]
+#
+# With no MODEL, every model with a glTF/ variant. The models come from a
+# sparse, blobless clone in build/gltf-samples, so only the files of the
+# models asked for are downloaded; asking again adds to it. The
+# environments (about 400 MB, through Git LFS) come once into
+# build/gltf-environments. src/khronos/models and environments are links
+# into those clones, outside version control, as src/khronos/ATTRIBUTION.md
+# explains.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+cache=build/gltf-samples
+if [ ! -d "$cache/.git" ]; then
+  git clone --quiet --depth 1 --filter=blob:none --no-checkout \
+    https://github.com/KhronosGroup/glTF-Sample-Assets.git "$cache"
+  git -C "$cache" sparse-checkout init --no-cone
+fi
+if [ $# -eq 0 ]; then
+  patterns=('/Models/*/glTF/')
+else
+  patterns=()
+  for model in "$@"; do patterns+=("/Models/$model/glTF/"); done
+fi
+existing=$(git -C "$cache" sparse-checkout list 2>/dev/null || true)
+git -C "$cache" sparse-checkout set --no-cone $existing "${patterns[@]}"
+git -C "$cache" checkout --quiet
+environments=build/gltf-environments
+if [ ! -d "$environments/.git" ]; then
+  GIT_LFS_SKIP_SMUDGE=1 git clone --quiet --depth 1 --filter=blob:none --no-checkout \
+    https://github.com/KhronosGroup/glTF-Sample-Environments.git "$environments"
+  git -C "$environments" sparse-checkout set --no-cone '/*.hdr'
+  GIT_LFS_SKIP_SMUDGE=1 git -C "$environments" checkout --quiet
+  git -C "$environments" lfs install --local >/dev/null
+  git -C "$environments" lfs pull --include='*.hdr'
+fi
+ln -sfn ../../"$cache"/Models src/khronos/models
+ln -sfn ../../"$environments" src/khronos/environments
+page=src/apps/viewer/public/models.html
+{
+  echo '<!doctype html><meta charset="utf-8"><title>Models</title>'
+  echo '<style>body{font:14px system-ui,sans-serif;background:#111;color:#ddd;margin:24px}a{color:#9cf}li{margin:3px 0}</style>'
+  echo '<h1>glTF sample models</h1>'
+  echo '<p>Environment: <select id="env"><option value="sky">sky</option>'
+  for hdr in "$environments"/*.hdr; do
+    [ -e "$hdr" ] || continue
+    echo "<option>$(basename "$hdr" .hdr)</option>"
+  done
+  echo '</select></p><ul>'
+  for model in "$cache"/Models/*/glTF; do
+    [ -d "$model" ] || continue
+    name=$(basename "$(dirname "$model")")
+    echo "<li><a href=\"index.html?model=$name\">$name</a></li>"
+  done
+  echo '</ul>'
+  echo '<script>const env = document.getElementById("env");'
+  echo 'try { env.value = localStorage.getItem("env") ?? "footprint_court"; } catch { env.value = "footprint_court"; }'
+  echo 'env.onchange = () => { try { localStorage.setItem("env", env.value); } catch {} };'
+  echo 'document.addEventListener("click", event => { const a = event.target.closest("a"); if (a) a.href = a.href.split("&env=")[0] + "&env=" + env.value; });</script>'
+} > "$page"
+echo "$page"
