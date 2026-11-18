@@ -82,11 +82,13 @@ density it is sampled with, and a sampled direction.
 
 ## Scenes
 
-`(snail shell graphics gltf)` reads a glTF file's JSON into the meshes,
-materials, images and buffers it names. Each buffer and image has a
-`Source`: a file named by a URI relative to the scene's, a base64 `data:`
-URI, the binary chunk of a `.glb` file, whose JSON `glb-chunks` finds, or
-for an image a range of a buffer.
+`(snail shell graphics gltf)` reads a scene's file, a `.gltf` file's JSON
+or a `.glb` file, into the meshes, materials, images and buffers it names.
+Each buffer and image has a `Source`: a file named by a URI relative to
+the scene's, bytes the scene holds (a base64 `data:` URI or a `.glb`
+file's binary chunk), or for an image a range of a buffer. A buffer also
+has the length the scene reads of it and where it starts once the buffers
+are laid end to end, which is where the device gets it.
 `load-scene` of `(snail shell graphics trace scene)` takes a function that
 reads several paths at once, so a page fetches every buffer and image
 together (`read-resources`, [linked files](../snail-scheme/types.md#linked-files)).
@@ -125,6 +127,18 @@ returns, a `FilesEvent` says files were dropped or picked, and each file
 the user chose is its path within the choice and a `blob:` address that
 `fetch` reads. `retrace` keeps the tracer's pipelines for the new scene, and the
 old scene and light are destroyed.
+
+Files that cannot be shown leave the view as it was, and the page says why:
+a `.gltf` chosen without the files it names, a file shorter than the scene
+says, an image the browser does not decode, a scene whose geometry is
+compressed by Draco or meshopt, an HDR file that is not one. Reading a
+scene performs `reading`, of `(snail shell graphics gltf)`: `unreadable`
+stops it with a reason, anywhere from the JSON to the last image, and
+`attempt-reading` turns the reading into a `Result`. Nothing refused is
+left on the device, by the order of the work rather than by cleaning up:
+the viewer reads the HDR file (`read-hdr`) before it loads the scene, and
+`load-scene` loads the layers, the one step on the device that can refuse,
+before anything else of the scene.
 
 The site's viewer links seven CC0 and CC-BY models (`make viewer-samples`)
 and no sample environments, whose licenses mostly forbid publishing them;

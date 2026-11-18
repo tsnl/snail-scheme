@@ -414,7 +414,8 @@ heaps start uncompressed; a later `reset` may choose BC.
 ## Design choices
 
 - Images are decoded by the host behind `decode-image`, a host operation
-  that waits, rather than in `snail-scheme`.
+  that waits, rather than in `snail-scheme`. It answers nothing for bytes
+  the host does not decode.
 - `update` stays total: prefetching happens from `draw`.
 - Shader sources are S-expression files printed by `generate-library`
   recipes, since a quoted form is a literal only. A shader's structs come

@@ -8,14 +8,16 @@
   canvas { display: block; width: 100%; height: 100%; outline: none; }
   #overlay { position: fixed; left: 12px; bottom: 10px; pointer-events: none; text-shadow: 0 1px 2px #000; }
   #overlay a { pointer-events: auto; color: #9cf; }
+  #status { position: fixed; left: 12px; top: 10px; pointer-events: none; text-shadow: 0 1px 2px #000; }
 </style>
 <body>
   <canvas id="view" tabindex="0" aria-label="Path traced scene"></canvas>
   <div id="overlay">Drop a .glb, a glTF folder or an .hdr here, or press O to open files and Shift+O a folder. Drag to look, WASD to fly, Q and E down and up, wheel for speed, [ and ] for exposure. <a href="models.html">Samples</a></div>
+  <div id="status" role="status"></div>
   <script type="module">
     import {startApplication} from './host.mjs';
     const overlay = document.getElementById('overlay');
-    startApplication({canvas: document.getElementById('view'), overlay: document.createElement('div'), storageKey: 'viewer'})
+    startApplication({canvas: document.getElementById('view'), overlay: document.getElementById('status'), storageKey: 'viewer'})
       .then(() => { document.body.dataset.ready = 'true'; })
       .catch(error => { document.body.dataset.error = error.message; overlay.textContent = error.message; });
   </script>

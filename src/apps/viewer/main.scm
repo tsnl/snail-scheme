@@ -9,8 +9,9 @@
 ;; the model and environment it shows. `&eye=x,y,z,yaw,pitch` places the
 ;; camera; without it, the camera looks at the scene from outside. A page
 ;; that names no model shows Sponza from inside its atrium, or else
-;; FlightHelmet or the first sample fetched, or nothing until files come. The frames average while
-;; the camera holds still.
+;; FlightHelmet or the first sample fetched, or nothing until files come.
+;; Files that cannot be shown leave the view as it was, and the page says
+;; why. The frames average while the camera holds still.
 (import
  (snail core base)
  (snail core io)
@@ -20,6 +21,8 @@
  (only (snail shell app) next-event FrameEvent InputEvent FilesEvent KeyDown)
  (only (snail shell page) events report-ready)
  (only (snail shell fetch) fetch fetch-bytes page-address)
+ (only (snail shell dom) dom document-root set-text)
+ (only (snail shell dom page) with-page-dom)
  (snail shell files)
  (snail shell files page)
  (snail shell resource)
@@ -28,7 +31,7 @@
  (only (snail shell gpu) gpu request-device current-texture view-of work-done TextureFormat)
  (snail shell graphics pod)
  (snail shell graphics raster)
- (only (snail shell graphics gltf) uri-path)
+ (only (snail shell graphics gltf) uri-path reading unreadable attempt-reading)
  (snail shell graphics trace scene)
  (snail shell graphics environment)
  (snail shell graphics trace render)
@@ -50,26 +53,27 @@
 (define sponza-eye (→ String) "9,1.6,-0.4,1.5708,0.12")
 
 ;; The sample model the page names, or else Sponza, FlightHelmet or the
-;; first sample fetched, and the eye the page names, or Sponza's atrium
-;; for Sponza.
-(define (model-of (address String)) (→ (Option (Pair String (Option String))))
-  (match (match (parameter address "model")
-           ((Some model) (Some model))
-           ((None)
-            (match (filter (lambda (model) (not (null? (sample-model model))))
-                           (append (list "Sponza" "FlightHelmet") (sample-models)))
-              ((Cons model _) (Some model))
-              ((Nil) (None)))))
-    ((Some model)
-     (Some (new Pair
-             (first model)
-             (second (match (parameter address "eye")
-                       ((Some eye) (Some eye))
-                       ((None) (if (string=? model "Sponza") (Some sponza-eye) (None))))))))
-    ((None) (None))))
+;; first sample fetched.
+(define (model-of (address String)) (→ String) (! reading)
+  (match (parameter address "model")
+    ((Some model) model)
+    ((None)
+     (match (filter (lambda (model) (not (null? (sample-model model))))
+                    (append (list "Sponza" "FlightHelmet") (sample-models)))
+       ((Cons model _) model)
+       ((Nil) (unreadable "No sample models are fetched."))))))
+
+;; Where the page's `eye` puts the fly, or Sponza's atrium for Sponza, or
+;; else where it was.
+(define (eye-of (address String) (model String) (fly Fly)) (→ Fly)
+  (match (match (parameter address "eye")
+           ((Some eye) (numbers-of eye))
+           ((None) (if (string=? model "Sponza") (numbers-of sponza-eye) (None))))
+    ((Some eye) (placed fly eye))
+    ((None) fly)))
 
 ;; Five numbers, as a JSON array reads them.
-(define (eye-of (text String)) (→ (Option (List F64)))
+(define (numbers-of (text String)) (→ (Option (List F64)))
   (match (string->json (string-append "[" text "]"))
     ((Some (JsonArray values))
      (if (= (length values) 5)
@@ -114,7 +118,7 @@
 
 (define (view-loop (view (Option View)) (fly Fly) (timing (Pair I32 I32)) (format TextureFormat))
   (→ Unit)
-  (! events gpu output-port tasks fetch files)
+  (! events gpu output-port tasks fetch files dom)
   (match (next-event)
     ((FrameEvent elapsed)
      (match view
@@ -155,38 +159,72 @@
 
 ;; ---- The user's files ----
 
-;; The view of the files the user chose: the model among them, lit by
-;; the HDR file among them or by the light it had, the fly looking at it
-;; from outside; or the view lit by the HDR file alone. Choosing no model
-;; and no light changes nothing.
+;; The view of the files the user chose, the fly looking at a new scene
+;; from outside; or the view as it was, and why, when they cannot be
+;; shown.
 (define (opened (view (Option View))
                 (fly Fly)
                 (timing (Pair I32 I32))
                 (format TextureFormat)
                 (files (List Chosen)))
   (→ Unit)
-  (! events gpu output-port tasks fetch files)
+  (! events gpu output-port tasks fetch files dom)
+  (set-text (document-root) "Loading…")
+  (match (attempt-reading (lambda () (chosen view files)))
+    ((Ok replacing)
+     (set-text (document-root) "")
+     (view-loop (Some (shown view (● replacing first) (● replacing second) format))
+                (match (● replacing first)
+                  ((Some scene)
+                   (Fly-stops-set (fly-over (● scene low) (● scene high)) (● fly stops)))
+                  ((None) fly))
+                timing
+                format))
+    ((Err why) (say why) (view-loop view fly timing format))))
+
+;; What the page says under the view, and the console with it.
+(define (say (message String)) (→ Unit) (! dom output-port)
+  (set-text (document-root) message)
+  (write-line message))
+
+;; What the files replace: the scene, by the model among them, and the
+;; light, by the HDR file among them. Files with neither refuse, as does
+;; a light with no view to light. The light's file is read before the
+;; scene is loaded, and nothing after the scene refuses, so files refused
+;; leave nothing on the device.
+(define (chosen (view (Option View)) (files (List Chosen)))
+  (→ (Pair (Option Scene) (Option Environment)))
+  (! gpu output-port tasks fetch reading)
   (let ((model (outermost (ending files (list ".glb" ".gltf"))))
         (light (outermost (ending files (list ".hdr")))))
-    (match model
-      ((Some path)
-       (let ((scene (loaded-scene (lambda ((paths (List String))) (→ (List Bytes)) (! fetch tasks)
-                                    (map (lambda (path) (chosen-bytes files path)) paths))
-                                  path)))
-         (view-loop (Some (shown view (Some scene) (user-light files light) format))
-                    (Fly-stops-set (fly-over (● scene low) (● scene high)) (● fly stops))
-                    timing
-                    format)))
-      ((None)
-       (match (match view
-                ((Some _) light)
-                ((None) (None)))
-         ((Some _)
-          (view-loop (Some (shown view (None) (user-light files light) format)) fly timing format))
-         ((None)
-          (write-line
-           (string-append "nothing to show among " (show (length files)) " files"))
-          (view-loop view fly timing format)))))))
+    (when (match (new Pair (first model) (second (new Pair (first light) (second view))))
+            ((Pair (Some _) _) #f)
+            ((Pair (None) (Pair (Some _) (Some _))) #f)
+            (_ #t))
+      (unreadable (string-append "nothing to show among " (show (length files)) " files")))
+    (let* ((hdr (within light (lambda (path) (radiance path (chosen-bytes files path)))))
+           (scene (within model
+                          (lambda (path)
+                            (loaded-scene (lambda ((paths (List String)))
+                                            (→ (List Bytes))
+                                            (! fetch tasks reading)
+                                            (map (lambda (path) (chosen-bytes files path)) paths))
+                                          path)))))
+      (new Pair (first scene) (second (within hdr hdr-light))))))
+
+;; `f` of what an option holds.
+(define (within (option (Option A)) (f (Fn A → B ! e))) (→ (Option B)) (! e) (∀ (A B e))
+  (match option
+    ((Some value) (Some (f value)))
+    ((None) (None))))
+
+;; An HDR file read, which a file that is not one refuses.
+(define (radiance (name String) (bytes Bytes)) (→ Hdr) (! reading)
+  (match (read-hdr bytes)
+    ((Ok hdr) hdr)
+    ((Err why) (unreadable (string-append name ": " why)))))
+
+(define (hdr-light (hdr Hdr)) (→ Environment) (! gpu) (hdr-environment hdr 4096))
 
 ;; The view with a new scene, a new light, or both: its tracer remade
 ;; from the old one, whose scene or light, where replaced, is let go. A
@@ -223,16 +261,7 @@
          (tracer
           (make-tracer scene environment format (● canvas width) (● canvas height) layer-size)))))))
 
-;; The HDR file's light, if the user chose one.
-(define (user-light (files (List Chosen)) (light (Option String)))
-  (→ (Option Environment))
-  (! gpu tasks fetch)
-  (match light
-    ((Some path)
-     (match (hdr-environment (chosen-bytes files path) 4096)
-       ((Ok environment) (Some environment))
-       ((Err why) (panic (string-append path (string-append ": " why))))))
-    ((None) (None))))
+
 
 ;; The paths of the files with one of the suffixes, in any case.
 (define (ending (files (List Chosen)) (suffixes (List String))) (→ (List String))
@@ -264,18 +293,18 @@
 (define (depth (path String)) (→ I64)
   (length (filter (lambda (char) (char=? char #\/)) (string->list path))))
 
-(define (chosen-bytes (files (List Chosen)) (path String)) (→ Bytes) (! fetch tasks)
+(define (chosen-bytes (files (List Chosen)) (path String)) (→ Bytes) (! fetch tasks reading)
   (match (filter (lambda (file) (string=? (● file path) path)) files)
     ((Cons file _)
      (match (fetch-bytes (● file address))
        ((Ok bytes) bytes)
-       ((Err why) (panic (string-append path (string-append ": " why))))))
-    ((Nil) (panic (string-append "no file " (string-append path " was chosen"))))))
+       ((Err why) (unreadable (string-append path ": " why)))))
+    ((Nil) (unreadable (string-append path " is not among the files chosen")))))
 
 ;; A scene, and a line saying how large it is.
-(define (loaded-scene (read (Fn (List String) → (List Bytes) ! e)) (path String))
+(define (loaded-scene (read (Fn (List String) → (List Bytes) ! reading e)) (path String))
   (→ Scene)
-  (! gpu output-port tasks e)
+  (! gpu output-port tasks reading e)
   (∀ (e))
   (let ((scene (load-scene read path layer-size)))
     (write-line (string-append "scene: "
@@ -292,29 +321,29 @@
  (lambda ()
    (with-page-files
     (lambda ()
-      (let ((format (● (request-device) format)))
-        (match (model-of (page-address))
-          ((Some chosen)
-           (let* ((scene (model-scene (● chosen first)))
-                  (over (fly-over (● scene low) (● scene high))))
-             (view-loop (Some (shown (None)
-                                     (Some scene)
-                                     (Some (environment-of (parameter (page-address) "env")))
-                                     format))
-                        (match (● chosen second)
-                          ((Some text)
-                           (match (eye-of text)
-                             ((Some eye) (placed over eye))
-                             ((None) over)))
-                          ((None) over))
-                        (new Pair (first 0) (second 0))
-                        format)))
-          ((None)
-           (write-line "no model: drop a .glb, a .gltf with its files, or an .hdr")
-           (view-loop (None)
-                      (fly-over (list -1.0 -1.0 -1.0) (list 1.0 1.0 1.0))
-                      (new Pair (first 0) (second 0))
-                      format))))))))
+      (with-page-dom
+       (lambda ()
+         (let ((format (● (request-device) format)) (timing (new Pair (first 0) (second 0))))
+           (match (attempt-reading (lambda () (sample-view (page-address) format)))
+             ((Ok sample) (view-loop (Some (● sample first)) (● sample second) timing format))
+             ((Err why)
+              (say why)
+              (view-loop (None)
+                         (fly-over (list -1.0 -1.0 -1.0) (list 1.0 1.0 1.0))
+                         timing
+                         format))))))))))
+
+;; The view of the sample the page names, in the sample environment it
+;; names or the drawn sky, and the fly looking at it.
+(define (sample-view (address String) (format TextureFormat))
+  (→ (Pair View Fly))
+  (! gpu output-port resource tasks reading)
+  (let* ((model (model-of address))
+         (hdr (sample-light (parameter address "env")))
+         (scene (model-scene model)))
+    (new Pair
+      (first (shown (None) (Some scene) (within hdr hdr-light) format))
+      (second (eye-of address model (fly-over (● scene low) (● scene high)))))))
 
 (define (placed (fly Fly) (eye (List F64))) (→ Fly)
   (new Fly
@@ -331,29 +360,29 @@
 ;; ---- Samples ----
 
 ;; The sample model `name`, its files read together as the scene asks.
-(define (model-scene (name String)) (→ Scene) (! gpu output-port resource tasks)
+(define (model-scene (name String)) (→ Scene) (! gpu output-port resource tasks reading)
   (let ((files (sample-model name)))
     (match files
-      ((Nil) (panic (string-append "no sample model " name)))
+      ((Nil) (unreadable (string-append "There is no sample model " name ".")))
       ((Cons entry _)
-       (loaded-scene (lambda ((paths (List String))) (→ (List Bytes)) (! resource tasks)
+       (loaded-scene (lambda ((paths (List String))) (→ (List Bytes)) (! resource tasks reading)
                        (read-resources (map (lambda (path) (model-file name files path)) paths)))
                      (● entry first))))))
 
-(define (model-file (name String) (files (List (Pair String Resource))) (path String)) (→ Resource)
+(define (model-file (name String) (files (List (Pair String Resource))) (path String))
+  (→ Resource)
+  (! reading)
   (match (assoc-ref files path)
     ((Some file) file)
-    ((None) (panic (string-append name (string-append " has no file " path))))))
+    ((None) (unreadable (string-append name " has no file " path)))))
 
-;; The sample environment `env=` names, or the drawn sky.
-(define (environment-of (name (Option String))) (→ Environment) (! gpu resource tasks)
+;; The file of the sample environment `env=` names; none for the drawn
+;; sky.
+(define (sample-light (name (Option String))) (→ (Option Hdr)) (! resource tasks reading)
   (match name
-    ((Some "sky") (sky-environment sky 4096))
+    ((Some "sky") (None))
     ((Some name)
      (match (sample-environment name)
-       ((Some file)
-        (match (hdr-environment (read-resource file) 4096)
-          ((Ok environment) environment)
-          ((Err why) (panic (string-append name (string-append ": " why))))))
-       ((None) (panic (string-append "no sample environment " name)))))
-    ((None) (sky-environment sky 4096))))
+       ((Some file) (Some (radiance name (read-resource file))))
+       ((None) (unreadable (string-append "There is no sample environment " name ".")))))
+    ((None) (None))))
