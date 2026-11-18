@@ -12,8 +12,12 @@
 ;; tiles past 65,535, fused SSIM's gradient against central differences,
 ;; and densification's clones, splits and prunes, within the cloud's
 ;; capacity. The training checks are the renderer's gradients against
-;; central differences and Adam fitting a cloud: SwiftShader, the page's
-;; device, traps in its GPU process under that much training work (#856).
+;; central differences and Adam fitting a cloud. SwiftShader, the page's
+;; device, cannot run that much (#856): for a kernel with a
+;; `workgroupBarrier` it keeps a megabyte stack for every four invocations
+;; of each workgroup it runs at once, pools those stacks a worker thread
+;; and never frees them, and Chromium's allocator holds 8,192. The checks
+;; the page does run leave about 3,600.
 ;; tests/gpu/expected.mjs holds the lines.
 (define-library (gpu-test device)
   (export
