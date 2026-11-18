@@ -1,6 +1,7 @@
-// The `gpu` effect's host, as (snail shell gpu page) calls it: the page's
-// WebGPU device and the objects the program made on it, each by the id
-// this file gave it when it made it. The program keeps an object as long
+// The `gpu` effect's host, as (snail shell gpu host) calls it: the page's
+// WebGPU device, or Dawn's on Node (host/native/gpu.mjs), and the objects
+// the program made on it, each by the id this file gave it when it made
+// it. The program keeps an object as long
 // as it likes and lets it go with `destroy`, which takes effect at the next
 // submit, after the commands that use it; an encoder, a pass and a command
 // buffer go once used, and the canvas's texture and its views at the next
@@ -23,16 +24,25 @@ const OPTIONAL = ['texture-compression-bc', 'shader-f16', 'timestamp-query'];
 // One device per page, configured on its canvas.
 let shared = null;
 export function pageDevice(canvas) {
-  shared ??= requestDevice(canvas);
+  shared ??= configured(canvas);
   return shared;
 }
 
-// Buffers and storage bindings up to 1 GiB, 16384-texel textures and 64
-// bytes of color attachments per sample, or as much as the adapter has.
-async function requestDevice(canvas) {
+async function configured(canvas) {
   if (!navigator.gpu) throw new Error('this browser does not support WebGPU');
-  const adapter = await navigator.gpu.requestAdapter();
-  if (!adapter) throw new Error('this browser offers no WebGPU adapter');
+  const {device, optional} = await requestDevice(navigator.gpu);
+  const format = navigator.gpu.getPreferredCanvasFormat(), context = canvas.getContext('webgpu');
+  context.configure({device, format, alphaMode: 'opaque'});
+  return {device, context, format, optional};
+}
+
+// A device of `gpu`, the page's or Node's, with the baseline features and
+// the optional ones its adapter has. Buffers and storage bindings up to 1
+// GiB, 16384-texel textures and 64 bytes of color attachments per sample,
+// or as much as the adapter has.
+export async function requestDevice(gpu) {
+  const adapter = await gpu.requestAdapter();
+  if (!adapter) throw new Error('this host offers no WebGPU adapter');
   const missing = REQUIRED.filter(name => !adapter.features.has(name));
   if (missing.length) throw new Error(`this WebGPU adapter lacks ${missing.join(', ')}`);
   const optional = OPTIONAL.filter(name => adapter.features.has(name)), limits = adapter.limits;
@@ -43,16 +53,16 @@ async function requestDevice(canvas) {
     maxColorAttachmentBytesPerSample: Math.min(limits.maxColorAttachmentBytesPerSample, 64)}});
   device.addEventListener('uncapturederror', event => console.error('WebGPU:', event.error.message));
   device.lost.then(info => console.error('WebGPU: device lost:', info.reason, info.message));
-  const format = navigator.gpu.getPreferredCanvasFormat(), context = canvas.getContext('webgpu');
-  context.configure({device, format, alphaMode: 'opaque'});
-  return {device, context, format, optional};
+  return {device, optional};
 }
 
 // ---- Objects ----
 
 // The runtime gives the running program's memory, to read Bytes from
 // staging, and its tasks, to wait in. `open` answers the device, its
-// canvas context, format and optional features: the page's, or a test's.
+// canvas context, format and optional features: the page's, a test's, or
+// Node's, which has no canvas: there `canvas` is null and the program has
+// no screen.
 export function createGpu(canvas, runtime, open = pageDevice) {
   const objects = new Map();
   let gpu = null, next = 1, reply = [], held = new Uint8Array(), decoded = null, pass = null, queued = [];
@@ -107,10 +117,12 @@ export function createGpu(canvas, runtime, open = pageDevice) {
     },
     'finish-read': ticket => tasks().finish(Number(ticket)),
     'read-byte': index => held[index],
-    // The decoded texture is held until the program keeps it.
+    // The decoded texture is held until the program keeps it. Node has no
+    // image decoder.
     'start-decode'(ticket, usage, address) {
       const encoded = byteSnapshot(memory(), address);
       tasks().start(Number(ticket), async () => {
+        if (typeof createImageBitmap !== 'function') throw new Error('this host decodes no images');
         const bitmap = await createImageBitmap(new Blob([encoded]));
         const texture = gpu.device.createTexture({size: [bitmap.width, bitmap.height], format: 'rgba8unorm', usage});
         gpu.device.queue.copyExternalImageToTexture({source: bitmap}, {texture}, [bitmap.width, bitmap.height]);
@@ -183,6 +195,7 @@ export function createGpu(canvas, runtime, open = pageDevice) {
     // The canvas holds as many pixels as it covers on the screen. Last
     // frame's texture and its views go.
     'current-texture'() {
+      if (!canvas) throw new Error('this host has no screen: draw into a texture of your own');
       for (const id of canvasIds) objects.delete(id);
       const ratio = globalThis.devicePixelRatio ?? 1;
       const width = Math.max(1, Math.round(canvas.clientWidth * ratio));
@@ -227,7 +240,7 @@ function fields(bytes) {
 }
 
 // Each kind's descriptor, in the order of the kinds `made` in
-// (snail shell gpu page) numbers: its label, then its fields as the
+// (snail shell gpu host) numbers: its label, then its fields as the
 // matching `...-fields` in (snail shell gpu) writes them. A bind group's
 // pipeline is of either kind.
 const made = [

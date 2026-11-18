@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := check
-.PHONY: format check fetch test test-browser bootstrap unicode-tables generated-unicode site siegework hearsay pages
+.PHONY: format check fetch test test-browser test-gpu bootstrap unicode-tables generated-unicode site siegework hearsay pages
 
 CHEZ ?= scheme
 export CHEZ
@@ -29,6 +29,11 @@ test-browser:
 	node tests/browser/ui.mjs "$(CURDIR)"
 	node tests/browser/ui-requests.mjs "$(CURDIR)"
 	node tests/browser/gpu.mjs "$(CURDIR)"
+
+# The GPU checks on Node, on the GPU Dawn finds (host/native/gpu.mjs),
+# which CI does not have.
+test-gpu:
+	node tests/gpu.mjs "$(CURDIR)"
 
 # Rebuilds the command line from the compiler's source on Chez, then to a
 # fixpoint.

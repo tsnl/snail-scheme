@@ -45,12 +45,15 @@ frames cost the device more than a display frame does not queue them
 without bound. The calls are procedural;
 effects keep them reasonable. A `! gpu` row says exactly which functions
 touch the device, and handlers customize what the calls do without
-changing their callers. The browser target installs `provide-gpu`
-(`(snail shell gpu page)`), which runs them on the page's device through
-`host/browser/gpu.mjs`; `with-recorded-gpu` (`(snail shell gpu record)`)
-records them instead, so a library is tested on Node without a device
-(`tests/programs/gpu-record.sld`). `tests/browser/gpu.mjs` draws, reads back,
-decodes and dispatches a compute shader on Chromium's software WebGPU.
+changing their callers. `provide-gpu` (`(snail shell gpu host)`) runs them
+on the host's device through `host/browser/gpu.mjs`: the browser target
+installs it around a page's main, and a program on Node installs it
+itself, around the work that uses Dawn ([WebGPU on Node](#webgpu-on-node)).
+`with-recorded-gpu` (`(snail shell gpu record)`) records them instead, so a
+library is tested without a device (`tests/programs/gpu-record.sld`).
+`tests/browser/gpu.mjs` draws, reads back, decodes and dispatches a compute
+shader on Chromium's software WebGPU, and `tests/gpu.mjs` runs the checks
+that need no screen on Node's device.
 
 It is WebGPU itself, without bookkeeping:
 
@@ -332,6 +335,67 @@ Each row is `(snail shell graphics NAME)`:
   renders albedo, normal and depth, lights them with a sun pass of its own
   or the library's, and composites the result to the canvas with quads. A
   richer game builds its own passes from the same pieces.
+
+## WebGPU on Node
+
+On Node the device is [Dawn](https://dawn.googlesource.com/dawn)'s, the
+WebGPU implementation inside Chromium, through Dawn's own Node binding,
+`dawn.node`, as the [`webgpu`](https://github.com/dawn-gpu/node-webgpu)
+package publishes it prebuilt. `shell.nix` pins the package and gives its
+path as `SNAIL_WEBGPU`. On Linux, Dawn reaches the GPU through Vulkan,
+whose loader the binding finds through its runpath and whose driver is the
+system's. `host/native/gpu.mjs` hands Dawn to the same
+`host/browser/gpu.mjs` the page uses, at the program's first
+`request-device`, so a program that never asks for a device needs none. A
+program on Node installs the handler itself, as `tests/gpu/node.scm` does:
+
+```scheme
+(provide-gpu (lambda ()
+               (let ((info (request-device)))
+                 (write-line (string-append "format: " (texture-format-name (● info format))))
+                 (device-checks)
+                 (work-done))))
+```
+
+Node has no screen and decodes no images: there `current-texture` and
+`decode-image` fail, so a program draws into textures of its own, which are
+`rgba8unorm`, and reads them back.
+
+Dawn runs in the program's process. Chromium's runs in a GPU process that
+each call is sent to. On an RTX 5090, under Vulkan, a chain of 10,000
+dependent one-workgroup dispatches, alternating among eight pipelines and
+bind groups, measured:
+
+| Per dispatch | Node | Chromium 152 |
+| --- | --- | --- |
+| Encoding, on the program's thread | 1.4 μs | 0.06 μs |
+| Encoding and running | 2.3 μs | 1.9 μs |
+| Submitting one and waiting for it | 19 μs | 500–600 μs |
+
+The page only records each call for the GPU process, which encodes in
+parallel, so a long batch runs about as fast on either. A program that
+waits on the device often, as a training loop that reads its loss does,
+waits a thirtieth as long on Node. Chromium coarsens the page's clock to
+100 μs, which the last row's range shows.
+
+Dawn guards against the pages a browser runs: it validates every call,
+bounds-checks every shader's memory accesses, zeroes workgroup memory, and
+zeroes each resource before its first use. `SNAIL_DAWN` passes Dawn's own
+options (`host/native/gpu.mjs`), so a program that trusts its own commands
+and shaders can turn the first three off:
+
+```sh
+SNAIL_DAWN='enable-dawn-features=skip_validation,disable_robustness,disable_workgroup_init'
+```
+
+They cost little on the 5090. Without them, encoding a dispatch takes
+1.3 μs instead of 1.4, and a shader that gathers 268 million words at
+computed indices takes the same 7.84 ms. A mistake becomes undefined
+behavior: an invalid shader aborts the process. The fourth guard stays on,
+since WebGPU promises zeroed buffers and a tensor program's params start at
+zeros, Adam's moments among them: without it, the splat fit of
+`tests/gpu.mjs` trains from whatever memory held. So what Node gains is
+Dawn in its own process, not Dawn without its guards.
 
 ## Device baseline
 

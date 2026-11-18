@@ -10,6 +10,7 @@ import {socketImports} from './socket-imports.mjs';
 import {createProcesses, createTermination} from './process.mjs';
 import {processImports} from './process-imports.mjs';
 import {createAsyncFiles} from './async-files.mjs';
+import {nodeGpu} from './gpu.mjs';
 
 // ---- One reactor initialization and one program invocation ----
 //
@@ -58,7 +59,8 @@ async function run(filename, arguments_) {
   const host = {'snail.runtime.wasm': wasmImports(() => program),
                 'snail.runtime.native.async-files': asyncFiles.imports,
                 'snail.runtime.native.socket': socketImports(() => program, tasks, tcp, udp),
-                'snail.runtime.native.process': processImports(() => program, tasks, processes, termination)};
+                'snail.runtime.native.process': processImports(() => program, tasks, processes, termination),
+                'snail.runtime.gpu': nodeGpu(() => program, tasks).imports};
   // A task waiting on a timer or a ticket is live work even when no OS
   // handle keeps Node alive.
   const keepAlive = setInterval(() => {}, 60_000);
