@@ -6,7 +6,7 @@ tone-mapped. It is composed of graphics middleware, each a library usable
 on its own: a BVH and its ray queries, an environment light, a denoiser.
 The [primer](path-tracing.md) gives the physics; this chapter gives the
 program. `src/apps/viewer` flies through Khronos's glTF sample models
-with it.
+with it, or through the user's own: **[open the viewer](../play/viewer/)**.
 
 ## A frame
 
@@ -83,11 +83,15 @@ density it is sampled with, and a sampled direction.
 ## Scenes
 
 `(snail shell graphics gltf)` reads a glTF file's JSON into the meshes,
-materials, images and buffers it names, its URIs decoded to file names.
+materials, images and buffers it names. Each buffer and image has a
+`Source`: a file named by a URI relative to the scene's, a base64 `data:`
+URI, the binary chunk of a `.glb` file, whose JSON `glb-chunks` finds, or
+for an image a range of a buffer.
 `load-scene` of `(snail shell graphics trace scene)` takes a function that
 reads several paths at once, so a page fetches every buffer and image
 together (`read-resources`, [linked files](../snail-scheme/types.md#linked-files)).
-It unpacks the buffers on the device into one vertex and one index buffer,
+Only the files the sources name are read; the rest come with the scene's
+file. It unpacks the buffers on the device into one vertex and one index buffer,
 draws each image into a layer of one array texture with its mipmaps, and
 scales a scene less than a unit across up to one.
 
@@ -107,8 +111,24 @@ files themselves stay outside version control, under `build/`, as
 
 The page's query chooses the scene: `?model=Sponza&env=helipad`, with
 `env=sky` or none for the drawn sky, and `&eye=x,y,z,yaw,pitch` for the
-camera. `models.html` links every model. Drag to look, WASD to fly, Q and E
-down and up, the wheel for speed, `[` and `]` for exposure.
+camera. `models.html` links every model and credits its authors. Drag to
+look, WASD to fly, Q and E down and up, the wheel for speed, `[` and `]`
+for exposure.
+
+The user's own files replace the scene: a `.glb`, or a `.gltf` with the
+files it names, and an `.hdr` file to light it. They come dropped on the
+page, a folder at a time or several files, or through the browser's
+pickers, O for files and Shift+O for a folder, which the File System
+Access API's `showDirectoryPicker` opens where the browser has it.
+`(snail shell files)` is that effect: `open-picker` asks the user and
+returns, a `FilesEvent` says files were dropped or picked, and each file
+the user chose is its path within the choice and a `blob:` address that
+`fetch` reads. `retrace` keeps the tracer's pipelines for the new scene, and the
+old scene and light are destroyed.
+
+The site's viewer links seven CC0 and CC-BY models (`make viewer-samples`)
+and no sample environments, whose licenses mostly forbid publishing them;
+it opens on FlightHelmet in the drawn sky.
 
 ## Performance
 

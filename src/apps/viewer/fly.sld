@@ -4,6 +4,7 @@
 (define-library (apps viewer fly)
   (export
    Fly
+   Fly-stops-set
    fly-over
    steered
    flown

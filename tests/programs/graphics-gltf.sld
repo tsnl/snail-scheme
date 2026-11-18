@@ -1,9 +1,13 @@
 ;; A small glTF scene read: two buffers laid end to end, an interleaved
 ;; view and a packed one, a node turned a quarter about y and moved above
-;; its parent, which scales by 2, and a masked, emissive material.
+;; its parent, which scales by 2, and a masked, emissive material; the
+;; second buffer a data: URI, the second image in a buffer view. Then a
+;; GLB file's chunks, its JSON naming the binary chunk and a padded data:
+;; URI.
 (import
  (snail core base)
  (snail core io)
+ (snail shell utf8)
  (snail shell graphics gltf))
 
 (define scene
@@ -17,14 +21,54 @@
    "\"materials\":[{\"pbrMetallicRoughness\":{\"baseColorFactor\":[1,0.5,0.25,1],\"baseColorTexture\":{\"index\":0},"
    "\"metallicFactor\":0},\"alphaMode\":\"MASK\",\"alphaCutoff\":0.25,\"emissiveFactor\":[1,1,0],"
    "\"extensions\":{\"KHR_materials_emissive_strength\":{\"emissiveStrength\":4.5}}}],"
-   "\"textures\":[{\"source\":1}],\"images\":[{\"uri\":\"a.png\"},{\"uri\":\"b.jpg\"}],"
-   "\"buffers\":[{\"uri\":\"one.bin\",\"byteLength\":61},{\"uri\":\"two.bin\",\"byteLength\":6}],"
+   "\"textures\":[{\"source\":1}],\"images\":[{\"uri\":\"a.png\"},{\"bufferView\":1,\"mimeType\":\"image/png\"}],"
+   "\"buffers\":[{\"uri\":\"one.bin\",\"byteLength\":61},"
+   "{\"uri\":\"data:application/octet-stream;base64,AAECAwQF\",\"byteLength\":6}],"
    "\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":60,\"byteStride\":20},"
    "{\"buffer\":1,\"byteOffset\":0,\"byteLength\":6}],"
    "\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\","
    "\"min\":[-1,0,0],\"max\":[1,1,0]},"
    "{\"bufferView\":0,\"byteOffset\":12,\"componentType\":5126,\"count\":3,\"type\":\"VEC2\"},"
    "{\"bufferView\":1,\"componentType\":5123,\"count\":3,\"type\":\"SCALAR\"}]}"))
+
+(define (source-text (source Source)) (→ String)
+  (match source
+    ((FileSource path) path)
+    ((DataSource bytes) (string-append "data " (bytes-text bytes)))
+    ((ChunkSource) "chunk")
+    ((ViewSource buffer offset length)
+     (string-join (map show (list buffer offset length)) " "))))
+
+(define (bytes-text (bytes Bytes)) (→ String)
+  (string-join (map (lambda (byte) (show (u8->i32 byte))) (array->list bytes)) " "))
+
+(define (sources (gltf-sources (List Source))) (→ String)
+  (string-join (map source-text gltf-sources) ", "))
+
+;; A GLB file: its header, then its JSON chunk padded with spaces and its
+;; binary chunk, each after its length and type.
+(define (glb (json String) (bin Bytes)) (→ Bytes)
+  (let* ((padded (string-append json
+                                (make-string (remainder (- 4 (remainder (string-length json) 4)) 4)
+                                             #\space)))
+         (text (string->utf8 padded)))
+    (array-concatenate (list (string->utf8 "glTF")
+                             (word 2)
+                             (word (+ 28 (+ (array-length text) (array-length bin))))
+                             (word (array-length text))
+                             (string->utf8 "JSON")
+                             text
+                             (word (array-length bin))
+                             (string->utf8 "BIN")
+                             (make-array 1 (i32->u8 0))
+                             bin))))
+
+(define (word (value I64)) (→ Bytes)
+  (array-generate 4
+                  (lambda (index)
+                    (i32->u8 (i64->i32 (remainder (quotient value (expt 256 index)) 256))))))
+
+(define (expt (base I64) (power I64)) (→ I64) (if (= power 0) 1 (* base (expt base (- power 1)))))
 
 (define (attribute-text (attribute Attribute)) (→ String)
   (string-join (map show
@@ -40,8 +84,8 @@
 (match (read-gltf scene "models/x/")
   ((Ok gltf)
    (write-line
-    (string-append "buffers: " (string-join (● gltf buffers) " ") " size " (show (● gltf size))))
-   (write-line (string-append "images: " (string-join (● gltf images) " ")))
+    (string-append "buffers: " (sources (● gltf buffers)) " size " (show (● gltf size))))
+   (write-line (string-append "images: " (sources (● gltf images))))
    (for-each (lambda (placed)
                (let ((primitive (● placed primitive)))
                  (write-line (string-append "positions: " (attribute-text (● primitive positions))))
@@ -66,3 +110,20 @@
      (write-line
       (string-append "bounds: " (numbers (● bounds first)) " to " (numbers (● bounds second))))))
   ((Err reason) (write-line reason)))
+
+(match (glb-chunks
+        (glb
+         "{\"buffers\":[{\"byteLength\":4},{\"uri\":\"data:application/octet-stream;base64,AQI=\",\"byteLength\":2}]}"
+         (list->array (map i32->u8 (list 9 8 7 6)))))
+  ((Some chunks)
+   (write-line (string-append "glb binary: " (bytes-text (● chunks second))))
+   (match (utf8->string (● chunks first))
+     ((Ok text)
+      (match (read-gltf text "models/y/")
+        ((Ok gltf) (write-line (string-append "glb buffers: " (sources (● gltf buffers)))))
+        ((Err reason) (write-line reason))))
+     ((Err _) (write-line "glb JSON is not UTF-8"))))
+  ((None) (write-line "not GLB")))
+(match (glb-chunks (string->utf8 "{\"asset\":{\"version\":\"2.0\"}}"))
+  ((Some _) (write-line "JSON read as GLB"))
+  ((None) (write-line "JSON is not GLB")))

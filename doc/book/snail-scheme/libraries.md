@@ -72,6 +72,8 @@ the runtime interfaces.
 | `(snail shell dom page)` | `with-page-dom`, the handler of `dom` over the browser page's document (`host/browser/dom.mjs`), delivering the events its listeners fire, wakes, hiding and reloads from the page's event queue. |
 | `(snail shell fetch)` | The `fetch` effect: `request method url headers body`, answering a `Reply` or why there was none; `fetch-bytes url`, a GET's body as `Bytes` or why there was none; `page-address`, the page's URL; and streams of server-sent events of the kinds named, `stream-open`, `stream-next`, which answers a `StreamEvent`, and `stream-close`; a stream that names `error` hears each dropped connection. |
 | `(snail shell fetch page)` | `with-page-fetch`, the handler of `fetch` over the page's `fetch` and `EventSource` (`host/browser/fetch.mjs`). |
+| `(snail shell files)` | The `files` effect: the files a user hands the program, each a `Chosen` path within the choice and an address `fetch-bytes` reads. `open-picker` asks the user for `SomeFiles` or a `Folder` without waiting; a `FilesEvent` says files were dropped or picked, and `chosen-files` lists the latest choice. |
+| `(snail shell files page)` | `with-page-files`, the handler of `files` over the page's pickers and drops (`host/browser/files.mjs`). |
 | `(snail shell ui)` | [Document interfaces](applications.md#document-interfaces): `Html` and `Attribute` trees, the keyed reconciler, and `run-ui`, which runs a model, `view` and `update` with commands as tasks, the window's listeners, and messages to start with, commits completed presentations, and saves on request, hiding or close. |
 | `(snail shell ui page)` | `InterfaceHandler` and `run-interface`, a document application's loop, and `Command`, the type of its commands. |
 
@@ -102,6 +104,7 @@ targets to install ([handlers from the host](effects.md#handlers-from-the-host))
 | `(snail runtime browser storage)` | Loading and storing the page's checkpoint, read back a byte at a time. |
 | `(snail runtime browser dom)` | The page's document: nodes and listeners as handles, and text as UTF-8 bytes. `(snail shell dom page)` implements `dom` over it. |
 | `(snail runtime browser fetch)` | The page's requests and event streams, staged a part at a time. `(snail shell fetch page)` implements `fetch` over it. |
+| `(snail runtime browser files)` | The page's pickers, opened without waiting, and its latest choice of files, listed a scalar at a time. `(snail shell files page)` implements `files` over it. |
 | `(snail runtime gpu)` | The host's WebGPU device, the page's or Dawn's on Node: each object a handle, a descriptor staged as words and texts, and the device, reads and decodes waited for by ticket. `(snail shell gpu host)` implements `gpu` over it. |
 | `(snail runtime native socket)` | Node's TCP and UDP sockets as handles, each wait started under its ticket and answered with numbers, and the bytes an answer holds ([the native boundary](../runtimes/networking.md#wasm-boundary)). |
 | `(snail runtime native process)` | Node's child processes and termination signals, answered as the sockets are, with a command sent a character at a time. |

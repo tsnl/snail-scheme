@@ -5,17 +5,22 @@
 # environment's HDR file, and src/apps/viewer/public/models.html links the
 # viewer to each model in a chosen environment.
 #
-#   scripts/fetch-khronos-samples [MODEL ...]
+#   scripts/fetch-khronos-samples [--no-environments] [MODEL ...]
 #
 # With no MODEL, every model with a glTF/ variant. The models come from a
 # sparse, blobless clone in build/gltf-samples, so only the files of the
-# models asked for are downloaded; asking again adds to it. The
+# models asked for are downloaded, with each model's metadata.json, which
+# credits its authors under its license; asking again adds to it. The
 # environments (about 400 MB, through Git LFS) come once into
-# build/gltf-environments. src/khronos/models and environments are links
+# build/gltf-environments, unless --no-environments: most of their
+# licenses do not allow publishing them, so the site leaves them out. src/khronos/models and environments are links
 # into those clones, outside version control, as src/khronos/ATTRIBUTION.md
 # explains.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+environments=build/gltf-environments
+with_environments=1
+if [ "${1:-}" = --no-environments ]; then with_environments=0; shift; fi
 cache=build/gltf-samples
 if [ ! -d "$cache/.git" ]; then
   git clone --quiet --depth 1 --filter=blob:none --no-checkout \
@@ -23,16 +28,15 @@ if [ ! -d "$cache/.git" ]; then
   git -C "$cache" sparse-checkout init --no-cone
 fi
 if [ $# -eq 0 ]; then
-  patterns=('/Models/*/glTF/')
+  patterns=('/Models/*/glTF/' '/Models/*/metadata.json')
 else
   patterns=()
-  for model in "$@"; do patterns+=("/Models/$model/glTF/"); done
+  for model in "$@"; do patterns+=("/Models/$model/glTF/" "/Models/$model/metadata.json"); done
 fi
 existing=$(git -C "$cache" sparse-checkout list 2>/dev/null || true)
 git -C "$cache" sparse-checkout set --no-cone $existing "${patterns[@]}"
 git -C "$cache" checkout --quiet
-environments=build/gltf-environments
-if [ ! -d "$environments/.git" ]; then
+if [ "$with_environments" = 1 ] && [ ! -d "$environments/.git" ]; then
   GIT_LFS_SKIP_SMUDGE=1 git clone --quiet --depth 1 --filter=blob:none --no-checkout \
     https://github.com/KhronosGroup/glTF-Sample-Environments.git "$environments"
   git -C "$environments" sparse-checkout set --no-cone '/*.hdr'
@@ -41,14 +45,24 @@ if [ ! -d "$environments/.git" ]; then
   git -C "$environments" lfs pull --include='*.hdr'
 fi
 ln -sfn ../../"$cache"/Models src/khronos/models
-ln -sfn ../../"$environments" src/khronos/environments
+if [ "$with_environments" = 1 ]; then ln -sfn ../../"$environments" src/khronos/environments; fi
 page=src/apps/viewer/public/models.html
+# Who made a model and under which license, from its metadata.json.
+credit() {
+  [ -f "$1" ] || return 0
+  node -e '
+    const {legal = []} = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+    const escape = text => String(text ?? "").replace(/[&<>"]/g, c => `&#${c.charCodeAt(0)};`);
+    console.log(legal.map(entry => `<small>${escape(entry.what)} by ${escape(entry.artist)}, ` +
+      (entry.licenseUrl ? `<a href="${escape(entry.licenseUrl)}">${escape(entry.license)}</a>` : escape(entry.license)) +
+      `</small>`).join("; "));' "$1"
+}
 {
   echo '<!doctype html><meta charset="utf-8"><title>Models</title>'
   echo '<style>body{font:14px system-ui,sans-serif;background:#111;color:#ddd;margin:24px}a{color:#9cf}li{margin:3px 0}</style>'
   echo '<h1>glTF sample models</h1>'
   echo '<p>Environment: <select id="env"><option value="sky">sky</option>'
-  for hdr in "$environments"/*.hdr; do
+  for hdr in src/khronos/environments/*.hdr; do
     [ -e "$hdr" ] || continue
     echo "<option>$(basename "$hdr" .hdr)</option>"
   done
@@ -56,12 +70,13 @@ page=src/apps/viewer/public/models.html
   for model in "$cache"/Models/*/glTF; do
     [ -d "$model" ] || continue
     name=$(basename "$(dirname "$model")")
-    echo "<li><a href=\"index.html?model=$name\">$name</a></li>"
+    echo "<li><a href=\"index.html?model=$name\">$name</a> $(credit "$model/../metadata.json")</li>"
   done
   echo '</ul>'
   echo '<script>const env = document.getElementById("env");'
   echo 'try { env.value = localStorage.getItem("env") ?? "footprint_court"; } catch { env.value = "footprint_court"; }'
+  echo 'if (!env.value) env.selectedIndex = 0;'
   echo 'env.onchange = () => { try { localStorage.setItem("env", env.value); } catch {} };'
-  echo 'document.addEventListener("click", event => { const a = event.target.closest("a"); if (a) a.href = a.href.split("&env=")[0] + "&env=" + env.value; });</script>'
+  echo 'document.addEventListener("click", event => { const a = event.target.closest("a[href^=\"index.html\"]"); if (a) a.href = a.href.split("&env=")[0] + "&env=" + env.value; });</script>'
 } > "$page"
 echo "$page"
