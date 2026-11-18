@@ -1016,8 +1016,8 @@
     ;; page's main. A program on Node installs it itself, around the work
     ;; that uses the device, as a page installs `fetch`, so a Node program
     ;; that draws nothing links none of it. Node's device is Dawn's
-    ;; (host/native/gpu.mjs); it has no screen and decodes no images, so
-    ;; there `current-texture` and `decode-image` fail.
+    ;; (host/native/gpu.mjs); it has no screen, so there `current-texture`
+    ;; fails, and it decodes images as a page does.
     ;;
     ;;   (provide-gpu (lambda () (let ((info (request-device))) ...)))
 

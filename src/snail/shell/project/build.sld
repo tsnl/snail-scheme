@@ -789,10 +789,11 @@
     ;; `node main.mjs ARGUMENT ...` runs wherever it is copied. Its main.mjs
     ;; runs NAME.wasm with the native host, whose files it holds under host/
     ;; as the repository keeps them, so their imports are unchanged. A
-    ;; program that holds (snail runtime gpu) may ask for a device, and
-    ;; depends on the webgpu package at the version the repository's
-    ;; package.json pins; npm installs it in the package, or Node finds the
-    ;; repository's in a folder above. Other programs depend on nothing. An
+    ;; program that holds (snail runtime gpu) may ask for a device and
+    ;; decode an image, and depends on the webgpu and sharp packages at the
+    ;; versions the repository's package.json pins; npm installs them in
+    ;; the package, or Node finds the repository's in a folder above. Other
+    ;; programs depend on nothing. An
     ;; executable made of the package, or its publication, is the work of
     ;; Node's own tools (doc/book/snail-scheme/projects.md, "A Node package").
 
@@ -863,22 +864,24 @@
                  (if (member? "snail.runtime.gpu" libraries)
                      (list (new Pair
                              (first "dependencies")
-                             (second (JsonObject (list (new Pair
-                                                         (first "webgpu")
-                                                         (second (webgpu-version root))))))))
+                             (second (JsonObject (map (lambda (package)
+                                                        (new Pair
+                                                          (first package)
+                                                          (second (pinned-version root package))))
+                                                      (list "webgpu" "sharp"))))))
                      (Nil))))))
 
-    ;; The webgpu version the repository's package.json pins, which its own
-    ;; runs use too.
+    ;; The version of `package` the repository's package.json pins, which
+    ;; its own runs use too.
 
-    (define (webgpu-version (root String)) (→ Json) (! fs building)
+    (define (pinned-version (root String) (package String)) (→ Json) (! fs building)
       (let* ((path (string-append root "/package.json"))
              (manifest (match (read-text-file path 1048576)
                          ((Ok text) (string->json text))
                          ((Err _) (None)))))
-        (match (member-of (member-of manifest "dependencies") "webgpu")
+        (match (member-of (member-of manifest "dependencies") package)
           ((Some (JsonString version)) (JsonString version))
-          (_ (fail-build (string-append path " pins no version of webgpu"))))))
+          (_ (fail-build (string-append path " pins no version of " package))))))
 
     (define (member-of (value (Option Json)) (name String)) (→ (Option Json))
       (match value

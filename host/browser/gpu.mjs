@@ -34,7 +34,16 @@ async function configured(canvas) {
   const {device, optional} = await requestDevice(navigator.gpu);
   const format = navigator.gpu.getPreferredCanvasFormat(), context = canvas.getContext('webgpu');
   context.configure({device, format, alphaMode: 'opaque'});
-  return {device, context, format, optional};
+  return {device, context, format, optional, decode: encoded => pageImage(device, encoded)};
+}
+
+// An encoded image as the browser decodes it, for `imageTexture`: turned
+// as its EXIF orientation says, with straight alpha. Bytes the browser
+// decodes no image from answer null.
+async function pageImage(device, encoded) {
+  const bitmap = await createImageBitmap(new Blob([encoded])).catch(() => null);
+  return bitmap && {width: bitmap.width, height: bitmap.height,
+    write(texture) { device.queue.copyExternalImageToTexture({source: bitmap}, {texture}, [bitmap.width, bitmap.height]); bitmap.close(); }};
 }
 
 // A device of `gpu`, the page's or Node's, with the baseline features and
@@ -62,9 +71,11 @@ export async function requestDevice(gpu) {
 
 // The runtime gives the running program's memory, to read Bytes from
 // staging, and its tasks, to wait in. `open` answers the device, its
-// canvas context, format and optional features: the page's, a test's, or
-// Node's, which has no canvas: there `canvas` is null and the program has
-// no screen.
+// canvas context, format and optional features, and `decode`, the host's
+// image decoder: the page's, a test's, or Node's, which has no canvas:
+// there `canvas` is null and the program has no screen. `decode` answers
+// an encoded image's width, height and `write`, which puts its texels in
+// a texture of that size, or null for bytes it decodes no image from.
 export function createGpu(canvas, runtime, open = pageDevice) {
   const objects = new Map();
   let gpu = null, next = 1, reply = [], held = new Uint8Array(), decoded = null, pass = null, queued = [];
@@ -120,17 +131,14 @@ export function createGpu(canvas, runtime, open = pageDevice) {
     'finish-read': ticket => tasks().finish(Number(ticket)),
     'read-byte': index => held[index],
     // The decoded texture is held until the program keeps it; bytes that
-    // are no image the browser decodes answer a width of 0. Node has no
-    // image decoder.
+    // are no image the host decodes answer a width of 0.
     'start-decode'(ticket, usage, address) {
       const encoded = byteSnapshot(memory(), address);
       tasks().start(Number(ticket), async () => {
-        if (typeof createImageBitmap !== 'function') throw new Error('this host decodes no images');
-        const bitmap = await createImageBitmap(new Blob([encoded])).catch(() => null);
-        if (!bitmap) return null;
-        const texture = gpu.device.createTexture({size: [bitmap.width, bitmap.height], format: 'rgba8unorm', usage});
-        gpu.device.queue.copyExternalImageToTexture({source: bitmap}, {texture}, [bitmap.width, bitmap.height]);
-        bitmap.close();
+        const image = await gpu.decode(encoded);
+        if (!image) return null;
+        const texture = gpu.device.createTexture({size: [image.width, image.height], format: 'rgba8unorm', usage});
+        image.write(texture);
         return texture;
       }, texture => { decoded = texture; return texture?.width ?? 0; });
     },

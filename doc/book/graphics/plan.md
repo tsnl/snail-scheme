@@ -368,9 +368,19 @@ program on Node installs the handler itself, as `tests/gpu/node.scm` does:
                  (work-done))))
 ```
 
-Node has no screen and decodes no images: there `current-texture` and
-`decode-image` fail, so a program draws into textures of its own, which are
-`rgba8unorm`, and reads them back.
+Node has no screen: there `current-texture` fails, so a program draws into
+textures of its own, which are `rgba8unorm`, and reads them back.
+
+Node decodes no images of its own either, as a browser does, so
+`decode-image` there is npm's [`sharp`](https://sharp.pixelplumbing.com)
+package, a binding to libvips, pinned and installed as `webgpu` is and
+loaded at a program's first decode. It reads what a browser reads, JPEG,
+PNG, WebP, GIF and AVIF among them, and gives the same texels: turned as
+the image's EXIF orientation says, in sRGB, with straight alpha. It decodes
+on libuv's threads, so several images decode at once while the program's
+tasks go on: a 4946 by 3286 JPEG took 90 to 103 ms, four at once 101 ms, and
+a 1237 by 822 one 10 ms. The package's own code is Apache-2.0; the libvips
+it installs prebuilt is LGPL-3.0-or-later.
 
 Dawn runs in the program's process. Chromium's runs in a GPU process that
 each call is sent to. On an RTX 5090, under Vulkan, a chain of 10,000

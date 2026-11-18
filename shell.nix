@@ -27,7 +27,9 @@ let
   # package, which package.json pins and `make fetch` installs. On Linux,
   # Dawn opens the Vulkan loader by name, which finds the GPU's driver
   # where the system keeps it; NixOS keeps no loader where the dynamic
-  # linker looks, so the shell names nixpkgs'.
+  # linker looks, so the shell names nixpkgs'. npm's sharp package, which
+  # decodes images on Node, carries the libvips it needs and asks for
+  # nothing here.
   linux = pkgs.stdenv.hostPlatform.isLinux;
 in
 pkgs.mkShell {

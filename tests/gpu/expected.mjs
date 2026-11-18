@@ -15,6 +15,7 @@ export const pageLines = [
 ];
 
 export const deviceLines = [
+  'decoded: 255 0 0 255 0 255 0 255',
   'scene: 230 3 3 255 230 3 3 255 153 153 153 255 153 153 153 255',
   // The same light through Hable's curve and sRGB encoding: the grey
   // tile's 0.6 is 159, as the curve computed by hand gives.

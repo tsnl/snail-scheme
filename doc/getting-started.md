@@ -23,6 +23,7 @@ Whichever you pick, finish with [the first run](#the-first-run).
 | tree-sitter CLI | 0.26.11 | `make test`'s check of the editors' grammar, which also needs a C compiler. |
 | Chromium | | `make test-browser` and `tests/browser/page.mjs`. Set `CHROMIUM` to its path when it isn't `chromium`. |
 | The `webgpu` package | 0.6.2 | WebGPU on Node: Dawn's `dawn.node`, which `package.json` pins and `make fetch` installs from npm, for `host/native/gpu.mjs` and `make test-gpu`. On Linux it needs the Vulkan loader and a Vulkan driver for the GPU. |
+| The `sharp` package | 0.35.5 | Images on Node: a binding to libvips, which `package.json` pins and `make fetch` installs from npm, for `decode-image` in `host/native/gpu.mjs`. Its prebuilt libvips is LGPL-3.0-or-later. |
 
 The first four compile and run programs, including the Scheme formatter used
 by `make check`; the rest format Nix, build or test the site, and test the
