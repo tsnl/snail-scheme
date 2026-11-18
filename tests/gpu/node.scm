@@ -6,7 +6,6 @@
  (snail core base)
  (snail core io)
  (snail shell gpu)
- (snail shell gpu host)
  (gpu-test device))
 
 (provide-gpu (lambda ()

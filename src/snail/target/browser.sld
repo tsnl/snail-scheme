@@ -28,8 +28,7 @@
    (only (snail shell resource) resource provide-resource)
    (only (snail shell wasm) wasm provide-wasm)
    (only (snail shell page) events storage provide-events provide-storage)
-   (only (snail shell gpu) gpu)
-   (only (snail shell gpu host) provide-gpu))
+   (only (snail shell gpu) gpu provide-gpu))
   (begin
 
     (define (provide (work (Fn → T ! output-port clock resource wasm events storage gpu e)))
