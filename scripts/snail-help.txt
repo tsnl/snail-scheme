@@ -13,7 +13,7 @@ and the files it links under store/, shared with every other build through
 build/.snail-store. With --release the module is also optimized by wasm-opt.
 A browser build adds the browser host and the public/ folder beside FILE.
 A node build adds the native host, main.mjs and package.json: an npm
-package, which `node main.mjs ARGUMENT ...` runs wherever it is copied.
+package, which `npm start -- ARGUMENT ...` runs wherever it is copied.
 
 run builds FILE as build does, then becomes its program on Node in the
 current directory, with the ARGUMENTs, retaining terminal IO, exit status
