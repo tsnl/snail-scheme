@@ -201,9 +201,10 @@ structure from motion leaves: `cameras.bin`, each camera's pinhole;
 `images.bin`, each photograph's pose and file name; and `points3D.bin`,
 each point's position and color. A reader answers `(Ok records)` or why
 not, a truncated file or a camera model other than SIMPLE_PINHOLE and
-PINHOLE, whose photographs must be undistorted first. `camera-values`
-turns a camera and a pose into the 16 numbers of `camera-param`, the
-intrinsics scaled to the photographs' size.
+PINHOLE, whose photographs must be undistorted first. `camera-sized` is
+a camera as it took photographs of another size, as a dataset's smaller
+copies are, and `camera-values` turns a camera and a pose into the 16
+numbers of `camera-param`.
 
 `(snail shell graphics splat-fit)` is the reference's training as three
 tensor graphs a host compiles for a capacity of gaussians, on one set of
@@ -236,16 +237,30 @@ params:
 - **`opacity-reset`** brings every opacity down to 0.01 and clears its
   moments.
 
-`src/apps/train` runs the reference's schedule, on Node or in a page. The
-trainer performs `dataset` for the scene's files, which a page handles by
-fetching them from the scene's URL and a program on Node by reading them
-from its folder, and is given how a step's image is shown: on the page's
-canvas, or nowhere. It starts a
+`src/apps/train` runs the reference's schedule, on Node or in a page, in
+three parts:
+
+- **The trainer**, `(apps train trainer)`, knows no file, address or
+  format. It trains on a `Scene`: the camera, the posed views to train on
+  and those held out, and the sparse points, as data. It performs
+  `photographs` for a view's photograph, a texture on the device, and is
+  given how a step's image is shown: on the page's canvas, or nowhere.
+- **The dataset**, `(apps train dataset)`, is a COLMAP dataset as such a
+  scene: where its files are, the camera scaled to its photographs, the
+  decoding, and every eighth photograph held out.
+- **The entry points** say how a file's bytes are had and what is kept. A
+  page fetches them from the dataset's URL and keeps nothing; a program
+  on Node reads them from its folder and keeps the cloud.
+
+A program whose scene is made or embedded calls the trainer alone, with a
+`Scene` of its own and a texture for each view asked for.
+
+The trainer starts a
 gaussian at each sparse point, its scale the root of the mean squared
 distance to its three nearest neighbours (`splat-knn`, on the device), its
 opacity 0.1. Each step trains on a photograph not yet visited in this
-round, copied on the device into the target param. A photograph is read
-and decoded four steps ahead, in a task of its own that posts it to a
+round, copied on the device into the target param. A photograph is asked
+for four steps ahead, in a task of its own that posts it to a
 mailbox, and let go after its step, so the device holds five photographs
 and not the scene's: bicycle's 194 at full resolution would take 12.6 GB
 as textures. It raises the
@@ -258,12 +273,12 @@ the new ones. A step and densification make about 3.3 KB a gaussian of
 capacity, mostly Adam's: each param's value and moments, and its gradient
 and new values in scratch. So the 4,194,304 gaussians `gaussians` allows
 by default take 14 GB beside the sorts and photographs, and the 8,388,608
-that doubling would reach next don't fit a 32 GB RTX 5090. Every eighth
-photograph is held out, and the PSNR on those is reported at the end.
-`train` answers the programs it trained, and `trained-ply` reads their
-cloud back from the device as the `.ply` file the reference implementation
-writes, which the trainer on Node keeps at `cloud=PATH` and
-`src/apps/splats` flies through.
+that doubling would reach next don't fit a 32 GB RTX 5090. The PSNR on
+the views held out is reported at the end.
+`train` answers the programs it trained, and `trained-cloud` reads their
+cloud back from the device as arrays. The program on Node writes those
+with `write-ply`, as the `.ply` file the reference implementation writes,
+at `cloud=PATH`, and `src/apps/splats` flies through it.
 
 On Mip-NeRF 360's bicycle at `images_4`, the paper's resolution for its
 outdoor scenes, on an RTX 5090, the 30,000 steps took 33.5 minutes on Node
