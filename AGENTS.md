@@ -164,7 +164,9 @@ and `snail-scheme format`; `make test` checks its CLI and every tracked
 Scheme file. Browser changes should be seen running:
 `node tests/browser/page.mjs URL SCREENSHOT` drives headless Chromium.
 GPU changes should run on a device: `make test-gpu` runs the GPU checks on
-Node's, through Dawn, and `make test-browser` on the page's.
+Node's, through Dawn on Vulkan (lavapipe on a machine without a GPU, as
+CI is), and `make test-browser` on the page's, SwiftShader in headless
+Chromium.
 
 ## Applications
 
