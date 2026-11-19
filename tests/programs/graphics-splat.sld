@@ -66,6 +66,8 @@
 (define (show-cloud (cloud Cloud)) (→ Unit) (! output-port)
   (write-line (string-append "count: " (show (● cloud count))))
   (write-line (string-append "position: " (floats (● cloud gaussians) 12 3)))
+  (write-line (string-append "center: "
+                             (string-join (map f64->string (cloud-center cloud 1)) " ")))
   (write-line (string-append "transform: " (show (f32->bits (float-at (● cloud gaussians) 15)))))
   (write-line (string-append "rotation: " (floats (● cloud gaussians) 16 4)))
   (write-line (string-append "scale: " (floats (● cloud gaussians) 20 3)))
