@@ -27,13 +27,17 @@ let
   # package, which package.json pins and `make fetch` installs. On Linux,
   # Dawn opens the Vulkan loader by name, which finds the GPU's driver
   # where the system keeps it; NixOS keeps no loader where the dynamic
-  # linker looks, so the shell names nixpkgs'. npm's @napi-rs/canvas
-  # package, which decodes images on Node, carries the Skia it needs and
-  # asks for nothing here.
+  # linker looks, so the shell names nixpkgs'. A machine without a GPU,
+  # as CI is, runs Vulkan on the CPU through Mesa's lavapipe, which the
+  # shell adds to the system's drivers; Dawn prefers a GPU to it. npm's
+  # @napi-rs/canvas package, which decodes images on Node, carries the
+  # Skia it needs and asks for nothing here.
   linux = pkgs.stdenv.hostPlatform.isLinux;
+  lavapipe = "${pkgs.mesa}/share/vulkan/icd.d/lvp_icd.${pkgs.stdenv.hostPlatform.parsed.cpu.name}.json";
 in
 pkgs.mkShell {
   LD_LIBRARY_PATH = pkgs.lib.optionalString linux (pkgs.lib.makeLibraryPath [ pkgs.vulkan-loader ]);
+  VK_ADD_DRIVER_FILES = pkgs.lib.optionalString linux lavapipe;
   packages = with pkgs; [
     git
     git-filter-repo

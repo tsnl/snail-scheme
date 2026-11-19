@@ -4,7 +4,8 @@
 // and WebGPU reports no error. Its build is a package that depends on the
 // webgpu and @napi-rs/canvas packages, and runs as it would be shipped:
 // Node finds both in the repository's node_modules, which `make fetch`
-// installs. CI has no GPU, so `make test-gpu` runs this.
+// installs. `make test-gpu` runs this, on the machine's GPU, or in CI,
+// which has none, on the CPU through lavapipe (shell.nix).
 //
 //   node tests/gpu.mjs ROOT
 import assert from 'node:assert/strict';

@@ -144,7 +144,9 @@
 
     ;; SSIM reads the Fill through storage buffers. Addition uses the same
     ;; Fill as a literal. At the center, whose window lies inside the image,
-    ;; an image's SSIM with itself is 1, so the sum is 4.
+    ;; an image's SSIM with itself is 1, so the sum is 4. Its contrast term
+    ;; divides the difference of two nearly equal sums by C2 = 9e-4, which
+    ;; magnifies their rounding: lavapipe gives 3.9997.
     (define (shared-fill) (→ Bool) (! gpu tasks)
       (let* ((v (fill 3.0 (list 11 11 1) (Float)))
              (center (narrow (narrow (+ v (ssim v v)) 0 5 1) 1 5 1))
@@ -152,7 +154,7 @@
         (run-program program)
         (let ((value (scalar-sink program)))
           (release-program program)
-          (< (abs (- value 4.0)) 0.0001))))
+          (< (abs (- value 4.0)) 0.001))))
 
     ;; Four splats touch one tile each, in depth order 0, 65536, 0, 65535.
     ;; Read the rasterizer's ranges input so the large image needs no buffer.

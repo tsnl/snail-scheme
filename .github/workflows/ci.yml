@@ -89,6 +89,9 @@ jobs:
       - name: Test snail-scheme
         shell: nix-shell --run "bash -euo pipefail {0}"
         run: make test
+      - name: Test the GPU checks on lavapipe
+        shell: nix-shell --run "bash -euo pipefail {0}"
+        run: make test-gpu
       - name: Retain build evidence
         if: failure()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6

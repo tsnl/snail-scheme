@@ -372,7 +372,9 @@ Dawn reaches the GPU through Vulkan, opening the loader by name, and the
 loader finds the system's driver. NixOS keeps no loader where the dynamic
 linker looks, so `shell.nix` names nixpkgs' in `LD_LIBRARY_PATH`; outside
 the shell, NixOS needs the same, or `vulkan-loader` among `nix-ld`'s
-libraries. `host/native/gpu.mjs` hands Dawn to the same
+libraries. The shell also adds Mesa's lavapipe, Vulkan on the CPU, to the
+system's drivers: Dawn prefers a GPU, and on a machine without one, as
+CI is, the checks run on lavapipe. `host/native/gpu.mjs` hands Dawn to the same
 `host/browser/gpu.mjs` the page uses, at the program's first
 `request-device`, so a program that never asks for a device needs none. A
 program on Node installs the handler itself, as `tests/gpu/node.scm` does:

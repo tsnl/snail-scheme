@@ -33,8 +33,8 @@ test-browser:
 	node tests/browser/ui-requests.mjs "$(CURDIR)"
 	node tests/browser/gpu.mjs "$(CURDIR)"
 
-# The GPU checks on Node, on the GPU Dawn finds (host/native/gpu.mjs),
-# which CI does not have.
+# The GPU checks on Node, on the GPU Dawn finds (host/native/gpu.mjs), or
+# on the CPU through lavapipe where there is none, as in CI (shell.nix).
 test-gpu:
 	node tests/gpu.mjs "$(CURDIR)"
 
