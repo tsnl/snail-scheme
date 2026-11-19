@@ -18,8 +18,8 @@ gaussians stay where they were written.
 ## A trained scene
 
 A scene trained by 3D Gaussian Splatting takes the rings' place: the `.ply`
-file the reference implementation writes, read by `(snail shell graphics
-ply)`. Drop it on the page, press O to pick files, or name it in the
+file the reference implementation writes, and [Train](../train/README.md)
+with `cloud=PATH`, read by `(snail shell graphics ply)`. Drop it on the page, press O to pick files, or name it in the
 page's address, `?cloud=ADDRESS`.
 
 Such a scene stands in its reconstruction's frame, which has no up of its

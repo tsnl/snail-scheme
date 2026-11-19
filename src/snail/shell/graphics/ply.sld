@@ -1,5 +1,6 @@
-;; Reading the PLY files 3D Gaussian Splatting trains into a `Cloud` for
-;; (snail shell graphics splat). Such a file is a text header naming one
+;; The PLY files 3D Gaussian Splatting trains: read into a `Cloud` for
+;; (snail shell graphics splat), and written from a cloud as training
+;; keeps it. Such a file is a text header naming one
 ;; `vertex` element's float properties, then each vertex's floats,
 ;; little-endian:
 ;;
@@ -20,9 +21,15 @@
 ;; as `Gaussian` expects: scales through exp, the opacity through the
 ;; sigmoid, and the quaternion normalized. Every gaussian is given the same
 ;; row of the transforms table, so a file is one posable cloud.
+;;
+;; `write-ply` writes the file the reference implementation would, its
+;; properties in the reference's order with a zero normal after the
+;; center, so what reads the reference's files reads these.
 (define-library (snail shell graphics ply)
   (export
-   read-ply)
+   read-ply
+   Trained
+   write-ply)
   (import
    (snail core base)
    (only (snail shell math) exp)
@@ -257,5 +264,117 @@
                  (* i (* 4 harmonic-floats))
                  floats)
       (unit))
+
+    ;; ---- Writing ----
+
+    ;; A cloud as training keeps it, each array a row a gaussian of
+    ;; little-endian F32s, nothing activated: whether the row is a
+    ;; gaussian, 1 or 0; its center; its log standard deviations; its
+    ;; quaternion x, y, z, w, of any length; its opacity's logit; and its
+    ;; harmonics' coefficients a degree, the 1, 3, 5 and 7 of them each
+    ;; red, green and blue. The reference's file holds the same values,
+    ;; so they are written as they are.
+    (record Trained
+      ((live Bytes)
+       (centers Bytes)
+       (scales Bytes)
+       (rotations Bytes)
+       (opacities Bytes)
+       (dc Bytes)
+       (degree1 Bytes)
+       (degree2 Bytes)
+       (degree3 Bytes)))
+
+    ;; One of a trained cloud's arrays, and where each float of its row
+    ;; goes among a vertex's.
+    (record Column
+      ((floats Bytes)
+       (places (Array I64))))
+
+    ;; A vertex's floats: the center, a normal, the degree-0 color, 15
+    ;; higher coefficients a channel, the opacity, the scales and the
+    ;; quaternion.
+    (define vertex-floats (→ I64) 62)
+
+    (define (written-names) (→ (List String))
+      (let ((numbered
+             (lambda (prefix n) (map (lambda (k) (string-append prefix (show k))) (iota n)))))
+        (concatenate (list (list "x" "y" "z" "nx" "ny" "nz")
+                           (numbered "f_dc_" 3)
+                           (numbered "f_rest_" 45)
+                           (list "opacity")
+                           (numbered "scale_" 3)
+                           (numbered "rot_" 4)))))
+
+    (define (written-header (count I64)) (→ Bytes)
+      (let ((lines (concatenate
+                    (list (list "ply"
+                                "format binary_little_endian 1.0"
+                                (string-append "element vertex " (show count)))
+                          (map (lambda (name) (string-append "property float " name))
+                               (written-names))
+                          (list "end_header" "")))))
+        (list->array (map (lambda (char) (i32->u8 (char->i32 char)))
+                          (string->list (string-join lines "\n"))))))
+
+    ;; The columns of a trained cloud. The file's f_rest holds red's 15
+    ;; coefficients above degree 0, then green's, then blue's, and degree
+    ;; d's 2 d + 1 follow the d² - 1 of the degrees below it, so its
+    ;; coefficient j of channel c is f_rest 15 c + d² - 1 + j, vertex float
+    ;; 9 more. A quaternion's w goes first. No column names the normal's
+    ;; floats, 3 to 5, which stay the zeros the file is made of.
+    (define (columns (cloud Trained)) (→ (List Column))
+      (let ((column (lambda (floats places)
+                      (new Column (floats floats) (places (list->array places)))))
+            (higher (lambda (d)
+                      (concatenate (map (lambda (j)
+                                          (map (lambda (c) (+ 8 (+ (* 15 c) (+ (* d d) j))))
+                                               (iota 3)))
+                                        (iota (+ 1 (* 2 d))))))))
+        (list (column (● cloud centers) (list 0 1 2))
+              (column (● cloud dc) (list 6 7 8))
+              (column (● cloud degree1) (higher 1))
+              (column (● cloud degree2) (higher 2))
+              (column (● cloud degree3) (higher 3))
+              (column (● cloud opacities) (list 54))
+              (column (● cloud scales) (list 55 56 57))
+              (column (● cloud rotations) (list 59 60 61 58)))))
+
+    (define (live? (cloud Trained) (i I64)) (→ Bool)
+      (not (= (u8->i32 (array-ref (● cloud live) (+ (* 4 i) 3))) 0)))
+
+    (define (live-count (cloud Trained)) (→ I64)
+      (let loop ((i 0) (count 0))
+        (if (< i (quotient (array-length (● cloud live)) 4))
+            (loop (+ i 1) (if (live? cloud i) (+ count 1) count))
+            count)))
+
+    ;; The file of a trained cloud's live gaussians, in their order: its
+    ;; header, which says how many, then each one's floats.
+    (define (write-ply (cloud Trained)) (→ Bytes)
+      (let* ((count (live-count cloud)) (head (written-header count)) (columns (columns cloud)))
+        (unsafe-total
+         (lambda ()
+           (let ((file (make-array (+ (array-length head) (* count (* 4 vertex-floats)))
+                                   (i32->u8 0))))
+             (array-copy! file 0 head 0 (array-length head))
+             (let loop ((i 0) (at (array-length head)))
+               (cond ((>= i (quotient (array-length (● cloud live)) 4)) file)
+                     ((live? cloud i)
+                      (for-each (lambda (column) (place! file at column i)) columns)
+                      (loop (+ i 1) (+ at (* 4 vertex-floats))))
+                     (else (loop (+ i 1) at)))))))))
+
+    ;; Row `i` of a column, each float where it goes in the vertex at `at`.
+    (define (place! (file Bytes) (at I64) (column Column) (i I64)) (→ Unit) (! mut)
+      (let ((width (array-length (● column places))))
+        (let loop ((k 0))
+          (when (< k width)
+            (array-copy! file
+                         (+ at (* 4 (array-ref (● column places) k)))
+                         (● column floats)
+                         (* 4 (+ (* i width) k))
+                         4)
+            (loop (+ k 1))))))
 
     ))
