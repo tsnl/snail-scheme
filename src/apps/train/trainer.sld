@@ -1,33 +1,35 @@
-;; Training 3D Gaussian Splatting on a COLMAP scene, as the reference
-;; trains (Kerbl et al., 2023): the sparse points start the cloud, and
-;; each step renders one photograph's view, descends the loss, and every
-;; 100 steps from 500 to 15,000 densifies. Every eighth photograph, in
-;; order of name, is held out, and the PSNR on those is reported at the
-;; end. A photograph is on the device only around the step that trains on
-;; it, so a scene's photographs need not fit there together.
+;; Training 3D Gaussian Splatting on a scene of posed photographs, as the
+;; reference trains (Kerbl et al., 2023): the sparse points start the
+;; cloud, and each step renders one photograph's view, descends the loss,
+;; and every 100 steps from 500 to 15,000 densifies. The PSNR on the views
+;; held out is reported at the end.
 ;;
-;; The trainer runs wherever its two needs are met. `dataset` is where the
-;; scene's files come from: a page fetches them from the scene's URL
-;; (main.scm), and a program on Node reads them from its folder
-;; (node.scm). `train` is given how a step's image is shown: on the
-;; page's canvas, each 50th step, or nowhere. It answers what it trained,
-;; and `trained-ply` is that cloud as the .ply file the reference
-;; implementation writes, which a program on Node keeps (`cloud=PATH`)
-;; and (apps splats) flies through.
+;; The trainer knows no file, address or format: what it trains on and
+;; what it trained are data, and whoever calls it reads and keeps them.
 ;;
-;; The settings are `name=value` pairs, a page's query or a program's
-;; arguments: the scene's address (`scene`, by default /datasets/bicycle/),
-;; the folder of photographs within it (`images`, by default `images_4`,
-;; a quarter as wide as the originals, at which the paper trains Mip-NeRF
-;; 360's outdoor scenes), the steps (`steps`, 30,000) and the most
-;; gaussians the device holds (`gaussians`, 4,194,304).
+;; - A `Scene` is what is trained on: the camera, the views and the
+;;   sparse points, in COLMAP's records as (snail shell graphics colmap)
+;;   reads them, though any views posed that way will do.
+;; - `photographs` is the trainer's one need of its caller: a view's
+;;   photograph, on the device. One is there only around the step that
+;;   trains on it, so a scene's photographs need not fit together.
+;; - `train` is given how a step's image is shown: on the page's canvas,
+;;   each 50th step, or nowhere.
+;; - `trained-cloud` is what was trained, read back from the device: the
+;;   arrays (snail shell graphics ply) writes as a .ply file.
+;;
+;; (apps train dataset) is the scene in a COLMAP dataset's files, which
+;; the app's two entry points train on: a page (main.scm) and a program
+;; on Node (node.scm).
 (define-library (apps train trainer)
   (export
+   Scene
+   make-scene
+   photographs
+   photograph
+   Options
    train
-   trained-ply
-   settings-of
-   dataset
-   dataset-bytes
+   trained-cloud
    shown-on-canvas
    shown-nowhere)
   (import
@@ -43,110 +45,40 @@
    (snail shell tensor compile)
    (snail shell graphics pod)
    (snail shell graphics colmap)
-   (only (snail shell graphics ply) Trained write-ply)
+   (only (snail shell graphics ply) Trained)
    (snail shell graphics splat-train)
    (snail shell graphics splat-fit)
    (apps train shaders))
   (begin
 
-    ;; ---- Settings ----
-
-    (record Settings
-      ((scene String)
-       (images String)
-       (steps I64)
-       (gaussians I64)
-       (profile Bool)))
-
-    ;; The settings in a page address's query, `name=value` pairs after
-    ;; its `?`, each one missing at its default.
-    (define (settings-of (address String)) (→ Settings)
-      (let* ((query (match (string-index address #\?)
-                      ((Some at) (substring address (+ at 1) (string-length address)))
-                      ((None) "")))
-             (pairs (map (lambda (part) (split-on part #\=)) (split-on query #\&)))
-             (value (lambda (name default)
-                      (match (find (lambda (pair)
-                                     (and (= (length pair) 2) (string=? (list-ref pair 0) name)))
-                                   pairs)
-                        ((Some pair) (list-ref pair 1))
-                        ((None) default)))))
-        (new Settings
-          (scene (value "scene" "/datasets/bicycle/"))
-          (images (value "images" "images_4"))
-          (steps (number (value "steps" "30000") 30000))
-          (gaussians (number (value "gaussians" "4194304") 4194304))
-          (profile (string=? (value "profile" "0") "1")))))
-
-    (define (number (text String) (default I64)) (→ I64)
-      (match (string->i64 text)
-        ((Some n) n)
-        ((None) default)))
-
-    ;; The pieces of a text between each `separator`.
-    (define (split-on (text String) (separator Char)) (→ (List String))
-      (match (string-index text separator)
-        ((Some at)
-         (Cons (substring text 0 at)
-               (split-on (substring text (+ at 1) (string-length text)) separator)))
-        ((None) (list text))))
-
     ;; ---- Scenes ----
 
-    ;; The camera, the address of the photographs' folder, their size and
-    ;; how much they are scaled from the camera, the poses to train on
-    ;; and those held out, the sparse points, and the extent of the
-    ;; cameras, which sizes the thresholds.
+    ;; What is trained on: the camera every photograph was taken with,
+    ;; whose size is theirs, the views to train on and those held out to
+    ;; judge by, the sparse points the cloud starts from, and the extent
+    ;; of the cameras, which sizes the rates and thresholds.
     (record Scene
       ((camera ColmapCamera)
-       (photographs String)
-       (width I64)
-       (height I64)
-       (scale F64)
        (training (List ColmapImage))
        (held (List ColmapImage))
        (points (List ColmapPoint))
        (extent F64)))
 
-    ;; Where the scene's files come from: the bytes at an address, which
-    ;; begins with the scene's.
-    (effect dataset
-      ((dataset-bytes (Fn String → Bytes ! tasks))))
-
-    (define (parsed (result (Result T String))) (→ T) (∀ (T))
-      (match result
-        ((Ok value) value)
-        ((Err why) (panic why))))
-
-    (define (load-scene (settings Settings)) (→ Scene) (! dataset gpu tasks)
-      (let* ((base (● settings scene))
-             (camera (list-ref
-                      (parsed
-                       (read-cameras (dataset-bytes (string-append base "sparse/0/cameras.bin"))))
-                      0))
-             (images (list-sort (lambda (a b) (string<? (● a name) (● b name)))
-                                (parsed (read-images
-                                         (dataset-bytes
-                                          (string-append base "sparse/0/images.bin"))))))
-             (points
-              (parsed (read-points (dataset-bytes (string-append base "sparse/0/points3D.bin")))))
-             (photographs (string-append base (● settings images) "/"))
-             (first (photograph photographs (list-ref images 0))))
-        (destroy (TextureObject (● first texture)))
-        (new Scene
-          (camera camera)
-          (photographs photographs)
-          (width (i32->i64 (● first width)))
-          (height (i32->i64 (● first height)))
-          (scale (/ (i32->f64 (● first width)) (i64->f64 (● camera width))))
-          (training (filter-indexed (lambda (k) (not (= (remainder k 8) 0))) images))
-          (held (filter-indexed (lambda (k) (= (remainder k 8) 0)) images))
-          (points points)
-          (extent (extent-of images)))))
-
-    (define (filter-indexed (keep (Fn I64 → Bool)) (items (List T))) (→ (List T)) (∀ (T))
-      (map (lambda (pair) (● pair second))
-           (filter (lambda (pair) (keep (● pair first))) (zip (iota (length items)) items))))
+    ;; A scene, measured. It needs a view to train on and a point to
+    ;; start from; none need be held out.
+    (define (make-scene (camera ColmapCamera)
+                        (training (List ColmapImage))
+                        (held (List ColmapImage))
+                        (points (List ColmapPoint)))
+      (→ Scene)
+      (when (or (null? training) (null? points))
+        (panic "a scene needs a view to train on and a point to start from"))
+      (new Scene
+        (camera camera)
+        (training training)
+        (held held)
+        (points points)
+        (extent (extent-of (append training held)))))
 
     ;; 1.1 times the largest distance of a camera's center, -R^T t, from
     ;; their mean, as the reference measures a scene.
@@ -167,32 +99,31 @@
 
     ;; ---- Photographs ----
 
+    ;; A view's photograph, on the device: the trainer's one need of its
+    ;; caller, which reads it, makes it or has it. Each answer is a
+    ;; texture of its own, the size of the scene's camera, and the trainer
+    ;; destroys it after the step it was asked for. A view is asked for
+    ;; each time a step trains on it, and once more at the end if it is
+    ;; held out.
+    (effect photographs
+      ((photograph (Fn ColmapImage → Image ! tasks))))
+
     ;; A scene's photographs do not fit the device together at full size:
-    ;; bicycle's 194 take 12.6 GB as textures. So each is read and
-    ;; decoded for the step that trains on it and let go after it. One
-    ;; takes longer to decode than a step takes, so the photographs of the
-    ;; next `ahead` steps are on their way at once, each in a task of its
-    ;; own, and the device holds that many and the step's.
+    ;; bicycle's 194 take 12.6 GB as textures. So each is asked for when a
+    ;; step is to train on it, and let go after that step. One may take
+    ;; longer to come than a step takes, so the photographs of the next
+    ;; `ahead` steps are asked for at once, each in a task of its own, and
+    ;; the device holds that many and the step's.
     (define ahead (→ I64) 4)
 
-    (define (photograph (folder String) (image ColmapImage)) (→ Image) (! dataset gpu tasks)
-      (let ((url (string-append folder (● image name))))
-        (match (decode-image (dataset-bytes url))
-          ((Some photo) photo)
-          ((None) (panic (string-append url " is no image the host decodes"))))))
-
-    ;; A photograph on its way: its pose, and where its task posts it.
+    ;; A photograph on its way: its view, and where its task posts it.
     (record Arriving
       ((image ColmapImage)
        (photo (Mailbox Image))))
 
-    (define (sent-for (scene Scene) (image ColmapImage))
-      (→ Arriving)
-      (! dataset gpu tasks mut host)
+    (define (sent-for (image ColmapImage)) (→ Arriving) (! photographs tasks mut host)
       (let ((arriving (new Arriving (image image) (photo (make-mailbox)))))
-        (dispatch
-         (lambda ()
-           (mailbox-post (● arriving photo) (photograph (● scene photographs) image))))
+        (dispatch (lambda () (mailbox-post (● arriving photo) (photograph image))))
         arriving))
 
     ;; ---- Programs ----
@@ -208,7 +139,10 @@
        (reset Program)))
 
     (define (sensor-of (scene Scene) (entries I64)) (→ Sensor)
-      (new Sensor (width (● scene width)) (height (● scene height)) (capacity entries)))
+      (new Sensor
+        (width (● (● scene camera) width))
+        (height (● (● scene camera) height))
+        (capacity entries)))
 
     (define (programs-for (scene Scene) (capacity I64) (entries I64)) (→ Programs) (! gpu)
       (let* ((cloud (splat-params capacity))
@@ -297,10 +231,15 @@
       (run-program (● p step)))
 
     ;; A program's target and camera set to a photograph and its pose. The
-    ;; copy is submitted here, so the photograph may be let go after.
+    ;; copy is submitted here, so the photograph may be let go after. A
+    ;; photograph of another size than the scene's camera cannot be
+    ;; copied, and stops the run.
     (define (aim (program Program) (sensor Sensor) (scene Scene) (image ColmapImage) (photo Image))
       (→ Unit)
       (! gpu)
+      (unless (and (= (i32->i64 (● photo width)) (● sensor width))
+                   (= (i32->i64 (● photo height)) (● sensor height)))
+        (panic (string-append (● image name) " is not the size of the scene's camera")))
       (let ((encoder (create-command-encoder)))
         (copy-texture-to-buffer encoder
                                 (whole-texture (● photo texture))
@@ -312,15 +251,16 @@
         (submit (list (finish encoder)))
         (write-param program
                      "camera"
-                     (floats (camera-values (● scene camera) image (● scene scale))))))
+                     (floats (camera-values (● scene camera) image)))))
 
     ;; The second step's twelve slowest dispatches, each run alone, with
     ;; the seconds it took and its kernel, and the step's twelve largest
     ;; kinds of buffer; the first step touches every buffer, which the
     ;; device clears then.
-    (define (profile (p Programs) (scene Scene)) (→ Unit) (! clock dataset gpu output-port tasks)
-      (let* ((image (list-ref (● scene training) 0))
-             (photo (photograph (● scene photographs) image)))
+    (define (profile (p Programs) (scene Scene))
+      (→ Unit)
+      (! clock photographs gpu output-port tasks)
+      (let* ((image (list-ref (● scene training) 0)) (photo (photograph image)))
         (step-on p scene image photo 0.0001)
         (destroy (TextureObject (● photo texture))))
       (work-done)
@@ -474,23 +414,29 @@
        (live I64)
        (started I64)))
 
-    ;; Training by `settings`, on the device the host has opened, each
-    ;; 50th step's image and the last shown by `shown`. It answers the
-    ;; programs it trained, whose cloud `trained-ply` gives as a file.
-    (define (train (settings Settings) (shown (Fn Programs → Unit ! gpu)))
+    ;; How long to train, the most gaussians the device is to hold, and
+    ;; whether one step is profiled first.
+    (record Options
+      ((steps I64)
+       (gaussians I64)
+       (profile Bool)))
+
+    ;; Training on `scene`, on the device the host has opened, each 50th
+    ;; step's image and the last shown by `shown`. It answers the programs
+    ;; it trained, whose cloud `trained-cloud` reads.
+    (define (train (scene Scene) (options Options) (shown (Fn Programs → Unit ! gpu)))
       (→ Programs)
-      (! clock dataset gpu output-port tasks mut host)
-      (let* ((scene (load-scene settings))
-             (capacity (min (● settings gaussians) (max 1048576 (* 2 (length (● scene points))))))
+      (! clock photographs gpu output-port tasks mut host)
+      (let* ((capacity (min (● options gaussians) (max 1048576 (* 2 (length (● scene points))))))
              (p (programs-for scene capacity (* 4 capacity))))
         (start-cloud p scene)
-        (when (● settings profile) (profile p scene))
+        (when (● options profile) (profile p scene))
         (write-line (string-append "training "
                                    (show (length (● scene training)))
                                    " photographs of "
-                                   (show (● scene width))
+                                   (show (● (● scene camera) width))
                                    "x"
-                                   (show (● scene height))
+                                   (show (● (● scene camera) height))
                                    " from "
                                    (show (length (● scene points)))
                                    " points"))
@@ -503,62 +449,63 @@
                                           (step 1)
                                           (live (length (● scene points)))
                                           (started (monotonic-nanoseconds)))
-                                        (iota (min ahead (● settings steps))))
+                                        (iota (min ahead (● options steps))))
                              scene
-                             settings
+                             options
                              shown)))
           (shown (● done programs))
-          (write-line (string-append "held-out PSNR "
-                                     (f64->string (held-out-psnr (● done programs) scene))))
+          (unless (null? (● scene held))
+            (write-line (string-append "held-out PSNR "
+                                       (f64->string (held-out-psnr (● done programs) scene)))))
           (● done programs))))
 
-    ;; The trained cloud as the PLY file the reference implementation
-    ;; writes, its params read back from the device as they are.
-    (define (trained-ply (p Programs)) (→ Bytes) (! gpu tasks)
+    ;; The cloud the programs trained, its params read back from the
+    ;; device as they are.
+    (define (trained-cloud (p Programs)) (→ Trained) (! gpu tasks)
       (let ((param (lambda (name) (read-param (● p step) name))))
-        (write-ply (new Trained
-                     (live (param "live"))
-                     (centers (param "means"))
-                     (scales (param "scales"))
-                     (rotations (param "rotations"))
-                     (opacities (param "opacities"))
-                     (dc (param "dc"))
-                     (degree1 (param "degree1"))
-                     (degree2 (param "degree2"))
-                     (degree3 (param "degree3"))))))
+        (new Trained
+          (live (param "live"))
+          (centers (param "means"))
+          (scales (param "scales"))
+          (rotations (param "rotations"))
+          (opacities (param "opacities"))
+          (dc (param "dc"))
+          (degree1 (param "degree1"))
+          (degree2 (param "degree2"))
+          (degree3 (param "degree3")))))
 
     ;; The run with one more photograph sent for: one not yet sent for
     ;; this round, picked at random, from a new round once every one has
     ;; been.
-    (define (sending (run Run) (scene Scene)) (→ Run) (! dataset gpu tasks mut host)
+    (define (sending (run Run) (scene Scene)) (→ Run) (! photographs tasks mut host)
       (let* ((round (if (null? (● run round)) (● scene training) (● run round)))
              (random (random-next (● run random)))
              (pick (random-below random (length round))))
         (Run-arriving-set (Run-random-set (Run-round-set run (without round pick)) random)
                           (append (● run arriving)
-                                  (list (sent-for scene (list-ref round pick)))))))
+                                  (list (sent-for (list-ref round pick)))))))
 
     (define (without (items (List T)) (k I64)) (→ (List T)) (∀ (T))
       (append (take items k) (list-drop items (+ k 1))))
 
     (define (trained (run Run)
                      (scene Scene)
-                     (settings Settings)
+                     (options Options)
                      (shown (Fn Programs → Unit ! gpu)))
       (→ Run)
-      (! clock dataset gpu output-port tasks mut host)
+      (! clock photographs gpu output-port tasks mut host)
       (match (● run arriving)
         ((Cons next rest)
          (let ((sent (Run-arriving-set run rest)))
-           (trained (stepped (if (<= (+ (● run step) ahead) (● settings steps))
+           (trained (stepped (if (<= (+ (● run step) ahead) (● options steps))
                                  (sending sent scene)
                                  sent)
                              scene
-                             settings
+                             options
                              shown
                              next)
                     scene
-                    settings
+                    options
                     shown)))
         ((Nil) run)))
 
@@ -567,7 +514,7 @@
     ;; degree of harmonics, a wait, the canvas, a report.
     (define (stepped (run Run)
                      (scene Scene)
-                     (settings Settings)
+                     (options Options)
                      (shown (Fn Programs → Unit ! gpu))
                      (next Arriving))
       (→ Run)
@@ -577,7 +524,7 @@
                  scene
                  (● next image)
                  photo
-                 (rate-of-means step (● settings steps) (● scene extent)))
+                 (rate-of-means step (● options steps) (● scene extent)))
         (destroy (TextureObject (● photo texture)))
         (when (= (remainder step 1000) 0)
           (write-param (● p step)
@@ -588,7 +535,7 @@
         (let* ((roomier (if (= (remainder step 100) 0) (roomy p scene) p))
                (densify? (and (>= step 500) (<= step 15000) (= (remainder step 100) 0)))
                (after (if densify?
-                          (densified roomier scene step (● settings gaussians))
+                          (densified roomier scene step (● options gaussians))
                           (new Pair (first roomier) (second (● run live))))))
           (when (and (= (remainder step 3000) 0) (<= step 15000))
             (run-program (● (● after first) reset)))
@@ -614,7 +561,7 @@
     ;; The mean PSNR over the held-out photographs, each rendered from its
     ;; camera by a program on the trained params and clamped to 1, as the
     ;; reference measures.
-    (define (held-out-psnr (p Programs) (scene Scene)) (→ F64) (! dataset gpu tasks)
+    (define (held-out-psnr (p Programs) (scene Scene)) (→ F64) (! photographs gpu tasks)
       (let* ((cloud (splat-params (● p capacity)))
              (sensor (● p sensor))
              (target (rgba8-image (param "target"
@@ -625,7 +572,7 @@
              (error (mean (square (- drawn target))))
              (program (compile-program-sharing "judge" (list error) (Nil) (● p step)))
              (psnrs (map (lambda (image)
-                           (let ((photo (photograph (● scene photographs) image)))
+                           (let ((photo (photograph image)))
                              (aim program sensor scene image photo)
                              (destroy (TextureObject (● photo texture))))
                            (run-program program)

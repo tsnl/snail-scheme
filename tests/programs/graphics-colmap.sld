@@ -96,7 +96,8 @@
                (match (read-cameras cameras)
                  ((Ok (Cons camera _))
                   (write-line (string-append "camera param at half size "
-                                             (numbers (camera-values camera i 0.5)))))
+                                             (numbers
+                                              (camera-values (camera-sized camera 2473 1643) i)))))
                  (_ (unit))))
              read))
   ((Err why) (write-line why)))

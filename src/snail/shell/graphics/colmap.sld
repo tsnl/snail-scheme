@@ -21,6 +21,7 @@
    image-rotation
    image-center
    poses-up
+   camera-sized
    camera-values)
   (import
    (snail core base))
@@ -206,13 +207,26 @@
              (norm (sqrt (fold-left + 0.0 (map (lambda (x) (* x x)) sum)))))
         (if (< norm 1e-9) (list 0.0 -1.0 0.0) (map (lambda (x) (/ x norm)) sum))))
 
+    ;; The camera as it took photographs `width` by `height`: a dataset
+    ;; often keeps its photographs smaller than the camera took them, and
+    ;; the pinhole is scaled as their width is.
+    (define (camera-sized (camera ColmapCamera) (width I64) (height I64)) (→ ColmapCamera)
+      (let ((scale (/ (i64->f64 width) (i64->f64 (● camera width)))))
+        (new ColmapCamera
+          (id (● camera id))
+          (width width)
+          (height height)
+          (fx (* scale (● camera fx)))
+          (fy (* scale (● camera fy)))
+          (cx (* scale (● camera cx)))
+          (cy (* scale (● camera cy))))))
+
     ;; The 16 floats of splat training's camera param: R's rows, t, then
-    ;; fx, fy, cx and cy, scaled to an image `scale` times the camera's.
-    (define (camera-values (camera ColmapCamera) (image ColmapImage) (scale F64)) (→ (List F64))
+    ;; fx, fy, cx and cy.
+    (define (camera-values (camera ColmapCamera) (image ColmapImage)) (→ (List F64))
       (append (image-rotation image)
               (append (● image translation)
-                      (map (lambda (v) (* scale v))
-                           (list (● camera fx) (● camera fy) (● camera cx) (● camera cy))))))
+                      (list (● camera fx) (● camera fy) (● camera cx) (● camera cy)))))
 
     ;; ---- Points ----
 
