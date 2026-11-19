@@ -146,7 +146,7 @@
     ;; 1.1 times the largest distance of a camera's center, -R^T t, from
     ;; their mean, as the reference measures a scene.
     (define (extent-of (images (List ColmapImage))) (→ F64)
-      (let* ((centers (map center-of images))
+      (let* ((centers (map image-center images))
              (count (i64->f64 (length centers)))
              (mean (map (lambda (k)
                           (/ (fold-left + 0.0 (map (lambda (c) (list-ref c k)) centers)) count))
@@ -159,15 +159,6 @@
                                                    (* d d)))
                                                (iota 3)))))))
         (* 1.1 (fold-left max 0.0 (map distance centers)))))
-
-    (define (center-of (image ColmapImage)) (→ (List F64))
-      (let ((r (image-rotation image)) (t (● image translation)))
-        (map (lambda (j)
-               (negate (fold-left +
-                                  0.0
-                                  (map (lambda (i) (* (list-ref r (+ (* 3 i) j)) (list-ref t i)))
-                                       (iota 3)))))
-             (iota 3))))
 
     ;; ---- Photographs ----
 

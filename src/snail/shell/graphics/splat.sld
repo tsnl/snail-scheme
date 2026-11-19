@@ -25,6 +25,7 @@
    harmonic-floats
    Cloud
    pack-cloud
+   cloud-center
    splat-camera
    Splats
    make-splats
@@ -123,6 +124,17 @@
                                                                 (iota harmonic-floats)))
                                                    harmonic-floats))
                                            harmonics))))))
+
+    ;; Gaussian `i`'s center, read back from its packed record, whose
+    ;; first field it is.
+    (define (cloud-center (cloud Cloud) (i I64)) (→ (List F64))
+      (let ((byte (lambda (at shift)
+                    (i32-shift-left (u8->i32 (array-ref (● cloud gaussians) at)) shift))))
+        (map (lambda (axis)
+               (let ((at (+ (* i (stride gaussian-shape)) (* 4 axis))))
+                 (f32->f64 (bits->f32 (i32-or (i32-or (byte at 0) (byte (+ at 1) 8))
+                                              (i32-or (byte (+ at 2) 16) (byte (+ at 3) 24)))))))
+             (iota 3))))
 
     (define (color-floats (color Vec3f)) (→ (List F32))
       (list (● color x) (● color y) (● color z)))
@@ -320,17 +332,41 @@
 
     ;; ---- Writing ----
 
-    ;; A cloud's gaussians from gaussian `first` on.
+    ;; A cloud's gaussians from gaussian `first` on, 65,536 at a time: a
+    ;; write's bytes are copied whole into the runtime's memory on their
+    ;; way to the device, and a trained scene's coefficients run to
+    ;; hundreds of megabytes.
 
     (define (write-cloud (splats Splats) (first I64) (cloud Cloud)) (→ Unit) (! gpu)
       (unless (<= (+ first (● cloud count)) (● splats capacity))
         (panic "splat: the cloud does not fit in its splats"))
-      (write-buffer (● splats gaussians)
-                    (i64->i32 (* first (stride gaussian-shape)))
-                    (● cloud gaussians))
-      (write-buffer (● splats harmonics)
-                    (i64->i32 (* first (* 4 harmonic-floats)))
-                    (● cloud harmonics)))
+      (for-each (lambda (from)
+                  (let ((to (min (● cloud count) (+ from 65536))))
+                    (write-rows (● splats gaussians)
+                                (stride gaussian-shape)
+                                (+ first from)
+                                (● cloud gaussians)
+                                from
+                                to)
+                    (write-rows (● splats harmonics)
+                                (* 4 harmonic-floats)
+                                (+ first from)
+                                (● cloud harmonics)
+                                from
+                                to)))
+                (map (lambda (k) (* k 65536)) (iota (quotient (+ (● cloud count) 65535) 65536)))))
+
+    ;; Rows `from` to `to` of `bytes`, each `width` bytes, written at row
+    ;; `at` of a buffer.
+    (define (write-rows (buffer GpuBuffer)
+                        (width I64)
+                        (at I64)
+                        (bytes Bytes)
+                        (from I64)
+                        (to I64))
+      (→ Unit)
+      (! gpu)
+      (write-buffer buffer (i64->i32 (* at width)) (subarray bytes (* from width) (* to width))))
 
     ;; The transforms table from its first row; rows not given keep theirs.
 
