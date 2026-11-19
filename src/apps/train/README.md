@@ -20,7 +20,7 @@ extracts the scene and links it at `build/datasets/bicycle`.
 node build/src/apps/train/node/main.mjs scene=build/datasets/bicycle/
 ```
 
-The GPU is the one Dawn finds, the photographs are decoded by `sharp`
+The GPU is the one Dawn finds, the photographs are decoded by `@napi-rs/canvas`
 ([WebGPU on Node](../../../doc/book/graphics/plan.md#webgpu-on-node)), and
 nothing is shown. The arguments are the settings below, and `scene` is the
 scene's folder, ending in a slash.
@@ -70,8 +70,8 @@ At full resolution, `images=images`, the step's own buffers are the limit,
 not the photographs. With the default 4,194,304 gaussians, binning's
 entries reach 2^27 near step 6,500, and the larger programs no longer fit
 a 32 GB device beside the cloud's 14 GB. A smaller cloud leaves them room:
-with `gaussians=2097152`, the 30,000 steps took 46 minutes on Node, the
-entries grew to 2^27, and the held-out PSNR at 4946x3286 was 23.77. The
+with `gaussians=2097152`, the 30,000 steps took 48 minutes on Node, the
+entries grew to 2^27, and the held-out PSNR at 4946x3286 was 23.76. The
 paper trains this scene at a quarter of that width, so it has no number to
 set beside this one.
 
