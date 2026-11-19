@@ -70,8 +70,8 @@ At full resolution, `images=images`, the step's own buffers are the limit,
 not the photographs. With the default 4,194,304 gaussians, binning's
 entries reach 2^27 near step 6,500, and the larger programs no longer fit
 a 32 GB device beside the cloud's 14 GB. A smaller cloud leaves them room:
-with `gaussians=2097152`, the 30,000 steps took 46 minutes on Node, the
-entries grew to 2^27, and the held-out PSNR at 4946x3286 was 23.77. The
+with `gaussians=2097152`, the 30,000 steps took 48 minutes on Node, the
+entries grew to 2^27, and the held-out PSNR at 4946x3286 was 23.76. The
 paper trains this scene at a quarter of that width, so it has no number to
 set beside this one.
 

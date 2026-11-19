@@ -271,6 +271,8 @@ resolution the photographs no longer limit a run, since they are streamed;
 the step's own buffers do. With the default cloud, binning's entries reach
 2^27 near step 6,500, and the programs for them no longer fit a 32 GB
 device beside the cloud's 14 GB. A cloud of 2,097,152 leaves them room: the
-30,000 steps then took 46 minutes on Node, and the held-out PSNR at 4946 by
-3286 was 23.77, which the paper, training at a quarter of that width, has
-no number to set beside.
+30,000 steps then took 48 minutes on Node, and the held-out PSNR at 4946 by
+3286 was 23.76, which the paper, training at a quarter of that width, has
+no number to set beside. Until about step 9,000 a step waits on the
+program's thread, where each photograph's bytes arrive and its texels are
+read, and takes about 90 ms; after that it waits on the device.
