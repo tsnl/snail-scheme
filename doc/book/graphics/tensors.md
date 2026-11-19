@@ -260,6 +260,10 @@ and new values in scratch. So the 4,194,304 gaussians `gaussians` allows
 by default take 14 GB beside the sorts and photographs, and the 8,388,608
 that doubling would reach next don't fit a 32 GB RTX 5090. Every eighth
 photograph is held out, and the PSNR on those is reported at the end.
+`train` answers the programs it trained, and `trained-ply` reads their
+cloud back from the device as the `.ply` file the reference implementation
+writes, which the trainer on Node keeps at `cloud=PATH` and
+`src/apps/splats` flies through.
 
 On Mip-NeRF 360's bicycle at `images_4`, the paper's resolution for its
 outdoor scenes, on an RTX 5090, the 30,000 steps took 33.5 minutes on Node

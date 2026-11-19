@@ -10,7 +10,10 @@
 ;; scene's files come from: a page fetches them from the scene's URL
 ;; (main.scm), and a program on Node reads them from its folder
 ;; (node.scm). `train` is given how a step's image is shown: on the
-;; page's canvas, each 50th step, or nowhere.
+;; page's canvas, each 50th step, or nowhere. It answers what it trained,
+;; and `trained-ply` is that cloud as the .ply file the reference
+;; implementation writes, which a program on Node keeps (`cloud=PATH`)
+;; and (apps splats) flies through.
 ;;
 ;; The settings are `name=value` pairs, a page's query or a program's
 ;; arguments: the scene's address (`scene`, by default /datasets/bicycle/),
@@ -21,6 +24,7 @@
 (define-library (apps train trainer)
   (export
    train
+   trained-ply
    settings-of
    dataset
    dataset-bytes
@@ -39,6 +43,7 @@
    (snail shell tensor compile)
    (snail shell graphics pod)
    (snail shell graphics colmap)
+   (only (snail shell graphics ply) Trained write-ply)
    (snail shell graphics splat-train)
    (snail shell graphics splat-fit)
    (apps train shaders))
@@ -470,9 +475,10 @@
        (started I64)))
 
     ;; Training by `settings`, on the device the host has opened, each
-    ;; 50th step's image and the last shown by `shown`.
+    ;; 50th step's image and the last shown by `shown`. It answers the
+    ;; programs it trained, whose cloud `trained-ply` gives as a file.
     (define (train (settings Settings) (shown (Fn Programs → Unit ! gpu)))
-      (→ Unit)
+      (→ Programs)
       (! clock dataset gpu output-port tasks mut host)
       (let* ((scene (load-scene settings))
              (capacity (min (● settings gaussians) (max 1048576 (* 2 (length (● scene points))))))
@@ -503,7 +509,23 @@
                              shown)))
           (shown (● done programs))
           (write-line (string-append "held-out PSNR "
-                                     (f64->string (held-out-psnr (● done programs) scene)))))))
+                                     (f64->string (held-out-psnr (● done programs) scene))))
+          (● done programs))))
+
+    ;; The trained cloud as the PLY file the reference implementation
+    ;; writes, its params read back from the device as they are.
+    (define (trained-ply (p Programs)) (→ Bytes) (! gpu tasks)
+      (let ((param (lambda (name) (read-param (● p step) name))))
+        (write-ply (new Trained
+                     (live (param "live"))
+                     (centers (param "means"))
+                     (scales (param "scales"))
+                     (rotations (param "rotations"))
+                     (opacities (param "opacities"))
+                     (dc (param "dc"))
+                     (degree1 (param "degree1"))
+                     (degree2 (param "degree2"))
+                     (degree3 (param "degree3"))))))
 
     ;; The run with one more photograph sent for: one not yet sent for
     ;; this round, picked at random, from a new round once every one has

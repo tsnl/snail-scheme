@@ -17,13 +17,20 @@ extracts the scene and links it at `build/datasets/bicycle`.
 
 ```sh
 ./snail-scheme build --release --target node src/apps/train/node.scm
-node build/src/apps/train/node/main.mjs scene=build/datasets/bicycle/
+node build/src/apps/train/node/main.mjs scene=build/datasets/bicycle/ cloud=bicycle.ply
 ```
 
 The GPU is the one Dawn finds, the photographs are decoded by `@napi-rs/canvas`
 ([WebGPU on Node](../../../doc/book/graphics/plan.md#webgpu-on-node)), and
 nothing is shown. The arguments are the settings below, and `scene` is the
 scene's folder, ending in a slash.
+
+`cloud=PATH` keeps what was trained: the `.ply` file the reference
+implementation writes, each gaussian's center, a zero normal, its
+harmonics, its opacity's logit, its log scales and its quaternion, 248
+bytes a gaussian. [Splats](../splats/README.md) flies through it, given the
+scene's `sparse/0/images.bin` for which way is up, and so does any viewer
+of the reference's files. Without `cloud`, nothing is kept but the report.
 
 ## In a page
 
