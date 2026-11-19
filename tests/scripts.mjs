@@ -53,9 +53,9 @@ try {
   await write('apps/drawing/main.scm', '(import (snail core base) (snail core io) (snail shell gpu)) (write-line "no device asked for")');
   const drawing = join(workspace, 'build/apps/drawing/main');
   await command('build', '--target', 'node', 'apps/drawing/main.scm');
-  const {webgpu, sharp} = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')).dependencies;
-  assert.deepEqual((await manifest(drawing)).dependencies, {webgpu, sharp},
-    "a program that may ask for a device depends on the repository's webgpu and sharp");
+  const pinned = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')).dependencies;
+  assert.deepEqual((await manifest(drawing)).dependencies, pinned,
+    "a program that may ask for a device depends on the repository's webgpu and @napi-rs/canvas");
   assert.equal((await execute(process.execPath, [join(drawing, 'main.mjs')])).stdout, 'no device asked for\n',
     'and runs without it until it asks');
 

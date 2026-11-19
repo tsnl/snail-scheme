@@ -791,10 +791,10 @@
     ;; runs NAME.wasm with the native host, whose files it holds under host/
     ;; as the repository keeps them, so their imports are unchanged. A
     ;; program that holds (snail runtime gpu) may ask for a device and
-    ;; decode an image, and depends on the webgpu and sharp packages at the
-    ;; versions the repository's package.json pins; npm installs them in
-    ;; the package, or Node finds the repository's in a folder above. Other
-    ;; programs depend on nothing. An
+    ;; decode an image, and depends on the webgpu and @napi-rs/canvas
+    ;; packages at the versions the repository's package.json pins; npm
+    ;; installs them in the package, or Node finds the repository's in a
+    ;; folder above. Other programs depend on nothing. An
     ;; executable made of the package, or its publication, is the work of
     ;; Node's own tools (doc/book/snail-scheme/projects.md, "A Node package").
 
@@ -874,7 +874,7 @@
                                                         (new Pair
                                                           (first package)
                                                           (second (pinned-version root package))))
-                                                      (list "webgpu" "sharp"))))))
+                                                      (list "webgpu" "@napi-rs/canvas"))))))
                      (Nil))))))
 
     ;; The version of `package` the repository's package.json pins, which

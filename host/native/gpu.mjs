@@ -10,11 +10,12 @@
 // cost little (doc/book/graphics/plan.md, "WebGPU on Node").
 //
 // A browser decodes images and Node does not, so `decode-image` is npm's
-// sharp package (sharp.pixelplumbing.com), a binding to libvips, pinned
-// and installed the same way and loaded at the program's first decode. It
-// reads what a browser reads, JPEG, PNG, WebP, GIF and AVIF among them,
-// and decodes on libuv's threads, so several images decode at once while
-// the program's tasks go on.
+// @napi-rs/canvas package (github.com/Brooooooklyn/canvas), a 2D canvas
+// over Skia, pinned and installed the same way and loaded at the
+// program's first decode. It reads what a browser reads, JPEG, PNG, WebP,
+// GIF and AVIF among them, and decodes off the program's thread, so
+// several images decode at once while the program's tasks go on; only
+// reading a decoded image's texels holds that thread.
 import {createGpu, requestDevice} from '../browser/gpu.mjs';
 
 // `program` gives the running program, whose memory holds staged Bytes;
@@ -44,17 +45,22 @@ async function opened() {
   return {device, context: null, format: 'rgba8unorm', optional, instance, decode: encoded => nodeImage(device, encoded)};
 }
 
-// An encoded image as sharp decodes it, for host/browser/gpu.mjs's
-// `start-decode`, and as a page's would be: turned as its EXIF
-// orientation says, in sRGB, eight bits a channel, with straight alpha.
-// Bytes sharp decodes no image from answer null.
-let sharp = null;
+// An encoded image as the canvas decodes it, for host/browser/gpu.mjs's
+// `start-decode`, and as a page's is, texel for texel: turned as its EXIF
+// orientation says, eight bits a channel, with straight alpha. The image
+// is drawn on a canvas to be read, and a canvas keeps each color
+// multiplied by its alpha as a page's bitmap does, so the two round a
+// color that is not opaque alike. Bytes the canvas decodes no image from
+// answer null. Node keeps the package once it is loaded, so each decode
+// imports it.
 async function nodeImage(device, encoded) {
-  sharp ??= import('sharp').then(module => module.default);
-  const decoded = await (await sharp)(encoded).autoOrient().toColourspace('srgb').ensureAlpha().raw({depth: 'uchar'})
-    .toBuffer({resolveWithObject: true}).catch(() => null);
-  if (!decoded) return null;
-  const {data, info: {width, height}} = decoded;
+  const {loadImage, createCanvas} = await import('@napi-rs/canvas');
+  const image = await loadImage(encoded).catch(() => null);
+  if (!image) return null;
+  const {width, height} = image;
+  const context = createCanvas(width, height).getContext('2d');
+  context.drawImage(image, 0, 0);
+  const {data} = context.getImageData(0, 0, width, height);
   return {width, height,
-    write(texture) { device.queue.writeTexture({texture}, data, {bytesPerRow: 4 * width, rowsPerImage: height}, [width, height]); }};
+    write(texture) { device.queue.writeTexture({texture}, data, {bytesPerRow: 4 * width}, [width, height]); }};
 }
