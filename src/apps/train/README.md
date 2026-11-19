@@ -20,7 +20,7 @@ extracts the scene and links it at `build/datasets/bicycle`.
 node build/src/apps/train/node/main.mjs scene=build/datasets/bicycle/
 ```
 
-The GPU is the one Dawn finds, the photographs are decoded by `sharp`
+The GPU is the one Dawn finds, the photographs are decoded by `@napi-rs/canvas`
 ([WebGPU on Node](../../../doc/book/graphics/plan.md#webgpu-on-node)), and
 nothing is shown. The arguments are the settings below, and `scene` is the
 scene's folder, ending in a slash.

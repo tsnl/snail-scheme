@@ -161,8 +161,8 @@
               66
               96 130))
 
-    ;; The PNG's texels as the host decodes them: the browser, or sharp
-    ;; on Node.
+    ;; The PNG's texels as the host decodes them: the browser, or
+    ;; @napi-rs/canvas on Node.
     (define (decoded-texels) (→ Bytes) (! gpu tasks)
       (match (decode-image two-texels)
         ((Some image)

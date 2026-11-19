@@ -38,8 +38,11 @@ async function configured(canvas) {
 }
 
 // An encoded image as the browser decodes it, for `imageTexture`: turned
-// as its EXIF orientation says, with straight alpha. Bytes the browser
-// decodes no image from answer null.
+// as its EXIF orientation says, with straight alpha. The bitmap keeps
+// each color multiplied by its alpha, so the texture's color is exact
+// where the image is opaque and rounded where it is not: (200, 100, 50)
+// under an alpha of 3 comes back (170, 85, 85), and under an alpha of 0,
+// black. Bytes the browser decodes no image from answer null.
 async function pageImage(device, encoded) {
   const bitmap = await createImageBitmap(new Blob([encoded])).catch(() => null);
   return bitmap && {width: bitmap.width, height: bitmap.height,

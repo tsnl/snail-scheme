@@ -106,7 +106,7 @@ package's folder, where Cargo stays in the caller's. `node main.mjs
 ARGUMENT ...` runs the program in the caller's directory, as `snail-scheme
 run` does, with nothing to install. A program that holds
 `(snail runtime gpu)` may ask for a device and decode an image, so its
-package depends on npm's `webgpu` and `sharp` packages, at the versions
+package depends on npm's `webgpu` and `@napi-rs/canvas` packages, at the versions
 the repository's `package.json` pins, and loads each when it is first
 needed, at the program's first `request-device` and its first
 `decode-image` ([WebGPU on Node](../graphics/plan.md#webgpu-on-node)).

@@ -372,15 +372,21 @@ Node has no screen: there `current-texture` fails, so a program draws into
 textures of its own, which are `rgba8unorm`, and reads them back.
 
 Node decodes no images of its own either, as a browser does, so
-`decode-image` there is npm's [`sharp`](https://sharp.pixelplumbing.com)
-package, a binding to libvips, pinned and installed as `webgpu` is and
-loaded at a program's first decode. It reads what a browser reads, JPEG,
-PNG, WebP, GIF and AVIF among them, and gives the same texels: turned as
-the image's EXIF orientation says, in sRGB, with straight alpha. It decodes
-on libuv's threads, so several images decode at once while the program's
-tasks go on: a 4946 by 3286 JPEG took 90 to 103 ms, four at once 101 ms, and
-a 1237 by 822 one 10 ms. The package's own code is Apache-2.0; the libvips
-it installs prebuilt is LGPL-3.0-or-later.
+`decode-image` there is npm's
+[`@napi-rs/canvas`](https://github.com/Brooooooklyn/canvas) package, a 2D
+canvas over Skia, pinned and installed as `webgpu` is and loaded at a
+program's first decode. It reads what a browser reads, JPEG, PNG, WebP, GIF
+and AVIF among them, and gives the same texels: turned as the image's EXIF
+orientation says, with straight alpha. An image is decoded off the
+program's thread, then drawn on a canvas and read back on it. A canvas
+keeps each color multiplied by its alpha, as a page's bitmap does, so both
+hosts give a color exactly where the image is opaque and round it alike
+where it is not: (200, 100, 50) under an alpha of 3 comes back
+(170, 85, 85), and under an alpha of 0, black. A 4946 by 3286 JPEG took 127
+to 171 ms, about 50 ms of it on the program's thread, and four at once 256
+to 265 ms; a 1237 by 822 one took 10 to 16 ms. The package is MIT. The
+binary it installs holds Skia, which is BSD-3-Clause, and its bill of
+materials lists four MPL-2.0 crates among permissive ones.
 
 Dawn runs in the program's process. Chromium's runs in a GPU process that
 each call is sent to. On an RTX 5090, under Vulkan, a chain of 10,000
