@@ -114,10 +114,11 @@ make check         # formatting
 cargo test --manifest-path crates/snail-scheme-support/Cargo.toml --offline
 make bootstrap     # the compiler rebuilt from Chez alone, to a fixpoint
 make test-browser  # browser interfaces in headless Chromium
-make test-gpu      # the GPU checks on Node, on the machine's GPU
+make test-gpu      # the GPU checks on Node, on the machine's GPU or on lavapipe
 ```
 
-CI runs the first three, and `cargo fmt --check` on the crate. A change to
+CI runs the first three, `make test-gpu` on lavapipe, Mesa's Vulkan on the
+CPU, and `cargo fmt --check` on the crate. A change to
 the compiler also needs `make bootstrap`, a change
 to the browser host `make test-browser`, and a change to the `gpu` effect's
 hosts or the graphics and tensor libraries both browser and GPU checks. The [tour](book/snail-scheme/compilers.md)
