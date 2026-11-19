@@ -280,7 +280,9 @@ This is the reference's math with a global sort and blended quads in place
 of its tiled rasterizer, so it needs no per-tile lists. `(snail shell
 graphics ply)` reads the binary PLY files 3DGS trains into a `Cloud`, its
 header parsed into where each property sits, every gaussian activated and
-given the same transform row. `write-cloud` sends a cloud to the device
+given the same transform row. Its `write-ply` writes such a file from a
+cloud as training keeps it, a `Trained`: the properties in the reference's
+order, nothing activated, the rows that are no gaussian left out. `write-cloud` sends a cloud to the device
 65,536 gaussians at a time, since a write's bytes are copied whole into the
 runtime's memory on their way and a trained scene's run to a gigabyte.
 

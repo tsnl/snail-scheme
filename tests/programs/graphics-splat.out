@@ -7,6 +7,17 @@ scale: 1.0 0.3678794503211975 2.7182817459106445
 opacity: 0.5
 colors: 0.5 0.25 0.125 1.0 4.0 7.0 2.0 5.0 8.0 3.0 6.0 9.0 0.0 0.0 0.0
 beyond degree 1: 0.0 0.0 0.0
+written: 2022 bytes
+count: 2
+position: 20.0 21.0 22.0
+center: 20.0 21.0 22.0
+transform: 3
+rotation: 0.0 0.0 0.0 1.0
+scale: 1.0 0.3678794503211975 2.7182817459106445
+opacity: 0.5
+colors: 20.0 21.0 22.0 20.0 21.0 22.0 23.0 24.0 25.0 26.0 27.0 28.0 20.0 21.0 22.0
+beyond degree 1: 20.0 21.0 22.0
+degree 3, red: 20.0 23.0 26.0 29.0 32.0 35.0 38.0
 ply: only binary little-endian PLY files are read
 ply: every vertex property must be a float
 ply: a 3D Gaussian Splatting property is missing

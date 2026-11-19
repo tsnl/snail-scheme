@@ -1,7 +1,8 @@
 ;; Gaussian splatting without a device: a 3DGS PLY file read into a cloud,
 ;; with its activations, its coefficients by degree and its transform row;
-;; the files `read-ply` refuses; and the dispatches a frame records, which
-;; show the scan's levels inside each pass of the radix sort.
+;; a trained cloud written as such a file and read back; the files
+;; `read-ply` refuses; and the dispatches a frame records, which show the
+;; scan's levels inside each pass of the radix sort.
 (import
  (snail core base)
  (snail core io)
@@ -80,6 +81,46 @@
     ((Ok _) "read")
     ((Err message) message)))
 
+;; ---- Writing ----
+
+;; A trained cloud of three rows, the second not a gaussian: row i's
+;; floats count up from 10 i in each array, but for its quaternion, w
+;; alone, and its opacity's logit, 0.
+(define (trained) (→ Trained)
+  (let ((counting (lambda (width)
+                    (float-bytes (concatenate (map (lambda (i)
+                                                     (map (lambda (k)
+                                                            (f64->f32 (i64->f64 (+ (* 10 i) k))))
+                                                          (iota width)))
+                                                   (iota 3)))))))
+    (new Trained
+      (live (float-bytes (list 1.0 0.0 1.0)))
+      (centers (counting 3))
+      (scales (float-bytes (list 0.0 0.0 0.0 0.0 0.0 0.0 0.0 -1.0 1.0)))
+      (rotations (float-bytes (list 0.0 0.0 0.0 2.0 0.0 0.0 0.0 2.0 0.0 0.0 0.0 2.0)))
+      (opacities (float-bytes (list 0.0 0.0 0.0)))
+      (dc (counting 3))
+      (degree1 (counting 9))
+      (degree2 (counting 15))
+      (degree3 (counting 21)))))
+
+;; The file written, by its size and its header's first lines, and read
+;; back: the second of its two gaussians is the third row.
+(define (written) (→ Unit) (! output-port)
+  (let ((file (write-ply (trained))))
+    (write-line (string-append "written: " (show (array-length file)) " bytes"))
+    (match (read-ply file 3)
+      ((Ok cloud)
+       (show-cloud cloud)
+       (write-line (string-append "degree 3, red: "
+                                  (string-join (map (lambda (k)
+                                                      (f64->string
+                                                       (f32->f64 (float-at (● cloud harmonics)
+                                                                           (+ 48 (* 3 (+ 9 k)))))))
+                                                    (iota 7))
+                                               " "))))
+      ((Err message) (write-line message)))))
+
 ;; ---- Dispatches ----
 
 ;; The workgroups of each dispatch a frame of 300,000 gaussians records:
@@ -118,6 +159,7 @@
 (match (read-ply file 3)
   ((Ok cloud) (show-cloud cloud))
   ((Err message) (write-line message)))
+(written)
 (write-line (refusal (list "ply" "format ascii 1.0" "element vertex 1" "property float x")))
 (write-line
  (refusal (list "ply" "format binary_little_endian 1.0" "element vertex 1" "property uchar x")))
