@@ -44,6 +44,23 @@ and its `subgroups` feature. Every fiftieth step's image is drawn on the
 canvas. The page's query gives the settings, and `scene` is the scene's
 URL, by default `/datasets/bicycle/`, beside the page.
 
+## The parts
+
+- `trainer.sld` is the trainer, and knows no file, address or format. It
+  trains on a `Scene`, the camera, the posed views and the sparse points
+  as data. It performs `photographs` for a view's photograph, on the
+  device, as a step needs it, and answers what it trained, which
+  `trained-cloud` reads back from the device as arrays.
+- `dataset.sld` is a COLMAP dataset as such a scene: the settings below,
+  where its files are, the decoding, and which photographs are held out.
+- `main.scm` and `node.scm`, the page and the program on Node, say how a
+  file's bytes are had, fetched or read, and what is kept: on Node, the
+  cloud, written by `(snail shell graphics ply)`.
+
+A program with a scene of another kind, made or embedded, calls the
+trainer alone: it builds the `Scene` with `make-scene`, and handles
+`photographs` with a texture of its own for each view asked for.
+
 ## Settings
 
 - `scene`, the scene's address, holding
