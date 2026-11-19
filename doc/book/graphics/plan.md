@@ -280,8 +280,25 @@ This is the reference's math with a global sort and blended quads in place
 of its tiled rasterizer, so it needs no per-tile lists. `(snail shell
 graphics ply)` reads the binary PLY files 3DGS trains into a `Cloud`, its
 header parsed into where each property sits, every gaussian activated and
-given the same transform row. `src/apps/splats` writes one procedural ring
-three times on three transform rows and turns them each frame.
+given the same transform row. Its `write-ply` writes such a file from a
+cloud as training keeps it, a `Trained`: the properties in the reference's
+order, nothing activated, the rows that are no gaussian left out. `write-cloud` sends a cloud to the device
+65,536 gaussians at a time, since a write's bytes are copied whole into the
+runtime's memory on their way and a trained scene's run to a gigabyte.
+
+`src/apps/splats` opens on one procedural ring written three times on three
+transform rows, which it turns each frame, and shows a trained scene in
+their place: a `.ply` dropped on the page, picked, or named by
+`?cloud=ADDRESS`. A reconstruction's frame has no up of its own, so the
+viewer takes it from the cameras that photographed the scene, COLMAP's
+`images.bin`, read by `(snail shell graphics colmap)`, whose `poses-up` is
+the mean of their ups. It turns the cloud upright by its transform row,
+where the harmonics turn with it, and starts at the first camera. `(snail
+shell graphics fly)` flies the view, as it does the path tracer's, and its
+`upright` is the turn. Mip-NeRF 360's bicycle as
+`src/apps/train` trains it, a 1 GB file of 4,194,304 gaussians, took 22
+seconds to read in Chrome and flew at the display's 60 frames a second on
+an RTX 5090.
 
 `tests/programs/graphics-splat.sld` reads a PLY file and records the
 dispatches of a frame of 300,000 gaussians; `tests/browser/gpu.mjs` scans

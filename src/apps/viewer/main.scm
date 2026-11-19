@@ -32,7 +32,7 @@
  (snail shell graphics trace scene)
  (snail shell graphics environment)
  (snail shell graphics trace render)
- (apps viewer fly))
+ (snail shell graphics fly))
 
 (define layer-size (→ I32) 1024)
 
@@ -168,7 +168,7 @@
                    (let ((over (Fly-stops-set (fly-over (● scene low) (● scene high))
                                               (● fly stops))))
                      (match eye
-                       ((Some eye) (placed over eye))
+                       ((Some eye) (fly-at over eye))
                        ((None) over))))
                   ((None) fly))
                 timing
@@ -347,15 +347,3 @@
            (match (query-files address)
              ((Nil) (view-loop (None) fly timing format))
              (files (opened (None) fly timing format files (query-eye address)))))))))))
-
-(define (placed (fly Fly) (eye (List F64))) (→ Fly)
-  (new Fly
-    (x (list-ref eye 0))
-    (y (list-ref eye 1))
-    (z (list-ref eye 2))
-    (yaw (list-ref eye 3))
-    (pitch (list-ref eye 4))
-    (held (Nil))
-    (drag (None))
-    (speed (● fly speed))
-    (stops (● fly stops))))

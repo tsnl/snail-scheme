@@ -19,6 +19,8 @@
    read-images
    read-points
    image-rotation
+   image-center
+   poses-up
    camera-values)
   (import
    (snail core base))
@@ -181,6 +183,28 @@
               (* 2.0 (- (* z x) (* w y)))
               (* 2.0 (+ (* y z) (* w x)))
               (- 1.0 (* 2.0 (+ (* x x) (* y y)))))))
+
+    ;; Where a pose's camera stands: -R^T t.
+    (define (image-center (image ColmapImage)) (→ (List F64))
+      (let ((r (image-rotation image)) (t (● image translation)))
+        (map (lambda (j)
+               (negate (fold-left +
+                                  0.0
+                                  (map (lambda (i) (* (list-ref r (+ (* 3 i) j)) (list-ref t i)))
+                                       (iota 3)))))
+             (iota 3))))
+
+    ;; Which way is up among poses, a reconstruction's frame having no up
+    ;; of its own: the mean of what the cameras call up, each the opposite
+    ;; of its rotation's second row, since a camera's y runs down; and the
+    ;; frame's own -y for no poses, or for poses that agree on none.
+    (define (poses-up (images (List ColmapImage))) (→ (List F64))
+      (let* ((downs (map (lambda (image) (take (list-tail (image-rotation image) 3) 3)) images))
+             (sum (map (lambda (axis)
+                         (fold-left - 0.0 (map (lambda (down) (list-ref down axis)) downs)))
+                       (iota 3)))
+             (norm (sqrt (fold-left + 0.0 (map (lambda (x) (* x x)) sum)))))
+        (if (< norm 1e-9) (list 0.0 -1.0 0.0) (map (lambda (x) (/ x norm)) sum))))
 
     ;; The 16 floats of splat training's camera param: R's rows, t, then
     ;; fx, fy, cx and cy, scaled to an image `scale` times the camera's.
