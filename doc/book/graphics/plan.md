@@ -293,9 +293,10 @@ viewer takes it from the cameras that photographed the scene, COLMAP's
 the mean of their ups. It turns the cloud upright by its transform row,
 where the harmonics turn with it, and starts at the first camera. `(snail
 shell graphics fly)` flies the view, as it does the path tracer's, and its
-`upright` is the turn. A 1 GB file of 4,194,304
-gaussians took 22 seconds to read in Chrome, and flew at about 41 frames a
-second on an RTX 5090.
+`upright` is the turn. Mip-NeRF 360's bicycle as
+`src/apps/train` trains it, a 1 GB file of 4,194,304 gaussians, took 22
+seconds to read in Chrome and flew at the display's 60 frames a second on
+an RTX 5090.
 
 `tests/programs/graphics-splat.sld` reads a PLY file and records the
 dispatches of a frame of 300,000 gaussians; `tests/browser/gpu.mjs` scans

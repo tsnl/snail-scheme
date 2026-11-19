@@ -31,7 +31,8 @@ view's, and the view starts at the first camera, at a speed that suits
 where the cameras stood. Without poses, up is COLMAP's own -y, and the view
 starts back from the middle of the cloud.
 
-A file is read whole before it is shown, so a large one takes a while: a
-1 GB file of 4,194,304 gaussians took 22 seconds from a local server in
-Chrome, and then flew at about 41 frames a second on an RTX 5090. Files that
-cannot be shown leave the view as it was, and the page says why.
+A file is read whole before it is shown, so a large one takes a while:
+Mip-NeRF 360's bicycle as [Train](../train/README.md) trains it, a 1 GB
+file of 4,194,304 gaussians, took 22 seconds from a local server in Chrome,
+and then flew at the display's 60 frames a second on an RTX 5090. Files
+that cannot be shown leave the view as it was, and the page says why.
