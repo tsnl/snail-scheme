@@ -1,5 +1,5 @@
-;; The menu that opens each prototype, and the Menu and Guide buttons beside
-;; each one. The shell owns actions from 9000; prototypes own the ones
+;; The menu that opens each prototype and the credits, and the Menu and
+;; Guide buttons beside each prototype. The shell owns actions from 9000; prototypes own the ones
 ;; below, and the Guide button presses the prototype's own guide-open.
 (define-library (apps hearsay shell)
   (export
@@ -25,7 +25,9 @@
    (apps hearsay mill-screen)
    (apps hearsay ledger-screen)
    (apps hearsay hud)
-   (apps hearsay drawing))
+   (apps hearsay drawing)
+   (lpc credits)
+   (apps hearsay credits))
   (begin
 
     ;; ---- State ----
@@ -34,6 +36,7 @@
       (Menu)
       (Rumors ((screen MillScreen)))
       (Favors ((screen LedgerScreen)))
+      (Credits)
       (deriving Serialize Deserialize))
 
     ;; `opened` counts the prototypes opened, and a ledger's seed comes
@@ -68,16 +71,18 @@
       shell)
 
     ;; Menu buttons open rumor-mill scenario i as action 9000 with argument
-    ;; i, or the ledger as 9100.
+    ;; i, the ledger as 9100, or the credits as 9200.
     (define action-scenario (→ I32) 9000)
     (define action-ledger (→ I32) 9100)
+    (define action-credits (→ I32) 9200)
     (define action-menu (→ I32) 9999)
 
     ;; ---- Updates ----
 
     (define (open (shell Shell) (action I32) (argument I32)) (→ Shell)
       (let ((index (i32->i64 argument)) (opened (+ (● shell opened) 1)))
-        (cond ((= action action-ledger)
+        (cond ((= action action-credits) (Shell-screen-set shell (Credits)))
+              ((= action action-ledger)
                (show-opened (Shell-ledger-guided-set shell #t)
                             (Favors (new-ledger-screen (+ (● shell seed) opened)))
                             (● shell ledger-guided)))
@@ -98,6 +103,7 @@
     (define (forward (shell Shell) (input Input)) (→ Shell)
       (match (● shell screen)
         ((Menu) shell)
+        ((Credits) shell)
         ((Rumors screen) (Shell-screen-set shell (Rumors (update-mill-screen screen input))))
         ((Favors screen) (Shell-screen-set shell (Favors (update-ledger-screen screen input))))))
 
@@ -141,6 +147,7 @@
     (define (shell-pictures (shell Shell) (art (Fn String → (Option Source)))) (→ (List Picture))
       (match (● shell screen)
         ((Menu) (Nil))
+        ((Credits) (Nil))
         ((Rumors _) (mill-pictures art))
         ((Favors _) (ledger-pictures art))))
 
@@ -177,6 +184,12 @@
                                                "Trade markers and promises with two rival fixers."
                                                action-ledger
                                                0
+                                               (Enabled) -1.0)
+                                       (Button (look "credits")
+                                               "Credits"
+                                               "Who drew the characters, and under which licenses."
+                                               action-credits
+                                               0
                                                (Enabled) -1.0))))))))
 
     ;; Each prototype puts the Menu and Guide buttons first in the top-right
@@ -186,9 +199,74 @@
                  (widgets (list (button "back" "Menu" action-menu)
                                 (button "open-guide" "Guide" guide-open))))))
 
+    ;; ---- Credits ----
+
+    ;; The characters are composed from LPC sheets, one panel crediting
+    ;; each part they come from: title, authors, licenses and sources, as a
+    ;; CC-BY credit asks, with what each author changed. The pictures
+    ;; composed from them are adaptations, shared alike.
+    (define credits-panels (→ (List Panel))
+      (append (list (new Panel (key "back") (place (At (TopRight) 0))
+                         (widgets (list (button "back" "Menu" action-menu))))
+                    (new Panel (key "credits") (place (At (TopLeft) 0))
+                         (widgets (list (label "title" "Credits")
+                                        (label "subtitle" credits-notice)
+                                        (Link (look "attribution")
+                                              "Each pack's full credits"
+                                              attribution-url))))
+                    (new Panel (key "licenses") (place (At (TopLeft) 0))
+                         (widgets (Cons (label "heading" "The licenses")
+                                        (map (lambda (license)
+                                               (Link (look (● license first))
+                                                     (● license first)
+                                                     (● license second)))
+                                             licenses)))))
+              (map-indexed credit-panel credits)))
+
+    ;; Each license a credited part names, and its text.
+    (define licenses (→ (List (Pair String String)))
+      (list
+       (new Pair (first "CC-BY-SA 3.0") (second "https://creativecommons.org/licenses/by-sa/3.0/"))
+       (new Pair (first "CC-BY 3.0") (second "https://creativecommons.org/licenses/by/3.0/"))
+       (new Pair (first "CC-BY 4.0") (second "https://creativecommons.org/licenses/by/4.0/"))
+       (new Pair (first "OGA-BY 3.0") (second "https://static.opengameart.org/OGA-BY-3.0.txt"))
+       (new Pair
+         (first "GPL 2.0")
+         (second "https://www.gnu.org/licenses/old-licenses/gpl-2.0.html"))
+       (new Pair (first "GPL 3.0") (second "https://www.gnu.org/licenses/gpl-3.0.html"))
+       (new Pair (first "CC0 1.0") (second "https://creativecommons.org/publicdomain/zero/1.0/"))))
+
+    (define credits-notice (→ String)
+      "The characters are drawn from Liberated Pixel Cup art. Each part below keeps the licenses its authors gave it; the characters composed from them are shared under CC-BY-SA 3.0. The parts are named as their packs name them.")
+
+    (define attribution-url (→ String)
+      "https://github.com/tsnl/snail-scheme/blob/main/src/lpc/ATTRIBUTION.md")
+
+    (define (credit-panel (index I64) (credit Credit)) (→ Panel)
+      (new Panel
+        (key (string-append "credit-" (show index)))
+        (place (At (TopLeft) 0))
+        (widgets (append (credit-terms credit) (credit-sources credit)))))
+
+    ;; The part and its pack, then its authors, licenses and changes, and
+    ;; the sheets of it the cast wears.
+    (define (credit-terms (credit Credit)) (→ (List Widget))
+      (let ((pack (string-append " from " (● credit pack)))
+            (sheets (string-join (● credit sheets) ", ")))
+        (list (Text (look "part") (list (Strong (● credit title)) (Normal pack)))
+              (label "authors" (string-append "By " (● credit authors)))
+              (label "licenses" (string-append "Licenses: " (● credit licenses)))
+              (label "changes" (● credit changes))
+              (label "sheets" (string-append "Sheets used: " sheets)))))
+
+    (define (credit-sources (credit Credit)) (→ (List Widget))
+      (map-indexed (lambda (index url) (Link (look (string-append "source-" (show index))) url url))
+                   (● credit sources)))
+
     (define (shell-hud (shell Shell)) (→ (List Panel))
       (match (● shell screen)
         ((Menu) menu-panels)
+        ((Credits) credits-panels)
         ((Rumors screen) (mill-screen-hud screen menu-button))
         ((Favors screen) (ledger-screen-hud screen menu-button))))
 

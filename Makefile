@@ -84,11 +84,11 @@ splats:
 # The GitHub Pages site in build/pages: the book, with each published
 # application at play/NAME/. The glTF viewer and Splats ship no scene:
 # the viewer's samples are links to where they are published, and Splats
-# opens on procedural rings until given a trained scene's files.
-# Hearsay stays unpublished: its LPC art must be credited as
-# src/lpc/ATTRIBUTION.md describes, and the page doesn't show credits.
+# opens on procedural rings until given a trained scene's files. Hearsay
+# carries its LPC art's credits, read from the packs when it is built,
+# and shows them from its menu.
 # Train stays unpublished: its page trains on a dataset served beside it.
-PAGES_APPS = siegework viewer splats
+PAGES_APPS = siegework viewer splats hearsay
 
 pages: $(PAGES_APPS)
 	"$(MDBOOK)" build --dest-dir build/pages
