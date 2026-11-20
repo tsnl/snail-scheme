@@ -21,6 +21,12 @@ The first time each prototype opens, a guide explains it in a few pages,
 starting with the question it asks and what to watch for while playing;
 its Guide button, beside Menu, opens it again.
 
+The menu's Credits screen credits the LPC art the characters are drawn
+from: each part's title, authors, licenses and sources, and what each
+author changed. `credits.sld` reads them from the packs' credit files when
+the program is built, for the same sheets `art.sld` embeds, and the build
+fails if a sheet has no credit ([LPC art](../../lpc/ATTRIBUTION.md)).
+
 ## 1. The rumor mill
 
 *Is steering what people believe fun, and can a player predict it?* If it

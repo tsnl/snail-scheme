@@ -79,9 +79,9 @@
 
   ;; The ledger is the second prototype opened, so seed 5 deals it seed 7.
   ;; Buttons: 9000 with argument i opens rumor-mill scenario i, 9100 opens the
-  ;; ledger, and 9999 is Menu. Each guide opens by itself the first time;
-  ;; `guide-next` turns to its next page, closing it after the last, and
-  ;; `guide-close` closes it. In the mill, 100 + p chooses person p, 3
+  ;; ledger, 9200 opens the credits, and 9999 is Menu. Each guide opens by
+  ;; itself the first time; `guide-next` turns to its next page, closing it
+  ;; after the last, and `guide-close` closes it. In the mill, 100 + p chooses person p, 3
   ;; delivers a job and 9 lies low. In the ledger, action 3 with argument i
   ;; does the i-th job, and 5 ends the round.
   (let* ((shell (new-shell 5 1280 800))
@@ -105,6 +105,10 @@
                       "ledger after doing job 2 and ending the round"
                       (list (new Pair (first guide-next) (second 0))
                             (new Pair (first 3) (second 1))
-                            (new Pair (first 5) (second 0))))))
+                            (new Pair (first 5) (second 0)))))
+         (shell (step shell
+                      "credits"
+                      (list (new Pair (first 9999) (second 0))
+                            (new Pair (first 9200) (second 0))))))
     (unit))
   (unit))

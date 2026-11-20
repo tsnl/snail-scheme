@@ -69,3 +69,9 @@ body { font-size: 12px; }
 .panel[data-key="guide"] .label[data-key="guide-title"] { font-size: 16px; font-weight: 600; }
 .panel[data-key="guide"] .label[data-key="guide-page"] { font-size: 11px; }
 .panel[data-key="guide"] .button[data-key="guide-next"] { margin-left: auto; border-color: #8fd18f; }
+
+/* Credits: wider panels, each part's title over its terms, and sources
+   that wrap at any character. */
+.panel[data-key^="credit"], .panel[data-key="licenses"] { max-width: 520px; }
+.panel[data-key^="credit-"] .label[data-key="licenses"], .panel[data-key^="credit-"] .label[data-key="sheets"] { color: #9aa6b8; }
+.panel[data-key^="credit"] .link, .panel[data-key="licenses"] .link { padding: 2px 8px; overflow-wrap: anywhere; }
