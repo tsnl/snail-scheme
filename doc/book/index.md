@@ -13,6 +13,8 @@ Its compiler is written in the language and compiles itself.
 - [The path tracer](graphics/tracer.md): glTF scenes path traced in the
   page. **[Open the viewer](play/viewer/)** and drop your own `.glb` on it,
   or pick a sample.
+- Splats: 3D Gaussian Splatting drawn in the page, sorted on the GPU.
+  **[Open Splats](play/splats/)** and drop a trained scene's `.ply` on it.
 
 Source lives in the [repository](https://github.com/tsnl/snail-scheme);
 [getting started](https://github.com/tsnl/snail-scheme/blob/main/doc/getting-started.md)
