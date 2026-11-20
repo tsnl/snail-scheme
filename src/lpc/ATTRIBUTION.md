@@ -13,6 +13,15 @@ that reads the image files, so a built program carries those images, and
 any picture it composes from them is a derivative of the art. Whoever
 distributes such a build must credit the art as these licenses require.
 
+`(lpc credits)` does this for a program: its `credits-library`, given the
+paths a program embeds, builds a library of their credits, read from the
+packs' credit files named below, and fails when a path has none. A credit
+gives the part's title as its pack names it, its authors and what each
+changed, its licenses and its sources. Hearsay shows its credits on a
+screen of its own, with links to each license; a program that embeds LPC
+sheets should show its credits likewise, where its players can find them,
+and share what it composes from them under CC-BY-SA 3.0.
+
 | Folder | Pack | License | Credits |
 | --- | --- | --- | --- |
 | `lpc-character-bases-v3_1/` | [LPC Character Bases](https://opengameart.org/content/lpc-character-bases), version 3.1 (`lpc-character-bases-v3_1.zip`) | CC-BY-SA 3.0 or GPL 3.0 | `lpc-character-bases-v3_1/CREDITS.txt` |

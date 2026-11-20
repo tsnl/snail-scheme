@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := check
-.PHONY: format check fetch test test-browser test-gpu bootstrap unicode-tables generated-unicode site siegework hearsay viewer pages
+.PHONY: format check fetch test test-browser test-gpu bootstrap unicode-tables generated-unicode site siegework hearsay viewer splats pages
 
 CHEZ ?= scheme
 export CHEZ
@@ -67,7 +67,7 @@ generated-unicode:
 
 # Each application is a script, src/apps/NAME/main.scm, built into
 # build/src/apps/NAME/main.
-site: siegework hearsay viewer
+site: siegework hearsay viewer splats
 
 siegework:
 	./snail-scheme build --release --target browser src/apps/siegework/main.scm
@@ -78,17 +78,24 @@ hearsay:
 viewer:
 	./snail-scheme build --release --target browser src/apps/viewer/main.scm
 
-# The GitHub Pages site in build/pages: the book, with Siegework at
-# play/siegework/ and the glTF viewer at play/viewer/, which ships no
-# scene: its samples are links to where they are published.
-# Hearsay stays unpublished: its LPC art must be credited as
-# src/lpc/ATTRIBUTION.md describes, and the page doesn't show credits.
-pages: siegework viewer
+splats:
+	./snail-scheme build --release --target browser src/apps/splats/main.scm
+
+# The GitHub Pages site in build/pages: the book, with each published
+# application at play/NAME/. The glTF viewer and Splats ship no scene:
+# the viewer's samples are links to where they are published, and Splats
+# opens on procedural rings until given a trained scene's files. Hearsay
+# carries its LPC art's credits, read from the packs when it is built,
+# and shows them from its menu.
+# Train stays unpublished: its page trains on a dataset served beside it.
+PAGES_APPS = siegework viewer splats hearsay
+
+pages: $(PAGES_APPS)
 	"$(MDBOOK)" build --dest-dir build/pages
-	mkdir -p build/pages/play/siegework build/pages/play/viewer
-	cp -R build/src/apps/siegework/main/. build/pages/play/siegework/
-	cp -R build/src/apps/viewer/main/. build/pages/play/viewer/
+	for app in $(PAGES_APPS); do \
+	  mkdir -p build/pages/play/$$app && \
+	  cp -R build/src/apps/$$app/main/. build/pages/play/$$app/ && \
+	  test -f build/pages/play/$$app/main.wasm || exit 1; \
+	done
 	test -f build/pages/index.html
 	test -f build/pages/games/siegework.html
-	test -f build/pages/play/siegework/main.wasm
-	test -f build/pages/play/viewer/main.wasm
