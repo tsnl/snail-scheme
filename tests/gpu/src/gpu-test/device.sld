@@ -6,7 +6,7 @@
 ;; and their motion and 32-bit ids, and a sprite that stays still under an
 ;; orbiting camera; numbers squared in a compute pass; 300,000 numbers
 ;; scanned and 5,000 keys sorted; three gaussians splatted under two
-;; transform tables; tensor programs compiled and checked against the CPU,
+;; transform tables; tensor programs lowered and checked against the CPU,
 ;; params swapped and assigned, and Adam fitting a line; and the
 ;; differentiable splat renderer checked against the paper's blending, its
 ;; tiles past 65,535, fused SSIM's gradient against central differences,
@@ -62,6 +62,7 @@
       (write-line (string-append "tensor: " (tensor-agreement)))
       (write-line (string-append "swapped: " (swapped-params)))
       (write-line (string-append "assigned: " (assigned-param)))
+      (write-line (string-append "bound: " (bound-param)))
       (write-line (string-append "fitted: " (fitted-line)))
       (write-line (string-append "splat forward: " (splat-forward-check)))
       (write-line (string-append "shared fill: " (show (shared-fill))))

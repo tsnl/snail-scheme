@@ -24,7 +24,7 @@
            (sin tensor-sin))
    (only (snail shell tensor eval) bytes->values values->bytes)
    (snail shell tensor grad)
-   (snail shell tensor compile)
+   (snail shell tensor lower)
    (snail shell tensor adam)
    (snail shell graphics splat-train))
   (begin
@@ -116,7 +116,7 @@
     (define (splat-forward-check) (→ String) (! gpu tasks)
       (let* ((cloud (splat-params 1))
              (image (● (render cloud (camera-param) sensor) image))
-             (program (compile-program "forward" (list image) (Nil))))
+             (program (lower "forward" (list image) (Nil))))
         (written program
                  (list (new Pair (first "means") (second (list->array (list 0.0 0.0 4.0))))
                        (new Pair
@@ -150,7 +150,7 @@
     (define (shared-fill) (→ Bool) (! gpu tasks)
       (let* ((v (fill 3.0 (list 11 11 1) (Float)))
              (center (narrow (narrow (+ v (ssim v v)) 0 5 1) 1 5 1))
-             (program (compile-program "shared fill" (list center) (Nil))))
+             (program (lower "shared fill" (list center) (Nil))))
         (run-program program)
         (let ((value (scalar-sink program)))
           (release-program program)
@@ -163,7 +163,7 @@
              (image (● (render (splat-params 4) (camera-param) sensor) image))
              (ranges (list-ref (● image node args) 1))
              (bounds (concat (list (narrow ranges 0 0 2) (narrow ranges 0 (* 2 65535) 4)) 0))
-             (program (compile-program "tile ranges" (list bounds) (Nil)))
+             (program (lower "tile ranges" (list bounds) (Nil)))
              (write (lambda (name values)
                       (write-param program name (values->bytes (list->array values) (Float))))))
         (write "camera" (list 1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0 1.0 0.0 0.0))
@@ -189,8 +189,8 @@
     (define (splat-gradient-check) (→ String) (! gpu tasks)
       (let* ((cloud (splat-params 3))
              (loss (loss-of cloud))
-             (grads (compile-program "grads" (grad loss (cloud-views cloud)) (Nil)))
-             (losses (compile-program "losses" (list loss) (Nil)))
+             (grads (lower "grads" (grad loss (cloud-views cloud)) (Nil)))
+             (losses (lower "losses" (list loss) (Nil)))
              (values (cloud-values wide))
              (target
               (array-generate (* 48 (* 64 3)) (lambda (i) (* 0.3 (i64->f64 (remainder i 3)))))))
@@ -256,8 +256,8 @@
     (define (splat-ssim-check) (→ String) (! gpu tasks)
       (let* ((x (param "x" (list 20 24 3) (Float)))
              (loss (mean (ssim x (param "y" (list 20 24 3) (Float)))))
-             (grads (compile-program "ssim-grads" (grad loss (list x)) (Nil)))
-             (losses (compile-program "ssim-losses" (list loss) (Nil)))
+             (grads (lower "ssim-grads" (grad loss (list x)) (Nil)))
+             (losses (lower "ssim-losses" (list loss) (Nil)))
              (xs (array-generate 1440 (lambda (i) (+ 0.5 (* 0.4 (sin (* 0.37 (i64->f64 i))))))))
              (ys (array-generate 1440 (lambda (i) (+ 0.5 (* 0.3 (sin (* 0.11 (i64->f64 i)))))))))
         (for-each (lambda (program)
@@ -322,9 +322,9 @@
     (define (splat-fit-check) (→ String) (! gpu tasks)
       (let* ((truth (splat-params 3))
              (target-program
-              (compile-program "truth"
-                               (list (● (render truth (camera-param) sensor) image))
-                               (Nil))))
+              (lower "truth"
+                     (list (● (render truth (camera-param) sensor) image))
+                     (Nil))))
         (written target-program (cloud-values three) (list 1.0 1.0 1.0))
         (run-program target-program)
         (let ((target (read-sink target-program 0)))
@@ -336,17 +336,17 @@
              (loss (loss-of cloud))
              (grads (grad loss (cloud-views cloud)))
              (rates (list 0.002 0.005 0.001 0.05 0.0025 0.000125 0.000125 0.000125))
-             (program (compile-program "fit"
-                                       (list loss)
-                                       (adam-updates "adam"
-                                                     (adam 0.9 0.999 1e-15)
-                                                     (map (lambda (k)
-                                                            (new Trained
-                                                              (param
-                                                               (list-ref (cloud-views cloud) k))
-                                                              (grad (list-ref grads k))
-                                                              (rate (scalar (list-ref rates k)))))
-                                                          (iota 8))))))
+             (program (lower "fit"
+                             (list loss)
+                             (adam-updates "adam"
+                                           (adam 0.9 0.999 1e-15)
+                                           (map (lambda (k)
+                                                  (new Trained
+                                                    (param
+                                                     (list-ref (cloud-views cloud) k))
+                                                    (grad (list-ref grads k))
+                                                    (rate (scalar (list-ref rates k)))))
+                                                (iota 8))))))
         (let ((initial (cloud-values (map (lambda (s)
                                             (Splat-logit-set (Splat-scale-set s (- (● s scale) 0.5))
                                                              (- (● s logit) 1.0)))

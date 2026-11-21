@@ -1,7 +1,7 @@
 ;; Reverse-mode gradients as more graph: `grad` walks the nodes a scalar
 ;; depends on from the last to the first, and builds, for each port, the
 ;; gradient of the scalar with respect to that port's buffer, as views of
-;; new nodes. Nothing runs: the gradient is compiled with everything else.
+;; new nodes. Nothing runs: the gradient is lowered with everything else.
 ;;
 ;;   (grad loss (list w b))   ; dloss/dw and dloss/db, shaped as w and b
 ;;
