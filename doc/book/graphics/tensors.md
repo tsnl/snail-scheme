@@ -3,16 +3,16 @@
 `(snail shell tensor)` is a GPU tensor library in the shape of
 [Resin](https://github.com/tsnl/resin)'s: a program builds a lazy graph of
 nodes, rewrites it symbolically for gradients and optimizer steps, and
-compiles it explicitly into WebGPU work that runs as often as a training
-loop likes, on the page or on Node ([WebGPU on Node](plan.md#webgpu-on-node)).
-All four libraries are **implemented**:
+lowers it explicitly to plain WebGPU objects the caller owns, which run as
+often as a training loop likes, on the page or on Node ([WebGPU on
+Node](plan.md#webgpu-on-node)). All five libraries are **implemented**:
 
 | Library | Provides |
 | --- | --- |
 | `(snail shell tensor)` | Nodes, ports and views; the operations that build them |
 | `(snail shell tensor grad)` | `grad`: reverse-mode gradients as more graph |
 | `(snail shell tensor adam)` | `adam-updates`: Adam's step as more graph |
-| `(snail shell tensor compile)` | `compile-program`: buffers, kernels and their order |
+| `(snail shell tensor lower)` | `lower`: buffers, kernels and their order, the caller's |
 | `(snail shell tensor eval)` | `evaluate`: the same graph on the CPU, the specification |
 
 ## Graphs and views
@@ -64,10 +64,10 @@ under `prefix` (`moment-names`). They start at zeros, as every buffer does,
 and a host may write them, as densification does when it changes how many
 gaussians a param holds.
 
-## Compiling and running
+## Lowering and running
 
-`(compile-program label sinks updates)` turns what the sinks and updates
-need into a `Program`, once. Sinks are views to read back; updates are
+`(lower label sinks updates)` lowers what the sinks and updates need to a
+`Program`, once. Sinks are views to read back; updates are
 pairs of a whole param and the value it takes after the run. Both need
 the same element count and element type. Use `convert` for a numeric
 conversion or `bitcast` to reinterpret the stored bits. Every sink and
@@ -76,11 +76,20 @@ can swap values in one run, and an update can initialize a param that no
 sink reads.
 
 ```scheme
-(let ((program (compile-program "fit" (list loss) (adam-updates "adam" settings trained))))
+(let ((program (lower "fit" (list loss) (adam-updates "adam" settings trained))))
   (write-param program "points" bytes)
   (for-each (lambda (_) (run-program program)) (iota 1000))
   (read-sink program 0))                 ; loss used by the last update
 ```
+
+Everything a program holds is ordinary WebGPU, and the caller's: its
+`steps`, each a dispatch with its WGSL text, entry, pipeline, bind group and
+workgroups, or a sort or a scan; its params and sinks, each with its
+buffer; and `made`, every buffer it made, with its use and size.
+`(encode-steps pass program)` encodes the steps into a compute pass the
+caller began, among its own work; `run-program` is that in a pass and a
+submission of its own. `release-program` destroys what the program made and
+nothing it was given.
 
 Each node's kernel is generated as WGSL text whose shapes, pitches and
 offsets are literals, a thread per output element, so two nodes that
@@ -100,18 +109,23 @@ it reads.
 Buffers are pooled by liveness: once the last node reading a port has been
 dispatched, its buffer returns to a pool, and a later port of its size
 takes it. Params, constants, sinks and updated values keep their buffers.
-What is left in the pool once a program is compiled is its scratch, which
+What is left in the pool once a program is lowered is its scratch, which
 holds nothing between runs.
 
-Programs that take turns on one set of params, as a training step and
-densification do, are compiled with `(compile-program-sharing label sinks
-updates other)`. Its params of the same name and size are `other`'s
-buffers, and its pool starts as `other`'s scratch, so the second program
-costs little more than its own sinks, which it copies out of the scratch.
-It is released no later than `other`. To grow, a host stashes the params
-(`stash-params`, copies on the device), releases its programs, compiles
-larger ones, and gives the params back (`unstash-params`, as much of each
-as both hold), so two sets of scratch are never held at once.
+A caller gives a program buffers with `(lower-with label sinks updates
+given)`. A `Given` holds buffers for params by name, which the program
+reads and writes in place of making its own, and free scratch to start its
+pool with. `(bound given view buffer)` adds the caller's buffer for the
+param `view` sees whole, as a viewer gives the buffer its gaussians are
+already in; the buffer must be the param's size. Programs that take turns
+on one set of params, as a training step and densification do, give the
+second what the first has, `(given-by first)`: its params, and its scratch,
+so the second costs little more than its own sinks, which it copies out of
+the scratch. It is released no later than the first. To grow, a host
+stashes the params (`stash-params`, copies on the device), releases its
+programs, lowers larger ones, and gives the params back (`unstash-params`,
+as much of each as both hold), so two sets of scratch are never held at
+once.
 
 `(profile-program program)` runs each step alone and waits for it,
 answering each step's seconds and its kernel's code. Each wait is a round
@@ -121,10 +135,12 @@ program's time goes rather than how long a run takes.
 `tests/programs/tensor.sld` evaluates each kind on the CPU and checks every
 gradient `grad` builds against central differences. On the device, which
 `tests/browser/gpu.mjs` and `tests/gpu.mjs` run, `(gpu-test tensor)`
-compiles sinks covering the generated kernels, including reductions in
+lowers sinks covering the generated kernels, including reductions in
 levels, float scatters and a sort. It compares integer outputs exactly and
-float outputs to a part in a thousand against the CPU. It then fits a line
-with Adam in 1,000 runs of one program.
+float outputs to a part in a thousand against the CPU. It runs a program
+whose param is a buffer the test made, in the test's own pass, and reads
+the buffer back after releasing the program. It then fits a line with Adam
+in 1,000 runs of one program.
 
 ## Differentiable splatting
 
@@ -134,7 +150,7 @@ through, built as a tensor graph. `render` draws a `Cloud` of params
 the projection too, whose centers' gradient densification watches. A
 cloud's spherical harmonics are a param for each degree, each shading only
 while its entry of `degrees` is 1, so a schedule raises them. Its `live`
-mask culls the rows it has not used yet, so a program compiled for a
+mask culls the rows it has not used yet, so a program lowered for a
 capacity holds a cloud that grows. Unused rows can be left at zero through
 training.
 
@@ -159,7 +175,7 @@ training.
   enough bits for that key, including on grids with 65,536 or more tiles.
   Binning passes no gradient. The sensor's capacity bounds the entries;
   past it the farthest gaussians' are dropped, so a rendering answers how
-  many entries its gaussians asked for, and a host compiles room for more
+  many entries its gaussians asked for, and a host lowers room for more
   before they run out.
 - **Rasterizing is a custom node** (`splat-forward`), a workgroup per tile.
   It blends as the paper does and keeps each pixel's final transmittance
@@ -207,7 +223,7 @@ copies are, and `camera-values` turns a camera and a pose into the 16
 numbers of `camera-param`.
 
 `(snail shell graphics splat-fit)` is the reference's training as three
-tensor graphs a host compiles for a capacity of gaussians, on one set of
+tensor graphs a host lowers for a capacity of gaussians, on one set of
 params:
 
 - **`training-step`** renders from the camera param, takes the loss
@@ -267,7 +283,7 @@ as textures. It raises the
 harmonics' degree every 1,000 steps, densifies every 100 steps from 500 to
 15,000, and resets opacity every 3,000. When more than half the capacity is
 live, up to the page's `gaussians`, or the step's binning asked for more
-than three quarters of the entries, it compiles larger programs: it
+than three quarters of the entries, it lowers larger programs: it
 stashes the params, releases the old programs and gives the params back to
 the new ones. A step and densification make about 3.3 KB a gaussian of
 capacity, mostly Adam's: each param's value and moments, and its gradient

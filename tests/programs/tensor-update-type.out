@@ -1,1 +1,1 @@
-snail: tensor compile: cannot update i32 param counter with f32
+snail: tensor lower: cannot update i32 param counter with f32
