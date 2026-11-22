@@ -1,8 +1,9 @@
 ;; COLMAP's binary files read: a PINHOLE and a SIMPLE_PINHOLE camera, an
 ;; image with two 2D points its reader skips, a point with a track of
 ;; two, and a pose with where its camera stands and which way it calls
-;; up, turned into splat training's camera param; the up of no poses;
-;; then the files the readers refuse.
+;; up, turned into splat training's camera param at half the camera's
+;; size and at images_4's, whose width and height round apart; the up of
+;; no poses; then the files the readers refuse.
 (import
  (snail core base)
  (snail core io)
@@ -99,6 +100,10 @@
                     (write-line out (string-append "camera param at half size "
                                                    (numbers
                                                     (camera-values (camera-sized camera 2473 1643)
+                                                                   i))))
+                    (write-line out (string-append "camera param at images_4 "
+                                                   (numbers
+                                                    (camera-values (camera-sized camera 1237 822)
                                                                    i)))))
                    (_ (unit))))
                read))

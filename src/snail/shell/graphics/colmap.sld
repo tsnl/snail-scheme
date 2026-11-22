@@ -208,18 +208,23 @@
         (if (< norm 1e-9) (list 0.0 -1.0 0.0) (map (lambda (x) (/ x norm)) sum))))
 
     ;; The camera as it took photographs `width` by `height`: a dataset
-    ;; often keeps its photographs smaller than the camera took them, and
-    ;; the pinhole is scaled as their width is.
+    ;; often keeps its photographs smaller than the camera took them. A
+    ;; smaller copy spans the whole frame, each side rounded to whole pixels
+    ;; on its own, as Mip-NeRF 360's 4946 by 3286 become 1237 by 822, so the
+    ;; pinhole is scaled across as their width is and down as their height
+    ;; is. Scaled down as their width is, the camera would put bicycle's
+    ;; views up to a sixth of a pixel off its photographs.
     (define (camera-sized (camera ColmapCamera) (width I64) (height I64)) (→ ColmapCamera)
-      (let ((scale (/ (i64->f64 width) (i64->f64 (● camera width)))))
+      (let ((across (/ (i64->f64 width) (i64->f64 (● camera width))))
+            (down (/ (i64->f64 height) (i64->f64 (● camera height)))))
         (new ColmapCamera
           (id (● camera id))
           (width width)
           (height height)
-          (fx (* scale (● camera fx)))
-          (fy (* scale (● camera fy)))
-          (cx (* scale (● camera cx)))
-          (cy (* scale (● camera cy))))))
+          (fx (* across (● camera fx)))
+          (fy (* down (● camera fy)))
+          (cx (* across (● camera cx)))
+          (cy (* down (● camera cy))))))
 
     ;; The 16 floats of splat training's camera param: R's rows, t, then
     ;; fx, fy, cx and cy.
