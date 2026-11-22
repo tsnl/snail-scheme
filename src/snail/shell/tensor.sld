@@ -86,7 +86,6 @@
    Fill
    Map
    Reduce
-   Matmul
    Place
    Gather
    Concat
@@ -105,6 +104,7 @@
    rank
    element-count
    identity?
+   whole-buffer?
    dense?
    param
    constant
@@ -135,6 +135,7 @@
    where
    convert
    bitcast
+   reduced
    reduce
    sum
    sum-all
@@ -361,7 +362,10 @@
 
     ;; What a node computes. A `Fill` is every element one value; a `Map`
     ;; computes its body at each element, so a copy, the one way a view
-    ;; becomes a buffer, is a map of one load; a `Place` writes its
+    ;; becomes a buffer, is a map of one load; a `Reduce` computes its
+    ;; body at each element of its arguments' shape and combines it over
+    ;; the trailing `span` axes, so its port is that shape without them,
+    ;; and a matrix product is a sum of products; a `Place` writes its
     ;; argument into zeros at the addresses an accessor gives, the adjoint
     ;; of seeing a port through that accessor; a `Gather` takes the rows of
     ;; its first argument at the indices of its second; a `ScatterAdd` adds
@@ -374,8 +378,7 @@
       (Constant ((name String) (data Bytes)))
       (Fill ((value F64)))
       (Map ((body Expr)))
-      (Reduce ((op Reduction) (axes (List I64))))
-      (Matmul)
+      (Reduce ((op Reduction) (span (List I64)) (body Expr)))
       (Place ((accessor Accessor)))
       (Gather)
       (ScatterAdd ((rows I64)))
@@ -390,8 +393,12 @@
         ((Constant name _) (string-append "constant " name))
         ((Fill value) (string-append "fill " (f64->string value)))
         ((Map body) (string-append "map " (expr-text body)))
-        ((Reduce op axes) (string-append (reduction-text op) " " (string-join (map show axes) ",")))
-        ((Matmul) "matmul")
+        ((Reduce op span body)
+         (string-append (reduction-text op)
+                        " "
+                        (string-join (map show span) ",")
+                        " "
+                        (expr-text body)))
         ((Place accessor) (string-append "place " (accessor-text accessor)))
         ((Gather) "gather")
         ((ScatterAdd rows) (string-append "scatter-add " (show rows)))
@@ -560,12 +567,17 @@
 
     ;; ---- Maps ----
 
-    ;; A map of `body` over `args`, each seen at `shape`. A `Fill`
-    ;; argument becomes a literal of the body, so a map reads only
-    ;; buffers; the others keep their order.
+    ;; A map of `body` over `args`, each seen at `shape`.
     (define (mapped (body Expr) (args (List View)) (shape (List I64))) (→ View)
+      (bodied (lambda (folded) (Map folded)) body args shape))
+
+    ;; A node of `kind` computing `body` over `args` into a port of
+    ;; `shape`. A `Fill` argument becomes a literal of the body, so the
+    ;; node reads only buffers; the others keep their order.
+    (define (bodied (kind (Fn Expr → Kind)) (body Expr) (args (List View)) (shape (List I64)))
+      (→ View)
       (let ((folded (map-loads body (lambda (k etype) (folded-load args k etype)))))
-        (single (Map folded)
+        (single (kind folded)
                 (filter (lambda (a) (not (fill-view? a))) args)
                 shape
                 (expr-etype folded))))
@@ -576,7 +588,7 @@
     (define (folded-load (args (List View)) (k I64) (etype Etype)) (→ Expr)
       (let ((a (list-ref args k)))
         (unless (same-etype? (etype-of a) etype)
-          (panic (string-append "tensor: a map loads argument "
+          (panic (string-append "tensor: a body loads argument "
                                 (show k)
                                 " as "
                                 (etype-wgsl etype)
@@ -657,14 +669,29 @@
 
     ;; ---- Reductions ----
 
-    ;; The reduced axes keep size 1, so the result broadcasts back against
-    ;; its operand; `squeeze` drops them.
+    ;; A reduction of `body` over `args`, each seen at `shape` followed by
+    ;; `span`, combined over the span into a port of `shape`.
+    (define (reduced (op Reduction)
+                     (body Expr)
+                     (args (List View))
+                     (shape (List I64))
+                     (span (List I64)))
+      (→ View)
+      (bodied (lambda (folded) (Reduce op span folded)) body args shape))
 
+    ;; The reduced axes keep size 1, so the result broadcasts back against
+    ;; its operand; `squeeze` drops them. A reduction combines trailing
+    ;; axes, so the operand is seen with the reduced ones last.
     (define (reduce (op Reduction) (a View) (axes (List I64))) (→ View)
-      (single (Reduce op axes)
-              (list a)
-              (map-indexed (lambda (k size) (if (member? k axes) 1 size)) (shape-of a))
-              (etype-of a)))
+      (let* ((kept (filter (lambda (k) (not (member? k axes))) (iota (rank a))))
+             (gone (filter (lambda (k) (member? k axes)) (iota (rank a))))
+             (sizes (lambda (ks) (map (lambda (k) (list-ref (shape-of a) k)) ks))))
+        (reshape (reduced op
+                          (Load 0 (etype-of a))
+                          (list (permute a (append kept gone)))
+                          (sizes kept)
+                          (sizes gone))
+                 (map-indexed (lambda (k size) (if (member? k axes) 1 size)) (shape-of a)))))
 
     (define (sum (a View) (axes (List I64))) (→ View) (reduce (Sum) a axes))
     (define (amax (a View) (axes (List I64))) (→ View) (reduce (Largest) a axes))
@@ -679,17 +706,25 @@
 
     ;; ---- Matrices ----
 
-    ;; (..., m, k) by (..., k, n), the leading axes equal.
+    ;; (..., m, k) by (..., k, c), the leading axes equal and the types
+    ;; one: at each (..., m, c), the sum over k of a's row times b's
+    ;; column, a reduction of their products with both seen at (..., m, c,
+    ;; k).
     (define (matmul (a View) (b View)) (→ View)
-      (let ((sa (shape-of a)) (sb (shape-of b)))
-        (unless (and (>= (length sa) 2)
-                     (= (length sa) (length sb))
-                     (= (list-ref sa (- (length sa) 1)) (list-ref sb (- (length sb) 2))))
-          (panic "tensor: matmul needs (..., m, k) and (..., k, n)"))
-        (single (Matmul)
-                (list a b)
-                (append (take sa (- (length sa) 1)) (list (list-ref sb (- (length sb) 1))))
-                (etype-of a))))
+      (let* ((sa (shape-of a)) (sb (shape-of b)) (n (length sa)))
+        (unless (and (>= n 2)
+                     (= n (length sb))
+                     (= (list-ref sa (- n 1)) (list-ref sb (- n 2)))
+                     (same-etype? (etype-of a) (etype-of b)))
+          (panic "tensor: matmul needs (..., m, k) and (..., k, c) of one type"))
+        (let* ((out (append (take sa (- n 1)) (list (list-ref sb (- n 1)))))
+               (seen (append out (list (list-ref sa (- n 1))))))
+          (reduced (Sum)
+                   (Apply (Mul) (list (Load 0 (etype-of a)) (Load 1 (etype-of b))) (etype-of a))
+                   (list (broadcast-to (unsqueeze a (- n 1)) seen)
+                         (broadcast-to (unsqueeze (transpose b) (- n 2)) seen))
+                   out
+                   (list (list-ref sa (- n 1)))))))
 
     ;; ---- Views ----
 
