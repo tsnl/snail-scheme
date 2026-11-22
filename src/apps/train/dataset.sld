@@ -49,7 +49,7 @@
           (options (new Options
                      (steps (number (value "steps" "30000") 30000))
                      (gaussians (number (value "gaussians" "4194304") 4194304))
-                     (profile (string=? (value "profile" "0") "1")))))))
+                     (profile (number (value "profile" "0") 0)))))))
 
     ;; The value a page address's query gives `name`, among the
     ;; `name=value` pairs after its `?`.
