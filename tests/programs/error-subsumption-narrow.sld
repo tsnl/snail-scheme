@@ -10,5 +10,5 @@
   (action)
   (run action))
 
-(define (main) (→ Unit) (! mut)
-  (noisy (lambda () (write-line "noise"))))
+(define (main (out OutputPort)) (→ Unit) (! mut)
+  (noisy (lambda () (write-line out "noise"))))

@@ -344,5 +344,4 @@
                (address (page-address fetch)))
            (match (query-files address)
              ((Nil) (view-loop gpu dom picker events fetch out (None) fly timing format))
-             (files (opened gpu dom picker events fetch out (None) fly timing format files (query-eye address))))))))
-  (unit))
+             (files (opened gpu dom picker events fetch out (None) fly timing format files (query-eye address)))))))))

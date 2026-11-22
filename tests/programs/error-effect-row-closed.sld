@@ -4,4 +4,4 @@
 
 (define (call (action (Fn → A ! e))) (→ A) (! e) (∀ (A e)) (action))
 
-(define (escape) (→ Unit) (call (lambda () (write-line "escaped"))))
+(define (escape (out OutputPort)) (→ Unit) (call (lambda () (write-line out "escaped"))))

@@ -15,5 +15,5 @@
   (lambda ()
     (handle Io
         ((fetch (lambda (ticket) (await ticket))))
-      (write-line (show (fetch 10))))
+      (fetch 10))
     (unit)))

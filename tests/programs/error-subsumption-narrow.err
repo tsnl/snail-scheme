@@ -1,1 +1,1 @@
-type mismatch: expected (Fn → Unit), found (Fn → Unit ! output-port)
+type mismatch: expected (Fn → Unit), found (Fn → Unit ! mut)

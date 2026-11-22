@@ -7,7 +7,8 @@
  (snail core base)
  (snail core io)
  (snail shell gpu)
- (gpu-test device))
+ (gpu-test device)
+ (only (snail shell task) tasks))
 
 (define (main (out OutputPort)) (→ Unit) (! mut tasks)
   (let ((gpu (host-gpu)))

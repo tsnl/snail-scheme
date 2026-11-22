@@ -9,7 +9,8 @@
  (only (snail shell gpu) Gpu)
  (only (snail shell page) Events)
  (only (snail shell page) PageStorage)
- (only (snail core io) Clock))
+ (only (snail core io) Clock)
+ (only (snail shell task) tasks))
 
 (define (main (gpu Gpu) (events Events) (storage PageStorage) (clock Clock)) (→ Unit) (! mut tasks)
   (run-scene gpu events storage clock (new SceneHandler

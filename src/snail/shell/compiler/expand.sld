@@ -1344,7 +1344,6 @@
       (PendingDefinition
        ((definition DefinitionSyntax)
         (value? Bool)))
-      (PendingStatement ((form Syntax)))
       (PendingData
        ((form Syntax)
         (enum? Bool)))
@@ -1357,9 +1356,9 @@
     (define (expand-top-level (cx Context) (env Env) (forms (List Syntax)))
       (→ Context)
       (! mut compile)
-      (threading cx ((scanned (each (lambda (cx form) (scan-top-level cx env form)) forms))
-                     (pending (with-statements env (concatenate scanned))))
-                 (let* ((signatures
+      (threading cx ((scanned (each (lambda (cx form) (scan-top-level cx env form)) forms)))
+                 (let* ((pending (concatenate scanned))
+                        (signatures
                          (fold-left (lambda (table entry) (with-signature cx env table entry))
                                     (empty-table)
                                     pending)))
@@ -1367,58 +1366,6 @@
                               ((bodies (each (lambda (cx entry) (declare cx env signatures entry))
                                              pending)))
                               (expand-bodies cx (concatenate bodies))))))
-
-    ;; A script's statements, the root program's top-level expressions, are
-    ;; the body of its entry, `main`, in order: a function of no parameters
-    ;; whose type is inferred, so the effects the statements perform are the
-    ;; program's, declared nowhere. Each statement's value is dropped, and
-    ;; the entry answers unit. A library's top level has no statements.
-
-    (define (with-statements (cx Context) (env Env) (pending (List Pending)))
-      (→ (Pair (List Pending) Context))
-      (! compile)
-      (match (statement-forms pending)
-        ((Cons first statements)
-         (if (string=? (● cx prefix) "main")
-             (let* ((loc (syntax-loc first)) (name (Ident "main" (None) loc)))
-               (when (any? defines-main? pending)
-                 (compile-error loc "a script with statements defines no main: they are its entry"))
-               (new Pair
-                 (first (append (filter (lambda (entry) (not (statement? entry))) pending)
-                                (list (script-entry name (Cons first statements) loc))))
-                 (second (bind-top cx env name (Global (unique-name cx name))))))
-             (new Pair (first pending) (second cx))))
-        ((Nil) (new Pair (first pending) (second cx)))))
-
-    (define (statement? (entry Pending)) (→ Bool)
-      (match entry
-        ((PendingStatement _) #t)
-        (_ #f)))
-
-    (define (statement-forms (pending (List Pending))) (→ (List Syntax))
-      (concatenate (map (lambda (entry)
-                          (match entry
-                            ((PendingStatement form) (list form))
-                            (_ (Nil))))
-                        pending)))
-
-    (define (defines-main? (entry Pending)) (→ Bool)
-      (match entry
-        ((PendingDefinition (DefinitionSyntax (Ident "main" _ _) _ _ _ _) _) #t)
-        (_ #f)))
-
-    (define (script-entry (name Syntax) (statements (List Syntax)) (loc Loc)) (→ Pending)
-      (PendingDefinition (new DefinitionSyntax
-                           (name name)
-                           (parameters (Some (Nil)))
-                           (header (new DefinitionHeader
-                                     (result (None))
-                                     (effects (Nil))
-                                     (variables (Nil))
-                                     (constraints (Nil))))
-                           (body (append statements (list (Atom (DUnit) loc))))
-                           (loc loc))
-                         #f))
 
     ;; A body that fails leaves the context as it was before it, and the
     ;; bodies after it are expanded all the same, so one compile reports
@@ -1472,7 +1419,8 @@
          (new Pair (first (list (PendingEffect form))) (second (scan-effect cx env form))))
         ((Some (Core "instance")) (new Pair (first (list (PendingInstance form))) (second cx)))
         ((Some (Core "expose")) (new Pair (first (list (PendingExposure form))) (second cx)))
-        (_ (new Pair (first (list (PendingStatement form))) (second cx)))))
+        (_ (compile-error (syntax-loc form)
+                          "a top level holds definitions alone: a program's entry is its main"))))
 
     (define (scan-definition (cx Context) (env Env) (form Syntax))
       (→ (Pair (List Pending) Context))
@@ -1564,10 +1512,7 @@
         ((PendingExposure form)
          (new Pair
            (first (list (lambda (cx) (add-item cx (expose-item cx env form)))))
-           (second cx)))
-        ((PendingStatement form)
-         (compile-error (syntax-loc form)
-                        "a library's top level has no statements; only a script's does"))))
+           (second cx)))))
 
     (define (expose-item (cx Context) (env Env) (form Syntax)) (→ Item) (! compile)
       (match form

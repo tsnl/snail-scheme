@@ -59,7 +59,7 @@
 
   (let ((ledger (new-ledger 7)))
     (show-board out ledger)
-    (show-board out (fold-left (lambda (mill step) (run-step out mill step)) ledger
+    (show-board out (fold-left (lambda (ledger step) (run-step out ledger step)) ledger
                            (list (Run "job 2" (Work 2))
                                  (Run "meet ivo" (Meet 0))
                                  (Run "accept 4" (Accept 4))

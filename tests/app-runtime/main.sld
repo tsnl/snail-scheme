@@ -61,7 +61,7 @@
                                     (button "trap" "Trap" 2))
                               (if (● counter leaving?) (list (button "leave" "Leave" 3)) (Nil)))))))
 
-(define (counter) (→ (SceneHandler Counter Frames))
+(define (counter (gpu Gpu)) (→ (SceneHandler Counter Frames))
   (new SceneHandler
     (initialize (lambda (seed width height) (counting 0)))
     (update step)
@@ -80,4 +80,4 @@
                 (unless (= (marker) 17)
                   (panic "a child lost its inherited handler"))
                 (sleep 100000)))
-    (run-scene gpu events storage clock (counter))))
+    (run-scene gpu events storage clock (counter gpu))))

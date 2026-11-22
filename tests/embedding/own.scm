@@ -3,4 +3,5 @@
  (snail core base)
  (embedded own))
 
-(unit)
+(define (main) (→ Unit)
+  (unit))

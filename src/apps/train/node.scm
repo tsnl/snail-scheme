@@ -19,7 +19,8 @@
  (only (snail shell graphics ply) write-ply)
  (apps train dataset)
  (apps train trainer)
- (only (snail core io) Clock))
+ (only (snail core io) Clock)
+ (only (snail core forms) host))
 
 ;; A file of the dataset. One within the 16 MiB a waiting read allows, as
 ;; every photograph is, is read while the other tasks run; a larger one,
@@ -39,9 +40,9 @@
      (match cloud
        ((Some path) (write-bytes fs path (make-array 0 (i32->u8 0))))
        ((None) (unit)))
-     (let ((trained (handle photographs
-                        ((photograph (lambda (image) (dataset-photograph gpu (lambda (files top paths) (read files fs files top paths)) settings image))))
-                      (train photographs gpu clock out (dataset-scene gpu (lambda (files top paths) (read files fs files top paths)) settings) (● settings options) shown-nowhere))))
+     (let ((trained (let ((photographs (new Photographs
+(photograph (lambda (image) (dataset-photograph gpu (lambda (path) (read files fs path)) settings image))))))
+(train photographs gpu clock out (dataset-scene gpu (lambda (path) (read files fs path)) settings) (● settings options) shown-nowhere))))
        (match cloud
          ((Some path)
           (write-bytes fs path (write-ply (trained-cloud gpu trained)))
