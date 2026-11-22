@@ -6,8 +6,9 @@
 ;; and their motion and 32-bit ids, and a sprite that stays still under an
 ;; orbiting camera; numbers squared in a compute pass; 300,000 numbers
 ;; scanned and 5,000 keys sorted; three gaussians splatted under two
-;; transform tables; tensor programs lowered and checked against the CPU,
-;; params swapped and assigned, and Adam fitting a line; and the
+;; transform tables; a render pass timed; tensor programs lowered, checked
+;; against the CPU and profiled, params swapped and assigned, and Adam
+;; fitting a line; and the
 ;; differentiable splat renderer checked against the paper's blending, its
 ;; tiles past 65,535, fused SSIM's gradient against central differences,
 ;; and densification's clones, splits and prunes, within the cloud's
@@ -59,7 +60,9 @@
       (let ((splatted (splat-frames)))
         (write-line (string-append "splats: " (texels (● splatted first))))
         (write-line (string-append "turned: " (texels (● splatted second)))))
+      (write-line (string-append "timed: " (timed-pass)))
       (write-line (string-append "tensor: " (tensor-agreement)))
+      (write-line (string-append "profiled: " (profiled-steps)))
       (write-line (string-append "swapped: " (swapped-params)))
       (write-line (string-append "assigned: " (assigned-param)))
       (write-line (string-append "bound: " (bound-param)))
@@ -561,4 +564,36 @@
         (let ((level (splat-texels splats target readback)))
           (write-transforms splats (list quarter-turn))
           (new Pair (first level) (second (splat-texels splats target readback))))))
+
+    ;; ---- Timestamps ----
+
+    ;; A render pass that clears a texture, timed as it begins and as it
+    ;; ends. A time on the device need only be plausible here: at least
+    ;; none and under a second.
+    (define (timed-pass) (→ String) (! gpu tasks)
+      (let* ((target (texture-named "timed" 4 4))
+             (queries (create-query-set (new QuerySetDescriptor (label "timed") (count 2))))
+             (encoder (create-command-encoder))
+             (pass (begin-timed-render-pass encoder
+                                            (cleared (view-of target 1))
+                                            (new TimestampWrites
+                                              (query-set queries)
+                                              (beginning 0)
+                                              (end 1)))))
+        (end-pass pass)
+        (let ((seconds (elapsed-seconds (submit-timed encoder queries 2) 0 1)))
+          (destroy (QuerySetObject queries))
+          (destroy (TextureObject target))
+          (if (and (>= seconds 0.0) (< seconds 1.0))
+              "a render pass between 0 and 1 seconds"
+              (f64->string seconds)))))
+
+    (define (cleared (view GpuTextureView)) (→ RenderPassDescriptor)
+      (new RenderPassDescriptor
+        (colors (list (Some (new ColorAttachment
+                              (view view)
+                              (load
+                               (Clear (new Color (red 1.0) (green 0.0) (blue 0.0) (alpha 1.0))))
+                              (store #t)))))
+        (depth (None))))
     ))

@@ -127,10 +127,14 @@ programs, lowers larger ones, and gives the params back (`unstash-params`,
 as much of each as both hold), so two sets of scratch are never held at
 once.
 
-`(profile-program program)` runs each step alone and waits for it,
-answering each step's seconds and its kernel's code. Each wait is a round
-trip to the device of about two milliseconds, so it shows where a
-program's time goes rather than how long a run takes.
+`(profile-program program)` answers each step's seconds on the device,
+with its kernel's entry and code. Each step runs in a compute pass of its
+own, begun with timestamp writes, and every pass goes in one submission,
+so the device runs the steps back to back, as a run does, and the times
+are read once, after the last. It needs the device's `timestamp-query`
+feature. Node's times are not rounded; a browser's are, to 100 μs, so a
+program is best profiled on Node. A pass per step costs a little that one
+pass would not, so the sum is a little more than a run takes.
 
 `tests/programs/tensor.sld` evaluates each kind on the CPU and checks every
 gradient `grad` builds against central differences. On the device, which

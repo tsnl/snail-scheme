@@ -26,4 +26,4 @@ assert.deepEqual(stderr.split('\n').filter(line => line.startsWith('WebGPU')), [
 const printed = stdout.trimEnd().split('\n');
 assert.equal(printed[0], 'format: rgba8unorm');
 assertLines(printed.slice(1), [...deviceLines, ...trainingLines]);
-console.log('gpu on node, from its package: decoding, a lit, tone-mapped G-buffer, motion and ids, a compute pass, a scan, a sort, splats, tensor programs, the differentiable splat renderer and densification on Dawn passed');
+console.log('gpu on node, from its package: decoding, a lit, tone-mapped G-buffer, motion and ids, a compute pass, a scan, a sort, splats, a timed pass, tensor programs and their profile, the differentiable splat renderer and densification on Dawn passed');
