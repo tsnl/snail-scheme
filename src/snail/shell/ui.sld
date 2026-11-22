@@ -1,8 +1,8 @@
 ;; User interfaces in the shape Elm gave them. An interface is a model, a
 ;; `view` from the model to a tree of `Html`, and an `update` from the
 ;; model and a message to the next model and the commands it starts. The
-;; tree is plain data: `run-ui` shows it in the document through the `dom`
-;; effect, and after each update changes only what differs from the tree
+;; tree is plain data: `run-ui` shows it in the document through a `Dom`,
+;; and after each update changes only what differs from the tree
 ;; it showed before, so a node keeps its identity, and with it the focus,
 ;; selection and scroll the page gave it, for as long as the view keeps it.
 ;; Events come back as messages: a listener holds a function from what its

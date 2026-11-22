@@ -1,4 +1,4 @@
-;; A `gpu` handler that runs nothing: it numbers the objects a program
+;; A `Gpu` that runs nothing: it numbers the objects a program
 ;; makes and records a line for each operation the page would send to the
 ;; host, so a graphics library's test reads what it asked of WebGPU. A
 ;; buffer reads as zeros, an image is as large as its PNG header says, and

@@ -96,7 +96,7 @@
 
     ;; The runtime reserves -3 for borrowed stdin and -2 for borrowed stdout.
     ;; Reading stdin flushes pending stdout first. Only the foreign boundary
-    ;; uses -1 for EOF; handlers and callers exchange Option Char.
+    ;; uses -1 for EOF; ports and callers exchange Option Char.
     (define (read-standard-char) (→ (Option Char)) (! mut)
       (let ((code (support-port-read -3)))
         (if (= code -1) (None) (Some (i32->char code)))))

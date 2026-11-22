@@ -1,6 +1,5 @@
-;; The page's `fetch` and `EventSource` for the `fetch` effect:
-;; `with-page-fetch` binds each operation to the browser host
-;; (host/browser/fetch.mjs). A request or a stream's next event waits by
+;; The page's `fetch` and `EventSource` as a `Fetch`: `page-fetch` binds
+;; each operation to the browser host (host/browser/fetch.mjs). A request or a stream's next event waits by
 ;; ticket in the task that asked, so a command's request never holds up
 ;; the interface.
 (define-library (snail shell fetch page)

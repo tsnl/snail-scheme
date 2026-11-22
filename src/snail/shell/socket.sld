@@ -1,7 +1,8 @@
-;; Concrete TCP and UDP operations. A handler can replace either effect in a
-;; test. By default, an operation that waits starts on the native host and
-;; waits for its completion as a task does, by ticket ((snail shell task)'s
-;; `through-host`), so each such operation's latent row names `tasks`.
+;; Concrete TCP and UDP operations, as the capabilities `Tcp` and `Udp`:
+;; each is a record of its operations, so a test makes its own. The host's
+;; start an operation that waits on the native host and wait for its
+;; completion as a task does, by ticket ((snail shell task)'s
+;; `through-host`).
 ;;
 ;; An Endpoint is parsed once, by `endpoint`: the type is exported without
 ;; its constructor, so holding one is evidence that its address is IPv4
@@ -88,7 +89,7 @@
 
     ;; ---- Public values ----
 
-    ;; Tokens belong to the effect handler that created them. Any keeps a
+    ;; Tokens belong to the `Tcp` or `Udp` that created them. Any keeps a
     ;; native endpoint opaque, and lets tests use their own tokens.
     ;; Closing a native endpoint revokes every alias; it does not consume one.
     (record Listener

@@ -1,9 +1,10 @@
-;; WebGPU as an effect: `gpu` mirrors WebGPU's own operations and
-;; descriptors, so code that uses it reads like WebGPU, and a `! gpu` row
-;; says exactly which functions touch the device. A handler decides what
-;; the calls do: `provide-gpu`, last below, runs them on the host's device,
-;; the page's or Dawn's on Node, and `with-recorded-gpu` in
-;; (snail shell gpu record) records them, for testing a library without one.
+;; WebGPU as a capability: a `Gpu` mirrors WebGPU's own operations and
+;; descriptors, so code that uses it reads like WebGPU, and a `Gpu`
+;; parameter says exactly which functions touch the device. A `Gpu` is a
+;; record of those operations, so its maker decides what the calls do:
+;; `host-gpu`, last below, runs them on the host's device, the page's or
+;; Dawn's on Node, and `with-recorded-gpu` in (snail shell gpu record)
+;; records them, for testing a library without one.
 ;;
 ;; It is WebGPU itself, without bookkeeping: a handle is the id of an
 ;; object the host holds, made by each `create-...` call and kept as long as
@@ -680,7 +681,7 @@
       (Uint16Index)
       (Uint32Index))
 
-    ;; ---- The effect ----
+    ;; ---- The capability ----
 
     ;; `request-device` asks the page for its device once, and every other
     ;; operation needs it. Offsets and sizes are in bytes. `write-texture`
@@ -1230,12 +1231,12 @@
 
     ;; ---- On the host's device ----
 
-    ;; `provide-gpu` runs each operation on the device host/browser/gpu.mjs
+    ;; `host-gpu` runs each operation on the device host/browser/gpu.mjs
     ;; holds, through (snail runtime gpu), and host/browser/gpu.mjs knows each
-    ;; object by the id it gave it. The browser target installs it around a
-    ;; page's main. A program on Node installs it itself, around the work
-    ;; that uses the device, as a page installs `fetch`, so a Node program
-    ;; that draws nothing links none of it. Node's device is Dawn's
+    ;; object by the id it gave it. The browser target provides it to a
+    ;; page's main. A program on Node makes it itself, where it uses the
+    ;; device, as a page makes its `Fetch`, so a Node program that draws
+    ;; nothing links none of it. Node's device is Dawn's
     ;; (host/native/gpu.mjs); it has no screen, so there `current-texture`
     ;; fails, and it decodes images as a page does.
     ;;

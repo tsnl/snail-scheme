@@ -1,5 +1,5 @@
-;; The page's document for the `dom` effect: `with-page-dom` binds each
-;; operation to the browser host's document (host/browser/dom.mjs), which
+;; The page's document as a `Dom`: `page-dom` binds each operation to the
+;; browser host's document (host/browser/dom.mjs), which
 ;; keeps the interface's nodes and listeners in tables by handle, under the
 ;; container the page gives it. Deliveries come from the page's event queue
 ;; ((snail shell page)): a listener's event as a kind the host fires with

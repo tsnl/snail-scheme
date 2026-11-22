@@ -3,7 +3,7 @@
 ;; the file beside the library's source to the library as a dependency. The build ships the
 ;; file beside the payload, and the program holds a Resource, a handle. A
 ;; host reads a file only when the program asks for it, by
-;; `read-resource`, which performs `resource` and waits for the host as a
+;; `read-resource`, which asks its `Resources` and waits for the host as a
 ;; task does, since a page can only fetch the file. `read-resources`
 ;; reads several at once: a page fetches them together.
 ;;
@@ -41,10 +41,10 @@
 
     ;; ---- Reading ----
 
-    ;; Linked files' bytes, by handle, in the order asked. Under
-    ;; `provide-resource` the host reads each file, an object of the
-    ;; program's store, the first time a task asks for it, and the task
-    ;; waits until it has; a handler can serve them otherwise.
+    ;; Linked files' bytes, by handle, in the order asked. `host-resources`
+    ;; has the host read each file, an object of the program's store, the
+    ;; first time a task asks for it, and the task waits until it has;
+    ;; another `Resources` can serve them otherwise.
     (record Resources
       ((resource-bytes (Fn (List I32) → (List Bytes) ! mut))))
 

@@ -1,7 +1,8 @@
 ;; Child processes with piped standard streams, a command run to its end,
-;; and replacing the program with a command. A handler can replace the
-;; effect in a test. By default an operation that waits starts on the
-;; native host and waits by ticket, as (snail shell socket)'s do. Stage 0's tool runner,
+;; and replacing the program with a command, as the capability
+;; `Processes`: a record of its operations, so a test makes its own. The
+;; host's start an operation that waits on the native host and wait by
+;; ticket, as (snail shell socket)'s do. Stage 0's tool runner,
 ;; host/chez/snail/stage0/process.sls, has the same name; Chez never sees src/.
 (define-library (snail shell process)
   (export
@@ -33,7 +34,7 @@
        (arguments (List String))
        (directory String)))
 
-    ;; The token belongs to the effect handler that spawned the process, as
+    ;; The token belongs to the `Processes` that spawned the process, as
     ;; a socket's does; `id` is the operating system's process id.
     (record Process
       ((token Any)
@@ -208,7 +209,7 @@
 
     ;; ---- Native tokens ----
 
-    ;; Private to the native binding: a token from another handler crosses
+    ;; Private to the native binding: a token another `Processes` made crosses
     ;; as handle 0, which the host refuses with EBADF.
     (record NativeProcess
       ((handle I32)))

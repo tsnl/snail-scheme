@@ -1,7 +1,7 @@
-;; Requests to a server and the streams of events it sends, as an effect,
-;; so an interface's commands can ask and a test can answer for the
-;; server. The browser host binds it to the page's `fetch` and
-;; `EventSource` ((snail shell fetch page)).
+;; Requests to a server and the streams of events it sends, as a
+;; capability, `Fetch`, so an interface's commands can ask and a test can
+;; answer for the server. (snail shell fetch page) makes the one over the
+;; page's `fetch` and `EventSource`.
 (define-library (snail shell fetch)
   (export
    Header
@@ -41,7 +41,7 @@
       ((kind String)
        (data String)))
 
-    ;; ---- The effect ----
+    ;; ---- The capability ----
 
     ;; `request method url headers body` answers the server's reply, or
     ;; why there was none, such as a failed connection. `stream-open url

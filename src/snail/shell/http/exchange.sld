@@ -1,4 +1,4 @@
-;; One complete request/response exchange over the concrete TCP effect.
+;; One complete request/response exchange over a `Tcp`.
 ;; `serve-one` is the whole exchange with one handler. A server that decides
 ;; between reading and answering calls its halves, `read-request` and
 ;; `respond`, itself; a failure either returns leaves the connection open,
@@ -133,7 +133,7 @@
       (! mut)
       (∀ (E))
       ;; Slice sizes follow actual progress: at most 65536 + twice the sent
-      ;; bytes are copied, even when a replacement handler accepts tiny writes.
+      ;; bytes are copied, even when a replacement `Tcp` accepts tiny writes.
       (let loop ((offset 0) (limit 65536))
         (if (= offset (array-length bytes))
             (Ok (unit))

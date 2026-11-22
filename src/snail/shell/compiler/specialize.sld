@@ -259,8 +259,7 @@
                 (append instance-types (list-drop types class-arity))
                 (append subs rest))))
            (_ (panic "internal error: a method needs instance evidence"))))
-        ;; An operation, like a builtin, keeps its name: a handler answers
-        ;; it, and nothing else is reached through it.
+        ;; A builtin keeps its name: nothing else is reached through it.
         (_ (new Pair (first (Var name (Nil) (Nil))) (second state)))))
 
     (define (instance-method (state State) (instance String) (method String)) (→ String)

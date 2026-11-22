@@ -129,8 +129,8 @@
 
     ;; `TCon` names a builtin or declared type by its unique name. `TFun` is
     ;; the one callable type: a closure that may be called any number of
-    ;; times. A handler's `resume` is one too; the backend panics if it is
-    ;; called a second time. A row is a set of effect labels, kept sorted,
+    ;; times. A `with-prompt`'s `resume` is one too; the backend panics if it
+    ;; is called a second time. A row is a set of effect labels, kept sorted,
     ;; with an optional tail: a type variable standing for more labels.
     ;; Metavariables exist only inside the checker, which binds their cells.
     (enum Type
@@ -752,7 +752,7 @@
 
     ;; Definitions contain functions. Entry names the root program's
     ;; optional main, and `start`, what the host calls: main itself, or the
-    ;; wrapper that runs it under its target's handlers. Libraries have no
+    ;; wrapper that calls it with its target's capabilities. Libraries have no
     ;; startup phase. An exposed function is exported under `symbol`
     ;; through a host adapter.
     (enum Item

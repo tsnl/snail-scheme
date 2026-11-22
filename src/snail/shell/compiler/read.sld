@@ -922,7 +922,7 @@
                 (test-recovering)))
 
       ;; A failure inside `recovering` is its answer, so the work around
-      ;; it goes on; a need passes through it to the compile's handler.
+      ;; it goes on; a request passes through it to the compile's boundary.
       (define test-recovering
         (lambda () (expect (compiling (lambda () (recovering (lambda () (read-text ")" "t.sld")))))
                            (Ok (Err (new Diagnostics

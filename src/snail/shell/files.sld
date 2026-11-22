@@ -1,6 +1,6 @@
 ;; Files the user hands the program, dropped on the page or chosen with
 ;; its pickers: each is its path within what was chosen and an address
-;; the `fetch` effect reads its bytes from. The user chooses; the program
+;; a `Fetch` reads its bytes from. The user chooses; the program
 ;; only asks, so a program reads no file it was not given. A link dropped
 ;; on the page is a file whose path is its address.
 ;;

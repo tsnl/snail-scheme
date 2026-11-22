@@ -20,8 +20,8 @@
 
     ;; `TARGET SOURCE OUTPUT DIRECTORY ...`, the one compile: the whole
     ;; program at SOURCE as WebAssembly text, written to OUTPUT. TARGET
-    ;; names the target library, (snail target TARGET), whose handlers the
-    ;; program's entry runs under, and the directories are where its
+    ;; names the target library, (snail target TARGET), which provides the
+    ;; capabilities the program's main asks for, and the directories are where its
     ;; libraries are found. A program that reaches a generated library
     ;; needs a build, which runs producers ((snail shell project build)).
 

@@ -1,6 +1,6 @@
-;; A document in memory for the `dom` effect, so an interface runs, and is
-;; tested, without a page. `with-memory-dom` handles the effect around its
-;; work and answers the work's value with the document it left: its tree,
+;; A `Dom` over a document in memory, so an interface runs, and is tested,
+;; without a page. `with-memory-dom` hands its work that `Dom` and answers
+;; the work's value with the document it left: its tree,
 ;; which `document->html` prints, and the trace of every operation, one
 ;; line each. Its events are a script, delivered in turn as the work
 ;; waits for them: firing a listener on the element with an `id` or on
@@ -500,7 +500,7 @@
 
     ;; ---- Handling ----
 
-    ;; The simulated host shares one explicit state record among handlers.
+    ;; The simulated host's operations share one explicit state record.
     (record Memory
       ((document Document)
        (cues (List Cue))

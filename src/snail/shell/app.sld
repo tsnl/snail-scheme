@@ -19,7 +19,7 @@
 ;; saved, and starts again with each page or module, as the GPU's objects
 ;; do.
 ;; Time is input, so the state decides how its simulation advances. A
-;; scene draws with the `gpu` effect, itself or as a 3D `Frame` that
+;; scene draws with its `Gpu`, itself or as a 3D `Frame` that
 ;; `draw-frame` draws; the HUD is a tree in the page's
 ;; document, changed through `dom` where it differs after each input
 ;; (after time, at most ten times a second). A durable save may be
