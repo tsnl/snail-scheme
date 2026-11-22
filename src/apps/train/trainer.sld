@@ -105,11 +105,8 @@
     ;; destroys it after the step it was asked for. A view is asked for
     ;; each time a step trains on it, and once more at the end if it is
     ;; held out.
-    (record Photographs
+    (capability Photographs
       ((photograph (Fn ColmapImage → Image))))
-
-    (define (photograph (photographs Photographs) (image ColmapImage)) (→ Image)
-      ((● photographs photograph) image))
 
     ;; A scene's photographs do not fit the device together at full size:
     ;; bicycle's 194 take 12.6 GB as textures. So each is asked for when a

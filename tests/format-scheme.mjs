@@ -31,6 +31,7 @@ example(`(import (scheme base) (rename (rnrs) (define-record-type record)))
 (define-record-type <pair>
   (pair a b) pair? (a pair-a) (b pair-b))
 (record (Pair A) ((first A) (second A)))
+(capability Port ((put (Fn String → Unit)) (take (Fn → String))))
 (enum Shape (Circle ((radius I64))) (Dot))
 `, `(import
  (scheme base)
@@ -42,6 +43,9 @@ example(`(import (scheme base) (rename (rnrs) (define-record-type record)))
 (record (Pair A)
   ((first A)
    (second A)))
+(capability Port
+  ((put (Fn String → Unit))
+   (take (Fn → String))))
 (enum Shape (Circle ((radius I64))) (Dot))
 `);
 const literals = String.raw`;; (import (ignored) (ignored))

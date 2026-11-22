@@ -46,12 +46,8 @@
     ;; has the host read each file, an object of the program's store, the
     ;; first time a task asks for it, and the task waits until it has;
     ;; another `Resources` can serve them otherwise.
-    (record Resources
+    (capability Resources
       ((resource-bytes (Fn (List I32) → (List Bytes)))))
-
-    (define (resource-bytes (resources Resources) (handles (List I32)))
-      (→ (List Bytes))
-      ((● resources resource-bytes) handles))
 
     (define (host-resources (host Host)) (→ Resources)
       (new Resources

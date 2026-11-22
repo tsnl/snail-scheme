@@ -12,6 +12,7 @@
    constant-array
    extern
    expose
+   capability
    Any U8 I32 I64 F32 F64 Bool Char Unit String Array ConstantArray Bytes Fn
    Prompt make-prompt with-prompt suspend
    u8->i32 i32->u8
@@ -146,6 +147,34 @@
     (define-syntax string
       (syntax-rules ()
         ((_ char ...) (list->string (list char ...)))))
+
+    ;; ---- Capabilities ----
+
+    ;; A capability is a record of functions, and each is also a function
+    ;; of the record: `(capability OutputPort ((write-string (Fn String →
+    ;; Unit))))` declares the record and `(write-string port text)`, which
+    ;; calls the port's own. Any holder may make one with `new`.
+
+    (define-syntax capability
+      (syntax-rules ()
+        ((_ name ((operation type) ...))
+         (begin
+           (record name
+             ((operation type) ...))
+           (define-operation name operation type) ...))))
+
+    ;; One operation's function. Each step names one more parameter in an
+    ;; expansion of its own, so the names differ.
+
+    (define-syntax define-operation
+      (syntax-rules (Fn →)
+        ((_ name operation (Fn argument ... → result))
+         (define-operation name operation () (argument ...) result))
+        ((_ name operation ((parameter type) ...) () result)
+         (define (operation (capability name) (parameter type) ...) (→ result)
+           ((● capability operation) parameter ...)))
+        ((_ name operation (bound ...) (argument more ...) result)
+         (define-operation name operation (bound ... (parameter argument)) (more ...) result))))
 
     (define (not (value Bool)) (→ Bool)
       (if value #f #t))

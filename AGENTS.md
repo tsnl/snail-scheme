@@ -62,8 +62,9 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
 - There are no effect declarations, no handlers and no effect rows
   ([#877](https://github.com/tsnl/snail-scheme/issues/877)). What a
   function may do to the world is in what it is handed. A **capability**
-  is an ordinary value, usually a record of functions (`OutputPort`, `Fs`,
-  `Gpu`), that a function is handed, may keep and may pass on. `main` asks
+  is an ordinary value, usually a record of functions declared with
+  `capability` (`OutputPort`, `Gpu`), that a function is handed, may keep
+  and may pass on. `main` asks
   for what it needs by its parameters' types, and its target provides each
   (`src/snail/target/`, "Entries" in `src/snail/shell/compiler/expand.sld`).
   The host's capabilities are made from the one `Host` a target holds

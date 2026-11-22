@@ -30,14 +30,8 @@
       (SomeFiles)
       (Folder))
 
-    (record FilePicker
+    (capability FilePicker
       ((open-picker (Fn Choice → Unit))
        (chosen-files (Fn → (List Chosen)))))
-
-    (define (open-picker (picker FilePicker) (choice Choice)) (→ Unit)
-      ((● picker open-picker) choice))
-
-    (define (chosen-files (picker FilePicker)) (→ (List Chosen))
-      ((● picker chosen-files)))
 
     ))

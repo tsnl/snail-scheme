@@ -244,7 +244,7 @@
     ;; view does: the interface's window listeners are on it, for what
     ;; reaches the whole page, such as a shortcut or the page going back
     ;; online. It has no attributes or properties.
-    (record Dom
+    (capability Dom
       ((document-root (Fn → Node))
        (create-element (Fn String → Node))
        (create-text (Fn String → Node))
@@ -273,94 +273,4 @@
        (measure (Fn Node → Measure))
        (wake (Fn → Unit))
        (next-event (Fn → Delivery))))
-
-    (define (document-root (dom Dom)) (→ Node)
-      ((● dom document-root)))
-
-    (define (create-element (dom Dom) (tag String)) (→ Node)
-      ((● dom create-element) tag))
-
-    (define (create-text (dom Dom) (text String)) (→ Node)
-      ((● dom create-text) text))
-
-    (define (set-attribute (dom Dom) (node Node) (name String) (value String)) (→ Unit)
-      ((● dom set-attribute) node name value))
-
-    (define (set-text (dom Dom) (node Node) (text String)) (→ Unit)
-      ((● dom set-text) node text))
-
-    (define (set-string-property (dom Dom) (node Node) (name String) (value String))
-      (→ Unit)
-      ((● dom set-string-property) node name value))
-
-    (define (set-number-property (dom Dom) (node Node) (name String) (value F64)) (→ Unit)
-      ((● dom set-number-property) node name value))
-
-    (define (set-flag-property (dom Dom) (node Node) (name String) (value Bool)) (→ Unit)
-      ((● dom set-flag-property) node name value))
-
-    (define (string-property (dom Dom) (node Node) (name String)) (→ String)
-      ((● dom string-property) node name))
-
-    (define (number-property (dom Dom) (node Node) (name String)) (→ F64)
-      ((● dom number-property) node name))
-
-    (define (insert-node (dom Dom) (parent Node) (child Node) (before (Option Node)))
-      (→ Unit)
-      ((● dom insert-node) parent child before))
-
-    (define (remove-node (dom Dom) (node Node)) (→ Unit)
-      ((● dom remove-node) node))
-
-    (define (listen (dom Dom)
-                    (node Node)
-                    (event String)
-                    (captures (List Capture))
-                    (prevent Prevent))
-      (→ Listener)
-      ((● dom listen) node event captures prevent))
-
-    (define (unlisten (dom Dom) (listener Listener)) (→ Unit)
-      ((● dom unlisten) listener))
-
-    (define (focus-node (dom Dom) (node Node)) (→ Unit)
-      ((● dom focus-node) node))
-
-    (define (window-node (dom Dom)) (→ Node)
-      ((● dom window-node)))
-
-    (define (confirm (dom Dom) (question String)) (→ Bool)
-      ((● dom confirm) question))
-
-    (define (installation-status (dom Dom)) (→ InstallationStatus)
-      ((● dom installation-status)))
-
-    (define (install-app (dom Dom)) (→ InstallResult)
-      ((● dom install-app)))
-
-    (define (fullscreen? (dom Dom)) (→ Bool)
-      ((● dom fullscreen?)))
-
-    (define (set-fullscreen (dom Dom) (enter Bool)) (→ Bool)
-      ((● dom set-fullscreen) enter))
-
-    (define (element-by-id (dom Dom) (id String)) (→ (Option Node))
-      ((● dom element-by-id) id))
-
-    (define (select-range (dom Dom) (node Node) (start I32) (end I32)) (→ Unit)
-      ((● dom select-range) node start end))
-
-    (define (selection-range (dom Dom) (node Node)) (→ (Pair I32 I32))
-      ((● dom selection-range) node))
-
-    (define (insert-text (dom Dom) (node Node) (start I32) (end I32) (text String)) (→ Bool)
-      ((● dom insert-text) node start end text))
-
-    (define (measure (dom Dom) (node Node)) (→ Measure)
-      ((● dom measure) node))
-
-    (define (wake (dom Dom)) (→ Unit)
-      ((● dom wake)))
-
-    (define (next-event (dom Dom)) (→ Delivery)
-      ((● dom next-event)))))
+    ))

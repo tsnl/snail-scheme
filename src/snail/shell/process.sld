@@ -80,7 +80,7 @@
     ;; command, as execve does: the command takes over this process and its
     ;; standard streams, and nothing of the program runs after. It returns
     ;; only when it cannot, with why.
-    (record Processes
+    (capability Processes
       ((spawn (Fn Command → (Result Process ProcessError)))
        (read-output (Fn Process Stream I32 → (Result (Option Bytes) ProcessError)))
        (write-input (Fn Process Bytes → (Result I32 ProcessError)))
@@ -90,41 +90,6 @@
        (close-process (Fn Process → (Result Unit ProcessError)))
        (run (Fn Command Bytes → (Result Captured ProcessError)))
        (exec (Fn Command → ProcessError))))
-
-    (define (spawn (processes Processes) (command Command))
-      (→ (Result Process ProcessError))
-      ((● processes spawn) command))
-
-    (define (read-output (processes Processes) (child Process) (stream Stream) (maximum I32))
-      (→ (Result (Option Bytes) ProcessError))
-      ((● processes read-output) child stream maximum))
-
-    (define (write-input (processes Processes) (child Process) (bytes Bytes))
-      (→ (Result I32 ProcessError))
-      ((● processes write-input) child bytes))
-
-    (define (close-input (processes Processes) (child Process))
-      (→ (Result Unit ProcessError))
-      ((● processes close-input) child))
-
-    (define (send-signal (processes Processes) (child Process) (signal Signal))
-      (→ (Result Unit ProcessError))
-      ((● processes send-signal) child signal))
-
-    (define (wait-exit (processes Processes) (child Process))
-      (→ (Result Exit ProcessError))
-      ((● processes wait-exit) child))
-
-    (define (close-process (processes Processes) (child Process))
-      (→ (Result Unit ProcessError))
-      ((● processes close-process) child))
-
-    (define (run (processes Processes) (command Command) (input Bytes))
-      (→ (Result Captured ProcessError))
-      ((● processes run) command input))
-
-    (define (exec (processes Processes) (command Command)) (→ ProcessError)
-      ((● processes exec) command))
 
     ;; Node's child processes.
     (define (host-processes (host Host)) (→ Processes)
@@ -183,11 +148,8 @@
     ;; as it always has. A wait ends with its signal, so a second signal
     ;; during an orderly shutdown still ends the program at once, unless a
     ;; task waits again.
-    (record Signals
+    (capability Signals
       ((termination (Fn → Signal))))
-
-    (define (termination (signals Signals)) (→ Signal)
-      ((● signals termination)))
 
     ;; Node's termination signals.
     (define (host-signals (host Host)) (→ Signals)
