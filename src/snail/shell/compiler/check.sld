@@ -2151,19 +2151,21 @@
           ck))
 
     ;; What the host calls is `start`, which runs main as the first task of
-    ;; the host's scheduler under its target's handlers, so its row is the
-    ;; one left to the host.
+    ;; the host's scheduler, so its row is the one left to the host. Main's
+    ;; parameters are capabilities its target provides, which `start`
+    ;; supplies; a main that is its own start has no target to ask.
 
     (define (check-entry (ck Checker) (name String) (start String) (loc Loc)) (→ Unit)
       (! compile)
       (match (global-scheme ck name)
         ((Some (Scheme (Nil) (Nil) type))
          (match (resolve-type (solution ck) type)
-           ((TFun (Nil) (TCon "Unit" (Nil)) _) (check-host-effects ck (start-row ck start) loc))
-           (_
-            (compile-error loc "main must be a function taking no arguments and returning Unit"))))
-        (_ (compile-error loc
-                          "main must be a monomorphic function taking no arguments and returning Unit"))))
+           ((TFun params (TCon "Unit" (Nil)) _)
+            (when (and (string=? name start) (not (null? params)))
+              (compile-error loc "main asks for capabilities, and this build has no target"))
+            (check-host-effects ck (start-row ck start) loc))
+           (_ (compile-error loc "main must be a function returning Unit"))))
+        (_ (compile-error loc "main must be a monomorphic function returning Unit"))))
 
     (define (start-row (ck Checker) (start String)) (→ Type)
       (match (global-scheme ck start)
