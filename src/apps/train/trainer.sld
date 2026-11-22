@@ -149,18 +149,20 @@
       (let* ((cloud (splat-params capacity))
              (sensor (sensor-of scene entries))
              (training (training-step cloud sensor))
-             (step (lower "step" (fuse (● training first)) (fuse-updates (● training second))))
+             (step (let ((fused (fuse-program (● training first) (● training second))))
+                     (lower "step" (● fused first) (● fused second))))
              (densified (densification cloud (stats-params capacity))))
         (new Programs
           (capacity capacity)
           (sensor sensor)
           (step step)
           (densify
-           (lower-with "densify"
-                       (fuse (list (● densified second)))
-                       (fuse-updates (● densified first))
-                       (given-by step)))
-          (reset (lower-with "reset" (Nil) (fuse-updates (opacity-reset cloud)) (given-by step))))))
+           (let ((fused (fuse-program (list (● densified second)) (● densified first))))
+             (lower-with "densify" (● fused first) (● fused second) (given-by step))))
+          (reset (lower-with "reset"
+                             (Nil)
+                             (● (fuse-program (Nil) (opacity-reset cloud)) second)
+                             (given-by step))))))
 
     (define (release-programs (p Programs)) (→ Unit) (! gpu)
       (release-program (● p reset))
