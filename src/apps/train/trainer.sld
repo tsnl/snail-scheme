@@ -253,13 +253,13 @@
                      "camera"
                      (floats (camera-values (● scene camera) image)))))
 
-    ;; The second step's twelve slowest dispatches, each run alone, with
-    ;; the seconds it took and its kernel, and the step's twelve largest
+    ;; The second step's twelve slowest steps on the device, with the
+    ;; seconds each took and its kernel, and the step's twelve largest
     ;; kinds of buffer; the first step touches every buffer, which the
     ;; device clears then.
     (define (profile (p Programs) (scene Scene))
       (→ Unit)
-      (! clock photographs gpu output-port tasks)
+      (! photographs gpu output-port tasks)
       (let* ((image (list-ref (● scene training) 0)) (photo (photograph image)))
         (step-on p scene image photo 0.0001)
         (destroy (TextureObject (● photo texture))))
@@ -267,10 +267,10 @@
       (let ((times (list-sort (lambda (a b) (> (● a second) (● b second)))
                               (profile-program (● p step)))))
         (write-line (string-append (show (length times))
-                                   " dispatches, "
+                                   " steps, "
                                    (f64->string
                                     (fold-left + 0.0 (map (lambda (t) (● t second)) times)))
-                                   " seconds"))
+                                   " seconds on the device"))
         (for-each
          (lambda (t) (write-line (string-append (f64->string (● t second)) " " (● t first))))
          (take times 12))

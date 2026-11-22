@@ -37,8 +37,13 @@ descriptors, so code using it reads like WebGPU:
 ```
 
 Its operations make buffers, textures, views, samplers, shader modules,
-render and compute pipelines and bind groups, write buffers and textures,
-encode copies, render passes and compute passes, and submit them; `request-device`, `read-buffer` and
+render and compute pipelines, bind groups and query sets, write buffers and
+textures, encode copies, render passes and compute passes, and submit
+them. A pass begun timed (`begin-timed-render-pass`,
+`begin-timed-compute-pass`) writes the device's time into two queries, as
+it begins and as it ends; `submit-timed` resolves the queries after the
+encoder's commands, submits it and reads the times, and `elapsed-seconds`
+answers the time between two. `request-device`, `read-buffer` and
 `decode-image` wait for the host by ticket, as does `work-done`, which
 waits until the device has done what was submitted, so a loop whose
 frames cost the device more than a display frame does not queue them
@@ -78,7 +83,8 @@ It is WebGPU itself, without bookkeeping:
   being made crosses to the host as those fields' staged bytes, which
   `host/browser/gpu.mjs` reads with a `DataView` into the dictionary WebGPU
   takes. A render pass and every other command crosses as calls with
-  scalar arguments, an attachment's view and then its load and store.
+  scalar arguments, an attachment's view and then its load and store, and
+  a timed pass's query set and indices before the pass begins.
   Buffer and texture contents cross as `Bytes`, which the host hands to
   WebGPU as a view of the program's memory, without a copy. A pipeline's
   layout is WebGPU's `"auto"`, so a bind group is made against a pipeline,
@@ -389,6 +395,11 @@ program on Node installs the handler itself, as `tests/gpu/node.scm` does:
 
 Node has no screen: there `current-texture` fails, so a program draws into
 textures of its own, which are `rgba8unorm`, and reads them back.
+
+Dawn rounds timestamps to 65,536 ns unless told not to, as Chromium rounds
+a page's to 100 μs, so that a page cannot time what it should not see.
+`host/native/gpu.mjs` tells it not to: a program on Node is no page, and
+can time a kernel of a few microseconds.
 
 Node decodes no images of its own either, as a browser does, so
 `decode-image` there is npm's
