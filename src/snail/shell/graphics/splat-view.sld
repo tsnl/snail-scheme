@@ -66,6 +66,7 @@
          gaussian-shape)
    (snail shell graphics splat-train)
    (snail shell tensor)
+   (snail shell tensor fuse)
    (snail shell tensor lower)
    (only (snail shell tensor eval) bytes->values))
   (begin
@@ -216,7 +217,7 @@
              (sensor (new Sensor (width width) (height height) (capacity entries)))
              (drawn (render (viewed-cloud p) (camera-param) sensor (Viewing)))
              (program (lower-with "splat view"
-                                  (list (● drawn image) (● drawn entries))
+                                  (fuse (list (● drawn image) (● drawn entries)))
                                   (Nil)
                                   (given-splats splats p)))
              (module (present-module-of width)))

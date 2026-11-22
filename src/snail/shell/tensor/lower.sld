@@ -493,19 +493,54 @@
       (dispatched b code "main" (kernel-entries b n) workgroups))
 
     (define (kernel-entries (b Build) (n Node)) (→ (List (Pair I64 GpuBuffer)))
-      (let ((count (length (● n args))))
-        (append (filter-map (lambda (pair)
-                              (if (fill? (● pair second))
-                                  (None)
-                                  (Some (new Pair
-                                          (first (● pair first))
-                                          (second (view-buffer b (● pair second)))))))
-                            (zip (iota count) (● n args)))
-                (map (lambda (pair)
-                       (new Pair
-                         (first (+ count (● pair first)))
-                         (second (buffer-of b n (● (● pair second) name)))))
-                     (zip (iota (length (● n ports))) (● n ports))))))
+      (append (map (lambda (pair)
+                     (new Pair (first (● pair first)) (second (view-buffer b (● pair second)))))
+                   (bound-args n))
+              (map-indexed (lambda (j port)
+                             (new Pair
+                               (first (+ (first-port-binding n) j))
+                               (second (buffer-of b n (● port name)))))
+                           (● n ports))))
+
+    ;; ---- Bindings ----
+
+    ;; The buffers a generated kernel binds, each at its binding. A map's
+    ;; arguments share one where they see one port, so a fused map binds
+    ;; each buffer once; any other kernel binds each argument that is not
+    ;; a fill at its place among the arguments. The node's ports follow.
+
+    (define (bound-args (n Node)) (→ (List (Pair I64 View)))
+      (match (● n kind)
+        ((Map _) (let ((ports (map-ports n))) (zip (iota (length ports)) ports)))
+        (_ (filter (lambda (pair) (not (fill? (● pair second))))
+                   (zip (iota (length (● n args))) (● n args))))))
+
+    (define (first-port-binding (n Node)) (→ I64)
+      (match (● n kind)
+        ((Map _) (length (map-ports n)))
+        (_ (length (● n args)))))
+
+    (define (arg-binding (n Node) (k I64)) (→ I64)
+      (match (● n kind)
+        ((Map _)
+         (let ((name (view-port-key (list-ref (● n args) k))))
+           (match (list-index (lambda (v) (string=? (view-port-key v) name)) (map-ports n))
+             ((Some j) j)
+             ((None) (panic "tensor lower: a map's argument has no binding")))))
+        (_ k)))
+
+    ;; One view of each port a map's arguments see, in the order they
+    ;; first see them.
+    (define (map-ports (n Node)) (→ (List View))
+      (reverse (fold-left (lambda (seen a)
+                            (if (any? (lambda (s) (string=? (view-port-key s) (view-port-key a)))
+                                      seen)
+                                seen
+                                (Cons a seen)))
+                          (Nil)
+                          (● n args))))
+
+    (define (view-port-key (view View)) (→ String) (port-key (● view node) (● view port)))
 
     ;; Every word of a buffer set to zero.
     (define (zeroed (b Build) (buffer GpuBuffer) (size I64)) (→ Build) (! gpu)
@@ -949,24 +984,21 @@
 
     ;; A node's buffer arguments, read only, then its ports.
     (define (declared (n Node)) (→ String)
-      (let ((count (length (● n args))))
-        (string-append
-         (string-join (filter-map (lambda (pair)
-                                    (if (fill? (● pair second))
-                                        (None)
-                                        (Some (storage (● pair first)
-                                                       (string-append "a" (show (● pair first)))
-                                                       "read"
-                                                       (etype-wgsl (etype-of (● pair second)))))))
-                                  (zip (iota count) (● n args)))
-                      "")
-         (string-join (map (lambda (pair)
-                             (storage (+ count (● pair first))
-                                      (● (● pair second) name)
-                                      "read_write"
-                                      (etype-wgsl (● (● pair second) etype))))
-                           (zip (iota (length (● n ports))) (● n ports)))
-                      ""))))
+      (string-append
+       (string-join (map (lambda (pair)
+                           (storage (● pair first)
+                                    (string-append "a" (show (● pair first)))
+                                    "read"
+                                    (etype-wgsl (etype-of (● pair second)))))
+                         (bound-args n))
+                    "")
+       (string-join (map-indexed (lambda (j port)
+                                   (storage (+ (first-port-binding n) j)
+                                            (● port name)
+                                            "read_write"
+                                            (etype-wgsl (● port etype))))
+                                 (● n ports))
+                    "")))
 
     ;; The index of flat element `var` on each axis of `shape`.
     (define (indices (var String) (shape (List I64))) (→ (List String))
@@ -1006,7 +1038,7 @@
       (let ((a (list-ref (● n args) k)))
         (match (● a node kind)
           ((Fill value) (literal (etype-of a) value))
-          (_ (string-append "a" (show k) "[" at "]")))))
+          (_ (string-append "a" (show (arg-binding n k)) "[" at "]")))))
 
     (define (literal (etype Etype) (value F64)) (→ String)
       (match etype
@@ -1037,7 +1069,7 @@
                        (match (● n kind)
                          ((Fill value)
                           (string-append "  out[i] = " (literal (● out etype) value) ";\n"))
-                         ((Map body) (string-append "  out[i] = " (body-text n body) ";\n"))
+                         ((Map body) (map-statements n body))
                          ((Matmul) (matmul-text n))
                          ((Gather) (gather-text n))
                          ((Concat axis) (concat-text n axis))
@@ -1049,17 +1081,54 @@
 
     ;; ---- Map text ----
 
-    ;; A map's body as one WGSL expression of element i: each load its
-    ;; argument's element there, through the argument's accessor.
-    (define (body-text (n Node) (e Expr)) (→ String)
+    ;; The statements so far, the last first, and each expression's name by
+    ;; its text.
+    (record Lets
+      ((statements (List String))
+       (names (Table String))))
+
+    ;; A map's body as statements of element i: a `let` for each distinct
+    ;; load and operation, numbered in the order the body needs them, then
+    ;; the port's element. A load reads its argument's element there,
+    ;; through the argument's accessor. An expression fusing copied into
+    ;; two places is computed once, and no expression nests another, so a
+    ;; fused body of hundreds stays within what a shader compiler parses.
+    (define (map-statements (n Node) (body Expr)) (→ String)
+      (let ((done (named n body (new Lets (statements (Nil)) (names (empty-table))))))
+        (string-append (string-join (reverse (● done first statements)) "")
+                       "  out[i] = "
+                       (● done second)
+                       ";\n")))
+
+    ;; What names `e`'s value, with the lets that compute it: a literal
+    ;; stands for itself.
+    (define (named (n Node) (e Expr) (lets Lets)) (→ (Pair Lets String))
       (match e
-        ((Load k _) (operand n k))
-        ((Literal value etype) (literal etype value))
+        ((Load k _) (let-for lets (operand n k)))
+        ((Literal value etype) (new Pair (first lets) (second (literal etype value))))
         ((Apply op operands etype)
-         (applied-text op
-                       (map (lambda (o) (body-text n o)) operands)
-                       (expr-etype (list-ref operands 0))
-                       etype))))
+         (let ((args (fold-left (lambda (state o)
+                                  (let ((next (named n o (● state first))))
+                                    (new Pair
+                                      (first (● next first))
+                                      (second (append (● state second) (list (● next second)))))))
+                                (new Pair (first lets) (second (Nil)))
+                                operands)))
+           (let-for (● args first)
+                    (applied-text op (● args second) (expr-etype (list-ref operands 0)) etype))))))
+
+    ;; The name of the value `text` computes, a new `let` the first time.
+    (define (let-for (lets Lets) (text String)) (→ (Pair Lets String))
+      (match (table-ref (● lets names) text)
+        ((Some name) (new Pair (first lets) (second name)))
+        ((None)
+         (let ((name (string-append "v" (show (length (● lets statements))))))
+           (new Pair
+             (first (new Lets
+                      (statements (Cons (string-append "  let " name " = " text ";\n")
+                                        (● lets statements)))
+                      (names (table-set (● lets names) text name))))
+             (second name))))))
 
     ;; An operation on its operands' text, of type `from-etype`, answering
     ;; `to-etype`.

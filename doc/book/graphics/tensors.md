@@ -5,13 +5,14 @@
 nodes, rewrites it symbolically for gradients and optimizer steps, and
 lowers it explicitly to plain WebGPU objects the caller owns, which run as
 often as a training loop likes, on the page or on Node ([WebGPU on
-Node](plan.md#webgpu-on-node)). All five libraries are **implemented**:
+Node](plan.md#webgpu-on-node)). All six libraries are **implemented**:
 
 | Library | Provides |
 | --- | --- |
 | `(snail shell tensor)` | Nodes, ports and views; the operations that build them |
 | `(snail shell tensor grad)` | `grad`: reverse-mode gradients as more graph |
 | `(snail shell tensor adam)` | `adam-updates`: Adam's step as more graph |
+| `(snail shell tensor fuse)` | `fuse`: maps that read maps taken into one |
 | `(snail shell tensor lower)` | `lower`: buffers, kernels and their order, the caller's |
 | `(snail shell tensor eval)` | `evaluate`: the same graph on the CPU, the specification |
 
@@ -75,6 +76,40 @@ under `prefix` (`moment-names`). They start at zeros, as every buffer does,
 and a host may write them, as densification does when it changes how many
 gaussians a param holds.
 
+## Fusing
+
+`(fuse roots)` rewrites a graph so that a map takes in the maps it reads,
+as Resin's `fuse_elementwise` fuses its dispatches. One kernel computes
+both, and the producer's buffer is not written unless something else reads
+it. The answer is views of the same values computed by fewer nodes, for
+`lower` to lower as it lowers any graph; `fuse-updates` does the same for a
+program's updates.
+
+```scheme
+(lower "step" (fuse sinks) (fuse-updates updates))
+```
+
+A producer is inlined into each map that reads it: the consumer's load
+becomes the producer's body, whose loads are seen through the consumer's
+view. A view of a view is an accessor when each axis of the outer view
+steps along the axes of the port it sees without carrying into the next.
+Broadcasting, permuting, narrowing, squeezing and splitting an axis all do
+that, and any view passes through a producer that read its argument
+densely. Merging the axes of a port whose producer read a strided view is
+not an accessor, so that producer stays a node. A body stays within 256
+expressions, since a producer read twice is inlined twice. A kernel binds
+at most seven buffers besides its port, so a sum of eight params is two
+maps. Types do not stop fusing: each expression carries its own. A node
+that is not a map keeps the map that feeds it, so reductions, matrix
+products, gathers, concats, sorts and custom kernels are where fused
+kernels end. Fusing depends only on a node and what it reads, so the sinks
+and updates of one program may be fused apart and still share their nodes.
+
+On bicycle, fusing takes a training step from 829 dispatches to 350, and
+the splats viewer's frame from 273 to 119. The viewer's time is now in
+those boundaries: the harmonics' matrix products and the concats that join
+columns.
+
 ## Lowering and running
 
 `(lower label sinks updates)` lowers what the sinks and updates need to a
@@ -105,7 +140,10 @@ nothing it was given.
 Each node's kernel is generated as WGSL text whose shapes, pitches and
 offsets are literals, a thread per output element, so two nodes that
 compute alike share a pipeline. A `Fill` argument is a literal too and gets
-no buffer. A reduction over more than 256 elements runs in levels: a
+no buffer. A map's body becomes one `let` for each distinct load and
+operation, so an expression fusing copied into two places is computed
+once and no expression nests another, and a map binds each port its
+arguments see once. A reduction over more than 256 elements runs in levels: a
 workgroup reduces each part of 4,096 elements in shared memory until one
 part is left. A float `ScatterAdd` adds with a compare-and-swap loop. Sorts
 and prefix sums run on the `radix-sort` and `scan` middleware ([the WebGPU

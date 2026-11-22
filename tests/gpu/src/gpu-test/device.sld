@@ -66,6 +66,7 @@
         (write-line (string-append "viewed turned: " (texels (● viewed second)))))
       (write-line (string-append "timed: " (timed-pass)))
       (write-line (string-append "tensor: " (tensor-agreement)))
+      (write-line (string-append "fused tensor: " (fused-agreement)))
       (write-line (string-append "profiled: " (profiled-steps)))
       (write-line (string-append "swapped: " (swapped-params)))
       (write-line (string-append "assigned: " (assigned-param)))

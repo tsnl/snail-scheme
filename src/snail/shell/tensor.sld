@@ -159,6 +159,7 @@
    exclusive-scan
    custom
    node-view
+   with-args
    toposort)
   (import
    (snail core base)
@@ -444,6 +445,11 @@
 
     (define (node (kind Kind) (args (List View)) (ports (List Port))) (→ Node)
       (new Node (key (node-key kind args ports)) (kind kind) (args args) (ports ports)))
+
+    ;; The same node over other arguments, as a rewrite of the graph builds
+    ;; it; its key is new, since its arguments are.
+    (define (with-args (n Node) (args (List View))) (→ Node)
+      (node (● n kind) args (● n ports)))
 
     (define (port-of (node Node) (name String)) (→ Port)
       (match (find (lambda (port) (string=? (● port name) name)) (● node ports))
