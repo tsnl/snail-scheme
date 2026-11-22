@@ -41,7 +41,7 @@
      (Cons (substring text 0 at) (words-of (substring text (+ at 1) (string-length text)))))
     ((None) (list text))))
 
-(define (main (mut Mut) (out OutputPort)) (→ Unit)
+(define (main (out OutputPort)) (→ Unit)
   (write-line out (string-append "instance bytes: " (show (array-length (● batch instances)))))
   (for-each (lambda (draw)
               (write-line out (string-append "draw: " (show (● draw index-count))
@@ -51,7 +51,7 @@
                                              " instances from " (show (● draw first-instance)))))
             (● batch draws))
   (for-each (lambda (text) (write-line out text))
-            (heads (● (with-recorded-gpu mut (lambda (gpu) (frame gpu))) second)))
+            (heads (● (with-recorded-gpu (lambda (gpu) (frame gpu))) second)))
   (unit))
 (define (frame (gpu Gpu)) (→ Unit)
   (request-device gpu)

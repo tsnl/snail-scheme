@@ -29,13 +29,13 @@
     ((Err (TooLarge)) (read-bytes fs path))
     ((Err _) (panic (string-append "cannot read " path)))))
 
-(define (main (mut Mut)
-              (host Host)
-              (arguments Arguments)
-              (files Files)
-              (fs Fs)
-              (clock Clock)
-              (out OutputPort))
+(define (main
+         (host Host)
+         (arguments Arguments)
+         (files Files)
+         (fs Fs)
+         (clock Clock)
+         (out OutputPort))
   (→ Unit)
   (let ((gpu (host-gpu host)))
     (request-device gpu)
@@ -52,7 +52,7 @@
                                                                               (read files fs path))
                                                                             settings
                                                                             image))))))
-                       (train mut photographs
+                       (train photographs
                               gpu
                               clock
                               out

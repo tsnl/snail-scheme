@@ -478,14 +478,14 @@
        (names Index)
        (exiting Bool)))
 
-    (define (serve-language (mut Mut) (processes Processes)
+    (define (serve-language (processes Processes)
                             (fs Fs)
                             (clock Clock)
                             (in InputPort)
                             (out OutputPort)
                             (tools Tools))
       (→ Unit)
-      (serve mut processes
+      (serve processes
              fs
              clock
              in
@@ -493,7 +493,7 @@
              (new Server (tools tools) (workspace (None)) (documents (Nil)) (reported (Nil))
                   (names empty-index) (exiting #f))))
 
-    (define (serve (mut Mut) (processes Processes)
+    (define (serve (processes Processes)
                    (fs Fs)
                    (clock Clock)
                    (in InputPort)
@@ -504,17 +504,17 @@
         ((Ended) (unit))
         ((Malformed)
          (refuse out (JsonNull) -32700 "the message is not JSON")
-         (serve mut processes fs clock in out server))
+         (serve processes fs clock in out server))
         ((Message json)
-         (let ((next (receive mut processes fs clock out server json)))
-           (unless (● next exiting) (serve mut processes fs clock in out next))))))
+         (let ((next (receive processes fs clock out server json)))
+           (unless (● next exiting) (serve processes fs clock in out next))))))
 
     ;; A message with an id is a request, answered; one without, a
     ;; notification. A reply to a request of the server's has no method,
     ;; and the server sends none.
 
-    (define (receive (mut Mut) (processes Processes)
-              (fs Fs)
+    (define (receive (processes Processes)
+                (fs Fs)
               (clock Clock)
               (out OutputPort)
               (server Server)
@@ -523,7 +523,7 @@
       (let ((params (match (json-member json "params") ((Some params) params) ((None) (JsonNull)))))
         (match (new Pair (first (json-member json "id")) (second (text-at json (list "method"))))
           ((Pair (Some id) (Some method)) (request fs out server id method params))
-          ((Pair (None) (Some method)) (notified mut processes fs clock out server method params))
+          ((Pair (None) (Some method)) (notified processes fs clock out server method params))
           (_ server))))
 
     (define (request (fs Fs)
@@ -552,7 +552,7 @@
             (else (refuse out id -32601 (string-append "snail-scheme lsp does not answer " method))
                   server)))
 
-    (define (notified (mut Mut) (processes Processes)
+    (define (notified (processes Processes)
                       (fs Fs)
                       (clock Clock)
                       (out OutputPort)
@@ -560,17 +560,17 @@
                       (method String)
                       (params Json))
       (→ Server)
-      (cond ((string=? method "initialized") (checked mut processes fs clock out server))
+      (cond ((string=? method "initialized") (checked processes fs clock out server))
             ((string=? method "textDocument/didOpen")
-             (checked mut processes fs clock out (opened server
-                                                         (text-at params
-                                                                  (list "textDocument" "uri"))
-                                                         (text-at params
-                                                                  (list "textDocument" "text")))))
+             (checked processes fs clock out (opened server
+                                                     (text-at params
+                                                              (list "textDocument" "uri"))
+                                                     (text-at params
+                                                              (list "textDocument" "text")))))
             ((string=? method "textDocument/didChange")
              (opened server (text-at params (list "textDocument" "uri")) (changed-text params)))
             ((string=? method "textDocument/didClose") (closed server params))
-            ((string=? method "textDocument/didSave") (checked mut processes fs clock out server))
+            ((string=? method "textDocument/didSave") (checked processes fs clock out server))
             ((string=? method "exit") (Server-exiting-set server #t))
             (else server)))
 
@@ -686,7 +686,7 @@
     ;; A document's check: what failed, at its places, or the program as
     ;; the checker typed it.
 
-    (define (check-document (mut Mut) (processes Processes)
+    (define (check-document (processes Processes)
                             (fs Fs)
                             (clock Clock)
                             (tools Tools)
@@ -698,9 +698,9 @@
         ((Some check)
          (match (match check
                   ((ScriptCheck script platform)
-                   (check-script mut processes fs clock tools script platform))
+                   (check-script processes fs clock tools script platform))
                   ((LibraryCheck owner name)
-                   (check-library mut processes fs clock tools owner name)))
+                   (check-library processes fs clock tools owner name)))
            ((Ok typed) (new Pair (first (Nil)) (second (Some typed))))
            ((Err failure) (new Pair (first (failure-reports fs path failure)) (second (None))))))))
 
@@ -708,19 +708,19 @@
     ;; checked programs' names; when every check failed, those of the last
     ;; that did not stay.
 
-    (define (checked (mut Mut)
-                     (processes Processes)
-                     (fs Fs)
-                     (clock Clock)
-                     (out OutputPort)
-                     (server Server))
+    (define (checked
+             (processes Processes)
+             (fs Fs)
+             (clock Clock)
+             (out OutputPort)
+             (server Server))
       (→ Server)
       (match (● server workspace)
         ((None) server)
         ((Some workspace)
          (if (file-exists? fs (string-append workspace "/src"))
              (let* ((results (map (lambda (document)
-                                    (check-document mut processes
+                                    (check-document processes
                                                     fs
                                                     clock
                                                     (● server tools)

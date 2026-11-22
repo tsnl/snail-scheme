@@ -20,11 +20,11 @@ each can return if a program needs it.
   and rows are gone
   ([#877](https://github.com/tsnl/snail-scheme/issues/877)). What they
   gave is had with less: a [capability](capabilities.md#capabilities) is a
-  value a function is given, a write takes a
-  [`Mut`](capabilities.md#mut), and [suspension](suspension.md) is three
-  functions. What went with them: a function value's type no longer says
-  whether calling it writes or reaches the host, since a closure may hold
-  a `Mut` or a capability, and nothing in a type says a call may suspend.
+  value a function is given, and [suspension](suspension.md) is three
+  functions. What went with them: no type says whether a call writes,
+  reaches the host or suspends. Reaching the host is in what a function is
+  handed; [writing is not tracked at all](capabilities.md#what-a-signature-does-not-say),
+  so that a function leaves its arguments unchanged is a convention.
   Divergence was never tracked; a row is the one way it could be, since
   nothing can be handed to a function to let it loop.
 - **Incremental compiler state.** Every build expands, checks and emits its
@@ -52,7 +52,7 @@ a dynamic numeric tower, source borrows, callable classes, `dyn`, `impl`,
 `FnMut` and inline records. These are design decisions, not compatibility
 bugs waiting for implementation. A top level has no statements: a
 program's entry is its `main`. A top-level value's initializer is handed
-nothing, so it only computes. Instance
+no capability. Instance
 dispatch, named instance sets, plugins, code pointers, declaration metadata,
 implicit Any conversions and resizable arrays have also been removed.
 

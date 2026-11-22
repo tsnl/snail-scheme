@@ -147,7 +147,7 @@
     ;; generation. A producer can call this too, with `producer-tools`, to
     ;; embed another build: its generated library links the files.
 
-    (define (build-script (mut Mut) (processes Processes)
+    (define (build-script (processes Processes)
                           (fs Fs)
                           (clock Clock)
                           (tools Tools)
@@ -159,7 +159,7 @@
                            (● script workspace)
                            mode
                            (lambda (builder)
-                             (build-target mut processes
+                             (build-target processes
                                            fs
                                            clock
                                            builder
@@ -214,28 +214,28 @@
     ;; The script checked for `platform` as a build would, its producers
     ;; run, and nothing written: its program as the checker typed it.
 
-    (define (check-script (mut Mut) (processes Processes)
+    (define (check-script (processes Processes)
                           (fs Fs)
                           (clock Clock)
                           (tools Tools)
                           (script Script)
                           (platform Platform))
       (→ (Result Typed Failure))
-      (checking mut processes fs clock (building-script tools script)
+      (checking processes fs clock (building-script tools script)
                 (● script workspace)
                 (lambda (working) (script-target fs tools script platform))))
 
     ;; The library `name` of `workspace`, checked as the program that
     ;; imports it is, under no target.
 
-    (define (check-library (mut Mut) (processes Processes)
+    (define (check-library (processes Processes)
                            (fs Fs)
                            (clock Clock)
                            (tools Tools)
                            (workspace String)
                            (name (List String)))
       (→ (Result Typed Failure))
-      (checking mut processes fs clock tools
+      (checking processes fs clock tools
                 workspace
                 (lambda (working)
                   (let ((entry (string-append working "/check.scm")))
@@ -251,7 +251,7 @@
     ;; The program `target` gives, in a working directory of its own,
     ;; checked as a debug build would check it.
 
-    (define (checking (mut Mut) (processes Processes)
+    (define (checking (processes Processes)
                       (fs Fs)
                       (clock Clock)
                       (tools Tools)
@@ -265,12 +265,12 @@
                       (in-working fs builder
                                   "check"
                                   (lambda (working)
-                                    (● (check-target mut
-                                                     processes
-                                                     fs
-                                                     builder
-                                                     (target working)
-                                                     working)
+                                    (● (check-target
+                                        processes
+                                        fs
+                                        builder
+                                        (target working)
+                                        working)
                                        typed))))))
 
     ;; What a producer's build runs, from its command line: a build runs a
@@ -416,7 +416,7 @@
     ;; Builds a target into a new generation, which goes if the build of it
     ;; fails.
 
-    (define (build-target (mut Mut) (processes Processes)
+    (define (build-target (processes Processes)
                           (fs Fs)
                           (clock Clock)
                           (builder Builder)
@@ -426,7 +426,7 @@
              (directory (prepare-generation fs clock builder name)))
         (removing fs directory
                   (lambda ()
-                    (let ((libraries (build-program mut processes fs builder target directory)))
+                    (let ((libraries (build-program processes fs builder target directory)))
                       (if (● target browser?)
                           (package-browser fs builder target directory)
                           (package-node fs builder name directory libraries)))
@@ -447,7 +447,7 @@
     ;; The target's program in its generation, compiled anew, with the
     ;; files it links; answers the libraries the program holds.
 
-    (define (build-program (mut Mut) (processes Processes)
+    (define (build-program (processes Processes)
                            (fs Fs)
                            (builder Builder)
                            (target Target)
@@ -455,17 +455,17 @@
       (→ (List String))
       (in-working fs builder (● target name)
                   (lambda (working)
-                    (let ((checked (check-target mut processes fs builder target working)))
-                      (write-program mut processes fs builder target directory working checked)))))
+                    (let ((checked (check-target processes fs builder target working)))
+                      (write-program processes fs builder target directory working checked)))))
 
-    (define (check-target (mut Mut) (processes Processes)
+    (define (check-target (processes Processes)
                           (fs Fs)
                           (builder Builder)
                           (target Target)
                           (working String))
       (→ Checked)
       (let ((directories (● target directories)))
-        (producing mut processes fs builder working directories
+        (producing processes fs builder working directories
                    (lambda ()
                      (source->checked fs directories
                                       (● target entry)
@@ -478,13 +478,13 @@
     ;; in its store/; answers the libraries it holds. A release build's is
     ;; linked in `working` and optimized from there.
 
-    (define (write-program (mut Mut) (processes Processes) (fs Fs) (builder Builder)
+    (define (write-program (processes Processes) (fs Fs) (builder Builder)
                            (target Target)
                            (directory String)
                            (working String)
                            (checked Checked))
       (→ (List String))
-      (let* ((program (compiled (lambda () (checked->wat mut checked))))
+      (let* ((program (compiled (lambda () (checked->wat checked))))
              (output (string-append directory "/" (program-name (● target name)))))
         (match (● builder mode)
           ((Debug) (write-bytes fs output (linked-program fs builder program)))
@@ -525,15 +525,15 @@
     ;; linked with the runtime into `output`; the files it links ship beside
     ;; it. The compile's own files stay in `working`.
 
-    (define (link-program (mut Mut) (processes Processes) (fs Fs) (builder Builder)
+    (define (link-program (processes Processes) (fs Fs) (builder Builder)
                           (entry String)
                           (directories (List String))
                           (working String)
                           (output String))
       (→ (List LinkedFile))
-      (let ((program (producing mut processes fs builder working directories
+      (let ((program (producing processes fs builder working directories
                                 (lambda ()
-                                  (source->wat mut fs directories
+                                  (source->wat fs directories
                                                entry
                                                (lambda (loading forms)
                                                  (generated-syntax fs working
@@ -777,7 +777,7 @@
     ;; when it was reached begin its source, so one that needs its own
     ;; library is an import cycle.
 
-    (define (producing (mut Mut) (processes Processes) (fs Fs) (builder Builder)
+    (define (producing (processes Processes) (fs Fs) (builder Builder)
                        (working String)
                        (directories (List String))
                        (work (Fn → T)))
@@ -787,10 +787,10 @@
         ((Ok value) value)
         ((Err (Failed diagnostics)) (stop-build (CompileFailure diagnostics)))
         ((Err (Requested (GenerateInput key)))
-         (produce mut processes fs builder working directories key)
-         (producing mut processes fs builder working directories work))))
+         (produce processes fs builder working directories key)
+         (producing processes fs builder working directories work))))
 
-    (define (produce (mut Mut) (processes Processes)
+    (define (produce (processes Processes)
                      (fs Fs)
                      (builder Builder)
                      (working String)
@@ -800,7 +800,7 @@
       (let ((program (string-append working "/" key ".wasm")))
         (place-links fs builder
                      working
-                     (link-program mut processes fs builder
+                     (link-program processes fs builder
                                    (string-append working "/" key ".sld")
                                    directories
                                    working

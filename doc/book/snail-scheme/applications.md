@@ -112,9 +112,8 @@ canvas, in the shape Elm gave them:
 | `view : Model -> (Html M)` | A tree of elements and texts. An element's attributes, typed properties (`StringProperty`, `NumberProperty`, `FlagProperty`) and listeners (`On`) are plain data; a listener holds a function from what its event carried to a message `M`. |
 | `update : Model M -> (Pair Model (List (Fn → M)))` | The next model, and the commands the message starts: work run as tasks, each answering a message. |
 
-`run-ui mut dom model start update view window commit checkpoint` shows the view in the
-document's root through `dom`, a `Dom` of `(snail shell dom)`, makes the
-mailbox its commands answer through with `mut`, updates
+`run-ui dom model start update view window commit checkpoint` shows the view in the
+document's root through `dom`, a `Dom` of `(snail shell dom)`, updates
 it with each message in `start`, as when it must ask its server before
 anything else happens, then handles one delivery at a time until the
 document closes, and answers the last model. The window is no node of the
@@ -191,7 +190,7 @@ test`.
 from an `InterfaceHandler`:
 
 ```scheme
-(run-interface mut dom fetch events storage
+(run-interface dom fetch events storage
                (new InterfaceHandler
                  (initialize new-notes) (update update) (view view) (window window)
                  (messages (lambda (model) (list (Load))))

@@ -509,18 +509,18 @@
 
     ;; One operation's change to the document in `state`, and its answer.
 
-    (define (change! (mut Mut) (state Memory) (operation (Fn Document → (Pair A Document))))
+    (define (change! (state Memory) (operation (Fn Document → (Pair A Document))))
       (→ A)
       (∀ (A))
       (let ((result (operation (● state document))))
-        (set! mut (● state document) (● result second))
+        (set! (● state document) (● result second))
         (● result first)))
 
-    (define (alter! (mut Mut) (state Memory) (operation (Fn Document → Document)))
+    (define (alter! (state Memory) (operation (Fn Document → Document)))
       (→ Unit)
-      (set! mut (● state document) (operation (● state document))))
+      (set! (● state document) (operation (● state document))))
 
-    (define (with-memory-dom (mut Mut) (script (List Cue)) (work (Fn Dom → T)))
+    (define (with-memory-dom (script (List Cue)) (work (Fn Dom → T)))
       (→ (Pair T Document))
       (∀ (T))
       (let ((state
@@ -530,30 +530,30 @@
                        (document-root (lambda () (new Node (handle 0))))
                        (create-element
                         (lambda (tag)
-                          (change! mut state (lambda (document) (created document tag "")))))
+                          (change! state (lambda (document) (created document tag "")))))
                        (create-text
                         (lambda (text)
-                          (change! mut state (lambda (document) (created document "#text" text)))))
+                          (change! state (lambda (document) (created document "#text" text)))))
                        (set-attribute
                         (lambda (node name value)
-                          (alter! mut state
+                          (alter! state
                                   (lambda (document) (attribute-set document node name value)))))
                        (set-text
                         (lambda (node text)
-                          (alter! mut state (lambda (document) (text-set document node text)))))
+                          (alter! state (lambda (document) (text-set document node text)))))
                        (set-string-property
                         (lambda (node name value)
-                          (alter! mut state
+                          (alter! state
                                   (lambda (document)
                                     (property-set document node name (Text value))))))
                        (set-number-property
                         (lambda (node name value)
-                          (alter! mut state
+                          (alter! state
                                   (lambda (document)
                                     (property-set document node name (Number value))))))
                        (set-flag-property
                         (lambda (node name value)
-                          (alter! mut state
+                          (alter! state
                                   (lambda (document)
                                     (property-set document node name (Flag value))))))
                        (string-property
@@ -568,22 +568,22 @@
                             (_ 0.0))))
                        (insert-node
                         (lambda (parent child before)
-                          (alter! mut state
+                          (alter! state
                                   (lambda (document) (inserted document parent child before)))))
                        (remove-node
                         (lambda (node)
-                          (alter! mut state (lambda (document) (removed document node)))))
+                          (alter! state (lambda (document) (removed document node)))))
                        (listen
                         (lambda (node event captures prevent)
-                          (change! mut state
+                          (change! state
                                    (lambda (document)
                                      (listened document node event captures prevent)))))
                        (unlisten
                         (lambda (listener)
-                          (alter! mut state (lambda (document) (unlistened document listener)))))
+                          (alter! state (lambda (document) (unlistened document listener)))))
                        (focus-node
                         (lambda (node)
-                          (alter! mut state
+                          (alter! state
                                   (lambda (document)
                                     (commanded document
                                                node
@@ -596,9 +596,9 @@
                             ((None) (None)))))
                        (select-range
                         (lambda (node start end)
-                          (alter! mut
-                                  state
-                                  (lambda (document) (selected document node start end)))))
+                          (alter!
+                           state
+                           (lambda (document) (selected document node start end)))))
                        (selection-range
                         (lambda (node)
                           (new Pair
@@ -607,7 +607,7 @@
                        (window-node (lambda () (new Node (handle -1))))
                        (confirm
                         (lambda (question)
-                          (alter! mut state
+                          (alter! state
                                   (lambda (document)
                                     (traced document (list "confirm" (quoted question)))))
                           #t))
@@ -621,41 +621,41 @@
                           (let ((taken (match (live (● state document) (● node handle))
                                          ((Some _) #t)
                                          ((None) #f))))
-                            (alter! mut state
+                            (alter! state
                                     (lambda (document)
                                       (text-inserted document node start end text)))
                             (match (input-fired (● state document) node)
                               ((Some delivery)
-                               (set! mut
-                                     (● state inputs)
-                                     (append (● state inputs) (list delivery))))
+                               (set!
+                                (● state inputs)
+                                (append (● state inputs) (list delivery))))
                               ((None) (unit)))
                             taken)))
                        (measure
                         (lambda (node)
-                          (change! mut state (lambda (document) (measured document node)))))
+                          (change! state (lambda (document) (measured document node)))))
                        (wake
                         (lambda ()
-                          (set! mut (● state woken) #t)
-                          (alter! mut state (lambda (document) (traced document (list "wake"))))))
+                          (set! (● state woken) #t)
+                          (alter! state (lambda (document) (traced document (list "wake"))))))
                        (next-event
                         (lambda ()
                           (yield)
                           (match (● state inputs)
                             ((Cons delivery rest)
-                             (set! mut (● state inputs) rest)
+                             (set! (● state inputs) rest)
                              delivery)
                             ((Nil)
                              (if (● state woken)
                                  (begin
-                                   (set! mut (● state woken) #f)
+                                   (set! (● state woken) #f)
                                    (Woken))
                                  (match (● state cues)
                                    ((Cons cue rest)
-                                    (set! mut (● state cues) rest)
-                                    (change! mut state (lambda (document) (cued document cue))))
+                                    (set! (● state cues) rest)
+                                    (change! state (lambda (document) (cued document cue))))
                                    ((Nil)
-                                    (alter! mut state
+                                    (alter! state
                                             (lambda (document) (traced document (list "close"))))
                                     (Closed))))))))))))
           (new Pair (first value) (second (● state document))))))

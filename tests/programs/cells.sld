@@ -10,8 +10,8 @@
   ((name String)
    (count I64)))
 
-(define (bump! (mut Mut) (counter Counter)) (→ Unit)
-  (set! mut (● counter count) (+ (● counter count) 1)))
+(define (bump! (counter Counter)) (→ Unit)
+  (set! (● counter count) (+ (● counter count) 1)))
 
 ;; A path reaches through nested structs to one field.
 (record Point
@@ -22,22 +22,22 @@
   ((home Point)
    (last Point)))
 
-(define (main (mut Mut) (out OutputPort)) (→ Unit)
+(define (main (out OutputPort)) (→ Unit)
 
   ;; ANCHOR_END: counter
 
   ;; Two names for one object see the same writes.
   (let* ((counter (new Counter (name "clicks") (count 0)))
          (same counter))
-    (bump! mut counter)
-    (bump! mut same)
+    (bump! counter)
+    (bump! same)
     (write-line out (string-append (● counter name) " " (show (● counter count))))
     (write-line out (show (● same count)))
-    (set! mut (● same count) 10)
+    (set! (● same count) 10)
     (write-line out (show (● counter count))))
   (let ((cursor (new Cursor (home (new Point (x 0) (y 0))) (last (new Point (x 1) (y 1))))))
-    (set! mut (● cursor last x) 5)
-    (set! mut (● cursor home) (new Point (x 2) (y 3)))
+    (set! (● cursor last x) 5)
+    (set! (● cursor home) (new Point (x 2) (y 3)))
     (write-line out (string-append (show (● cursor home y))
                                    " "
                                    (show (● cursor last x))
@@ -45,10 +45,10 @@
                                    (show (● cursor last y))))
     (match (● cursor home)
       ((Point x y) (write-line out (string-append (show x) "," (show y)))))
-    (set! mut (● cursor home) (new Point (x 9) (y 9)))
+    (set! (● cursor home) (new Point (x 9) (y 9)))
     (write-line out (show (● cursor home x))))
   (let ((counter (new Counter (name "scalar") (count 41))))
-    (set! mut (● counter count) (+ (● counter count) 1))
-    (set! mut (● counter count) (+ (● counter count) 1))
+    (set! (● counter count) (+ (● counter count) 1))
+    (set! (● counter count) (+ (● counter count) 1))
     (write-line out (show (● counter count))))
   (unit))

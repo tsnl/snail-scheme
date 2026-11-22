@@ -45,8 +45,7 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
 
 - Every record is a heap object and every field is mutable. Primitive
   numbers and booleans remain unboxed. Keep ordinary compiler passes pure
-  by convention and by their signatures: a pass takes no `Mut`. Every value
-  may be shared,
+  by convention: nothing checks it. Every value may be shared,
   and the Wasm engine's collector reclaims it: there are no linear types,
   reference counts, finalizers or borrows, and no ownership pass.
 - A top-level `(define name value)` is a cached thunk: its initializer runs
@@ -62,21 +61,18 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   checks where those facts cannot be proved statically.
 - There are no effect declarations, no handlers and no effect rows
   ([#877](https://github.com/tsnl/snail-scheme/issues/877)). What a
-  function may do is in what it is handed. A **capability** is an ordinary
-  value, usually a record of functions (`OutputPort`, `Fs`, `Gpu`), that a
-  function is handed, may keep and may pass on. A write names a **`Mut`**,
-  `(set! mut (● record field) value)`, so a function handed none writes
-  nothing. `main` asks for what it needs by its parameters' types, and its
-  target provides each (`src/snail/target/`, "Entries" in
-  `src/snail/shell/compiler/expand.sld`). The host's capabilities are made
-  from the one `Host` a target holds (`(standard-output host)`), so only
-  code handed a `Host` can acquire one. Take what a function uses as a
-  parameter. `unsafe-mut` and `unsafe-host` make authority from nothing:
-  a target calls them, a function that writes only storage it allocates
-  may call `unsafe-mut`, and nothing else should.
-  A function value's type says nothing of what calling it does: a closure
-  does what it was made with
-  ([capabilities](doc/book/snail-scheme/capabilities.md)).
+  function may do to the world is in what it is handed. A **capability**
+  is an ordinary value, usually a record of functions (`OutputPort`, `Fs`,
+  `Gpu`), that a function is handed, may keep and may pass on. `main` asks
+  for what it needs by its parameters' types, and its target provides each
+  (`src/snail/target/`, "Entries" in `src/snail/shell/compiler/expand.sld`).
+  The host's capabilities are made from the one `Host` a target holds
+  (`(standard-output host)`), so only code handed a `Host` can acquire one.
+  Take what a function uses as a parameter. `unsafe-host` makes that
+  authority from nothing: a target calls it, and nothing else should.
+  Changing a value is not a capability: whoever holds a record may write
+  it, and nothing in a type says whether a call writes, reaches the host
+  or suspends ([capabilities](doc/book/snail-scheme/capabilities.md)).
 - Suspension is three functions, `make-prompt`, `with-prompt` and `suspend`:
   one-shot, delimited by its `with-prompt`, and in no type. `resume` is an
   ordinary `Fn`, so it is first-class — a scheduler can hold it and call it
@@ -99,17 +95,15 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   forward instead of returning a Boolean and repeatedly checking the same raw
   data. Keep unsafe assumptions explicit at the boundary that introduces them.
 - Prefer threading pass state through functions and returning the new value.
-  A signature that takes no `Mut`, and nothing holding one, proves that the
-  function does not mutate its arguments. Field reads need nothing;
-  callers still share mutable objects. Take a `Mut` for mutation that
-  belongs to a boundary — the runtime, a host, a cache with one owner — not
-  for the convenience of a pass that could carry its state. Pass it; let a
-  record keep the `Mut` it was made with only when the record is state
-  with one owner, as a scheduler or a mailbox is. When threading would
-  nest a function six deep, name the sequence with a local binding form, as
-  `threading` does in `src/snail/shell/compiler/core.sld`, rather than
-  reaching for a cell. The checker takes no `Mut` anywhere, at no cost in
-  speed; the count of functions that do, per module, is worth watching.
+  No signature says whether a function mutates its arguments, so the
+  convention has to carry it: callers share mutable objects, and a function
+  that writes is named with a trailing `!`. Keep mutation for a boundary —
+  the runtime, a host, a cache with one owner — not for the convenience of
+  a pass that could carry its state. When threading would nest a function
+  six deep, name the sequence with a local binding form, as `threading`
+  does in `src/snail/shell/compiler/core.sld`, rather than reaching for a
+  cell. The checker writes nothing, at no cost in speed; the count of
+  `set!` and `!` per module is worth watching.
 - Prefer cohesive single-file modules with named sections. A large file can
   explain one subject well; extract a file only for a substantial new subject.
 - Put each Scheme import specification and record field on its own line.

@@ -12,7 +12,7 @@
 (define counter (new Counter (value 0)))
 
 (define (tick) (→ I64)
-  (set! (unsafe-mut) (● counter value) (+ 1 (● counter value)))
+  (set! (● counter value) (+ 1 (● counter value)))
   (● counter value))
 
 ;; Values are read in expression order, whatever their source order.
@@ -27,7 +27,7 @@
 (define (identity (n I64)) (→ I64) n)
 (define alias identity)
 
-(define (main (mut Mut) (out OutputPort)) (→ Unit)
+(define (main (out OutputPort)) (→ Unit)
   (write-line out (show (● counter value)))
   (write-line out (show total))
   (write-line out (show total))
@@ -37,5 +37,5 @@
   (write-line out (show (alias 7)))
   (write-line out (● settings name))
   (write-line out (show port))
-  (visits mut)
-  (write-line out (show (+ (visits mut) (● settings visits)))))
+  (visits)
+  (write-line out (show (+ (visits) (● settings visits)))))

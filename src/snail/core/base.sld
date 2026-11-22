@@ -1,6 +1,5 @@
 ;; The standard prelude: core forms, derived syntax, numeric classes, text,
-;; collections and mutable heap objects. A write takes a `Mut`; a read takes
-;; nothing.
+;; collections and mutable heap objects.
 (define-library (snail core base)
   (export
    ●
@@ -13,11 +12,11 @@
    constant-array
    extern
    expose
-   Any U8 I32 I64 F32 F64 Bool Char Unit Mut String Array ConstantArray Bytes Fn
+   Any U8 I32 I64 F32 F64 Bool Char Unit String Array ConstantArray Bytes Fn
    Prompt make-prompt with-prompt suspend
    u8->i32 i32->u8
    let* letrec cond case when unless and or do
-   not unit panic unsafe-mut
+   not unit panic
    cache lru-cache
    Num + - * negate abs
    Ord = < <= > >= min max
@@ -83,13 +82,13 @@
 
     (define-syntax let*
       (syntax-rules ()
-        ((_ () body ...) (let () body ...))
+        ((_ () body ...) (begin body ...))
         ((_ ((name value) binding ...) body ...)
          (let ((name value)) (let* (binding ...) body ...)))))
 
     (define-syntax letrec
       (syntax-rules ()
-        ((_ ((name value) ...) body ...) (let () (define name value) ... (let () body ...)))))
+        ((_ ((name value) ...) body ...) (begin (define name value) ... (begin body ...)))))
 
     (define-syntax cond
       (syntax-rules (else)
@@ -661,20 +660,19 @@
         (if (< index 0) result (loop (- index 1) (Cons (array-ref items index) result)))))
 
     ;; Local cursors give generation a sequential input without exposing
-    ;; mutable storage outside these conversions, which make the `Mut` they
-    ;; advance their cursor with.
+    ;; mutable storage outside these conversions.
     (record (ListCursor A)
       ((remaining (List A))))
 
     (define (list->array (items (List T)))
       (→ (Array T))
       (∀ (T))
-      (let* ((mut (unsafe-mut)) (cursor (new ListCursor (remaining items))))
+      (let ((cursor (new ListCursor (remaining items))))
         (array-generate (length items)
                         (lambda (index)
                           (match (● cursor remaining)
                             ((Cons first rest)
-                             (set! mut (● cursor remaining) rest)
+                             (set! (● cursor remaining) rest)
                              first)
                             ((Nil)
                              (panic
@@ -687,7 +685,7 @@
     (define (array-concatenate (arrays (List (Array T))))
       (→ (Array T))
       (∀ (T))
-      (let* ((mut (unsafe-mut)) (cursor (new ArrayCursor (arrays arrays) (offset 0))))
+      (let ((cursor (new ArrayCursor (arrays arrays) (offset 0))))
         (array-generate
          (fold-left
           (lambda (total items) (+ total (array-length items)))
@@ -700,11 +698,11 @@
                 (let ((offset (● cursor offset)))
                   (if (< offset (array-length items))
                       (begin
-                        (set! mut (● cursor offset) (+ offset 1))
+                        (set! (● cursor offset) (+ offset 1))
                         (array-ref items offset))
                       (begin
-                        (set! mut (● cursor arrays) rest)
-                        (set! mut (● cursor offset) 0)
+                        (set! (● cursor arrays) rest)
+                        (set! (● cursor offset) 0)
                         (next)))))
                ((Nil)
                 (panic "array-concatenate: too few elements"))))))))
@@ -749,14 +747,14 @@
     ;; is local to this call.
 
     (define (string-concatenate (texts (List String))) (→ String)
-      (let* ((mut (unsafe-mut)) (chars
-                                 (make-array (fold-left (lambda (total text)
-                                                          (+ total (string-length text)))
-                                                        0
-                                                        texts)
-                                             #\space)))
+      (let ((chars
+             (make-array (fold-left (lambda (total text)
+                                      (+ total (string-length text)))
+                                    0
+                                    texts)
+                         #\space)))
         (fold-left (lambda (offset text)
-                     (array-copy! mut chars
+                     (array-copy! chars
                                   offset
                                   (string->array text)
                                   0

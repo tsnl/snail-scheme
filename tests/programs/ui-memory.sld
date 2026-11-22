@@ -108,21 +108,21 @@
         (clicked "reverse")
         (clicked "remove-1")))
 
-(define (main (mut Mut) (out OutputPort)) (→ Unit)
+(define (main (out OutputPort)) (→ Unit)
   (dispatch
    (lambda ()
      (let ((result
-            (with-memory-dom mut (script)
+            (with-memory-dom (script)
                              (lambda (dom)
-                               (run-ui mut
-                                       dom
-                                       (new Model (items (Nil)) (draft "") (next 0) (saved 0))
-                                       (Nil)
-                                       (lambda (model message) (update model message))
-                                       view
-                                       (lambda (model) (Nil))
-                                       (lambda (model) (unit))
-                                       (lambda (model) (checkpoint out model)))))))
+                               (run-ui
+                                dom
+                                (new Model (items (Nil)) (draft "") (next 0) (saved 0))
+                                (Nil)
+                                (lambda (model message) (update model message))
+                                view
+                                (lambda (model) (Nil))
+                                (lambda (model) (unit))
+                                (lambda (model) (checkpoint out model)))))))
        (write-line out (string-append "saved " (show (● (● result first) saved))))
        (write-line out (document->html (● result second)))
        (for-each (lambda (text) (write-line out text)) (document-trace (● result second))))))

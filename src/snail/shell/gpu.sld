@@ -959,19 +959,19 @@
     ;; Byte arrays end to end, in a fresh array.
 
     (define (joined (pieces (List Bytes))) (→ Bytes)
-      (let* ((mut (unsafe-mut)) (bytes (make-array
-                                        (fold-left
-                                         (lambda (total piece) (+ total (array-length piece)))
-                                         0
-                                         pieces)
-                                        (i32->u8 0))))
+      (let ((bytes (make-array
+                    (fold-left
+                     (lambda (total piece) (+ total (array-length piece)))
+                     0
+                     pieces)
+                    (i32->u8 0))))
         (fold-left (lambda (at piece)
-                     (array-copy! mut
-                                  bytes
-                                  at
-                                  piece
-                                  0
-                                  (array-length piece))
+                     (array-copy!
+                      bytes
+                      at
+                      piece
+                      0
+                      (array-length piece))
                      (+ at (array-length piece)))
                    0
                    pieces)

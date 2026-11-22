@@ -120,8 +120,8 @@
        (arguments rest)))
     ((Nil) (panic (usage)))))
 
-(define (build-job (mut Mut) (processes Processes) (fs Fs) (clock Clock) (job ScriptJob)) (→ String)
-  (build-script mut processes
+(define (build-job (processes Processes) (fs Fs) (clock Clock) (job ScriptJob)) (→ String)
+  (build-script processes
                 fs
                 clock
                 (● job tools)
@@ -132,19 +132,19 @@
 ;; The script built, then this process, replaced by its program on Node.
 ;; A page has nothing to run here, so it is refused before it is built.
 
-(define (run-script (mut Mut) (processes Processes) (fs Fs) (clock Clock) (job ScriptJob)) (→ Unit)
+(define (run-script (processes Processes) (fs Fs) (clock Clock) (job ScriptJob)) (→ Unit)
   (let ((tools (● job tools)))
     (match (● (● job flags) platform)
       ((Node) (become processes (● tools node)
                       (Cons "--no-warnings"
                             (Cons (string-append (● tools root) "/host/native/run-snail.mjs")
-                                  (Cons (built-program mut processes fs clock job)
+                                  (Cons (built-program processes fs clock job)
                                         (● job arguments))))))
       ((Browser) (panic "a page is not run here: build it, then serve its output")))))
 
-(define (built-program (mut Mut) (processes Processes) (fs Fs) (clock Clock) (job ScriptJob))
+(define (built-program (processes Processes) (fs Fs) (clock Clock) (job ScriptJob))
   (→ String)
-  (string-append (build-job mut processes fs clock job)
+  (string-append (build-job processes fs clock job)
                  "/"
                  (program-name (script-name (● job script)))))
 
@@ -156,29 +156,29 @@
 ;; The script's whole program as WebAssembly text. A generated library
 ;; needs a build to run its producer, so here it fails.
 
-(define (print-wat (mut Mut)
-                   (fs Fs)
-                   (environment ProcessEnvironment)
-                   (out OutputPort)
-                   (tools Tools)
-                   (arguments (List String)))
+(define (print-wat
+         (fs Fs)
+         (environment ProcessEnvironment)
+         (out OutputPort)
+         (tools Tools)
+         (arguments (List String)))
   (→ Unit)
   (match (build-flags arguments (None) (Debug))
     ((Pair (Some flags) (Cons file (Nil)))
-     (print-script-wat mut fs environment out tools flags file))
+     (print-script-wat fs environment out tools flags file))
     (_ (panic "usage: snail-scheme wat --target node|browser FILE"))))
 
-(define (print-script-wat (mut Mut)
-                          (fs Fs)
-                          (environment ProcessEnvironment)
-                          (out OutputPort)
-                          (tools Tools)
-                          (flags BuildFlags)
-                          (file String))
+(define (print-script-wat
+         (fs Fs)
+         (environment ProcessEnvironment)
+         (out OutputPort)
+         (tools Tools)
+         (flags BuildFlags)
+         (file String))
   (→ Unit)
   (let ((script (script-at fs environment file)))
     (match (compiling (lambda ()
-                        (source->wat mut fs (workspace-directories tools (● script workspace))
+                        (source->wat fs (workspace-directories tools (● script workspace))
                                      (● script file)
                                      (lambda (loading forms)
                                        (panic "wat does not run producers: build the script"))
@@ -265,39 +265,39 @@
 
 ;; A script's build, or its run.
 
-(define (invoke (mut Mut)
-                (processes Processes)
-                (fs Fs)
-                (clock Clock)
-                (out OutputPort)
-                (job ScriptJob))
+(define (invoke
+         (processes Processes)
+         (fs Fs)
+         (clock Clock)
+         (out OutputPort)
+         (job ScriptJob))
   (→ Unit)
   (if (● job run?)
-      (run-script mut processes fs clock job)
+      (run-script processes fs clock job)
       (begin
-        (build-job mut processes fs clock job)
+        (build-job processes fs clock job)
         (write-line out
                     (string-append (● (● job script) workspace)
                                    "/build/"
                                    (script-name (● job script)))))))
 
-(define (main (mut Mut)
-              (invoked Arguments)
-              (environment ProcessEnvironment)
-              (processes Processes)
-              (fs Fs)
-              (clock Clock)
-              (in InputPort)
-              (out OutputPort))
+(define (main
+         (invoked Arguments)
+         (environment ProcessEnvironment)
+         (processes Processes)
+         (fs Fs)
+         (clock Clock)
+         (in InputPort)
+         (out OutputPort))
   (→ Unit)
   (match (command-line invoked)
     ((Cons _ (Cons _ (Cons _ (Cons _ (Cons "compile" arguments)))))
-     (compile-arguments mut fs arguments))
+     (compile-arguments fs arguments))
     ((Cons _ (Cons _ (Cons _ (Cons _ (Cons "format" arguments)))))
      (format-command fs in out (format-request arguments)))
     ((Cons _ (Cons root (Cons runtime (Cons toolchain (Cons "lsp" (Nil))))))
-     (serve-language mut processes fs clock in out (tools-of environment root runtime toolchain)))
+     (serve-language processes fs clock in out (tools-of environment root runtime toolchain)))
     ((Cons _ (Cons root (Cons runtime (Cons toolchain (Cons "wat" arguments)))))
-     (print-wat mut fs environment out (tools-of environment root runtime toolchain) arguments))
-    (arguments (invoke mut processes fs clock out (request fs environment arguments))))
+     (print-wat fs environment out (tools-of environment root runtime toolchain) arguments))
+    (arguments (invoke processes fs clock out (request fs environment arguments))))
   (unit))

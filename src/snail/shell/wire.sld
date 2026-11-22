@@ -30,32 +30,28 @@
 
     ;; ---- Byte streams ----
 
-    ;; The encoder collects bytes in reverse; the decoder reads forward. Each
-    ;; is one call's own state, and keeps the `Mut` that call made it with,
-    ;; so an instance's `encode` and `decode` take none.
+    ;; The encoder collects bytes in reverse; the decoder reads forward.
     (record Encoder
-      ((mut Mut)
-       (bytes (List U8))))
+      ((bytes (List U8))))
 
     (record Decoder
-      ((mut Mut)
-       (bytes Bytes)
+      ((bytes Bytes)
        (position I64)))
 
     (define (encode-byte (encoder Encoder) (byte U8)) (→ Unit)
-      (set! (● encoder mut) (● encoder bytes) (Cons byte (● encoder bytes))))
+      (set! (● encoder bytes) (Cons byte (● encoder bytes))))
 
     (define (decode-byte (decoder Decoder)) (→ U8)
       (let ((position (● decoder position)))
         (when (>= position (array-length (● decoder bytes)))
           (panic "wire data ended early"))
-        (set! (● decoder mut) (● decoder position) (+ position 1))
+        (set! (● decoder position) (+ position 1))
         (array-ref (● decoder bytes) position)))
 
     ;; The encoder and its buffer are local to this call.
 
     (define (serialize (value T)) (→ Bytes) (∀ (T)) (⊨ (Serialize T))
-      (let ((encoder (new Encoder (mut (unsafe-mut)) (bytes (Nil)))))
+      (let ((encoder (new Encoder (bytes (Nil)))))
         (encode value encoder)
         (list->array (reverse (● encoder bytes)))))
 
@@ -63,7 +59,7 @@
     ;; position is local to this call.
 
     (define (deserialize (bytes Bytes)) (→ T) (∀ (T)) (⊨ (Deserialize T))
-      (let* ((decoder (new Decoder (mut (unsafe-mut)) (bytes bytes) (position 0)))
+      (let* ((decoder (new Decoder (bytes bytes) (position 0)))
              (value (decode decoder)))
         (unless (= (● decoder position) (array-length bytes))
           (panic "wire data has trailing bytes"))

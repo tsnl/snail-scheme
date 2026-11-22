@@ -10,7 +10,7 @@
 (define (success (result (Result Bytes file-FileError)) (size I64)) (→ Bool)
   (match result ((Ok bytes) (= (array-length bytes) size)) (_ #f)))
 
-(define (cases (mut Mut) (files file-Files) (out OutputPort) (directory String)) (→ Unit)
+(define (cases (files file-Files) (out OutputPort) (directory String)) (→ Unit)
   (let ((path (string-append directory "/bytes")))
     (check out (match (file-read-file files path 4)
                  ((Ok bytes) (and (= (array-length bytes) 4)
@@ -23,7 +23,7 @@
     (check out
            (match (file-read-file files path -1) ((Err (file-InvalidInput)) #t) (_ #f))
            "invalid bound")
-    (let ((results (ann (make-mailbox mut) (Mailbox (Result Bytes file-FileError)))))
+    (let ((results (ann (make-mailbox) (Mailbox (Result Bytes file-FileError)))))
       (dispatch (lambda () (mailbox-post results (file-read-file files path 4))))
       (match (mailbox-try-receive results)
         ((None)
@@ -33,7 +33,7 @@
     (sleep 5)
     (write-line out "timer progresses")))
 
-(define (main (mut Mut) (arguments Arguments) (files file-Files) (fs Fs) (out OutputPort)) (→ Unit)
+(define (main (arguments Arguments) (files file-Files) (fs Fs) (out OutputPort)) (→ Unit)
 
   (let ((directory (list-ref (command-line arguments) 1)))
     (make-directories fs directory)
@@ -43,7 +43,7 @@
     (match (file-read-file files (string-append directory "/empty") 0)
       ((Ok bytes)
        (check out (= (array-length bytes) 0) "empty file")
-       (cases mut files out directory))
+       (cases files out directory))
       ((Err (file-Unavailable)) (write-line out "SKIP: native async file provider unavailable"))
       (_ (panic "empty file read failed")))
     (remove-tree fs directory))

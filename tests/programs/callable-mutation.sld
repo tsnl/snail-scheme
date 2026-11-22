@@ -12,11 +12,11 @@
 (record Work
   ((run (Fn I64 → I64))))
 
-(define (main (mut Mut) (out OutputPort)) (→ Unit)
+(define (main (out OutputPort)) (→ Unit)
 
   (let* ((counter (new Counter (value 0)))
          (advance (ann (lambda (amount)
-                         (set! mut (● counter value) (+ (● counter value) amount))
+                         (set! (● counter value) (+ (● counter value) amount))
                          (● counter value))
                        (Fn I64 → I64))))
     (write-line out (show (advance 3)))
@@ -25,7 +25,7 @@
   ;; A procedure can keep another procedure.
   (let* ((counter (new Counter (value 0)))
          (inner (ann (lambda (amount)
-                       (set! mut (● counter value) (+ (● counter value) amount))
+                       (set! (● counter value) (+ (● counter value) amount))
                        (● counter value))
                      (Fn I64 → I64)))
          (outer (ann (lambda (amount) (inner amount))
@@ -35,14 +35,14 @@
   ;; A procedure passed on is the same procedure.
   (let* ((counter (new Counter (value 0)))
          (advance (ann (lambda (amount)
-                         (set! mut (● counter value) amount)
+                         (set! (● counter value) amount)
                          (● counter value))
                        (Fn I64 → I64))))
     (write-line out (show (consume out advance 9))))
   ;; A procedure stored in a field remains callable through each alias.
   (let* ((counter (new Counter (value 0)))
          (work (new Work (run (lambda (amount)
-                                (set! mut (● counter value) amount)
+                                (set! (● counter value) amount)
                                 (● counter value))))))
     (write-line out (show ((● work run) 12)))
     (unit))

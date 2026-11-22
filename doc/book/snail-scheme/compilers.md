@@ -114,18 +114,15 @@ of importers. Named functions state their parameter and result types;
 polymorphic definitions state their quantifiers and requirements.
 
 A function's type has no row: types unify, and nothing is subsumed. What
-a function may do is in its parameters, so the checker's part is small. A
-field write checks its first operand against `Mut`, as `array-set!`'s type
-does for an array's, and a top-level signature that asks for a `Mut` its
-body never mentions is refused, so that the functions taking one are the
-ones that may write.
+a function may reach of the host is in its parameters, and the checker
+tracks nothing about what a call does.
 
 Explicit `(Any value)` and `(downcast T boxed)` become `BoxAny` and
 `Downcast` terms. Packaging preserves type identity; extraction returns `Some`
 only for the requested type, and `None` on mismatch. Neither inserts conversions
 at unrelated boundaries.
-A top-level value's thunk takes nothing, so its initializer holds no `Mut`
-and no capability. The checker knows a value in one place: it does
+A top-level value's thunk takes nothing, so its initializer holds no
+capability. The checker knows a value in one place: it does
 not generalize the thunk's type, and refuses one its library leaves
 undecided.
 

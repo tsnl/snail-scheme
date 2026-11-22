@@ -93,10 +93,10 @@
     (end-compute-pass gpu pass)
     (submit gpu (list (finish gpu encoder)))))
 
-(define (main (mut Mut) (out OutputPort)) (→ Unit)
+(define (main (out OutputPort)) (→ Unit)
   (for-each (lambda (text) (write-line out text))
-            (● (with-recorded-gpu mut (lambda (gpu) (frame gpu))) second))
+            (● (with-recorded-gpu (lambda (gpu) (frame gpu))) second))
   (write-line out "compute:")
   (for-each (lambda (text) (write-line out text))
-            (● (with-recorded-gpu mut (lambda (gpu) (compute gpu))) second))
+            (● (with-recorded-gpu (lambda (gpu) (compute gpu))) second))
   (unit))

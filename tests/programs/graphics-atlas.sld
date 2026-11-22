@@ -150,13 +150,13 @@
          (full (compose gpu fourth (list (picture 4 1 60 60) (picture 5 1 60 60)))))
     (list first again fourth full)))
 
-(define (main (mut Mut) (out OutputPort)) (→ Unit)
-  (let ((recorded (with-recorded-gpu mut (lambda (gpu) (frames gpu)))))
+(define (main (out OutputPort)) (→ Unit)
+  (let ((recorded (with-recorded-gpu (lambda (gpu) (frames gpu)))))
     (for-each (lambda (atlas) (write-line out (slots atlas (list 1 2 3 4 5)))) (● recorded first))
     (for-each (lambda (text) (write-line out text)) (heads (● recorded second))))
   (write-line out "quads:")
   (for-each (lambda (text) (write-line out text))
-            (heads (● (with-recorded-gpu mut (lambda (gpu) (quad-frames gpu))) second)))
+            (heads (● (with-recorded-gpu (lambda (gpu) (quad-frames gpu))) second)))
   (unit))
 
 (define (quad (index I64)) (→ Quad)

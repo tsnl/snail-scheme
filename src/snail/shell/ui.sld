@@ -499,7 +499,7 @@
     ;; presentations; `checkpoint` saves on request, hiding and close. A
     ;; command still running then never answers.
 
-    (define (run-ui (mut Mut) (dom Dom) (model Model)
+    (define (run-ui (dom Dom) (model Model)
                     (start (List M))
                     (update (Fn Model M → (Pair Model (List (Fn → M)))))
                     (view (Fn Model → (Html M)))
@@ -508,7 +508,7 @@
                     (checkpoint (Fn Model → Unit)))
       (→ Model)
       (∀ (Model M))
-      (let ((box (make-mailbox mut)) (shown (create dom (view model))))
+      (let ((box (make-mailbox)) (shown (create dom (view model))))
         (insert-node dom (document-root dom) (shown-node shown) (None))
         (serve dom box
                update

@@ -34,11 +34,11 @@
         (fold-left (lambda (total point) (+ total (+ (● point x) (● point y)))) 0 items)
         (build (- left 1) (Cons (new Point (x left) (y left)) items)))))
 
-(define (arrays (mut Mut) (count I64)) (→ I64)
+(define (arrays (count I64)) (→ I64)
   (let ((values (make-array count 0)))
     (let fill ((index 0))
       (when (< index count)
-        (array-set! mut values index index)
+        (array-set! values index index)
         (fill (+ index 1))))
     (let sum ((index 0) (total 0))
       (if (= index count) total

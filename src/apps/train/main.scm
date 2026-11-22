@@ -21,7 +21,7 @@
     ((Ok bytes) bytes)
     ((Err why) (panic why))))
 
-(define (main (mut Mut) (gpu Gpu) (fetch Fetch) (events Events) (clock Clock) (out OutputPort))
+(define (main (gpu Gpu) (fetch Fetch) (events Events) (clock Clock) (out OutputPort))
   (→ Unit)
   (report-ready events)
   (let ((settings (settings-of (page-address fetch))) (format (● (request-device gpu) format)))
@@ -31,7 +31,7 @@
                                                            (lambda (url) (fetched fetch url))
                                                            settings
                                                            image))))))
-      (train mut photographs
+      (train photographs
              gpu
              clock
              out

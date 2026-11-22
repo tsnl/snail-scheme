@@ -49,7 +49,7 @@
 
 (define (token (connection Connection)) (→ Stream) (fixture-convert (● connection token) Stream))
 
-(define (read-stream (mut Mut) (connection Connection) (maximum I32))
+(define (read-stream (connection Connection) (maximum I32))
   (→ (Result (Option Bytes) SocketError))
   (let* ((state (token connection)) (start (● state cursor))
          (end (min (array-length (● state input))
@@ -58,31 +58,31 @@
           ((string=? (● state fault) "oversize-read")
            (Ok (Some (make-array (+ (i32->i64 maximum) 1) (i32->u8 0)))))
           ((= start (array-length (● state input))) (Ok (None)))
-          (else (set! mut (● state cursor) end)
+          (else (set! (● state cursor) end)
                 (Ok (Some (subarray (● state input) start end)))))))
 
-(define (write-stream (mut Mut) (connection Connection) (bytes Bytes)) (→ (Result I32 SocketError))
+(define (write-stream (connection Connection) (bytes Bytes)) (→ (Result I32 SocketError))
   (let* ((state (token connection)) (count (min (array-length bytes) (● state write-size))))
     (cond ((string=? (● state fault) "write") (Err (new SocketError (code "TEST_WRITE"))))
           ((string=? (● state fault) "oversize-write")
            (Ok (i64->i32 (+ (array-length bytes) 1))))
           ((string=? (● state fault) "negative-write") (Ok -1))
           (else
-           (set! mut (● state offered)
+           (set! (● state offered)
                  (+ (● state offered) (array-length bytes)))
-           (set! mut (● state output)
+           (set! (● state output)
                  (Cons (subarray bytes 0 count) (● state output)))
            (Ok (i64->i32 count))))))
 
-(define (finish-stream (mut Mut) (connection Connection) (grace I32)) (→ (Result Unit SocketError))
+(define (finish-stream (connection Connection) (grace I32)) (→ (Result Unit SocketError))
   (let ((state (token connection)))
     (assert (= grace 250))
     (if (string=? (● state fault) "finish")
         (Err (new SocketError (code "TEST_FINISH")))
-        (begin (set! mut (● state ended) 1) (Ok (unit))))))
+        (begin (set! (● state ended) 1) (Ok (unit))))))
 
-(define (close-stream (mut Mut) (connection Connection)) (→ (Result Unit SocketError))
-  (set! mut (● (token connection) ended) 2)
+(define (close-stream (connection Connection)) (→ (Result Unit SocketError))
+  (set! (● (token connection) ended) 2)
   (Err (new SocketError (code "TEST_CLOSE"))))
 
 (define (run (tcp Tcp) (state Stream) (handler (Fn Request → (Result Response String))))
@@ -104,7 +104,7 @@
 (define (request) (→ Bytes)
   (ascii "POST /echo HTTP/1.1\r\nHost: test\r\nContent-Length: 4\r\n\r\nbodyignored pipeline"))
 
-(define (main (mut Mut) (out OutputPort)) (→ Unit)
+(define (main (out OutputPort)) (→ Unit)
 
   ;; A program waits on sockets from a task, which the scheduler runs once
   ;; main returns.
@@ -114,12 +114,12 @@
                   (listen (lambda (_) (panic "unexpected listen")))
                   (connect (lambda (_) (panic "unexpected connect")))
                   (accept (lambda (_) (panic "unexpected accept")))
-                  (read (lambda (connection maximum) (read-stream mut connection maximum)))
-                  (write (lambda (connection bytes) (write-stream mut connection bytes)))
+                  (read (lambda (connection maximum) (read-stream connection maximum)))
+                  (write (lambda (connection bytes) (write-stream connection bytes)))
                   (finish-connection
-                   (lambda (connection grace) (finish-stream mut connection grace)))
+                   (lambda (connection grace) (finish-stream connection grace)))
                   (close-listener (lambda (_) (panic "unexpected listener close")))
-                  (close-connection (lambda (connection) (close-stream mut connection))))))
+                  (close-connection (lambda (connection) (close-stream connection))))))
        (let loop ((size 1))
          (when (<= size (array-length (request)))
            (let ((state (stream (request) size 3 "")))

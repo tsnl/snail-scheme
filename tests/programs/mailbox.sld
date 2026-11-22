@@ -19,9 +19,9 @@
     (write-line out (string-append "received " (mailbox-receive mailbox)))
     (consume out mailbox (- count 1))))
 
-(define (main (mut Mut) (out OutputPort)) (→ Unit)
+(define (main (out OutputPort)) (→ Unit)
 
-  (let ((mailbox (make-mailbox mut)))
+  (let ((mailbox (make-mailbox)))
     (dispatch (lambda () (consume out mailbox 4)))
     (dispatch (lambda () (produce mailbox "first")))
     (dispatch (lambda () (produce mailbox "second")))

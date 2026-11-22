@@ -115,7 +115,6 @@ library that asks only for these runs anywhere.
 
 | Portable capability | Library | On Node | In a page |
 | --- | --- | --- | --- |
-| `Mut` | `(snail core base)` | to write with | to write with |
 | `Host` | `(snail core io)` | makes any capability below | makes any capability below |
 | `Arguments`, `ProcessEnvironment` | `(snail core io)` | the command line, variables and working directory | none, and no working directory |
 | `OutputPort` | `(snail core io)` | standard output | the console |

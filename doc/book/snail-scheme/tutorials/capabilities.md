@@ -27,7 +27,7 @@ an action:
 
 `announce` writes to the port it is given. What the call of `action` does
 is not in `announce`'s signature or in `action`'s type: a closure that
-captured a port writes to it, one that captured a `Mut` may write with it,
-and one that captured nothing only computes.
+captured a port writes to it, and one that captured none reaches nothing
+of the host's.
 [Capabilities](../capabilities.md) covers this in full, and
 [suspension](../suspension.md) how a computation stops and resumes.

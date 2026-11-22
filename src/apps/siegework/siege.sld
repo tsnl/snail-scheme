@@ -354,9 +354,9 @@
          (lambda (n) (array-ref crowd (cell-index n))))))
 
     (define (crowding (world World)) (→ (Array I64))
-      (let* ((mut (unsafe-mut)) (counts (make-array (* map-size map-size) 0)))
+      (let ((counts (make-array (* map-size map-size) 0)))
         (for-each (lambda (e)
-                    (array-set! mut counts
+                    (array-set! counts
                                 (cell-index (● e cell))
                                 (+ 1
                                    (array-ref counts

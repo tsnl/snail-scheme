@@ -355,8 +355,7 @@
           ((App callee args) (infer-app ck callee args loc (None)))
           ((New callee fields) (infer-new ck callee fields loc (None)))
           ((FieldRead record label _) (infer-field-read ck record label loc))
-          ((FieldWrite token record label value _)
-           (infer-field-write ck token record label value loc))
+          ((FieldWrite record label value _) (infer-field-write ck record label value loc))
           ;; `then` is `threading`'s own keyword, so the branches are named
           ;; for what they are rather than by their field names.
           ((If test consequent alternative)
@@ -888,27 +887,20 @@
                             (loc loc)))
                    (second ck))))
 
-    ;; A write checks its token against `Mut` and its value against the
-    ;; field's type.
+    ;; A write checks its value against the field's type.
 
     (define (infer-field-write (ck Checker)
-                               (token Expr)
                                (record Expr)
                                (label String)
                                (value Expr)
                                (loc Loc))
       (→ (Pair Expr Checker))
-      (threading ck ((token (check-result token (TCon "Mut" (Nil))))
-                     (record (infer record))
+      (threading ck ((record (infer record))
                      (projection (select-field record label loc))
                      (value (check-result value (● projection result))))
                  (new Pair
                    (first (new Expr
-                            (term (FieldWrite token
-                                              record
-                                              label
-                                              value
-                                              (Some (● projection hole))))
+                            (term (FieldWrite record label value (Some (● projection hole))))
                             (type (TCon "Unit" (Nil)))
                             (loc loc)))
                    (second ck))))
@@ -1239,12 +1231,12 @@
         ((None) (panic "internal error: unchecked field selection"))))
 
     ;; A selection reads its field with the field's accessor; a write, given
-    ;; its token and the value it writes, writes it with the field's writer.
+    ;; the value it writes, writes it with the field's writer.
 
     (define (field-call (solution Solution)
                         (slot Slot)
                         (record Expr)
-                        (written (Option (Pair Expr Expr)))
+                        (written (Option Expr))
                         (loc Loc))
       (→ Term)
       (let* ((record (zonk-expr solution record))
@@ -1257,11 +1249,9 @@
         (match written
           ((None) (App (callee accessor-name (TFun (list (● record type)) field))
                        (list record)))
-          ((Some (Pair token value))
-           (App (callee writer-name
-                        (TFun (list (TCon "Mut" (Nil)) (● record type) field)
-                              (TCon "Unit" (Nil))))
-                (list (zonk-expr solution token) record (zonk-expr solution value)))))))
+          ((Some value)
+           (App (callee writer-name (TFun (list (● record type) field) (TCon "Unit" (Nil))))
+                (list record (zonk-expr solution value)))))))
 
     (define (zonk-expr (solution Solution) (expr Expr)) (→ Expr)
       (new Expr (term (match (● expr term)
@@ -1280,11 +1270,11 @@
                                      record
                                      (None)
                                      (● expr loc)))
-                        ((FieldWrite token record _ value hole)
+                        ((FieldWrite record _ value hole)
                          (field-call solution
                                      (selected-slot solution hole)
                                      record
-                                     (Some (new Pair (first token) (second value)))
+                                     (Some value)
                                      (● expr loc)))
                         ((New _ _) (panic "internal error: unchecked construction"))
                         ((If test then otherwise)
@@ -1517,53 +1507,11 @@
                                               (if (null? (● scheme vars))
                                                   (Nil)
                                                   (● scheme constraints)))))
-                  (check-mut-used (● ck program) definition scheme)
                   (threading ck ((then (want-closed-requirements scheme (● value loc)))
                                  (checked (check-result value (● scheme type))))
                              (new Pair
                                (first (Define (● definition name) checked))
                                (second ck)))))))
-
-    ;; A function takes a `Mut` to write with or to hand on, so its
-    ;; signature may not ask for one its body never mentions: who takes a
-    ;; `Mut` is who may write. An instance method has its class's
-    ;; signature, which this instance may need less of, and a value other
-    ;; than a lambda has no body of its own, so neither is held to it.
-
-    (define (check-mut-used (program Program) (definition Definition) (scheme Scheme)) (→ Unit)
-      (match (new Pair (first (signed-lambda program definition)) (second (● scheme type)))
-        ((Pair (Some (Pair (Lambda params body) loc)) (TFun types _))
-         (let ((used (expr-references body)))
-           (for-each (lambda (pair)
-                       (when (and (mut-type? (● pair second)) (not (member? (● pair first) used)))
-                         (compile-error loc
-                                        (string-append (short-name (● definition name))
-                                                       " takes a Mut but never uses it"))))
-                     (zip params types))))
-        (_ (unit))))
-
-    ;; A definition's lambda and where its own signature was written, if it
-    ;; has both.
-
-    (define (signed-lambda (program Program) (definition Definition))
-      (→ (Option (Pair Term Loc)))
-      (match (program-value program (● definition name))
-        ((Some (Defined _ (Some loc)))
-         (match (own-lambda (● definition value))
-           ((Some term) (Some (new Pair (first term) (second loc))))
-           ((None) (None))))
-        (_ (None))))
-
-    (define (own-lambda (value Expr)) (→ (Option Term))
-      (match (● value term)
-        ((Ann inner _) (own-lambda inner))
-        ((Lambda _ _) (Some (● value term)))
-        (_ (None))))
-
-    (define (mut-type? (type Type)) (→ Bool)
-      (match type
-        ((TCon "Mut" (Nil)) #t)
-        (_ #f)))
 
     (define (want-closed-requirements (ck Checker) (scheme Scheme) (loc Loc)) (→ Checker)
       (if (null? (● scheme vars))

@@ -13,7 +13,7 @@ in `snail-scheme`:
 | `(tasks-wake! scheduler ticket)` | Cross the ticket off the task waiting on it, readying the task once none is left; a stale ticket does nothing. |
 | `(tasks-close! scheduler)` | Forget every queued, sleeping and waiting task; none runs again. |
 | `(through-host start finish)` | Wait on a host operation by ticket ([below](#waiting-on-the-host)). |
-| `(make-mailbox mut)` | A new, empty `(Mailbox T)`: a queue of messages between tasks. It keeps the `Mut` it is made with, so posting and receiving take none. |
+| `(make-mailbox)` | A new, empty `(Mailbox T)`: a queue of messages between tasks. |
 | `(mailbox-post mailbox message)` | Add a message at the back. Posting never waits. |
 | `(mailbox-receive mailbox)` | Take the message at the front, waiting until one is posted. |
 | `(mailbox-try-receive mailbox)` | Take the message at the front, or answer `None` at once when there is none. |
@@ -168,7 +168,7 @@ while other tasks run. A task that has other work meanwhile dispatches the
 read and receives its result through a [mailbox](#mailboxes):
 
 ```scheme
-(let ((results (make-mailbox mut)))
+(let ((results (make-mailbox)))
   (dispatch (lambda ()
               (mailbox-post results (file-read-file files "notes.txt" 1048576))))
   ;; Other work can happen here; dispatch did not wait.
@@ -224,7 +224,7 @@ not `receive`, because `(snail shell socket)` exports UDP's `receive`, and a
 program importing both libraries would have conflicting imports.
 
 ```scheme
-(let ((mailbox (make-mailbox mut)))
+(let ((mailbox (make-mailbox)))
   (dispatch (lambda () (write-line out (mailbox-receive mailbox))))
   (dispatch (lambda () (mailbox-post mailbox "hello"))))
 ```

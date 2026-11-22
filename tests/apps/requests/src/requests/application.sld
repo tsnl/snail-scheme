@@ -104,23 +104,23 @@
 
     ;; The page runs over the save itself, so a page started again has no
     ;; request outstanding.
-    (define (run-requests (mut Mut) (dom Dom) (fetch Fetch) (events Events) (storage PageStorage))
+    (define (run-requests (dom Dom) (fetch Fetch) (events Events) (storage PageStorage))
       (→ Unit)
       (run-page events storage (lambda () (new Save (display (Showing "idle")) (clicks 0)))
                 serialize
                 deserialize
                 (lambda (saved checkpoint)
-                  (present mut dom fetch events storage saved checkpoint))))
+                  (present dom fetch events storage saved checkpoint))))
 
-    (define (present (mut Mut)
-                     (dom Dom)
-                     (fetch Fetch)
-                     (events Events)
-                     (storage PageStorage)
-                     (saved Save)
-                     (checkpoint (Fn Save → Unit)))
+    (define (present
+             (dom Dom)
+             (fetch Fetch)
+             (events Events)
+             (storage PageStorage)
+             (saved Save)
+             (checkpoint (Fn Save → Unit)))
       (→ Unit)
-      (run-ui mut dom (restore saved) (Nil)
+      (run-ui dom (restore saved) (Nil)
               (lambda (model message) (update fetch model message))
               (lambda (model) (view model))
               (lambda (model) (window model))

@@ -63,13 +63,13 @@
      (Cons (substring text 0 at) (words-of (substring text (+ at 1) (string-length text)))))
     ((None) (list text))))
 
-(define (main (mut Mut) (out OutputPort)) (→ Unit)
+(define (main (out OutputPort)) (→ Unit)
   (write-line out (string-append "pinhole inverse within 1e-4: "
                                  (show (< (error-of (camera (Pinhole 0.8))) 0.0001))))
   (write-line out (string-append "parallel inverse within 1e-4: "
                                  (show (< (error-of (camera (Parallel 20.0))) 0.0001))))
   (for-each (lambda (text) (write-line out text))
-            (heads (● (with-recorded-gpu mut (lambda (gpu) (frame gpu))) second)))
+            (heads (● (with-recorded-gpu (lambda (gpu) (frame gpu))) second)))
   (unit))
 (define (instances (mesh Mesh) (x F32)) (→ Meshes)
   (meshes (list (new Pair (first mesh) (second (instance x))))))
