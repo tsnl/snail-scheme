@@ -43,7 +43,7 @@
 
     ;; Waiting for an event, like loading and storing a save below, starts
     ;; on the host and waits by ticket ((snail shell task)'s `through-host`).
-    (record Events
+    (capability Events
       ((poll-event (Fn → I32))
        (wait-event (Fn → Unit))
        (event-field (Fn I32 → I32))
@@ -52,30 +52,6 @@
        (canvas-height (Fn → I32))
        (report-boot (Fn I32 → Unit))
        (report-ready (Fn → Unit))))
-
-    (define (poll-event (events Events)) (→ I32)
-      ((● events poll-event)))
-
-    (define (wait-event (events Events)) (→ Unit)
-      ((● events wait-event)))
-
-    (define (event-field (events Events) (n I32)) (→ I32)
-      ((● events event-field) n))
-
-    (define (random-seed (events Events)) (→ I32)
-      ((● events random-seed)))
-
-    (define (canvas-width (events Events)) (→ I32)
-      ((● events canvas-width)))
-
-    (define (canvas-height (events Events)) (→ I32)
-      ((● events canvas-height)))
-
-    (define (report-boot (events Events) (n I32)) (→ Unit)
-      ((● events report-boot) n))
-
-    (define (report-ready (events Events)) (→ Unit)
-      ((● events report-ready)))
 
     ;; The page's events, through the browser host.
     (define (host-events (host Host)) (→ Events)
@@ -92,19 +68,10 @@
     ;; ---- Storage ----
 
     ;; One save, read at boot and replaced by each store.
-    (record PageStorage
+    (capability PageStorage
       ((load-count (Fn → I32))
        (loaded-byte (Fn I32 → U8))
        (store-save (Fn Bytes → Unit))))
-
-    (define (load-count (storage PageStorage)) (→ I32)
-      ((● storage load-count)))
-
-    (define (loaded-byte (storage PageStorage) (n I32)) (→ U8)
-      ((● storage loaded-byte) n))
-
-    (define (store-save (storage PageStorage) (bytes Bytes)) (→ Unit)
-      ((● storage store-save) bytes))
 
     ;; The page's saved state, through the browser host.
     (define (host-storage (host Host)) (→ PageStorage)

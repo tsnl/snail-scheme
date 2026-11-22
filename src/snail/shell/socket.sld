@@ -111,7 +111,7 @@
     (record SocketError
       ((code String)))
 
-    (record Tcp
+    (capability Tcp
       ((listen (Fn Endpoint → (Result Listener SocketError)))
        (connect (Fn Endpoint → (Result Connection SocketError)))
        (accept (Fn Listener → (Result Connection SocketError)))
@@ -120,35 +120,6 @@
        (finish-connection (Fn Connection I32 → (Result Unit SocketError)))
        (close-listener (Fn Listener → (Result Unit SocketError)))
        (close-connection (Fn Connection → (Result Unit SocketError)))))
-
-    (define (listen (tcp Tcp) (endpoint Endpoint)) (→ (Result Listener SocketError))
-      ((● tcp listen) endpoint))
-
-    (define (connect (tcp Tcp) (endpoint Endpoint))
-      (→ (Result Connection SocketError))
-      ((● tcp connect) endpoint))
-
-    (define (accept (tcp Tcp) (listener Listener)) (→ (Result Connection SocketError))
-      ((● tcp accept) listener))
-
-    (define (read (tcp Tcp) (connection Connection) (maximum I32))
-      (→ (Result (Option Bytes) SocketError))
-      ((● tcp read) connection maximum))
-
-    (define (write (tcp Tcp) (connection Connection) (bytes Bytes))
-      (→ (Result I32 SocketError))
-      ((● tcp write) connection bytes))
-
-    (define (finish-connection (tcp Tcp) (connection Connection) (grace I32))
-      (→ (Result Unit SocketError))
-      ((● tcp finish-connection) connection grace))
-
-    (define (close-listener (tcp Tcp) (listener Listener)) (→ (Result Unit SocketError))
-      ((● tcp close-listener) listener))
-
-    (define (close-connection (tcp Tcp) (connection Connection))
-      (→ (Result Unit SocketError))
-      ((● tcp close-connection) connection))
 
     ;; Node's TCP sockets.
     (define (host-tcp (host Host)) (→ Tcp)
@@ -193,25 +164,11 @@
         (close-connection (lambda (connection)
                             (answered (host-close-tcp (connection-handle connection)) done)))))
 
-    (record Udp
+    (capability Udp
       ((bind (Fn Endpoint → (Result UdpSocket SocketError)))
        (send (Fn UdpSocket Endpoint Bytes → (Result I32 SocketError)))
        (receive (Fn UdpSocket I32 → (Result Datagram SocketError)))
        (close-udp (Fn UdpSocket → (Result Unit SocketError)))))
-
-    (define (bind (udp Udp) (endpoint Endpoint)) (→ (Result UdpSocket SocketError))
-      ((● udp bind) endpoint))
-
-    (define (send (udp Udp) (socket UdpSocket) (peer Endpoint) (bytes Bytes))
-      (→ (Result I32 SocketError))
-      ((● udp send) socket peer bytes))
-
-    (define (receive (udp Udp) (socket UdpSocket) (maximum I32))
-      (→ (Result Datagram SocketError))
-      ((● udp receive) socket maximum))
-
-    (define (close-udp (udp Udp) (socket UdpSocket)) (→ (Result Unit SocketError))
-      ((● udp close-udp) socket))
 
     ;; Node's UDP sockets.
     (define (host-udp (host Host)) (→ Udp)

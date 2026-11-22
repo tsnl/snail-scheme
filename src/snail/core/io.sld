@@ -97,17 +97,11 @@
     ;; A port is the one function that reads or writes it, so a program
     ;; makes its own with `new`: one that keeps what is written, or writes
     ;; it to two ports.
-    (record InputPort
+    (capability InputPort
       ((read-char (Fn → (Option Char)))))
 
-    (define (read-char (in InputPort)) (→ (Option Char))
-      ((● in read-char)))
-
-    (record OutputPort
+    (capability OutputPort
       ((write-string (Fn String → Unit))))
-
-    (define (write-string (out OutputPort) (text String)) (→ Unit)
-      ((● out write-string) text))
 
     ;; Standard input and output.
 
@@ -603,11 +597,8 @@
     ;; Nanoseconds since an origin the clock chooses, which only ever grow:
     ;; the difference between two readings is the time between them. A
     ;; program makes its own to fix the time a test sees.
-    (record Clock
+    (capability Clock
       ((monotonic-nanoseconds (Fn → I64))))
-
-    (define (monotonic-nanoseconds (clock Clock)) (→ I64)
-      ((● clock monotonic-nanoseconds)))
 
     (define (host-clock (host Host)) (→ Clock)
       (new Clock (monotonic-nanoseconds support-monotonic-nanoseconds)))
@@ -656,19 +647,14 @@
     ;; with no filesystem, such as a page, has none. It never changes
     ;; while the program runs. A record of the two functions that read it,
     ;; so a test makes its own.
-    (record ProcessEnvironment
-      ((variable (Fn String → (Option String)))
-       (directory (Fn → (Option String)))))
-
-    (define (environment-variable (environment ProcessEnvironment) (name String))
-      (→ (Option String))
-      ((● environment variable) name))
-
-    (define (working-directory (environment ProcessEnvironment)) (→ (Option String))
-      ((● environment directory)))
+    (capability ProcessEnvironment
+      ((environment-variable (Fn String → (Option String)))
+       (working-directory (Fn → (Option String)))))
 
     (define (host-environment (host Host)) (→ ProcessEnvironment)
-      (new ProcessEnvironment (variable host-variable) (directory host-directory)))
+      (new ProcessEnvironment
+        (environment-variable host-variable)
+        (working-directory host-directory)))
 
     (extern variable-length
             "snail.core.support"

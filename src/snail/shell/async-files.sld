@@ -29,12 +29,8 @@
       (PermissionDenied)
       (Failed))
 
-    (record Files
+    (capability Files
       ((read-file (Fn String I32 → (Result Bytes FileError)))))
-
-    (define (read-file (files Files) (path String) (maximum I32))
-      (→ (Result Bytes FileError))
-      ((● files read-file) path maximum))
 
     (define (host-files (host Host)) (→ Files)
       (new Files

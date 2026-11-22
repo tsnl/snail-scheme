@@ -41,7 +41,7 @@
 
     ;; ---- Host operations ----
 
-    (record Wasm
+    (capability Wasm
       ((argument-character (Fn Char → Unit))
        (argument-end (Fn → Unit))
        (compile (Fn Bytes → I32))
@@ -59,57 +59,6 @@
        (link-prepared (Fn → I32))
        (provide-constant (Fn I32 → Unit))
        (call-export (Fn I32 I64 → I64))))
-
-    (define (argument-character (wasm Wasm) (char Char)) (→ Unit)
-      ((● wasm argument-character) char))
-
-    (define (argument-end (wasm Wasm)) (→ Unit)
-      ((● wasm argument-end)))
-
-    (define (compile (wasm Wasm) (bytes Bytes)) (→ I32)
-      ((● wasm compile) bytes))
-
-    (define (runtime-instance (wasm Wasm) (n I32)) (→ Unit)
-      ((● wasm runtime-instance) n))
-
-    (define (exports-function? (wasm Wasm) (n I32)) (→ Bool)
-      ((● wasm exports-function?) n))
-
-    (define (export-function (wasm Wasm) (n I32)) (→ Funcref)
-      ((● wasm export-function) n))
-
-    (define (import-count (wasm Wasm) (n I32)) (→ I32)
-      ((● wasm import-count) n))
-
-    (define (import-at (wasm Wasm) (n-1 I32) (n-2 I32)) (→ I32)
-      ((● wasm import-at) n-1 n-2))
-
-    (define (held-length (wasm Wasm) (n I32)) (→ I32)
-      ((● wasm held-length) n))
-
-    (define (held-char (wasm Wasm) (n-1 I32) (n-2 I32)) (→ Char)
-      ((● wasm held-char) n-1 n-2))
-
-    (define (prepare-link (wasm Wasm) (n I32)) (→ Unit)
-      ((● wasm prepare-link) n))
-
-    (define (provide-export (wasm Wasm) (n I32)) (→ Bool)
-      ((● wasm provide-export) n))
-
-    (define (provide-host (wasm Wasm)) (→ Bool)
-      ((● wasm provide-host)))
-
-    (define (provide-missing (wasm Wasm)) (→ Unit)
-      ((● wasm provide-missing)))
-
-    (define (link-prepared (wasm Wasm)) (→ I32)
-      ((● wasm link-prepared)))
-
-    (define (provide-constant (wasm Wasm) (n I32)) (→ Unit)
-      ((● wasm provide-constant) n))
-
-    (define (call-export (wasm Wasm) (n-1 I32) (n-2 I64)) (→ I64)
-      ((● wasm call-export) n-1 n-2))
 
     ;; The host's own engine: the page's or Node's WebAssembly.
     (define (host-wasm (host Host)) (→ Wasm)
