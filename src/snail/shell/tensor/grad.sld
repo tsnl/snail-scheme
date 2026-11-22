@@ -180,13 +180,15 @@
       (→ (List (Option View)))
       (let* ((shape (append (shape-of y) span))
              (value (expr-view body args shape))
-             (spread (lambda (v)
-                       (broadcast-to (fold-left (lambda (v _) (unsqueeze v (rank v))) v span)
-                                     shape)))
              (share (match op
-                      ((Sum) (spread g))
-                      (_ (* (spread g) (equal value (spread y)))))))
+                      ((Sum) (spread g shape))
+                      (_ (* (spread g shape) (equal value (spread y shape)))))))
         (map-adjoints body args value share)))
+
+    ;; `v` at each element of the trailing axes of `shape` it lacks.
+    (define (spread (v View) (shape (List I64))) (→ View)
+      (broadcast-to (fold-left (lambda (v _) (unsqueeze v (rank v))) v (list-drop shape (rank v)))
+                    shape))
 
     ;; ---- Maps ----
 
@@ -195,24 +197,32 @@
     ;; each operation hands each operand its share of the operation's
     ;; gradient, and each load adds its share to its argument's. An
     ;; operand that is itself an operation is built again as a node of its
-    ;; own, for the rules that need its value.
+    ;; own, for the rules that need its value. Each expression's value,
+    ;; and its gradient, is a view of the map's leading axes followed by
+    ;; the expression's tile.
 
     (define (map-adjoints (body Expr) (args (List View)) (y View) (g View)) (→ (List (Option View)))
-      (let ((shares (expr-adjoints body y g args (empty-table))))
+      (let* ((lead (take (shape-of y) (- (rank y) (length (expr-tile body)))))
+             (shares (expr-adjoints body y g args lead (empty-table))))
         (map (lambda (k) (table-ref shares (show k))) (iota (length args)))))
 
-    (define (expr-adjoints (e Expr) (value View) (g View) (args (List View)) (shares (Table View)))
+    (define (expr-adjoints (e Expr)
+                           (value View)
+                           (g View)
+                           (args (List View))
+                           (lead (List I64))
+                           (shares (Table View)))
       (→ (Table View))
       (match e
-        ((Load k _)
+        ((Load k _ _)
          (table-set shares
                     (show k)
                     (match (table-ref shares (show k))
                       ((Some share) (+ share g))
                       ((None) g))))
         ((Literal _ _) shares)
-        ((Apply op operands _)
-         (let ((values (map (lambda (o) (expr-view o args (shape-of value))) operands)))
+        ((Apply op operands _ _)
+         (let ((values (map (lambda (o) (expr-view o args lead)) operands)))
            (fold-left (lambda (shares pair)
                         (match (● pair second)
                           ((Some share)
@@ -220,23 +230,76 @@
                                           (list-ref values (● pair first))
                                           share
                                           args
+                                          lead
                                           shares))
                           ((None) shares)))
                       shares
-                      (zip (iota (length operands)) (op-adjoints op values value g)))))))
+                      (zip (iota (length operands))
+                           (operation-adjoints op operands values value g)))))))
 
-    ;; What an expression of a map's body computes, as a view of `shape`:
-    ;; an argument itself for a load.
-    (define (expr-view (e Expr) (args (List View)) (shape (List I64))) (→ View)
+    ;; What an expression of a map's body computes, as a view of `lead`
+    ;; followed by its tile: an argument itself for a load.
+    (define (expr-view (e Expr) (args (List View)) (lead (List I64))) (→ View)
       (match e
-        ((Load k _) (list-ref args k))
+        ((Load k _ _) (list-ref args k))
         ((Literal value etype) (fill value (Nil) etype))
-        ((Apply op operands etype)
+        ((Apply op operands etype tile)
          (mapped (Apply op
-                        (map-indexed (lambda (k o) (Load k (expr-etype o))) operands)
-                        etype)
-                 (map (lambda (o) (expr-view o args shape)) operands)
-                 shape))))
+                        (map-indexed (lambda (k o) (Load k (expr-etype o) (expr-tile o))) operands)
+                        etype
+                        tile)
+                 (map (lambda (o) (expr-view o args lead)) operands)
+                 lead))))
+
+    ;; ---- Tiles ----
+
+    ;; The share of each operand of a tile's own operation, then of the
+    ;; elementwise ones. Fusing makes picks, after gradients are built.
+    (define (operation-adjoints (op Op)
+                                (operands (List Expr))
+                                (values (List View))
+                                (y View)
+                                (g View))
+      (→ (List (Option View)))
+      (match op
+        ((Pack) (pack-adjoints operands g))
+        ((Pick _) (panic "grad: a pick in a body not yet fused"))
+        ((Product) (product-adjoints (list-ref values 0) (list-ref values 1) g))
+        ((Fold combining)
+         (let ((a (list-ref values 0)))
+           (list (Some (match combining
+                         ((Sum) (spread g (shape-of a)))
+                         (_ (* (spread g (shape-of a)) (equal a (spread y (shape-of a))))))))))
+        (_ (op-adjoints op values y g))))
+
+    ;; Each operand's elements of g, in order along its tile's one axis. A
+    ;; literal takes none, so a fill's tile of literals, which may have
+    ;; more axes, is never narrowed.
+    (define (pack-adjoints (operands (List Expr)) (g View)) (→ (List (Option View)))
+      (let ((axis (- (rank g) 1)))
+        (reverse (● (fold-left (lambda (state o)
+                                 (let ((size (product (expr-tile o))) (at (● state second)))
+                                   (new Pair
+                                     (first (Cons (match o
+                                                    ((Literal _ _) (None))
+                                                    (_ (Some (shaped (narrow g axis at size)
+                                                                     (append
+                                                                      (take (shape-of g) axis)
+                                                                      (expr-tile o))))))
+                                                  (● state first)))
+                                     (second (+ at size)))))
+                               (new Pair (first (Nil)) (second 0))
+                               operands)
+                    first))))
+
+    ;; d/da = g b^T and d/db = a^T g, for a of (m, k) and b of (k, c); for
+    ;; a row of k, d/db is the row's outer product with g. Each is a
+    ;; product of tiles again.
+    (define (product-adjoints (a View) (b View) (g View)) (→ (List (Option View)))
+      (if (= (rank a) (rank b))
+          (list (Some (matmul g (transpose b))) (Some (matmul (transpose a) g)))
+          (list (Some (squeeze (matmul (unsqueeze g (- (rank g) 1)) (transpose b)) (- (rank g) 1)))
+                (Some (matmul (unsqueeze a (rank a)) (unsqueeze g (- (rank g) 1)))))))
 
     ;; ---- Operations ----
 
