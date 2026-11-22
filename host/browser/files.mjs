@@ -1,4 +1,4 @@
-// The user's files for the `files` effect of src/snail/shell/files.sld, as
+// The user's files for the `FilePicker` capability of src/snail/shell/files.sld, as
 // `with-page-files` in src/snail/shell/files/page.sld calls it. Files
 // dropped anywhere on the page, or chosen in a picker the program opens,
 // become the latest choice and queue a FILES event; a cancelled picker

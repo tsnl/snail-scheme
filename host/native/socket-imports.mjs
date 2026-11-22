@@ -31,7 +31,7 @@ export function socketImports(program, tasks, tcp, udp) {
     catch (error) { udp.close(handle); throw error; }
   }
 
-  // Handle 0 is a token from another handler, which names nothing here.
+  // Handle 0 is a token another capability made, which names nothing here.
   const close = (owner, handle) => immediately(() => {
     if (!handle) throw fault('EBADF');
     owner.close(handle);

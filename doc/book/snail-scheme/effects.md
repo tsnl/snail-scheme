@@ -233,10 +233,10 @@ one is the permission.
 
 A program makes a capability as it makes any record. A port that keeps
 what is written, and one that reads a text
-(`tests/programs/port-effects.sld`):
+(`tests/programs/ports.sld`):
 
 ```scheme
-{{#include ../../../tests/programs/port-effects.sld:ports}}
+{{#include ../../../tests/programs/ports.sld:ports}}
 ```
 
 So a test double is a value the test makes and passes: a `Clock` that

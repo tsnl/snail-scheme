@@ -1,4 +1,4 @@
-// The `gpu` effect on a real WebGPU device: `snail-scheme build` builds
+// The `Gpu` capability on a real WebGPU device: `snail-scheme build` builds
 // tests/gpu, a static server serves it, and headless Chromium's software
 // WebGPU runs it. The program reads back what it drew into a texture, red
 // over a blue clear, and the two texels of a PNG it decoded, and finds every

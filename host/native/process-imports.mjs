@@ -55,7 +55,7 @@ export function processImports(program, tasks, processes, termination) {
             number => { termination.settled(); return {value: number}; },
             () => termination.settled());
     },
-    // Handle 0 is a token from another handler, which names nothing here.
+    // Handle 0 is a token another capability made, which names nothing here.
     'close-process': child => immediately(() => {
       if (!child) throw fault('EBADF');
       processes.close(child);
