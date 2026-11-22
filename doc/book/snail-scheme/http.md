@@ -3,8 +3,8 @@
 `(snail shell http)` implements a pure, bounded request-head parser, a
 request-target decoder and response serializers, importing only
 `(snail core base)` and `(snail shell utf8)`. `(snail shell http exchange)` reads one complete
-request, calls application code and writes its response over the concrete
-[socket effects](../runtimes/networking.md). Applications own accepting and
+request, calls application code and writes its response over a
+[`Tcp`](../runtimes/networking.md). Applications own accepting and
 scheduling connections; the library supplies no router or server framework.
 
 This is a deliberate HTTP/1.1 subset. Full HTTP/1.1 also requires features this
@@ -129,16 +129,15 @@ Import `(snail shell http exchange)` and call `serve-one` with an exclusively us
 
 ```scheme
 ;; serve-one contract (summary notation):
-;; (∀ (E e)
-;;   (Fn Connection I32
-;;       (Fn Request → (Result Response E) ! e)
-;;       → (Result Unit (ExchangeError E)) ! tcp e))
+;; (∀ (E)
+;;   (Fn Tcp Connection I32
+;;       (Fn Request → (Result Response E))
+;;       → (Result Unit (ExchangeError E))))
 ```
 
 `Request` contains `head : RequestHead` and `body : Bytes`. The callback returns
 `Response`, containing `status : I32`, `headers : List Header` and `body : Bytes`,
-or an application error of its chosen type `E`. It may suspend for other effects;
-the surrounding computation retains those requirements. The callback receives
+or an application error of its chosen type `E`. It may wait as a task does. The callback receives
 the request, not the connection.
 
 The reader scans incoming bytes once for the head delimiter and parses the
@@ -169,7 +168,7 @@ This grace is for completion only. There is no request-idle deadline yet.
 Exclusive use is a calling convention the checker does not enforce. The caller
 must not use another alias during the exchange. Aborting active native socket
 I/O, as closing the run does, closes that socket. A trap while the callback
-waits on an unrelated effect cannot execute the `snail-scheme` cleanup branch;
+waits cannot execute the `snail-scheme` cleanup branch;
 runtime shutdown cleans the remaining native resource. `serve-one` does not introduce a task scope
 or stronger unwinding guarantee.
 

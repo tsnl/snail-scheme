@@ -36,30 +36,31 @@
 (define (diameter (circle Circle)) (→ I64)
   (* 2 (● circle radius)))
 
-(define (main) (→ Unit) (! output-port)
+(define (main (out OutputPort)) (→ Unit)
 
   ;; ANCHOR_END: paths
 
-  (write-line (describe (new Segment
-                          (from (new Point (x 1) (y 2)))
-                          (to (new Point (x 3) (y 4)))
-                          (label "diagonal"))))
-  (write-line (● (new Tag (label "heavy") (weight 9)) label))
-  (write-line (show (● (new Tag (label "heavy") (weight 9)) weight)))
-  (write-line (labelled (new Pair (first 1) (second "t"))))
-  (write-line (labelled (new Pair (first #t) (second "s"))))
+  (write-line out (describe (new Segment
+                              (from (new Point (x 1) (y 2)))
+                              (to (new Point (x 3) (y 4)))
+                              (label "diagonal"))))
+  (write-line out (● (new Tag (label "heavy") (weight 9)) label))
+  (write-line out (show (● (new Tag (label "heavy") (weight 9)) weight)))
+  (write-line out (labelled (new Pair (first 1) (second "t"))))
+  (write-line out (labelled (new Pair (first #t) (second "s"))))
   ;; A lambda can use a projection as a higher-order selector.
-  (write-line
-   (string-join (map show
-                     (map (lambda (record) (● record x))
-                          (list (new Point (x 5) (y 0)) (new Point (x 6) (y 0)))))
-                " "))
-  (write-line
-   (string-join (map (lambda (record) (● record label))
-                     (list (new Tag (label "a") (weight 1)) (new Tag (label "b") (weight 2))))
-                " "))
-  (write-line (show (diameter (new Circle (radius 21)))))
+  (write-line out
+              (string-join (map show
+                                (map (lambda (record) (● record x))
+                                     (list (new Point (x 5) (y 0)) (new Point (x 6) (y 0)))))
+                           " "))
+  (write-line out
+              (string-join (map (lambda (record) (● record label))
+                                (list (new Tag (label "a") (weight 1))
+                                      (new Tag (label "b") (weight 2))))
+                           " "))
+  (write-line out (show (diameter (new Circle (radius 21)))))
   ;; Instantiating a nominal record substitutes its field types.
-  (write-line (show (● (new Pair (first 7) (second "seven")) first)))
-  (write-line (● (new Pair (first 7) (second "seven")) second))
+  (write-line out (show (● (new Pair (first 7) (second "seven")) first)))
+  (write-line out (● (new Pair (first 7) (second "seven")) second))
   (unit))

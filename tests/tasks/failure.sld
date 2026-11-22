@@ -1,10 +1,9 @@
 (import
  (snail core base)
  (snail core io)
- (only (snail core forms) host)
  (snail shell task))
 
-(define (main) (→ Unit) (! tasks mut host output-port)
+(define (main (out OutputPort)) (→ Unit)
   (dispatch (lambda () (panic "child failed")))
-  (dispatch (lambda () (yield) (write-line "survived")))
+  (dispatch (lambda () (yield) (write-line out "survived")))
   (unit))

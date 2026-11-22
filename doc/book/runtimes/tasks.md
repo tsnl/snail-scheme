@@ -1,7 +1,7 @@
 # Task operations
 
-`(snail shell task)` defines the `tasks` effect and the scheduler that
-handles it, both in `snail-scheme`:
+`(snail shell task)` defines tasks and the scheduler that runs them, both
+in `snail-scheme`:
 
 | Operation | Meaning |
 | --- | --- |
@@ -22,20 +22,26 @@ handles it, both in `snail-scheme`:
 (import
  (snail core base)
  (snail core io)
- (only (snail core forms) host)
  (snail shell task))
 
-(define (main) (→ Unit) (! mut host tasks output-port)
+(define (main (out OutputPort)) (→ Unit)
   (dispatch
    (lambda ()
      (yield)
-     (write-line "the child finishes after main returns"))))
+     (write-line out "the child finishes after main returns"))))
 ```
+
+A task waits by [suspending](../snail-scheme/suspension.md): `yield`,
+`sleep` and `await` stop it where it is, however deep in its calls, and
+the scheduler keeps the rest of it. Waiting needs no capability and is in
+no type, so an ordinary function may call a callback that waits, and a
+function that waits is written like any other.
 
 The host creates one explicit `Scheduler` for a program and passes it to
 the program's `main` export, turns, wakes and closure. That export is the
 entry's start, which calls its target library's `start` with the scheduler
-and the root `main`, so `main` runs as the scheduler's first task and may
+and a thunk that calls the root `main` with its capabilities, so `main`
+runs as the scheduler's first task and may
 yield, sleep or await like any other task. A child starts when
 the parent yields or returns. Every task runs until it finishes: nothing
 cancels one. Tasks that should stop early agree on it between themselves,
@@ -44,7 +50,7 @@ fails the run. The host reports it and closes the
 scheduler, which forgets its queued work; Wasm traps do not unwind, so
 nothing more runs in the trapping frame.
 Whole-program and separately linked builds use this same explicit scheduler.
-Libraries have no runtime initializers or implicit scheduler globals.
+Libraries have no runtime initializers.
 
 The operations are not actors: there are no request/reply protocols or
 supervisors. A task's id names it to the host, which reports a trap under
@@ -52,18 +58,29 @@ it, and to an application, whose loop is a task ([applications](../snail-scheme/
 
 ## How a task runs
 
-A task is a function that runs one step of it, closed over the handlers in
-scope where the task was dispatched. Its first step runs the work under
-the task's own handler of `tasks`, whose control operations do not
-resume: each answers a `Step` holding the rest of the task, closed over
-the same handlers.
+A task is a function that runs one step of it. Its first step runs the
+work under a `with-prompt` of the prompt every wait suspends to, `waiting`,
+whose handler does not resume: it answers a `Step` holding the rest of the
+task, to run when the wait is over.
 
 ```scheme
+(enum Wait
+  (Yield)
+  (Sleep ((delay I64)))
+  (Await ((tickets (List I64)))))
+
+(define waiting (→ (Prompt Wait Unit)) (make-prompt))
+
+(define (start-task (work (Fn → Unit))) (→ Step)
+  (with-prompt waiting
+               (lambda ()
+                 (work)
+                 (Finished))
+               (lambda (wait resume) (Stopped wait (lambda () (resume (unit)))))))
+
 (enum Step
   (Finished)
-  (Yielded ((next (Fn → Step ! host))))
-  (Sleeping ((delay I64) (next (Fn → Step ! host))))
-  (Waiting ((ticket I64) (next (Fn → Step ! host)))))
+  (Stopped ((wait Wait) (next (Fn → Step)))))
 ```
 
 The scheduler keeps every task that is not running in exactly one list:
@@ -74,12 +91,16 @@ each step where it says, then readies the sleepers whose deadline has
 passed. `tests/programs/tasks.sld` shows the order: yields interleave,
 sleepers with one deadline wake in the order they slept.
 
-Because every task holds its handlers in its closures, a child keeps its
-parent's handlers after the parent returns, and at every resumption:
-there is no global handler state to save or restore. A waiting task
-holds no stack either. Its handle returned when it waited, through each
-frame of the work, which saved the rest of itself in the resumption
-([control handlers](../snail-scheme/effects.md#control-handlers)).
+A task holds what it uses in its closures, so a child keeps the
+capabilities its parent handed it after the parent returns, and at every
+resumption. A waiting task holds no stack. Its `with-prompt` returned when
+it waited, through each frame of the work, which saved the rest of itself
+in the resumption ([resuming](../snail-scheme/suspension.md#resuming)).
+
+A task asks for tickets and dispatches children without being handed its
+scheduler: a turn notes the scheduler it runs each step for, and `ticket`,
+`dispatch` and a mailbox's wait read that. It is the library's one piece
+of state outside a scheduler, set and restored around each step.
 
 ## Scheduling
 
@@ -106,33 +127,31 @@ The policy is cooperative first-in, first-out, with no priorities:
   report, and the host closes the scheduler instead of running more tasks.
 
 `Scheduler` is an ordinary record whose fields hold its lists as
-immutable values, and saved task handlers hold the scheduler itself; the
-collector reclaims the cycle between them once nothing else reaches it.
-Closing marks the scheduler closed and empties every list. A task that
-stops after its scheduler has closed is forgotten, as is the rest of the
-turn's tasks, and a late wake finds nothing. No language global holds the
-scheduler.
+immutable values. Closing marks the scheduler closed and empties every
+list. A task that stops after its scheduler has closed is forgotten, as is
+the rest of the turn's tasks, and a late wake finds nothing.
 
-## Effects and locality
+## Locality
 
-The dispatcher must admit both `tasks` and the effects of the thunk, so
-dispatching cannot hide an otherwise unhandled operation. The work may
-yield only to `tasks`: its other handlers may have returned by the time
-it runs, so preparation refuses work that may yield to any other
-control effect where it is dispatched.
+Dispatched work is an `(Fn → Unit)`: what it may change is what it
+closed over. It may suspend to any prompt whose `with-prompt` runs inside
+it; a suspension to a `with-prompt` around the `dispatch` finds none
+running when the task runs later, and panics there
+([prompts](../snail-scheme/suspension.md#no-with-prompt-running)).
 
-`tasks` is an ordinary effect. A program can handle it itself, for a
-simulated clock in a test or a scheduler of its own;
-`tests/programs/tasks-handler.sld` runs a countdown under a handler whose
-`sleep` advances a logical clock, then under the real scheduler.
+A program can run tasks itself, for a simulated clock in a test or a
+scheduler of its own: `make-scheduler`, `dispatch-in` and `tasks-turn` are
+ordinary functions, and a `with-prompt` of its own prompt gives it waits of
+its own (`tests/programs/prompt-handoff.sld` hands the rest of a generator
+from one task to another).
 
 Local dispatch may capture shared mutable objects, because the work stays
 in this single-threaded instance. Work for another instance travels
 as bytes through a queue, never as a closure ([#553](https://github.com/tsnl/snail-scheme/issues/553), proposed).
 
 Only `yield`, `sleep` and `await` let other tasks run. Console and
-the core `fs` services remain synchronous; performing an arbitrary effect
-does not by itself wait, and the scheduler does not preempt a CPU loop.
+the core `Fs` services remain synchronous; using a capability does not by
+itself wait, and the scheduler does not preempt a CPU loop.
 Dispatching a filesystem operation from `(snail core io)` defers it but
 does not make the kernel operation asynchronous;
 [the native capability below](#native-asynchronous-file-reads) supplies
@@ -140,8 +159,8 @@ asynchronous reads.
 
 ## Native asynchronous file reads
 
-`(snail shell async-files)` exports the ordinary `files` effect. Its
-`read-file : String I32 -> Result<Bytes, FileError> ! files tasks` reads
+`(snail shell async-files)` exports the capability `Files`. Its
+`read-file : Files String I32 -> Result<Bytes, FileError>` reads
 an entire file up to the supplied byte limit. It suspends the calling task
 while other tasks run. A task that has other work meanwhile dispatches the
 read and receives its result through a [mailbox](#mailboxes):
@@ -149,13 +168,13 @@ read and receives its result through a [mailbox](#mailboxes):
 ```scheme
 (let ((results (make-mailbox)))
   (dispatch (lambda ()
-              (mailbox-post results (file-read-file "notes.txt" 1048576))))
+              (mailbox-post results (file-read-file files "notes.txt" 1048576))))
   ;; Other work can happen here; dispatch did not wait.
   (consume-result (mailbox-receive results)))
 ```
 
 Here `file-read-file` is imported with a `file-` prefix, and the dispatched
-task retains the explicit `files` capability (`tests/async-files/main.sld`).
+task closes over the `Files` it was handed (`tests/async-files/main.sld`).
 
 Limits range from zero through 16 MiB. The host reads at most limit plus
 one bytes, distinguishing an exact fit from `TooLarge`; metadata is not
@@ -204,12 +223,12 @@ program importing both libraries would have conflicting imports.
 
 ```scheme
 (let ((mailbox (make-mailbox)))
-  (dispatch (lambda () (write-line (mailbox-receive mailbox))))
+  (dispatch (lambda () (write-line out (mailbox-receive mailbox))))
   (dispatch (lambda () (mailbox-post mailbox "hello"))))
 ```
 
 A receiver that finds the queue empty takes a ticket, keeps in the
-mailbox a waker, `(Fn → Unit ! mut)`, closed over its scheduler and that
+mailbox a waker, `(Fn → Unit)`, closed over its scheduler and that
 ticket, and awaits the ticket. A waker only moves its task to the ready
 list, so any code may call it: another task, or code between turns. A
 call after the task was woken, or once its scheduler has closed, wakes
@@ -221,7 +240,7 @@ receiving.
 ## Waiting on the host
 
 A host operation that completes later, such as a socket read, waits the
-same way. Its target's handler takes a ticket, starts the operation on the host,
+same way. The host's capability takes a ticket, starts the operation on the host,
 which reads its arguments and returns at once, awaits the ticket, and
 finishes by taking the result the host built for it:
 
@@ -234,9 +253,8 @@ finishes by taking the result the host built for it:
 ```
 
 `(snail shell socket)`, `(snail shell process)` and the application's
-event and storage waits all wait through `through-host`, so each waiting
-operation's latent row names `tasks`: a program that reads a socket can
-see that it waits, and must do so from a task. Waiting needs no lock,
+event and storage waits all wait through `through-host`, from whichever
+task called them. Waiting needs no lock,
 because a task runs until it waits: nothing else runs between taking a
 ticket and awaiting it, so neither a post nor a host completion can come
 first.

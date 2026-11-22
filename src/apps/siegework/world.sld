@@ -618,13 +618,13 @@
 
     ;; Every cell within reach of one of `nodes`.
     (define (lit-cells (nodes (List Node))) (→ (Array Bool))
-      (unsafe-total
-       (lambda ()
-         (let ((seen (make-array (* map-size map-size) #f)))
-           (for-each (lambda (node) (light! seen (● node cell) (● node reach))) nodes)
-           seen))))
+      (let ((seen (make-array (* map-size map-size) #f)))
+        (for-each
+         (lambda (node) (light! seen (● node cell) (● node reach)))
+         nodes)
+        seen))
 
-    (define (light! (seen (Array Bool)) (center Cell) (radius I64)) (→ Unit) (! mut)
+    (define (light! (seen (Array Bool)) (center Cell) (radius I64)) (→ Unit)
       (let ((offsets (map (lambda (i) (- i radius)) (iota (+ 1 (* 2 radius))))))
         (for-each (lambda (dy)
                     (for-each (lambda (dx)

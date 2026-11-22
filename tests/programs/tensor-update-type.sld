@@ -5,10 +5,13 @@
  (snail shell tensor)
  (snail shell tensor lower))
 
-(with-recorded-gpu
- (lambda ()
-   (lower "update"
-          (Nil)
-          (list
-           (new Pair (first (param "counter" (Nil) (Signed))) (second (scalar 1.0)))))
-   (unit)))
+(define (main) (→ Unit)
+  (with-recorded-gpu
+   (lambda (gpu)
+     (lower gpu
+            "update"
+            (Nil)
+            (list
+             (new Pair (first (param "counter" (Nil) (Signed))) (second (scalar 1.0)))))
+     (unit)))
+  (unit))

@@ -50,15 +50,16 @@
     ((Dialog dismiss) "dialog")
     ((Banner) "banner")))
 
-(define (show-pictures (shell Shell)) (→ Unit) (! output-port)
-  (write-line
-   (string-append "pictures: " (show (length (shell-pictures shell (lambda (path) (None))))))))
+(define (show-pictures (out OutputPort) (shell Shell)) (→ Unit)
+  (write-line out
+              (string-append "pictures: "
+                             (show (length (shell-pictures shell (lambda (path) (None))))))))
 
-(define (show-panel (panel Panel)) (→ Unit) (! output-port)
+(define (show-panel (out OutputPort) (panel Panel)) (→ Unit)
   (match panel
     ((Panel key place widgets)
-     (write-line (string-append "-- " key ", " (place-name place)))
-     (for-each (lambda (widget) (write-line (widget-text widget))) widgets))))
+     (write-line out (string-append "-- " key ", " (place-name place)))
+     (for-each (lambda (widget) (write-line out (widget-text widget))) widgets))))
 
 (define (click (shell Shell) (presses (List (Pair I32 I32)))) (→ Shell)
   (fold-left
@@ -66,16 +67,15 @@
    shell
    presses))
 
-(define (step (shell Shell) (title String) (presses (List (Pair I32 I32))))
+(define (step (out OutputPort) (shell Shell) (title String) (presses (List (Pair I32 I32))))
   (→ Shell)
-  (! output-port)
   (let ((shell (click shell presses)))
-    (write-line (string-append "==== " title))
-    (show-pictures shell)
-    (for-each show-panel (shell-hud shell))
+    (write-line out (string-append "==== " title))
+    (show-pictures out shell)
+    (for-each (lambda (panel) (show-panel out panel)) (shell-hud shell))
     shell))
 
-(define (main) (→ Unit) (! output-port)
+(define (main (out OutputPort)) (→ Unit)
 
   ;; The ledger is the second prototype opened, so seed 5 deals it seed 7.
   ;; Buttons: 9000 with argument i opens rumor-mill scenario i, 9100 opens the
@@ -85,15 +85,18 @@
   ;; delivers a job and 9 lies low. In the ledger, action 3 with argument i
   ;; does the i-th job, and 5 ends the round.
   (let* ((shell (new-shell 5 1280 800))
-         (shell (step shell "menu" (Nil)))
+         (shell (step out shell "menu" (Nil)))
          (shell
-          (step shell "two faces with its guide open" (list (new Pair (first 9000) (second 0)))))
-         (shell (step shell "two faces after delivering a job for Mo"
+          (step out
+                shell
+                "two faces with its guide open"
+                (list (new Pair (first 9000) (second 0)))))
+         (shell (step out shell "two faces after delivering a job for Mo"
                       (list (new Pair (first guide-close) (second 0))
                             (new Pair (first 112) (second 0))
                             (new Pair (first 3) (second 0))
                             (new Pair (first 9) (second 0)))))
-         (shell (step shell
+         (shell (step out shell
                       "ledger with its guide on the last page"
                       (list (new Pair (first 9999) (second 0))
                             (new Pair (first 9100) (second 0))
@@ -101,12 +104,12 @@
                             (new Pair (first guide-next) (second 0))
                             (new Pair (first guide-next) (second 0))
                             (new Pair (first guide-next) (second 0)))))
-         (shell (step shell
+         (shell (step out shell
                       "ledger after doing job 2 and ending the round"
                       (list (new Pair (first guide-next) (second 0))
                             (new Pair (first 3) (second 1))
                             (new Pair (first 5) (second 0)))))
-         (shell (step shell
+         (shell (step out shell
                       "credits"
                       (list (new Pair (first 9999) (second 0))
                             (new Pair (first 9200) (second 0))))))

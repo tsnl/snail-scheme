@@ -6,7 +6,7 @@
 ;; for `lower` to lower as it lowers any graph.
 ;;
 ;;   (let ((fused (fuse-program sinks updates)))
-;;     (lower "step" (● fused first) (● fused second)))
+;;     (lower gpu "step" (● fused first) (● fused second)))
 ;;
 ;; A producer is inlined into each map that reads it, through that map's
 ;; view of its port: its loads are seen through the view, which must keep

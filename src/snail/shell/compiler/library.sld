@@ -23,7 +23,7 @@
     ;; `(snail core base)` is the list ("snail" "core" "base"); its globals are prefixed
     ;; `snail.core.base` and its source is `snail/core/base.sld` in a search directory.
 
-    (define (library-name (syntax Syntax)) (→ (List String)) (! compile)
+    (define (library-name (syntax Syntax)) (→ (List String))
       (match syntax
         ((Form parts _)
          (map (lambda (part)
@@ -36,7 +36,6 @@
 
     (define (check-library-name (declared Syntax) (name (List String)) (loc Loc))
       (→ Unit)
-      (! compile)
       (when (string=? (string-join name ".") "prim")
         (compile-error loc "the prim library name is reserved for compiler primitives"))
       (unless (string=? (string-join (library-name declared) ".") (string-join name "."))
@@ -44,17 +43,15 @@
 
     ;; Where a library's source is: the first search directory holding it.
 
-    (define (find-library (directories (List String)) (name (List String)))
+    (define (find-library (fs Fs) (directories (List String)) (name (List String)))
       (→ (Option String))
-      (! fs)
       (let ((relative (string-append (string-join name "/") ".sld")))
-        (find file-exists?
+        (find (lambda (path) (file-exists? fs path))
               (map (lambda (directory) (string-append directory "/" relative)) directories))))
 
-    (define (library-path (directories (List String)) (name (List String)) (loc Loc))
+    (define (library-path (fs Fs) (directories (List String)) (name (List String)) (loc Loc))
       (→ String)
-      (! fs compile)
-      (match (find-library directories name)
+      (match (find-library fs directories name)
         ((Some path) path)
         ((None)
          (compile-error loc (string-append "library not found: (" (string-join name " ") ")")))))
@@ -75,7 +72,6 @@
 
     (define (file-library (name (List String)) (forms (List Syntax)) (path String))
       (→ LibraryFile)
-      (! compile)
       (match forms
         ((Cons (Form (Cons (Ident "define-library" _ _) (Cons declared declarations)) loc) (Nil))
          (check-library-name declared name loc)
@@ -98,35 +94,58 @@
 
     (define (output-library-file (name (List String)) (bytes Bytes) (loc Loc))
       (→ LibraryFile)
-      (! compile)
       (file-library name (list (decode-syntax bytes loc)) (● loc file)))
 
     ;; ---- Producers ----
 
     ;; The producer imports what the recipe imports, names the recipe's
     ;; file, and writes the syntax its expression returns, a
-    ;; `(snail shell syntax)` Syntax, which it computes in a task.
+    ;; `(snail shell syntax)` Syntax, which it computes in a task. A recipe
+    ;; that needs capabilities is a `lambda` over them, and the producer's
+    ;; main asks its target for each, besides the file system it writes
+    ;; its library through and the arguments that name the file:
+    ;;
+    ;;   (define (main (producer-fs Fs) (producer-arguments Arguments) parameter ...)
+    ;;     (→ Unit)
+    ;;     (write-generated-library producer-fs producer-arguments (lambda () body ...)))
 
     (define (producer (recipe String) (imports (List Syntax)) (expression Syntax) (loc Loc))
       (→ (List Syntax))
-      (let ((write-library (Ident "write-generated-library" (None) loc)))
-        (list (Form (Cons (Ident "import" (None) loc)
+      (let* ((ident (lambda (name) (Ident name (None) loc)))
+             (form (lambda (items) (Form items loc)))
+             (only (lambda (library names)
+                     (form
+                      (Cons (ident "only") (Cons (form (map ident library)) (map ident names))))))
+             (recipe-parts (recipe-lambda expression)))
+        (list (form (Cons (ident "import")
                           (append imports
-                                  (list (Form (list (Ident "only" (None) loc)
-                                                    (Form (list (Ident "snail" (None) loc)
-                                                                (Ident "shell" (None) loc)
-                                                                (Ident "syntax" (None) loc))
-                                                          loc)
-                                                    write-library)
-                                              loc))))
-                    loc)
-              (Form (list (Ident "recipe" (None) loc) (Atom (DString recipe) loc)) loc)
-              (Form (list (Ident "define" (None) loc) (Ident "main" (None) loc)
-                          (Form (list (Ident "lambda" (None) loc) (Form (Nil) loc)
-                                      (Form (list write-library
-                                                  (Form (list (Ident "lambda" (None) loc)
-                                                              (Form (Nil) loc) expression) loc))
-                                            loc)) loc)) loc))))
+                                  (list (only (list "snail" "shell" "syntax")
+                                              (list "write-generated-library"))
+                                        (only (list "snail" "core" "io")
+                                              (list "Fs" "Arguments"))))))
+              (form (list (ident "recipe") (Atom (DString recipe) loc)))
+              (form (list (ident "define")
+                          (form (Cons (ident "main")
+                                      (Cons (form (list (ident "producer-fs") (ident "Fs")))
+                                            (Cons (form (list (ident "producer-arguments")
+                                                              (ident "Arguments")))
+                                                  (● recipe-parts first)))))
+                          (form (list (ident "→") (ident "Unit")))
+                          (form (list (ident "write-generated-library")
+                                      (ident "producer-fs")
+                                      (ident "producer-arguments")
+                                      (form (Cons (ident "lambda")
+                                                  (Cons (form (Nil))
+                                                        (● recipe-parts second)))))))))))
+
+    ;; A recipe's capability parameters and its body: those of a `lambda`,
+    ;; or no parameters and the expression itself.
+
+    (define (recipe-lambda (expression Syntax)) (→ (Pair (List Syntax) (List Syntax)))
+      (match expression
+        ((Form (Cons (Ident "lambda" _ _) (Cons (Form params _) body)) _)
+         (new Pair (first params) (second body)))
+        (_ (new Pair (first (Nil)) (second (list expression))))))
 
     ;; ---- Sections ----
 
@@ -135,7 +154,6 @@
 
     (define (library-sections (declaration Syntax))
       (→ (List (Pair String (List Syntax))))
-      (! compile)
       (match declaration
         ((Form (Cons (Ident "cond-expand" _ _) clauses) _) (cond-expand-sections clauses))
         ((Form (Cons (Ident kind _ _) items) loc)
@@ -150,7 +168,6 @@
 
     (define (cond-expand-sections (clauses (List Syntax)))
       (→ (List (Pair String (List Syntax))))
-      (! compile)
       (match clauses
         ((Nil) (Nil))
         ((Cons (Form (Cons requirement declarations) _) rest)

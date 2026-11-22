@@ -76,7 +76,7 @@
     (typeclass (Pod T)
       (declare (shape) (→ (Shape T)))
       (declare (pod-align (value T)) (→ I64))
-      (declare (pod-write (value T) (bytes Bytes) (at I64)) (→ I64) (! mut)))
+      (declare (pod-write (value T) (bytes Bytes) (at I64)) (→ I64)))
 
     (define (align-up (at I64) (align I64)) (→ I64)
       (* (quotient (+ at (- align 1)) align) align))
@@ -158,7 +158,7 @@
 
     ;; Each field at the next multiple of its alignment.
 
-    (define (place (value T) (bytes Bytes) (at I64)) (→ I64) (! mut) (∀ (T)) (⊨ (Pod T))
+    (define (place (value T) (bytes Bytes) (at I64)) (→ I64) (∀ (T)) (⊨ (Pod T))
       (pod-write value bytes (align-up at (pod-align value))))
 
     ;; A record of Pod fields, without parameters, derives Pod.
@@ -196,12 +196,13 @@
     ;; The bytes are local to this call, so packing is pure.
 
     (define (pack (shape (Shape T)) (values (List T))) (→ Bytes) (∀ (T)) (⊨ (Pod T))
-      (unsafe-total
-       (lambda ()
-         (let* ((step (stride shape))
-                (bytes (make-array (* step (length values)) (i32->u8 0))))
-           (fold-left (lambda (at value) (pod-write value bytes at) (+ at step)) 0 values)
-           bytes))))
+      (let* ((step (stride shape))
+             (bytes (make-array (* step (length values)) (i32->u8 0))))
+        (fold-left
+         (lambda (at value) (pod-write value bytes at) (+ at step))
+         0
+         values)
+        bytes))
 
     ;; One value, as a uniform buffer holds it.
 
@@ -237,7 +238,7 @@
 
     ;; ---- Scalars ----
 
-    (define (write-word (bytes Bytes) (at I64) (word I32)) (→ I64) (! mut)
+    (define (write-word (bytes Bytes) (at I64) (word I32)) (→ I64)
       (for-each (lambda (index)
                   (array-set! bytes
                               (+ at index)
@@ -299,10 +300,10 @@
        (w Vec4f))
       (deriving Repr))
 
-    (define (words (bytes Bytes) (at I64) (values (List I32))) (→ I64) (! mut)
+    (define (words (bytes Bytes) (at I64) (values (List I32))) (→ I64)
       (fold-left (lambda (at value) (write-word bytes at value)) at values))
 
-    (define (floats (bytes Bytes) (at I64) (values (List F32))) (→ I64) (! mut)
+    (define (floats (bytes Bytes) (at I64) (values (List F32))) (→ I64)
       (words bytes at (map f32->bits values)))
 
     (instance (Pod Vec2f)
@@ -315,7 +316,8 @@
       (define shape (lambda () (scalar-shape "vec3f" 12 16 (Float32x3))))
       (define pod-align (lambda (value) 16))
       (define pod-write
-        (lambda (value bytes at) (floats bytes at (list (● value x) (● value y) (● value z))))))
+        (lambda (value bytes at)
+          (floats bytes at (list (● value x) (● value y) (● value z))))))
 
     (instance (Pod Vec4f)
       (define shape (lambda () (scalar-shape "vec4f" 16 16 (Float32x4))))

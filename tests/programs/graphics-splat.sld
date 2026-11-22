@@ -64,17 +64,18 @@
 ;; The second gaussian's record, words: position, transform, quaternion,
 ;; scale, opacity; then its first five colors.
 
-(define (show-cloud (cloud Cloud)) (→ Unit) (! output-port)
-  (write-line (string-append "count: " (show (● cloud count))))
-  (write-line (string-append "position: " (floats (● cloud gaussians) 12 3)))
-  (write-line (string-append "center: "
-                             (string-join (map f64->string (cloud-center cloud 1)) " ")))
-  (write-line (string-append "transform: " (show (f32->bits (float-at (● cloud gaussians) 15)))))
-  (write-line (string-append "rotation: " (floats (● cloud gaussians) 16 4)))
-  (write-line (string-append "scale: " (floats (● cloud gaussians) 20 3)))
-  (write-line (string-append "opacity: " (floats (● cloud gaussians) 23 1)))
-  (write-line (string-append "colors: " (floats (● cloud harmonics) 48 15)))
-  (write-line (string-append "beyond degree 1: " (floats (● cloud harmonics) 60 3))))
+(define (show-cloud (out OutputPort) (cloud Cloud)) (→ Unit)
+  (write-line out (string-append "count: " (show (● cloud count))))
+  (write-line out (string-append "position: " (floats (● cloud gaussians) 12 3)))
+  (write-line out (string-append "center: "
+                                 (string-join (map f64->string (cloud-center cloud 1)) " ")))
+  (write-line out
+              (string-append "transform: " (show (f32->bits (float-at (● cloud gaussians) 15)))))
+  (write-line out (string-append "rotation: " (floats (● cloud gaussians) 16 4)))
+  (write-line out (string-append "scale: " (floats (● cloud gaussians) 20 3)))
+  (write-line out (string-append "opacity: " (floats (● cloud gaussians) 23 1)))
+  (write-line out (string-append "colors: " (floats (● cloud harmonics) 48 15)))
+  (write-line out (string-append "beyond degree 1: " (floats (● cloud harmonics) 60 3))))
 
 (define (refusal (lines (List String))) (→ String)
   (match (read-ply (array-append (header-bytes lines) (float-bytes (list 0.0))) 0)
@@ -106,20 +107,21 @@
 
 ;; The file written, by its size and its header's first lines, and read
 ;; back: the second of its two gaussians is the third row.
-(define (written) (→ Unit) (! output-port)
+(define (written (out OutputPort)) (→ Unit)
   (let ((file (write-ply (trained))))
-    (write-line (string-append "written: " (show (array-length file)) " bytes"))
+    (write-line out (string-append "written: " (show (array-length file)) " bytes"))
     (match (read-ply file 3)
       ((Ok cloud)
-       (show-cloud cloud)
-       (write-line (string-append "degree 3, red: "
-                                  (string-join (map (lambda (k)
-                                                      (f64->string
-                                                       (f32->f64 (float-at (● cloud harmonics)
-                                                                           (+ 48 (* 3 (+ 9 k)))))))
-                                                    (iota 7))
-                                               " "))))
-      ((Err message) (write-line message)))))
+       (show-cloud out cloud)
+       (write-line out (string-append "degree 3, red: "
+                                      (string-join (map (lambda (k)
+                                                          (f64->string
+                                                           (f32->f64 (float-at (● cloud harmonics)
+                                                                               (+ 48
+                                                                                  (* 3 (+ 9 k)))))))
+                                                        (iota 7))
+                                                   " "))))
+      ((Err message) (write-line out message)))))
 
 ;; ---- Dispatches ----
 
@@ -128,12 +130,12 @@
 ;; blocks, scanning their 18,752 counts in two levels and adding the upper
 ;; level back, and scattering.
 
-(define (frame) (→ Unit) (! gpu)
-  (let* ((splats (make-splats "test" (Bgra8Unorm) 300000 2))
-         (encoder (create-command-encoder))
-         (pass (begin-compute-pass encoder)))
-    (write-transforms splats (list (identity-of 2.0)))
-    (sort-splats pass
+(define (frame (gpu Gpu)) (→ Unit)
+  (let* ((splats (make-splats gpu "test" (Bgra8Unorm) 300000 2))
+         (encoder (create-command-encoder gpu))
+         (pass (begin-compute-pass gpu encoder)))
+    (write-transforms gpu splats (list (identity-of 2.0)))
+    (sort-splats gpu pass
                  splats
                  (splat-camera (new Vec3f (x 0.0) (y 0.0) (z 5.0))
                                (new Vec3f (x 0.0) (y 0.0) (z 0.0))
@@ -141,8 +143,8 @@
                                1.0
                                640
                                480))
-    (end-compute-pass pass)
-    (submit (list (finish encoder)))))
+    (end-compute-pass gpu pass)
+    (submit gpu (list (finish gpu encoder)))))
 
 (define (identity-of (scale F32)) (→ Mat4x4f)
   (new Mat4x4f
@@ -159,14 +161,26 @@
     ((Some at) (substring line (+ 21 at) (- (string-length line) 4)))
     ((None) line)))
 
-(match (read-ply file 3)
-  ((Ok cloud) (show-cloud cloud))
-  ((Err message) (write-line message)))
-(written)
-(write-line (refusal (list "ply" "format ascii 1.0" "element vertex 1" "property float x")))
-(write-line
- (refusal (list "ply" "format binary_little_endian 1.0" "element vertex 1" "property uchar x")))
-(write-line
- (refusal (list "ply" "format binary_little_endian 1.0" "element vertex 1" "property float x")))
-(write-line
- (string-join (map workgroups (filter dispatched (● (with-recorded-gpu frame) second))) " "))
+(define (main (out OutputPort)) (→ Unit)
+  (match (read-ply file 3)
+    ((Ok cloud) (show-cloud out cloud))
+    ((Err message) (write-line out message)))
+  (written out)
+  (write-line out (refusal (list "ply" "format ascii 1.0" "element vertex 1" "property float x")))
+  (write-line out
+              (refusal (list "ply"
+                             "format binary_little_endian 1.0"
+                             "element vertex 1"
+                             "property uchar x")))
+  (write-line out
+              (refusal (list "ply"
+                             "format binary_little_endian 1.0"
+                             "element vertex 1"
+                             "property float x")))
+  (write-line out
+              (string-join (map workgroups
+                                (filter dispatched
+                                        (● (with-recorded-gpu (lambda (gpu) (frame gpu)))
+                                           second)))
+                           " "))
+  (unit))

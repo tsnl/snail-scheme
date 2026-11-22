@@ -6,11 +6,11 @@
 
 (define (asset) (→ Resource) (link-file "linked-resource.txt"))
 
-(define (main) (→ Unit) (! output-port resource tasks)
-  (write-line "before")
-  (let ((bytes (read-resource (asset))))
-    (display (array-length bytes)) (newline)
-    (display (u8->i32 (array-ref bytes 0))) (newline))
+(define (main (resources Resources) (out OutputPort)) (→ Unit)
+  (write-line out "before")
+  (let ((bytes (read-resource resources (asset))))
+    (display out (array-length bytes)) (newline out)
+    (display out (u8->i32 (array-ref bytes 0))) (newline out))
   (sleep 1)
-  (write-line "after")
+  (write-line out "after")
   (unit))

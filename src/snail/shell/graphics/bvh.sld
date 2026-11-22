@@ -81,75 +81,78 @@
     (define build-shape (→ (Shape BvhBuild)) (shape))
 
     ;; Its nodes and uniform; the triangles are their owner's.
-    (define (release-bvh (bvh Bvh)) (→ Unit) (! gpu)
-      (destroy (BufferObject (● bvh nodes)))
-      (destroy (BufferObject (● bvh layout))))
+    (define (release-bvh (gpu Gpu) (bvh Bvh)) (→ Unit)
+      (destroy gpu (BufferObject (● bvh nodes)))
+      (destroy gpu (BufferObject (● bvh layout))))
 
 
 
-    (define (build-bvh (triangles Triangles)) (→ Bvh) (! gpu)
+    (define (build-bvh (gpu Gpu) (triangles Triangles)) (→ Bvh)
       (let* ((n (max 1 (● triangles count)))
              (padded (power-of-two-at-least (max 2 n)))
              (steps (sort-steps padded))
-             (build (uniforms triangles n padded steps))
-             (keys (storage-buffer "bvh/keys" (* 4 padded) (Nil)))
-             (order (storage-buffer "bvh/order" (* 4 padded) (Nil)))
+             (build (uniforms gpu triangles n padded steps))
+             (keys (storage-buffer gpu "bvh/keys" (* 4 padded) (Nil)))
+             (order (storage-buffer gpu "bvh/order" (* 4 padded) (Nil)))
              (positions (● triangles positions))
              (indices (● triangles indices))
-             (nodes (storage-buffer "bvh/nodes" (* 32 (- (* 2 n) 1)) (Nil)))
-             (spare (storage-buffer "bvh/spare" (* 32 (- (* 2 n) 1)) (Nil)))
-             (wide (storage-buffer "bvh/wide" (* 64 (max 1 (- n 1))) (Nil)))
+             (nodes (storage-buffer gpu "bvh/nodes" (* 32 (- (* 2 n) 1)) (Nil)))
+             (spare (storage-buffer gpu "bvh/spare" (* 32 (- (* 2 n) 1)) (Nil)))
+             (wide (storage-buffer gpu "bvh/wide" (* 64 (max 1 (- n 1))) (Nil)))
              (kernels (new Kernels
-                        (pipelines (pipelines-of (create-shader-module
-                                                  (new ShaderModuleDescriptor
-                                                    (label "bvh")
-                                                    (code (string-append (declarations build-shape)
-                                                                         bvh-shader))))))
+                        (pipelines (pipelines-of gpu (create-shader-module gpu
+                                                                           (new ShaderModuleDescriptor
+                                                                             (label "bvh")
+                                                                             (code
+                                                                              (string-append
+                                                                               (declarations
+                                                                                build-shape)
+                                                                               bvh-shader))))))
                         (build build)
-                        (encoder (create-command-encoder)))))
-        (let ((pass (begin-compute-pass (● kernels encoder))))
-          (run kernels
+                        (encoder (create-command-encoder gpu)))))
+        (let ((pass (begin-compute-pass gpu (● kernels encoder))))
+          (run gpu kernels
                pass
                "morton"
                0
                padded
                (list (buffer 1 keys) (buffer 2 order) (buffer 3 positions) (buffer 4 indices)))
           (for-each (lambda (step)
-                      (run kernels
+                      (run gpu kernels
                            pass
                            "sort_step"
                            (+ 1 step)
                            (quotient padded 2)
                            (list (buffer 1 keys) (buffer 2 order))))
                     (iota (length steps)))
-          (run kernels
+          (run gpu kernels
                pass
                "build_leaves"
                0
                n
                (list (buffer 2 order) (buffer 3 positions) (buffer 4 indices) (buffer 5 nodes)))
-          (run kernels pass "build_internal" 0 (- n 1) (list (buffer 1 keys) (buffer 5 nodes)))
+          (run gpu kernels pass "build_internal" 0 (- n 1) (list (buffer 1 keys) (buffer 5 nodes)))
           (for-each (lambda (refit)
                       (let ((from (if (= (remainder refit 2) 0) nodes spare))
                             (to (if (= (remainder refit 2) 0) spare nodes)))
-                        (run kernels
+                        (run gpu kernels
                              pass
                              "refit"
                              0
                              (- (* 2 n) 1)
                              (list (buffer 5 to) (buffer 6 from)))))
                     (iota (refits n)))
-          (run kernels pass "pack" 0 (max 1 (- n 1)) (list (buffer 6 nodes) (buffer 7 wide)))
-          (end-compute-pass pass))
-        (submit (list (finish (● kernels encoder))))
-        (for-each (lambda (spent) (destroy (BufferObject spent)))
+          (run gpu kernels pass "pack" 0 (max 1 (- n 1)) (list (buffer 6 nodes) (buffer 7 wide)))
+          (end-compute-pass gpu pass))
+        (submit gpu (list (finish gpu (● kernels encoder))))
+        (for-each (lambda (spent) (destroy gpu (BufferObject spent)))
                   (list build keys order nodes spare))
-        (for-each (lambda (named) (destroy (ComputePipelineObject (● named second))))
+        (for-each (lambda (named) (destroy gpu (ComputePipelineObject (● named second))))
                   (● kernels pipelines))
-        (new Bvh (nodes wide) (triangles triangles) (layout (layout-of triangles)))))
+        (new Bvh (nodes wide) (triangles triangles) (layout (layout-of gpu triangles)))))
 
-    (define (layout-of (triangles Triangles)) (→ GpuBuffer) (! gpu)
-      (uniform-buffer "bvh/layout"
+    (define (layout-of (gpu Gpu) (triangles Triangles)) (→ GpuBuffer)
+      (uniform-buffer gpu "bvh/layout"
                       (pod-bytes layout-shape (new BvhLayout (shape (positions-of triangles))))))
 
     (define (positions-of (triangles Triangles)) (→ Vec4i)
@@ -162,43 +165,45 @@
        (build GpuBuffer)
        (encoder GpuCommandEncoder)))
 
-    (define (pipelines-of (module GpuShaderModule))
+    (define (pipelines-of (gpu Gpu) (module GpuShaderModule))
       (→ (List (Pair String GpuComputePipeline)))
-      (! gpu)
-      (map (lambda (entry) (new Pair (first entry) (second (compute-kernel module "bvh" entry))))
-           (list "morton" "sort_step" "build_leaves" "build_internal" "refit" "pack")))
+      (map
+       (lambda (entry) (new Pair (first entry) (second (compute-kernel gpu module "bvh" entry))))
+       (list "morton" "sort_step" "build_leaves" "build_internal" "refit" "pack")))
 
     ;; One dispatch of `entry` over `count` items with the uniforms of slot
     ;; `uniform` and `entries`; its group goes at the submit.
-    (define (run (kernels Kernels)
+    (define (run (gpu Gpu) (kernels Kernels)
                  (pass GpuComputePass)
                  (entry String)
                  (uniform I64)
                  (count I64)
                  (entries (List BindGroupEntry)))
       (→ Unit)
-      (! gpu)
       (let* ((pipeline (match (assoc-ref (● kernels pipelines) entry)
                          ((Some pipeline) pipeline)
                          ((None) (panic (string-append "bvh: no kernel " entry)))))
-             (group (kernel-group pipeline
+             (group (kernel-group gpu pipeline
                                   0
                                   (string-append "bvh/" entry)
                                   (Cons (slot-entry 0 (● kernels build) uniform) entries))))
         (when (> count 0)
-          (set-compute-pipeline pass pipeline)
-          (set-compute-bind-group pass 0 group)
-          (dispatch-items pass count 256))
-        (destroy (BindGroupObject group))))
+          (set-compute-pipeline gpu pass pipeline)
+          (set-compute-bind-group gpu pass 0 group)
+          (dispatch-items gpu pass count 256))
+        (destroy gpu (BindGroupObject group))))
 
     (define (buffer (binding I32) (b GpuBuffer)) (→ BindGroupEntry) (BufferEntry binding b 0 0))
 
     ;; Slot 0 for every kernel but the sort, then a slot for each of its
     ;; steps.
-    (define (uniforms (triangles Triangles) (n I64) (padded I64) (steps (List (Pair I64 I64))))
+    (define (uniforms (gpu Gpu)
+                      (triangles Triangles)
+                      (n I64)
+                      (padded I64)
+                      (steps (List (Pair I64 I64))))
       (→ GpuBuffer)
-      (! gpu)
-      (uniform-buffer "bvh/build"
+      (uniform-buffer gpu "bvh/build"
                       (uniform-slots build-shape
                                      (map (lambda (step) (build-of triangles n padded step))
                                           (Cons (new Pair (first 0) (second 0)) steps)))))
@@ -264,26 +269,25 @@
 
     ;; The queries with `cutout`, WGSL that defines the function and
     ;; declares what it reads in group 1.
-    (define (make-ray-kernels (cutout String)) (→ RayKernels) (! gpu)
-      (let ((module (create-shader-module (new ShaderModuleDescriptor
-                                            (label "rays")
-                                            (code (string-append (declarations layout-shape)
-                                                                 cutout
-                                                                 rays-shader))))))
+    (define (make-ray-kernels (gpu Gpu) (cutout String)) (→ RayKernels)
+      (let ((module (create-shader-module gpu (new ShaderModuleDescriptor
+                                                (label "rays")
+                                                (code (string-append (declarations layout-shape)
+                                                                     cutout
+                                                                     rays-shader))))))
         (new RayKernels
-          (intersect (compute-kernel module "rays" "intersect"))
-          (occlude (compute-kernel module "rays" "occlude")))))
+          (intersect (compute-kernel gpu module "rays" "intersect"))
+          (occlude (compute-kernel gpu module "rays" "occlude")))))
 
     ;; Group 0 of `query`, one of the kernels' pipelines, over the BVH and
     ;; a queue: its rays, and its count at byte `count-at` of `counts`.
-    (define (ray-group (query GpuComputePipeline)
+    (define (ray-group (gpu Gpu) (query GpuComputePipeline)
                        (bvh Bvh)
                        (rays GpuBuffer)
                        (counts GpuBuffer)
                        (count-at I32))
       (→ GpuBindGroup)
-      (! gpu)
-      (kernel-group query
+      (kernel-group gpu query
                     0
                     "rays"
                     (list (buffer 0 (● bvh nodes))
@@ -295,18 +299,17 @@
 
     ;; A query over a queue that holds at most `capacity` rays; `cutout`
     ;; is its group 1, if it has one.
-    (define (trace-rays (pass GpuComputePass)
+    (define (trace-rays (gpu Gpu) (pass GpuComputePass)
                         (query GpuComputePipeline)
                         (rays GpuBindGroup)
                         (cutout (Option GpuBindGroup))
                         (capacity I64))
       (→ Unit)
-      (! gpu)
-      (set-compute-pipeline pass query)
-      (set-compute-bind-group pass 0 rays)
+      (set-compute-pipeline gpu pass query)
+      (set-compute-bind-group gpu pass 0 rays)
       (match cutout
-        ((Some group) (set-compute-bind-group pass 1 group))
+        ((Some group) (set-compute-bind-group gpu pass 1 group))
         ((None) (unit)))
-      (dispatch-items pass capacity 64))
+      (dispatch-items gpu pass capacity 64))
 
     ))

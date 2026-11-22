@@ -212,19 +212,19 @@
 
 ;; ---- The invocation ----
 
-(define (read-input (lines (List String))) (→ String) (! input-port)
-  (match (read-line)
+(define (read-input (in InputPort) (lines (List String))) (→ String)
+  (match (read-line in)
     ((None) (string-join (reverse lines) "\n"))
-    ((Some line) (read-input (Cons line lines)))))
+    ((Some line) (read-input in (Cons line lines)))))
 
-(define (main) (→ Unit) (! input-port output-port)
-  (match (command-line)
+(define (main (arguments Arguments) (in InputPort) (out OutputPort)) (→ Unit)
+  (match (command-line arguments)
     ((Cons _ (Cons "supports" (Cons renderer (Nil))))
      (unless (string=? renderer "html")
        (panic (string-append "the book's highlighter supports the html renderer, not " renderer))))
     ((Cons _ (Nil))
-     (match (string->json (read-input (Nil)))
-       ((Some input) (write-string (json->string (highlight-book input))))
+     (match (string->json (read-input in (Nil)))
+       ((Some input) (write-string out (json->string (highlight-book input))))
        ((None) (panic "the book's highlighter expected JSON on its standard input"))))
     (_ (panic "usage: highlight-book [supports RENDERER]")))
   (unit))

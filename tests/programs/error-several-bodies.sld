@@ -10,7 +10,6 @@
 (define (fine (n I64)) (→ I64)
   (* n 2))
 
-(define main
-  (lambda ()
-    (write-line (show (fine (also-missing 1))))
-    (unit)))
+(define (main (out OutputPort)) (→ Unit)
+  (write-line out (show (fine (also-missing 1))))
+  (unit))

@@ -1,19 +1,17 @@
-;; A scene run by the page's host as a script is: main runs the scene under
-;; (snail target browser)'s handlers, as the scheduler's first task, beside
+;; A scene run by the page's host as a script is: main runs the scene with
+;; what (snail target browser) provides, as the scheduler's first task, beside
 ;; a sleeping child. The HUD shows the count, which tells the check what
 ;; the scene's state is, and the buttons the check clicks.
 (import
  (snail core base)
- (only (snail core forms) host)
  (snail shell task)
  (snail shell app)
  (snail shell wire)
- (only (snail core io) clock)
- (only (snail shell gpu) gpu))
-
-;; A task keeps its handlers across its waits, and a child inherits them.
-(effect Marker
-  ((marker (Fn → I32))))
+ (only (snail core io) Clock)
+ (only (snail shell dom) Dom)
+ (only (snail shell gpu) Gpu)
+ (only (snail shell page) Events)
+ (only (snail shell page) PageStorage))
 
 (record Counter
   ((count I64)
@@ -59,23 +57,24 @@
                                     (button "trap" "Trap" 2))
                               (if (● counter leaving?) (list (button "leave" "Leave" 3)) (Nil)))))))
 
-(define (counter) (→ (SceneHandler Counter Frames))
+(define (counter (gpu Gpu)) (→ (SceneHandler Counter Frames))
   (new SceneHandler
     (initialize (lambda (seed width height) (counting 0)))
     (update step)
     (start start-frames)
-    (draw (lambda (counter frames) (draw-frame (draw counter) frames)))
+    (draw (lambda (counter frames) (draw-frame gpu (draw counter) frames)))
     (hud panels)
     (image-url (lambda (drawing image) ""))
     (save (lambda (counter) (serialize (new Save (count (● counter count))))))
     (restore (lambda (bytes) (counting (● (ann (deserialize bytes) Save) count))))))
 
-(define (main) (→ Unit) (! mut host gpu clock events storage tasks)
-  (handle Marker
-      ((marker (lambda () 17)))
+(define (main (gpu Gpu) (dom Dom) (events Events) (storage PageStorage))
+  (→ Unit)
+  ;; A task keeps what it closed over across its waits.
+  (let ((marker 17))
     (dispatch (lambda ()
                 (yield)
-                (unless (= (marker) 17)
-                  (panic "a child lost its inherited handler"))
+                (unless (= marker 17)
+                  (panic "a child lost what it closed over"))
                 (sleep 100000)))
-    (run-scene (counter))))
+    (run-scene dom events storage (counter gpu))))

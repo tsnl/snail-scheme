@@ -1,9 +1,10 @@
-;; WebGPU as an effect: `gpu` mirrors WebGPU's own operations and
-;; descriptors, so code that uses it reads like WebGPU, and a `! gpu` row
-;; says exactly which functions touch the device. A handler decides what
-;; the calls do: `provide-gpu`, last below, runs them on the host's device,
-;; the page's or Dawn's on Node, and `with-recorded-gpu` in
-;; (snail shell gpu record) records them, for testing a library without one.
+;; WebGPU as a capability: a `Gpu` mirrors WebGPU's own operations and
+;; descriptors, so code that uses it reads like WebGPU, and a `Gpu`
+;; parameter says exactly which functions touch the device. A `Gpu` is a
+;; record of those operations, so its maker decides what the calls do:
+;; `host-gpu`, last below, runs them on the host's device, the page's or
+;; Dawn's on Node, and `with-recorded-gpu` in (snail shell gpu record)
+;; records them, for testing a library without one.
 ;;
 ;; It is WebGPU itself, without bookkeeping: a handle is the id of an
 ;; object the host holds, made by each `create-...` call and kept as long as
@@ -27,7 +28,7 @@
 ;; arguments.
 (define-library (snail shell gpu)
   (export
-   gpu
+   Gpu
    request-device
    create-buffer
    write-buffer
@@ -254,10 +255,11 @@
    view-dimension-name
    buffer-usage-bits
    texture-usage-bits
-   provide-gpu)
+   host-gpu)
   (import
    (snail core base)
-   (only (snail shell task) tasks through-host)
+   (only (snail core io) Host)
+   (only (snail shell task) through-host)
    (only (snail shell utf8) string->utf8)
    (prefix (snail runtime gpu) host-))
   (begin
@@ -617,8 +619,8 @@
 
     ;; A view of the first `mips` levels of layer 0.
 
-    (define (view-of (texture GpuTexture) (mips I32)) (→ GpuTextureView) (! gpu)
-      (create-view texture
+    (define (view-of (gpu Gpu) (texture GpuTexture) (mips I32)) (→ GpuTextureView)
+      (create-view gpu texture
                    (new TextureViewDescriptor
                      (dimension (View2d))
                      (base-mip 0)
@@ -628,8 +630,8 @@
 
     ;; A texture's whole array, at its first level.
 
-    (define (array-view (texture GpuTexture)) (→ GpuTextureView) (! gpu)
-      (create-view texture
+    (define (array-view (gpu Gpu) (texture GpuTexture)) (→ GpuTextureView)
+      (create-view gpu texture
                    (new TextureViewDescriptor
                      (dimension (View2dArray))
                      (base-mip 0)
@@ -637,8 +639,8 @@
                      (base-layer 0)
                      (layers 0))))
 
-    (define (layer-view (texture GpuTexture) (layer I32)) (→ GpuTextureView) (! gpu)
-      (create-view texture
+    (define (layer-view (gpu Gpu) (texture GpuTexture) (layer I32)) (→ GpuTextureView)
+      (create-view gpu texture
                    (new TextureViewDescriptor
                      (dimension (View2d))
                      (base-mip 0)
@@ -721,23 +723,27 @@
 
     ;; Submits the encoder with queries 0 to `count` resolved after its
     ;; commands, and reads their times back, eight bytes each.
-    (define (submit-timed (encoder GpuCommandEncoder) (queries GpuQuerySet) (count I32))
+    (define (submit-timed (gpu Gpu)
+                          (encoder GpuCommandEncoder)
+                          (queries GpuQuerySet)
+                          (count I32))
       (→ Bytes)
-      (! gpu tasks)
-      (let ((resolved (create-buffer (new BufferDescriptor
+      (let ((resolved (create-buffer gpu
+                                     (new BufferDescriptor
                                        (label "timestamps")
                                        (size (* 8 count))
                                        (usage (list (QueryResolve) (CopySrc))))))
-            (readback (create-buffer (new BufferDescriptor
+            (readback (create-buffer gpu
+                                     (new BufferDescriptor
                                        (label "timestamps/readback")
                                        (size (* 8 count))
                                        (usage (list (MapRead) (CopyDst)))))))
-        (resolve-query-set encoder queries 0 count resolved 0)
-        (copy-buffer-to-buffer encoder resolved 0 readback 0 (* 8 count))
-        (submit (list (finish encoder)))
-        (let ((times (read-buffer readback 0 (* 8 count))))
-          (destroy (BufferObject resolved))
-          (destroy (BufferObject readback))
+        (resolve-query-set gpu encoder queries 0 count resolved 0)
+        (copy-buffer-to-buffer gpu encoder resolved 0 readback 0 (* 8 count))
+        (submit gpu (list (finish gpu encoder)))
+        (let ((times (read-buffer gpu readback 0 (* 8 count))))
+          (destroy gpu (BufferObject resolved))
+          (destroy gpu (BufferObject readback))
           times)))
 
     ;; The seconds from query `beginning` to query `end` of the times read.
@@ -751,7 +757,7 @@
                   0
                   (iota 8)))
 
-    ;; ---- The effect ----
+    ;; ---- The capability ----
 
     ;; `request-device` asks the page for its device once, and every other
     ;; operation needs it. Offsets and sizes are in bytes. `write-texture`
@@ -764,22 +770,23 @@
     ;; the canvas's pixels on the screen, and its size. The timed ways of
     ;; beginning a pass take the timestamp writes WebGPU's pass descriptor
     ;; may hold.
-    (effect gpu
-      ((request-device (Fn → DeviceInfo ! tasks))
+    (capability Gpu
+      ((request-device (Fn → DeviceInfo))
        (create-buffer (Fn BufferDescriptor → GpuBuffer))
        (write-buffer (Fn GpuBuffer I32 Bytes → Unit))
-       (read-buffer (Fn GpuBuffer I32 I32 → Bytes ! tasks))
+       (read-buffer (Fn GpuBuffer I32 I32 → Bytes))
        (create-texture (Fn TextureDescriptor → GpuTexture))
        (create-view (Fn GpuTexture TextureViewDescriptor → GpuTextureView))
        (write-texture (Fn TextureCopy I32 I32 I32 Bytes → Unit))
-       (decode-image (Fn Bytes → (Option Image) ! tasks))
+       (decode-image (Fn Bytes → (Option Image)))
        (create-sampler (Fn SamplerDescriptor → GpuSampler))
        (create-shader-module (Fn ShaderModuleDescriptor → GpuShaderModule))
        (create-render-pipeline (Fn RenderPipelineDescriptor → GpuRenderPipeline))
        (create-bind-group (Fn BindGroupDescriptor → GpuBindGroup))
        (create-command-encoder (Fn → GpuCommandEncoder))
        (copy-buffer-to-buffer (Fn GpuCommandEncoder GpuBuffer I32 GpuBuffer I32 I32 → Unit))
-       (copy-texture-to-buffer (Fn GpuCommandEncoder TextureCopy GpuBuffer I32 I32 I32 I32 → Unit))
+       (copy-texture-to-buffer
+        (Fn GpuCommandEncoder TextureCopy GpuBuffer I32 I32 I32 I32 → Unit))
        (copy-texture-to-texture (Fn GpuCommandEncoder TextureCopy TextureCopy I32 I32 → Unit))
        (begin-render-pass (Fn GpuCommandEncoder RenderPassDescriptor → GpuRenderPass))
        (set-pipeline (Fn GpuRenderPass GpuRenderPipeline → Unit))
@@ -805,7 +812,7 @@
        (end-compute-pass (Fn GpuComputePass → Unit))
        (finish (Fn GpuCommandEncoder → GpuCommandBuffer))
        (submit (Fn (List GpuCommandBuffer) → Unit))
-       (work-done (Fn → Unit ! tasks))
+       (work-done (Fn → Unit))
        (current-texture (Fn → Image))
        (destroy (Fn GpuObject → Unit))))
 
@@ -837,17 +844,23 @@
     ;; Byte arrays end to end, in a fresh array.
 
     (define (joined (pieces (List Bytes))) (→ Bytes)
-      (unsafe-total
-       (lambda ()
-         (let ((bytes (make-array
-                       (fold-left (lambda (total piece) (+ total (array-length piece))) 0 pieces)
-                       (i32->u8 0))))
-           (fold-left (lambda (at piece)
-                        (array-copy! bytes at piece 0 (array-length piece))
-                        (+ at (array-length piece)))
+      (let ((bytes (make-array
+                    (fold-left
+                     (lambda (total piece) (+ total (array-length piece)))
+                     0
+                     pieces)
+                    (i32->u8 0))))
+        (fold-left (lambda (at piece)
+                     (array-copy!
+                      bytes
+                      at
+                      piece
                       0
-                      pieces)
-           bytes))))
+                      (array-length piece))
+                     (+ at (array-length piece)))
+                   0
+                   pieces)
+        bytes))
 
     (define (word-bytes (value I32)) (→ Bytes)
       (array-generate 4
@@ -1091,171 +1104,170 @@
 
     ;; ---- On the host's device ----
 
-    ;; `provide-gpu` runs each operation on the device host/browser/gpu.mjs
+    ;; `host-gpu` runs each operation on the device host/browser/gpu.mjs
     ;; holds, through (snail runtime gpu), and host/browser/gpu.mjs knows each
-    ;; object by the id it gave it. The browser target installs it around a
-    ;; page's main. A program on Node installs it itself, around the work
-    ;; that uses the device, as a page installs `fetch`, so a Node program
-    ;; that draws nothing links none of it. Node's device is Dawn's
+    ;; object by the id it gave it. The browser target provides it to a
+    ;; page's main. A program on Node makes it itself, where it uses the
+    ;; device, as a page makes its `Fetch`, so a Node program that draws
+    ;; nothing links none of it. Node's device is Dawn's
     ;; (host/native/gpu.mjs); it has no screen, so there `current-texture`
     ;; fails, and it decodes images as a page does.
     ;;
-    ;;   (provide-gpu (lambda () (let ((info (request-device))) ...)))
+    ;;   (let* ((gpu (host-gpu host)) (info (request-device gpu))) ...)
 
-    (define (provide-gpu (work (Fn → T ! gpu e))) (→ T) (! e) (∀ (T e))
-      (handle gpu
-          ((request-device requested)
-           (create-buffer
-            (lambda (descriptor) (new GpuBuffer (id (made 0 (buffer-fields descriptor))))))
-           (write-buffer
-            (lambda (buffer offset bytes) (host-write-buffer (● buffer id) offset bytes)))
-           (read-buffer (lambda (buffer offset size) (read-bytes (● buffer id) offset size)))
-           (create-texture
-            (lambda (descriptor) (new GpuTexture (id (made 1 (texture-fields descriptor))))))
-           (create-view
-            (lambda (texture descriptor)
-              (new GpuTextureView
-                (id (host-create-view (● texture id) (fields-bytes (view-fields descriptor)))))))
-           (write-texture
-            (lambda (copy bytes-per-row width height bytes)
-              (host-write-texture (● (● copy texture) id)
-                                  (● copy mip)
-                                  (● copy x)
-                                  (● copy y)
-                                  (● copy layer)
-                                  bytes-per-row
-                                  width
-                                  height
-                                  bytes)))
-           (decode-image decoded)
-           (create-sampler
-            (lambda (descriptor) (new GpuSampler (id (made 2 (sampler-fields descriptor))))))
-           (create-shader-module
-            (lambda (descriptor) (new GpuShaderModule (id (made 3 (module-fields descriptor))))))
-           (create-render-pipeline
-            (lambda (descriptor)
-              (new GpuRenderPipeline (id (made 4 (pipeline-fields descriptor))))))
-           (create-bind-group
-            (lambda (descriptor) (new GpuBindGroup (id (made 5 (bind-group-fields descriptor))))))
-           (create-command-encoder (lambda () (new GpuCommandEncoder (id (host-encoder)))))
-           (copy-buffer-to-buffer
-            (lambda (encoder source source-offset destination destination-offset size)
-              (host-copy-buffer (● encoder id)
-                                (● source id)
-                                source-offset
-                                (● destination id)
-                                destination-offset
-                                size)))
-           (copy-texture-to-buffer
-            (lambda (encoder copy buffer offset bytes-per-row width height)
-              (host-copy-texture-to-buffer (● encoder id)
-                                           (● (● copy texture) id)
-                                           (● copy mip)
-                                           (● copy x)
-                                           (● copy y)
-                                           (● copy layer)
-                                           (● buffer id)
-                                           offset
-                                           bytes-per-row
-                                           width
-                                           height)))
-           (copy-texture-to-texture
-            (lambda (encoder source destination width height)
-              (host-copy-texture (● encoder id)
-                                 (● (● source texture) id)
-                                 (● source mip)
-                                 (● source x)
-                                 (● source y)
-                                 (● source layer)
-                                 (● (● destination texture) id)
-                                 (● destination mip)
-                                 (● destination x)
-                                 (● destination y)
-                                 (● destination layer)
-                                 width
-                                 height)))
-           (begin-render-pass
-            (lambda (encoder descriptor)
-              (attachments descriptor)
-              (new GpuRenderPass (id (host-begin-pass (● encoder id))))))
-           (set-pipeline
-            (lambda (pass pipeline) (host-set-pipeline (● pass id) (● pipeline id))))
-           (set-bind-group
-            (lambda (pass index group) (host-set-bind-group (● pass id) index (● group id))))
-           (set-vertex-buffer
-            (lambda (pass slot buffer offset)
-              (host-set-vertex-buffer (● pass id) slot (● buffer id) offset)))
-           (set-index-buffer
-            (lambda (pass buffer format offset)
-              (host-set-index-buffer (● pass id)
-                                     (● buffer id)
-                                     (match format
-                                       ((Uint16Index) 0)
-                                       ((Uint32Index) 1))
-                                     offset)))
-           (set-scissor-rect
-            (lambda (pass x y width height) (host-set-scissor (● pass id) x y width height)))
-           (draw
-            (lambda (pass vertices instances first-vertex first-instance)
-              (host-draw (● pass id) vertices instances first-vertex first-instance)))
-           (draw-indexed
-            (lambda (pass indices instances first-index base-vertex first-instance)
-              (host-draw-indexed (● pass id)
-                                 indices
-                                 instances
-                                 first-index
-                                 base-vertex
-                                 first-instance)))
-           (draw-indexed-indirect
-            (lambda (pass buffer offset)
-              (host-draw-indexed-indirect (● pass id) (● buffer id) offset)))
-           (end-pass (lambda (pass) (host-end-pass (● pass id))))
-           (create-compute-pipeline
-            (lambda (descriptor)
-              (new GpuComputePipeline (id (made 6 (compute-pipeline-fields descriptor))))))
-           (begin-compute-pass
-            (lambda (encoder) (new GpuComputePass (id (host-begin-compute (● encoder id))))))
-           (begin-timed-compute-pass
-            (lambda (encoder writes)
-              (timestamp-writes writes)
-              (new GpuComputePass (id (host-begin-compute (● encoder id))))))
-           (begin-timed-render-pass
-            (lambda (encoder descriptor writes)
-              (attachments descriptor)
-              (timestamp-writes writes)
-              (new GpuRenderPass (id (host-begin-pass (● encoder id))))))
-           (create-query-set
-            (lambda (descriptor) (new GpuQuerySet (id (made 7 (query-set-fields descriptor))))))
-           (resolve-query-set
-            (lambda (encoder query-set first count buffer offset)
-              (host-resolve-queries (● encoder id)
-                                    (● query-set id)
-                                    first
-                                    count
-                                    (● buffer id)
-                                    offset)))
-           (set-compute-pipeline
-            (lambda (pass pipeline) (host-set-compute-pipeline (● pass id) (● pipeline id))))
-           (set-compute-bind-group
-            (lambda (pass index group)
-              (host-set-compute-bind-group (● pass id) index (● group id))))
-           (dispatch-workgroups (lambda (pass x y z) (host-dispatch (● pass id) x y z)))
-           (dispatch-workgroups-indirect
-            (lambda (pass buffer offset) (host-dispatch-indirect (● pass id) (● buffer id) offset)))
-           (end-compute-pass (lambda (pass) (host-end-compute (● pass id))))
-           (finish
-            (lambda (encoder) (new GpuCommandBuffer (id (host-finish (● encoder id))))))
-           (submit submitted)
-           (work-done (lambda () (through-host host-start-done host-finish-done) (unit)))
-           (current-texture
-            (lambda ()
-              (let ((id (host-current-texture)))
-                (new Image
-                  (texture (new GpuTexture (id id)))
-                  (width (host-current-width))
-                  (height (host-current-height))))))
-           (destroy (lambda (object) (host-destroy (object-id object)))))
-        (work)))
+    (define (host-gpu (host Host)) (→ Gpu)
+      (new Gpu
+        (request-device requested)
+        (create-buffer
+         (lambda (descriptor) (new GpuBuffer (id (made 0 (buffer-fields descriptor))))))
+        (write-buffer
+         (lambda (buffer offset bytes) (host-write-buffer (● buffer id) offset bytes)))
+        (read-buffer (lambda (buffer offset size) (read-bytes (● buffer id) offset size)))
+        (create-texture
+         (lambda (descriptor) (new GpuTexture (id (made 1 (texture-fields descriptor))))))
+        (create-view
+         (lambda (texture descriptor)
+           (new GpuTextureView
+             (id (host-create-view (● texture id) (fields-bytes (view-fields descriptor)))))))
+        (write-texture
+         (lambda (copy bytes-per-row width height bytes)
+           (host-write-texture (● (● copy texture) id)
+                               (● copy mip)
+                               (● copy x)
+                               (● copy y)
+                               (● copy layer)
+                               bytes-per-row
+                               width
+                               height
+                               bytes)))
+        (decode-image decoded)
+        (create-sampler
+         (lambda (descriptor) (new GpuSampler (id (made 2 (sampler-fields descriptor))))))
+        (create-shader-module
+         (lambda (descriptor) (new GpuShaderModule (id (made 3 (module-fields descriptor))))))
+        (create-render-pipeline
+         (lambda (descriptor)
+           (new GpuRenderPipeline (id (made 4 (pipeline-fields descriptor))))))
+        (create-bind-group
+         (lambda (descriptor) (new GpuBindGroup (id (made 5 (bind-group-fields descriptor))))))
+        (create-command-encoder (lambda () (new GpuCommandEncoder (id (host-encoder)))))
+        (copy-buffer-to-buffer
+         (lambda (encoder source source-offset destination destination-offset size)
+           (host-copy-buffer (● encoder id)
+                             (● source id)
+                             source-offset
+                             (● destination id)
+                             destination-offset
+                             size)))
+        (copy-texture-to-buffer
+         (lambda (encoder copy buffer offset bytes-per-row width height)
+           (host-copy-texture-to-buffer (● encoder id)
+                                        (● (● copy texture) id)
+                                        (● copy mip)
+                                        (● copy x)
+                                        (● copy y)
+                                        (● copy layer)
+                                        (● buffer id)
+                                        offset
+                                        bytes-per-row
+                                        width
+                                        height)))
+        (copy-texture-to-texture
+         (lambda (encoder source destination width height)
+           (host-copy-texture (● encoder id)
+                              (● (● source texture) id)
+                              (● source mip)
+                              (● source x)
+                              (● source y)
+                              (● source layer)
+                              (● (● destination texture) id)
+                              (● destination mip)
+                              (● destination x)
+                              (● destination y)
+                              (● destination layer)
+                              width
+                              height)))
+        (begin-render-pass
+         (lambda (encoder descriptor)
+           (attachments descriptor)
+           (new GpuRenderPass (id (host-begin-pass (● encoder id))))))
+        (set-pipeline
+         (lambda (pass pipeline) (host-set-pipeline (● pass id) (● pipeline id))))
+        (set-bind-group
+         (lambda (pass index group) (host-set-bind-group (● pass id) index (● group id))))
+        (set-vertex-buffer
+         (lambda (pass slot buffer offset)
+           (host-set-vertex-buffer (● pass id) slot (● buffer id) offset)))
+        (set-index-buffer
+         (lambda (pass buffer format offset)
+           (host-set-index-buffer (● pass id)
+                                  (● buffer id)
+                                  (match format
+                                    ((Uint16Index) 0)
+                                    ((Uint32Index) 1))
+                                  offset)))
+        (set-scissor-rect
+         (lambda (pass x y width height) (host-set-scissor (● pass id) x y width height)))
+        (draw
+         (lambda (pass vertices instances first-vertex first-instance)
+           (host-draw (● pass id) vertices instances first-vertex first-instance)))
+        (draw-indexed
+         (lambda (pass indices instances first-index base-vertex first-instance)
+           (host-draw-indexed (● pass id)
+                              indices
+                              instances
+                              first-index
+                              base-vertex
+                              first-instance)))
+        (draw-indexed-indirect
+         (lambda (pass buffer offset)
+           (host-draw-indexed-indirect (● pass id) (● buffer id) offset)))
+        (end-pass (lambda (pass) (host-end-pass (● pass id))))
+        (create-compute-pipeline
+         (lambda (descriptor)
+           (new GpuComputePipeline (id (made 6 (compute-pipeline-fields descriptor))))))
+        (begin-compute-pass
+         (lambda (encoder) (new GpuComputePass (id (host-begin-compute (● encoder id))))))
+        (begin-timed-compute-pass
+         (lambda (encoder writes)
+           (timestamp-writes writes)
+           (new GpuComputePass (id (host-begin-compute (● encoder id))))))
+        (begin-timed-render-pass
+         (lambda (encoder descriptor writes)
+           (attachments descriptor)
+           (timestamp-writes writes)
+           (new GpuRenderPass (id (host-begin-pass (● encoder id))))))
+        (create-query-set
+         (lambda (descriptor) (new GpuQuerySet (id (made 7 (query-set-fields descriptor))))))
+        (resolve-query-set
+         (lambda (encoder query-set first count buffer offset)
+           (host-resolve-queries (● encoder id)
+                                 (● query-set id)
+                                 first
+                                 count
+                                 (● buffer id)
+                                 offset)))
+        (set-compute-pipeline
+         (lambda (pass pipeline) (host-set-compute-pipeline (● pass id) (● pipeline id))))
+        (set-compute-bind-group
+         (lambda (pass index group)
+           (host-set-compute-bind-group (● pass id) index (● group id))))
+        (dispatch-workgroups (lambda (pass x y z) (host-dispatch (● pass id) x y z)))
+        (dispatch-workgroups-indirect
+         (lambda (pass buffer offset) (host-dispatch-indirect (● pass id) (● buffer id) offset)))
+        (end-compute-pass (lambda (pass) (host-end-compute (● pass id))))
+        (finish
+         (lambda (encoder) (new GpuCommandBuffer (id (host-finish (● encoder id))))))
+        (submit submitted)
+        (work-done (lambda () (through-host host-start-done host-finish-done) (unit)))
+        (current-texture
+         (lambda ()
+           (let ((id (host-current-texture)))
+             (new Image
+               (texture (new GpuTexture (id id)))
+               (width (host-current-width))
+               (height (host-current-height))))))
+        (destroy (lambda (object) (host-destroy (object-id object))))))
 
     ;; ---- The host's objects ----
 
@@ -1329,7 +1341,7 @@
     ;; optional ones it has (host/browser/gpu.mjs); it has told why it has
     ;; no device.
 
-    (define (requested) (→ DeviceInfo) (! tasks)
+    (define (requested) (→ DeviceInfo)
       (let ((status (through-host host-start-device host-finish-device)))
         (unless (= status 0)
           (panic "gpu: this host has no WebGPU device with the baseline features"))
@@ -1354,7 +1366,7 @@
 
     ;; ---- Waiting on the host ----
 
-    (define (read-bytes (buffer I32) (offset I32) (size I32)) (→ Bytes) (! tasks)
+    (define (read-bytes (buffer I32) (offset I32) (size I32)) (→ Bytes)
       (let ((count (through-host (lambda (ticket) (host-start-read ticket buffer offset size))
                                  host-finish-read)))
         (array-generate (i32->i64 count) (lambda (index) (host-read-byte (i64->i32 index))))))
@@ -1362,7 +1374,7 @@
     ;; The host decodes the image and holds its texture until it is kept.
 
     ;; The host answers a width of 0 for bytes it does not decode.
-    (define (decoded (bytes Bytes)) (→ (Option Image)) (! tasks)
+    (define (decoded (bytes Bytes)) (→ (Option Image))
       (let ((width (through-host (lambda (ticket)
                                    (host-start-decode ticket
                                                       (texture-usage-bits (list (TextureBinding)

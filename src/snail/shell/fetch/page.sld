@@ -1,13 +1,13 @@
-;; The page's `fetch` and `EventSource` for the `fetch` effect:
-;; `with-page-fetch` binds each operation to the browser host
-;; (host/browser/fetch.mjs). A request or a stream's next event waits by
+;; The page's `fetch` and `EventSource` as a `Fetch`: `page-fetch` binds
+;; each operation to the browser host (host/browser/fetch.mjs). A request or a stream's next event waits by
 ;; ticket in the task that asked, so a command's request never holds up
 ;; the interface.
 (define-library (snail shell fetch page)
   (export
-   with-page-fetch)
+   page-fetch)
   (import
    (snail core base)
+   (only (snail core io) Host)
    (prefix (snail runtime browser fetch) host-)
    (snail shell utf8)
    (snail shell task)
@@ -16,19 +16,18 @@
 
     ;; ---- Handling ----
 
-    (define (with-page-fetch (work (Fn → T ! fetch e))) (→ T) (! e) (∀ (T e))
-      (handle fetch
-          ((request page-request)
-           (fetch-all-bytes page-fetch-all-bytes)
-           (page-address (lambda () (host-page-address) (host-reply)))
-           (stream-open (lambda (url kinds)
-                          (new Stream
-                            (id (host-stream-open (string->utf8 (string-join (Cons url kinds)
-                                                                             (make-string 1
-                                                                                          #\null))))))))
-           (stream-next page-stream-next)
-           (stream-close (lambda (stream) (host-stream-close (● stream id)))))
-        (work)))
+    (define (page-fetch (host Host)) (→ Fetch)
+      (new Fetch
+        (request page-request)
+        (fetch-all-bytes page-fetch-all-bytes)
+        (page-address (lambda () (host-page-address) (host-reply)))
+        (stream-open (lambda (url kinds)
+                       (new Stream
+                         (id (host-stream-open (string->utf8 (string-join (Cons url kinds)
+                                                                          (make-string 1
+                                                                                       #\null))))))))
+        (stream-next page-stream-next)
+        (stream-close (lambda (stream) (host-stream-close (● stream id))))))
 
     ;; A request crosses in parts, each a string as UTF-8 Bytes, and starts
     ;; once they are all there: its method, its URL, each header as its
@@ -39,7 +38,6 @@
 
     (define (page-request (method String) (url String) (headers (List Header)) (body String))
       (→ (Result Reply String))
-      (! tasks)
       (host-request-method (string->utf8 method))
       (host-request-url (string->utf8 url))
       (for-each (lambda (header)
@@ -56,7 +54,7 @@
     ;; length, or -1 with why there is none, and the host holds that body
     ;; until the next is finished.
 
-    (define (page-fetch-all-bytes (urls (List String))) (→ (List (Result Bytes String))) (! tasks)
+    (define (page-fetch-all-bytes (urls (List String))) (→ (List (Result Bytes String)))
       (let ((ids (map (lambda (url)
                         (let ((id (ticket)))
                           (host-request-url (string->utf8 url))
@@ -76,7 +74,7 @@
     ;; NUL between each. The wait answers -1 once the stream is closed, and
     ;; otherwise leaves the next event's kind and data, a NUL between them.
 
-    (define (page-stream-next (stream Stream)) (→ (Option StreamEvent)) (! tasks)
+    (define (page-stream-next (stream Stream)) (→ (Option StreamEvent))
       (let ((count (through-host (lambda (ticket) (host-stream-start ticket (● stream id)))
                                  host-stream-finish)))
         (if (< count 0) (None) (Some (stream-event (host-reply))))))

@@ -1,4 +1,4 @@
-// The `gpu` effect on Node: host/browser/gpu.mjs's objects and commands
+// The `Gpu` capability on Node: host/browser/gpu.mjs's objects and commands
 // over Dawn, the WebGPU implementation Chromium uses, through Dawn's own
 // Node binding, dawn.node. Dawn runs in this process and is called
 // directly, where Chromium's runs in a GPU process that every call is sent

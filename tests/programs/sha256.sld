@@ -11,26 +11,26 @@
  (snail shell json)
  (snail shell compiler sha256))
 
-(define (digest (bytes Bytes)) (→ Unit) (! output-port)
-  (write-line (string-append (show (array-length bytes)) " " (bytes->hex (sha256 bytes)))))
+(define (digest (out OutputPort) (bytes Bytes)) (→ Unit)
+  (write-line out (string-append (show (array-length bytes)) " " (bytes->hex (sha256 bytes)))))
 
-(define (main) (→ Unit) (! fs output-port)
-  (digest (string->utf8 ""))
-  (digest (string->utf8 "abc"))
-  (digest (string->utf8 "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"))
-  (digest
-   (string->utf8
-    "abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu"))
-  (digest (make-array 1000000 (i32->u8 97)))
-  (for-each (lambda (length) (digest (make-array length (i32->u8 120))))
+(define (main (fs Fs) (out OutputPort)) (→ Unit)
+  (digest out (string->utf8 ""))
+  (digest out (string->utf8 "abc"))
+  (digest out (string->utf8 "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"))
+  (digest out
+          (string->utf8
+           "abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu"))
+  (digest out (make-array 1000000 (i32->u8 97)))
+  (for-each (lambda (length) (digest out (make-array length (i32->u8 120))))
             (list 1 55 56 57 63 64 65 119 120 128))
-  (digest (array-generate 256 (lambda (index) (i32->u8 (i64->i32 index)))))
-  (digest (string->utf8 "λ € 😀"))
-  (let ((image (read-bytes "tests/programs/data/pixel.png")))
-    (digest image)
+  (digest out (array-generate 256 (lambda (index) (i32->u8 (i64->i32 index)))))
+  (digest out (string->utf8 "λ € 😀"))
+  (let ((image (read-bytes fs "tests/programs/data/pixel.png")))
+    (digest out image)
     (let ((frame (string->utf8 (json->string (JsonArray (list (JsonString "pixel.png")
                                                               (JsonInteger
                                                                (array-length image))))))))
-      (write-line (bytes->hex (sha256 (array-append frame image))))))
-  (write-line (bytes->hex #u8(0 1 15 16 127 128 254 255)))
+      (write-line out (bytes->hex (sha256 (array-append frame image))))))
+  (write-line out (bytes->hex #u8(0 1 15 16 127 128 254 255)))
   (unit))

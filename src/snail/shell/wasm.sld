@@ -10,8 +10,8 @@
    load-error-message
    module-export
    unsafe-cast
-   wasm
-   provide-wasm
+   Wasm
+   host-wasm
    Compiled
    compile-bytes
    ImportKind
@@ -33,6 +33,7 @@
    run-export)
   (import
    (snail core base)
+   (only (snail core io) Host)
    (prefix (snail runtime wasm) host-)
    (only (snail core forms) Funcref)
    (only (snail core primitive) unsafe-cast))
@@ -40,12 +41,11 @@
 
     ;; ---- Host operations ----
 
-    (effect wasm
+    (capability Wasm
       ((argument-character (Fn Char → Unit))
        (argument-end (Fn → Unit))
        (compile (Fn Bytes → I32))
        (runtime-instance (Fn I32 → Unit))
-
        (exports-function? (Fn I32 → Bool))
        (export-function (Fn I32 → Funcref))
        (import-count (Fn I32 → I32))
@@ -58,39 +58,35 @@
        (provide-missing (Fn → Unit))
        (link-prepared (Fn → I32))
        (provide-constant (Fn I32 → Unit))
-
        (call-export (Fn I32 I64 → I64))))
 
     ;; The host's own engine: the page's or Node's WebAssembly.
-    (define (provide-wasm (work (Fn → T ! wasm e))) (→ T) (! e) (∀ (T e))
-      (handle wasm
-          ((argument-character host-argument-character)
-           (argument-end host-argument-end)
-           (compile host-compile)
-           (runtime-instance host-bind-runtime)
+    (define (host-wasm (host Host)) (→ Wasm)
+      (new Wasm
+        (argument-character host-argument-character)
+        (argument-end host-argument-end)
+        (compile host-compile)
+        (runtime-instance host-bind-runtime)
+        (exports-function? host-has-export)
+        (export-function host-export-function)
+        (import-count host-import-count)
+        (import-at host-import-at)
+        (held-length host-held-length)
+        (held-char host-held-char)
+        (prepare-link host-prepare-link)
+        (provide-export host-provide-export)
+        (provide-host host-provide-host)
+        (provide-missing host-provide-missing)
+        (link-prepared host-link-prepared)
+        (provide-constant host-provide-constant)
+        (call-export host-call-export)))
 
-           (exports-function? host-has-export)
-           (export-function host-export-function)
-           (import-count host-import-count)
-           (import-at host-import-at)
-           (held-length host-held-length)
-           (held-char host-held-char)
-           (prepare-link host-prepare-link)
-           (provide-export host-provide-export)
-           (provide-host host-provide-host)
-           (provide-missing host-provide-missing)
-           (link-prepared host-link-prepared)
-           (provide-constant host-provide-constant)
-
-           (call-export host-call-export))
-        (work)))
-
-    (define (send-argument (text String)) (→ Unit) (! wasm)
+    (define (send-argument (wasm Wasm) (text String)) (→ Unit)
       (let loop ((index 0))
         (when (< index (string-length text))
-          (argument-character (string-ref text index))
+          (argument-character wasm (string-ref text index))
           (loop (+ index 1))))
-      (argument-end))
+      (argument-end wasm))
 
     ;; ---- Errors ----
 
@@ -117,10 +113,11 @@
 
     ;; The function the module exports as `name`.
 
-    (define (module-export (module Module) (name String)) (→ (Result Funcref LoadError)) (! wasm)
-      (send-argument name)
-      (if (exports-function? (● module handle))
-          (begin (send-argument name) (Ok (export-function (● module handle))))
+    (define (module-export (wasm Wasm) (module Module) (name String))
+      (→ (Result Funcref LoadError))
+      (send-argument wasm name)
+      (if (exports-function? wasm (● module handle))
+          (begin (send-argument wasm name) (Ok (export-function wasm (● module handle))))
           (Err (MissingExport name))))
 
     ;; ---- Linking by hand ----
@@ -133,8 +130,8 @@
 
     ;; The module `bytes` hold, or none when they are not one.
 
-    (define (compile-bytes (bytes Bytes)) (→ (Option Compiled)) (! wasm)
-      (let ((handle (compile bytes)))
+    (define (compile-bytes (wasm Wasm) (bytes Bytes)) (→ (Option Compiled))
+      (let ((handle (compile wasm bytes)))
         (if (< handle 0) (None) (Some (new Compiled (handle handle))))))
 
     (enum ImportKind
@@ -149,13 +146,13 @@
        (name String)
        (kind ImportKind)))
 
-    (define (module-imports (compiled Compiled)) (→ (List Import)) (! wasm)
-      (map (lambda (index) (import-of (● compiled handle) (i64->i32 index)))
-           (iota (i32->i64 (import-count (● compiled handle))))))
+    (define (module-imports (wasm Wasm) (compiled Compiled)) (→ (List Import))
+      (map (lambda (index) (import-of wasm (● compiled handle) (i64->i32 index)))
+           (iota (i32->i64 (import-count wasm (● compiled handle))))))
 
-    (define (import-of (module I32) (index I32)) (→ Import) (! wasm)
-      (let ((kind (import-at module index)))
-        (new Import (from (held-string 0)) (name (held-string 1)) (kind (kind-of kind)))))
+    (define (import-of (wasm Wasm) (module I32) (index I32)) (→ Import)
+      (let ((kind (import-at wasm module index)))
+        (new Import (from (held-string wasm 0)) (name (held-string wasm 1)) (kind (kind-of kind)))))
 
     (define (kind-of (code I32)) (→ ImportKind)
       (cond ((= code 0) (FunctionImport))
@@ -166,9 +163,9 @@
 
     ;; A name the host holds, a character at a time.
 
-    (define (held-string (which I32)) (→ String) (! wasm)
-      (string-generate (i32->i64 (held-length which))
-                       (lambda (index) (held-char which (i64->i32 index)))))
+    (define (held-string (wasm Wasm) (which I32)) (→ String)
+      (string-generate (i32->i64 (held-length wasm which))
+                       (lambda (index) (held-char wasm which (i64->i32 index)))))
 
     ;; What provides an import: an export of an instance, the host's own
     ;; function of the import's module and field, that function when the
@@ -200,41 +197,39 @@
     ;; a provider is not of the import's type; a trap while the module
     ;; starts still ends the program.
 
-    (define (link-module (name String) (compiled Compiled) (providers (List Provider)))
+    (define (link-module (wasm Wasm) (name String) (compiled Compiled) (providers (List Provider)))
       (→ (Result Module LoadError))
-      (! wasm)
-      (prepare-link (● compiled handle))
-      (for-each provide providers)
-      (let ((handle (link-prepared)))
+      (prepare-link wasm (● compiled handle))
+      (for-each (lambda (provider) (provide wasm provider)) providers)
+      (let ((handle (link-prepared wasm)))
         (if (< handle 0) (Err (LinkFailed name)) (Ok (new Module (handle handle))))))
 
-    (define (provide (provider Provider)) (→ Unit) (! wasm)
+    (define (provide (wasm Wasm) (provider Provider)) (→ Unit)
       (match provider
         ((ExportOf instance export)
-         (send-argument export)
-         (provide-export (● instance handle))
+         (send-argument wasm export)
+         (provide-export wasm (● instance handle))
          (unit))
-        ((HostProvided) (provide-host) (unit))
-        ((HostIfProvided) (unless (provide-host) (provide-missing)))
-        ((ConstantOf value) (provide-constant value))
-        ((Unprovided) (provide-missing))))
+        ((HostProvided) (provide-host wasm) (unit))
+        ((HostIfProvided) (unless (provide-host wasm) (provide-missing wasm)))
+        ((ConstantOf value) (provide-constant wasm value))
+        ((Unprovided) (provide-missing wasm))))
 
     ;; Bind the program's runtime for staging bytes and reporting errors.
     ;; Handle zero continues to identify the loader, whose own runtime stays
     ;; separate from the program it runs.
-    (define (bind-runtime (runtime Module)) (→ Unit) (! wasm)
-      (runtime-instance (● runtime handle)))
+    (define (bind-runtime (wasm Wasm) (runtime Module)) (→ Unit)
+      (runtime-instance wasm (● runtime handle)))
 
     ;; Calls the function the instance exports as `name`, of no argument or
     ;; one I64, such as its `main` or a scheduler's `tasks:turn`, with
     ;; `argument`, answering its result, or 0 when it answers nothing.
 
-    (define (run-export (instance Module) (name String) (argument I64))
+    (define (run-export (wasm Wasm) (instance Module) (name String) (argument I64))
       (→ (Result I64 LoadError))
-      (! wasm)
-      (send-argument name)
-      (if (exports-function? (● instance handle))
-          (begin (send-argument name) (Ok (call-export (● instance handle) argument)))
+      (send-argument wasm name)
+      (if (exports-function? wasm (● instance handle))
+          (begin (send-argument wasm name) (Ok (call-export wasm (● instance handle) argument)))
           (Err (MissingExport name))))
 
     ))

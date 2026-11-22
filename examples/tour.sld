@@ -90,35 +90,33 @@
 
 ;; ---- Mutation ----
 
-;; Structs are heap objects with mutable fields. Aliases see the same
-;; writes, and set! performs mut. Reads are pure; a type without ! mut
-;; promises that the function does not change its inputs.
+;; Records are heap objects with mutable fields. Aliases see the same
+;; writes: whoever holds a record may change it.
 (record Counter
   ((count I64)))
 
-(define (bump! (counter Counter)) (→ Unit) (! mut)
+(define (bump! (counter Counter)) (→ Unit)
   (set! (● counter count) (+ (● counter count) 1)))
 
-;; ---- Effects ----
+;; ---- Capabilities ----
 
-;; An effect declares operations, and a handler implements them for the
-;; code it runs. A function's row, after `!`, lists what it may perform:
-;; `greet` asks, and whoever calls it decides what asking means.
-(effect Ask
-  ((ask (Fn → String))))
-
-(define (greet) (→ String) (! Ask)
+;; What a function may do to the world is in what it is given. `greet`
+;; asks whoever it is handed, and its caller decides who that is: a
+;; capability is a value, here a function.
+(define (greet (ask (Fn → String))) (→ String)
   (string-append "hello, " (ask)))
 
-;; A `ctl` operation need not return. Its implementation receives
-;; `resume`, the rest of the handled code, and calls it at most once (a
-;; second call panics): here it collects each value emitted and carries on.
-(effect Emit
-  ((ctl emit (Fn I64 → Unit))))
+;; ---- Suspension ----
 
-(define (count-down (n I64)) (→ Unit) (! Emit)
+;; `suspend` stops the body of the `with-prompt` around it and hands its
+;; value to that call's handler, with `resume`, the rest of the body, to
+;; call at most once (a second call panics): here the handler collects
+;; each value emitted and carries on.
+(define emitting (→ (Prompt I64 Unit)) (make-prompt))
+
+(define (count-down (n I64)) (→ Unit)
   (when (> n 0)
-    (emit n)
+    (suspend emitting n)
     (count-down (- n 1))))
 
 ;; ---- Macros ----
@@ -134,43 +132,44 @@
                (set! (● a text) (● b text))
                (set! (● b text) temporary)))))
 
-(define (main) (→ Unit) (! mut output-port)
+(define (main (out OutputPort)) (→ Unit)
 
-  (write-line (string-append "seven squared is " (i64->string (square 7))))
+  (write-line out (string-append "seven squared is " (i64->string (square 7))))
   ;; Nothing converts implicitly: an I64 becomes an F64 only when asked.
-  (write-line (f64->string (/ (i64->f64 (answer)) 8.0)))
-  (write-line (sign -3))
-  (display (sum-to 100))
-  (newline)
-  (write (map square (filter (lambda (n) (= (remainder n 2) 1)) (numbers))))
-  (newline)
-  (display (fold-left + 0 (numbers)))
-  (newline)
-  (write
-   (map area (list (Circle (new Point (x 0) (y 0)) 2) (Rectangle (new Point (x 1) (y 1)) 3 4))))
-  (newline)
+  (write-line out (f64->string (/ (i64->f64 (answer)) 8.0)))
+  (write-line out (sign -3))
+  (display out (sum-to 100))
+  (newline out)
+  (write out (map square (filter (lambda (n) (= (remainder n 2) 1)) (numbers))))
+  (newline out)
+  (display out (fold-left + 0 (numbers)))
+  (newline out)
+  (write out
+         (map area
+              (list (Circle (new Point (x 0) (y 0)) 2) (Rectangle (new Point (x 1) (y 1)) 3 4))))
+  (newline out)
   (for-each (lambda (d)
               (match (divide 10 d)
-                ((Ok quotient) (write-line (i64->string quotient)))
-                ((Err reason) (write-line reason))))
+                ((Ok quotient) (write-line out (i64->string quotient)))
+                ((Err reason) (write-line out reason))))
             (list 2 0))
-  (write-line (describe-all (list (new Point (x 1) (y 2)) (new Point (x 3) (y 4)))))
-  (write-line (describe-all (list #t #f)))
+  (write-line out (describe-all (list (new Point (x 1) (y 2)) (new Point (x 3) (y 4)))))
+  (write-line out (describe-all (list #t #f)))
   (let ((clicks (new Counter (count 0))))
     (bump! clicks)
     (bump! clicks)
-    (display (● clicks count))
-    (newline))
-  (write-line (handle Ask
-                  ((ask (lambda () "world")))
-                (greet)))
-  (write (handle Emit
-             ((emit (lambda (value resume) (Cons value (resume (unit))))))
-           (count-down 3)
-           (Nil)))
-  (newline)
+    (display out (● clicks count))
+    (newline out))
+  (write-line out (greet (lambda () "world")))
+  (write out
+         (with-prompt emitting
+                      (lambda ()
+                        (count-down 3)
+                        (Nil))
+                      (lambda (value resume) (Cons value (resume (unit))))))
+  (newline out)
   (let ((left (new Label (text "left")))
         (right (new Label (text "right"))))
     (swap! left right)
-    (write-line (string-append (● left text) " " (● right text))))
+    (write-line out (string-append (● left text) " " (● right text))))
   (unit))

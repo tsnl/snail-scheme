@@ -1,14 +1,14 @@
-;; Requests to a server and the streams of events it sends, as an effect,
-;; so an interface's commands can ask and a test can answer for the
-;; server. The browser host binds it to the page's `fetch` and
-;; `EventSource` ((snail shell fetch page)).
+;; Requests to a server and the streams of events it sends, as a
+;; capability, `Fetch`, so an interface's commands can ask and a test can
+;; answer for the server. (snail shell fetch page) makes the one over the
+;; page's `fetch` and `EventSource`.
 (define-library (snail shell fetch)
   (export
    Header
    Reply
    Stream
    StreamEvent
-   fetch
+   Fetch
    request
    fetch-bytes
    fetch-all-bytes
@@ -17,8 +17,7 @@
    stream-next
    stream-close)
   (import
-   (snail core base)
-   (only (snail shell task) tasks))
+   (snail core base))
   (begin
 
     ;; ---- Requests ----
@@ -42,7 +41,7 @@
       ((kind String)
        (data String)))
 
-    ;; ---- The effect ----
+    ;; ---- The capability ----
 
     ;; `request method url headers body` answers the server's reply, or
     ;; why there was none, such as a failed connection. `stream-open url
@@ -61,13 +60,13 @@
     ;; `page-address` is the URL
     ;; of the page the program runs in, which relative URLs resolve
     ;; against and whose query can choose what it shows.
-    (effect fetch
-      ((request (Fn String String (List Header) String → (Result Reply String) ! tasks))
-       (fetch-all-bytes (Fn (List String) → (List (Result Bytes String)) ! tasks))
+    (capability Fetch
+      ((request (Fn String String (List Header) String → (Result Reply String)))
+       (fetch-all-bytes (Fn (List String) → (List (Result Bytes String))))
        (page-address (Fn → String))
        (stream-open (Fn String (List String) → Stream))
-       (stream-next (Fn Stream → (Option StreamEvent) ! tasks))
+       (stream-next (Fn Stream → (Option StreamEvent)))
        (stream-close (Fn Stream → Unit))))
 
-    (define (fetch-bytes (url String)) (→ (Result Bytes String)) (! fetch tasks)
-      (list-ref (fetch-all-bytes (list url)) 0))))
+    (define (fetch-bytes (fetch Fetch) (url String)) (→ (Result Bytes String))
+      (list-ref (fetch-all-bytes fetch (list url)) 0))))

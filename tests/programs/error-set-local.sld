@@ -3,7 +3,7 @@
  (snail core io))
 
 ;; A `set!` writes a record field; a local variable is not a place.
-(define (main) (→ Unit) (! mut)
+(define (main) (→ Unit)
   (let ((x 1))
     (set! x 2)
     (unit)))

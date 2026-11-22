@@ -1,6 +1,5 @@
 (import
  (snail core base)
- (only (snail core forms) host)
  (snail core io)
  (snail shell task)
  (snail shell dom)
@@ -17,7 +16,7 @@
   (Start)
   (Finished ((text String))))
 
-(define (update (model Model) (message Msg)) (→ (Pair Model (List (Fn → Msg ! tasks))))
+(define (update (model Model) (message Msg)) (→ (Pair Model (List (Fn → Msg))))
   (match message
     ((Start)
      (new Pair
@@ -31,13 +30,13 @@
 (define (window (model Model)) (→ (List (Attribute Msg)))
   (Nil))
 
-(define (checkpoint (model Model)) (→ Unit) (! tasks)
+(define (checkpoint (model Model)) (→ Unit)
   (yield))
 
-(define (main) (→ Unit) (! host mut output-port tasks)
+(define (main (out OutputPort)) (→ Unit)
   (match (with-memory-dom (list (Hide) (Hide))
-                          (lambda ()
-                            (run-ui (new Model (text "idle"))
+                          (lambda (dom)
+                            (run-ui dom (new Model (text "idle"))
                                     (list (Start))
                                     (lambda (model message) (update model message))
                                     (lambda (model) (view model))
@@ -45,7 +44,7 @@
                                     (lambda (model) (unit))
                                     (lambda (model) (checkpoint model)))))
     ((Pair model document)
-     (write-line (● model text))
-     (write-line (document->html document))
+     (write-line out (● model text))
+     (write-line out (document->html document))
      (unit)))
   (unit))

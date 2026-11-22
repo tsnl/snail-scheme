@@ -4,13 +4,13 @@
 ;; cloud or transforms to the splats changes what both draw. A frame, in
 ;; the caller's passes:
 ;;
-;;   (write-view-camera view camera)              ; the quad path's camera
-;;   (let ((pass (begin-compute-pass encoder)))
-;;     (encode-splat-view pass view)              ; project, bin, blend
-;;     (end-compute-pass pass))
-;;   (let ((pass (begin-render-pass encoder ...)))
-;;     (present-splat-view pass view)             ; the image onto the target
-;;     (end-pass pass))
+;;   (write-view-camera gpu view camera)          ; the quad path's camera
+;;   (let ((pass (begin-compute-pass gpu encoder)))
+;;     (encode-splat-view gpu pass view)          ; project, bin, blend
+;;     (end-compute-pass gpu pass))
+;;   (let ((pass (begin-render-pass gpu encoder ...)))
+;;     (present-splat-view gpu pass view)         ; the image onto the target
+;;     (end-pass gpu pass))
 ;;
 ;; The blend is training's: front to back in 16x16 tiles, in floats,
 ;; stopping where a pixel's transmittance would fall under 1e-4, over
@@ -30,9 +30,8 @@
    release-splat-view)
   (import
    (snail core base)
-   (only (snail shell task) tasks)
    (only (snail shell gpu)
-         gpu
+         Gpu
          GpuShaderModule
          GpuRenderPipeline
          GpuBindGroup
@@ -206,90 +205,95 @@
     ;; `format`, `width` by `height` pixels, binning at most `entries`
     ;; tile entries. The program is given the splats' gaussians,
     ;; coefficients and transforms, and makes the rest.
-    (define (make-splat-view (splats Splats)
+    (define (make-splat-view (gpu Gpu) (splats Splats)
                              (format TextureFormat)
                              (width I64)
                              (height I64)
                              (entries I64))
       (→ SplatView)
-      (! gpu)
       (let* ((p (viewed-params splats))
              (sensor (new Sensor (width width) (height height) (capacity entries)))
              (drawn (render (viewed-cloud p) (camera-param) sensor (Viewing)))
-             (program (lower-with "splat view"
+             (program (lower-with gpu "splat view"
                                   (fuse (list (● drawn image) (● drawn entries)))
                                   (Nil)
                                   (given-splats splats p)))
-             (module (present-module-of width)))
-        (presenting program sensor module (present-pipeline-of module format))))
+             (module (present-module-of gpu width)))
+        (presenting gpu program sensor module (present-pipeline-of gpu module format))))
 
-    (define (presenting (program Program)
+    (define (presenting (gpu Gpu) (program Program)
                         (sensor Sensor)
                         (module GpuShaderModule)
                         (pipeline GpuRenderPipeline))
       (→ SplatView)
-      (! gpu)
       (new SplatView
         (program program)
         (width (● sensor width))
         (height (● sensor height))
         (present-module module)
         (present-pipeline pipeline)
-        (present-group (create-bind-group
-                        (new BindGroupDescriptor
-                          (label "splat/present")
-                          (pipeline (RenderPipeline pipeline))
-                          (group 0)
-                          (entries (list (BufferEntry 0 (sink-buffer program 0) 0 0))))))))
+        (present-group (create-bind-group gpu
+                                          (new BindGroupDescriptor
+                                            (label "splat/present")
+                                            (pipeline (RenderPipeline pipeline))
+                                            (group 0)
+                                            (entries (list (BufferEntry 0
+                                                                        (sink-buffer program 0)
+                                                                        0
+                                                                        0))))))))
 
-    (define (present-module-of (width I64)) (→ GpuShaderModule) (! gpu)
-      (create-shader-module
-       (new ShaderModuleDescriptor
-         (label "splat/present")
-         (code (string-append "const WIDTH = " (show width) "u;\n" splat-present-shader)))))
+    (define (present-module-of (gpu Gpu) (width I64)) (→ GpuShaderModule)
+      (create-shader-module gpu
+                            (new ShaderModuleDescriptor
+                              (label "splat/present")
+                              (code (string-append "const WIDTH = "
+                                                   (show width)
+                                                   "u;\n"
+                                                   splat-present-shader)))))
 
-    (define (present-pipeline-of (module GpuShaderModule) (format TextureFormat))
+    (define (present-pipeline-of (gpu Gpu) (module GpuShaderModule) (format TextureFormat))
       (→ GpuRenderPipeline)
-      (! gpu)
-      (create-render-pipeline
-       (new RenderPipelineDescriptor
-         (label "splat/present")
-         (module module)
-         (vertex-entry "present_vertex")
-         (buffers (Nil))
-         (fragment (Some (new FragmentState
-                           (entry "present_fragment")
-                           (targets
-                            (list (Some (new ColorTarget (format format) (blend (None)))))))))
-         (topology (TriangleList))
-         (cull (CullNone))
-         (depth (None)))))
+      (create-render-pipeline gpu
+                              (new RenderPipelineDescriptor
+                                (label "splat/present")
+                                (module module)
+                                (vertex-entry "present_vertex")
+                                (buffers (Nil))
+                                (fragment (Some (new FragmentState
+                                                  (entry "present_fragment")
+                                                  (targets
+                                                   (list (Some (new ColorTarget
+                                                                 (format format)
+                                                                 (blend (None)))))))))
+                                (topology (TriangleList))
+                                (cull (CullNone))
+                                (depth (None)))))
 
     ;; ---- A frame ----
 
     ;; The camera the next frame is seen from.
-    (define (write-view-camera (view SplatView) (camera SplatCamera)) (→ Unit) (! gpu)
-      (write-param (● view program) "camera" (pack (shape) (colmap-camera camera))))
+    (define (write-view-camera (gpu Gpu) (view SplatView) (camera SplatCamera)) (→ Unit)
+      (write-param gpu (● view program) "camera" (pack (shape) (colmap-camera camera))))
 
     ;; Projecting, binning and blending, into the caller's compute pass.
-    (define (encode-splat-view (pass GpuComputePass) (view SplatView)) (→ Unit) (! gpu)
-      (encode-steps pass (● view program)))
+    (define (encode-splat-view (gpu Gpu) (pass GpuComputePass) (view SplatView)) (→ Unit)
+      (encode-steps gpu pass (● view program)))
 
     ;; How many tile entries the last frame's binning asked for, which past
     ;; the view's room for them dropped the rest.
-    (define (view-entries (view SplatView)) (→ I64) (! gpu tasks)
-      (f64->i64 (array-ref (bytes->values (read-sink (● view program) 1) (Float)) 0)))
+    (define (view-entries (gpu Gpu) (view SplatView)) (→ I64)
+      (f64->i64 (array-ref (bytes->values (read-sink gpu (● view program) 1) (Float)) 0)))
 
     ;; The image blended, covering the caller's render pass's target.
-    (define (present-splat-view (pass GpuRenderPass) (view SplatView)) (→ Unit) (! gpu)
-      (set-pipeline pass (● view present-pipeline))
-      (set-bind-group pass 0 (● view present-group))
-      (draw pass 3 1 0 0))
+    (define (present-splat-view (gpu Gpu) (pass GpuRenderPass) (view SplatView)) (→ Unit)
+      (set-pipeline gpu pass (● view present-pipeline))
+      (set-bind-group gpu pass 0 (● view present-group))
+      (draw gpu pass 3 1 0 0))
 
     ;; What the view made goes at the next submit; the splats' buffers stay.
-    (define (release-splat-view (view SplatView)) (→ Unit) (! gpu)
-      (release-program (● view program))
-      (for-each destroy
+    (define (release-splat-view (gpu Gpu) (view SplatView)) (→ Unit)
+      (release-program gpu (● view program))
+      (for-each (lambda (object) (destroy gpu object))
                 (list (BindGroupObject (● view present-group))
                       (PipelineObject (● view present-pipeline))
                       (ModuleObject (● view present-module)))))

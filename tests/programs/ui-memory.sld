@@ -1,5 +1,4 @@
 (import
- (only (snail core forms) host)
  (snail core base)
  (snail core io)
  (snail shell task)
@@ -33,7 +32,7 @@
   (Saved ((count I64))))
 
 (define (update (model Model) (message Msg))
-  (→ (Pair Model (List (Fn → Msg ! output-port tasks))))
+  (→ (Pair Model (List (Fn → Msg))))
   (match message
     ((Typed text) (new Pair (first (Model-draft-set model text)) (second (Nil))))
     ((Add)
@@ -84,12 +83,13 @@
                                 (On "click" (Nil) (Allow) (lambda (event) (Remove (● item id)))))
                           (list (Text "x"))))))
 
-(define (checkpoint (model Model)) (→ Unit) (! output-port)
-  (write-line (string-append "checkpoint: "
-                             (string-join (map (lambda (record) (● record text)) (● model items))
-                                          ", ")
-                             "; saved "
-                             (show (● model saved)))))
+(define (checkpoint (out OutputPort) (model Model)) (→ Unit)
+  (write-line out (string-append "checkpoint: "
+                                 (string-join
+                                  (map (lambda (record) (● record text)) (● model items))
+                                  ", ")
+                                 "; saved "
+                                 (show (● model saved)))))
 
 (define (typed (text String)) (→ Cue)
   (Fire "draft" "input" (Event-value-set no-event text)))
@@ -108,20 +108,22 @@
         (clicked "reverse")
         (clicked "remove-1")))
 
-(define (main) (→ Unit) (! host mut output-port tasks)
+(define (main (out OutputPort)) (→ Unit)
   (dispatch
    (lambda ()
      (let ((result
             (with-memory-dom (script)
-                             (lambda ()
-                               (run-ui (new Model (items (Nil)) (draft "") (next 0) (saved 0))
-                                       (Nil)
-                                       (lambda (model message) (update model message))
-                                       view
-                                       (lambda (model) (Nil))
-                                       (lambda (model) (unit))
-                                       checkpoint)))))
-       (write-line (string-append "saved " (show (● (● result first) saved))))
-       (write-line (document->html (● result second)))
-       (for-each write-line (document-trace (● result second))))))
+                             (lambda (dom)
+                               (run-ui
+                                dom
+                                (new Model (items (Nil)) (draft "") (next 0) (saved 0))
+                                (Nil)
+                                (lambda (model message) (update model message))
+                                view
+                                (lambda (model) (Nil))
+                                (lambda (model) (unit))
+                                (lambda (model) (checkpoint out model)))))))
+       (write-line out (string-append "saved " (show (● (● result first) saved))))
+       (write-line out (document->html (● result second)))
+       (for-each (lambda (text) (write-line out text)) (document-trace (● result second))))))
   (unit))

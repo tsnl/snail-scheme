@@ -7,7 +7,7 @@ each can return if a program needs it.
 ## Cut from the plan
 
 - **The dependent elaborator.** Generic code is served by Hindley–Milner
-  checking with typeclasses, effect rows and monomorphization. Normalization
+  checking with typeclasses and monomorphization. Normalization
   by evaluation and implicit arguments would add type-level computation
   no program uses.
 - **Linear types and counted ownership.** Every value may be shared, and
@@ -16,6 +16,17 @@ each can return if a program needs it.
   explicit close operation. A second call of `resume` panics at run time
   instead of being rejected by the checker
   ([#767](https://github.com/tsnl/snail-scheme/issues/767)).
+- **Algebraic effects and effect rows.** Effect declarations, handlers
+  and rows are gone
+  ([#877](https://github.com/tsnl/snail-scheme/issues/877)). What they
+  gave is had with less: a [capability](capabilities.md#capabilities) is a
+  value a function is given, and [suspension](suspension.md) is three
+  functions. What went with them: no type says whether a call writes,
+  reaches the host or suspends. Reaching the host is in what a function is
+  handed; [writing is not tracked at all](capabilities.md#what-a-signature-does-not-say),
+  so that a function leaves its arguments unchanged is a convention.
+  Divergence was never tracked; a row is the one way it could be, since
+  nothing can be handed to a function to let it loop.
 - **Incremental compiler state.** Every build expands, checks and emits its
   complete dependency closure. There is no retained compiler Session,
   interface hashing or checked-code/Wasm reuse.
@@ -31,11 +42,7 @@ each can return if a program needs it.
   and class obligations appear on the definition. A lambda either takes
   that whole header or annotates nothing and is inferred; values also use
   inference.
-- Effect labels take no type parameters, and operations are monomorphic.
-  [Parameterized effects](effects.md#proposed-parameterized-effects) are
-  proposed with one fixed application per handler; operation-local
-  polymorphism remains outside that design.
-- Classes have no superclasses, no associated types, and no row or
+- Classes have no superclasses, no associated types, and no
   higher-kinded parameters.
 - Wire TypeIds are 32 bits, and every record and enum value carries its
   case's TypeId.
@@ -43,8 +50,9 @@ each can return if a program needs it.
 `snail-scheme` deliberately omits R7RS compatibility, `call/cc`, `dynamic-wind`,
 a dynamic numeric tower, source borrows, callable classes, `dyn`, `impl`,
 `FnMut` and inline records. These are design decisions, not compatibility
-bugs waiting for implementation. A library's top level has no statements,
-and a top-level value's initializer performs no effect. Instance
+bugs waiting for implementation. A top level has no statements: a
+program's entry is its `main`. A top-level value's initializer is handed
+no capability. Instance
 dispatch, named instance sets, plugins, code pointers, declaration metadata,
 implicit Any conversions and resizable arrays have also been removed.
 

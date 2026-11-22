@@ -19,20 +19,20 @@ project parser fixture.
 
 | `snail-scheme` source | Chez execution |
 | --- | --- |
-| Typed `define` and `lambda` headers | Parameter names and function bodies, with type/effect clauses erased. |
+| Typed `define` and `lambda` headers | Parameter names and function bodies, with type clauses erased. |
 | Top-level values | Ordinary Chez definitions, evaluated in order when their library loads. In the compiler's own source a value therefore comes after everything its initializer uses, functions included; Chez reports "attempt to reference undefined variable" otherwise. |
 | `record` and `enum` | Distinct constructor identities with mutable fields; pure replacement copies the outer object. |
 | `(new Name (field expression) ...)` | Compile-time field selection and sequential initializer bindings, followed by the private constructor. |
 | `(● object field ...)`, `set!` | Registered field slots, with ordinary object aliasing. |
 | `match` | Case tests and field bindings. |
 | Types, quantifiers and constraints | Erased after the host adapter has recognized their syntax. |
-| Compiler failure effects | Host handlers with a delimited escape to the compiler's error boundary. |
+| `make-prompt`, `with-prompt`, `suspend` | A delimited escape to the nearest `with-prompt` of the prompt, whose handler runs there. Stage 0 never resumes: the compiler suspends only to stop. |
 | Compiler tables | Host tables whose externally visible traversal order agrees with the typed library. |
 
 Chez's host control facilities are implementation details of this adapter.
 They do not expose `call/cc`, `dynamic-wind`, a borrow checker or a numeric
-tower to `snail-scheme` programs. The adapter need only execute the effects used by
-the compiler; arbitrary source handlers are compiled by the compiler itself.
+tower to `snail-scheme` programs. The adapter need only execute the suspensions the
+compiler makes; a program's own, which may resume, are compiled by the compiler itself.
 All top-level definitions are functions. Runtime values are constructed by
 those functions; Chez needs no separate scalar evaluator bridge.
 

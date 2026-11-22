@@ -107,57 +107,79 @@
     ;; whose best way crosses k closed cells, spreading through open cells
     ;; within the round and into closed ones for the next. Each cell keeps
     ;; the neighbor it was reached from, so the way is read back from
-    ;; `start`. The array is local to the search, so it is total.
+    ;; `start`. The array is the search's own.
     (define (crossing-path (open (Array Bool)) (goals (List Cell)) (start Cell)) (→ (List Cell))
-      (unsafe-total
-       (lambda ()
-         (let ((from (make-array (* map-size map-size) -1)))
-           (for-each (lambda (goal) (array-set! from (cell-index goal) (cell-index goal))) goals)
-           (let round ((current goals) (next (Nil)))
-             (match current
-               ((Nil) (if (null? next)
-                          (let back ((index (cell-index start)) (closed (Nil)))
-                            (let ((closed (if (array-ref open index)
-                                              closed
-                                              (Cons (index-cell index) closed))))
-                              (if (= (array-ref from index) index)
-                                  closed
-                                  (back (array-ref from index) closed))))
-                          (round next (Nil))))
-               ((Cons cell rest)
-                (let ((reached (filter (lambda (n) (= (array-ref from (cell-index n)) -1))
-                                       (neighbors cell))))
-                  (for-each (lambda (n) (array-set! from (cell-index n) (cell-index cell)))
-                            reached)
-                  (round
-                   (append (filter (lambda (n) (array-ref open (cell-index n))) reached) rest)
-                   (append (filter (lambda (n) (not (array-ref open (cell-index n)))) reached)
-                           next))))))))))
+      (let ((from (make-array (* map-size map-size) -1)))
+        (for-each (lambda (goal)
+                    (array-set!
+                     from
+                     (cell-index goal)
+                     (cell-index goal)))
+                  goals)
+        (let round ((current goals) (next (Nil)))
+          (match current
+            ((Nil) (if (null? next)
+                       (let back ((index (cell-index start))
+                                  (closed (Nil)))
+                         (let ((closed (if (array-ref open index)
+                                           closed
+                                           (Cons (index-cell index)
+                                                 closed))))
+                           (if (= (array-ref from index) index)
+                               closed
+                               (back (array-ref from index) closed))))
+                       (round next (Nil))))
+            ((Cons cell rest)
+             (let ((reached (filter (lambda (n)
+                                      (= (array-ref from (cell-index n))
+                                         -1))
+                                    (neighbors cell))))
+               (for-each (lambda (n)
+                           (array-set!
+                            from
+                            (cell-index n)
+                            (cell-index cell)))
+                         reached)
+               (round
+                (append
+                 (filter (lambda (n) (array-ref open (cell-index n)))
+                         reached)
+                 rest)
+                (append (filter (lambda (n)
+                                  (not (array-ref open (cell-index n))))
+                                reached)
+                        next))))))))
 
     ;; ---- Distance fields ----
 
     ;; The number of steps from each cell to the nearest goal, moving through
     ;; open cells, or -1 where no goal can be reached. A walker heads for a
-    ;; goal by stepping to any neighbor one step closer. The array is local
-    ;; to the search, so it is total.
+    ;; goal by stepping to any neighbor one step closer. The array is the
+    ;; search's own.
     (define (distance-field (open (Array Bool)) (goals (List Cell))) (→ (Array I64))
-      (unsafe-total
-       (lambda ()
-         (let ((distance (make-array (* map-size map-size) -1)))
-           (for-each (lambda (goal) (array-set! distance (cell-index goal) 0)) goals)
-           (let loop ((frontier goals) (next (Nil)))
-             (match frontier
-               ((Nil) (if (null? next) distance (loop (reverse next) (Nil))))
-               ((Cons cell rest)
-                (let ((steps (+ (array-ref distance (cell-index cell)) 1)))
-                  (loop rest (fold-left (lambda (queued neighbor)
-                                          (let ((index (cell-index neighbor)))
-                                            (if (and (array-ref open index)
-                                                     (= (array-ref distance index) -1))
-                                                (begin
-                                                  (array-set! distance index steps)
-                                                  (Cons neighbor queued))
-                                                queued)))
-                                        next (neighbors cell)))))))))))
+      (let ((distance (make-array (* map-size map-size) -1)))
+        (for-each
+         (lambda (goal) (array-set! distance (cell-index goal) 0))
+         goals)
+        (let loop ((frontier goals) (next (Nil)))
+          (match frontier
+            ((Nil) (if (null? next) distance (loop (reverse next) (Nil))))
+            ((Cons cell rest)
+             (let ((steps (+ (array-ref distance (cell-index cell)) 1)))
+               (loop rest (fold-left (lambda (queued neighbor)
+                                       (let ((index
+                                              (cell-index neighbor)))
+                                         (if (and (array-ref open index)
+                                                  (= (array-ref distance
+                                                                index)
+                                                     -1))
+                                             (begin
+                                               (array-set!
+                                                distance
+                                                index
+                                                steps)
+                                               (Cons neighbor queued))
+                                             queued)))
+                                     next (neighbors cell)))))))))
 
     ))

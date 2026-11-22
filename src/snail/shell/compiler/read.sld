@@ -6,7 +6,7 @@
 ;; `generate-library` producer writes arrives as bytes instead, and is
 ;; decoded without passing through text. Every pass reads locations from
 ;; here, so the "Source failures" section also declares how any pass stops
-;; a compile: the `compile` effect.
+;; a compile: by suspending to its prompt, which nothing resumes.
 (define-library (snail shell compiler read)
   (export
    Loc
@@ -36,12 +36,10 @@
    diagnostics->string
    CompilerRequest
    GenerateInput
-   compile
-   fail
-   need
    Stop
    Failed
    Requested
+   stop
    compiling
    recovering
    failures-of
@@ -223,13 +221,13 @@
     (define (diagnostics->string (diagnostics Diagnostics)) (→ String)
       (string-join (map diagnostic->string (diagnostics->list diagnostics)) "\n"))
 
-    ;; Every pass reports a source error by performing the compile effect's
-    ;; `fail`. Nothing after the call runs: the nearest handler takes the
-    ;; diagnostic, and either hands it to its caller or goes on to the
-    ;; pass's next item (`recovering`).
+    ;; Every pass reports a source error by stopping the compile. Nothing
+    ;; after the call runs: the nearest `compiling` or `recovering` around
+    ;; it takes the diagnostic, and either hands it to its caller or goes
+    ;; on to the pass's next item.
 
-    (define (compile-error (loc Loc) (message String)) (→ A) (! compile) (∀ (A))
-      (absurd (fail (new Diagnostics
+    (define (compile-error (loc Loc) (message String)) (→ A) (∀ (A))
+      (stop (Failed (new Diagnostics
                       (first (new SourceDiagnostic (loc loc) (message message)))
                       (more (Nil))))))
 
@@ -238,48 +236,45 @@
     (enum CompilerRequest
       (GenerateInput ((key String))))
 
-    ;; A compile stops, short of its result, when the source is wrong or
-    ;; when it needs an input it was not supplied. Neither operation returns
-    ;; to the pass that performs it, so a yield to this effect saves no
-    ;; frames, and each entry point handles it with `compiling`, which
-    ;; turns the compile into a Result. `fail` carries the one diagnostic of
-    ;; `compile-error`, or every one a pass collected from its items before
-    ;; it stopped.
-    (effect compile
-      ((ctl fail (Fn Diagnostics → Never))
-       (ctl need (Fn CompilerRequest → Never))))
-
+    ;; Why a compile stops, short of its result: the source is wrong, or it
+    ;; needs an input it was not supplied. `Failed` carries the one
+    ;; diagnostic of `compile-error`, or every one a pass collected from
+    ;; its items before it stopped.
     (enum Stop
       (Failed ((diagnostics Diagnostics)))
       (Requested ((request CompilerRequest))))
 
-    (define (compiling (work (Fn → T ! compile e))) (→ (Result T Stop)) (! e) (∀ (T e))
-      (handle compile
-          ((fail (lambda (diagnostics) (Err (Failed diagnostics))))
-           (need (lambda (request) (Err (Requested request)))))
-        (Ok (work))))
+    ;; The compile's prompt. Nothing resumes a suspension to it, so stopping
+    ;; saves no frames: it only unwinds.
+    (define stopping (→ (Prompt Stop Never)) (make-prompt))
+
+    (define (stop (reason Stop)) (→ A) (∀ (A))
+      (absurd (suspend stopping reason)))
+
+    ;; A compile as a Result: each entry point's boundary.
+
+    (define (compiling (work (Fn → T))) (→ (Result T Stop)) (∀ (T))
+      (with-prompt stopping (lambda () (Ok (work))) (lambda (reason resume) (Err reason))))
 
     ;; `work`'s value, or what it found wrong, so a pass can check the
     ;; rest of its items and report each one's failure together. Needing
     ;; an input is no failure of the item: the request goes on to the
-    ;; compile's handler, since an implementation runs outside its handle.
+    ;; compile's boundary, since a handler runs outside its `with-prompt`.
 
-    (define (recovering (work (Fn → T ! compile e)))
-      (→ (Result T Diagnostics))
-      (! compile e)
-      (∀ (T e))
-      (handle compile
-          ((fail (lambda (diagnostics) (Err diagnostics)))
-           (need (lambda (request) (absurd (need request)))))
-        (Ok (work))))
+    (define (recovering (work (Fn → T))) (→ (Result T Diagnostics)) (∀ (T))
+      (with-prompt stopping
+                   (lambda () (Ok (work)))
+                   (lambda (reason resume)
+                     (match reason
+                       ((Failed diagnostics) (Err diagnostics))
+                       ((Requested _) (stop reason))))))
 
     ;; What `check` finds wrong in each item, checking every item past one
     ;; that fails, in the items' order.
 
-    (define (failures-of (check (Fn A → Unit ! compile e)) (items (List A)))
+    (define (failures-of (check (Fn A → Unit)) (items (List A)))
       (→ (List SourceDiagnostic))
-      (! compile e)
-      (∀ (A e))
+      (∀ (A))
       (concatenate (map (lambda (item)
                           (match (recovering (lambda () (check item)))
                             ((Ok _) (Nil))
@@ -288,10 +283,10 @@
 
     ;; Fails the compile with `found`, unless it is empty.
 
-    (define (fail-if-found (found (List SourceDiagnostic))) (→ Unit) (! compile)
+    (define (fail-if-found (found (List SourceDiagnostic))) (→ Unit)
       (match found
         ((Nil) (unit))
-        ((Cons first more) (absurd (fail (new Diagnostics (first first) (more more)))))))
+        ((Cons first more) (stop (Failed (new Diagnostics (first first) (more more)))))))
 
     ;; The diagnostics by file, then line, then column, the order a reader
     ;; meets them; ones at the same place keep their order.
@@ -489,7 +484,7 @@
 
     ;; Skips whitespace, comments, and the data that `#;` comments out.
 
-    (define (skip-atmosphere (source Source) (index I64)) (→ I64) (! compile)
+    (define (skip-atmosphere (source Source) (index I64)) (→ I64)
       (match (atmosphere-at source index)
         ((Some (Pair (BlockComment #f) end))
          (compile-error (source-loc source end) "unterminated block comment"))
@@ -500,7 +495,7 @@
 
     ;; The datum starting at `index`, and the index after it.
 
-    (define (read-datum (source Source) (index I64)) (→ (Pair Syntax I64)) (! compile)
+    (define (read-datum (source Source) (index I64)) (→ (Pair Syntax I64))
       (let ((start (skip-atmosphere source index)))
         (read-lexeme source start (lexeme-at source start))))
 
@@ -508,7 +503,6 @@
 
     (define (read-lexeme (source Source) (start I64) (lexeme (Pair Lexeme I64)))
       (→ (Pair Syntax I64))
-      (! compile)
       (let ((loc (source-loc source start)) (end (● lexeme second)))
         (match (● lexeme first)
           ((EndOfText) (compile-error loc "expected a datum before the end of the file"))
@@ -535,7 +529,6 @@
 
     (define (read-bytes (source Source) (index I64) (loc Loc) (chunks (List Bytes)))
       (→ (Pair Syntax I64))
-      (! compile)
       (let* ((chunk (read-byte-chunk source index loc))
              (bytes (● chunk first))
              (next (● chunk second)))
@@ -550,7 +543,7 @@
     ;; Up to `byte-chunk` bytes, and the index after them: past the closing
     ;; parenthesis when fewer remain.
 
-    (define (read-byte-chunk (source Source) (index I64) (loc Loc)) (→ (Pair Bytes I64)) (! compile)
+    (define (read-byte-chunk (source Source) (index I64) (loc Loc)) (→ (Pair Bytes I64))
       (let loop ((index index) (bytes (Nil)) (count 0))
         (let ((start (skip-atmosphere source index)))
           (cond
@@ -561,7 +554,7 @@
            (else (let ((end (token-end source start)))
                    (loop end (Cons (byte-token source start end) bytes) (+ count 1))))))))
 
-    (define (byte-token (source Source) (start I64) (end I64)) (→ U8) (! compile)
+    (define (byte-token (source Source) (start I64) (end I64)) (→ U8)
       (let loop ((index start) (value 0))
         (cond ((and (= index end) (< start end) (<= value 255)) (i32->u8 (i64->i32 value)))
               ((or (= index end)
@@ -572,14 +565,13 @@
                           (+ (* value 10)
                              (digit-value (array-ref (● source chars) index))))))))
 
-    (define (read-quote (source Source) (index I64) (loc Loc)) (→ (Pair Syntax I64)) (! compile)
+    (define (read-quote (source Source) (index I64) (loc Loc)) (→ (Pair Syntax I64))
       (let ((quoted (read-datum source index)))
         (new Pair (first (Form (list (Ident "quote" (None) loc) (● quoted first)) loc))
              (second (● quoted second)))))
 
     (define (read-list (source Source) (index I64) (close Char) (loc Loc) (items (List Syntax)))
       (→ (Pair Syntax I64))
-      (! compile)
       (let* ((start (skip-atmosphere source index)) (lexeme (lexeme-at source start)))
         (match (● lexeme first)
           ((EndOfText) (compile-error loc "unclosed list"))
@@ -596,7 +588,7 @@
     ;; quote at `close`. A backslash there always has a character after it,
     ;; which the string's lexeme skipped.
 
-    (define (string-value (source Source) (start I64) (close I64) (loc Loc)) (→ String) (! compile)
+    (define (string-value (source Source) (start I64) (close I64) (loc Loc)) (→ String)
       (let loop ((index start) (chars (Nil)))
         (cond ((= index close) (list->string (reverse chars)))
               ((char-is? source index #\\)
@@ -606,7 +598,6 @@
 
     (define (read-escape (source Source) (index I64) (close I64) (loc Loc))
       (→ (Pair Char I64))
-      (! compile)
       (let ((c (peek source index)))
         (cond ((char=? c #\n) (new Pair (first #\newline) (second (+ index 1))))
               ((char=? c #\t) (new Pair (first #\tab) (second (+ index 1))))
@@ -621,7 +612,6 @@
 
     (define (hex-escape (source Source) (index I64) (close I64) (loc Loc))
       (→ (Pair Char I64))
-      (! compile)
       (let ((end (scan-until source index close #\;)))
         (if (= end close)
             (compile-error loc "invalid hexadecimal escape")
@@ -632,7 +622,7 @@
           index
           (scan-until source (+ index 1) end stop)))
 
-    (define (hex-char (source Source) (start I64) (end I64) (loc Loc)) (→ Char) (! compile)
+    (define (hex-char (source Source) (start I64) (end I64) (loc Loc)) (→ Char)
       (let loop ((index start) (value 0))
         (cond ((and (= index end) (= start end)) (compile-error loc "invalid hexadecimal escape"))
               ((= index end) (integer->char value))
@@ -662,7 +652,7 @@
     ;; The character `#\` names from `start` to `end`: one character, `x` and
     ;; hexadecimal digits, or a name.
 
-    (define (character-value (source Source) (start I64) (end I64) (loc Loc)) (→ Char) (! compile)
+    (define (character-value (source Source) (start I64) (end I64) (loc Loc)) (→ Char)
       (let ((name (source-text source start end)))
         (cond ((= (string-length name) 0) (compile-error loc "expected a character after #\\"))
               ((= (string-length name) 1) (string-ref name 0))
@@ -690,7 +680,7 @@
              (InvalidToken (string-append "unsupported syntax " text)))
             (else (number-kind text))))
 
-    (define (token-syntax (text String) (loc Loc)) (→ Syntax) (! compile)
+    (define (token-syntax (text String) (loc Loc)) (→ Syntax)
       (match (token-kind text)
         ((BooleanToken value) (Atom (DBool value) loc))
         ((IntegerToken) (Atom (integer-datum text loc) loc))
@@ -715,7 +705,7 @@
 
     ;; An integer must fit in 64 bits.
 
-    (define (integer-datum (text String) (loc Loc)) (→ Datum) (! compile)
+    (define (integer-datum (text String) (loc Loc)) (→ Datum)
       (match (string->i64 text)
         ((Some value) (DInt value))
         ((None) (compile-error loc (string-append "the literal " text " does not fit I64")))))
@@ -754,14 +744,13 @@
 
     (define (read-all (source Source) (index I64) (items (List Syntax)))
       (→ (List Syntax))
-      (! compile)
       (let ((start (skip-atmosphere source index)))
         (if (at-end? source start)
             (reverse items)
             (let ((item (read-datum source start)))
               (read-all source (● item second) (Cons (● item first) items))))))
 
-    (define (read-text (text String) (file String)) (→ (List Syntax)) (! compile)
+    (define (read-text (text String) (file String)) (→ (List Syntax))
       (read-all (make-source file text) 0 (Nil)))
 
     ;; ---- Generated syntax ----
@@ -771,13 +760,13 @@
     ;; from the bytes as they are, and a number must read as it would in
     ;; text.
 
-    (define (decode-syntax (bytes Bytes) (loc Loc)) (→ Syntax) (! compile)
+    (define (decode-syntax (bytes Bytes) (loc Loc)) (→ Syntax)
       (let ((decoded (decode-form bytes 0 loc)))
         (if (= (● decoded second) (array-length bytes))
             (● decoded first)
             (malformed loc "bytes follow the library"))))
 
-    (define (decode-form (bytes Bytes) (index I64) (loc Loc)) (→ (Pair Syntax I64)) (! compile)
+    (define (decode-form (bytes Bytes) (index I64) (loc Loc)) (→ (Pair Syntax I64))
       (let ((tag (byte-at bytes index loc)) (next (+ index 1)))
         (case tag
           ((0) (decode-list bytes next loc))
@@ -794,7 +783,7 @@
           ((7) (decode-bytes bytes next loc))
           (else (malformed loc "an unknown tag")))))
 
-    (define (decode-list (bytes Bytes) (index I64) (loc Loc)) (→ (Pair Syntax I64)) (! compile)
+    (define (decode-list (bytes Bytes) (index I64) (loc Loc)) (→ (Pair Syntax I64))
       (let ((count (decode-count bytes index loc)))
         (let loop ((left (● count first)) (index (● count second)) (items (Nil)))
           (if (= left 0)
@@ -804,7 +793,7 @@
 
     ;; A text and the index after it.
 
-    (define (decode-text (bytes Bytes) (index I64) (loc Loc)) (→ (Pair String I64)) (! compile)
+    (define (decode-text (bytes Bytes) (index I64) (loc Loc)) (→ (Pair String I64))
       (let ((count (decode-count bytes index loc)))
         (let loop ((left (● count first)) (index (● count second)) (chars (Nil)))
           (if (= left 0)
@@ -816,13 +805,13 @@
 
     ;; A symbol, a number or a string, as tags 1, 2 and 3 mark them.
 
-    (define (text-syntax (tag I64) (text String) (loc Loc)) (→ Syntax) (! compile)
+    (define (text-syntax (tag I64) (text String) (loc Loc)) (→ Syntax)
       (case tag
         ((1) (Ident text (None) loc))
         ((2) (Atom (generated-number text loc) loc))
         (else (Atom (DString text) loc))))
 
-    (define (decode-bytes (bytes Bytes) (index I64) (loc Loc)) (→ (Pair Syntax I64)) (! compile)
+    (define (decode-bytes (bytes Bytes) (index I64) (loc Loc)) (→ (Pair Syntax I64))
       (let* ((count (decode-count bytes index loc))
              (start (● count second))
              (end (+ start (● count first))))
@@ -833,30 +822,30 @@
     ;; Seven bits to a byte, low bits first. Five bytes bound a count well
     ;; inside I64 on every host.
 
-    (define (decode-count (bytes Bytes) (index I64) (loc Loc)) (→ (Pair I64 I64)) (! compile)
+    (define (decode-count (bytes Bytes) (index I64) (loc Loc)) (→ (Pair I64 I64))
       (let loop ((index index) (value 0) (scale 1))
         (let ((byte (byte-at bytes index loc)))
           (cond ((< byte 128) (new Pair (first (+ value (* byte scale))) (second (+ index 1))))
                 ((= scale 268435456) (malformed loc "a count is too large"))
                 (else (loop (+ index 1) (+ value (* (- byte 128) scale)) (* scale 128)))))))
 
-    (define (byte-at (bytes Bytes) (index I64) (loc Loc)) (→ I64) (! compile)
+    (define (byte-at (bytes Bytes) (index I64) (loc Loc)) (→ I64)
       (if (< index (array-length bytes))
           (i32->i64 (u8->i32 (array-ref bytes index)))
           (malformed loc "it ends early")))
 
-    (define (scalar (code I64) (loc Loc)) (→ Char) (! compile)
+    (define (scalar (code I64) (loc Loc)) (→ Char)
       (if (or (< code 55296) (and (> code 57343) (< code 1114112)))
           (integer->char code)
           (malformed loc "a code is not a Unicode scalar")))
 
-    (define (generated-number (text String) (loc Loc)) (→ Datum) (! compile)
+    (define (generated-number (text String) (loc Loc)) (→ Datum)
       (match (if (= (string-length text) 0) (NameToken) (number-kind text))
         ((IntegerToken) (integer-datum text loc))
         ((FloatToken) (DFloat text))
         (_ (malformed loc (string-append "the number " text " does not read as one")))))
 
-    (define (malformed (loc Loc) (problem String)) (→ A) (! compile) (∀ (A))
+    (define (malformed (loc Loc) (problem String)) (→ A) (∀ (A))
       (compile-error loc (string-append "malformed generated syntax: " problem)))
 
     )
@@ -932,7 +921,7 @@
                 (test-recovering)))
 
       ;; A failure inside `recovering` is its answer, so the work around
-      ;; it goes on; a need passes through it to the compile's handler.
+      ;; it goes on; a request passes through it to the compile's boundary.
       (define test-recovering
         (lambda () (expect (compiling (lambda () (recovering (lambda () (read-text ")" "t.sld")))))
                            (Ok (Err (new Diagnostics
@@ -941,7 +930,8 @@
                                                (message "unexpected closing parenthesis")))
                                       (more (Nil))))))
                 (expect (compiling
-                         (lambda () (recovering (lambda () (absurd (need (GenerateInput "k")))))))
+                         (lambda ()
+                           (recovering (lambda () (stop (Requested (GenerateInput "k")))))))
                         (Err (Requested (GenerateInput "k"))))))
 
       ;; (f "λ" -7 1.5 #\a #t #u8(0 200)), with a two-byte count for λ.

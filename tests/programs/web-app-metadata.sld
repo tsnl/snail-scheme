@@ -3,38 +3,38 @@
  (snail core io)
  (snail shell project web-app))
 
-(define (check (name String) (actual String) (expected String)) (→ Unit) (! output-port)
+(define (check (out OutputPort) (name String) (actual String) (expected String)) (→ Unit)
   (unless (string=? actual expected) (panic (string-append name ": " actual)))
-  (write-line name))
+  (write-line out name))
 
-(define (main) (→ Unit) (! output-port)
-  (check "implicit head"
+(define (main (out OutputPort)) (→ Unit)
+  (check out "implicit head"
          (with-web-app "<!doctype html><title>App</title>" "app.manifest.datum")
          "<!doctype html><head><link id=\"snail-web-app\" rel=\"manifest\" href=\"./manifest.webmanifest\"><meta name=\"snail-modules\" content=\"./app.manifest.datum\"><title>App</title>")
-  (check "existing head and attributes"
+  (check out "existing head and attributes"
          (with-web-app
           "<!DOCTYPE html><html lang=\"en\"><HEAD data-x=\">\"><title>App</title></HEAD></html>"
           "app.manifest.datum")
          "<!DOCTYPE html><html lang=\"en\"><HEAD data-x=\">\"><link id=\"snail-web-app\" rel=\"manifest\" href=\"./manifest.webmanifest\"><meta name=\"snail-modules\" content=\"./app.manifest.datum\"><title>App</title></HEAD></html>")
-  (check "quoted doctype and comments"
+  (check out "quoted doctype and comments"
          (insert-metadata
           "<!-- before --><!DOCTYPE html SYSTEM \"a>b\">\n<!-- after --><head></head>"
           (list (WebManifest "./manifest.webmanifest")))
          "<!-- before --><!DOCTYPE html SYSTEM \"a>b\">\n<!-- after --><head><link id=\"snail-web-app\" rel=\"manifest\" href=\"./manifest.webmanifest\"></head>")
-  (check "metadata is escaped attribute data"
+  (check out "metadata is escaped attribute data"
          (insert-metadata "<head data-kept=\"yes\"><base href=\"original\"></head>"
                           (list (ModuleMap "\"😀 </script> & other\"")))
          "<head data-kept=\"yes\"><meta name=\"snail-modules\" content=\"&quot;😀 &lt;/script> &amp; other&quot;\"><base href=\"original\"></head>")
   (let ((bom (make-string 1 (i32->char 65279))))
-    (check "BOM retained"
+    (check out "BOM retained"
            (insert-metadata (string-append bom "\n<!doctype html><body>body</body>")
                             (list (ModuleMap "/")))
            (string-append bom
                           "\n<!doctype html><head><meta name=\"snail-modules\" content=\"/\"><body>body</body>")))
-  (check "carriage returns survive HTML parsing"
+  (check out "carriage returns survive HTML parsing"
          (insert-metadata "<head></head>" (list (ModuleMap (make-string 1 #\return))))
          "<head><meta name=\"snail-modules\" content=\"&#13;\"></head>")
-  (check "implicit head contents stay in the head"
+  (check out "implicit head contents stay in the head"
          (insert-metadata
           "<!doctype html><noscript><meta name=\"x\" content=\"a\"></noscript><title>Test</title>"
           (list (ModuleMap "/")))

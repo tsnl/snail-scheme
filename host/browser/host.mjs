@@ -1,7 +1,7 @@
 // The browser host for a `snail-scheme` application built with (snail shell app). It owns no
 // game rules: DOM listeners queue events; the loop runs as a `snail-scheme` task,
-// draws on the canvas through the `gpu` effect, shows its HUD in the overlay
-// through the `dom` effect, reads files through the `fetch` effect, takes the files its user
+// draws on the canvas through the `Gpu` capability, shows its HUD in the overlay
+// through the `Dom` capability, reads files through the `Fetch` capability, takes the files its user
 // drops or picks through `files`, and
 // waits on storage by ticket.
 

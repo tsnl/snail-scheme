@@ -15,8 +15,8 @@ A script, a single source file, is built and run with an explicit target,
 ([scripts](scripts.md)): `./snail-scheme run --target node FILE [ARGUMENT ...]`
 builds it into `build/PATH`, PATH being its path in its workspace without
 the extension, and runs it, and `./snail-scheme wat --target TARGET FILE` prints its whole
-program's text. Its statements, in order, are its entry, whose effects are
-inferred. A program links with the toolchain runtime, whose services
+program's text. Its `main` is its entry, whose parameters are the
+capabilities it asks its target for. A program links with the toolchain runtime, whose services
 include the assembler, exactly when it links `(snail shell assembler)`.
 `wat` runs no producer, so a script that reaches a `generate-library`
 recipe must be built instead.
@@ -270,8 +270,8 @@ state remains [proposed work](applications.md#proposed-application-processes).
 Production `serve` and package installation still need their own contracts;
 neither is a current public command.
 
-The concrete [socket effects](../runtimes/networking.md) provide TCP streams and
-UDP datagrams to native CLI programs and replacement handlers for tests. Their
+The concrete [socket capabilities](../runtimes/networking.md) provide TCP streams and
+UDP datagrams to native CLI programs, and a test makes its own. Their
 native owners define bounded buffering, cancellation and close behavior. UDP
 keeps message boundaries without guaranteeing delivery or order.
 

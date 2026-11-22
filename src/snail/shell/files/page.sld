@@ -1,25 +1,25 @@
-;; The page's file pickers and drops for the `files` effect:
-;; `with-page-files` binds each operation to the browser host
+;; The page's file pickers and drops as a `FilePicker`:
+;; `page-file-picker` binds each operation to the browser host
 ;; (host/browser/files.mjs).
 (define-library (snail shell files page)
   (export
-   with-page-files)
+   page-file-picker)
   (import
    (snail core base)
+   (only (snail core io) Host)
    (prefix (snail runtime browser files) host-)
    (snail shell files))
   (begin
 
     ;; ---- Handling ----
 
-    (define (with-page-files (work (Fn → T ! files e))) (→ T) (! e) (∀ (T e))
-      (handle files
-          ((open-picker (lambda (choice)
-                          (host-open-picker (match choice
-                                              ((SomeFiles) 0)
-                                              ((Folder) 1)))))
-           (chosen-files page-chosen))
-        (work)))
+    (define (page-file-picker (host Host)) (→ FilePicker)
+      (new FilePicker
+        (open-picker (lambda (choice)
+                       (host-open-picker (match choice
+                                           ((SomeFiles) 0)
+                                           ((Folder) 1)))))
+        (chosen-files page-chosen)))
 
     ;; The listing is each file's path and address, a NUL after each,
     ;; read as fields from the last back to the first.

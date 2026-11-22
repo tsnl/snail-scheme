@@ -7,7 +7,6 @@
  (snail core io)
  (snail shell gpu)
  (snail shell gpu record)
- (only (snail shell task) tasks)
  (snail shell graphics pod)
  (snail shell graphics atlas)
  (snail shell graphics quad))
@@ -131,28 +130,34 @@
      (Cons (substring text 0 at) (words-of (substring text (+ at 1) (string-length text)))))
     ((None) (list text))))
 
-(define (compose (atlas Atlas) (pictures (List Picture))) (→ Atlas) (! gpu tasks)
-  (let* ((encoder (create-command-encoder)) (next (atlas-pictures atlas encoder pictures)))
-    (submit (list (finish encoder)))
+(define (compose (gpu Gpu) (atlas Atlas) (pictures (List Picture))) (→ Atlas)
+  (let* ((encoder (create-command-encoder gpu)) (next (atlas-pictures gpu atlas encoder pictures)))
+    (submit gpu (list (finish gpu encoder)))
     next))
 
 ;; Composed a call at a time, `calls` times.
-(define (settled (atlas Atlas) (pictures (List Picture)) (calls I64)) (→ Atlas) (! gpu tasks)
-  (if (= calls 0) atlas (settled (compose atlas pictures) pictures (- calls 1))))
+(define (settled (gpu Gpu) (atlas Atlas) (pictures (List Picture)) (calls I64))
+  (→ Atlas)
+  (if (= calls 0) atlas (settled gpu (compose gpu atlas pictures) pictures (- calls 1))))
 
-(define (frames) (→ (List Atlas)) (! gpu tasks)
-  (request-device)
-  (let* ((first (settled (make-atlas "test" 64 2)
+(define (frames (gpu Gpu)) (→ (List Atlas))
+  (request-device gpu)
+  (let* ((first (settled gpu (make-atlas gpu "test" 64 2)
                          (list (picture 1 1 30 20) (picture 2 1 30 20) (picture 3 1 30 40))
                          3))
-         (again (compose first (list (picture 1 1 30 20) (picture 2 1 30 20))))
-         (fourth (compose again (list (picture 4 1 60 60))))
-         (full (compose fourth (list (picture 4 1 60 60) (picture 5 1 60 60)))))
+         (again (compose gpu first (list (picture 1 1 30 20) (picture 2 1 30 20))))
+         (fourth (compose gpu again (list (picture 4 1 60 60))))
+         (full (compose gpu fourth (list (picture 4 1 60 60) (picture 5 1 60 60)))))
     (list first again fourth full)))
 
-(let ((recorded (with-recorded-gpu frames)))
-  (for-each (lambda (atlas) (write-line (slots atlas (list 1 2 3 4 5)))) (● recorded first))
-  (for-each write-line (heads (● recorded second))))
+(define (main (out OutputPort)) (→ Unit)
+  (let ((recorded (with-recorded-gpu (lambda (gpu) (frames gpu)))))
+    (for-each (lambda (atlas) (write-line out (slots atlas (list 1 2 3 4 5)))) (● recorded first))
+    (for-each (lambda (text) (write-line out text)) (heads (● recorded second))))
+  (write-line out "quads:")
+  (for-each (lambda (text) (write-line out text))
+            (heads (● (with-recorded-gpu (lambda (gpu) (quad-frames gpu))) second)))
+  (unit))
 
 (define (quad (index I64)) (→ Quad)
   (new Quad
@@ -164,36 +169,36 @@
     (color (new Vec4f (x 1.0) (y 1.0) (z 1.0) (w 1.0)))))
 
 ;; A frame's run of quads, over a cleared canvas.
-(define (quad-frame (quads Quads) (count I64)) (→ Quads) (! gpu)
-  (let* ((encoder (create-command-encoder))
-         (pass (begin-render-pass encoder
+(define (quad-frame (gpu Gpu) (quads Quads) (count I64)) (→ Quads)
+  (let* ((encoder (create-command-encoder gpu))
+         (pass (begin-render-pass gpu encoder
                                   (new RenderPassDescriptor
                                     (colors (list (Some (new ColorAttachment
                                                           (view
-                                                           (view-of (● (current-texture) texture)
+                                                           (view-of gpu
+                                                                    (● (current-texture gpu)
+                                                                       texture)
                                                                     1))
                                                           (load (Keep))
                                                           (store #t)))))
                                     (depth (None)))))
-         (quads (draw-quads pass
+         (quads (draw-quads gpu pass
                             quads
                             (new View2D
                               (center (new Vec2f (x 0.0) (y 0.0)))
                               (extent (new Vec2f (x 10.0) (y 10.0)))
                               (pixels (new Vec2f (x 100.0) (y 100.0))))
                             (map quad (iota count)))))
-    (end-pass pass)
-    (submit (list (finish encoder)))
+    (end-pass gpu pass)
+    (submit gpu (list (finish gpu encoder)))
     quads))
 
 ;; A run of three, then runs of a hundred and of two hundred, which grow
 ;; the instances: the outgrown buffer goes at its frame's submit.
-(define (quad-frames) (→ Unit) (! gpu tasks)
-  (request-device)
-  (fold-left quad-frame
-             (make-quads "test" (Bgra8Unorm) (● (make-atlas "test" 64 2) texture))
+(define (quad-frames (gpu Gpu)) (→ Unit)
+  (request-device gpu)
+  (fold-left (lambda (quads count) (quad-frame gpu quads count))
+             (make-quads gpu "test" (Bgra8Unorm) (● (make-atlas gpu "test" 64 2) texture))
              (list 3 100 200))
   (unit))
 
-(write-line "quads:")
-(for-each write-line (heads (● (with-recorded-gpu quad-frames) second)))

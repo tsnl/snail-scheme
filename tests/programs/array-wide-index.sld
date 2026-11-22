@@ -2,6 +2,6 @@
  (snail core base)
  (snail core io))
 
-(define (main) (→ Unit) (! output-port)
-  (write-line "before")
-  (write (array-ref (make-array 1 1) 4294967296)))
+(define (main (out OutputPort)) (→ Unit)
+  (write-line out "before")
+  (write out (array-ref (make-array 1 1) 4294967296)))

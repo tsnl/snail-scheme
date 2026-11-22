@@ -57,7 +57,12 @@ SQL database and a browser may use IndexedDB behind the same record operations;
 this is one storage contract with platform bindings, not a provider/plugin API.
 SQL indexes and richer typed queries are separate additions.
 
-Illustrative generated operations use existing effect syntax:
+Illustrative generated operations are written as effects, as the language
+had them when this was proposed. Effect declarations have since gone
+([#877](https://github.com/tsnl/snail-scheme/issues/877)): read each
+`effect` below as a capability, a record of these operations that code is
+handed ([capabilities](capabilities.md#capabilities)), and each handler as the
+value that implements it.
 
 ```scheme
 (effect NotesRead

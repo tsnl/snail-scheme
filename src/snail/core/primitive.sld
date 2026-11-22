@@ -6,14 +6,14 @@
 ;; (snail core base) does. The library has no module of its own, since
 ;; nothing it declares has a body.
 ;;
-;; A generic type quantifies its variables in the order they first occur,
-;; A for a type and e for the rest of a row. `mut` marks operations on
-;; mutable storage; everything else is total, though some can trap.
+;; A generic type quantifies its variables in the order they first occur.
+;; `array-set!` and `array-copy!` write; no other operation changes
+;; anything, though some can trap.
 (define-library (snail core primitive)
   (export
-   unit panic unsafe-total unsafe-cast
+   unit panic unsafe-cast
    cache lru-cache
-   inherit-handlers
+   make-prompt with-prompt suspend
    i32-add i32-sub i32-mul i32-quotient i32-remainder i32-and i32-or i32-xor
    i32-shift-left i32-shift-right i32-shift-right/logical i32-eq i32-lt i32-le i32-gt i32-ge
    i64-add i64-sub i64-mul i64-quotient i64-remainder i64-and i64-or i64-xor
@@ -53,15 +53,12 @@
 
     ;; ---- Control ----
 
-    ;; `unsafe-total` calls a thunk and discards its effects, unchecked: the
-    ;; standard library uses it where the checker cannot confirm that
-    ;; mutation stays in storage the function allocates. `unsafe-cast` makes
+    ;; `unsafe-cast` makes
     ;; a function of whatever type is expected from a Funcref, a function
     ;; another module exports (`(snail shell wasm)`), checking only its Wasm
     ;; type. It constructs a closure that calls the exported code.
     (primitive unit (Fn → Unit))
     (primitive panic (∀ (A) (Fn String → A)))
-    (primitive unsafe-total (∀ (A e) (Fn (Fn → A ! e) → A)))
     (primitive unsafe-cast (∀ (A) (Fn Funcref → A)))
 
     ;; ---- Memoized functions ----
@@ -69,30 +66,43 @@
     ;; A top-level value is its thunk's result, which its module keeps: the
     ;; expander wraps the initializer of `(define name value)` in this, and
     ;; a read of `name` calls it. No program names it, so it is not
-    ;; exported. The thunk's type has no row, so an initializer may perform
-    ;; nothing.
+    ;; exported. The thunk takes nothing, so an initializer holds no
+    ;; capability.
     (primitive cached-thunk (∀ (A) (Fn (Fn → A) → (Fn → A))))
 
-    ;; F stands for an entire function signature of any arity, effect row
-    ;; included: the wrapper performs what its function does, on a miss.
-    ;; Preparation checks that the keys can be compared and that the
-    ;; callback cannot suspend.
+    ;; F stands for an entire function signature of any arity: the wrapper
+    ;; does what its function does, on a miss. Preparation checks that the
+    ;; keys can be compared.
     (primitive cache (∀ (F) (Fn F → F)))
     (primitive lru-cache (∀ (F) (Fn I64 F → F)))
 
-    ;; ---- Inherited handlers ----
+    ;; ---- Prompts ----
 
-    ;; `inherit-handlers` closes a thunk over the handlers in scope where it
-    ;; is called: the function it makes runs the thunk under those handlers,
-    ;; wherever it is called. The caller is charged the thunk's row, as
-    ;; dispatching is. The handlers answer the effects
-    ;; the row declares; what remains, `mut` and the effects the host
-    ;; implements, happens when the function runs, so it performs `host`,
-    ;; which only code that may run anything the host implements, such as a
-    ;; scheduler, can perform. The thunk may not yield to a control effect,
-    ;; since the handles it would yield to may have returned by then.
-    (primitive inherit-handlers
-               (∀ (A e) (Fn (Fn → A ! e) → (Fn → A ! host) ! e)))
+    ;; The one way a computation stops short of its result. `(suspend
+    ;; prompt value)` stops the body of the nearest `with-prompt` of that
+    ;; prompt around it, and hands `value` to that call's handler, with
+    ;; `resume`, the rest of the body: `(resume answer)` goes on from the
+    ;; suspension, whose value is `answer`, to the body's end, and answers
+    ;; the body's value. The handler's value is the value of the
+    ;; `with-prompt`, as the body's is when nothing suspends.
+    ;;
+    ;; - The handler runs outside its `with-prompt`: a suspension it makes
+    ;;   goes to the next one out.
+    ;; - `resume` is an ordinary function, which may be kept and called
+    ;;   later, once: a second call panics. Resumed, the body is under the
+    ;;   same `with-prompt` again, so its next suspension reaches the same
+    ;;   handler.
+    ;; - A prompt whose answer is `Never` is never resumed, so suspending to
+    ;;   it is an exception, and costs what unwinding costs.
+    ;; - Suspending to a prompt with no `with-prompt` around it panics.
+    ;;
+    ;; A prompt is a value like any other: one made at the top level is
+    ;; every caller's, and one made in a function is its own.
+    (primitive make-prompt (∀ (S R) (Fn → (Prompt S R))))
+    (primitive with-prompt
+               (∀ (S R A)
+                  (Fn (Prompt S R) (Fn → A) (Fn S (Fn R → A) → A) → A)))
+    (primitive suspend (∀ (S R) (Fn (Prompt S R) S → R)))
 
     ;; ---- Integers ----
 
@@ -202,7 +212,7 @@
     (primitive string=? (Fn String String → Bool))
     (primitive string-compare (Fn String String → I32))
     (primitive make-string (Fn I64 Char → String))
-    (primitive string-generate (∀ (e) (Fn I64 (Fn I64 → Char ! e) → String ! e)))
+    (primitive string-generate (Fn I64 (Fn I64 → Char) → String))
     (primitive string->array (Fn String → (Array Char)))
     (primitive array->string (Fn (Array Char) → String))
 
@@ -223,9 +233,9 @@
     (primitive subarray (∀ (A) (Fn (Array A) I64 I64 → (Array A))))
     (primitive make-array (∀ (A) (Fn I64 A → (Array A))))
     (primitive array-set (∀ (A) (Fn (Array A) I64 A → (Array A))))
-    (primitive array-generate (∀ (A e) (Fn I64 (Fn I64 → A ! e) → (Array A) ! e)))
+    (primitive array-generate (∀ (A) (Fn I64 (Fn I64 → A) → (Array A))))
 
-    (primitive array-set! (∀ (A) (Fn (Array A) I64 A → Unit ! mut)))
+    (primitive array-set! (∀ (A) (Fn (Array A) I64 A → Unit)))
     (primitive array-copy (∀ (A) (Fn (Array A) → (Array A))))
-    (primitive array-copy! (∀ (A) (Fn (Array A) I64 (Array A) I64 I64 → Unit ! mut)))))
+    (primitive array-copy! (∀ (A) (Fn (Array A) I64 (Array A) I64 I64 → Unit)))))
 

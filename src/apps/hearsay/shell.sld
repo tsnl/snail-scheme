@@ -14,9 +14,8 @@
   (import
    (snail core base)
    (snail shell wire)
-   (only (snail core io) clock monotonic-nanoseconds)
-   (only (snail shell task) tasks)
-   (only (snail shell gpu) gpu)
+   (only (snail core io) Clock monotonic-nanoseconds)
+   (only (snail shell gpu) Gpu)
    (snail shell app)
    (snail shell graphics pod)
    (only (snail shell graphics atlas) Source Picture)
@@ -126,19 +125,22 @@
     ;; main.scm passes the embedded ones, and tests may pass none. Only
     ;; the rumor mill has a scene; the ledger's pictures are its rivals'
     ;; portraits.
-    (define (draw-shell (shell Shell) (drawing Drawing) (art (Fn String → (Option Source))))
+    (define (draw-shell (gpu Gpu)
+                        (clock Clock)
+                        (shell Shell)
+                        (drawing Drawing)
+                        (art (Fn String → (Option Source))))
       (→ Drawing)
-      (! gpu clock tasks)
-      (let ((time (quotient (monotonic-nanoseconds) 1000000)))
+      (let ((time (quotient (monotonic-nanoseconds clock) 1000000)))
         (match (● shell screen)
           ((Rumors screen)
-           (draw-quads-frame drawing
+           (draw-quads-frame gpu drawing
                              (shell-pictures shell art)
                              backdrop
                              (mill-view screen)
                              (lambda (atlas) (mill-quads screen atlas time))))
           (_
-           (draw-quads-frame drawing
+           (draw-quads-frame gpu drawing
                              (shell-pictures shell art)
                              backdrop
                              (still-view shell)

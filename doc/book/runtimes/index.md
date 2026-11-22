@@ -1,9 +1,9 @@
 # Runtimes
 
-`snail-scheme`'s shipping target is WebAssembly GC. Tasks are an effect,
-scheduled in `snail-scheme`; a host drives the scheduler and completes the
-operations tasks wait on. A runtime supplies platform effects and owns
-the computations that use them. Each
+`snail-scheme`'s shipping target is WebAssembly GC. Tasks are suspended
+computations, scheduled in `snail-scheme`; a host drives the scheduler and
+completes the operations tasks wait on. A runtime supplies the platform's
+capabilities and owns the computations that use them. Each
 instance of a program is single-threaded; parallel work runs as several
 instances, which will talk through queues and shared memory
 ([instances](instances.md), proposed).
@@ -14,21 +14,21 @@ The [toolchain terms](../snail-scheme/terms.md#toolchain-terms) keep these bound
 distinct in the project and development design.
 
 The [task contract](contract.md) specifies the replacement for
-the actor API. It separates scheduling, handler installations and the
+the actor API. It separates scheduling, capabilities and the
 values tasks hold. The actor request/reply API has been removed. [Task operations](tasks.md)
 run in the CLI and GUI. [Applications](../snail-scheme/applications.md) describes
 pages' saves on that runtime.
 [Values](../snail-scheme/values.md) describes sharing, mutation and resources.
-The [socket effects](networking.md) bind typed, interceptable TCP and UDP operations
-to native Node resources, with cancellation and shutdown owned by the runtime, and the
-[process effect](networking.md#child-processes) binds child processes the same way.
+The [socket capabilities](networking.md) bind typed, replaceable TCP and UDP operations
+to native Node resources, with cancellation and shutdown owned by the runtime, and
+[`Processes`](networking.md#child-processes) binds child processes the same way.
 
 ## Execution and waiting
 
 Every call into Wasm runs until it returns: no import suspends a Wasm
-stack. A task waits by returning. Its control operation unwinds through
-each frame to the task's handler, which hands the rest of the task back
-to the scheduler, and the host's call returns. The host then runs its own
+stack. A task waits by returning. Its suspension unwinds through
+each frame to the task's `with-prompt`, whose handler hands the rest of the
+task back to the scheduler, and the host's call returns. The host then runs its own
 event loop, and calls in again for the next turn
 ([driving the scheduler](scheduling.md)). A host operation that completes
 later starts on one call and finishes on another, under a ticket its
@@ -38,7 +38,7 @@ process-lifetime token.
 
 An event loop, an I/O readiness service and a scheduler serve different
 purposes. Linux `epoll` reports which descriptors can make progress; it
-does not schedule language closures or preserve effect bindings. Our host
+does not schedule language closures. Our host
 uses JavaScript platform APIs for Node and browser I/O notifications, and
 Linux `io_uring` for [native asynchronous file reads](tasks.md#native-asynchronous-file-reads).
 `snail-scheme`'s scheduler owns tasks on both hosts. It does not need its own `epoll` wrapper. See the

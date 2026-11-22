@@ -39,7 +39,7 @@
 (define (empty) (→ I32)
   (note-bytes 0 #u8()))
 
-(define (updated) (→ I32) (! mut)
+(define (updated) (→ I32)
   (let ((bytes #u8(1 0)))
     (array-set! bytes 1 (ann 2 U8))
     (note-bytes 9 bytes)))
@@ -80,13 +80,13 @@
 (expose result-bytes "result-bytes")
 (expose inspect-bytes "inspect-bytes")
 
-;; A concrete inferred entry closes its effect row without a handwritten
-;; export signature. Application scaffolding relies on the same ordinary rule.
+;; A concrete inferred entry needs no handwritten export signature.
+;; Application scaffolding relies on the same ordinary rule.
 (define inferred-entry
   (lambda (checkpoint value)
     (set! (● checkpoint value) (Any (ann value I64)))
     (state checkpoint)))
 (expose inferred-entry "inferred")
 
-;; A library's function, run under the target's handlers.
+;; A library's function, handed the target's clock.
 (expose later "later")

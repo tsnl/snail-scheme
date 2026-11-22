@@ -68,9 +68,9 @@ try {
     (begin (define (hero) (→ Resource) (link-file "art/hero.bin")) (define (villain) (→ Resource) (link-file "art/villain.bin"))))`);
   await write('src/assets/art/hero.bin', hero);
   await write('src/assets/art/villain.bin', villain);
-  await write('main.scm', `(import (snail core base) (snail core io) (only (snail shell task) tasks) (snail shell resource) (assets sprites))
-(define (main) (→ Unit) (! output-port resource tasks)
-  (write-line (string-join (map (lambda (byte) (show (u8->i32 byte))) (array->list (read-resource (hero)))) ",")))\n`);
+  await write('main.scm', `(import (snail core base) (snail core io) (snail shell resource) (assets sprites))
+(define (main (out OutputPort) (resources Resources)) (→ Unit)
+  (write-line out (string-join (map (lambda (byte) (show (u8->i32 byte))) (array->list (read-resource resources (hero)))) ",")))\n`);
   await write('public/index.html', '<!doctype html><title>Resources</title>');
 
   await build('cli');

@@ -1,24 +1,24 @@
 # WebGPU and graphics libraries
 
-Applications draw through two layers written in `snail-scheme`: a `gpu`
-effect that is a thin wrapper around WebGPU, and `(snail shell graphics
+Applications draw through two layers written in `snail-scheme`: a `Gpu`
+capability that is a thin wrapper around WebGPU, and `(snail shell graphics
 ...)` libraries of pipelines and packers on top of it. They replaced a
 fixed JavaScript renderer, `host/browser/renderer.mjs`, and its picture
-store. The effect, `pod`, `wgsl`, `atlas`, `quad`, `mesh`, `raster`,
+store. The capability, `pod`, `wgsl`, `atlas`, `quad`, `mesh`, `raster`,
 `passes`, `scan`, `radix-sort`, `splat`, `splat-train`, `splat-fit`,
 `splat-view`, `colmap` and `ply` are **implemented**; the
 rest is **proposed**. Delivery is tracked
 in [the graphics issue](https://github.com/tsnl/snail-scheme/issues/463).
 
 Device requests, decoding, pipeline creation and readbacks need only ordinary
-handlers and the runtime's waits. Those waits are an ordinary effect,
+functions and the runtime's waits. Those waits are suspensions,
 scheduled in `snail-scheme` ([task operations](../runtimes/tasks.md)), so nothing
 here depends on an engine extension.
 
-## WebGPU through an effect
+## WebGPU through a capability
 
-The `gpu` effect of `(snail shell gpu)` mirrors WebGPU's own operations and
-descriptors, so code using it reads like WebGPU:
+The `Gpu` of `(snail shell gpu)` mirrors WebGPU's own operations and
+descriptors, each taking the `Gpu` first, so code using it reads like WebGPU:
 
 ```scheme
 (let* ((encoder (create-command-encoder))
@@ -48,12 +48,13 @@ answers the time between two. `request-device`, `read-buffer` and
 waits until the device has done what was submitted, so a loop whose
 frames cost the device more than a display frame does not queue them
 without bound. The calls are procedural;
-effects keep them reasonable. A `! gpu` row says exactly which functions
-touch the device, and handlers customize what the calls do without
-changing their callers. `provide-gpu`, in `(snail shell gpu)` itself, runs them
-on the host's device through `host/browser/gpu.mjs`: the browser target
-installs it around a page's main, and a program on Node installs it
-itself, around the work that uses Dawn ([WebGPU on Node](#webgpu-on-node)).
+the capability keeps them reasonable. A `Gpu` parameter says exactly which
+functions touch the device, and a `Gpu` is a record of the operations, so
+another one changes what the calls do without changing their callers.
+`host-gpu`, in `(snail shell gpu)` itself, runs them on the host's device
+through `host/browser/gpu.mjs`: the browser target provides it to a page's
+main, and a program on Node makes it itself, where it uses Dawn
+([WebGPU on Node](#webgpu-on-node)).
 `with-recorded-gpu` (`(snail shell gpu record)`) records them instead, so a
 library is tested without a device (`tests/programs/gpu-record.sld`).
 `tests/browser/gpu.mjs` draws, reads back, decodes and dispatches a compute
@@ -74,7 +75,7 @@ It is WebGPU itself, without bookkeeping:
 - **A frame's objects go once used.** An encoder goes at `finish`, a pass
   at `end-pass`, a command buffer at `submit`, and the canvas's texture and
   its views at the next `current-texture`.
-- **Misuse is WebGPU's to report.** The handlers check nothing a device
+- **Misuse is WebGPU's to report.** The host's `Gpu` checks nothing a device
   checks: a destroyed object reaches WebGPU's validation, which reports it
   on the page's console.
 - **Descriptors are fields.** A descriptor is a list of words and texts in
@@ -422,14 +423,14 @@ system's drivers: Dawn prefers a GPU, and on a machine without one, as
 CI is, the checks run on lavapipe. `host/native/gpu.mjs` hands Dawn to the same
 `host/browser/gpu.mjs` the page uses, at the program's first
 `request-device`, so a program that never asks for a device needs none. A
-program on Node installs the handler itself, as `tests/gpu/node.scm` does:
+program on Node makes the `Gpu` itself, as `tests/gpu/node.scm` does:
 
 ```scheme
-(provide-gpu (lambda ()
-               (let ((info (request-device)))
-                 (write-line (string-append "format: " (texture-format-name (● info format))))
-                 (device-checks)
-                 (work-done))))
+(define (main (host Host) (out OutputPort)) (→ Unit)
+  (let* ((gpu (host-gpu host)) (info (request-device gpu)))
+    (write-line out (string-append "format: " (texture-format-name (● info format))))
+    (device-checks gpu out)
+    (work-done gpu)))
 ```
 
 Node has no screen: there `current-texture` fails, so a program draws into
@@ -501,7 +502,7 @@ heaps start uncompressed; a later `reset` may choose BC.
 - Images are decoded by the host behind `decode-image`, a host operation
   that waits, rather than in `snail-scheme`. It answers nothing for bytes
   the host does not decode.
-- `update` stays total: prefetching happens from `draw`.
+- `update` only computes: prefetching happens from `draw`.
 - Shader sources are S-expression files printed by `generate-library`
   recipes, since a quoted form is a literal only. A shader's structs come
   from `Pod` at run time: `(string-append (declarations shape) shader)`.

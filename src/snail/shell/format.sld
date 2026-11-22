@@ -323,8 +323,8 @@
         (("dynamic-wind") (Some (Special 3)))
         (("scheme-define" "declare") (Some (Definition)))
         (("syntax-rules") (Some (Definition)))
-        (("new" "record" "enum" "typeclass" "instance" "effect" "match" "guard") (Some (Special 1)))
-        (("handle") (Some (Special 2)))
+        (("new" "record" "capability" "enum" "typeclass" "instance" "match" "guard")
+         (Some (Special 1)))
         (else (None))))
 
     ;; A binding macro advertises its layout in its name. A name without a
@@ -513,7 +513,7 @@
       (match frames
         ((Cons (Frame _ _ _ (Some (Elements (Element (Named name) _ _ _) _ _ _)))
                (Cons parent rest))
-         (if (member? name (list "→" "!" "∀" "⊨")) (Cons (clause-closed parent) rest)
+         (if (member? name (list "→" "∀" "⊨")) (Cons (clause-closed parent) rest)
              (Cons parent rest)))
         (_ (list-drop frames 1))))
 
@@ -690,8 +690,8 @@
         ((None) breaks)))
 
     ;; Declaration breaks, in order: before each import
-    ;; specification, a record's field list and its fields after the first,
-    ;; and a record type's fields. An import that does not end stops the
+    ;; specification, a record's or a capability's field list and its fields
+    ;; after the first, and a record type's fields. An import that does not end stops the
     ;; search, since everything after it is part of it.
 
     (define (declaration-breaks (tokens (Array Placed))) (→ (List Placed))
@@ -705,6 +705,8 @@
                   (loop (or-else (expression-end tokens index) (array-length tokens)) found))
                  ((Found found #f) (reverse found))))
               ((Some "record") (loop (+ index 2) (break-record-declaration tokens index breaks)))
+              ((Some "capability")
+               (loop (+ index 2) (break-record-declaration tokens index breaks)))
               ((Some "define-record-type") (loop (+ index 2) (break-record tokens index breaks)))
               (_ (loop (+ index 1) breaks))))))
 
@@ -776,7 +778,6 @@
             (new Pair (first "let*-values") (second 1))
             (new Pair (first "parameterize") (second 1))
             (new Pair (first "do") (second 1))
-            (new Pair (first "handle") (second 2))
             (new Pair (first "learning") (second 2))
             (new Pair (first "expanding") (second 2))
             (new Pair (first "naming") (second 2))
@@ -804,14 +805,12 @@
     ;; parenthesis, or the binding form's when it holds a binding form's
     ;; `bindings`. A list that opened above the line, as the top level did,
     ;; has key -1: its head is behind it, so it breaks before each element.
-    ;; `head` is where the first element starts, if on the line. After a
-    ;; `!`, which starts the effects of a function type, nothing breaks.
+    ;; `head` is where the first element starts, if on the line.
     (record Group
       ((depth I64)
        (key I64)
        (bindings Bool)
-       (head (Option I64))
-       (effects Bool)))
+       (head (Option I64))))
 
     (define (above? (group Group)) (→ Bool)
       (= (● group key) -1))
@@ -865,9 +864,9 @@
     (define (enclosing-groups (frames (List Frame))) (→ (List Group))
       (match frames
         ((Cons _ rest)
-         (Cons (new Group (depth (length frames)) (key -1) (bindings #f) (head (None)) (effects #f))
+         (Cons (new Group (depth (length frames)) (key -1) (bindings #f) (head (None)))
                (enclosing-groups rest)))
-        ((Nil) (list (new Group (depth 0) (key -1) (bindings #f) (head (None)) (effects #f))))))
+        ((Nil) (list (new Group (depth 0) (key -1) (bindings #f) (head (None)))))))
 
     (define (next-index (frame Frame)) (→ I64)
       (match (● frame elements)
@@ -875,29 +874,26 @@
         ((None) 0)))
 
     ;; An element of the list `group` describes starts at `start`, below the
-    ;; lists `frames`; `opens` says it is a list, and `bang` that it is a
-    ;; `!`. Nothing breaks where the line cannot, or after a `!`.
+    ;; lists `frames`; `opens` says it is a list. Nothing breaks where the
+    ;; line cannot.
 
     (define (arrive (extent Extent)
                     (frames (List Frame))
                     (group Group)
                     (start I64)
-                    (opens Bool)
-                    (bang Bool))
+                    (opens Bool))
       (→ Arrival)
-      (let ((after (Group-effects-set group (or bang (● group effects))))
-            (breaks
-             (and (breakable? extent start) (not (● group effects)))))
+      (let ((breaks (breakable? extent start)))
         (if (above? group)
             (new Arrival
-              (group after)
+              (group group)
               (candidates (candidate-at group start breaks (Break)))
               (bindings #f))
             (match frames
               ((Cons frame _)
-               (arrive-opened extent frame after start opens breaks))
+               (arrive-opened extent frame group start opens breaks))
               ;; A list that opened on the line is the innermost frame.
-              ((Nil) (new Arrival (group after) (candidates (Nil)) (bindings #f)))))))
+              ((Nil) (new Arrival (group group) (candidates (Nil)) (bindings #f)))))))
 
     ;; The next element of a list that opened on the line, which `frame`
     ;; describes: its head, a binding form's binding, or wherever the list's
@@ -990,8 +986,7 @@
     (define (arrive-innermost (extent Extent)
                               (breaking Breaking)
                               (start I64)
-                              (opens Bool)
-                              (bang Bool))
+                              (opens Bool))
       (→ (Option Arrival))
       (match (● breaking groups)
         ((Cons group _)
@@ -999,8 +994,7 @@
                        (● (● breaking scan) frames)
                        group
                        start
-                       opens
-                       bang)))
+                       opens)))
         ((Nil) (None))))
 
     (define (settle (breaking Breaking) (scan Scan) (arrival (Option Arrival))) (→ Breaking)
@@ -1021,9 +1015,8 @@
            (depth (● owner depth))
            (key (● owner key))
            (bindings #t)
-           (head (None))
-           (effects #f)))
-        (_ (new Group (depth depth) (key key) (bindings #f) (head (None)) (effects #f)))))
+           (head (None))))
+        (_ (new Group (depth depth) (key key) (bindings #f) (head (None))))))
 
     ;; A list closes; a parenthesis too many leaves the top level in place.
 
@@ -1037,7 +1030,7 @@
 
     (define (open-list (extent Extent) (breaking Breaking) (scan Scan) (start I64) (key I64))
       (→ Breaking)
-      (let* ((arrival (arrive-innermost extent breaking start #t #f))
+      (let* ((arrival (arrive-innermost extent breaking start #t))
              (settled (settle breaking scan arrival)))
         (Breaking-groups-set
          settled
@@ -1060,15 +1053,7 @@
                 (candidates (● breaking candidates))))
           ((Open offset _)
            (open-list extent breaking scan start (+ offset shift)))
-          ((Atom offset text)
-           (let ((bang (and (string=? text "!") (= start (+ offset shift)))))
-             (settle breaking
-                     scan
-                     (arrive-innermost extent breaking start #f bang))))
-          ((Text _)
-           (settle breaking
-                   scan
-                   (arrive-innermost extent breaking start #f #f))))))
+          (_ (settle breaking scan (arrive-innermost extent breaking start #f))))))
 
     ;; The candidates of a line, in order, below the lists `frames`.
 

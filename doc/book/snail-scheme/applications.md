@@ -1,32 +1,35 @@
 # Application model
 
-An application is a [script](scripts.md): its statements run in order, and
-the last hands control to an engine's loop. The engine is a library, in the
-style of Rust's [winit](https://github.com/rust-windowing/winit): the script
-builds a handler, a record of the application's functions, and calls the
-engine with it.
+An application is a [script](scripts.md): its `main` asks the page for the
+capabilities it uses and hands control to an engine's loop. The engine is a
+library, in the style of Rust's
+[winit](https://github.com/rust-windowing/winit): the script builds a
+handler, a record of the application's functions, and calls the engine with
+it.
 
 ```scheme
 (import (snail core base) (snail shell app) (snail shell wire) (apps siegework game) ...)
-(run-scene (new SceneHandler
-             (initialize new-game) (update update-game) (view view-game) (hud game-hud)
-             (save (lambda (game) (serialize (game-save game))))
-             (restore (lambda (bytes) (game-restore (deserialize bytes))))))
+
+(define (main (gpu Gpu) (dom Dom) (events Events) (storage PageStorage) (clock Clock)) (→ Unit)
+  (run-scene gpu dom events storage clock
+             (new SceneHandler
+               (initialize new-game) (update update-game) (view view-game) (hud game-hud)
+               (save (lambda (game) (serialize (game-save game))))
+               (restore (lambda (bytes) (game-restore (deserialize bytes)))))))
 ```
 
 ```sh
 ./snail-scheme build --target browser src/apps/siegework/main.scm
 ```
 
-On the page, the host calls the script's `main` with a scheduler, as every
-host does, and (snail target browser) runs the script as its first task under
-the page's handlers ([targets](scripts.md#targets-and-capabilities)). A
-statement can wait: `run-scene` waits for the page's events through the task
-effect. There are two engines, `run-scene` for a canvas and `run-interface`
+On the page, the host calls the script's start with a scheduler, as every
+host does, and (snail target browser) runs `main` as its first task, with
+the page's capabilities ([targets](scripts.md#targets-and-capabilities)).
+`main` can wait: `run-scene` waits for the page's events as a task does. There are two engines, `run-scene` for a canvas and `run-interface`
 for a document, and both boot and save through `run-page` from
 `(snail shell page)`. An application with its own loop calls `run-page`
 itself, as `tests/apps/requests` does. IPC remains outside this contract.
-Typed session protocols are future library work, expressed through effects.
+Typed session protocols are future library work.
 
 ## Scenes
 
@@ -52,9 +55,8 @@ again with each page and each module, as the GPU's objects do.
 Serialization is chosen explicitly by the application; these examples use
 `(snail shell wire)`.
 
-`run-scene` performs `gpu`, `clock`, `events`, `storage` and `tasks`, and
-never
-returns. `next-event` drains the host queue, then waits by ticket when it is
+`run-scene` takes the page's `Gpu`, `Dom`, `Events`, `PageStorage` and
+`Clock`, waits as a task, and never returns. `next-event` drains the host queue, then waits by ticket when it is
 empty. `FrameEvent` carries elapsed milliseconds; `InputEvent` carries an
 `Input`. `Hidden` and `SaveRequested` save without stopping. A shared
 five-second host timer supplies `SaveRequested` to either engine, so saving
@@ -62,7 +64,7 @@ does not require animation frames. The host arms it at boot and after each save.
 
 The engine reports readiness after its first complete frame. Since elapsed
 time is input, the application decides how its simulation advances. Each task
-keeps its handlers across waits. Libraries have no runtime initialization;
+keeps what it closed over across waits. Libraries have no runtime initialization;
 application state is created by the running script.
 
 A scene draws with the [graphics libraries](../graphics/plan.md). Hearsay
@@ -86,7 +88,7 @@ stack in columns from the screen's corners, appear as dialogs, or sit in a
 banner across the top that lets input through but for its links. A widget's
 tone can mark it suggested, the control to use next. The HUD is a tree in
 the page's document: the scene's loop builds it as `(snail shell ui)`'s
-`Html` and changes the document through the `dom` effect only where the tree
+`Html` and changes the document through its `Dom` only where the tree
 differs from the one before, so an element keeps its node while its key
 stays, and with it hover and focus. A button's listeners make the presses
 and hovering the scene's `update` takes as input; a button removed while the
@@ -108,10 +110,10 @@ canvas, in the shape Elm gave them:
 | Function | Meaning |
 | --- | --- |
 | `view : Model -> (Html M)` | A tree of elements and texts. An element's attributes, typed properties (`StringProperty`, `NumberProperty`, `FlagProperty`) and listeners (`On`) are plain data; a listener holds a function from what its event carried to a message `M`. |
-| `update : Model M -> (Pair Model (List (Fn → M ! tasks e)))` | The next model, and the commands the message starts: work run as tasks, each answering a message. |
+| `update : Model M -> (Pair Model (List (Fn → M)))` | The next model, and the commands the message starts: work run as tasks, each answering a message. |
 
-`run-ui model start update view window commit checkpoint` shows the view in the
-document's root through the `dom` effect of `(snail shell dom)`, updates
+`run-ui dom model start update view window commit checkpoint` shows the view in the
+document's root through `dom`, a `Dom` of `(snail shell dom)`, updates
 it with each message in `start`, as when it must ask its server before
 anything else happens, then handles one delivery at a time until the
 document closes, and answers the last model. The window is no node of the
@@ -122,8 +124,8 @@ going back online, and they are patched as an element's are.
 hidden, or the document closed. `commit` receives each successfully presented
 model; `checkpoint` persists it on a save request, hiding, and close.
 Only the interface's own task waits on the document,
-so a command posts its answer to the interface's mailbox and performs
-`wake`, and the interface drains the mailbox when it is woken; a command
+so a command posts its answer to the interface's mailbox and wakes the
+document, and the interface drains the mailbox when it is woken; a command
 still running when the document closes never answers. After each update
 the interface changes only what differs from the tree it showed before. An element keeps its node while its tag and key stay the
 same, so the page keeps its focus, selection and scroll; a child with a
@@ -153,7 +155,7 @@ gives a field a new value, as when another view of its text changed it,
 the field keeps its selection and scroll as far as the new text reaches.
 
 Browser installation and fullscreen are shared `snail-scheme` capabilities. Any
-application using `(snail shell dom)` with the page handler can invoke them. Every browser target
+application holding the page's `Dom` can invoke them. Every browser target
 also receives the default manifest and icons during packaging, unless it
 supplies its own manifest. An application chooses its own installation button
 or command; the packager does not inject controls into it.
@@ -164,7 +166,7 @@ task completions; `host/browser/install.mjs` retains the browser's opaque offer
 and calls its native APIs. Scheme code owns application behavior, and Chromium
 tests cover the browser decisions that the memory DOM cannot make.
 
-The same `dom` effect exposes browser window capabilities. `installation-status`
+The same `Dom` exposes browser window capabilities. `installation-status`
 reports an available installation offer, an installed/standalone app, or no offer.
 `install-app` awaits a single-use offer and returns accepted, dismissed,
 unavailable, expired activation, failed, or already installed. Acceptance does not
@@ -173,10 +175,10 @@ across application generations; an expired activation leaves it available for a
 new explicit click. `fullscreen?` reads the current mode, and `set-fullscreen`
 awaits entering or leaving it, returning whether the request succeeded. Both
 requests use task tickets, with no suspended Wasm stack. Stopping a generation
-releases its wait even if the browser dialog remains open. The memory handler
+releases its wait even if the browser dialog remains open. The memory `Dom`
 reports unavailable installation and refuses fullscreen.
 
-`with-memory-dom` from `(snail shell dom memory)` handles `dom` over a
+`with-memory-dom` from `(snail shell dom memory)` hands its work a `Dom` over a
 document in memory, delivering a script of cues (events fired at elements
 by their `id` or at the window, and the page hidden), and answers the
 document it left, as HTML and as a trace of every operation.
@@ -188,7 +190,8 @@ test`.
 from an `InterfaceHandler`:
 
 ```scheme
-(run-interface (new InterfaceHandler
+(run-interface dom fetch events storage
+               (new InterfaceHandler
                  (initialize new-notes) (update update) (view view) (window window)
                  (messages (lambda (model) (list (Load))))
                  (save (lambda (model) (serialize (save model))))
@@ -197,9 +200,10 @@ from an `InterfaceHandler`:
 
 An interface without window listeners returns `(Nil)` from `window`; one
 without startup messages returns `(Nil)` from `messages`. Initialization takes
-the seed alone, and update's commands are `(Command Message)`,
-which may wait on tasks, reach the document, and ask the server through
-the `fetch` effect of `(snail shell fetch)`. `request method url headers
+the seed alone, and update's commands are `(Command Message)`, functions
+of the page's `Dom` and `Fetch`, which the loop hands each one: a command
+may wait as a task, reach the document, and ask the server through the
+`Fetch` of `(snail shell fetch)`. `request method url headers
 body` answers the server's reply, its status and body, or why there was
 none. A stream is the server-sent events of the kinds it names at a URL:
 `stream-next` waits for the next, its kind and data, and answers none once
@@ -209,8 +213,9 @@ One command waits on a stream at a time, and the update that hears
 an event issues the next wait, so a stream needs no machinery beyond
 one-shot commands.
 The shared page lifecycle restores saved bytes; only a start without a save
-initializes a fresh model. The engine runs `run-ui` under `with-page-dom` from
-`(snail shell dom page)` and `with-page-fetch` from `(snail shell fetch page)`.
+initializes a fresh model. The engine runs `run-ui` over the `Dom` it is
+handed and gives commands the `Fetch`, which a page's `main` asks its
+target for.
 A completed presentation acknowledges startup; the shared saver stores the
 encoded model.
 The page loads `startInterface` from
@@ -244,8 +249,8 @@ and the reply, and an update shows a reply only if it carries the latest
 number. `Cancel` moves the number on, so a reply that arrives after it,
 or after a newer `Load`, is ignored; the request itself runs to its end.
 Its `Save` contains only display data and a click count. Its script calls
-`run-requests`, which runs `run-page` over the `Save` itself, installs DOM and
-fetch handlers, and calls `run-ui`. Its commit callback calls `report-ready`;
+`run-requests` with the page's `Dom` and `Fetch`, which runs `run-page` over
+the `Save` itself and calls `run-ui`. Its commit callback calls `report-ready`;
 the checkpoint callback comes from `run-page`.
 
 Only `Save` crosses a reload. A command still running when the page goes

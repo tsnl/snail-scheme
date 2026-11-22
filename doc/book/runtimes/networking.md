@@ -1,10 +1,10 @@
 # Native networking and processes
 
-`(snail shell socket)` provides concrete, interceptable `tcp` and `udp` effects. The Node
-program runner binds them to `host/native/tcp.mjs` and `host/native/udp.mjs` through
+`(snail shell socket)` provides concrete, replaceable `Tcp` and `Udp` capabilities. The
+Node target's are bound to `host/native/tcp.mjs` and `host/native/udp.mjs` through
 `host/native/socket-imports.mjs`: an operation that waits starts there and waits for its
-ticket ([waiting on the host](tasks.md#waiting-on-the-host)), so its latent row names
-`tasks`. [Child processes](#child-processes) follow the
+ticket ([waiting on the host](tasks.md#waiting-on-the-host)), as a task
+does. [Child processes](#child-processes) follow the
 same model, through `host/native/process.mjs` and `host/native/process-imports.mjs`. Static and separately linked programs use the
 same binding. The [HTTP library](../snail-scheme/http.md) implements one complete
 request/response exchange over TCP. Browser sockets are not implemented.
@@ -13,7 +13,7 @@ remaining work.
 
 ## `snail-scheme` API
 
-Import `(snail shell socket)` and include `tcp` or `udp` in the effect row of code using it.
+Import `(snail shell socket)` and hand a `Tcp` or `Udp` to the code using it: every operation takes one first.
 Every operation returns `Result` with a `SocketError` whose `code` is a string
 such as `"EBADF"`, `"EINVAL"` or a native network error code. Nothing
 cancels a waiting task: it resumes when its operation settles. When the run
@@ -61,19 +61,19 @@ selects a free port; a send to port 0 fails with `EINVAL` before it reaches
 the host. UDP does not guarantee
 delivery, order or uniqueness.
 
-`Listener`, `Connection` and `UdpSocket` carry an opaque `Any` token belonging to their
-handler. They are reusable values that stay within their instance. Closing
+`Listener`, `Connection` and `UdpSocket` carry an opaque `Any` token belonging to the
+`Tcp` or `Udp` that made them. They are reusable values that stay within their instance. Closing
 revokes all aliases; closing the same native token again succeeds. Native
-token types stay private to the library. A different handler's token reaching
+token types stay private to the library. Another capability's token reaching
 the native binding reports `EBADF` instead of being cast to an integer handle.
 TCP and UDP owners may issue the same numeric handle, but their private token
 types differ. Tokens must remain with the runtime that issued them.
 
-A replacement `handle tcp` supplies eight operations; `handle udp` supplies four.
+A replacement `Tcp` is a record of eight operations; a `Udp`, of four.
 They may create endpoint values with their own tokens. For example, a test
 can put a record with a mutable `Bytes` field in a connection token, or a
-mutable `Datagram` field in a UDP token, accessed through operation arguments. Like any handler, the replacement
-must be reusable, grade `omega`.
+mutable `Datagram` field in a UDP token, accessed through operation arguments
+(`tests/programs/tcp-handler.sld`, `udp-handler.sld`).
 
 ## Wasm boundary
 
@@ -198,7 +198,7 @@ created handle. No native cleanup record retains a managed wrapper.
 
 ## Native UDP owner
 
-`host/native/udp.mjs` owns IPv4 datagram sockets behind the `udp` effect. It is tested
+`host/native/udp.mjs` owns IPv4 datagram sockets behind the host's `Udp`. It is tested
 against real loopback sockets, including forced asynchronous native sends.
 It uses Node's [synchronous numeric bind](https://nodejs.org/api/dgram.html#socketbindsyncoptions),
 available from 26.4. Binding is a nonblocking local operation, so it needs no
@@ -247,9 +247,9 @@ delivery protocol and retains no managed wrapper.
 
 ## Child processes
 
-`(snail shell process)` provides the `process` effect: child processes with
-their standard streams piped to the program. Import it and include `process`
-in the effect row of code using it. Every operation returns `Result` with a
+`(snail shell process)` provides `Processes`: child processes with
+their standard streams piped to the program. Import it and hand a
+`Processes` to the code using it. Every operation returns `Result` with a
 `ProcessError` whose `code` is a string such as `"EBADF"` or a native error
 code. As for sockets, nothing cancels a waiting task.
 
@@ -286,8 +286,8 @@ of each stream and a write can overlap, and any number of `wait-exit`s may
 be pending. A write waits until the pipe takes its bytes, so a child that
 does not read holds it. Closing a process that is still running kills it
 with SIGKILL and revokes the handle, as closing a socket does; closing it
-again succeeds. A `Process` carries an `Any` token belonging to its handler,
-and a different handler's token reaching the native binding is `EBADF`.
+again succeeds. A `Process` carries an `Any` token belonging to the
+`Processes` that spawned it, and another's token reaching the native binding is `EBADF`.
 `tests/programs/process.sld` runs `/bin/sh` through each operation.
 
 `run` and `exec` are for a tool that runs once, such as a command line
@@ -302,8 +302,8 @@ program and report failures as `spawn` does
 
 ### Termination
 
-The `signals` effect, also in `(snail shell process)`, has one operation,
-`(termination)`, which waits for SIGINT or SIGTERM and returns
+`Signals`, also in `(snail shell process)`, has one operation,
+`(termination signals)`, which waits for SIGINT or SIGTERM and returns
 `(Interrupt)` or `(Terminate)`. A program opts in by waiting: a signal that
 arrives while tasks wait in `termination` is the result of every such wait,
 and one that arrives while none waits ends the program, as it always has.

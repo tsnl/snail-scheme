@@ -9,7 +9,6 @@
   (define (show (value Presented)) (→ String)
     "presentation"))
 
-(define main
-  (lambda ()
-    (write (new Presented))
-    (unit)))
+(define (main (out OutputPort)) (→ Unit)
+  (write out (new Presented))
+  (unit))

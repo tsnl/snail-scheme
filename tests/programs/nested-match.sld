@@ -27,20 +27,21 @@
     (#t "yes")
     (#f "no")))
 
-(define (main) (→ Unit) (! output-port)
-  (for-each write-line
+(define (main (out OutputPort)) (→ Unit)
+  (for-each (lambda (text) (write-line out text))
             (list (describe (None))
                   (describe (Some (None)))
                   (describe (Some (Some 0)))
                   (describe (Some (Some 7)))))
-  (for-each write-line
+  (for-each (lambda (text) (write-line out text))
             (list (classify (list))
                   (classify (list 5))
                   (classify (list 1 2))
                   (classify (list 4 5 6))))
-  (for-each write-line (list (char-kind #\a) (char-kind #\z) (bool-name #t) (bool-name #f)))
+  (for-each (lambda (text) (write-line out text))
+            (list (char-kind #\a) (char-kind #\z) (bool-name #t) (bool-name #f)))
   (match "hello"
-    ("hi" (write-line "no"))
-    ("hello" (write-line "string literal"))
-    (_ (write-line "no")))
+    ("hi" (write-line out "no"))
+    ("hello" (write-line out "string literal"))
+    (_ (write-line out "no")))
   (unit))

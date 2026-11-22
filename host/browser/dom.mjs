@@ -1,4 +1,4 @@
-// The page's document for the `dom` effect of src/snail/shell/dom.sld, as
+// The page's document for the `Dom` capability of src/snail/shell/dom.sld, as
 // `with-page-dom` in src/snail/shell/dom/page.sld calls it. The interface
 // owns the container, handle 0, and listens on the window, handle -1;
 // every node it makes is a handle in `nodes`, and every listener an id in

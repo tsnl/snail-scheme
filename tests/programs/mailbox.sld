@@ -1,6 +1,5 @@
 (import
  (snail core base)
- (only (snail core forms) host)
  (snail core io)
  (snail shell task))
 
@@ -9,21 +8,22 @@
 ;; before its yield and its second after, so the messages arrive in the
 ;; order the producers ran, and the consumer receives them in that order:
 ;; one by waking from a park, the others already waiting in the queue.
-(define (produce (mailbox (Mailbox String)) (name String)) (→ Unit) (! mut tasks)
+(define (produce (mailbox (Mailbox String)) (name String)) (→ Unit)
   (mailbox-post mailbox (string-append name " 1"))
   (yield)
   (mailbox-post mailbox (string-append name " 2")))
 
-(define (consume (mailbox (Mailbox String)) (count I64)) (→ Unit) (! host output-port mut tasks)
+(define (consume (out OutputPort) (mailbox (Mailbox String)) (count I64))
+  (→ Unit)
   (when (> count 0)
-    (write-line (string-append "received " (mailbox-receive mailbox)))
-    (consume mailbox (- count 1))))
+    (write-line out (string-append "received " (mailbox-receive mailbox)))
+    (consume out mailbox (- count 1))))
 
-(define (main) (→ Unit) (! host mut output-port tasks)
+(define (main (out OutputPort)) (→ Unit)
 
   (let ((mailbox (make-mailbox)))
-    (dispatch (lambda () (consume mailbox 4)))
+    (dispatch (lambda () (consume out mailbox 4)))
     (dispatch (lambda () (produce mailbox "first")))
     (dispatch (lambda () (produce mailbox "second")))
-    (write-line "main returns"))
+    (write-line out "main returns"))
   (unit))

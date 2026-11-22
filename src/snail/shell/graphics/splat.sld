@@ -235,25 +235,24 @@
     ;; the draw reads the camera, the projected gaussians, and the values
     ;; in sorted order.
 
-    (define (make-splats (label String)
+    (define (make-splats (gpu Gpu) (label String)
                          (format TextureFormat)
                          (capacity I64)
                          (transform-capacity I64))
       (→ Splats)
-      (! gpu)
-      (let* ((buffer (lambda (name size) (storage-buffer (string-append label "/" name) size)))
-             (camera (camera-buffer label))
+      (let* ((buffer (lambda (name size) (storage-buffer gpu (string-append label "/" name) size)))
+             (camera (camera-buffer gpu label))
              (gaussians (buffer "gaussians" (* capacity (stride gaussian-shape))))
              (harmonics (buffer "harmonics" (* capacity (* 4 harmonic-floats))))
              (transforms (buffer "transforms" (* transform-capacity 64)))
              (projected (buffer "projected" (* capacity (stride projected-shape))))
              (keys (buffer "keys" (* capacity 4)))
              (values (buffer "values" (* capacity 4)))
-             (project-module (module-of "splat/project" project-code))
-             (project-pipeline (project-pipeline-of project-module))
-             (draw-module (module-of "splat/draw" draw-code))
-             (draw-pipeline (draw-pipeline-of draw-module format)))
-        (write-buffer transforms
+             (project-module (module-of gpu "splat/project" project-code))
+             (project-pipeline (project-pipeline-of gpu project-module))
+             (draw-module (module-of gpu "splat/draw" draw-code))
+             (draw-pipeline (draw-pipeline-of gpu draw-module format)))
+        (write-buffer gpu transforms
                       0
                       (pack transform-shape (map (lambda (_) identity) (iota transform-capacity))))
         (new Splats
@@ -266,29 +265,29 @@
           (projected projected)
           (keys keys)
           (values values)
-          (sorter (make-sorter (string-append label "/order") keys values capacity 32))
+          (sorter (make-sorter gpu (string-append label "/order") keys values capacity 32))
           (project-module project-module)
           (project-pipeline project-pipeline)
           (project-group
-           (splat-group label
+           (splat-group gpu label
                         (ComputePipeline project-pipeline)
                         (list camera gaussians harmonics transforms projected keys values)))
           (draw-module draw-module)
           (draw-pipeline draw-pipeline)
           (draw-group
-           (splat-group label (RenderPipeline draw-pipeline) (list camera projected values))))))
+           (splat-group gpu label (RenderPipeline draw-pipeline) (list camera projected values))))))
 
-    (define (storage-buffer (label String) (size I64)) (→ GpuBuffer) (! gpu)
-      (create-buffer (new BufferDescriptor
-                       (label label)
-                       (size (i64->i32 size))
-                       (usage (list (Storage) (CopySrc) (CopyDst))))))
+    (define (storage-buffer (gpu Gpu) (label String) (size I64)) (→ GpuBuffer)
+      (create-buffer gpu (new BufferDescriptor
+                           (label label)
+                           (size (i64->i32 size))
+                           (usage (list (Storage) (CopySrc) (CopyDst))))))
 
-    (define (camera-buffer (label String)) (→ GpuBuffer) (! gpu)
-      (create-buffer (new BufferDescriptor
-                       (label (string-append label "/camera"))
-                       (size (i64->i32 (stride camera-shape)))
-                       (usage (list (Uniform) (CopyDst))))))
+    (define (camera-buffer (gpu Gpu) (label String)) (→ GpuBuffer)
+      (create-buffer gpu (new BufferDescriptor
+                           (label (string-append label "/camera"))
+                           (size (i64->i32 (stride camera-shape)))
+                           (usage (list (Uniform) (CopyDst))))))
 
     (define identity
       (→ Mat4x4f)
@@ -296,41 +295,45 @@
 
     ;; A group binding each buffer whole, at bindings 0, 1, and so on.
 
-    (define (splat-group (label String) (pipeline GpuPipeline) (buffers (List GpuBuffer)))
+    (define (splat-group (gpu Gpu) (label String) (pipeline GpuPipeline) (buffers (List GpuBuffer)))
       (→ GpuBindGroup)
-      (! gpu)
-      (create-bind-group (new BindGroupDescriptor
-                           (label (string-append "splat/" label))
-                           (pipeline pipeline)
-                           (group 0)
-                           (entries (map-indexed (lambda (binding buffer)
-                                                   (BufferEntry (i64->i32 binding) buffer 0 0))
-                                                 buffers)))))
+      (create-bind-group gpu (new BindGroupDescriptor
+                               (label (string-append "splat/" label))
+                               (pipeline pipeline)
+                               (group 0)
+                               (entries (map-indexed (lambda (binding buffer)
+                                                       (BufferEntry (i64->i32 binding) buffer 0 0))
+                                                     buffers)))))
 
-    (define (module-of (label String) (code String)) (→ GpuShaderModule) (! gpu)
-      (create-shader-module (new ShaderModuleDescriptor (label label) (code code))))
+    (define (module-of (gpu Gpu) (label String) (code String)) (→ GpuShaderModule)
+      (create-shader-module gpu (new ShaderModuleDescriptor (label label) (code code))))
 
-    (define (project-pipeline-of (module GpuShaderModule)) (→ GpuComputePipeline) (! gpu)
-      (create-compute-pipeline
-       (new ComputePipelineDescriptor (label "splat/project") (module module) (entry "project"))))
+    (define (project-pipeline-of (gpu Gpu) (module GpuShaderModule)) (→ GpuComputePipeline)
+      (create-compute-pipeline gpu
+                               (new ComputePipelineDescriptor
+                                 (label "splat/project")
+                                 (module module)
+                                 (entry "project"))))
 
     ;; Squares blended over what is drawn, untested by depth.
 
-    (define (draw-pipeline-of (module GpuShaderModule) (format TextureFormat)) (→ GpuRenderPipeline)
-      (! gpu)
-      (create-render-pipeline
-       (new RenderPipelineDescriptor
-         (label "splat/draw")
-         (module module)
-         (vertex-entry "splat_vertex")
-         (buffers (Nil))
-         (fragment (Some (new FragmentState
-                           (entry "splat_fragment")
-                           (targets
-                            (list (Some (new ColorTarget (format format) (blend (Some over)))))))))
-         (topology (TriangleStrip))
-         (cull (CullNone))
-         (depth (None)))))
+    (define (draw-pipeline-of (gpu Gpu) (module GpuShaderModule) (format TextureFormat))
+      (→ GpuRenderPipeline)
+      (create-render-pipeline gpu
+                              (new RenderPipelineDescriptor
+                                (label "splat/draw")
+                                (module module)
+                                (vertex-entry "splat_vertex")
+                                (buffers (Nil))
+                                (fragment (Some (new FragmentState
+                                                  (entry "splat_fragment")
+                                                  (targets
+                                                   (list (Some (new ColorTarget
+                                                                 (format format)
+                                                                 (blend (Some over)))))))))
+                                (topology (TriangleStrip))
+                                (cull (CullNone))
+                                (depth (None)))))
 
     ;; ---- Writing ----
 
@@ -339,18 +342,18 @@
     ;; way to the device, and a trained scene's coefficients run to
     ;; hundreds of megabytes.
 
-    (define (write-cloud (splats Splats) (first I64) (cloud Cloud)) (→ Unit) (! gpu)
+    (define (write-cloud (gpu Gpu) (splats Splats) (first I64) (cloud Cloud)) (→ Unit)
       (unless (<= (+ first (● cloud count)) (● splats capacity))
         (panic "splat: the cloud does not fit in its splats"))
       (for-each (lambda (from)
                   (let ((to (min (● cloud count) (+ from 65536))))
-                    (write-rows (● splats gaussians)
+                    (write-rows gpu (● splats gaussians)
                                 (stride gaussian-shape)
                                 (+ first from)
                                 (● cloud gaussians)
                                 from
                                 to)
-                    (write-rows (● splats harmonics)
+                    (write-rows gpu (● splats harmonics)
                                 (* 4 harmonic-floats)
                                 (+ first from)
                                 (● cloud harmonics)
@@ -360,48 +363,51 @@
 
     ;; Rows `from` to `to` of `bytes`, each `width` bytes, written at row
     ;; `at` of a buffer.
-    (define (write-rows (buffer GpuBuffer)
+    (define (write-rows (gpu Gpu) (buffer GpuBuffer)
                         (width I64)
                         (at I64)
                         (bytes Bytes)
                         (from I64)
                         (to I64))
       (→ Unit)
-      (! gpu)
-      (write-buffer buffer (i64->i32 (* at width)) (subarray bytes (* from width) (* to width))))
+      (write-buffer gpu
+                    buffer
+                    (i64->i32 (* at width))
+                    (subarray bytes (* from width) (* to width))))
 
     ;; The transforms table from its first row; rows not given keep theirs.
 
-    (define (write-transforms (splats Splats) (transforms (List Mat4x4f))) (→ Unit) (! gpu)
+    (define (write-transforms (gpu Gpu) (splats Splats) (transforms (List Mat4x4f)))
+      (→ Unit)
       (unless (<= (length transforms) (● splats transform-capacity))
         (panic "splat: more transforms than the splats have room for"))
-      (write-buffer (● splats transforms) 0 (pack transform-shape transforms)))
+      (write-buffer gpu (● splats transforms) 0 (pack transform-shape transforms)))
 
     ;; ---- Drawing ----
 
     ;; Every gaussian projected under the camera and sorted far to near,
     ;; in the caller's compute pass.
 
-    (define (sort-splats (pass GpuComputePass) (splats Splats) (camera SplatCamera)) (→ Unit)
-      (! gpu)
-      (write-buffer (● splats camera) 0 (pod-bytes camera-shape camera))
-      (set-compute-pipeline pass (● splats project-pipeline))
-      (set-compute-bind-group pass 0 (● splats project-group))
-      (dispatch-workgroups pass (i64->i32 (quotient (+ (● splats capacity) 255) 256)) 1 1)
-      (dispatch-sort pass (● splats sorter)))
+    (define (sort-splats (gpu Gpu) (pass GpuComputePass) (splats Splats) (camera SplatCamera))
+      (→ Unit)
+      (write-buffer gpu (● splats camera) 0 (pod-bytes camera-shape camera))
+      (set-compute-pipeline gpu pass (● splats project-pipeline))
+      (set-compute-bind-group gpu pass 0 (● splats project-group))
+      (dispatch-workgroups gpu pass (i64->i32 (quotient (+ (● splats capacity) 255) 256)) 1 1)
+      (dispatch-sort gpu pass (● splats sorter)))
 
     ;; Every gaussian, in the order the last `sort-splats` found, onto a
     ;; target whose size the camera gave.
 
-    (define (draw-splats (pass GpuRenderPass) (splats Splats)) (→ Unit) (! gpu)
-      (set-pipeline pass (● splats draw-pipeline))
-      (set-bind-group pass 0 (● splats draw-group))
-      (draw pass 4 (i64->i32 (● splats capacity)) 0 0))
+    (define (draw-splats (gpu Gpu) (pass GpuRenderPass) (splats Splats)) (→ Unit)
+      (set-pipeline gpu pass (● splats draw-pipeline))
+      (set-bind-group gpu pass 0 (● splats draw-group))
+      (draw gpu pass 4 (i64->i32 (● splats capacity)) 0 0))
 
     ;; Everything the splats made goes at the next submit.
-    (define (release-splats (s Splats)) (→ Unit) (! gpu)
-      (release-sorter (● s sorter))
-      (for-each destroy
+    (define (release-splats (gpu Gpu) (s Splats)) (→ Unit)
+      (release-sorter gpu (● s sorter))
+      (for-each (lambda (object) (destroy gpu object))
                 (append (map BufferObject
                              (list (● s gaussians)
                                    (● s harmonics)

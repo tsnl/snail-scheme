@@ -1,17 +1,16 @@
 (import
- (only (snail core forms) host)
  (snail core base)
  (snail core io)
  (snail shell task))
 
-(define (main) (→ Unit) (! host mut output-port tasks)
+(define (main (out OutputPort)) (→ Unit)
   ;; A program's statements run as its first task, so they may yield, sleep
   ;; and wait like any task's: a child dispatched first runs when the body
   ;; yields, and the body resumes after it.
-  (dispatch (lambda () (write-line "the child runs when main yields")))
-  (write-line "main starts")
+  (dispatch (lambda () (write-line out "the child runs when main yields")))
+  (write-line out "main starts")
   (yield)
-  (write-line "main resumes")
+  (write-line out "main resumes")
   (sleep 1)
-  (write-line "main ends")
+  (write-line out "main ends")
   (unit))

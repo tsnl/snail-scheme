@@ -117,7 +117,7 @@ without one, a drawn sky and sun light it. Files come dropped on the page,
 a folder at a time or several files, or through the browser's pickers, O
 for files and Shift+O for a folder, which the File System Access API's
 `showDirectoryPicker` opens where the browser has it. `(snail shell files)`
-is that effect: `open-picker` asks the user and returns, a `FilesEvent`
+is that capability, `FilePicker`: `open-picker` asks the user and returns, a `FilesEvent`
 says files were dropped or picked, and each file the user chose is its
 path within the choice and an address that `fetch` reads, a `blob:` one
 for a file of theirs. `retrace` keeps the tracer's pipelines for the new
@@ -142,7 +142,7 @@ a `.gltf` chosen without the files it names, an address that answers 404, a
 file shorter than the scene says, an image the browser does not decode, a
 scene whose geometry is compressed by Draco or meshopt, an HDR file that
 is not one. Reading a
-scene performs `reading`, of `(snail shell graphics gltf)`: `unreadable`
+scene stops through a prompt of `(snail shell graphics gltf)`: `unreadable`
 stops it with a reason, anywhere from the JSON to the last image, and
 `attempt-reading` turns the reading into a `Result`. Nothing refused is
 left on the device, by the order of the work rather than by cleaning up:

@@ -48,7 +48,7 @@ URL, by default `/datasets/bicycle/`, beside the page.
 
 - `trainer.sld` is the trainer, and knows no file, address or format. It
   trains on a `Scene`, the camera, the posed views and the sparse points
-  as data. It performs `photographs` for a view's photograph, on the
+  as data. It asks its `Photographs` for a view's photograph, on the
   device, as a step needs it, and answers what it trained, which
   `trained-cloud` reads back from the device as arrays.
 - `dataset.sld` is a COLMAP dataset as such a scene: the settings below,
