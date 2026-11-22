@@ -44,7 +44,7 @@
 
     ;; The read runs to completion: the host delivers its result to the
     ;; waiting task, which takes it with `finish`.
-    (define (native-read (path String) (maximum I32)) (→ (Result Bytes FileError))
+    (define (native-read (path String) (maximum I32)) (→ (Result Bytes FileError)) (! mut)
       (let ((ticket (ticket)))
         (for-each host-path-character (string->list path))
         (let ((id (host-start-read ticket maximum)))

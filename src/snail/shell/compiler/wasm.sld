@@ -1012,7 +1012,7 @@
                                                                                   reps))))))))))
 
     ;; A closure's first field is its code, and its captures follow.
-    (define (closure-fields (m Module) (base String)) (→ (List Wat)) (! mut)
+    (define (closure-fields (m Module) (base String)) (→ (List Wat))
       (list (wat "field" (ref-wat (code-type m base)))))
 
     (define (capture-rep (fn Fn) (name String)) (→ Rep)

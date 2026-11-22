@@ -61,7 +61,7 @@
     ;; so the host reads the files together; the task waits once, for all
     ;; of them, then takes each file's bytes in order.
 
-    (define (host-bytes (handles (List I32))) (→ (List Bytes))
+    (define (host-bytes (handles (List I32))) (→ (List Bytes)) (! mut)
       (let ((ids (map (lambda (handle) (let ((id (ticket))) (host-read id handle) id)) handles)))
         (await ids)
         (map held-bytes ids)))

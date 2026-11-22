@@ -293,7 +293,7 @@
     ;; ticket, and `success` reads its answer when it did not fail.
 
     (define (native (start (Fn I64 → Unit)) (success (Fn I32 → T)))
-      (→ (Result T SocketError))
+      (→ (Result T SocketError)) (! mut)
       (∀ (T))
       (through-host start (lambda (ticket) (answered (host-finish ticket) success))))
 

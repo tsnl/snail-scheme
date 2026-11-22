@@ -265,14 +265,14 @@
                                         parts)))))
         (match (● expr term)
           ((Lambda _ body)
-           (Cons (applied (● expr type) (flow declarations body)) (inside (list body))))
+           (Cons (typed-equation (● expr type) (flow declarations body)) (inside (list body))))
           ((Var name _ _) (read-equations declarations name (● expr type)))
           ((App callee args)
            (append (resume-equations declarations expr callee args)
                    (inside (if (names-callee? callee) args (Cons callee args)))))
           (_ (inside (expr-children expr))))))
 
-    (define (applied (type Type) (flow Flow)) (→ Equation)
+    (define (typed-equation (type Type) (flow Flow)) (→ Equation)
       (new Equation (target (apply-key (type-key type))) (flow flow)))
 
     (define (names-callee? (callee Expr)) (→ Bool)
@@ -289,7 +289,7 @@
       (match (named-flow declarations name type)
         ((Applying _) (Nil))
         (found (if (and (function-type? type) (not (nowhere? found)))
-                   (list (applied type found))
+                   (list (typed-equation type found))
                    (Nil)))))
 
     ;; `resume` runs the rest of the body under its `with-prompt` again, so
@@ -305,7 +305,7 @@
         ((Var "prim:with-prompt" _ _)
          (match (● (list-ref args 0) type)
            ((TCon "Prompt" (Cons _ (Cons answer (Nil))))
-            (list (applied (TFun (list answer) (● expr type) empty-row)
+            (list (typed-equation (TFun (list answer) (● expr type) empty-row)
                            (delimited-flow declarations args))))
            (_ (panic "internal error: a prompt has the Prompt type"))))
         (_ (Nil))))

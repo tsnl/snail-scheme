@@ -301,7 +301,7 @@
     ;; (snail runtime native process).
 
     (define (native (start (Fn I64 → Unit)) (success (Fn I32 → T)))
-      (→ (Result T ProcessError))
+      (→ (Result T ProcessError)) (! mut)
       (∀ (T))
       (through-host start (lambda (ticket) (answered (host-finish ticket) success))))
 
