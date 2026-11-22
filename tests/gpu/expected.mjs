@@ -25,12 +25,17 @@ export const deviceLines = [
   'billboard: 73 stationary',
   // An exclusive scan of i mod 3 over three levels of tiles, checked at
   // every index; a stable sort of 5,000 keys; and splats: red at the
-  // left, green over red at the center, blue at the right, faint green
-  // above, until turning the red one's transform stands it up.
+  // left, green over red at the center, blue over red's edge at the
+  // right, faint green above, until turning the red one's transform
+  // stands it up.
   'scan: 0 0 1 3 510 511 513 262143 299998 all',
   'sort: paired sorted stable permutation',
-  'splats: 96 2 0 255 40 209 0 255 7 0 225 255 0 2 0 255',
-  'turned: 0 2 0 255 40 209 0 255 0 0 225 255 96 2 0 255',
+  'splats: 96 2 0 255 40 209 0 255 8 0 219 255 0 2 0 255',
+  'turned: 0 2 0 255 40 209 0 255 0 0 219 255 96 2 0 255',
+  // The same splats drawn by the training renderer, which blends in
+  // floats, agree with the quads within the same slack.
+  'viewed splats: 96 2 0 255 40 209 0 255 8 0 219 255 0 2 0 255',
+  'viewed turned: 0 2 0 255 40 209 0 255 0 0 219 255 96 2 0 255',
   // A render pass timed on the device; a lowered tensor program computes
   // each of its sinks as the CPU evaluates them, and is profiled; and
   // Adam fits a line in 1,000 runs of another.
@@ -43,7 +48,7 @@ export const deviceLines = [
   'fitted: from above 1 to below 1e-4, b 1.0',
   // The differentiable splat renderer: a pixel blended as the paper
   // does, and fused SSIM's gradient against central differences.
-  'splat forward: blends as the paper does',
+  'splat forward: blends as the paper does, for training and for viewing',
   'shared fill: #t',
   'splat tile ranges: 0 2 2 3 3 4',
   'ssim: mean agrees, x agrees',
@@ -64,7 +69,7 @@ export const trainingLines = [
 // The page's own first bytes, and the server's 404 for a file it lacks.
 export const fetchedLine = 'fetched: <!doctype 404 fetching missing.bin';
 
-const slack = {scene: 2, filmic: 2, splats: 2, turned: 2, planes: 1e-3};
+const slack = {scene: 2, filmic: 2, splats: 2, turned: 2, 'viewed splats': 2, 'viewed turned': 2, planes: 1e-3};
 
 // The printed lines, each as its expected line says.
 export function assertLines(printed, expected) {
