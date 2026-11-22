@@ -41,7 +41,6 @@
     ;; cannot specialize.
     (record Declarations
       ((program Program)
-       (control (List String))
        (types (Table Type))))
 
     ;; What specialization answers: the copies, in the order they were
@@ -54,7 +53,6 @@
     ;; still to make, the newest first, at most 65536 in all.
     (record State
       ((input Source)
-       (control (List String))
        (types (Table Type))
        (remaining I64)
        (worklist (List Recipe))))
@@ -69,12 +67,9 @@
 
     ;; The types and evidence that replace a definition's quantified variables
     ;; and requirements while it is copied.
-    ;; `control` names the program's control effects, the ones a ground row
-    ;; keeps, in order of their names.
     (record Instantiation
       ((vars Substitution)
-       (evidence (List Evidence))
-       (control (List String))))
+       (evidence (List Evidence))))
 
     (define (specialization-program (state State)) (→ Program)
       (● (● (● state input) typed) program))
@@ -112,7 +107,7 @@
         (panic "compilation exceeds the limit of 65536 specialized definitions"))
       (let ((type
              (ground (instantiation state recipe) (● (definition state (● recipe source)) type))))
-        (new State (input (● state input)) (control (● state control))
+        (new State (input (● state input))
              (types (table-set (● state types) (● recipe name) type))
              (remaining (- (● state remaining) 1))
              (worklist (Cons recipe (● state worklist))))))
@@ -122,7 +117,7 @@
 
     (define (instantiation (state State) (recipe Recipe)) (→ Instantiation)
       (new Instantiation (vars (zip (● (scheme-of state (● recipe source)) vars) (● recipe types)))
-           (evidence (● recipe evidence)) (control (● state control))))
+           (evidence (● recipe evidence))))
 
     ;; Copies are made one at a time from the worklist. A copy reserves the
     ;; names it calls; it never copies them itself, so each recipe is made
@@ -141,60 +136,25 @@
 
     ;; ---- Copying ----
 
-    ;; Effects are erased here except control effects, because a call that
-    ;; may reach a control operation compiles differently from one that
-    ;; cannot; specializations differ by their types and their control rows.
+    ;; A copy is of ground types with no rows: what a function performs
+    ;; decides nothing once it is checked, so one copy serves every row its
+    ;; definition is used at.
 
     (define (ground (inst Instantiation) (type Type)) (→ Type)
-      (erase-rows (● inst control) (substitute (● inst vars) type)))
+      (erase-rows (substitute (● inst vars) type)))
 
-    (define (erase-rows (control (List String)) (type Type)) (→ Type)
+    (define (erase-rows (type Type)) (→ Type)
       (match type
-        ((TCon name args) (TCon name (map (lambda (arg) (erase-rows control arg)) args)))
-        ((TFun params result row)
-         (TFun (map (lambda (param) (erase-rows control param)) params)
-               (erase-rows control result)
-               (control-row control row)))
-        ((TRow _ _) (control-row control type))
+        ((TCon name args) (TCon name (map erase-rows args)))
+        ((TFun params result _) (TFun (map erase-rows params) (erase-rows result) empty-row))
+        ((TRow _ _) empty-row)
         (_ type)))
 
-    ;; The control effects a row names, in the order of `control`, closed.
-
-    (define (control-row (control (List String)) (row Type)) (→ Type)
-      (let ((labels (row-labels row)))
-        (TRow (filter (lambda (effect) (member? effect labels)) control) (None))))
-
-    (define (row-labels (row Type)) (→ (List String))
-      (match row
-        ((TRow labels (Some tail)) (append labels (row-labels tail)))
-        ((TRow labels (None)) labels)
-        (_ (Nil))))
-
-    ;; A specialization's name keys its types as `type-key` does, plus the
-    ;; control effects in their rows. A row without one keys as before, so
-    ;; code that cannot reach a control operation keeps its names.
+    ;; A specialization's name keys its types, as `type-key` does.
 
     (define (spec-key (type Type)) (→ String)
       (require-type-capacity type)
-      (unchecked-spec-key type))
-
-    (define (unchecked-spec-key (type Type)) (→ String)
-      (match type
-        ((TCon name (Nil)) name)
-        ((TCon name args)
-         (string-append name "<" (string-join (map unchecked-spec-key args) ",") ">"))
-        ((TFun params result row)
-         (string-append "fn<"
-                        (string-join (map unchecked-spec-key params) ",")
-                        "->"
-                        (unchecked-spec-key result)
-                        ">"
-                        (control-suffix row)))
-        ((TRow _ _) (string-append "row" (control-suffix type)))
-        (_ (type-key type))))
-
-    (define (control-suffix (row Type)) (→ String)
-      (string-concatenate (map (lambda (effect) (string-append "!" effect)) (row-labels row))))
+      (type-key type))
 
     (define (ground-evidence (inst Instantiation) (evidence Evidence)) (→ Evidence)
       (match evidence
@@ -255,12 +215,6 @@
          (threading state
                     ((inner (copy-expr inst inner)))
                     (new Pair (first (Ann inner (ground inst type))) (second state))))
-        ((Handle effect implementations body)
-         (threading state ((implementations
-                            (each (lambda (state entry) (copy-implementation state inst entry))
-                                  implementations))
-                           (body (copy-expr inst body)))
-                    (new Pair (first (Handle effect implementations body)) (second state))))
         ((BoxAny inner)
          (threading state ((inner (copy-expr inst inner)))
                     (new Pair (first (BoxAny inner)) (second state))))
@@ -273,13 +227,6 @@
                  (new Pair
                    (first
                     (new Clause (pattern (copy-pattern inst (● clause pattern))) (body body)))
-                   (second state))))
-
-    (define (copy-implementation (state State) (inst Instantiation) (entry (Pair String Expr)))
-      (→ (Pair (Pair String Expr) State))
-      (threading state ((value (copy-expr inst (● entry second))))
-                 (new Pair
-                   (first (new Pair (first (● entry first)) (second value)))
                    (second state))))
 
     (define (copy-pattern (inst Instantiation) (pattern Pattern)) (→ Pattern)
@@ -340,8 +287,7 @@
     (define (specialize (typed Typed) (roots (List Item))) (→ Specialized)
       (let* ((input (checked-source typed))
              (program (● typed program))
-             (control (control-effects program))
-             (start (new State (input input) (control control) (types (empty-table))
+             (start (new State (input input) (types (empty-table))
                          (remaining 65536) (worklist (Nil)))))
         (match (complete (fold-left request-root start roots))
           ((Pair definitions state)
@@ -349,7 +295,6 @@
              (definitions definitions)
              (declarations (new Declarations
                              (program (Program-items-set program (Nil)))
-                             (control control)
                              (types (● state types)))))))))
 
     (define (request-root (state State) (item Item)) (→ State)
@@ -357,14 +302,6 @@
         ((Expose name _ _) (requested state name))
         ((Entry _ start _) (requested state start))
         ((Define _ _) state)))
-
-    ;; The effects with a control operation, in order of their names.
-
-    (define (control-effects (program Program)) (→ (List String))
-      (list-sort string<?
-                 (map (lambda (record) (● record name))
-                      (filter (lambda (effect) (not (null? (● effect control))))
-                              (table-values (● program effects))))))
 
     )
 
@@ -377,32 +314,21 @@
      (snail stage0 testing))
     (begin
       (define test-specialize
-        (lambda () (test-control-rows)
+        (lambda () (test-erased-rows)
                 (test-spec-keys)))
 
-      ;; Grounding keeps a row's control effects, in name order, and drops
-      ;; the rest, wherever the row sits.
-      (define test-control-rows
+      ;; Grounding drops every row, wherever it sits.
+      (define test-erased-rows
         (lambda ()
-          (let ((row (TRow (list "mut" "gen") (Some (TRow (list "abort" "console") (None)))))
-                (control (list "abort" "gen")))
-            (expect (erase-rows control row) (TRow (list "abort" "gen") (None)))
-            (expect (erase-rows (Nil) row) empty-row)
-            (expect (erase-rows control (TFun (list (TCon "I64" (Nil))) (TCon "Unit" (Nil)) row))
-                    (TFun (list (TCon "I64" (Nil)))
-                          (TCon "Unit" (Nil))
-                          (TRow (list "abort" "gen") (None)))))))
+          (let ((row (TRow (list "mut") (Some (TRigid "e")))))
+            (expect (erase-rows row) empty-row)
+            (expect (erase-rows (TFun (list (TCon "I64" (Nil))) (TCon "Unit" (Nil)) row))
+                    (TFun (list (TCon "I64" (Nil))) (TCon "Unit" (Nil)) empty-row)))))
 
-      ;; Without control effects a name is what `type-key` gives, so pure
-      ;; code keeps its names; with one, the name says so.
+      ;; A name is what `type-key` gives.
       (define test-spec-keys
-        (lambda () (let ((pure (TFun (list (TCon "I64" (Nil))) (TCon "I64" (Nil)) empty-row))
-                         (control
-                          (TFun (list (TCon "I64" (Nil)))
-                                (TCon "I64" (Nil))
-                                (TRow (list "gen") (None)))))
+        (lambda () (let ((pure (TFun (list (TCon "I64" (Nil))) (TCon "I64" (Nil)) empty-row)))
                      (expect (spec-key pure) (type-key pure))
                      (expect (spec-key (TCon "List" (list pure)))
                              (type-key (TCon "List" (list pure))))
-                     (expect (spec-key control) "fn<I64->I64>!gen")
                      (expect (spec-key empty-row) "row"))))))))

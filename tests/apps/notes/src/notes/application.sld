@@ -115,11 +115,11 @@
 
     ;; ---- The server ----
 
-    (define (load (fetch Fetch)) (→ Message) (! mut tasks)
+    (define (load (fetch Fetch)) (→ Message) (! mut)
       (Loaded (replied (request fetch "GET" "/api/greeting" (Nil) ""))))
 
     ;; The notes, a line each, sent with the next id the server should expect.
-    (define (share (fetch Fetch) (notes (List Note)) (next I64)) (→ Message) (! mut tasks)
+    (define (share (fetch Fetch) (notes (List Note)) (next I64)) (→ Message) (! mut)
       (Shared (replied (request fetch "POST"
                                 "/api/notes"
                                 (list (new Header (name "Content-Type") (value "text/plain"))
@@ -133,7 +133,7 @@
         ((Err why) (string-append "failed: " why))))
 
     ;; The next event, which the update that hears it waits past.
-    (define (hear (fetch Fetch) (stream Stream)) (→ Message) (! mut tasks)
+    (define (hear (fetch Fetch) (stream Stream)) (→ Message) (! mut)
       (match (stream-next fetch stream)
         ((Some event)
          (Heard stream (string-append (● event kind) ":" (● event data))))

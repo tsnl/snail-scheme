@@ -24,7 +24,6 @@
    dataset-photograph)
   (import
    (snail core base)
-   (only (snail shell task) tasks)
    (only (snail shell gpu) Gpu Image decode-image destroy TextureObject)
    (snail shell graphics colmap)
    (only (apps train trainer) Scene make-scene Options))
@@ -85,7 +84,7 @@
     ;; scaled to.
     (define (dataset-scene (gpu Gpu) (read (Fn String → Bytes ! e)) (settings Settings))
       (→ Scene)
-      (! mut tasks e)
+      (! mut e)
       (∀ (e))
       (let* ((sparse (lambda (file) (read (string-append (● settings scene) "sparse/0/" file))))
              (camera (list-ref (parsed (read-cameras (sparse "cameras.bin"))) 0))
@@ -114,7 +113,7 @@
                                 (settings Settings)
                                 (image ColmapImage))
       (→ Image)
-      (! mut tasks e)
+      (! mut e)
       (∀ (e))
       (let ((address
              (string-append (● settings scene) (● settings images) "/" (● image name))))

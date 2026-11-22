@@ -9,7 +9,6 @@
    splat-room-check)
   (import
    (snail core base)
-   (only (snail shell task) tasks)
    (only (snail shell gpu) Gpu)
    (only (snail shell math) log)
    (rename (snail shell tensor)
@@ -39,7 +38,7 @@
        (scales (Array F64))
        (count F64)))
 
-    (define (densified-in (gpu Gpu) (capacity I64)) (→ Densified) (! mut tasks)
+    (define (densified-in (gpu Gpu) (capacity I64)) (→ Densified) (! mut)
       (let* ((cloud (splat-params capacity))
              (densified (densification cloud (stats-params capacity)))
              (program
@@ -98,7 +97,7 @@
                      (show (f64->i64 (● d count)))
                      ")"))
 
-    (define (splat-densify-check (gpu Gpu)) (→ String) (! mut tasks)
+    (define (splat-densify-check (gpu Gpu)) (→ String) (! mut)
       (let* ((d (densified-in gpu 8))
              (mean (lambda (slot) (mean-at d slot)))
              (near (lambda (slot)
@@ -120,7 +119,7 @@
 
     ;; Three stay, so a cloud of 4 has room for one more row: the clone's,
     ;; whose row comes first. The large one is kept, unsplit.
-    (define (splat-room-check (gpu Gpu)) (→ String) (! mut tasks)
+    (define (splat-room-check (gpu Gpu)) (→ String) (! mut)
       (let ((d (densified-in gpu 4)))
         (string-append (live-text d)
                        (if (and (equal-means? (mean-at d 0) (list 1.0 0.0 0.0))

@@ -82,8 +82,7 @@
    next-event
    capture-bits)
   (import
-   (snail core base)
-   (only (snail shell task) tasks))
+   (snail core base))
   (begin
 
     ;; ---- Handles ----
@@ -264,16 +263,16 @@
        (window-node (Fn → Node ! mut))
        (confirm (Fn String → Bool ! mut))
        (installation-status (Fn → InstallationStatus ! mut))
-       (install-app (Fn → InstallResult ! mut tasks))
+       (install-app (Fn → InstallResult ! mut))
        (fullscreen? (Fn → Bool ! mut))
-       (set-fullscreen (Fn Bool → Bool ! mut tasks))
+       (set-fullscreen (Fn Bool → Bool ! mut))
        (element-by-id (Fn String → (Option Node) ! mut))
        (select-range (Fn Node I32 I32 → Unit ! mut))
        (selection-range (Fn Node → (Pair I32 I32) ! mut))
        (insert-text (Fn Node I32 I32 String → Bool ! mut))
        (measure (Fn Node → Measure ! mut))
        (wake (Fn → Unit ! mut))
-       (next-event (Fn → Delivery ! mut tasks))))
+       (next-event (Fn → Delivery ! mut))))
 
     (define (document-root (dom Dom)) (→ Node) (! mut)
       ((● dom document-root)))
@@ -339,13 +338,13 @@
     (define (installation-status (dom Dom)) (→ InstallationStatus) (! mut)
       ((● dom installation-status)))
 
-    (define (install-app (dom Dom)) (→ InstallResult) (! mut tasks)
+    (define (install-app (dom Dom)) (→ InstallResult) (! mut)
       ((● dom install-app)))
 
     (define (fullscreen? (dom Dom)) (→ Bool) (! mut)
       ((● dom fullscreen?)))
 
-    (define (set-fullscreen (dom Dom) (enter Bool)) (→ Bool) (! mut tasks)
+    (define (set-fullscreen (dom Dom) (enter Bool)) (→ Bool) (! mut)
       ((● dom set-fullscreen) enter))
 
     (define (element-by-id (dom Dom) (id String)) (→ (Option Node)) (! mut)
@@ -366,5 +365,5 @@
     (define (wake (dom Dom)) (→ Unit) (! mut)
       ((● dom wake)))
 
-    (define (next-event (dom Dom)) (→ Delivery) (! mut tasks)
+    (define (next-event (dom Dom)) (→ Delivery) (! mut)
       ((● dom next-event)))))

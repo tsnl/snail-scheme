@@ -93,7 +93,7 @@
    (onscreen GpuRenderPipeline)
    (onscreen-group GpuBindGroup)))
 
-(define (painting (gpu Gpu) (info DeviceInfo)) (→ Painting) (! mut tasks)
+(define (painting (gpu Gpu) (info DeviceInfo)) (→ Painting) (! mut)
   (let* ((module
           (create-shader-module gpu (new ShaderModuleDescriptor (label "test") (code shader))))
          (target (texture-named gpu "target" 4 4))
@@ -120,7 +120,7 @@
 ;; The texels of the texture's first row and the image's, each row copied
 ;; at 256 bytes, the alignment a copy into a buffer needs.
 
-(define (frame (gpu Gpu) (p Painting)) (→ (Pair Bytes Bytes)) (! mut tasks)
+(define (frame (gpu Gpu) (p Painting)) (→ (Pair Bytes Bytes)) (! mut)
   (let ((encoder (create-command-encoder gpu)) (readback (● p readback)))
     (fill gpu encoder (● p target-view) (● p offscreen) (● p offscreen-group))
     (fill gpu
@@ -165,7 +165,7 @@
          (color (new Vec4f (x 1.0) (y 1.0) (z 1.0) (w 1.0))))))
     ((None) (panic "the picture has no slot"))))
 
-(define (quads-frame (gpu Gpu)) (→ (Pair Bytes String)) (! mut tasks)
+(define (quads-frame (gpu Gpu)) (→ (Pair Bytes String)) (! mut)
   (let* ((encoder (create-command-encoder gpu))
          (atlas (atlas-pictures gpu (make-atlas gpu "test" 16 1) encoder (list two-texel-picture)))
          (target (texture-named gpu "quads" 4 2))
@@ -200,7 +200,7 @@
 
 ;; The page's first bytes, and why a missing file has none.
 
-(define (fetched (fetch Fetch)) (→ String) (! mut tasks)
+(define (fetched (fetch Fetch)) (→ String) (! mut)
   (string-append (match (fetch-bytes fetch "index.html")
                    ((Ok bytes)
                     (list->string (map (lambda (byte) (integer->char (i32->i64 (u8->i32 byte))))
@@ -211,7 +211,7 @@
                    ((Ok _) "found")
                    ((Err message) message))))
 
-(define (main (gpu Gpu) (events Events) (out OutputPort)) (→ Unit) (! mut tasks)
+(define (main (gpu Gpu) (events Events) (out OutputPort)) (→ Unit) (! mut)
   (let ((fetch (page-fetch)))
     (let* ((info (request-device gpu)) (p (painting gpu info)))
       (write-line out (string-append "format: " (texture-format-name (● info format))))

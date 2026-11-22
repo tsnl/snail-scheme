@@ -33,7 +33,6 @@
   (import
    (snail core base)
    (snail core table)
-   (only (snail shell task) tasks)
    (snail shell png)
    (snail shell gpu)
    (snail shell graphics pod)
@@ -193,7 +192,7 @@
                             (encoder GpuCommandEncoder)
                             (pictures (List Picture)))
       (→ Atlas)
-      (! mut tasks)
+      (! mut)
       (match (find (lambda (picture) (not (composed? atlas picture))) pictures)
         ((None) atlas)
         ((Some picture)
@@ -241,7 +240,7 @@
                      (picture Picture)
                      (clear? Bool))
       (→ Atlas)
-      (! mut tasks)
+      (! mut)
       (let* ((layers (laid atlas (list picture)))
              (atlas (decoded gpu atlas layers))
              (pieces (numbered-runs layers 0))
@@ -259,7 +258,7 @@
 
     ;; The atlas with each layer's source decoded.
 
-    (define (decoded (gpu Gpu) (atlas Atlas) (layers (List Placed))) (→ Atlas) (! mut tasks)
+    (define (decoded (gpu Gpu) (atlas Atlas) (layers (List Placed))) (→ Atlas) (! mut)
       (fold-left (lambda (atlas layer)
                    (let ((key (show (● layer source key))))
                      (if (table-contains? (● atlas sources) key)
@@ -271,7 +270,7 @@
                  atlas
                  layers))
 
-    (define (decoded-view (gpu Gpu) (layer Placed)) (→ GpuTextureView) (! mut tasks)
+    (define (decoded-view (gpu Gpu) (layer Placed)) (→ GpuTextureView) (! mut)
       (match (decode-image gpu ((● layer source bytes)))
         ((Some image) (view-of gpu (● image texture) 1))
         ((None) (panic "atlas: a source is no image the host decodes"))))
@@ -437,7 +436,7 @@
     ;; its own copy and waits for it, so it ends the frame: call it after
     ;; the frame's own submit.
 
-    (define (atlas-url (gpu Gpu) (atlas Atlas) (key I32) (region Rect)) (→ String) (! mut tasks)
+    (define (atlas-url (gpu Gpu) (atlas Atlas) (key I32) (region Rect)) (→ String) (! mut)
       (match (atlas-slot atlas key)
         ((None) "")
         ((Some slot)

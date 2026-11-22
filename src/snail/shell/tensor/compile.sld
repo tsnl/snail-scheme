@@ -45,7 +45,6 @@
    (snail core base)
    (snail core table)
    (only (snail core io) Clock monotonic-nanoseconds)
-   (only (snail shell task) tasks)
    (only (snail shell gpu)
          Gpu
          create-buffer
@@ -704,7 +703,7 @@
         ((Scanning scan) (dispatch-scan gpu pass scan))))
 
     ;; Sink `k`'s bytes as the last run left them.
-    (define (read-sink (gpu Gpu) (program Program) (k I64)) (→ Bytes) (! mut tasks)
+    (define (read-sink (gpu Gpu) (program Program) (k I64)) (→ Bytes) (! mut)
       (let ((sink (list-ref (● program sinks) k)) (encoder (create-command-encoder gpu)))
         (copy-buffer-to-buffer gpu encoder
                                (● sink buffer)
@@ -716,7 +715,7 @@
         (read-buffer gpu (● sink readback) 0 (i64->i32 (● sink size)))))
 
     ;; A param's bytes, through a buffer made for the reading.
-    (define (read-param (gpu Gpu) (program Program) (name String)) (→ Bytes) (! mut tasks)
+    (define (read-param (gpu Gpu) (program Program) (name String)) (→ Bytes) (! mut)
       (match (table-ref (● program params) name)
         ((Some binding)
          (let* ((size (bytes-of (● binding port)))
@@ -807,7 +806,7 @@
     ;; a round trip to the device, but it shows where a program's time goes.
     (define (profile-program (gpu Gpu) (clock Clock) (program Program))
       (→ (List (Pair String F64)))
-      (! mut tasks)
+      (! mut)
       (map (lambda (step)
              (let ((start (monotonic-nanoseconds clock)))
                (run-steps gpu (list step))

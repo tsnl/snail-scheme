@@ -29,7 +29,6 @@
    run-page)
   (import
    (snail core base)
-   (only (snail core forms) host)
    (prefix (snail runtime browser events) host-)
    (prefix (snail runtime browser storage) host-)
    (snail shell task))
@@ -45,7 +44,7 @@
     ;; on the host and waits by ticket ((snail shell task)'s `through-host`).
     (record Events
       ((poll-event (Fn → I32 ! mut))
-       (wait-event (Fn → Unit ! mut tasks))
+       (wait-event (Fn → Unit ! mut))
        (event-field (Fn I32 → I32 ! mut))
        (random-seed (Fn → I32 ! mut))
        (canvas-width (Fn → I32 ! mut))
@@ -56,7 +55,7 @@
     (define (poll-event (events Events)) (→ I32) (! mut)
       ((● events poll-event)))
 
-    (define (wait-event (events Events)) (→ Unit) (! mut tasks)
+    (define (wait-event (events Events)) (→ Unit) (! mut)
       ((● events wait-event)))
 
     (define (event-field (events Events) (n I32)) (→ I32) (! mut)
@@ -93,17 +92,17 @@
 
     ;; One save, read at boot and replaced by each store.
     (record PageStorage
-      ((load-count (Fn → I32 ! mut tasks))
+      ((load-count (Fn → I32 ! mut))
        (loaded-byte (Fn I32 → U8 ! mut))
-       (store-save (Fn Bytes → Unit ! mut tasks))))
+       (store-save (Fn Bytes → Unit ! mut))))
 
-    (define (load-count (storage PageStorage)) (→ I32) (! mut tasks)
+    (define (load-count (storage PageStorage)) (→ I32) (! mut)
       ((● storage load-count)))
 
     (define (loaded-byte (storage PageStorage) (n I32)) (→ U8) (! mut)
       ((● storage loaded-byte) n))
 
-    (define (store-save (storage PageStorage) (bytes Bytes)) (→ Unit) (! mut tasks)
+    (define (store-save (storage PageStorage) (bytes Bytes)) (→ Unit) (! mut)
       ((● storage store-save) bytes))
 
     ;; The page's saved state, through the browser host.
@@ -115,7 +114,7 @@
                       (through-host (lambda (ticket) (host-start-store ticket bytes))
                                     host-finish-store)))))
 
-    (define (load-save (storage PageStorage)) (→ (Option Bytes)) (! mut tasks)
+    (define (load-save (storage PageStorage)) (→ (Option Bytes)) (! mut)
       (let ((count (load-count storage)))
         (if (< count 0)
             (None)
@@ -135,9 +134,9 @@
     (define (run-page (events Events) (storage PageStorage) (initialize (Fn → S ! mut))
                       (encode (Fn S → Bytes))
                       (decode (Fn Bytes → S))
-                      (run (Fn S (Fn S → Unit ! mut tasks) → Unit ! e)))
+                      (run (Fn S (Fn S → Unit ! mut) → Unit ! e)))
       (→ Unit)
-      (! mut tasks e)
+      (! mut e)
       (∀ (S e))
       (let ((booted (match (load-save storage)
                       ((Some bytes) (new Pair (first (decode bytes)) (second 1)))

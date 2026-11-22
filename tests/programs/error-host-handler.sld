@@ -1,6 +1,5 @@
 (import
- (snail core base)
- (only (snail core forms) host))
+ (snail core base))
 
 (define main
   (lambda ()

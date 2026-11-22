@@ -6,7 +6,6 @@
 ;; again.
 (import
  (snail core base)
- (only (snail shell task) tasks)
  (only (snail shell page) report-ready)
  (only (snail shell gpu) request-device)
  (only (snail shell fetch) Fetch fetch-bytes page-address)
@@ -16,15 +15,14 @@
  (only (snail shell gpu) Gpu)
  (only (snail shell page) Events)
  (only (snail core io) Clock)
- (only (snail core io) OutputPort)
- (only (snail core forms) host))
+ (only (snail core io) OutputPort))
 
-(define (fetched (fetch Fetch) (url String)) (→ Bytes) (! mut tasks)
+(define (fetched (fetch Fetch) (url String)) (→ Bytes) (! mut)
   (match (fetch-bytes fetch url)
     ((Ok bytes) bytes)
     ((Err why) (panic why))))
 
-(define (main (gpu Gpu) (events Events) (clock Clock) (out OutputPort)) (→ Unit) (! mut host tasks)
+(define (main (gpu Gpu) (events Events) (clock Clock) (out OutputPort)) (→ Unit) (! mut)
   (let ((fetch (page-fetch)))
     (report-ready events)
     (let ((settings (settings-of (page-address fetch))) (format (● (request-device gpu) format)))

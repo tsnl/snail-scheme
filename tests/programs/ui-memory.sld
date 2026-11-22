@@ -1,5 +1,4 @@
 (import
- (only (snail core forms) host)
  (snail core base)
  (snail core io)
  (snail shell task)
@@ -33,7 +32,7 @@
   (Saved ((count I64))))
 
 (define (update (model Model) (message Msg))
-  (→ (Pair Model (List (Fn → Msg ! mut tasks))))
+  (→ (Pair Model (List (Fn → Msg ! mut))))
   (match message
     ((Typed text) (new Pair (first (Model-draft-set model text)) (second (Nil))))
     ((Add)
@@ -109,7 +108,7 @@
         (clicked "reverse")
         (clicked "remove-1")))
 
-(define (main (out OutputPort)) (→ Unit) (! host mut tasks)
+(define (main (out OutputPort)) (→ Unit) (! mut)
   (dispatch
    (lambda ()
      (let ((result

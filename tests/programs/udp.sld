@@ -1,7 +1,5 @@
 (import
- (only (snail core forms) host)
  (snail core base)
- (only (snail shell task) tasks)
  (rename (snail core io) (write write-value))
  (only (snail shell task) dispatch)
  (snail shell socket))
@@ -11,7 +9,7 @@
     ((Ok value) value)
     ((Err error) (panic (● error code)))))
 
-(define (main (tcp Tcp) (udp Udp) (out OutputPort)) (→ Unit) (! host mut tasks)
+(define (main (tcp Tcp) (udp Udp) (out OutputPort)) (→ Unit) (! mut)
   ;; A program waits on sockets from a task, which the scheduler runs once
   ;; main returns.
   (dispatch

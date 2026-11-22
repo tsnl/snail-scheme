@@ -1,6 +1,5 @@
 (import
  (snail core base)
- (only (snail core forms) host)
  (snail core io)
  (snail shell task))
 
@@ -12,7 +11,7 @@
 (record Clock
   ((elapsed I64)))
 
-(define (logical (out OutputPort) (work (Fn → Unit ! mut tasks))) (→ Unit) (! mut)
+(define (logical (out OutputPort) (work (Fn → Unit ! mut))) (→ Unit) (! mut)
   (let ((clock (new Clock (elapsed 0))))
     (handle tasks
         ((yield (lambda (resume) (resume (unit))))
@@ -26,13 +25,13 @@
          (current-scheduler (lambda () (panic "the logical handler cannot dispatch work"))))
       (work))))
 
-(define (countdown (out OutputPort) (name String) (count I64)) (→ Unit) (! mut tasks)
+(define (countdown (out OutputPort) (name String) (count I64)) (→ Unit) (! mut)
   (when (> count 0)
     (write-line out (string-append name " " (show count)))
     (sleep 100)
     (countdown out name (- count 1))))
 
-(define (main (out OutputPort)) (→ Unit) (! host mut tasks)
+(define (main (out OutputPort)) (→ Unit) (! mut)
 
   ;; The same function under the logical clock, at once, and under the
   ;; scheduler, in real time, once main returns.

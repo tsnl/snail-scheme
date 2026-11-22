@@ -1,6 +1,5 @@
 (import
  (snail core base)
- (only (snail core forms) host)
  (rename (snail core io) (write write-value))
  (snail shell task)
  (snail shell socket))
@@ -21,7 +20,7 @@
 (record Buffer
   ((bytes Bytes)))
 
-(define (main (out OutputPort)) (→ Unit) (! host mut tasks)
+(define (main (out OutputPort)) (→ Unit) (! mut)
 
   ;; A program waits on sockets from a task, which the scheduler runs once
   ;; main returns.

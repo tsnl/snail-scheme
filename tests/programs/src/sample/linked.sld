@@ -6,13 +6,12 @@
    greeting-text)
   (import
    (snail core base)
-   (only (snail shell task) tasks)
    (snail shell resource))
   (begin
 
     (define (greeting) (→ Resource) (link-file "data/greeting.txt"))
 
-    (define (greeting-text (resources Resources)) (→ String) (! mut tasks)
+    (define (greeting-text (resources Resources)) (→ String) (! mut)
       (list->string
        (map (lambda (byte) (i32->char (u8->i32 byte)))
             (array->list (read-resource resources (greeting))))))

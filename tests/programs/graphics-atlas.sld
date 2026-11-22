@@ -7,7 +7,6 @@
  (snail core io)
  (snail shell gpu)
  (snail shell gpu record)
- (only (snail shell task) tasks)
  (snail shell graphics pod)
  (snail shell graphics atlas)
  (snail shell graphics quad))
@@ -131,7 +130,7 @@
      (Cons (substring text 0 at) (words-of (substring text (+ at 1) (string-length text)))))
     ((None) (list text))))
 
-(define (compose (gpu Gpu) (atlas Atlas) (pictures (List Picture))) (→ Atlas) (! mut tasks)
+(define (compose (gpu Gpu) (atlas Atlas) (pictures (List Picture))) (→ Atlas) (! mut)
   (let* ((encoder (create-command-encoder gpu)) (next (atlas-pictures gpu atlas encoder pictures)))
     (submit gpu (list (finish gpu encoder)))
     next))
@@ -139,10 +138,10 @@
 ;; Composed a call at a time, `calls` times.
 (define (settled (gpu Gpu) (atlas Atlas) (pictures (List Picture)) (calls I64))
   (→ Atlas)
-  (! mut tasks)
+  (! mut)
   (if (= calls 0) atlas (settled gpu (compose gpu atlas pictures) pictures (- calls 1))))
 
-(define (frames (gpu Gpu)) (→ (List Atlas)) (! mut tasks)
+(define (frames (gpu Gpu)) (→ (List Atlas)) (! mut)
   (request-device gpu)
   (let* ((first (settled gpu (make-atlas gpu "test" 64 2)
                          (list (picture 1 1 30 20) (picture 2 1 30 20) (picture 3 1 30 40))
@@ -152,7 +151,7 @@
          (full (compose gpu fourth (list (picture 4 1 60 60) (picture 5 1 60 60)))))
     (list first again fourth full)))
 
-(define (main (out OutputPort)) (→ Unit) (! mut tasks)
+(define (main (out OutputPort)) (→ Unit) (! mut)
   (let ((recorded (with-recorded-gpu (lambda (gpu) (frames gpu)))))
     (for-each (lambda (atlas) (write-line out (slots atlas (list 1 2 3 4 5)))) (● recorded first))
     (for-each (lambda (text) (write-line out text)) (heads (● recorded second))))
@@ -197,7 +196,7 @@
 
 ;; A run of three, then runs of a hundred and of two hundred, which grow
 ;; the instances: the outgrown buffer goes at its frame's submit.
-(define (quad-frames (gpu Gpu)) (→ Unit) (! mut tasks)
+(define (quad-frames (gpu Gpu)) (→ Unit) (! mut)
   (request-device gpu)
   (fold-left (lambda (quads count) (quad-frame gpu quads count))
              (make-quads gpu "test" (Bgra8Unorm) (● (make-atlas gpu "test" 64 2) texture))

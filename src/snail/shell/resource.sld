@@ -21,7 +21,7 @@
    (snail core base)
    (prefix (snail runtime resource) host-)
    (only (snail core forms) link-handle)
-   (only (snail shell task) tasks ticket await))
+   (only (snail shell task) ticket await))
   (begin
 
     ;; ---- Resources ----
@@ -46,11 +46,11 @@
     ;; program's store, the first time a task asks for it, and the task
     ;; waits until it has; a handler can serve them otherwise.
     (record Resources
-      ((resource-bytes (Fn (List I32) → (List Bytes) ! mut tasks))))
+      ((resource-bytes (Fn (List I32) → (List Bytes) ! mut))))
 
     (define (resource-bytes (resources Resources) (handles (List I32)))
       (→ (List Bytes))
-      (! mut tasks)
+      (! mut)
       ((● resources resource-bytes) handles))
 
     (define (host-resources) (→ Resources)
@@ -61,7 +61,7 @@
     ;; so the host reads the files together; the task waits once, for all
     ;; of them, then takes each file's bytes in order.
 
-    (define (host-bytes (handles (List I32))) (→ (List Bytes)) (! tasks)
+    (define (host-bytes (handles (List I32))) (→ (List Bytes))
       (let ((ids (map (lambda (handle) (let ((id (ticket))) (host-read id handle) id)) handles)))
         (await ids)
         (map held-bytes ids)))
@@ -74,14 +74,14 @@
 
     ;; The file's bytes, as they were when the host first read them.
 
-    (define (read-resource (resources Resources) (linked Resource)) (→ Bytes) (! mut tasks)
+    (define (read-resource (resources Resources) (linked Resource)) (→ Bytes) (! mut)
       (list-ref (read-resources resources (list linked)) 0))
 
     ;; Each file's bytes, in the order given, the files read together.
 
     (define (read-resources (resources Resources) (linked (List Resource)))
       (→ (List Bytes))
-      (! mut tasks)
+      (! mut)
       (resource-bytes resources (map (lambda (file) ((● file handle))) linked)))
 
     ))

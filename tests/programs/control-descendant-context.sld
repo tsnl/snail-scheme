@@ -1,7 +1,6 @@
 (import
  (snail core base)
  (snail core io)
- (only (snail core forms) host)
  (only (snail core primitive) inherit-handlers))
 
 ;; A resumption called from a thunk closed over the handlers where its
@@ -11,13 +10,13 @@
 
 (enum Step
   (Done ((value I64)))
-  (More ((invoke (Fn → Step ! host)))))
+  (More ((invoke (Fn → Step ! mut)))))
 
 (record Slot
   ((next (Option (Fn Unit → Step ! mut)))))
 
 (effect Pause
-  ((ctl pause (Fn (Fn → Step ! host) → Unit))))
+  ((ctl pause (Fn (Fn → Step ! mut) → Unit))))
 
 (define (start (slot Slot)) (→ Step) (! mut)
   (handle Pause ((pause (lambda (invoke resume)
@@ -32,10 +31,10 @@
     ((Some next) (next (unit)))
     ((None) (panic "not paused"))))
 
-(define (show-step (out OutputPort) (step Step)) (→ Unit) (! host mut)
+(define (show-step (out OutputPort) (step Step)) (→ Unit) (! mut)
   (match step
     ((Done value) (write-line out (show value)))
     ((More invoke) (show-step out (invoke)))))
 
-(define (main (out OutputPort)) (→ Unit) (! host mut)
+(define (main (out OutputPort)) (→ Unit) (! mut)
   (show-step out (start (new Slot (next (None))))))

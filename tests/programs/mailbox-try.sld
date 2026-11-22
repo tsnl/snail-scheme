@@ -1,5 +1,4 @@
 (import
- (only (snail core forms) host)
  (snail core base)
  (snail core io)
  (snail shell task))
@@ -12,7 +11,7 @@
     ((Some message) message)
     ((None) "none")))
 
-(define (main (out OutputPort)) (→ Unit) (! host mut tasks)
+(define (main (out OutputPort)) (→ Unit) (! mut)
   (let ((mailbox (make-mailbox)))
     (write-line out (tried mailbox))
     (mailbox-post mailbox "first")

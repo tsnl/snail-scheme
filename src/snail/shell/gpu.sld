@@ -245,7 +245,7 @@
    host-gpu)
   (import
    (snail core base)
-   (only (snail shell task) tasks through-host)
+   (only (snail shell task) through-host)
    (only (snail shell utf8) string->utf8)
    (prefix (snail runtime gpu) host-))
   (begin
@@ -692,14 +692,14 @@
     ;; `current-texture` is the canvas's texture for this frame, sized to
     ;; the canvas's pixels on the screen, and its size.
     (record Gpu
-      ((request-device (Fn → DeviceInfo ! mut tasks))
+      ((request-device (Fn → DeviceInfo ! mut))
        (create-buffer (Fn BufferDescriptor → GpuBuffer ! mut))
        (write-buffer (Fn GpuBuffer I32 Bytes → Unit ! mut))
-       (read-buffer (Fn GpuBuffer I32 I32 → Bytes ! mut tasks))
+       (read-buffer (Fn GpuBuffer I32 I32 → Bytes ! mut))
        (create-texture (Fn TextureDescriptor → GpuTexture ! mut))
        (create-view (Fn GpuTexture TextureViewDescriptor → GpuTextureView ! mut))
        (write-texture (Fn TextureCopy I32 I32 I32 Bytes → Unit ! mut))
-       (decode-image (Fn Bytes → (Option Image) ! mut tasks))
+       (decode-image (Fn Bytes → (Option Image) ! mut))
        (create-sampler (Fn SamplerDescriptor → GpuSampler ! mut))
        (create-shader-module (Fn ShaderModuleDescriptor → GpuShaderModule ! mut))
        (create-render-pipeline (Fn RenderPipelineDescriptor → GpuRenderPipeline ! mut))
@@ -728,11 +728,11 @@
        (end-compute-pass (Fn GpuComputePass → Unit ! mut))
        (finish (Fn GpuCommandEncoder → GpuCommandBuffer ! mut))
        (submit (Fn (List GpuCommandBuffer) → Unit ! mut))
-       (work-done (Fn → Unit ! mut tasks))
+       (work-done (Fn → Unit ! mut))
        (current-texture (Fn → Image ! mut))
        (destroy (Fn GpuObject → Unit ! mut))))
 
-    (define (request-device (gpu Gpu)) (→ DeviceInfo) (! mut tasks)
+    (define (request-device (gpu Gpu)) (→ DeviceInfo) (! mut)
       ((● gpu request-device)))
 
     (define (create-buffer (gpu Gpu) (descriptor BufferDescriptor)) (→ GpuBuffer) (! mut)
@@ -743,7 +743,7 @@
 
     (define (read-buffer (gpu Gpu) (buffer GpuBuffer) (offset I32) (size I32))
       (→ Bytes)
-      (! mut tasks)
+      (! mut)
       ((● gpu read-buffer) buffer offset size))
 
     (define (create-texture (gpu Gpu) (descriptor TextureDescriptor)) (→ GpuTexture) (! mut)
@@ -764,7 +764,7 @@
       (! mut)
       ((● gpu write-texture) copy bytes-per-row width height bytes))
 
-    (define (decode-image (gpu Gpu) (bytes Bytes)) (→ (Option Image)) (! mut tasks)
+    (define (decode-image (gpu Gpu) (bytes Bytes)) (→ (Option Image)) (! mut)
       ((● gpu decode-image) bytes))
 
     (define (create-sampler (gpu Gpu) (descriptor SamplerDescriptor)) (→ GpuSampler) (! mut)
@@ -942,7 +942,7 @@
     (define (submit (gpu Gpu) (buffers (List GpuCommandBuffer))) (→ Unit) (! mut)
       ((● gpu submit) buffers))
 
-    (define (work-done (gpu Gpu)) (→ Unit) (! mut tasks)
+    (define (work-done (gpu Gpu)) (→ Unit) (! mut)
       ((● gpu work-done)))
 
     (define (current-texture (gpu Gpu)) (→ Image) (! mut)
@@ -1443,7 +1443,7 @@
     ;; optional ones it has (host/browser/gpu.mjs); it has told why it has
     ;; no device.
 
-    (define (requested) (→ DeviceInfo) (! tasks)
+    (define (requested) (→ DeviceInfo)
       (let ((status (through-host host-start-device host-finish-device)))
         (unless (= status 0)
           (panic "gpu: this host has no WebGPU device with the baseline features"))
@@ -1468,7 +1468,7 @@
 
     ;; ---- Waiting on the host ----
 
-    (define (read-bytes (buffer I32) (offset I32) (size I32)) (→ Bytes) (! tasks)
+    (define (read-bytes (buffer I32) (offset I32) (size I32)) (→ Bytes)
       (let ((count (through-host (lambda (ticket) (host-start-read ticket buffer offset size))
                                  host-finish-read)))
         (array-generate (i32->i64 count) (lambda (index) (host-read-byte (i64->i32 index))))))
@@ -1476,7 +1476,7 @@
     ;; The host decodes the image and holds its texture until it is kept.
 
     ;; The host answers a width of 0 for bytes it does not decode.
-    (define (decoded (bytes Bytes)) (→ (Option Image)) (! tasks)
+    (define (decoded (bytes Bytes)) (→ (Option Image))
       (let ((width (through-host (lambda (ticket)
                                    (host-start-decode ticket
                                                       (texture-usage-bits (list (TextureBinding)

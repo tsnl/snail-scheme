@@ -84,7 +84,7 @@
       (case (host-installation-status)
         ((1) (InstallAvailable)) ((2) (AppInstalled)) (else (InstallUnavailable))))
 
-    (define (page-install) (→ InstallResult) (! tasks)
+    (define (page-install) (→ InstallResult)
       (case (through-host host-start-install host-finish-install)
         ((0) (InstallAccepted)) ((1) (InstallDismissed)) ((2) (InstallNotAvailable))
         ((3) (GestureRequired)) ((5) (InstallAlreadyInstalled)) (else (InstallFailed))))
@@ -105,7 +105,7 @@
     ;; The next delivery, skipping the display frames and resizes an
     ;; interface has no use for.
 
-    (define (page-delivery (events Events)) (→ Delivery) (! mut tasks)
+    (define (page-delivery (events Events)) (→ Delivery) (! mut)
       (let ((kind (poll-event events)))
         (cond ((= kind 0) (wait-event events) (page-delivery events))
               ((= kind fired-kind)

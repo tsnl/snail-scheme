@@ -2,10 +2,8 @@
  (snail core base)
  (requests application)
  (only (snail shell page) Events)
- (only (snail shell page) PageStorage)
- (only (snail shell task) tasks)
- (only (snail core forms) host))
+ (only (snail shell page) PageStorage))
 
-(define (main (events Events) (storage PageStorage)) (→ Unit) (! mut host tasks)
+(define (main (events Events) (storage PageStorage)) (→ Unit) (! mut)
   (run-requests events storage)
   (unit))

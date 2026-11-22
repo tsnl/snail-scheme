@@ -5,7 +5,8 @@
    ● test-base
    define lambda if begin let let* letrec cond case when unless and or do
    define-syntax syntax-rules quote else => _ ...
-   type ann record new enum match effect handle
+   type ann record new enum match
+   make-prompt with-prompt suspend
    +
    -
    *
@@ -141,12 +142,38 @@
     (Ok ((value T)))
     (Err ((error E))))
 
-  ;; No value has type Never, so `absurd` is never called: an operation
-  ;; that answers Never escapes to its handler (snail stage0 forms).
+  ;; No value has type Never, so `absurd` is never called: a suspension
+  ;; to a prompt that answers Never escapes to its handler.
   (enum Never)
 
   (define (absurd never)
     (error #f "absurd: no value has type Never" never))
+
+  ;; ---- Prompts ----
+
+  ;; The source compiler suspends only to stop, so stage zero never
+  ;; resumes: `suspend` escapes to the nearest `with-prompt` of its prompt
+  ;; and runs the handler there, outside it, as compiled code does. The
+  ;; `with-prompt`s running are a thread's own: the test runner compiles on
+  ;; several threads at once, and a parameter they shared would leave one
+  ;; thread's escapes in another's scope.
+  (define running-prompts (make-thread-parameter '()))
+
+  (define (make-prompt) (vector 'prompt))
+
+  (define (with-prompt prompt body handler)
+    ((call/cc (lambda (escape)
+                (let ([value (parameterize ([running-prompts
+                                             (cons (list prompt escape handler) (running-prompts))])
+                               (body))])
+                  (lambda () value))))))
+
+  (define (suspend prompt value)
+    (let ([running (assq prompt (running-prompts))])
+      (unless running (error 'suspend "no with-prompt of this prompt is running"))
+      ((cadr running) (lambda () ((caddr running) value cannot-resume)))))
+
+  (define (cannot-resume answer) (error 'resume "stage zero cannot resume"))
 
   (enum (Option T)
     (Some ((value T)))
@@ -442,8 +469,33 @@
       (unless (= (memo 10) 11) (error 'cache "reentrant result"))
       (unless (= (memo 10) 11) (error 'cache "last completion must win"))))
 
+  ;; A suspension reaches the nearest `with-prompt` of its own prompt, past
+  ;; those of others, and its handler runs outside that one.
+  (define (test-prompts)
+    (let ((stop (make-prompt)) (other (make-prompt)))
+      (unless (and (= (with-prompt stop
+                                   (lambda () (+ 1 (suspend stop 4)))
+                                   (lambda (value resume) (* 10 value)))
+                      40)
+                   (= (with-prompt stop
+                                   (lambda ()
+                                     (with-prompt other
+                                                  (lambda () (suspend stop 1))
+                                                  (lambda (value resume) 0)))
+                                   (lambda (value resume) (+ value 6)))
+                      7)
+                   (= (with-prompt stop
+                                   (lambda ()
+                                     (with-prompt stop
+                                                  (lambda () (suspend stop 1))
+                                                  (lambda (value resume) (suspend stop (+ value 1)))))
+                                   (lambda (value resume) (* value 10)))
+                      20))
+        (error 'test-prompts "a suspension did not reach its with-prompt"))))
+
   (define (test-base)
     (test-cache)
+    (test-prompts)
     (for-each
      (lambda (entry)
        (let ((actual (match (string->i64 (car entry)) ((Some value) value) ((None) #f))))

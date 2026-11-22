@@ -53,7 +53,6 @@
    (snail shell gpu)
    (snail shell graphics pod)
    (snail shell graphics mesh)
-   (only (snail shell task) tasks)
    (snail shell graphics shaders))
   (begin
 
@@ -342,12 +341,12 @@
                  (if (● planes ids) (Some (R32Uint)) (None)))))
 
     ;; The id of the instance at pixel `x`, `y`, when the G-buffer has ids.
-    (define (read-id (gpu Gpu) (g GBuffer) (x I32) (y I32)) (→ (Option I32)) (! mut tasks)
+    (define (read-id (gpu Gpu) (g GBuffer) (x I32) (y I32)) (→ (Option I32)) (! mut)
       (match (● g ids)
         ((Some plane) (Some (texel-word gpu (● plane texture) x y)))
         ((None) (None))))
 
-    (define (texel-word (gpu Gpu) (texture GpuTexture) (x I32) (y I32)) (→ I32) (! mut tasks)
+    (define (texel-word (gpu Gpu) (texture GpuTexture) (x I32) (y I32)) (→ I32) (! mut)
       (let ((readback (create-buffer gpu (new BufferDescriptor
                                            (label "gbuffer/read-id")
                                            (size 4)

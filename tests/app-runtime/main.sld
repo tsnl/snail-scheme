@@ -4,7 +4,6 @@
 ;; the scene's state is, and the buttons the check clicks.
 (import
  (snail core base)
- (only (snail core forms) host)
  (snail shell task)
  (snail shell app)
  (snail shell wire)
@@ -74,7 +73,7 @@
 
 (define (main (gpu Gpu) (events Events) (storage PageStorage) (clock Clock))
   (→ Unit)
-  (! mut host tasks)
+  (! mut)
   (handle Marker
       ((marker (lambda () 17)))
     (dispatch (lambda ()

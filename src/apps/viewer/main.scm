@@ -16,7 +16,6 @@
  (snail core io)
  (snail shell json)
  (snail shell json read)
- (only (snail shell task) tasks)
  (only (snail shell app) next-event FrameEvent InputEvent FilesEvent KeyDown)
  (only (snail shell page) Events report-ready)
  (only (snail shell fetch) Fetch fetch-all-bytes page-address)
@@ -28,7 +27,7 @@
  (only (snail shell gpu) Gpu request-device current-texture view-of work-done TextureFormat)
  (snail shell graphics pod)
  (snail shell graphics raster)
- (only (snail shell graphics gltf) uri-path reading unreadable attempt-reading)
+ (only (snail shell graphics gltf) uri-path unreadable attempt-reading)
  (snail shell graphics trace scene)
  (snail shell graphics environment)
  (snail shell graphics trace render)
@@ -114,7 +113,7 @@
                    (timing (Pair I32 I32))
                    (format TextureFormat))
   (→ Unit)
-  (! mut tasks)
+  (! mut)
   (match (next-event events)
     ((FrameEvent elapsed)
      (match view
@@ -185,7 +184,7 @@
                 (files (List Chosen))
                 (eye (Option (List F64))))
   (→ Unit)
-  (! mut tasks)
+  (! mut)
   (set-text dom (document-root dom) "Loading…")
   (match (attempt-reading (lambda () (chosen gpu fetch out view files)))
     ((Ok replacing)
@@ -223,7 +222,7 @@
 ;; leave nothing on the device.
 (define (chosen (gpu Gpu) (fetch Fetch) (out OutputPort) (view (Option View)) (files (List Chosen)))
   (→ (Pair (Option Scene) (Option Environment)))
-  (! mut tasks reading)
+  (! mut)
   (let ((model (outermost (ending files (list ".glb" ".gltf"))))
         (light (outermost (ending files (list ".hdr")))))
     (when (and (none? model) (or (none? light) (none? view)))
@@ -235,7 +234,7 @@
                           (lambda (path)
                             (loaded-scene gpu out (lambda ((paths (List String)))
                                                     (→ (List Bytes))
-                                                    (! mut tasks reading)
+                                                    (! mut)
                                                     (read fetch files path paths))
                                           path)))))
       (new Pair (first scene) (second (within hdr (lambda (hdr) (hdr-light gpu hdr))))))))
@@ -243,14 +242,14 @@
 ;; The bytes of the paths that the file at `top` names, fetched together.
 (define (read (fetch Fetch) (files (List Chosen)) (top String) (paths (List String)))
   (→ (List Bytes))
-  (! mut tasks reading)
+  (! mut)
   (fetched fetch (map (lambda (path) (address-of files top path)) paths)))
 
 ;; Where a path that the file at `top` names is fetched from: a file
 ;; chosen, at its address; or, when `top` is a link, the path itself,
 ;; since a scene at an address names its files relative to it. A scene
 ;; among the user's files reads nothing they did not choose.
-(define (address-of (files (List Chosen)) (top String) (path String)) (→ String) (! reading)
+(define (address-of (files (List Chosen)) (top String) (path String)) (→ String)
   (match (find (lambda (file) (string=? (● file path) path)) files)
     ((Some file) (● file address))
     ((None)
@@ -260,7 +259,7 @@
          (unreadable (string-append path " is not among the files chosen"))))))
 
 ;; The bytes at each address, fetched together.
-(define (fetched (fetch Fetch) (addresses (List String))) (→ (List Bytes)) (! mut tasks reading)
+(define (fetched (fetch Fetch) (addresses (List String))) (→ (List Bytes)) (! mut)
   (map (lambda (reply)
          (match reply
            ((Ok bytes) bytes)
@@ -279,7 +278,7 @@
     ((None) (None))))
 
 ;; An HDR file read, which a file that is not one refuses.
-(define (radiance (name String) (bytes Bytes)) (→ Hdr) (! reading)
+(define (radiance (name String) (bytes Bytes)) (→ Hdr)
   (match (read-hdr bytes)
     ((Ok hdr) hdr)
     ((Err why) (unreadable (string-append name ": " why)))))
@@ -364,10 +363,10 @@
 ;; A scene, and a line saying how large it is.
 (define (loaded-scene (gpu Gpu)
                       (out OutputPort)
-                      (read (Fn (List String) → (List Bytes) ! reading e))
+                      (read (Fn (List String) → (List Bytes) ! e))
                       (path String))
   (→ Scene)
-  (! mut tasks reading e)
+  (! mut e)
   (∀ (e))
   (let ((scene (load-scene gpu read path layer-size)))
     (write-line out (string-append "scene: "
@@ -380,7 +379,7 @@
 
 ;; ---- The page ----
 
-(define (main (gpu Gpu) (events Events) (out OutputPort)) (→ Unit) (! mut tasks)
+(define (main (gpu Gpu) (events Events) (out OutputPort)) (→ Unit) (! mut)
   (let ((fetch (page-fetch)))
     (let ((picker (page-file-picker)))
       (let ((dom (page-dom events)))

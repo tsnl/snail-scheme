@@ -1,8 +1,7 @@
 (import
  (snail core base)
- (only (snail core forms) host)
  (snail core io)
- (only (snail shell task) tasks dispatch)
+ (only (snail shell task) dispatch)
  (snail shell utf8)
  (snail shell process))
 
@@ -11,13 +10,13 @@
     ((Ok value) value)
     ((Err error) (panic (● error code)))))
 
-(define (shell (processes Processes) (script String)) (→ Process) (! mut tasks)
+(define (shell (processes Processes) (script String)) (→ Process) (! mut)
   (require
    (spawn processes
           (new Command (program "/bin/sh") (arguments (list "-c" script)) (directory ".")))))
 
 ;; A stream's bytes up to its end, as text.
-(define (read-all (processes Processes) (child Process) (stream Stream)) (→ String) (! mut tasks)
+(define (read-all (processes Processes) (child Process) (stream Stream)) (→ String) (! mut)
   (let loop ((bytes #u8()))
     (match (require (read-output processes child stream 4096))
       ((Some chunk) (loop (array-append bytes chunk)))
@@ -38,7 +37,7 @@
     ((Err error) (write-line out (● error code)))
     ((Ok _) (panic "the operation succeeded"))))
 
-(define (main (processes Processes) (out OutputPort)) (→ Unit) (! host mut tasks)
+(define (main (processes Processes) (out OutputPort)) (→ Unit) (! mut)
 
   ;; A program waits on processes from a task, which the scheduler runs once
   ;; main returns.

@@ -9,7 +9,6 @@
    (snail core base)
    (snail core io)
    (only (snail shell compiler read)
-         compile
          compiling
          Failed
          Requested

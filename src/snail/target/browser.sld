@@ -30,18 +30,14 @@
   (import
    (snail core base)
    (snail core io)
-   (only (snail core forms) host)
-   (only (snail shell task) Scheduler tasks dispatch-in)
+   (only (snail shell task) Scheduler dispatch-in)
    (only (snail shell resource) Resources host-resources)
    (only (snail shell wasm) Wasm host-wasm)
    (only (snail shell page) Events PageStorage host-events host-storage)
    (only (snail shell gpu) Gpu host-gpu))
   (begin
 
-    (define (start (scheduler Scheduler) (main (Fn → Unit ! tasks e)))
-      (→ Unit)
-      (! mut host e)
-      (∀ (e))
+    (define (start (scheduler Scheduler) (main (Fn → Unit ! mut))) (→ Unit) (! mut)
       (dispatch-in scheduler main)
       (unit))
 

@@ -15,7 +15,6 @@
 (import
  (snail core base)
  (snail core io)
- (only (snail shell task) tasks)
  (only (snail shell app) next-event FrameEvent InputEvent FilesEvent KeyDown)
  (only (snail shell page) Events report-ready)
  (only (snail shell fetch) Fetch fetch-all-bytes page-address)
@@ -26,7 +25,7 @@
  (snail shell fetch page)
  (snail shell gpu)
  (snail shell graphics pod)
- (only (snail shell graphics gltf) uri-path reading unreadable attempt-reading)
+ (only (snail shell graphics gltf) uri-path unreadable attempt-reading)
  (snail shell graphics colmap)
  (snail shell graphics ply)
  (snail shell graphics splat)
@@ -53,7 +52,7 @@
                    (timing (Pair I32 I32))
                    (format TextureFormat))
   (→ Unit)
-  (! mut tasks)
+  (! mut)
   (match (next-event events)
     ((FrameEvent elapsed)
      (let ((shown (turning gpu shown elapsed)) (fly (flown fly elapsed)))
@@ -145,7 +144,7 @@
                 (format TextureFormat)
                 (files (List Chosen)))
   (→ Unit)
-  (! mut tasks)
+  (! mut)
   (set-text dom (document-root dom) "Loading…")
   (match (attempt-reading (lambda () (chosen fetch files)))
     ((Ok scene)
@@ -175,7 +174,7 @@
 
 ;; The scene among the files: its cloud, the first .ply, and its poses,
 ;; an `images.bin` if there is one. Only those two are fetched, together.
-(define (chosen (fetch Fetch) (files (List Chosen))) (→ Scene) (! mut tasks reading)
+(define (chosen (fetch Fetch) (files (List Chosen))) (→ Scene) (! mut)
   (let ((ending (lambda (suffix) (find (lambda (file) (suffix? (● file path) suffix)) files))))
     (match (ending ".ply")
       ((Some cloud)
@@ -189,19 +188,19 @@
           (scene-of (● cloud path) (list-ref (fetched fetch (list (● cloud address))) 0) (Nil)))))
       ((None) (unreadable (string-append "no .ply among " (show (length files)) " files"))))))
 
-(define (scene-of (path String) (bytes Bytes) (poses (List ColmapImage))) (→ Scene) (! reading)
+(define (scene-of (path String) (bytes Bytes) (poses (List ColmapImage))) (→ Scene)
   (let ((cloud (told path (read-ply bytes 0))))
     (when (= (● cloud count) 0) (unreadable (string-append path ": no gaussians")))
     (new Scene (cloud cloud) (poses poses))))
 
 ;; What a file read as, or the refusal that names it.
-(define (told (path String) (result (Result T String))) (→ T) (! reading) (∀ (T))
+(define (told (path String) (result (Result T String))) (→ T) (∀ (T))
   (match result
     ((Ok value) value)
     ((Err why) (unreadable (string-append path ": " why)))))
 
 ;; The bytes at each address, fetched together.
-(define (fetched (fetch Fetch) (addresses (List String))) (→ (List Bytes)) (! mut tasks reading)
+(define (fetched (fetch Fetch) (addresses (List String))) (→ (List Bytes)) (! mut)
   (map (lambda (reply)
          (match reply
            ((Ok bytes) bytes)
@@ -278,7 +277,7 @@
                         ((None) (Nil))))
                     (list "cloud" "poses"))))
 
-(define (main (gpu Gpu) (events Events) (out OutputPort)) (→ Unit) (! mut tasks)
+(define (main (gpu Gpu) (events Events) (out OutputPort)) (→ Unit) (! mut)
   (let ((fetch (page-fetch)))
     (let ((picker (page-file-picker)))
       (let ((dom (page-dom events)))

@@ -23,7 +23,7 @@
     ;; `(snail core base)` is the list ("snail" "core" "base"); its globals are prefixed
     ;; `snail.core.base` and its source is `snail/core/base.sld` in a search directory.
 
-    (define (library-name (syntax Syntax)) (→ (List String)) (! compile)
+    (define (library-name (syntax Syntax)) (→ (List String))
       (match syntax
         ((Form parts _)
          (map (lambda (part)
@@ -36,7 +36,6 @@
 
     (define (check-library-name (declared Syntax) (name (List String)) (loc Loc))
       (→ Unit)
-      (! compile)
       (when (string=? (string-join name ".") "prim")
         (compile-error loc "the prim library name is reserved for compiler primitives"))
       (unless (string=? (string-join (library-name declared) ".") (string-join name "."))
@@ -53,7 +52,7 @@
 
     (define (library-path (fs Fs) (directories (List String)) (name (List String)) (loc Loc))
       (→ String)
-      (! mut compile)
+      (! mut)
       (match (find-library fs directories name)
         ((Some path) path)
         ((None)
@@ -75,7 +74,6 @@
 
     (define (file-library (name (List String)) (forms (List Syntax)) (path String))
       (→ LibraryFile)
-      (! compile)
       (match forms
         ((Cons (Form (Cons (Ident "define-library" _ _) (Cons declared declarations)) loc) (Nil))
          (check-library-name declared name loc)
@@ -98,7 +96,6 @@
 
     (define (output-library-file (name (List String)) (bytes Bytes) (loc Loc))
       (→ LibraryFile)
-      (! compile)
       (file-library name (list (decode-syntax bytes loc)) (● loc file)))
 
     ;; ---- Producers ----
@@ -156,7 +153,6 @@
 
     (define (library-sections (declaration Syntax))
       (→ (List (Pair String (List Syntax))))
-      (! compile)
       (match declaration
         ((Form (Cons (Ident "cond-expand" _ _) clauses) _) (cond-expand-sections clauses))
         ((Form (Cons (Ident kind _ _) items) loc)
@@ -171,7 +167,6 @@
 
     (define (cond-expand-sections (clauses (List Syntax)))
       (→ (List (Pair String (List Syntax))))
-      (! compile)
       (match clauses
         ((Nil) (Nil))
         ((Cons (Form (Cons requirement declarations) _) rest)

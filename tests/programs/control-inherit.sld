@@ -1,7 +1,6 @@
 (import
  (snail core base)
  (snail core io)
- (only (snail core forms) host)
  (only (snail core primitive) inherit-handlers))
 
 ;; `inherit-handlers` closes a procedure over the handlers in scope where
@@ -33,7 +32,7 @@
   (Done)
   (Yielded
    ((value I64)
-    (next (Fn → Step ! host)))))
+    (next (Fn → Step ! mut)))))
 
 (define (start (body (Fn → Unit ! Gen Log))) (→ Step) (! Log)
   (handle Gen ((yield (lambda (value resume)
@@ -49,14 +48,14 @@
     (yield value)
     (count-to (+ value 1) last)))
 
-(define (drain (out OutputPort) (step Step)) (→ Unit) (! mut host)
+(define (drain (out OutputPort) (step Step)) (→ Unit) (! mut)
   (match step
     ((Done) (write-line out "done"))
     ((Yielded value next)
      (write-line out (string-append "got " (show value)))
      (drain out (next)))))
 
-(define (main (out OutputPort)) (→ Unit) (! host mut)
+(define (main (out OutputPort)) (→ Unit) (! mut)
   ;; ANCHOR: thunk
   ;; A thunk closed under the first log runs under the second, and logs to
   ;; the first.

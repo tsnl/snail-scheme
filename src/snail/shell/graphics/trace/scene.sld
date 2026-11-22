@@ -21,7 +21,6 @@
    scene-triangles)
   (import
    (snail core base)
-   (only (snail shell task) tasks)
    (snail shell gpu)
    (snail shell graphics pod)
    (snail shell graphics kernel)
@@ -88,11 +87,11 @@
     ;; decode. A scene less than a unit
     ;; across is made one unit across, since a camera clips at a tenth of
     ;; a unit and rays leave surfaces by a fixed offset.
-    (define (load-scene (gpu Gpu) (read (Fn (List String) → (List Bytes) ! reading e))
+    (define (load-scene (gpu Gpu) (read (Fn (List String) → (List Bytes) ! e))
                         (path String)
                         (layer-size I32))
       (→ Scene)
-      (! mut tasks reading e)
+      (! mut e)
       (∀ (e))
       (let* ((gltf (drawable (read-gltf (list-ref (read (list path)) 0) (directory-of path))))
              (paths (file-paths gltf))
@@ -160,7 +159,6 @@
                           (files (List (Pair String Bytes)))
                           (buffers (List Bytes)))
       (→ Bytes)
-      (! reading)
       (match source
         ((FileSource path)
          (match (assoc-ref files path)
@@ -175,7 +173,7 @@
 
     ;; The bytes the scene reads of a buffer, which may be the start of a
     ;; longer file.
-    (define (buffer-bytes (buffer Buffer) (files (List (Pair String Bytes)))) (→ Bytes) (! reading)
+    (define (buffer-bytes (buffer Buffer) (files (List (Pair String Bytes)))) (→ Bytes)
       (let ((bytes (source-bytes (● buffer source) files (Nil))))
         (if (< (array-length bytes) (● buffer length))
             (unreadable (string-append (match (● buffer source)
@@ -185,7 +183,7 @@
             (subarray bytes 0 (● buffer length)))))
 
     ;; A scene with something to draw, at least a unit across.
-    (define (drawable (gltf Gltf)) (→ Gltf) (! reading)
+    (define (drawable (gltf Gltf)) (→ Gltf)
       (if (null? (● gltf placed))
           (unreadable "the scene has no triangles")
           (at-least-a-unit gltf)))
@@ -445,7 +443,7 @@
     ;; the host does not decode refuses the scene, and the layers go.
     (define (load-layers (gpu Gpu) (images (List Bytes)) (size I32))
       (→ GpuTexture)
-      (! mut tasks reading)
+      (! mut)
       (let* ((layers (create-texture gpu (new TextureDescriptor
                                            (label "scene/layers")
                                            (width size)

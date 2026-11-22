@@ -33,7 +33,7 @@
   (import
    (snail core base)
    (snail core table)
-   (only (snail shell task) tasks yield)
+   (only (snail shell task) yield)
    (snail shell dom))
   (begin
 

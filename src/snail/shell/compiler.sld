@@ -41,7 +41,7 @@
                              (target (Option (List String)))
                              (known (List LinkedFile)))
       (→ Checked)
-      (! mut compile)
+      (! mut)
       (let ((expanded (expand-program fs directories generate target known source)))
         (new Checked (expanded expanded) (typed (check-program (● expanded program))))))
 
@@ -59,10 +59,10 @@
                          (target (Option (List String)))
                          (known (List LinkedFile)))
       (→ WholeProgram)
-      (! mut compile)
+      (! mut)
       (checked->wat (source->checked fs directories source generate target known)))
 
-    (define (checked->wat (checked Checked)) (→ WholeProgram) (! mut compile)
+    (define (checked->wat (checked Checked)) (→ WholeProgram) (! mut)
       (let ((expanded (● checked expanded)))
         (new WholeProgram
           (text (wat->string (emit-module (prepare-program (● checked typed)))))

@@ -29,11 +29,11 @@
       (Failed))
 
     (record Files
-      ((read-file (Fn String I32 → (Result Bytes FileError) ! mut tasks))))
+      ((read-file (Fn String I32 → (Result Bytes FileError) ! mut))))
 
     (define (read-file (files Files) (path String) (maximum I32))
       (→ (Result Bytes FileError))
-      (! mut tasks)
+      (! mut)
       ((● files read-file) path maximum))
 
     (define (host-files) (→ Files)
@@ -44,7 +44,7 @@
 
     ;; The read runs to completion: the host delivers its result to the
     ;; waiting task, which takes it with `finish`.
-    (define (native-read (path String) (maximum I32)) (→ (Result Bytes FileError)) (! tasks)
+    (define (native-read (path String) (maximum I32)) (→ (Result Bytes FileError))
       (let ((ticket (ticket)))
         (for-each host-path-character (string->list path))
         (let ((id (host-start-read ticket maximum)))
