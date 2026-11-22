@@ -123,22 +123,22 @@
 
     (define (create (dom Dom) (html (Html M))) (→ (Shown M)) (∀ (M))
       (match html
-        ((Text text) (ShownText (create-text dom text) text))
+        ((Text text) (ShownText (dom::create-text text) text))
         ((Element tag attributes children)
-         (let ((node (create-element dom tag)))
+         (let ((node (dom::create-element tag)))
            (for-each (lambda (attribute) (apply-attribute dom node attribute)) attributes)
            (let ((shown (map (lambda (html) (create dom html)) children)))
-             (for-each (lambda (child) (insert-node dom node (shown-node child) (None))) shown)
+             (for-each (lambda (child) (dom::insert-node node (shown-node child) (None))) shown)
              (ShownElement node tag attributes (listen-all dom node attributes) shown))))))
 
     (define (apply-attribute (dom Dom) (node Node) (attribute (Attribute M)))
       (→ Unit)
       (∀ (M))
       (match attribute
-        ((Attr name value) (set-attribute dom node name value))
-        ((StringProperty name value) (set-string-property dom node name value))
-        ((NumberProperty name value) (set-number-property dom node name value))
-        ((FlagProperty name value) (set-flag-property dom node name value))
+        ((Attr name value) (dom::set-attribute node name value))
+        ((StringProperty name value) (dom::set-string-property node name value))
+        ((NumberProperty name value) (dom::set-number-property node name value))
+        ((FlagProperty name value) (dom::set-flag-property node name value))
         (_ (unit))))
 
     (define (listen-all (dom Dom) (node Node) (attributes (List (Attribute M))))
@@ -146,7 +146,7 @@
       (∀ (M))
       (match attributes
         ((Cons (On event captures prevent _) rest)
-         (Cons (new Pair (first event) (second (listen dom node event captures prevent)))
+         (Cons (new Pair (first event) (second (dom::listen node event captures prevent)))
                (listen-all dom node rest)))
         ((Cons _ rest) (listen-all dom node rest))
         ((Nil) (Nil))))
@@ -161,7 +161,7 @@
       (if (matches? shown html)
           (match (new Pair (first shown) (second html))
             ((Pair (ShownText node text) (Text updated))
-             (unless (string=? text updated) (set-text dom node updated))
+             (unless (string=? text updated) (dom::set-text node updated))
              (ShownText node updated))
             ((Pair (ShownElement node tag attributes listeners children)
                    (Element _ new-attributes new-children))
@@ -220,10 +220,10 @@
       (→ Unit)
       (∀ (M))
       (match attribute
-        ((Attr name _) (set-attribute dom node name ""))
-        ((StringProperty name _) (set-string-property dom node name ""))
-        ((NumberProperty name _) (set-number-property dom node name 0.0))
-        ((FlagProperty name _) (set-flag-property dom node name #f))
+        ((Attr name _) (dom::set-attribute node name ""))
+        ((StringProperty name _) (dom::set-string-property node name ""))
+        ((NumberProperty name _) (dom::set-number-property node name 0.0))
+        ((FlagProperty name _) (dom::set-flag-property node name #f))
         (_ (unit))))
 
     ;; A listener stays while the view keeps its event, captures and
@@ -237,7 +237,7 @@
       (∀ (M))
       (for-each (lambda (pair)
                   (unless (kept-listener? (● pair first) old updated)
-                    (unlisten dom (● pair second))))
+                    (dom::unlisten (● pair second))))
                 listeners)
       (append (filter (lambda (pair) (kept-listener? (● pair first) old updated)) listeners)
               (listen-all dom node
@@ -303,7 +303,7 @@
                             pairs)))
         (for-each (lambda (shown)
                     (unless (table-contains? taken (node-name shown))
-                      (remove-node dom (shown-node shown))))
+                      (dom::remove-node (shown-node shown))))
                   old)
         (order dom parent
                (reverse children)
@@ -419,7 +419,7 @@
                    (next (Option Node)))
       (→ (List (Shown M)))
       (∀ (M))
-      (insert-node dom parent (shown-node child) next)
+      (dom::insert-node parent (shown-node child) next)
       (if (table-contains? taken (node-name child))
           (filter (lambda (shown) (not (same-node? shown child))) unplaced)
           unplaced))
@@ -431,7 +431,7 @@
     ;; ignored.
 
     (define (window-shown (dom Dom) (attributes (List (Attribute M)))) (→ (Shown M)) (∀ (M))
-      (let ((node (window-node dom)))
+      (let ((node (dom::window-node)))
         (ShownElement node "#window" attributes (listen-all dom node attributes) (Nil))))
 
     (define (patch-window (dom Dom) (shown (Shown M)) (attributes (List (Attribute M))))
@@ -509,7 +509,7 @@
       (→ Model)
       (∀ (Model M))
       (let ((box (make-mailbox)) (shown (create dom (view model))))
-        (insert-node dom (document-root dom) (shown-node shown) (None))
+        (dom::insert-node (dom::document-root) (shown-node shown) (None))
         (serve dom box
                update
                view
@@ -530,7 +530,7 @@
       (→ Model)
       (∀ (Model M))
       (commit (● running model))
-      (match (next-event dom)
+      (match (dom::next-event)
         ((Fired listener event)
          (serve dom box
                 update
@@ -607,13 +607,13 @@
       (→ Unit)
       (∀ (M))
       (mailbox-post box (command))
-      (wake dom))
+      (dom::wake))
 
     ;; The root's one child, patched, or replaced by a new one.
 
     (define (patch-root (dom Dom) (shown (Shown M)) (html (Html M))) (→ (Shown M)) (∀ (M))
       (let ((next (patch dom shown html)))
         (unless (same-node? next shown)
-          (insert-node dom (document-root dom) (shown-node next) (None))
-          (remove-node dom (shown-node shown)))
+          (dom::insert-node (dom::document-root) (shown-node next) (None))
+          (dom::remove-node (shown-node shown)))
         next))))

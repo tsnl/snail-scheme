@@ -69,24 +69,24 @@
     (define (make-quads (gpu Gpu) (label String) (format TextureFormat) (pages GpuTexture))
       (→ Quads)
       (let ((pipeline (quad-pipeline gpu format))
-            (camera (create-buffer gpu (new BufferDescriptor
-                                         (label (string-append "quad/" label "/view"))
-                                         (size (i64->i32 (stride view-shape)))
-                                         (usage (list (Uniform) (CopyDst)))))))
+            (camera (gpu::create-buffer (new BufferDescriptor
+                                          (label (string-append "quad/" label "/view"))
+                                          (size (i64->i32 (stride view-shape)))
+                                          (usage (list (Uniform) (CopyDst)))))))
         (new Quads
           (pipeline pipeline)
           (camera camera)
           (instances (instance-buffer gpu 64))
           (room 64)
-          (group (create-bind-group gpu (new BindGroupDescriptor
-                                          (label (string-append "quad/" label))
-                                          (pipeline (RenderPipeline pipeline))
-                                          (group 0)
-                                          (entries (list (BufferEntry 0 camera 0 0)
-                                                         (TextureEntry 1 (array-view gpu pages))
-                                                         (SamplerEntry 2
-                                                                       (nearest-sampler
-                                                                        gpu))))))))))
+          (group (gpu::create-bind-group (new BindGroupDescriptor
+                                           (label (string-append "quad/" label))
+                                           (pipeline (RenderPipeline pipeline))
+                                           (group 0)
+                                           (entries (list (BufferEntry 0 camera 0 0)
+                                                          (TextureEntry 1 (array-view gpu pages))
+                                                          (SamplerEntry 2
+                                                                        (nearest-sampler
+                                                                         gpu))))))))))
 
     (define (draw-quads (gpu Gpu)
                         (pass GpuRenderPass)
@@ -97,12 +97,12 @@
       (if (null? run)
           quads
           (let ((quads (roomy gpu quads (length run))))
-            (write-buffer gpu (● quads camera) 0 (pod-bytes view-shape view))
-            (write-buffer gpu (● quads instances) 0 (pack quad-shape run))
-            (set-pipeline gpu pass (● quads pipeline))
-            (set-bind-group gpu pass 0 (● quads group))
-            (set-vertex-buffer gpu pass 0 (● quads instances) 0)
-            (draw gpu pass 4 (i64->i32 (length run)) 0 0)
+            (gpu::write-buffer (● quads camera) 0 (pod-bytes view-shape view))
+            (gpu::write-buffer (● quads instances) 0 (pack quad-shape run))
+            (gpu::set-pipeline pass (● quads pipeline))
+            (gpu::set-bind-group pass 0 (● quads group))
+            (gpu::set-vertex-buffer pass 0 (● quads instances) 0)
+            (gpu::draw pass 4 (i64->i32 (length run)) 0 0)
             quads)))
 
     ;; Room for `count` quads; the smaller buffer goes at the submit.
@@ -111,45 +111,45 @@
       (if (>= (● quads room) count)
           quads
           (let ((room (capacity (* 2 (● quads room)) count)))
-            (destroy gpu (BufferObject (● quads instances)))
+            (gpu::destroy (BufferObject (● quads instances)))
             (Quads-room-set (Quads-instances-set quads (instance-buffer gpu room)) room))))
 
     (define (capacity (room I64) (count I64)) (→ I64)
       (if (>= room count) room (capacity (* 2 room) count)))
 
     (define (instance-buffer (gpu Gpu) (room I64)) (→ GpuBuffer)
-      (create-buffer gpu (new BufferDescriptor
-                           (label "quad/instances")
-                           (size (i64->i32 (* (stride quad-shape) room)))
-                           (usage (list (Vertex) (CopyDst))))))
+      (gpu::create-buffer (new BufferDescriptor
+                            (label "quad/instances")
+                            (size (i64->i32 (* (stride quad-shape) room)))
+                            (usage (list (Vertex) (CopyDst))))))
 
     (define (quad-pipeline (gpu Gpu) (format TextureFormat)) (→ GpuRenderPipeline)
-      (create-render-pipeline gpu
-                              (new RenderPipelineDescriptor
-                                (label "quad")
-                                (module
-                                 (create-shader-module gpu
-                                                       (new ShaderModuleDescriptor
-                                                         (label "quad")
-                                                         (code quad-code))))
-                                (vertex-entry "quad_vertex")
-                                (buffers (list (vertex-layout quad-shape (PerInstance) 0)))
-                                (fragment (Some (new FragmentState
-                                                  (entry "quad_fragment")
-                                                  (targets
-                                                   (list (Some (new ColorTarget
-                                                                 (format format)
-                                                                 (blend (Some over)))))))))
-                                (topology (TriangleStrip))
-                                (cull (CullNone))
-                                (depth (None)))))
+      (gpu::create-render-pipeline
+       (new RenderPipelineDescriptor
+         (label "quad")
+         (module
+          (gpu::create-shader-module
+           (new ShaderModuleDescriptor
+             (label "quad")
+             (code quad-code))))
+         (vertex-entry "quad_vertex")
+         (buffers (list (vertex-layout quad-shape (PerInstance) 0)))
+         (fragment (Some (new FragmentState
+                           (entry "quad_fragment")
+                           (targets
+                            (list (Some (new ColorTarget
+                                          (format format)
+                                          (blend (Some over)))))))))
+         (topology (TriangleStrip))
+         (cull (CullNone))
+         (depth (None)))))
 
     (define (nearest-sampler (gpu Gpu)) (→ GpuSampler)
-      (create-sampler gpu (new SamplerDescriptor
-                            (label "quad/nearest")
-                            (mag-filter (Nearest))
-                            (min-filter (Nearest))
-                            (mipmap-filter (Nearest))
-                            (address (ClampToEdge)))))
+      (gpu::create-sampler (new SamplerDescriptor
+                             (label "quad/nearest")
+                             (mag-filter (Nearest))
+                             (min-filter (Nearest))
+                             (mipmap-filter (Nearest))
+                             (address (ClampToEdge)))))
 
     ))

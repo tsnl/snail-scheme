@@ -32,49 +32,49 @@
 
 (define (pipeline-for (gpu Gpu) (module GpuShaderModule) (format TextureFormat))
   (→ GpuRenderPipeline)
-  (create-render-pipeline gpu
-                          (new RenderPipelineDescriptor
-                            (label "test")
-                            (module module)
-                            (vertex-entry "vertex_main")
-                            (buffers (Nil))
-                            (fragment (Some (new FragmentState
-                                              (entry "fragment_main")
-                                              (targets (list (Some (new ColorTarget
-                                                                     (format format)
-                                                                     (blend (None)))))))))
-                            (topology (TriangleList))
-                            (cull (CullNone))
-                            (depth (None)))))
+  (gpu::create-render-pipeline
+   (new RenderPipelineDescriptor
+     (label "test")
+     (module module)
+     (vertex-entry "vertex_main")
+     (buffers (Nil))
+     (fragment (Some (new FragmentState
+                       (entry "fragment_main")
+                       (targets (list (Some (new ColorTarget
+                                              (format format)
+                                              (blend (None)))))))))
+     (topology (TriangleList))
+     (cull (CullNone))
+     (depth (None)))))
 
 (define (group-for (gpu Gpu) (pipeline GpuRenderPipeline) (color GpuBuffer))
   (→ GpuBindGroup)
-  (create-bind-group gpu (new BindGroupDescriptor
-                           (label "test")
-                           (pipeline (RenderPipeline pipeline))
-                           (group 0)
-                           (entries (list (BufferEntry 0 color 0 0))))))
+  (gpu::create-bind-group (new BindGroupDescriptor
+                            (label "test")
+                            (pipeline (RenderPipeline pipeline))
+                            (group 0)
+                            (entries (list (BufferEntry 0 color 0 0))))))
 
 (define (fill (gpu Gpu) (encoder GpuCommandEncoder)
               (view GpuTextureView)
               (pipeline GpuRenderPipeline)
               (group GpuBindGroup))
   (→ Unit)
-  (let ((pass (begin-render-pass gpu encoder
-                                 (new RenderPassDescriptor
-                                   (colors (list (Some (new ColorAttachment
-                                                         (view view)
-                                                         (load (Clear (new Color
-                                                                        (red 0.0)
-                                                                        (green 0.0)
-                                                                        (blue 1.0)
-                                                                        (alpha 1.0))))
-                                                         (store #t)))))
-                                   (depth (None))))))
-    (set-pipeline gpu pass pipeline)
-    (set-bind-group gpu pass 0 group)
-    (draw gpu pass 3 1 0 0)
-    (end-pass gpu pass)))
+  (let ((pass (gpu::begin-render-pass encoder
+                                      (new RenderPassDescriptor
+                                        (colors (list (Some (new ColorAttachment
+                                                              (view view)
+                                                              (load (Clear (new Color
+                                                                             (red 0.0)
+                                                                             (green 0.0)
+                                                                             (blue 1.0)
+                                                                             (alpha 1.0))))
+                                                              (store #t)))))
+                                        (depth (None))))))
+    (gpu::set-pipeline pass pipeline)
+    (gpu::set-bind-group pass 0 group)
+    (gpu::draw pass 3 1 0 0)
+    (gpu::end-pass pass)))
 
 ;; What the first frame makes and the second uses again: the texture, the
 ;; image, the paint's uniform, a buffer to read back into, and a pipeline
@@ -91,20 +91,20 @@
 
 (define (painting (gpu Gpu) (info DeviceInfo)) (→ Painting)
   (let* ((module
-          (create-shader-module gpu (new ShaderModuleDescriptor (label "test") (code shader))))
+          (gpu::create-shader-module (new ShaderModuleDescriptor (label "test") (code shader))))
          (target (texture-named gpu "target" 4 4))
          (color (buffer-named gpu "paint" 16 (list (Uniform) (CopyDst))))
          (offscreen (pipeline-for gpu module (Rgba8Unorm)))
          (onscreen (pipeline-for gpu module (● info format))))
-    (write-buffer gpu color
-                  0
-                  (pod-bytes paint-shape
-                             (new Paint-uniform
-                               (color (new Vec4f (x 1.0) (y 0.0) (z 0.0) (w 1.0))))))
+    (gpu::write-buffer color
+                       0
+                       (pod-bytes paint-shape
+                                  (new Paint-uniform
+                                    (color (new Vec4f (x 1.0) (y 0.0) (z 0.0) (w 1.0))))))
     (new Painting
       (target target)
       (target-view (view-of gpu target 1))
-      (image (match (decode-image gpu two-texels)
+      (image (match (gpu::decode-image two-texels)
                ((Some image) image)
                ((None) (panic "the two texels did not decode"))))
       (readback (buffer-named gpu "readback" 1280 (list (MapRead) (CopyDst))))
@@ -117,17 +117,19 @@
 ;; at 256 bytes, the alignment a copy into a buffer needs.
 
 (define (frame (gpu Gpu) (p Painting)) (→ (Pair Bytes Bytes))
-  (let ((encoder (create-command-encoder gpu)) (readback (● p readback)))
+  (let ((encoder (gpu::create-command-encoder)) (readback (● p readback)))
     (fill gpu encoder (● p target-view) (● p offscreen) (● p offscreen-group))
     (fill gpu
           encoder
-          (view-of gpu (● (current-texture gpu) texture) 1)
+          (view-of gpu (● (gpu::current-texture) texture) 1)
           (● p onscreen)
           (● p onscreen-group))
-    (copy-texture-to-buffer gpu encoder (whole-texture (● p target)) readback 0 256 4 4)
-    (copy-texture-to-buffer gpu encoder (whole-texture (● p image texture)) readback 1024 256 2 1)
-    (submit gpu (list (finish gpu encoder)))
-    (new Pair (first (read-buffer gpu readback 0 16)) (second (read-buffer gpu readback 1024 8)))))
+    (gpu::copy-texture-to-buffer encoder (whole-texture (● p target)) readback 0 256 4 4)
+    (gpu::copy-texture-to-buffer encoder (whole-texture (● p image texture)) readback 1024 256 2 1)
+    (gpu::submit (list (gpu::finish encoder)))
+    (new Pair
+      (first (gpu::read-buffer readback 0 16))
+      (second (gpu::read-buffer readback 1024 8)))))
 
 ;; The two texels composed into an atlas with red swapped for blue, then
 ;; drawn as two quads across a 4x2 texture: blue on the left, green on the
@@ -162,21 +164,21 @@
     ((None) (panic "the picture has no slot"))))
 
 (define (quads-frame (gpu Gpu)) (→ (Pair Bytes String))
-  (let* ((encoder (create-command-encoder gpu))
+  (let* ((encoder (gpu::create-command-encoder))
          (atlas (atlas-pictures gpu (make-atlas gpu "test" 16 1) encoder (list two-texel-picture)))
          (target (texture-named gpu "quads" 4 2))
          (readback (buffer-named gpu "quads-readback" 512 (list (MapRead) (CopyDst))))
-         (pass (begin-render-pass gpu encoder
-                                  (new RenderPassDescriptor
-                                    (colors (list (Some (new ColorAttachment
-                                                          (view (view-of gpu target 1))
-                                                          (load (Clear (new Color
-                                                                         (red 0.0)
-                                                                         (green 0.0)
-                                                                         (blue 0.0)
-                                                                         (alpha 0.0))))
-                                                          (store #t)))))
-                                    (depth (None))))))
+         (pass (gpu::begin-render-pass encoder
+                                       (new RenderPassDescriptor
+                                         (colors (list (Some (new ColorAttachment
+                                                               (view (view-of gpu target 1))
+                                                               (load (Clear (new Color
+                                                                              (red 0.0)
+                                                                              (green 0.0)
+                                                                              (blue 0.0)
+                                                                              (alpha 0.0))))
+                                                               (store #t)))))
+                                         (depth (None))))))
     (draw-quads gpu pass
                 (make-quads gpu "test" (Rgba8Unorm) (● atlas texture))
                 (new View2D
@@ -184,10 +186,10 @@
                   (extent (new Vec2f (x 4.0) (y 2.0)))
                   (pixels (new Vec2f (x 4.0) (y 2.0))))
                 (list (texel-quad atlas 0 1.0) (texel-quad atlas 1 3.0)))
-    (end-pass gpu pass)
-    (copy-texture-to-buffer gpu encoder (whole-texture target) readback 0 256 4 2)
-    (submit gpu (list (finish gpu encoder)))
-    (let ((texels (read-buffer gpu readback 0 16)))
+    (gpu::end-pass pass)
+    (gpu::copy-texture-to-buffer encoder (whole-texture target) readback 0 256 4 2)
+    (gpu::submit (list (gpu::finish encoder)))
+    (let ((texels (gpu::read-buffer readback 0 16)))
       (new Pair
         (first texels)
         (second (atlas-url gpu atlas 1 (new Rect (x 0) (y 0) (width 2) (height 1))))))))
@@ -208,7 +210,7 @@
                    ((Err message) message))))
 
 (define (main (gpu Gpu) (fetch Fetch) (events Events) (out OutputPort)) (→ Unit)
-  (let* ((info (request-device gpu)) (p (painting gpu info)))
+  (let* ((info (gpu::request-device)) (p (painting gpu info)))
     (write-line out (string-append "format: " (texture-format-name (● info format))))
     (let ((first-frame (frame gpu p)))
       (write-line out (string-append "target: " (texels (● first-frame first))))
@@ -219,7 +221,7 @@
       (write-line out (string-append "quads: " (texels (● quads first))))
       (write-line out (string-append "url: " (● quads second))))
     (device-checks gpu out)
-    (work-done gpu)
+    (gpu::work-done)
     (write-line out (string-append "fetched: " (fetched fetch)))
-    (report-ready events))
+    (events::report-ready))
   (unit))

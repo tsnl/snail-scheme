@@ -47,23 +47,6 @@
    alt-key
    meta-key
    Dom
-   document-root
-   create-element
-   create-text
-   set-attribute
-   set-text
-   set-string-property
-   set-number-property
-   set-flag-property
-   string-property
-   number-property
-   insert-node
-   remove-node
-   listen
-   unlisten
-   focus-node
-   window-node
-   confirm
    InstallationStatus InstallUnavailable InstallAvailable AppInstalled
    InstallResult
    InstallAccepted
@@ -72,14 +55,6 @@
    GestureRequired
    InstallFailed
    InstallAlreadyInstalled
-   installation-status install-app fullscreen? set-fullscreen
-   element-by-id
-   select-range
-   selection-range
-   insert-text
-   measure
-   wake
-   next-event
    capture-bits)
   (import
    (snail core base))
@@ -244,7 +219,7 @@
     ;; view does: the interface's window listeners are on it, for what
     ;; reaches the whole page, such as a shortcut or the page going back
     ;; online. It has no attributes or properties.
-    (capability Dom
+    (record Dom
       ((document-root (Fn → Node))
        (create-element (Fn String → Node))
        (create-text (Fn String → Node))

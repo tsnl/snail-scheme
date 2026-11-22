@@ -76,7 +76,7 @@ unknown. Once its nominal type is known, checking substitutes the record's
 type arguments and resolves each label to a declared field. Each hop becomes
 an ordinary accessor operation. Nested fields follow object references;
 there is no inline-layout path to reconstruct. `set!` is a form, not a
-function: `(set! (● receiver label ...) value)` resolves its last label the
+function: `(set! receiver::label value)` resolves its last label the
 same way and becomes a call of that field's writer, so no later pass sees a
 place.
 

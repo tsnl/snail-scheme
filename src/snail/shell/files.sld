@@ -14,9 +14,7 @@
    Choice
    SomeFiles
    Folder
-   FilePicker
-   open-picker
-   chosen-files)
+   FilePicker)
   (import
    (snail core base))
   (begin
@@ -30,7 +28,7 @@
       (SomeFiles)
       (Folder))
 
-    (capability FilePicker
+    (record FilePicker
       ((open-picker (Fn Choice → Unit))
        (chosen-files (Fn → (List Chosen)))))
 

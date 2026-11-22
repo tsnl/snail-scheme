@@ -118,13 +118,13 @@
                                  (pack material-shape
                                        (map surface-material (with-default (● gltf materials))))))
           (layers layers)
-          (layers-view (create-view gpu layers
-                                    (new TextureViewDescriptor
-                                      (dimension (View2dArray))
-                                      (base-mip 0)
-                                      (mips (levels layer-size))
-                                      (base-layer 0)
-                                      (layers 0))))
+          (layers-view (gpu::create-view layers
+                                         (new TextureViewDescriptor
+                                           (dimension (View2dArray))
+                                           (base-mip 0)
+                                           (mips (levels layer-size))
+                                           (base-layer 0)
+                                           (layers 0))))
           (sampler (repeating-sampler gpu))
           (vertex-count (● counts first))
           (triangle-count (quotient (● counts second) 3))
@@ -132,11 +132,11 @@
           (high (● bounds second)))))
 
     (define (release-scene (gpu Gpu) (scene Scene)) (→ Unit)
-      (for-each (lambda (buffer) (destroy gpu (BufferObject buffer)))
+      (for-each (lambda (buffer) (gpu::destroy (BufferObject buffer)))
                 (list (● scene vertices) (● scene indices) (● scene materials)))
-      (destroy gpu (ViewObject (● scene layers-view)))
-      (destroy gpu (TextureObject (● scene layers)))
-      (destroy gpu (SamplerObject (● scene sampler))))
+      (gpu::destroy (ViewObject (● scene layers-view)))
+      (gpu::destroy (TextureObject (● scene layers)))
+      (gpu::destroy (SamplerObject (● scene sampler))))
 
     ;; ---- Sources ----
 
@@ -362,9 +362,9 @@
               (storage-buffer gpu "scene/vertices" (* vertex-stride (● counts first)) (Nil)))
              (indices (storage-buffer gpu "scene/indices" (* 4 (● counts second)) (list (Index)))))
         (for-each (lambda (laid)
-                    (write-buffer gpu data
-                                  (i64->i32 (● laid first start))
-                                  (padded-bytes (● laid second))))
+                    (gpu::write-buffer data
+                                       (i64->i32 (● laid first start))
+                                       (padded-bytes (● laid second))))
                   (zip (● gltf buffers) buffers))
         (run-unpack gpu
                     data
@@ -373,8 +373,8 @@
                     indices
                     (● counts first)
                     (quotient (● counts second) 3))
-        (destroy gpu (BufferObject data))
-        (destroy gpu (BufferObject unpacks))
+        (gpu::destroy (BufferObject data))
+        (gpu::destroy (BufferObject unpacks))
         (new Pair (first vertices) (second indices))))
 
     ;; A write's size is a multiple of 4.
@@ -389,12 +389,12 @@
                         (vertex-count I64)
                         (triangle-count I64))
       (→ Unit)
-      (let* ((module (create-shader-module gpu (new ShaderModuleDescriptor
-                                                 (label "scene/unpack")
-                                                 (code (string-append (declarations unpack-shape)
-                                                                      unpack-shader)))))
-             (encoder (create-command-encoder gpu))
-             (pass (begin-compute-pass gpu encoder))
+      (let* ((module (gpu::create-shader-module (new ShaderModuleDescriptor
+                                                  (label "scene/unpack")
+                                                  (code (string-append (declarations unpack-shape)
+                                                                       unpack-shader)))))
+             (encoder (gpu::create-command-encoder))
+             (pass (gpu::begin-compute-pass encoder))
              (read (list (BufferEntry 0 data 0 0) (BufferEntry 1 unpacks 0 0))))
         (unpack gpu pass
                 module
@@ -406,8 +406,8 @@
                 "unpack_triangles"
                 triangle-count
                 (append read (list (BufferEntry 3 indices 0 0))))
-        (end-compute-pass gpu pass)
-        (submit gpu (list (finish gpu encoder)))))
+        (gpu::end-compute-pass pass)
+        (gpu::submit (list (gpu::finish encoder)))))
 
     ;; One kernel of the unpack over `count` items; its pipeline and group
     ;; go at the submit.
@@ -419,15 +419,15 @@
       (→ Unit)
       (let* ((kernel (compute-kernel gpu module "scene" entry))
              (group (kernel-group gpu kernel 0 "scene/unpack" entries)))
-        (set-compute-pipeline gpu pass kernel)
-        (set-compute-bind-group gpu pass 0 group)
+        (gpu::set-compute-pipeline pass kernel)
+        (gpu::set-compute-bind-group pass 0 group)
         (dispatch-items gpu pass count 256)
-        (destroy gpu (BindGroupObject group))
-        (destroy gpu (ComputePipelineObject kernel))))
+        (gpu::destroy (BindGroupObject group))
+        (gpu::destroy (ComputePipelineObject kernel))))
 
     (define (storage-of (gpu Gpu) (label String) (bytes Bytes)) (→ GpuBuffer)
       (let ((buffer (storage-buffer gpu label (array-length bytes) (list (CopyDst)))))
-        (write-buffer gpu buffer 0 bytes)
+        (gpu::write-buffer buffer 0 bytes)
         buffer))
 
     ;; ---- Textures ----
@@ -437,23 +437,23 @@
     ;; the host does not decode refuses the scene, and the layers go.
     (define (load-layers (gpu Gpu) (images (List Bytes)) (size I32))
       (→ GpuTexture)
-      (let* ((layers (create-texture gpu (new TextureDescriptor
-                                           (label "scene/layers")
-                                           (width size)
-                                           (height size)
-                                           (layers (i64->i32 (max 1 (length images))))
-                                           (mips (levels size))
-                                           (format (Rgba8Unorm))
-                                           (usage (list (TextureBinding) (RenderAttachment))))))
-             (pipeline (layer-pipeline gpu))
-             (sampler (create-sampler gpu (new SamplerDescriptor
+      (let* ((layers (gpu::create-texture (new TextureDescriptor
                                             (label "scene/layers")
-                                            (mag-filter (Linear))
-                                            (min-filter (Linear))
-                                            (mipmap-filter (Nearest))
-                                            (address (ClampToEdge))))))
+                                            (width size)
+                                            (height size)
+                                            (layers (i64->i32 (max 1 (length images))))
+                                            (mips (levels size))
+                                            (format (Rgba8Unorm))
+                                            (usage (list (TextureBinding) (RenderAttachment))))))
+             (pipeline (layer-pipeline gpu))
+             (sampler (gpu::create-sampler (new SamplerDescriptor
+                                             (label "scene/layers")
+                                             (mag-filter (Linear))
+                                             (min-filter (Linear))
+                                             (mipmap-filter (Nearest))
+                                             (address (ClampToEdge))))))
         (for-each (lambda (index)
-                    (match (decode-image gpu (list-ref images index))
+                    (match (gpu::decode-image (list-ref images index))
                       ((Some image)
                        (fill-layer gpu layers
                                    pipeline
@@ -461,9 +461,9 @@
                                    (view-of gpu (● image texture) 1)
                                    (i64->i32 index)
                                    size)
-                       (destroy gpu (TextureObject (● image texture))))
+                       (gpu::destroy (TextureObject (● image texture))))
                       ((None)
-                       (for-each (lambda (object) (destroy gpu object))
+                       (for-each (lambda (object) (gpu::destroy object))
                                  (list (TextureObject layers)
                                        (PipelineObject pipeline)
                                        (SamplerObject sampler)))
@@ -472,8 +472,8 @@
                                        (show index)
                                        " of the scene is not one read here")))))
                   (iota (length images)))
-        (destroy gpu (PipelineObject pipeline))
-        (destroy gpu (SamplerObject sampler))
+        (gpu::destroy (PipelineObject pipeline))
+        (gpu::destroy (SamplerObject sampler))
         layers))
 
     ;; Levels down to 1 by 1.
@@ -488,25 +488,25 @@
                         (layer I32)
                         (size I32))
       (→ Unit)
-      (let ((encoder (create-command-encoder gpu)))
+      (let ((encoder (gpu::create-command-encoder)))
         (fold-left (lambda (source level)
                      (let ((target (level-view gpu layers layer (i64->i32 level))))
                        (draw-level gpu encoder pipeline sampler source target)
-                       (destroy gpu (ViewObject source))
+                       (gpu::destroy (ViewObject source))
                        target))
                    source
                    (iota (i32->i64 (levels size))))
-        (submit gpu (list (finish gpu encoder)))))
+        (gpu::submit (list (gpu::finish encoder)))))
 
     (define (level-view (gpu Gpu) (layers GpuTexture) (layer I32) (level I32))
       (→ GpuTextureView)
-      (create-view gpu layers
-                   (new TextureViewDescriptor
-                     (dimension (View2d))
-                     (base-mip level)
-                     (mips 1)
-                     (base-layer layer)
-                     (layers 1))))
+      (gpu::create-view layers
+                        (new TextureViewDescriptor
+                          (dimension (View2d))
+                          (base-mip level)
+                          (mips 1)
+                          (base-layer layer)
+                          (layers 1))))
 
     (define (draw-level (gpu Gpu) (encoder GpuCommandEncoder)
                         (pipeline GpuRenderPipeline)
@@ -514,52 +514,52 @@
                         (source GpuTextureView)
                         (target GpuTextureView))
       (→ Unit)
-      (let ((group (create-bind-group gpu (new BindGroupDescriptor
-                                            (label "scene/layer")
-                                            (pipeline (RenderPipeline pipeline))
-                                            (group 0)
-                                            (entries
-                                             (list (TextureEntry 0 source)
-                                                   (SamplerEntry 1 sampler))))))
-            (pass (begin-render-pass gpu encoder
-                                     (new RenderPassDescriptor
-                                       (colors (list (Some (new ColorAttachment
-                                                             (view target)
-                                                             (load (Keep))
-                                                             (store #t)))))
-                                       (depth (None))))))
-        (set-pipeline gpu pass pipeline)
-        (set-bind-group gpu pass 0 group)
-        (draw gpu pass 3 1 0 0)
-        (end-pass gpu pass)
-        (destroy gpu (BindGroupObject group))))
+      (let ((group (gpu::create-bind-group (new BindGroupDescriptor
+                                             (label "scene/layer")
+                                             (pipeline (RenderPipeline pipeline))
+                                             (group 0)
+                                             (entries
+                                              (list (TextureEntry 0 source)
+                                                    (SamplerEntry 1 sampler))))))
+            (pass (gpu::begin-render-pass encoder
+                                          (new RenderPassDescriptor
+                                            (colors (list (Some (new ColorAttachment
+                                                                  (view target)
+                                                                  (load (Keep))
+                                                                  (store #t)))))
+                                            (depth (None))))))
+        (gpu::set-pipeline pass pipeline)
+        (gpu::set-bind-group pass 0 group)
+        (gpu::draw pass 3 1 0 0)
+        (gpu::end-pass pass)
+        (gpu::destroy (BindGroupObject group))))
 
     (define (layer-pipeline (gpu Gpu)) (→ GpuRenderPipeline)
-      (create-render-pipeline gpu
-                              (new RenderPipelineDescriptor
-                                (label "scene/layer")
-                                (module (create-shader-module gpu
-                                                              (new ShaderModuleDescriptor
-                                                                (label "scene/layers")
-                                                                (code layers-shader))))
-                                (vertex-entry "layer_vertex")
-                                (buffers (Nil))
-                                (fragment (Some (new FragmentState
-                                                  (entry "layer_fragment")
-                                                  (targets
-                                                   (list (Some (new ColorTarget
-                                                                 (format (Rgba8Unorm))
-                                                                 (blend (None)))))))))
-                                (topology (TriangleList))
-                                (cull (CullNone))
-                                (depth (None)))))
+      (gpu::create-render-pipeline
+       (new RenderPipelineDescriptor
+         (label "scene/layer")
+         (module (gpu::create-shader-module
+                  (new ShaderModuleDescriptor
+                    (label "scene/layers")
+                    (code layers-shader))))
+         (vertex-entry "layer_vertex")
+         (buffers (Nil))
+         (fragment (Some (new FragmentState
+                           (entry "layer_fragment")
+                           (targets
+                            (list (Some (new ColorTarget
+                                          (format (Rgba8Unorm))
+                                          (blend (None)))))))))
+         (topology (TriangleList))
+         (cull (CullNone))
+         (depth (None)))))
 
     (define (repeating-sampler (gpu Gpu)) (→ GpuSampler)
-      (create-sampler gpu (new SamplerDescriptor
-                            (label "scene/repeat")
-                            (mag-filter (Linear))
-                            (min-filter (Linear))
-                            (mipmap-filter (Linear))
-                            (address (Repeat)))))
+      (gpu::create-sampler (new SamplerDescriptor
+                             (label "scene/repeat")
+                             (mag-filter (Linear))
+                             (min-filter (Linear))
+                             (mipmap-filter (Linear))
+                             (address (Repeat)))))
 
     ))

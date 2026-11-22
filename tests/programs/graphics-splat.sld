@@ -132,8 +132,8 @@
 
 (define (frame (gpu Gpu)) (→ Unit)
   (let* ((splats (make-splats gpu "test" (Bgra8Unorm) 300000 2))
-         (encoder (create-command-encoder gpu))
-         (pass (begin-compute-pass gpu encoder)))
+         (encoder (gpu::create-command-encoder))
+         (pass (gpu::begin-compute-pass encoder)))
     (write-transforms gpu splats (list (identity-of 2.0)))
     (sort-splats gpu pass
                  splats
@@ -143,8 +143,8 @@
                                1.0
                                640
                                480))
-    (end-compute-pass gpu pass)
-    (submit gpu (list (finish gpu encoder)))))
+    (gpu::end-compute-pass pass)
+    (gpu::submit (list (gpu::finish encoder)))))
 
 (define (identity-of (scale F32)) (→ Mat4x4f)
   (new Mat4x4f

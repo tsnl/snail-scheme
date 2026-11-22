@@ -29,10 +29,10 @@
     ;; The kernel `entry` of `module`, labeled `label`/`entry`.
     (define (compute-kernel (gpu Gpu) (module GpuShaderModule) (label String) (entry String))
       (→ GpuComputePipeline)
-      (create-compute-pipeline gpu (new ComputePipelineDescriptor
-                                     (label (string-append label "/" entry))
-                                     (module module)
-                                     (entry entry))))
+      (gpu::create-compute-pipeline (new ComputePipelineDescriptor
+                                      (label (string-append label "/" entry))
+                                      (module module)
+                                      (entry entry))))
 
     ;; Group `index` of `kernel`, whose layout it takes.
     (define (kernel-group (gpu Gpu) (kernel GpuComputePipeline)
@@ -40,26 +40,26 @@
                           (label String)
                           (entries (List BindGroupEntry)))
       (→ GpuBindGroup)
-      (create-bind-group gpu (new BindGroupDescriptor
-                               (label label)
-                               (pipeline (ComputePipeline kernel))
-                               (group index)
-                               (entries entries))))
+      (gpu::create-bind-group (new BindGroupDescriptor
+                                (label label)
+                                (pipeline (ComputePipeline kernel))
+                                (group index)
+                                (entries entries))))
 
     ;; Workgroups of `size` for `count` items, at least one, in rows of
     ;; 65535, the most a dispatch has along an axis. Invocations past the
     ;; count run too, so a kernel returns for an index it has no item for.
     (define (dispatch-items (gpu Gpu) (pass GpuComputePass) (count I64) (size I64)) (→ Unit)
       (let ((groups (max 1 (quotient (+ count (- size 1)) size))))
-        (dispatch-workgroups gpu pass
-                             (i64->i32 (min groups 65535))
-                             (i64->i32 (quotient (+ groups 65534) 65535))
-                             1)))
+        (gpu::dispatch-workgroups pass
+                                  (i64->i32 (min groups 65535))
+                                  (i64->i32 (quotient (+ groups 65534) 65535))
+                                  1)))
 
     ;; Workgroups of 8 by 8 for every texel of a width and a height.
     (define (dispatch-texels (gpu Gpu) (pass GpuComputePass) (width I32) (height I32))
       (→ Unit)
-      (dispatch-workgroups gpu pass (quotient (+ width 7) 8) (quotient (+ height 7) 8) 1))
+      (gpu::dispatch-workgroups pass (quotient (+ width 7) 8) (quotient (+ height 7) 8) 1))
 
     ;; A uniform binds at a multiple of 256 bytes.
     (define slot (→ I64) 256)
@@ -77,19 +77,19 @@
       (BufferEntry binding buffer (i64->i32 (* slot index)) (i64->i32 slot)))
 
     (define (uniform-buffer (gpu Gpu) (label String) (bytes Bytes)) (→ GpuBuffer)
-      (let ((buffer (create-buffer gpu (new BufferDescriptor
-                                         (label label)
-                                         (size (i64->i32 (array-length bytes)))
-                                         (usage (list (Uniform) (CopyDst)))))))
-        (write-buffer gpu buffer 0 bytes)
+      (let ((buffer (gpu::create-buffer (new BufferDescriptor
+                                          (label label)
+                                          (size (i64->i32 (array-length bytes)))
+                                          (usage (list (Uniform) (CopyDst)))))))
+        (gpu::write-buffer buffer 0 bytes)
         buffer))
 
     ;; At least 16 bytes, since no buffer binds empty.
     (define (storage-buffer (gpu Gpu) (label String) (size I64) (more (List BufferUsage)))
       (→ GpuBuffer)
-      (create-buffer gpu (new BufferDescriptor
-                           (label label)
-                           (size (i64->i32 (max 16 size)))
-                           (usage (Cons (Storage) more)))))
+      (gpu::create-buffer (new BufferDescriptor
+                            (label label)
+                            (size (i64->i32 (max 16 size)))
+                            (usage (Cons (Storage) more)))))
 
     ))

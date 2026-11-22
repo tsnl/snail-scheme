@@ -13,7 +13,7 @@ remaining work.
 
 ## `snail-scheme` API
 
-Import `(snail shell socket)` and hand a `Tcp` or `Udp` to the code using it: every operation takes one first.
+Import `(snail shell socket)` and hand a `Tcp` or `Udp` to the code using it: every operation is a field of one, as in `(tcp::listen endpoint)`.
 Every operation returns `Result` with a `SocketError` whose `code` is a string
 such as `"EBADF"`, `"EINVAL"` or a native network error code. Nothing
 cancels a waiting task: it resumes when its operation settles. When the run
@@ -30,7 +30,7 @@ this API. TCP operations are:
 
 | Operation | Success value |
 | --- | --- |
-| `listen endpoint` | `Listener`; `(● listener port)` is the actual bound port. |
+| `listen endpoint` | `Listener`; `listener::port` is the actual bound port. |
 | `connect endpoint` | `Connection`. |
 | `accept listener` | `Connection`. |
 | `read connection maximum` | `Some Bytes` containing an available nonempty prefix, or `None` at EOF. |
@@ -48,15 +48,15 @@ UDP operations are:
 
 | Operation | Success value |
 | --- | --- |
-| `bind endpoint` | `UdpSocket`; `(● socket port)` is the actual bound port. |
+| `bind endpoint` | `UdpSocket`; `socket::port` is the actual bound port. |
 | `send socket peer bytes` | `I32` count of the entire datagram accepted locally, including zero; never a partial prefix. |
 | `receive socket maximum` | `Datagram` with an `Endpoint` peer and immutable bytes. |
 | `close-udp socket` | `Unit`. |
 
 UDP payloads and receive bounds are 0–65,507 bytes. Empty packets are messages,
 not EOF. An oversized receive consumes and discards that packet with `EMSGSIZE`;
-the next receive starts at the next packet. `(● datagram peer)` supplies the sender's
-address and port, and `(● datagram bytes)` supplies the whole payload. Bind port 0
+the next receive starts at the next packet. `datagram::peer` supplies the sender's
+address and port, and `datagram::bytes` supplies the whole payload. Bind port 0
 selects a free port; a send to port 0 fails with `EINVAL` before it reaches
 the host. UDP does not guarantee
 delivery, order or uniqueness.
@@ -255,7 +255,7 @@ code. As for sockets, nothing cancels a waiting task.
 
 | Operation | Success value |
 | --- | --- |
-| `spawn (Command program arguments directory)` | `Process`; `(● process id)` is the operating system's process id. |
+| `spawn (Command program arguments directory)` | `Process`; `process::id` is the operating system's process id. |
 | `read-output process stream maximum` | `Some Bytes`, an available nonempty prefix of `(Stdout)` or `(Stderr)`, or `None` at its end. |
 | `write-input process bytes` | `I32` count of bytes the pipe took, at most 65,536. |
 | `close-input process` | `Unit`; the child reads EOF once written bytes drain. |
@@ -303,7 +303,7 @@ program and report failures as `spawn` does
 ### Termination
 
 `Signals`, also in `(snail shell process)`, has one operation,
-`(termination signals)`, which waits for SIGINT or SIGTERM and returns
+`(signals::termination)`, which waits for SIGINT or SIGTERM and returns
 `(Interrupt)` or `(Terminate)`. A program opts in by waiting: a signal that
 arrives while tasks wait in `termination` is the result of every such wait,
 and one that arrives while none waits ends the program, as it always has.
@@ -313,9 +313,9 @@ order, here by terminating a child and waiting for it:
 ```scheme
 (dispatch
  (lambda ()
-   (termination)
-   (send-signal child (Terminate))
-   (wait-exit child)))
+   (signals::termination)
+   (processes::send-signal child (Terminate))
+   (processes::wait-exit child)))
 ```
 
 A wait ends with its signal, so a second Ctrl-C during that shutdown ends

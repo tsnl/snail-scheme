@@ -13,7 +13,7 @@
   (let loop ((bytes #u8()))
     (if (= (array-length bytes) 4)
         bytes
-        (match (require (read tcp connection (i64->i32 (- 4 (array-length bytes)))))
+        (match (require (tcp::read connection (i64->i32 (- 4 (array-length bytes)))))
           ((Some chunk) (loop (array-append bytes chunk)))
           ((None) (panic "unexpected EOF"))))))
 
@@ -22,29 +22,29 @@
   ;; main returns.
   (dispatch
    (lambda ()
-     (let* ((listener (require (listen tcp (require (endpoint "127.0.0.1" 0)))))
+     (let* ((listener (require (tcp::listen (require (endpoint "127.0.0.1" 0)))))
             (client
-             (require (connect tcp (require (endpoint "127.0.0.1" (● listener port))))))
-            (server (require (accept tcp listener))))
-       (require (close-listener tcp listener))
-       (require (close-listener tcp listener))
-       (display out (require (write tcp client #u8(0 255 128 1))))
+             (require (tcp::connect (require (endpoint "127.0.0.1" (● listener port))))))
+            (server (require (tcp::accept listener))))
+       (require (tcp::close-listener listener))
+       (require (tcp::close-listener listener))
+       (display out (require (tcp::write client #u8(0 255 128 1))))
        (newline out)
        (write-value out (array->list (receive-four tcp server)))
        (newline out)
        ;; A read takes 1 to 65,536 bytes, and a grace is not negative.
        (for-each (lambda (maximum)
-                   (match (read tcp server maximum)
+                   (match (tcp::read server maximum)
                      ((Err error) (write-line out (● error code)))
                      ((Ok _) (panic "a read out of bounds was started"))))
                  (list (ann 0 I32) (ann 65537 I32)))
-       (match (finish-connection tcp server -1)
+       (match (tcp::finish-connection server -1)
          ((Err error) (write-line out (● error code)))
          ((Ok _) (panic "a negative grace was accepted")))
-       (require (close-connection tcp client))
-       (require (close-connection tcp server))
-       (require (close-connection tcp server))
-       (match (read tcp server 1)
+       (require (tcp::close-connection client))
+       (require (tcp::close-connection server))
+       (require (tcp::close-connection server))
+       (match (tcp::read server 1)
          ((Err error) (write-line out (● error code)))
          ((Ok _) (panic "closed socket was read"))))
 
@@ -71,19 +71,19 @@
      (write-line out (Endpoint-address (require (endpoint "255.255.255.255" 0))))
 
      ;; A token from a replacement handler cannot masquerade as a native handle.
-     (match (close-connection tcp (new Connection (token (Any (ann 1 I32)))))
+     (match (tcp::close-connection (new Connection (token (Any (ann 1 I32)))))
        ((Err error) (write-line out (● error code)))
        ((Ok _) (panic "a fake token was accepted")))
 
      ;; Returning from main must close even a delivered listener left open by user code.
-     (require (listen tcp (require (endpoint "127.0.0.1" 0))))
+     (require (tcp::listen (require (endpoint "127.0.0.1" 0))))
 
-     (let* ((listener (require (listen tcp (require (endpoint "127.0.0.1" 0)))))
+     (let* ((listener (require (tcp::listen (require (endpoint "127.0.0.1" 0)))))
             (client
-             (require (connect tcp (require (endpoint "127.0.0.1" (● listener port))))))
-            (server (require (accept tcp listener))))
-       (require (close-listener tcp listener))
-       (dispatch (lambda () (require (finish-connection tcp server 1000))))
-       (require (finish-connection tcp client 1000))
+             (require (tcp::connect (require (endpoint "127.0.0.1" (● listener port))))))
+            (server (require (tcp::accept listener))))
+       (require (tcp::close-listener listener))
+       (dispatch (lambda () (require (tcp::finish-connection server 1000))))
+       (require (tcp::finish-connection client 1000))
        (write-line out "finished"))))
   (unit))
