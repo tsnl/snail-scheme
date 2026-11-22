@@ -32,7 +32,7 @@
                                               (suspend yielding 2)))))))
 
 (define (main (out OutputPort)) (→ Unit) (! mut)
-  (dispatch (lambda () (worker out "first" (list 1 30))))
-  (dispatch (lambda () (worker out "second" (list 10 20))))
+  (dispatch (lambda () (worker out "first" (list 1 200))))
+  (dispatch (lambda () (worker out "second" (list 20 40))))
   (write-line out "main returns")
   (unit))

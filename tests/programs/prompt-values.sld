@@ -46,7 +46,8 @@
   (write-line out (show (answered ratio)))
   (write-line out (show (answered flag)))
   ;; A handler that does not resume answers for the whole body.
-  (write-line out (show (with-prompt asking (lambda () (● (point) x)) (lambda (n resume) (* n 1000)))))
+  (write-line out
+              (show (with-prompt asking (lambda () (● (point) x)) (lambda (n resume) (* n 1000)))))
   (write-line out
               (with-prompt naming
                            (lambda ()

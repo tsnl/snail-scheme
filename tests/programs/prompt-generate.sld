@@ -11,7 +11,8 @@
   (display out
            (with-prompt pausing
                         (lambda ()
-                          (array-length (array-generate 3 (lambda (index) (suspend pausing index)))))
+                          (array-length
+                           (array-generate 3 (lambda (index) (suspend pausing index)))))
                         (lambda (index resume) (resume index))))
   (write-line out "not reached")
   (unit))

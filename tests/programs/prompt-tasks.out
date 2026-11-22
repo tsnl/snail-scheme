@@ -1,7 +1,7 @@
 main returns
 first slept 1
-second slept 10
 second slept 20
+second slept 40
 second collected (1 2)
-first slept 30
+first slept 200
 first collected (1 2)
