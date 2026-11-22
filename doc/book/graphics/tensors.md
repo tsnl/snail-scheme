@@ -12,7 +12,7 @@ Node](plan.md#webgpu-on-node)). All six libraries are **implemented**:
 | `(snail shell tensor)` | Nodes, ports and views; the operations that build them |
 | `(snail shell tensor grad)` | `grad`: reverse-mode gradients as more graph |
 | `(snail shell tensor adam)` | `adam-updates`: Adam's step as more graph |
-| `(snail shell tensor fuse)` | `fuse`: maps that read maps taken into one |
+| `(snail shell tensor fuse)` | `fuse-program`: maps taken into the kernels that read them |
 | `(snail shell tensor lower)` | `lower`: buffers, kernels and their order, the caller's |
 | `(snail shell tensor eval)` | `evaluate`: the same graph on the CPU, the specification |
 
@@ -30,8 +30,7 @@ nodes.
 | --- | --- |
 | `Param`, `Constant`, `Fill` | A buffer the host writes, bytes given at build time, one value everywhere |
 | `Map` | A typed expression at each element, over broadcast operands |
-| `Reduce` | A sum, maximum or minimum over axes, which keep size 1 |
-| `Matmul` | `(..., m, k)` by `(..., k, n)` |
+| `Reduce` | A typed expression summed, or its maximum or minimum taken, over trailing axes |
 | `Place` | A gradient placed at a view's addresses |
 | `Gather`, `ScatterAdd` | Rows by `u32` index, and their adjoint |
 | `Concat` | Views joined along an axis; `stack` joins them along a new one |
@@ -47,6 +46,13 @@ accessor says where its elements are. An operation such as `+`, `exp` or
 literal, so a map reads only buffers. A copy is a map of one load, and it is
 the one way a view becomes a buffer.
 
+A reduction has a body too. It computes it at each element of its
+arguments' shape, its port's axes followed by its span, and combines it
+over the span. So `(matmul a b)`, of `(..., m, k)` by `(..., k, n)`, sees
+both at `(..., m, n, k)` and sums their product over `k`; `sum`, `amax` and
+`amin` see their operand with the reduced axes last, a body of one load,
+and keep those axes at size 1.
+
 A node is known by its key, a 64-bit hash of its kind, its parameters, its
 ports and its arguments' keys and accessors. The language has no reference
 equality, and content addressing gives more: building the same computation
@@ -61,13 +67,18 @@ first, as Resin's `grad` does. Each kind answers the gradient of each
 argument given the gradients of its ports, and a custom node answers with
 its own adjoint. A map's gradient goes back through its body from the top,
 whose value is the map's port: each operation hands its operands their
-shares, and each load adds its share to its argument's. A view's gradient reaches its port through the view's
-accessor: it is summed over the axes the view broadcasts, then reshaped
-when the view reads its whole port in order, or placed at the addresses it
-reads otherwise. Sorts, prefix sums, comparisons and bit operations pass no
-gradient. A custom node's adjoint that needs the node's other ports, as a
-backward pass needs what its forward pass kept, builds the same node again
-from its arguments, and content addressing gives back the node itself.
+shares, and each load adds its share to its argument's. A reduction's
+gradient is spread over its span, to every element for a sum and to those
+equal to the result for a maximum or minimum, and goes back through its
+body the same way, so a matrix product's gradients are products summed
+again. A view's gradient reaches its port through the view's accessor: it
+is summed over the axes the view broadcasts, then seen back through the
+view when the view reads its whole port in some order of its axes, or
+placed at the addresses it reads otherwise. Sorts, prefix sums, comparisons
+and bit operations pass no gradient. A custom node's adjoint that needs the
+node's other ports, as a backward pass needs what its forward pass kept,
+builds the same node again from its arguments, and content addressing gives
+back the node itself.
 
 `(adam-updates prefix settings trained)` builds Adam's step for each
 `Trained` param, gradient and rate, the rate being a view so a schedule is
@@ -78,15 +89,16 @@ gaussians a param holds.
 
 ## Fusing
 
-`(fuse roots)` rewrites a graph so that a map takes in the maps it reads,
-as Resin's `fuse_elementwise` fuses its dispatches. One kernel computes
-both, and the producer's buffer is not written unless something else reads
-it. The answer is views of the same values computed by fewer nodes, for
-`lower` to lower as it lowers any graph; `fuse-updates` does the same for a
-program's updates.
+`(fuse-program sinks updates)` rewrites a program's graph so that a map
+takes in the maps it reads, as Resin's `fuse_elementwise` fuses its
+dispatches. One kernel computes both, and the producer's buffer is not
+written unless something else reads it. The answer is views of the same
+values computed by fewer nodes, for `lower` to lower as it lowers any
+graph; `(fuse roots)` does the same for a list of views.
 
 ```scheme
-(lower gpu "step" (fuse sinks) (fuse-updates updates))
+(let ((fused (fuse-program sinks updates)))
+  (lower gpu "step" (● fused first) (● fused second)))
 ```
 
 A producer is inlined into each map that reads it: the consumer's load
@@ -99,16 +111,32 @@ densely. Merging the axes of a port whose producer read a strided view is
 not an accessor, so that producer stays a node. A body stays within 256
 expressions, since a producer read twice is inlined twice. A kernel binds
 at most seven buffers besides its port, so a sum of eight params is two
-maps. Types do not stop fusing: each expression carries its own. A node
-that is not a map keeps the map that feeds it, so reductions, matrix
-products, gathers, concats, sorts and custom kernels are where fused
-kernels end. Fusing depends only on a node and what it reads, so the sinks
-and updates of one program may be fused apart and still share their nodes.
+maps. Types do not stop fusing: each expression carries its own. A
+reduction's body takes in maps as a map's does, so a matrix product
+computes its products as it sums them, but nothing takes in a reduction.
+Any other node keeps the map that feeds it, so reductions, gathers,
+concats, sorts and custom kernels are where fused kernels end.
 
-On bicycle, fusing takes a training step from 829 dispatches to 350, and
-the splats viewer's frame from 273 to 119. The viewer's time is now in
-those boundaries: the harmonics' matrix products and the concats that join
-columns.
+Fusing plans from the roots down: a map takes in what it can, from its
+first argument on, until nothing more fits, before anything it reads takes
+in anything. So what a map took in never leaves it too wide for the map
+reading it: Adam's moments each take in their share of a gradient, and the
+gradient, too wide for either to take in, is written once. A producer whose
+readers see each of its elements at most once is taken in wherever it
+fits, since that computes nothing twice. One read more than once is
+computed again in each kernel taking it in, and what it reads stays alive
+until the last of them, so it is taken in only where that holds no more
+bytes, for no more of the program's steps, than its own buffer would. A
+buffer the kernel binds already, or one that a later node reads anyway,
+counts as nothing. So a gradient accumulated from many places is summed as
+the places arrive, while a mask of a few params is computed again wherever
+it is read. Since this weighs every node reading a producer, a program's
+sinks and updates are fused together.
+
+On bicycle, fusing takes a training step from 829 dispatches to 359, and
+the splats viewer's frame from 273 to 114. The viewer's time is now mostly
+its sorts and its rasterizer; of its generated kernels, the concats that
+join columns cost most.
 
 ## Lowering and running
 
@@ -141,12 +169,14 @@ Each node's kernel is generated as WGSL text whose shapes, pitches and
 offsets are literals, a thread per output element, so two nodes that
 compute alike share a pipeline. A `Fill` argument is a literal too and gets
 no buffer. A map's body becomes one `let` for each distinct load and
-operation, so an expression fusing copied into two places is computed
-once and no expression nests another, and a map binds each port its
-arguments see once. A reduction over more than 256 elements runs in levels: a
-workgroup reduces each part of 4,096 elements in shared memory until one
-part is left. A float `ScatterAdd` adds with a compare-and-swap loop. Sorts
-and prefix sums run on the `radix-sort` and `scan` middleware ([the WebGPU
+operation, so an expression fusing copied into two places is computed once
+and no expression nests another, and a map binds each port its arguments
+see once. A reduction computes its body as it combines it: a thread an
+output element when its span is at most 256 elements, and in levels
+otherwise, a workgroup combining each part of 4,096 elements in shared
+memory, the first level computing the body, until one part is left. A float
+`ScatterAdd` adds with a compare-and-swap loop. Sorts and prefix sums run
+on the `radix-sort` and `scan` middleware ([the WebGPU
 design](plan.md#scans-sorts-and-gaussian-splats)). Every dispatch is in one
 compute pass, so each sees the writes of those before it, and dispatches of
 more than 65,535 workgroups are laid out in rows.
