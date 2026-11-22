@@ -40,6 +40,7 @@
    (snail shell graphics scan)
    (snail shell graphics radix-sort)
    (snail shell graphics splat)
+   (snail shell graphics splat-view)
    (gpu-test shaders)
    (gpu-test tensor)
    (gpu-test splat-train)
@@ -60,6 +61,9 @@
       (let ((splatted (splat-frames)))
         (write-line (string-append "splats: " (texels (● splatted first))))
         (write-line (string-append "turned: " (texels (● splatted second)))))
+      (let ((viewed (viewed-frames)))
+        (write-line (string-append "viewed splats: " (texels (● viewed first))))
+        (write-line (string-append "viewed turned: " (texels (● viewed second)))))
       (write-line (string-append "timed: " (timed-pass)))
       (write-line (string-append "tensor: " (tensor-agreement)))
       (write-line (string-append "profiled: " (profiled-steps)))
@@ -480,9 +484,11 @@
     ;; Three gaussians seen from z = 5 onto a 16x16 texture: a red one at the
     ;; origin, three times as wide as it is tall; a small green one moved by
     ;; its transform 2 nearer the eye, in front of it; and a blue one moved 1.5
-    ;; to the right. The texels at 3.5 pixels left of the center, the center,
-    ;; 4.5 right and 3.5 above, then again with the red one's transform turned
-    ;; a quarter about z, which stands it up.
+    ;; to the right and 0.5 nearer, in front of the red one's edge, so no two
+    ;; are at one depth, where the quads and the training renderer would
+    ;; order them differently. The texels at 3.5 pixels left of the center,
+    ;; the center, 4.5 right and 3.5 above, then again with the red one's
+    ;; transform turned a quarter about z, which stands it up.
 
     (define (gaussian (scale Vec3f) (transform I32)) (→ Gaussian)
       (new Gaussian
@@ -512,58 +518,92 @@
         (z (new Vec4f (x 0.0) (y 0.0) (z 1.0) (w 0.0)))
         (w (new Vec4f (x 0.0) (y 0.0) (z 0.0) (w 1.0)))))
 
+    (define splats-camera
+      (→ SplatCamera)
+      (splat-camera (new Vec3f (x 0.0) (y 0.0) (z 5.0))
+                    (new Vec3f (x 0.0) (y 0.0) (z 0.0))
+                    (new Vec3f (x 0.0) (y 1.0) (z 0.0))
+                    1.0
+                    16
+                    16))
+
     (define (splat-texels (splats Splats) (target GpuTexture) (readback GpuBuffer))
       (→ Bytes)
       (! gpu tasks)
       (let ((encoder (create-command-encoder)))
-        (sort-splats encoder
-                     splats
-                     (splat-camera (new Vec3f (x 0.0) (y 0.0) (z 5.0))
-                                   (new Vec3f (x 0.0) (y 0.0) (z 0.0))
-                                   (new Vec3f (x 0.0) (y 1.0) (z 0.0))
-                                   1.0
-                                   16
-                                   16))
-        (let ((pass (begin-render-pass encoder
-                                       (new RenderPassDescriptor
-                                         (colors (list (Some (new ColorAttachment
-                                                               (view (view-of target 1))
-                                                               (load (Clear (new Color
-                                                                              (red 0.0)
-                                                                              (green 0.0)
-                                                                              (blue 0.0)
-                                                                              (alpha 1.0))))
-                                                               (store #t)))))
-                                         (depth (None))))))
+        (let ((pass (begin-compute-pass encoder)))
+          (sort-splats pass splats splats-camera)
+          (end-compute-pass pass))
+        (let ((pass (begin-render-pass encoder (cleared (view-of target 1) black))))
           (draw-splats pass splats)
           (end-pass pass))
-        (copy-texture-to-buffer encoder (whole-texture target) readback 0 256 16 16)
-        (submit (list (finish encoder)))
-        (let ((bytes (read-buffer readback 0 4096)))
-          (array-concatenate (map (lambda (texel)
-                                    (subarray bytes
-                                              (+ (* 256 (● texel second)) (* 4 (● texel first)))
-                                              (+ (* 256 (● texel second))
-                                                 (* 4 (+ (● texel first) 1)))))
-                                  (list (new Pair (first 4) (second 8))
-                                        (new Pair (first 8) (second 8))
-                                        (new Pair (first 12) (second 8))
-                                        (new Pair (first 8) (second 4))))))))
+        (four-texels encoder target readback)))
 
-    (define (splat-frames) (→ (Pair Bytes Bytes)) (! gpu tasks)
-      (let ((splats (make-splats "test" (Rgba8Unorm) 3 3))
-            (target (texture-named "splats" 16 16))
-            (readback (buffer-named "splats-readback" 4096 (list (MapRead) (CopyDst)))))
+    ;; The four texels the splat checks read, once the encoder is submitted.
+    (define (four-texels (encoder GpuCommandEncoder) (target GpuTexture) (readback GpuBuffer))
+      (→ Bytes)
+      (! gpu tasks)
+      (copy-texture-to-buffer encoder (whole-texture target) readback 0 256 16 16)
+      (submit (list (finish encoder)))
+      (let ((bytes (read-buffer readback 0 4096)))
+        (array-concatenate (map (lambda (texel)
+                                  (subarray bytes
+                                            (+ (* 256 (● texel second)) (* 4 (● texel first)))
+                                            (+ (* 256 (● texel second))
+                                               (* 4 (+ (● texel first) 1)))))
+                                (list (new Pair (first 4) (second 8))
+                                      (new Pair (first 8) (second 8))
+                                      (new Pair (first 12) (second 8))
+                                      (new Pair (first 8) (second 4)))))))
+
+    (define (three-splats) (→ Splats) (! gpu)
+      (let ((splats (make-splats "test" (Rgba8Unorm) 3 3)))
         (write-cloud splats
                      0
                      (pack-cloud (list (gaussian (new Vec3f (x 0.9) (y 0.3) (z 0.3)) 0)
                                        (gaussian (new Vec3f (x 0.2) (y 0.2) (z 0.2)) 2)
                                        (gaussian (new Vec3f (x 0.3) (y 0.3) (z 0.3)) 1))
                                  (list (flat 1.0 0.0 0.0) (flat 0.0 1.0 0.0) (flat 0.0 0.0 1.0))))
-        (write-transforms splats (list (moved 0.0 0.0) (moved 1.5 0.0) (moved 0.0 2.0)))
-        (let ((level (splat-texels splats target readback)))
-          (write-transforms splats (list quarter-turn))
-          (new Pair (first level) (second (splat-texels splats target readback))))))
+        (write-transforms splats (list (moved 0.0 0.0) (moved 1.5 0.5) (moved 0.0 2.0)))
+        splats))
+
+    ;; Each frame drawn by `draw`, under the transforms, then with the red
+    ;; one's turned.
+    (define (posed-frames (splats Splats) (draw (Fn → Bytes ! gpu tasks))) (→ (Pair Bytes Bytes))
+      (! gpu tasks)
+      (let ((level (draw)))
+        (write-transforms splats (list quarter-turn))
+        (new Pair (first level) (second (draw)))))
+
+    (define (splat-frames) (→ (Pair Bytes Bytes)) (! gpu tasks)
+      (let ((splats (three-splats))
+            (target (texture-named "splats" 16 16))
+            (readback (buffer-named "splats-readback" 4096 (list (MapRead) (CopyDst)))))
+        (posed-frames splats (lambda () (splat-texels splats target readback)))))
+
+    ;; The same, drawn by the training renderer.
+
+    (define (viewed-frames) (→ (Pair Bytes Bytes)) (! gpu tasks)
+      (let* ((splats (three-splats))
+             (view (make-splat-view splats (Rgba8Unorm) 16 16 64))
+             (target (texture-named "viewed" 16 16))
+             (readback (buffer-named "viewed-readback" 4096 (list (MapRead) (CopyDst))))
+             (frames (posed-frames splats (lambda () (viewed-texels view target readback)))))
+        (release-splat-view view)
+        frames))
+
+    (define (viewed-texels (view SplatView) (target GpuTexture) (readback GpuBuffer))
+      (→ Bytes)
+      (! gpu tasks)
+      (let ((encoder (create-command-encoder)))
+        (write-view-camera view splats-camera)
+        (let ((pass (begin-compute-pass encoder)))
+          (encode-splat-view pass view)
+          (end-compute-pass pass))
+        (let ((pass (begin-render-pass encoder (cleared (view-of target 1) black))))
+          (present-splat-view pass view)
+          (end-pass pass))
+        (four-texels encoder target readback)))
 
     ;; ---- Timestamps ----
 
@@ -575,7 +615,7 @@
              (queries (create-query-set (new QuerySetDescriptor (label "timed") (count 2))))
              (encoder (create-command-encoder))
              (pass (begin-timed-render-pass encoder
-                                            (cleared (view-of target 1))
+                                            (cleared (view-of target 1) red)
                                             (new TimestampWrites
                                               (query-set queries)
                                               (beginning 0)
@@ -588,12 +628,12 @@
               "a render pass between 0 and 1 seconds"
               (f64->string seconds)))))
 
-    (define (cleared (view GpuTextureView)) (→ RenderPassDescriptor)
+    (define (cleared (view GpuTextureView) (color Color)) (→ RenderPassDescriptor)
       (new RenderPassDescriptor
-        (colors (list (Some (new ColorAttachment
-                              (view view)
-                              (load
-                               (Clear (new Color (red 1.0) (green 0.0) (blue 0.0) (alpha 1.0))))
-                              (store #t)))))
+        (colors (list (Some (new ColorAttachment (view view) (load (Clear color)) (store #t)))))
         (depth (None))))
+
+    (define red (→ Color) (new Color (red 1.0) (green 0.0) (blue 0.0) (alpha 1.0)))
+
+    (define black (→ Color) (new Color (red 0.0) (green 0.0) (blue 0.0) (alpha 1.0)))
     ))

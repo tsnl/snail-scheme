@@ -71,7 +71,7 @@
              (height (● sensor height))
              (target
               (rgba8-image (param "target" (list height (texel-pitch width)) (Unsigned)) width))
-             (drawn (render cloud (camera-param) sensor))
+             (drawn (render cloud (camera-param) sensor (Training)))
              (loss (photometric-loss (● drawn image) target 0.2))
              (p (● drawn projection))
              (grads (grad loss (append (cloud-views cloud) (list (● p centers)))))

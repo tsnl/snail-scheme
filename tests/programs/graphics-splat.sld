@@ -129,9 +129,11 @@
 ;; level back, and scattering.
 
 (define (frame) (→ Unit) (! gpu)
-  (let ((splats (make-splats "test" (Bgra8Unorm) 300000 2)) (encoder (create-command-encoder)))
+  (let* ((splats (make-splats "test" (Bgra8Unorm) 300000 2))
+         (encoder (create-command-encoder))
+         (pass (begin-compute-pass encoder)))
     (write-transforms splats (list (identity-of 2.0)))
-    (sort-splats encoder
+    (sort-splats pass
                  splats
                  (splat-camera (new Vec3f (x 0.0) (y 0.0) (z 5.0))
                                (new Vec3f (x 0.0) (y 0.0) (z 0.0))
@@ -139,6 +141,7 @@
                                1.0
                                640
                                480))
+    (end-compute-pass pass)
     (submit (list (finish encoder)))))
 
 (define (identity-of (scale F32)) (→ Mat4x4f)
