@@ -1,7 +1,7 @@
 ;; The typed source forms erased for the Chez bootstrap. This host executes
 ;; compiler code only; source programs are checked and compiled to WasmGC.
 (library (snail stage0 forms)
-  (export define (rename (typed-lambda lambda)) type ann record new enum match effect handle ● set!
+  (export define (rename (typed-lambda lambda)) type ann record new enum match ● set!
           test-forms)
   (import
    (rename (chezscheme) (define scheme-define) (set! scheme-set!)))
@@ -16,7 +16,7 @@
 
   (meta scheme-define (header-clause? form)
         (syntax-case form ()
-          [(name . rest) (memq (syntax->datum #'name) '(→ ! ∀ ⊨))]
+          [(name . rest) (memq (syntax->datum #'name) '(→ ∀ ⊨))]
           [_ #f]))
 
   (meta scheme-define (definition-body forms)
@@ -228,58 +228,6 @@
                              (syntax-list #'(pattern ...)) (syntax-list #'((body ...) ...)))
                      [else (error 'match "no clause matched" #,value)])))])))
 
-  ;; ---- Compiler failures ----
-
-  ;; The source compiler uses only abortive control effects at stage zero.
-  ;; Each handler records the complete outside context. Returning operations
-  ;; must hide inner handlers of other effects too, just as Wasm evidence does.
-  ;; The handlers in scope are a thread's own: the test runner handles
-  ;; effects on several threads at once, and a parameter they shared would
-  ;; leave one thread's handlers, with their escapes, in another's scope.
-  (scheme-define handlers (make-thread-parameter '()))
-  (scheme-define (find-handler effect operation)
-    (let loop ([stack (handlers)])
-      (cond [(null? stack) (error 'effect "unhandled operation" operation)]
-            [(eq? effect (caar stack)) (car stack)]
-            [else (loop (cdr stack))])))
-  ;; Chez's private escape unwinds to the handler before invoking its body.
-  (scheme-define (perform effect operation arguments)
-    (let ([handler (find-handler effect operation)])
-      ((cadr handler) (lambda () (apply (cdr (assq operation (cadddr handler))) arguments)))))
-  (scheme-define (perform-returning effect operation arguments)
-    (let ([handler (find-handler effect operation)])
-      (parameterize ([handlers (caddr handler)])
-        (apply (cdr (assq operation (cadddr handler))) arguments))))
-  (scheme-define (cannot-resume answer) (error 'resume "stage zero cannot resume"))
-  (scheme-define (handling effect implementations body)
-    ((call/cc (lambda (escape)
-                (let* ([node (list effect escape (handlers) implementations)]
-                       [value (parameterize ([handlers (cons node (handlers))]) (body))])
-                  (lambda () value))))))
-  (define-syntax handle
-    (syntax-rules ()
-      [(_ effect ((operation implementation) ...) body ...)
-       (handling effect (list (cons 'operation implementation) ...) (lambda () body ...))]))
-  (define-syntax effect
-    (lambda (form)
-      (syntax-case form ()
-        [(_ name (operation ...) . rest)
-         #`(begin (scheme-define name (gensym))
-                  #,@(map (lambda (operation)
-                            (syntax-case operation (ctl)
-                              [(ctl method signature)
-                               (let* ([signature (syntax->datum #'signature)]
-                                      [answer (memq '→ signature)])
-                                 #`(scheme-define (method . arguments)
-                                     (perform name 'method
-                                              #,(if (and answer (eq? (cadr answer) 'Never))
-                                                    #'arguments
-                                                    #'(append arguments (list cannot-resume))))))]
-                              [(method signature)
-                               #'(scheme-define (method . arguments)
-                                   (perform-returning name 'method arguments))]
-                              [_ (syntax-error operation "expected an effect operation")]))
-                          (syntax-list #'(operation ...))))])))
   ;; ---- Tests ----
 
   (record Counter
@@ -287,9 +235,6 @@
      (value I64)))
   (enum Documented (Present ((value I64)))
         (Absent))
-  (effect Stop ((ctl stop (Fn I64 → Never))))
-  (effect Read ((read-value (Fn → I64))))
-  (effect Observe ((observe-value (Fn → I64))))
   (define (typed-sum (left I64) (right I64)) (→ I64) (+ left right))
   (scheme-define (test-forms)
     (let* ([seen '()]
@@ -306,16 +251,8 @@
                    (= (typed-sum 20 22) 42)
                    (= ((typed-lambda ((left I64) (right I64)) (→ I64) (+ left right)) 20 22) 42)
                    (= ((typed-lambda (left right) (+ left right)) 20 22) 42)
-                   (= (handle Read ((read-value (lambda () 10)))
-                        (handle Observe ((observe-value (lambda () (read-value))))
-                          (handle Read ((read-value (lambda () 20))) (observe-value)))) 10)
-                   (= (handle Read ((read-value (lambda () 10)))
-                        (handle Read ((read-value (lambda () (+ 1 (read-value)))))
-                          (+ 1 (read-value)))) 12)
                    (= (match (Present 7) [(Present value) value] [(Absent) 0]) 7)
-                   (= (match (Absent) [(Present value) value] [(Absent) 0]) 0)
-                   (= (handle Stop ((stop (lambda (value) (* 10 value))))
-                        (+ 1 (guard (failure [else 0]) (stop 4)))) 40))
+                   (= (match (Absent) [(Present value) value] [(Absent) 0]) 0))
         (error 'test-forms "typed forms do not preserve reference semantics"))))
 
   )

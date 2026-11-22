@@ -9,5 +9,5 @@
       (begin (panic "discarded fatal result") 0)
       42))
 
-(define (main) (→ Unit) (! output-port)
-  (write-line (show (choose #f))))
+(define (main (out OutputPort)) (→ Unit)
+  (write-line out (show (choose #f))))

@@ -31,6 +31,7 @@ example(`(import (scheme base) (rename (rnrs) (define-record-type record)))
 (define-record-type <pair>
   (pair a b) pair? (a pair-a) (b pair-b))
 (record (Pair A) ((first A) (second A)))
+(capability Port ((put (Fn String → Unit)) (take (Fn → String))))
 (enum Shape (Circle ((radius I64))) (Dot))
 `, `(import
  (scheme base)
@@ -42,6 +43,9 @@ example(`(import (scheme base) (rename (rnrs) (define-record-type record)))
 (record (Pair A)
   ((first A)
    (second A)))
+(capability Port
+  ((put (Fn String → Unit))
+   (take (Fn → String))))
 (enum Shape (Circle ((radius I64))) (Dot))
 `);
 const literals = String.raw`;; (import (ignored) (ignored))
@@ -88,10 +92,9 @@ example(`(define (f x) (let* ((a (foo x)) (b (bar a)) (c (baz b))) (+ a b c)))
 `, 40);
 example(`(scheme-define (helper value)\n(body value))\n`,
   `(scheme-define (helper value)\n  (body value))\n`);
-example(`(define (sum (left I64) (right I64)) (→ I64) (! io) (∀ (T)) (⊨ Add T) (+ left right))
+example(`(define (sum (left I64) (right I64)) (→ I64) (∀ (T)) (⊨ Add T) (+ left right))
 `, `(define (sum (left I64) (right I64))
   (→ I64)
-  (! io)
   (∀ (T))
   (⊨ Add T)
   (+ left right))
@@ -123,13 +126,12 @@ example(`(foo alpha beta gamma delta epsilon) ; fits: the comment does not count
 (define message
   "a string much longer than forty columns cannot break")
 `, 40);
-example(`(define (run (config Config) (args (List String))) (→ Status) (! fs output-port) (status config args))
+example(`(define (run (config Config) (args (List String))) (→ Status) (status config args))
 (bytes #u8(1 2 3 4 5 6 7 8 9 10 11 12 13 14))
 (display "one") (display "two") (display "three")
 `, `(define (run (config Config)
              (args (List String)))
   (→ Status)
-  (! fs output-port)
   (status config args))
 (bytes
  #u8(1 2 3 4 5 6 7 8 9 10 11 12 13 14))

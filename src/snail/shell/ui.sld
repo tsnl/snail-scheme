@@ -1,8 +1,8 @@
 ;; User interfaces in the shape Elm gave them. An interface is a model, a
 ;; `view` from the model to a tree of `Html`, and an `update` from the
 ;; model and a message to the next model and the commands it starts. The
-;; tree is plain data: `run-ui` shows it in the document through the `dom`
-;; effect, and after each update changes only what differs from the tree
+;; tree is plain data: `run-ui` shows it in the document through a `Dom`,
+;; and after each update changes only what differs from the tree
 ;; it showed before, so a node keeps its identity, and with it the focus,
 ;; selection and scroll the page gave it, for as long as the view keeps it.
 ;; Events come back as messages: a listener holds a function from what its
@@ -38,7 +38,6 @@
    run-ui)
   (import
    (snail core base)
-   (only (snail core forms) host)
    (snail core table)
    (snail shell task)
    (snail shell dom))
@@ -122,33 +121,34 @@
 
     ;; ---- Creating ----
 
-    (define (create (html (Html M))) (→ (Shown M)) (! dom) (∀ (M))
+    (define (create (dom Dom) (html (Html M))) (→ (Shown M)) (∀ (M))
       (match html
-        ((Text text) (ShownText (create-text text) text))
+        ((Text text) (ShownText (create-text dom text) text))
         ((Element tag attributes children)
-         (let ((node (create-element tag)))
-           (for-each (lambda (attribute) (apply-attribute node attribute)) attributes)
-           (let ((shown (map create children)))
-             (for-each (lambda (child) (insert-node node (shown-node child) (None))) shown)
-             (ShownElement node tag attributes (listen-all node attributes) shown))))))
+         (let ((node (create-element dom tag)))
+           (for-each (lambda (attribute) (apply-attribute dom node attribute)) attributes)
+           (let ((shown (map (lambda (html) (create dom html)) children)))
+             (for-each (lambda (child) (insert-node dom node (shown-node child) (None))) shown)
+             (ShownElement node tag attributes (listen-all dom node attributes) shown))))))
 
-    (define (apply-attribute (node Node) (attribute (Attribute M))) (→ Unit) (! dom) (∀ (M))
+    (define (apply-attribute (dom Dom) (node Node) (attribute (Attribute M)))
+      (→ Unit)
+      (∀ (M))
       (match attribute
-        ((Attr name value) (set-attribute node name value))
-        ((StringProperty name value) (set-string-property node name value))
-        ((NumberProperty name value) (set-number-property node name value))
-        ((FlagProperty name value) (set-flag-property node name value))
+        ((Attr name value) (set-attribute dom node name value))
+        ((StringProperty name value) (set-string-property dom node name value))
+        ((NumberProperty name value) (set-number-property dom node name value))
+        ((FlagProperty name value) (set-flag-property dom node name value))
         (_ (unit))))
 
-    (define (listen-all (node Node) (attributes (List (Attribute M))))
+    (define (listen-all (dom Dom) (node Node) (attributes (List (Attribute M))))
       (→ (List (Pair String Listener)))
-      (! dom)
       (∀ (M))
       (match attributes
         ((Cons (On event captures prevent _) rest)
-         (Cons (new Pair (first event) (second (listen node event captures prevent)))
-               (listen-all node rest)))
-        ((Cons _ rest) (listen-all node rest))
+         (Cons (new Pair (first event) (second (listen dom node event captures prevent)))
+               (listen-all dom node rest)))
+        ((Cons _ rest) (listen-all dom node rest))
         ((Nil) (Nil))))
 
     ;; ---- Patching ----
@@ -157,22 +157,22 @@
     ;; and tags and keys agree, and otherwise by a new subtree; the caller
     ;; places a new one and removes the old.
 
-    (define (patch (shown (Shown M)) (html (Html M))) (→ (Shown M)) (! dom) (∀ (M))
+    (define (patch (dom Dom) (shown (Shown M)) (html (Html M))) (→ (Shown M)) (∀ (M))
       (if (matches? shown html)
           (match (new Pair (first shown) (second html))
             ((Pair (ShownText node text) (Text updated))
-             (unless (string=? text updated) (set-text node updated))
+             (unless (string=? text updated) (set-text dom node updated))
              (ShownText node updated))
             ((Pair (ShownElement node tag attributes listeners children)
                    (Element _ new-attributes new-children))
-             (patch-attributes node attributes new-attributes)
+             (patch-attributes dom node attributes new-attributes)
              (ShownElement node
                            tag
                            new-attributes
-                           (patch-listeners node attributes listeners new-attributes)
-                           (patch-children node children new-children)))
+                           (patch-listeners dom node attributes listeners new-attributes)
+                           (patch-children dom node children new-children)))
             (_ (panic "internal error: a match of different kinds")))
-          (create html)))
+          (create dom html)))
 
     (define (matches? (shown (Shown M)) (html (Html M))) (→ Bool) (∀ (M))
       (match (new Pair (first shown) (second html))
@@ -184,17 +184,19 @@
     ;; Each attribute and property the view now gives a value other than
     ;; the one it gave is set, and each it no longer gives is cleared.
 
-    (define (patch-attributes (node Node) (old (List (Attribute M))) (updated (List (Attribute M))))
+    (define (patch-attributes (dom Dom)
+                              (node Node)
+                              (old (List (Attribute M)))
+                              (updated (List (Attribute M))))
       (→ Unit)
-      (! dom)
       (∀ (M))
       (for-each (lambda (attribute)
                   (unless (any? (lambda (before) (same-value? before attribute)) old)
-                    (apply-attribute node attribute)))
+                    (apply-attribute dom node attribute)))
                 updated)
       (for-each (lambda (attribute)
                   (unless (any? (lambda (after) (same-name? attribute after)) updated)
-                    (clear-attribute node attribute)))
+                    (clear-attribute dom node attribute)))
                 old))
 
     (define (same-name? (a (Attribute M)) (b (Attribute M))) (→ Bool) (∀ (M))
@@ -214,29 +216,31 @@
              ((Pair (FlagProperty _ x) (FlagProperty _ y)) (= x y))
              (_ #f))))
 
-    (define (clear-attribute (node Node) (attribute (Attribute M))) (→ Unit) (! dom) (∀ (M))
+    (define (clear-attribute (dom Dom) (node Node) (attribute (Attribute M)))
+      (→ Unit)
+      (∀ (M))
       (match attribute
-        ((Attr name _) (set-attribute node name ""))
-        ((StringProperty name _) (set-string-property node name ""))
-        ((NumberProperty name _) (set-number-property node name 0.0))
-        ((FlagProperty name _) (set-flag-property node name #f))
+        ((Attr name _) (set-attribute dom node name ""))
+        ((StringProperty name _) (set-string-property dom node name ""))
+        ((NumberProperty name _) (set-number-property dom node name 0.0))
+        ((FlagProperty name _) (set-flag-property dom node name #f))
         (_ (unit))))
 
     ;; A listener stays while the view keeps its event, captures and
     ;; prevention; its function may change, since only the table holds it.
 
-    (define (patch-listeners (node Node)
+    (define (patch-listeners (dom Dom) (node Node)
                              (old (List (Attribute M)))
                              (listeners (List (Pair String Listener)))
                              (updated (List (Attribute M))))
       (→ (List (Pair String Listener)))
-      (! dom)
       (∀ (M))
       (for-each (lambda (pair)
-                  (unless (kept-listener? (● pair first) old updated) (unlisten (● pair second))))
+                  (unless (kept-listener? (● pair first) old updated)
+                    (unlisten dom (● pair second))))
                 listeners)
       (append (filter (lambda (pair) (kept-listener? (● pair first) old updated)) listeners)
-              (listen-all node
+              (listen-all dom node
                           (filter (lambda (attribute)
                                     (match attribute
                                       ((On event _ _ _) (not (kept-listener? event old updated)))
@@ -284,22 +288,24 @@
     ;; removed, which leaves the document holding the taken ones in their
     ;; old order, and then the children are put in their new order.
 
-    (define (patch-children (parent Node) (old (List (Shown M))) (updated (List (Html M))))
+    (define (patch-children (dom Dom)
+                            (parent Node)
+                            (old (List (Shown M)))
+                            (updated (List (Html M))))
       (→ (List (Shown M)))
-      (! dom)
       (∀ (M))
       (let* ((pairs (taking old updated))
              (taken (taken-names pairs))
              (children (map (lambda (pair)
                               (match (● pair first)
-                                ((Some shown) (patch shown (● pair second)))
-                                ((None) (create (● pair second)))))
+                                ((Some shown) (patch dom shown (● pair second)))
+                                ((None) (create dom (● pair second)))))
                             pairs)))
         (for-each (lambda (shown)
                     (unless (table-contains? taken (node-name shown))
-                      (remove-node (shown-node shown))))
+                      (remove-node dom (shown-node shown))))
                   old)
-        (order parent
+        (order dom parent
                (reverse children)
                (reverse (filter (lambda (shown) (table-contains? taken (node-name shown))) old))
                taken
@@ -375,19 +381,18 @@
     ;; not yet placed, `unplaced`, in their old order, before those placed;
     ;; so a child already is where it goes when it is the last of them.
 
-    (define (order (parent Node)
+    (define (order (dom Dom) (parent Node)
                    (children (List (Shown M)))
                    (unplaced (List (Shown M)))
                    (taken (Table Bool))
                    (next (Option Node)))
       (→ Unit)
-      (! dom)
       (∀ (M))
       (match children
         ((Cons child rest)
-         (order parent
+         (order dom parent
                 rest
-                (placed parent child unplaced taken next)
+                (placed dom parent child unplaced taken next)
                 taken
                 (Some (shown-node child))))
         ((Nil) (unit))))
@@ -395,28 +400,26 @@
     ;; `child` placed before `next`, and the taken children left unplaced,
     ;; last first. Only a taken child that moves leaves them out of turn.
 
-    (define (placed (parent Node)
+    (define (placed (dom Dom) (parent Node)
                     (child (Shown M))
                     (unplaced (List (Shown M)))
                     (taken (Table Bool))
                     (next (Option Node)))
       (→ (List (Shown M)))
-      (! dom)
       (∀ (M))
       (match unplaced
         ((Cons last others)
-         (if (same-node? last child) others (moved parent child unplaced taken next)))
-        ((Nil) (moved parent child unplaced taken next))))
+         (if (same-node? last child) others (moved dom parent child unplaced taken next)))
+        ((Nil) (moved dom parent child unplaced taken next))))
 
-    (define (moved (parent Node)
+    (define (moved (dom Dom) (parent Node)
                    (child (Shown M))
                    (unplaced (List (Shown M)))
                    (taken (Table Bool))
                    (next (Option Node)))
       (→ (List (Shown M)))
-      (! dom)
       (∀ (M))
-      (insert-node parent (shown-node child) next)
+      (insert-node dom parent (shown-node child) next)
       (if (table-contains? taken (node-name child))
           (filter (lambda (shown) (not (same-node? shown child))) unplaced)
           unplaced))
@@ -427,17 +430,20 @@
     ;; only the listeners given it are patched, so any other attribute is
     ;; ignored.
 
-    (define (window-shown (attributes (List (Attribute M)))) (→ (Shown M)) (! dom) (∀ (M))
-      (let ((node (window-node)))
-        (ShownElement node "#window" attributes (listen-all node attributes) (Nil))))
+    (define (window-shown (dom Dom) (attributes (List (Attribute M)))) (→ (Shown M)) (∀ (M))
+      (let ((node (window-node dom)))
+        (ShownElement node "#window" attributes (listen-all dom node attributes) (Nil))))
 
-    (define (patch-window (shown (Shown M)) (attributes (List (Attribute M))))
+    (define (patch-window (dom Dom) (shown (Shown M)) (attributes (List (Attribute M))))
       (→ (Shown M))
-      (! dom)
       (∀ (M))
       (match shown
         ((ShownElement node tag old listeners _)
-         (ShownElement node tag attributes (patch-listeners node old listeners attributes) (Nil)))
+         (ShownElement node
+                       tag
+                       attributes
+                       (patch-listeners dom node old listeners attributes)
+                       (Nil)))
         ((ShownText _ _) (panic "internal error: the window shown as text"))))
 
     ;; ---- Listeners ----
@@ -493,127 +499,121 @@
     ;; presentations; `checkpoint` saves on request, hiding and close. A
     ;; command still running then never answers.
 
-    (define (run-ui (model Model)
+    (define (run-ui (dom Dom) (model Model)
                     (start (List M))
-                    (update (Fn Model M → (Pair Model (List (Fn → M ! tasks e))) ! mut host e))
+                    (update (Fn Model M → (Pair Model (List (Fn → M)))))
                     (view (Fn Model → (Html M)))
                     (window (Fn Model → (List (Attribute M))))
-                    (commit (Fn Model → Unit ! e))
-                    (checkpoint (Fn Model → Unit ! tasks e)))
+                    (commit (Fn Model → Unit))
+                    (checkpoint (Fn Model → Unit)))
       (→ Model)
-      (! mut host dom tasks e)
-      (∀ (Model M e))
-      (let ((box (make-mailbox)) (shown (create (view model))))
-        (insert-node (document-root) (shown-node shown) (None))
-        (serve box
+      (∀ (Model M))
+      (let ((box (make-mailbox)) (shown (create dom (view model))))
+        (insert-node dom (document-root dom) (shown-node shown) (None))
+        (serve dom box
                update
                view
                window
                commit checkpoint
                (fold-left (lambda (running message)
-                            (updated box update view window running message))
-                          (showing model shown (window-shown (window model)))
+                            (updated dom box update view window running message))
+                          (showing model shown (window-shown dom (window model)))
                           start))))
 
-    (define (serve (box (Mailbox M))
-                   (update (Fn Model M → (Pair Model (List (Fn → M ! tasks e))) ! mut host e))
+    (define (serve (dom Dom) (box (Mailbox M))
+                   (update (Fn Model M → (Pair Model (List (Fn → M)))))
                    (view (Fn Model → (Html M)))
                    (window (Fn Model → (List (Attribute M))))
-                   (commit (Fn Model → Unit ! e))
-                   (checkpoint (Fn Model → Unit ! tasks e))
+                   (commit (Fn Model → Unit))
+                   (checkpoint (Fn Model → Unit))
                    (running (Running Model M)))
       (→ Model)
-      (! mut host dom tasks e)
-      (∀ (Model M e))
+      (∀ (Model M))
       (commit (● running model))
-      (match (next-event)
+      (match (next-event dom)
         ((Fired listener event)
-         (serve box
+         (serve dom box
                 update
                 view
                 window
                 commit checkpoint
                 (match (table-ref (● running listeners) (show (● listener id)))
-                  ((Some message) (updated box update view window running (message event)))
+                  ((Some message) (updated dom box update view window running (message event)))
                   ((None) running))))
         ((Woken)
-         (serve box
+         (serve dom box
                 update
                 view
                 window
                 commit
                 checkpoint
-                (answered box update view window commit running)))
+                (answered dom box update view window commit running)))
         ((Hidden)
          (checkpoint (● running model))
-         (serve box update view window commit checkpoint running))
+         (serve dom box update view window commit checkpoint running))
         ((SaveRequested)
          (checkpoint (● running model))
-         (serve box update view window commit checkpoint running))
+         (serve dom box update view window commit checkpoint running))
         ((Closed)
          (checkpoint (● running model))
          (● running model))))
 
     ;; The interface after every answer the mailbox holds.
 
-    (define (answered (box (Mailbox M))
+    (define (answered (dom Dom) (box (Mailbox M))
                       (update
-                       (Fn Model M → (Pair Model (List (Fn → M ! tasks e))) ! mut host e))
+                       (Fn Model M → (Pair Model (List (Fn → M)))))
                       (view (Fn Model → (Html M)))
                       (window (Fn Model → (List (Attribute M))))
-                      (commit (Fn Model → Unit ! e))
+                      (commit (Fn Model → Unit))
                       (running (Running Model M)))
       (→ (Running Model M))
-      (! mut host dom tasks e)
-      (∀ (Model M e))
+      (∀ (Model M))
       (match (mailbox-try-receive box)
         ((Some message)
-         (let ((next (updated box update view window running message)))
+         (let ((next (updated dom box update view window running message)))
            (commit (● next model))
-           (answered box update view window commit next)))
+           (answered dom box update view window commit next)))
         ((None) running)))
 
     ;; The update for one message, the commands it started dispatched, and
     ;; the view and window of the next model shown.
 
-    (define (updated (box (Mailbox M))
-                     (update (Fn Model M → (Pair Model (List (Fn → M ! tasks e))) ! mut host e))
+    (define (updated (dom Dom) (box (Mailbox M))
+                     (update (Fn Model M → (Pair Model (List (Fn → M)))))
                      (view (Fn Model → (Html M)))
                      (window (Fn Model → (List (Attribute M))))
                      (running (Running Model M))
                      (message M))
       (→ (Running Model M))
-      (! mut host dom tasks e)
-      (∀ (Model M e))
+      (∀ (Model M))
       (match (update (● running model) message)
         ((Pair model commands)
-         (start-commands box commands)
+         (start-commands dom box commands)
          (showing model
-                  (patch-root (● running shown) (view model))
-                  (patch-window (● running window) (window model))))))
+                  (patch-root dom (● running shown) (view model))
+                  (patch-window dom (● running window) (window model))))))
 
-    (define (start-commands (box (Mailbox M)) (commands (List (Fn → M ! tasks e))))
+    (define (start-commands (dom Dom) (box (Mailbox M)) (commands (List (Fn → M))))
       (→ Unit)
-      (! mut host dom tasks e)
-      (∀ (M e))
+      (∀ (M))
       (match commands
         ((Cons command rest)
-         (dispatch (lambda () (answer box command)))
-         (start-commands box rest))
+         (dispatch (lambda () (answer dom box command)))
+         (start-commands dom box rest))
         ((Nil) (unit))))
 
-    (define (answer (box (Mailbox M)) (command (Fn → M ! tasks e)))
+    (define (answer (dom Dom) (box (Mailbox M)) (command (Fn → M)))
       (→ Unit)
-      (! mut dom tasks e)
-      (∀ (M e))
+      (∀ (M))
       (mailbox-post box (command))
-      (wake))
+      (wake dom))
 
     ;; The root's one child, patched, or replaced by a new one.
 
-    (define (patch-root (shown (Shown M)) (html (Html M))) (→ (Shown M)) (! dom) (∀ (M))
-      (let ((next (patch shown html)))
+    (define (patch-root (dom Dom) (shown (Shown M)) (html (Html M))) (→ (Shown M)) (∀ (M))
+      (let ((next (patch dom shown html)))
         (unless (same-node? next shown)
-          (insert-node (document-root) (shown-node next) (None))
-          (remove-node (shown-node shown)))
+          (insert-node dom (document-root dom) (shown-node next) (None))
+          (remove-node dom (shown-node shown)))
         next))))

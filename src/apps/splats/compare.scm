@@ -18,9 +18,8 @@
 ;; `profile=1` times each of the training renderer's steps alone.
 (import
  (snail core base)
- (only (snail core io) fs command-line read-bytes write-line output-port)
+ (only (snail core io) Host Arguments Fs OutputPort command-line read-bytes write-line)
  (only (snail shell math) log)
- (only (snail shell task) tasks)
  (snail shell gpu)
  (snail shell graphics pod)
  (snail shell graphics colmap)
@@ -32,22 +31,22 @@
 ;; ---- Settings ----
 
 ;; The value of `name=value` among the arguments.
-(define (setting (name String)) (→ (Option String))
+(define (setting (arguments Arguments) (name String)) (→ (Option String))
   (let ((prefix (string-append name "=")))
     (match (find (lambda (word)
                    (and (>= (string-length word) (string-length prefix))
                         (string=? (substring word 0 (string-length prefix)) prefix)))
-                 (list-tail (command-line) 1))
+                 (list-tail (command-line arguments) 1))
       ((Some word) (Some (substring word (string-length prefix) (string-length word))))
       ((None) (None)))))
 
-(define (required (name String)) (→ String)
-  (match (setting name)
+(define (required (arguments Arguments) (name String)) (→ String)
+  (match (setting arguments name)
     ((Some value) value)
     ((None) (panic (string-append "compare: name the " name ", as " name "=PATH")))))
 
-(define (number (name String) (otherwise I64)) (→ I64)
-  (match (setting name)
+(define (number (arguments Arguments) (name String) (otherwise I64)) (→ I64)
+  (match (setting arguments name)
     ((Some value)
      (match (string->i64 value)
        ((Some n) n)
@@ -121,78 +120,78 @@
    (height I64)
    (pitch I64)))
 
-(define (target-of (width I64) (height I64)) (→ Target) (! gpu)
+(define (target-of (gpu Gpu) (width I64) (height I64)) (→ Target)
   (let ((pitch (* 256 (quotient (+ (* 4 width) 255) 256))))
     (new Target
-      (texture (create-texture (new TextureDescriptor
-                                 (label "compare")
-                                 (width (i64->i32 width))
-                                 (height (i64->i32 height))
-                                 (layers 1)
-                                 (mips 1)
-                                 (format (Rgba8Unorm))
-                                 (usage (list (RenderAttachment) (TextureCopySrc))))))
-      (readback (create-buffer (new BufferDescriptor
-                                 (label "compare/readback")
-                                 (size (i64->i32 (* pitch height)))
-                                 (usage (list (MapRead) (CopyDst))))))
+      (texture (create-texture gpu (new TextureDescriptor
+                                     (label "compare")
+                                     (width (i64->i32 width))
+                                     (height (i64->i32 height))
+                                     (layers 1)
+                                     (mips 1)
+                                     (format (Rgba8Unorm))
+                                     (usage (list (RenderAttachment) (TextureCopySrc))))))
+      (readback (create-buffer gpu (new BufferDescriptor
+                                     (label "compare/readback")
+                                     (size (i64->i32 (* pitch height)))
+                                     (usage (list (MapRead) (CopyDst))))))
       (width width)
       (height height)
       (pitch pitch))))
 
 ;; The splats drawn as quads, and by the training renderer.
 
-(define (quads (splats Splats) (camera SplatCamera) (target Target)) (→ Drawn) (! gpu tasks)
-  (let* ((queries (create-query-set (new QuerySetDescriptor (label "quads") (count 4))))
-         (encoder (create-command-encoder))
-         (compute (begin-timed-compute-pass encoder (writes queries 0))))
-    (sort-splats compute splats camera)
-    (end-compute-pass compute)
-    (let ((pass (begin-timed-render-pass encoder (cleared target) (writes queries 2))))
-      (draw-splats pass splats)
-      (end-pass pass))
-    (timed-frame encoder queries target)))
+(define (quads (gpu Gpu) (splats Splats) (camera SplatCamera) (target Target)) (→ Drawn)
+  (let* ((queries (create-query-set gpu (new QuerySetDescriptor (label "quads") (count 4))))
+         (encoder (create-command-encoder gpu))
+         (compute (begin-timed-compute-pass gpu encoder (writes queries 0))))
+    (sort-splats gpu compute splats camera)
+    (end-compute-pass gpu compute)
+    (let ((pass (begin-timed-render-pass gpu encoder (cleared gpu target) (writes queries 2))))
+      (draw-splats gpu pass splats)
+      (end-pass gpu pass))
+    (timed-frame gpu encoder queries target)))
 
-(define (tiles (view SplatView) (camera SplatCamera) (target Target)) (→ Drawn) (! gpu tasks)
-  (let* ((queries (create-query-set (new QuerySetDescriptor (label "tiles") (count 4))))
-         (encoder (create-command-encoder))
-         (compute (begin-timed-compute-pass encoder (writes queries 0))))
-    (write-view-camera view camera)
-    (encode-splat-view compute view)
-    (end-compute-pass compute)
-    (let ((pass (begin-timed-render-pass encoder (cleared target) (writes queries 2))))
-      (present-splat-view pass view)
-      (end-pass pass))
-    (timed-frame encoder queries target)))
+(define (tiles (gpu Gpu) (view SplatView) (camera SplatCamera) (target Target)) (→ Drawn)
+  (let* ((queries (create-query-set gpu (new QuerySetDescriptor (label "tiles") (count 4))))
+         (encoder (create-command-encoder gpu))
+         (compute (begin-timed-compute-pass gpu encoder (writes queries 0))))
+    (write-view-camera gpu view camera)
+    (encode-splat-view gpu compute view)
+    (end-compute-pass gpu compute)
+    (let ((pass (begin-timed-render-pass gpu encoder (cleared gpu target) (writes queries 2))))
+      (present-splat-view gpu pass view)
+      (end-pass gpu pass))
+    (timed-frame gpu encoder queries target)))
 
 (define (writes (queries GpuQuerySet) (k I32)) (→ TimestampWrites)
   (new TimestampWrites (query-set queries) (beginning k) (end (+ k 1))))
 
-(define (cleared (target Target)) (→ RenderPassDescriptor) (! gpu)
+(define (cleared (gpu Gpu) (target Target)) (→ RenderPassDescriptor)
   (new RenderPassDescriptor
     (colors (list (Some (new ColorAttachment
-                          (view (view-of (● target texture) 1))
+                          (view (view-of gpu (● target texture) 1))
                           (load (Clear (new Color (red 0.0) (green 0.0) (blue 0.0) (alpha 1.0))))
                           (store #t)))))
     (depth (None))))
 
 ;; The frame's image copied out, the encoder submitted, and the times and
 ;; the image read.
-(define (timed-frame (encoder GpuCommandEncoder) (queries GpuQuerySet) (target Target)) (→ Drawn)
-  (! gpu tasks)
-  (copy-texture-to-buffer encoder
+(define (timed-frame (gpu Gpu) (encoder GpuCommandEncoder) (queries GpuQuerySet) (target Target))
+  (→ Drawn)
+  (copy-texture-to-buffer gpu encoder
                           (whole-texture (● target texture))
                           (● target readback)
                           0
                           (i64->i32 (● target pitch))
                           (i64->i32 (● target width))
                           (i64->i32 (● target height)))
-  (let ((times (submit-timed encoder queries 4)))
-    (destroy (QuerySetObject queries))
+  (let ((times (submit-timed gpu encoder queries 4)))
+    (destroy gpu (QuerySetObject queries))
     (new Drawn
       (compute (elapsed-seconds times 0 1))
       (draw (elapsed-seconds times 2 3))
-      (pixels (read-buffer (● target readback)
+      (pixels (read-buffer gpu (● target readback)
                            0
                            (i64->i32 (* (● target pitch) (● target height))))))))
 
@@ -231,24 +230,24 @@
    (photo (Option Bytes))))
 
 ;; A photograph decoded and read back as the target's image is.
-(define (photograph (path String) (target Target)) (→ Bytes) (! gpu tasks fs)
-  (match (decode-image (read-bytes path))
+(define (photograph (fs Fs) (gpu Gpu) (path String) (target Target)) (→ Bytes)
+  (match (decode-image gpu (read-bytes fs path))
     ((Some image)
      (unless (and (= (i32->i64 (● image width)) (● target width))
                   (= (i32->i64 (● image height)) (● target height)))
        (panic (string-append "compare: " path " is not " (show (● target width)) "x"
                              (show (● target height)))))
-     (let ((encoder (create-command-encoder)))
-       (copy-texture-to-buffer encoder
+     (let ((encoder (create-command-encoder gpu)))
+       (copy-texture-to-buffer gpu encoder
                                (whole-texture (● image texture))
                                (● target readback)
                                0
                                (i64->i32 (● target pitch))
                                (● image width)
                                (● image height))
-       (submit (list (finish encoder)))
-       (destroy (TextureObject (● image texture)))
-       (read-buffer (● target readback) 0 (i64->i32 (* (● target pitch) (● target height))))))
+       (submit gpu (list (finish gpu encoder)))
+       (destroy gpu (TextureObject (● image texture)))
+       (read-buffer gpu (● target readback) 0 (i64->i32 (* (● target pitch) (● target height))))))
     ((None) (panic (string-append "compare: " path " is no image")))))
 
 (define (milliseconds (seconds F64)) (→ String)
@@ -273,29 +272,28 @@
 ;; Each view drawn both ways, after drawing both once, and the medians
 ;; and means; with `profile`, the training renderer's twelve slowest
 ;; steps.
-(define (compare (splats Splats)
+(define (compare (out OutputPort) (gpu Gpu) (splats Splats)
                  (view SplatView)
                  (poses (List Pose))
                  (target Target)
                  (profile Bool))
   (→ Unit)
-  (! gpu tasks output-port)
-  (quads splats (● (list-ref poses 0) camera) target)
-  (tiles view (● (list-ref poses 0) camera) target)
-  (when profile (profiled view))
-  (let* ((rows (map (lambda (pose) (compared splats view pose target)) poses))
+  (quads gpu splats (● (list-ref poses 0) camera) target)
+  (tiles gpu view (● (list-ref poses 0) camera) target)
+  (when profile (profiled out gpu view))
+  (let* ((rows (map (lambda (pose) (compared out gpu splats view pose target)) poses))
          (ms (lambda (f) (milliseconds (median (map f rows))))))
-    (write-line (string-append "median: quads "
-                               (ms (lambda (r) (● r quads compute)))
-                               " + "
-                               (ms (lambda (r) (● r quads draw)))
-                               " ms, tiles "
-                               (ms (lambda (r) (● r tiles compute)))
-                               " + "
-                               (ms (lambda (r) (● r tiles draw)))
-                               " ms; mean PSNR between "
-                               (decibels (mean (map (lambda (r) (● r between)) rows)))
-                               (photographed-means rows)))))
+    (write-line out (string-append "median: quads "
+                                   (ms (lambda (r) (● r quads compute)))
+                                   " + "
+                                   (ms (lambda (r) (● r quads draw)))
+                                   " ms, tiles "
+                                   (ms (lambda (r) (● r tiles compute)))
+                                   " + "
+                                   (ms (lambda (r) (● r tiles draw)))
+                                   " ms; mean PSNR between "
+                                   (decibels (mean (map (lambda (r) (● r between)) rows)))
+                                   (photographed-means rows)))))
 
 (define (photographed-means (rows (List Compared))) (→ String)
   (let ((against (concatenate (map (lambda (r)
@@ -313,10 +311,15 @@
 ;; One view drawn both ways, and its line written: each renderer's
 ;; compute and render passes in milliseconds, the PSNRs, and the tile
 ;; entries binning asked for.
-(define (compared (splats Splats) (view SplatView) (pose Pose) (target Target)) (→ Compared)
-  (! gpu tasks output-port)
-  (let* ((q (quads splats (● pose camera) target))
-         (t (tiles view (● pose camera) target))
+(define (compared (out OutputPort)
+                  (gpu Gpu)
+                  (splats Splats)
+                  (view SplatView)
+                  (pose Pose)
+                  (target Target))
+  (→ Compared)
+  (let* ((q (quads gpu splats (● pose camera) target))
+         (t (tiles gpu view (● pose camera) target))
          (row (new Compared
                 (quads q)
                 (tiles t)
@@ -327,30 +330,33 @@
                                          (first (psnr (● q pixels) photo target))
                                          (second (psnr (● t pixels) photo target)))))
                                 ((None) (None)))))))
-    (write-line (string-append (● pose name)
-                               ": quads " (milliseconds (● q compute))
-                               " + " (milliseconds (● q draw))
-                               " ms, tiles " (milliseconds (● t compute))
-                               " + " (milliseconds (● t draw))
-                               " ms; PSNR between " (decibels (● row between))
-                               (photographed-means (list row))
-                               "; entries " (show (view-entries view))))
+    (write-line out (string-append (● pose name)
+                                   ": quads " (milliseconds (● q compute))
+                                   " + " (milliseconds (● q draw))
+                                   " ms, tiles " (milliseconds (● t compute))
+                                   " + " (milliseconds (● t draw))
+                                   " ms; PSNR between " (decibels (● row between))
+                                   (photographed-means (list row))
+                                   "; entries " (show (view-entries gpu view))))
     row))
 
 ;; The training renderer's steps timed one pass each, as `profile-program`
 ;; does: their count and total, and the twelve slowest.
-(define (profiled (view SplatView)) (→ Unit) (! gpu tasks output-port)
+(define (profiled (out OutputPort) (gpu Gpu) (view SplatView)) (→ Unit)
   (let ((times (list-sort (lambda (a b) (> (● a second) (● b second)))
-                          (profile-program (● view program)))))
-    (write-line (string-append "tiles profiled: "
-                               (show (length times))
-                               " steps, "
-                               (milliseconds
-                                (fold-left + 0.0 (map (lambda (t) (● t second)) times)))
-                               " ms"))
+                          (profile-program gpu (● view program)))))
+    (write-line out (string-append "tiles profiled: "
+                                   (show (length times))
+                                   " steps, "
+                                   (milliseconds
+                                    (fold-left + 0.0 (map (lambda (t) (● t second)) times)))
+                                   " ms"))
     (for-each (lambda (t)
-                (write-line
-                 (string-append "  " (milliseconds (● t second)) " ms " (first-line (● t first)))))
+                (write-line out
+                            (string-append "  "
+                                           (milliseconds (● t second))
+                                           " ms "
+                                           (first-line (● t first)))))
               (take times (min 12 (length times))))))
 
 (define (first-line (text String)) (→ String)
@@ -361,12 +367,14 @@
 ;; The views, `views` of them evenly through the scene's images, each with
 ;; its photograph when `photos` names the folder of them at the target's
 ;; size, as images_4.
-(define (poses-of (scene String) (target Target)) (→ (List Pose)) (! gpu tasks fs)
+(define (poses-of (arguments Arguments) (fs Fs) (gpu Gpu) (scene String) (target Target))
+  (→ (List Pose))
   (let* ((sparse (string-append scene "sparse/0/"))
-         (cameras (told "cameras" (read-cameras (read-bytes (string-append sparse "cameras.bin")))))
+         (cameras
+          (told "cameras" (read-cameras (read-bytes fs (string-append sparse "cameras.bin")))))
          (images
-          (evenly (told "images" (read-images (read-bytes (string-append sparse "images.bin"))))
-                  (number "views" 8))))
+          (evenly (told "images" (read-images (read-bytes fs (string-append sparse "images.bin"))))
+                  (number arguments "views" 8))))
     (map (lambda (image)
            (new Pose
              (name (● image name))
@@ -374,41 +382,48 @@
                                   (camera-sized (camera-of cameras image)
                                                 (● target width)
                                                 (● target height))))
-             (photo (match (setting "photos")
+             (photo (match (setting arguments "photos")
                       ((Some folder)
-                       (Some (photograph (string-append scene folder "/" (● image name)) target)))
+                       (Some
+                        (photograph fs gpu (string-append scene folder "/" (● image name)) target)))
                       ((None) (None))))))
          images)))
 
 ;; The target's height at `width`, rounded, as a dataset's smaller
 ;; photographs are: the first camera's aspect.
-(define (height-at (scene String) (width I64)) (→ I64) (! fs)
+(define (height-at (fs Fs) (scene String) (width I64)) (→ I64)
   (let ((camera (list-ref (told "cameras"
                                 (read-cameras
-                                 (read-bytes (string-append scene "sparse/0/cameras.bin"))))
+                                 (read-bytes fs (string-append scene "sparse/0/cameras.bin"))))
                           0)))
     (quotient (+ (* width (● camera height)) (quotient (● camera width) 2)) (● camera width))))
 
-(provide-gpu
- (lambda ()
-   (request-device)
-   (let* ((cloud (told "cloud" (read-ply (read-bytes (required "cloud")) 0)))
-          (scene (required "scene"))
-          (width (number "width" 1237))
-          (target (target-of width (height-at scene width)))
-          (poses (poses-of scene target))
-          (splats (make-splats "compare" (Rgba8Unorm) (● cloud count) 1)))
-     (write-cloud splats 0 cloud)
-     (write-line (string-append (show (● cloud count))
-                                " gaussians, "
-                                (show (● target width))
-                                "x"
-                                (show (● target height))))
-     (let ((view (make-splat-view splats
-                                  (Rgba8Unorm)
-                                  (● target width)
-                                  (● target height)
-                                  (* 4 (● cloud count)))))
-       (compare splats view poses target (match (setting "profile") ((Some _) #t) ((None) #f)))
-       (release-splat-view view)
-       (release-splats splats)))))
+(define (main (arguments Arguments) (fs Fs) (out OutputPort) (host Host)) (→ Unit)
+  (let ((gpu (host-gpu host)))
+    (request-device gpu)
+    (let* ((cloud (told "cloud" (read-ply (read-bytes fs (required arguments "cloud")) 0)))
+           (scene (required arguments "scene"))
+           (width (number arguments "width" 1237))
+           (target (target-of gpu width (height-at fs scene width)))
+           (poses (poses-of arguments fs gpu scene target))
+           (splats (make-splats gpu "compare" (Rgba8Unorm) (● cloud count) 1)))
+      (write-cloud gpu splats 0 cloud)
+      (write-line out (string-append (show (● cloud count))
+                                     " gaussians, "
+                                     (show (● target width))
+                                     "x"
+                                     (show (● target height))))
+      (let ((view (make-splat-view gpu splats
+                                   (Rgba8Unorm)
+                                   (● target width)
+                                   (● target height)
+                                   (* 4 (● cloud count)))))
+        (compare out
+                 gpu
+                 splats
+                 view
+                 poses
+                 target
+                 (match (setting arguments "profile") ((Some _) #t) ((None) #f)))
+        (release-splat-view gpu view)
+        (release-splats gpu splats)))))

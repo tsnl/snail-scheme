@@ -31,20 +31,20 @@ A byte array literal, `#u8(137 80 78 71)`, embeds exactly those bytes. Use
 linked resource and emit a byte literal when embedding is appropriate; the
 reader performs no file inclusion.
 
-A closure has type `(Fn Param ... → Result)`, with an optional
-[effect row](effects.md) after `!`. This is a built-in type former, with the
-same spelling in arguments, fields, collections and results; there is no
-`dyn`, `impl`, `FnMut` or callable-class hierarchy.
+A closure has type `(Fn Param ... → Result)`. This is a built-in type
+former, with the same spelling in arguments, fields, collections and
+results; there is no `dyn`, `impl`, `FnMut` or callable-class hierarchy,
+and no annotation for what calling it does: that is in what the function
+was made with ([capabilities](capabilities.md#what-a-signature-does-not-say)).
 A typed function header carries its type where it is defined. Every parameter has a
 mandatory `(name Type)` annotation, and the header must state its result
-with `(→ Result)`. Optional effect, generic-variable and constraint clauses follow the parameter list at the start of the
-definition, before its body:
+with `(→ Result)`. Optional generic-variable and constraint clauses follow
+the parameter list at the start of the definition, before its body:
 
 ```scheme
-(define (map-with (function (Fn A → B ! e)) (values (List A)))
+(define (map-with (function (Fn A → B)) (values (List A)))
   (→ (List B))
-  (! e)
-  (∀ (A B e))
+  (∀ (A B))
   (map function values))
 (define (sum (zero T) (values (List T)))
   (→ T)
@@ -109,17 +109,20 @@ through `bits->f64`, since only the assembler knows a float literal's bits. The 
 A top-level `(define name value)` is a cached thunk. Its initializer runs at
 most once in a program, the first time something reads `name`, and every
 read shares the result: a record or an array defined this way is one object,
-and writes to it are seen by every reader. Types, macros, classes, effects,
-imports and exports remain declarations, and a program starts by calling its
-root `main`; importing or linking a library runs nothing.
+and writes to it are seen by every reader. Types, macros, classes, imports
+and exports remain declarations, and a program starts by calling its root
+`main`; importing or linking a library runs nothing.
 
 ```scheme
 {{#include ../../../tests/programs/global-values.sld:values}}
 ```
 
-- **No effects.** An initializer has an empty effect row, checked where it
-  would perform one. Reading a mutable object is not an effect, so a value
-  computed from one depends on when it is first read.
+- **No capability.** An initializer takes nothing, so it holds no
+  capability and reaches nothing of the host's. It may read and write
+  mutable objects it can name, so a value computed from one depends on
+  when it is first read.
+  An initializer that [suspends](suspension.md) keeps nothing, and runs
+  again on the next read.
 - **Order.** Values are read in the order expressions reach them, whatever
   their order in the source, and one that nothing reads never runs. An
   initializer that reads its own value, directly or through another, panics
@@ -223,11 +226,8 @@ no superclasses: a signature lists every class it needs. Unbound names in an
 instance head are its type variables.
 
 Every class parameter is a type, and all of them together choose the
-instance. A method writes the row it performs in its declaration; each
-instance's method performs within that row, and may need less of it
-(`tests/programs/declared-effects.sld`). A class takes no row as a
-parameter and has no associated types: a result type that depends on the
-instance is a further class parameter.
+instance. A class has no associated types: a result type that depends on
+the instance is a further class parameter.
 
 An instance's requirements are solved where its head matches. A requirement
 that leads back to its own goal, or a chain that keeps growing, is refused
@@ -236,20 +236,20 @@ as non-terminating; a requirement at a smaller type, as `(Describe T)` for
 
 Arithmetic and comparison are the classes `Num`, `Ord`, `Integral` and
 `Fractional`; `Show` converts values to text. Each takes one type, as in
-`(Num T)`, and their methods are pure.
+`(Num T)`.
 
-`Repr` is a pure class with one type parameter: `(Repr T)` supplies
+`Repr` is a class with one type parameter: `(Repr T)` supplies
 `(repr value) → String`. `(snail core io)`'s `write` prints that
-representation through `output-port`. Records and enums can generate instances
-with `(deriving Repr)`; see [current ports](libraries.md#current-input-and-output-ports).
+representation to an `OutputPort`. Records and enums can generate instances
+with `(deriving Repr)`; see [ports](libraries.md#input-and-output-ports).
 
-## Effects
+## What a call may do
 
-Every function type has an effect row, the effects calling it may perform,
-and a function without `!` is total. [Effects and handlers](effects.md)
-covers rows, their inference and polymorphism, local mutation, declaring
-and handling effects, control operations with a one-shot `resume`, latent
-rows and defaults.
+A function's type does not say. A function reaches the host only through
+a capability it holds, and suspends only to a prompt it can name:
+[capabilities](capabilities.md) covers the first, and what a signature
+leaves out, and [suspension](suspension.md) prompts and their one-shot
+`resume`.
 
 ## Functions
 
@@ -261,13 +261,13 @@ called any number of times.
   (function (function value)))
 ```
 
-A handler's `resume` is an `Fn` too, which may be stored like any other;
-the frames it holds run at most once
-([resuming once](effects.md#resuming-once)).
+A `with-prompt`'s `resume` is an `Fn` too, which may be stored like any
+other; the frames it holds run at most once
+([resuming once](suspension.md#resuming-once)).
 
 ## Foreign functions
 
-`extern` declares a total foreign function; the declaration is the boundary's
+`extern` declares a foreign function; the declaration is the boundary's
 unsafe assumption.
 
 A foreign call may take a final `String` or `Bytes` argument. The compiler
@@ -284,10 +284,11 @@ Wasm constructors/projectors, but cannot inspect their fields or substitute a
 JavaScript object, string or typed array. Exposed `String` and `Bytes` are opaque
 managed references; the staging convention above applies to calls into foreign imports.
 Affine values, including records that contain them, cannot cross this unrestricted
-boundary. Exposed signatures remain monomorphic and their effects need host bindings.
-A function export may infer its concrete signature. Its effect row stays available
-for instance solving rather than being generalized; ordinary value-type variables
-still generalize, so an unannotated generic identity function cannot be exposed.
+boundary. Exposed signatures remain monomorphic; a parameter whose type the
+target provides is a capability the build supplies, and the rest are the host's.
+A function export may infer its concrete signature, and then asks its
+target for nothing; its type variables still generalize, so an unannotated
+generic identity function cannot be exposed.
 The host must respect the declared `snail-scheme` types: Wasm representation checks do not
 prove nominal identity or permit treating a `String` as an `Array Char`.
 
@@ -299,12 +300,11 @@ returning `(Option Any)` still expects its ordinary enum. A host builds no
 managed value for a typed host operation: its imports take and answer
 scalars, and the library builds the result from them, in the waiting task's
 own call ([the native boundary](../runtimes/networking.md#wasm-boundary)).
-A task's handlers are evidence its saved frames hold, so nothing about them
-crosses the host. See
+A task's capabilities are values its saved frames hold, so nothing about
+them crosses the host. See
 [waiting on the host](../runtimes/tasks.md#waiting-on-the-host).
 
-`unsafe-cast` is unchecked, like `unsafe-total`
-([local mutation](effects.md#local-mutation)): it turns a `Funcref`, a
+`unsafe-cast` is unchecked: it turns a `Funcref`, a
 function another module exports, into a function of whatever type the
 context expects (`(snail shell wasm)`). The engine verifies its WebAssembly
 representation; the caller must establish its `snail-scheme` type contract.
@@ -325,8 +325,8 @@ package's data, and the library reads it when it needs it:
 (define (hero) (→ Resource) (link-file "art/hero.png"))
 
 
-(define (hero-bytes) (→ Bytes) (! resource tasks)
-  (read-resource (hero)))
+(define (hero-bytes (resources Resources)) (→ Bytes)
+  (read-resource resources (hero)))
 ```
 
 - **Found beside the library.** The path is relative to the file the form is
@@ -350,17 +350,18 @@ package's data, and the library reads it when it needs it:
 - **A handle, not the bytes.** `link-file` evaluates to a `Resource`, which
   names a file and nothing more. The type is exported without its
   constructor, so a program cannot make one from a string: holding a
-  `Resource` is evidence that its file ships. `(read-resource r)` returns the
-  file's `Bytes`, and `(read-resources (list a b))` the bytes of each, read
-  together: every read starts before the task waits for any. Both perform
-  `resource`, which every target handles
-  through `provide-resource`, on Node and in the browser. It is not `fs`: a page has no
-  filesystem, and a program with none still reads its own files.
+  `Resource` is evidence that its file ships. `(read-resource resources r)`
+  returns the file's `Bytes`, and `(read-resources resources (list a b))`
+  the bytes of each, read
+  together: every read starts before the task waits for any. Both take a
+  `Resources`, which every target provides, on Node and in the browser. It
+  is not `Fs`: a page has no filesystem, and a program with none still
+  reads its own files.
 
 **A file is read when the program asks for it.** A host reads nothing a
 module links when it instantiates the module. `read-resource` waits for the
-host as a task does (`through-host` in `(snail shell task)`), so it performs
-`tasks` and runs in a task. The first read of a file reads it, Node from
+host as a task does (`through-host` in `(snail shell task)`), so it runs
+in a task. The first read of a file reads it, Node from
 the payload's directory and the browser by fetching beside the
 page's module, and later reads of it from the same module return the same
 bytes. A file the program never reads is never fetched, so a library may link
@@ -375,8 +376,8 @@ development server does.
 
 `(Any value)` boxes a value with its concrete type identity. `(downcast T boxed)`
 returns `(Option T)`: `Some` holds the recovered value, and `None` reports a
-mismatch. Both evaluate their input exactly once. Downcasting does not panic or
-perform a conversion effect. Ordinary checking never inserts a conversion:
+mismatch. Both evaluate their input exactly once. Downcasting does not panic.
+Ordinary checking never inserts a conversion:
 arguments, results, branches and annotations must agree on their types.
 
 ```scheme
@@ -394,13 +395,11 @@ Boxing preserves the exact input type. `(Any (Any 42))` holds an `Any`, whereas
 or function signatures. There are no `type-convert`, `try-convert`, `type-test`,
 `dyn-cast`, dynamic instance dispatch, or `(snail core dynamic)` APIs.
 
-A TypeId does not record what a function performs, so an effectful
-function, or a generic type that could stand for one, cannot cross the
-erasure boundary (`tests/programs/error-any-ordinary-function.sld`). Pure
-closures may be boxed.
+A closure may be boxed like any other value: its type identity is its
+parameters' and its result's.
 
 The type identity includes nominal names, arguments, fields, cases, and nested
-function signatures and effect rows. Changed schemas receive changed identities
+function signatures. Changed schemas receive changed identities
 across separately linked modules, even if their Wasm layouts match. Downcast also checks the Wasm
 representation before reading the payload. Type identities are currently 32-bit
 hashes; they are not collision-free structural proofs.

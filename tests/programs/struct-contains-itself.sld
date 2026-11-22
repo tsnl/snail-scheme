@@ -10,5 +10,5 @@
 (define (depth (node Node) (limit I64)) (→ I64)
   (if (= limit 0) 0 (+ 1 (depth (● node next) (- limit 1)))))
 
-(define (main) (→ Unit) (! output-port)
-  (write-line "declared"))
+(define (main (out OutputPort)) (→ Unit)
+  (write-line out "declared"))

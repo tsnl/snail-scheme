@@ -39,11 +39,11 @@
   (→ I64)
   42)
 
-(define (main) (→ Unit) (! output-port)
+(define (main (out OutputPort)) (→ Unit)
 
-  (write-line (i64->string (twice 21)))
-  (write-line (i64->string (length (ann (empty) (List I64)))))
-  (write-line (i64->string (apply-one (lambda (value) (+ value 1)) 41)))
-  (write-line (i64->string (offset 7)))
-  (write-line (i64->string (answer)))
+  (write-line out (i64->string (twice 21)))
+  (write-line out (i64->string (length (ann (empty) (List I64)))))
+  (write-line out (i64->string (apply-one (lambda (value) (+ value 1)) 41)))
+  (write-line out (i64->string (offset 7)))
+  (write-line out (i64->string (answer)))
   (unit))

@@ -1,30 +1,26 @@
-;; Preparation closes specialization, checks concrete original bodies, and
-;; produces fixed declarations and normalized items.
-;; Control lowering ensures nothing runs after a
-;; call that may yield before the backend has tested for the yield. After
-;; specialization a row keeps only control effects, so a call may yield
-;; exactly when its callee's row names one: a global's as it is defined or
-;; declared, a local's as its type says. Such a call stays where it is
-;; when its value flows straight out of a function, a handle body or a
+;; Preparation closes specialization and produces fixed declarations and
+;; normalized items.
+;;
+;; A suspension unwinds as a yield: `suspend` records it and returns, and
+;; each call between it and its `with-prompt` returns after it, so nothing
+;; may run after a call that may yield before the backend has tested for
+;; the yield. No type says which calls those are, so the pass finds out
+;; ("Suspensions"): what each definition's call may suspend to, and what a
+;; call of any function value of each type may. A call that may yield
+;; stays where it is when its value flows straight out of a function or a
 ;; let's value; anywhere else, a let names it, with the rest of the
 ;; expression as the let's body, and names first each operand that runs
 ;; before it, so those still run first. The backend tests for a yield after
 ;; each let whose value may yield. The prepared program uses this subset of
 ;; the checked expression language; emission has no specialization work.
-;;
-;; The pass also refuses a control row wherever nothing could carry a
-;; yield: in the callbacks that the WAT loops of array-generate and
-;; string-generate call, in an unsafe-total thunk, in a procedure closed
-;; over its handlers, in dispatched work but to `tasks`, and in the
-;; implementation of an operation declared without ctl.
 (define-library (snail shell compiler prepare)
   (export
    Prepared
    prepare-program
-   Callees
-   declaration-callees
+   Suspensions
    yields
-   holds-yield-point?)
+   holds-yield-point?
+   may-resume?)
   (import
    (snail core base)
    (snail core table)
@@ -36,414 +32,458 @@
 
     ;; ---- Prepared code ----
 
-    ;; Fixed declarations and concrete function bodies consumed by emission.
+    ;; Fixed declarations and concrete function bodies consumed by emission,
+    ;; with what each call may suspend to.
     (record Prepared
       ((declarations Declarations)
+       (suspensions Suspensions)
        (definitions (List Definition))
        (entry (Option String))
        (exposed (List Item))))
 
-    ;; The whole reachable graph is specialized before any original body is
-    ;; checked, so each check reads complete callees. Lowering then rewrites
+    ;; The whole reachable graph is specialized before any body is read, so
+    ;; the suspensions are those of a closed graph. Lowering then rewrites
     ;; each body on its own. The program's entry and exposures name copies.
 
-    (define (prepare-program (typed Typed)) (→ Prepared) (! compile)
+    (define (prepare-program (typed Typed)) (→ Prepared)
       (let* ((items (● typed items))
              (specialized (specialize typed items))
              (definitions (● specialized definitions))
-             (callees (specialized-callees specialized)))
-        (for-each (lambda (definition) (check-restrictions callees (● definition value)))
-                  definitions)
-        (new Prepared (declarations (● specialized declarations))
-             (definitions (map (lambda (definition) (control-definition callees definition))
-                               definitions))
-             (entry (match (find (lambda (item) (match item ((Entry _ _ _) #t) (_ #f))) items)
-                      ((Some (Entry _ start _)) (Some start))
-                      (_ (None))))
-             (exposed (filter (lambda (item) (match item ((Expose _ _ _) #t) (_ #f))) items)))))
+             (suspensions (program-suspensions (● specialized declarations) definitions)))
+        (for-each (lambda (definition) (check-cache-keys (● definition value))) definitions)
+        (new Prepared
+          (declarations (● specialized declarations))
+          (suspensions suspensions)
+          (definitions (map (lambda (definition) (control-definition suspensions definition))
+                            definitions))
+          (entry (match (find (lambda (item) (match item ((Entry _ _ _) #t) (_ #f))) items)
+                   ((Some (Entry _ start _)) (Some start))
+                   (_ (None))))
+          (exposed (filter (lambda (item) (match item ((Expose _ _ _) #t) (_ #f))) items)))))
+
+    ;; ---- Labels ----
+
+    ;; What a suspension goes to, as the analysis can name it. A prompt read
+    ;; from a top-level value that is a prompt of its own is named by that
+    ;; value, which holds one prompt for the whole run. Any other prompt is
+    ;; known by its type alone: `?abort` when its answer is Never, so that
+    ;; nothing resumes it, and `?resume` otherwise.
+
+    (define (prompt-label (known Known) (prompt Expr)) (→ String)
+      (match (● prompt term)
+        ((Ann inner _) (prompt-label known inner))
+        ((App (Expr (Var name _ _) _ _) (Nil))
+         (if (table-contains? (● known prompts) name) name (unnamed-prompt (● prompt type))))
+        (_ (unnamed-prompt (● prompt type)))))
+
+    ;; What the flows read a program through: its declarations, and the
+    ;; top-level values that are prompts of their own. Such a value's
+    ;; initializer is `(make-prompt)` and nothing else, so every read of it
+    ;; is the same prompt. A function of no arguments that answers a prompt
+    ;; may answer a different one each call, and names none.
+    (record Known
+      ((declarations Declarations)
+       (prompts (Table Bool))))
+
+    (define (known-program (declarations Declarations) (definitions (List Definition))) (→ Known)
+      (new Known
+        (declarations declarations)
+        (prompts (fold-left (lambda (found definition)
+                              (if (own-prompt? (● definition value))
+                                  (table-set found (● definition name) #t)
+                                  found))
+                            (empty-table)
+                            definitions))))
+
+    (define (own-prompt? (value Expr)) (→ Bool)
+      (match (● value term)
+        ((Ann inner _) (own-prompt? inner))
+        ((App (Expr (Var "prim:cached-thunk" _ _) _ _) (Cons thunk (Nil))) (own-prompt? thunk))
+        ((Lambda (Nil) body) (own-prompt? body))
+        ((App (Expr (Var "prim:make-prompt" _ _) _ _) (Nil)) #t)
+        (_ #f)))
+
+    (define (unnamed-prompt (type Type)) (→ String)
+      (if (never-answered? type) "?abort" "?resume"))
+
+    (define (named-prompt? (label String)) (→ Bool)
+      (not (or (string=? label "?abort") (string=? label "?resume"))))
+
+    (define (never-answered? (prompt Type)) (→ Bool)
+      (match prompt
+        ((TCon "Prompt" (Cons _ (Cons answer (Nil)))) (never-type? answer))
+        (_ #f)))
+
+    ;; Whether something may resume a suspension to `label`.
+
+    (define (resumed? (declarations Declarations) (label String)) (→ Bool)
+      (cond ((string=? label "?abort") #f)
+            ((string=? label "?resume") #t)
+            (else (match (table-ref (● declarations types) label)
+                    ((Some (TFun _ prompt)) (not (never-answered? prompt)))
+                    (_ #t)))))
+
+    ;; ---- Flows ----
+
+    ;; What running some code may suspend to, before the program's
+    ;; suspensions are known: labels it names itself, the suspensions of a
+    ;; definition it calls, those of any function value of a type it
+    ;; applies, and what a `with-prompt` leaves of its body's.
+    (enum Flow
+      (To
+       ((labels (List String))))
+      (Calling
+       ((name String)))
+      (Applying
+       ((key String)))
+      (Either
+       ((flows (List Flow))))
+      (Caught
+       ((flow Flow)
+        (label String))))
+
+    (define nowhere (→ Flow) (To (Nil)))
+
+    (define (nowhere? (flow Flow)) (→ Bool)
+      (match flow
+        ((To (Nil)) #t)
+        (_ #f)))
+
+    (define (either (flows (List Flow))) (→ Flow)
+      (match (filter (lambda (flow) (not (nowhere? flow))) flows)
+        ((Nil) nowhere)
+        ((Cons flow (Nil)) flow)
+        (several (Either several))))
+
+    ;; What evaluating `expr` may suspend to. Making a closure suspends
+    ;; nothing; its body does when it is called.
+
+    (define (flow (known Known) (expr Expr)) (→ Flow)
+      (match (● expr term)
+        ((Lambda _ _) nowhere)
+        ((App callee args)
+         (either (Cons (application-flow known callee args)
+                       (map (lambda (part) (flow known part)) (Cons callee args)))))
+        (_ (either (map (lambda (child) (flow known child)) (expr-children expr))))))
+
+    ;; What the call itself may suspend to, its operands aside. `suspend`
+    ;; goes to its prompt. These primitives run a procedure they are given;
+    ;; no other primitive calls anything.
+
+    (define (application-flow (known Known) (callee Expr) (args (List Expr)))
+      (→ Flow)
+      (match (● callee term)
+        ((Ann inner _) (application-flow known inner args))
+        ((Var "prim:suspend" _ _) (To (list (prompt-label known (list-ref args 0)))))
+        ((Var "prim:with-prompt" _ _) (delimited-flow known args))
+        ((Var "prim:array-generate" _ _) (procedure-flow known (list-ref args 1)))
+        ((Var "prim:string-generate" _ _) (procedure-flow known (list-ref args 1)))
+        ((Var name _ _)
+         (match (program-value (● known declarations program) name)
+           ((Some (Primitive _)) nowhere)
+           (_ (procedure-flow known callee))))
+        (_ (procedure-flow known callee))))
+
+    ;; A `with-prompt` catches what its body suspends to its prompt, which
+    ;; the analysis knows when the prompt has a name, and runs its handler
+    ;; itself, once the body has unwound to it.
+
+    (define (delimited-flow (known Known) (args (List Expr))) (→ Flow)
+      (let ((label (prompt-label known (list-ref args 0)))
+            (body (procedure-flow known (list-ref args 1))))
+        (either (list (if (named-prompt? label) (Caught body label) body)
+                      (procedure-flow known (list-ref args 2))))))
+
+    ;; What calling a procedure may suspend to: what a lambda's body may, a
+    ;; definition's own suspensions, and otherwise those of any function
+    ;; value of its type.
+
+    (define (procedure-flow (known Known) (procedure Expr)) (→ Flow)
+      (match (● procedure term)
+        ((Lambda _ body) (flow known body))
+        ((Ann inner _) (procedure-flow known inner))
+        ((Var name _ _) (named-flow known name (● procedure type)))
+        (_ (Applying (type-key (● procedure type))))))
+
+    (define (named-flow (known Known) (name String) (type Type)) (→ Flow)
+      (if (table-contains? (● known declarations types) name)
+          (Calling name)
+          (match (program-value (● known declarations program) name)
+            ((Some (Primitive _)) (primitive-flow name type))
+            ((Some _) nowhere)
+            ((None) (Applying (type-key type))))))
+
+    ;; A primitive used as a value is called who knows where. `suspend` goes
+    ;; to a prompt of its type; any other may call the procedures it is
+    ;; given.
+
+    (define (primitive-flow (name String) (type Type)) (→ Flow)
+      (match type
+        ((TFun params _)
+         (if (string=? name "prim:suspend")
+             (To (list (unnamed-prompt (list-ref params 0))))
+             (either (map (lambda (param) (Applying (type-key param)))
+                          (filter function-type? params)))))
+        (_ nowhere)))
+
+    (define (function-type? (type Type)) (→ Bool)
+      (match type
+        ((TFun _ _) #t)
+        (_ #f)))
+
+    ;; ---- Suspensions ----
+
+    ;; What a call may suspend to: each definition's, under `call NAME`, and
+    ;; that of a function value of each type, under `apply KEY`, whichever
+    ;; closure it is. `quiet` says the program never suspends at all, so no
+    ;; question reads a body.
+    (record Suspensions
+      ((known Known)
+       (reached (Table (List String)))
+       (quiet Bool)))
+
+    (define (call-key (name String)) (→ String)
+      (string-append "call " name))
+
+    (define (apply-key (key String)) (→ String)
+      (string-append "apply " key))
+
+    ;; One contribution to a key's suspensions.
+    (record Equation
+      ((target String)
+       (flow Flow)))
+
+    (define (program-suspensions (declarations Declarations) (definitions (List Definition)))
+      (→ Suspensions)
+      (let* ((known (known-program declarations definitions))
+             (reached (solve (concatenate (map (lambda (definition)
+                                                 (definition-equations known definition))
+                                               definitions)))))
+        (new Suspensions
+          (known known)
+          (reached reached)
+          (quiet (every? null? (table-values reached))))))
+
+    ;; A definition's call suspends what its body does. A top-level value's
+    ;; is its initializer's, which runs on the first read.
+
+    (define (definition-equations (known Known) (definition Definition))
+      (→ (List Equation))
+      (let ((body (definition-body (● definition value))))
+        (Cons (new Equation (target (call-key (● definition name))) (flow (flow known body)))
+              (value-equations known body))))
+
+    (define (definition-body (value Expr)) (→ Expr)
+      (match (● value term)
+        ((Lambda _ body) body)
+        ((Ann inner _) (definition-body inner))
+        ((App (Expr (Var "prim:cached-thunk" _ _) _ _) (Cons thunk (Nil))) (definition-body thunk))
+        (_ (panic "internal error: a definition is a function"))))
+
+    ;; The function values `expr` makes, each a contribution to its type's
+    ;; suspensions: a lambda's body, a definition or primitive read as a
+    ;; value, and the `resume` a `with-prompt` hands its handler.
+
+    (define (value-equations (known Known) (expr Expr)) (→ (List Equation))
+      (let ((inside (lambda (parts)
+                      (concatenate (map (lambda (part) (value-equations known part))
+                                        parts)))))
+        (match (● expr term)
+          ((Lambda _ body)
+           (Cons (typed-equation (● expr type) (flow known body)) (inside (list body))))
+          ((Var name _ _) (read-equations known name (● expr type)))
+          ((App callee args)
+           (append (resume-equations known expr callee args)
+                   (inside (if (names-callee? callee) args (Cons callee args)))))
+          (_ (inside (expr-children expr))))))
+
+    (define (typed-equation (type Type) (flow Flow)) (→ Equation)
+      (new Equation (target (apply-key (type-key type))) (flow flow)))
+
+    (define (names-callee? (callee Expr)) (→ Bool)
+      (match (● callee term)
+        ((Var _ _ _) #t)
+        ((Ann inner _) (names-callee? inner))
+        (_ #f)))
+
+    ;; A local is a value some other expression made, so reading one adds
+    ;; nothing. A definition or a primitive read as a value is called who
+    ;; knows where, as a function of its type.
+
+    (define (read-equations (known Known) (name String) (type Type))
+      (→ (List Equation))
+      (let ((found (named-flow known name type)))
+        (if (or (local? known name) (not (function-type? type)) (nowhere? found))
+            (Nil)
+            (Cons (typed-equation type found) (resume-read-equations name type found)))))
+
+    (define (local? (known Known) (name String)) (→ Bool)
+      (and (not (table-contains? (● known declarations types) name))
+           (match (program-value (● known declarations program) name)
+             ((Some _) #f)
+             ((None) #t))))
+
+    ;; `with-prompt` read as a value hands its handler a `resume` all the
+    ;; same, which suspends what that `with-prompt` may.
+
+    (define (resume-read-equations (name String) (type Type) (flow Flow)) (→ (List Equation))
+      (if (string=? name "prim:with-prompt")
+          (match type
+            ((TFun (Cons (TCon "Prompt" (Cons _ (Cons answer (Nil)))) _) result)
+             (list (typed-equation (TFun (list answer) result) flow)))
+            (_ (panic "internal error: with-prompt takes a prompt")))
+          (Nil)))
+
+    ;; `resume` runs the rest of the body under its `with-prompt` again, so
+    ;; calling it suspends what the `with-prompt` itself may.
+
+    (define (resume-equations (known Known)
+                              (expr Expr)
+                              (callee Expr)
+                              (args (List Expr)))
+      (→ (List Equation))
+      (match (● callee term)
+        ((Ann inner _) (resume-equations known expr inner args))
+        ((Var "prim:with-prompt" _ _)
+         (match (● (list-ref args 0) type)
+           ((TCon "Prompt" (Cons _ (Cons answer (Nil))))
+            (list (typed-equation (TFun (list answer) (● expr type))
+                                  (delimited-flow known args))))
+           (_ (panic "internal error: a prompt has the Prompt type"))))
+        (_ (Nil))))
+
+    ;; ---- Solving ----
+
+    ;; The least suspensions that satisfy every equation. An equation is
+    ;; taken up again only when a key its flow reads has grown, and a key
+    ;; grows at most once for each label.
+
+    (define (solve (equations (List Equation))) (→ (Table (List String)))
+      (let ((indexed (list->array equations)))
+        (settle indexed
+                (dependents equations)
+                (empty-table)
+                (iota (array-length indexed)))))
+
+    (define (settle (equations (Array Equation))
+                    (readers (Table (List I64)))
+                    (reached (Table (List String)))
+                    (pending (List I64)))
+      (→ (Table (List String)))
+      (match pending
+        ((Nil) reached)
+        ((Cons index rest)
+         (let* ((equation (array-ref equations index))
+                (target (● equation target))
+                (before (reached-at reached target))
+                (after (label-union before (flow-labels reached (● equation flow)))))
+           (if (= (length after) (length before))
+               (settle equations readers reached rest)
+               (settle equations
+                       readers
+                       (table-set reached target after)
+                       (append (readers-of readers target) rest)))))))
+
+    (define (reached-at (reached (Table (List String))) (key String)) (→ (List String))
+      (match (table-ref reached key)
+        ((Some labels) labels)
+        ((None) (Nil))))
+
+    (define (readers-of (readers (Table (List I64))) (key String)) (→ (List I64))
+      (match (table-ref readers key)
+        ((Some indices) indices)
+        ((None) (Nil))))
+
+    ;; The equations whose flows read each key, by their indices.
+
+    (define (dependents (equations (List Equation))) (→ (Table (List I64)))
+      (fold-left (lambda (readers entry)
+                   (fold-left (lambda (readers key)
+                                (table-set readers key
+                                           (Cons (● entry first) (readers-of readers key))))
+                              readers
+                              (flow-keys (● (● entry second) flow))))
+                 (empty-table)
+                 (zip (iota (length equations)) equations)))
+
+    (define (flow-keys (flow Flow)) (→ (List String))
+      (match flow
+        ((To _) (Nil))
+        ((Calling name) (list (call-key name)))
+        ((Applying key) (list (apply-key key)))
+        ((Either flows) (concatenate (map flow-keys flows)))
+        ((Caught inner _) (flow-keys inner))))
+
+    (define (flow-labels (reached (Table (List String))) (flow Flow)) (→ (List String))
+      (match flow
+        ((To labels) labels)
+        ((Calling name) (reached-at reached (call-key name)))
+        ((Applying key) (reached-at reached (apply-key key)))
+        ((Either flows)
+         (fold-left (lambda (labels part) (label-union labels (flow-labels reached part)))
+                    (Nil)
+                    flows))
+        ((Caught inner label) (label-difference (flow-labels reached inner) (list label)))))
 
     ;; ---- Yields ----
 
-    ;; Checks read the original concrete bodies of a closed graph. Emission
-    ;; uses the same fixed call contracts with no original bodies attached.
-    ;; What a check assumes about reading and resuming belongs to that
-    ;; check, not to the declarations.
-    (record Callees
-      ((declarations Declarations)
-       (definitions (Table Expr))
-       (resumes (List (Pair String String)))
-       (reading (Option (List String)))))
+    ;; What evaluating `expr` may yield to.
 
-    ;; Without control effects nothing yields, so no check reads a body.
+    (define (yields (suspensions Suspensions) (expr Expr)) (→ (List String))
+      (if (● suspensions quiet)
+          (Nil)
+          (flow-labels (● suspensions reached) (flow (● suspensions known) expr))))
 
-    (define (specialized-callees (specialized Specialized)) (→ Callees)
-      (let ((callees (declaration-callees (● specialized declarations))))
-        (if (null? (callees-control callees))
-            callees
-            (Callees-definitions-set callees
-                                     (fold-left (lambda (table definition)
-                                                  (table-set table
-                                                             (● definition name)
-                                                             (● definition value)))
-                                                (empty-table)
-                                                (● specialized definitions))))))
+    ;; Whether something may resume a yield to one of `labels`. One nothing
+    ;; resumes saves no frame.
 
-    (define (declaration-callees (declarations Declarations)) (→ Callees)
-      (new Callees
-        (declarations declarations)
-        (definitions (empty-table))
-        (resumes (Nil))
-        (reading (None))))
-
-    (define (callees-program (callees Callees)) (→ Program)
-      (● (● callees declarations) program))
-
-    (define (callees-control (callees Callees)) (→ (List String))
-      (● (● callees declarations) control))
-
-    ;; The control effects a value of a procedure type may yield to when
-    ;; called: those its row names.
-
-    (define (call-row (type Type)) (→ (List String))
-      (match type
-        ((TFun _ _ (TRow labels _)) labels)
-        (_ (Nil))))
-
-    ;; What calling `callee` may yield to. The checker opens the row of each
-    ;; use of a global to its context's, so a global's own definition or
-    ;; declaration says instead: a constructor, an accessor or a foreign
-    ;; function yields nothing, an operation yields to the control effects
-    ;; among its effect and its latent row, which its implementation may
-    ;; yield to, and a primitive yields only through a row variable in its
-    ;; type. Closing a procedure over its handlers charges its row without
-    ;; calling it, so it yields nothing.
-
-    (define (callee-row (callees Callees) (callee Expr)) (→ (List String))
-      (match (● callee term)
-        ((Ann inner _) (callee-row callees inner))
-        ((Var name _ _)
-         (match (table-ref (● (● callees declarations) types) name)
-           ((Some type)
-            (filter (lambda (label) (member? label (callees-control callees)))
-                    (definition-row callees name type)))
-           ((None) (declared-row callees name (● callee type)))))
-        (_ (call-row (● callee type)))))
-
-    ;; A contextual check reads the callee's specialized body. Recursive
-    ;; inspection uses the declared row.
-
-    (define (definition-row (callees Callees) (name String) (type Type)) (→ (List String))
-      (let ((row (call-row type)))
-        (match (● callees reading)
-          ((Some reading)
-           (if (member? name reading)
-               row
-               (match (table-ref (● callees definitions) name)
-                 ((Some (Expr (Lambda _ body) _ _))
-                  (yields (Callees-reading-set callees (Some (Cons name reading))) body))
-                 (_ row))))
-          ((None) row))))
-
-    (define (declared-row (callees Callees) (name String) (type Type)) (→ (List String))
-      (match (program-value (callees-program callees) name)
-        ((Some (Operation effect scheme)) (operation-row callees effect scheme))
-        ((Some (Primitive scheme))
-         (if (or (closed-row? (● scheme type)) (member? name closing-primitives))
-             (Nil)
-             (call-row type)))
-        ((Some (Foreign _ _)) (Nil))
-        ((Some (Constructor _ _)) (Nil))
-        ((Some (Accessor _ _ _)) (Nil))
-        ((Some (Writer _ _ _)) (Nil))
-        ((Some (Replacer _ _ _)) (Nil))
-        (_ (resume-row callees name type))))
-
-    (define closing-primitives
-      (→ (List String))
-      (list "prim:inherit-handlers"))
-
-    ;; A `resume` of a handle of X runs the rest of its body under the same
-    ;; handle again, which catches every yield to X there.
-
-    (define (resume-row (callees Callees) (name String) (type Type)) (→ (List String))
-      (match (assoc-ref (● callees resumes) name)
-        ((Some effect) (label-difference (call-row type) (list effect)))
-        ((None) (call-row type))))
-
-    (define (operation-row (callees Callees) (effect String) (scheme Scheme)) (→ (List String))
-      (filter (lambda (label) (member? label (callees-control callees)))
-              (Cons effect (operation-latent effect scheme))))
-
-    (define (closed-row? (type Type)) (→ Bool)
-      (match type
-        ((TFun _ _ (TRow _ (None))) #t)
-        (_ #f)))
-
-    ;; The control effects evaluating `expr` may yield to. Making a closure
-    ;; yields nothing; its body yields when it is called. A handle catches
-    ;; what its body yields to its own effect, and runs its control
-    ;; implementations itself, once the body has unwound to it.
-
-    (define (yields (callees Callees) (expr Expr)) (→ (List String))
-      (let ((all (lambda (exprs)
-                   (fold-left (lambda (labels expr) (label-union labels (yields callees expr)))
-                              (Nil)
-                              exprs))))
-        (match (● expr term)
-          ((Lambda _ _) (Nil))
-          ((App callee args)
-           (label-union (application-yields callees callee args) (all (Cons callee args))))
-          ((Handle effect implementations body)
-           (label-union (all (map (lambda (record) (● record second)) implementations))
-                        (label-union (label-difference (yields callees body) (list effect))
-                                     (control-implementation-yields callees
-                                                                    effect
-                                                                    implementations))))
-          (_ (all (expr-children expr))))))
-
-    ;; These primitives execute a supplied callback. Its body is stronger
-    ;; evidence than a use row widened to the surrounding context. In
-    ;; particular, copying primitive array elements cannot start yielding
-    ;; merely because the caller also performs a control effect.
-    (define (application-yields (callees Callees) (callee Expr) (args (List Expr)))
-      (→ (List String))
-      (match (● callee term)
-        ((Ann inner _) (application-yields callees inner args))
-        ((Var "prim:unsafe-total" _ _) (procedure-yields callees (list-ref args 0)))
-        ((Var "prim:array-generate" _ _) (procedure-yields callees (list-ref args 1)))
-        ((Var "prim:string-generate" _ _) (procedure-yields callees (list-ref args 1)))
-        (_ (callee-row callees callee))))
-
-    (define (control-implementation-yields (callees Callees)
-                                           (effect String)
-                                           (implementations (List (Pair String Expr))))
-      (→ (List String))
-      (let ((control (● (program-effect (callees-program callees) effect) control)))
-        (fold-left (lambda (labels entry)
-                     (if (member? (● entry first) control)
-                         (label-union labels (procedure-yields callees (● entry second)))
-                         labels))
-                   (Nil) implementations)))
-
-    ;; What calling a procedure may yield to: what a lambda's body may, and
-    ;; otherwise what calling the procedure may.
-
-    (define (procedure-yields (callees Callees) (procedure Expr)) (→ (List String))
-      (match (● procedure term)
-        ((Lambda _ body) (yields callees body))
-        ((Ann inner _) (procedure-yields callees inner))
-        (_ (callee-row callees procedure))))
+    (define (may-resume? (suspensions Suspensions) (labels (List String))) (→ Bool)
+      (any? (lambda (label) (resumed? (● suspensions known declarations) label)) labels))
 
     ;; Whether no call anywhere in `expr`, lambda bodies included, may yield.
 
-    (define (yield-free? (callees Callees) (expr Expr)) (→ Bool)
-      (and (match (● expr term)
-             ((App callee _) (null? (callee-row callees callee)))
-             (_ #t))
-           (every? (lambda (child) (yield-free? callees child)) (expr-children expr))))
+    (define (yield-free? (suspensions Suspensions) (expr Expr)) (→ Bool)
+      (or (● suspensions quiet)
+          (and (match (● expr term)
+                 ((App callee args)
+                  (null? (flow-labels (● suspensions reached)
+                                      (application-flow (● suspensions known)
+                                                        callee
+                                                        args))))
+                 (_ #t))
+               (every? (lambda (child) (yield-free? suspensions child)) (expr-children expr)))))
 
     ;; Whether a let inside `expr`, outside its lambdas, has a value that
     ;; may yield. The backend tests for a yield after such a let and leaves
     ;; while one is set, so a value that holds one is a block it can leave.
 
-    (define (holds-yield-point? (callees Callees) (expr Expr)) (→ Bool)
+    (define (holds-yield-point? (suspensions Suspensions) (expr Expr)) (→ Bool)
       (match (● expr term)
         ((Lambda _ _) #f)
         ((Let _ value body)
-         (or (not (null? (yields callees value))) (holds-yield-point? callees body)))
-        (_ (any? (lambda (child) (holds-yield-point? callees child)) (expr-children expr)))))
+         (or (not (null? (yields suspensions value))) (holds-yield-point? suspensions body)))
+        (_ (any? (lambda (child) (holds-yield-point? suspensions child)) (expr-children expr)))))
 
-    ;; ---- Restrictions ----
+    ;; ---- Cache keys ----
 
-    ;; A function whose procedure argument runs where no yield test can
-    ;; reach: the argument's position, what to call it in a diagnostic, and
-    ;; the control effects it may yield to all the same.
-    (record Restriction
-      ((position I64)
-       (what String)
-       (allowed (List String))))
+    ;; A cache's keys are hashed and compared, which a raw Funcref does not
+    ;; support.
 
-    ;; The generate helpers loop in WAT; unsafe-total discards its thunk's
-    ;; row, so nothing after it tests; and a procedure closed over its
-    ;; handlers runs whenever it is called, when the handles it would yield
-    ;; to may have returned. Dispatched work is closed over its handlers
-    ;; too, and runs under its own handler of `tasks`. It is named at the
-    ;; dispatch, which is where its work is written, rather than at the
-    ;; closing inside (snail shell task).
-
-    (define (named-restriction (name String)) (→ (Option Restriction))
-      (case name
-        (("prim:array-generate")
-         (Some (new Restriction (position 1) (what "an array-generate callback") (allowed (Nil)))))
-        (("prim:string-generate")
-         (Some (new Restriction (position 1) (what "a string-generate callback") (allowed (Nil)))))
-        (("prim:unsafe-total")
-         (Some (new Restriction (position 0) (what "an unsafe-total thunk") (allowed (Nil)))))
-        (("prim:cache")
-         (Some (new Restriction (position 0) (what "a cache callback") (allowed (Nil)))))
-        (("prim:lru-cache")
-         (Some (new Restriction (position 1) (what "an lru-cache callback") (allowed (Nil)))))
-        (("prim:inherit-handlers")
-         (Some (new Restriction
-                 (position 0)
-                 (what "a procedure given to inherit-handlers")
-                 (allowed (Nil)))))
-        (("snail.shell.task:dispatch")
-         (Some (new Restriction
-                 (position 0)
-                 (what "work given to dispatch")
-                 (allowed (list "snail.shell.task:tasks")))))
-        (else (None))))
-
-    (define (restriction (callee Expr)) (→ (Option Restriction))
-      (match (● callee term)
-        ((Ann inner _) (restriction inner))
-        ((Var name _ _) (named-restriction (generic-name name)))
-        (_ (None))))
-
-    ;; Specialization names a concrete implementation by its definition and the types it is
-    ;; at, `name<types>`; a restriction names the definition.
-
-    (define (generic-name (name String)) (→ String)
-      (let ((chars (string->array name)))
-        (let loop ((index 0))
-          (cond ((= index (array-length chars)) name)
-                ((char=? (array-ref chars index) #\<) (substring name 0 index))
-                (else (loop (+ index 1)))))))
-
-    ;; A restricted primitive called directly is judged by the procedure it
-    ;; is given, and one used as a value by its type. An implementation of
-    ;; an operation declared without ctl returns to its caller in the
-    ;; handled body, which tests for a yield after the operation only when
-    ;; the operation's type names a control effect: the implementation may
-    ;; yield to those its latent row names, and to no other.
-
-    (define (check-restrictions (callees Callees) (expr Expr)) (→ Unit) (! compile)
+    (define (check-cache-keys (expr Expr)) (→ Unit)
       (match (● expr term)
-        ((App callee args)
-         (check-cache-primitive callee)
-         (match (restriction callee)
-           ((Some (Restriction index what allowed))
-            (refuse-labels
-             (label-difference (procedure-yields (reading callees) (list-ref args index)) allowed)
-             what
-             (● expr loc)))
-           ((None) (check-restrictions callees callee)))
-         (for-each (lambda (arg) (check-restrictions callees arg)) args))
-        ((Var _ _ _)
-         (check-cache-primitive expr)
-         (match (restriction expr)
-           ((Some (Restriction index what allowed))
-            (refuse-labels
-             (label-difference (call-row (list-ref (function-params (● expr type)) index))
-                               allowed)
-             what
-             (● expr loc)))
-           ((None) (unit))))
-        ((Handle effect implementations body)
-         (check-implementations callees effect implementations)
-         (check-restrictions callees body)
-         (let ((inside (resuming callees effect implementations)))
-           (for-each (lambda (entry) (check-restrictions inside (● entry second)))
-                     implementations)))
-        (_ (for-each (lambda (child) (check-restrictions callees child)) (expr-children expr)))))
-
-    ;; The wrapper has exactly its callback's signature. Its keys are
-    ;; hashed and compared, which a raw Funcref does not support.
-    (define (check-cache-primitive (expr Expr)) (→ Unit) (! compile)
-      (match (● expr term)
-        ((Ann inner _) (check-cache-primitive inner))
         ((Var name _ _)
          (when (member? name (list "prim:cache" "prim:lru-cache"))
            (match (● expr type)
-             ((TFun _ (TFun params _ _) _)
+             ((TFun _ (TFun params _))
               (for-each (lambda (type) (check-cache-key type (● expr loc))) params))
              (_ (panic "internal error: checking refuses a cache of an unknown signature")))))
-        (_ (unit))))
+        (_ (unit)))
+      (for-each check-cache-keys (expr-children expr)))
 
-    (define (check-cache-key (type Type) (loc Loc)) (→ Unit) (! compile)
+    (define (check-cache-key (type Type) (loc Loc)) (→ Unit)
       (match type
         ((TCon "Funcref" _) (compile-error loc "cache keys cannot be raw Funcref values"))
         (_ (unit))))
-
-    ;; A restriction check reads the bodies of the definitions it reaches.
-
-    (define (reading (callees Callees)) (→ Callees)
-      (match (● callees reading)
-        ((Some _) callees)
-        ((None) (Callees-reading-set callees (Some (Nil))))))
-
-    ;; Inside its control implementations, a handle's `resume`s yield to its
-    ;; effect only if an implementation does, so a scheduler can close a
-    ;; resumption over its handlers when its continuation would yield to
-    ;; the scheduler's own effect. Whether one does is asked assuming they
-    ;; do not; if one does even so, the assumption is dropped.
-
-    (define (resuming (callees Callees) (effect String) (implementations (List (Pair String Expr))))
-      (→ Callees)
-      (let ((assumed (Callees-resumes-set callees
-                                          (append (resume-names callees effect implementations)
-                                                  (● callees resumes)))))
-        (if (member? effect (control-implementation-yields assumed effect implementations))
-            callees
-            assumed)))
-
-    ;; Each control implementation written as a lambda takes its `resume`
-    ;; last.
-
-    (define (resume-names (callees Callees)
-                          (effect String)
-                          (implementations (List (Pair String Expr))))
-      (→ (List (Pair String String)))
-      (let ((control (● (program-effect (callees-program callees) effect) control)))
-        (concatenate (map (lambda (entry)
-                            (if (member? (● entry first) control)
-                                (match (● (● entry second) term)
-                                  ((Lambda params _)
-                                   (match (last params)
-                                     ((Some resume)
-                                      (list (new Pair (first resume) (second effect))))
-                                     ((None) (Nil))))
-                                  (_ (Nil)))
-                                (Nil)))
-                          implementations))))
-
-    (define (check-implementations (callees Callees)
-                                   (effect String)
-                                   (implementations (List (Pair String Expr))))
-      (→ Unit)
-      (! compile)
-      (let ((control (● (program-effect (callees-program callees) effect) control)))
-        (for-each (lambda (entry)
-                    (unless (member? (● entry first) control)
-                      (check-implementation callees (● entry first) (● entry second))))
-                  implementations)))
-
-    (define (check-implementation (callees Callees) (operation String) (implementation Expr))
-      (→ Unit)
-      (! compile)
-      (match (program-value (callees-program callees) operation)
-        ((Some (Operation effect scheme))
-         (let ((labels (label-difference (procedure-yields callees implementation)
-                                         (operation-latent effect scheme))))
-           (unless (null? labels)
-             (compile-error (● implementation loc)
-                            (string-append "the implementation of " (short-name operation)
-                                           " can yield only to the control effects its operation's type names; it may yield to"
-                                           (labels->string labels))))))
-        (_ (panic "internal error: not an operation"))))
-
-    (define (refuse-labels (labels (List String)) (what String) (loc Loc)) (→ Unit) (! compile)
-      (unless (null? labels)
-        (compile-error loc
-                       (string-append what
-                                      " cannot reach a control operation; it may yield to"
-                                      (labels->string labels)))))
-
-    (define (function-params (type Type)) (→ (List Type))
-      (match type
-        ((TFun params _ _) params)
-        (_ (panic "internal error: a primitive is a function"))))
 
     ;; ---- A-normal form ----
 
@@ -462,74 +502,72 @@
     ;; `expr` with each call that may yield, and each operand that runs
     ;; before one, named by a let, except where its value flows out of
     ;; `expr`: through a branch, a let's body, the rest of a sequence, a
-    ;; clause body or an annotation. A let's value, a handle's body and a
-    ;; lambda's body are each a place values flow out of as well.
+    ;; clause body or an annotation. A let's value and a lambda's body are
+    ;; each a place values flow out of as well.
 
-    (define (normal (count I64) (callees Callees) (expr Expr)) (→ (Pair Expr I64))
+    (define (normal (count I64) (suspensions Suspensions) (expr Expr)) (→ (Pair Expr I64))
       (let ((rebuild
              (lambda (term) (new Expr (term term) (type (● expr type)) (loc (● expr loc))))))
         (match (● expr term)
           ((Lambda params body)
-           (threading count ((body (normal callees body)))
+           (threading count ((body (normal suspensions body)))
                       (new Pair (first (rebuild (Lambda params body))) (second count))))
-          ((App callee args) (normal-call count callees expr callee args))
+          ((App callee args) (normal-call count suspensions expr callee args))
           ((If test consequent alternative)
-           (threading count ((test (normal callees test))
-                             (consequent (normal callees consequent))
-                             (alternative (normal callees alternative)))
+           (threading count ((test (normal suspensions test))
+                             (consequent (normal suspensions consequent))
+                             (alternative (normal suspensions alternative)))
                       (named count
-                             callees
+                             suspensions
                              test
                              (lambda (test) (rebuild (If test consequent alternative))))))
           ((Let name value body)
-           (threading count ((value (normal callees value))
-                             (body (normal callees body)))
+           (threading count ((value (normal suspensions value))
+                             (body (normal suspensions body)))
                       (new Pair (first (rebuild (Let name value body))) (second count))))
           ((Seq first rest)
-           (threading count ((first (normal callees first))
-                             (rest (normal callees rest)))
-                      (sequence count callees expr first rest)))
+           (threading count ((first (normal suspensions first))
+                             (rest (normal suspensions rest)))
+                      (sequence count suspensions expr first rest)))
           ((Match scrutinee clauses)
-           (threading count ((scrutinee (normal callees scrutinee))
-                             (clauses (normal-clauses callees clauses)))
+           (threading count ((scrutinee (normal suspensions scrutinee))
+                             (clauses (normal-clauses suspensions clauses)))
                       (named count
-                             callees
+                             suspensions
                              scrutinee
                              (lambda (scrutinee) (rebuild (Match scrutinee clauses))))))
           ((FieldRead _ _ _) (panic "internal error: field selection survived checking"))
           ((FieldWrite _ _ _ _) (panic "internal error: field selection survived checking"))
           ((New _ _) (panic "internal error: named construction survived checking"))
           ((Ann inner type)
-           (threading count ((inner (normal callees inner)))
+           (threading count ((inner (normal suspensions inner)))
                       (new Pair (first (rebuild (Ann inner type))) (second count))))
           ((BoxAny inner)
-           (threading count ((inner (normal callees inner)))
-                      (named count callees inner (lambda (inner) (rebuild (BoxAny inner))))))
+           (threading count ((inner (normal suspensions inner)))
+                      (named count suspensions inner (lambda (inner) (rebuild (BoxAny inner))))))
           ((Downcast inner target)
-           (threading count ((inner (normal callees inner)))
+           (threading count ((inner (normal suspensions inner)))
                       (named count
-                             callees
+                             suspensions
                              inner
                              (lambda (inner) (rebuild (Downcast inner target))))))
-          ((Handle effect implementations body)
-           (normal-handle count callees expr effect implementations body))
           (_ (new Pair (first expr) (second count))))))
 
-    (define (normal-all (count I64) (callees Callees) (exprs (List Expr)))
+    (define (normal-all (count I64) (suspensions Suspensions) (exprs (List Expr)))
       (→ (Pair (List Expr) I64))
       (match exprs
         ((Cons expr rest)
-         (threading count ((expr (normal callees expr))
-                           (rest (normal-all callees rest)))
+         (threading count ((expr (normal suspensions expr))
+                           (rest (normal-all suspensions rest)))
                     (new Pair (first (Cons expr rest)) (second count))))
         ((Nil) (new Pair (first (Nil)) (second count)))))
 
-    (define (normal-clauses (count I64) (callees Callees) (clauses (List Clause)))
+    (define (normal-clauses (count I64) (suspensions Suspensions) (clauses (List Clause)))
       (→ (Pair (List Clause) I64))
       (match clauses
         ((Cons clause rest)
-         (threading count ((body (normal callees (● clause body)))
-                           (rest (normal-clauses callees rest)))
+         (threading count ((body (normal suspensions (● clause body)))
+                           (rest (normal-clauses suspensions rest)))
                     (new Pair
                       (first (Cons (new Clause (pattern (● clause pattern)) (body body)) rest))
                       (second count))))
@@ -538,9 +576,9 @@
     ;; `make` applied to `operand`, or, when the operand may yield, to a
     ;; temporary that a let binds to it first.
 
-    (define (named (count I64) (callees Callees) (operand Expr) (make (Fn Expr → Expr)))
+    (define (named (count I64) (suspensions Suspensions) (operand Expr) (make (Fn Expr → Expr)))
       (→ (Pair Expr I64))
-      (if (null? (yields callees operand))
+      (if (null? (yields suspensions operand))
           (new Pair (first (make operand)) (second count))
           (let ((name (temporary-name count)))
             (new Pair
@@ -549,18 +587,22 @@
 
     ;; A sequence whose first part may yield binds it, so the let tests it.
 
-    (define (sequence (count I64) (callees Callees) (expr Expr) (first Expr) (rest Expr))
+    (define (sequence (count I64) (suspensions Suspensions) (expr Expr) (first Expr) (rest Expr))
       (→ (Pair Expr I64))
-      (if (null? (yields callees first))
+      (if (null? (yields suspensions first))
           (new Pair
             (first (new Expr (term (Seq first rest)) (type (● expr type)) (loc (● expr loc))))
             (second count))
           (new Pair (first (bind (temporary-name count) first rest)) (second (+ count 1)))))
 
-    (define (normal-call (count I64) (callees Callees) (expr Expr) (callee Expr) (args (List Expr)))
+    (define (normal-call (count I64)
+                         (suspensions Suspensions)
+                         (expr Expr)
+                         (callee Expr)
+                         (args (List Expr)))
       (→ (Pair Expr I64))
-      (threading count ((operands (normal-all callees (Cons callee args)))
-                        (bound (bind-operands callees operands)))
+      (threading count ((operands (normal-all suspensions (Cons callee args)))
+                        (bound (bind-operands suspensions operands)))
                  (match (● bound operands)
                    ((Cons callee args)
                     (new Pair (first (wrap-lets bound (applied expr callee args))) (second count)))
@@ -568,37 +610,6 @@
 
     (define (applied (expr Expr) (callee Expr) (args (List Expr))) (→ Expr)
       (new Expr (term (App callee args)) (type (● expr type)) (loc (● expr loc))))
-
-    ;; A handle evaluates its implementations in its effect's operation
-    ;; order, before its body runs.
-
-    (define (normal-handle (count I64)
-                           (callees Callees)
-                           (expr Expr)
-                           (effect String)
-                           (implementations (List (Pair String Expr)))
-                           (body Expr))
-      (→ (Pair Expr I64))
-      (let* ((operations (● (program-effect (callees-program callees) effect) operations))
-             (values
-              (map (lambda (operation) (implementation-of implementations operation)) operations)))
-        (threading count ((values (normal-all callees values))
-                          (bound (bind-operands callees values))
-                          (body (normal callees body)))
-                   (new Pair (first (wrap-lets bound
-                                               (new Expr
-                                                 (term (Handle effect
-                                                               (zip operations (● bound operands))
-                                                               body))
-                                                 (type (● expr type))
-                                                 (loc (● expr loc)))))
-                        (second count)))))
-
-    (define (implementation-of (implementations (List (Pair String Expr))) (operation String))
-      (→ Expr)
-      (match (assoc-ref implementations operation)
-        ((Some implementation) implementation)
-        ((None) (panic "internal error: missing implementation"))))
 
     ;; ---- Operands ----
 
@@ -615,10 +626,10 @@
                   body
                   (● bound lets)))
 
-    (define (bind-operands (count I64) (callees Callees) (operands (List Expr)))
+    (define (bind-operands (count I64) (suspensions Suspensions) (operands (List Expr)))
       (→ (Pair Bound I64))
       (let ((final (fold-left (lambda (final entry)
-                                (if (null? (yields callees (● entry second)))
+                                (if (null? (yields suspensions (● entry second)))
                                     final
                                     (● entry first)))
                               -1 (zip (iota (length operands)) operands))))
@@ -657,14 +668,14 @@
 
     ;; Each function numbers its own temporaries from zero.
 
-    (define (control-definition (callees Callees) (definition Definition)) (→ Definition)
+    (define (control-definition (suspensions Suspensions) (definition Definition)) (→ Definition)
       (Definition-value-set definition
-        (● (control-expr 0 callees (● definition value)) first)))
+        (● (control-expr 0 suspensions (● definition value)) first)))
 
-    (define (control-expr (count I64) (callees Callees) (expr Expr)) (→ (Pair Expr I64))
-      (if (yield-free? callees expr)
+    (define (control-expr (count I64) (suspensions Suspensions) (expr Expr)) (→ (Pair Expr I64))
+      (if (yield-free? suspensions expr)
           (new Pair (first expr) (second count))
-          (normal count callees expr)))
+          (normal count suspensions expr)))
 
     )
 
@@ -683,98 +694,96 @@
 
           (define bool (TCon "Bool" (Nil)))
 
+          (define unit-type (TCon "Unit" (Nil)))
+
+          (define never (TCon "snail.core.base:Never" (Nil)))
+
           (define loc (new Loc (file "control") (line 1) (column 1)))
 
-          (define abort-row (TRow (list "t:Abort") (None)))
+          (define expr (lambda (term type) (new Expr (term term) (type type) (loc loc))))
 
-          (define local
-            (lambda (name type) (new Expr (term (Var name (Nil) (Nil))) (type type) (loc loc))))
+          (define local (lambda (name type) (expr (Var name (Nil) (Nil)) type)))
 
-          (define number (lambda (n) (new Expr (term (Lit (DInt n))) (type i64) (loc loc))))
+          (define number (lambda (n) (expr (Lit (DInt n)) i64)))
+
+          (define function-result (lambda (type) (match type ((TFun _ result) result) (_ i64))))
 
           (define call
-            (lambda (callee args)
-              (new Expr
-                (term (App callee args))
-                (type (function-result (● callee type)))
-                (loc loc))))
+            (lambda (callee args) (expr (App callee args) (function-result (● callee type)))))
 
-          (define function-result (lambda (type) (match type ((TFun _ result _) result) (_ i64))))
+          (define thunk
+            (lambda (body) (expr (Lambda (Nil) body) (TFun (Nil) (● body type)))))
 
-          (define f (local "f" (TFun (list i64) i64 abort-row)))
+          ;; `t:f` and `t:predicate` suspend, to a prompt something resumes;
+          ;; `t:g` and `t:add` never do.
+          (define f (local "t:f" (TFun (list i64) i64)))
 
-          (define g (local "g" (TFun (list i64) i64 empty-row)))
+          (define g (local "t:g" (TFun (list i64) i64)))
 
-          (define predicate (local "predicate" (TFun (list) bool abort-row)))
+          (define predicate (local "t:predicate" (TFun (list) bool)))
 
-          (define add (local "add" (TFun (list i64 i64) i64 empty-row)))
+          (define add (local "t:add" (TFun (list i64 i64) i64)))
 
-          (define operation
-            (lambda (effect latent) (Operation effect
-                                               (new Scheme (vars (Nil))
-                                                    (constraints (Nil))
-                                                    (type (TFun (list i64)
-                                                                i64
-                                                                (TRow (Cons effect latent)
-                                                                      (None))))))))
+          ;; A prompt a top-level value holds, and reads of it.
+          (define stopping-type (TCon "Prompt" (list i64 never)))
 
-          (define program
-            (fold-left (lambda (program entry)
-                         (program-with-value program (● entry first) (● entry second)))
-                       (fold-left program-with-effect empty-program
-                                  (list
-                                   (new Effect
-                                     (name "t:Abort")
-                                     (operations (list "t:abort"))
-                                     (control (list "t:abort")))
-                                   (new Effect
-                                     (name "t:Log")
-                                     (operations (list "t:log"))
-                                     (control (Nil)))
-                                   (new Effect
-                                     (name "t:Io")
-                                     (operations (list "t:fetch"))
-                                     (control (Nil)))))
-                       (list (new Pair (first "t:abort") (second (operation "t:Abort" (Nil))))
-                             (new Pair (first "t:log") (second (operation "t:Log" (Nil))))
-                             (new Pair
-                               (first "t:fetch")
-                               (second (operation "t:Io" (list "t:Abort")))))))
+          (define pausing-type (TCon "Prompt" (list i64 unit-type)))
 
-          (define test-callees
-            (lambda (definitions) (let* ((items (map (lambda (name)
-                                                       (Define name
-                                                         (match (table-ref definitions name)
-                                                           ((Some value) value))))
-                                                     (table-keys definitions)))
-                                         (schemes (fold-left (lambda (schemes item)
-                                                               (match item
-                                                                 ((Define name value)
-                                                                  (table-set schemes name
-                                                                             (new Scheme
-                                                                               (vars (Nil))
-                                                                               (constraints (Nil))
-                                                                               (type (● value
-                                                                                        type)))))))
-                                                             (empty-table) items))
-                                         (typed (new Typed
-                                                  (program program)
-                                                  (items items)
-                                                  (schemes schemes)))
-                                         ;; Each definition is a root, as an
-                                         ;; exposed function is.
-                                         (roots (map (lambda (name) (Expose name name loc))
-                                                     (table-keys definitions))))
-                                    (specialized-callees (specialize typed roots)))))
+          (define stopping (call (local "t:stopping" (TFun (Nil) stopping-type)) (Nil)))
 
-          (define callees (test-callees (empty-table)))
+          (define pausing (call (local "t:pausing" (TFun (Nil) pausing-type)) (Nil)))
 
-          (define normalized (lambda (expr) (shape (● (normal 0 callees expr) first))))
+          (define suspend
+            (lambda (prompt)
+              (call (local "prim:suspend"
+                           (TFun (list (● prompt type) i64)
+                                 (match (● prompt type)
+                                   ((TCon _ (Cons _ (Cons answer (Nil)))) answer))))
+                    (list prompt (number 1)))))
+
+          (define with-prompt
+            (lambda (prompt body handler)
+              (expr (App (local "prim:with-prompt" (TFun (Nil) i64))
+                         (list prompt body handler))
+                    i64)))
+
+          (define declarations
+            (new Declarations
+              (program (program-with-value
+                        (program-with-value empty-program
+                                            "prim:suspend"
+                                            (Primitive (mono-scheme (TFun (Nil) i64))))
+                        "prim:with-prompt"
+                        (Primitive (mono-scheme (TFun (Nil) i64)))))
+              (types (fold-left (lambda (types entry)
+                                  (table-set types (● entry first) (● (● entry second) type)))
+                                (table-set (table-set (empty-table)
+                                                      "t:stopping"
+                                                      (TFun (Nil) stopping-type))
+                                           "t:pausing"
+                                           (TFun (Nil) pausing-type))
+                                (list (new Pair (first "t:f") (second f))
+                                      (new Pair (first "t:g") (second g))
+                                      (new Pair (first "t:predicate") (second predicate))
+                                      (new Pair (first "t:add") (second add)))))))
+
+          (define suspensions
+            (new Suspensions
+              (known (new Known
+                       (declarations declarations)
+                       (prompts
+                        (table-set (table-set (empty-table) "t:stopping" #t) "t:pausing" #t))))
+              (reached (table-set (table-set (empty-table) "call t:f" (list "?resume"))
+                                  "call t:predicate"
+                                  (list "?resume")))
+              (quiet #f)))
+
+          (define normalized (lambda (expr) (shape (● (normal 0 suspensions expr) first))))
 
           (define shape
             (lambda (expr) (match (● expr term)
                              ((Lit (DInt n)) (i64->string n))
-                             ((Var name _ _) name)
+                             ((Var name _ _) (short-name name))
                              ((Lambda params body) (string-append "(lambda " (shape body) ")"))
                              ((App callee args)
                               (string-append "("
@@ -792,44 +801,122 @@
                               (string-append "(let " name " " (shape value) " " (shape body) ")"))
                              ((Seq first rest)
                               (string-append "(begin " (shape first) " " (shape rest) ")"))
-                             ((Handle effect _ body)
-                              (string-append "(handle " effect " " (shape body) ")"))
                              (_ "?"))))
 
-          (define handle-abort
-            (lambda (body) (new Expr (term (Handle "t:Abort"
-                                                   (list (new Pair (first "t:abort")
-                                                              (second (local "catch"
-                                                                             (TFun (list i64)
-                                                                                   i64
-                                                                                   empty-row)))))
-                                                   body))
-                                (type i64)
-                                (loc loc))))
-
+          ;; A call yields what its callee does, a closure nothing until it
+          ;; is called, and a suspension to its prompt.
           (define test-yields
-            (lambda () (expect (yields callees (call g (list (number 1)))) (Nil))
-                    (expect (yields callees (call add (list (number 1) (call f (list (number 2))))))
-                            (list "t:Abort"))
+            (lambda () (expect (yields suspensions (call g (list (number 1)))) (Nil))
                     (expect
-                     (yields callees
-                             (new Expr
-                               (term (Lambda (list "x") (call f (list (number 1)))))
-                               (type (● f type))
-                               (loc loc)))
-                     (Nil))
-                    (expect (yields callees (handle-abort (call f (list (number 1))))) (Nil))))
+                     (yields suspensions (call add (list (number 1) (call f (list (number 2))))))
+                     (list "?resume"))
+                    (expect (yields suspensions (thunk (call f (list (number 1))))) (Nil))
+                    (expect (yields suspensions (suspend stopping)) (list "t:stopping"))
+                    (expect (yields suspensions (suspend (local "prompt.1" stopping-type)))
+                            (list "?abort"))
+                    (expect (yields suspensions (suspend (local "prompt.1" pausing-type)))
+                            (list "?resume"))))
 
-          (define test-globals
-            (lambda () (let* ((opened (local "t:pure" (TFun (list i64) i64 abort-row)))
-                              (pure
-                               (new Expr (term (Lambda (list "x.1") (local "x.1" i64)))
-                                    (type (TFun (list i64) i64 empty-row))
-                                    (loc loc)))
-                              (defined (test-callees (table-set (empty-table) "t:pure" pure))))
-                         (expect (yields defined (call opened (list (number 1)))) (Nil))
-                         (expect (yields callees (call opened (list (number 1))))
-                                 (list "t:Abort")))))
+          ;; A `with-prompt` of a named prompt catches its body's suspensions
+          ;; to it and nothing else, and adds what its handler suspends.
+          (define test-delimited
+            (lambda ()
+              (let ((handler (expr (Lambda (list "value.1" "resume.1") (number 0))
+                                   (TFun (list i64 (TFun (list never) i64))
+                                         i64))))
+                (expect
+                 (yields suspensions (with-prompt stopping (thunk (suspend stopping)) handler))
+                 (Nil))
+                (expect
+                 (yields suspensions (with-prompt stopping (thunk (suspend pausing)) handler))
+                 (list "t:pausing"))
+                (expect
+                 (yields suspensions
+                         (with-prompt (local "prompt.1" stopping-type)
+                                      (thunk (suspend (local "prompt.1" stopping-type)))
+                                      handler))
+                 (list "?abort"))
+                (expect
+                 (yields suspensions
+                         (with-prompt stopping
+                                      (thunk (number 1))
+                                      (expr (Lambda (list "value.1" "resume.1") (suspend pausing))
+                                            (● handler type))))
+                 (list "t:pausing")))))
+
+          ;; Only a suspension something may resume saves frames.
+          (define test-resumed
+            (lambda () (expect (may-resume? suspensions (list "t:stopping" "?abort")) #f)
+                    (expect (may-resume? suspensions (list "t:stopping" "t:pausing")) #t)
+                    (expect (may-resume? suspensions (list "?resume")) #t)))
+
+          ;; Suspensions reach every caller, through recursion and through a
+          ;; function value of the suspending lambda's type, and stop at the
+          ;; `with-prompt` that catches them.
+          (define test-solved
+            (lambda ()
+              (let* ((definition
+                       (lambda (name params body)
+                         (new Definition
+                           (name name)
+                           (value (expr (Lambda params body)
+                                        (TFun (map (lambda (param) i64) params)
+                                              (● body type)))))))
+                     (callback (TFun (Nil) i64))
+                     (handler (expr (Lambda (list "value.1" "resume.1") (number 0))
+                                    (TFun (list i64 (TFun (list unit-type) i64))
+                                          i64)))
+                     ;; A top-level value that is a prompt of its own.
+                     (own-prompt
+                      (lambda (name type)
+                        (new Definition
+                          (name name)
+                          (value (call (local "prim:cached-thunk"
+                                              (TFun (list (TFun (Nil) type)) (TFun (Nil) type)))
+                                       (list (thunk (call (local "prim:make-prompt"
+                                                                 (TFun (Nil) type))
+                                                          (Nil)))))))))
+                     (definitions
+                       (list (own-prompt "t:pausing" pausing-type)
+                             (own-prompt "t:stopping" stopping-type)
+                             (definition "t:leaf" (Nil) (suspend pausing))
+                             (definition "t:even" (Nil) (call (local "t:odd" callback) (Nil)))
+                             (definition "t:odd"
+                               (Nil)
+                               (expr (Seq (call (local "t:leaf" callback) (Nil))
+                                          (call (local "t:even" callback) (Nil)))
+                                     i64))
+                             (definition "t:maker"
+                               (Nil)
+                               (thunk (expr (Seq (suspend stopping) (number 1)) i64)))
+                             (definition "t:applies"
+                               (list "action.1")
+                               (call (local "action.1" callback) (Nil)))
+                             (definition "t:caught"
+                               (Nil)
+                               (with-prompt pausing
+                                            (thunk (call (local "t:even" callback) (Nil)))
+                                            handler))
+                             (definition "t:quiet" (Nil) (number 1))))
+                     (types (fold-left (lambda (types definition)
+                                         (table-set types
+                                                    (● definition name)
+                                                    (● (● definition value) type)))
+                                       (● declarations types)
+                                       definitions))
+                     (solved (program-suspensions (new Declarations
+                                                    (program (● declarations program))
+                                                    (types types))
+                                                  definitions))
+                     (reaches (lambda (key) (reached-at (● solved reached) key))))
+                (expect (reaches "call t:leaf") (list "t:pausing"))
+                (expect (reaches "call t:even") (list "t:pausing"))
+                (expect (reaches "call t:odd") (list "t:pausing"))
+                (expect (reaches "call t:maker") (Nil))
+                (expect (reaches "call t:applies") (list "t:pausing" "t:stopping"))
+                (expect (reaches "call t:caught") (Nil))
+                (expect (reaches "call t:quiet") (Nil))
+                (expect (● solved quiet) #f))))
 
           (define test-operands
             (lambda ()
@@ -847,215 +934,47 @@
           (define test-flow
             (lambda () (expect (normalized (call f (list (call g (list (number 1)))))) "(f (g 1))")
                     (expect (normalized
-                             (new Expr
-                               (term
-                                (If (call predicate (Nil)) (call f (list (number 1))) (number 2)))
-                               (type i64)
-                               (loc loc)))
+                             (expr (If (call predicate (Nil)) (call f (list (number 1))) (number 2))
+                                   i64))
                             "(let %control.0% (predicate) (if %control.0% (f 1) 2))")
-                    (expect (normalized (new Expr
-                                          (term (Seq (call f (list (number 1))) (number 2)))
-                                          (type i64)
-                                          (loc loc)))
+                    (expect (normalized (expr (Seq (call f (list (number 1))) (number 2)) i64))
                             "(let %control.0% (f 1) 2)")
                     (expect
                      (normalized
-                      (new Expr
-                        (term
-                         (Let "x.1" (call f (list (number 1))) (call g (list (local "x.1" i64)))))
-                        (type i64)
-                        (loc loc)))
+                      (expr (Let "x.1" (call f (list (number 1))) (call g (list (local "x.1" i64))))
+                            i64))
                      "(let x.1 (f 1) (g x.1))")
                     (expect
                      (normalized
-                      (new Expr
-                        (term (Lambda (list "x.1") (call g (list (call f (list (number 1)))))))
-                        (type (● g type))
-                        (loc loc)))
+                      (expr (Lambda (list "x.1") (call g (list (call f (list (number 1))))))
+                            (● g type)))
                      "(lambda (let %control.0% (f 1) (g %control.0%)))")))
 
           (define test-unchanged
             (lambda ()
               (let ((pure (call add (list (call g (list (number 1))) (call g (list (number 2)))))))
-                (expect (eq? (● (control-expr 0 callees pure) first) pure) #t))))
+                (expect (eq? (● (control-expr 0 suspensions pure) first) pure) #t))))
 
           (define test-holds
             (lambda ()
               (let ((inner
-                     (new Expr
-                       (term
-                        (Let "x.1" (call f (list (number 1))) (call g (list (local "x.1" i64)))))
-                       (type i64)
-                       (loc loc))))
-                (expect (holds-yield-point? callees inner) #t)
-                (expect
-                 (holds-yield-point? callees
-                                     (new Expr
-                                       (term (If (local "c.1" bool) inner (number 2)))
-                                       (type i64)
-                                       (loc loc)))
-                 #t)
-                (expect (holds-yield-point? callees (call f (list (number 1)))) #f)
-                (expect
-                 (holds-yield-point? callees
-                                     (new Expr
-                                       (term (Lambda (list "y.1") inner))
-                                       (type (● g type))
-                                       (loc loc)))
-                 #f))))
+                     (expr (Let "x.1" (call f (list (number 1))) (call g (list (local "x.1" i64))))
+                           i64)))
+                (expect (holds-yield-point? suspensions inner) #t)
+                (expect (holds-yield-point? suspensions
+                                            (expr (If (local "c.1" bool) inner (number 2)) i64))
+                        #t)
+                (expect (holds-yield-point? suspensions (call f (list (number 1)))) #f)
+                (expect (holds-yield-point? suspensions
+                                            (expr (Lambda (list "y.1") inner) (● g type)))
+                        #f))))
 
-          (define test-restrictions
-            (lambda () (let* ((thunk-type (TFun (list) i64 abort-row))
-                              (total
-                               (local "prim:unsafe-total" (TFun (list thunk-type) i64 empty-row)))
-                              (log
-                               (new Expr (term (Lambda (list "m.1") (call f (list (number 1)))))
-                                    (type (TFun (list i64) i64 empty-row))
-                                    (loc loc))))
-                         (expect (refused? (call total (list (local "thunk" thunk-type))))
-                                 "an unsafe-total thunk cannot reach a control operation")
-                         (expect (refused? (call total
-                                                 (list
-                                                  (new Expr (term (Lambda (Nil) (number 1)))
-                                                       (type thunk-type)
-                                                       (loc loc)))))
-                                 #f)
-                         (expect (refused?
-                                  (new Expr
-                                    (term (Handle "t:Log"
-                                                  (list (new Pair (first "t:log") (second log)))
-                                                  (number 1)))
-                                    (type i64)
-                                    (loc loc)))
-                                 "the implementation of log can yield only to the control effects its operation's type names"))))
-
-          (define test-resuming
-            (lambda () (let* ((resume-type (TFun (list i64) i64 abort-row))
-                              (thunk-type (TFun (list) i64 abort-row))
-                              (inherit (local "prim:inherit-handlers"
-                                              (TFun (list thunk-type) i64 empty-row)))
-                              (resuming (lambda (name)
-                                          (new Expr
-                                            (term (Lambda (Nil)
-                                                          (call (local name resume-type)
-                                                                (list (number 1)))))
-                                            (type thunk-type)
-                                            (loc loc))))
-                              (implementation-type (TFun (list i64 resume-type) i64 empty-row))
-                              (closing (new Expr (term (Lambda (list "v.1" "resume.1")
-                                                               (call inherit
-                                                                     (list (resuming "resume.1")))))
-                                            (type implementation-type)
-                                            (loc loc)))
-                              (forwarding
-                               (new Expr (term (Lambda (list "v.2" "resume.2")
-                                                       (call add
-                                                             (list (call f (list (number 1)))
-                                                                   (call inherit
-                                                                         (list
-                                                                          (resuming
-                                                                           "resume.2")))))))
-                                    (type implementation-type)
-                                    (loc loc))))
-                         (expect
-                          (refused?
-                           (new Expr
-                             (term (Handle "t:Abort"
-                                           (list (new Pair (first "t:abort") (second closing)))
-                                           (number 1)))
-                             (type i64)
-                             (loc loc)))
-                          #f)
-                         (expect
-                          (refused?
-                           (new Expr
-                             (term (Handle "t:Abort"
-                                           (list (new Pair (first "t:abort") (second forwarding)))
-                                           (number 1)))
-                             (type i64)
-                             (loc loc)))
-                          "a procedure given to inherit-handlers cannot reach a control operation")
-                         (expect (refused? (call inherit (list (resuming "resume.3"))))
-                                 "a procedure given to inherit-handlers cannot reach a control operation"))))
-
-          (define test-reading
-            (lambda () (let* ((caught-type (TFun (list i64) i64 abort-row))
-                              (caught
-                               (new Expr (term (Lambda (list "x.2")
-                                                       (handle-abort
-                                                        (call f (list (local "x.2" i64))))))
-                                    (type caught-type)
-                                    (loc loc)))
-                              (reading (test-callees (table-set (empty-table) "t:caught" caught)))
-                              (thunk-type (TFun (Nil) i64 abort-row))
-                              (inherit
-                               (local "prim:inherit-handlers"
-                                      (TFun (list thunk-type) i64 empty-row)))
-                              (thunk (lambda (body)
-                                       (new Expr
-                                         (term (Lambda (Nil) body))
-                                         (type thunk-type)
-                                         (loc loc)))))
-                         (expect (refused-in? reading
-                                              (call inherit
-                                                    (list
-                                                     (thunk (call (local "t:caught" caught-type)
-                                                                  (list (number 1)))))))
-                                 #f)
-                         (expect
-                          (refused-in? reading
-                                       (call inherit (list (thunk (call f (list (number 1)))))))
-                          "a procedure given to inherit-handlers cannot reach a control operation"))))
-
-          (define test-latent
-            (lambda () (let ((fetch (local "t:fetch" (TFun (list i64) i64 empty-row)))
-                             (yielding
-                              (new Expr (term (Lambda (list "n.1") (call f (list (number 1)))))
-                                   (type (TFun (list i64) i64 abort-row))
-                                   (loc loc))))
-                         (expect (yields callees (call fetch (list (number 1)))) (list "t:Abort"))
-                         (expect
-                          (yields callees
-                                  (call (local "t:log" (TFun (list i64) i64 empty-row))
-                                        (list (number 1))))
-                          (Nil))
-                         (expect
-                          (refused?
-                           (new Expr
-                             (term (Handle "t:Io"
-                                           (list (new Pair (first "t:fetch") (second yielding)))
-                                           (number 1)))
-                             (type i64)
-                             (loc loc)))
-                          #f))))
-
-          (define refused?
-            (lambda (expr) (refused-in? callees expr)))
-
-          (define refused-in?
-            (lambda (callees expr)
-              (let ((message (compile-failure (lambda () (check-restrictions callees expr)))))
-                (and message
-                     (substring message
-                                (+ (string-index-of message ": ") 2)
-                                (string-index-of message ";"))))))
-
-          (define string-index-of
-            (lambda (text pattern) (let loop ((index 0))
-                                     (if
-                                      (string=?
-                                       (substring text index (+ index (string-length pattern)))
-                                       pattern)
-                                      index
-                                      (loop (+ index 1))))))
           (test-yields)
-          (test-globals)
+          (test-delimited)
+          (test-resumed)
+          (test-solved)
           (test-operands)
           (test-flow)
           (test-unchanged)
-          (test-holds)
-          (test-restrictions)
-          (test-resuming)
-          (test-reading)
-          (test-latent)))))
+          (test-holds)))))
    (else)))

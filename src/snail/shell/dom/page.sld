@@ -1,5 +1,5 @@
-;; The page's document for the `dom` effect: `with-page-dom` binds each
-;; operation to the browser host's document (host/browser/dom.mjs), which
+;; The page's document as a `Dom`: `page-dom` binds each operation to the
+;; browser host's document (host/browser/dom.mjs), which
 ;; keeps the interface's nodes and listeners in tables by handle, under the
 ;; container the page gives it. Deliveries come from the page's event queue
 ;; ((snail shell page)): a listener's event as a kind the host fires with
@@ -8,9 +8,10 @@
 ;; next delivery; `wake` reaches the host from any task.
 (define-library (snail shell dom page)
   (export
-   with-page-dom)
+   page-dom)
   (import
    (snail core base)
+   (only (snail core io) Host)
    (prefix (snail runtime browser dom) host-)
    (snail shell utf8)
    (snail shell task)
@@ -20,65 +21,63 @@
 
     ;; ---- Handling ----
 
-    (define (with-page-dom (work (Fn → T ! dom e))) (→ T) (! events e) (∀ (T e))
-      (handle dom
-          ((document-root (lambda () (new Node (handle (host-root)))))
-           (create-element
-            (lambda (tag) (new Node (handle (host-create-element (string->utf8 tag))))))
-           (create-text (lambda (text) (new Node (handle (host-create-text (string->utf8 text))))))
-           (set-attribute (lambda (node name value)
-                            (host-set-attribute (● node handle) (named name value))))
-           (set-text (lambda (node text) (host-set-text (● node handle) (string->utf8 text))))
-           (set-string-property (lambda (node name value)
-                                  (host-set-string-property (● node handle) (named name value))))
-           (set-number-property (lambda (node name value)
-                                  (host-set-number-property (● node handle)
-                                                            value
-                                                            (string->utf8 name))))
-           (set-flag-property (lambda (node name value)
-                                (host-set-flag-property (● node handle)
-                                                        (if value 1 0)
-                                                        (string->utf8 name))))
-           (string-property (lambda (node name)
-                              (host-reply
-                               (host-string-property (● node handle) (string->utf8 name)))))
-           (number-property (lambda (node name)
-                              (host-number-property (● node handle) (string->utf8 name))))
-           (insert-node (lambda (parent child before)
-                          (host-insert (● parent handle)
-                                       (● child handle)
-                                       (match before
-                                         ((Some node) (● node handle))
-                                         ((None) -1)))))
-           (remove-node (lambda (node) (host-remove (● node handle))))
-           (listen (lambda (node event captures prevent) (listen-node node event captures prevent)))
-           (unlisten (lambda (listener) (host-unlisten (● listener id))))
-           (focus-node (lambda (node) (host-focus (● node handle))))
-           ;; dom.mjs keeps the window at handle -1.
-           (window-node (lambda () (new Node (handle -1))))
-           (confirm (lambda (question) (= (host-confirm (string->utf8 question)) 1)))
-           (installation-status page-installation-status)
-           (install-app page-install)
-           (fullscreen? (lambda () (= 1 (host-fullscreen))))
-           (set-fullscreen (lambda (enter)
-                             (= 1
-                                (through-host
-                                 (lambda (ticket) (host-start-fullscreen ticket (if enter 1 0)))
-                                 host-finish-fullscreen))))
-           (element-by-id (lambda (id)
-                            (let ((handle (host-element-by-id (string->utf8 id))))
-                              (if (< handle 0) (None) (Some (new Node (handle handle)))))))
-           (select-range (lambda (node start end) (host-select-range (● node handle) start end)))
-           (selection-range (lambda (node)
-                              (new Pair (first (host-selection-start (● node handle)))
-                                   (second (host-selection-end (● node handle))))))
-           (insert-text (lambda (node start end text)
-                          (= (host-insert-text (● node handle) start end (string->utf8 text))
-                             1)))
-           (measure (lambda (node) (measure-node (● node handle))))
-           (wake (lambda () (host-wake)))
-           (next-event page-delivery))
-        (work)))
+    (define (page-dom (host Host) (events Events)) (→ Dom)
+      (new Dom
+        (document-root (lambda () (new Node (handle (host-root)))))
+        (create-element
+         (lambda (tag) (new Node (handle (host-create-element (string->utf8 tag))))))
+        (create-text (lambda (text) (new Node (handle (host-create-text (string->utf8 text))))))
+        (set-attribute (lambda (node name value)
+                         (host-set-attribute (● node handle) (named name value))))
+        (set-text (lambda (node text) (host-set-text (● node handle) (string->utf8 text))))
+        (set-string-property (lambda (node name value)
+                               (host-set-string-property (● node handle) (named name value))))
+        (set-number-property (lambda (node name value)
+                               (host-set-number-property (● node handle)
+                                                         value
+                                                         (string->utf8 name))))
+        (set-flag-property (lambda (node name value)
+                             (host-set-flag-property (● node handle)
+                                                     (if value 1 0)
+                                                     (string->utf8 name))))
+        (string-property (lambda (node name)
+                           (host-reply
+                            (host-string-property (● node handle) (string->utf8 name)))))
+        (number-property (lambda (node name)
+                           (host-number-property (● node handle) (string->utf8 name))))
+        (insert-node (lambda (parent child before)
+                       (host-insert (● parent handle)
+                                    (● child handle)
+                                    (match before
+                                      ((Some node) (● node handle))
+                                      ((None) -1)))))
+        (remove-node (lambda (node) (host-remove (● node handle))))
+        (listen (lambda (node event captures prevent) (listen-node node event captures prevent)))
+        (unlisten (lambda (listener) (host-unlisten (● listener id))))
+        (focus-node (lambda (node) (host-focus (● node handle))))
+        (window-node (lambda () (new Node (handle -1))))
+        (confirm (lambda (question) (= (host-confirm (string->utf8 question)) 1)))
+        (installation-status page-installation-status)
+        (install-app page-install)
+        (fullscreen? (lambda () (= 1 (host-fullscreen))))
+        (set-fullscreen (lambda (enter)
+                          (= 1
+                             (through-host
+                              (lambda (ticket) (host-start-fullscreen ticket (if enter 1 0)))
+                              host-finish-fullscreen))))
+        (element-by-id (lambda (id)
+                         (let ((handle (host-element-by-id (string->utf8 id))))
+                           (if (< handle 0) (None) (Some (new Node (handle handle)))))))
+        (select-range (lambda (node start end) (host-select-range (● node handle) start end)))
+        (selection-range (lambda (node)
+                           (new Pair (first (host-selection-start (● node handle)))
+                                (second (host-selection-end (● node handle))))))
+        (insert-text (lambda (node start end text)
+                       (= (host-insert-text (● node handle) start end (string->utf8 text))
+                          1)))
+        (measure (lambda (node) (measure-node (● node handle))))
+        (wake (lambda () (host-wake)))
+        (next-event (lambda () (page-delivery events)))))
 
     ;; ---- Window applications ----
 
@@ -86,7 +85,7 @@
       (case (host-installation-status)
         ((1) (InstallAvailable)) ((2) (AppInstalled)) (else (InstallUnavailable))))
 
-    (define (page-install) (→ InstallResult) (! tasks)
+    (define (page-install) (→ InstallResult)
       (case (through-host host-start-install host-finish-install)
         ((0) (InstallAccepted)) ((1) (InstallDismissed)) ((2) (InstallNotAvailable))
         ((3) (GestureRequired)) ((5) (InstallAlreadyInstalled)) (else (InstallFailed))))
@@ -107,27 +106,28 @@
     ;; The next delivery, skipping the display frames and resizes an
     ;; interface has no use for.
 
-    (define (page-delivery) (→ Delivery) (! events tasks)
-      (let ((kind (poll-event)))
-        (cond ((= kind 0) (wait-event) (page-delivery))
-              ((= kind fired-kind) (Fired (new Listener (id (event-field 0))) (fired-event)))
+    (define (page-delivery (events Events)) (→ Delivery)
+      (let ((kind (poll-event events)))
+        (cond ((= kind 0) (wait-event events) (page-delivery events))
+              ((= kind fired-kind)
+               (Fired (new Listener (id (event-field events 0))) (fired-event events)))
               ((= kind woken-kind) (Woken))
               ((= kind hidden-kind) (Hidden))
               ((= kind save-kind) (SaveRequested))
-              (else (page-delivery)))))
+              (else (page-delivery events)))))
 
-    (define (fired-event) (→ Event) (! events)
+    (define (fired-event (events Events)) (→ Event)
       (new Event (value (host-reply (host-event-text 0)))
            (key (host-reply (host-event-text 1)))
-           (modifiers (event-field 1))
+           (modifiers (event-field events 1))
            (x (host-event-number 0))
            (y (host-event-number 1))
-           (buttons (event-field 2))
+           (buttons (event-field events 2))
            (scroll-top (host-event-number 2))
            (scroll-left (host-event-number 3))
-           (selection-start (event-field 3))
-           (selection-end (event-field 4))
-           (checked (= (event-field 5) 1))))
+           (selection-start (event-field events 3))
+           (selection-end (event-field events 4))
+           (checked (= (event-field events 5) 1))))
 
     ;; ---- The browser host ----
 

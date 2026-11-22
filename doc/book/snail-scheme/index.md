@@ -1,13 +1,13 @@
 # `snail-scheme`
 
 **`snail-scheme` is a statically-typed Scheme successor.** It has S-expressions, hygienic
-macros, and explicit types and effects. Records are mutable heap objects
+macros, explicit types, and capabilities passed as values. Records are mutable heap objects
 that any number of names may share; primitive values stay unboxed, and the
 collector reclaims what nothing reaches. Functions use the `Fn` type former
 with the Unicode `→` separator.
 
 A top-level definition is a value: its initializer runs at most once, on the
-first read, performs no effect, and every read shares the result. A function
+first read, changes nothing, and every read shares the result. A function
 definition is shorthand for defining a lambda. Arrays have a fixed length
 and mutable elements.
 
@@ -20,8 +20,10 @@ The chapters describe implemented behavior and mark proposed toolchain changes:
 - [Terms](terms.md): programs, libraries, language forms and toolchain names.
 - [Types](types.md): scalars, data, typeclasses, foreign functions, linked
   files and dynamic values.
-- [Effects and handlers](effects.md): effect rows, handlers, control
-  operations with a one-shot `resume`, and latent rows.
+- [Capabilities](capabilities.md): capabilities as values, how `main`
+  asks its target for them, and what a signature does not say.
+- [Suspension](suspension.md): prompts, exceptions, generators and a
+  one-shot `resume`.
 - [Values](values.md): sharing, mutable records, closures, resources and
   their representation.
 - [Macros and generated libraries](macros.md): hygienic expansion and explicit

@@ -78,16 +78,15 @@
     ;; that length, local to this call, holds them all.
 
     (define (utf8->string (bytes Bytes)) (→ (Result String Utf8Error))
-      (unsafe-total (lambda ()
-                      (let ((chars (make-array (array-length bytes) #\space)))
-                        (let loop ((index 0) (count 0))
-                          (if (= index (array-length bytes))
-                              (Ok (array->string (subarray chars 0 count)))
-                              (match (sequence-at bytes index)
-                                ((None) (Err (new Utf8Error (offset index))))
-                                ((Some decoded)
-                                 (array-set! chars count (● decoded first))
-                                 (loop (● decoded second) (+ count 1))))))))))
+      (let ((chars (make-array (array-length bytes) #\space)))
+        (let loop ((index 0) (count 0))
+          (if (= index (array-length bytes))
+              (Ok (array->string (subarray chars 0 count)))
+              (match (sequence-at bytes index)
+                ((None) (Err (new Utf8Error (offset index))))
+                ((Some decoded)
+                 (array-set! chars count (● decoded first))
+                 (loop (● decoded second) (+ count 1))))))))
 
     ;; ---- Encoding ----
 
@@ -128,22 +127,23 @@
     ;; exact length, local to this call.
 
     (define (string->utf8 (text String)) (→ Bytes)
-      (unsafe-total (lambda ()
-                      (let* ((codes (array-map scalar (string->array text)))
-                             (bytes
-                              (make-array
-                               (array-fold (lambda (total code) (+ total (encoded-width code)))
-                                           0
-                                           codes)
-                               (ann 0 U8))))
-                        (let loop ((index 0) (offset 0))
-                          (if (= index (array-length codes))
-                              bytes
-                              (let* ((code (array-ref codes index)) (width (encoded-width code)))
-                                (do ((position 0 (+ position 1))) ((= position width))
-                                  (array-set! bytes
-                                              (+ offset position)
-                                              (encoded-byte code width position)))
-                                (loop (+ index 1) (+ offset width)))))))))
+      (let* ((codes (array-map scalar (string->array text)))
+             (bytes
+              (make-array
+               (array-fold
+                (lambda (total code) (+ total (encoded-width code)))
+                0
+                codes)
+               (ann 0 U8))))
+        (let loop ((index 0) (offset 0))
+          (if (= index (array-length codes))
+              bytes
+              (let* ((code (array-ref codes index))
+                     (width (encoded-width code)))
+                (do ((position 0 (+ position 1))) ((= position width))
+                  (array-set! bytes
+                              (+ offset position)
+                              (encoded-byte code width position)))
+                (loop (+ index 1) (+ offset width)))))))
 
     ))

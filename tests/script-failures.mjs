@@ -16,14 +16,13 @@ const build = () => execute(join(root, 'snail-scheme'), ['build', '--target', 'n
 const inventory = () => fs.readdirSync(join(project, 'build')).sort();
 
 async function throughTheCommandLine() {
-  // The checker finds a resumption whose row its use does not allow, and
-  // the passes after specialization the control effects an implementation
-  // may not yield to; those errors reach the user through a build as a
-  // type error does.
+  // The checker's solver finds a class with no instance, and the passes
+  // after specialization a cache whose keys cannot be compared; those
+  // errors reach the user through a build as a type error does.
   fs.mkdirSync(join(project, 'src'));
   write('main.scm', '(import (snail core base)) (define (main) (→ Unit) (ann "wrong type" I64) (unit))');
   await assert.rejects(build(), /expected I64, found String/);
-  for (const name of ['error-control-implementation', 'error-control-resume-row']) {
+  for (const name of ['error-instance', 'error-cache-funcref']) {
     write('main.scm', fs.readFileSync(join(root, `tests/programs/${name}.sld`), 'utf8'));
     const expected = fs.readFileSync(join(root, `tests/programs/${name}.err`), 'utf8').trim();
     await assert.rejects(build(), error => error.stderr.includes(expected));
@@ -36,11 +35,12 @@ async function throughTheCommandLine() {
   write('flag.txt', 'valid');
   write('src/generated/flag.sld', `(generate-library (generated flag)
     (import (snail core base) (snail core io) (snail shell syntax))
-    (library-syntax (list "generated" "flag") (list "value") (list (list "snail" "core" "base"))
-      (list (form "define" (list (form "value" (Nil))
-        (form "→" (list (SymbolSyntax "String")))
-          (if (string=? (read-file "${project}/flag.txt") "valid")
-            (StringSyntax "ok") (SymbolSyntax "unknown-generated-name")))))))`);
+    (lambda ((fs Fs))
+      (library-syntax (list "generated" "flag") (list "value") (list (list "snail" "core" "base"))
+        (list (form "define" (list (form "value" (Nil))
+          (form "→" (list (SymbolSyntax "String")))
+            (if (string=? (read-file fs "${project}/flag.txt") "valid")
+              (StringSyntax "ok") (SymbolSyntax "unknown-generated-name"))))))))`);
   await build();
   const published = fs.readlinkSync(join(project, 'build/main'));
   assert.deepEqual(inventory(), [published, 'main']);

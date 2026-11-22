@@ -4,7 +4,7 @@
 applications, compiling to WebAssembly with garbage collection.
 Its compiler is written in the language and compiles itself.
 
-- [The language](snail-scheme/index.md): types, mutable heap objects, effects,
+- [The language](snail-scheme/index.md): types, mutable heap objects, capabilities, suspension,
   libraries and the compiler.
 - [Tutorials](snail-scheme/tutorials/index.md): complete programs, starting with
   [`snail-scheme` in ten minutes](snail-scheme/tutorials/tour.md).

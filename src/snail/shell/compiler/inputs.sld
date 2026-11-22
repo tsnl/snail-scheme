@@ -1,7 +1,7 @@
 ;; The requests a compile makes for what it was not supplied, a
 ;; producer's output, and the printed producers they name. A request is
-;; the `compile` effect's `need` (snail shell compiler read), whose record
-;; the build that runs the compile takes.
+;; a compile stopped with `Requested` (snail shell compiler read), which the
+;; build that runs the compile takes.
 (define-library (snail shell compiler inputs)
   (export
    generated-syntax
@@ -33,12 +33,12 @@
     ;; ---- Requests ----
 
     ;; A pass that needs an input it was not supplied, such as the expander
-    ;; at a generated library, asks for it by performing `need`. Nothing
-    ;; after the call runs: the entry point's handler takes the request and
-    ;; hands it to its caller.
+    ;; at a generated library, asks for it by stopping the compile. Nothing
+    ;; after the call runs: the entry point's boundary takes the request
+    ;; and hands it to its caller.
 
-    (define (request-input (request CompilerRequest)) (→ A) (! compile) (∀ (A))
-      (absurd (need request)))
+    (define (request-input (request CompilerRequest)) (→ A) (∀ (A))
+      (stop (Requested request)))
 
     (define (quoted (text String)) (→ String)
       (datum->string (DString text)))
@@ -56,26 +56,24 @@
     ;; since what the producer writes does not depend on the chain that
     ;; reached it.
 
-    (define (generated-syntax (directory String)
+    (define (generated-syntax (fs Fs) (directory String)
                               (directories (List String))
                               (loading (List String))
                               (forms (List Syntax)))
       (→ Bytes)
-      (! fs compile)
       (let* ((key (producer-key (producer-text directories forms)))
              (output (string-append directory "/" key ".syntax")))
-        (if (file-exists? output)
-            (read-bytes output)
-            (begin (print-producer (string-append directory "/" key ".sld") loading forms)
+        (if (file-exists? fs output)
+            (read-bytes fs output)
+            (begin (print-producer fs (string-append directory "/" key ".sld") loading forms)
                    (request-input (GenerateInput key))))))
 
     ;; Prints the producer `forms` as the program at `path`, beginning with
     ;; the libraries `loading` when it was reached.
 
-    (define (print-producer (path String) (loading (List String)) (forms (List Syntax)))
+    (define (print-producer (fs Fs) (path String) (loading (List String)) (forms (List Syntax)))
       (→ Unit)
-      (! fs)
-      (write-file path (string-append (generating-line loading) "\n" (program-text forms))))
+      (write-file fs path (string-append (generating-line loading) "\n" (program-text forms))))
 
     (define (generating-line (loading (List String))) (→ String)
       (string-append "(generating"
@@ -90,9 +88,9 @@
     ;; diagnostic about the file as a whole, so a resident caller reports
     ;; it and builds again once the file is back.
 
-    (define (read-source-file (path String)) (→ (List Syntax)) (! fs compile)
-      (if (file-exists? path)
-          (read-text (read-file path) path)
+    (define (read-source-file (fs Fs) (path String)) (→ (List Syntax))
+      (if (file-exists? fs path)
+          (read-text (read-file fs path) path)
           (compile-error (new Loc (file path) (line 0) (column 0)) "no such file or directory")))
 
     ;; The libraries a program's first form says were loading when it was
@@ -101,13 +99,12 @@
 
     (define (generating-stack (forms (List Syntax)))
       (→ (Pair (List String) (List Syntax)))
-      (! compile)
       (match forms
         ((Cons (Form (Cons (Ident "generating" _ _) keys) _) rest)
          (new Pair (first (map loading-key keys)) (second rest)))
         (_ (new Pair (first (Nil)) (second forms)))))
 
-    (define (loading-key (key Syntax)) (→ String) (! compile)
+    (define (loading-key (key Syntax)) (→ String)
       (match key
         ((Atom (DString text) _) text)
         (_ (compile-error (syntax-loc key) "expected a library key string"))))
@@ -146,8 +143,10 @@
       ;; A source that is not there is a diagnostic naming the file.
       (define test-missing-source
         (lambda ()
-          (expect (compile-failure (lambda () (read-source-file "build/tests/missing/main.sld")))
-                  "build/tests/missing/main.sld: no such file or directory")))
+          (expect
+           (compile-failure
+            (lambda () (read-source-file (host-fs (unsafe-host)) "build/tests/missing/main.sld")))
+           "build/tests/missing/main.sld: no such file or directory")))
 
       ;; A printed producer reads back as the text its key hashes, and the
       ;; same program under other directories is another producer.

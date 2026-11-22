@@ -14,7 +14,7 @@ const project = await mkdtemp(join(tmpdir(), 'snail-workspace-'));
 const scripts = {cli: ['node', 'cli.scm'], page: ['browser', 'page/main.scm'], occupied: ['node', 'occupied.scm']};
 const build = target => execute(join(root, 'snail-scheme'), ['build', '--target', scripts[target][0], scripts[target][1]], {cwd: project});
 const output = target => join(project, 'build', scripts[target][1].replace(/\.scm$/, ''));
-const source = '(import (snail core base) (snail core io) (greeting))\n(display (greeting))\n';
+const source = '(import (snail core base) (snail core io) (greeting))\n(define (main (out OutputPort)) (→ Unit) (display out (greeting)))\n';
 
 try {
   await mkdir(join(project, 'src'));

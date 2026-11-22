@@ -15,10 +15,10 @@ its `base`, `table` and `io`, so it can compile itself.
 
 | Library | Contents |
 | --- | --- |
-| `(snail core forms)` | The core forms, the builtin types, and the builtin `mut` and `host` effects. The compiler serves it; it has no file. |
+| `(snail core forms)` | The core forms and the builtin types. The compiler serves it; it has no file. |
 | `(snail core primitive)` | The operations the backend implements, each declared with its type by `(primitive name type)`. `(snail core base)` gives most of them their everyday names. |
-| `(snail core base)` | Forms, numeric classes, `Option`, `Result`, `Pair`, `Never`, lists, arrays, constant arrays, strings, `Show` and `Repr`. |
-| `(snail core io)` | The `input-port`, `output-port`, `fs` and `clock` effects: [current textual ports and value representations](#current-input-and-output-ports), files as text or bytes, [directories and names](#files-and-directories), and a monotonic clock; and, as total reads, `command-line`, `environment-variable` and `working-directory`. |
+| `(snail core base)` | Forms, numeric classes, `Option`, `Result`, `Pair`, `Never`, lists, arrays, constant arrays, strings, `Show` and `Repr`, and [prompts](suspension.md): `make-prompt`, `with-prompt` and `suspend`. |
+| `(snail core io)` | The capabilities `Host`, `InputPort`, `OutputPort`, `Fs`, `Clock`, `Arguments` and `ProcessEnvironment`: [textual ports and value representations](#input-and-output-ports), files as text or bytes, [directories and names](#files-and-directories), a monotonic clock, and what a program was started with: `command-line`, `environment-variable` and `working-directory`. |
 | `(snail core table)` | Immutable tables from strings to values. |
 
 ### Shell: data and text
@@ -42,12 +42,12 @@ the runtime interfaces.
 
 | Library | Contents |
 | --- | --- |
-| `(snail shell task)` | The `tasks` effect and its scheduler, written in `snail-scheme`: local dispatch, cooperative yield, timer and ticket waits, waiting on the host, and `Mailbox` queues between tasks ([task operations](../runtimes/tasks.md)). |
+| `(snail shell task)` | Tasks and their scheduler, written in `snail-scheme`: local dispatch, cooperative yield, timer and ticket waits, waiting on the host, and `Mailbox` queues between tasks ([task operations](../runtimes/tasks.md)). |
 | `(snail shell async-files)` | Explicit native `files` capability for bounded asynchronous reads, backed by Linux `io_uring` or Node's asynchronous filesystem APIs ([file reads](../runtimes/tasks.md#native-asynchronous-file-reads)). |
-| `(snail shell process)` | Child processes with piped standard streams, through the `process` effect: `spawn`, reading output, writing and closing input, signals and exit, `run` to run a command to its end, and `exec` to replace the program with one; and `termination`, SIGINT or SIGTERM as a value, through the `signals` effect ([child processes](../runtimes/networking.md#child-processes)). |
-| `(snail shell socket)` | TCP listeners and connections and UDP sockets, through the `tcp` and `udp` effects, each wait by ticket, and `endpoint`, which parses an IPv4 address and a port once ([native networking](../runtimes/networking.md)). |
+| `(snail shell process)` | Child processes with piped standard streams, through a `Processes`: `spawn`, reading output, writing and closing input, signals and exit, `run` to run a command to its end, and `exec` to replace the program with one; and `termination`, SIGINT or SIGTERM as a value, through a `Signals` ([child processes](../runtimes/networking.md#child-processes)). |
+| `(snail shell socket)` | TCP listeners and connections and UDP sockets, through a `Tcp` and a `Udp`, each wait by ticket, and `endpoint`, which parses an IPv4 address and a port once ([native networking](../runtimes/networking.md)). |
 | `(snail shell http)`, `(snail shell http exchange)` | An HTTP/1.1 subset: request heads and targets, response and stream heads, and one exchange over a connection ([HTTP protocol](http.md)). |
-| `(snail shell resource)` | Files a library links rather than embeds: `link-file`, the `Resource` handle, and `read-resource` and `read-resources`, which a task waits on, through the `resource` effect ([linked files](types.md#linked-files)). |
+| `(snail shell resource)` | Files a library links rather than embeds: `link-file`, the `Resource` handle, and `read-resource` and `read-resources`, which a task waits on, through a `Resources` ([linked files](types.md#linked-files)). |
 | `(snail shell wasm)` | Explicit WebAssembly linking for the engine ([below](#loading-webassembly)). |
 
 ### Shell: applications
@@ -55,7 +55,7 @@ the runtime interfaces.
 | Library | Contents |
 | --- | --- |
 | `(snail shell app)` | `SceneHandler` and `run-scene`, a canvas application's loop, which draws through `gpu`; 3D frames of mesh batches and `draw-frame`, which draws them. |
-| `(snail shell gpu)` | The `gpu` effect: WebGPU's operations and descriptors, each object a handle the program keeps across frames until it calls `destroy`; its `provide-gpu` runs it on the host's device, the page's or Dawn's on Node, and `(snail shell gpu record)` records it ([WebGPU](../graphics/plan.md)). |
+| `(snail shell gpu)` | `Gpu`: WebGPU's operations and descriptors, each object a handle the program keeps across frames until it calls `destroy`; `host-gpu` runs them on the host's device, the page's or Dawn's on Node, and `(snail shell gpu record)`'s records them ([WebGPU](../graphics/plan.md)). |
 | `(snail shell graphics pod)` | `Pod`, which a record without parameters derives: its `Shape` gives the WGSL struct declaration, size, alignment and vertex attributes, and `pack` writes values as WGSL lays them out. `Vec2f` to `Mat4x4f` are WGSL's vectors and matrix. |
 | `(snail shell graphics wgsl)` | Shaders as S-expressions, printed to WGSL by `shader-library`, a `generate-library` recipe's library of shader texts. |
 | `(snail shell graphics atlas)` | Pictures of layered image regions with color swaps, composed on the GPU into padded slots of texture-array pages; `atlas-url` reads a region back as a PNG data URL. |
@@ -68,14 +68,14 @@ the runtime interfaces.
 | `(snail shell tensor)` | Lazy tensor graphs of nodes and views (offset, shape, pitch), built by `Num`, `Fractional` and torch-like operations; `(snail shell tensor grad)` adds reverse-mode gradients, `(snail shell tensor adam)` Adam's step, `(snail shell tensor lower)` lowers a graph to WebGPU buffers and dispatches the caller owns, and `(snail shell tensor eval)` evaluates it on the CPU ([tensors](../graphics/tensors.md)). |
 | `(snail shell png)` | `rgba->png`, PNG files of RGBA pixels with stored zlib blocks, and `png-data-url`. |
 | `(snail shell sprite)` | Spritebooks: animations on sheets of equal cells, by motion and heading; `cell-at` is the cell a strip shows at a moment. |
-| `(snail shell page)` | The shared browser lifecycle: `run-page` boots from the page's save, or fresh, and saves. The `events` and `storage` effects bind the host's queue, readiness, save timer and persistence. |
-| `(snail shell dom)` | The `dom` effect: a document's nodes as handles, built and changed by elements, text, attributes, typed properties and insertion, and listeners that declare what their events carry (`Capture`) and when the host prevents their default action (`Prevent`); a listener with chords hears only them. Selections count scalars. Commands find nodes by `id` (`element-by-id`) to focus, select or read a selection, insert text undoably, and `measure` them; on a node the view has since removed, these do nothing. `confirm` asks a question, and `window-node` is the window, which holds the interface's window listeners. `next-event` waits for the next `Delivery`: a listener `Fired` with its `Event`, `Woken` by another task's `wake`, a `SaveRequested`, the page `Hidden`, or the document `Closed`. It has no default: a program runs under a handler of it. |
-| `(snail shell dom memory)` | `with-memory-dom`, a handler of `dom` over a document in memory that delivers a script of cues (`Fire`, `FireWindow` and `Hide`), and answers the work's value with the document it left: `document->html` prints its tree, and `document-trace` gives a line per operation. It panics where a page would forgive, at a removed node or listener used again, a node inserted into itself, or a key fired at a listener that does not hear it, so an interface's tests catch it. |
-| `(snail shell dom page)` | `with-page-dom`, the handler of `dom` over the browser page's document (`host/browser/dom.mjs`), delivering the events its listeners fire, wakes, hiding and reloads from the page's event queue. |
-| `(snail shell fetch)` | The `fetch` effect: `request method url headers body`, answering a `Reply` or why there was none; `fetch-bytes url`, a GET's body as `Bytes` or why there was none, and `fetch-all-bytes urls`, several fetched together; `page-address`, the page's URL; and streams of server-sent events of the kinds named, `stream-open`, `stream-next`, which answers a `StreamEvent`, and `stream-close`; a stream that names `error` hears each dropped connection. |
-| `(snail shell fetch page)` | `with-page-fetch`, the handler of `fetch` over the page's `fetch` and `EventSource` (`host/browser/fetch.mjs`). |
-| `(snail shell files)` | The `files` effect: the files a user hands the program, each a `Chosen` path within the choice and an address `fetch-bytes` reads; a link dropped on the page is a file whose path is its address. `open-picker` asks the user for `SomeFiles` or a `Folder` without waiting; a `FilesEvent` says files were dropped or picked, and `chosen-files` lists the latest choice. |
-| `(snail shell files page)` | `with-page-files`, the handler of `files` over the page's pickers and drops (`host/browser/files.mjs`). |
+| `(snail shell page)` | The shared browser lifecycle: `run-page` boots from the page's save, or fresh, and saves. `Events` and `PageStorage` are the host's queue, readiness, save timer and persistence. |
+| `(snail shell dom)` | `Dom`: a document's nodes as handles, built and changed by elements, text, attributes, typed properties and insertion, and listeners that declare what their events carry (`Capture`) and when the host prevents their default action (`Prevent`); a listener with chords hears only them. Selections count scalars. Commands find nodes by `id` (`element-by-id`) to focus, select or read a selection, insert text undoably, and `measure` them; on a node the view has since removed, these do nothing. `confirm` asks a question, and `window-node` is the window, which holds the interface's window listeners. `next-event` waits for the next `Delivery`: a listener `Fired` with its `Event`, `Woken` by another task's `wake`, a `SaveRequested`, the page `Hidden`, or the document `Closed`. It has no default: a program runs under a handler of it. |
+| `(snail shell dom memory)` | `with-memory-dom`, which hands its work a `Dom` over a document in memory that delivers a script of cues (`Fire`, `FireWindow` and `Hide`), and answers the work's value with the document it left: `document->html` prints its tree, and `document-trace` gives a line per operation. It panics where a page would forgive, at a removed node or listener used again, a node inserted into itself, or a key fired at a listener that does not hear it, so an interface's tests catch it. |
+| `(snail shell dom page)` | `page-dom`, which makes from a `Host` the `Dom` over the browser page's document (`host/browser/dom.mjs`), delivering the events its listeners fire, wakes, hiding and reloads from the page's event queue. |
+| `(snail shell fetch)` | `Fetch`: `request method url headers body`, answering a `Reply` or why there was none; `fetch-bytes url`, a GET's body as `Bytes` or why there was none, and `fetch-all-bytes urls`, several fetched together; `page-address`, the page's URL; and streams of server-sent events of the kinds named, `stream-open`, `stream-next`, which answers a `StreamEvent`, and `stream-close`; a stream that names `error` hears each dropped connection. |
+| `(snail shell fetch page)` | `page-fetch`, which makes from a `Host` the `Fetch` over the page's `fetch` and `EventSource` (`host/browser/fetch.mjs`). |
+| `(snail shell files)` | `FilePicker`: the files a user hands the program, each a `Chosen` path within the choice and an address `fetch-bytes` reads; a link dropped on the page is a file whose path is its address. `open-picker` asks the user for `SomeFiles` or a `Folder` without waiting; a `FilesEvent` says files were dropped or picked, and `chosen-files` lists the latest choice. |
+| `(snail shell files page)` | `page-file-picker`, the `FilePicker` over the page's pickers and drops (`host/browser/files.mjs`). |
 | `(snail shell ui)` | [Document interfaces](applications.md#document-interfaces): `Html` and `Attribute` trees, the keyed reconciler, and `run-ui`, which runs a model, `view` and `update` with commands as tasks, the window's listeners, and messages to start with, commits completed presentations, and saves on request, hiding or close. |
 | `(snail shell ui page)` | `InterfaceHandler` and `run-interface`, a document application's loop, and `Command`, the type of its commands. |
 
@@ -96,9 +96,9 @@ the runtime interfaces.
 
 A `(snail runtime …)` library declares one host interface's Wasm imports as
 externs, and nothing else, so it emits no module of its own. A shell library
-imports it under the prefix `host-` and exports a handler of its effect,
-`provide-NAME`, that answers each operation with an extern, for its
-targets to install ([handlers from the host](effects.md#handlers-from-the-host)).
+imports it under the prefix `host-` and exports the function that makes the
+host's capability, `host-NAME`, each operation an extern, for its targets
+to provide ([what the host is trusted with](capabilities.md#what-the-host-itself-is-trusted-with)).
 
 | Library | Contents |
 | --- | --- |
@@ -121,58 +121,55 @@ precedes the other retain their input order. A merge sort bounds comparisons and
 traversal by O(n log n); the compiler and project builder use this
 same operation. Stage 0 supplies the corresponding stable sort on Chez.
 
-## Current input and output ports
+## Input and output ports
 
-The current textual input and output are independent effect bindings.
-`input-port` supplies `(read-char) → (Option Char)`; `output-port` supplies
-`(write-string text) → Unit`. The targets' handlers, `provide-input-port` and
-`provide-output-port`, use standard input and standard output. A handler selects a different stream for its body, including calls
-made by that body. When the handler ends, the previous binding applies again.
-This gives current ports the dynamic scope of
-[Scheme's current ports](https://standards.scheme.org/corrected-r7rs/r7rs-Z-H-8.html#node_sec_6.13.1)
-through ordinary effect handlers.
+Textual input and output are values: an `InputPort` is a record of
+`(read-char) → (Option Char)`, and an `OutputPort` of
+`(write-string text) → Unit`. The targets provide `standard-input` and
+`standard-output`. Every reading and writing function takes its port first,
+so a function reads and writes only the ports it was given, and a program
+chooses a different stream by passing a different port
+([capabilities](capabilities.md#making-ones-own)).
 
-`read-char` consumes one Unicode character, returning `None` at EOF.
-`read-line` uses the same operation and returns the next line without its LF:
-an empty line is `(Some "")`, EOF after a partial line returns that line,
-and EOF before any character is `(None)`. Other characters, including CR,
-are preserved. Both reads perform only `input-port`; standard-input reads
-flush pending standard output before waiting, so prompts appear.
-
-```scheme
-(handle input-port
-    ((read-char (lambda () (None))))
-  (write (read-line))) ; prints (None) through the current output
-```
-
-An output handler receives complete strings. It can collect them, discard
-them, or forward them to the enclosing output binding. Input keeps its own
-binding throughout:
+`(read-char in)` consumes one Unicode character, returning `None` at EOF.
+`(read-line in)` uses the same operation and returns the next line without
+its LF: an empty line is `(Some "")`, EOF after a partial line returns that
+line, and EOF before any character is `(None)`. Other characters, including
+CR, are preserved. Standard-input reads flush pending standard output
+before waiting, so prompts appear.
 
 ```scheme
-(handle output-port
-    ((write-string (lambda (text)
-                     (write-string (string-append "[" text "]")))))
-  (write (Some "hello"))) ; prints [(Some "hello")]
+(let ((empty (new InputPort (read-char (lambda () (None))))))
+  (write out (read-line empty))) ; prints (None)
 ```
 
-`(display value)` prints the text chosen by its `Show` instance. Scalars have
+An output port receives complete strings. One made by the program can
+collect them, discard them, or forward them to another port:
+
+```scheme
+(let ((bracketed (new OutputPort
+                   (write-string (lambda (text)
+                                   (write-string out (string-append "[" text "]")))))))
+  (write bracketed (Some "hello"))) ; prints [(Some "hello")]
+```
+
+`(display out value)` prints the text chosen by its `Show` instance. Scalars have
 standard instances; containers such as `Option`, lists, arrays, `Result`
 and `Pair` require an explicit presentation instance.
-`(write value)` prints its `Repr` representation: strings keep quotes and
+`(write out value)` prints its `Repr` representation: strings keep quotes and
 escapes, characters use `#\` notation, and containers represent their
-elements recursively. Both perform `output-port` and append no newline;
-`(newline)` adds one.
+elements recursively. Both write to `out` and append no
+newline; `(newline out)` adds one.
 The socket library has its own `write`; import `(except (snail core io) write)`
 when only the socket operation is needed, or rename one of them.
 
 ```scheme
-(display "hello")        ; prints hello
-(write (Some "hello"))   ; prints (Some "hello")
-(write (list "a" "b"))   ; prints ("a" "b")
+(display out "hello")        ; prints hello
+(write out (Some "hello"))   ; prints (Some "hello")
+(write out (list "a" "b"))   ; prints ("a" "b")
 ```
 
-`(display (Some "hello"))` is a compile error without an explicit `Show`
+`(display out (Some "hello"))` is a compile error without an explicit `Show`
 instance. Use `write` for the container's representation, or match and
 display its contents to choose the presentation. This prevents a string's
 quotes from disappearing inside a container's printed notation.
@@ -205,7 +202,7 @@ notation. A `Show` instance alone does not supply `Repr`; missing instances
 are compile errors.
 
 `(snail shell write)` supplies `Repr Any` using its existing Scheme datum
-printer, so `(write datum)` replaces `(write-string (datum->string datum))`.
+printer, so `(write out datum)` replaces `(write-string out (datum->string datum))`.
 Translated Scheme's `write` uses this same operation. Foreign values in
 `Any` retain the datum printer's `#<opaque>` notation; deriving does not add
 runtime reflection. Constructor notation describes a typed value but does
@@ -214,7 +211,9 @@ not promise that the Scheme reader reconstructs its original type.
 ## Files and directories
 
 `(snail core io)` reads and writes whole files, and works on the names a
-filesystem keeps. Each path operation returns a `Result`, so a failure a
+filesystem keeps. Every operation takes an `Fs` first, the host's file
+system, which the Node target provides: `(read-file fs path)`. The table
+leaves it out. Each path operation returns a `Result`, so a failure a
 program can act on is a value: `(Err (NotFound))` for a missing path,
 `(Err (AlreadyExists))` for a name already taken. `read-file`
 and `write-file` fail the program instead; `read-text-file` and
@@ -241,8 +240,9 @@ through a file), `PermissionDenied` or `OtherError`, and `show` describes
 it. Each kind is one some program acts on; every other failure, such as
 removing a directory that is not empty or a path holding a NUL, is
 `OtherError`. A relative path is resolved against the working directory the
-host passes, which `(working-directory)` gives, or `None` on a host with no
-filesystem. `(environment-variable name)` is a variable of the environment the
+host passes, which `(working-directory environment)` gives, or `None` on a
+host with no filesystem. `(environment-variable environment name)` is a
+variable of the `ProcessEnvironment` the
 program started with, or `None` when it is unset; the host's own channel for
 the working directory, `SNAIL_CWD`, reads as unset. The runtime performs each operation through WASI preview1
 (`crates/snail-scheme-support/src/paths.rs`); a page has no preopened directory, so every
@@ -250,8 +250,9 @@ path operation there fails with `OtherError`. WASI preview1 has no file
 modes or owners; it reports device and inode numbers and a status-change
 time, but Rust's standard library exposes them on WASI only as unstable
 API, so `FileStatus` has none of these yet.
-`(monotonic-nanoseconds)`, of the `clock` effect, reads WASI's monotonic
-clock, from an origin the host chooses; only differences mean anything.
+`(monotonic-nanoseconds clock)` reads its `Clock`: the host's is WASI's
+monotonic clock, from an origin the host chooses; only differences mean
+anything.
 
 ## Loading WebAssembly
 

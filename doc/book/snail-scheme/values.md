@@ -10,7 +10,7 @@ borrows, and the compiler inserts no ownership operations.
 ## Mutable records
 
 Record fields are mutable by default. A field declaration is `(name Type)`;
-there is no per-field `mut` annotation and no separate `Ref` cell type. Local
+there is no per-field mutability annotation and no separate `Ref` cell type. Local
 bindings themselves are not reassigned. Aliases of a record observe writes to
 that record, including writes through another enclosing record.
 
@@ -18,13 +18,14 @@ that record, including writes through another enclosing record.
 (record Counter
   ((value I64)))
 
-(define (increment (counter Counter)) (→ Unit) (! mut)
+(define (increment! (counter Counter)) (→ Unit)
   (set! (● counter value) (+ (● counter value) 1)))
 ```
 
-Selecting a field is pure. Updating a field requires `mut`, even when its
-receiver was allocated locally. The compiler does not infer a mutation
-exemption from allocation locality. To exchange a field's value, read it,
+Whoever holds a record may select and update its fields: nothing in a
+signature says which a function does, so one that writes is named with a
+trailing `!`, and one that only reads is not
+([capabilities](capabilities.md#what-a-signature-does-not-say)). To exchange a field's value, read it,
 then `set!` the new one.
 
 `Name-field-set` is a pure replacement operation: it returns another record
@@ -43,16 +44,16 @@ by every reader.
 
 ## Closures
 
-`(Fn A → B ! e)` is the built-in callable type former. A closure may capture
+`(Fn A → B)` is the built-in callable type former. A closure may capture
 any value, and may be called any number of times. A named top-level function
 has no capture environment. The backend represents any closure without
 captures as an immutable global. There is no separate code pointer type,
 callable class, `FnMut`, `dyn`, or `impl` form.
 
-A control handler's `resume` is an `Fn` too, but the frames it holds run at
-most once: calling it a second time panics with `resume called twice`. An
-implementation that never calls it leaves the suspended frames to the
-collector, and nothing in them runs ([effects](effects.md#resuming-once)).
+A `with-prompt`'s `resume` is an `Fn` too, but the frames it holds run at
+most once: calling it a second time panics with `resume called twice`. A
+handler that never calls it leaves the suspended frames to the collector,
+and nothing in them runs ([suspension](suspension.md#resuming-once)).
 
 ## Resources
 

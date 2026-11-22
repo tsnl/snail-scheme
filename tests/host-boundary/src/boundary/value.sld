@@ -14,7 +14,7 @@
     (define (buffer (count I32)) (→ (Array U8))
       (make-array (i32->i64 count) (i32->u8 0)))
 
-    (define (put! (target (Array U8)) (index I32) (byte I32)) (→ Unit) (! mut)
+    (define (put! (target (Array U8)) (index I32) (byte I32)) (→ Unit)
       (array-set! target (i32->i64 index) (i32->u8 byte)))
 
     (define (finish (number I32) (bytes (Array U8))) (→ (Result Payload String))
@@ -23,9 +23,9 @@
           (Ok (new Payload (number number) (bytes (array-copy bytes))))))
 
     ;; A function that needs a capability of the target's, which the program
-    ;; exposes: its wrapper, under the target's handlers, is the program's.
-    (define (later (base I64)) (→ I64) (! clock)
-      (if (>= (monotonic-nanoseconds) 0) (+ base 1) base))
+    ;; exposes: its wrapper, which asks the target for it, is the program's.
+    (define (later (clock Clock) (base I64)) (→ I64)
+      (if (>= (monotonic-nanoseconds clock) 0) (+ base 1) base))
 
     (expose buffer "payload-buffer")
     (expose put! "payload-put")

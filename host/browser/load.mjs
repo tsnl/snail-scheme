@@ -123,7 +123,7 @@ async function readLinked({name, read}) {
 export const objectPath = digest => `store/sha256/${digest.slice(0, 2)}/${digest}`;
 const objectReader = read => digest => read(objectPath(digest));
 
-// The `resource` effect of (snail shell resource): a task starts reading a
+// The `Resources` capability of (snail shell resource): a task starts reading a
 // file by handle under its ticket (tasks.mjs), finishes the ticket for
 // the file's length, and then reads the bytes held until the next finish.
 // A file that cannot be read traps the task that finishes it.

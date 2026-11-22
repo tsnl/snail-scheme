@@ -1,11 +1,11 @@
-;; A page's document as an effect: the primitives a user interface needs to
-;; build and change it. A node is a handle the host keeps in a table, so no
+;; A page's document as a capability, `Dom`: the primitives a user
+;; interface needs to build and change it. A node is a handle the host keeps in a table, so no
 ;; host object crosses into `snail-scheme` and no closure crosses out. A
 ;; listener says, when it is made, what its events carry and which of them
 ;; the host prevents the default action of, since the host must decide both
-;; synchronously, while the event is being dispatched. The browser host
-;; binds the effect to the page; `(snail shell dom memory)` binds it to a
-;; document in memory, so an interface can be tested without one.
+;; synchronously, while the event is being dispatched. `(snail shell dom
+;; page)` makes the page's `Dom`, and `(snail shell dom memory)` one over a
+;; document in memory, so an interface can be tested without a page.
 (define-library (snail shell dom)
   (export
    Node
@@ -46,7 +46,7 @@
    shift-key
    alt-key
    meta-key
-   dom
+   Dom
    document-root
    create-element
    create-text
@@ -82,8 +82,7 @@
    next-event
    capture-bits)
   (import
-   (snail core base)
-   (only (snail shell task) tasks))
+   (snail core base))
   (begin
 
     ;; ---- Handles ----
@@ -184,7 +183,7 @@
         (checked #f)))
 
     ;; What the next event is: a listener fired, carrying what it captured;
-    ;; something performed `wake`; the page was hidden, so an interface
+    ;; something called `wake`; the page was hidden, so an interface
     ;; should keep what it would lose; or the document will fire no more.
     (enum Delivery
       (Fired ((listener Listener)
@@ -217,7 +216,7 @@
     (enum InstallResult (InstallAccepted) (InstallDismissed) (InstallNotAvailable)
           (GestureRequired) (InstallFailed) (InstallAlreadyInstalled))
 
-    ;; ---- The effect ----
+    ;; ---- The capability ----
 
     ;; An attribute set to "" is removed. A property is the node's own
     ;; field, such as an input's `value` or `checked` or an element's
@@ -226,8 +225,8 @@
     ;; there, before `before` or at the end. A text node's text is its
     ;; data; an element's is its only child. `next-event` waits for the
     ;; next delivery, in the order they happened. Only the task that runs
-    ;; the interface waits for them; any other task performs `wake` to
-    ;; have that one woken, once however many times it is performed
+    ;; the interface waits for them; any other task calls `wake` to
+    ;; have that one woken, once however many times it is called
     ;; before the wait sees it.
     ;;
     ;; A command reaches the nodes the view made by their `id` attribute,
@@ -245,7 +244,7 @@
     ;; view does: the interface's window listeners are on it, for what
     ;; reaches the whole page, such as a shortcut or the page going back
     ;; online. It has no attributes or properties.
-    (effect dom
+    (capability Dom
       ((document-root (Fn → Node))
        (create-element (Fn String → Node))
        (create-text (Fn String → Node))
@@ -264,13 +263,14 @@
        (window-node (Fn → Node))
        (confirm (Fn String → Bool))
        (installation-status (Fn → InstallationStatus))
-       (install-app (Fn → InstallResult ! tasks))
+       (install-app (Fn → InstallResult))
        (fullscreen? (Fn → Bool))
-       (set-fullscreen (Fn Bool → Bool ! tasks))
+       (set-fullscreen (Fn Bool → Bool))
        (element-by-id (Fn String → (Option Node)))
        (select-range (Fn Node I32 I32 → Unit))
        (selection-range (Fn Node → (Pair I32 I32)))
        (insert-text (Fn Node I32 I32 String → Bool))
        (measure (Fn Node → Measure))
        (wake (Fn → Unit))
-       (next-event (Fn → Delivery ! tasks))))))
+       (next-event (Fn → Delivery))))
+    ))

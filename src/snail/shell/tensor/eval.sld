@@ -180,19 +180,20 @@
     ;; Zeros, with each element of `g` at its address under `accessor`.
     (define (placed (ports (Table (Array F64))) (g View) (accessor Accessor) (count I64))
       (→ (Array F64))
-      (unsafe-total
-       (lambda ()
-         (let ((out (make-array count 0.0)))
-           (for-each (lambda (i)
-                       (let ((index (unflatten i (shape-of g))))
-                         (array-set! out
-                                     (fold-left + (● accessor offset)
-                                                (map
-                                                 (lambda (pair) (* (● pair first) (● pair second)))
-                                                 (zip index (● accessor pitch))))
-                                     (element ports g index))))
-                     (iota (element-count g)))
-           out))))
+      (let ((out (make-array count 0.0)))
+        (for-each (lambda (i)
+                    (let ((index (unflatten i (shape-of g))))
+                      (array-set! out
+                                  (fold-left + (● accessor offset)
+                                             (map
+                                              (lambda (pair)
+                                                (* (● pair first)
+                                                   (● pair second)))
+                                              (zip index
+                                                   (● accessor pitch))))
+                                  (element ports g index))))
+                  (iota (element-count g)))
+        out))
 
     (define (expt-i (base I64) (power I64)) (→ I64)
       (if (= power 0) 1 (* base (expt-i base (- power 1)))))

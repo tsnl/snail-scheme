@@ -35,14 +35,13 @@
     ;; earlier build took, trusted while each keeps its size and
     ;; modification time.
 
-    (define (source->checked (directories (List String))
+    (define (source->checked (fs Fs) (directories (List String))
                              (source String)
-                             (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
+                             (generate Generate)
                              (target (Option (List String)))
                              (known (List LinkedFile)))
       (→ Checked)
-      (! fs compile)
-      (let ((expanded (expand-program directories generate target known source)))
+      (let ((expanded (expand-program fs directories generate target known source)))
         (new Checked (expanded expanded) (typed (check-program (● expanded program))))))
 
     ;; The whole program as one module: its text, the libraries it holds,
@@ -53,16 +52,15 @@
        (libraries (List String))
        (links (List LinkedFile))))
 
-    (define (source->wat (directories (List String))
+    (define (source->wat (fs Fs) (directories (List String))
                          (source String)
-                         (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
+                         (generate Generate)
                          (target (Option (List String)))
                          (known (List LinkedFile)))
       (→ WholeProgram)
-      (! mut fs compile)
-      (checked->wat (source->checked directories source generate target known)))
+      (checked->wat (source->checked fs directories source generate target known)))
 
-    (define (checked->wat (checked Checked)) (→ WholeProgram) (! mut compile)
+    (define (checked->wat (checked Checked)) (→ WholeProgram)
       (let ((expanded (● checked expanded)))
         (new WholeProgram
           (text (wat->string (emit-module (prepare-program (● checked typed)))))

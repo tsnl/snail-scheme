@@ -1,4 +1,4 @@
-// The page's `fetch` and `EventSource` for the `fetch` effect of
+// The page's `fetch` and `EventSource` for the `Fetch` capability of
 // src/snail/shell/fetch.sld, as `with-page-fetch` in
 // src/snail/shell/fetch/page.sld calls it. A request and a stream's next
 // event are host operations of the task that asked (tasks.mjs), which the

@@ -103,32 +103,33 @@
 
 ;; ---- Reports ----
 
-(define (unary (name String) (f (Fn F64 → F64)) (range F64)) (→ Unit) (! output-port)
-  (for-each (lambda (x) (write-line (string-join (list name (show x) (show (f x))) " ")))
+(define (unary (out OutputPort) (name String) (f (Fn F64 → F64)) (range F64)) (→ Unit)
+  (for-each (lambda (x) (write-line out (string-join (list name (show x) (show (f x))) " ")))
             (specials))
-  (write-line (string-append name
-                             " sweep "
-                             (show (unary-sweep f range (+ (string-length name) 1) 0 20000)))))
+  (write-line out (string-append name
+                                 " sweep "
+                                 (show (unary-sweep f range (+ (string-length name) 1) 0 20000)))))
 
-(define (binary (name String) (f (Fn F64 F64 → F64)) (range F64)) (→ Unit) (! output-port)
+(define (binary (out OutputPort) (name String) (f (Fn F64 F64 → F64)) (range F64)) (→ Unit)
   (for-each (lambda (x)
               (for-each (lambda (y)
-                          (write-line
-                           (string-join (list name (show x) (show y) (show (f x y))) " ")))
+                          (write-line out
+                                      (string-join (list name (show x) (show y) (show (f x y)))
+                                                   " ")))
                         (exponents)))
             (specials))
-  (write-line (string-append name
-                             " sweep "
-                             (show (binary-sweep f range (+ (string-length name) 1) 0 20000)))))
+  (write-line out (string-append name
+                                 " sweep "
+                                 (show (binary-sweep f range (+ (string-length name) 1) 0 20000)))))
 
-(define (main) (→ Unit) (! output-port)
-  (unary "sin" sin 1e3)
-  (unary "cos" cos 1e3)
-  (unary "tan" tan 1e3)
-  (unary "asin" asin 1.0)
-  (unary "acos" acos 1.0)
-  (unary "atan" atan 1e3)
-  (unary "exp" exp 800.0)
-  (unary "log" log 1e3)
-  (binary "atan2" atan2 1e3)
-  (binary "expt" expt 30.0))
+(define (main (out OutputPort)) (→ Unit)
+  (unary out "sin" sin 1e3)
+  (unary out "cos" cos 1e3)
+  (unary out "tan" tan 1e3)
+  (unary out "asin" asin 1.0)
+  (unary out "acos" acos 1.0)
+  (unary out "atan" atan 1e3)
+  (unary out "exp" exp 800.0)
+  (unary out "log" log 1e3)
+  (binary out "atan2" atan2 1e3)
+  (binary out "expt" expt 30.0))

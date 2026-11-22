@@ -13,54 +13,54 @@
     ((Pinch ratio) (string-append "pinch " (show ratio)))))
 
 ;; Feeds the inputs in order and prints what each one meant.
-(define (play (name String) (inputs (List Input))) (→ Unit) (! output-port)
-  (write-line (string-append name ": "
-                             (string-join (● (fold-left (lambda (state input)
-                                                          (match (recognize
-                                                                  (● state first)
-                                                                  input)
-                                                            ((Pair gestures meanings)
-                                                             (new Pair (first gestures)
-                                                                  (second (append
-                                                                           (● state second)
-                                                                           (map gesture-text
-                                                                                meanings)))))))
-                                                        (new Pair
-                                                          (first no-gestures)
-                                                          (second (Nil)))
-                                                        inputs)
-                                             second)
-                                          "; "))))
+(define (play (out OutputPort) (name String) (inputs (List Input))) (→ Unit)
+  (write-line out (string-append name ": "
+                                 (string-join (● (fold-left (lambda (state input)
+                                                              (match (recognize
+                                                                      (● state first)
+                                                                      input)
+                                                                ((Pair gestures meanings)
+                                                                 (new Pair (first gestures)
+                                                                      (second (append
+                                                                               (● state second)
+                                                                               (map gesture-text
+                                                                                    meanings)))))))
+                                                            (new Pair
+                                                              (first no-gestures)
+                                                              (second (Nil)))
+                                                            inputs)
+                                                 second)
+                                              "; "))))
 
-(define (main) (→ Unit) (! output-port)
+(define (main (out OutputPort)) (→ Unit)
 
-  (play "pointing" (list (PointerMove 1 10 10) (PointerMove 1 12 11)))
-  (play "tap" (list (PointerDown 1 10 10 0) (PointerMove 1 13 12) (PointerUp 1 13 12)))
-  (play "right tap" (list (PointerDown 1 10 10 2) (PointerUp 1 10 10)))
-  (play "drag"
+  (play out "pointing" (list (PointerMove 1 10 10) (PointerMove 1 12 11)))
+  (play out "tap" (list (PointerDown 1 10 10 0) (PointerMove 1 13 12) (PointerUp 1 13 12)))
+  (play out "right tap" (list (PointerDown 1 10 10 2) (PointerUp 1 10 10)))
+  (play out "drag"
         (list (PointerDown 1 10 10 0)
               (PointerMove 1 15 10)
               (PointerMove 1 20 10)
               (PointerMove 1 24 13)
               (PointerUp 1 24 13)))
-  (play "pinch"
+  (play out "pinch"
         (list (PointerDown 1 0 0 0)
               (PointerDown 2 100 0 0)
               (PointerMove 2 50 0)
               (PointerMove 1 -50 0)
               (PointerUp 2 50 0)
               (PointerUp 1 -50 0)))
-  (play "cancel"
+  (play out "cancel"
         (list (PointerDown 1 10 10 0)
               (PointerCancel 1)
               (PointerUp 1 10 10)
               (PointerMove 1 11 11)))
-  (play "lifting a finger from a pinch"
+  (play out "lifting a finger from a pinch"
         (list (PointerDown 1 0 0 0)
               (PointerDown 2 100 0 0)
               (PointerUp 2 100 0)
               (PointerMove 1 40 0)
               (PointerUp 1 40 0)))
-  (play "a press that never released"
+  (play out "a press that never released"
         (list (PointerDown 1 0 0 0) (PointerDown 1 50 50 0) (PointerUp 1 51 50)))
   (unit))

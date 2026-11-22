@@ -39,26 +39,26 @@
           (tiles? rest (● token end) end)))
     ((Nil) (= index end))))
 
-(define (show-tokens (text String)) (→ Unit) (! output-port)
+(define (show-tokens (out OutputPort) (text String)) (→ Unit)
   (let* ((chars (string->array text)) (tokens (highlight-tokens text)))
     (unless (and (tiles? tokens 0 (array-length chars))
                  (string=?
                   (string-concatenate (map (lambda (token) (token-text chars token)) tokens))
                   text))
       (panic (string-append "the tokens do not tile " (quoted text))))
-    (write-line (quoted text))
-    (write-line (string-append "  "
-                               (string-join (map (lambda (token)
-                                                   (string-append (class-name (● token class))
-                                                                  ":"
-                                                                  (quoted
-                                                                   (token-text chars token))))
-                                                 tokens)
-                                            " ")))))
+    (write-line out (quoted text))
+    (write-line out (string-append "  "
+                                   (string-join (map (lambda (token)
+                                                       (string-append (class-name (● token class))
+                                                                      ":"
+                                                                      (quoted
+                                                                       (token-text chars token))))
+                                                     tokens)
+                                                " ")))))
 
-(define (show-reading (text String)) (→ Unit) (! output-port)
-  (show-tokens text)
-  (write-line (string-append "  read: " (reading text))))
+(define (show-reading (out OutputPort) (text String)) (→ Unit)
+  (show-tokens out text)
+  (write-line out (string-append "  read: " (reading text))))
 
 ;; The forms the reader makes of `text`, or the error it stops with.
 (define (reading (text String)) (→ String)
@@ -67,34 +67,34 @@
     ((Err (Failed diagnostics)) (diagnostics->string diagnostics))
     ((Err (Requested _)) "the reader asked for an input")))
 
-(define (main) (→ Unit) (! output-port)
+(define (main (out OutputPort)) (→ Unit)
   ;; ---- Samples ----
 
   ;; A definition's name, a comment, a number and the core forms.
-  (show-reading "(define (twice (x I64)) (→ I64) ; doubles\n  (* 2 x))")
-  (show-reading "(define label (→ String) \"label\")")
-  (show-reading "(define (adder (n I64)) (→ (Fn I64 → I64)) (lambda (x) (+ n x)))")
-  (show-reading "(record Point ((x F64)) (deriving Show)) (match p ((Point x) x) (_ 0))")
-  (show-reading
-   "(effect ask ((ctl ask (Fn → I64)))) (handle ask ((ask (lambda (resume) (resume 1)))) body)")
+  (show-reading out "(define (twice (x I64)) (→ I64) ; doubles\n  (* 2 x))")
+  (show-reading out "(define label (→ String) \"label\")")
+  (show-reading out "(define (adder (n I64)) (→ (Fn I64 → I64)) (lambda (x) (+ n x)))")
+  (show-reading out "(record Point ((x F64)) (deriving Show)) (match p ((Point x) x) (_ 0))")
+  (show-reading out
+                "(define asking (make-prompt)) (with-prompt asking body (lambda (value resume) (resume 1)))")
   ;; Block comments nest.
-  (show-reading "#| outer #| inner |# still outer |#x")
+  (show-reading out "#| outer #| inner |# still outer |#x")
   ;; Escapes stay inside their string; `#\` takes the character after it,
   ;; whatever it is.
-  (show-reading "\"line\\n quote\\\" slash\\\\ \\x41;\" #\\( #\\space #\\x41 #\\)")
+  (show-reading out "\"line\\n quote\\\" slash\\\\ \\x41;\" #\\( #\\space #\\x41 #\\)")
   ;; Byte arrays, quotes, booleans and numbers; `+x` is a name.
-  (show-reading "#u8(0 255) 'x '(a b) #t #false 1.5e3 -7 +x")
+  (show-reading out "#u8(0 255) 'x '(a b) #t #false 1.5e3 -7 +x")
   ;; `#;` comments out the datum after it, and two of them two data. A
   ;; commented list runs to its own closing bracket, past the comments, the
   ;; strings and the `#;` inside it.
-  (show-reading "#;(skip me) kept #; #; a 'b c")
-  (show-reading "(f #;(a ; note\n #;b \"(\" c) d)")
+  (show-reading out "#;(skip me) kept #; #; a 'b c")
+  (show-reading out "(f #;(a ; note\n #;b \"(\" c) d)")
   ;; A delimiter ends a token wherever it is: the quote mark in `x'y`, the
   ;; string after `"s"`, and the comment after `a`.
-  (show-reading "(x'y \"s\"t #\\) a;b\n[c])")
+  (show-reading out "(x'y \"s\"t #\\) a;b\n[c])")
   ;; What the reader rejects still classifies.
-  (show-tokens ". #foo (a) ]")
-  (show-tokens "\"unterminated\n(still a string")
-  (show-tokens "#| unterminated")
-  (show-tokens "(#; )")
+  (show-tokens out ". #foo (a) ]")
+  (show-tokens out "\"unterminated\n(still a string")
+  (show-tokens out "#| unterminated")
+  (show-tokens out "(#; )")
   (unit))

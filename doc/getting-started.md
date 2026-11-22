@@ -120,6 +120,6 @@ make test-gpu      # the GPU checks on Node, on the machine's GPU or on lavapipe
 CI runs the first three, `make test-gpu` on lavapipe, Mesa's Vulkan on the
 CPU, and `cargo fmt --check` on the crate. A change to
 the compiler also needs `make bootstrap`, a change
-to the browser host `make test-browser`, and a change to the `gpu` effect's
+to the browser host `make test-browser`, and a change to the `Gpu`'s
 hosts or the graphics and tensor libraries both browser and GPU checks. The [tour](book/snail-scheme/compilers.md)
 introduces the compiler.

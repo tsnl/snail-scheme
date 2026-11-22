@@ -12,37 +12,56 @@
 ;; threads, so the next steps' photographs come while a step trains.
 (import
  (snail core base)
- (only (snail core io) fs command-line read-bytes write-bytes write-line output-port)
- (only (snail shell task) tasks)
- (only (snail shell gpu) provide-gpu request-device)
- (only (snail shell async-files) files read-file TooLarge)
+ (only (snail core io) Host Arguments Fs command-line read-bytes write-bytes write-line OutputPort)
+ (only (snail shell gpu) host-gpu request-device)
+ (only (snail shell async-files) Files read-file TooLarge)
  (only (snail shell graphics ply) write-ply)
  (apps train dataset)
- (apps train trainer))
+ (apps train trainer)
+ (only (snail core io) Clock))
 
 ;; A file of the dataset. One within the 16 MiB a waiting read allows, as
 ;; every photograph is, is read while the other tasks run; a larger one,
 ;; as the dataset's list of images may be, at once.
-(define (read (path String)) (→ Bytes) (! files fs tasks)
-  (match (read-file path 16777216)
+(define (read (files Files) (fs Fs) (path String)) (→ Bytes)
+  (match (read-file files path 16777216)
     ((Ok bytes) bytes)
-    ((Err (TooLarge)) (read-bytes path))
+    ((Err (TooLarge)) (read-bytes fs path))
     ((Err _) (panic (string-append "cannot read " path)))))
 
-(provide-gpu
- (lambda ()
-   (request-device)
-   (let* ((address (string-append "?" (string-join (list-tail (command-line) 1) "&")))
-          (settings (settings-of address))
-          (cloud (setting address "cloud")))
-     (match cloud
-       ((Some path) (write-bytes path (make-array 0 (i32->u8 0))))
-       ((None) (unit)))
-     (let ((trained (handle photographs
-                        ((photograph (lambda (image) (dataset-photograph read settings image))))
-                      (train (dataset-scene read settings) (● settings options) shown-nowhere))))
-       (match cloud
-         ((Some path)
-          (write-bytes path (write-ply (trained-cloud trained)))
-          (write-line (string-append "kept the cloud in " path)))
-         ((None) (unit)))))))
+(define (main
+         (host Host)
+         (arguments Arguments)
+         (files Files)
+         (fs Fs)
+         (clock Clock)
+         (out OutputPort))
+  (→ Unit)
+  (let ((gpu (host-gpu host)))
+    (request-device gpu)
+    (let* ((address (string-append "?" (string-join (list-tail (command-line arguments) 1) "&")))
+           (settings (settings-of address))
+           (cloud (setting address "cloud")))
+      (match cloud
+        ((Some path) (write-bytes fs path (make-array 0 (i32->u8 0))))
+        ((None) (unit)))
+      (let ((trained (let ((photographs (new Photographs
+                                          (photograph (lambda (image)
+                                                        (dataset-photograph gpu
+                                                                            (lambda (path)
+                                                                              (read files fs path))
+                                                                            settings
+                                                                            image))))))
+                       (train photographs
+                              gpu
+                              clock
+                              out
+                              (dataset-scene gpu (lambda (path) (read files fs path)) settings)
+                              (● settings options)
+                              shown-nowhere))))
+        (match cloud
+          ((Some path)
+           (write-bytes fs path (write-ply (trained-cloud gpu trained)))
+           (write-line out (string-append "kept the cloud in " path)))
+          ((None) (unit))))))
+  (unit))

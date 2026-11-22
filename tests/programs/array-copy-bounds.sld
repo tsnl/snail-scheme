@@ -2,7 +2,7 @@
  (snail core base)
  (snail core io))
 
-(define (main) (→ Unit) (! mut output-port)
+(define (main (out OutputPort)) (→ Unit)
   (let ((items (make-array 1 1)))
-    (write-line "before")
+    (write-line out "before")
     (array-copy! items 1 items 0 1)))

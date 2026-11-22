@@ -19,54 +19,57 @@
     ((Ok world) world)
     ((Err rejection) (panic (rejection-text rejection)))))
 
-(define (report (world World)) (→ Unit) (! output-port)
+(define (report (out OutputPort) (world World)) (→ Unit)
   (let ((ledger (● world ledger)))
-    (write-line (string-join (list (string-append "tick " (show (● world tick)))
-                                   (string-append "energy " (show (● world energy)))
-                                   (string-append "produced " (show (● ledger produced)))
-                                   (string-append "spent " (show (● ledger spent)))
-                                   (string-append "balanced "
-                                                  (show (= (● world energy)
-                                                           (- (+ starting-energy
-                                                                 (● ledger produced))
-                                                              (● ledger spent))))))
-                             ", "))))
+    (write-line out (string-join (list (string-append "tick " (show (● world tick)))
+                                       (string-append "energy " (show (● world energy)))
+                                       (string-append "produced " (show (● ledger produced)))
+                                       (string-append "spent " (show (● ledger spent)))
+                                       (string-append "balanced "
+                                                      (show (= (● world energy)
+                                                               (- (+ starting-energy
+                                                                     (● ledger produced))
+                                                                  (● ledger spent))))))
+                                 ", "))))
 
 (define (reserve (world World) (cell Cell)) (→ I64)
   (match (crystal-at world cell)
     ((Some crystal) (● crystal reserve))
     ((None) 0)))
 
-(define (main) (→ Unit) (! output-port)
+(define (main (out OutputPort)) (→ Unit)
 
   (let ()
     (define world (new-world 3))
     (define starter (● (● world land) starter))
-    (report world)
-    (write-line (string-append "advancing before the first order changes nothing: "
-                               (show (= (● (run world 50) tick) 0))))
+    (report out world)
+    (write-line out (string-append "advancing before the first order changes nothing: "
+                                   (show (= (● (run world 50) tick) 0))))
     (define world (order world (Build (Extractor) starter #f)))
-    (write-line (string-append "the first extractor is ready at once: "
-                               (show (match (building-at world starter)
-                                       ((Some b) (built? b))
-                                       ((None) #f)))))
+    (write-line out (string-append "the first extractor is ready at once: "
+                                   (show (match (building-at world starter)
+                                           ((Some b) (built? b))
+                                           ((None) #f)))))
     (define world (run world 100))
-    (report world)
-    (write-line (string-append "starter reserve " (show (reserve world starter))))
+    (report out world)
+    (write-line out (string-append "starter reserve " (show (reserve world starter))))
     (define world (order world (Upgrade starter)))
     (define world (run world 100))
-    (report world)
+    (report out world)
     (define world (run world 100))
-    (report world)
+    (report out world)
     (define world (order world (Build (Pylon) (new Cell (x 39) (y 46)) #f)))
     (define world (run world 60))
-    (report world)
+    (report out world)
     (define world (order world (Scavenge (new Cell (x 39) (y 46)))))
-    (report world)
-    (write-line (string-append "buildings " (show (length (● world buildings)))))
+    (report out world)
+    (write-line out (string-append "buildings " (show (length (● world buildings)))))
     (define damaged (World-hub-set world (Hub-health-set (● world hub) 421)))
     (define repaired (order damaged (Repair)))
-    (write-line
-     (string-append "repair restores the hub from 421 to " (show (● (● repaired hub) health))
-                    " for " (show (- (● damaged energy) (● repaired energy))) " energy")))
+    (write-line out
+                (string-append "repair restores the hub from 421 to "
+                               (show (● (● repaired hub) health))
+                               " for "
+                               (show (- (● damaged energy) (● repaired energy)))
+                               " energy")))
   (unit))

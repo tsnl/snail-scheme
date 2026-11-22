@@ -1,4 +1,4 @@
-// The `gpu` effect's host, as (snail shell gpu) calls it: the page's
+// The `Gpu` capability's host, as (snail shell gpu) calls it: the page's
 // WebGPU device, or Dawn's on Node (host/native/gpu.mjs), and the objects
 // the program made on it, each by the id this file gave it when it made
 // it. The program keeps an object as long

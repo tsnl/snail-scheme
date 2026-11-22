@@ -12,13 +12,13 @@
 
 (record Work
   ((label String)
-   (job (Fn → Unit ! output-port))))
+   (job (Fn → Unit))))
 
 (record Empty
   ())
 
-(define (marked (label String) (value I64)) (→ I64) (! output-port)
-  (write-line label)
+(define (marked (out OutputPort) (label String) (value I64)) (→ I64)
+  (write-line out label)
   value)
 
 ;; The expected result constrains a callback before its body is checked.
@@ -38,16 +38,16 @@
   (syntax-rules ()
     ((_) (new Point (y 0) (x 0)))))
 
-(define (main) (→ Unit) (! output-port)
-  (let ((point (new Point (y (marked "y first" 20)) (x (marked "x second" 10)))))
-    (write-line (i64->string (● point x)))
-    (write-line (i64->string (● point y))))
-  (let ((value (runner))) (write-line (i64->string ((● value run) (● value value)))))
-  (write-line (i64->string (inferred)))
-  (write-line (● (new Duo (second 1) (first "renamed")) first))
-  (write-line (i64->string (● (at-origin) x)))
-  (match (new Empty) ((Empty) (write-line "empty")))
+(define (main (out OutputPort)) (→ Unit)
+  (let ((point (new Point (y (marked out "y first" 20)) (x (marked out "x second" 10)))))
+    (write-line out (i64->string (● point x)))
+    (write-line out (i64->string (● point y))))
+  (let ((value (runner))) (write-line out (i64->string ((● value run) (● value value)))))
+  (write-line out (i64->string (inferred)))
+  (write-line out (● (new Duo (second 1) (first "renamed")) first))
+  (write-line out (i64->string (● (at-origin) x)))
+  (match (new Empty) ((Empty) (write-line out "empty")))
   (match (new Work
-           (job (lambda () (write-line "ran the job")))
+           (job (lambda () (write-line out "ran the job")))
            (label "work"))
-    ((Work label job) (write-line label) (job))))
+    ((Work label job) (write-line out label) (job))))

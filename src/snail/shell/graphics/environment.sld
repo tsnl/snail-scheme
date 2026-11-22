@@ -174,31 +174,31 @@
 
     ;; The environment of an HDR file, averaged down by a whole factor to
     ;; at most `max-width` across.
-    (define (hdr-environment (hdr Hdr) (max-width I64)) (→ Environment) (! gpu)
+    (define (hdr-environment (gpu Gpu) (hdr Hdr) (max-width I64)) (→ Environment)
       (let* ((factor (quotient (+ (● hdr width) (- max-width 1)) max-width))
              (width (quotient (● hdr width) factor))
              (height (quotient (● hdr height) factor))
-             (file (filled "environment/file" (padded (● hdr bytes))))
-             (rows (filled "environment/rows" (● hdr rows)))
-             (rgbe (storage "environment/rgbe" (* 4 (* (● hdr width) (● hdr height)))))
-             (radiance (plane "environment/radiance" width height (Rgba32Float)))
-             (uniform (shape-uniform (sized hdr width height factor)))
-             (kernels (environment-kernels)))
-        (let* ((encoder (create-command-encoder)) (pass (begin-compute-pass encoder)))
-          (bound pass
+             (file (filled gpu "environment/file" (padded (● hdr bytes))))
+             (rows (filled gpu "environment/rows" (● hdr rows)))
+             (rgbe (storage gpu "environment/rgbe" (* 4 (* (● hdr width) (● hdr height)))))
+             (radiance (plane gpu "environment/radiance" width height (Rgba32Float)))
+             (uniform (shape-uniform gpu (sized hdr width height factor)))
+             (kernels (environment-kernels gpu)))
+        (let* ((encoder (create-command-encoder gpu)) (pass (begin-compute-pass gpu encoder)))
+          (bound gpu pass
                  kernels
                  "unrle"
                  (list (buffer 0 file) (buffer 1 rows) (buffer 2 rgbe) (buffer 3 uniform)))
-          (dispatch-items pass (● hdr height) 64)
-          (bound pass
+          (dispatch-items gpu pass (● hdr height) 64)
+          (bound gpu pass
                  kernels
                  "downsample"
                  (list (buffer 2 rgbe) (buffer 3 uniform) (TextureEntry 4 (● radiance view))))
-          (dispatch-texels pass (i64->i32 width) (i64->i32 height))
-          (end-compute-pass pass)
-          (submit (list (finish encoder))))
-        (for-each (lambda (spent) (destroy (BufferObject spent))) (list file rows rgbe uniform))
-        (with-table kernels radiance width height)))
+          (dispatch-texels gpu pass (i64->i32 width) (i64->i32 height))
+          (end-compute-pass gpu pass)
+          (submit gpu (list (finish gpu encoder))))
+        (for-each (lambda (spent) (destroy gpu (BufferObject spent))) (list file rows rgbe uniform))
+        (with-table gpu kernels radiance width height)))
 
     (define (sized (hdr Hdr) (width I64) (height I64) (factor I64)) (→ EnvironmentShape)
       (new EnvironmentShape
@@ -217,63 +217,66 @@
     (define (zero) (→ Vec4f) (new Vec4f (x 0.0) (y 0.0) (z 0.0) (w 0.0)))
 
     ;; A sky drawn `width` texels across and half as tall.
-    (define (sky-environment (sky Sky) (width I64)) (→ Environment) (! gpu)
+    (define (sky-environment (gpu Gpu) (sky Sky) (width I64)) (→ Environment)
       (let* ((height (quotient width 2))
-             (radiance (plane "environment/radiance" width height (Rgba32Float)))
-             (uniform (shape-uniform (new EnvironmentShape
-                                       (size (new Vec4i
-                                               (x 0)
-                                               (y 0)
-                                               (z (i64->i32 width))
-                                               (w (i64->i32 height))))
-                                       (factor (new Vec4i (x 1) (y 0) (z 0) (w 0)))
-                                       (sun (● sky sun))
-                                       (sun-light (● sky sun-light))
-                                       (zenith (● sky zenith))
-                                       (horizon (● sky horizon))
-                                       (ground (● sky ground)))))
-             (kernels (environment-kernels)))
-        (let* ((encoder (create-command-encoder)) (pass (begin-compute-pass encoder)))
-          (bound pass kernels "sky" (list (buffer 3 uniform) (TextureEntry 4 (● radiance view))))
-          (dispatch-texels pass (i64->i32 width) (i64->i32 height))
-          (end-compute-pass pass)
-          (submit (list (finish encoder))))
-        (destroy (BufferObject uniform))
-        (with-table kernels radiance width height)))
+             (radiance (plane gpu "environment/radiance" width height (Rgba32Float)))
+             (uniform (shape-uniform gpu (new EnvironmentShape
+                                           (size (new Vec4i
+                                                   (x 0)
+                                                   (y 0)
+                                                   (z (i64->i32 width))
+                                                   (w (i64->i32 height))))
+                                           (factor (new Vec4i (x 1) (y 0) (z 0) (w 0)))
+                                           (sun (● sky sun))
+                                           (sun-light (● sky sun-light))
+                                           (zenith (● sky zenith))
+                                           (horizon (● sky horizon))
+                                           (ground (● sky ground)))))
+             (kernels (environment-kernels gpu)))
+        (let* ((encoder (create-command-encoder gpu)) (pass (begin-compute-pass gpu encoder)))
+          (bound gpu
+                 pass
+                 kernels
+                 "sky"
+                 (list (buffer 3 uniform) (TextureEntry 4 (● radiance view))))
+          (dispatch-texels gpu pass (i64->i32 width) (i64->i32 height))
+          (end-compute-pass gpu pass)
+          (submit gpu (list (finish gpu encoder))))
+        (destroy gpu (BufferObject uniform))
+        (with-table gpu kernels radiance width height)))
 
     ;; The radiance with its table: each row's distribution, then the
     ;; rows'.
-    (define (with-table (kernels (List (Pair String GpuComputePipeline)))
+    (define (with-table (gpu Gpu) (kernels (List (Pair String GpuComputePipeline)))
                         (radiance Plane)
                         (width I64)
                         (height I64))
       (→ Environment)
-      (! gpu)
-      (let* ((table (plane "environment/table" (+ width 1) (+ height 1) (R32Float)))
-             (sums (storage "environment/sums" (* 4 height)))
+      (let* ((table (plane gpu "environment/table" (+ width 1) (+ height 1) (R32Float)))
+             (sums (storage gpu "environment/sums" (* 4 height)))
              (entries (list (TextureEntry 5 (● radiance view))
                             (buffer 6 sums)
                             (TextureEntry 7 (● table view)))))
-        (let* ((encoder (create-command-encoder)) (pass (begin-compute-pass encoder)))
-          (bound pass kernels "weigh" entries)
-          (dispatch-items pass height 64)
-          (bound pass kernels "marginal" entries)
-          (dispatch-workgroups pass 1 1 1)
-          (end-compute-pass pass)
-          (submit (list (finish encoder))))
-        (destroy (BufferObject sums))
-        (for-each (lambda (named) (destroy (ComputePipelineObject (● named second)))) kernels)
+        (let* ((encoder (create-command-encoder gpu)) (pass (begin-compute-pass gpu encoder)))
+          (bound gpu pass kernels "weigh" entries)
+          (dispatch-items gpu pass height 64)
+          (bound gpu pass kernels "marginal" entries)
+          (dispatch-workgroups gpu pass 1 1 1)
+          (end-compute-pass gpu pass)
+          (submit gpu (list (finish gpu encoder))))
+        (destroy gpu (BufferObject sums))
+        (for-each (lambda (named) (destroy gpu (ComputePipelineObject (● named second)))) kernels)
         (new Environment (radiance radiance) (table table))))
 
-    (define (release-environment (environment Environment)) (→ Unit) (! gpu)
-      (for-each release-plane (list (● environment radiance) (● environment table))))
+    (define (release-environment (gpu Gpu) (environment Environment)) (→ Unit)
+      (for-each (lambda (plane) (release-plane gpu plane))
+                (list (● environment radiance) (● environment table))))
 
     ;; Group 2 of `pipeline`, a kernel that includes
     ;; `environment-light-shader`.
-    (define (environment-group (pipeline GpuComputePipeline) (environment Environment))
+    (define (environment-group (gpu Gpu) (pipeline GpuComputePipeline) (environment Environment))
       (→ GpuBindGroup)
-      (! gpu)
-      (kernel-group pipeline
+      (kernel-group gpu pipeline
                     2
                     "environment"
                     (list (TextureEntry 0 (● environment radiance view))
@@ -281,50 +284,50 @@
 
     ;; ---- Kernels ----
 
-    (define (environment-kernels) (→ (List (Pair String GpuComputePipeline))) (! gpu)
-      (let ((module (create-shader-module (new ShaderModuleDescriptor
-                                            (label "environment")
-                                            (code (string-append (declarations shape-shape)
-                                                                 environment-shader))))))
+    (define (environment-kernels (gpu Gpu)) (→ (List (Pair String GpuComputePipeline)))
+      (let ((module (create-shader-module gpu (new ShaderModuleDescriptor
+                                                (label "environment")
+                                                (code (string-append (declarations shape-shape)
+                                                                     environment-shader))))))
         (map (lambda (entry)
-               (new Pair (first entry) (second (compute-kernel module "environment" entry))))
+               (new Pair (first entry) (second (compute-kernel gpu module "environment" entry))))
              (list "unrle" "downsample" "sky" "weigh" "marginal"))))
 
     ;; The kernel `entry` set over `entries`, for the dispatch that
     ;; follows; its group goes at the submit.
-    (define (bound (pass GpuComputePass)
+    (define (bound (gpu Gpu) (pass GpuComputePass)
                    (kernels (List (Pair String GpuComputePipeline)))
                    (entry String)
                    (entries (List BindGroupEntry)))
       (→ Unit)
-      (! gpu)
       (let* ((kernel (match (assoc-ref kernels entry)
                        ((Some kernel) kernel)
                        ((None) (panic (string-append "environment: no kernel " entry)))))
-             (group (kernel-group kernel 0 (string-append "environment/" entry) entries)))
-        (set-compute-pipeline pass kernel)
-        (set-compute-bind-group pass 0 group)
-        (destroy (BindGroupObject group))))
+             (group (kernel-group gpu kernel 0 (string-append "environment/" entry) entries)))
+        (set-compute-pipeline gpu pass kernel)
+        (set-compute-bind-group gpu pass 0 group)
+        (destroy gpu (BindGroupObject group))))
 
     (define (buffer (binding I32) (b GpuBuffer)) (→ BindGroupEntry) (BufferEntry binding b 0 0))
 
-    (define (shape-uniform (s EnvironmentShape)) (→ GpuBuffer) (! gpu)
-      (uniform-buffer "environment/shape" (pod-bytes shape-shape s)))
+    (define (shape-uniform (gpu Gpu) (s EnvironmentShape)) (→ GpuBuffer)
+      (uniform-buffer gpu "environment/shape" (pod-bytes shape-shape s)))
 
-    (define (storage (label String) (size I64)) (→ GpuBuffer) (! gpu)
-      (storage-buffer label size (list (CopyDst))))
+    (define (storage (gpu Gpu) (label String) (size I64)) (→ GpuBuffer)
+      (storage-buffer gpu label size (list (CopyDst))))
 
-    (define (filled (label String) (bytes Bytes)) (→ GpuBuffer) (! gpu)
-      (let ((b (storage label (array-length bytes))))
-        (write-buffer b 0 bytes)
+    (define (filled (gpu Gpu) (label String) (bytes Bytes)) (→ GpuBuffer)
+      (let ((b (storage gpu label (array-length bytes))))
+        (write-buffer gpu b 0 bytes)
         b))
 
     (define (padded (bytes Bytes)) (→ Bytes)
       (let ((extra (remainder (- 4 (remainder (array-length bytes) 4)) 4)))
         (if (= extra 0) bytes (array-append bytes (make-array extra (i32->u8 0))))))
 
-    (define (plane (label String) (width I64) (height I64) (format TextureFormat)) (→ Plane) (! gpu)
-      (make-plane label
+    (define (plane (gpu Gpu) (label String) (width I64) (height I64) (format TextureFormat))
+      (→ Plane)
+      (make-plane gpu label
                   (i64->i32 width)
                   (i64->i32 height)
                   format

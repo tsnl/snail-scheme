@@ -1,11 +1,13 @@
 (define-library (control signal)
   (export
-   Signal
+   signalling
    signal)
   (import
    (snail core base))
   (begin
-    ;; A control operation declared in one library, handled in a second
-    ;; and performed in a third.
-    (effect Signal
-      ((ctl signal (Fn I64 → Unit))))))
+    ;; A prompt made in one library, caught in a second and suspended to in
+    ;; a third.
+    (define signalling (→ (Prompt I64 Unit)) (make-prompt))
+
+    (define (signal (value I64)) (→ Unit)
+      (suspend signalling value))))

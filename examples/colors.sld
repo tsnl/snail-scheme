@@ -42,7 +42,7 @@
       ((Primary value) (to-hex value))
       ((Rgb value) (to-hex value)))))
 
-(define (main) (→ Unit) (! output-port)
-  (for-each (lambda (color) (write-line (to-hex color)))
+(define (main (out OutputPort)) (→ Unit)
+  (for-each (lambda (color) (write-line out (to-hex color)))
             (list (Primary (Red)) (Rgb (new Vec3 (x 255) (y 160) (z 0))) (Primary (Blue))))
   (unit))

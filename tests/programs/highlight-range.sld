@@ -12,7 +12,7 @@
                  (string=? (substring text (● range first) (● range second)) marked))
       (panic (string-append "unexpected display range at " (show point) " in " text)))))
 
-(define (main) (→ Unit) (! output-port)
+(define (main (out OutputPort)) (→ Unit)
   ;; Whole tokens, including a point inside an astral character or a string.
   (check-range "alpha beta" 2 0 "alpha")
   (check-range "α😀name rest" 1 0 "α😀name")
@@ -47,5 +47,5 @@
   (check-range "' #| comment |#" 0 0 "' #| comment |#")
   (check-range "' ) next" 0 0 "' ")
   (check-range "(#; ) next" 0 0 "(#; )")
-  (write-line "lexical display ranges passed")
+  (write-line out "lexical display ranges passed")
   (unit))

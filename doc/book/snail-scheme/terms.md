@@ -19,8 +19,8 @@ Import sets may use `only`, `except`, `prefix` and `rename`.
 (define (fibonacci (n I64)) (→ I64)
   (if (< n 2) n (+ (fibonacci (- n 1)) (fibonacci (- n 2)))))
 
-(define (main) (→ Unit) (! output-port)
-  (write-line (show (fibonacci 30))))
+(define (main (out OutputPort)) (→ Unit)
+  (write-line out (show (fibonacci 30))))
 ```
 
 A script's imports resolve under the `src/` of its workspace, the nearest folder above it that holds one, then the standard libraries'.
@@ -56,8 +56,8 @@ those bytes as a byte literal in its generated library.
 
 | Form | Meaning |
 | --- | --- |
-| `(define name [(→ Type)] value)` | Value definition. At top level the initializer runs at most once, on the first read, and performs no effect ([top-level values](types.md#top-level-values)). |
-| `(define (name (param type) ...) (→ Result) [header ...] body ...)` | Typed function definition, shorthand for `(define name (lambda ((param type) ...) (→ Result) [header ...] body ...))`. Optional effect, generic and constraint clauses precede the body. |
+| `(define name [(→ Type)] value)` | Value definition. At top level the initializer runs at most once, on the first read ([top-level values](types.md#top-level-values)). |
+| `(define (name (param type) ...) (→ Result) [header ...] body ...)` | Typed function definition, shorthand for `(define name (lambda ((param type) ...) (→ Result) [header ...] body ...))`. Optional generic and constraint clauses precede the body. |
 | `(lambda (param ...) body ...)`, `(lambda ((param type) ...) (→ Result) [header ...] body ...)` | Function with a fixed number of parameters. It takes a definition's whole header, or annotates nothing and has its type inferred. |
 | `(if test then [else])` | `test` is `Bool`; without `else` the result is `Unit`. |
 | `(begin form ...)` | A body: definitions and expressions in order. |
@@ -75,15 +75,17 @@ those bytes as a byte literal in its generated library.
 | `(type (Name param ...) type)` | Transparent alias. |
 | `(typeclass (Class param ...) (declare (method ...) ...) ...)` | Class of types with methods. |
 | `(instance (Class type ...) [(⊨ constraint ...)] (define ...) ...)` | Instance. |
-| `(effect Name ((operation type) ...))` | Effect with operations, which only a handler answers: the program's or its target's. `(ctl operation type)` declares a control operation ([effects and handlers](effects.md)). |
-| `(handle Name ((operation implementation) ...) body ...)` | Handles an effect for the extent of `body`; a control operation's implementation also takes `resume`. |
-| `(extern name "module" "symbol" type)` | Wasm import, asserted total. |
+| `(make-prompt)`, `(with-prompt prompt body handler)`, `(suspend prompt value)` | Functions, not forms: a prompt, the call that catches its suspensions, and a suspension ([suspension](suspension.md)). |
+| `(extern name "module" "symbol" type)` | Wasm import, its type asserted. |
 | `(primitive name type)` | An operation the backend implements, bound to the global `prim:name`. Accepted only in `(snail core primitive)`. |
 | `(expose name "symbol")` | Exports a monomorphic top-level function to the host; its arguments and result must be unrestricted. |
 | `(define-syntax name (syntax-rules (literal ...) (pattern template) ...))` | Hygienic macro. |
 
 `(snail core base)` adds `let*`, `letrec`, `cond`, `case`, `when`, `unless`, `and`,
-`or`, `do`, `list`, `string` and a variadic `string-append` as macros.
+`or`, `do`, `list`, `string` and a variadic `string-append` as macros. So is
+`(capability Name ((operation (Fn A ... → B)) ...))`, which declares the
+record `Name` and, for each field, the function `(operation name a ...)`
+that calls the record's own ([capabilities](capabilities.md#a-capability-is-a-value)).
 
 ### Bodies and scope
 
@@ -98,9 +100,8 @@ uses macros (`list`, `string-append`) or lists.
 ## Cached functions
 
 `cache` and `lru-cache` wrap ordinary functions, including lambdas. They preserve
-all argument types, the result type and the effect row; they work at any fixed
-arity. The callback expression is evaluated once, and evaluating it may itself
-perform effects.
+all argument types and the result type; they work at any fixed
+arity. The callback expression is evaluated once.
 Each wrapper owns a fresh local cache that remains alive between calls.
 Aliases of that wrapper share its
 cache, while two evaluations of `(cache f)` have separate caches.
@@ -121,20 +122,20 @@ once, so the whole program shares its cache:
 (define square (cache (lambda ((n I64)) (→ I64) (* n n))))
 ```
 
-A wrapper performs what its function performs, on a miss: a hit skips the
-function's body and so its effects. A function that logs each call logs once
-for each key when cached, which is what caching it asks for. The wrapper keeps
-the function's row either way, since a row says what a call may do. A callback
-whose control operations can escape the call is rejected, because a cache
-cannot be suspended in the middle of a miss; handling an effect inside the
-callback is allowed.
+A wrapper does what its function does, on a miss: a hit skips the
+function's body and so what it does. A function that logs each call logs once
+for each key when cached, which is what caching it asks for. A
+capability among the arguments is part of the key like any other. A call
+that [suspends](suspension.md#what-a-suspension-passes-through) out of the
+function is not remembered: resumed, it answers its caller, and the next
+call with that key runs the function again.
 
 Both names are builtins sharing one runtime implementation, since the language
 has no parameter packs to express every arity in a library. A generic factory
 states a known function shape, for example:
 
 ```scheme
-(define (memoize (f (Fn A → B ! e))) (→ (Fn A → B ! e)) (∀ (A B e))
+(define (memoize (f (Fn A → B))) (→ (Fn A → B)) (∀ (A B))
   (cache f))
 ```
 
@@ -161,10 +162,9 @@ components. There is no hidden identity field added to user objects.
 Raw `Funcref` host handles cannot be keys. Any other value may be a key or a
 result, including functions, `Any` values, mutable records and arrays.
 
-Cache only functions for which skipping the body is intended. Even an empty
-effect row permits reading mutable objects and captured state, so no row proves
-that a function's answers stay the same.
-The private cache adds no effect to the function's signature.
+Cache only functions for which skipping the body is intended. A function
+may read and write mutable objects and captured state, so no signature
+proves that its answers stay the same.
 A result is stored only after a successful return.
 Reentrant calls can populate the same cache: the last successful completion for
 a key wins, and each call returns its own computed result. There is no in-progress
@@ -215,9 +215,9 @@ Familiar projection syntax such as `a.b.c` should be considered on its
 own merits, alongside bindings, calls, signatures and callback bodies.
 
 The implemented [function type](types.md#functions) is `Fn`, with `→`
-separating the result and `!` introducing effects. Named
-functions use typed parameter pairs and inline result, effect, generic and
-constraint clauses. Definitions continue to use `define`.
+separating the result. Named functions use typed parameter pairs and
+inline result, generic and constraint clauses. Definitions continue to use
+`define`.
 
 Direct field selection is `(● receiver label ...)`: each nominal record type
 supplies its stored fields, and paths follow heap references.
@@ -226,17 +226,14 @@ is a form, so it takes a field path where it is written and is not a
 value to pass.
 Every field is mutable. Computed getters are ordinary functions.
 
-Direct-style suspension remains available: the compiler turns the remaining
-computation into a one-shot callable. Callable types expose continuation
-boundaries, including through wrapper calls. A separate checked call-site
-marker remains open; examples use ordinary operation names, and `!` retains
-its mutation convention. [Effect transitions](effects.md#resumption-effects-and-effect-transitions)
-describe entry and resumption requirements. Dot notation need not expose a
-runtime offset.
+Direct-style [suspension](suspension.md) remains available: the compiler
+turns the remaining computation into a one-shot callable. No type marks a
+call that may suspend, and `!` retains its mutation convention. Dot
+notation need not expose a runtime offset.
 
 Evaluate candidates by rewriting complete examples: the tour's counter,
 a nested update in an application, a higher-order collection operation,
-and an effect handler. Show the existing and proposed code side by side.
+and a `with-prompt`. Show the existing and proposed code side by side.
 A useful syntax makes the receiver, arguments, binding scope and mutation
 visible, works with multiline formatting, and gives useful diagnostics
 for incomplete edits. Reducing the number of parentheses alone is not
@@ -373,7 +370,7 @@ remains proposed.
 | Script | A source file in a workspace, built for a platform named on the command line. Its build produces one output directory, which may contain multiple files. |
 | Build attempt | One invocation of a script's build, with diagnostics and a success/failure result. |
 | Application process | An OS process running a program. A browser frontend is a client of a server process. |
-| Runtime | The scheduler and effect bindings executing a program's tasks. It is distinct from compilation and the OS process. |
+| Runtime | The scheduler and host services executing a program's tasks. It is distinct from compilation and the OS process. |
 | Host | The platform environment, such as Node or a browser, providing APIs to the runtime. |
 | Worker | A separate execution agent used for CPU work, such as a Node worker thread; it is not a browser Service Worker or a `snail-scheme` task. |
 | Working state | In-memory values used by the running application, including changes not yet saved. |

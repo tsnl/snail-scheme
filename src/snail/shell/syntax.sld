@@ -22,8 +22,7 @@
   (import
    (snail core base)
    (snail core io)
-   (only (snail shell task) tasks)
-   (only (snail shell resource) resource))
+   (only (snail shell resource) Resources))
   (begin
 
     ;; ---- Syntax ----
@@ -121,14 +120,14 @@
     ;; Writes the syntax a recipe's expression returns to the file the
     ;; driver names as the producer's argument. The expression runs in a
     ;; task, so it may read the files its recipe links with `read-resource`,
-    ;; and perform what else it needs, such as building another script
+    ;; and do what else it needs, such as building another script
     ;; ((snail shell project build)'s `build-script`), whose files the
     ;; library it writes can link.
 
-    (define (write-generated-library (library (Fn → Syntax ! fs resource tasks e)))
-      (→ Unit) (! fs resource tasks e) (∀ (e))
-      (match (command-line)
-        ((Cons _ (Cons path _)) (write-bytes path (syntax->bytes (library))))
+    (define (write-generated-library (fs Fs) (arguments Arguments) (library (Fn → Syntax)))
+      (→ Unit)
+      (match (command-line arguments)
+        ((Cons _ (Cons path _)) (write-bytes fs path (syntax->bytes (library))))
         (_ (panic "a producer writes its library to the path given as its argument"))))
 
     ))

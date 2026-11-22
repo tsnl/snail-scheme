@@ -154,13 +154,20 @@ resources, and the files ship with it:
                   (import
                    (snail core base)
                    (snail shell project build)
-                   (embedded linking))
-                  (files-library (list "embedded" "client")
-                                 "client-files"
-                                 (build-script (producer-tools)
-                                               (script-at "client/main.scm")
-                                               (Browser)
-                                               (Debug))))
+                   (embedded linking)
+                   (only (snail core io) Arguments ProcessEnvironment Fs Clock)
+                   (only (snail shell process) Processes))
+                  (lambda ((arguments Arguments)
+                           (environment ProcessEnvironment)
+                           (processes Processes)
+                           (fs Fs)
+                           (clock Clock))
+                    (files-library fs (list "embedded" "client")
+                                   "client-files"
+                                   (build-script processes fs clock (producer-tools arguments)
+                                                 (script-at fs environment "client/main.scm")
+                                                 (Browser)
+                                                 (Debug)))))
 ```
 
 `files-library`, in the test's own `(embedded linking)`, lists the generation

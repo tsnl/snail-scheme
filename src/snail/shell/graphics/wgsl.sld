@@ -42,7 +42,6 @@
   (import
    (snail core base)
    (only (snail shell utf8) utf8->string)
-   (only (snail shell task) tasks)
    (snail shell resource)
    (snail shell syntax)
    (rename (only (snail shell compiler read)
@@ -55,7 +54,6 @@
                  DFloat
                  DBool
                  syntax-loc
-                 compile
                  compile-error
                  compiling
                  Failed
@@ -69,9 +67,10 @@
     ;; The library `name`, defining each shader's text by its name: the
     ;; shader is read from its linked file now.
 
-    (define (shader-library (name (List String)) (shaders (List (Pair String Resource))))
+    (define (shader-library (resources Resources)
+                            (name (List String))
+                            (shaders (List (Pair String Resource))))
       (→ Syntax)
-      (! resource tasks)
       (library-syntax name
                       (map (lambda (shader) (● shader first)) shaders)
                       (list (list "snail" "core" "base"))
@@ -80,8 +79,9 @@
                                    (list (SymbolSyntax (● shader first))
                                          (form "→" (list (SymbolSyntax "String")))
                                          (chunked (shader-text (● shader first)
-                                                               (read-resource
-                                                                (● shader second)))))))
+                                                               (read-resource resources
+                                                                              (● shader
+                                                                                 second)))))))
                            shaders)))
 
     ;; A long text as literals of at most 8000 characters joined at run
@@ -110,12 +110,12 @@
 
     ;; The WGSL of a shader's forms, a declaration each.
 
-    (define (wgsl-text (forms (List Source-syntax))) (→ String) (! compile)
+    (define (wgsl-text (forms (List Source-syntax))) (→ String)
       (string-join (map declaration forms) "\n"))
 
     ;; ---- Declarations ----
 
-    (define (declaration (form Source-syntax)) (→ String) (! compile)
+    (define (declaration (form Source-syntax)) (→ String)
       (match form
         ((Form (Cons (Ident "struct" _ _) (Cons name fields)) _)
          (string-concatenate
@@ -132,7 +132,7 @@
 
     ;; `name (params) -> result { body }`, after its attributes.
 
-    (define (function (items (List Source-syntax)) (loc Loc)) (→ String) (! compile)
+    (define (function (items (List Source-syntax)) (loc Loc)) (→ String)
       (let ((split (attributes items)))
         (match (● split second)
           ((Cons name (Cons (Form params _) rest))
@@ -160,7 +160,6 @@
 
     (define (attributes (items (List Source-syntax)))
       (→ (Pair String (List Source-syntax)))
-      (! compile)
       (match items
         ((Cons (Form (Cons (Ident name _ _) arguments) _) rest)
          (if (and (> (string-length name) 1) (char=? (string-ref name 0) #\@))
@@ -170,14 +169,14 @@
              (new Pair (first "") (second items))))
         (_ (new Pair (first "") (second items)))))
 
-    (define (attribute (name String) (arguments (List Source-syntax))) (→ String) (! compile)
+    (define (attribute (name String) (arguments (List Source-syntax))) (→ String)
       (if (null? arguments)
           name
           (string-append name "(" (string-join (map expression arguments) ", ") ")")))
 
     ;; `attribute ... name type`, a field or parameter.
 
-    (define (binding (form Source-syntax)) (→ String) (! compile)
+    (define (binding (form Source-syntax)) (→ String)
       (match form
         ((Form items loc)
          (let ((split (attributes items)))
@@ -189,7 +188,7 @@
 
     ;; `attribute ... type`, a result.
 
-    (define (attributed (items (List Source-syntax)) (loc Loc)) (→ String) (! compile)
+    (define (attributed (items (List Source-syntax)) (loc Loc)) (→ String)
       (let ((split (attributes items)))
         (match (● split second)
           ((Cons type (Nil)) (string-append (● split first) (type-text type)))
@@ -198,7 +197,7 @@
     ;; `var`, `let`, `const` or `override`, or `(var space ...)`, then
     ;; attributes, a name or `(name type)`, and an initial value.
 
-    (define (variable (form Source-syntax) (expected String)) (→ String) (! compile)
+    (define (variable (form Source-syntax) (expected String)) (→ String)
       (match form
         ((Form (Cons head items) loc)
          (let ((keyword (variable-keyword head expected)) (split (attributes items)))
@@ -209,7 +208,7 @@
              (_ (compile-error loc "expected a name or (name type), then a value")))))
         (_ (compile-error (syntax-loc form) expected))))
 
-    (define (variable-keyword (head Source-syntax) (expected String)) (→ String) (! compile)
+    (define (variable-keyword (head Source-syntax) (expected String)) (→ String)
       (match head
         ((Ident name _ loc)
          (if (member? name (list "var" "let" "const" "override"))
@@ -219,7 +218,7 @@
          (string-append "var<" (string-join (map identifier space) ", ") ">"))
         (_ (compile-error (syntax-loc head) expected))))
 
-    (define (typed (naming Source-syntax)) (→ String) (! compile)
+    (define (typed (naming Source-syntax)) (→ String)
       (match naming
         ((Form (Cons name (Cons type (Nil))) _)
          (string-append (identifier name) ": " (type-text type)))
@@ -230,7 +229,7 @@
     ;; `{`, each statement on its own line one level in, and `}` at
     ;; `indent`.
 
-    (define (block (statements (List Source-syntax)) (indent String)) (→ String) (! compile)
+    (define (block (statements (List Source-syntax)) (indent String)) (→ String)
       (let ((inner (string-append indent "  ")))
         (string-concatenate
          (concatenate (list (list "{\n")
@@ -239,7 +238,7 @@
                                  statements)
                             (list indent "}"))))))
 
-    (define (statement-text (form Source-syntax) (indent String)) (→ String) (! compile)
+    (define (statement-text (form Source-syntax) (indent String)) (→ String)
       (match form
         ((Form (Cons (Ident "return" _ _) (Nil)) _) "return;")
         ((Form (Cons (Ident "return" _ _) (Cons value (Nil))) _)
@@ -268,7 +267,7 @@
     ;; A statement that can sit in a `for` header: a declaration, an
     ;; assignment or a call.
 
-    (define (simple (form Source-syntax)) (→ String) (! compile)
+    (define (simple (form Source-syntax)) (→ String)
       (match form
         ((Form (Cons (Ident name _ _) (Cons place (Cons value (Nil)))) _)
          (if (member? name (list "=" "+=" "-=" "*=" "/=" "%="))
@@ -276,7 +275,7 @@
              (simple-declaration form)))
         (_ (simple-declaration form))))
 
-    (define (simple-declaration (form Source-syntax)) (→ String) (! compile)
+    (define (simple-declaration (form Source-syntax)) (→ String)
       (match form
         ((Form (Cons (Ident name _ _) _) _)
          (if (member? name (list "var" "let" "const"))
@@ -288,7 +287,6 @@
 
     (define (conditional (clauses (List Source-syntax)) (indent String) (loc Loc))
       (→ String)
-      (! compile)
       (match clauses
         ((Nil) (compile-error loc "expected (if (test statement ...) ... [(else statement ...)])"))
         ((Cons (Form (Cons (Ident "else" _ _) body) _) (Nil)) (block body indent))
@@ -305,7 +303,7 @@
 
     ;; ---- Expressions ----
 
-    (define (expression (form Source-syntax)) (→ String) (! compile)
+    (define (expression (form Source-syntax)) (→ String)
       (match form
         ((Atom (DInt value) _) (i64->string value))
         ((Atom (DFloat text) _) text)
@@ -331,7 +329,7 @@
          (call (type-text (Form template (syntax-loc form))) arguments))
         (_ (compile-error (syntax-loc form) "expected an expression"))))
 
-    (define (call (callee String) (arguments (List Source-syntax))) (→ String) (! compile)
+    (define (call (callee String) (arguments (List Source-syntax))) (→ String)
       (string-append callee "(" (string-join (map expression arguments) ", ") ")"))
 
     (define (unary (name String)) (→ (Option String))
@@ -356,7 +354,7 @@
 
     ;; A name, or `(T argument ...)` for `T<argument, ...>`.
 
-    (define (type-text (form Source-syntax)) (→ String) (! compile)
+    (define (type-text (form Source-syntax)) (→ String)
       (match form
         ((Ident name _ _) name)
         ((Atom (DInt value) _) (i64->string value))
@@ -364,7 +362,7 @@
          (string-append (identifier head) "<" (string-join (map type-text arguments) ", ") ">"))
         (_ (compile-error (syntax-loc form) "expected a type"))))
 
-    (define (identifier (form Source-syntax)) (→ String) (! compile)
+    (define (identifier (form Source-syntax)) (→ String)
       (match form
         ((Ident name _ _) name)
         (_ (compile-error (syntax-loc form) "expected a name"))))

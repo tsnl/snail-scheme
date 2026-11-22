@@ -1,6 +1,5 @@
 (import
  (snail core base)
- (only (snail core forms) host)
  (snail core io)
  (snail shell task)
  (snail shell process))
@@ -10,21 +9,21 @@
 ;; "ready": a signal after that is the waiter's to observe. Run without it,
 ;; no task waits, and a signal ends the program as it always has; with
 ;; `busy`, it does so while the task after "ready" computes without end.
-(define (observe) (→ Unit) (! output-port signals tasks)
-  (match (termination)
-    ((Terminate) (write-line "observed Terminate"))
-    ((Interrupt) (write-line "observed Interrupt"))
+(define (observe (signals Signals) (out OutputPort)) (→ Unit)
+  (match (termination signals)
+    ((Terminate) (write-line out "observed Terminate"))
+    ((Interrupt) (write-line out "observed Interrupt"))
     ((Kill) (panic "SIGKILL cannot be observed"))))
 
 (define (spin) (→ Unit)
   (spin))
 
-(define (main) (→ Unit) (! host mut output-port signals tasks)
+(define (main (arguments Arguments) (signals Signals) (out OutputPort)) (→ Unit)
 
-  (if (member? "wait" (command-line))
-      (dispatch observe)
+  (if (member? "wait" (command-line arguments))
+      (dispatch (lambda () (observe signals out)))
       (dispatch (lambda () (sleep 30000))))
   (dispatch (lambda ()
-              (write-line "ready")
-              (if (member? "busy" (command-line)) (spin) (unit))))
+              (write-line out "ready")
+              (if (member? "busy" (command-line arguments)) (spin) (unit))))
   (unit))

@@ -119,7 +119,7 @@ graph; `(fuse roots)` does the same for a list of views.
 
 ```scheme
 (let ((fused (fuse-program sinks updates)))
-  (lower "step" (● fused first) (● fused second)))
+  (lower gpu "step" (● fused first) (● fused second)))
 ```
 
 A producer is inlined into each map that reads it: the consumer's load
@@ -178,7 +178,7 @@ coefficients.
 
 ## Lowering and running
 
-`(lower label sinks updates)` lowers what the sinks and updates need to a
+`(lower gpu label sinks updates)` lowers what the sinks and updates need to a
 `Program`, once. Sinks are views to read back; updates are
 pairs of a whole param and the value it takes after the run. Both need
 the same element count and element type. Use `convert` for a numeric
@@ -188,17 +188,17 @@ can swap values in one run, and an update can initialize a param that no
 sink reads.
 
 ```scheme
-(let ((program (lower "fit" (list loss) (adam-updates "adam" settings trained))))
-  (write-param program "points" bytes)
-  (for-each (lambda (_) (run-program program)) (iota 1000))
-  (read-sink program 0))                 ; loss used by the last update
+(let ((program (lower gpu "fit" (list loss) (adam-updates "adam" settings trained))))
+  (write-param gpu program "points" bytes)
+  (for-each (lambda (_) (run-program gpu program)) (iota 1000))
+  (read-sink gpu program 0))                 ; loss used by the last update
 ```
 
 Everything a program holds is ordinary WebGPU, and the caller's: its
 `steps`, each a dispatch with its WGSL text, entry, pipeline, bind group and
 workgroups, or a sort or a scan; its params and sinks, each with its
 buffer; and `made`, every buffer it made, with its use and size.
-`(encode-steps pass program)` encodes the steps into a compute pass the
+`(encode-steps gpu pass program)` encodes the steps into a compute pass the
 caller began, among its own work; `run-program` is that in a pass and a
 submission of its own. `release-program` destroys what the program made and
 nothing it was given.
@@ -231,7 +231,7 @@ takes it. Params, constants, sinks and updated values keep their buffers.
 What is left in the pool once a program is lowered is its scratch, which
 holds nothing between runs.
 
-A caller gives a program buffers with `(lower-with label sinks updates
+A caller gives a program buffers with `(lower-with gpu label sinks updates
 given)`. A `Given` holds buffers for params by name, which the program
 reads and writes in place of making its own, and free scratch to start its
 pool with. `(bound given view buffer)` adds the caller's buffer for the
@@ -246,7 +246,7 @@ programs, lowers larger ones, and gives the params back (`unstash-params`,
 as much of each as both hold), so two sets of scratch are never held at
 once.
 
-`(profile-program program)` answers each step's seconds on the device,
+`(profile-program gpu program)` answers each step's seconds on the device,
 with its kernel's entry and code. Each step runs in a compute pass of its
 own, begun with timestamp writes, and every pass goes in one submission,
 so the device runs the steps back to back, as a run does, and the times
@@ -398,8 +398,8 @@ three parts:
 
 - **The trainer**, `(apps train trainer)`, knows no file, address or
   format. It trains on a `Scene`: the camera, the posed views to train on
-  and those held out, and the sparse points, as data. It performs
-  `photographs` for a view's photograph, a texture on the device, and is
+  and those held out, and the sparse points, as data. It asks its
+  `Photographs` for a view's photograph, a texture on the device, and is
   given how a step's image is shown: on the page's canvas, or nowhere.
 - **The dataset**, `(apps train dataset)`, is a COLMAP dataset as such a
   scene: where its files are, the camera scaled to its photographs, the

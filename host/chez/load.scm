@@ -106,8 +106,9 @@
   (cond [(string=? mode "compile")
          (load-compiler-library '(snail shell compiler driver))
          (eval '(import
-                 (snail shell compiler driver)))
-         (eval `(compile-arguments ',(cdddr (command-line))))]
+                 (snail shell compiler driver)
+                 (only (snail core io) host-fs unsafe-host)))
+         (eval `(compile-arguments (host-fs (unsafe-host)) ',(cdddr (command-line))))]
         [(string=? mode "test")
          (let* ([entry (string-append root "/tests/unit.scm")]
                 [imports (call-with-input-file entry read)])

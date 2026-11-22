@@ -1,6 +1,6 @@
-// A page's program is a script: the host calls its main with a scheduler,
-// whose first task runs the script under (snail target browser)'s
-// handlers, and drives the scheduler. This file holds the page's event
+// A page's program is a script: the host calls its start with a scheduler,
+// whose first task runs the script's main with what (snail target browser)
+// provides, and drives the scheduler. This file holds the page's event
 // queue and its one save; (snail shell task) owns the tasks.
 import {programEntry} from './entry.mjs';
 import {byteSnapshot} from './load.mjs';
