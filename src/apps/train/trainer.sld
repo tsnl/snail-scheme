@@ -272,19 +272,11 @@
                      "camera"
                      (floats (camera-values (● scene camera) image)))))
 
-    ;; The second step's twelve slowest steps on the device, with the
-    ;; seconds each took and its kernel, and the step's twelve largest
-    ;; kinds of buffer; the first step touches every buffer, which the
-    ;; device clears then.
-    (define (profile (photographs Photographs)
-                     (gpu Gpu)
-                     (out OutputPort)
-                     (p Programs)
-                     (scene Scene))
-      (→ Unit)
-      (let* ((image (list-ref (● scene training) 0)) (photo ((● photographs photograph) image)))
-        (step-on gpu p scene image photo 0.0001)
-        ((● gpu destroy) (TextureObject (● photo texture))))
+    ;; A step's program run again on its photograph, each of its steps on
+    ;; the device timed: the twelve slowest, with the seconds each took
+    ;; and its kernel, and the step's twelve largest kinds of buffer. It
+    ;; trains that step twice.
+    (define (profile (gpu Gpu) (out OutputPort) (p Programs)) (→ Unit)
       ((● gpu work-done))
       (let ((times (list-sort (lambda (a b) (> (● a second) (● b second)))
                               (profile-program gpu (● p step)))))
@@ -445,11 +437,11 @@
        (started I64)))
 
     ;; How long to train, the most gaussians the device is to hold, and
-    ;; whether one step is profiled first.
+    ;; the step to profile, or 0 for none.
     (record Options
       ((steps I64)
        (gaussians I64)
-       (profile Bool)))
+       (profile I64)))
 
     ;; Training on `scene`, on the device the host has opened, each 50th
     ;; step's image and the last shown by `shown`. It answers the programs
@@ -465,7 +457,6 @@
       (let* ((capacity (min (● options gaussians) (max 1048576 (* 2 (length (● scene points))))))
              (p (programs-for gpu scene capacity (* 4 capacity))))
         (start-cloud gpu p scene)
-        (when (● options profile) (profile photographs gpu out p scene))
         (write-line out (string-append "training "
                                        (show (length (● scene training)))
                                        " photographs of "
@@ -575,6 +566,7 @@
                  photo
                  (rate-of-means step (● options steps) (● scene extent)))
         ((● gpu destroy) (TextureObject (● photo texture)))
+        (when (= step (● options profile)) (profile gpu out p))
         (when (= (remainder step 1000) 0)
           (write-param gpu (● p step)
                        "degrees"
