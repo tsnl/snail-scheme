@@ -44,7 +44,9 @@
     ((Done) (write-line out "done"))
     ((Yielded value next)
      (write-line out (string-append "got " (show value)))
-     (show-step out (handle Log ((log (lambda (line) (write-line out (string-append "finishing: " line)))))
+     (show-step out
+                (handle Log ((log
+                              (lambda (line) (write-line out (string-append "finishing: " line)))))
                   (next (unit)))))))
 
 (define (main (out OutputPort)) (→ Unit) (! mut)
@@ -56,10 +58,14 @@
       ((Yielded value next)
        (write-line out (string-append "got " (show value)))
        (show-step out
-        (handle Log ((log (lambda (line) (write-line out (string-append "outside the runner: " line)))))
-          (handle Runner ((run-step (lambda (rest) (rest (unit)))))
-            (handle Log ((log (lambda (line)
-                                (write-line out (string-append "where run-step is performed: " line)))))
-              (run-step next))))))
+                  (handle Log ((log (lambda (line)
+                                      (write-line out
+                                                  (string-append "outside the runner: " line)))))
+                    (handle Runner ((run-step (lambda (rest) (rest (unit)))))
+                      (handle Log ((log (lambda (line)
+                                          (write-line out
+                                                      (string-append "where run-step is performed: "
+                                                                     line)))))
+                        (run-step next))))))
       ((Done) (write-line out "done"))))
   (unit))

@@ -37,7 +37,9 @@
 
 (define (logged (out OutputPort) (body (Fn → I64 ! Log))) (→ I64) (! mut)
   (handle Log ((log
-                (lambda (line resume) (write-line out (string-append "log: " line)) (resume (unit)))))
+                (lambda (line resume)
+                  (write-line out (string-append "log: " line))
+                  (resume (unit)))))
     (body)))
 
 (define (main (out OutputPort)) (→ Unit) (! mut)
@@ -50,17 +52,17 @@
   ;; Its implementation runs outside it, so its own `fail` reaches the outer
   ;; handler, which resumes it; the inner one then resumes the body.
   (display out (handle Fail ((fail (lambda (message resume)
-                                 (write-line out (string-append "outer: " message))
-                                 (resume 100))))
-             (handle Fail ((fail (lambda (message resume)
-                                   (write-line out (string-append "inner: " message))
-                                   (+ 1 (resume (fail (string-append "again " message)))))))
-               (+ (fail "boom") 1))))
+                                     (write-line out (string-append "outer: " message))
+                                     (resume 100))))
+                 (handle Fail ((fail (lambda (message resume)
+                                       (write-line out (string-append "inner: " message))
+                                       (+ 1 (resume (fail (string-append "again " message)))))))
+                   (+ (fail "boom") 1))))
   (newline out)
   (display out (logged out (lambda ()
-                     (handle Fail ((fail (lambda (message resume)
-                                           (log (string-append "recovering from " message))
-                                           (* 2 (resume 5)))))
-                       (+ (checked "4z") (checked "7"))))))
+                             (handle Fail ((fail (lambda (message resume)
+                                                   (log (string-append "recovering from " message))
+                                                   (* 2 (resume 5)))))
+                               (+ (checked "4z") (checked "7"))))))
   (newline out)
   (unit))

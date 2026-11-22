@@ -15,37 +15,43 @@
 (define (frame (gpu Gpu)) (→ Unit) (! mut tasks)
   (request-device gpu)
   (let* ((buffer (create-buffer gpu
-                  (new BufferDescriptor
-                    (label "vertices")
-                    (size 64)
-                    (usage (list (Vertex) (CopyDst))))))
-         (module (create-shader-module gpu (new ShaderModuleDescriptor (label "shader") (code shader))))
+                                (new BufferDescriptor
+                                  (label "vertices")
+                                  (size 64)
+                                  (usage (list (Vertex) (CopyDst))))))
+         (module
+          (create-shader-module gpu (new ShaderModuleDescriptor (label "shader") (code shader))))
          (pipeline (create-render-pipeline gpu
-                    (new RenderPipelineDescriptor
-                      (label "pipeline")
-                      (module module)
-                      (vertex-entry "v")
-                      (buffers (Nil))
-                      (fragment (Some (new FragmentState
-                                        (entry "f")
-                                        (targets (list (Some (new ColorTarget
-                                                               (format (Bgra8Unorm))
-                                                               (blend (Some over)))))))))
-                      (topology (TriangleList))
-                      (cull (CullNone))
-                      (depth (None)))))
+                                           (new RenderPipelineDescriptor
+                                             (label "pipeline")
+                                             (module module)
+                                             (vertex-entry "v")
+                                             (buffers (Nil))
+                                             (fragment (Some (new FragmentState
+                                                               (entry "f")
+                                                               (targets (list (Some (new ColorTarget
+                                                                                      (format
+                                                                                       (Bgra8Unorm))
+                                                                                      (blend
+                                                                                       (Some
+                                                                                        over)))))))))
+                                             (topology (TriangleList))
+                                             (cull (CullNone))
+                                             (depth (None)))))
          (group (create-bind-group gpu
-                 (new BindGroupDescriptor
-                   (label "group")
-                   (pipeline (RenderPipeline pipeline))
-                   (group 0)
-                   (entries (list (BufferEntry 0 buffer 0 0))))))
+                                   (new BindGroupDescriptor
+                                     (label "group")
+                                     (pipeline (RenderPipeline pipeline))
+                                     (group 0)
+                                     (entries (list (BufferEntry 0 buffer 0 0))))))
          (encoder (create-command-encoder gpu))
          (pass (begin-render-pass gpu encoder
                                   (new RenderPassDescriptor
                                     (colors (list (Some (new ColorAttachment
                                                           (view
-                                                           (view-of gpu (● (current-texture gpu) texture)
+                                                           (view-of gpu
+                                                                    (● (current-texture gpu)
+                                                                       texture)
                                                                     1))
                                                           (load (Clear (new Color
                                                                          (red 0.0)
@@ -66,14 +72,20 @@
   (let* ((module
           (create-shader-module gpu (new ShaderModuleDescriptor (label "count") (code counting))))
          (pipeline (create-compute-pipeline gpu
-                    (new ComputePipelineDescriptor (label "count") (module module) (entry "c"))))
+                                            (new ComputePipelineDescriptor
+                                              (label "count")
+                                              (module module)
+                                              (entry "c"))))
          (counts (create-buffer gpu
-                  (new BufferDescriptor (label "counts") (size 256) (usage (list (Storage))))))
+                                (new BufferDescriptor
+                                  (label "counts")
+                                  (size 256)
+                                  (usage (list (Storage))))))
          (group (create-bind-group gpu (new BindGroupDescriptor
-                                     (label "counts")
-                                     (pipeline (ComputePipeline pipeline))
-                                     (group 0)
-                                     (entries (list (BufferEntry 0 counts 0 0))))))
+                                         (label "counts")
+                                         (pipeline (ComputePipeline pipeline))
+                                         (group 0)
+                                         (entries (list (BufferEntry 0 counts 0 0))))))
          (encoder (create-command-encoder gpu))
          (pass (begin-compute-pass gpu encoder)))
     (set-compute-pipeline gpu pass pipeline)
@@ -83,7 +95,9 @@
     (submit gpu (list (finish gpu encoder)))))
 
 (define (main (out OutputPort)) (→ Unit) (! mut tasks)
-  (for-each (lambda (text) (write-line out text)) (● (with-recorded-gpu (lambda (gpu) (frame gpu))) second))
+  (for-each (lambda (text) (write-line out text))
+            (● (with-recorded-gpu (lambda (gpu) (frame gpu))) second))
   (write-line out "compute:")
-  (for-each (lambda (text) (write-line out text)) (● (with-recorded-gpu (lambda (gpu) (compute gpu))) second))
+  (for-each (lambda (text) (write-line out text))
+            (● (with-recorded-gpu (lambda (gpu) (compute gpu))) second))
   (unit))

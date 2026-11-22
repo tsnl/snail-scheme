@@ -15,7 +15,7 @@
 (define (main (resources Resources) (out OutputPort)) (→ Unit) (! mut tasks)
   (for-each (lambda (bytes)
               (write-line out (string-append (show (array-length bytes))
-                                         " bytes, starting "
-                                         (show (u8->i32 (array-ref bytes 0))))))
+                                             " bytes, starting "
+                                             (show (u8->i32 (array-ref bytes 0))))))
             (read-resources resources (list (text) (text) (image))))
   (unit))

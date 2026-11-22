@@ -42,7 +42,16 @@
   ((splats Splats)
    (turned (Option F64))))
 
-(define (view-loop (gpu Gpu) (dom Dom) (picker FilePicker) (events Events) (fetch Fetch) (out OutputPort) (shown Shown) (fly Fly) (timing (Pair I32 I32)) (format TextureFormat))
+(define (view-loop (gpu Gpu)
+                   (dom Dom)
+                   (picker FilePicker)
+                   (events Events)
+                   (fetch Fetch)
+                   (out OutputPort)
+                   (shown Shown)
+                   (fly Fly)
+                   (timing (Pair I32 I32))
+                   (format TextureFormat))
   (→ Unit)
   (! mut tasks)
   (match (next-event events)
@@ -52,9 +61,13 @@
        (work-done gpu)
        (report-ready events)
        (view-loop gpu dom picker events fetch out shown fly (timed out timing elapsed) format)))
-    ((InputEvent (KeyDown 111 _)) (open-picker picker (SomeFiles)) (view-loop gpu dom picker events fetch out shown fly timing format))
-    ((InputEvent input) (view-loop gpu dom picker events fetch out shown (steered fly input) timing format))
-    ((FilesEvent _) (opened gpu dom picker events fetch out shown fly timing format (chosen-files picker)))
+    ((InputEvent (KeyDown 111 _))
+     (open-picker picker (SomeFiles))
+     (view-loop gpu dom picker events fetch out shown fly timing format))
+    ((InputEvent input)
+     (view-loop gpu dom picker events fetch out shown (steered fly input) timing format))
+    ((FilesEvent _)
+     (opened gpu dom picker events fetch out shown fly timing format (chosen-files picker)))
     (_ (view-loop gpu dom picker events fetch out shown fly timing format))))
 
 ;; The rings posed where `elapsed` more milliseconds turn them.
@@ -120,7 +133,13 @@
 ;; or the view as it was, and why, when they cannot be shown. Everything
 ;; is read before the device is touched, so files refused leave nothing
 ;; on it, and the splats shown are let go only once theirs can follow.
-(define (opened (gpu Gpu) (dom Dom) (picker FilePicker) (events Events) (fetch Fetch) (out OutputPort) (shown Shown)
+(define (opened (gpu Gpu)
+                (dom Dom)
+                (picker FilePicker)
+                (events Events)
+                (fetch Fetch)
+                (out OutputPort)
+                (shown Shown)
                 (fly Fly)
                 (timing (Pair I32 I32))
                 (format TextureFormat)
@@ -135,8 +154,19 @@
      (let ((turn (upright (poses-up (● scene poses))))
            (splats (standing gpu (● scene cloud) 1 format)))
        (write-transforms gpu splats (list (pose turn 0.0 0.0 0.0)))
-       (view-loop gpu dom picker events fetch out (new Shown (splats splats) (turned (None))) (start-of scene turn) timing format)))
-    ((Err why) (say dom out why) (view-loop gpu dom picker events fetch out shown fly timing format))))
+       (view-loop gpu
+                  dom
+                  picker
+                  events
+                  fetch
+                  out
+                  (new Shown (splats splats) (turned (None)))
+                  (start-of scene turn)
+                  timing
+                  format)))
+    ((Err why)
+     (say dom out why)
+     (view-loop gpu dom picker events fetch out shown fly timing format))))
 
 ;; What the page says beside the view, and the console with it.
 (define (say (dom Dom) (out OutputPort) (message String)) (→ Unit) (! mut)
@@ -250,13 +280,13 @@
 
 (define (main (gpu Gpu) (events Events) (out OutputPort)) (→ Unit) (! mut tasks)
   (let ((fetch (page-fetch)))
-(let ((picker (page-file-picker)))
-(let ((dom (page-dom events)))
-(let* ((format (● (request-device gpu) format))
-                (shown (new Shown (splats (standing gpu (rings) 3 format)) (turned (Some 0.0))))
-                (fly (fly-over (list -2.5 -1.0 -2.5) (list 2.5 1.0 2.5)))
-                (timing (new Pair (first 0) (second 0))))
-           (match (query-files (page-address fetch))
-             ((Nil) (view-loop gpu dom picker events fetch out shown fly timing format))
-             (files (opened gpu dom picker events fetch out shown fly timing format files)))))))
+    (let ((picker (page-file-picker)))
+      (let ((dom (page-dom events)))
+        (let* ((format (● (request-device gpu) format))
+               (shown (new Shown (splats (standing gpu (rings) 3 format)) (turned (Some 0.0))))
+               (fly (fly-over (list -2.5 -1.0 -2.5) (list 2.5 1.0 2.5)))
+               (timing (new Pair (first 0) (second 0))))
+          (match (query-files (page-address fetch))
+            ((Nil) (view-loop gpu dom picker events fetch out shown fly timing format))
+            (files (opened gpu dom picker events fetch out shown fly timing format files)))))))
   (unit))

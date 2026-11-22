@@ -107,16 +107,16 @@
         (size size)
         (pages pages)
         (texture (create-texture gpu (new TextureDescriptor
-                                   (label (string-append "atlas/" name))
-                                   (width size)
-                                   (height size)
-                                   (layers pages)
-                                   (mips 1)
-                                   (format (Rgba8Unorm))
-                                   (usage (list (TextureBinding)
-                                                (TextureCopySrc)
-                                                (TextureCopyDst)
-                                                (RenderAttachment))))))
+                                       (label (string-append "atlas/" name))
+                                       (width size)
+                                       (height size)
+                                       (layers pages)
+                                       (mips 1)
+                                       (format (Rgba8Unorm))
+                                       (usage (list (TextureBinding)
+                                                    (TextureCopySrc)
+                                                    (TextureCopyDst)
+                                                    (RenderAttachment))))))
         (pipeline (compose-pipeline gpu))
         (sources (empty-table))
         (page 0)
@@ -188,7 +188,10 @@
     ;; fit, the pages are cleared, and the pictures asked for are composed
     ;; again in later calls.
 
-    (define (atlas-pictures (gpu Gpu) (atlas Atlas) (encoder GpuCommandEncoder) (pictures (List Picture)))
+    (define (atlas-pictures (gpu Gpu)
+                            (atlas Atlas)
+                            (encoder GpuCommandEncoder)
+                            (pictures (List Picture)))
       (→ Atlas)
       (! mut tasks)
       (match (find (lambda (picture) (not (composed? atlas picture))) pictures)
@@ -232,7 +235,11 @@
     ;; what is there, its source bound with the swap table. The atlas
     ;; answered keeps the sources decoded; the buffers go at the submit.
 
-    (define (compose (gpu Gpu) (encoder GpuCommandEncoder) (atlas Atlas) (picture Picture) (clear? Bool))
+    (define (compose (gpu Gpu)
+                     (encoder GpuCommandEncoder)
+                     (atlas Atlas)
+                     (picture Picture)
+                     (clear? Bool))
       (→ Atlas)
       (! mut tasks)
       (let* ((layers (laid atlas (list picture)))
@@ -358,12 +365,16 @@
       (→ Unit)
       (! mut)
       (let ((group (create-bind-group gpu
-                    (new BindGroupDescriptor
-                      (label (string-append "atlas/" (● atlas name) "/source"))
-                      (pipeline (RenderPipeline (● atlas pipeline)))
-                      (group 0)
-                      (entries (list (TextureEntry 0 (source-view atlas (● indexed second source)))
-                                     (BufferEntry 1 swaps 0 0)))))))
+                                      (new BindGroupDescriptor
+                                        (label (string-append "atlas/" (● atlas name) "/source"))
+                                        (pipeline (RenderPipeline (● atlas pipeline)))
+                                        (group 0)
+                                        (entries (list (TextureEntry 0
+                                                                     (source-view atlas
+                                                                                  (● indexed
+                                                                                     second
+                                                                                     source)))
+                                                       (BufferEntry 1 swaps 0 0)))))))
         (set-bind-group gpu pass 0 group)
         (draw gpu pass 4 1 0 (● indexed first))
         (destroy gpu (BindGroupObject group))))
@@ -375,20 +386,24 @@
 
     (define (compose-pipeline (gpu Gpu)) (→ GpuRenderPipeline) (! mut)
       (create-render-pipeline gpu
-       (new RenderPipelineDescriptor
-         (label "atlas/compose")
-         (module (create-shader-module gpu
-                  (new ShaderModuleDescriptor (label "atlas") (code atlas-shader))))
-         (vertex-entry "piece_vertex")
-         (buffers (list (vertex-layout piece-shape (PerInstance) 0)))
-         (fragment (Some (new FragmentState
-                           (entry "piece_fragment")
-                           (targets
-                            (list
-                             (Some (new ColorTarget (format (Rgba8Unorm)) (blend (Some over)))))))))
-         (topology (TriangleStrip))
-         (cull (CullNone))
-         (depth (None)))))
+                              (new RenderPipelineDescriptor
+                                (label "atlas/compose")
+                                (module (create-shader-module gpu
+                                                              (new ShaderModuleDescriptor
+                                                                (label "atlas")
+                                                                (code atlas-shader))))
+                                (vertex-entry "piece_vertex")
+                                (buffers (list (vertex-layout piece-shape (PerInstance) 0)))
+                                (fragment (Some (new FragmentState
+                                                  (entry "piece_fragment")
+                                                  (targets
+                                                   (list
+                                                    (Some (new ColorTarget
+                                                            (format (Rgba8Unorm))
+                                                            (blend (Some over)))))))))
+                                (topology (TriangleStrip))
+                                (cull (CullNone))
+                                (depth (None)))))
 
     ;; Storage needs a binding of at least one entry.
 
@@ -410,9 +425,9 @@
       (→ GpuBuffer)
       (! mut)
       (let ((buffer (create-buffer gpu (new BufferDescriptor
-                                     (label (string-append "atlas/" (● atlas name) "/" part))
-                                     (size (i64->i32 (array-length bytes)))
-                                     (usage (list usage (CopyDst)))))))
+                                         (label (string-append "atlas/" (● atlas name) "/" part))
+                                         (size (i64->i32 (array-length bytes)))
+                                         (usage (list usage (CopyDst)))))))
         (write-buffer gpu buffer 0 bytes)
         buffer))
 
@@ -430,9 +445,10 @@
                 (height (● region height))
                 (row (* 256 (quotient (+ (* 4 width) 255) 256)))
                 (buffer (create-buffer gpu (new BufferDescriptor
-                                         (label (string-append "atlas/" (● atlas name) "/readback"))
-                                         (size (* row height))
-                                         (usage (list (MapRead) (CopyDst))))))
+                                             (label
+                                              (string-append "atlas/" (● atlas name) "/readback"))
+                                             (size (* row height))
+                                             (usage (list (MapRead) (CopyDst))))))
                 (encoder (create-command-encoder gpu)))
            (copy-texture-to-buffer gpu encoder
                                    (new TextureCopy

@@ -290,7 +290,9 @@
     (define (set-text (dom Dom) (node Node) (text String)) (→ Unit) (! mut)
       ((● dom set-text) node text))
 
-    (define (set-string-property (dom Dom) (node Node) (name String) (value String)) (→ Unit) (! mut)
+    (define (set-string-property (dom Dom) (node Node) (name String) (value String))
+      (→ Unit)
+      (! mut)
       ((● dom set-string-property) node name value))
 
     (define (set-number-property (dom Dom) (node Node) (name String) (value F64)) (→ Unit) (! mut)
@@ -305,13 +307,21 @@
     (define (number-property (dom Dom) (node Node) (name String)) (→ F64) (! mut)
       ((● dom number-property) node name))
 
-    (define (insert-node (dom Dom) (parent Node) (child Node) (before (Option Node))) (→ Unit) (! mut)
+    (define (insert-node (dom Dom) (parent Node) (child Node) (before (Option Node)))
+      (→ Unit)
+      (! mut)
       ((● dom insert-node) parent child before))
 
     (define (remove-node (dom Dom) (node Node)) (→ Unit) (! mut)
       ((● dom remove-node) node))
 
-    (define (listen (dom Dom) (node Node) (event String) (captures (List Capture)) (prevent Prevent)) (→ Listener) (! mut)
+    (define (listen (dom Dom)
+                    (node Node)
+                    (event String)
+                    (captures (List Capture))
+                    (prevent Prevent))
+      (→ Listener)
+      (! mut)
       ((● dom listen) node event captures prevent))
 
     (define (unlisten (dom Dom) (listener Listener)) (→ Unit) (! mut)

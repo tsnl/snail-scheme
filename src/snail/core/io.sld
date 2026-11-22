@@ -464,7 +464,8 @@
                   (loop (- index 1) (Cons char name) names))))))
 
     (define (reply-text (fs Fs) (count I32)) (→ String) (! mut)
-      (string-generate (i32->i64 count) (lambda (index) (support-reply-character (i64->i32 index)))))
+      (string-generate (i32->i64 count)
+                       (lambda (index) (support-reply-character (i64->i32 index)))))
 
     ;; The status of the path itself: a symbolic link is a SymbolicLink,
     ;; whatever it names.
@@ -499,7 +500,9 @@
     ;; target is kept as given: a relative one is read from the link's own
     ;; directory.
 
-    (define (make-symbolic-link (fs Fs) (target String) (path String)) (→ (Result Unit FileError)) (! mut)
+    (define (make-symbolic-link (fs Fs) (target String) (path String))
+      (→ (Result Unit FileError))
+      (! mut)
       (path-done (support-path-make-link (path-pair target path))))
 
     ;; A symbolic link's target. A path that is not a link is OtherError.
@@ -513,7 +516,9 @@
     ;; copying it: both hold the same bytes while either remains. It fails
     ;; where the two would lie on different file systems.
 
-    (define (make-hard-link (fs Fs) (existing String) (path String)) (→ (Result Unit FileError)) (! mut)
+    (define (make-hard-link (fs Fs) (existing String) (path String))
+      (→ (Result Unit FileError))
+      (! mut)
       (path-done (support-path-hard-link (path-pair existing path))))
 
     ;; ---- Whole texts ----
@@ -574,7 +579,8 @@
       (! mut)
       (match (string-index path #\null)
         ((Some _) (Err (OtherError)))
-        ((None) (path-done (support-path-write-text (write-mode-code mode) (path-pair path text))))))
+        ((None)
+         (path-done (support-path-write-text (write-mode-code mode) (path-pair path text))))))
 
     ;; ---- Clock ----
 

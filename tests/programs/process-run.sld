@@ -26,32 +26,42 @@
 
 (define (main (processes Processes) (out OutputPort)) (→ Unit) (! mut)
   (report out (run processes (new Command
-                 (program "/bin/sh")
-                 (arguments (list "-c" "cat; echo err >&2; exit 3"))
-                 (directory "."))
-               (string->utf8 "from input\n")))
+                               (program "/bin/sh")
+                               (arguments (list "-c" "cat; echo err >&2; exit 3"))
+                               (directory "."))
+                   (string->utf8 "from input\n")))
   ;; A program with no slash is found on PATH, and runs as the name it was
   ;; given, in its directory.
   (report out
-   (run processes (new Command (program "sh") (arguments (list "-c" "echo $0; pwd")) (directory "/")) #u8()))
-  (report out
-   (run processes (new Command (program "/bin/sh") (arguments (list "-c" "kill -TERM $$")) (directory "."))
-        #u8()))
-  ;; A missing executable or directory is an error, as for spawn.
-  (report out
-   (run processes (new Command (program "/nonexistent/program") (arguments (Nil)) (directory ".")) #u8()))
-  (report out (run processes (new Command
-                 (program "/bin/sh")
-                 (arguments (list "-c" "true"))
-                 (directory "/nonexistent/directory"))
+          (run processes
+               (new Command (program "sh") (arguments (list "-c" "echo $0; pwd")) (directory "/"))
                #u8()))
   (report out
-   (run processes (new Command (program "no-such-program-on-path") (arguments (Nil)) (directory ".")) #u8()))
+          (run processes
+               (new Command
+                 (program "/bin/sh")
+                 (arguments (list "-c" "kill -TERM $$"))
+                 (directory "."))
+               #u8()))
+  ;; A missing executable or directory is an error, as for spawn.
+  (report out
+          (run processes
+               (new Command (program "/nonexistent/program") (arguments (Nil)) (directory "."))
+               #u8()))
+  (report out (run processes (new Command
+                               (program "/bin/sh")
+                               (arguments (list "-c" "true"))
+                               (directory "/nonexistent/directory"))
+                   #u8()))
+  (report out
+          (run processes
+               (new Command (program "no-such-program-on-path") (arguments (Nil)) (directory "."))
+               #u8()))
   ;; More output than a pipe holds, which nothing reads until the child exits.
   (match (run processes (new Command
-                (program "/bin/sh")
-                (arguments (list "-c" "head -c 200000 /dev/zero"))
-                (directory "."))
+                          (program "/bin/sh")
+                          (arguments (list "-c" "head -c 200000 /dev/zero"))
+                          (directory "."))
               #u8())
     ((Ok captured)
      (write-line out (string-append (show (array-length (● captured stdout))) " bytes")))

@@ -34,5 +34,5 @@
   (let ((copy (constant-array->array (bytes))))
     (array-set! copy 0 (i32->u8 42))
     (write-line out (string-append (show (u8->i32 (array-ref copy 0)))
-                               " "
-                               (show (u8->i32 (constant-array-ref (bytes) 0)))))))
+                                   " "
+                                   (show (u8->i32 (constant-array-ref (bytes) 0)))))))

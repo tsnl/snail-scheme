@@ -46,16 +46,18 @@
   (write out (map Some (list 1 2)))
   (newline out)
   (display out
-   (length (map (lambda (c) (match c ((Red) "r") ((Green) "g"))) (list (Red) (Green) (Red)))))
+           (length
+            (map (lambda (c) (match c ((Red) "r") ((Green) "g"))) (list (Red) (Green) (Red)))))
   (newline out)
   (write out (map (lambda (record) (● record x))
-              (map (lambda (p) (Point-x-set p 9))
-                   (list (new Point (x 1) (y 2)) (new Point (x 3) (y 4))))))
+                  (map (lambda (p) (Point-x-set p 9))
+                       (list (new Point (x 1) (y 2)) (new Point (x 3) (y 4))))))
   (newline out)
   (display out (array-fold * 1 (list->array (list 1 2 3 4 5))))
   (newline out)
   (display out
-   (evaluate (Block (list (Evaluate (Number 4)) (Evaluate (Block (list (Evaluate (Number 6)))))))))
+           (evaluate
+            (Block (list (Evaluate (Number 4)) (Evaluate (Block (list (Evaluate (Number 6)))))))))
   (newline out)
   (handle Note
       ((note (lambda (text) (write-line out (string-append "note: " text)))))

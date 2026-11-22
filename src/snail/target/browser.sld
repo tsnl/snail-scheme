@@ -38,7 +38,10 @@
    (only (snail shell gpu) Gpu host-gpu))
   (begin
 
-    (define (start (scheduler Scheduler) (main (Fn → Unit ! tasks e))) (→ Unit) (! mut host e) (∀ (e))
+    (define (start (scheduler Scheduler) (main (Fn → Unit ! tasks e)))
+      (→ Unit)
+      (! mut host e)
+      (∀ (e))
       (dispatch-in scheduler main)
       (unit))
 

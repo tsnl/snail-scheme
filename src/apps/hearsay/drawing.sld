@@ -165,8 +165,8 @@
         (end-pass gpu pass)
         (submit gpu (list (finish gpu encoder)))
         (portrait-read gpu (new Drawing
-                         (drawn (Some (new Drawn (atlas atlas) (quads kept))))
-                         (portraits (● drawing portraits)))
+                             (drawn (Some (new Drawn (atlas atlas) (quads kept))))
+                             (portraits (● drawing portraits)))
                        atlas
                        pictures)))
 

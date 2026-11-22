@@ -95,10 +95,14 @@
       (map (lambda (s) (Splat-scale-set s (+ (● s scale) 2.1))) three))
 
     ;; The cloud's rows, their live mask, every degree shading, and the camera.
-    (define (written (gpu Gpu) (program Program) (values (List (Pair String (Array F64)))) (live (List F64)))
+    (define (written (gpu Gpu)
+                     (program Program)
+                     (values (List (Pair String (Array F64))))
+                     (live (List F64)))
       (→ Unit) (! mut)
       (for-each
-       (lambda (pair) (write-param gpu program (● pair first) (values->bytes (● pair second) (Float))))
+       (lambda (pair)
+         (write-param gpu program (● pair first) (values->bytes (● pair second) (Float))))
        values)
       (write-param gpu program "live" (values->bytes (list->array live) (Float)))
       (write-param gpu program "degrees" (values->bytes (list->array (list 1.0 1.0 1.0)) (Float)))
@@ -200,9 +204,10 @@
         (write-param gpu losses "target" (values->bytes target (Float)))
         (run-program gpu grads)
         (let ((report
-               (string-join (map-indexed (lambda (k pair) (group-report gpu grads losses values k pair))
-                                         values)
-                            ", ")))
+               (string-join
+                (map-indexed (lambda (k pair) (group-report gpu grads losses values k pair))
+                             values)
+                ", ")))
           (release-program gpu grads)
           (release-program gpu losses)
           report)))

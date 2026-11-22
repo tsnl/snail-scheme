@@ -31,9 +31,9 @@
       (→ GpuComputePipeline)
       (! mut)
       (create-compute-pipeline gpu (new ComputePipelineDescriptor
-                                 (label (string-append label "/" entry))
-                                 (module module)
-                                 (entry entry))))
+                                     (label (string-append label "/" entry))
+                                     (module module)
+                                     (entry entry))))
 
     ;; Group `index` of `kernel`, whose layout it takes.
     (define (kernel-group (gpu Gpu) (kernel GpuComputePipeline)
@@ -43,10 +43,10 @@
       (→ GpuBindGroup)
       (! mut)
       (create-bind-group gpu (new BindGroupDescriptor
-                           (label label)
-                           (pipeline (ComputePipeline kernel))
-                           (group index)
-                           (entries entries))))
+                               (label label)
+                               (pipeline (ComputePipeline kernel))
+                               (group index)
+                               (entries entries))))
 
     ;; Workgroups of `size` for `count` items, at least one, in rows of
     ;; 65535, the most a dispatch has along an axis. Invocations past the
@@ -59,7 +59,9 @@
                              1)))
 
     ;; Workgroups of 8 by 8 for every texel of a width and a height.
-    (define (dispatch-texels (gpu Gpu) (pass GpuComputePass) (width I32) (height I32)) (→ Unit) (! mut)
+    (define (dispatch-texels (gpu Gpu) (pass GpuComputePass) (width I32) (height I32))
+      (→ Unit)
+      (! mut)
       (dispatch-workgroups gpu pass (quotient (+ width 7) 8) (quotient (+ height 7) 8) 1))
 
     ;; A uniform binds at a multiple of 256 bytes.
@@ -79,9 +81,9 @@
 
     (define (uniform-buffer (gpu Gpu) (label String) (bytes Bytes)) (→ GpuBuffer) (! mut)
       (let ((buffer (create-buffer gpu (new BufferDescriptor
-                                     (label label)
-                                     (size (i64->i32 (array-length bytes)))
-                                     (usage (list (Uniform) (CopyDst)))))))
+                                         (label label)
+                                         (size (i64->i32 (array-length bytes)))
+                                         (usage (list (Uniform) (CopyDst)))))))
         (write-buffer gpu buffer 0 bytes)
         buffer))
 
@@ -90,8 +92,8 @@
       (→ GpuBuffer)
       (! mut)
       (create-buffer gpu (new BufferDescriptor
-                       (label label)
-                       (size (i64->i32 (max 16 size)))
-                       (usage (Cons (Storage) more)))))
+                           (label label)
+                           (size (i64->i32 (max 16 size)))
+                           (usage (Cons (Storage) more)))))
 
     ))

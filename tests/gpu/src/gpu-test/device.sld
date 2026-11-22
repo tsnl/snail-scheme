@@ -76,18 +76,20 @@
 
     ;; ---- Objects ----
 
-    (define (buffer-named (gpu Gpu) (name String) (size I32) (usage (List BufferUsage))) (→ GpuBuffer) (! mut)
+    (define (buffer-named (gpu Gpu) (name String) (size I32) (usage (List BufferUsage)))
+      (→ GpuBuffer)
+      (! mut)
       (create-buffer gpu (new BufferDescriptor (label name) (size size) (usage usage))))
 
     (define (texture-named (gpu Gpu) (name String) (width I32) (height I32)) (→ GpuTexture) (! mut)
       (create-texture gpu (new TextureDescriptor
-                        (label name)
-                        (width width)
-                        (height height)
-                        (layers 1)
-                        (mips 1)
-                        (format (Rgba8Unorm))
-                        (usage (list (RenderAttachment) (TextureCopySrc))))))
+                            (label name)
+                            (width width)
+                            (height height)
+                            (layers 1)
+                            (mips 1)
+                            (format (Rgba8Unorm))
+                            (usage (list (RenderAttachment) (TextureCopySrc))))))
 
     ;; A red texel beside a green one, as a PNG.
     (define two-texels
@@ -304,7 +306,10 @@
              (camera (lambda (x z)
                        (camera-3d (new Vec3f (x x) (y 0.5) (z z))
                                   (new Vec3f (x 0.0) (y 0.5) (z 0.0)) (Parallel 2.0) 1.0 1.0)))
-             (r (write-raster gpu (write-raster gpu r (camera 0.0 5.0) overhead) (camera 5.0 0.0) overhead))
+             (r (write-raster gpu
+                              (write-raster gpu r (camera 0.0 5.0) overhead)
+                              (camera 5.0 0.0)
+                              overhead))
              (motion (surface-motion gpu r g sprite 2 3)))
         (string-append (id-text (read-id gpu g 2 3)) " "
                        (if (and (< (abs (half motion 0)) 0.001) (< (abs (half motion 2)) 0.001))
@@ -340,19 +345,20 @@
 
     (define (compute-frame (gpu Gpu)) (→ Bytes) (! mut tasks)
       (let* ((module
-              (create-shader-module gpu (new ShaderModuleDescriptor (label "square") (code square))))
+              (create-shader-module gpu
+                                    (new ShaderModuleDescriptor (label "square") (code square))))
              (pipeline (create-compute-pipeline gpu
-                        (new ComputePipelineDescriptor
-                          (label "square")
-                          (module module)
-                          (entry "square_main"))))
+                                                (new ComputePipelineDescriptor
+                                                  (label "square")
+                                                  (module module)
+                                                  (entry "square_main"))))
              (numbers (buffer-named gpu "numbers" 400 (list (Storage) (CopySrc) (CopyDst))))
              (readback (buffer-named gpu "numbers-readback" 400 (list (MapRead) (CopyDst))))
              (group (create-bind-group gpu (new BindGroupDescriptor
-                                         (label "square")
-                                         (pipeline (ComputePipeline pipeline))
-                                         (group 0)
-                                         (entries (list (BufferEntry 0 numbers 0 0))))))
+                                             (label "square")
+                                             (pipeline (ComputePipeline pipeline))
+                                             (group 0)
+                                             (entries (list (BufferEntry 0 numbers 0 0))))))
              (encoder (create-command-encoder gpu))
              (pass (begin-compute-pass gpu encoder)))
         (write-buffer gpu numbers 0 (pack (shape) (map (lambda (n) (+ 1 (i64->i32 n))) (iota 100))))
@@ -385,7 +391,10 @@
 
     (define (read-numbers (gpu Gpu) (buffer GpuBuffer) (count I64)) (→ Bytes) (! mut tasks)
       (let ((readback
-             (buffer-named gpu "numbers-readback" (i64->i32 (* 4 count)) (list (MapRead) (CopyDst))))
+             (buffer-named gpu
+                           "numbers-readback"
+                           (i64->i32 (* 4 count))
+                           (list (MapRead) (CopyDst))))
             (encoder (create-command-encoder gpu)))
         (copy-buffer-to-buffer gpu encoder buffer 0 readback 0 (i64->i32 (* 4 count)))
         (submit gpu (list (finish gpu encoder)))
@@ -446,7 +455,10 @@
              (sorter (make-sorter gpu "test" keys values count 32))
              (encoder (create-command-encoder gpu))
              (pass (begin-compute-pass gpu encoder)))
-        (write-buffer gpu keys 0 (pack (shape) (map (lambda (i) (as-i32 (test-key i))) (iota count))))
+        (write-buffer gpu
+                      keys
+                      0
+                      (pack (shape) (map (lambda (i) (as-i32 (test-key i))) (iota count))))
         (write-buffer gpu values 0 (pack (shape) (map i64->i32 (iota count))))
         (dispatch-sort gpu pass sorter)
         (end-compute-pass gpu pass)

@@ -76,7 +76,7 @@
 
 (define (show-import (out OutputPort) (import Import)) (→ Unit) (! mut)
   (write-line out (string-append (● import from) " " (● import name) " "
-                             (kind-name (● import kind)))))
+                                 (kind-name (● import kind)))))
 
 (define (show-run (wasm Wasm) (out OutputPort) (instance Module) (name String)) (→ Unit) (! mut)
   (match (run-export wasm instance name 0)

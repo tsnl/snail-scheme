@@ -39,7 +39,7 @@
   (let ((memo (cache (lambda (key) (new Cell (value key))))))
     (for-each (lambda (index) (set! (● (memo (* index 8)) value) (+ index 100))) (iota 128))
     (write-line out (show (fold-left (lambda (sum index) (+ sum (● (memo (* index 8)) value)))
-                                 0 (iota 128)))))
+                                     0 (iota 128)))))
   (let* ((calls (new Cell (value 0)))
          (factory (lambda ()
                     (set! (● calls value) (+ (● calls value) 1))

@@ -146,8 +146,9 @@
       ;; A source that is not there is a diagnostic naming the file.
       (define test-missing-source
         (lambda ()
-          (expect (compile-failure (lambda () (read-source-file (host-fs) "build/tests/missing/main.sld")))
-                  "build/tests/missing/main.sld: no such file or directory")))
+          (expect
+           (compile-failure (lambda () (read-source-file (host-fs) "build/tests/missing/main.sld")))
+           "build/tests/missing/main.sld: no such file or directory")))
 
       ;; A printed producer reads back as the text its key hashes, and the
       ;; same program under other directories is another producer.

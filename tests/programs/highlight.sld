@@ -48,13 +48,13 @@
       (panic (string-append "the tokens do not tile " (quoted text))))
     (write-line out (quoted text))
     (write-line out (string-append "  "
-                               (string-join (map (lambda (token)
-                                                   (string-append (class-name (● token class))
-                                                                  ":"
-                                                                  (quoted
-                                                                   (token-text chars token))))
-                                                 tokens)
-                                            " ")))))
+                                   (string-join (map (lambda (token)
+                                                       (string-append (class-name (● token class))
+                                                                      ":"
+                                                                      (quoted
+                                                                       (token-text chars token))))
+                                                     tokens)
+                                                " ")))))
 
 (define (show-reading (out OutputPort) (text String)) (→ Unit) (! mut)
   (show-tokens out text)
@@ -76,7 +76,7 @@
   (show-reading out "(define (adder (n I64)) (→ (Fn I64 → I64)) (lambda (x) (+ n x)))")
   (show-reading out "(record Point ((x F64)) (deriving Show)) (match p ((Point x) x) (_ 0))")
   (show-reading out
-   "(effect ask ((ctl ask (Fn → I64)))) (handle ask ((ask (lambda (resume) (resume 1)))) body)")
+                "(effect ask ((ctl ask (Fn → I64)))) (handle ask ((ask (lambda (resume) (resume 1)))) body)")
   ;; Block comments nest.
   (show-reading out "#| outer #| inner |# still outer |#x")
   ;; Escapes stay inside their string; `#\` takes the character after it,

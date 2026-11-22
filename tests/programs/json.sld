@@ -66,8 +66,8 @@
     (write-line out (show (string-length text)))
     (write-line out (substring text 0 70)))
   (write-line out
-   (json->string (JsonObject (list (new Pair (first "a") (second (JsonInteger 1)))
-                                   (new Pair (first "a") (second (JsonInteger 2)))))))
+              (json->string (JsonObject (list (new Pair (first "a") (second (JsonInteger 1)))
+                                              (new Pair (first "a") (second (JsonInteger 2)))))))
   (write-line out (json->string (JsonInteger 9223372036854775807)))
   (write-line out (json->string (JsonInteger -9223372036854775808)))
   (unit))

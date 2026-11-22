@@ -85,7 +85,7 @@
                           (map csv-fields
                                (list-tail
                                 (file-lines fs
-                                 "src/lpc/lpc-clothing-updates/CREDITS-clothing-updates.csv")
+                                            "src/lpc/lpc-clothing-updates/CREDITS-clothing-updates.csv")
                                 1))))
         (hair (map table-fields
                    (filter table-row? (file-lines fs "src/lpc/lpc-hair/CREDITS-hair.txt"))))

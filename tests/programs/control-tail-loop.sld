@@ -28,9 +28,9 @@
 
 (define (main (out OutputPort)) (→ Unit) (! mut)
   (display out (handle Tick ((tick (lambda (n resume) (resume (* n 2)))))
-             (count-down 100000 0)))
+                 (count-down 100000 0)))
   (newline out)
   (display out (handle Tick ((tick (lambda (n resume) (resume 0))))
-             (sparse 1000000 0)))
+                 (sparse 1000000 0)))
   (newline out)
   (unit))

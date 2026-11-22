@@ -19,8 +19,8 @@
   (digest out (string->utf8 "abc"))
   (digest out (string->utf8 "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"))
   (digest out
-   (string->utf8
-    "abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu"))
+          (string->utf8
+           "abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu"))
   (digest out (make-array 1000000 (i32->u8 97)))
   (for-each (lambda (length) (digest out (make-array length (i32->u8 120))))
             (list 1 55 56 57 63 64 65 119 120 128))

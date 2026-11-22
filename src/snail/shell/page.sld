@@ -112,15 +112,16 @@
         (load-count (lambda () (through-host host-start-load host-finish-load)))
         (loaded-byte host-byte)
         (store-save (lambda (bytes)
-                         (through-host (lambda (ticket) (host-start-store ticket bytes))
-                                       host-finish-store)))))
+                      (through-host (lambda (ticket) (host-start-store ticket bytes))
+                                    host-finish-store)))))
 
     (define (load-save (storage PageStorage)) (→ (Option Bytes)) (! mut tasks)
       (let ((count (load-count storage)))
         (if (< count 0)
             (None)
             (Some
-             (array-generate (i32->i64 count) (lambda (index) (loaded-byte storage (i64->i32 index))))))))
+             (array-generate (i32->i64 count)
+                             (lambda (index) (loaded-byte storage (i64->i32 index))))))))
 
     ;; ---- Running a page ----
 

@@ -15,7 +15,8 @@
   (display out (array-length bytes))
   (newline out)
   (display out
-   (string-join (map (lambda (index) (show (u8->i32 (array-ref bytes index)))) (iota 8)) " "))
+           (string-join (map (lambda (index) (show (u8->i32 (array-ref bytes index)))) (iota 8))
+                        " "))
   (newline out)
   (display out (greeting-length))
   (newline out)

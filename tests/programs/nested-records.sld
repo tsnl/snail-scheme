@@ -81,7 +81,11 @@
     (match segment
       ((Segment (Point x _) to label)
        (write-line out
-        (string-append label " starts at x " (show x) " and ends at " (show-point to))))))
+                   (string-append label
+                                  " starts at x "
+                                  (show x)
+                                  " and ends at "
+                                  (show-point to))))))
   ;; A pure replacement creates a new outer record and shares other fields.
   (let* ((segment
           (new Segment (from (new Point (x 0) (y 0))) (to (new Point (x 1) (y 1))) (label "unit")))
@@ -97,8 +101,8 @@
   (let ((pair (new Pair (first (new Point (x 7) (y 8))) (second "seven-eight"))))
     (write-line out (string-append (● pair second) " " (show-point (● pair first)))))
   (write-line out (show-point (nearest (list (new Point (x 3) (y 1))
-                                         (new Point (x 2) (y 9))
-                                         (new Point (x 5) (y 5))))))
+                                             (new Point (x 2) (y 9))
+                                             (new Point (x 5) (y 5))))))
   (for-each (lambda (shape) (write-line out (describe shape)))
             (list (Dot (new Point (x 4) (y 4)))
                   (Line (new Segment
@@ -114,23 +118,23 @@
     (set! (● cursor clicks) (+ (● cursor clicks) 1))
     (set! (● cursor last) (new Point (x 2) (y 2)))
     (write-line out (string-append (show (● cursor clicks))
-                               " "
-                               (show-point (● cursor home))
-                               " "
-                               (show-point (● cursor last))))
+                                   " "
+                                   (show-point (● cursor home))
+                                   " "
+                                   (show-point (● cursor last))))
     (write-line out (show-point (● cursor last)))
     (set! (● cursor last) (new Point (x 3) (y 3)))
     (write-line out (show-point (● cursor last))))
   ;; Accessors are functions too, and an Any holds a Point as itself.
   (write-line out
-   (string-join (map show
-                     (map (lambda (record) (● record x))
-                          (list (new Point (x 1) (y 0)) (new Point (x 2) (y 0)))))
-                " "))
+              (string-join (map show
+                                (map (lambda (record) (● record x))
+                                     (list (new Point (x 1) (y 0)) (new Point (x 2) (y 0)))))
+                           " "))
   (write-line out (show-point (match (downcast Point (Any (new Point (x 9) (y 9))))
-                            ((Some value) value)
-                            ((None) (panic "point round trip failed")))))
+                                ((Some value) value)
+                                ((None) (panic "point round trip failed")))))
   (write-line out (show-segment (handle Ask
-                                ((ask (lambda (resume) (resume 1))))
-                              (build))))
+                                    ((ask (lambda (resume) (resume 1))))
+                                  (build))))
   (unit))

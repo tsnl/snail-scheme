@@ -22,15 +22,15 @@
 (define (report (out OutputPort) (world World)) (→ Unit) (! mut)
   (let ((ledger (● world ledger)))
     (write-line out (string-join (list (string-append "tick " (show (● world tick)))
-                                   (string-append "energy " (show (● world energy)))
-                                   (string-append "produced " (show (● ledger produced)))
-                                   (string-append "spent " (show (● ledger spent)))
-                                   (string-append "balanced "
-                                                  (show (= (● world energy)
-                                                           (- (+ starting-energy
-                                                                 (● ledger produced))
-                                                              (● ledger spent))))))
-                             ", "))))
+                                       (string-append "energy " (show (● world energy)))
+                                       (string-append "produced " (show (● ledger produced)))
+                                       (string-append "spent " (show (● ledger spent)))
+                                       (string-append "balanced "
+                                                      (show (= (● world energy)
+                                                               (- (+ starting-energy
+                                                                     (● ledger produced))
+                                                                  (● ledger spent))))))
+                                 ", "))))
 
 (define (reserve (world World) (cell Cell)) (→ I64)
   (match (crystal-at world cell)
@@ -44,12 +44,12 @@
     (define starter (● (● world land) starter))
     (report out world)
     (write-line out (string-append "advancing before the first order changes nothing: "
-                               (show (= (● (run world 50) tick) 0))))
+                                   (show (= (● (run world 50) tick) 0))))
     (define world (order world (Build (Extractor) starter #f)))
     (write-line out (string-append "the first extractor is ready at once: "
-                               (show (match (building-at world starter)
-                                       ((Some b) (built? b))
-                                       ((None) #f)))))
+                                   (show (match (building-at world starter)
+                                           ((Some b) (built? b))
+                                           ((None) #f)))))
     (define world (run world 100))
     (report out world)
     (write-line out (string-append "starter reserve " (show (reserve world starter))))
@@ -67,6 +67,9 @@
     (define damaged (World-hub-set world (Hub-health-set (● world hub) 421)))
     (define repaired (order damaged (Repair)))
     (write-line out
-     (string-append "repair restores the hub from 421 to " (show (● (● repaired hub) health))
-                    " for " (show (- (● damaged energy) (● repaired energy))) " energy")))
+                (string-append "repair restores the hub from 421 to "
+                               (show (● (● repaired hub) health))
+                               " for "
+                               (show (- (● damaged energy) (● repaired energy)))
+                               " energy")))
   (unit))

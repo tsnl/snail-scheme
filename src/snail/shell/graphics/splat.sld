@@ -278,15 +278,15 @@
 
     (define (storage-buffer (gpu Gpu) (label String) (size I64)) (→ GpuBuffer) (! mut)
       (create-buffer gpu (new BufferDescriptor
-                       (label label)
-                       (size (i64->i32 size))
-                       (usage (list (Storage) (CopySrc) (CopyDst))))))
+                           (label label)
+                           (size (i64->i32 size))
+                           (usage (list (Storage) (CopySrc) (CopyDst))))))
 
     (define (camera-buffer (gpu Gpu) (label String)) (→ GpuBuffer) (! mut)
       (create-buffer gpu (new BufferDescriptor
-                       (label (string-append label "/camera"))
-                       (size (i64->i32 (stride camera-shape)))
-                       (usage (list (Uniform) (CopyDst))))))
+                           (label (string-append label "/camera"))
+                           (size (i64->i32 (stride camera-shape)))
+                           (usage (list (Uniform) (CopyDst))))))
 
     (define identity
       (→ Mat4x4f)
@@ -298,37 +298,43 @@
       (→ GpuBindGroup)
       (! mut)
       (create-bind-group gpu (new BindGroupDescriptor
-                           (label (string-append "splat/" label))
-                           (pipeline pipeline)
-                           (group 0)
-                           (entries (map-indexed (lambda (binding buffer)
-                                                   (BufferEntry (i64->i32 binding) buffer 0 0))
-                                                 buffers)))))
+                               (label (string-append "splat/" label))
+                               (pipeline pipeline)
+                               (group 0)
+                               (entries (map-indexed (lambda (binding buffer)
+                                                       (BufferEntry (i64->i32 binding) buffer 0 0))
+                                                     buffers)))))
 
     (define (module-of (gpu Gpu) (label String) (code String)) (→ GpuShaderModule) (! mut)
       (create-shader-module gpu (new ShaderModuleDescriptor (label label) (code code))))
 
     (define (project-pipeline-of (gpu Gpu) (module GpuShaderModule)) (→ GpuComputePipeline) (! mut)
       (create-compute-pipeline gpu
-       (new ComputePipelineDescriptor (label "splat/project") (module module) (entry "project"))))
+                               (new ComputePipelineDescriptor
+                                 (label "splat/project")
+                                 (module module)
+                                 (entry "project"))))
 
     ;; Squares blended over what is drawn, untested by depth.
 
-    (define (draw-pipeline-of (gpu Gpu) (module GpuShaderModule) (format TextureFormat)) (→ GpuRenderPipeline)
+    (define (draw-pipeline-of (gpu Gpu) (module GpuShaderModule) (format TextureFormat))
+      (→ GpuRenderPipeline)
       (! mut)
       (create-render-pipeline gpu
-       (new RenderPipelineDescriptor
-         (label "splat/draw")
-         (module module)
-         (vertex-entry "splat_vertex")
-         (buffers (Nil))
-         (fragment (Some (new FragmentState
-                           (entry "splat_fragment")
-                           (targets
-                            (list (Some (new ColorTarget (format format) (blend (Some over)))))))))
-         (topology (TriangleStrip))
-         (cull (CullNone))
-         (depth (None)))))
+                              (new RenderPipelineDescriptor
+                                (label "splat/draw")
+                                (module module)
+                                (vertex-entry "splat_vertex")
+                                (buffers (Nil))
+                                (fragment (Some (new FragmentState
+                                                  (entry "splat_fragment")
+                                                  (targets
+                                                   (list (Some (new ColorTarget
+                                                                 (format format)
+                                                                 (blend (Some over)))))))))
+                                (topology (TriangleStrip))
+                                (cull (CullNone))
+                                (depth (None)))))
 
     ;; ---- Writing ----
 
@@ -366,11 +372,16 @@
                         (to I64))
       (→ Unit)
       (! mut)
-      (write-buffer gpu buffer (i64->i32 (* at width)) (subarray bytes (* from width) (* to width))))
+      (write-buffer gpu
+                    buffer
+                    (i64->i32 (* at width))
+                    (subarray bytes (* from width) (* to width))))
 
     ;; The transforms table from its first row; rows not given keep theirs.
 
-    (define (write-transforms (gpu Gpu) (splats Splats) (transforms (List Mat4x4f))) (→ Unit) (! mut)
+    (define (write-transforms (gpu Gpu) (splats Splats) (transforms (List Mat4x4f)))
+      (→ Unit)
+      (! mut)
       (unless (<= (length transforms) (● splats transform-capacity))
         (panic "splat: more transforms than the splats have room for"))
       (write-buffer gpu (● splats transforms) 0 (pack transform-shape transforms)))

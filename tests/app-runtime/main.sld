@@ -72,7 +72,9 @@
     (save (lambda (counter) (serialize (new Save (count (● counter count))))))
     (restore (lambda (bytes) (counting (● (ann (deserialize bytes) Save) count))))))
 
-(define (main (gpu Gpu) (events Events) (storage PageStorage) (clock Clock)) (→ Unit) (! mut host tasks)
+(define (main (gpu Gpu) (events Events) (storage PageStorage) (clock Clock))
+  (→ Unit)
+  (! mut host tasks)
   (handle Marker
       ((marker (lambda () 17)))
     (dispatch (lambda ()

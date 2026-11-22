@@ -49,7 +49,9 @@
       ((pipeline GpuRenderPipeline)
        (group GpuBindGroup)))
 
-    (define (make-sunlight (gpu Gpu) (format TextureFormat) (g GBuffer) (r Raster)) (→ Sunlight) (! mut)
+    (define (make-sunlight (gpu Gpu) (format TextureFormat) (g GBuffer) (r Raster))
+      (→ Sunlight)
+      (! mut)
       (let ((pipeline (sun-pipeline gpu format)))
         (new Sunlight (pipeline pipeline) (group (sun-group gpu pipeline g r)))))
 
@@ -66,32 +68,41 @@
 
     (define (sun-pipeline (gpu Gpu) (format TextureFormat)) (→ GpuRenderPipeline) (! mut)
       (create-render-pipeline gpu
-       (new RenderPipelineDescriptor
-         (label "passes/sun")
-         (module (create-shader-module gpu
-                  (new ShaderModuleDescriptor (label "passes/sun") (code sun-code))))
-         (vertex-entry "sun_vertex")
-         (buffers (Nil))
-         (fragment (Some (new FragmentState
-                           (entry "sun_fragment")
-                           (targets
-                            (list (Some (new ColorTarget (format format) (blend (None)))))))))
-         (topology (TriangleList))
-         (cull (CullNone))
-         (depth
-          (Some (new DepthState (format (Depth24Plus)) (write #f) (compare (CompareAlways))))))))
+                              (new RenderPipelineDescriptor
+                                (label "passes/sun")
+                                (module (create-shader-module gpu
+                                                              (new ShaderModuleDescriptor
+                                                                (label "passes/sun")
+                                                                (code sun-code))))
+                                (vertex-entry "sun_vertex")
+                                (buffers (Nil))
+                                (fragment (Some (new FragmentState
+                                                  (entry "sun_fragment")
+                                                  (targets
+                                                   (list (Some (new ColorTarget
+                                                                 (format format)
+                                                                 (blend (None)))))))))
+                                (topology (TriangleList))
+                                (cull (CullNone))
+                                (depth
+                                 (Some (new DepthState
+                                         (format (Depth24Plus))
+                                         (write #f)
+                                         (compare (CompareAlways))))))))
 
-    (define (sun-group (gpu Gpu) (pipeline GpuRenderPipeline) (g GBuffer) (r Raster)) (→ GpuBindGroup) (! mut)
+    (define (sun-group (gpu Gpu) (pipeline GpuRenderPipeline) (g GBuffer) (r Raster))
+      (→ GpuBindGroup)
+      (! mut)
       (create-bind-group gpu (new BindGroupDescriptor
-                           (label "passes/sun")
-                           (pipeline (RenderPipeline pipeline))
-                           (group 0)
-                           (entries (list (BufferEntry 0 (● r camera) 0 0)
-                                          (BufferEntry 1 (● r sun) 0 0)
-                                          (TextureEntry 2 (● g albedo view))
-                                          (TextureEntry 3 (● g normal view))
-                                          (TextureEntry 4 (● g material view))
-                                          (TextureEntry 5 (● g depth view)))))))
+                               (label "passes/sun")
+                               (pipeline (RenderPipeline pipeline))
+                               (group 0)
+                               (entries (list (BufferEntry 0 (● r camera) 0 0)
+                                              (BufferEntry 1 (● r sun) 0 0)
+                                              (TextureEntry 2 (● g albedo view))
+                                              (TextureEntry 3 (● g normal view))
+                                              (TextureEntry 4 (● g material view))
+                                              (TextureEntry 5 (● g depth view)))))))
 
     ;; ---- Tone mapping and FXAA ----
 
@@ -126,7 +137,8 @@
       (→ Post)
       (! mut)
       (let* ((module
-              (create-shader-module gpu (new ShaderModuleDescriptor (label "post") (code post-shader))))
+              (create-shader-module gpu
+                                    (new ShaderModuleDescriptor (label "post") (code post-shader))))
              (tone (screen-pipeline gpu module
                                     (match curve
                                       ((Neutral) "tone_fragment")
@@ -134,11 +146,11 @@
                                     (Rgba8Unorm)))
              (fxaa (screen-pipeline gpu module "fxaa_fragment" format))
              (sampler (create-sampler gpu (new SamplerDescriptor
-                                        (label "post/bilinear")
-                                        (mag-filter (Linear))
-                                        (min-filter (Linear))
-                                        (mipmap-filter (Nearest))
-                                        (address (ClampToEdge))))))
+                                            (label "post/bilinear")
+                                            (mag-filter (Linear))
+                                            (min-filter (Linear))
+                                            (mipmap-filter (Nearest))
+                                            (address (ClampToEdge))))))
         (new Post
           (tone tone)
           (fxaa fxaa)
@@ -186,7 +198,11 @@
     (define (draw-post (gpu Gpu) (encoder GpuCommandEncoder) (canvas GpuTextureView) (post Post))
       (→ Unit)
       (! mut)
-      (screen-pass gpu encoder (● post targets toned-view) (● post tone) (● post targets tone-group))
+      (screen-pass gpu
+                   encoder
+                   (● post targets toned-view)
+                   (● post tone)
+                   (● post targets tone-group))
       (screen-pass gpu encoder canvas (● post fxaa) (● post targets fxaa-group)))
 
     ;; One triangle over `target`, every pixel of which it writes.
@@ -212,34 +228,39 @@
         (draw gpu pass 3 1 0 0)
         (end-pass gpu pass)))
 
-    (define (screen-pipeline (gpu Gpu) (module GpuShaderModule) (entry String) (format TextureFormat))
+    (define (screen-pipeline (gpu Gpu)
+                             (module GpuShaderModule)
+                             (entry String)
+                             (format TextureFormat))
       (→ GpuRenderPipeline)
       (! mut)
       (create-render-pipeline gpu
-       (new RenderPipelineDescriptor
-         (label (string-append "post/" entry))
-         (module module)
-         (vertex-entry "post_vertex")
-         (buffers (Nil))
-         (fragment (Some (new FragmentState
-                           (entry entry)
-                           (targets
-                            (list (Some (new ColorTarget (format format) (blend (None)))))))))
-         (topology (TriangleList))
-         (cull (CullNone))
-         (depth (None)))))
+                              (new RenderPipelineDescriptor
+                                (label (string-append "post/" entry))
+                                (module module)
+                                (vertex-entry "post_vertex")
+                                (buffers (Nil))
+                                (fragment (Some (new FragmentState
+                                                  (entry entry)
+                                                  (targets
+                                                   (list (Some (new ColorTarget
+                                                                 (format format)
+                                                                 (blend (None)))))))))
+                                (topology (TriangleList))
+                                (cull (CullNone))
+                                (depth (None)))))
 
     (define (screen-target (gpu Gpu) (label String) (width I32) (height I32) (format TextureFormat))
       (→ GpuTexture)
       (! mut)
       (create-texture gpu (new TextureDescriptor
-                        (label label)
-                        (width width)
-                        (height height)
-                        (layers 1)
-                        (mips 1)
-                        (format format)
-                        (usage (list (RenderAttachment) (TextureBinding) (StorageBinding))))))
+                            (label label)
+                            (width width)
+                            (height height)
+                            (layers 1)
+                            (mips 1)
+                            (format format)
+                            (usage (list (RenderAttachment) (TextureBinding) (StorageBinding))))))
 
     (define (screen-group (gpu Gpu) (label String)
                           (pipeline GpuRenderPipeline)
@@ -247,9 +268,9 @@
       (→ GpuBindGroup)
       (! mut)
       (create-bind-group gpu (new BindGroupDescriptor
-                           (label label)
-                           (pipeline (RenderPipeline pipeline))
-                           (group 0)
-                           (entries entries))))
+                               (label label)
+                               (pipeline (RenderPipeline pipeline))
+                               (group 0)
+                               (entries entries))))
 
     ))

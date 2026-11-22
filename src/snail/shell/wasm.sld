@@ -163,7 +163,9 @@
 
     ;; The function the module exports as `name`.
 
-    (define (module-export (wasm Wasm) (module Module) (name String)) (→ (Result Funcref LoadError)) (! mut)
+    (define (module-export (wasm Wasm) (module Module) (name String))
+      (→ (Result Funcref LoadError))
+      (! mut)
       (send-argument wasm name)
       (if (exports-function? wasm (● module handle))
           (begin (send-argument wasm name) (Ok (export-function wasm (● module handle))))

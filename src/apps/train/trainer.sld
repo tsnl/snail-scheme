@@ -158,7 +158,11 @@
           (sensor sensor)
           (step step)
           (densify
-           (compile-program-sharing gpu "densify" (list (● densified second)) (● densified first) step))
+           (compile-program-sharing gpu
+                                    "densify"
+                                    (list (● densified second))
+                                    (● densified first)
+                                    step))
           (reset (compile-program-sharing gpu "reset" (Nil) (opacity-reset cloud) step)))))
 
     (define (release-programs (gpu Gpu) (p Programs)) (→ Unit) (! mut)
@@ -193,8 +197,14 @@
                            capacity
                            3
                            (lambda (i) (let ((s (array-ref scales i))) (list s s s)))))
-        (write-param gpu step "rotations" (rows count capacity 4 (lambda (i) (list 0.0 0.0 0.0 1.0))))
-        (write-param gpu step "opacities" (rows count capacity 1 (lambda (i) (list (log (/ 0.1 0.9))))))
+        (write-param gpu
+                     step
+                     "rotations"
+                     (rows count capacity 4 (lambda (i) (list 0.0 0.0 0.0 1.0))))
+        (write-param gpu
+                     step
+                     "opacities"
+                     (rows count capacity 1 (lambda (i) (list (log (/ 0.1 0.9))))))
         (write-param gpu step
                      "dc"
                      (rows count
@@ -226,7 +236,12 @@
 
     ;; One step on a photograph: its texels copied into the target, its
     ;; camera and the centers' rate written, then the step's program.
-    (define (step-on (gpu Gpu) (p Programs) (scene Scene) (image ColmapImage) (photo Image) (rate F64))
+    (define (step-on (gpu Gpu)
+                     (p Programs)
+                     (scene Scene)
+                     (image ColmapImage)
+                     (photo Image)
+                     (rate F64))
       (→ Unit)
       (! mut)
       (aim gpu (● p step) (● p sensor) scene image photo)
@@ -237,7 +252,12 @@
     ;; copy is submitted here, so the photograph may be let go after. A
     ;; photograph of another size than the scene's camera cannot be
     ;; copied, and stops the run.
-    (define (aim (gpu Gpu) (program Program) (sensor Sensor) (scene Scene) (image ColmapImage) (photo Image))
+    (define (aim (gpu Gpu)
+                 (program Program)
+                 (sensor Sensor)
+                 (scene Scene)
+                 (image ColmapImage)
+                 (photo Image))
       (→ Unit)
       (! mut)
       (unless (and (= (i32->i64 (● photo width)) (● sensor width))
@@ -260,7 +280,12 @@
     ;; the seconds it took and its kernel, and the step's twelve largest
     ;; kinds of buffer; the first step touches every buffer, which the
     ;; device clears then.
-    (define (profile (photographs Photographs) (gpu Gpu) (clock Clock) (out OutputPort) (p Programs) (scene Scene))
+    (define (profile (photographs Photographs)
+                     (gpu Gpu)
+                     (clock Clock)
+                     (out OutputPort)
+                     (p Programs)
+                     (scene Scene))
       (→ Unit)
       (! mut tasks)
       (let* ((image (list-ref (● scene training) 0)) (photo (photograph photographs image)))
@@ -270,10 +295,10 @@
       (let ((times (list-sort (lambda (a b) (> (● a second) (● b second)))
                               (profile-program gpu clock (● p step)))))
         (write-line out (string-append (show (length times))
-                                   " dispatches, "
-                                   (f64->string
-                                    (fold-left + 0.0 (map (lambda (t) (● t second)) times)))
-                                   " seconds"))
+                                       " dispatches, "
+                                       (f64->string
+                                        (fold-left + 0.0 (map (lambda (t) (● t second)) times)))
+                                       " seconds"))
         (for-each
          (lambda (t) (write-line out (string-append (f64->string (● t second)) " " (● t first))))
          (take times 12))
@@ -281,9 +306,9 @@
          (lambda (m) (write-line out (string-append (show (● m second)) " bytes: " (● m first))))
          (take (program-memory (● p step)) 12))
         (write-line out (string-append (show (bytes-made (● p step)))
-                                   " bytes made for the step, "
-                                   (show (bytes-made (● p densify)))
-                                   " for densifying"))))
+                                       " bytes made for the step, "
+                                       (show (bytes-made (● p densify)))
+                                       " for densifying"))))
 
     (define (bytes-made (program Program)) (→ I64)
       (fold-left + 0 (map (lambda (m) (● m second)) (program-memory program))))
@@ -322,7 +347,9 @@
     ;; Larger programs on the same params: stashed, the old programs
     ;; released, and given back, so only one set of scratch is ever held.
     ;; Densification's own params are written as it runs, but the extent.
-    (define (grown (gpu Gpu) (p Programs) (scene Scene) (capacity I64) (entries I64)) (→ Programs) (! mut)
+    (define (grown (gpu Gpu) (p Programs) (scene Scene) (capacity I64) (entries I64))
+      (→ Programs)
+      (! mut)
       (let ((stash (stash-params gpu (● p step))))
         (release-programs gpu p)
         (let ((bigger (programs-for gpu scene capacity entries)))
@@ -339,29 +366,34 @@
     (define (make-presenter (gpu Gpu) (format TextureFormat)) (→ Presenter) (! mut)
       (new Presenter
         (pipeline (create-render-pipeline gpu
-                   (new RenderPipelineDescriptor
-                     (label "present")
-                     (module (create-shader-module gpu
-                              (new ShaderModuleDescriptor (label "present") (code present-shader))))
-                     (vertex-entry "present_vertex")
-                     (buffers (Nil))
-                     (fragment (Some (new FragmentState
-                                       (entry "present_fragment")
-                                       (targets (list (Some (new ColorTarget
-                                                              (format format)
-                                                              (blend (None)))))))))
-                     (topology (TriangleList))
-                     (cull (CullNone))
-                     (depth (None)))))
+                                          (new RenderPipelineDescriptor
+                                            (label "present")
+                                            (module (create-shader-module gpu
+                                                                          (new ShaderModuleDescriptor
+                                                                            (label "present")
+                                                                            (code present-shader))))
+                                            (vertex-entry "present_vertex")
+                                            (buffers (Nil))
+                                            (fragment (Some (new FragmentState
+                                                              (entry "present_fragment")
+                                                              (targets (list (Some (new ColorTarget
+                                                                                     (format format)
+                                                                                     (blend
+                                                                                      (None)))))))))
+                                            (topology (TriangleList))
+                                            (cull (CullNone))
+                                            (depth (None)))))
         (sizes (create-buffer gpu (new BufferDescriptor
-                                (label "present/sizes")
-                                (size 16)
-                                (usage (list (Uniform) (CopyDst))))))))
+                                    (label "present/sizes")
+                                    (size 16)
+                                    (usage (list (Uniform) (CopyDst))))))))
 
     ;; The step's image drawn into the canvas.
     ;; How a page shows a step: its image on the canvas, whose format is
     ;; `format`. And how a host without a screen does.
-    (define (shown-on-canvas (gpu Gpu) (format TextureFormat)) (→ (Fn Programs → Unit ! mut)) (! mut)
+    (define (shown-on-canvas (gpu Gpu) (format TextureFormat))
+      (→ (Fn Programs → Unit ! mut))
+      (! mut)
       (let ((presenter (make-presenter gpu format)))
         (lambda ((p Programs)) (→ Unit) (! mut) (present gpu presenter p))))
 
@@ -371,19 +403,20 @@
       (let* ((canvas (current-texture gpu))
              (sensor (● p sensor))
              (group (create-bind-group gpu (new BindGroupDescriptor
-                                         (label "present")
-                                         (pipeline (RenderPipeline (● presenter pipeline)))
-                                         (group 0)
-                                         (entries (list (BufferEntry 0 (● presenter sizes) 0 0)
-                                                        (BufferEntry 1
-                                                                     (sink-buffer (● p step) 1)
-                                                                     0
-                                                                     0))))))
+                                             (label "present")
+                                             (pipeline (RenderPipeline (● presenter pipeline)))
+                                             (group 0)
+                                             (entries (list (BufferEntry 0 (● presenter sizes) 0 0)
+                                                            (BufferEntry 1
+                                                                         (sink-buffer (● p step) 1)
+                                                                         0
+                                                                         0))))))
              (encoder (create-command-encoder gpu))
              (pass (begin-render-pass gpu encoder
                                       (new RenderPassDescriptor
                                         (colors (list (Some (new ColorAttachment
-                                                              (view (view-of gpu (● canvas texture) 1))
+                                                              (view
+                                                               (view-of gpu (● canvas texture) 1))
                                                               (load (Clear (new Color
                                                                              (red 0.0)
                                                                              (green 0.0)
@@ -392,9 +425,9 @@
                                                               (store #t)))))
                                         (depth (None))))))
         (write-buffer gpu (● presenter sizes) 0 (floats (list (i32->f64 (● canvas width))
-                                                          (i32->f64 (● canvas height))
-                                                          (i64->f64 (● sensor width))
-                                                          (i64->f64 (● sensor height)))))
+                                                              (i32->f64 (● canvas height))
+                                                              (i64->f64 (● sensor width))
+                                                              (i64->f64 (● sensor height)))))
         (set-pipeline gpu pass (● presenter pipeline))
         (set-bind-group gpu pass 0 group)
         (draw gpu pass 3 1 0 0)
@@ -427,7 +460,13 @@
     ;; Training on `scene`, on the device the host has opened, each 50th
     ;; step's image and the last shown by `shown`. It answers the programs
     ;; it trained, whose cloud `trained-cloud` reads.
-    (define (train (photographs Photographs) (gpu Gpu) (clock Clock) (out OutputPort) (scene Scene) (options Options) (shown (Fn Programs → Unit ! mut)))
+    (define (train (photographs Photographs)
+                   (gpu Gpu)
+                   (clock Clock)
+                   (out OutputPort)
+                   (scene Scene)
+                   (options Options)
+                   (shown (Fn Programs → Unit ! mut)))
       (→ Programs)
       (! tasks mut host)
       (let* ((capacity (min (● options gaussians) (max 1048576 (* 2 (length (● scene points))))))
@@ -435,15 +474,19 @@
         (start-cloud gpu p scene)
         (when (● options profile) (profile photographs gpu clock out p scene))
         (write-line out (string-append "training "
-                                   (show (length (● scene training)))
-                                   " photographs of "
-                                   (show (● (● scene camera) width))
-                                   "x"
-                                   (show (● (● scene camera) height))
-                                   " from "
-                                   (show (length (● scene points)))
-                                   " points"))
-        (let ((done (trained photographs gpu clock out (fold-left (lambda (run _) (sending photographs run scene))
+                                       (show (length (● scene training)))
+                                       " photographs of "
+                                       (show (● (● scene camera) width))
+                                       "x"
+                                       (show (● (● scene camera) height))
+                                       " from "
+                                       (show (length (● scene points)))
+                                       " points"))
+        (let ((done (trained photographs
+                             gpu
+                             clock
+                             out
+                             (fold-left (lambda (run _) (sending photographs run scene))
                                         (new Run
                                           (programs p)
                                           (round (Nil))
@@ -459,7 +502,10 @@
           (shown (● done programs))
           (unless (null? (● scene held))
             (write-line out (string-append "held-out PSNR "
-                                       (f64->string (held-out-psnr photographs gpu (● done programs) scene)))))
+                                           (f64->string (held-out-psnr photographs
+                                                                       gpu
+                                                                       (● done programs)
+                                                                       scene)))))
           (● done programs))))
 
     ;; The cloud the programs trained, its params read back from the
@@ -500,9 +546,13 @@
       (match (● run arriving)
         ((Cons next rest)
          (let ((sent (Run-arriving-set run rest)))
-           (trained photographs gpu clock out (stepped gpu clock out (if (<= (+ (● run step) ahead) (● options steps))
-                                 (sending photographs sent scene)
-                                 sent)
+           (trained photographs
+                    gpu
+                    clock
+                    out
+                    (stepped gpu clock out (if (<= (+ (● run step) ahead) (● options steps))
+                                               (sending photographs sent scene)
+                                               sent)
                              scene
                              options
                              shown
@@ -549,22 +599,26 @@
 
     ;; The step's loss, the gaussians live and the entries they were
     ;; binned into, each against its capacity, and the seconds so far.
-    (define (report (gpu Gpu) (clock Clock) (out OutputPort) (run Run) (p Programs)) (→ Unit) (! mut tasks)
+    (define (report (gpu Gpu) (clock Clock) (out OutputPort) (run Run) (p Programs))
+      (→ Unit)
+      (! mut tasks)
       (let ((loss (scalar-of (read-sink gpu (● p step) 0)))
             (entries (f64->i64 (scalar-of (read-sink gpu (● p step) 2))))
             (seconds (/ (i64->f64 (- (monotonic-nanoseconds clock) (● run started))) 1000000000.0)))
         (write-line out (string-append "step " (show (● run step))
-                                   " loss " (f64->string loss)
-                                   " gaussians " (show (● run live)) "/" (show (● p capacity))
-                                   " entries " (show entries) "/" (show (● p sensor capacity))
-                                   " seconds " (f64->string seconds)))))
+                                       " loss " (f64->string loss)
+                                       " gaussians " (show (● run live)) "/" (show (● p capacity))
+                                       " entries " (show entries) "/" (show (● p sensor capacity))
+                                       " seconds " (f64->string seconds)))))
 
     ;; ---- Judging ----
 
     ;; The mean PSNR over the held-out photographs, each rendered from its
     ;; camera by a program on the trained params and clamped to 1, as the
     ;; reference measures.
-    (define (held-out-psnr (photographs Photographs) (gpu Gpu) (p Programs) (scene Scene)) (→ F64) (! mut tasks)
+    (define (held-out-psnr (photographs Photographs) (gpu Gpu) (p Programs) (scene Scene))
+      (→ F64)
+      (! mut tasks)
       (let* ((cloud (splat-params (● p capacity)))
              (sensor (● p sensor))
              (target (rgba8-image (param "target"

@@ -12,7 +12,7 @@
 
 (define (main (out OutputPort)) (→ Unit) (! mut)
   (write-line out
-   (show
-    (handle Pause ((pause (lambda (value resume) (resume (+ value 10)))))
-      (twice (lambda (value) (pause value))))))
+              (show
+               (handle Pause ((pause (lambda (value resume) (resume (+ value 10)))))
+                 (twice (lambda (value) (pause value))))))
   (unit))

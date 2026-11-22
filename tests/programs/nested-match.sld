@@ -38,7 +38,8 @@
                   (classify (list 5))
                   (classify (list 1 2))
                   (classify (list 4 5 6))))
-  (for-each (lambda (text) (write-line out text)) (list (char-kind #\a) (char-kind #\z) (bool-name #t) (bool-name #f)))
+  (for-each (lambda (text) (write-line out text))
+            (list (char-kind #\a) (char-kind #\z) (bool-name #t) (bool-name #f)))
   (match "hello"
     ("hi" (write-line out "no"))
     ("hello" (write-line out "string literal"))

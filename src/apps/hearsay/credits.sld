@@ -8,9 +8,9 @@
                    (lpc credits)
                    (lpc wardrobe)
                    (apps hearsay cast)
- (only (snail core io) Fs))
+                   (only (snail core io) Fs))
                   (lambda ((fs Fs))
-(credits-library fs (list "apps" "hearsay" "credits")
-                                   (delete-duplicates string=?
-                                                      (concatenate
-                                                       (map character-paths everyone))))))
+                    (credits-library fs (list "apps" "hearsay" "credits")
+                                     (delete-duplicates string=?
+                                                        (concatenate
+                                                         (map character-paths everyone))))))

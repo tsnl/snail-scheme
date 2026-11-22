@@ -126,7 +126,11 @@
     ;; main.scm passes the embedded ones, and tests may pass none. Only
     ;; the rumor mill has a scene; the ledger's pictures are its rivals'
     ;; portraits.
-    (define (draw-shell (gpu Gpu) (clock Clock) (shell Shell) (drawing Drawing) (art (Fn String → (Option Source))))
+    (define (draw-shell (gpu Gpu)
+                        (clock Clock)
+                        (shell Shell)
+                        (drawing Drawing)
+                        (art (Fn String → (Option Source))))
       (→ Drawing)
       (! mut tasks)
       (let ((time (quotient (monotonic-nanoseconds clock) 1000000)))

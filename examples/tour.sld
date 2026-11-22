@@ -147,7 +147,8 @@
   (display out (fold-left + 0 (numbers)))
   (newline out)
   (write out
-   (map area (list (Circle (new Point (x 0) (y 0)) 2) (Rectangle (new Point (x 1) (y 1)) 3 4))))
+         (map area
+              (list (Circle (new Point (x 0) (y 0)) 2) (Rectangle (new Point (x 1) (y 1)) 3 4))))
   (newline out)
   (for-each (lambda (d)
               (match (divide 10 d)
@@ -162,12 +163,12 @@
     (display out (● clicks count))
     (newline out))
   (write-line out (handle Ask
-                  ((ask (lambda () "world")))
-                (greet)))
+                      ((ask (lambda () "world")))
+                    (greet)))
   (write out (handle Emit
-             ((emit (lambda (value resume) (Cons value (resume (unit))))))
-           (count-down 3)
-           (Nil)))
+                 ((emit (lambda (value resume) (Cons value (resume (unit))))))
+               (count-down 3)
+               (Nil)))
   (newline out)
   (let ((left (new Label (text "left")))
         (right (new Label (text "right"))))

@@ -22,10 +22,10 @@
         (fetch-all-bytes page-fetch-all-bytes)
         (page-address (lambda () (host-page-address) (host-reply)))
         (stream-open (lambda (url kinds)
-                          (new Stream
-                            (id (host-stream-open (string->utf8 (string-join (Cons url kinds)
-                                                                             (make-string 1
-                                                                                          #\null))))))))
+                       (new Stream
+                         (id (host-stream-open (string->utf8 (string-join (Cons url kinds)
+                                                                          (make-string 1
+                                                                                       #\null))))))))
         (stream-next page-stream-next)
         (stream-close (lambda (stream) (host-stream-close (● stream id))))))
 

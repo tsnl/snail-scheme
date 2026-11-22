@@ -17,7 +17,11 @@
   (make-symbolic-link fs "missing" (string-append (root) "/link.txt"))
   (report out (write-text-file fs (string-append (root) "/link.txt") "" (CreateNew)))
   (write-line out (show (file-exists? fs (string-append (root) "/missing"))))
-  (write-line out (match (write-text-file fs (string-append (root) "/absent.txt") "no" (ReplaceExisting))
+  (write-line out
+              (match (write-text-file fs
+                                      (string-append (root) "/absent.txt")
+                                      "no"
+                                      (ReplaceExisting))
                 ((Err (NotFound)) "missing") (_ "wrong")))
   (write-line out (show (file-exists? fs (string-append (root) "/absent.txt"))))
   (write-text-file fs (string-append (root) "/either.txt") "first" (CreateOrReplace))

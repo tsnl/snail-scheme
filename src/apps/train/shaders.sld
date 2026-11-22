@@ -6,7 +6,7 @@
                    (snail shell resource)
                    (snail shell graphics wgsl))
                   (lambda ((resources Resources))
-(shader-library resources (list "apps" "train" "shaders")
-                                  (list (new Pair
-                                          (first "present-shader")
-                                          (second (link-file "present.wgsl.scm")))))))
+                    (shader-library resources (list "apps" "train" "shaders")
+                                    (list (new Pair
+                                            (first "present-shader")
+                                            (second (link-file "present.wgsl.scm")))))))

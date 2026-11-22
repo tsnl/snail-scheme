@@ -14,12 +14,16 @@
 (define (main (out OutputPort)) (→ Unit) (! mut)
 
   (write-line out
-   (show
-    (handle Async
-        ((await (lambda (ticket resume) (write-line out "outer Async") (resume (+ ticket 1000)))))
-      (handle Io
-          ((fetch (lambda (ticket) (await ticket))))
-        (handle Async
-            ((await (lambda (ticket resume) (write-line out "inner Async") (resume (+ ticket 1)))))
-          (fetch 10))))))
+              (show
+               (handle Async
+                   ((await (lambda (ticket resume)
+                             (write-line out "outer Async")
+                             (resume (+ ticket 1000)))))
+                 (handle Io
+                     ((fetch (lambda (ticket) (await ticket))))
+                   (handle Async
+                       ((await (lambda (ticket resume)
+                                 (write-line out "inner Async")
+                                 (resume (+ ticket 1)))))
+                     (fetch 10))))))
   (unit))

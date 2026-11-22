@@ -33,23 +33,23 @@
   ;; implementation runs in the outer context, so raising there reaches the
   ;; outer handler, which answers for everything inside it.
   (display out
-   (handle Raise ((raise (lambda (message resume)
-                           (write-line out (string-append "outer: " message))
-                           0)))
-     (+ 100
-        (handle Raise ((raise
-                        (lambda (message resume)
-                          (write-line out (string-append "inner: " message))
-                          1)))
-          (raise "boom")))))
+           (handle Raise ((raise (lambda (message resume)
+                                   (write-line out (string-append "outer: " message))
+                                   0)))
+             (+ 100
+                (handle Raise ((raise
+                                (lambda (message resume)
+                                  (write-line out (string-append "inner: " message))
+                                  1)))
+                  (raise "boom")))))
   (newline out)
   (display out
-   (handle Raise ((raise (lambda (message resume)
-                           (write-line out (string-append "outer: " message))
-                           0)))
-     (+ 100
-        (handle Raise ((raise (lambda (message resume)
-                                (raise (string-append "again " message)))))
-          (raise "boom")))))
+           (handle Raise ((raise (lambda (message resume)
+                                   (write-line out (string-append "outer: " message))
+                                   0)))
+             (+ 100
+                (handle Raise ((raise (lambda (message resume)
+                                        (raise (string-append "again " message)))))
+                  (raise "boom")))))
   (newline out)
   (unit))

@@ -39,10 +39,10 @@
     (set! (● cursor last x) 5)
     (set! (● cursor home) (new Point (x 2) (y 3)))
     (write-line out (string-append (show (● cursor home y))
-                               " "
-                               (show (● cursor last x))
-                               " "
-                               (show (● cursor last y))))
+                                   " "
+                                   (show (● cursor last x))
+                                   " "
+                                   (show (● cursor last y))))
     (match (● cursor home)
       ((Point x y) (write-line out (string-append (show x) "," (show y)))))
     (set! (● cursor home) (new Point (x 9) (y 9)))

@@ -101,10 +101,13 @@
              (wide (storage-buffer gpu "bvh/wide" (* 64 (max 1 (- n 1))) (Nil)))
              (kernels (new Kernels
                         (pipelines (pipelines-of gpu (create-shader-module gpu
-                                                  (new ShaderModuleDescriptor
-                                                    (label "bvh")
-                                                    (code (string-append (declarations build-shape)
-                                                                         bvh-shader))))))
+                                                                           (new ShaderModuleDescriptor
+                                                                             (label "bvh")
+                                                                             (code
+                                                                              (string-append
+                                                                               (declarations
+                                                                                build-shape)
+                                                                               bvh-shader))))))
                         (build build)
                         (encoder (create-command-encoder gpu)))))
         (let ((pass (begin-compute-pass gpu (● kernels encoder))))
@@ -165,8 +168,9 @@
     (define (pipelines-of (gpu Gpu) (module GpuShaderModule))
       (→ (List (Pair String GpuComputePipeline)))
       (! mut)
-      (map (lambda (entry) (new Pair (first entry) (second (compute-kernel gpu module "bvh" entry))))
-           (list "morton" "sort_step" "build_leaves" "build_internal" "refit" "pack")))
+      (map
+       (lambda (entry) (new Pair (first entry) (second (compute-kernel gpu module "bvh" entry))))
+       (list "morton" "sort_step" "build_leaves" "build_internal" "refit" "pack")))
 
     ;; One dispatch of `entry` over `count` items with the uniforms of slot
     ;; `uniform` and `entries`; its group goes at the submit.
@@ -195,7 +199,11 @@
 
     ;; Slot 0 for every kernel but the sort, then a slot for each of its
     ;; steps.
-    (define (uniforms (gpu Gpu) (triangles Triangles) (n I64) (padded I64) (steps (List (Pair I64 I64))))
+    (define (uniforms (gpu Gpu)
+                      (triangles Triangles)
+                      (n I64)
+                      (padded I64)
+                      (steps (List (Pair I64 I64))))
       (→ GpuBuffer)
       (! mut)
       (uniform-buffer gpu "bvh/build"
@@ -266,10 +274,10 @@
     ;; declares what it reads in group 1.
     (define (make-ray-kernels (gpu Gpu) (cutout String)) (→ RayKernels) (! mut)
       (let ((module (create-shader-module gpu (new ShaderModuleDescriptor
-                                            (label "rays")
-                                            (code (string-append (declarations layout-shape)
-                                                                 cutout
-                                                                 rays-shader))))))
+                                                (label "rays")
+                                                (code (string-append (declarations layout-shape)
+                                                                     cutout
+                                                                     rays-shader))))))
         (new RayKernels
           (intersect (compute-kernel gpu module "rays" "intersect"))
           (occlude (compute-kernel gpu module "rays" "occlude")))))

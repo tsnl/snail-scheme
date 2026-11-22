@@ -24,11 +24,15 @@
 ;; person panel shows them.
 (define (show-person (out OutputPort) (mill Mill) (person I64)) (→ Unit) (! mut)
   (write-line out
-   (string-append (show person) " " (person-name person) ", " (audience-name (audience-of person))
-                  (if (hub? person) ", hub" "")
-                  ". Ties: "
-                  (string-join (map first-name (neighbors person)) ", ")
-                  "."))
+              (string-append (show person)
+                             " "
+                             (person-name person)
+                             ", "
+                             (audience-name (audience-of person))
+                             (if (hub? person) ", hub" "")
+                             ". Ties: "
+                             (string-join (map first-name (neighbors person)) ", ")
+                             "."))
   (write-line out (string-append "Believes: " (beliefs-text (person-beliefs mill person)) "."))
   (match (story-lines mill person)
     ((Nil) (write-line out "Holds no stories about you."))
@@ -46,34 +50,34 @@
 ;; liabilities and the goal, then the forecast or the verdict.
 (define (show-board (out OutputPort) (mill Mill)) (→ Unit) (! mut)
   (write-line out (string-append (● (scenario-rules (● mill scenario)) name) ": "
-                             (if (mill-over? mill)
-                                 (string-append "after shift " (show (last-shift mill)))
-                                 (string-append "shift "
-                                                (show (● mill shift))
-                                                " of "
-                                                (show (last-shift mill))))
-                             ", " (show (● mill coins)) " coins."))
+                                 (if (mill-over? mill)
+                                     (string-append "after shift " (show (last-shift mill)))
+                                     (string-append "shift "
+                                                    (show (● mill shift))
+                                                    " of "
+                                                    (show (last-shift mill))))
+                                 ", " (show (● mill coins)) " coins."))
   (for-each (lambda (audience)
               (write-line out (string-append (audience-name audience)
-                                         ": "
-                                         (beliefs-text (audience-beliefs mill audience))))
+                                             ": "
+                                             (beliefs-text (audience-beliefs mill audience))))
               (for-each (lambda (person)
                           (write-line out (string-append "  "
-                                                     (person-name person)
-                                                     (if (hub? person) " (hub)" "")
-                                                     ": "
-                                                     (beliefs-text (person-beliefs mill person))
-                                                     (if (quiet? mill person) " [quiet]" ""))))
+                                                         (person-name person)
+                                                         (if (hub? person) " (hub)" "")
+                                                         ": "
+                                                         (beliefs-text (person-beliefs mill person))
+                                                         (if (quiet? mill person) " [quiet]" ""))))
                         (filter (lambda (person) (= (audience-of person) audience))
                                 (iota person-count))))
             audiences)
   (for-each (lambda (text) (write-line out (string-append "Liability: " text))) (liabilities mill))
   (for-each (lambda (goal)
               (write-line out (string-append "Goal: "
-                                         (● goal text)
-                                         " ("
-                                         (progress-text (● goal progress))
-                                         ")")))
+                                             (● goal text)
+                                             " ("
+                                             (progress-text (● goal progress))
+                                             ")")))
             (mill-goals mill))
   (match (mill-result mill)
     ((Some (Pair won? text)) (write-line out text))
@@ -94,7 +98,9 @@
     ((Act text action)
      (write-line out (string-append "> " text))
      (match (take-shift mill action)
-       ((Ok result) (for-each (lambda (text) (write-line out text)) (● result second)) (● result first))
+       ((Ok result)
+        (for-each (lambda (text) (write-line out text)) (● result second))
+        (● result first))
        ((Err message) (write-line out message) mill)))
     ((Look text person)
      (write-line out (string-append "> " text))
@@ -103,7 +109,8 @@
 
 (define (game (out OutputPort) (scenario Scenario) (steps (List Step))) (→ Unit) (! mut)
   (write-line out (string-append "==== " (● (scenario-rules scenario) name)))
-  (show-board out (fold-left (lambda (mill step) (run-step out mill step)) (new-mill scenario) steps))
+  (show-board out
+              (fold-left (lambda (mill step) (run-step out mill step)) (new-mill scenario) steps))
   (write-line out ""))
 
 (define (wait) (→ Step) (Act "wait" (Wait)))

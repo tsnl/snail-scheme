@@ -132,7 +132,10 @@
              (for-each (lambda (child) (insert-node dom node (shown-node child) (None))) shown)
              (ShownElement node tag attributes (listen-all dom node attributes) shown))))))
 
-    (define (apply-attribute (dom Dom) (node Node) (attribute (Attribute M))) (→ Unit) (! mut) (∀ (M))
+    (define (apply-attribute (dom Dom) (node Node) (attribute (Attribute M)))
+      (→ Unit)
+      (! mut)
+      (∀ (M))
       (match attribute
         ((Attr name value) (set-attribute dom node name value))
         ((StringProperty name value) (set-string-property dom node name value))
@@ -184,7 +187,10 @@
     ;; Each attribute and property the view now gives a value other than
     ;; the one it gave is set, and each it no longer gives is cleared.
 
-    (define (patch-attributes (dom Dom) (node Node) (old (List (Attribute M))) (updated (List (Attribute M))))
+    (define (patch-attributes (dom Dom)
+                              (node Node)
+                              (old (List (Attribute M)))
+                              (updated (List (Attribute M))))
       (→ Unit)
       (! mut)
       (∀ (M))
@@ -214,7 +220,10 @@
              ((Pair (FlagProperty _ x) (FlagProperty _ y)) (= x y))
              (_ #f))))
 
-    (define (clear-attribute (dom Dom) (node Node) (attribute (Attribute M))) (→ Unit) (! mut) (∀ (M))
+    (define (clear-attribute (dom Dom) (node Node) (attribute (Attribute M)))
+      (→ Unit)
+      (! mut)
+      (∀ (M))
       (match attribute
         ((Attr name _) (set-attribute dom node name ""))
         ((StringProperty name _) (set-string-property dom node name ""))
@@ -233,7 +242,8 @@
       (! mut)
       (∀ (M))
       (for-each (lambda (pair)
-                  (unless (kept-listener? (● pair first) old updated) (unlisten dom (● pair second))))
+                  (unless (kept-listener? (● pair first) old updated)
+                    (unlisten dom (● pair second))))
                 listeners)
       (append (filter (lambda (pair) (kept-listener? (● pair first) old updated)) listeners)
               (listen-all dom node
@@ -284,7 +294,10 @@
     ;; removed, which leaves the document holding the taken ones in their
     ;; old order, and then the children are put in their new order.
 
-    (define (patch-children (dom Dom) (parent Node) (old (List (Shown M))) (updated (List (Html M))))
+    (define (patch-children (dom Dom)
+                            (parent Node)
+                            (old (List (Shown M)))
+                            (updated (List (Html M))))
       (→ (List (Shown M)))
       (! mut)
       (∀ (M))
@@ -437,7 +450,11 @@
       (∀ (M))
       (match shown
         ((ShownElement node tag old listeners _)
-         (ShownElement node tag attributes (patch-listeners dom node old listeners attributes) (Nil)))
+         (ShownElement node
+                       tag
+                       attributes
+                       (patch-listeners dom node old listeners attributes)
+                       (Nil)))
         ((ShownText _ _) (panic "internal error: the window shown as text"))))
 
     ;; ---- Listeners ----

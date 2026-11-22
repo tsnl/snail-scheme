@@ -41,8 +41,9 @@
     (newline out))
   (let ((reading (new CounterState (value 4))))
     (display out
-     (handle Counter ((tick (lambda () (read-number (new Number (value 1) (offset reading))))))
-       (tick)))
+             (handle Counter ((tick
+                               (lambda () (read-number (new Number (value 1) (offset reading))))))
+               (tick)))
     (newline out)
     (display out (apply-handler (lambda () (● reading value))))
     (newline out))

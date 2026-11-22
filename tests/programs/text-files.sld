@@ -15,12 +15,17 @@
   (write-line out (string-append label " -> " text)))
 
 ;; What a read answered, the text described by `describe`.
-(define (read-report (fs Fs) (out OutputPort) (label String) (name String) (limit I64) (describe (Fn String → String)))
+(define (read-report (fs Fs)
+                     (out OutputPort)
+                     (label String)
+                     (name String)
+                     (limit I64)
+                     (describe (Fn String → String)))
   (→ Unit)
   (! mut)
   (report out label (match (read-text-file fs (at name) limit)
-                  ((Ok text) (string-append "ok " (describe text)))
-                  ((Err error) (string-append "error: " (show error))))))
+                      ((Ok text) (string-append "ok " (describe text)))
+                      ((Err error) (string-append "error: " (show error))))))
 
 (define (as-is (text String)) (→ String)
   text)
@@ -28,10 +33,12 @@
 (define (characters (text String)) (→ String)
   (string-append (show (string-length text)) " characters"))
 
-(define (write-report (fs Fs) (out OutputPort) (label String) (name String) (text String)) (→ Unit) (! mut)
+(define (write-report (fs Fs) (out OutputPort) (label String) (name String) (text String))
+  (→ Unit)
+  (! mut)
   (report out label (match (write-text-file fs (at name) text (CreateOrReplace))
-                  ((Ok _) "ok")
-                  ((Err error) (string-append "error: " (show error))))))
+                      ((Ok _) "ok")
+                      ((Err error) (string-append "error: " (show error))))))
 
 (define (main (fs Fs) (out OutputPort)) (→ Unit) (! mut)
   (remove-tree fs (root))
@@ -51,6 +58,10 @@
   (read-report fs out "read a directory" "" 64 as-is)
   (read-report fs out "read nothing" "missing" 64 as-is)
   (write-report fs out "write into nothing" "missing/file" "text")
-  (write-report fs out "write a path with a NUL" (string-append "a" (make-string 1 #\null) "b") "text")
+  (write-report fs
+                out
+                "write a path with a NUL"
+                (string-append "a" (make-string 1 #\null) "b")
+                "text")
   (remove-tree fs (root))
   (unit))

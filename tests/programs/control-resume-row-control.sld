@@ -37,7 +37,9 @@
 
 (define (run (out OutputPort)) (→ Unit) (! mut)
   (handle Log ((log
-                (lambda (line resume) (write-line out (string-append "outer: " line)) (resume (unit)))))
+                (lambda (line resume)
+                  (write-line out (string-append "outer: " line))
+                  (resume (unit)))))
     (match (logged out (lambda () (start counter)))
       ((Yielded value next)
        (write-line out (string-append "got " (show value)))

@@ -662,7 +662,9 @@
                                (meshes (map instance-of ((● batch items))))))))
 
     ;; The kept surfaces that are translucent, or not, in order.
-    (define (draw-surfaces (gpu Gpu) (pass GpuRenderPass) (drawn Drawn) (translucent Bool)) (→ Unit) (! mut)
+    (define (draw-surfaces (gpu Gpu) (pass GpuRenderPass) (drawn Drawn) (translucent Bool))
+      (→ Unit)
+      (! mut)
       (for-each (lambda (kept)
                   (let ((surface (● kept surface)))
                     (when (if translucent (● surface translucent) (not (● surface translucent)))
@@ -1062,29 +1064,41 @@
     ;; canvas's size, then the scene's loop, which never returns, over the
     ;; page's document.
 
-    (define (run-scene (gpu Gpu) (events Events) (storage PageStorage) (clock Clock) (scene (SceneHandler S D)))
+    (define (run-scene (gpu Gpu)
+                       (events Events)
+                       (storage PageStorage)
+                       (clock Clock)
+                       (scene (SceneHandler S D)))
       (→ Unit)
       (! mut tasks)
       (∀ (S D))
       (run-page events storage (lambda ()
-                  ((● scene initialize) (random-seed events) (canvas-width events) (canvas-height events)))
+                                 ((● scene initialize)
+                                  (random-seed events)
+                                  (canvas-width events)
+                                  (canvas-height events)))
                 (● scene save)
                 (● scene restore)
                 (lambda (state save)
                   (let ((dom (page-dom events)))
-(scene-loop gpu dom events storage clock scene
-                                 save
-                                 state
-                                 ((● scene start))
-                                 (new Hud (shown (Nil)) (hovered (None)))
-                                 0)))))
+                    (scene-loop gpu dom events storage clock scene
+                                save
+                                state
+                                ((● scene start))
+                                (new Hud (shown (Nil)) (hovered (None)))
+                                0)))))
 
     ;; Each event's state is drawn: a frame draws the scene and, at most ten
     ;; times a second, the HUD; an input shows its HUD. Saves share the
     ;; same queue, independently of display frames. A HUD listener that
     ;; fired gives its input; one the HUD has since dropped gives none.
 
-    (define (scene-loop (gpu Gpu) (dom Dom) (events Events) (storage PageStorage) (clock Clock) (scene (SceneHandler S D))
+    (define (scene-loop (gpu Gpu)
+                        (dom Dom)
+                        (events Events)
+                        (storage PageStorage)
+                        (clock Clock)
+                        (scene (SceneHandler S D))
                         (save (Fn S → Unit ! mut tasks))
                         (state S)
                         (drawing D)
@@ -1108,18 +1122,40 @@
                        drawn
                        (● shown second)
                        (if show-hud? 0 (+ since-hud elapsed)))))
-        ((InputEvent input) (scene-input gpu dom events storage clock scene save state drawing hud input))
+        ((InputEvent input)
+         (scene-input gpu dom events storage clock scene save state drawing hud input))
         ((HudEvent listener)
          (match (table-ref (ui:listener-table (● hud shown)) (show listener))
            ((Some message)
             (let ((input (message no-event)))
-              (scene-input gpu dom events storage clock scene save state drawing (hovering hud listener input) input)))
-           ((None) (scene-loop gpu dom events storage clock scene save state drawing hud since-hud))))
-        ((Hidden) (save state) (scene-loop gpu dom events storage clock scene save state drawing hud since-hud))
-        ((SaveRequested) (save state) (scene-loop gpu dom events storage clock scene save state drawing hud since-hud))
-        ((FilesEvent _) (scene-loop gpu dom events storage clock scene save state drawing hud since-hud))))
+              (scene-input gpu
+                           dom
+                           events
+                           storage
+                           clock
+                           scene
+                           save
+                           state
+                           drawing
+                           (hovering hud listener input)
+                           input)))
+           ((None)
+            (scene-loop gpu dom events storage clock scene save state drawing hud since-hud))))
+        ((Hidden)
+         (save state)
+         (scene-loop gpu dom events storage clock scene save state drawing hud since-hud))
+        ((SaveRequested)
+         (save state)
+         (scene-loop gpu dom events storage clock scene save state drawing hud since-hud))
+        ((FilesEvent _)
+         (scene-loop gpu dom events storage clock scene save state drawing hud since-hud))))
 
-    (define (scene-input (gpu Gpu) (dom Dom) (events Events) (storage PageStorage) (clock Clock) (scene (SceneHandler S D))
+    (define (scene-input (gpu Gpu)
+                         (dom Dom)
+                         (events Events)
+                         (storage PageStorage)
+                         (clock Clock)
+                         (scene (SceneHandler S D))
                          (save (Fn S → Unit ! mut tasks))
                          (state S)
                          (drawing D)
@@ -1129,7 +1165,17 @@
       (! mut tasks)
       (∀ (S D))
       (let ((shown (show-hud dom scene ((● scene update) state input) drawing hud)))
-        (scene-loop gpu dom events storage clock scene save (● shown first) drawing (● shown second) 0)))
+        (scene-loop gpu
+                    dom
+                    events
+                    storage
+                    clock
+                    scene
+                    save
+                    (● shown first)
+                    drawing
+                    (● shown second)
+                    0)))
 
     ;; ---- Showing the HUD ----
 

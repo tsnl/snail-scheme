@@ -9,7 +9,9 @@
 ;; both, but `third`, which was ready behind the producer, asks before
 ;; either runs and takes it. The woken receivers find nothing and wait
 ;; again, still in the order they began to wait.
-(define (receive-one (out OutputPort) (mailbox (Mailbox String)) (name String)) (→ Unit) (! mut tasks)
+(define (receive-one (out OutputPort) (mailbox (Mailbox String)) (name String))
+  (→ Unit)
+  (! mut tasks)
   (write-line out (string-append name " received " (mailbox-receive mailbox))))
 
 (define (produce (mailbox (Mailbox String))) (→ Unit) (! mut tasks)

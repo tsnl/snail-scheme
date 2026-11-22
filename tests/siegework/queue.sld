@@ -39,9 +39,10 @@
 
 (define (report (out OutputPort) (world World)) (→ Unit) (! mut)
   (write-line out
-   (string-append "tick " (show (● world tick)) ", energy " (show (● world energy))
-                  ", slots " (show (● (● world hub) slots)) ": "
-                  (string-join (map (lambda (task) (task-text world task)) (tasks world)) "; "))))
+              (string-append "tick " (show (● world tick)) ", energy " (show (● world energy))
+                             ", slots " (show (● (● world hub) slots)) ": "
+                             (string-join (map (lambda (task) (task-text world task)) (tasks world))
+                                          "; "))))
 
 (define (main (out OutputPort)) (→ Unit) (! mut)
 

@@ -29,11 +29,11 @@
   (display out (quietly (lambda () (work 5))))
   (newline out)
   (display out (handle Counter
-               ((tick (lambda () 2)))
-             (+ (tick) (+ (tick) (tick)))))
+                   ((tick (lambda () 2)))
+                 (+ (tick) (+ (tick) (tick)))))
   (newline out)
   (loudly out (lambda ()
-            (handle Log
-                ((log (lambda (message) (log (string-append "outer sees " message)))))
-              (log "inner"))))
+                (handle Log
+                    ((log (lambda (message) (log (string-append "outer sees " message)))))
+                  (log "inner"))))
   (unit))

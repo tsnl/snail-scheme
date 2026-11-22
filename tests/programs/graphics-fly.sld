@@ -20,10 +20,10 @@
 
 (define (stands (out OutputPort) (up (List F64))) (→ Unit) (! mut)
   (write-line out (string-append "up "
-                             (string-join (map f64->string up) " ")
-                             (if (near? (turned (upright up) up) (list 0.0 1.0 0.0))
-                                 " stands"
-                                 " leans"))))
+                                 (string-join (map f64->string up) " ")
+                                 (if (near? (turned (upright up) up) (list 0.0 1.0 0.0))
+                                     " stands"
+                                     " leans"))))
 
 (define (floats (v Vec3f)) (→ (List F64))
   (list (f32->f64 (● v x)) (f32->f64 (● v y)) (f32->f64 (● v z))))
@@ -34,13 +34,14 @@
          (eye (floats (fly-eye fly)))
          (target (floats (fly-target fly))))
     (write-line out (string-append "from "
-                               (string-join (map f64->string eye) " ")
-                               (if (near? (map (lambda (k) (- (list-ref target k) (list-ref eye k)))
-                                               (iota 3))
-                                          toward)
-                                   " it looks along "
-                                   " it misses ")
-                               (string-join (map f64->string toward) " ")))))
+                                   (string-join (map f64->string eye) " ")
+                                   (if (near?
+                                        (map (lambda (k) (- (list-ref target k) (list-ref eye k)))
+                                             (iota 3))
+                                        toward)
+                                       " it looks along "
+                                       " it misses ")
+                                   (string-join (map f64->string toward) " ")))))
 
 (define (main (out OutputPort)) (→ Unit) (! mut)
   (stands out (list 0.0 1.0 0.0))
@@ -48,7 +49,7 @@
   (stands out (list -0.48 -0.6 0.64))
   (stands out (list 0.0 -1.0 0.0))
   (write-line out (string-append "half a turn: "
-                           (string-join (map f64->string (upright (list 0.0 -1.0 0.0))) " ")))
+                                 (string-join (map f64->string (upright (list 0.0 -1.0 0.0))) " ")))
   (looks out (list 0.0 0.0 -1.0))
   (looks out (list 0.48 0.6 -0.64))
   (looks out (list -0.8 -0.6 0.0))

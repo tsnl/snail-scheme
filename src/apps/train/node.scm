@@ -33,19 +33,30 @@
 
 (define (main (files Files) (fs Fs) (clock Clock) (out OutputPort)) (→ Unit) (! mut host tasks)
   (let ((gpu (host-gpu)))
-(request-device gpu)
-   (let* ((address (string-append "?" (string-join (list-tail (command-line) 1) "&")))
-          (settings (settings-of address))
-          (cloud (setting address "cloud")))
-     (match cloud
-       ((Some path) (write-bytes fs path (make-array 0 (i32->u8 0))))
-       ((None) (unit)))
-     (let ((trained (let ((photographs (new Photographs
-(photograph (lambda (image) (dataset-photograph gpu (lambda (path) (read files fs path)) settings image))))))
-(train photographs gpu clock out (dataset-scene gpu (lambda (path) (read files fs path)) settings) (● settings options) shown-nowhere))))
-       (match cloud
-         ((Some path)
-          (write-bytes fs path (write-ply (trained-cloud gpu trained)))
-          (write-line out (string-append "kept the cloud in " path)))
-         ((None) (unit))))))
+    (request-device gpu)
+    (let* ((address (string-append "?" (string-join (list-tail (command-line) 1) "&")))
+           (settings (settings-of address))
+           (cloud (setting address "cloud")))
+      (match cloud
+        ((Some path) (write-bytes fs path (make-array 0 (i32->u8 0))))
+        ((None) (unit)))
+      (let ((trained (let ((photographs (new Photographs
+                                          (photograph (lambda (image)
+                                                        (dataset-photograph gpu
+                                                                            (lambda (path)
+                                                                              (read files fs path))
+                                                                            settings
+                                                                            image))))))
+                       (train photographs
+                              gpu
+                              clock
+                              out
+                              (dataset-scene gpu (lambda (path) (read files fs path)) settings)
+                              (● settings options)
+                              shown-nowhere))))
+        (match cloud
+          ((Some path)
+           (write-bytes fs path (write-ply (trained-cloud gpu trained)))
+           (write-line out (string-append "kept the cloud in " path)))
+          ((None) (unit))))))
   (unit))

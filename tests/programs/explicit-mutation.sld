@@ -30,6 +30,8 @@
   (display out (noisy-sum out (list 5 6)))
   (newline out)
   (display out
-   (match (first-total (list (new Total (value 7)))) ((Some cell) (● cell value)) ((None) 0)))
+           (match (first-total (list (new Total (value 7))))
+             ((Some cell) (● cell value))
+             ((None) 0)))
   (newline out)
   (unit))

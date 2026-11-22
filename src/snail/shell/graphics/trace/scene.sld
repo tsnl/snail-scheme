@@ -99,13 +99,17 @@
              (files (zip paths (read paths)))
              (buffers (map (lambda (buffer) (buffer-bytes buffer files)) (● gltf buffers)))
              (layers (load-layers gpu (map (lambda (image) (source-bytes image files buffers))
-                                       (● gltf images))
+                                           (● gltf images))
                                   layer-size)))
         (on-device gpu gltf buffers layers layer-size)))
 
     ;; Nothing refuses once the layers are loaded, so a scene refused
     ;; leaves nothing on the device.
-    (define (on-device (gpu Gpu) (gltf Gltf) (buffers (List Bytes)) (layers GpuTexture) (layer-size I32))
+    (define (on-device (gpu Gpu)
+                       (gltf Gltf)
+                       (buffers (List Bytes))
+                       (layers GpuTexture)
+                       (layer-size I32))
       (→ Scene)
       (! mut)
       (let* ((counts (placed-counts gltf))
@@ -368,7 +372,13 @@
                                   (i64->i32 (● laid first start))
                                   (padded-bytes (● laid second))))
                   (zip (● gltf buffers) buffers))
-        (run-unpack gpu data unpacks vertices indices (● counts first) (quotient (● counts second) 3))
+        (run-unpack gpu
+                    data
+                    unpacks
+                    vertices
+                    indices
+                    (● counts first)
+                    (quotient (● counts second) 3))
         (destroy gpu (BufferObject data))
         (destroy gpu (BufferObject unpacks))
         (new Pair (first vertices) (second indices))))
@@ -387,9 +397,9 @@
       (→ Unit)
       (! mut)
       (let* ((module (create-shader-module gpu (new ShaderModuleDescriptor
-                                             (label "scene/unpack")
-                                             (code (string-append (declarations unpack-shape)
-                                                                  unpack-shader)))))
+                                                 (label "scene/unpack")
+                                                 (code (string-append (declarations unpack-shape)
+                                                                      unpack-shader)))))
              (encoder (create-command-encoder gpu))
              (pass (begin-compute-pass gpu encoder))
              (read (list (BufferEntry 0 data 0 0) (BufferEntry 1 unpacks 0 0))))
@@ -433,22 +443,24 @@
     ;; A layer for each image, at least one, each image drawn into its
     ;; first level and each next level drawn from the one before. An image
     ;; the host does not decode refuses the scene, and the layers go.
-    (define (load-layers (gpu Gpu) (images (List Bytes)) (size I32)) (→ GpuTexture) (! mut tasks reading)
+    (define (load-layers (gpu Gpu) (images (List Bytes)) (size I32))
+      (→ GpuTexture)
+      (! mut tasks reading)
       (let* ((layers (create-texture gpu (new TextureDescriptor
-                                       (label "scene/layers")
-                                       (width size)
-                                       (height size)
-                                       (layers (i64->i32 (max 1 (length images))))
-                                       (mips (levels size))
-                                       (format (Rgba8Unorm))
-                                       (usage (list (TextureBinding) (RenderAttachment))))))
+                                           (label "scene/layers")
+                                           (width size)
+                                           (height size)
+                                           (layers (i64->i32 (max 1 (length images))))
+                                           (mips (levels size))
+                                           (format (Rgba8Unorm))
+                                           (usage (list (TextureBinding) (RenderAttachment))))))
              (pipeline (layer-pipeline gpu))
              (sampler (create-sampler gpu (new SamplerDescriptor
-                                        (label "scene/layers")
-                                        (mag-filter (Linear))
-                                        (min-filter (Linear))
-                                        (mipmap-filter (Nearest))
-                                        (address (ClampToEdge))))))
+                                            (label "scene/layers")
+                                            (mag-filter (Linear))
+                                            (min-filter (Linear))
+                                            (mipmap-filter (Nearest))
+                                            (address (ClampToEdge))))))
         (for-each (lambda (index)
                     (match (decode-image gpu (list-ref images index))
                       ((Some image)
@@ -496,7 +508,9 @@
                    (iota (i32->i64 (levels size))))
         (submit gpu (list (finish gpu encoder)))))
 
-    (define (level-view (gpu Gpu) (layers GpuTexture) (layer I32) (level I32)) (→ GpuTextureView) (! mut)
+    (define (level-view (gpu Gpu) (layers GpuTexture) (layer I32) (level I32))
+      (→ GpuTextureView)
+      (! mut)
       (create-view gpu layers
                    (new TextureViewDescriptor
                      (dimension (View2d))
@@ -513,11 +527,12 @@
       (→ Unit)
       (! mut)
       (let ((group (create-bind-group gpu (new BindGroupDescriptor
-                                        (label "scene/layer")
-                                        (pipeline (RenderPipeline pipeline))
-                                        (group 0)
-                                        (entries
-                                         (list (TextureEntry 0 source) (SamplerEntry 1 sampler))))))
+                                            (label "scene/layer")
+                                            (pipeline (RenderPipeline pipeline))
+                                            (group 0)
+                                            (entries
+                                             (list (TextureEntry 0 source)
+                                                   (SamplerEntry 1 sampler))))))
             (pass (begin-render-pass gpu encoder
                                      (new RenderPassDescriptor
                                        (colors (list (Some (new ColorAttachment
@@ -533,26 +548,30 @@
 
     (define (layer-pipeline (gpu Gpu)) (→ GpuRenderPipeline) (! mut)
       (create-render-pipeline gpu
-       (new RenderPipelineDescriptor
-         (label "scene/layer")
-         (module (create-shader-module gpu
-                  (new ShaderModuleDescriptor (label "scene/layers") (code layers-shader))))
-         (vertex-entry "layer_vertex")
-         (buffers (Nil))
-         (fragment (Some (new FragmentState
-                           (entry "layer_fragment")
-                           (targets
-                            (list (Some (new ColorTarget (format (Rgba8Unorm)) (blend (None)))))))))
-         (topology (TriangleList))
-         (cull (CullNone))
-         (depth (None)))))
+                              (new RenderPipelineDescriptor
+                                (label "scene/layer")
+                                (module (create-shader-module gpu
+                                                              (new ShaderModuleDescriptor
+                                                                (label "scene/layers")
+                                                                (code layers-shader))))
+                                (vertex-entry "layer_vertex")
+                                (buffers (Nil))
+                                (fragment (Some (new FragmentState
+                                                  (entry "layer_fragment")
+                                                  (targets
+                                                   (list (Some (new ColorTarget
+                                                                 (format (Rgba8Unorm))
+                                                                 (blend (None)))))))))
+                                (topology (TriangleList))
+                                (cull (CullNone))
+                                (depth (None)))))
 
     (define (repeating-sampler (gpu Gpu)) (→ GpuSampler) (! mut)
       (create-sampler gpu (new SamplerDescriptor
-                        (label "scene/repeat")
-                        (mag-filter (Linear))
-                        (min-filter (Linear))
-                        (mipmap-filter (Linear))
-                        (address (Repeat)))))
+                            (label "scene/repeat")
+                            (mag-filter (Linear))
+                            (min-filter (Linear))
+                            (mipmap-filter (Linear))
+                            (address (Repeat)))))
 
     ))

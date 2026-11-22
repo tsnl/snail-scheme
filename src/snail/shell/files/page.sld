@@ -15,9 +15,9 @@
     (define (page-file-picker) (→ FilePicker)
       (new FilePicker
         (open-picker (lambda (choice)
-                          (host-open-picker (match choice
-                                              ((SomeFiles) 0)
-                                              ((Folder) 1)))))
+                       (host-open-picker (match choice
+                                           ((SomeFiles) 0)
+                                           ((Folder) 1)))))
         (chosen-files page-chosen)))
 
     ;; The listing is each file's path and address, a NUL after each,

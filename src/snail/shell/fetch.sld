@@ -69,10 +69,18 @@
        (stream-next (Fn Stream → (Option StreamEvent) ! mut tasks))
        (stream-close (Fn Stream → Unit ! mut))))
 
-    (define (request (fetch Fetch) (method String) (url String) (headers (List Header)) (body String)) (→ (Result Reply String)) (! mut tasks)
+    (define (request (fetch Fetch)
+                     (method String)
+                     (url String)
+                     (headers (List Header))
+                     (body String))
+      (→ (Result Reply String))
+      (! mut tasks)
       ((● fetch request) method url headers body))
 
-    (define (fetch-all-bytes (fetch Fetch) (urls (List String))) (→ (List (Result Bytes String))) (! mut tasks)
+    (define (fetch-all-bytes (fetch Fetch) (urls (List String)))
+      (→ (List (Result Bytes String)))
+      (! mut tasks)
       ((● fetch fetch-all-bytes) urls))
 
     (define (page-address (fetch Fetch)) (→ String) (! mut)

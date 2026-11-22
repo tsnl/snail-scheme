@@ -13,7 +13,8 @@
 
 (define (shell (processes Processes) (script String)) (→ Process) (! mut tasks)
   (require
-   (spawn processes (new Command (program "/bin/sh") (arguments (list "-c" script)) (directory ".")))))
+   (spawn processes
+          (new Command (program "/bin/sh") (arguments (list "-c" script)) (directory ".")))))
 
 ;; A stream's bytes up to its end, as text.
 (define (read-all (processes Processes) (child Process) (stream Stream)) (→ String) (! mut tasks)
@@ -74,27 +75,27 @@
 
      ;; A missing executable or directory is an error, not a process.
      (report-error out (spawn processes (new Command
-                            (program "/nonexistent/program")
-                            (arguments (Nil))
-                            (directory "."))))
+                                          (program "/nonexistent/program")
+                                          (arguments (Nil))
+                                          (directory "."))))
      (report-error out (spawn processes (new Command
-                            (program "/bin/sh")
-                            (arguments (list "-c" "true"))
-                            (directory "/nonexistent/directory"))))
+                                          (program "/bin/sh")
+                                          (arguments (list "-c" "true"))
+                                          (directory "/nonexistent/directory"))))
 
      ;; A program with no slash is found on PATH and runs as the name it
      ;; was given, in its directory; one PATH lacks is missing too.
      (let ((child (require (spawn processes (new Command
-                                    (program "sh")
-                                    (arguments (list "-c" "echo $0; pwd"))
-                                    (directory "/"))))))
+                                              (program "sh")
+                                              (arguments (list "-c" "echo $0; pwd"))
+                                              (directory "/"))))))
        (write-string out (read-all processes child (Stdout)))
        (write-line out (exit-text (require (wait-exit processes child))))
        (require (close-process processes child)))
      (report-error out (spawn processes (new Command
-                            (program "no-such-program-on-path")
-                            (arguments (Nil))
-                            (directory "."))))
+                                          (program "no-such-program-on-path")
+                                          (arguments (Nil))
+                                          (directory "."))))
 
      ;; Closing kills a running child and revokes its handle; closing again
      ;; succeeds, and a token from another handler is no native handle.

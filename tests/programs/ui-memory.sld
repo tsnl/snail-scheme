@@ -86,10 +86,11 @@
 
 (define (checkpoint (out OutputPort) (model Model)) (→ Unit) (! mut)
   (write-line out (string-append "checkpoint: "
-                             (string-join (map (lambda (record) (● record text)) (● model items))
-                                          ", ")
-                             "; saved "
-                             (show (● model saved)))))
+                                 (string-join
+                                  (map (lambda (record) (● record text)) (● model items))
+                                  ", ")
+                                 "; saved "
+                                 (show (● model saved)))))
 
 (define (typed (text String)) (→ Cue)
   (Fire "draft" "input" (Event-value-set no-event text)))

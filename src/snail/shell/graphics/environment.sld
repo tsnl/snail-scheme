@@ -221,20 +221,24 @@
       (let* ((height (quotient width 2))
              (radiance (plane gpu "environment/radiance" width height (Rgba32Float)))
              (uniform (shape-uniform gpu (new EnvironmentShape
-                                       (size (new Vec4i
-                                               (x 0)
-                                               (y 0)
-                                               (z (i64->i32 width))
-                                               (w (i64->i32 height))))
-                                       (factor (new Vec4i (x 1) (y 0) (z 0) (w 0)))
-                                       (sun (● sky sun))
-                                       (sun-light (● sky sun-light))
-                                       (zenith (● sky zenith))
-                                       (horizon (● sky horizon))
-                                       (ground (● sky ground)))))
+                                           (size (new Vec4i
+                                                   (x 0)
+                                                   (y 0)
+                                                   (z (i64->i32 width))
+                                                   (w (i64->i32 height))))
+                                           (factor (new Vec4i (x 1) (y 0) (z 0) (w 0)))
+                                           (sun (● sky sun))
+                                           (sun-light (● sky sun-light))
+                                           (zenith (● sky zenith))
+                                           (horizon (● sky horizon))
+                                           (ground (● sky ground)))))
              (kernels (environment-kernels gpu)))
         (let* ((encoder (create-command-encoder gpu)) (pass (begin-compute-pass gpu encoder)))
-          (bound gpu pass kernels "sky" (list (buffer 3 uniform) (TextureEntry 4 (● radiance view))))
+          (bound gpu
+                 pass
+                 kernels
+                 "sky"
+                 (list (buffer 3 uniform) (TextureEntry 4 (● radiance view))))
           (dispatch-texels gpu pass (i64->i32 width) (i64->i32 height))
           (end-compute-pass gpu pass)
           (submit gpu (list (finish gpu encoder))))
@@ -266,7 +270,8 @@
         (new Environment (radiance radiance) (table table))))
 
     (define (release-environment (gpu Gpu) (environment Environment)) (→ Unit) (! mut)
-      (for-each (lambda (plane) (release-plane gpu plane)) (list (● environment radiance) (● environment table))))
+      (for-each (lambda (plane) (release-plane gpu plane))
+                (list (● environment radiance) (● environment table))))
 
     ;; Group 2 of `pipeline`, a kernel that includes
     ;; `environment-light-shader`.
@@ -283,9 +288,9 @@
 
     (define (environment-kernels (gpu Gpu)) (→ (List (Pair String GpuComputePipeline))) (! mut)
       (let ((module (create-shader-module gpu (new ShaderModuleDescriptor
-                                            (label "environment")
-                                            (code (string-append (declarations shape-shape)
-                                                                 environment-shader))))))
+                                                (label "environment")
+                                                (code (string-append (declarations shape-shape)
+                                                                     environment-shader))))))
         (map (lambda (entry)
                (new Pair (first entry) (second (compute-kernel gpu module "environment" entry))))
              (list "unrle" "downsample" "sky" "weigh" "marginal"))))
@@ -323,7 +328,9 @@
       (let ((extra (remainder (- 4 (remainder (array-length bytes) 4)) 4)))
         (if (= extra 0) bytes (array-append bytes (make-array extra (i32->u8 0))))))
 
-    (define (plane (gpu Gpu) (label String) (width I64) (height I64) (format TextureFormat)) (→ Plane) (! mut)
+    (define (plane (gpu Gpu) (label String) (width I64) (height I64) (format TextureFormat))
+      (→ Plane)
+      (! mut)
       (make-plane gpu label
                   (i64->i32 width)
                   (i64->i32 height)

@@ -597,7 +597,8 @@
     ;; status is taken before the bytes are read, so a file written in
     ;; between is read again by the next build.
 
-    (define (digested (fs Fs) (known (Table LinkedFile)) (path String) (status FileStatus)) (→ LinkedFile)
+    (define (digested (fs Fs) (known (Table LinkedFile)) (path String) (status FileStatus))
+      (→ LinkedFile)
       (! mut)
       (match (table-ref known path)
         ((Some file)
@@ -759,7 +760,10 @@
         ((Some (Define name value)) (add-item cx (Entry name name (● value loc))))
         (_ cx)))
 
-    (define (with-target-main (cx Context) (library (List String)) (start String) (provided Provided))
+    (define (with-target-main (cx Context)
+                              (library (List String))
+                              (start String)
+                              (provided Provided))
       (→ Context)
       (! compile)
       (match (root-main cx)
@@ -3502,7 +3506,11 @@
 
       (define callable-signature
         (lambda (text)
-          (let* ((cx (new-context (host-fs) (lambda (loading forms) (panic "unexpected producer")) (Nil) (None) (Nil)))
+          (let* ((cx (new-context (host-fs)
+                                  (lambda (loading forms) (panic "unexpected producer"))
+                                  (Nil)
+                                  (None)
+                                  (Nil)))
                  (imports (fold-left (lambda (table entry)
                                        (table-set table (● entry first) (● entry second)))
                                      (empty-table) core-library))

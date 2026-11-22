@@ -52,14 +52,17 @@
       0)))
 
 (define (main (out OutputPort)) (→ Unit) (! mut)
-  (write-line out (string-append "first above 6: " (show (first-where out (lambda (value) (> value 6))))))
   (write-line out
-   (string-append "first above 20: " (show (first-where out (lambda (value) (> value 20))))))
+              (string-append "first above 6: "
+                             (show (first-where out (lambda (value) (> value 6))))))
+  (write-line out
+              (string-append "first above 20: "
+                             (show (first-where out (lambda (value) (> value 20))))))
   (write-line out (string-append "sum: "
-                             (show (handle Found ((found
-                                                   (lambda (value resume)
-                                                     (- 0 value))))
-                                     (sum (tree))))))
+                                 (show (handle Found ((found
+                                                       (lambda (value resume)
+                                                         (- 0 value))))
+                                         (sum (tree))))))
   (write-line out (string-append "guarded: " (show (guarded out (list 1 2 3)))))
   (write-line out (string-append "guarded: " (show (guarded out (list 1 -2 3)))))
   (unit))

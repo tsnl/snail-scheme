@@ -103,7 +103,16 @@
    (environment Environment)
    (tracer Tracer)))
 
-(define (view-loop (gpu Gpu) (dom Dom) (picker FilePicker) (events Events) (fetch Fetch) (out OutputPort) (view (Option View)) (fly Fly) (timing (Pair I32 I32)) (format TextureFormat))
+(define (view-loop (gpu Gpu)
+                   (dom Dom)
+                   (picker FilePicker)
+                   (events Events)
+                   (fetch Fetch)
+                   (out OutputPort)
+                   (view (Option View))
+                   (fly Fly)
+                   (timing (Pair I32 I32))
+                   (format TextureFormat))
   (→ Unit)
   (! mut tasks)
   (match (next-event events)
@@ -114,13 +123,26 @@
           (let ((shown (View-tracer-set shown (drawn gpu (● shown tracer) fly))))
             (work-done gpu)
             (report-ready events)
-            (view-loop gpu dom picker events fetch out (Some shown) fly (timed out timing elapsed) format))))
-       ((None) (report-ready events) (view-loop gpu dom picker events fetch out view fly timing format))))
+            (view-loop gpu
+                       dom
+                       picker
+                       events
+                       fetch
+                       out
+                       (Some shown)
+                       fly
+                       (timed out timing elapsed)
+                       format))))
+       ((None)
+        (report-ready events)
+        (view-loop gpu dom picker events fetch out view fly timing format))))
     ((InputEvent (KeyDown 111 shift))
      (open-picker picker (if shift (Folder) (SomeFiles)))
      (view-loop gpu dom picker events fetch out view fly timing format))
-    ((InputEvent input) (view-loop gpu dom picker events fetch out view (steered fly input) timing format))
-    ((FilesEvent _) (opened gpu dom picker events fetch out view fly timing format (chosen-files picker) (None)))
+    ((InputEvent input)
+     (view-loop gpu dom picker events fetch out view (steered fly input) timing format))
+    ((FilesEvent _)
+     (opened gpu dom picker events fetch out view fly timing format (chosen-files picker) (None)))
     (_ (view-loop gpu dom picker events fetch out view fly timing format))))
 
 ;; A frame drawn into the canvas, from where the fly is.
@@ -150,7 +172,13 @@
 ;; `eye` or else from outside; or the view as it was, and why, when they
 ;; cannot be shown. The loop waits here, so one choice is read at a time,
 ;; and one that arrives meanwhile is read next.
-(define (opened (gpu Gpu) (dom Dom) (picker FilePicker) (events Events) (fetch Fetch) (out OutputPort) (view (Option View))
+(define (opened (gpu Gpu)
+                (dom Dom)
+                (picker FilePicker)
+                (events Events)
+                (fetch Fetch)
+                (out OutputPort)
+                (view (Option View))
                 (fly Fly)
                 (timing (Pair I32 I32))
                 (format TextureFormat)
@@ -162,7 +190,13 @@
   (match (attempt-reading (lambda () (chosen gpu fetch out view files)))
     ((Ok replacing)
      (set-text dom (document-root dom) "")
-     (view-loop gpu dom picker events fetch out (Some (shown gpu view (● replacing first) (● replacing second) format))
+     (view-loop gpu
+                dom
+                picker
+                events
+                fetch
+                out
+                (Some (shown gpu view (● replacing first) (● replacing second) format))
                 (match (● replacing first)
                   ((Some scene)
                    (let ((over (Fly-stops-set (fly-over (● scene low) (● scene high))
@@ -173,7 +207,9 @@
                   ((None) fly))
                 timing
                 format))
-    ((Err why) (say dom out why) (view-loop gpu dom picker events fetch out view fly timing format))))
+    ((Err why)
+     (say dom out why)
+     (view-loop gpu dom picker events fetch out view fly timing format))))
 
 ;; What the page says under the view, and the console with it.
 (define (say (dom Dom) (out OutputPort) (message String)) (→ Unit) (! mut)
@@ -193,13 +229,14 @@
     (when (and (none? model) (or (none? light) (none? view)))
       (unreadable (string-append "nothing to show among " (show (length files)) " files")))
     (let* ((hdr (within light
-                        (lambda (path) (radiance path (list-ref (read fetch files path (list path)) 0)))))
+                        (lambda (path)
+                          (radiance path (list-ref (read fetch files path (list path)) 0)))))
            (scene (within model
                           (lambda (path)
                             (loaded-scene gpu out (lambda ((paths (List String)))
-                                            (→ (List Bytes))
-                                            (! mut tasks reading)
-                                            (read fetch files path paths))
+                                                    (→ (List Bytes))
+                                                    (! mut tasks reading)
+                                                    (read fetch files path paths))
                                           path)))))
       (new Pair (first scene) (second (within hdr (lambda (hdr) (hdr-light gpu hdr))))))))
 
@@ -282,7 +319,13 @@
          (scene scene)
          (environment environment)
          (tracer
-          (make-tracer gpu scene environment format (● canvas width) (● canvas height) layer-size)))))))
+          (make-tracer gpu
+                       scene
+                       environment
+                       format
+                       (● canvas width)
+                       (● canvas height)
+                       layer-size)))))))
 
 
 
@@ -319,29 +362,43 @@
 
 
 ;; A scene, and a line saying how large it is.
-(define (loaded-scene (gpu Gpu) (out OutputPort) (read (Fn (List String) → (List Bytes) ! reading e)) (path String))
+(define (loaded-scene (gpu Gpu)
+                      (out OutputPort)
+                      (read (Fn (List String) → (List Bytes) ! reading e))
+                      (path String))
   (→ Scene)
   (! mut tasks reading e)
   (∀ (e))
   (let ((scene (load-scene gpu read path layer-size)))
     (write-line out (string-append "scene: "
-                               (show (● scene vertex-count))
-                               " vertices, "
-                               (show (● scene triangle-count))
-                               " triangles, from " (string-join (map show (● scene low)) " ")
-                               " to " (string-join (map show (● scene high)) " ")))
+                                   (show (● scene vertex-count))
+                                   " vertices, "
+                                   (show (● scene triangle-count))
+                                   " triangles, from " (string-join (map show (● scene low)) " ")
+                                   " to " (string-join (map show (● scene high)) " ")))
     scene))
 
 ;; ---- The page ----
 
 (define (main (gpu Gpu) (events Events) (out OutputPort)) (→ Unit) (! mut tasks)
   (let ((fetch (page-fetch)))
-(let ((picker (page-file-picker)))
-(let ((dom (page-dom events)))
-(let ((format (● (request-device gpu) format))
-               (fly (fly-over (list -1.0 -1.0 -1.0) (list 1.0 1.0 1.0)))
-               (timing (new Pair (first 0) (second 0)))
-               (address (page-address fetch)))
-           (match (query-files address)
-             ((Nil) (view-loop gpu dom picker events fetch out (None) fly timing format))
-             (files (opened gpu dom picker events fetch out (None) fly timing format files (query-eye address)))))))))
+    (let ((picker (page-file-picker)))
+      (let ((dom (page-dom events)))
+        (let ((format (● (request-device gpu) format))
+              (fly (fly-over (list -1.0 -1.0 -1.0) (list 1.0 1.0 1.0)))
+              (timing (new Pair (first 0) (second 0)))
+              (address (page-address fetch)))
+          (match (query-files address)
+            ((Nil) (view-loop gpu dom picker events fetch out (None) fly timing format))
+            (files (opened gpu
+                           dom
+                           picker
+                           events
+                           fetch
+                           out
+                           (None)
+                           fly
+                           timing
+                           format
+                           files
+                           (query-eye address)))))))))

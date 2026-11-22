@@ -14,10 +14,10 @@
 
   ;; Local mutation belongs to each invocation, not to its reusable environment.
   (display out (handle Counter
-               ((tick (lambda () (let ((cell (new CounterState (count 1))))
-                                   (set! (● cell count) 7)
-                                   (● cell count)))))
-             (+ (tick) (tick))))
+                   ((tick (lambda () (let ((cell (new CounterState (count 1))))
+                                       (set! (● cell count) 7)
+                                       (● cell count)))))
+                 (+ (tick) (tick))))
   (newline out)
   (let* ((offset (ann 3 I64))
          (callback (lambda () (+ offset (recursive (answer)))))
@@ -28,13 +28,13 @@
   ;; binder belong to the invocation, even when their source names repeat.
   (let ((offset (ann 5 I64)))
     (display out
-     (handle Counter
-         ((tick (lambda ()
-                  (let ((offset (+ offset 1)))
-                    (let loop ((rest (list offset)))
-                      (match rest
-                        ((Cons offset _) offset)
-                        ((Nil) (loop (list 0)))))))))
-       (tick)))
+             (handle Counter
+                 ((tick (lambda ()
+                          (let ((offset (+ offset 1)))
+                            (let loop ((rest (list offset)))
+                              (match rest
+                                ((Cons offset _) offset)
+                                ((Nil) (loop (list 0)))))))))
+               (tick)))
     (newline out))
   (unit))

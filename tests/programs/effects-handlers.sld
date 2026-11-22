@@ -77,8 +77,8 @@
 
   ;; ANCHOR: handle
   (write-line out (show (handle Log
-                        ((log (lambda (message) (write-line out message))))
-                      (total (list 3 4)))))
+                            ((log (lambda (message) (write-line out message))))
+                          (total (list 3 4)))))
   ;; ANCHOR_END: quietly
 
   (write-line out (show (quiet-total (list 1 2 3))))

@@ -151,7 +151,10 @@
     ;; and each update written to its param. An update's param is a root
     ;; too, so one only written, never read, still has its buffer.
 
-    (define (compile-program (gpu Gpu) (label String) (sinks (List View)) (updates (List (Pair View View))))
+    (define (compile-program (gpu Gpu)
+                             (label String)
+                             (sinks (List View))
+                             (updates (List (Pair View View))))
       (→ Program)
       (! mut)
       (compiled gpu label sinks updates (empty-table) (empty-table)))
@@ -186,20 +189,23 @@
              (last (last-uses order))
              (pinned (pinned-keys roots))
              (built
-              (fold-left (lambda (b pair) (node-built gpu b (● pair second) (● pair first) last pinned))
-                         (new Build
-                           (label label)
-                           (buffers (empty-table))
-                           (pool scratch)
-                           (pipelines (empty-table))
-                           (steps (Nil))
-                           (params (empty-table))
-                           (shared shared)
-                           (objects (Nil))
-                           (made (Nil))
-                           (borrowing (not (null? (table-keys scratch)))))
-                         (zip (iota (length order)) order)))
-             (sunk (fold-left (lambda (state view) (sink-built gpu state view)) (new Pair (first built) (second (Nil))) sinks))
+              (fold-left
+               (lambda (b pair) (node-built gpu b (● pair second) (● pair first) last pinned))
+               (new Build
+                 (label label)
+                 (buffers (empty-table))
+                 (pool scratch)
+                 (pipelines (empty-table))
+                 (steps (Nil))
+                 (params (empty-table))
+                 (shared shared)
+                 (objects (Nil))
+                 (made (Nil))
+                 (borrowing (not (null? (table-keys scratch)))))
+               (zip (iota (length order)) order)))
+             (sunk (fold-left (lambda (state view) (sink-built gpu state view))
+                              (new Pair (first built) (second (Nil)))
+                              sinks))
              (done
               (fold-left (lambda (b u) (copied-into gpu b (● u second) (view-buffer b (● u first))))
                          (● sunk first)
@@ -240,7 +246,12 @@
 
     ;; A node's ports given buffers and its steps added, then the buffers
     ;; of arguments read for the last time back in the pool.
-    (define (node-built (gpu Gpu) (b Build) (n Node) (t I64) (last (Table I64)) (pinned (Table Bool)))
+    (define (node-built (gpu Gpu)
+                        (b Build)
+                        (n Node)
+                        (t I64)
+                        (last (Table I64))
+                        (pinned (Table Bool)))
       (→ Build)
       (! mut)
       ;; Only a custom kernel reads a Fill through a buffer. Sinks and
@@ -296,9 +307,9 @@
 
     (define (new-buffer (gpu Gpu) (label String) (size I64)) (→ GpuBuffer) (! mut)
       (create-buffer gpu (new BufferDescriptor
-                       (label label)
-                       (size (i64->i32 size))
-                       (usage (list (Storage) (CopySrc) (CopyDst))))))
+                           (label label)
+                           (size (i64->i32 size))
+                           (usage (list (Storage) (CopySrc) (CopyDst))))))
 
     ;; A buffer of `size` bytes: a free one from the pool, or a new one.
     (define (taken (gpu Gpu) (b Build) (label String) (size I64)) (→ (Pair Build GpuBuffer)) (! mut)
@@ -397,13 +408,17 @@
           (let* ((with (pipeline-for gpu b code entry))
                  (pipeline (● with second))
                  (group (create-bind-group gpu
-                         (new BindGroupDescriptor
-                           (label (string-append (● b label) "/" entry))
-                           (pipeline (ComputePipeline pipeline))
-                           (group 0)
-                           (entries
-                            (map (lambda (e) (BufferEntry (i64->i32 (● e first)) (● e second) 0 0))
-                                 entries)))))
+                                           (new BindGroupDescriptor
+                                             (label (string-append (● b label) "/" entry))
+                                             (pipeline (ComputePipeline pipeline))
+                                             (group 0)
+                                             (entries
+                                              (map (lambda (e)
+                                                     (BufferEntry (i64->i32 (● e first))
+                                                                  (● e second)
+                                                                  0
+                                                                  0))
+                                                   entries)))))
                  (x (min workgroups 65535)))
             (Build-steps-set (owned (● with first) (BindGroupObject group))
                              (Cons (Dispatch pipeline
@@ -422,12 +437,14 @@
           ((Some pipeline) (new Pair (first b) (second pipeline)))
           ((None)
            (let* ((module (create-shader-module gpu
-                           (new ShaderModuleDescriptor (label (● b label)) (code code))))
+                                                (new ShaderModuleDescriptor
+                                                  (label (● b label))
+                                                  (code code))))
                   (pipeline (create-compute-pipeline gpu
-                             (new ComputePipelineDescriptor
-                               (label (● b label))
-                               (module module)
-                               (entry entry)))))
+                                                     (new ComputePipelineDescriptor
+                                                       (label (● b label))
+                                                       (module module)
+                                                       (entry entry)))))
              (new Pair
                (first (Build-pipelines-set
                        (owned (owned b (ModuleObject module)) (ComputePipelineObject pipeline))
@@ -439,7 +456,9 @@
 
     ;; A generated kernel's dispatch: its buffer arguments at their
     ;; bindings, its ports after them.
-    (define (generated (gpu Gpu) (b Build) (n Node) (code String) (workgroups I64)) (→ Build) (! mut)
+    (define (generated (gpu Gpu) (b Build) (n Node) (code String) (workgroups I64))
+      (→ Build)
+      (! mut)
       (dispatched gpu b code "main" (kernel-entries b n) workgroups))
 
     (define (kernel-entries (b Build) (n Node)) (→ (List (Pair I64 GpuBuffer)))
@@ -545,7 +564,9 @@
     ;; A reduction over a span of up to 256 elements: a thread an output.
     ;; Over more: a workgroup reduces each part of 4096, and the parts are
     ;; reduced the same way, level by level, until one part is left.
-    (define (reduce-steps (gpu Gpu) (b Build) (n Node) (op Reduction) (axes (List I64))) (→ Build) (! mut)
+    (define (reduce-steps (gpu Gpu) (b Build) (n Node) (op Reduction) (axes (List I64)))
+      (→ Build)
+      (! mut)
       (let* ((a (list-ref (● n args) 0))
              (span (product (map (lambda (k) (list-ref (shape-of a) k)) axes)))
              (outputs (product (● (port-of n default-port) shape))))
@@ -612,9 +633,9 @@
                            (first (copied-into gpu (made-buffer b "sink" buffer size) view buffer))
                            (second buffer)))))
              (readback (create-buffer gpu (new BufferDescriptor
-                                        (label (string-append (● b label) "/readback"))
-                                        (size (i64->i32 size))
-                                        (usage (list (MapRead) (CopyDst)))))))
+                                            (label (string-append (● b label) "/readback"))
+                                            (size (i64->i32 size))
+                                            (usage (list (MapRead) (CopyDst)))))))
         (new Pair
           (first (made-buffer (● made first) "readback" readback size))
           (second (Cons (new Sink (buffer (● made second)) (readback readback) (size size))
@@ -700,13 +721,14 @@
         ((Some binding)
          (let* ((size (bytes-of (● binding port)))
                 (readback (create-buffer gpu (new BufferDescriptor
-                                           (label (string-append "read " name))
-                                           (size (i64->i32 size))
-                                           (usage (list (MapRead) (CopyDst))))))
+                                               (label (string-append "read " name))
+                                               (size (i64->i32 size))
+                                               (usage (list (MapRead) (CopyDst))))))
                 (encoder (create-command-encoder gpu)))
            (copy-buffer-to-buffer gpu encoder (● binding buffer) 0 readback 0 (i64->i32 size))
            (submit gpu (list (finish gpu encoder)))
-           (let ((data (read-buffer gpu readback 0 (i64->i32 (* 4 (product (● binding port shape)))))))
+           (let ((data
+                  (read-buffer gpu readback 0 (i64->i32 (* 4 (product (● binding port shape)))))))
              (destroy gpu (BufferObject readback))
              data)))
         ((None) (panic (string-append "tensor: the program has no param " name)))))
@@ -783,7 +805,9 @@
     ;; Each step run alone and waited for, with the seconds it took, the
     ;; kernel's entry and code naming a dispatch: slow, since each wait is
     ;; a round trip to the device, but it shows where a program's time goes.
-    (define (profile-program (gpu Gpu) (clock Clock) (program Program)) (→ (List (Pair String F64))) (! mut tasks)
+    (define (profile-program (gpu Gpu) (clock Clock) (program Program))
+      (→ (List (Pair String F64)))
+      (! mut tasks)
       (map (lambda (step)
              (let ((start (monotonic-nanoseconds clock)))
                (run-steps gpu (list step))

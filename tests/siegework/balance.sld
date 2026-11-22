@@ -77,11 +77,11 @@
 (define (check (out OutputPort) (claim String) (holds? (Fn I64 → Bool))) (→ Unit) (! mut)
   (let ((broken (filter (lambda (seed) (not (holds? seed))) (seeds))))
     (write-line out (string-append claim
-                               ": "
-                               (if (null? broken)
-                                   "#t"
-                                   (string-append "broken on seeds "
-                                                  (string-join (map show broken) " ")))))))
+                                   ": "
+                                   (if (null? broken)
+                                       "#t"
+                                       (string-append "broken on seeds "
+                                                      (string-join (map show broken) " ")))))))
 
 (define (main (out OutputPort)) (→ Unit) (! mut)
 

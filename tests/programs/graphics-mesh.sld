@@ -45,13 +45,14 @@
 (define (main (out OutputPort)) (→ Unit) (! mut tasks)
   (write-line out (string-append "instance bytes: " (show (array-length (● batch instances)))))
   (for-each (lambda (draw)
-            (write-line out (string-append "draw: " (show (● draw index-count))
-                                       " indices from " (show (● draw first-index))
-                                       ", vertices from " (show (● draw base-vertex))
-                                       ", " (show (● draw instance-count))
-                                       " instances from " (show (● draw first-instance)))))
-          (● batch draws))
-  (for-each (lambda (text) (write-line out text)) (heads (● (with-recorded-gpu (lambda (gpu) (frame gpu))) second)))
+              (write-line out (string-append "draw: " (show (● draw index-count))
+                                             " indices from " (show (● draw first-index))
+                                             ", vertices from " (show (● draw base-vertex))
+                                             ", " (show (● draw instance-count))
+                                             " instances from " (show (● draw first-instance)))))
+            (● batch draws))
+  (for-each (lambda (text) (write-line out text))
+            (heads (● (with-recorded-gpu (lambda (gpu) (frame gpu))) second)))
   (unit))
 (define (frame (gpu Gpu)) (→ Unit) (! mut tasks)
   (request-device gpu)
@@ -62,7 +63,9 @@
                                   (new RenderPassDescriptor
                                     (colors (list (Some (new ColorAttachment
                                                           (view
-                                                           (view-of gpu (● (current-texture gpu) texture)
+                                                           (view-of gpu
+                                                                    (● (current-texture gpu)
+                                                                       texture)
                                                                     1))
                                                           (load (Keep))
                                                           (store #t)))))

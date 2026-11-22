@@ -85,9 +85,12 @@
         ((Listen)
          (new Pair (first model)
               (second (list
-                       (lambda (dom fetch) (hear fetch (stream-open fetch "/api/events" (list "message" "note"))))))))
+                       (lambda (dom fetch)
+                         (hear fetch (stream-open fetch "/api/events" (list "message" "note"))))))))
         ((Heard stream text)
-         (new Pair (first (heard model text)) (second (list (lambda (dom fetch) (hear fetch stream))))))
+         (new Pair
+           (first (heard model text))
+           (second (list (lambda (dom fetch) (hear fetch stream))))))
         ((Ended) (new Pair (first (heard model "ended")) (second (Nil))))))
 
     (define (pressed (model Notes) (key String) (at I32)) (→ (Pair Notes (List (Command Message))))
@@ -96,7 +99,9 @@
              (new Pair (first model)
                   (second (list (lambda (dom fetch)
                                   (with-draft dom
-                                   (lambda (node) (insert-text dom node at at "  ") (unit)))
+                                              (lambda (node)
+                                                (insert-text dom node at at "  ")
+                                                (unit)))
                                   (Pressed "" 0))))))
             (else (new Pair (first model) (second (Nil))))))
 

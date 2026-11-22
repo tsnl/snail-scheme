@@ -69,7 +69,9 @@
     ;; The library `name`, defining each shader's text by its name: the
     ;; shader is read from its linked file now.
 
-    (define (shader-library (resources Resources) (name (List String)) (shaders (List (Pair String Resource))))
+    (define (shader-library (resources Resources)
+                            (name (List String))
+                            (shaders (List (Pair String Resource))))
       (→ Syntax)
       (! mut tasks)
       (library-syntax name
@@ -81,7 +83,8 @@
                                          (form "→" (list (SymbolSyntax "String")))
                                          (chunked (shader-text (● shader first)
                                                                (read-resource resources
-                                                                (● shader second)))))))
+                                                                              (● shader
+                                                                                 second)))))))
                            shaders)))
 
     ;; A long text as literals of at most 8000 characters joined at run

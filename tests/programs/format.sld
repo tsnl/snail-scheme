@@ -37,8 +37,8 @@
   (write-string out broken)
   ;; Formatting what formatting made changes nothing.
   (write-line out (if (string=? broken (format-source broken 40))
-                  "idempotent"
-                  "not idempotent"))
+                      "idempotent"
+                      "not idempotent"))
   ;; Reindenting only the second line leaves the third as it was.
   (write-string out (indent-lines "(foo bar\nbaz\n  qux)\n" 1 1))
   (write-string out (format-source (result-bindings) format-width))

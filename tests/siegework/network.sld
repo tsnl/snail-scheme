@@ -37,29 +37,30 @@
 
 (define (report-wires (out OutputPort) (world World)) (→ Unit) (! mut)
   (write-line out (string-append "wires "
-                             (string-join (map wire-text (● (● world network) wires))
-                                          " "))))
+                                 (string-join (map wire-text (● (● world network) wires))
+                                              " "))))
 
 (define (report (out OutputPort) (world World)) (→ Unit) (! mut)
   (write-line out (string-append "tick "
-                             (show (● world tick))
-                             ", produced "
-                             (show (● (● world ledger) produced))
-                             ", wires " (show (length (● (● world network) wires)))
-                             ", visible " (show (visible-count world)) ": "
-                             (string-join (map (lambda (b)
-                                                 (string-append (kind-name (● b kind))
-                                                                " "
-                                                                (show (● (● b cell) x))
-                                                                ","
-                                                                (show (● (● b cell) y))
-                                                                (cond
-                                                                 ((not (built? b)) " unfinished")
-                                                                 ((powered? world (● b id))
-                                                                  " powered")
-                                                                 (else " unpowered"))))
-                                               (● world buildings))
-                                          "; "))))
+                                 (show (● world tick))
+                                 ", produced "
+                                 (show (● (● world ledger) produced))
+                                 ", wires " (show (length (● (● world network) wires)))
+                                 ", visible " (show (visible-count world)) ": "
+                                 (string-join (map (lambda (b)
+                                                     (string-append (kind-name (● b kind))
+                                                                    " "
+                                                                    (show (● (● b cell) x))
+                                                                    ","
+                                                                    (show (● (● b cell) y))
+                                                                    (cond
+                                                                     ((not (built? b))
+                                                                      " unfinished")
+                                                                     ((powered? world (● b id))
+                                                                      " powered")
+                                                                     (else " unpowered"))))
+                                                   (● world buildings))
+                                              "; "))))
 
 (define (main (out OutputPort)) (→ Unit) (! mut)
 

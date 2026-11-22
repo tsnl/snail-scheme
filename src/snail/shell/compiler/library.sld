@@ -118,7 +118,8 @@
       (let* ((ident (lambda (name) (Ident name (None) loc)))
              (form (lambda (items) (Form items loc)))
              (only (lambda (library names)
-                     (form (Cons (ident "only") (Cons (form (map ident library)) (map ident names))))))
+                     (form
+                      (Cons (ident "only") (Cons (form (map ident library)) (map ident names))))))
              (recipe-parts (recipe-lambda expression)))
         (list (form (Cons (ident "import")
                           (append imports
@@ -136,7 +137,8 @@
                           (form (list (ident "write-generated-library")
                                       (ident "producer-fs")
                                       (form (Cons (ident "lambda")
-                                                  (Cons (form (Nil)) (● recipe-parts second)))))))))))
+                                                  (Cons (form (Nil))
+                                                        (● recipe-parts second)))))))))))
 
     ;; A recipe's capability parameters and its body: those of a `lambda`,
     ;; or no parameters and the expression itself.

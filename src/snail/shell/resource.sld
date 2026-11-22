@@ -48,7 +48,9 @@
     (record Resources
       ((resource-bytes (Fn (List I32) → (List Bytes) ! mut tasks))))
 
-    (define (resource-bytes (resources Resources) (handles (List I32))) (→ (List Bytes)) (! mut tasks)
+    (define (resource-bytes (resources Resources) (handles (List I32)))
+      (→ (List Bytes))
+      (! mut tasks)
       ((● resources resource-bytes) handles))
 
     (define (host-resources) (→ Resources)
@@ -77,7 +79,9 @@
 
     ;; Each file's bytes, in the order given, the files read together.
 
-    (define (read-resources (resources Resources) (linked (List Resource))) (→ (List Bytes)) (! mut tasks)
+    (define (read-resources (resources Resources) (linked (List Resource)))
+      (→ (List Bytes))
+      (! mut tasks)
       (resource-bytes resources (map (lambda (file) ((● file handle))) linked)))
 
     ))

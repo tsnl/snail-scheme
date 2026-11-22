@@ -7,10 +7,10 @@
 
 (define (main) (→ Unit) (! mut)
   (with-recorded-gpu
- (lambda (gpu)
-   (compile-program gpu "update"
-                    (Nil)
-                    (list
-                     (new Pair (first (param "counter" (Nil) (Signed))) (second (scalar 1.0)))))
-   (unit)))
+   (lambda (gpu)
+     (compile-program gpu "update"
+                      (Nil)
+                      (list
+                       (new Pair (first (param "counter" (Nil) (Signed))) (second (scalar 1.0)))))
+     (unit)))
   (unit))

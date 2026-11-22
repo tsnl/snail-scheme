@@ -24,7 +24,7 @@
   (display out (quietly (lambda () (total-cost (list 3 4 5)))))
   (newline out)
   (display out (handle Log
-               ((log (lambda (message) (write-line out message))))
-             (total-cost (list 1 2))))
+                   ((log (lambda (message) (write-line out message))))
+                 (total-cost (list 1 2))))
   (newline out)
   (unit))

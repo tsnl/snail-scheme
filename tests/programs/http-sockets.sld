@@ -63,5 +63,5 @@
                            "HTTP/1.1 200 \r\nConnection: close\r\nContent-Length: 4\r\ncontent-type: text/plain\r\n\r\nbody")
            (panic "incomplete HTTP response")))
        (write-line out
-        "HTTP exchange: real sockets, suspended handler, unread input and graceful finish"))))
+                   "HTTP exchange: real sockets, suspended handler, unread input and graceful finish"))))
   (unit))

@@ -137,7 +137,9 @@
     next))
 
 ;; Composed a call at a time, `calls` times.
-(define (settled (gpu Gpu) (atlas Atlas) (pictures (List Picture)) (calls I64)) (→ Atlas) (! mut tasks)
+(define (settled (gpu Gpu) (atlas Atlas) (pictures (List Picture)) (calls I64))
+  (→ Atlas)
+  (! mut tasks)
   (if (= calls 0) atlas (settled gpu (compose gpu atlas pictures) pictures (- calls 1))))
 
 (define (frames (gpu Gpu)) (→ (List Atlas)) (! mut tasks)
@@ -152,10 +154,11 @@
 
 (define (main (out OutputPort)) (→ Unit) (! mut tasks)
   (let ((recorded (with-recorded-gpu (lambda (gpu) (frames gpu)))))
-  (for-each (lambda (atlas) (write-line out (slots atlas (list 1 2 3 4 5)))) (● recorded first))
-  (for-each (lambda (text) (write-line out text)) (heads (● recorded second))))
+    (for-each (lambda (atlas) (write-line out (slots atlas (list 1 2 3 4 5)))) (● recorded first))
+    (for-each (lambda (text) (write-line out text)) (heads (● recorded second))))
   (write-line out "quads:")
-  (for-each (lambda (text) (write-line out text)) (heads (● (with-recorded-gpu (lambda (gpu) (quad-frames gpu))) second)))
+  (for-each (lambda (text) (write-line out text))
+            (heads (● (with-recorded-gpu (lambda (gpu) (quad-frames gpu))) second)))
   (unit))
 
 (define (quad (index I64)) (→ Quad)
@@ -174,7 +177,9 @@
                                   (new RenderPassDescriptor
                                     (colors (list (Some (new ColorAttachment
                                                           (view
-                                                           (view-of gpu (● (current-texture gpu) texture)
+                                                           (view-of gpu
+                                                                    (● (current-texture gpu)
+                                                                       texture)
                                                                     1))
                                                           (load (Keep))
                                                           (store #t)))))

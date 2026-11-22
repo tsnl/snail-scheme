@@ -68,20 +68,24 @@
        (remodulate-group GpuBindGroup)
        (parity I64)))
 
-    (define (make-svgf (gpu Gpu) (inputs SvgfInputs) (light GpuTextureView) (width I32) (height I32))
+    (define (make-svgf (gpu Gpu)
+                       (inputs SvgfInputs)
+                       (light GpuTextureView)
+                       (width I32)
+                       (height I32))
       (→ Svgf)
       (! mut)
       (let ((module (create-shader-module gpu (new ShaderModuleDescriptor
-                                            (label "svgf")
-                                            (code (string-append (declarations camera-shape)
-                                                                 (declarations filtering-shape)
-                                                                 svgf-shader))))))
+                                                (label "svgf")
+                                                (code (string-append (declarations camera-shape)
+                                                                     (declarations filtering-shape)
+                                                                     svgf-shader))))))
         (planned gpu (new Kernels
-                   (temporal (compute-kernel gpu module "svgf" "temporal"))
-                   (variance (compute-kernel gpu module "svgf" "variance"))
-                   (atrous (compute-kernel gpu module "svgf" "atrous"))
-                   (remodulate (compute-kernel gpu module "svgf" "remodulate"))
-                   (filtering (uniform-buffer gpu "svgf/filtering" (filtering-bytes #t 1.0))))
+                       (temporal (compute-kernel gpu module "svgf" "temporal"))
+                       (variance (compute-kernel gpu module "svgf" "variance"))
+                       (atrous (compute-kernel gpu module "svgf" "atrous"))
+                       (remodulate (compute-kernel gpu module "svgf" "remodulate"))
+                       (filtering (uniform-buffer gpu "svgf/filtering" (filtering-bytes #t 1.0))))
                  inputs
                  light
                  width
@@ -112,14 +116,26 @@
     ;; `moved` when the camera moved since the last frame: a moving
     ;; camera keeps 32 frames at most and gives each at least a fifth, a
     ;; still one keeps averaging.
-    (define (filter-svgf (gpu Gpu) (encoder GpuCommandEncoder) (svgf Svgf) (moved Bool) (exposure F32))
+    (define (filter-svgf (gpu Gpu)
+                         (encoder GpuCommandEncoder)
+                         (svgf Svgf)
+                         (moved Bool)
+                         (exposure F32))
       (→ Svgf)
       (! mut)
       (let ((kernels (● svgf kernels)) (parity (● svgf parity)))
         (write-buffer gpu (● kernels filtering) 0 (filtering-bytes moved exposure))
         (let ((first (begin-compute-pass gpu encoder)))
-          (over-screen gpu first svgf (● kernels temporal) (list-ref (● svgf temporal-groups) parity))
-          (over-screen gpu first svgf (● kernels variance) (list-ref (● svgf variance-groups) parity))
+          (over-screen gpu
+                       first
+                       svgf
+                       (● kernels temporal)
+                       (list-ref (● svgf temporal-groups) parity))
+          (over-screen gpu
+                       first
+                       svgf
+                       (● kernels variance)
+                       (list-ref (● svgf variance-groups) parity))
           (over-screen gpu first svgf (● kernels atrous) (list-ref (● svgf atrous-groups) 0))
           (end-compute-pass gpu first))
         (copy-texture-to-texture gpu encoder
@@ -212,8 +228,9 @@
                                                            index)))
                                 (iota 2)))
           (variance-groups
-           (map (lambda (index) (group gpu (● kernels variance) (variance-entries planes inputs index)))
-                (iota 2)))
+           (map
+            (lambda (index) (group gpu (● kernels variance) (variance-entries planes inputs index)))
+            (iota 2)))
           (atrous-groups (map (lambda (level)
                                 (group gpu (● kernels atrous)
                                        (atrous-entries planes inputs (● kernels filtering) level)))

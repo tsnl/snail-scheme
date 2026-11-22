@@ -371,11 +371,13 @@
                   (● batch offsets))))
 
     ;; A buffer holding `bytes`, at least a word.
-    (define (filled (gpu Gpu) (label String) (bytes Bytes) (usage BufferUsage)) (→ GpuBuffer) (! mut)
+    (define (filled (gpu Gpu) (label String) (bytes Bytes) (usage BufferUsage))
+      (→ GpuBuffer)
+      (! mut)
       (let ((buffer (create-buffer gpu (new BufferDescriptor
-                                     (label label)
-                                     (size (i64->i32 (max 4 (array-length bytes))))
-                                     (usage (list usage (CopyDst)))))))
+                                         (label label)
+                                         (size (i64->i32 (max 4 (array-length bytes))))
+                                         (usage (list usage (CopyDst)))))))
         (write-buffer gpu buffer 0 bytes)
         buffer))
 

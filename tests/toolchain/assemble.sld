@@ -40,6 +40,6 @@
     ((Ok _) (write-line out "assembled broken text"))
     ((Err message)
      (write-line out (if (contains? message ":2:23")
-                     "broken text names its line and column"
-                     message))))
+                         "broken text names its line and column"
+                         message))))
   (unit))

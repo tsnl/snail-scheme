@@ -68,8 +68,9 @@
   (write-line out (string-append "count: " (show (● cloud count))))
   (write-line out (string-append "position: " (floats (● cloud gaussians) 12 3)))
   (write-line out (string-append "center: "
-                             (string-join (map f64->string (cloud-center cloud 1)) " ")))
-  (write-line out (string-append "transform: " (show (f32->bits (float-at (● cloud gaussians) 15)))))
+                                 (string-join (map f64->string (cloud-center cloud 1)) " ")))
+  (write-line out
+              (string-append "transform: " (show (f32->bits (float-at (● cloud gaussians) 15)))))
   (write-line out (string-append "rotation: " (floats (● cloud gaussians) 16 4)))
   (write-line out (string-append "scale: " (floats (● cloud gaussians) 20 3)))
   (write-line out (string-append "opacity: " (floats (● cloud gaussians) 23 1)))
@@ -113,12 +114,13 @@
       ((Ok cloud)
        (show-cloud out cloud)
        (write-line out (string-append "degree 3, red: "
-                                  (string-join (map (lambda (k)
-                                                      (f64->string
-                                                       (f32->f64 (float-at (● cloud harmonics)
-                                                                           (+ 48 (* 3 (+ 9 k)))))))
-                                                    (iota 7))
-                                               " "))))
+                                      (string-join (map (lambda (k)
+                                                          (f64->string
+                                                           (f32->f64 (float-at (● cloud harmonics)
+                                                                               (+ 48
+                                                                                  (* 3 (+ 9 k)))))))
+                                                        (iota 7))
+                                                   " "))))
       ((Err message) (write-line out message)))))
 
 ;; ---- Dispatches ----
@@ -129,7 +131,8 @@
 ;; level back, and scattering.
 
 (define (frame (gpu Gpu)) (→ Unit) (! mut)
-  (let ((splats (make-splats gpu "test" (Bgra8Unorm) 300000 2)) (encoder (create-command-encoder gpu)))
+  (let ((splats (make-splats gpu "test" (Bgra8Unorm) 300000 2))
+        (encoder (create-command-encoder gpu)))
     (write-transforms gpu splats (list (identity-of 2.0)))
     (sort-splats gpu encoder
                  splats
@@ -158,14 +161,23 @@
 
 (define (main (out OutputPort)) (→ Unit) (! mut)
   (match (read-ply file 3)
-  ((Ok cloud) (show-cloud out cloud))
-  ((Err message) (write-line out message)))
+    ((Ok cloud) (show-cloud out cloud))
+    ((Err message) (write-line out message)))
   (written out)
   (write-line out (refusal (list "ply" "format ascii 1.0" "element vertex 1" "property float x")))
   (write-line out
- (refusal (list "ply" "format binary_little_endian 1.0" "element vertex 1" "property uchar x")))
+              (refusal (list "ply"
+                             "format binary_little_endian 1.0"
+                             "element vertex 1"
+                             "property uchar x")))
   (write-line out
- (refusal (list "ply" "format binary_little_endian 1.0" "element vertex 1" "property float x")))
+              (refusal (list "ply"
+                             "format binary_little_endian 1.0"
+                             "element vertex 1"
+                             "property float x")))
   (write-line out
- (string-join (map workgroups (filter dispatched (● (with-recorded-gpu (lambda (gpu) (frame gpu))) second))) " "))
+              (string-join (map workgroups
+                                (filter dispatched
+                                        (● (with-recorded-gpu (lambda (gpu) (frame gpu))) second)))
+                           " "))
   (unit))

@@ -83,7 +83,9 @@
       (unless (and (any? (lambda (bits) (= bits key-bits)) (list 8 16 24 32)) (> count 0))
         (panic "radix-sort: a sorter sorts 8, 16, 24 or 32 bits of at least one key"))
       (let* ((module (create-shader-module gpu
-                      (new ShaderModuleDescriptor (label "radix-sort") (code sort-code))))
+                                           (new ShaderModuleDescriptor
+                                             (label "radix-sort")
+                                             (code sort-code))))
              (blocks (tiles count 256))
              (counts (u32-buffer gpu (string-append label "/counts") (* 16 blocks)))
              (given (new Lane (keys keys) (values values)))
@@ -109,23 +111,25 @@
                                          (if even spare given))))
                                (iota (quotient key-bits 4))))))
 
-    (define (sort-pipeline (gpu Gpu) (module GpuShaderModule) (entry String)) (→ GpuComputePipeline) (! mut)
+    (define (sort-pipeline (gpu Gpu) (module GpuShaderModule) (entry String))
+      (→ GpuComputePipeline)
+      (! mut)
       (create-compute-pipeline gpu (new ComputePipelineDescriptor
-                                 (label (string-append "radix-sort/" entry))
-                                 (module module)
-                                 (entry entry))))
+                                     (label (string-append "radix-sort/" entry))
+                                     (module module)
+                                     (entry entry))))
 
     (define (u32-buffer (gpu Gpu) (label String) (count I64)) (→ GpuBuffer) (! mut)
       (create-buffer gpu (new BufferDescriptor
-                       (label label)
-                       (size (i64->i32 (* 4 count)))
-                       (usage (list (Storage) (CopySrc) (CopyDst))))))
+                           (label label)
+                           (size (i64->i32 (* 4 count)))
+                           (usage (list (Storage) (CopySrc) (CopyDst))))))
 
     (define (pass-uniform (gpu Gpu) (label String) (shift I64) (count I64)) (→ GpuBuffer) (! mut)
       (let ((uniform (create-buffer gpu (new BufferDescriptor
-                                      (label (string-append label "/pass"))
-                                      (size 16)
-                                      (usage (list (Uniform) (CopyDst)))))))
+                                          (label (string-append label "/pass"))
+                                          (size 16)
+                                          (usage (list (Uniform) (CopyDst)))))))
         (write-buffer gpu uniform
                       0
                       (pod-bytes pass-shape
@@ -137,7 +141,13 @@
 
     ;; A pass from the lane `from` to the lane `to`.
 
-    (define (step (gpu Gpu) (label String) (sorter Sorter) (uniform GpuBuffer) (from Lane) (to Lane)) (→ Step)
+    (define (step (gpu Gpu)
+                  (label String)
+                  (sorter Sorter)
+                  (uniform GpuBuffer)
+                  (from Lane)
+                  (to Lane))
+      (→ Step)
       (! mut)
       (new Step
         (uniform uniform)
@@ -161,10 +171,10 @@
       (→ GpuBindGroup)
       (! mut)
       (create-bind-group gpu (new BindGroupDescriptor
-                           (label (string-append "radix-sort/" label))
-                           (pipeline (ComputePipeline pipeline))
-                           (group 0)
-                           (entries entries))))
+                               (label (string-append "radix-sort/" label))
+                               (pipeline (ComputePipeline pipeline))
+                               (group 0)
+                               (entries entries))))
 
     ;; ---- Sorting ----
 
@@ -174,7 +184,11 @@
       (for-each (lambda (step)
                   (dispatch-blocks gpu pass (● sorter count-pipeline) (● step count-group) sorter)
                   (dispatch-scan gpu pass (● sorter scan))
-                  (dispatch-blocks gpu pass (● sorter scatter-pipeline) (● step scatter-group) sorter))
+                  (dispatch-blocks gpu
+                                   pass
+                                   (● sorter scatter-pipeline)
+                                   (● step scatter-group)
+                                   sorter))
                 (● sorter steps)))
 
     (define (dispatch-blocks (gpu Gpu) (pass GpuComputePass)

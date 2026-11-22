@@ -48,7 +48,9 @@
   (report out "make without a parent" (answer done (make-directory fs (at "a/b"))))
   (report out "make with parents" (answer done (make-directories fs (at "a/b/c"))))
   (report out "make with parents again" (answer done (make-directories fs (at "a/b"))))
-  (report out "make with parents and a trailing slash" (answer done (make-directories fs (at "a/b/s/t/"))))
+  (report out
+          "make with parents and a trailing slash"
+          (answer done (make-directories fs (at "a/b/s/t/"))))
   (report out "make with parents and a doubled slash"
           (answer done (make-directories fs (at "a/b/g/m//n"))))
   (write-file fs (at "a/four.txt") "four")
@@ -71,11 +73,15 @@
   (report out "rename over an existing file"
           (answer done (rename-file fs (at "a/renamed.txt") (at "a/B.txt"))))
   (report out "replaced file reads" (read-file fs (at "a/B.txt")))
-  (report out "rename a missing path" (answer done (rename-file fs (at "missing") (at "a/elsewhere"))))
+  (report out
+          "rename a missing path"
+          (answer done (rename-file fs (at "missing") (at "a/elsewhere"))))
   (make-directory fs (at "full"))
   (write-file fs (at "full/inside") "")
   (report out "rename over a full directory" (answer done (rename-file fs (at "a/b") (at "full"))))
-  (report out "rename a file over a directory" (answer done (rename-file fs (at "a/B.txt") (at "full"))))
+  (report out
+          "rename a file over a directory"
+          (answer done (rename-file fs (at "a/B.txt") (at "full"))))
   ;; ---- Removing ----
 
   (report out "remove a full directory" (answer done (remove-directory fs (at "full"))))
@@ -105,7 +111,9 @@
   (report out "another name" (answer done (make-hard-link fs (at "a/B.txt") (at "a/also.txt"))))
   (report out "the name again" (answer done (make-hard-link fs (at "a/B.txt") (at "a/also.txt"))))
   (report out "status of the name" (answer status-text (file-status fs (at "a/also.txt"))))
-  (report out "a name for nothing" (answer done (make-hard-link fs (at "missing") (at "a/none.txt"))))
+  (report out
+          "a name for nothing"
+          (answer done (make-hard-link fs (at "missing") (at "a/none.txt"))))
   (report out "remove the first name" (answer done (remove-file fs (at "a/B.txt"))))
   (report out "the other still reads" (read-file fs (at "a/also.txt")))
   (report out "rename it back" (answer done (rename-file fs (at "a/also.txt") (at "a/B.txt"))))

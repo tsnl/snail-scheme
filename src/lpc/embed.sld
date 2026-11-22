@@ -54,7 +54,9 @@
                                             (lambda (index path) (art-entry first-key index path))
                                             paths)
                                            (form "None" (Nil)))
-                       (concatenate (map-indexed (lambda (index path) (image-definitions fs index path)) paths)))))
+                       (concatenate
+                        (map-indexed (lambda (index path) (image-definitions fs index path))
+                                     paths)))))
 
     ;; Path P gives `(Some (new Source (key KEY) (bytes image-I)))`.
     (define (art-entry (first-key I32) (index I64) (path String)) (→ (Pair String Syntax))

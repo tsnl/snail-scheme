@@ -20,7 +20,8 @@
     (f64->string (if (= r 0.0) 0.0 r))))
 
 (define (show-values (out OutputPort) (label String) (values (Array F64))) (→ Unit) (! mut)
-  (write-line out (string-append label ": " (string-join (map rounded-text (array->list values)) " "))))
+  (write-line out
+              (string-append label ": " (string-join (map rounded-text (array->list values)) " "))))
 
 (define (show-shape (out OutputPort) (label String) (view View)) (→ Unit) (! mut)
   (write-line out (string-append label ": " (string-join (map show (shape-of view)) "x"))))
@@ -58,7 +59,9 @@
     (show-values out "narrow" (only-value (list (narrow x 1 1 2)) inputs))
     (show-values out "row sums" (only-value (list (sum x (list 1))) inputs))
     (show-shape out "row sums" (sum x (list 1)))
-    (show-values out "broadcast add" (only-value (list (+ x (param "x" (list 2 3) (Float)))) inputs))
+    (show-values out
+                 "broadcast add"
+                 (only-value (list (+ x (param "x" (list 2 3) (Float)))) inputs))
     (show-values out "column add" (only-value (list (+ x (narrow x 0 0 1))) inputs))
     (show-values out "matmul" (only-value (list (matmul x (transpose x))) inputs))
     (show-values out "max" (only-value (list (amax x (list 0 1))) inputs))
@@ -105,10 +108,10 @@
                                    (- (array-ref analytic k) (difference loss name base k inputs))))
                                 (iota (array-length base))))))
     (write-line out (string-append label
-                               ": "
-                               (if (< worst 0.02)
-                                   "agrees"
-                                   (string-append "off by " (f64->string worst)))))))
+                                   ": "
+                                   (if (< worst 0.02)
+                                       "agrees"
+                                       (string-append "off by " (f64->string worst)))))))
 
 (define (difference (loss View)
                     (name String)

@@ -95,56 +95,61 @@
 
 (define (main (out OutputPort)) (→ Unit) (! mut)
   (match (read (string->utf8 scene))
-  ((Ok gltf)
-   (write-line out (string-append "buffers: " (buffers gltf) " size " (show (● gltf size))))
-   (write-line out (string-append "images: " (sources (● gltf images))))
-   (for-each (lambda (placed)
-               (let ((primitive (● placed primitive)))
-                 (write-line out (string-append "positions: " (attribute-text (● primitive positions))))
-                 (match (● primitive uvs)
-                   ((Some uvs) (write-line out (string-append "uvs: " (attribute-text uvs))))
-                   ((None) (write-line out "uvs: none")))
-                 (match (● primitive indices)
-                   ((Some indices)
-                    (write-line out (string-append "indices: " (attribute-text indices))))
-                   ((None) (write-line out "indices: none")))
-                 (write-line out (string-append "matrix: " (numbers (● placed matrix))))))
-             (● gltf placed))
-   (for-each (lambda (material)
-               (write-line out (string-append "material: " (numbers (● material base-color))
-                                          " texture " (show (● material base-texture))
-                                          " metallic " (show (● material metallic))
-                                          " alpha " (show (● material alpha))
-                                          " cutoff " (show (● material alpha-cutoff))
-                                          " emissive " (numbers (● material emissive)))))
-             (● gltf materials))
-   (let ((bounds (gltf-bounds gltf)))
-     (write-line out
-      (string-append "bounds: " (numbers (● bounds first)) " to " (numbers (● bounds second))))))
-  ((Err reason) (write-line out reason)))
+    ((Ok gltf)
+     (write-line out (string-append "buffers: " (buffers gltf) " size " (show (● gltf size))))
+     (write-line out (string-append "images: " (sources (● gltf images))))
+     (for-each (lambda (placed)
+                 (let ((primitive (● placed primitive)))
+                   (write-line out
+                               (string-append "positions: "
+                                              (attribute-text (● primitive positions))))
+                   (match (● primitive uvs)
+                     ((Some uvs) (write-line out (string-append "uvs: " (attribute-text uvs))))
+                     ((None) (write-line out "uvs: none")))
+                   (match (● primitive indices)
+                     ((Some indices)
+                      (write-line out (string-append "indices: " (attribute-text indices))))
+                     ((None) (write-line out "indices: none")))
+                   (write-line out (string-append "matrix: " (numbers (● placed matrix))))))
+               (● gltf placed))
+     (for-each (lambda (material)
+                 (write-line out (string-append "material: " (numbers (● material base-color))
+                                                " texture " (show (● material base-texture))
+                                                " metallic " (show (● material metallic))
+                                                " alpha " (show (● material alpha))
+                                                " cutoff " (show (● material alpha-cutoff))
+                                                " emissive " (numbers (● material emissive)))))
+               (● gltf materials))
+     (let ((bounds (gltf-bounds gltf)))
+       (write-line out
+                   (string-append "bounds: "
+                                  (numbers (● bounds first))
+                                  " to "
+                                  (numbers (● bounds second))))))
+    ((Err reason) (write-line out reason)))
   (match (read two-buffers)
-  ((Ok gltf) (write-line out (string-append "glb buffers: " (buffers gltf))))
-  ((Err reason) (write-line out reason)))
+    ((Ok gltf) (write-line out (string-append "glb buffers: " (buffers gltf))))
+    ((Err reason) (write-line out reason)))
   (for-each (lambda (file)
-            (match (read file)
-              ((Ok _) (write-line out "read"))
-              ((Err reason) (write-line out reason))))
-          (list (string->utf8 "glTF, but not JSON")
-                (subarray two-buffers 0 40)
-                (string->utf8
-                 "{\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":3}}]}]}")
-                (string->utf8 "{\"scene\":2,\"scenes\":[{\"nodes\":[0]}]}")
-                (string->utf8 "{\"scenes\":[{\"nodes\":[5]}],\"nodes\":[{}]}")
-                (string->utf8
-                 "{\"scenes\":[{\"nodes\":[0]}],\"nodes\":[{\"children\":[1]},{\"children\":[0]}]}")
-                (string->utf8
-                 (string-append
-                  "{\"buffers\":[{\"uri\":\"a.bin\",\"byteLength\":30}],"
-                  "\"bufferViews\":[{\"buffer\":0,\"byteLength\":30}],"
-                  "\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"}]}"))
-                (string->utf8 "{\"images\":[{\"bufferView\":0}]}")
-                (string->utf8 "{\"images\":[{\"mimeType\":\"image/png\"}]}")
-                (string->utf8 "{\"extensionsRequired\":[\"KHR_draco_mesh_compression\"]}")))
+              (match (read file)
+                ((Ok _) (write-line out "read"))
+                ((Err reason) (write-line out reason))))
+            (list (string->utf8 "glTF, but not JSON")
+                  (subarray two-buffers 0 40)
+                  (string->utf8
+                   "{\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":3}}]}]}")
+                  (string->utf8 "{\"scene\":2,\"scenes\":[{\"nodes\":[0]}]}")
+                  (string->utf8 "{\"scenes\":[{\"nodes\":[5]}],\"nodes\":[{}]}")
+                  (string->utf8
+                   "{\"scenes\":[{\"nodes\":[0]}],\"nodes\":[{\"children\":[1]},{\"children\":[0]}]}")
+                  (string->utf8
+                   (string-append
+                    "{\"buffers\":[{\"uri\":\"a.bin\",\"byteLength\":30}],"
+                    "\"bufferViews\":[{\"buffer\":0,\"byteLength\":30}],"
+                    "\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"}]}"))
+                  (string->utf8 "{\"images\":[{\"bufferView\":0}]}")
+                  (string->utf8 "{\"images\":[{\"mimeType\":\"image/png\"}]}")
+                  (string->utf8 "{\"extensionsRequired\":[\"KHR_draco_mesh_compression\"]}")))
   (unit))
 
 (define two-buffers

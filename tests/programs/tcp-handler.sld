@@ -30,30 +30,31 @@
   (dispatch
    (lambda ()
      (let ((tcp (new Tcp
-(listen
-           (lambda (endpoint)
-             (Ok (new Listener (token (Any endpoint)) (port (Endpoint-port endpoint))))))
-          (connect
-           (lambda (_) (Ok (new Connection (token (Any (new Buffer (bytes #u8()))))))))
-          (accept (lambda (_) (Ok (new Connection (token (Any (new Buffer (bytes #u8()))))))))
-          (read (lambda (connection _)
-                  (Ok
-                   (Some
-                    (● (fixture-convert (● connection token) Buffer) bytes)))))
-          (write (lambda (connection bytes)
-                   (sleep 1)
-                   (set! (● (fixture-convert (● connection token) Buffer) bytes) bytes)
-                   (Ok (i64->i32 (array-length bytes)))))
-          (close-listener (lambda (_) (Ok (unit))))
-          (finish-connection (lambda (connection grace)
-                               (sleep 1)
-                               (display out grace)
-                               (newline out)
-                               (set! (● (fixture-convert (● connection token) Buffer) bytes)
-                                     #u8())
-                               (Ok (unit))))
-          (close-connection (lambda (_) (Ok (unit)))))))
-(let ((connection (require (connect tcp (require (endpoint "192.0.2.1" 0))))))
+                  (listen
+                   (lambda (endpoint)
+                     (Ok (new Listener (token (Any endpoint)) (port (Endpoint-port endpoint))))))
+                  (connect
+                   (lambda (_) (Ok (new Connection (token (Any (new Buffer (bytes #u8()))))))))
+                  (accept
+                   (lambda (_) (Ok (new Connection (token (Any (new Buffer (bytes #u8()))))))))
+                  (read (lambda (connection _)
+                          (Ok
+                           (Some
+                            (● (fixture-convert (● connection token) Buffer) bytes)))))
+                  (write (lambda (connection bytes)
+                           (sleep 1)
+                           (set! (● (fixture-convert (● connection token) Buffer) bytes) bytes)
+                           (Ok (i64->i32 (array-length bytes)))))
+                  (close-listener (lambda (_) (Ok (unit))))
+                  (finish-connection (lambda (connection grace)
+                                       (sleep 1)
+                                       (display out grace)
+                                       (newline out)
+                                       (set! (● (fixture-convert (● connection token) Buffer) bytes)
+                                             #u8())
+                                       (Ok (unit))))
+                  (close-connection (lambda (_) (Ok (unit)))))))
+       (let ((connection (require (connect tcp (require (endpoint "192.0.2.1" 0))))))
          (dispatch
           (lambda ()
             (require (write tcp connection #u8(7 8)))

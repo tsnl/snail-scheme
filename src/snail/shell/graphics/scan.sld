@@ -65,7 +65,9 @@
 
     (define (make-scan (gpu Gpu) (label String) (data GpuBuffer) (count I64)) (→ Scan) (! mut)
       (let* ((module (create-shader-module gpu
-                      (new ShaderModuleDescriptor (label "scan") (code scan-code))))
+                                           (new ShaderModuleDescriptor
+                                             (label "scan")
+                                             (code scan-code))))
              (scan (new Scan
                      (module module)
                      (scan-pipeline (step-pipeline gpu module "scan_tiles"))
@@ -73,12 +75,14 @@
                      (levels (Nil)))))
         (Scan-levels-set scan (levels gpu label scan data count))))
 
-    (define (step-pipeline (gpu Gpu) (module GpuShaderModule) (entry String)) (→ GpuComputePipeline) (! mut)
+    (define (step-pipeline (gpu Gpu) (module GpuShaderModule) (entry String))
+      (→ GpuComputePipeline)
+      (! mut)
       (create-compute-pipeline gpu
-       (new ComputePipelineDescriptor
-         (label (string-append "scan/" entry))
-         (module module)
-         (entry entry))))
+                               (new ComputePipelineDescriptor
+                                 (label (string-append "scan/" entry))
+                                 (module module)
+                                 (entry entry))))
 
     ;; The levels from `data` up, each holding the sums of the one below,
     ;; until one fits in a tile; its total goes to a sum nothing reads.
@@ -91,7 +95,9 @@
             (list level)
             (Cons level (levels gpu label scan (● level sums) (tiles count 512))))))
 
-    (define (level-of (gpu Gpu) (label String) (scan Scan) (data GpuBuffer) (count I64)) (→ Level) (! mut)
+    (define (level-of (gpu Gpu) (label String) (scan Scan) (data GpuBuffer) (count I64))
+      (→ Level)
+      (! mut)
       (let ((uniform (level-uniform gpu label count))
             (sums (u32-buffer gpu (string-append label "/sums") (tiles count 512))))
         (new Level
@@ -103,16 +109,19 @@
 
     (define (u32-buffer (gpu Gpu) (label String) (count I64)) (→ GpuBuffer) (! mut)
       (create-buffer gpu (new BufferDescriptor
-                       (label label)
-                       (size (i64->i32 (* 4 count)))
-                       (usage (list (Storage) (CopySrc) (CopyDst))))))
+                           (label label)
+                           (size (i64->i32 (* 4 count)))
+                           (usage (list (Storage) (CopySrc) (CopyDst))))))
 
     (define (level-uniform (gpu Gpu) (label String) (count I64)) (→ GpuBuffer) (! mut)
       (let ((uniform (create-buffer gpu (new BufferDescriptor
-                                      (label (string-append label "/level"))
-                                      (size 16)
-                                      (usage (list (Uniform) (CopyDst)))))))
-        (write-buffer gpu uniform 0 (pod-bytes level-shape (new ScanLevel (count (i64->i32 count)))))
+                                          (label (string-append label "/level"))
+                                          (size 16)
+                                          (usage (list (Uniform) (CopyDst)))))))
+        (write-buffer gpu
+                      uniform
+                      0
+                      (pod-bytes level-shape (new ScanLevel (count (i64->i32 count)))))
         uniform))
 
     (define (level-group (gpu Gpu) (label String)
@@ -123,12 +132,12 @@
       (→ GpuBindGroup)
       (! mut)
       (create-bind-group gpu (new BindGroupDescriptor
-                           (label (string-append "scan/" label))
-                           (pipeline (ComputePipeline pipeline))
-                           (group 0)
-                           (entries (list (BufferEntry 0 uniform 0 0)
-                                          (BufferEntry 1 data 0 0)
-                                          (BufferEntry 2 sums 0 0))))))
+                               (label (string-append "scan/" label))
+                               (pipeline (ComputePipeline pipeline))
+                               (group 0)
+                               (entries (list (BufferEntry 0 uniform 0 0)
+                                              (BufferEntry 1 data 0 0)
+                                              (BufferEntry 2 sums 0 0))))))
 
     ;; ---- Scanning ----
 
@@ -144,7 +153,9 @@
       (for-each (lambda (level) (dispatch-level gpu pass (● level add-group) (● level count)))
                 (reverse (but-last (● scan levels)))))
 
-    (define (dispatch-level (gpu Gpu) (pass GpuComputePass) (group GpuBindGroup) (count I64)) (→ Unit) (! mut)
+    (define (dispatch-level (gpu Gpu) (pass GpuComputePass) (group GpuBindGroup) (count I64))
+      (→ Unit)
+      (! mut)
       (set-compute-bind-group gpu pass 0 group)
       (dispatch-rows gpu pass (tiles count 512)))
 

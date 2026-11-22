@@ -15,22 +15,22 @@
 ;; Feeds the inputs in order and prints what each one meant.
 (define (play (out OutputPort) (name String) (inputs (List Input))) (→ Unit) (! mut)
   (write-line out (string-append name ": "
-                             (string-join (● (fold-left (lambda (state input)
-                                                          (match (recognize
-                                                                  (● state first)
-                                                                  input)
-                                                            ((Pair gestures meanings)
-                                                             (new Pair (first gestures)
-                                                                  (second (append
-                                                                           (● state second)
-                                                                           (map gesture-text
-                                                                                meanings)))))))
-                                                        (new Pair
-                                                          (first no-gestures)
-                                                          (second (Nil)))
-                                                        inputs)
-                                             second)
-                                          "; "))))
+                                 (string-join (● (fold-left (lambda (state input)
+                                                              (match (recognize
+                                                                      (● state first)
+                                                                      input)
+                                                                ((Pair gestures meanings)
+                                                                 (new Pair (first gestures)
+                                                                      (second (append
+                                                                               (● state second)
+                                                                               (map gesture-text
+                                                                                    meanings)))))))
+                                                            (new Pair
+                                                              (first no-gestures)
+                                                              (second (Nil)))
+                                                            inputs)
+                                                 second)
+                                              "; "))))
 
 (define (main (out OutputPort)) (→ Unit) (! mut)
 

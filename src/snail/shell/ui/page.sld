@@ -42,7 +42,9 @@
     ;; The page's model, from its save or `initialize` with a seed, then
     ;; the interface's loop over the page's document and fetch.
 
-    (define (run-interface (events Events) (storage PageStorage) (interface (InterfaceHandler Model Message)))
+    (define (run-interface (events Events)
+                           (storage PageStorage)
+                           (interface (InterfaceHandler Model Message)))
       (→ Unit)
       (! mut host tasks)
       (∀ (Model Message))
@@ -56,7 +58,9 @@
     ;; rebuilt because a record's type never widens; its commands widen as
     ;; they move into the new one.
 
-    (define (present-interface (events Events) (storage PageStorage) (interface (InterfaceHandler Model Message))
+    (define (present-interface (events Events)
+                               (storage PageStorage)
+                               (interface (InterfaceHandler Model Message))
                                (model Model)
                                (save (Fn Model → Unit ! mut tasks)))
       (→ Unit)

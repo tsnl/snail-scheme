@@ -107,19 +107,20 @@
   (for-each (lambda (x) (write-line out (string-join (list name (show x) (show (f x))) " ")))
             (specials))
   (write-line out (string-append name
-                             " sweep "
-                             (show (unary-sweep f range (+ (string-length name) 1) 0 20000)))))
+                                 " sweep "
+                                 (show (unary-sweep f range (+ (string-length name) 1) 0 20000)))))
 
 (define (binary (out OutputPort) (name String) (f (Fn F64 F64 → F64)) (range F64)) (→ Unit) (! mut)
   (for-each (lambda (x)
               (for-each (lambda (y)
                           (write-line out
-                           (string-join (list name (show x) (show y) (show (f x y))) " ")))
+                                      (string-join (list name (show x) (show y) (show (f x y)))
+                                                   " ")))
                         (exponents)))
             (specials))
   (write-line out (string-append name
-                             " sweep "
-                             (show (binary-sweep f range (+ (string-length name) 1) 0 20000)))))
+                                 " sweep "
+                                 (show (binary-sweep f range (+ (string-length name) 1) 0 20000)))))
 
 (define (main (out OutputPort)) (→ Unit) (! mut)
   (unary out "sin" sin 1e3)

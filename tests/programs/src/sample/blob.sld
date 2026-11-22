@@ -9,17 +9,19 @@
                    (snail shell resource)
                    (snail shell syntax))
                   (lambda ((resources Resources))
-(library-syntax
-                   (list "sample" "blob")
-                   (list "pixel" "greeting-length")
-                   (list (list "snail" "core" "base"))
-                   (list (form "define"
-                               (list (form "pixel" (Nil))
-                                     (form "→" (list (SymbolSyntax "Bytes")))
-                                     (BytesSyntax (read-resource resources (link-file "data/pixel.png")))))
-                         (form "define"
-                               (list (form "greeting-length" (Nil))
-                                     (form "→" (list (SymbolSyntax "I64")))
-                                     (IntegerSyntax
-                                      (array-length
-                                       (read-resource resources (link-file "data/greeting.txt"))))))))))
+                    (library-syntax
+                     (list "sample" "blob")
+                     (list "pixel" "greeting-length")
+                     (list (list "snail" "core" "base"))
+                     (list (form "define"
+                                 (list (form "pixel" (Nil))
+                                       (form "→" (list (SymbolSyntax "Bytes")))
+                                       (BytesSyntax
+                                        (read-resource resources (link-file "data/pixel.png")))))
+                           (form "define"
+                                 (list (form "greeting-length" (Nil))
+                                       (form "→" (list (SymbolSyntax "I64")))
+                                       (IntegerSyntax
+                                        (array-length
+                                         (read-resource resources
+                                                        (link-file "data/greeting.txt"))))))))))

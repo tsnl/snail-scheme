@@ -31,7 +31,9 @@
     (record Files
       ((read-file (Fn String I32 → (Result Bytes FileError) ! mut tasks))))
 
-    (define (read-file (files Files) (path String) (maximum I32)) (→ (Result Bytes FileError)) (! mut tasks)
+    (define (read-file (files Files) (path String) (maximum I32))
+      (→ (Result Bytes FileError))
+      (! mut tasks)
       ((● files read-file) path maximum))
 
     (define (host-files) (→ Files)

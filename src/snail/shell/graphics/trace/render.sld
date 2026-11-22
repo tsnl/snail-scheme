@@ -159,15 +159,20 @@
     ;; The tracer drawing another scene in another environment with the
     ;; same pipelines and targets. The old scene's BVH is let go; the old
     ;; scene and environment are the caller's, as they were given.
-    (define (retrace (gpu Gpu) (tracer Tracer) (scene Scene) (environment Environment)) (→ Tracer) (! mut)
+    (define (retrace (gpu Gpu) (tracer Tracer) (scene Scene) (environment Environment))
+      (→ Tracer)
+      (! mut)
       (release-bvh gpu (● tracer world bvh))
       (rebound gpu tracer (world-of gpu scene environment) (● tracer targets) (● tracer post)))
 
     ;; The tracer over another world or other targets: new bindings in
     ;; place of the old, the filters told of the planes, and a history
     ;; that starts again, from a camera that has not moved.
-    (define (rebound (gpu Gpu) (tracer Tracer) (world World) (targets Targets) (post Post)) (→ Tracer) (! mut)
-      (for-each (lambda (group) (destroy gpu (BindGroupObject group))) (groups-of (● tracer bindings)))
+    (define (rebound (gpu Gpu) (tracer Tracer) (world World) (targets Targets) (post Post))
+      (→ Tracer)
+      (! mut)
+      (for-each (lambda (group) (destroy gpu (BindGroupObject group)))
+                (groups-of (● tracer bindings)))
       (new Tracer
         (kit (● tracer kit))
         (world world)
@@ -372,8 +377,9 @@
           (new Targets
             (width width)
             (height height)
-            (planes (map (lambda (format) (make-plane gpu "trace/gbuffer" width height format drawn))
-                         planes-formats))
+            (planes
+             (map (lambda (format) (make-plane gpu "trace/gbuffer" width height format drawn))
+                  planes-formats))
             (depth (make-plane gpu "trace/depth" width height (Depth32Float) drawn))
             (noisy (make-plane gpu "trace/noisy"
                                width
@@ -474,7 +480,9 @@
     ;; scene's vertices, indices and materials in its group 1. So the
     ;; counts are one buffer, which a step indexes by its wave's words and
     ;; a query binds a slot of.
-    (define (bounce-groups (gpu Gpu) (kit Kit) (bvh Bvh) (targets Targets) (bounce I64)) (→ Bounce) (! mut)
+    (define (bounce-groups (gpu Gpu) (kit Kit) (bvh Bvh) (targets Targets) (bounce I64))
+      (→ Bounce)
+      (! mut)
       (let* ((steps (● kit steps))
              (counts (● kit counts))
              (shadows (● targets shadows))
@@ -486,7 +494,8 @@
         (new Bounce
           (occlude
            (ray-group gpu (● kit rays occlude) bvh shadows counts (count-at (shadows-word bounce))))
-          (connect (step-group gpu (● steps connect) (Cons (slot-entry 2 (● kit wave) bounce) tallies)))
+          (connect
+           (step-group gpu (● steps connect) (Cons (slot-entry 2 (● kit wave) bounce) tallies)))
           (intersect
            (ray-group gpu (● kit rays intersect) bvh from counts (count-at (rays-word bounce))))
           (shade (step-group gpu (● steps shade)
@@ -502,7 +511,9 @@
       (kernel-group gpu kernel 0 "trace/step" entries))
 
     ;; Group 1 of a kernel that reads the scene (scene.wgsl.scm).
-    (define (scene-group (gpu Gpu) (kernel GpuComputePipeline) (scene Scene)) (→ GpuBindGroup) (! mut)
+    (define (scene-group (gpu Gpu) (kernel GpuComputePipeline) (scene Scene))
+      (→ GpuBindGroup)
+      (! mut)
       (kernel-group gpu kernel
                     1
                     "trace/scene"
@@ -514,14 +525,14 @@
 
     (define (surface-group (gpu Gpu) (kit Kit) (scene Scene)) (→ GpuBindGroup) (! mut)
       (create-bind-group gpu (new BindGroupDescriptor
-                           (label "trace/surface")
-                           (pipeline (RenderPipeline (● kit surface)))
-                           (group 0)
-                           (entries (list (BufferEntry 0 (● kit camera) 0 0)
-                                          (BufferEntry 1 (● scene vertices) 0 0)
-                                          (BufferEntry 2 (● scene materials) 0 0)
-                                          (TextureEntry 3 (● scene layers-view))
-                                          (SamplerEntry 4 (● scene sampler)))))))
+                               (label "trace/surface")
+                               (pipeline (RenderPipeline (● kit surface)))
+                               (group 0)
+                               (entries (list (BufferEntry 0 (● kit camera) 0 0)
+                                              (BufferEntry 1 (● scene vertices) 0 0)
+                                              (BufferEntry 2 (● scene materials) 0 0)
+                                              (TextureEntry 3 (● scene layers-view))
+                                              (SamplerEntry 4 (● scene sampler)))))))
 
     ;; ---- The kit ----
 
@@ -541,15 +552,15 @@
 
     (define (path-steps (gpu Gpu)) (→ Steps) (! mut)
       (let ((module (create-shader-module gpu
-                     (new ShaderModuleDescriptor
-                       (label "trace/path")
-                       (code (string-append (declarations camera-shape)
-                                            (declarations tracing-shape)
-                                            (declarations wave-shape)
-                                            (declarations material-shape)
-                                            scene-shader
-                                            environment-light-shader
-                                            path-shader))))))
+                                          (new ShaderModuleDescriptor
+                                            (label "trace/path")
+                                            (code (string-append (declarations camera-shape)
+                                                                 (declarations tracing-shape)
+                                                                 (declarations wave-shape)
+                                                                 (declarations material-shape)
+                                                                 scene-shader
+                                                                 environment-light-shader
+                                                                 path-shader))))))
         (new Steps
           (primary (compute-kernel gpu module "trace" "primary"))
           (connect (compute-kernel gpu module "trace" "connect"))
@@ -558,23 +569,30 @@
 
     (define (surface-pipeline (gpu Gpu)) (→ GpuRenderPipeline) (! mut)
       (create-render-pipeline gpu
-       (new RenderPipelineDescriptor
-         (label "trace/surface")
-         (module (create-shader-module gpu (new ShaderModuleDescriptor
-                                         (label "trace/surface")
-                                         (code (string-append (declarations camera-shape)
-                                                              (declarations material-shape)
-                                                              surface-shader)))))
-         (vertex-entry "surface_vertex")
-         (buffers (Nil))
-         (fragment (Some (new FragmentState
-                           (entry "surface_fragment")
-                           (targets (map (lambda (format)
-                                           (Some (new ColorTarget (format format) (blend (None)))))
-                                         planes-formats)))))
-         (topology (TriangleList))
-         (cull (CullNone))
-         (depth
-          (Some (new DepthState (format (Depth32Float)) (write #t) (compare (CompareLess))))))))
+                              (new RenderPipelineDescriptor
+                                (label "trace/surface")
+                                (module (create-shader-module gpu (new ShaderModuleDescriptor
+                                                                    (label "trace/surface")
+                                                                    (code
+                                                                     (string-append
+                                                                      (declarations camera-shape)
+                                                                      (declarations material-shape)
+                                                                      surface-shader)))))
+                                (vertex-entry "surface_vertex")
+                                (buffers (Nil))
+                                (fragment (Some (new FragmentState
+                                                  (entry "surface_fragment")
+                                                  (targets (map (lambda (format)
+                                                                  (Some (new ColorTarget
+                                                                          (format format)
+                                                                          (blend (None)))))
+                                                                planes-formats)))))
+                                (topology (TriangleList))
+                                (cull (CullNone))
+                                (depth
+                                 (Some (new DepthState
+                                         (format (Depth32Float))
+                                         (write #t)
+                                         (compare (CompareLess))))))))
 
     ))

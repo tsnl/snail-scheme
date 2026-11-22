@@ -35,7 +35,7 @@
          (write-value out (array->list (● packet bytes)))
          (newline out)
          (display out (and (string=? (Endpoint-address (● packet peer)) "127.0.0.1")
-                       (= (Endpoint-port (● packet peer)) (● first port))))
+                           (= (Endpoint-port (● packet peer)) (● first port))))
          (newline out))
        (require (send udp first peer #u8(1 2)))
        (match (receive udp second 1)

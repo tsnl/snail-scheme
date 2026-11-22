@@ -19,8 +19,8 @@
   (write-line out (repr (list-sort < (list 42))))
   (write-line out (repr (list-sort > (list 1 3 2 3 0))))
   (write-line out
-   (repr (map (lambda (record) (● record second))
-              (list-sort (lambda (a b) (< (● a first) (● b first))) (entries)))))
+              (repr (map (lambda (record) (● record second))
+                         (list-sort (lambda (a b) (< (● a first) (● b first))) (entries)))))
   (write-line out (repr (map (lambda (record) (● record second)) (entries))))
   (write-line out (show (string=? (repr (list-sort < shuffled)) (repr (iota 257)))))
   (unit))

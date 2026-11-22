@@ -274,13 +274,13 @@
       (→ Plane)
       (! mut)
       (let ((texture (create-texture gpu (new TextureDescriptor
-                                       (label label)
-                                       (width (max 1 width))
-                                       (height (max 1 height))
-                                       (layers 1)
-                                       (mips 1)
-                                       (format format)
-                                       (usage usage)))))
+                                           (label label)
+                                           (width (max 1 width))
+                                           (height (max 1 height))
+                                           (layers 1)
+                                           (mips 1)
+                                           (format format)
+                                           (usage usage)))))
         (new Plane (texture texture) (view (view-of gpu texture 1)))))
 
     (define (release-plane (gpu Gpu) (plane Plane)) (→ Unit) (! mut)
@@ -302,7 +302,8 @@
           (normal (gbuffer-plane gpu "normal" size (Rgba16Float)))
           (material (gbuffer-plane gpu "material" size (Rgba8Unorm)))
           (depth (gbuffer-plane gpu "depth" size (Depth24Plus)))
-          (motion (if (● planes motion) (Some (gbuffer-plane gpu "motion" size (Rg16Float))) (None)))
+          (motion
+           (if (● planes motion) (Some (gbuffer-plane gpu "motion" size (Rg16Float))) (None)))
           (ids (if (● planes ids) (Some (gbuffer-plane gpu "ids" size (R32Uint))) (None))))))
 
     (define (release-gbuffer (gpu Gpu) (g GBuffer)) (→ Unit) (! mut)
@@ -348,9 +349,9 @@
 
     (define (texel-word (gpu Gpu) (texture GpuTexture) (x I32) (y I32)) (→ I32) (! mut tasks)
       (let ((readback (create-buffer gpu (new BufferDescriptor
-                                       (label "gbuffer/read-id")
-                                       (size 4)
-                                       (usage (list (MapRead) (CopyDst))))))
+                                           (label "gbuffer/read-id")
+                                           (size 4)
+                                           (usage (list (MapRead) (CopyDst))))))
             (encoder (create-command-encoder gpu)))
         (copy-texture-to-buffer gpu encoder
                                 (new TextureCopy (texture texture) (mip 0) (x x) (y y) (layer 0))
@@ -360,7 +361,9 @@
           (destroy gpu (BufferObject readback))
           (fold-right (lambda (byte word) (+ (u8->i32 byte) (* word 256))) 0 (array->list bytes)))))
 
-    (define (begin-gbuffer (gpu Gpu) (encoder GpuCommandEncoder) (g GBuffer)) (→ GpuRenderPass) (! mut)
+    (define (begin-gbuffer (gpu Gpu) (encoder GpuCommandEncoder) (g GBuffer))
+      (→ GpuRenderPass)
+      (! mut)
       (begin-render-pass gpu encoder
                          (new RenderPassDescriptor
                            (colors (map (lambda (plane)
@@ -426,7 +429,9 @@
 
     (define (make-raster (gpu Gpu) (planes Planes) (format TextureFormat)) (→ Raster) (! mut)
       (let* ((module (create-shader-module gpu
-                      (new ShaderModuleDescriptor (label "raster") (code raster-code))))
+                                           (new ShaderModuleDescriptor
+                                             (label "raster")
+                                             (code raster-code))))
              (gbuffer-pipeline (surface-pipeline gpu module
                                                  "gbuffer_fragment"
                                                  (gbuffer-targets planes)
@@ -473,31 +478,39 @@
       (→ GpuRenderPipeline)
       (! mut)
       (create-render-pipeline gpu
-       (new RenderPipelineDescriptor
-         (label (string-append "raster/" entry))
-         (module module)
-         (vertex-entry "surface_vertex")
-         (buffers mesh-buffers)
-         (fragment (Some (new FragmentState (entry entry) (targets targets))))
-         (topology (TriangleList))
-         (cull (CullNone))
-         (depth
-          (Some (new DepthState (format (Depth24Plus)) (write write?) (compare (CompareLess))))))))
+                              (new RenderPipelineDescriptor
+                                (label (string-append "raster/" entry))
+                                (module module)
+                                (vertex-entry "surface_vertex")
+                                (buffers mesh-buffers)
+                                (fragment
+                                 (Some (new FragmentState (entry entry) (targets targets))))
+                                (topology (TriangleList))
+                                (cull (CullNone))
+                                (depth
+                                 (Some (new DepthState
+                                         (format (Depth24Plus))
+                                         (write write?)
+                                         (compare (CompareLess))))))))
 
     (define (uniform (gpu Gpu) (label String) (size I64)) (→ GpuBuffer) (! mut)
       (create-buffer gpu (new BufferDescriptor
-                       (label label)
-                       (size (i64->i32 size))
-                       (usage (list (Uniform) (CopyDst))))))
+                           (label label)
+                           (size (i64->i32 size))
+                           (usage (list (Uniform) (CopyDst))))))
 
-    (define (group (gpu Gpu) (label String) (pipeline GpuRenderPipeline) (index I32) (buffer GpuBuffer))
+    (define (group (gpu Gpu)
+                   (label String)
+                   (pipeline GpuRenderPipeline)
+                   (index I32)
+                   (buffer GpuBuffer))
       (→ GpuBindGroup)
       (! mut)
       (create-bind-group gpu (new BindGroupDescriptor
-                           (label label)
-                           (pipeline (RenderPipeline pipeline))
-                           (group index)
-                           (entries (list (BufferEntry 0 buffer 0 0))))))
+                               (label label)
+                               (pipeline (RenderPipeline pipeline))
+                               (group index)
+                               (entries (list (BufferEntry 0 buffer 0 0))))))
 
     ;; ---- Surfaces ----
 
@@ -549,7 +562,9 @@
       (destroy gpu (BufferObject (● surface uniform)))
       (release-batch gpu (● surface batch)))
 
-    (define (draw-surface (gpu Gpu) (pass GpuRenderPass) (r Raster) (surface Surface)) (→ Unit) (! mut)
+    (define (draw-surface (gpu Gpu) (pass GpuRenderPass) (r Raster) (surface Surface))
+      (→ Unit)
+      (! mut)
       (if (● surface translucent)
           (begin
             (set-pipeline gpu pass (● r forward-pipeline))

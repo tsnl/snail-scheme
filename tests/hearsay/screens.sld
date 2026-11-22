@@ -52,7 +52,8 @@
 
 (define (show-pictures (out OutputPort) (shell Shell)) (→ Unit) (! mut)
   (write-line out
-   (string-append "pictures: " (show (length (shell-pictures shell (lambda (path) (None))))))))
+              (string-append "pictures: "
+                             (show (length (shell-pictures shell (lambda (path) (None))))))))
 
 (define (show-panel (out OutputPort) (panel Panel)) (→ Unit) (! mut)
   (match panel
@@ -87,7 +88,10 @@
   (let* ((shell (new-shell 5 1280 800))
          (shell (step out shell "menu" (Nil)))
          (shell
-          (step out shell "two faces with its guide open" (list (new Pair (first 9000) (second 0)))))
+          (step out
+                shell
+                "two faces with its guide open"
+                (list (new Pair (first 9000) (second 0)))))
          (shell (step out shell "two faces after delivering a job for Mo"
                       (list (new Pair (first guide-close) (second 0))
                             (new Pair (first 112) (second 0))

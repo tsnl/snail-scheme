@@ -98,7 +98,8 @@
         ((Some line)
          (let ((header (without-return line)))
            (cond
-            ((string=? header "") (match length ((Some _) length) ((None) (read-headers in length))))
+            ((string=? header "")
+             (match length ((Some _) length) ((None) (read-headers in length))))
             ((has-prefix? (string-downcase header) "content-length:")
              (read-headers in (string->i64 (trimmed (substring header 15 (string-length header))))))
             (else (read-headers in length)))))))
@@ -123,26 +124,27 @@
     (define (write-message (out OutputPort) (json Json)) (→ Unit) (! mut)
       (let ((text (json->string json)))
         (write-string out (string-append "Content-Length: "
-                                     (show (array-length (string->utf8 text)))
-                                     "\r\n\r\n"
-                                     text))))
+                                         (show (array-length (string->utf8 text)))
+                                         "\r\n\r\n"
+                                         text))))
 
     (define (respond (out OutputPort) (id Json) (result Json)) (→ Unit) (! mut)
       (write-message out (object (list (field "jsonrpc" (JsonString "2.0"))
-                                   (field "id" id)
-                                   (field "result" result)))))
+                                       (field "id" id)
+                                       (field "result" result)))))
 
     (define (refuse (out OutputPort) (id Json) (code I64) (message String)) (→ Unit) (! mut)
       (write-message out
-       (object (list (field "jsonrpc" (JsonString "2.0"))
-                     (field "id" id)
-                     (field "error" (object (list (field "code" (JsonInteger code))
-                                                  (field "message" (JsonString message)))))))))
+                     (object (list (field "jsonrpc" (JsonString "2.0"))
+                                   (field "id" id)
+                                   (field "error" (object (list (field "code" (JsonInteger code))
+                                                                (field "message"
+                                                                       (JsonString message)))))))))
 
     (define (notify (out OutputPort) (method String) (params Json)) (→ Unit) (! mut)
       (write-message out (object (list (field "jsonrpc" (JsonString "2.0"))
-                                   (field "method" (JsonString method))
-                                   (field "params" params)))))
+                                       (field "method" (JsonString method))
+                                       (field "params" params)))))
 
     ;; ---- JSON ----
 
@@ -243,7 +245,9 @@
     (define (hex-digit (value I32)) (→ String)
       (make-string 1 (string-ref "0123456789ABCDEF" (i32->i64 value))))
 
-    (define (document-text (fs Fs) (documents (List Document)) (path String)) (→ (Option String)) (! mut)
+    (define (document-text (fs Fs) (documents (List Document)) (path String))
+      (→ (Option String))
+      (! mut)
       (match (find (lambda (document) (string=? (● document path) path)) documents)
         ((Some document) (Some (● document text)))
         ((None)
@@ -325,7 +329,9 @@
               (diagnostics->list diagnostics)))
         ((BuildFailure message) (list (whole-report document message)))))
 
-    (define (diagnostic-report (fs Fs) (document String) (diagnostic SourceDiagnostic)) (→ Report) (! mut)
+    (define (diagnostic-report (fs Fs) (document String) (diagnostic SourceDiagnostic))
+      (→ Report)
+      (! mut)
       (let* ((loc (● diagnostic loc)) (file (● loc file)))
         (cond ((or (= (string-length file) 0) (not (file-exists? fs file)))
                (whole-report document (diagnostic->string diagnostic)))
@@ -350,7 +356,11 @@
     ;; that has none now, so the editor clears it. Answers the files
     ;; reported.
 
-    (define (publish (fs Fs) (out OutputPort) (documents (List Document)) (before (List String)) (reports (List Report)))
+    (define (publish (fs Fs)
+                     (out OutputPort)
+                     (documents (List Document))
+                     (before (List String))
+                     (reports (List Report)))
       (→ (List String))
       (! mut)
       (let ((files (delete-duplicates string=? (map (lambda (report) (● report file)) reports))))
@@ -362,7 +372,11 @@
                   (append files (filter (lambda (file) (not (member? file files))) before)))
         files))
 
-    (define (publish-file (fs Fs) (out OutputPort) (documents (List Document)) (file String) (reports (List Report)))
+    (define (publish-file (fs Fs)
+                          (out OutputPort)
+                          (documents (List Document))
+                          (file String)
+                          (reports (List Report)))
       (→ Unit)
       (! mut)
       (let ((text (match (document-text fs documents file) ((Some text) text) ((None) ""))))
@@ -468,11 +482,30 @@
        (names Index)
        (exiting Bool)))
 
-    (define (serve-language (processes Processes) (fs Fs) (clock Clock) (in InputPort) (out OutputPort) (tools Tools)) (→ Unit) (! mut)
-      (serve processes fs clock in out (new Server (tools tools) (workspace (None)) (documents (Nil)) (reported (Nil))
+    (define (serve-language (processes Processes)
+                            (fs Fs)
+                            (clock Clock)
+                            (in InputPort)
+                            (out OutputPort)
+                            (tools Tools))
+      (→ Unit)
+      (! mut)
+      (serve processes
+             fs
+             clock
+             in
+             out
+             (new Server (tools tools) (workspace (None)) (documents (Nil)) (reported (Nil))
                   (names empty-index) (exiting #f))))
 
-    (define (serve (processes Processes) (fs Fs) (clock Clock) (in InputPort) (out OutputPort) (server Server)) (→ Unit) (! mut)
+    (define (serve (processes Processes)
+                   (fs Fs)
+                   (clock Clock)
+                   (in InputPort)
+                   (out OutputPort)
+                   (server Server))
+      (→ Unit)
+      (! mut)
       (match (read-message in)
         ((Ended) (unit))
         ((Malformed)
@@ -486,14 +519,26 @@
     ;; notification. A reply to a request of the server's has no method,
     ;; and the server sends none.
 
-    (define (receive (processes Processes) (fs Fs) (clock Clock) (out OutputPort) (server Server) (json Json)) (→ Server) (! mut)
+    (define (receive (processes Processes)
+                (fs Fs)
+              (clock Clock)
+              (out OutputPort)
+              (server Server)
+              (json Json))
+      (→ Server)
+      (! mut)
       (let ((params (match (json-member json "params") ((Some params) params) ((None) (JsonNull)))))
         (match (new Pair (first (json-member json "id")) (second (text-at json (list "method"))))
           ((Pair (Some id) (Some method)) (request fs out server id method params))
           ((Pair (None) (Some method)) (notified processes fs clock out server method params))
           (_ server))))
 
-    (define (request (fs Fs) (out OutputPort) (server Server) (id Json) (method String) (params Json))
+    (define (request (fs Fs)
+                     (out OutputPort)
+                     (server Server)
+                     (id Json)
+                     (method String)
+                     (params Json))
       (→ Server)
       (! mut)
       (cond ((string=? method "initialize")
@@ -515,14 +560,21 @@
             (else (refuse out id -32601 (string-append "snail-scheme lsp does not answer " method))
                   server)))
 
-    (define (notified (processes Processes) (fs Fs) (clock Clock) (out OutputPort) (server Server) (method String) (params Json))
+    (define (notified (processes Processes)
+                      (fs Fs)
+                      (clock Clock)
+                      (out OutputPort)
+                      (server Server)
+                      (method String)
+                      (params Json))
       (→ Server)
       (! mut)
       (cond ((string=? method "initialized") (checked processes fs clock out server))
             ((string=? method "textDocument/didOpen")
              (checked processes fs clock out (opened server
-                              (text-at params (list "textDocument" "uri"))
-                              (text-at params (list "textDocument" "text")))))
+                                                     (text-at params (list "textDocument" "uri"))
+                                                     (text-at params
+                                                              (list "textDocument" "text")))))
             ((string=? method "textDocument/didChange")
              (opened server (text-at params (list "textDocument" "uri")) (changed-text params)))
             ((string=? method "textDocument/didClose") (closed server params))
@@ -642,14 +694,20 @@
     ;; A document's check: what failed, at its places, or the program as
     ;; the checker typed it.
 
-    (define (check-document (processes Processes) (fs Fs) (clock Clock) (tools Tools) (workspace String) (path String))
+    (define (check-document (processes Processes)
+                            (fs Fs)
+                            (clock Clock)
+                            (tools Tools)
+                            (workspace String)
+                            (path String))
       (→ (Pair (List Report) (Option Typed)))
       (! mut)
       (match (document-check fs workspace path)
         ((None) (new Pair (first (Nil)) (second (None))))
         ((Some check)
          (match (match check
-                  ((ScriptCheck script platform) (check-script processes fs clock tools script platform))
+                  ((ScriptCheck script platform)
+                   (check-script processes fs clock tools script platform))
                   ((LibraryCheck owner name) (check-library processes fs clock tools owner name)))
            ((Ok typed) (new Pair (first (Nil)) (second (Some typed))))
            ((Err failure) (new Pair (first (failure-reports fs path failure)) (second (None))))))))
@@ -658,13 +716,20 @@
     ;; checked programs' names; when every check failed, those of the last
     ;; that did not stay.
 
-    (define (checked (processes Processes) (fs Fs) (clock Clock) (out OutputPort) (server Server)) (→ Server) (! mut)
+    (define (checked (processes Processes) (fs Fs) (clock Clock) (out OutputPort) (server Server))
+      (→ Server)
+      (! mut)
       (match (● server workspace)
         ((None) server)
         ((Some workspace)
          (if (file-exists? fs (string-append workspace "/src"))
              (let* ((results (map (lambda (document)
-                                    (check-document processes fs clock (● server tools) workspace (● document path)))
+                                    (check-document processes
+                                                    fs
+                                                    clock
+                                                    (● server tools)
+                                                    workspace
+                                                    (● document path)))
                                   (● server documents)))
                     (programs (fold-right (lambda (result programs)
                                             (match (● result second)
@@ -677,7 +742,11 @@
                (Server-reported-set (if (null? programs)
                                         server
                                         (Server-names-set server (index-programs programs)))
-                                    (publish fs out (● server documents) (● server reported) reports)))
+                                    (publish fs
+                                             out
+                                             (● server documents)
+                                             (● server reported)
+                                             reports)))
              server))))
 
     ;; ---- Requests ----

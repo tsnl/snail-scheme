@@ -14,12 +14,14 @@
 
 (define (main (gpu Gpu) (events Events) (storage PageStorage) (clock Clock)) (→ Unit) (! mut tasks)
   (run-scene gpu events storage clock (new SceneHandler
-             (initialize new-game)
-             (update update-game)
-             (start start-frames)
-             (draw (lambda (game frames) (draw-frame gpu (view-game game) frames)))
-             (hud game-hud)
-             (image-url (lambda (drawing image) ""))
-             (save (lambda (game) (serialize (game-save game))))
-             (restore (lambda (bytes) (game-restore (deserialize bytes))))))
+                                        (initialize new-game)
+                                        (update update-game)
+                                        (start start-frames)
+                                        (draw (lambda (game frames)
+                                                (draw-frame gpu (view-game game) frames)))
+                                        (hud game-hud)
+                                        (image-url (lambda (drawing image) ""))
+                                        (save (lambda (game) (serialize (game-save game))))
+                                        (restore
+                                         (lambda (bytes) (game-restore (deserialize bytes))))))
   (unit))

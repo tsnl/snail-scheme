@@ -57,9 +57,9 @@
           ((Waiting ticket next)
            ;; Task 1's first wait is answered inside task 2.
            (write-line out (show (finish (start 2 (lambda ()
-                                                (log (string-append "task "
-                                                                    (show (task-id))
-                                                                    " resumes task 1"))
-                                                (finish (next (* ticket 10)))))))))
+                                                    (log (string-append "task "
+                                                                        (show (task-id))
+                                                                        " resumes task 1"))
+                                                    (finish (next (* ticket 10)))))))))
           ((Done value) (write-line out (show value)))))))
   (unit))

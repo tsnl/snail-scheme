@@ -21,8 +21,8 @@
   (display out (announce out (lambda () 7)))
   (newline out)
   (display out (handle Value
-               ((value (lambda () 42)))
-             (with-value out choose)))
+                   ((value (lambda () 42)))
+                 (with-value out choose)))
   (newline out)
   ;; An inferred callback row remains constrained by its concrete effects.
   (announce out (lambda () (write-line out "effect retained")))
