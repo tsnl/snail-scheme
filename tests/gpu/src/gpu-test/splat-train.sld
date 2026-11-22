@@ -111,11 +111,26 @@
 
     ;; One gaussian at depth 4 with scale 0.2, 2.5 pixels on the screen,
     ;; opacity 1/2, color 0.5 + C0 (1, 0, -1), seen from pixel (31, 23),
-    ;; half a pixel from its center on each axis.
+    ;; half a pixel from its center on each axis, rendered for training
+    ;; and for viewing.
 
     (define (splat-forward-check) (→ String) (! gpu tasks)
+      (let* ((variance (+ 6.25 0.3))
+             (alpha (* 0.5 (exp (* -0.5 (/ 0.5 variance)))))
+             (expected
+              (map (lambda (c) (* alpha (+ 0.5 (* 0.28209479177387814 c)))) (list 1.0 0.0 -1.0)))
+             (training (forward-pixel (Training)))
+             (viewing (forward-pixel (Viewing)))
+             (agrees? (lambda (got)
+                        (every? (lambda (pair) (< (abs (- (● pair first) (● pair second))) 0.001))
+                                (zip got expected)))))
+        (if (and (agrees? training) (agrees? viewing))
+            "blends as the paper does, for training and for viewing"
+            (string-join (map f64->string (append training viewing)) " "))))
+
+    (define (forward-pixel (purpose Purpose)) (→ (List F64)) (! gpu tasks)
       (let* ((cloud (splat-params 1))
-             (image (● (render cloud (camera-param) sensor) image))
+             (image (● (render cloud (camera-param) sensor purpose) image))
              (program (lower "forward" (list image) (Nil))))
         (written program
                  (list (new Pair (first "means") (second (list->array (list 0.0 0.0 4.0))))
@@ -131,16 +146,9 @@
                  (list 1.0))
         (run-program program)
         (let* ((pixels (bytes->values (read-sink program 0) (Float)))
-               (variance (+ 6.25 0.3))
-               (alpha (* 0.5 (exp (* -0.5 (/ 0.5 variance)))))
-               (expected
-                (map (lambda (c) (* alpha (+ 0.5 (* 0.28209479177387814 c)))) (list 1.0 0.0 -1.0)))
                (got (map (lambda (k) (array-ref pixels (+ (* 3 (+ (* 23 64) 31)) k))) (iota 3))))
           (release-program program)
-          (if (every? (lambda (pair) (< (abs (- (● pair first) (● pair second))) 0.001))
-                      (zip got expected))
-              "blends as the paper does"
-              (string-join (map f64->string got) " ")))))
+          got)))
 
     ;; SSIM reads the Fill through storage buffers. Addition uses the same
     ;; Fill as a literal. At the center, whose window lies inside the image,
@@ -160,7 +168,7 @@
     ;; Read the rasterizer's ranges input so the large image needs no buffer.
     (define (splat-tile-ranges) (→ String) (! gpu tasks)
       (let* ((sensor (new Sensor (width 4096) (height 4112) (capacity 8)))
-             (image (● (render (splat-params 4) (camera-param) sensor) image))
+             (image (● (render (splat-params 4) (camera-param) sensor (Viewing)) image))
              (ranges (list-ref (● image node args) 1))
              (bounds (concat (list (narrow ranges 0 0 2) (narrow ranges 0 (* 2 65535) 4)) 0))
              (program (lower "tile ranges" (list bounds) (Nil)))
@@ -182,7 +190,7 @@
     ;; each element of each param nudged both ways on the device.
 
     (define (loss-of (cloud Cloud)) (→ View)
-      (photometric-loss (● (render cloud (camera-param) sensor) image)
+      (photometric-loss (● (render cloud (camera-param) sensor (Training)) image)
                         (param "target" (list 48 64 3) (Float))
                         0.2))
 
@@ -323,7 +331,7 @@
       (let* ((truth (splat-params 3))
              (target-program
               (lower "truth"
-                     (list (● (render truth (camera-param) sensor) image))
+                     (list (● (render truth (camera-param) sensor (Viewing)) image))
                      (Nil))))
         (written target-program (cloud-values three) (list 1.0 1.0 1.0))
         (run-program target-program)

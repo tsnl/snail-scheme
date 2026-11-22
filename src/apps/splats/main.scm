@@ -12,6 +12,11 @@
 ;; the view starts at the first camera. Without poses, up is COLMAP's own
 ;; -y, and the view starts back from the middle of the cloud. Files that
 ;; cannot be shown leave the view as it was, and the page says why.
+;;
+;; T draws the splats tile by tile, by the renderer training descends
+;; through ((snail shell graphics splat-view)), and again as quads. Every
+;; two seconds the console has the frame rate and, where the device has
+;; timestamps, one frame's compute and render passes timed on it.
 (import
  (snail core base)
  (snail core io)
@@ -30,32 +35,43 @@
  (snail shell graphics colmap)
  (snail shell graphics ply)
  (snail shell graphics splat)
+ (snail shell graphics splat-view)
  (snail shell graphics fly)
  (apps splats rings))
 
 ;; ---- The view ----
 
-;; What is drawn: the one splats on the device, and the seconds the rings
+;; What is drawn: the one splats on the device; the seconds the rings
 ;; have turned, which pose them each frame, or none for a file's cloud,
-;; which is posed once.
+;; which is posed once; whether they are drawn tile by tile, by the
+;; renderer training descends through, rather than as quads, which T
+;; toggles; and that renderer's view of them, made for the canvas's size.
 (record Shown
   ((splats Splats)
-   (turned (Option F64))))
+   (turned (Option F64))
+   (tiled Bool)
+   (view (Option SplatView))))
 
-(define (view-loop (shown Shown) (fly Fly) (timing (Pair I32 I32)) (format TextureFormat))
+(define (view-loop (shown Shown) (fly Fly) (timing (Pair I32 I32)) (info DeviceInfo))
   (→ Unit)
   (! events gpu output-port tasks fetch files dom)
   (match (next-event)
     ((FrameEvent elapsed)
-     (let ((shown (turning shown elapsed)) (fly (flown fly elapsed)))
-       (frame (● shown splats) fly)
+     (let* ((canvas (current-texture))
+            (shown (fitted (turning shown elapsed) canvas (● info format)))
+            (fly (flown fly elapsed))
+            (timing (counted timing elapsed))
+            (due (>= (● timing second) 2000)))
+       (if due (reported shown canvas fly timing info) (submit-frame shown canvas fly))
        (work-done)
        (report-ready)
-       (view-loop shown fly (timed timing elapsed) format)))
-    ((InputEvent (KeyDown 111 _)) (open-picker (SomeFiles)) (view-loop shown fly timing format))
-    ((InputEvent input) (view-loop shown (steered fly input) timing format))
-    ((FilesEvent _) (opened shown fly timing format (chosen-files)))
-    (_ (view-loop shown fly timing format))))
+       (view-loop shown fly (if due (new Pair (first 0) (second 0)) timing) info)))
+    ((InputEvent (KeyDown 111 _)) (open-picker (SomeFiles)) (view-loop shown fly timing info))
+    ((InputEvent (KeyDown 116 _))
+     (view-loop (Shown-tiled-set shown (not (● shown tiled))) fly timing info))
+    ((InputEvent input) (view-loop shown (steered fly input) timing info))
+    ((FilesEvent _) (opened shown fly timing info (chosen-files)))
+    (_ (view-loop shown fly timing info))))
 
 ;; The rings posed where `elapsed` more milliseconds turn them.
 (define (turning (shown Shown) (elapsed I32)) (→ Shown) (! gpu)
@@ -66,41 +82,115 @@
        (Shown-turned-set shown (Some now))))
     ((None) shown)))
 
-;; The splats sorted from where the fly is, and drawn into the canvas.
-(define (frame (splats Splats) (fly Fly)) (→ Unit) (! gpu)
-  (let* ((canvas (current-texture)) (encoder (create-command-encoder)))
-    (sort-splats encoder
-                 splats
-                 (splat-camera (fly-eye fly)
+;; The splats with a view made for the canvas's size while they are drawn
+;; tile by tile, made again when the canvas changes size, and with none
+;; while they are drawn as quads.
+(define (fitted (shown Shown) (canvas Image) (format TextureFormat)) (→ Shown) (! gpu)
+  (match (● shown view)
+    ((Some view)
+     (if (and (● shown tiled)
+              (= (● view width) (i32->i64 (● canvas width)))
+              (= (● view height) (i32->i64 (● canvas height))))
+         shown
+         (begin
+           (release-splat-view view)
+           (fitted (Shown-view-set shown (None)) canvas format))))
+    ((None)
+     (if (● shown tiled)
+         (Shown-view-set shown
+                         (Some (make-splat-view (● shown splats)
+                                                format
+                                                (i32->i64 (● canvas width))
+                                                (i32->i64 (● canvas height))
+                                                (* 4 (● shown splats capacity)))))
+         shown))))
+
+;; The splats drawn into the canvas from where the fly is, as quads or tile
+;; by tile, each pass timed into the queries when there are some: the
+;; compute pass into 0 and 1, the canvas's into 2 and 3.
+(define (frame (shown Shown) (canvas Image) (fly Fly) (queries (Option GpuQuerySet)))
+  (→ GpuCommandEncoder)
+  (! gpu)
+  (let* ((camera (splat-camera (fly-eye fly)
                                (fly-target fly)
                                (new Vec3f (x 0.0) (y 1.0) (z 0.0))
                                fly-fov
                                (● canvas width)
                                (● canvas height)))
-    (let ((pass (begin-render-pass encoder
-                                   (new RenderPassDescriptor
-                                     (colors (list (Some (new ColorAttachment
-                                                           (view (view-of (● canvas texture) 1))
-                                                           (load (Clear (new Color
-                                                                          (red 0.02)
-                                                                          (green 0.02)
-                                                                          (blue 0.03)
-                                                                          (alpha 1.0))))
-                                                           (store #t)))))
-                                     (depth (None))))))
-      (draw-splats pass splats)
+         (encoder (create-command-encoder))
+         (compute (compute-pass encoder queries)))
+    (match (● shown view)
+      ((Some view) (write-view-camera view camera) (encode-splat-view compute view))
+      ((None) (sort-splats compute (● shown splats) camera)))
+    (end-compute-pass compute)
+    (let ((pass (canvas-pass encoder canvas queries)))
+      (match (● shown view)
+        ((Some view) (present-splat-view pass view))
+        ((None) (draw-splats pass (● shown splats))))
       (end-pass pass))
-    (submit (list (finish encoder)))))
+    encoder))
 
-;; Frames and milliseconds since the last report, which comes every two
-;; seconds.
-(define (timed (timing (Pair I32 I32)) (elapsed I32)) (→ (Pair I32 I32)) (! output-port)
-  (let ((frames (+ 1 (● timing first))) (total (+ elapsed (● timing second))))
-    (if (< total 2000)
-        (new Pair (first frames) (second total))
+(define (submit-frame (shown Shown) (canvas Image) (fly Fly)) (→ Unit) (! gpu)
+  (submit (list (finish (frame shown canvas fly (None))))))
+
+(define (compute-pass (encoder GpuCommandEncoder) (queries (Option GpuQuerySet)))
+  (→ GpuComputePass)
+  (! gpu)
+  (match queries
+    ((Some q)
+     (begin-timed-compute-pass encoder (new TimestampWrites (query-set q) (beginning 0) (end 1))))
+    ((None) (begin-compute-pass encoder))))
+
+;; The canvas, cleared to the background.
+(define (canvas-pass (encoder GpuCommandEncoder) (canvas Image) (queries (Option GpuQuerySet)))
+  (→ GpuRenderPass)
+  (! gpu)
+  (let ((descriptor (new RenderPassDescriptor
+                      (colors (list (Some (new ColorAttachment
+                                            (view (view-of (● canvas texture) 1))
+                                            (load (Clear (new Color
+                                                           (red 0.02)
+                                                           (green 0.02)
+                                                           (blue 0.03)
+                                                           (alpha 1.0))))
+                                            (store #t)))))
+                      (depth (None)))))
+    (match queries
+      ((Some q)
+       (begin-timed-render-pass encoder
+                                descriptor
+                                (new TimestampWrites (query-set q) (beginning 2) (end 3))))
+      ((None) (begin-render-pass encoder descriptor)))))
+
+;; Frames and milliseconds since the last report.
+(define (counted (timing (Pair I32 I32)) (elapsed I32)) (→ (Pair I32 I32))
+  (new Pair (first (+ 1 (● timing first))) (second (+ elapsed (● timing second)))))
+
+;; Every two seconds, the frames and milliseconds since the last report,
+;; and, where the device has timestamps, this frame's two passes' times
+;; on it. A page's times are rounded to 100 μs.
+(define (reported (shown Shown) (canvas Image) (fly Fly) (timing (Pair I32 I32)) (info DeviceInfo))
+  (→ Unit)
+  (! gpu tasks output-port)
+  (let ((line
+         (string-append "frames: " (show (● timing first)) " in " (show (● timing second)) " ms")))
+    (if (member? "timestamp-query" (● info features))
+        (let* ((queries (create-query-set (new QuerySetDescriptor (label "frame") (count 4))))
+               (times (submit-timed (frame shown canvas fly (Some queries)) queries 4)))
+          (destroy (QuerySetObject queries))
+          (write-line (string-append line
+                                     "; on the device "
+                                     (milliseconds (elapsed-seconds times 0 1))
+                                     " + "
+                                     (milliseconds (elapsed-seconds times 2 3))
+                                     " ms "
+                                     (if (● shown tiled) "tile by tile" "as quads"))))
         (begin
-          (write-line (string-append "frames: " (show frames) " in " (show total) " ms"))
-          (new Pair (first 0) (second 0))))))
+          (submit-frame shown canvas fly)
+          (write-line line)))))
+
+(define (milliseconds (seconds F64)) (→ String)
+  (f64->string (/ (round (* seconds 100000.0)) 100.0)))
 
 ;; A cloud on the device, with `rows` rows of transforms to pose it by.
 (define (standing (cloud Cloud) (rows I64) (format TextureFormat)) (→ Splats) (! gpu)
@@ -123,20 +213,26 @@
 (define (opened (shown Shown)
                 (fly Fly)
                 (timing (Pair I32 I32))
-                (format TextureFormat)
+                (info DeviceInfo)
                 (files (List Chosen)))
   (→ Unit)
   (! events gpu output-port tasks fetch files dom)
   (set-text (document-root) "Loading…")
   (match (attempt-reading (lambda () (chosen files)))
     ((Ok scene)
+     (match (● shown view)
+       ((Some view) (release-splat-view view))
+       ((None) (unit)))
      (release-splats (● shown splats))
      (say (string-append (show (● (● scene cloud) count)) " gaussians"))
      (let ((turn (upright (poses-up (● scene poses))))
-           (splats (standing (● scene cloud) 1 format)))
+           (splats (standing (● scene cloud) 1 (● info format))))
        (write-transforms splats (list (pose turn 0.0 0.0 0.0)))
-       (view-loop (new Shown (splats splats) (turned (None))) (start-of scene turn) timing format)))
-    ((Err why) (say why) (view-loop shown fly timing format))))
+       (view-loop (new Shown (splats splats) (turned (None)) (tiled (● shown tiled)) (view (None)))
+                  (start-of scene turn)
+                  timing
+                  info)))
+    ((Err why) (say why) (view-loop shown fly timing info))))
 
 ;; What the page says beside the view, and the console with it.
 (define (say (message String)) (→ Unit) (! dom output-port)
@@ -254,10 +350,14 @@
     (lambda ()
       (with-page-dom
        (lambda ()
-         (let* ((format (● (request-device) format))
-                (shown (new Shown (splats (standing (rings) 3 format)) (turned (Some 0.0))))
+         (let* ((info (request-device))
+                (shown (new Shown
+                         (splats (standing (rings) 3 (● info format)))
+                         (turned (Some 0.0))
+                         (tiled #f)
+                         (view (None))))
                 (fly (fly-over (list -2.5 -1.0 -2.5) (list 2.5 1.0 2.5)))
                 (timing (new Pair (first 0) (second 0))))
            (match (query-files (page-address))
-             ((Nil) (view-loop shown fly timing format))
-             (files (opened shown fly timing format files))))))))))
+             ((Nil) (view-loop shown fly timing info))
+             (files (opened shown fly timing info files))))))))))

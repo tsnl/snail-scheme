@@ -568,7 +568,7 @@
                                          (list (● sensor height) (texel-pitch (● sensor width)))
                                          (Unsigned))
                                   (● sensor width)))
-             (drawn (minimum (● (render cloud (camera-param) sensor) image) (scalar 1.0)))
+             (drawn (minimum (● (render cloud (camera-param) sensor (Viewing)) image) (scalar 1.0)))
              (error (mean (square (- drawn target))))
              (program (lower-with "judge" (list error) (Nil) (given-by (● p step))))
              (psnrs (map (lambda (image)

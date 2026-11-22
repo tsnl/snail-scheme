@@ -36,3 +36,25 @@ Mip-NeRF 360's bicycle as [Train](../train/README.md) trains it, a 1 GB
 file of 4,194,304 gaussians, took 22 seconds from a local server in Chrome,
 and then flew at the display's 60 frames a second on an RTX 5090. Files
 that cannot be shown leave the view as it was, and the page says why.
+
+## Two renderers
+
+T draws the splats tile by tile, by the renderer [Train](../train/README.md)
+trains through, and again as quads. Every two seconds the console has the
+frame rate and how long one frame's compute and render passes took on the
+device, where it has timestamps. A page's times are rounded to 100 μs.
+
+`compare.scm` draws a trained scene both ways on Node, at the views it was
+photographed from. It times each frame on the device and compares the
+images with each other and with the photographs:
+
+```sh
+./snail-scheme run --target node src/apps/splats/compare.scm \
+  cloud=bicycle.ply scene=datasets/bicycle/ photos=images_4 views=8
+```
+
+`scene` is the COLMAP dataset's folder, ending in a slash, and `photos`
+the folder of its photographs at the views' size, 1237 pixels wide unless
+`width` says otherwise. `profile=1` also times each of the tiles' steps
+alone. [The graphics chapter](../../../doc/book/graphics/plan.md#scans-sorts-and-gaussian-splats)
+has bicycle's numbers.

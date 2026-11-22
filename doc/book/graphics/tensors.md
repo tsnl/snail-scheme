@@ -158,6 +158,16 @@ mask culls the rows it has not used yet, so a program lowered for a
 capacity holds a cloud that grows. Unused rows can be left at zero through
 training.
 
+A rendering has a `Purpose`. One for `Training` keeps what the backward
+pass starts from. One for `Viewing` keeps only the image, and has no
+gradient. The trainer renders its held-out views for viewing, and so does
+the splats viewer, which draws its clouds with this renderer as well as
+with quads ([`splat-view`](plan.md#scans-sorts-and-gaussian-splats)). A
+viewer's cloud may also carry a `Placement`: each gaussian's affine map
+into the world, which carries its center and covariance there and a
+direction back into its own frame for its harmonics. A training cloud
+stands in the world and has none, so its graph is unchanged.
+
 - **Projection is ordinary tensor operations, so `grad` derives its
   gradient.** Each gaussian's normalized quaternion and exponentiated
   scale make its covariance R S Sᵀ Rᵀ. The camera carries it to the screen
@@ -182,8 +192,13 @@ training.
   many entries its gaussians asked for, and a host lowers room for more
   before they run out.
 - **Rasterizing is a custom node** (`splat-forward`), a workgroup per tile.
-  It blends as the paper does and keeps each pixel's final transmittance
-  and its count of entries. Its adjoint is another custom node
+  It blends as the paper does and hands each pixel's final transmittance
+  and its count of entries to `keep`. The purpose chooses `keep`'s text:
+  rendering for training puts `splat-forward-state.wgsl.scm` first, which
+  binds two buffers and stores both, and rendering for viewing an empty
+  function. A WGSL `override` could only skip the stores. The bindings
+  would stay, since WGSL counts a binding named in a dead branch as used.
+  Its adjoint is another custom node
   (`splat-backward`), which walks the entries far to near, undoing the
   transmittance, from as deep as the tile's deepest pixel went. Many pixels
   add to one gaussian's nine gradients, so each subgroup sums its pixels'
@@ -203,7 +218,8 @@ training.
 
 `(gpu-test splat-train)` checks the renderer on the device at 64x48 pixels:
 
-- one gaussian's pixel equals the paper's blend computed by hand;
+- one gaussian's pixel equals the paper's blend computed by hand, rendered
+  for training and for viewing;
 - each of three gaussians' 59 params' gradients equals a central difference
   of the loss on the device, to 5%;
 - Adam brings a dimmer, smaller cloud's loss against a rendered target down

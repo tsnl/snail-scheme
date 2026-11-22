@@ -4,20 +4,23 @@
 ;; differentiates the loss of that image back to every param.
 ;;
 ;;   (let* ((cloud (splat-params 100000))
-;;          (drawn (render cloud (camera-param) (new Sensor (width 1237) (height 822) (capacity 4000000))))
+;;          (drawn (render cloud (camera-param) (new Sensor (width 1237) (height 822) (capacity 4000000)) (Training)))
 ;;          (loss (photometric-loss (● drawn image) (param "target" (list 822 1237 3) (Float)) 0.2)))
 ;;     (grad loss (cloud-views cloud)))
 ;;
 ;; Projection is ordinary tensor operations, so `grad` derives its
 ;; gradient: each gaussian's rotation and scale make its covariance, the
 ;; camera carries it to the screen linearized at its center (EWA), and its
-;; spherical harmonics give its color from the camera's eye. Binning
-;; gaussians into 16x16-pixel tiles is custom kernels around a sort by
-;; depth and a stable sort by tile (splat-tiles, splat-count, splat-keys,
-;; splat-ranges), and passes no gradient. Rasterizing is a custom node
-;; (splat-forward) whose adjoint is another (splat-backward). SSIM is
-;; fused into a custom node too (splat-ssim), whose window's moments never
-;; fill a buffer, with an adjoint of its own.
+;; spherical harmonics give its color from the camera's eye. A cloud a
+;; viewer poses is placed first, each gaussian by its own affine map.
+;; Binning gaussians into 16x16-pixel tiles is custom kernels around a
+;; sort by depth and a stable sort by tile (splat-tiles, splat-count,
+;; splat-keys, splat-ranges), and passes no gradient. Rasterizing is a
+;; custom node (splat-forward); rendered for training, it keeps what its
+;; adjoint, another (splat-backward), starts from, and rendered for
+;; viewing, only the image. SSIM is fused into a custom node too
+;; (splat-ssim), whose window's moments never fill a buffer, with an
+;; adjoint of its own.
 ;;
 ;; The camera is a param of 16 floats: the world-to-camera rotation's rows,
 ;; its translation, then fx, fy, cx, cy, in COLMAP's convention, the camera
@@ -26,6 +29,7 @@
 (define-library (snail shell graphics splat-train)
   (export
    Cloud
+   Placement
    splat-params
    cloud-views
    Sensor
@@ -35,6 +39,9 @@
    rotation-matrices
    normalized-rows
    Rendering
+   Purpose
+   Training
+   Viewing
    render
    ssim
    photometric-loss
@@ -56,7 +63,9 @@
     ;; coefficients by degree, 1, 3, 5 and 7 of them for each of red, green
     ;; and blue. Those are trained. `live` is 1 for a gaussian drawn and 0
     ;; for a row not yet used, and `degrees` 1 or 0 for whether each
-    ;; degree from 1 to 3 shades, which a schedule raises.
+    ;; degree from 1 to 3 shades, which a schedule raises. `placement`
+    ;; stands each gaussian in the world when its own frame is not the
+    ;; world's; a cloud training fits has none.
     (record Cloud
       ((means View)
        (scales View)
@@ -67,7 +76,8 @@
        (degree2 View)
        (degree3 View)
        (live View)
-       (degrees View)))
+       (degrees View)
+       (placement (Option Placement))))
 
     (define (splat-params (count I64)) (→ Cloud)
       (new Cloud
@@ -80,7 +90,8 @@
         (degree2 (param "degree2" (list count 5 3) (Float)))
         (degree3 (param "degree3" (list count 7 3) (Float)))
         (live (param "live" (list count 1) (Float)))
-        (degrees (param "degrees" (list 3) (Float)))))
+        (degrees (param "degrees" (list 3) (Float)))
+        (placement (None))))
 
     ;; The params a cloud trains.
     (define (cloud-views (cloud Cloud)) (→ (List View))
@@ -106,6 +117,42 @@
 
     (define (camera-scalar (camera View) (k I64)) (→ View) (narrow camera 0 k 1))
 
+    ;; ---- Placement ----
+
+    ;; Where each gaussian stands when its own frame is not the world's: the
+    ;; linear part of the affine map from its frame to the world's, n x 3 x
+    ;; 3, and the map's offset, n x 3; and a map carrying a direction in
+    ;; the world back into the gaussian's frame, where its harmonics were
+    ;; fitted, n x 3 x 3: the linear part's inverse, up to a positive factor
+    ;; that normalizing the direction removes.
+    (record Placement
+      ((linear View)
+       (offset View)
+       (unmapping View)))
+
+    ;; Each center in the world, A m + b.
+    (define (world-means (cloud Cloud)) (→ View)
+      (match (● cloud placement)
+        ((Some p) (+ (row-products (● p linear) (● cloud means)) (● p offset)))
+        ((None) (● cloud means))))
+
+    ;; Each covariance in the world, A Sigma A^T.
+    (define (world-covariance (cloud Cloud)) (→ View)
+      (let ((sigma (covariance cloud)))
+        (match (● cloud placement)
+          ((Some p) (matmul (matmul (● p linear) sigma) (transpose (● p linear))))
+          ((None) sigma))))
+
+    ;; Each row of `d`, a direction in the world, in its gaussian's frame.
+    (define (own-directions (cloud Cloud) (d View)) (→ View)
+      (match (● cloud placement)
+        ((Some p) (normalized-rows (row-products (● p unmapping) d)))
+        ((None) d)))
+
+    ;; Each row of `v`, n x 3, by its matrix of `m`, n x 3 x 3.
+    (define (row-products (m View) (v View)) (→ View)
+      (reshape (matmul m (unsqueeze v 2)) (shape-of v)))
+
     ;; ---- Projection ----
 
     ;; What the rasterizer draws a gaussian by: its center in pixels, its
@@ -125,10 +172,10 @@
 
     (define (project (cloud Cloud) (camera View) (sensor Sensor)) (→ Projection)
       (let* ((rotation (reshape (narrow camera 0 0 9) (list 3 3)))
-             (seen (+ (matmul (● cloud means) (transpose rotation)) (narrow camera 0 9 3)))
+             (seen (+ (matmul (world-means cloud) (transpose rotation)) (narrow camera 0 9 3)))
              (depth (column seen 2))
              (near (maximum depth (scalar 0.2)))
-             (screen (screen-covariance (covariance cloud) rotation seen near camera sensor))
+             (screen (screen-covariance (world-covariance cloud) rotation seen near camera sensor))
              (conic (conic-of screen))
              (centers (concat (list (+ (* (camera-scalar camera 12) (/ (column seen 0) near))
                                        (camera-scalar camera 14))
@@ -244,13 +291,14 @@
 
     ;; ---- Color ----
 
-    ;; Each gaussian's harmonics in the direction from the eye, -R^T t,
-    ;; offset by 0.5 and kept from going below 0: each degree's basis, a
-    ;; row, times its coefficients, as a matrix product.
+    ;; Each gaussian's harmonics in the direction from the eye, -R^T t, as
+    ;; its own frame sees it, offset by 0.5 and kept from going below 0:
+    ;; each degree's basis, a row, times its coefficients, as a matrix
+    ;; product.
     (define (shaded (cloud Cloud) (camera View)) (→ View)
       (let* ((rotation (reshape (narrow camera 0 0 9) (list 3 3)))
              (eye (negate (matmul (reshape (narrow camera 0 9 3) (list 1 3)) rotation)))
-             (d (normalized-rows (- (● cloud means) eye)))
+             (d (own-directions cloud (normalized-rows (- (world-means cloud) eye))))
              (basis (harmonic-basis (column d 0) (column d 1) (column d 2)))
              (count (list-ref (shape-of d) 0))
              (degree (lambda (k coefficients)
@@ -393,11 +441,21 @@
        (projection Projection)
        (entries View)))
 
-    (define (render (cloud Cloud) (camera View) (sensor Sensor)) (→ Rendering)
+    ;; What a rendering is for. One for training keeps each pixel's final
+    ;; transmittance and how many entries it went through, which the
+    ;; backward pass starts from. One for viewing keeps only the image: its
+    ;; blend has neither their buffers nor their stores, and it has no
+    ;; gradient.
+    (enum Purpose
+      (Training)
+      (Viewing))
+
+    (define (render (cloud Cloud) (camera View) (sensor Sensor) (purpose Purpose)) (→ Rendering)
       (let* ((p (project cloud camera sensor))
              (bins (binned p sensor)))
         (new Rendering
           (image (only-port (rasterized sensor
+                                        purpose
                                         (list (● bins ids)
                                               (● bins ranges)
                                               (concat
@@ -409,40 +467,60 @@
           (projection p)
           (entries (● bins entries)))))
 
-    (define (rasterized (sensor Sensor) (args (List View))) (→ (List View))
-      (custom (forward sensor (list-ref (shape-of (list-ref args 2)) 0))
+    (define (rasterized (sensor Sensor) (purpose Purpose) (args (List View))) (→ (List View))
+      (custom (forward sensor purpose (list-ref (shape-of (list-ref args 2)) 0))
               args
-              (forward-ports sensor)))
+              (forward-ports sensor purpose)))
 
     ;; Each gaussian is nine floats to the rasterizer: center x y, conic
     ;; a b c, color r g b and opacity; its gradient has the same layout.
 
-    (define (forward-ports (sensor Sensor)) (→ (List Port))
-      (let ((pixels (* (● sensor width) (● sensor height))))
-        (list (new Port
-                (name "image")
-                (shape (list (● sensor height) (● sensor width) 3))
-                (etype (Float)))
-              (new Port (name "finals") (shape (list pixels)) (etype (Float)))
-              (u32-port "contributed" pixels))))
+    (define (forward-ports (sensor Sensor) (purpose Purpose)) (→ (List Port))
+      (let ((pixels (* (● sensor width) (● sensor height)))
+            (image (new Port
+                     (name "image")
+                     (shape (list (● sensor height) (● sensor width) 3))
+                     (etype (Float)))))
+        (match purpose
+          ((Training)
+           (list image
+                 (new Port (name "finals") (shape (list pixels)) (etype (Float)))
+                 (u32-port "contributed" pixels)))
+          ((Viewing) (list image)))))
 
-    ;; The forward pass, whose adjoint runs the backward pass on the
+    ;; The forward pass. Training's adjoint runs the backward pass on the
     ;; forward's own ports, found again by building the same node.
-    (define (forward (sensor Sensor) (count I64)) (→ Custom)
-      (new Custom
-        (name (string-append "splat-forward " (constants sensor count)))
-        (kernels (list (kernel (string-append (constants sensor count) splat-forward-shader)
-                               "rasterize"
-                               (list 0 1 2 3 4 5)
-                               (tile-count sensor))))
-        (adjoint (lambda (args outs) (rasterizer-adjoint sensor count args outs)))))
+    (define (forward (sensor Sensor) (purpose Purpose) (count I64)) (→ Custom)
+      (match purpose
+        ((Training)
+         (new Custom
+           (name (string-append "splat-forward " (constants sensor count)))
+           (kernels (list (forward-kernel sensor count splat-forward-state-shader 6)))
+           (adjoint (lambda (args outs) (rasterizer-adjoint sensor count args outs)))))
+        ((Viewing)
+         (new Custom
+           (name (string-append "splat-forward for viewing " (constants sensor count)))
+           (kernels (list (forward-kernel sensor count kept-nothing 4)))
+           (adjoint (lambda (args outs)
+                      (panic "splat: a rendering for viewing has no gradient")))))))
+
+    ;; The blend after `keep` is defined, binding the node's first
+    ;; `bindings` args and ports: its three args, then its ports.
+    (define (forward-kernel (sensor Sensor) (count I64) (keep String) (bindings I64)) (→ Kernel)
+      (kernel (string-append (constants sensor count) keep splat-forward-shader)
+              "rasterize"
+              (iota bindings)
+              (tile-count sensor)))
+
+    ;; Viewing's `keep`, which keeps nothing.
+    (define kept-nothing (→ String) "fn keep(p: u32, transmittance: f32, last: u32) {}\n")
 
     (define (rasterizer-adjoint (sensor Sensor)
                                 (count I64)
                                 (args (List View))
                                 (outs (List (Option View))))
       (→ (List (Option View)))
-      (let* ((ports (rasterized sensor args))
+      (let* ((ports (rasterized sensor (Training) args))
              (image-grad (match (list-ref outs 0)
                            ((Some g) g)
                            ((None) (zeros-like (list-ref ports 0)))))
