@@ -4,8 +4,11 @@
 ;; blends each gaussian's color by alpha = min(0.99, opacity G), G =
 ;; exp(-d^T conic d / 2) at offset d from the pixel's center, skipping
 ;; those under 1/255, until its transmittance would fall under 1e-4. The
-;; background is black. Each pixel keeps its final transmittance and how
-;; many entries it went through, which the backward pass starts from.
+;; background is black. Each pixel's final transmittance and how many
+;; entries it went through go to `keep`, which the code before this file
+;; defines: training's keeps them for the backward pass to start from
+;; (splat-forward-state.wgsl.scm), and viewing's does nothing, so its
+;; kernel has neither their bindings nor their stores.
 ;;
 ;; Pixel (x, y) has its center at (x + 0.5, y + 0.5). The image is
 ;; row-major RGB, three floats a pixel. Each gaussian is nine floats:
@@ -18,10 +21,6 @@
 ((var storage read) (@group 0) (@binding 2) (splats (array f32)))
 
 ((var storage read_write) (@group 0) (@binding 3) (image (array f32)))
-
-((var storage read_write) (@group 0) (@binding 4) (finals (array f32)))
-
-((var storage read_write) (@group 0) (@binding 5) (contributed (array u32)))
 
 ((var workgroup) (batch_centers (array vec2f 256)))
 
@@ -83,5 +82,4 @@
          (= (at image (* 3u p)) (get color x))
          (= (at image (+ (* 3u p) 1u)) (get color y))
          (= (at image (+ (* 3u p) 2u)) (get color z))
-         (= (at finals p) transmittance)
-         (= (at contributed p) last))))
+         (keep p transmittance last))))

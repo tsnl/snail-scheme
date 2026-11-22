@@ -1,6 +1,7 @@
-;; What the recording handler notes of a frame: each object numbered as it
+;; What the recorded `Gpu` notes of a frame: each object numbered as it
 ;; is made, with its descriptor's fields; the commands that use them; and
-;; an object let go. Then a compute pass's dispatch.
+;; an object let go. Then a compute pass's dispatch, and a timed pass whose
+;; times are read back: the recording reads zeros, none elapsed.
 (import
  (snail core base)
  (snail core io)
@@ -93,10 +94,25 @@
     (end-compute-pass gpu pass)
     (submit gpu (list (finish gpu encoder)))))
 
+(define (timed (gpu Gpu)) (→ F64)
+  (let* ((queries (create-query-set gpu (new QuerySetDescriptor (label "times") (count 2))))
+         (encoder (create-command-encoder gpu))
+         (pass (begin-timed-compute-pass gpu encoder
+                                         (new TimestampWrites
+                                           (query-set queries)
+                                           (beginning 0)
+                                           (end 1)))))
+    (end-compute-pass gpu pass)
+    (elapsed-seconds (submit-timed gpu encoder queries 2) 0 1)))
+
 (define (main (out OutputPort)) (→ Unit)
   (for-each (lambda (text) (write-line out text))
             (● (with-recorded-gpu (lambda (gpu) (frame gpu))) second))
   (write-line out "compute:")
   (for-each (lambda (text) (write-line out text))
             (● (with-recorded-gpu (lambda (gpu) (compute gpu))) second))
+  (let ((recorded (with-recorded-gpu timed)))
+    (write-line out "timed:")
+    (for-each (lambda (text) (write-line out text)) (● recorded second))
+    (write-line out (string-append "elapsed: " (f64->string (● recorded first)))))
   (unit))

@@ -1,12 +1,12 @@
-;; Tensors as a graph, built lazily and compiled explicitly, in the shape of
+;; Tensors as a graph, built lazily and lowered explicitly, in the shape of
 ;; Resin's DSL: a program composes nodes, each writing one dense buffer a
 ;; port, and works with views of those ports. Symbolic passes rewrite the
 ;; graph: (snail shell tensor grad) builds the gradient as more nodes, and
 ;; (snail shell tensor adam) builds an optimizer's update the same way.
-;; (snail shell tensor compile) turns the nodes a program asks for into
-;; buffers and WebGPU dispatches, once, and runs them as often as it likes;
-;; (snail shell tensor eval) evaluates the same graph on the CPU, as the
-;; specification the kernels are tested against.
+;; (snail shell tensor lower) lowers the nodes a program asks for to
+;; buffers and WebGPU dispatches the caller owns, once, to run as often as
+;; it likes; (snail shell tensor eval) evaluates the same graph on the CPU,
+;; as the specification the kernels are tested against.
 ;;
 ;;   (let* ((x (param "x" (list 64 3) (Float)))
 ;;          (w (param "w" (list 3 1) (Float)))
@@ -68,6 +68,12 @@
    Select
    Convert
    Bitcast
+   Expr
+   Load
+   Literal
+   Apply
+   expr-etype
+   map-loads
    Reduction
    Sum
    Largest
@@ -78,10 +84,9 @@
    Param
    Constant
    Fill
-   Elementwise
+   Map
    Reduce
    Matmul
-   Copy
    Place
    Gather
    Concat
@@ -107,6 +112,7 @@
    scalar
    zeros-like
    ones-like
+   mapped
    unary
    binary
    exp
@@ -153,6 +159,7 @@
    exclusive-scan
    custom
    node-view
+   with-args
    toposort)
   (import
    (snail core base)
@@ -204,7 +211,7 @@
 
     ;; ---- Operations ----
 
-    ;; Elementwise operations. A comparison answers 1 or 0 in its operands'
+    ;; What a map's body applies. A comparison answers 1 or 0 in its operands'
     ;; type; `Select` takes a condition, then the value where it is not 0,
     ;; then the value where it is.
     (enum Op
@@ -283,6 +290,49 @@
         ((Largest) "max")
         ((Smallest) "min")))
 
+    ;; ---- Expressions ----
+
+    ;; What a map computes at each element of its port, from its arguments'
+    ;; elements there: `Load k` reads argument k's, a `Literal` is one
+    ;; value, and `Apply` is an operation on others. Each carries its type,
+    ;; so one body can convert between types. A load never addresses: its
+    ;; argument is a view, and the view says where its elements are.
+    (enum Expr
+      (Load ((arg I64) (etype Etype)))
+      (Literal ((value F64) (etype Etype)))
+      (Apply ((op Op) (operands (List Expr)) (etype Etype))))
+
+    (define (expr-etype (e Expr)) (→ Etype)
+      (match e
+        ((Load _ etype) etype)
+        ((Literal _ etype) etype)
+        ((Apply _ _ etype) etype)))
+
+    (define (expr-text (e Expr)) (→ String)
+      (match e
+        ((Load k _) (string-append "$" (show k)))
+        ((Literal value etype) (string-append (f64->string value) (etype-wgsl etype)))
+        ((Apply op operands _)
+         (string-append "(" (op-text op) " " (string-join (map expr-text operands) " ") ")"))))
+
+    ;; `e` with each load replaced by what `f` answers for it.
+    (define (map-loads (e Expr) (f (Fn I64 Etype → Expr))) (→ Expr)
+      (match e
+        ((Load k etype) (f k etype))
+        ((Literal _ _) e)
+        ((Apply op operands etype)
+         (Apply op (map (lambda (o) (map-loads o f)) operands) etype))))
+
+    ;; The type an operation answers: a conversion's the one asked for, a
+    ;; choice's that of what it chooses, and any other's its first
+    ;; operand's, so a comparison answers 1 or 0 in its operands' type.
+    (define (result-etype (op Op) (operands (List Etype))) (→ Etype)
+      (match op
+        ((Convert to) to)
+        ((Bitcast to) to)
+        ((Select) (list-ref operands 1))
+        (_ (list-ref operands 0))))
+
     ;; ---- Custom kernels ----
 
     ;; One dispatch of a custom node: WGSL whose bindings 0, 1, ... are the
@@ -309,23 +359,23 @@
 
     ;; ---- Nodes ----
 
-    ;; What a node computes. A `Fill` is every element one value; a
-    ;; `Place` writes its argument into zeros at the addresses an accessor
-    ;; gives, the adjoint of seeing a port through that accessor; a
-    ;; `Gather` takes the rows of its first argument at the indices of its
-    ;; second; a `ScatterAdd` adds each row of its first argument to row
-    ;; `index` of `rows` zero rows; a `Concat` joins its arguments along an
-    ;; axis; a `Sort` sorts u32 keys and values on
-    ;; their low `bits` bits, stably; a `PrefixSum` replaces each u32
-    ;; number by the sum of those before it.
+    ;; What a node computes. A `Fill` is every element one value; a `Map`
+    ;; computes its body at each element, so a copy, the one way a view
+    ;; becomes a buffer, is a map of one load; a `Place` writes its
+    ;; argument into zeros at the addresses an accessor gives, the adjoint
+    ;; of seeing a port through that accessor; a `Gather` takes the rows of
+    ;; its first argument at the indices of its second; a `ScatterAdd` adds
+    ;; each row of its first argument to row `index` of `rows` zero rows; a
+    ;; `Concat` joins its arguments along an axis; a `Sort` sorts u32 keys
+    ;; and values on their low `bits` bits, stably; a `PrefixSum` replaces
+    ;; each u32 number by the sum of those before it.
     (enum Kind
       (Param ((name String)))
       (Constant ((name String) (data Bytes)))
       (Fill ((value F64)))
-      (Elementwise ((op Op)))
+      (Map ((body Expr)))
       (Reduce ((op Reduction) (axes (List I64))))
       (Matmul)
-      (Copy)
       (Place ((accessor Accessor)))
       (Gather)
       (ScatterAdd ((rows I64)))
@@ -339,10 +389,9 @@
         ((Param name) (string-append "param " name))
         ((Constant name _) (string-append "constant " name))
         ((Fill value) (string-append "fill " (f64->string value)))
-        ((Elementwise op) (op-text op))
+        ((Map body) (string-append "map " (expr-text body)))
         ((Reduce op axes) (string-append (reduction-text op) " " (string-join (map show axes) ",")))
         ((Matmul) "matmul")
-        ((Copy) "copy")
         ((Place accessor) (string-append "place " (accessor-text accessor)))
         ((Gather) "gather")
         ((ScatterAdd rows) (string-append "scatter-add " (show rows)))
@@ -396,6 +445,11 @@
 
     (define (node (kind Kind) (args (List View)) (ports (List Port))) (→ Node)
       (new Node (key (node-key kind args ports)) (kind kind) (args args) (ports ports)))
+
+    ;; The same node over other arguments, as a rewrite of the graph builds
+    ;; it; its key is new, since its arguments are.
+    (define (with-args (n Node) (args (List View))) (→ Node)
+      (node (● n kind) args (● n ports)))
 
     (define (port-of (node Node) (name String)) (→ Port)
       (match (find (lambda (port) (string=? (● port name) name)) (● node ports))
@@ -504,19 +558,48 @@
                                                (list-ref from-pitch k)))
                                          (iota n)))))))
 
-    ;; ---- Elementwise ----
+    ;; ---- Maps ----
 
-    ;; The type a result has: a comparison's and an arithmetic's are their
-    ;; operands', a conversion's the one asked for.
+    ;; A map of `body` over `args`, each seen at `shape`. A `Fill`
+    ;; argument becomes a literal of the body, so a map reads only
+    ;; buffers; the others keep their order.
+    (define (mapped (body Expr) (args (List View)) (shape (List I64))) (→ View)
+      (let ((folded (map-loads body (lambda (k etype) (folded-load args k etype)))))
+        (single (Map folded)
+                (filter (lambda (a) (not (fill-view? a))) args)
+                shape
+                (expr-etype folded))))
 
-    (define (result-etype (op Op) (first View)) (→ Etype)
-      (match op
-        ((Convert to) to)
-        ((Bitcast to) to)
-        (_ (etype-of first))))
+    ;; Argument k's load once fills are literals: the fill's value, or a
+    ;; load of its place among the arguments that are not fills. A load
+    ;; has its argument's type.
+    (define (folded-load (args (List View)) (k I64) (etype Etype)) (→ Expr)
+      (let ((a (list-ref args k)))
+        (unless (same-etype? (etype-of a) etype)
+          (panic (string-append "tensor: a map loads argument "
+                                (show k)
+                                " as "
+                                (etype-wgsl etype)
+                                ", which holds "
+                                (etype-wgsl (etype-of a)))))
+        (match (● a node kind)
+          ((Fill value) (Literal value etype))
+          (_ (Load (length (filter (lambda (b) (not (fill-view? b))) (take args k))) etype)))))
 
-    (define (unary (op Op) (a View)) (→ View)
-      (single (Elementwise op) (list a) (shape-of a) (result-etype op a)))
+    (define (fill-view? (view View)) (→ Bool)
+      (match (● view node kind)
+        ((Fill _) #t)
+        (_ #f)))
+
+    ;; An operation on views of one shape, each its operand's load.
+    (define (applied (op Op) (operands (List View)) (shape (List I64))) (→ View)
+      (let ((etypes (map etype-of operands)))
+        (mapped (Apply op (map-indexed (lambda (k etype) (Load k etype)) etypes)
+                       (result-etype op etypes))
+                operands
+                shape)))
+
+    (define (unary (op Op) (a View)) (→ View) (applied op (list a) (shape-of a)))
 
     ;; Operands broadcast together and of one type.
     (define (binary (op Op) (a View) (b View)) (→ View)
@@ -528,10 +611,7 @@
                               " and "
                               (etype-wgsl (etype-of b)))))
       (let ((shape (broadcast-shape (shape-of a) (shape-of b))))
-        (single (Elementwise op)
-                (list (broadcast-to a shape) (broadcast-to b shape))
-                shape
-                (etype-of a))))
+        (applied op (list (broadcast-to a shape) (broadcast-to b shape)) shape)))
 
     (define (exp (a View)) (→ View) (unary (Exp) a))
     (define (log (a View)) (→ View) (unary (Log) a))
@@ -557,10 +637,9 @@
     (define (where (condition View) (a View) (b View)) (→ View)
       (let ((shape
              (broadcast-shape (shape-of condition) (broadcast-shape (shape-of a) (shape-of b)))))
-        (single (Elementwise (Select))
-                (list (broadcast-to condition shape) (broadcast-to a shape) (broadcast-to b shape))
-                shape
-                (etype-of a))))
+        (applied (Select)
+                 (list (broadcast-to condition shape) (broadcast-to a shape) (broadcast-to b shape))
+                 shape)))
 
     (instance (Num View)
       (define + (lambda (a b) (binary (Add) a b)))
@@ -615,7 +694,7 @@
     ;; ---- Views ----
 
     ;; A view's elements written densely, in order.
-    (define (copy (a View)) (→ View) (single (Copy) (list a) (shape-of a) (etype-of a)))
+    (define (copy (a View)) (→ View) (mapped (Load 0 (etype-of a)) (list a) (shape-of a)))
 
     ;; Zeros of `shape`, with `g`'s elements at `accessor`'s addresses,
     ;; whose shape is g's.

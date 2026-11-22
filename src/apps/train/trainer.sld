@@ -41,7 +41,8 @@
    (only (snail shell random) Random make-random random-next random-below)
    (only (snail shell tensor) View Float Unsigned param scalar minimum mean square)
    (only (snail shell tensor eval) values->bytes bytes->values)
-   (snail shell tensor compile)
+   (snail shell tensor fuse)
+   (snail shell tensor lower)
    (snail shell graphics pod)
    (snail shell graphics colmap)
    (only (snail shell graphics ply) Trained)
@@ -150,19 +151,20 @@
       (let* ((cloud (splat-params capacity))
              (sensor (sensor-of scene entries))
              (training (training-step cloud sensor))
-             (step (compile-program gpu "step" (● training first) (● training second)))
+             (step (lower gpu "step" (fuse (● training first)) (fuse-updates (● training second))))
              (densified (densification cloud (stats-params capacity))))
         (new Programs
           (capacity capacity)
           (sensor sensor)
           (step step)
           (densify
-           (compile-program-sharing gpu
-                                    "densify"
-                                    (list (● densified second))
-                                    (● densified first)
-                                    step))
-          (reset (compile-program-sharing gpu "reset" (Nil) (opacity-reset cloud) step)))))
+           (lower-with gpu
+                       "densify"
+                       (fuse (list (● densified second)))
+                       (fuse-updates (● densified first))
+                       (given-by step)))
+          (reset
+           (lower-with gpu "reset" (Nil) (fuse-updates (opacity-reset cloud)) (given-by step))))))
 
     (define (release-programs (gpu Gpu) (p Programs)) (→ Unit)
       (release-program gpu (● p reset))
@@ -221,7 +223,7 @@
     (define (initial-scales (gpu Gpu) (points (Array ColmapPoint))) (→ (Array F64))
       (let* ((count (array-length points))
              (view (param "points" (list count 3) (Float)))
-             (program (compile-program gpu "nearest" (list (nearest-distances view)) (Nil))))
+             (program (lower gpu "nearest" (fuse (list (nearest-distances view))) (Nil))))
         (write-param gpu program
                      "points"
                      (rows count count 3 (lambda (i) (● (array-ref points i) position))))
@@ -273,8 +275,8 @@
                      "camera"
                      (floats (camera-values (● scene camera) image)))))
 
-    ;; The second step's twelve slowest dispatches, each run alone, with
-    ;; the seconds it took and its kernel, and the step's twelve largest
+    ;; The second step's twelve slowest steps on the device, with the
+    ;; seconds each took and its kernel, and the step's twelve largest
     ;; kinds of buffer; the first step touches every buffer, which the
     ;; device clears then.
     (define (profile (photographs Photographs)
@@ -289,12 +291,12 @@
         (destroy gpu (TextureObject (● photo texture))))
       (work-done gpu)
       (let ((times (list-sort (lambda (a b) (> (● a second) (● b second)))
-                              (profile-program gpu clock (● p step)))))
+                              (profile-program gpu (● p step)))))
         (write-line out (string-append (show (length times))
-                                       " dispatches, "
+                                       " steps, "
                                        (f64->string
                                         (fold-left + 0.0 (map (lambda (t) (● t second)) times)))
-                                       " seconds"))
+                                       " seconds on the device"))
         (for-each
          (lambda (t) (write-line out (string-append (f64->string (● t second)) " " (● t first))))
          (take times 12))
@@ -618,9 +620,9 @@
                                          (list (● sensor height) (texel-pitch (● sensor width)))
                                          (Unsigned))
                                   (● sensor width)))
-             (drawn (minimum (● (render cloud (camera-param) sensor) image) (scalar 1.0)))
+             (drawn (minimum (● (render cloud (camera-param) sensor (Viewing)) image) (scalar 1.0)))
              (error (mean (square (- drawn target))))
-             (program (compile-program-sharing gpu "judge" (list error) (Nil) (● p step)))
+             (program (lower-with gpu "judge" (fuse (list error)) (Nil) (given-by (● p step))))
              (psnrs (map (lambda (image)
                            (let ((photo (photograph photographs image)))
                              (aim gpu program sensor scene image photo)

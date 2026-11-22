@@ -3,16 +3,15 @@
  (snail core base)
  (snail shell gpu record)
  (snail shell tensor)
- (snail shell tensor compile))
+ (snail shell tensor lower))
 
 (define (main) (→ Unit)
   (with-recorded-gpu
    (lambda (gpu)
-     (compile-program gpu "update"
-                      (Nil)
-                      (list
-                       (new Pair
-                         (first (param "counter" (Nil) (Signed)))
-                         (second (scalar 1.0)))))
+     (lower gpu
+            "update"
+            (Nil)
+            (list
+             (new Pair (first (param "counter" (Nil) (Signed))) (second (scalar 1.0)))))
      (unit)))
   (unit))

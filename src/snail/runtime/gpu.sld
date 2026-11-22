@@ -1,17 +1,18 @@
 ;; The host's WebGPU device, as host/browser/gpu.mjs provides it on the
-;; page and, over Dawn, on Node (host/native/gpu.mjs): each
-;; object is an I32 id the host gives it when it makes it. The descriptor
-;; of an object being made crosses as staged Bytes of words and texts, the
-;; call's last argument ((snail shell gpu)'s `fields-bytes`). A render
-;; pass is built by calls, an attachment each, then `begin-pass`; a submit
-;; queues each command buffer, then submits, and then lets go of each
-;; object destroyed since the last submit. The host lets an encoder, a
-;; pass and a command buffer go once used, and the canvas's texture and its
-;; views at the next `current-texture`. Requesting the device, reading a
-;; buffer and decoding an image are host operations a task waits for by
-;; ticket. A string answer crosses a scalar at a time: the call answers how
-;; many, and `reply-scalar` reads each. (snail shell gpu) makes its
-;; `Gpu` over these.
+;; page and, over Dawn, on Node (host/native/gpu.mjs): each object is an
+;; I32 id the host gives it when it makes it. The descriptor of an object
+;; being made crosses as staged Bytes of words and texts, the call's last
+;; argument ((snail shell gpu)'s `fields-bytes`). A render pass is built by
+;; calls, an attachment each and then its timestamp writes, if any, before
+;; `begin-pass`; a compute pass's timestamp writes come before
+;; `begin-compute` the same way. A submit queues each command buffer, then
+;; submits, and then lets go of each object destroyed since the last
+;; submit. The host lets an encoder, a pass and a command buffer go once
+;; used, and the canvas's texture and its views at the next
+;; `current-texture`. Requesting the device, reading a buffer and decoding
+;; an image are host operations a task waits for by ticket. A string answer
+;; crosses a scalar at a time: the call answers how many, and
+;; `reply-scalar` reads each. (snail shell gpu) makes its `Gpu` over these.
 (define-library (snail runtime gpu)
   (export
    start-device
@@ -49,6 +50,8 @@
    draw-indexed-indirect
    end-pass
    begin-compute
+   pass-timestamps
+   resolve-queries
    set-compute-pipeline
    set-compute-bind-group
    dispatch
@@ -127,6 +130,15 @@
             (Fn I32 I32 I32 → Unit))
     (extern end-pass "snail.runtime.gpu" "end-pass" (Fn I32 → Unit))
     (extern begin-compute "snail.runtime.gpu" "begin-compute" (Fn I32 → I32))
+    ;; The next pass's timestamp writes: the query set, and the queries
+    ;; written as it begins and as it ends.
+    (extern pass-timestamps "snail.runtime.gpu" "pass-timestamps" (Fn I32 I32 I32 → Unit))
+    ;; An encoder's copy of `count` queries from `first` into a buffer at
+    ;; an offset, eight bytes each.
+    (extern resolve-queries
+            "snail.runtime.gpu"
+            "resolve-queries"
+            (Fn I32 I32 I32 I32 I32 I32 → Unit))
     (extern set-compute-pipeline
             "snail.runtime.gpu"
             "set-compute-pipeline"

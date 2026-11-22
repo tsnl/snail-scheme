@@ -1,5 +1,5 @@
 ;; Fitting a cloud of gaussians to photographs, as 3D Gaussian Splatting
-;; trains (Kerbl et al., 2023), as three tensor graphs a host compiles once
+;; trains (Kerbl et al., 2023), as three tensor graphs a host lowers once
 ;; for a capacity of gaussians and runs on one set of params:
 ;;
 ;; - `training-step`: render from the camera param, the loss against the
@@ -71,7 +71,7 @@
              (height (● sensor height))
              (target
               (rgba8-image (param "target" (list height (texel-pitch width)) (Unsigned)) width))
-             (drawn (render cloud (camera-param) sensor))
+             (drawn (render cloud (camera-param) sensor (Training)))
              (loss (photometric-loss (● drawn image) target 0.2))
              (p (● drawn projection))
              (grads (grad loss (append (cloud-views cloud) (list (● p centers)))))

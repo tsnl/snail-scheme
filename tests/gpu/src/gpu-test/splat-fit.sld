@@ -14,7 +14,7 @@
    (rename (snail shell tensor)
            (log tensor-log))
    (only (snail shell tensor eval) bytes->values values->bytes)
-   (snail shell tensor compile)
+   (snail shell tensor lower)
    (snail shell graphics splat-train)
    (snail shell graphics splat-fit))
   (begin
@@ -41,8 +41,7 @@
     (define (densified-in (gpu Gpu) (capacity I64)) (→ Densified)
       (let* ((cloud (splat-params capacity))
              (densified (densification cloud (stats-params capacity)))
-             (program
-              (compile-program gpu "densify" (list (● densified second)) (● densified first)))
+             (program (lower gpu "densify" (list (● densified second)) (● densified first)))
              (padded (lambda (each width) (rows capacity each width))))
         (for-each (lambda (pair) (write-param gpu program (● pair first) (floats (● pair second))))
                   (list (new Pair

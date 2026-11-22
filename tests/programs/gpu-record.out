@@ -28,3 +28,18 @@ dispatch-workgroups 6 4 1 1
 end-compute-pass 6
 command-buffer 7 5
 submit 7
+timed:
+create query-set 1 times 2
+encoder 2
+compute-pass 3 2 timestamps 1 0 1
+end-compute-pass 3
+create buffer 4 timestamps 16 516
+create buffer 5 timestamps/readback 16 9
+resolve-query-set 2 1 0 2 4 0
+copy-buffer-to-buffer 2 4 0 5 0 16
+command-buffer 6 2
+submit 6
+read-buffer 5 0 16
+destroy 4
+destroy 5
+elapsed: 0.0

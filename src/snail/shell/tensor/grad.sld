@@ -1,12 +1,13 @@
 ;; Reverse-mode gradients as more graph: `grad` walks the nodes a scalar
 ;; depends on from the last to the first, and builds, for each port, the
 ;; gradient of the scalar with respect to that port's buffer, as views of
-;; new nodes. Nothing runs: the gradient is compiled with everything else.
+;; new nodes. Nothing runs: the gradient is lowered with everything else.
 ;;
 ;;   (grad loss (list w b))   ; dloss/dw and dloss/db, shaped as w and b
 ;;
 ;; Each kind of node answers the gradient of each argument given the
-;; gradient of each port (`adjoints` below); a custom node answers its own.
+;; gradient of each port (`adjoints` below), a map back through its body;
+;; a custom node answers its own.
 ;; A view's gradient reaches its port through the view's accessor: summed
 ;; over the axes it broadcasts, then placed at the addresses it reads.
 (define-library (snail shell tensor grad)
@@ -115,12 +116,11 @@
     (define (single-port-adjoints (n Node) (g View)) (→ (List (Option View)))
       (let ((args (● n args)) (y (node-view n default-port)))
         (match (● n kind)
-          ((Elementwise op) (elementwise-adjoints op args y g))
+          ((Map body) (map-adjoints body args y g))
           ((Reduce op _) (list (Some (reduce-adjoint op (list-ref args 0) y g))))
           ((Matmul)
            (list (Some (matmul g (transpose (list-ref args 1))))
                  (Some (matmul (transpose (list-ref args 0)) g))))
-          ((Copy) (list (Some g)))
           ((Place accessor)
            (list (Some (View-accessor-set (if (identity? g) g (copy g)) accessor))))
           ((Gather)
@@ -152,10 +152,62 @@
         ((Sum) (broadcast-to g (shape-of a)))
         (_ (* (broadcast-to g (shape-of a)) (equal a (broadcast-to y (shape-of a)))))))
 
+    ;; ---- Maps ----
+
+    ;; The gradient of each argument of a map whose port's gradient is g,
+    ;; back through its body from the top, whose value is the port's, y:
+    ;; each operation hands each operand its share of the operation's
+    ;; gradient, and each load adds its share to its argument's. An
+    ;; operand that is itself an operation is built again as a node of its
+    ;; own, for the rules that need its value.
+
+    (define (map-adjoints (body Expr) (args (List View)) (y View) (g View)) (→ (List (Option View)))
+      (let ((shares (expr-adjoints body y g args (empty-table))))
+        (map (lambda (k) (table-ref shares (show k))) (iota (length args)))))
+
+    (define (expr-adjoints (e Expr) (value View) (g View) (args (List View)) (shares (Table View)))
+      (→ (Table View))
+      (match e
+        ((Load k _)
+         (table-set shares
+                    (show k)
+                    (match (table-ref shares (show k))
+                      ((Some share) (+ share g))
+                      ((None) g))))
+        ((Literal _ _) shares)
+        ((Apply op operands _)
+         (let ((values (map (lambda (o) (expr-view o args (shape-of value))) operands)))
+           (fold-left (lambda (shares pair)
+                        (match (● pair second)
+                          ((Some share)
+                           (expr-adjoints (list-ref operands (● pair first))
+                                          (list-ref values (● pair first))
+                                          share
+                                          args
+                                          shares))
+                          ((None) shares)))
+                      shares
+                      (zip (iota (length operands)) (op-adjoints op values value g)))))))
+
+    ;; What an expression of a map's body computes, as a view of `shape`:
+    ;; an argument itself for a load.
+    (define (expr-view (e Expr) (args (List View)) (shape (List I64))) (→ View)
+      (match e
+        ((Load k _) (list-ref args k))
+        ((Literal value etype) (fill value (Nil) etype))
+        ((Apply op operands etype)
+         (mapped (Apply op
+                        (map-indexed (lambda (k o) (Load k (expr-etype o))) operands)
+                        etype)
+                 (map (lambda (o) (expr-view o args shape)) operands)
+                 shape))))
+
+    ;; ---- Operations ----
+
     ;; d/da and d/db of y = op(a, b), each times g; operations that are
     ;; flat or not continuous pass no gradient.
 
-    (define (elementwise-adjoints (op Op) (args (List View)) (y View) (g View))
+    (define (op-adjoints (op Op) (args (List View)) (y View) (g View))
       (→ (List (Option View)))
       (let ((a (list-ref args 0))
             (b (if (> (length args) 1) (list-ref args 1) y))
