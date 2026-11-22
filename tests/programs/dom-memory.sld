@@ -46,9 +46,9 @@
 
 (define (main (out OutputPort)) (→ Unit) (! mut)
 
-  (define result (→ (Pair String Document)) (with-memory-dom (Nil) (lambda () (build dom))))
+  (define result (→ (Pair String Document)) (with-memory-dom (Nil) (lambda (dom) (build dom))))
   (define removed (→ Document)
-    (● (with-memory-dom (Nil) (lambda ()
+    (● (with-memory-dom (Nil) (lambda (dom)
                                 (let ((outer (create-element dom "div"))
                                       (inner (create-element dom "p")))
                                   (insert-node dom (document-root dom) outer (None))

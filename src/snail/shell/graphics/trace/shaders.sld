@@ -7,7 +7,8 @@
                    (snail core base)
                    (snail shell resource)
                    (snail shell graphics wgsl))
-                  (shader-library (list "snail" "shell" "graphics" "trace" "shaders")
+                  (lambda ((resources Resources))
+(shader-library resources (list "snail" "shell" "graphics" "trace" "shaders")
                                   (list (new Pair
                                           (first "unpack-shader")
                                           (second (link-file "unpack.wgsl.scm")))
@@ -22,4 +23,4 @@
                                           (second (link-file "scene.wgsl.scm")))
                                         (new Pair
                                           (first "path-shader")
-                                          (second (link-file "path.wgsl.scm"))))))
+                                          (second (link-file "path.wgsl.scm")))))))

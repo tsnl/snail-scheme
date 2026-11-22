@@ -78,9 +78,9 @@
   (line out (new Secret (text "private")))
   (write-line out (represented))
   (let ((output (new Output (text ""))))
-    (handle output-port
-        ((write-string (lambda (text)
-                         (set! (● output text) (string-append (● output text) text)))))
-      (write out (Some "captured")))
+    (write (new OutputPort
+             (write-string (lambda (text)
+                             (set! (● output text) (string-append (● output text) text)))))
+           (Some "captured"))
     (write-line out (● output text)))
   (unit))

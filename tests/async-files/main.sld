@@ -11,7 +11,7 @@
 (define (success (result (Result Bytes file-FileError)) (size I64)) (→ Bool)
   (match result ((Ok bytes) (= (array-length bytes) size)) (_ #f)))
 
-(define (cases (files Files) (out OutputPort) (directory String)) (→ Unit) (! mut tasks file-files host)
+(define (cases (files file-Files) (out OutputPort) (directory String)) (→ Unit) (! mut tasks host)
   (let ((path (string-append directory "/bytes")))
     (check out (match (file-read-file files path 4)
              ((Ok bytes) (and (= (array-length bytes) 4)
@@ -32,7 +32,7 @@
     (sleep 5)
     (write-line out "timer progresses")))
 
-(define (main (files Files) (fs Fs) (out OutputPort)) (→ Unit) (! host mut file-files tasks)
+(define (main (files file-Files) (fs Fs) (out OutputPort)) (→ Unit) (! host mut tasks)
 
   (let ((directory (list-ref (command-line) 1)))
     (make-directories fs directory)

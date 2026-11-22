@@ -6,10 +6,11 @@
                    (snail core base)
                    (snail shell resource)
                    (snail shell graphics wgsl))
-                  (shader-library (list "gpu-test" "shaders")
+                  (lambda ((resources Resources))
+(shader-library resources (list "gpu-test" "shaders")
                                   (list (new Pair
                                           (first "paint")
                                           (second (link-file "paint.wgsl.scm")))
                                         (new Pair
                                           (first "square")
-                                          (second (link-file "square.wgsl.scm"))))))
+                                          (second (link-file "square.wgsl.scm")))))))

@@ -34,7 +34,7 @@
    (only (snail shell task) Scheduler tasks dispatch-in)
    (only (snail shell resource) Resources host-resources)
    (only (snail shell wasm) Wasm host-wasm)
-   (only (snail shell page) Events Storage host-events host-storage)
+   (only (snail shell page) Events PageStorage host-events host-storage)
    (only (snail shell gpu) Gpu host-gpu))
   (begin
 
@@ -61,7 +61,7 @@
     (define (provide-events) (→ Events)
       (host-events))
 
-    (define (provide-storage) (→ Storage)
+    (define (provide-storage) (→ PageStorage)
       (host-storage))
 
     (define (provide-gpu) (→ Gpu)

@@ -200,9 +200,9 @@
                    ((Ok _) "found")
                    ((Err message) message))))
 
-(with-page-fetch
- (lambda ()
-   (let* ((info (request-device gpu)) (p (painting gpu info)))
+(define (main (gpu Gpu) (events Events) (out OutputPort)) (→ Unit) (! mut tasks)
+  (let ((fetch (page-fetch)))
+(let* ((info (request-device gpu)) (p (painting gpu info)))
      (write-line out (string-append "format: " (texture-format-name (● info format))))
      (let ((first-frame (frame gpu p)))
        (write-line out (string-append "target: " (texels (● first-frame first))))
@@ -215,4 +215,5 @@
      (device-checks gpu out)
      (work-done gpu)
      (write-line out (string-append "fetched: " (fetched fetch)))
-     (report-ready events))))
+     (report-ready events)))
+  (unit))

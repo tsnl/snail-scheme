@@ -113,7 +113,7 @@
    (lambda ()
      (let ((result
             (with-memory-dom (script)
-                             (lambda ()
+                             (lambda (dom)
                                (run-ui dom (new Model (items (Nil)) (draft "") (next 0) (saved 0))
                                        (Nil)
                                        (lambda (model message) (update model message))

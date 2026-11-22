@@ -718,7 +718,7 @@
                     ((Scanning scan) (release-scan gpu scan))
                     (_ (unit))))
                 (● program steps))
-      (for-each destroy (● program objects)))
+      (for-each (lambda (object) (destroy gpu object)) (● program objects)))
 
     ;; ---- Growing ----
 

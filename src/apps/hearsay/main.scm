@@ -6,9 +6,14 @@
  (snail shell wire)
  (apps hearsay shell)
  (apps hearsay drawing)
- (apps hearsay art))
+ (apps hearsay art)
+ (only (snail shell gpu) Gpu)
+ (only (snail shell page) Events)
+ (only (snail shell page) PageStorage)
+ (only (snail core io) Clock))
 
-(run-scene gpu events storage clock (new SceneHandler
+(define (main (gpu Gpu) (events Events) (storage PageStorage) (clock Clock)) (→ Unit) (! mut tasks)
+  (run-scene gpu events storage clock (new SceneHandler
              (initialize new-shell)
              (update update-shell)
              (start start-drawing)
@@ -17,3 +22,4 @@
              (image-url drawing-url)
              (save (lambda (shell) (serialize (shell-save shell))))
              (restore (lambda (bytes) (shell-restore (deserialize bytes))))))
+  (unit))

@@ -21,7 +21,7 @@
  (only (snail shell page) Events report-ready)
  (only (snail shell fetch) Fetch fetch-all-bytes page-address)
  (only (snail shell dom) Dom document-root set-text)
- (only (snail shell dom page) with-page-dom)
+ (only (snail shell dom page) page-dom)
  (snail shell files)
  (snail shell files page)
  (snail shell fetch page)
@@ -334,16 +334,15 @@
 
 ;; ---- The page ----
 
-(with-page-fetch
- (lambda ()
-   (with-page-files
-    (lambda ()
-      (with-page-dom events
-       (lambda ()
-         (let ((format (● (request-device gpu) format))
+(define (main (gpu Gpu) (events Events) (out OutputPort)) (→ Unit) (! mut tasks)
+  (let ((fetch (page-fetch)))
+(let ((picker (page-file-picker)))
+(let ((dom (page-dom events)))
+(let ((format (● (request-device gpu) format))
                (fly (fly-over (list -1.0 -1.0 -1.0) (list 1.0 1.0 1.0)))
                (timing (new Pair (first 0) (second 0)))
                (address (page-address fetch)))
            (match (query-files address)
              ((Nil) (view-loop gpu dom picker events fetch out (None) fly timing format))
-             (files (opened gpu dom picker events fetch out (None) fly timing format files (query-eye address)))))))))))
+             (files (opened gpu dom picker events fetch out (None) fly timing format files (query-eye address))))))))
+  (unit))

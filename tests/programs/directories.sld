@@ -120,8 +120,6 @@
 
   (let* ((first (monotonic-nanoseconds clock)) (second (monotonic-nanoseconds clock)))
     (report out "clock never runs back" (show (>= second first))))
-  (report out "clock from a handler"
-          (show (handle clock
-                    ((monotonic-nanoseconds (lambda () 42)))
-                  (monotonic-nanoseconds clock))))
+  (report out "a clock of the program's own"
+          (show (monotonic-nanoseconds (new Clock (monotonic-nanoseconds (lambda () 42))))))
   (unit))

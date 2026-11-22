@@ -196,7 +196,7 @@
                   (destroy gpu (BindGroupObject (● step count-group)))
                   (destroy gpu (BindGroupObject (● step scatter-group))))
                 (● sorter steps))
-      (for-each destroy
+      (for-each (lambda (object) (destroy gpu object))
                 (list (BufferObject (● sorter counts))
                       (BufferObject (● sorter spare keys))
                       (BufferObject (● sorter spare values))

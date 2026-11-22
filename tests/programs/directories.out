@@ -51,4 +51,4 @@ remove the tree -> ok
 root exists -> #f
 remove the tree again -> error: no such file or directory
 clock never runs back -> #t
-clock from a handler -> 42
+a clock of the program's own -> 42

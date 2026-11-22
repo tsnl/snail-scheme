@@ -31,7 +31,7 @@
        (require (close-listener tcp listener))
        (display out (require (write tcp client #u8(0 255 128 1))))
        (newline out)
-       (write-value (array->list (receive-four tcp server)))
+       (write-value out (array->list (receive-four tcp server)))
        (newline out)
        ;; A read takes 1 to 65,536 bytes, and a grace is not negative.
        (for-each (lambda (maximum)

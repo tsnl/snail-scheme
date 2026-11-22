@@ -36,7 +36,7 @@
 
 (define (main (out OutputPort)) (→ Unit) (! host mut tasks)
   (match (with-memory-dom (list (Hide) (Hide))
-                          (lambda ()
+                          (lambda (dom)
                             (run-ui dom (new Model (text "idle"))
                                     (list (Start))
                                     (lambda (model message) (update model message))

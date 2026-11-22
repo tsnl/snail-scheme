@@ -125,7 +125,7 @@
     ;; ((snail shell project build)'s `build-script`), whose files the
     ;; library it writes can link.
 
-    (define (write-generated-library (resources Resources) (fs Fs) (library (Fn → Syntax ! mut tasks e)))
+    (define (write-generated-library (fs Fs) (library (Fn → Syntax ! mut tasks e)))
       (→ Unit) (! mut tasks e) (∀ (e))
       (match (command-line)
         ((Cons _ (Cons path _)) (write-bytes fs path (syntax->bytes (library))))

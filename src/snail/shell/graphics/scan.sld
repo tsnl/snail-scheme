@@ -162,13 +162,13 @@
     ;; scans stays.
     (define (release-scan (gpu Gpu) (scan Scan)) (→ Unit) (! mut)
       (for-each (lambda (level)
-                  (for-each destroy
+                  (for-each (lambda (object) (destroy gpu object))
                             (list (BufferObject (● level uniform))
                                   (BufferObject (● level sums))
                                   (BindGroupObject (● level scan-group))
                                   (BindGroupObject (● level add-group)))))
                 (● scan levels))
-      (for-each destroy
+      (for-each (lambda (object) (destroy gpu object))
                 (list (ComputePipelineObject (● scan scan-pipeline))
                       (ComputePipelineObject (● scan add-pipeline))
                       (ModuleObject (● scan module)))))

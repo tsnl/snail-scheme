@@ -1,5 +1,9 @@
 (import
  (snail shell ui page)
- (notes application))
+ (notes application)
+ (only (snail shell page) Events)
+ (only (snail shell page) PageStorage))
 
-(run-interface events storage (notes))
+(define (main (events Events) (storage PageStorage)) (→ Unit) (! mut host tasks)
+  (run-interface events storage (notes))
+  (unit))

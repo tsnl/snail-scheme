@@ -22,7 +22,7 @@
    report-ready
    hidden-kind
    save-kind
-   Storage
+   PageStorage
    host-storage
    load-save
    store-save
@@ -92,30 +92,30 @@
     ;; ---- Storage ----
 
     ;; One save, read at boot and replaced by each store.
-    (record Storage
+    (record PageStorage
       ((load-count (Fn → I32 ! mut tasks))
        (loaded-byte (Fn I32 → U8 ! mut))
        (store-save (Fn Bytes → Unit ! mut tasks))))
 
-    (define (load-count (storage Storage)) (→ I32) (! mut tasks)
+    (define (load-count (storage PageStorage)) (→ I32) (! mut tasks)
       ((● storage load-count)))
 
-    (define (loaded-byte (storage Storage) (n I32)) (→ U8) (! mut)
+    (define (loaded-byte (storage PageStorage) (n I32)) (→ U8) (! mut)
       ((● storage loaded-byte) n))
 
-    (define (store-save (storage Storage) (bytes Bytes)) (→ Unit) (! mut tasks)
+    (define (store-save (storage PageStorage) (bytes Bytes)) (→ Unit) (! mut tasks)
       ((● storage store-save) bytes))
 
     ;; The page's saved state, through the browser host.
-    (define (host-storage) (→ Storage)
-      (new Storage
+    (define (host-storage) (→ PageStorage)
+      (new PageStorage
         (load-count (lambda () (through-host host-start-load host-finish-load)))
         (loaded-byte host-byte)
         (store-save (lambda (bytes)
                          (through-host (lambda (ticket) (host-start-store ticket bytes))
                                        host-finish-store)))))
 
-    (define (load-save (storage Storage)) (→ (Option Bytes)) (! mut tasks)
+    (define (load-save (storage PageStorage)) (→ (Option Bytes)) (! mut tasks)
       (let ((count (load-count storage)))
         (if (< count 0)
             (None)
@@ -131,7 +131,7 @@
     ;; one, which a loop calls when the page is hidden or the host's timer
     ;; asks: five seconds after the boot or the last save.
 
-    (define (run-page (events Events) (storage Storage) (initialize (Fn → S ! mut))
+    (define (run-page (events Events) (storage PageStorage) (initialize (Fn → S ! mut))
                       (encode (Fn S → Bytes))
                       (decode (Fn Bytes → S))
                       (run (Fn S (Fn S → Unit ! mut tasks) → Unit ! e)))

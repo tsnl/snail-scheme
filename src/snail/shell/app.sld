@@ -139,9 +139,9 @@
    FilesEvent
    Hidden
    SaveRequested
-   events
+   Events
    next-event
-   storage
+   PageStorage
    load-save
    store-save
    SceneHandler
@@ -154,7 +154,7 @@
    (snail shell page)
    (snail core table)
    (only (snail shell dom) Dom document-root no-event Allow)
-   (only (snail shell dom page) with-page-dom)
+   (only (snail shell dom page) page-dom)
    (only (snail core io) Clock)
    (rename (snail shell gpu) (Image GpuImage))
    (snail shell graphics pod)
@@ -1062,7 +1062,7 @@
     ;; canvas's size, then the scene's loop, which never returns, over the
     ;; page's document.
 
-    (define (run-scene (gpu Gpu) (events Events) (storage Storage) (clock Clock) (scene (SceneHandler S D)))
+    (define (run-scene (gpu Gpu) (events Events) (storage PageStorage) (clock Clock) (scene (SceneHandler S D)))
       (→ Unit)
       (! mut tasks)
       (∀ (S D))
@@ -1071,21 +1071,20 @@
                 (● scene save)
                 (● scene restore)
                 (lambda (state save)
-                  (with-page-dom events
-                   (lambda ()
-                     (scene-loop gpu dom events storage clock scene
+                  (let ((dom (page-dom events)))
+(scene-loop gpu dom events storage clock scene
                                  save
                                  state
                                  ((● scene start))
                                  (new Hud (shown (Nil)) (hovered (None)))
-                                 0))))))
+                                 0)))))
 
     ;; Each event's state is drawn: a frame draws the scene and, at most ten
     ;; times a second, the HUD; an input shows its HUD. Saves share the
     ;; same queue, independently of display frames. A HUD listener that
     ;; fired gives its input; one the HUD has since dropped gives none.
 
-    (define (scene-loop (gpu Gpu) (dom Dom) (events Events) (storage Storage) (clock Clock) (scene (SceneHandler S D))
+    (define (scene-loop (gpu Gpu) (dom Dom) (events Events) (storage PageStorage) (clock Clock) (scene (SceneHandler S D))
                         (save (Fn S → Unit ! mut tasks))
                         (state S)
                         (drawing D)
@@ -1120,7 +1119,7 @@
         ((SaveRequested) (save state) (scene-loop gpu dom events storage clock scene save state drawing hud since-hud))
         ((FilesEvent _) (scene-loop gpu dom events storage clock scene save state drawing hud since-hud))))
 
-    (define (scene-input (gpu Gpu) (dom Dom) (events Events) (storage Storage) (clock Clock) (scene (SceneHandler S D))
+    (define (scene-input (gpu Gpu) (dom Dom) (events Events) (storage PageStorage) (clock Clock) (scene (SceneHandler S D))
                          (save (Fn S → Unit ! mut tasks))
                          (state S)
                          (drawing D)

@@ -4,10 +4,13 @@
                   (import
                    (snail core base)
                    (snail shell project build)
-                   (embedded linking))
-                  (files-library (list "embedded" "own")
+                   (embedded linking)
+ (only (snail core io) Fs Clock)
+ (only (snail shell process) Processes))
+                  (lambda ((processes Processes) (fs Fs) (clock Clock))
+(files-library fs (list "embedded" "own")
                                  "own-files"
-                                 (build-script (producer-tools)
-                                               (script-at "own.scm")
+                                 (build-script processes fs clock (producer-tools)
+                                               (script-at fs "own.scm")
                                                (Node)
-                                               (Debug))))
+                                               (Debug)))))

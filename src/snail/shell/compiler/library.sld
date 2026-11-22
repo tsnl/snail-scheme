@@ -105,28 +105,47 @@
 
     ;; The producer imports what the recipe imports, names the recipe's
     ;; file, and writes the syntax its expression returns, a
-    ;; `(snail shell syntax)` Syntax, which it computes in a task.
+    ;; `(snail shell syntax)` Syntax, which it computes in a task. A recipe
+    ;; that needs capabilities is a `lambda` over them, and the producer's
+    ;; main asks its target for each, besides the file system it writes
+    ;; its library through:
+    ;;
+    ;;   (define (main (producer-fs Fs) parameter ...) (→ Unit) (! mut tasks)
+    ;;     (write-generated-library producer-fs (lambda () body ...)))
 
     (define (producer (recipe String) (imports (List Syntax)) (expression Syntax) (loc Loc))
       (→ (List Syntax))
-      (let ((write-library (Ident "write-generated-library" (None) loc)))
-        (list (Form (Cons (Ident "import" (None) loc)
+      (let* ((ident (lambda (name) (Ident name (None) loc)))
+             (form (lambda (items) (Form items loc)))
+             (only (lambda (library names)
+                     (form (Cons (ident "only") (Cons (form (map ident library)) (map ident names))))))
+             (recipe-parts (recipe-lambda expression)))
+        (list (form (Cons (ident "import")
                           (append imports
-                                  (list (Form (list (Ident "only" (None) loc)
-                                                    (Form (list (Ident "snail" (None) loc)
-                                                                (Ident "shell" (None) loc)
-                                                                (Ident "syntax" (None) loc))
-                                                          loc)
-                                                    write-library)
-                                              loc))))
-                    loc)
-              (Form (list (Ident "recipe" (None) loc) (Atom (DString recipe) loc)) loc)
-              (Form (list (Ident "define" (None) loc) (Ident "main" (None) loc)
-                          (Form (list (Ident "lambda" (None) loc) (Form (Nil) loc)
-                                      (Form (list write-library
-                                                  (Form (list (Ident "lambda" (None) loc)
-                                                              (Form (Nil) loc) expression) loc))
-                                            loc)) loc)) loc))))
+                                  (list (only (list "snail" "shell" "syntax")
+                                              (list "write-generated-library"))
+                                        (only (list "snail" "core" "io") (list "Fs"))
+                                        (only (list "snail" "shell" "task") (list "tasks"))))))
+              (form (list (ident "recipe") (Atom (DString recipe) loc)))
+              (form (list (ident "define")
+                          (form (Cons (ident "main")
+                                      (Cons (form (list (ident "producer-fs") (ident "Fs")))
+                                            (● recipe-parts first))))
+                          (form (list (ident "→") (ident "Unit")))
+                          (form (list (ident "!") (ident "mut") (ident "tasks")))
+                          (form (list (ident "write-generated-library")
+                                      (ident "producer-fs")
+                                      (form (Cons (ident "lambda")
+                                                  (Cons (form (Nil)) (● recipe-parts second)))))))))))
+
+    ;; A recipe's capability parameters and its body: those of a `lambda`,
+    ;; or no parameters and the expression itself.
+
+    (define (recipe-lambda (expression Syntax)) (→ (Pair (List Syntax) (List Syntax)))
+      (match expression
+        ((Form (Cons (Ident "lambda" _ _) (Cons (Form params _) body)) _)
+         (new Pair (first params) (second body)))
+        (_ (new Pair (first (Nil)) (second (list expression))))))
 
     ;; ---- Sections ----
 

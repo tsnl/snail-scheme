@@ -33,11 +33,11 @@
   (run-all out actions))
 
 ;; A call's result fits as any value does.
-(define (printing (line String)) (→ (List (Fn → Unit ! mut)))
+(define (printing (out OutputPort) (line String)) (→ (List (Fn → Unit ! mut)))
   (list (lambda () (write-line out line))))
 
 (define (run-printing (out OutputPort)) (→ Unit) (! mut Log)
-  (run-all out (printing "printed")))
+  (run-all out (printing out "printed")))
 
 ;; A narrower function stored in a wider field, by construction and by write.
 (define (stored (action (Fn → Unit ! mut))) (→ Slot) (! mut)
@@ -76,7 +76,7 @@
     ((widened (lambda () (unit))))
     (run-narrow out (list (lambda () (write-line out "listed"))))
     (run-printing out)
-    (let ((actions (printing "open row")))
+    (let ((actions (printing out "open row")))
       (each-then out actions (lambda () (log "after"))))
     (twice out (● (stored (lambda () (write-line out "stored"))) action))
     (log "done"))

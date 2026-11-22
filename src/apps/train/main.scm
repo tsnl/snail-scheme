@@ -12,17 +12,22 @@
  (only (snail shell fetch) Fetch fetch-bytes page-address)
  (snail shell fetch page)
  (apps train dataset)
- (apps train trainer))
+ (apps train trainer)
+ (only (snail shell gpu) Gpu)
+ (only (snail shell page) Events)
+ (only (snail core io) Clock)
+ (only (snail core io) OutputPort))
 
 (define (fetched (fetch Fetch) (url String)) (→ Bytes) (! mut tasks)
   (match (fetch-bytes fetch url)
     ((Ok bytes) bytes)
     ((Err why) (panic why))))
 
-(with-page-fetch
- (lambda ()
-   (report-ready events)
+(define (main (gpu Gpu) (events Events) (clock Clock) (out OutputPort)) (→ Unit) (! mut host tasks)
+  (let ((fetch (page-fetch)))
+(report-ready events)
    (let ((settings (settings-of (page-address fetch))) (format (● (request-device gpu) format)))
      (handle photographs
          ((photograph (lambda (image) (dataset-photograph gpu (lambda () (fetched fetch)) settings image))))
-       (train photographs gpu clock out (dataset-scene gpu (lambda () (fetched fetch)) settings) (● settings options) (shown-on-canvas gpu format))))))
+       (train photographs gpu clock out (dataset-scene gpu (lambda () (fetched fetch)) settings) (● settings options) (shown-on-canvas gpu format)))))
+  (unit))

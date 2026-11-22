@@ -27,8 +27,8 @@
   ;; main returns.
   (dispatch
    (lambda ()
-     (handle udp
-         ((bind (lambda (endpoint)
+     (let ((udp (new Udp
+(bind (lambda (endpoint)
                   (Ok
                    (new UdpSocket
                      (token (Any (new PendingPacket
@@ -41,14 +41,14 @@
                   (Ok (i64->i32 (array-length bytes)))))
           (receive (lambda (socket _)
                      (Ok (● (fixture-convert (● socket token) PendingPacket) packet))))
-          (close-udp (lambda (_) (Ok (unit)))))
-       (let ((socket (require (bind udp (require (endpoint "192.0.2.1" 7))))))
+          (close-udp (lambda (_) (Ok (unit)))))))
+(let ((socket (require (bind udp (require (endpoint "192.0.2.1" 7))))))
          (dispatch
           (lambda ()
             (require (send udp socket (require (endpoint "192.0.2.2" 8)) #u8(9 10)))
             (let ((packet (require (receive udp socket 2))))
               (write-line out (Endpoint-address (● packet peer)))
-              (write-value (array->list (● packet bytes)))
+              (write-value out (array->list (● packet bytes)))
               (newline out))))))))
   (write-line out "main returns")
   (unit))

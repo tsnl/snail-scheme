@@ -10,7 +10,7 @@
 (define identity (lambda ((value T)) (→ T) (∀ (T)) value))
 
 (define report
-  (lambda ((label String) (n I64)) (→ Unit) (! mut)
+  (lambda ((out OutputPort) (label String) (n I64)) (→ Unit) (! mut)
     (write-line out (string-append label " " (show n)))))
 
 (define (apply-twice (f (Fn I64 → I64)) (n I64)) (→ I64)

@@ -1,4 +1,8 @@
 (import
- (requests application))
+ (requests application)
+ (only (snail shell page) Events)
+ (only (snail shell page) PageStorage))
 
-(run-requests events storage)
+(define (main (events Events) (storage PageStorage)) (→ Unit) (! mut host tasks)
+  (run-requests events storage)
+  (unit))

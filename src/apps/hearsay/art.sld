@@ -7,9 +7,11 @@
                    (snail core base)
                    (lpc embed)
                    (lpc wardrobe)
-                   (apps hearsay cast))
-                  (embed-library (list "apps" "hearsay" "art")
+                   (apps hearsay cast)
+ (only (snail core io) Fs))
+                  (lambda ((fs Fs))
+(embed-library fs (list "apps" "hearsay" "art")
                                  1000
                                  (delete-duplicates string=?
                                                     (concatenate
-                                                     (map character-paths everyone)))))
+                                                     (map character-paths everyone))))))

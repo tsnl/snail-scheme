@@ -5,14 +5,14 @@
 ;; An instance method has its class method's row, even when this instance
 ;; performs less of it.
 (typeclass (Announce T)
-  (declare (announce (value T)) (→ Unit) (! mut)))
+  (declare (announce (out OutputPort) (value T)) (→ Unit) (! mut)))
 
 (instance (Announce I64)
-  (define (announce (n I64)) (→ Unit) (! mut)
+  (define (announce (out OutputPort) (n I64)) (→ Unit) (! mut)
     (write-line out (i64->string n))))
 
 (instance (Announce Bool)
-  (define (announce (b Bool)) (→ Unit) (! mut)
+  (define (announce (out OutputPort) (b Bool)) (→ Unit) (! mut)
     (unit)))
 
 ;; A definition without a signature has no declared row to compare.

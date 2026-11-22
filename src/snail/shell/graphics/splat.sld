@@ -402,7 +402,7 @@
     ;; Everything the splats made goes at the next submit.
     (define (release-splats (gpu Gpu) (s Splats)) (→ Unit) (! mut)
       (release-sorter gpu (● s sorter))
-      (for-each destroy
+      (for-each (lambda (object) (destroy gpu object))
                 (append (map BufferObject
                              (list (● s gaussians)
                                    (● s harmonics)

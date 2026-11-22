@@ -3557,7 +3557,7 @@
 
       (define callable-signature
         (lambda (text)
-          (let* ((cx (new-context (Nil) (None) (Nil)))
+          (let* ((cx (new-context (host-fs) (lambda (loading forms) (panic "unexpected producer")) (Nil) (None) (Nil)))
                  (imports (fold-left (lambda (table entry)
                                        (table-set table (● entry first) (● entry second)))
                                      (empty-table) core-library))
@@ -3572,10 +3572,10 @@
       ;; library and the path.
       (define test-links
         (lambda (root) (create-directory* (string-append root "/sample/data"))
-                (write-file (string-append root "/sample/data/pixel.bin") "pixel")
-                (write-file (string-append root "/notes.txt") "notes")
-                (write-file (string-append root "/copy.txt") "notes")
-                (write-file (string-append root "/sample/linked.sld")
+                (write-file (host-fs) (string-append root "/sample/data/pixel.bin") "pixel")
+                (write-file (host-fs) (string-append root "/notes.txt") "notes")
+                (write-file (host-fs) (string-append root "/copy.txt") "notes")
+                (write-file (host-fs) (string-append root "/sample/linked.sld")
                             "(define-library (sample linked) (export pixel) (import (snail core forms)) (begin (define (pixel) (→ I32) (link-handle \"data/./x/../pixel.bin\"))))")
                 (let ((expansion (link-expansion root
                                                  "(import (snail core forms) (sample linked)) (define (notes) (→ I32) (link-handle \"notes.txt\")) (define (other) (→ I32) (link-handle \"notes.txt\")) (define (copy) (→ I32) (link-handle \"copy.txt\"))")))
@@ -3596,8 +3596,8 @@
                                        "/absent.bin"))))
 
       (define link-expansion
-        (lambda (root body) (write-file (string-append root "/main.sld") body)
-                (expand-program (list root)
+        (lambda (root body) (write-file (host-fs) (string-append root "/main.sld") body)
+                (expand-program (host-fs) (list root)
                                 (lambda (loading forms) (panic "unexpected producer"))
                                 (None)
                                 (Nil)
@@ -3625,9 +3625,9 @@
       ;; module.
       (define test-primitives
         (lambda (root library) (create-directory* root)
-                (write-file (string-append root "/main.sld")
+                (write-file (host-fs) (string-append root "/main.sld")
                             "(import (snail core forms) (snail core primitive)) (define (main) (→ Unit) (unit))")
-                (let ((program (● (expand-program (list root library)
+                (let ((program (● (expand-program (host-fs) (list root library)
                                                   (lambda (loading forms)
                                                     (panic "unexpected producer"))
                                                   (None)
@@ -3655,14 +3655,14 @@
       ;; including when nothing else imports the wire.
       (define test-deriving-runs
         (lambda (root library) (create-directory* (string-append root "/sample"))
-                (write-file (string-append root "/sample/shape.sld")
+                (write-file (host-fs) (string-append root "/sample/shape.sld")
                             (string-append
                              "(define-library (sample shape) (export Shape) (import (snail core base))"
                              " (begin (record Shape ((side I64)) (deriving Serialize Deserialize))))"))
-                (write-file (string-append root "/main.sld")
+                (write-file (host-fs) (string-append root "/main.sld")
                             "(import (snail core base) (sample shape)) (define (example) (→ Shape) (new Shape (side 2)))")
                 (let* ((expand (lambda ()
-                                 (expand-program (list root library)
+                                 (expand-program (host-fs) (list root library)
                                                  (lambda (loading forms)
                                                    (panic "unexpected producer"))
                                                  (None)

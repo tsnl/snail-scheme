@@ -114,18 +114,16 @@
   ;; main returns.
   (dispatch
    (lambda ()
-     (handle tcp
-         ((listen (lambda (_) (panic "unexpected listen")))
+     (let ((tcp (new Tcp
+(listen (lambda (_) (panic "unexpected listen")))
           (connect (lambda (_) (panic "unexpected connect")))
           (accept (lambda (_) (panic "unexpected accept")))
           (read read-stream)
           (write write-stream)
           (finish-connection finish-stream)
           (close-listener (lambda (_) (panic "unexpected listener close")))
-          (close-connection close-stream))
-       ;; Every read size splits the delimiter/body differently. Writes accept
-       ;; short prefixes; all app state lives in this handler's opaque token.
-       (let loop ((size 1))
+          (close-connection close-stream))))
+(let loop ((size 1))
          (when (<= size (array-length (request)))
            (let ((state (stream (request) size 3 "")))
              (assert (success? (run tcp state echo)))

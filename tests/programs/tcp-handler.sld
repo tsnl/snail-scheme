@@ -29,8 +29,8 @@
   ;; handler's captures. A dispatched task inherits this handler across waits.
   (dispatch
    (lambda ()
-     (handle tcp
-         ((listen
+     (let ((tcp (new Tcp
+(listen
            (lambda (endpoint)
              (Ok (new Listener (token (Any endpoint)) (port (Endpoint-port endpoint))))))
           (connect
@@ -52,13 +52,13 @@
                                (set! (● (fixture-convert (● connection token) Buffer) bytes)
                                      #u8())
                                (Ok (unit))))
-          (close-connection (lambda (_) (Ok (unit)))))
-       (let ((connection (require (connect tcp (require (endpoint "192.0.2.1" 0))))))
+          (close-connection (lambda (_) (Ok (unit)))))))
+(let ((connection (require (connect tcp (require (endpoint "192.0.2.1" 0))))))
          (dispatch
           (lambda ()
             (require (write tcp connection #u8(7 8)))
             (match (require (read tcp connection 2))
-              ((Some bytes) (write-value (array->list bytes)))
+              ((Some bytes) (write-value out (array->list bytes)))
               ((None) (panic "unexpected EOF")))
             (newline out)
             (require (finish-connection tcp connection 250))))))))

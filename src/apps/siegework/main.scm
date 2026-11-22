@@ -5,9 +5,14 @@
  (snail shell wire)
  (apps siegework game)
  (apps siegework view)
- (apps siegework hud))
+ (apps siegework hud)
+ (only (snail shell gpu) Gpu)
+ (only (snail shell page) Events)
+ (only (snail shell page) PageStorage)
+ (only (snail core io) Clock))
 
-(run-scene gpu events storage clock (new SceneHandler
+(define (main (gpu Gpu) (events Events) (storage PageStorage) (clock Clock)) (→ Unit) (! mut tasks)
+  (run-scene gpu events storage clock (new SceneHandler
              (initialize new-game)
              (update update-game)
              (start start-frames)
@@ -16,3 +21,4 @@
              (image-url (lambda (drawing image) ""))
              (save (lambda (game) (serialize (game-save game))))
              (restore (lambda (bytes) (game-restore (deserialize bytes))))))
+  (unit))

@@ -2,77 +2,76 @@
  (snail core base)
  (snail core io))
 
-;; These private handlers model streams with state owned by each invocation.
+;; A port is a value: a program makes its own from a function, with state
+;; the port alone holds, and gives it to the code that reads or writes.
 (record Cursor
   ((index I64)))
+
 (record Output
   ((reversed (List String))))
 
-(define (from-text (text String) (action (Fn → A ! mut e)))
-  (→ A) (! mut e) (∀ (A e))
+;; A port that reads `text`, a character at a time.
+(define (from-text (text String)) (→ InputPort)
   (let ((position (new Cursor (index 0))))
-    (handle input-port
-        ((read-char (lambda ()
-                      (let ((index (● position index)))
-                        (if (= index (string-length text))
-                            (None)
-                            (begin (set! (● position index) (+ index 1))
-                                   (Some (string-ref text index))))))))
-      (action))))
+    (new InputPort
+      (read-char (lambda ()
+                   (let ((index (● position index)))
+                     (if (= index (string-length text))
+                         (None)
+                         (begin
+                           (set! (● position index) (+ index 1))
+                           (Some (string-ref text index))))))))))
 
-(define (capture (action (Fn → Unit ! mut e)))
-  (→ String) (! mut e) (∀ (e))
+;; What `action` writes to the port it is given.
+(define (capture (action (Fn OutputPort → Unit ! mut e))) (→ String) (! mut e) (∀ (e))
   (let ((chunks (new Output (reversed (Nil)))))
-    (handle output-port
-        ((write-string (lambda (text) (set! (● chunks reversed) (Cons text (● chunks reversed))))))
-      (action))
+    (action (new OutputPort
+              (write-string
+               (lambda (text) (set! (● chunks reversed) (Cons text (● chunks reversed)))))))
     (string-concatenate (reverse (● chunks reversed)))))
 
 (define (line (out OutputPort) (value T)) (→ Unit) (! mut) (∀ (T)) (⊨ (Repr T))
   (write out value)
   (newline out))
 
-;; Both operations can be handled without any remaining I/O effect.
-(define (silent-eof) (→ (Option Char))
-  (handle input-port
-      ((read-char (lambda () (None))))
-    (handle output-port
-        ((write-string (lambda (text) (unit))))
-      (write out "discarded")
-      (read-char in))))
+;; Ports that read nothing and keep nothing touch no stream at all.
+(define (silent-eof) (→ (Option Char)) (! mut)
+  (let ((in (new InputPort (read-char (lambda () (None)))))
+        (out (new OutputPort (write-string (lambda (text) (unit))))))
+    (write out "discarded")
+    (read-char in)))
 
 (define (main (out OutputPort)) (→ Unit) (! mut)
-
-  (from-text "aλ😀\n\nlast"
-             (lambda ()
-               (line out (read-char in))
-               (line out (read-line in))
-               (line out (read-line in))
-               (line out (read-line in))
-               (line out (read-char in))
-               (line out (read-char in))))
-  ;; Input handlers restore the outer cursor and do not intercept output.
-  (from-text "ab"
-             (lambda ()
-               (line out (read-char in))
-               (from-text "inner" (lambda () (line out (read-line in))))
-               (line out (read-char in))))
-  ;; Capturing output leaves the current input available to the computation.
-  (from-text "my string input\n"
-             (lambda () (write-line out (capture (lambda () (write out (read-line in)))))))
-  ;; Nested output goes to its own destination, then the outer one is restored.
+  (let ((in (from-text "aλ😀\n\nlast")))
+    (line out (read-char in))
+    (line out (read-line in))
+    (line out (read-line in))
+    (line out (read-line in))
+    (line out (read-char in))
+    (line out (read-char in)))
+  ;; Each port keeps its own cursor, and reading one writes nothing.
+  (let ((in (from-text "ab")))
+    (line out (read-char in))
+    (line out (read-line (from-text "inner")))
+    (line out (read-char in)))
+  ;; Capturing output leaves the input available to the computation.
+  (let ((in (from-text "my string input\n")))
+    (write-line out (capture (lambda (captured) (write captured (read-line in))))))
+  ;; Nested output goes to its own port, and the outer one is still there.
   (write-line out
-   (capture (lambda ()
-              (write-string out "before:")
-              (let ((inner (capture (lambda () (write out (Some "inner"))))))
-                (write-string out inner))
-              (write-char out #\:)
-              (display out "after"))))
-  ;; Calling the operation inside its implementation forwards to the outer port.
+              (capture (lambda (outer)
+                         (write-string outer "before:")
+                         (let ((inner (capture (lambda (inner) (write inner (Some "inner"))))))
+                           (write-string outer inner))
+                         (write-char outer #\:)
+                         (display outer "after"))))
+  ;; A port made from another one writes through it.
   (write-line out
-   (capture (lambda ()
-              (handle output-port
-                  ((write-string (lambda (text) (write-string out (string-append "[" text "]")))))
-                (write out "forwarded")))))
+              (capture (lambda (outer)
+                         (write (new OutputPort
+                                  (write-string
+                                   (lambda (text)
+                                     (write-string outer (string-append "[" text "]")))))
+                                "forwarded"))))
   (line out (silent-eof))
   (unit))

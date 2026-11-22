@@ -40,7 +40,7 @@
       (Loaded ((request I64)
                (result (Result String String)))))
 
-    (define (update (model Model) (message Msg))
+    (define (update (fetch Fetch) (model Model) (message Msg))
       (→ (Pair Model (List (Fn → Msg ! mut tasks e))))
       (∀ (e))
       (match message
@@ -108,23 +108,21 @@
 
     ;; The page runs over the save itself, so a page started again has no
     ;; request outstanding.
-    (define (run-requests (events Events) (storage Storage)) (→ Unit) (! mut host tasks)
+    (define (run-requests (events Events) (storage PageStorage)) (→ Unit) (! mut host tasks)
       (run-page events storage (lambda () (new Save (display (Showing "idle")) (clicks 0)))
                 serialize
                 deserialize
                 (lambda (saved checkpoint) (present events storage saved checkpoint))))
 
-    (define (present (events Events) (storage Storage) (saved Save) (checkpoint (Fn Save → Unit ! mut tasks)))
+    (define (present (events Events) (storage PageStorage) (saved Save) (checkpoint (Fn Save → Unit ! mut tasks)))
       (→ Unit)
       (! mut host tasks)
-      (with-page-dom events
-       (lambda ()
-         (with-page-fetch
-          (lambda ()
-            (run-ui dom (restore saved) (Nil)
-                    (lambda (model message) (update model message))
+      (let ((dom (page-dom events)))
+(let ((fetch (page-fetch)))
+(run-ui dom (restore saved) (Nil)
+                    (lambda (model message) (update fetch model message))
                     (lambda (model) (view model))
                     (lambda (model) (window model))
                     (lambda (model) (report-ready events))
                     (lambda (model) (checkpoint (save model))))
-            (unit))))))))
+            (unit))))))

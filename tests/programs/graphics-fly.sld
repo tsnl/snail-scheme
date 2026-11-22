@@ -42,12 +42,14 @@
                                    " it misses ")
                                (string-join (map f64->string toward) " ")))))
 
-(stands out (list 0.0 1.0 0.0))
-(stands out (list 0.6 0.0 0.8))
-(stands out (list -0.48 -0.6 0.64))
-(stands out (list 0.0 -1.0 0.0))
-(write-line out (string-append "half a turn: "
+(define (main (out OutputPort)) (→ Unit) (! mut)
+  (stands out (list 0.0 1.0 0.0))
+  (stands out (list 0.6 0.0 0.8))
+  (stands out (list -0.48 -0.6 0.64))
+  (stands out (list 0.0 -1.0 0.0))
+  (write-line out (string-append "half a turn: "
                            (string-join (map f64->string (upright (list 0.0 -1.0 0.0))) " ")))
-(looks out (list 0.0 0.0 -1.0))
-(looks out (list 0.48 0.6 -0.64))
-(looks out (list -0.8 -0.6 0.0))
+  (looks out (list 0.0 0.0 -1.0))
+  (looks out (list 0.48 0.6 -0.64))
+  (looks out (list -0.8 -0.6 0.0))
+  (unit))

@@ -67,7 +67,8 @@
 
 (define (numbers (values (List F64))) (→ String) (string-join (map f64->string values) " "))
 
-(match (read-cameras cameras)
+(define (main (out OutputPort)) (→ Unit) (! mut)
+  (match (read-cameras cameras)
   ((Ok read)
    (for-each (lambda (c)
                (write-line out (string-append "camera "
@@ -80,8 +81,7 @@
                                           (numbers (list (● c fx) (● c fy) (● c cx) (● c cy))))))
              read))
   ((Err why) (write-line out why)))
-
-(match (read-images images)
+  (match (read-images images)
   ((Ok read)
    (for-each (lambda (i)
                (write-line out (string-append "image "
@@ -101,8 +101,7 @@
                  (_ (unit))))
              read))
   ((Err why) (write-line out why)))
-
-(match (read-points points)
+  (match (read-points points)
   ((Ok read)
    (for-each (lambda (p)
                (write-line out (string-append "point "
@@ -111,6 +110,21 @@
                                           (numbers (● p color)))))
              read))
   ((Err why) (write-line out why)))
+  (write-line out (refusal (read-cameras (subarray cameras 0 40))))
+  (write-line out (refusal (read-cameras (file (list (integer-bytes 1 8)
+                                               (integer-bytes 1 4)
+                                               (integer-bytes 4 4)
+                                               (integer-bytes 8 8)
+                                               (integer-bytes 8 8))))))
+  (write-line out (match (read-images (subarray images 0 70))
+              ((Ok _) "read")
+              ((Err why) why)))
+  (write-line out (match (read-points (subarray points 0 60))
+              ((Ok _) "read")
+              ((Err why) why)))
+  (unit))
+
+
 
 ;; ---- Refusals ----
 
@@ -119,15 +133,3 @@
     ((Ok _) "read")
     ((Err why) why)))
 
-(write-line out (refusal (read-cameras (subarray cameras 0 40))))
-(write-line out (refusal (read-cameras (file (list (integer-bytes 1 8)
-                                               (integer-bytes 1 4)
-                                               (integer-bytes 4 4)
-                                               (integer-bytes 8 8)
-                                               (integer-bytes 8 8))))))
-(write-line out (match (read-images (subarray images 0 70))
-              ((Ok _) "read")
-              ((Err why) why)))
-(write-line out (match (read-points (subarray points 0 60))
-              ((Ok _) "read")
-              ((Err why) why)))

@@ -20,7 +20,7 @@
  (only (snail shell page) Events report-ready)
  (only (snail shell fetch) Fetch fetch-all-bytes page-address)
  (only (snail shell dom) Dom document-root set-text)
- (only (snail shell dom page) with-page-dom)
+ (only (snail shell dom page) page-dom)
  (snail shell files)
  (snail shell files page)
  (snail shell fetch page)
@@ -248,16 +248,15 @@
                         ((None) (Nil))))
                     (list "cloud" "poses"))))
 
-(with-page-fetch
- (lambda ()
-   (with-page-files
-    (lambda ()
-      (with-page-dom events
-       (lambda ()
-         (let* ((format (● (request-device gpu) format))
+(define (main (gpu Gpu) (events Events) (out OutputPort)) (→ Unit) (! mut tasks)
+  (let ((fetch (page-fetch)))
+(let ((picker (page-file-picker)))
+(let ((dom (page-dom events)))
+(let* ((format (● (request-device gpu) format))
                 (shown (new Shown (splats (standing gpu (rings) 3 format)) (turned (Some 0.0))))
                 (fly (fly-over (list -2.5 -1.0 -2.5) (list 2.5 1.0 2.5)))
                 (timing (new Pair (first 0) (second 0))))
            (match (query-files (page-address fetch))
              ((Nil) (view-loop gpu dom picker events fetch out shown fly timing format))
-             (files (opened gpu dom picker events fetch out shown fly timing format files))))))))))
+             (files (opened gpu dom picker events fetch out shown fly timing format files)))))))
+  (unit))

@@ -24,7 +24,7 @@
 
 (define (adder) (→ (Fn I64 → I64)) (! Abort) (let ((z (abort 5))) (lambda (y) (* y z))))
 
-(define (later)
+(define (later (out OutputPort))
   (→ (Fn → Unit ! mut))
   (! Abort)
   (let ((value (abort 6))) (lambda () (write-line out (show value)))))
@@ -55,7 +55,7 @@
   (newline out)
   ((handle Abort ((abort (lambda (value resume)
                            (lambda () (write-line out "from the handler")))))
-     (later)))
+     (later out)))
   (display out (handle Abort ((abort (lambda (value resume) (* value 10))))
              (handle Log ((log (lambda (message) (write-line out message))))
                (log "before")

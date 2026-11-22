@@ -460,7 +460,7 @@
                                    size)
                        (destroy gpu (TextureObject (● image texture))))
                       ((None)
-                       (for-each destroy
+                       (for-each (lambda (object) (destroy gpu object))
                                  (list (TextureObject layers)
                                        (PipelineObject pipeline)
                                        (SamplerObject sampler)))

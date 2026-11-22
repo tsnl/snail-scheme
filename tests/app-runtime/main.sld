@@ -11,7 +11,7 @@
  (only (snail core io) Clock)
  (only (snail shell gpu) Gpu)
  (only (snail shell page) Events)
- (only (snail shell page) Storage))
+ (only (snail shell page) PageStorage))
 
 ;; A task keeps its handlers across its waits, and a child inherits them.
 (effect Marker
@@ -72,7 +72,7 @@
     (save (lambda (counter) (serialize (new Save (count (● counter count))))))
     (restore (lambda (bytes) (counting (● (ann (deserialize bytes) Save) count))))))
 
-(define (main (gpu Gpu) (events Events) (storage Storage) (clock Clock)) (→ Unit) (! mut host tasks)
+(define (main (gpu Gpu) (events Events) (storage PageStorage) (clock Clock)) (→ Unit) (! mut host tasks)
   (handle Marker
       ((marker (lambda () 17)))
     (dispatch (lambda ()

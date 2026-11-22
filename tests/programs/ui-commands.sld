@@ -38,7 +38,7 @@
 (type (Command M)
       (Fn → M ! mut tasks))
 
-(define (update (model Model) (message Msg)) (→ (Pair Model (List (Command Msg))))
+(define (update (dom Dom) (model Model) (message Msg)) (→ (Pair Model (List (Command Msg))))
   (match message
     ((Begin) (new Pair (first model) (second (list began))))
     ((Typed text) (new Pair (first (Model-text-set model text)) (second (Nil))))
@@ -146,10 +146,10 @@
                    (clicked "late")
                    (clicked "hide")
                    (FireWindow "online" no-event))
-             (lambda ()
+             (lambda (dom)
                (run-ui dom (new Model (text "") (shown #t) (log (Nil)))
                        (list (Begin))
-                       (lambda (model message) (update model message))
+                       (lambda (model message) (update dom model message))
                        view
                        window
                        (lambda (model) (unit))

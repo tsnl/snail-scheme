@@ -5,10 +5,13 @@
                   (import
                    (snail core base)
                    (snail shell project build)
-                   (embedded linking))
-                  (files-library (list "embedded" "client")
+                   (embedded linking)
+ (only (snail core io) Fs Clock)
+ (only (snail shell process) Processes))
+                  (lambda ((processes Processes) (fs Fs) (clock Clock))
+(files-library fs (list "embedded" "client")
                                  "client-files"
-                                 (build-script (producer-tools)
-                                               (script-at "client/main.scm")
+                                 (build-script processes fs clock (producer-tools)
+                                               (script-at fs "client/main.scm")
                                                (Browser)
-                                               (Debug))))
+                                               (Debug)))))

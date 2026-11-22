@@ -156,14 +156,16 @@
     ((Some at) (substring line (+ 21 at) (- (string-length line) 4)))
     ((None) line)))
 
-(match (read-ply file 3)
+(define (main (out OutputPort)) (→ Unit) (! mut)
+  (match (read-ply file 3)
   ((Ok cloud) (show-cloud out cloud))
   ((Err message) (write-line out message)))
-(written out)
-(write-line out (refusal (list "ply" "format ascii 1.0" "element vertex 1" "property float x")))
-(write-line out
+  (written out)
+  (write-line out (refusal (list "ply" "format ascii 1.0" "element vertex 1" "property float x")))
+  (write-line out
  (refusal (list "ply" "format binary_little_endian 1.0" "element vertex 1" "property uchar x")))
-(write-line out
+  (write-line out
  (refusal (list "ply" "format binary_little_endian 1.0" "element vertex 1" "property float x")))
-(write-line out
- (string-join (map workgroups (filter dispatched (● (with-recorded-gpu (lambda () (frame gpu))) second))) " "))
+  (write-line out
+ (string-join (map workgroups (filter dispatched (● (with-recorded-gpu (lambda (gpu) (frame gpu))) second))) " "))
+  (unit))

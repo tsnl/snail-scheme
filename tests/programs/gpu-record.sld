@@ -82,6 +82,8 @@
     (end-compute-pass gpu pass)
     (submit gpu (list (finish gpu encoder)))))
 
-(for-each (lambda (text) (write-line out text)) (● (with-recorded-gpu (lambda () (frame gpu))) second))
-(write-line out "compute:")
-(for-each (lambda (text) (write-line out text)) (● (with-recorded-gpu (lambda () (compute gpu))) second))
+(define (main (out OutputPort)) (→ Unit) (! mut tasks)
+  (for-each (lambda (text) (write-line out text)) (● (with-recorded-gpu (lambda (gpu) (frame gpu))) second))
+  (write-line out "compute:")
+  (for-each (lambda (text) (write-line out text)) (● (with-recorded-gpu (lambda (gpu) (compute gpu))) second))
+  (unit))

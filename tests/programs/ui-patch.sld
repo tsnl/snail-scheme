@@ -56,7 +56,7 @@
                                           (Fire "next" "click" no-event)
                                           (Fire "next" "click" no-event)
                                           (Fire "next" "click" no-event))
-                                    (lambda ()
+                                    (lambda (dom)
                                       (run-ui dom 0
                                               (Nil)
                                               (lambda (model message) (update model message))

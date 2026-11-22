@@ -5,9 +5,11 @@
  (snail core base)
  (snail core io))
 
-(write-line out (greeting))
+(define (main (out OutputPort)) (→ Unit) (! mut)
+  (write-line out (greeting))
+  (+ 1 2)
+  (write-line out "statements run in order")
+  (unit))
 
 (define (greeting) (→ String) "hello from a script")
 
-(+ 1 2)
-(write-line out "statements run in order")

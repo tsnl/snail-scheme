@@ -93,7 +93,8 @@
                     (● gltf buffers))
                ", "))
 
-(match (read (string->utf8 scene))
+(define (main (out OutputPort)) (→ Unit) (! mut)
+  (match (read (string->utf8 scene))
   ((Ok gltf)
    (write-line out (string-append "buffers: " (buffers gltf) " size " (show (● gltf size))))
    (write-line out (string-append "images: " (sources (● gltf images))))
@@ -121,19 +122,10 @@
      (write-line out
       (string-append "bounds: " (numbers (● bounds first)) " to " (numbers (● bounds second))))))
   ((Err reason) (write-line out reason)))
-
-(define two-buffers
-  (→ Bytes)
-  (glb
-   "{\"buffers\":[{\"byteLength\":4},{\"uri\":\"data:application/octet-stream;base64,AQI=\",\"byteLength\":2}]}"
-   (list->array (map i32->u8 (list 9 8 7 6)))))
-
-(match (read two-buffers)
+  (match (read two-buffers)
   ((Ok gltf) (write-line out (string-append "glb buffers: " (buffers gltf))))
   ((Err reason) (write-line out reason)))
-
-;; Each scene that cannot be read, and why.
-(for-each (lambda (file)
+  (for-each (lambda (file)
             (match (read file)
               ((Ok _) (write-line out "read"))
               ((Err reason) (write-line out reason))))
@@ -153,3 +145,13 @@
                 (string->utf8 "{\"images\":[{\"bufferView\":0}]}")
                 (string->utf8 "{\"images\":[{\"mimeType\":\"image/png\"}]}")
                 (string->utf8 "{\"extensionsRequired\":[\"KHR_draco_mesh_compression\"]}")))
+  (unit))
+
+(define two-buffers
+  (→ Bytes)
+  (glb
+   "{\"buffers\":[{\"byteLength\":4},{\"uri\":\"data:application/octet-stream;base64,AQI=\",\"byteLength\":2}]}"
+   (list->array (map i32->u8 (list 9 8 7 6)))))
+
+
+;; Each scene that cannot be read, and why.

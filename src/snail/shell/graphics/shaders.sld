@@ -15,7 +15,8 @@
                    (snail core base)
                    (snail shell resource)
                    (snail shell graphics wgsl))
-                  (shader-library (list "snail" "shell" "graphics" "shaders")
+                  (lambda ((resources Resources))
+(shader-library resources (list "snail" "shell" "graphics" "shaders")
                                   (list (new Pair
                                           (first "quad-shader")
                                           (second (link-file "quad.wgsl.scm")))
@@ -96,4 +97,4 @@
                                           (second (link-file "environment.wgsl.scm")))
                                         (new Pair
                                           (first "environment-light-shader")
-                                          (second (link-file "environment-light.wgsl.scm"))))))
+                                          (second (link-file "environment-light.wgsl.scm")))))))
