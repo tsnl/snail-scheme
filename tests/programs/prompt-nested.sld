@@ -5,6 +5,7 @@
 ;; Each suspension goes to the nearest `with-prompt` of its own prompt,
 ;; past those of other prompts, which are kept with the rest of the body
 ;; and are around it again when it resumes.
+;; ANCHOR: nested
 (define outer (→ (Prompt String Unit)) (make-prompt))
 
 (define inner (→ (Prompt I64 I64)) (make-prompt))
@@ -26,6 +27,8 @@
                  (write-line out line)
                  (resume (unit)))))
 
+;; ANCHOR_END: nested
+
 ;; Of two `with-prompt`s of one prompt, the inner one catches, and a
 ;; suspension its handler makes goes to the outer one.
 (define (twice-told (out OutputPort)) (→ I64) (! mut)
@@ -40,6 +43,7 @@
                          (+ 10 (resume (unit))))))))
 
 (define (main (out OutputPort)) (→ Unit) (! mut)
+  ;; ANCHOR: run-nested
   (display out
            (told out
                  (lambda ()
@@ -47,6 +51,7 @@
                                (suspend outer "asking")
                                (+ (suspend inner 1) (suspend inner 20)))))))
   (newline out)
+  ;; ANCHOR_END: run-nested
   (display out (twice-told out))
   (newline out)
   (unit))

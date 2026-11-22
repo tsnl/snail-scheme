@@ -21,8 +21,8 @@ measurements ask for it.
 | `project.datum`, `(snail shell project)` | A script's path on the command line |
 | Build and run targets, `args` | The script, and arguments on the command line |
 | `library-roots` | The workspace's `src/` |
-| `(entry ((lib) Type))` and the `Application` class | Top-level statements in the script |
-| `(runtime toolchain)` | The `assembler` capability, handled by the target |
+| `(entry ((lib) Type))` and the `Application` class | The script's `main` |
+| `(runtime toolchain)` | The runtime a script that imports `(snail shell assembler)` links with |
 | `artifact-bundle`, the planner (`project/plan.sld`) | A `generate-library` producer that builds a script (removed) |
 | `snail-scheme watch`, the reload client, relinking | Nothing, for now (removed) |
 | `snailc`, `-o` | `snail-scheme run FILE` and `build FILE` |
@@ -41,114 +41,112 @@ an application keeps its script beside its libraries:
 
 ## Scripts
 
-A script is a `.scm` file. It imports libraries and runs its statements in order.
-It has no `main` function and declares no entry type.
+A script is a `.scm` file. It imports libraries and defines `main`, its
+entry, whose parameters are the capabilities it asks its target for:
 
 ```scheme
 (import (snail core base) (snail core io) (apps fibonacci))
-(write-string (number->string (fibonacci 30)))
-(newline)
+
+(define (main (out OutputPort)) (→ Unit) (! mut)
+  (write-line out (number->string (fibonacci 30))))
 ```
 
-The script's statements are checked like a function body. Their inferred effect
-row is the program's: nothing is declared. Libraries keep their rule that loading
-runs no initializer. Only a script has statements.
+A top level holds definitions alone, a script's as a library's: nothing
+runs when a library loads, and what runs when a program starts is its
+`main`. A script once ran its top-level statements instead; a statement
+has nothing to write to, now that a program is handed each capability it
+uses, so the parameters of `main` are where a program says what it needs.
 
-A GUI program is an ordinary script that hands control to a library's event loop,
-in the style of Rust's [winit](https://github.com/rust-windowing/winit): it
-builds a handler, a record of functions, and calls `(run-scene handler)` as a
-statement. Such libraries are conveniences, not part of the language or the
-toolchain.
+A GUI program is an ordinary script that hands control to a library's event
+loop, in the style of Rust's [winit](https://github.com/rust-windowing/winit):
+its `main` builds a handler, a record of functions, and calls
+`(run-scene gpu events storage clock handler)`. Such libraries are
+conveniences, not part of the language or the toolchain.
 
-On the page a statement cannot block, so the script's top level runs as the
-scheduler's first task, and `run-scene` waits for events through the task
-effect ([application model](applications.md)).
+On the page a program cannot block, so `main` runs as the scheduler's first
+task, and `run-scene` waits for events as a task does
+([application model](applications.md)).
 
 ## Targets and capabilities
 
 Each build names its runtime target explicitly, with `--target`, such as
 `--target node` or `--target browser`. Nothing infers a target.
 
-What a platform offers is split into capability effects, one for each service,
-such as `output-port`, `input-port`, the page's document, sockets or processes.
-There is no marker effect for a platform as a whole.
+What a platform offers is split into capabilities, one value for each
+service: an output port, an input port, the page's document, sockets,
+processes. There is no marker for a platform as a whole, and no object
+that holds everything a host has.
 
-An entry's inferred effect row, the script's or an exposed function's, is
-what it requires, as a dependency-injection interface: nothing in the program
-handles those effects. A target is a library of handlers, one for each
-capability it provides, `(snail target node)` for instance, and the build
-injects them into every entry, as evidence passed to it, so the script
-performs `write-string` and the target's `output-port` handler answers. Any
-effect left in the row after those handlers is a build error naming each
-capability the target lacks. An effect the program handles itself, such as
-the compiler's `compile`, never reaches the target.
+An entry's parameters, `main`'s or an exposed function's, are what it
+requires, as a dependency-injection interface. A target is a library,
+`(snail target node)` for instance, and provides a type by exporting a
+function of no parameters that answers it. The build calls each entry with
+what the providers of its parameters' types answer. A parameter of `main`
+whose type the target does not provide is a build error naming it
+([capabilities](effects.md#main-asks-its-target)).
 
-The handlers answer by calling the host through `extern` imports. An
-extern's type is its library author's claim, trusted as written, and calling
-one needs no effect: a file or socket extern is declared as a plain function,
-and its library keeps it behind the capability's handler, so code outside
-sees only `fs` or `tcp`. Building a sensible abstraction over its externs is
-the library's job. The foreign functions that were pure, the math functions,
-Unicode tables and float printing, have moved into `snail-scheme` code.
+The host's capabilities answer by calling the host through `extern`
+imports. An extern's type is its library author's claim, trusted as
+written: a file or socket extern is declared as a plain function, and its
+library keeps it behind the capability, so code outside reaches the host's
+files only through an `Fs`. Building a sensible abstraction over its
+externs is the library's job. The foreign functions that were pure, the
+math functions, Unicode tables and float printing, have moved into
+`snail-scheme` code.
 
-Code meant for several targets asks only for the capabilities it uses. A library
-that writes text needs `output-port`, not "Node", so any target whose handlers
-include an output port can run it. A capability's library declares only the
-effect and its operations; how a target answers them belongs to the target's
-handlers, not to a `default` in the library.
+Code meant for several targets asks only for the capabilities it uses. A
+library that writes text takes an `OutputPort`, not "Node", so any target
+that provides one can run it. A capability's library declares the type and
+the function that makes the host's; whether a target provides it belongs to
+the target.
 
 There are two targets, each a library under `src/snail/target/`:
 
 - `node`, the program on Node (`host/native`);
 - `browser`, the program in a page (`host/browser`).
 
-A target exports `provide`, which runs a thunk under its handlers, and
-`start`, which runs `main` as the first task of the host's scheduler inside
-`provide`. A capability's library exports the handler that answers it on
-the host, such as `provide-fs` in `(snail core io)`, and a target's
-`provide` installs those it has.
+A target exports its providers and `start`, which runs `main` as the first
+task of the host's scheduler.
 
 Capabilities fall into three groups. The portable subset is what both
-targets handle, and what a target for another host, such as
-[workerd](https://github.com/cloudflare/workerd), would handle too; a
+targets provide, and what a target for another host, such as
+[workerd](https://github.com/cloudflare/workerd), would provide too; a
 library that asks only for these runs anywhere.
 
 | Portable capability | Library | On Node | In a page |
 | --- | --- | --- | --- |
-| `output-port` | `(snail core io)` | standard output | the console |
-| `clock` | `(snail core io)` | the monotonic clock | the monotonic clock |
-| `resource` | `(snail shell resource)` | files beside the module | files fetched beside the module |
-| `wasm` | `(snail shell wasm)` | Node's WebAssembly | the page's WebAssembly |
-| `tasks` | `(snail shell task)` | the host's scheduler | the host's scheduler |
+| `OutputPort` | `(snail core io)` | standard output | the console |
+| `Clock` | `(snail core io)` | the monotonic clock | the monotonic clock |
+| `Resources` | `(snail shell resource)` | files beside the module | files fetched beside the module |
+| `Wasm` | `(snail shell wasm)` | Node's WebAssembly | the page's WebAssembly |
+
+Tasks need no capability: any code may wait
+([suspension](suspension.md), [tasks](../runtimes/tasks.md)).
 
 Node adds the local machine:
 
 | Node's capability | Library |
 | --- | --- |
-| `input-port` | `(snail core io)`, standard input |
-| `fs` | `(snail core io)` |
-| `files` | `(snail shell async-files)` |
-| `process`, `signals` | `(snail shell process)` |
-| `tcp`, `udp` | `(snail shell socket)` |
-| `assembler` | `(snail shell assembler)` |
+| `InputPort` | `(snail core io)`, standard input |
+| `Fs` | `(snail core io)` |
+| `Files` | `(snail shell async-files)` |
+| `Processes`, `Signals` | `(snail shell process)` |
+| `Tcp`, `Udp` | `(snail shell socket)` |
 
 A page adds itself:
 
 | The page's capability | Library |
 | --- | --- |
-| `events`, `storage` | `(snail shell page)` |
-| `gpu` | `(snail shell gpu)` |
-| `dom` | `(snail shell dom)` |
-| `fetch` | `(snail shell fetch)` |
+| `Events`, `PageStorage` | `(snail shell page)` |
+| `Gpu` | `(snail shell gpu)` |
 
-Every capability here but `dom`, `fetch` and `assembler` is answered by its
-target's handlers. A page's interface installs `dom` and `fetch` itself,
-with `with-page-dom` and `with-page-fetch` (`(snail shell ui page)`), a
-scene installs `dom` for its HUD, and a tool installs its assembler.
+A page's interface makes its `Dom` and `Fetch` from these, with `page-dom`
+and `page-fetch` (`(snail shell ui page)`), a scene makes a `Dom` for its
+HUD, and a program on Node that draws makes its `Gpu`, with `host-gpu`.
 
 The tables state the rule the build checks, so changing what a host
-provides means changing them and the target's handlers together: a program
-that uses `tcp` fails to build for `browser` instead of trapping when it
+provides means changing them and the target together: a program that asks
+for `Tcp` fails to build for `browser` instead of trapping when it
 connects.
 
 A script that imports `(snail shell assembler)` links with the runtime that
@@ -231,7 +229,13 @@ That is accepted for now.
 
 ## Delivery
 
-Each step is a pull request that passes every check on its own.
+Each step is a pull request that passes every check on its own. The steps
+record how the build got here, in the terms of their time: a script then
+ran its top-level statements, and a target was a library of effect
+handlers. A script's entry is now its `main`, and a target provides
+capabilities as values
+([#877](https://github.com/tsnl/snail-scheme/issues/877),
+[capabilities](effects.md#capabilities)).
 
 1. **Drop `watch`.** Done: the development service, `development.sld`,
    `(snail shell project bundle)`, the reload client, relinking and file

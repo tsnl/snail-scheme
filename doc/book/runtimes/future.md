@@ -3,10 +3,13 @@
 Research recorded on 2026-10-24. This page describes future options, not
 shipping features. We ship one WasmGC backend.
 
-Three decisions have been made since. One-shot `ctl` handlers are implemented
-by evidence passing ([effects and handlers](../snail-scheme/effects.md#control-handlers)),
-and the runtime's tasks are an effect on them, scheduled in `snail-scheme`, so
-no host suspends a Wasm stack ([task operations](tasks.md)).
+Decisions have been made since. One-shot suspension is implemented by
+ordinary calls and saved frames ([suspension](../snail-scheme/suspension.md)),
+and the runtime's tasks are suspensions, scheduled in `snail-scheme`, so
+no host suspends a Wasm stack ([task operations](tasks.md)). Effect
+declarations and handlers have gone since this page was written
+([#877](https://github.com/tsnl/snail-scheme/issues/877)); what it says of
+`ctl` operations and handlers reads as `suspend` and `with-prompt`.
 And each instance of a program is single-threaded, talking to others only
 through queues and shared memory ([instances](instances.md), proposed). So
 the shared-heap thread pool below is not the plan. The native alternatives
@@ -131,11 +134,11 @@ lowering strategy, not proof that `ctl` is impossible on today's Wasm.
 
 ## Handlers and scheduling
 
-A handler implementation may be invoked repeatedly and concurrently. Each
-invocation receives its own resumption. That does not make the installation
-or its delimiter reusable. A continuation must retain the bindings it
-needs. The implemented evidence/frame translation establishes these
-lifetimes; alternative backends would need to preserve that same contract.
+A `with-prompt`'s handler may be invoked repeatedly. Each invocation
+receives its own resumption. A continuation retains the frames and the
+`with-prompt`s inside it. The implemented frame translation establishes
+these lifetimes; alternative backends would need to preserve that same
+contract.
 
 A shared-heap backend would want a conventional work-stealing pool. That is
 not the plan: each instance schedules its own tasks, and parallel work
@@ -148,7 +151,7 @@ backend is on the implementation path of the task rewrite.
 `snail-scheme` is a statically-typed Scheme successor, not an R7RS
 implementation. `call/cc`, `dynamic-wind`, reusable continuations and a separate
 Scheme compatibility runtime are outside the language. Its implemented
-control model is one-shot delimited effects: a second resume panics, and a
+control model is one-shot delimited suspension: a second resume panics, and a
 resumption that is never called runs nothing. Future backends must preserve
 that contract rather than add a second continuation model.
 

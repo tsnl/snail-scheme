@@ -2,7 +2,7 @@
 
 **`snail-scheme` is a statically-typed Scheme successor.** It compiles to
 WasmGC, and has structs, enums, pattern matching, typeclasses with generic
-instances, Koka-style effect rows with handlers, and wire types with stable
+instances, capabilities passed as values, one-shot suspension, and wire types with stable
 schema identities. The compiler is written in `snail-scheme` and compiles itself; Chibi
 Scheme runs its source to start the first bootstrap.
 
@@ -11,12 +11,12 @@ Scheme runs its source to start the first bootstrap.
  (snail core base)
  (snail core io))
 
-(: fibonacci (impl (Fn I64 -> I64)))
-(define (fibonacci n)
+(define (fibonacci (n I64)) (→ I64)
   (if (< n 2) n (+ (fibonacci (- n 1)) (fibonacci (- n 2)))))
 
-(display (fibonacci 30))
-(newline)
+(define (main (out OutputPort)) (→ Unit) (! mut)
+  (display out (fibonacci 30))
+  (newline out))
 ```
 
 ## Getting started
@@ -37,7 +37,7 @@ resolve under the `src/` of the nearest folder above it that holds one:
 ```sh
 ./snail-scheme run --target node examples/fibonacci.sld
 ./snail-scheme build --target node --release examples/fibonacci.sld
-./snail-scheme wat --target node examples/effects.sld
+./snail-scheme wat --target node examples/capabilities.sld
 ```
 
 Chibi Scheme, Rust and Node 26.4 or later are required. `shell.nix` provides

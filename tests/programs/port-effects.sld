@@ -10,6 +10,7 @@
 (record Output
   ((reversed (List String))))
 
+;; ANCHOR: ports
 ;; A port that reads `text`, a character at a time.
 (define (from-text (text String)) (→ InputPort)
   (let ((position (new Cursor (index 0))))
@@ -29,6 +30,8 @@
               (write-string
                (lambda (text) (set! (● chunks reversed) (Cons text (● chunks reversed)))))))
     (string-concatenate (reverse (● chunks reversed)))))
+
+;; ANCHOR_END: ports
 
 (define (line (out OutputPort) (value T)) (→ Unit) (! mut) (∀ (T)) (⊨ (Repr T))
   (write out value)

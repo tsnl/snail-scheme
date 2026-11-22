@@ -5,6 +5,7 @@
 ;; A handler that resumes in tail position runs in constant stack, however
 ;; many times its body suspends: a hundred thousand suspensions grow
 ;; neither the loop's stack nor the handler's.
+;; ANCHOR: count-down
 (define ticking (→ (Prompt I64 I64)) (make-prompt))
 
 (define (count-down (n I64) (total I64)) (→ I64)
@@ -17,3 +18,5 @@
                         (lambda (n resume) (resume (* n 2)))))
   (newline out)
   (unit))
+
+;; ANCHOR_END: count-down

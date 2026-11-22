@@ -6,6 +6,7 @@
 ;; can suspend to, and hand it to the code it runs. Two prompts of one
 ;; type never catch each other's suspensions.
 
+;; ANCHOR: local
 ;; Every value `body` hands the function it is given, in order.
 (define (collect (body (Fn (Fn A → Unit) → Unit))) (→ (List A)) (∀ (A))
   (let ((prompt (ann (make-prompt) (Prompt A Unit))))
@@ -22,6 +23,8 @@
              (emit 1)
              (for-each emit (collect (lambda (inner) (inner 10) (emit 2) (inner 20))))
              (emit 3))))
+
+;; ANCHOR_END: local
 
 ;; A prompt of its own is an early exit no caller can intercept: the first
 ;; item `matches?` accepts, without looking at the rest.

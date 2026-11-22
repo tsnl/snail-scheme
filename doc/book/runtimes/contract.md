@@ -1,6 +1,6 @@
 # Tasks, values and runtimes
 
-This is the language contract for tasks and effects. The [runtime overview](index.md)
+This is the language contract for tasks and capabilities. The [runtime overview](index.md)
 distinguishes its implemented subset from future requirements. There is one shipping target: WebAssembly GC, on one
 execution agent. A second backend is future research.
 
@@ -10,7 +10,7 @@ A **task** is a single execution of a zero-argument closure. A **runtime**
 holds tasks and the platform operations they await. Dispatch turns a
 closure into a task; it does not create an actor instance, mailbox or
 request/reply protocol. A task finishes by returning or failing. There is
-no terminate effect and no supervisor hierarchy.
+no terminate operation and no supervisor hierarchy.
 
 Tasks may overlap in lifetime. The language permits a runtime to execute
 eligible tasks on different threads. The current implementation interleaves
@@ -35,40 +35,31 @@ computation whose resumption is never called runs nothing more.
 
 Each instance of a program runs on one thread, and no value it holds is
 reachable from another thread. So the language has no thread-safety
-markers, and a handler or a task may capture mutable state. Instances
+markers, and a capability or a task may capture mutable state. Instances
 will talk to each other only through queues, which copy bytes, and through
 shared memory holding plain data; that design is proposed in [#553](https://github.com/tsnl/snail-scheme/issues/553).
 Foreign code and host capabilities are explicit trusted boundaries.
 
-## Effects and handlers
+## Capabilities and suspension
 
-An effect row states which operations code can perform. The runtime binds
-platform effects; applications may bind ordinary handlers for abstractions
-and tests. Possessing an effect label alone does not confer authority to a
-platform resource.
+What code may do to a platform is in the capabilities it holds: values the
+runtime's target hands the program's `main`, which passes them on
+([capabilities](../snail-scheme/effects.md#capabilities)). An application
+makes its own for abstractions and tests. A row says only that code may
+change something; holding no capability, it can reach no platform resource.
 
-A deep handler runs its ordinary implementations again for each
-operation, so each is an ordinary closure that may be called repeatedly.
-A handler may capture mutable state, and its individual invocations may
-allocate local mutable storage.
+A capability is an ordinary value, usually a record of closures, each of
+which may be called repeatedly, may capture mutable state, and may allocate
+local mutable storage. A task keeps the capabilities it closed over across
+its waits, and a newly dispatched task has those its closure captured.
 
-A handler implementation is distinct from an **installation** of that
-handler. Installations and their outer bindings belong to a computation.
-Suspending and resuming a computation preserves those bindings. Reusing
-handler code does not duplicate a control delimiter or permit two resumes
-of one continuation: a second resume panics. Newly dispatched tasks inherit
-the current ordinary bindings. Each task has its own binding array; the
-reusable implementations may be shared. This preserves the dispatched closure's declared effects.
-It does not establish rules for cloning future control delimiters.
-
-Waits are control operations of `tasks`: the scheduler retains a one-shot
-resumption and later makes it ready, when a timer passes or the host
-wakes its ticket. Like every `ctl` operation they compile to evidence
-passing, with a one-shot, first-class `resume` (see
-[control handlers](../snail-scheme/effects.md#control-handlers)), and never
-reach the host, which only drives the scheduler
-([task operations](tasks.md)). Ordinary handlers remain tail-resumptive:
-their result returns once to the operation caller.
+Waits are suspensions to the task library's prompt: the scheduler retains
+a one-shot resumption and later makes it ready, when a timer passes or the
+host wakes its ticket. Like every suspension they compile to ordinary calls
+and saved frames, with a one-shot, first-class `resume` (see
+[suspension](../snail-scheme/suspension.md)), and never reach the host,
+which only drives the scheduler ([task operations](tasks.md)). A second
+resume of one continuation panics.
 
 ## Events and application state
 

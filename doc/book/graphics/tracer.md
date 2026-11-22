@@ -117,7 +117,7 @@ without one, a drawn sky and sun light it. Files come dropped on the page,
 a folder at a time or several files, or through the browser's pickers, O
 for files and Shift+O for a folder, which the File System Access API's
 `showDirectoryPicker` opens where the browser has it. `(snail shell files)`
-is that effect: `open-picker` asks the user and returns, a `FilesEvent`
+is that capability, `FilePicker`: `open-picker` asks the user and returns, a `FilesEvent`
 says files were dropped or picked, and each file the user chose is its
 path within the choice and an address that `fetch` reads, a `blob:` one
 for a file of theirs. `retrace` keeps the tracer's pipelines for the new

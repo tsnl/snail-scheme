@@ -50,6 +50,6 @@ isolation.
 
 `spawn-instance` starts another instance of the same program, from one of
 its entry points, on a new worker. The host that started the program
-supervises every instance. A child runs under its target's handlers and
-inherits no handlers, because handlers are closures. When the program
+supervises every instance. A child is handed its target's capabilities and
+none of its parent's, because capabilities are values of one instance. When the program
 stops, every child is stopped and the shared memory is discarded.
