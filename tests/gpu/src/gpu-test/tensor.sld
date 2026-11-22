@@ -1,26 +1,40 @@
 ;; Tensor programs on the device, against the CPU's evaluation of the same
 ;; graph: elementwise operations through views, reductions small and in
 ;; levels, a matrix product, gathers and float scatters, sorts and scans,
-;; and a gradient through slices. Then a line fitted by Adam, its loss read
-;; back after 300 steps of one compiled program.
+;; and a gradient through slices; params swapped and assigned, and one
+;; bound to the caller's buffer, in the caller's pass. Then a line fitted
+;; by Adam, its loss read back after 300 steps of one lowered program.
 (define-library (gpu-test tensor)
   (export
    tensor-agreement
    swapped-params
    assigned-param
+   bound-param
    fitted-line)
   (import
    (snail core base)
    (snail core table)
    (only (snail shell task) tasks)
-   (only (snail shell gpu) gpu)
+   (only (snail shell gpu)
+         gpu
+         create-buffer
+         write-buffer
+         create-command-encoder
+         begin-compute-pass
+         end-compute-pass
+         finish
+         submit
+         BufferDescriptor
+         Storage
+         CopySrc
+         CopyDst)
    (only (snail shell math) sin)
    (rename (snail shell tensor)
            (exp tensor-exp)
            (sin tensor-sin))
    (snail shell tensor eval)
    (snail shell tensor grad)
-   (snail shell tensor compile)
+   (snail shell tensor lower)
    (snail shell tensor adam))
   (begin
 
@@ -84,7 +98,7 @@
 
     (define (tensor-agreement) (→ String) (! gpu tasks)
       (let* ((roots (sinks))
-             (program (compile-program "agreement" roots (Nil)))
+             (program (lower "agreement" roots (Nil)))
              (expected (evaluate roots inputs)))
         (for-each (lambda (p)
                     (let ((name (param-label p)))
@@ -145,9 +159,9 @@
     (define (swapped-params) (→ String) (! gpu tasks)
       (let* ((a (param "a" (list 2 2) (Signed)))
              (b (param "b" (list 2 2) (Signed)))
-             (program (compile-program "swap" (list a)
-                                       (list (new Pair (first a) (second (transpose b)))
-                                             (new Pair (first b) (second a))))))
+             (program (lower "swap" (list a)
+                             (list (new Pair (first a) (second (transpose b)))
+                                   (new Pair (first b) (second a))))))
         (write-param program "a" (values->bytes (list->array (list 1.0 2.0 3.0 4.0)) (Signed)))
         (write-param program "b" (values->bytes (list->array (list 5.0 6.0 7.0 8.0)) (Signed)))
         (run-program program)
@@ -161,13 +175,43 @@
     ;; An assignment can be the only reference to the destination.
     (define (assigned-param) (→ String) (! gpu tasks)
       (let* ((a (param "a" (Nil) (Signed)))
-             (program (compile-program "assign" (Nil)
-                                       (list
-                                        (new Pair (first a) (second (fill 9.0 (Nil) (Signed))))))))
+             (program (lower "assign" (Nil)
+                             (list
+                              (new Pair (first a) (second (fill 9.0 (Nil) (Signed))))))))
         (run-program program)
         (let ((report (signed-words (read-param program "a"))))
           (release-program program)
           report)))
+
+    ;; A param in a buffer the caller made: the program doubles it into its
+    ;; sink and adds one to it, its steps encoded into the caller's own
+    ;; pass. Released, it leaves the buffer, which a second program bound
+    ;; to it reads back.
+    (define (bound-param) (→ String) (! gpu tasks)
+      (let* ((a (param "a" (list 4) (Signed)))
+             (buffer (create-buffer (new BufferDescriptor
+                                      (label "caller's a")
+                                      (size 16)
+                                      (usage (list (Storage) (CopySrc) (CopyDst))))))
+             (given (bound nothing-given a buffer))
+             (program (lower-with "bound"
+                                  (list (+ a a))
+                                  (list
+                                   (new Pair (first a) (second (+ a (fill 1.0 (list 4) (Signed))))))
+                                  given))
+             (encoder (create-command-encoder))
+             (pass (begin-compute-pass encoder)))
+        (write-buffer buffer 0 (values->bytes (list->array (list 1.0 2.0 3.0 4.0)) (Signed)))
+        (encode-steps pass program)
+        (end-compute-pass pass)
+        (submit (list (finish encoder)))
+        (let ((doubled (signed-words (read-sink program 0))))
+          (release-program program)
+          (let* ((reader (lower-with "reader" (list a) (Nil) given))
+                 (_ (run-program reader))
+                 (kept (signed-words (read-sink reader 0))))
+            (release-program reader)
+            (string-append doubled " / " kept)))))
 
     ;; ---- Training ----
 
@@ -190,7 +234,7 @@
                                             (param b)
                                             (grad (list-ref grads 1))
                                             (rate (scalar 0.05))))))
-             (program (compile-program "fit" (list loss) updates))
+             (program (lower "fit" (list loss) updates))
              (points (wave (* 256 3) 1.0)))
         (write-param program "points" (values->bytes points (Float)))
         (write-param program

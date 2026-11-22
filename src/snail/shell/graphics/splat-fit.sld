@@ -1,5 +1,5 @@
 ;; Fitting a cloud of gaussians to photographs, as 3D Gaussian Splatting
-;; trains (Kerbl et al., 2023), as three tensor graphs a host compiles once
+;; trains (Kerbl et al., 2023), as three tensor graphs a host lowers once
 ;; for a capacity of gaussians and runs on one set of params:
 ;;
 ;; - `training-step`: render from the camera param, the loss against the
