@@ -745,35 +745,33 @@
       (→ Context)
       (match (root-main cx)
         ((Some (Define name value))
-         (with-started-main cx
-                            name
-                            start
-                            (main-capabilities cx library provided name value)
-                            (● value loc)))
+         (check-main-parameters cx library provided name value)
+         (threading cx ((arguments (entry-arguments provided name (● value loc))))
+                    (with-started-main cx name start arguments (● value loc))))
         (_ cx)))
 
-    ;; The provider of each parameter of main, in order.
-    (define (main-capabilities (cx Context)
-                               (library (List String))
-                               (provided Provided)
-                               (name String)
-                               (value Expr))
-      (→ (List String))
+    ;; Every parameter of main is a capability its target provides.
+    (define (check-main-parameters (cx Context)
+                                   (library (List String))
+                                   (provided Provided)
+                                   (name String)
+                                   (value Expr))
+      (→ Unit)
       (let ((asked (entry-parameters cx name)))
         (when (and (null? asked) (takes-arguments? value))
           (compile-error (● value loc)
                          "the parameters of main need types: each asks its target for a capability"))
-        (map (lambda (type)
-               (match (provider provided type)
-                 ((Some function) function)
-                 ((None)
-                  (compile-error (● value loc)
-                                 (string-append "main asks for "
-                                                (type->string type)
-                                                ", which the target library "
-                                                (string-join library ".")
-                                                " does not provide")))))
-             asked)))
+        (for-each (lambda (type)
+                    (match (provider provided type)
+                      ((Some _) (unit))
+                      ((None)
+                       (compile-error (● value loc)
+                                      (string-append "main asks for "
+                                                     (type->string type)
+                                                     ", which the target library "
+                                                     (string-join library ".")
+                                                     " does not provide")))))
+                  asked)))
 
     (define (takes-arguments? (value Expr)) (→ Bool)
       (match (● value term)
@@ -781,21 +779,18 @@
         (_ #f)))
 
     ;; `(define (started scheduler)
-    ;;    (start scheduler (lambda () (main (provider) ...) (unit))))`,
+    ;;    (start scheduler (lambda () (main argument ...) (unit))))`,
     ;; under a name no source can write. The thunk is Unit whatever main
     ;; returns, so the checker's entry check is what rejects a wrong main.
     (define (with-started-main (cx Context)
                                (main String)
                                (start String)
-                               (capabilities (List String))
+                               (arguments (List Supplied))
                                (loc Loc))
       (→ Context)
       (let* ((local (fresh cx "scheduler"))
              (var (lambda (name) (expr (Var name (Nil) (Nil)) loc)))
-             (provide (lambda (function) (expr (App (var function) (Nil)) loc)))
-             (run (expr (Seq (expr (App (var main) (map provide capabilities)) loc)
-                             (expr (Lit (DUnit)) loc))
-                        loc))
+             (run (expr (Seq (entry-call main arguments loc) (expr (Lit (DUnit)) loc)) loc))
              (call (App (var start) (list (var (● local first)) (expr (Lambda (Nil) run) loc))))
              (started (string-append main " started")))
         (add-item (add-item (● local second)
@@ -813,30 +808,58 @@
 
     ;; An exposure that asks for no capability is exposed as it is. One
     ;; that does is exposed through
-    ;; `(define (exposed argument ...) (f (provider) argument ...))`, each
-    ;; parameter in its place, under a name no source can write. The
-    ;; wrapper is the program's, whatever library f is from, and its name
-    ;; says so: a name's prefix is the module that holds it.
+    ;; `(define (exposed parameter ...) (f argument ...))`, under a name no
+    ;; source can write. The wrapper is the program's, whatever library f
+    ;; is from, and its name says so: a name's prefix is the module that
+    ;; holds it.
     (define (with-exposure (cx Context) (provided Provided) (item Item)) (→ Context)
       (match item
         ((Expose name symbol loc)
-         (let ((asked (map (lambda (type) (provider provided type)) (entry-parameters cx name))))
-           (if (every? (lambda (found) (match found ((None) #t) ((Some _) #f))) asked)
-               (add-item cx item)
-               (threading cx ((arguments (each (lambda (cx found) (exposed-argument cx found loc))
-                                               asked)))
-                          (with-supplied-exposure cx name symbol arguments loc)))))
+         (threading cx ((arguments (entry-arguments provided name loc)))
+                    (if (every? (lambda (supplied) (not (provided? supplied))) arguments)
+                        (add-item cx item)
+                        (with-exposed-wrapper cx name symbol arguments loc))))
         (_ (panic "internal error: expected an exposure"))))
 
-    ;; An argument of the exposed function, and the wrapper's parameter it
-    ;; comes from, if the host passes it.
+    (define (with-exposed-wrapper (cx Context)
+                                  (name String)
+                                  (symbol String)
+                                  (arguments (List Supplied))
+                                  (loc Loc))
+      (→ Context)
+      (let ((params (concatenate (map (lambda (supplied)
+                                        (match (● supplied parameter)
+                                          ((Some name) (list name))
+                                          ((None) (Nil))))
+                                      arguments)))
+            (exposed (string-append (● cx prefix) ":" name " exposed")))
+        (add-item (add-item (add-value cx exposed (Defined (None) (None)))
+                            (Define exposed
+                              (expr (Lambda params (entry-call name arguments loc)) loc)))
+                  (Expose exposed symbol loc))))
+
+    ;; ---- Supplying an entry ----
+
+    ;; One of an entry's arguments: a call of the provider of its
+    ;; parameter's type, or the wrapper's own parameter, which the host
+    ;; passes. Main and an exposed function are supplied alike; main's
+    ;; target must provide every one.
     (record Supplied
       ((argument Expr)
        (parameter (Option String))))
 
-    (define (exposed-argument (cx Context) (found (Option String)) (loc Loc))
+    (define (provided? (supplied Supplied)) (→ Bool)
+      (match (● supplied parameter)
+        ((None) #t)
+        ((Some _) #f)))
+
+    (define (entry-arguments (cx Context) (provided Provided) (name String) (loc Loc))
+      (→ (Pair (List Supplied) Context))
+      (each cx (lambda (cx type) (supplied cx provided type loc)) (entry-parameters cx name)))
+
+    (define (supplied (cx Context) (provided Provided) (type Type) (loc Loc))
       (→ (Pair Supplied Context))
-      (match found
+      (match (provider provided type)
         ((Some function)
          (new Pair
            (first (new Supplied
@@ -852,24 +875,11 @@
                        (parameter (Some name))))
               (second cx)))))))
 
-    (define (with-supplied-exposure (cx Context)
-                                    (name String)
-                                    (symbol String)
-                                    (arguments (List Supplied))
-                                    (loc Loc))
-      (→ Context)
-      (let* ((params (concatenate (map (lambda (supplied)
-                                         (match (● supplied parameter)
-                                           ((Some name) (list name))
-                                           ((None) (Nil))))
-                                       arguments)))
-             (call (expr (App (expr (Var name (Nil) (Nil)) loc)
-                              (map (lambda (supplied) (● supplied argument)) arguments))
-                         loc))
-             (exposed (string-append (● cx prefix) ":" name " exposed")))
-        (add-item (add-item (add-value cx exposed (Defined (None) (None)))
-                            (Define exposed (expr (Lambda params call) loc)))
-                  (Expose exposed symbol loc))))
+    ;; The entry called with what it is supplied.
+    (define (entry-call (name String) (arguments (List Supplied)) (loc Loc)) (→ Expr)
+      (expr (App (expr (Var name (Nil) (Nil)) loc)
+                 (map (lambda (supplied) (● supplied argument)) arguments))
+            loc))
 
     ;; ---- Programs ----
 
@@ -1421,7 +1431,7 @@
                          "a top-level value has one type; write a generic one as a function of no arguments"))))
 
     ;; The type a definition states, if it states one. A value states its
-    ;; result, and its thunk takes nothing and performs nothing.
+    ;; result, and its thunk takes nothing.
 
     (define (stated-type (definition DefinitionSyntax) (value? Bool)) (→ (Option Syntax))
       (match (● (● definition header) result)

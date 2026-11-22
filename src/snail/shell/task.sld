@@ -64,15 +64,12 @@
 
     ;; ---- Steps ----
 
+    ;; What running a task as far as it goes comes to: its end, or the wait
+    ;; it stopped at, with the rest of it.
     (enum Step
       (Finished)
-      (Yielded
-       ((next (Fn → Step))))
-      (Sleeping
-       ((delay I64)
-        (next (Fn → Step))))
-      (Waiting
-       ((tickets (List I64))
+      (Stopped
+       ((wait Wait)
         (next (Fn → Step)))))
 
     (type Run (Fn → Step))
@@ -158,13 +155,7 @@
                    (lambda ()
                      (work)
                      (Finished))
-                   (lambda (wait resume) (waited wait (lambda () (resume (unit)))))))
-
-    (define (waited (wait Wait) (next Run)) (→ Step)
-      (match wait
-        ((Yield) (Yielded next))
-        ((Sleep delay) (Sleeping delay next))
-        ((Await tickets) (Waiting tickets next))))
+                   (lambda (wait resume) (Stopped wait (lambda () (resume (unit)))))))
 
     (define (dispatch (work (Fn → Unit))) (→ Unit)
       (dispatch-in (current-scheduler) work)
@@ -214,19 +205,21 @@
       (unless (● scheduler closed)
         (match step
           ((Finished) (unit))
-          ((Yielded next) (push-ready! scheduler (new Runnable (id id) (next next))))
-          ((Sleeping delay next)
-           (set! (● scheduler timers)
-                 (insert-timer
-                  (new Pending (key (+ now delay)) (task (new Runnable (id id) (next next))))
-                  (● scheduler timers))))
-          ((Waiting tickets next)
-           (let ((task (new Runnable (id id) (next next))))
-             (if (null? tickets)
-                 (push-ready! scheduler task)
-                 (set! (● scheduler waiters)
-                       (Cons (new Waiter (tickets tickets) (task task))
-                             (● scheduler waiters)))))))))
+          ((Stopped wait next) (park! scheduler now (new Runnable (id id) (next next)) wait)))))
+
+    ;; A stopped task goes in the one list its wait names. Awaiting no
+    ;; tickets is a yield.
+    (define (park! (scheduler Scheduler) (now I64) (task Runnable) (wait Wait)) (→ Unit)
+      (match wait
+        ((Yield) (push-ready! scheduler task))
+        ((Await (Nil)) (push-ready! scheduler task))
+        ((Sleep delay)
+         (set! (● scheduler timers)
+               (insert-timer (new Pending (key (+ now delay)) (task task))
+                             (● scheduler timers))))
+        ((Await tickets)
+         (set! (● scheduler waiters)
+               (Cons (new Waiter (tickets tickets) (task task)) (● scheduler waiters))))))
 
     (define (insert-timer (timer Pending) (timers (List Pending))) (→ (List Pending))
       (match timers

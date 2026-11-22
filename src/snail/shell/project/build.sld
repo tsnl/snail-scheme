@@ -117,6 +117,31 @@
         (unless (file-exists? fs file) (panic (string-append "there is no script at " file)))
         (new Script (file file) (workspace (workspace-of fs file (directory-of file))))))
 
+    ;; A path made absolute against the working directory.
+
+    (define (from-working-directory (environment ProcessEnvironment) (path String)) (→ String)
+      (if (and (> (string-length path) 0) (char=? (string-ref path 0) #\/))
+          path
+          (string-append (match (working-directory environment)
+                           ((Some directory) directory)
+                           ((None) (panic "there is no working directory")))
+                         "/"
+                         path)))
+
+    ;; An absolute path without empty or "." components, and with each ".."
+    ;; taking the component before it.
+
+    (define (normalized (absolute String)) (→ String)
+      (let ((parts (fold-left (lambda (kept part)
+                                (cond ((or (string=? part "") (string=? part ".")) kept)
+                                      ((string=? part "..") (match kept
+                                                              ((Cons _ rest) rest)
+                                                              ((Nil) (Nil))))
+                                      (else (Cons part kept))))
+                              (Nil)
+                              (split-path absolute))))
+        (string-append "/" (string-join (reverse parts) "/"))))
+
     (define (workspace-of (fs Fs) (file String) (directory String)) (→ String)
       (cond ((file-exists? fs (string-append directory "/src")) directory)
             ((string=? directory "") (panic (string-append "no folder above " file " holds src/")))
@@ -155,7 +180,7 @@
                           (platform Platform)
                           (mode Mode))
       (→ String)
-      (match (with-builder processes fs clock (building-script tools script)
+      (match (with-builder fs clock (building-script tools script)
                            (● script workspace)
                            mode
                            (lambda (builder)
@@ -258,7 +283,7 @@
                       (workspace String)
                       (target (Fn String → Target)))
       (→ (Result Typed Failure))
-      (with-builder processes fs clock tools
+      (with-builder fs clock tools
                     workspace
                     (Debug)
                     (lambda (builder)
@@ -287,31 +312,6 @@
            (node node)
            (building building)))
         (_ (panic "producer-tools: this program is not a producer a build ran"))))
-
-    ;; A path made absolute against the working directory.
-
-    (define (from-working-directory (environment ProcessEnvironment) (path String)) (→ String)
-      (if (and (> (string-length path) 0) (char=? (string-ref path 0) #\/))
-          path
-          (string-append (match (working-directory environment)
-                           ((Some directory) directory)
-                           ((None) (panic "there is no working directory")))
-                         "/"
-                         path)))
-
-    ;; An absolute path without empty or "." components, and with each ".."
-    ;; taking the component before it.
-
-    (define (normalized (absolute String)) (→ String)
-      (let ((parts (fold-left (lambda (kept part)
-                                (cond ((or (string=? part "") (string=? part ".")) kept)
-                                      ((string=? part "..") (match kept
-                                                              ((Cons _ rest) rest)
-                                                              ((Nil) (Nil))))
-                                      (else (Cons part kept))))
-                              (Nil)
-                              (split-path absolute))))
-        (string-append "/" (string-join (reverse parts) "/"))))
 
     ;; ---- Failures ----
 
@@ -368,7 +368,7 @@
     ;; the repository's build/snail-run/, removed after; a failure is its
     ;; Result.
 
-    (define (with-builder (processes Processes) (fs Fs) (clock Clock) (tools Tools)
+    (define (with-builder (fs Fs) (clock Clock) (tools Tools)
                           (workspace String)
                           (mode Mode)
                           (work (Fn Builder → T)))

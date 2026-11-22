@@ -401,18 +401,8 @@
                           (body Expr)
                           (loc Loc))
       (→ (Pair Expr Checker))
-      (threading ck ((types (each (lambda (ck param) (fresh-meta ck)) params)))
-                 (infer-lambda-at ck params body types loc)))
-
-    ;; A lambda whose parameter types are known before its body is seen.
-
-    (define (infer-lambda-at (ck Checker)
-                             (params (List String))
-                             (body Expr)
-                             (types (List Type))
-                             (loc Loc))
-      (→ (Pair Expr Checker))
-      (threading ck ((body (within (lambda (inner)
+      (threading ck ((types (each (lambda (ck param) (fresh-meta ck)) params))
+                     (body (within (lambda (inner)
                                      (infer (bind-locals inner params types) body)))))
                  (new Pair
                    (first (new Expr
@@ -651,22 +641,6 @@
       (match (● value term)
         ((Ann inner _) (local-function? inner))
         (_ (lambda-expr? value))))
-
-    ;; A recursive local function reserves its argument and result types
-    ;; before checking the body, so recursive calls constrain that signature.
-
-    (define (infer-local-lambda (ck Checker) (value Expr) (type Type))
-      (→ (Pair Expr Checker))
-      (match (new Pair (first (● value term)) (second type))
-        ((Pair (Lambda params body) (TFun types _))
-         (threading ck ((value (infer-lambda-at params body types (● value loc)))
-                        (then (unify type (● value type) (● value loc))))
-                    (new Pair
-                      (first (new Expr (term (● value term)) (type type) (loc (● value loc))))
-                      (second ck))))
-        (_ (panic "internal error: a local lambda has a reserved signature"))))
-
-    ;; `expr` inferred under `inner`'s scope, resumed in this checker's.
 
     (define (infer-match (ck Checker) (scrutinee Expr) (clauses (List Clause)) (loc Loc))
       (→ (Pair Expr Checker))
@@ -1374,14 +1348,11 @@
                               (set-scheme ck (● definition name) (mono-scheme type))))
                  ck definitions))
 
-    ;; An inferred function, checked against its recursive placeholder.
+    ;; An inferred definition, checked against its recursive placeholder.
 
     (define (infer-definition (ck Checker) (definition Definition))
       (→ (Pair Expr Checker))
-      (let ((value (● definition value)) (type (scheme-type ck (● definition name))))
-        (if (lambda-expr? value)
-            (infer-local-lambda ck value type)
-            (check-result ck value type))))
+      (check-result ck (● definition value) (scheme-type ck (● definition name))))
 
     (define (scheme-type (ck Checker) (name String)) (→ Type)
       (match (table-ref (● ck schemes) name)

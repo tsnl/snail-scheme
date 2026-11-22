@@ -4,13 +4,13 @@
 ;; cloud or transforms to the splats changes what both draw. A frame, in
 ;; the caller's passes:
 ;;
-;;   (write-view-camera view camera)              ; the quad path's camera
-;;   (let ((pass (begin-compute-pass encoder)))
-;;     (encode-splat-view pass view)              ; project, bin, blend
-;;     (end-compute-pass pass))
-;;   (let ((pass (begin-render-pass encoder ...)))
-;;     (present-splat-view pass view)             ; the image onto the target
-;;     (end-pass pass))
+;;   (write-view-camera gpu view camera)          ; the quad path's camera
+;;   (let ((pass (begin-compute-pass gpu encoder)))
+;;     (encode-splat-view gpu pass view)          ; project, bin, blend
+;;     (end-compute-pass gpu pass))
+;;   (let ((pass (begin-render-pass gpu encoder ...)))
+;;     (present-splat-view gpu pass view)         ; the image onto the target
+;;     (end-pass gpu pass))
 ;;
 ;; The blend is training's: front to back in 16x16 tiles, in floats,
 ;; stopping where a pixel's transmittance would fall under 1e-4, over
