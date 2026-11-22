@@ -1,0 +1,79 @@
+#!/bin/sh
+# Trains one trainer on the bench's scene, as its own benchmark runs it on
+# Mip-NeRF 360's outdoor scenes, into build/benches/splat-training/runs/NAME:
+#
+#   benches/splat-training/train TRAINER [NAME] [STEPS]
+#
+# TRAINER is ours, the train app built from this checkout; gsplat, its
+# simple_trainer's default strategy as examples/benchmarks/basic.sh runs
+# it; or inria, train.py as full_eval.py runs it. Each runs the same
+# 30,000 steps of the method of Kerbl et al., densifying every 100 steps
+# from step 500 to 15,000, and none evaluates while it trains. NAME is
+# TRAINER-1, TRAINER-2 and so on, the first not yet used; STEPS is 30000,
+# fewer for a quick look.
+#
+# A run keeps the trainer's console in `log`, and the GPU's memory in use,
+# temperature and power twice a second in `gpu`; `score` and
+# `report.py` read it afterwards. `setup` must have run.
+set -eu
+here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+root=$(CDPATH= cd -- "$here/../.." && pwd)
+work=$root/build/benches/splat-training
+trainer=$1
+steps=${3:-30000}
+case $trainer in
+  ours | gsplat | inria) ;;
+  *) echo "train: TRAINER is ours, gsplat or inria" >&2; exit 2 ;;
+esac
+if [ $# -ge 2 ]; then
+  name=$2
+else
+  k=1
+  while [ -e "$work/runs/$trainer-$k" ]; do k=$((k + 1)); done
+  name=$trainer-$k
+fi
+out=$work/runs/$name
+if [ -e "$out" ]; then echo "train: $out exists" >&2; exit 2; fi
+mkdir -p "$out"
+
+# A command in the repository's shell, which has Node and the Vulkan loader.
+in_repo() { (cd "$root" && nix-shell --quiet "$root/shell.nix" --run "$1"); }
+
+# A command in the bench's environment, which has CUDA and the trainers.
+in_bench() {
+  env=$(nix-build --no-out-link "$here/default.nix")
+  "$env/bin/splat-bench" -c "$1"
+}
+
+# ---- Each trainer ----
+
+ours() {
+  in_repo "./snail-scheme build --release --target node src/apps/train/node.scm"
+  cp -RL "$root/build/src/apps/train/node" "$out/app"
+  in_repo "node '$out/app/main.mjs' scene='$work/scene/' steps=$steps cloud='$out/point_cloud.ply'"
+}
+
+gsplat() {
+  in_bench "cd '$work/src/gsplat/examples' && '$work/venv-gsplat/bin/python' simple_trainer.py default \
+    --disable_viewer --disable_video --data_factor 4 --data_dir '$work/scene' --result_dir '$out' \
+    --eval_steps -1 --max_steps $steps"
+}
+
+inria() {
+  in_bench "cd '$work/src/gaussian-splatting' && '$work/venv-inria/bin/python' train.py \
+    -s '$work/scene' -i images_4 -m '$out/model' --disable_viewer --quiet --eval \
+    --test_iterations -1 --iterations $steps"
+}
+
+# ---- The run ----
+
+echo "$trainer" > "$out/trainer"
+echo "$steps" > "$out/steps"
+git -C "$root" describe --always --dirty > "$out/revision"
+nvidia-smi --query-gpu=memory.used,temperature.gpu,power.draw --format=csv,noheader,nounits \
+  -lms 500 > "$out/gpu" &
+sampler=$!
+trap 'kill $sampler 2>/dev/null || true' EXIT
+echo "training $name"
+"$trainer" > "$out/log" 2>&1
+echo "trained $name"

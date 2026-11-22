@@ -46,11 +46,11 @@ bootstrap:
 
 format:
 	git ls-files -z $(SCHEME_SOURCES) | xargs -0 ./scripts/format-scheme --write
-	$(NIXFMT) shell.nix
+	$(NIXFMT) shell.nix benches/*/*.nix
 
 check:
 	git ls-files -z $(SCHEME_SOURCES) | xargs -0 ./scripts/format-scheme --check
-	$(NIXFMT) --check shell.nix
+	$(NIXFMT) --check shell.nix benches/*/*.nix
 	$(MAKE) generated-unicode
 	cmp build/unicode.sld src/snail/shell/text/unicode.sld
 
