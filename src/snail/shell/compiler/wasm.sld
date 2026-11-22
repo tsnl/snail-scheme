@@ -2158,9 +2158,10 @@
     ;; `$prompt` entering (+1) or leaving (-1) one of its `with-prompt`s.
 
     (define (prompt-count (m Module) (change String)) (→ String) (! mut)
-      (fill "(struct.set {prompt} 0 (local.get $prompt) (i32.add (struct.get {prompt} 0 (local.get $prompt)) (i32.const {change})))"
-            (list (new Pair (first "prompt") (second (prompt-type m)))
-                  (new Pair (first "change") (second change)))))
+      (fill
+       "(struct.set {prompt} 0 (local.get $prompt) (i32.add (struct.get {prompt} 0 (local.get $prompt)) (i32.const {change})))"
+       (list (new Pair (first "prompt") (second (prompt-type m)))
+             (new Pair (first "change") (second change)))))
 
     ;; `suspend` for one prompt type: the yield, with no frames yet, then
     ;; the inactive answer. Its call sites are ordinary calls, which test
@@ -2175,7 +2176,9 @@
   (global.set {yielding} (struct.new {yield} (local.get $prompt) (i32.const {resumed}) {boxed} (ref.null {frames})))
   {inactive})"
                           (list (new Pair (first "prompt") (second (prompt-type m)))
-                                (new Pair (first "value") (second (wat->text (rep->wat (rep m value)))))
+                                (new Pair
+                                  (first "value")
+                                  (second (wat->text (rep->wat (rep m value)))))
                                 (new Pair
                                   (first "answer")
                                   (second (wat->text (rep->wat (rep m answer)))))
@@ -2188,12 +2191,15 @@
                                                     "suspend: no with-prompt of this prompt is running"))))
                                 (new Pair (first "yielding") (second (yielding m)))
                                 (new Pair (first "yield") (second (yield-type m)))
-                                (new Pair (first "resumed") (second (if (never-type? answer) "0" "1")))
+                                (new Pair
+                                  (first "resumed")
+                                  (second (if (never-type? answer) "0" "1")))
                                 (new Pair
                                   (first "boxed")
                                   (second (wat->text (box-value m
                                                                 value
-                                                                (wat "local.get" (Word "$value"))))))
+                                                                (wat "local.get"
+                                                                     (Word "$value"))))))
                                 (new Pair (first "frames") (second (frames-type m)))
                                 (new Pair
                                   (first "inactive")
@@ -2257,10 +2263,13 @@
                                           (second (wat->text
                                                    (closure-call-wat m
                                                                      body
-                                                                     (wat "local.get" (Word "$body"))
+                                                                     (wat "local.get"
+                                                                          (Word "$body"))
                                                                      (Nil)
                                                                      #f))))
-                                        (new Pair (first "catch") (second (catcher m delimiter))))))))
+                                        (new Pair
+                                          (first "catch")
+                                          (second (catcher m delimiter))))))))
 
     ;; What a `with-prompt` does with the yield that has reached it; its
     ;; call site and `resume` both end here. A yield aimed at another
@@ -2296,7 +2305,9 @@
                                   (list (new Pair (first "record") (second (yielding m)))
                                         (new Pair (first "yield") (second (yield-type m)))
                                         (new Pair (first "enclose") (second (enclose-helper m)))
-                                        (new Pair (first "handled") (second (handled-code m delimiter)))
+                                        (new Pair
+                                          (first "handled")
+                                          (second (handled-code m delimiter)))
                                         (new Pair (first "reverse") (second (reverse-helper m)))
                                         (new Pair (first "code") (second (code-type m handler)))
                                         (new Pair
@@ -2383,7 +2394,8 @@
                                      (second (wat->text
                                               (box-value m
                                                          answer
-                                                         (wat "local.get" (Word "$answer"))))))))))))))
+                                                         (wat "local.get"
+                                                              (Word "$answer"))))))))))))))
 
     ;; The `with-prompt` again: the continuation run on a boxed value with
     ;; its prompt counted as running, ending, if a yield reaches it, in the

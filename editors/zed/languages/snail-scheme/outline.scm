@@ -18,4 +18,4 @@
   ]
   (#any-of? @context
     "define" "define-syntax" "declare" "record" "enum" "type" "typeclass"
-    "instance" "effect")) @item
+    "instance")) @item

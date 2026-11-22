@@ -84,7 +84,7 @@
       (case (host-installation-status)
         ((1) (InstallAvailable)) ((2) (AppInstalled)) (else (InstallUnavailable))))
 
-    (define (page-install) (→ InstallResult)
+    (define (page-install) (→ InstallResult) (! mut)
       (case (through-host host-start-install host-finish-install)
         ((0) (InstallAccepted)) ((1) (InstallDismissed)) ((2) (InstallNotAvailable))
         ((3) (GestureRequired)) ((5) (InstallAlreadyInstalled)) (else (InstallFailed))))

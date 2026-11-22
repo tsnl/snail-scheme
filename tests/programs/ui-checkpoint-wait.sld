@@ -16,7 +16,7 @@
   (Start)
   (Finished ((text String))))
 
-(define (update (model Model) (message Msg)) (→ (Pair Model (List (Fn → Msg))))
+(define (update (model Model) (message Msg)) (→ (Pair Model (List (Fn → Msg ! mut))))
   (match message
     ((Start)
      (new Pair

@@ -76,7 +76,7 @@
   (show-reading out "(define (adder (n I64)) (→ (Fn I64 → I64)) (lambda (x) (+ n x)))")
   (show-reading out "(record Point ((x F64)) (deriving Show)) (match p ((Point x) x) (_ 0))")
   (show-reading out
-                "(effect ask ((ctl ask (Fn → I64)))) (handle ask ((ask (lambda (resume) (resume 1)))) body)")
+                "(define asking (make-prompt)) (with-prompt asking body (lambda (value resume) (resume 1)))")
   ;; Block comments nest.
   (show-reading out "#| outer #| inner |# still outer |#x")
   ;; Escapes stay inside their string; `#\` takes the character after it,

@@ -306,7 +306,7 @@
          (match (● (list-ref args 0) type)
            ((TCon "Prompt" (Cons _ (Cons answer (Nil))))
             (list (typed-equation (TFun (list answer) (● expr type) empty-row)
-                           (delimited-flow declarations args))))
+                                  (delimited-flow declarations args))))
            (_ (panic "internal error: a prompt has the Prompt type"))))
         (_ (Nil))))
 
@@ -559,7 +559,11 @@
             (second count))
           (new Pair (first (bind (temporary-name count) first rest)) (second (+ count 1)))))
 
-    (define (normal-call (count I64) (suspensions Suspensions) (expr Expr) (callee Expr) (args (List Expr)))
+    (define (normal-call (count I64)
+                         (suspensions Suspensions)
+                         (expr Expr)
+                         (callee Expr)
+                         (args (List Expr)))
       (→ (Pair Expr I64))
       (threading count ((operands (normal-all suspensions (Cons callee args)))
                         (bound (bind-operands suspensions operands)))
@@ -671,7 +675,8 @@
           (define call
             (lambda (callee args) (expr (App callee args) (function-result (● callee type)))))
 
-          (define thunk (lambda (body) (expr (Lambda (Nil) body) (TFun (Nil) (● body type) empty-row))))
+          (define thunk
+            (lambda (body) (expr (Lambda (Nil) body) (TFun (Nil) (● body type) empty-row))))
 
           ;; `t:f` and `t:predicate` suspend, to a prompt something resumes;
           ;; `t:g` and `t:add` never do.
@@ -782,10 +787,12 @@
                                    (TFun (list i64 (TFun (list never) i64 empty-row))
                                          i64
                                          empty-row))))
-                (expect (yields suspensions (with-prompt stopping (thunk (suspend stopping)) handler))
-                        (Nil))
-                (expect (yields suspensions (with-prompt stopping (thunk (suspend pausing)) handler))
-                        (list "t:pausing"))
+                (expect
+                 (yields suspensions (with-prompt stopping (thunk (suspend stopping)) handler))
+                 (Nil))
+                (expect
+                 (yields suspensions (with-prompt stopping (thunk (suspend pausing)) handler))
+                 (list "t:pausing"))
                 (expect
                  (yields suspensions
                          (with-prompt (local "prompt.1" stopping-type)
@@ -828,19 +835,21 @@
                        (list (definition "t:leaf" (Nil) (suspend pausing))
                              (definition "t:even" (Nil) (call (local "t:odd" callback) (Nil)))
                              (definition "t:odd"
-                                         (Nil)
-                                         (expr (Seq (call (local "t:leaf" callback) (Nil))
-                                                    (call (local "t:even" callback) (Nil)))
-                                               i64))
-                             (definition "t:maker" (Nil) (thunk (suspend stopping)))
+                               (Nil)
+                               (expr (Seq (call (local "t:leaf" callback) (Nil))
+                                          (call (local "t:even" callback) (Nil)))
+                                     i64))
+                             (definition "t:maker"
+                               (Nil)
+                               (thunk (expr (Seq (suspend stopping) (number 1)) i64)))
                              (definition "t:applies"
-                                         (list "action.1")
-                                         (call (local "action.1" callback) (Nil)))
+                               (list "action.1")
+                               (call (local "action.1" callback) (Nil)))
                              (definition "t:caught"
-                                         (Nil)
-                                         (with-prompt pausing
-                                                      (thunk (call (local "t:even" callback) (Nil)))
-                                                      handler))
+                               (Nil)
+                               (with-prompt pausing
+                                            (thunk (call (local "t:even" callback) (Nil)))
+                                            handler))
                              (definition "t:quiet" (Nil) (number 1))))
                      (types (fold-left (lambda (types definition)
                                          (table-set types
@@ -848,14 +857,16 @@
                                                     (● (● definition value) type)))
                                        (● declarations types)
                                        definitions))
-                     (solved (program-suspensions (Declarations-types-set declarations types)
+                     (solved (program-suspensions (new Declarations
+                                                    (program (● declarations program))
+                                                    (types types))
                                                   definitions))
                      (reaches (lambda (key) (reached-at (● solved reached) key))))
                 (expect (reaches "call t:leaf") (list "t:pausing"))
                 (expect (reaches "call t:even") (list "t:pausing"))
                 (expect (reaches "call t:odd") (list "t:pausing"))
                 (expect (reaches "call t:maker") (Nil))
-                (expect (reaches "call t:applies") (list "t:stopping"))
+                (expect (reaches "call t:applies") (list "t:pausing" "t:stopping"))
                 (expect (reaches "call t:caught") (Nil))
                 (expect (reaches "call t:quiet") (Nil))
                 (expect (● solved quiet) #f))))

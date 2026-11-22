@@ -17,7 +17,7 @@
 (enum Msg
   (Next))
 
-(define (update (step I64) (message Msg)) (→ (Pair I64 (List (Fn → Msg))))
+(define (update (step I64) (message Msg)) (→ (Pair I64 (List (Fn → Msg ! mut))))
   (new Pair (first (+ step 1)) (second (Nil))))
 
 (define (view (step I64)) (→ (Html Msg))

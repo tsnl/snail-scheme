@@ -14,11 +14,12 @@
 (match value
   ((Some x) (display x))
   (_ (unit)))
-(handle output-port
-    ((write-string (lambda (c) (unit))))
-  (display "a
+(with-prompt stopping
+             (lambda ()
+               (display "a
 b")
-  (display #\())
+               (display #\())
+             (lambda (value resume) (unit)))
 (foo bar
      baz
      qux)

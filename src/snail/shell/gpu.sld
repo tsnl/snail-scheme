@@ -1443,7 +1443,7 @@
     ;; optional ones it has (host/browser/gpu.mjs); it has told why it has
     ;; no device.
 
-    (define (requested) (→ DeviceInfo)
+    (define (requested) (→ DeviceInfo) (! mut)
       (let ((status (through-host host-start-device host-finish-device)))
         (unless (= status 0)
           (panic "gpu: this host has no WebGPU device with the baseline features"))
@@ -1468,7 +1468,7 @@
 
     ;; ---- Waiting on the host ----
 
-    (define (read-bytes (buffer I32) (offset I32) (size I32)) (→ Bytes)
+    (define (read-bytes (buffer I32) (offset I32) (size I32)) (→ Bytes) (! mut)
       (let ((count (through-host (lambda (ticket) (host-start-read ticket buffer offset size))
                                  host-finish-read)))
         (array-generate (i32->i64 count) (lambda (index) (host-read-byte (i64->i32 index))))))
@@ -1476,7 +1476,7 @@
     ;; The host decodes the image and holds its texture until it is kept.
 
     ;; The host answers a width of 0 for bytes it does not decode.
-    (define (decoded (bytes Bytes)) (→ (Option Image))
+    (define (decoded (bytes Bytes)) (→ (Option Image)) (! mut)
       (let ((width (through-host (lambda (ticket)
                                    (host-start-decode ticket
                                                       (texture-usage-bits (list (TextureBinding)

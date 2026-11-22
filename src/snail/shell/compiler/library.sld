@@ -107,7 +107,7 @@
     ;; main asks its target for each, besides the file system it writes
     ;; its library through:
     ;;
-    ;;   (define (main (producer-fs Fs) parameter ...) (→ Unit) (! mut tasks)
+    ;;   (define (main (producer-fs Fs) parameter ...) (→ Unit) (! mut)
     ;;     (write-generated-library producer-fs (lambda () body ...)))
 
     (define (producer (recipe String) (imports (List Syntax)) (expression Syntax) (loc Loc))
@@ -122,15 +122,14 @@
                           (append imports
                                   (list (only (list "snail" "shell" "syntax")
                                               (list "write-generated-library"))
-                                        (only (list "snail" "core" "io") (list "Fs"))
-                                        (only (list "snail" "shell" "task") (list "tasks"))))))
+                                        (only (list "snail" "core" "io") (list "Fs"))))))
               (form (list (ident "recipe") (Atom (DString recipe) loc)))
               (form (list (ident "define")
                           (form (Cons (ident "main")
                                       (Cons (form (list (ident "producer-fs") (ident "Fs")))
                                             (● recipe-parts first))))
                           (form (list (ident "→") (ident "Unit")))
-                          (form (list (ident "!") (ident "mut") (ident "tasks")))
+                          (form (list (ident "!") (ident "mut")))
                           (form (list (ident "write-generated-library")
                                       (ident "producer-fs")
                                       (form (Cons (ident "lambda")

@@ -488,7 +488,8 @@
                                    (lambda ()
                                      (with-prompt stop
                                                   (lambda () (suspend stop 1))
-                                                  (lambda (value resume) (suspend stop (+ value 1)))))
+                                                  (lambda (value resume)
+                                                    (suspend stop (+ value 1)))))
                                    (lambda (value resume) (* value 10)))
                       20))
         (error 'test-prompts "a suspension did not reach its with-prompt"))))

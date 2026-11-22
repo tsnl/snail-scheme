@@ -37,9 +37,6 @@
 (record (Task e)
   ((step (Fn I64 → I64 ! e))))
 
-(effect Note
-  ((note (Fn String → Unit))))
-
 (define (main (out OutputPort)) (→ Unit) (! mut)
   (display out ((make-counter) 25))
   (newline out)
@@ -59,8 +56,7 @@
            (evaluate
             (Block (list (Evaluate (Number 4)) (Evaluate (Block (list (Evaluate (Number 6)))))))))
   (newline out)
-  (handle Note
-      ((note (lambda (text) (write-line out (string-append "note: " text)))))
+  (let ((note (lambda (text) (write-line out (string-append "note: " text)))))
     (for-each note (list "one" "two"))
     (display out ((● (new Task (step (lambda (n) (note "stepping") (* n 2)))) step) 21))
     (newline out))

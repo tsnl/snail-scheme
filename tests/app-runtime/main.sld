@@ -12,10 +12,6 @@
  (only (snail shell page) Events)
  (only (snail shell page) PageStorage))
 
-;; A task keeps its handlers across its waits, and a child inherits them.
-(effect Marker
-  ((marker (Fn → I32))))
-
 (record Counter
   ((count I64)
    (hovered I32)
@@ -74,11 +70,11 @@
 (define (main (gpu Gpu) (events Events) (storage PageStorage) (clock Clock))
   (→ Unit)
   (! mut)
-  (handle Marker
-      ((marker (lambda () 17)))
+  ;; A task keeps what it closed over across its waits.
+  (let ((marker 17))
     (dispatch (lambda ()
                 (yield)
-                (unless (= (marker) 17)
-                  (panic "a child lost its inherited handler"))
+                (unless (= marker 17)
+                  (panic "a child lost what it closed over"))
                 (sleep 100000)))
     (run-scene gpu events storage clock (counter gpu))))

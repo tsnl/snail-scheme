@@ -931,7 +931,8 @@
                                                (message "unexpected closing parenthesis")))
                                       (more (Nil))))))
                 (expect (compiling
-                         (lambda () (recovering (lambda () (absurd (need (GenerateInput "k")))))))
+                         (lambda ()
+                           (recovering (lambda () (stop (Requested (GenerateInput "k")))))))
                         (Err (Requested (GenerateInput "k"))))))
 
       ;; (f "λ" -7 1.5 #\a #t #u8(0 200)), with a two-byte count for λ.
