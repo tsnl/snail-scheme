@@ -4,83 +4,18 @@
  (snail shell wasm))
 
 ;; Link a module from bytes and call its export through an Fn closure.
-;; Its function takes evidence first, as a `snail-scheme` function does.
-;; The bytes encode the nullable internal reference ABI. Evidence holds
-;; its label, its handler, the evidence outside it, and the copy and origin
-;; links resumptions use; a type of another shape is not interchangeable.
-;; The only function is (param evidence i64 i64) -> i64 and adds locals 1 and 2.
+;; The only function is (param i64 i64) -> i64, the type a `snail-scheme`
+;; function of two I64s to an I64 has, and adds its two locals.
 (define (adder) (→ (List I32))
-  (list 0
-        97
-        115
-        109
-        1
-        0
-        0
-        0
-        1
-        37
-        2
-        78
-        2
-        95
-        5
-        127
-        0
-        110
-        0
-        99
-        0
-        0
-        99
-        1
-        0
-        99
-        0
-        0
-        96
-        3
-        99
-        0
-        99
-        0
-        99
-        0
-        1
-        99
-        0
-        96
-        3
-        99
-        0
-        126
-        126
-        1
-        126
-        3
-        2
-        1
-        2
-        7
-        7
-        1
-        3
-        97
-        100
-        100
-        0
-        0
-        10
-        9
-        1
-        7
-        0
-        32
-        1
-        32
-        2
-        124
-        11))
+  (list 0 97 115 109 1 0 0 0
+        ;; The type section: one function type.
+        1 7 1 96 2 126 126 1 126
+        ;; One function, of that type.
+        3 2 1 0
+        ;; Exported as "add".
+        7 7 1 3 97 100 100 0 0
+        ;; Its code: local.get 0, local.get 1, i64.add.
+        10 9 1 7 0 32 0 32 1 124 11))
 
 (define (use-adder (wasm Wasm) (out OutputPort) (module Module)) (→ Unit) (! mut)
   (match (module-export wasm module "add")

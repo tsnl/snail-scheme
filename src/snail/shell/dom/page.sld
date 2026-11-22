@@ -1,5 +1,5 @@
-;; The page's document for the `dom` effect: `with-page-dom` binds each
-;; operation to the browser host's document (host/browser/dom.mjs), which
+;; The page's document as a `Dom`: `page-dom` binds each operation to the
+;; browser host's document (host/browser/dom.mjs), which
 ;; keeps the interface's nodes and listeners in tables by handle, under the
 ;; container the page gives it. Deliveries come from the page's event queue
 ;; ((snail shell page)): a listener's event as a kind the host fires with
@@ -84,7 +84,7 @@
       (case (host-installation-status)
         ((1) (InstallAvailable)) ((2) (AppInstalled)) (else (InstallUnavailable))))
 
-    (define (page-install) (→ InstallResult) (! tasks)
+    (define (page-install) (→ InstallResult) (! mut)
       (case (through-host host-start-install host-finish-install)
         ((0) (InstallAccepted)) ((1) (InstallDismissed)) ((2) (InstallNotAvailable))
         ((3) (GestureRequired)) ((5) (InstallAlreadyInstalled)) (else (InstallFailed))))
@@ -105,7 +105,7 @@
     ;; The next delivery, skipping the display frames and resizes an
     ;; interface has no use for.
 
-    (define (page-delivery (events Events)) (→ Delivery) (! mut tasks)
+    (define (page-delivery (events Events)) (→ Delivery) (! mut)
       (let ((kind (poll-event events)))
         (cond ((= kind 0) (wait-event events) (page-delivery events))
               ((= kind fired-kind)

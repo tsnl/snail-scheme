@@ -13,25 +13,23 @@
 (import
  (snail core base)
  (only (snail core io) Fs command-line read-bytes write-bytes write-line OutputPort)
- (only (snail shell task) tasks)
  (only (snail shell gpu) host-gpu request-device)
  (only (snail shell async-files) Files read-file TooLarge)
  (only (snail shell graphics ply) write-ply)
  (apps train dataset)
  (apps train trainer)
- (only (snail core io) Clock)
- (only (snail core forms) host))
+ (only (snail core io) Clock))
 
 ;; A file of the dataset. One within the 16 MiB a waiting read allows, as
 ;; every photograph is, is read while the other tasks run; a larger one,
 ;; as the dataset's list of images may be, at once.
-(define (read (files Files) (fs Fs) (path String)) (→ Bytes) (! mut tasks)
+(define (read (files Files) (fs Fs) (path String)) (→ Bytes) (! mut)
   (match (read-file files path 16777216)
     ((Ok bytes) bytes)
     ((Err (TooLarge)) (read-bytes fs path))
     ((Err _) (panic (string-append "cannot read " path)))))
 
-(define (main (files Files) (fs Fs) (clock Clock) (out OutputPort)) (→ Unit) (! mut host tasks)
+(define (main (files Files) (fs Fs) (clock Clock) (out OutputPort)) (→ Unit) (! mut)
   (let ((gpu (host-gpu)))
     (request-device gpu)
     (let* ((address (string-append "?" (string-join (list-tail (command-line) 1) "&")))

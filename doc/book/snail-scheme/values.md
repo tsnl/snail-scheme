@@ -49,10 +49,10 @@ has no capture environment. The backend represents any closure without
 captures as an immutable global. There is no separate code pointer type,
 callable class, `FnMut`, `dyn`, or `impl` form.
 
-A control handler's `resume` is an `Fn` too, but the frames it holds run at
-most once: calling it a second time panics with `resume called twice`. An
-implementation that never calls it leaves the suspended frames to the
-collector, and nothing in them runs ([effects](effects.md#resuming-once)).
+A `with-prompt`'s `resume` is an `Fn` too, but the frames it holds run at
+most once: calling it a second time panics with `resume called twice`. A
+handler that never calls it leaves the suspended frames to the collector,
+and nothing in them runs ([suspension](suspension.md#resuming-once)).
 
 ## Resources
 

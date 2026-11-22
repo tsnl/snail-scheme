@@ -24,7 +24,6 @@
    FileSource
    DataSource
    ViewSource
-   reading
    unreadable
    attempt-reading
    Attribute
@@ -117,20 +116,19 @@
     ;; ---- Reading ----
 
     ;; A scene that cannot be read stops being read: nothing after
-    ;; `unreadable` runs, and `attempt-reading` answers why.
-    (effect reading
-      ((ctl stop-reading (Fn String → Never))))
+    ;; `unreadable` runs, and `attempt-reading` answers why. Nothing
+    ;; resumes a suspension to the reading prompt, so it only unwinds.
+    (define unreading (→ (Prompt String Never)) (make-prompt))
 
-    (define (unreadable (why String)) (→ A) (! reading) (∀ (A)) (absurd (stop-reading why)))
+    (define (unreadable (why String)) (→ A) (∀ (A))
+      (absurd (suspend unreading why)))
 
-    (define (attempt-reading (work (Fn → T ! reading e))) (→ (Result T String)) (! e) (∀ (T e))
-      (handle reading
-          ((stop-reading (lambda (why) (Err why))))
-        (Ok (work))))
+    (define (attempt-reading (work (Fn → T ! e))) (→ (Result T String)) (! e) (∀ (T e))
+      (with-prompt unreading (lambda () (Ok (work))) (lambda (why resume) (Err why))))
 
     ;; The scene in `file`, a .gltf or a .glb file, whose URIs are relative
     ;; to `base`, the URL of the directory holding it, ending in a slash.
-    (define (read-gltf (file Bytes) (base String)) (→ Gltf) (! reading)
+    (define (read-gltf (file Bytes) (base String)) (→ Gltf)
       (let ((chunks (file-chunks file)))
         (match (utf8->string (● chunks first))
           ((Ok text)
@@ -139,7 +137,7 @@
              ((None) (unreadable "the scene is not JSON"))))
           ((Err _) (unreadable "the scene is not UTF-8")))))
 
-    (define (gltf-of (json Json) (base String) (chunk Bytes)) (→ Gltf) (! reading)
+    (define (gltf-of (json Json) (base String) (chunk Bytes)) (→ Gltf)
       (refuse-compressed json)
       (let* ((buffers (list->array (buffers-of json base chunk)))
              (views (list->array (items json "bufferViews")))
@@ -163,7 +161,7 @@
 
     ;; Compressed geometry is in no accessor's bytes, so a scene that needs
     ;; it has nothing to draw.
-    (define (refuse-compressed (json Json)) (→ Unit) (! reading)
+    (define (refuse-compressed (json Json)) (→ Unit)
       (for-each (lambda (extension)
                   (match extension
                     ((JsonString name)
@@ -174,7 +172,7 @@
                 (items json "extensionsRequired")))
 
     ;; The item a scene names by `index`.
-    (define (item (items (Array T)) (index I64) (kind String)) (→ T) (! reading) (∀ (T))
+    (define (item (items (Array T)) (index I64) (kind String)) (→ T) (∀ (T))
       (if (and (>= index 0) (< index (array-length items)))
           (array-ref items index)
           (unreadable (string-append "the scene has no " kind " " (show index)))))
@@ -210,7 +208,6 @@
 
     (define (image-source (image Json) (views (Array Json)) (buffers (Array Buffer)) (base String))
       (→ Source)
-      (! reading)
       (match (json-member image "bufferView")
         ((Some (JsonInteger index))
          (let* ((view (item views index "buffer view")) (buffer (integer-or view "buffer" 0)))
@@ -228,7 +225,6 @@
     ;; view's bytes, though glTF means zeros.
     (define (accessor-of (accessor Json) (views (Array Json)) (buffers (Array Buffer)))
       (→ Attribute)
-      (! reading)
       (let* ((view (item views (integer-or accessor "bufferView" 0) "buffer view"))
              (buffer (item buffers (integer-or view "buffer" 0) "buffer"))
              (component (integer-or accessor "componentType" 5126))
@@ -273,7 +269,6 @@
                            (accessors (Array Attribute))
                            (bounds (Array (Pair (List F64) (List F64)))))
       (→ (List Primitive))
-      (! reading)
       (fold-right (lambda (primitive rest)
                     (if (= (integer-or primitive "mode" 4) 4)
                         (match (primitive-of primitive accessors bounds)
@@ -287,9 +282,8 @@
                           (accessors (Array Attribute))
                           (bounds (Array (Pair (List F64) (List F64)))))
       (→ (Option Primitive))
-      (! reading)
       (let* ((attributes (member-or primitive "attributes"))
-             (accessor (lambda ((holder Json) (name String)) (→ (Option Attribute)) (! reading)
+             (accessor (lambda ((holder Json) (name String)) (→ (Option Attribute))
                          (match (json-member holder name)
                            ((Some (JsonInteger index)) (Some (item accessors index "accessor")))
                            (_ (None))))))
@@ -309,9 +303,9 @@
     ;; ---- Materials ----
 
     ;; A texture reference's image, -1 when it has none.
-    (define (material-of (material Json) (images (Array I64))) (→ Material) (! reading)
+    (define (material-of (material Json) (images (Array I64))) (→ Material)
       (let* ((pbr (member-or material "pbrMetallicRoughness"))
-             (image (lambda ((holder Json) (name String)) (→ I64) (! reading)
+             (image (lambda ((holder Json) (name String)) (→ I64)
                       (let ((texture (integer-or (member-or holder name) "index" -1)))
                         (if (< texture 0) -1 (item images texture "texture")))))
              (strength (number-or (member-or (member-or material "extensions")
@@ -342,7 +336,6 @@
     ;; matrices of the nodes above it.
     (define (scene-placed (json Json) (meshes (Array (List Primitive))))
       (→ (List Placed))
-      (! reading)
       (let* ((scenes (list->array (items json "scenes")))
              (roots (if (= (array-length scenes) 0)
                         (Nil)
@@ -358,7 +351,6 @@
                          (parent (List F64))
                          (depth I64))
       (→ (List Placed))
-      (! reading)
       (when (> depth (array-length nodes))
         (unreadable "the scene's nodes form a loop"))
       (let* ((node (item nodes index "node"))
@@ -502,7 +494,7 @@
     ;; header starting "glTF", then chunks of a length, a type and that
     ;; many bytes: the JSON, then the binary chunk if it has one. Any other
     ;; file is the JSON, with an empty chunk.
-    (define (file-chunks (file Bytes)) (→ (Pair Bytes Bytes)) (! reading)
+    (define (file-chunks (file Bytes)) (→ (Pair Bytes Bytes))
       (if (and (>= (array-length file) 20) (= (word file 0) 1179937895))
           (let* ((json-end (+ 20 (word file 12))) (bin (+ 8 json-end)))
             (new Pair
@@ -512,7 +504,7 @@
                           (make-array 0 (i32->u8 0))))))
           (new Pair (first file) (second (make-array 0 (i32->u8 0))))))
 
-    (define (chunk (file Bytes) (from I64) (to I64)) (→ Bytes) (! reading)
+    (define (chunk (file Bytes) (from I64) (to I64)) (→ Bytes)
       (if (<= to (array-length file))
           (subarray file from to)
           (unreadable "the .glb file is cut short")))

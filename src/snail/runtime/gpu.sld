@@ -10,8 +10,8 @@
 ;; views at the next `current-texture`. Requesting the device, reading a
 ;; buffer and decoding an image are host operations a task waits for by
 ;; ticket. A string answer crosses a scalar at a time: the call answers how
-;; many, and `reply-scalar` reads each. (snail shell gpu) implements
-;; the `gpu` effect over these.
+;; many, and `reply-scalar` reads each. (snail shell gpu) makes its
+;; `Gpu` over these.
 (define-library (snail runtime gpu)
   (export
    start-device

@@ -5,14 +5,13 @@
  (snail core base)
  (snail core io)
  (snail shell gpu)
- (snail shell gpu record)
- (only (snail shell task) tasks))
+ (snail shell gpu record))
 
 (define shader "@vertex fn v() -> @builtin(position) vec4f { return vec4f(); }")
 
 (define counting "@compute @workgroup_size(64) fn c() {}")
 
-(define (frame (gpu Gpu)) (→ Unit) (! mut tasks)
+(define (frame (gpu Gpu)) (→ Unit) (! mut)
   (request-device gpu)
   (let* ((buffer (create-buffer gpu
                                 (new BufferDescriptor
@@ -94,7 +93,7 @@
     (end-compute-pass gpu pass)
     (submit gpu (list (finish gpu encoder)))))
 
-(define (main (out OutputPort)) (→ Unit) (! mut tasks)
+(define (main (out OutputPort)) (→ Unit) (! mut)
   (for-each (lambda (text) (write-line out text))
             (● (with-recorded-gpu (lambda (gpu) (frame gpu))) second))
   (write-line out "compute:")

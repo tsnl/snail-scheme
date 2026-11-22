@@ -1,7 +1,7 @@
-;; Requests to a server and the streams of events it sends, as an effect,
-;; so an interface's commands can ask and a test can answer for the
-;; server. The browser host binds it to the page's `fetch` and
-;; `EventSource` ((snail shell fetch page)).
+;; Requests to a server and the streams of events it sends, as a
+;; capability, `Fetch`, so an interface's commands can ask and a test can
+;; answer for the server. (snail shell fetch page) makes the one over the
+;; page's `fetch` and `EventSource`.
 (define-library (snail shell fetch)
   (export
    Header
@@ -17,8 +17,7 @@
    stream-next
    stream-close)
   (import
-   (snail core base)
-   (only (snail shell task) tasks))
+   (snail core base))
   (begin
 
     ;; ---- Requests ----
@@ -42,7 +41,7 @@
       ((kind String)
        (data String)))
 
-    ;; ---- The effect ----
+    ;; ---- The capability ----
 
     ;; `request method url headers body` answers the server's reply, or
     ;; why there was none, such as a failed connection. `stream-open url
@@ -62,11 +61,11 @@
     ;; of the page the program runs in, which relative URLs resolve
     ;; against and whose query can choose what it shows.
     (record Fetch
-      ((request (Fn String String (List Header) String → (Result Reply String) ! mut tasks))
-       (fetch-all-bytes (Fn (List String) → (List (Result Bytes String)) ! mut tasks))
+      ((request (Fn String String (List Header) String → (Result Reply String) ! mut))
+       (fetch-all-bytes (Fn (List String) → (List (Result Bytes String)) ! mut))
        (page-address (Fn → String ! mut))
        (stream-open (Fn String (List String) → Stream ! mut))
-       (stream-next (Fn Stream → (Option StreamEvent) ! mut tasks))
+       (stream-next (Fn Stream → (Option StreamEvent) ! mut))
        (stream-close (Fn Stream → Unit ! mut))))
 
     (define (request (fetch Fetch)
@@ -75,12 +74,12 @@
                      (headers (List Header))
                      (body String))
       (→ (Result Reply String))
-      (! mut tasks)
+      (! mut)
       ((● fetch request) method url headers body))
 
     (define (fetch-all-bytes (fetch Fetch) (urls (List String)))
       (→ (List (Result Bytes String)))
-      (! mut tasks)
+      (! mut)
       ((● fetch fetch-all-bytes) urls))
 
     (define (page-address (fetch Fetch)) (→ String) (! mut)
@@ -89,11 +88,11 @@
     (define (stream-open (fetch Fetch) (url String) (kinds (List String))) (→ Stream) (! mut)
       ((● fetch stream-open) url kinds))
 
-    (define (stream-next (fetch Fetch) (stream Stream)) (→ (Option StreamEvent)) (! mut tasks)
+    (define (stream-next (fetch Fetch) (stream Stream)) (→ (Option StreamEvent)) (! mut)
       ((● fetch stream-next) stream))
 
     (define (stream-close (fetch Fetch) (stream Stream)) (→ Unit) (! mut)
       ((● fetch stream-close) stream))
 
-    (define (fetch-bytes (fetch Fetch) (url String)) (→ (Result Bytes String)) (! mut tasks)
+    (define (fetch-bytes (fetch Fetch) (url String)) (→ (Result Bytes String)) (! mut)
       (list-ref (fetch-all-bytes fetch (list url)) 0))))

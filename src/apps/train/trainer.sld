@@ -35,8 +35,7 @@
   (import
    (snail core base)
    (snail core io)
-   (only (snail core forms) host)
-   (only (snail shell task) tasks dispatch Mailbox make-mailbox mailbox-post mailbox-receive)
+   (only (snail shell task) dispatch Mailbox make-mailbox mailbox-post mailbox-receive)
    (snail shell gpu)
    (only (snail shell math) log)
    (only (snail shell random) Random make-random random-next random-below)
@@ -106,9 +105,9 @@
     ;; each time a step trains on it, and once more at the end if it is
     ;; held out.
     (record Photographs
-      ((photograph (Fn ColmapImage → Image ! mut tasks))))
+      ((photograph (Fn ColmapImage → Image ! mut))))
 
-    (define (photograph (photographs Photographs) (image ColmapImage)) (→ Image) (! mut tasks)
+    (define (photograph (photographs Photographs) (image ColmapImage)) (→ Image) (! mut)
       ((● photographs photograph) image))
 
     ;; A scene's photographs do not fit the device together at full size:
@@ -124,7 +123,7 @@
       ((image ColmapImage)
        (photo (Mailbox Image))))
 
-    (define (sent-for (photographs Photographs) (image ColmapImage)) (→ Arriving) (! tasks mut host)
+    (define (sent-for (photographs Photographs) (image ColmapImage)) (→ Arriving) (! mut)
       (let ((arriving (new Arriving (image image) (photo (make-mailbox)))))
         (dispatch (lambda () (mailbox-post (● arriving photo) (photograph photographs image))))
         arriving))
@@ -183,7 +182,7 @@
     ;; point's, its scale the root of the mean squared distance to its
     ;; three nearest neighbours, unrotated, with opacity 0.1, and only
     ;; degree 0 shading, as the reference starts.
-    (define (start-cloud (gpu Gpu) (p Programs) (scene Scene)) (→ Unit) (! mut tasks)
+    (define (start-cloud (gpu Gpu) (p Programs) (scene Scene)) (→ Unit) (! mut)
       (let* ((points (list->array (● scene points)))
              (count (array-length points))
              (capacity (● p capacity))
@@ -219,7 +218,7 @@
 
     ;; log(sqrt(d)) of each point's mean squared distance to its three
     ;; nearest, at least 1e-7.
-    (define (initial-scales (gpu Gpu) (points (Array ColmapPoint))) (→ (Array F64)) (! mut tasks)
+    (define (initial-scales (gpu Gpu) (points (Array ColmapPoint))) (→ (Array F64)) (! mut)
       (let* ((count (array-length points))
              (view (param "points" (list count 3) (Float)))
              (program (compile-program gpu "nearest" (list (nearest-distances view)) (Nil))))
@@ -287,7 +286,7 @@
                      (p Programs)
                      (scene Scene))
       (→ Unit)
-      (! mut tasks)
+      (! mut)
       (let* ((image (list-ref (● scene training) 0)) (photo (photograph photographs image)))
         (step-on gpu p scene image photo 0.0001)
         (destroy gpu (TextureObject (● photo texture))))
@@ -320,7 +319,7 @@
     ;; entries a gaussian. A full cloud densifies only as far as its room.
     (define (densified (gpu Gpu) (p Programs) (scene Scene) (step I64) (most I64))
       (→ (Pair Programs I64))
-      (! mut tasks)
+      (! mut)
       (write-param gpu (● p densify) "prune-big" (floats (list (if (> step 3000) 1.0 0.0))))
       (write-param gpu (● p densify)
                    "seed"
@@ -338,7 +337,7 @@
 
     ;; Programs twice as roomy for entries once the last step's binning
     ;; asked for more than three quarters of them, up to 2^27.
-    (define (roomy (gpu Gpu) (p Programs) (scene Scene)) (→ Programs) (! mut tasks)
+    (define (roomy (gpu Gpu) (p Programs) (scene Scene)) (→ Programs) (! mut)
       (let ((entries (scalar-of (read-sink gpu (● p step) 2))) (room (● p sensor capacity)))
         (if (and (> (* 4.0 entries) (* 3.0 (i64->f64 room))) (< room 134217728))
             (grown gpu p scene (● p capacity) (* 2 room))
@@ -468,7 +467,7 @@
                    (options Options)
                    (shown (Fn Programs → Unit ! mut)))
       (→ Programs)
-      (! tasks mut host)
+      (! mut)
       (let* ((capacity (min (● options gaussians) (max 1048576 (* 2 (length (● scene points))))))
              (p (programs-for gpu scene capacity (* 4 capacity))))
         (start-cloud gpu p scene)
@@ -510,7 +509,7 @@
 
     ;; The cloud the programs trained, its params read back from the
     ;; device as they are.
-    (define (trained-cloud (gpu Gpu) (p Programs)) (→ Trained) (! mut tasks)
+    (define (trained-cloud (gpu Gpu) (p Programs)) (→ Trained) (! mut)
       (let ((param (lambda (name) (read-param gpu (● p step) name))))
         (new Trained
           (live (param "live"))
@@ -526,7 +525,7 @@
     ;; The run with one more photograph sent for: one not yet sent for
     ;; this round, picked at random, from a new round once every one has
     ;; been.
-    (define (sending (photographs Photographs) (run Run) (scene Scene)) (→ Run) (! tasks mut host)
+    (define (sending (photographs Photographs) (run Run) (scene Scene)) (→ Run) (! mut)
       (let* ((round (if (null? (● run round)) (● scene training) (● run round)))
              (random (random-next (● run random)))
              (pick (random-below random (length round))))
@@ -542,7 +541,7 @@
                      (options Options)
                      (shown (Fn Programs → Unit ! mut)))
       (→ Run)
-      (! tasks mut host)
+      (! mut)
       (match (● run arriving)
         ((Cons next rest)
          (let ((sent (Run-arriving-set run rest)))
@@ -571,7 +570,7 @@
                      (shown (Fn Programs → Unit ! mut))
                      (next Arriving))
       (→ Run)
-      (! tasks mut)
+      (! mut)
       (let ((step (● run step)) (p (● run programs)) (photo (mailbox-receive (● next photo))))
         (step-on gpu p
                  scene
@@ -601,7 +600,7 @@
     ;; binned into, each against its capacity, and the seconds so far.
     (define (report (gpu Gpu) (clock Clock) (out OutputPort) (run Run) (p Programs))
       (→ Unit)
-      (! mut tasks)
+      (! mut)
       (let ((loss (scalar-of (read-sink gpu (● p step) 0)))
             (entries (f64->i64 (scalar-of (read-sink gpu (● p step) 2))))
             (seconds (/ (i64->f64 (- (monotonic-nanoseconds clock) (● run started))) 1000000000.0)))
@@ -618,7 +617,7 @@
     ;; reference measures.
     (define (held-out-psnr (photographs Photographs) (gpu Gpu) (p Programs) (scene Scene))
       (→ F64)
-      (! mut tasks)
+      (! mut)
       (let* ((cloud (splat-params (● p capacity)))
              (sensor (● p sensor))
              (target (rgba8-image (param "target"

@@ -2,9 +2,9 @@
  (snail core base)
  (snail core io))
 
-;; The examples of "Basic effects" in the book's chapter on effects and
-;; handlers, doc/book/snail-scheme/effects.md, which includes the parts
-;; between each ANCHOR and ANCHOR_END.
+;; The examples of "Rows" in the book's chapter on capabilities and rows,
+;; doc/book/snail-scheme/effects.md, which includes the parts between
+;; each ANCHOR and ANCHOR_END.
 
 ;; ANCHOR: rows
 ;; Total: no row, so a call can only compute its result.
@@ -14,14 +14,14 @@
 (define (square (n I64)) (→ I64)
   (* n n))
 
-;; Writes to the output-port, and its type says so.
+;; Writes to the port it is given, and its row says it changes something.
 (define (report (out OutputPort) (label String) (n I64)) (→ Unit) (! mut)
   (write-line out (string-append label " " (show n))))
 
 ;; ANCHOR_END: rows
 
 ;; ANCHOR: inferred
-;; No signature: the row, output-port, is inferred from the body.
+;; Its row is its body's: `report` performs `mut`, so it does.
 (define (report-square (out OutputPort) (n I64)) (→ Unit) (! mut)
   (report out "squared" (square n)))
 

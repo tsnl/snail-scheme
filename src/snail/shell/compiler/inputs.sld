@@ -1,7 +1,7 @@
 ;; The requests a compile makes for what it was not supplied, a
 ;; producer's output, and the printed producers they name. A request is
-;; the `compile` effect's `need` (snail shell compiler read), whose record
-;; the build that runs the compile takes.
+;; a compile stopped with `Requested` (snail shell compiler read), which the
+;; build that runs the compile takes.
 (define-library (snail shell compiler inputs)
   (export
    generated-syntax
@@ -33,12 +33,12 @@
     ;; ---- Requests ----
 
     ;; A pass that needs an input it was not supplied, such as the expander
-    ;; at a generated library, asks for it by performing `need`. Nothing
-    ;; after the call runs: the entry point's handler takes the request and
-    ;; hands it to its caller.
+    ;; at a generated library, asks for it by stopping the compile. Nothing
+    ;; after the call runs: the entry point's boundary takes the request
+    ;; and hands it to its caller.
 
-    (define (request-input (request CompilerRequest)) (→ A) (! compile) (∀ (A))
-      (absurd (need request)))
+    (define (request-input (request CompilerRequest)) (→ A) (∀ (A))
+      (stop (Requested request)))
 
     (define (quoted (text String)) (→ String)
       (datum->string (DString text)))
@@ -61,7 +61,7 @@
                               (loading (List String))
                               (forms (List Syntax)))
       (→ Bytes)
-      (! mut compile)
+      (! mut)
       (let* ((key (producer-key (producer-text directories forms)))
              (output (string-append directory "/" key ".syntax")))
         (if (file-exists? fs output)
@@ -90,7 +90,7 @@
     ;; diagnostic about the file as a whole, so a resident caller reports
     ;; it and builds again once the file is back.
 
-    (define (read-source-file (fs Fs) (path String)) (→ (List Syntax)) (! mut compile)
+    (define (read-source-file (fs Fs) (path String)) (→ (List Syntax)) (! mut)
       (if (file-exists? fs path)
           (read-text (read-file fs path) path)
           (compile-error (new Loc (file path) (line 0) (column 0)) "no such file or directory")))
@@ -101,13 +101,12 @@
 
     (define (generating-stack (forms (List Syntax)))
       (→ (Pair (List String) (List Syntax)))
-      (! compile)
       (match forms
         ((Cons (Form (Cons (Ident "generating" _ _) keys) _) rest)
          (new Pair (first (map loading-key keys)) (second rest)))
         (_ (new Pair (first (Nil)) (second forms)))))
 
-    (define (loading-key (key Syntax)) (→ String) (! compile)
+    (define (loading-key (key Syntax)) (→ String)
       (match key
         ((Atom (DString text) _) text)
         (_ (compile-error (syntax-loc key) "expected a library key string"))))

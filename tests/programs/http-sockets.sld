@@ -1,5 +1,4 @@
 (import
- (only (snail core forms) host)
  (snail core base)
  (except (snail core io) write)
  (snail shell task)
@@ -18,27 +17,27 @@
   (string-generate (array-length bytes)
                    (lambda (index) (i32->char (u8->i32 (array-ref bytes index))))))
 
-(define (write-all (tcp Tcp) (connection Connection) (bytes Bytes)) (→ Unit) (! mut tasks)
+(define (write-all (tcp Tcp) (connection Connection) (bytes Bytes)) (→ Unit) (! mut)
   (let loop ((offset 0))
     (when (< offset (array-length bytes))
       (let ((count (require (write tcp connection (subarray bytes offset (array-length bytes))))))
         (unless (> count 0) (panic "write did not progress"))
         (loop (+ offset (i32->i64 count)))))))
 
-(define (read-all (tcp Tcp) (connection Connection)) (→ Bytes) (! mut tasks)
+(define (read-all (tcp Tcp) (connection Connection)) (→ Bytes) (! mut)
   (let loop ((chunks (ann (Nil) (List Bytes))))
     (match (require (read tcp connection 65536))
       ((None) (array-concatenate (reverse chunks)))
       ((Some bytes) (loop (Cons bytes chunks))))))
 
-(define (echo (request Request)) (→ (Result Response String)) (! tasks)
+(define (echo (request Request)) (→ (Result Response String))
   (sleep 1)
   (Ok (new Response
         (status 200)
         (headers (list (new Header (name "Content-Type") (value "text/plain"))))
         (body (● request body)))))
 
-(define (main (tcp Tcp) (out OutputPort)) (→ Unit) (! host mut tasks)
+(define (main (tcp Tcp) (out OutputPort)) (→ Unit) (! mut)
   ;; A program waits on sockets from a task, which the scheduler runs once
   ;; main returns.
   (dispatch

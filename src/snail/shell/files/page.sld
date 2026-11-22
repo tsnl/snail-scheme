@@ -1,5 +1,5 @@
-;; The page's file pickers and drops for the `files` effect:
-;; `with-page-files` binds each operation to the browser host
+;; The page's file pickers and drops as a `FilePicker`:
+;; `page-file-picker` binds each operation to the browser host
 ;; (host/browser/files.mjs).
 (define-library (snail shell files page)
   (export

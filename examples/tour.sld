@@ -99,26 +99,25 @@
 (define (bump! (counter Counter)) (→ Unit) (! mut)
   (set! (● counter count) (+ (● counter count) 1)))
 
-;; ---- Effects ----
+;; ---- Capabilities ----
 
-;; An effect declares operations, and a handler implements them for the
-;; code it runs. A function's row, after `!`, lists what it may perform:
-;; `greet` asks, and whoever calls it decides what asking means.
-(effect Ask
-  ((ask (Fn → String))))
-
-(define (greet) (→ String) (! Ask)
+;; What a function may do to the world is in what it is given. `greet`
+;; asks whoever it is handed, and its caller decides who that is: a
+;; capability is a value, here a function.
+(define (greet (ask (Fn → String))) (→ String)
   (string-append "hello, " (ask)))
 
-;; A `ctl` operation need not return. Its implementation receives
-;; `resume`, the rest of the handled code, and calls it at most once (a
-;; second call panics): here it collects each value emitted and carries on.
-(effect Emit
-  ((ctl emit (Fn I64 → Unit))))
+;; ---- Suspension ----
 
-(define (count-down (n I64)) (→ Unit) (! Emit)
+;; `suspend` stops the body of the `with-prompt` around it and hands its
+;; value to that call's handler, with `resume`, the rest of the body, to
+;; call at most once (a second call panics): here the handler collects
+;; each value emitted and carries on.
+(define emitting (→ (Prompt I64 Unit)) (make-prompt))
+
+(define (count-down (n I64)) (→ Unit)
   (when (> n 0)
-    (emit n)
+    (suspend emitting n)
     (count-down (- n 1))))
 
 ;; ---- Macros ----
@@ -162,13 +161,13 @@
     (bump! clicks)
     (display out (● clicks count))
     (newline out))
-  (write-line out (handle Ask
-                      ((ask (lambda () "world")))
-                    (greet)))
-  (write out (handle Emit
-                 ((emit (lambda (value resume) (Cons value (resume (unit))))))
-               (count-down 3)
-               (Nil)))
+  (write-line out (greet (lambda () "world")))
+  (write out
+         (with-prompt emitting
+                      (lambda ()
+                        (count-down 3)
+                        (Nil))
+                      (lambda (value resume) (Cons value (resume (unit))))))
   (newline out)
   (let ((left (new Label (text "left")))
         (right (new Label (text "right"))))

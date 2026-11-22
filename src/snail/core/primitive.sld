@@ -13,7 +13,7 @@
   (export
    unit panic unsafe-total unsafe-cast
    cache lru-cache
-   inherit-handlers
+   make-prompt with-prompt suspend
    i32-add i32-sub i32-mul i32-quotient i32-remainder i32-and i32-or i32-xor
    i32-shift-left i32-shift-right i32-shift-right/logical i32-eq i32-lt i32-le i32-gt i32-ge
    i64-add i64-sub i64-mul i64-quotient i64-remainder i64-and i64-or i64-xor
@@ -80,19 +80,33 @@
     (primitive cache (∀ (F) (Fn F → F)))
     (primitive lru-cache (∀ (F) (Fn I64 F → F)))
 
-    ;; ---- Inherited handlers ----
+    ;; ---- Prompts ----
 
-    ;; `inherit-handlers` closes a thunk over the handlers in scope where it
-    ;; is called: the function it makes runs the thunk under those handlers,
-    ;; wherever it is called. The caller is charged the thunk's row, as
-    ;; dispatching is. The handlers answer the effects
-    ;; the row declares; what remains, `mut` and the effects the host
-    ;; implements, happens when the function runs, so it performs `host`,
-    ;; which only code that may run anything the host implements, such as a
-    ;; scheduler, can perform. The thunk may not yield to a control effect,
-    ;; since the handles it would yield to may have returned by then.
-    (primitive inherit-handlers
-               (∀ (A e) (Fn (Fn → A ! e) → (Fn → A ! host) ! e)))
+    ;; The one way a computation stops short of its result. `(suspend
+    ;; prompt value)` stops the body of the nearest `with-prompt` of that
+    ;; prompt around it, and hands `value` to that call's handler, with
+    ;; `resume`, the rest of the body: `(resume answer)` goes on from the
+    ;; suspension, whose value is `answer`, to the body's end, and answers
+    ;; the body's value. The handler's value is the value of the
+    ;; `with-prompt`, as the body's is when nothing suspends.
+    ;;
+    ;; - The handler runs outside its `with-prompt`: a suspension it makes
+    ;;   goes to the next one out.
+    ;; - `resume` is an ordinary function, which may be kept and called
+    ;;   later, once: a second call panics. Resumed, the body is under the
+    ;;   same `with-prompt` again, so its next suspension reaches the same
+    ;;   handler.
+    ;; - A prompt whose answer is `Never` is never resumed, so suspending to
+    ;;   it is an exception, and costs what unwinding costs.
+    ;; - Suspending to a prompt with no `with-prompt` around it panics.
+    ;;
+    ;; A prompt is a value like any other: one made at the top level is
+    ;; every caller's, and one made in a function is its own.
+    (primitive make-prompt (∀ (S R) (Fn → (Prompt S R))))
+    (primitive with-prompt
+               (∀ (S R A e)
+                  (Fn (Prompt S R) (Fn → A ! e) (Fn S (Fn R → A ! e) → A ! e) → A ! e)))
+    (primitive suspend (∀ (S R) (Fn (Prompt S R) S → R)))
 
     ;; ---- Integers ----
 

@@ -191,7 +191,7 @@ await checkTraps();
 await checkUnreadableSave();
 await checkStartupFailures();
 await checkStorageFailure();
-console.log('app runtime: the scene as a task, storage by ticket, queued input, the HUD\'s presses and hovering, inherited handlers and saves passed');
+console.log('app runtime: the scene as a task, storage by ticket, queued input, the HUD\'s presses and hovering, what a task closed over across its waits, and saves passed');
 
 // The imports of the capabilities the target installs and this test leaves
 // unused: the files a program links, the host's WebAssembly, and WebGPU,

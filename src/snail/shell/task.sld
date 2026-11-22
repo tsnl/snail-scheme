@@ -2,28 +2,44 @@
 ;; each turn or wake, and closes. A task runs until it finishes: nothing
 ;; cancels one, and tasks that want to stop each other arrange it between
 ;; themselves, as through a mailbox.
+;;
+;; A task waits by suspending: `yield`, `sleep` and `await` stop it where
+;; it is, however deep in its calls, and its scheduler keeps the rest of
+;; it to run later. No function between the wait and the task's start says
+;; so in its type, and none takes anything for it.
 (define-library (snail shell task)
   (export
-   tasks yield sleep await ticket current-scheduler
+   yield sleep await ticket current-scheduler
    Scheduler make-scheduler dispatch-in
    dispatch through-host
    tasks-turn tasks-wake! tasks-close! tasks-running tasks-live
    Mailbox make-mailbox mailbox-post mailbox-receive mailbox-try-receive)
   (import
-   (snail core base)
-   (only (snail core forms) host)
-   (only (snail core primitive) inherit-handlers))
+   (snail core base))
   (begin
 
-    ;; ---- The effect ----
+    ;; ---- Waiting ----
 
-    ;; Every handler supplies its scheduler as well as its waiting protocol.
-    (effect tasks
-      ((ctl yield (Fn → Unit))
-       (ctl sleep (Fn I64 → Unit))
-       (ctl await (Fn (List I64) → Unit))
-       (ticket (Fn → I64))
-       (current-scheduler (Fn → Scheduler))))
+    ;; What a task tells its scheduler when it stops to wait: for its next
+    ;; turn, for a delay, or for the host's answers to tickets.
+    (enum Wait
+      (Yield)
+      (Sleep ((delay I64)))
+      (Await ((tickets (List I64)))))
+
+    ;; The prompt every task runs under. A wait suspends to it, and the
+    ;; scheduler resumes the task with nothing but the news that the wait
+    ;; is over.
+    (define waiting (→ (Prompt Wait Unit)) (make-prompt))
+
+    (define (yield) (→ Unit)
+      (suspend waiting (Yield)))
+
+    (define (sleep (delay I64)) (→ Unit)
+      (suspend waiting (Sleep delay)))
+
+    (define (await (tickets (List I64))) (→ Unit)
+      (suspend waiting (Await tickets)))
 
     ;; ---- Queues ----
 
@@ -51,15 +67,15 @@
     (enum Step
       (Finished)
       (Yielded
-       ((next (Fn → Step ! host))))
+       ((next (Fn → Step ! mut))))
       (Sleeping
        ((delay I64)
-        (next (Fn → Step ! host))))
+        (next (Fn → Step ! mut))))
       (Waiting
        ((tickets (List I64))
-        (next (Fn → Step ! host)))))
+        (next (Fn → Step ! mut)))))
 
-    (type Run (Fn → Step ! host))
+    (type Run (Fn → Step ! mut))
 
     ;; A task that is ready, under its id.
     (record Runnable
@@ -104,44 +120,62 @@
     (define (push-ready! (scheduler Scheduler) (task Runnable)) (→ Unit) (! mut)
       (set! (● scheduler ready) (Cons task (● scheduler ready))))
 
-    ;; ---- Dispatching ----
+    ;; ---- The running scheduler ----
 
-    ;; The handler holds the scheduler, for the tickets it allocates.
-    ;; Inherited handlers keep the dispatcher's other effects.
-    (define (start-task (scheduler Scheduler) (work (Fn → Unit ! tasks e)))
-      (→ Step) (! mut host e) (∀ (e))
-      (handle tasks
-          ((yield (lambda (resume)
-                    (Yielded (inherit-handlers (lambda () (resume (unit)))))))
-           (sleep (lambda (delay resume)
-                    (Sleeping delay (inherit-handlers (lambda () (resume (unit)))))))
-           (await (lambda (tickets resume)
-                    (Waiting tickets (inherit-handlers (lambda () (resume (unit)))))))
-           (ticket (lambda () (next-ticket! scheduler)))
-           (current-scheduler (lambda () scheduler)))
-        (work)
-        (Finished)))
+    ;; The scheduler whose task is running, which a turn sets around each
+    ;; step it runs. A task asks it for tickets and dispatches to it, so
+    ;; no task is handed its scheduler.
+    (record Running
+      ((scheduler (Option Scheduler))))
 
-    (define (next-ticket! (scheduler Scheduler)) (→ I64) (! mut)
-      (let ((ticket (+ (● scheduler last-ticket) 1)))
+    (define running (→ Running) (new Running (scheduler (None))))
+
+    (define (current-scheduler) (→ Scheduler)
+      (match (● running scheduler)
+        ((Some scheduler) scheduler)
+        ((None) (panic "no task is running"))))
+
+    (define (ticket) (→ I64) (! mut)
+      (let* ((scheduler (current-scheduler)) (ticket (+ (● scheduler last-ticket) 1)))
         (set! (● scheduler last-ticket) ticket)
         ticket))
 
-    (define (dispatch (work (Fn → Unit ! tasks e)))
-      (→ Unit) (! tasks mut host e) (∀ (e))
+    ;; A step, with `scheduler` the running one while it runs.
+    (define (stepped (scheduler Scheduler) (run Run)) (→ Step) (! mut)
+      (let ((outer (● running scheduler)))
+        (set! (● running scheduler) (Some scheduler))
+        (let ((step (run)))
+          (set! (● running scheduler) outer)
+          step)))
+
+    ;; ---- Dispatching ----
+
+    ;; A task from its start to its first wait, or to its end. A wait hands
+    ;; over the rest of the task as the step that runs it to its next: the
+    ;; `with-prompt` is around the task again whenever that step runs.
+    (define (start-task (work (Fn → Unit ! mut))) (→ Step) (! mut)
+      (with-prompt waiting
+                   (lambda ()
+                     (work)
+                     (Finished))
+                   (lambda (wait resume) (waited wait (lambda () (resume (unit)))))))
+
+    (define (waited (wait Wait) (next Run)) (→ Step)
+      (match wait
+        ((Yield) (Yielded next))
+        ((Sleep delay) (Sleeping delay next))
+        ((Await tickets) (Waiting tickets next))))
+
+    (define (dispatch (work (Fn → Unit ! mut))) (→ Unit) (! mut)
       (dispatch-in (current-scheduler) work)
       (unit))
 
-    (define (dispatch-in (scheduler Scheduler) (work (Fn → Unit ! tasks e)))
-      (→ I64) (! mut host e) (∀ (e))
+    (define (dispatch-in (scheduler Scheduler) (work (Fn → Unit ! mut))) (→ I64) (! mut)
       (when (● scheduler closed)
         (panic "cannot dispatch to a closed scheduler"))
       (let ((id (+ (● scheduler last-task) 1)))
         (set! (● scheduler last-task) id)
-        (push-ready! scheduler
-                     (new Runnable
-                       (id id)
-                       (next (inherit-handlers (lambda () (start-task scheduler work))))))
+        (push-ready! scheduler (new Runnable (id id) (next (lambda () (start-task work)))))
         id))
 
     ;; ---- Turns ----
@@ -152,7 +186,7 @@
     ;; or by a wake, runs in the next one, and tasks that yield to each
     ;; other cannot keep the host from its events. Waking merely queues a
     ;; task: it never invokes one synchronously.
-    (define (tasks-turn (scheduler Scheduler) (now I64)) (→ I64) (! mut host)
+    (define (tasks-turn (scheduler Scheduler) (now I64)) (→ I64) (! mut)
       (if (● scheduler closed) -1
           (let ((batch (reverse (● scheduler ready))))
             (set! (● scheduler ready) (Nil))
@@ -162,13 +196,13 @@
 
     ;; Once the scheduler closes, the rest of the batch is forgotten.
     (define (run-batch! (scheduler Scheduler) (now I64) (batch (List Runnable)))
-      (→ Unit) (! mut host)
+      (→ Unit) (! mut)
       (match batch
         ((Nil) (unit))
         ((Cons (Runnable id run) rest)
          (unless (● scheduler closed)
            (set! (● scheduler running) id)
-           (record! scheduler now id (run))
+           (record! scheduler now id (stepped scheduler run))
            (set! (● scheduler running) 0)
            (run-batch! scheduler now rest)))))
 
@@ -277,7 +311,7 @@
     ;; operation. Completion is delivered between turns, after await parks.
     (define (through-host (start (Fn I64 → Unit)) (finish (Fn I64 → A)))
       (→ A)
-      (! tasks)
+      (! mut)
       (∀ (A))
       (let ((id (ticket)))
         (start id)
@@ -315,7 +349,7 @@
     ;; Taking a ticket does not suspend, so no post comes between finding
     ;; the queue empty and waiting.
     (define (mailbox-receive (mailbox (Mailbox T)))
-      (→ T) (! mut tasks) (∀ (T))
+      (→ T) (! mut) (∀ (T))
       (match (mailbox-try-receive mailbox)
         ((Some message) message)
         ((None)

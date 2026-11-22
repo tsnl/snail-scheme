@@ -2,17 +2,9 @@
  (snail core base)
  (snail core io))
 
-;; A TypeId drops rows at every depth, so a list of yielding functions is
-;; refused as a yielding function is.
-(effect Gen
-  ((ctl yield (Fn I64 → I64))))
+;; A TypeId drops rows at every depth, so a list of functions that write
+;; is refused as such a function is.
+(define (noisy (out OutputPort)) (→ Unit) (! mut)
+  (write-line out "noisy"))
 
-(define (gen) (→ I64) (! Gen) (+ 1 (yield 1)))
-
-(define (boxed) (→ Any) (Any (list gen)))
-
-(define (hidden)
-  (→ (List (Fn → I64)))
-  (match (downcast (List (Fn → I64)) (boxed))
-    ((Some value) value)
-    ((None) (panic "type mismatch"))))
+(define (boxed) (→ Any) (Any (list noisy)))

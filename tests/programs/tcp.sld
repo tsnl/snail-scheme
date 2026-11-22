@@ -1,5 +1,4 @@
 (import
- (only (snail core forms) host)
  (snail core base)
  (rename (snail core io) (write write-value))
  (snail shell task)
@@ -10,7 +9,7 @@
     ((Ok value) value)
     ((Err error) (panic (● error code)))))
 
-(define (receive-four (tcp Tcp) (connection Connection)) (→ Bytes) (! mut tasks)
+(define (receive-four (tcp Tcp) (connection Connection)) (→ Bytes) (! mut)
   (let loop ((bytes #u8()))
     (if (= (array-length bytes) 4)
         bytes
@@ -18,7 +17,7 @@
           ((Some chunk) (loop (array-append bytes chunk)))
           ((None) (panic "unexpected EOF"))))))
 
-(define (main (tcp Tcp) (out OutputPort)) (→ Unit) (! host mut tasks)
+(define (main (tcp Tcp) (out OutputPort)) (→ Unit) (! mut)
   ;; A program waits on sockets from a task, which the scheduler runs once
   ;; main returns.
   (dispatch

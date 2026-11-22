@@ -45,44 +45,47 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
 
 - Every record is a heap object and every field is mutable. Primitive
   numbers and booleans remain unboxed. Keep ordinary compiler passes pure
-  by convention and by their effect signatures. Every value may be shared,
+  by convention and by their rows. Every value may be shared,
   and the Wasm engine's collector reclaims it: there are no linear types,
   reference counts, finalizers or borrows, and no ownership pass.
 - A top-level `(define name value)` is a cached thunk: its initializer runs
-  at most once, on the first read, performs no effect, and every read
+  at most once, on the first read, performs nothing, and every read
   shares the result. `(define (name parameter ...) ...)` is shorthand for
   defining a lambda, and a lambda takes the same typed header. Preserve
   typed headers and `(Fn ... → ...)`. A lambda that annotates nothing has
   its type inferred.
 
 - Use type checking to prove invariants that enable optimization. Preserve
-  evidence about representations, effects and foreign boundaries
+  evidence about representations, rows and foreign boundaries
   through lowering, so later passes can act on established facts. Keep runtime
   checks where those facts cannot be proved statically.
-- Effect handlers are headed for generalized evidence passing, as Koka does:
-  a handler becomes evidence threaded as a parameter, the way a class
-  constraint already is, and an operation becomes an ordinary call through it.
-  This is deliberately not stack switching. JSPI is a browser mechanism with
-  no native counterpart, so building on it would give the two hosts different
-  semantics for the same program; evidence passing is a translation, needs no
-  runtime support, and reuses machinery the compiler already has for
-  typeclasses. The consequence is the continuation tier: one-shot and
-  delimited by its handler. `resume` is an ordinary `Fn`, so it is
-  first-class — a scheduler can hold it and call it later as a thunk, which
-  is how tasks are effects (`src/snail/shell/task.sld`) — and its frames run
-  at most once: a second call panics. Multi-shot continuations are out of scope, since
-  they require every frame to be reachable twice and would be paid for by code
-  that never captures one. The lowering is evidence passing: every
-  function takes `$ev`, the handlers in scope, as its first parameter, and
-  `handle` extends it for its body (`src/snail/shell/compiler/wasm.sld`,
-  "Effect handlers"). One-shot `resume` is implemented on the same
-  translation: a yield returns through each frame, saving the rest of it
-  as a closure, and calling `resume` runs those closures ("Control",
-  "Frames" and "Resuming").
-  Handlers are never specialized: the worklist does not key on a handler, so
-  an operation always walks the evidence list. Performing an effect is
-  meant to be rare and relatively expensive, the heavyweight way to
-  interact with the world, so most logic stays pure functional code.
+- There are no effect declarations and no handlers
+  ([#877](https://github.com/tsnl/snail-scheme/issues/877)). What a
+  function may do to the world is in its parameters: a **capability** is an
+  ordinary value, usually a record of functions (`OutputPort`, `Fs`, `Gpu`),
+  that a function is handed, may keep and may pass on. `main` asks for
+  capabilities by its parameters' types, and its target provides each
+  (`src/snail/target/`, "Entries" in `src/snail/shell/compiler/expand.sld`).
+  A row names one effect, `mut`: a write, or any use of a capability. Take
+  what a function uses as a parameter; do not reach for a host constructor
+  (`host-fs`, `standard-output`) outside a target or an entry.
+- Suspension is three functions, `make-prompt`, `with-prompt` and `suspend`:
+  one-shot, delimited by its `with-prompt`, and in no type. `resume` is an
+  ordinary `Fn`, so it is first-class — a scheduler can hold it and call it
+  later as a thunk, which is how tasks wait (`src/snail/shell/task.sld`) —
+  and its frames run at most once: a second call panics. A prompt that
+  answers `Never` is an exception, which is how every pass reports a source
+  error. Multi-shot continuations are out of scope, since they require every
+  frame to be reachable twice and would be paid for by code that never
+  captures one. This is deliberately not stack switching. JSPI is a browser
+  mechanism with no native counterpart, so building on it would give the two
+  hosts different semantics for the same program; the lowering is a
+  translation and needs no runtime support: a yield returns through each
+  frame, saving the rest of it as a closure, and calling `resume` runs
+  those closures (`src/snail/shell/compiler/wasm.sld`, "Control", "Frames",
+  "Prompts" and "Resuming"). Since no type says which calls may suspend,
+  preparation computes it for the whole specialized program
+  (`src/snail/shell/compiler/prepare.sld`, "Suspensions").
 - Parse, don't validate: turn syntax and external data into structured values
   whose construction establishes the required invariants. Carry that evidence
   forward instead of returning a Boolean and repeatedly checking the same raw
@@ -180,6 +183,9 @@ producers of the `generate-library` recipes it reaches, so Hearsay builds
 too; its producers run every time. What matters when writing code:
 
 - Keep what should survive a page reload in the application's Save.
+- A program's entry is its `main`, and the parameters of `main` are the
+  capabilities it asks its target for: `(define (main (out OutputPort)
+  (gpu Gpu)) ...)`. A top level holds definitions alone.
 - Libraries are checked one at a time, so an importer's use never decides a
   definition's type: give exported functions typed headers.
 - A program runs with `./snail-scheme run --target node FILE`.

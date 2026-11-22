@@ -5,12 +5,12 @@ Macros are hygienic `syntax-rules` transformers, defined with
 `let*`, `cond`, `case` and the variadic `list` are macros in `(snail core base)`.
 So is what a `deriving` clause expands to, a use of a macro in its class's
 library: a macro can expand into an `instance`, as into any declaration.
-They expand before checking, so generated expressions obey the same types
-and effects rules as handwritten code.
+They expand before checking, so generated expressions obey the same type
+and row rules as handwritten code.
 
 A macro can generate a typed definition, including its `(→ Result)`, `!`,
-`∀`, `⊨` and documentation clauses. It cannot grant permission to perform an
-effect or introduce an effectful top-level initializer.
+`∀`, `⊨` and documentation clauses. It cannot hand code a capability it was
+not given, or introduce a top-level initializer that performs `mut`.
 Generated identifiers retain their lexical context; field labels select
 stored slots of the receiver's nominal type.
 
@@ -45,7 +45,19 @@ bytes directly, so a producer need not print and reparse a source string.
 
 The recipe is an explicit build-time program. Its expression is placed in a
 producer entry function; it is not a runtime initializer in the generated
-library. The resulting library still contains only definitions and
+library. A recipe that needs capabilities is a `lambda` over them, and the
+producer's `main` asks its target for each
+(`src/lpc/skins.sld` reads a linked file through a `Resources`):
+
+```scheme
+(generate-library (lpc skins)
+  (import (snail core base) (lpc embed) (snail shell resource))
+  (lambda ((resources Resources))
+    (ramps-library (list "lpc" "skins")
+                   (read-resource resources (link-file "palettes/skin.json")))))
+```
+
+ The resulting library still contains only definitions and
 compile-time declarations. Recipe inputs, failures and cycles are tracked
 by the [compiler input protocol](compilers.md#compiler-inputs).
 

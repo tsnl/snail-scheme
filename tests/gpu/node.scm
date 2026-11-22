@@ -7,10 +7,9 @@
  (snail core base)
  (snail core io)
  (snail shell gpu)
- (gpu-test device)
- (only (snail shell task) tasks))
+ (gpu-test device))
 
-(define (main (out OutputPort)) (→ Unit) (! mut tasks)
+(define (main (out OutputPort)) (→ Unit) (! mut)
   (let ((gpu (host-gpu)))
     (let ((info (request-device gpu)))
       (write-line out (string-append "format: " (texture-format-name (● info format))))

@@ -6,7 +6,6 @@
  (snail core io)
  (snail shell gpu)
  (snail shell gpu record)
- (only (snail shell task) tasks)
  (snail shell graphics pod)
  (snail shell graphics mesh))
 
@@ -42,7 +41,7 @@
      (Cons (substring text 0 at) (words-of (substring text (+ at 1) (string-length text)))))
     ((None) (list text))))
 
-(define (main (out OutputPort)) (→ Unit) (! mut tasks)
+(define (main (out OutputPort)) (→ Unit) (! mut)
   (write-line out (string-append "instance bytes: " (show (array-length (● batch instances)))))
   (for-each (lambda (draw)
               (write-line out (string-append "draw: " (show (● draw index-count))
@@ -54,7 +53,7 @@
   (for-each (lambda (text) (write-line out text))
             (heads (● (with-recorded-gpu (lambda (gpu) (frame gpu))) second)))
   (unit))
-(define (frame (gpu Gpu)) (→ Unit) (! mut tasks)
+(define (frame (gpu Gpu)) (→ Unit) (! mut)
   (request-device gpu)
   (let* ((geometry (make-geometry gpu))
          (uploaded (upload-batch gpu "mesh/test" batch))

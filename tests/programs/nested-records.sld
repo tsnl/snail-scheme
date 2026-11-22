@@ -61,12 +61,14 @@
    (clicks I64)
    (last Point)))
 
-;; A call that may yield leaves an inactive result, here null for a
+;; A call that may suspend leaves an inactive result, here null for a
 ;; Segment, before the frames resume.
-(effect Ask
-  ((ctl ask (Fn → I64))))
+(define asking (→ (Prompt Unit I64)) (make-prompt))
 
-(define (build) (→ Segment) (! Ask)
+(define (ask) (→ I64)
+  (suspend asking (unit)))
+
+(define (build) (→ Segment)
   (new Segment (from (new Point (x (ask)) (y 0))) (to (new Point (x 0) (y (ask)))) (label "asked")))
 
 (define (main (out OutputPort)) (→ Unit) (! mut)
@@ -134,7 +136,5 @@
   (write-line out (show-point (match (downcast Point (Any (new Point (x 9) (y 9))))
                                 ((Some value) value)
                                 ((None) (panic "point round trip failed")))))
-  (write-line out (show-segment (handle Ask
-                                    ((ask (lambda (resume) (resume 1))))
-                                  (build))))
+  (write-line out (show-segment (with-prompt asking build (lambda (value resume) (resume 1)))))
   (unit))

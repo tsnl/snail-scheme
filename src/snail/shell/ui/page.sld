@@ -9,7 +9,6 @@
    run-interface)
   (import
    (snail core base)
-   (only (snail core forms) host)
    (snail shell task)
    (snail shell page)
    (snail shell dom)
@@ -23,7 +22,7 @@
 
     ;; What an update starts: it acts on the page's document and fetch,
     ;; which the loop gives it, and answers a message.
-    (type (Command M) (Fn Dom Fetch → M ! mut tasks))
+    (type (Command M) (Fn Dom Fetch → M ! mut))
 
     ;; An interface is a handler, in the style of winit's: a record of
     ;; pure model transitions and views, and the commands an update
@@ -46,7 +45,7 @@
                            (storage PageStorage)
                            (interface (InterfaceHandler Model Message)))
       (→ Unit)
-      (! mut host tasks)
+      (! mut)
       (∀ (Model Message))
       (run-page events storage (lambda () ((● interface initialize) (random-seed events)))
                 (● interface save)
@@ -62,9 +61,9 @@
                                (storage PageStorage)
                                (interface (InterfaceHandler Model Message))
                                (model Model)
-                               (save (Fn Model → Unit ! mut tasks)))
+                               (save (Fn Model → Unit ! mut)))
       (→ Unit)
-      (! mut host tasks)
+      (! mut)
       (∀ (Model Message))
       (let ((dom (page-dom events)) (fetch (page-fetch)))
         (run-ui dom

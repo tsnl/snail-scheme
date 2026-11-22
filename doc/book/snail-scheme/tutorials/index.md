@@ -11,7 +11,7 @@ output shown. Run one with
   one commented program. Start here.
 - [Fibonacci](fibonacci.md): a typed recursive function and output.
 - [Colors](colors.md): records, enums, typeclasses and pattern matching.
-- [Effects](effects.md): effect rows and handlers.
+- [Capabilities](capabilities.md): a port as a value, and rows.
 - [Values and mutation](values.md): shared objects, mutable fields and fresh
   explicit factory functions and shared state.
 

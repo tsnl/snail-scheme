@@ -3,11 +3,10 @@
 (import
  (snail core base)
  (snail core io)
- (only (snail shell task) tasks)
  (snail shell resource)
  (embedded client))
 
-(define (main (out OutputPort) (resources Resources)) (→ Unit) (! mut tasks)
+(define (main (out OutputPort) (resources Resources)) (→ Unit) (! mut)
   (for-each (lambda (file)
               (write-line out
                           (string-append (● file first)

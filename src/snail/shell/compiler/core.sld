@@ -55,7 +55,6 @@
    Seq
    Match
    Ann
-   Handle
    BoxAny
    Downcast
    Clause
@@ -76,8 +75,6 @@
    Instance
    Instance-methods-set
    Import
-   Effect
-   operation-latent
    Value
    Defined
    Constructor
@@ -87,7 +84,6 @@
    Replacer
    Writer
    Method
-   Operation
    Primitive
    Foreign
    value-scheme
@@ -105,14 +101,12 @@
    program-value
    program-type
    program-class
-   program-effect
    class-instances
    check-instance-overlap
    program-with-value
    program-with-type
    program-with-class
    program-with-instance
-   program-with-effect
    program-with-library
    program-items
    library-items
@@ -135,8 +129,8 @@
 
     ;; `TCon` names a builtin or declared type by its unique name. `TFun` is
     ;; the one callable type: a closure that may be called any number of
-    ;; times. A handler's `resume` is one too; the backend panics if it is
-    ;; called a second time. A row is a set of effect labels, kept sorted,
+    ;; times. A `with-prompt`'s `resume` is one too; the backend panics if it
+    ;; is called a second time. A row is a set of effect labels, kept sorted,
     ;; with an optional tail: a type variable standing for more labels.
     ;; Metavariables exist only inside the checker, which binds their cells.
     (enum Type
@@ -201,8 +195,6 @@
             "ann"
             "extern"
             "primitive"
-            "effect"
-            "handle"
             "expose"
             "case-id"
             "downcast"
@@ -223,6 +215,7 @@
             (new Pair (first "String") (second 0))
             (new Pair (first "Array") (second 1))
             (new Pair (first "ConstantArray") (second 1))
+            (new Pair (first "Prompt") (second 2))
             (new Pair (first "Fn") (second 0))))
 
     ;; Unique names look like `snail.core.base:map`; diagnostics show the source
@@ -300,8 +293,8 @@
         ((TRow more (None)) (new Pair (first (label-union labels more)) (second (None))))
         (_ (new Pair (first labels) (second (Some row))))))
 
-    ;; (snail core base)'s type with no values. A control operation that
-    ;; answers it never resumes, so its yield saves nothing.
+    ;; (snail core base)'s type with no values. A prompt that resumes with
+    ;; it never resumes, so a suspension to it saves nothing.
 
     (define (never-type? (type Type)) (→ Bool)
       (match type
@@ -544,10 +537,6 @@
       (Ann
        ((expr Expr)
         (type Type)))
-      (Handle
-       ((effect String)
-        (implementations (List (Pair String Expr)))
-        (body Expr)))
       (BoxAny ((expr Expr)))
       (Downcast
        ((expr Expr)
@@ -599,9 +588,7 @@
         ((Match scrutinee clauses) (Cons scrutinee (map (lambda (record) (● record body)) clauses)))
         ((Ann inner _) (list inner))
         ((BoxAny inner) (list inner))
-        ((Downcast inner _) (list inner))
-        ((Handle _ implementations body)
-         (append (map (lambda (record) (● record second)) implementations) (list body)))))
+        ((Downcast inner _) (list inner))))
 
     ;; Every name an expression refers to, once each, in order of first
     ;; occurrence. Locals are included, since names are unique.
@@ -703,15 +690,6 @@
       ((module String)
        (symbol String)))
 
-    ;; An effect: its operations, and those among them that are control
-    ;; operations, whose implementations receive the rest of the handled
-    ;; computation as `resume`; the others return to their caller. Only a
-    ;; handler answers one: an effect has no default.
-    (record Effect
-      ((name String)
-       (operations (List String))
-       (control (List String))))
-
     ;; The names of the accessor that reads a record's field and the writer
     ;; that writes it. A field path resolves to them; the `%` keeps a
     ;; program from naming either.
@@ -752,9 +730,6 @@
       (Method
        ((class String)
         (scheme Scheme)))
-      (Operation
-       ((effect String)
-        (scheme Scheme)))
       (Primitive
        ((scheme Scheme)))
       (Foreign
@@ -772,22 +747,12 @@
         ((Writer _ _ scheme) (Some scheme))
         ((Replacer _ _ scheme) (Some scheme))
         ((Method _ scheme) (Some scheme))
-        ((Operation _ scheme) (Some scheme))
         ((Primitive scheme) (Some scheme))
         ((Foreign _ scheme) (Some scheme))))
 
-    ;; The effects an operation's type names besides its own: its latent
-    ;; row, which its callers are charged and its implementations may
-    ;; perform, under the handlers in scope where it is performed.
-
-    (define (operation-latent (effect String) (scheme Scheme)) (→ (List String))
-      (match (● scheme type)
-        ((TFun _ _ (TRow labels _)) (filter (lambda (label) (not (string=? label effect))) labels))
-        (_ (Nil))))
-
     ;; Definitions contain functions. Entry names the root program's
     ;; optional main, and `start`, what the host calls: main itself, or the
-    ;; wrapper that runs it under its target's handlers. Libraries have no
+    ;; wrapper that calls it with its target's capabilities. Libraries have no
     ;; startup phase. An exposed function is exported under `symbol`
     ;; through a host adapter.
     (enum Item
@@ -834,7 +799,6 @@
        (types (Table DataType))
        (classes (Table Class))
        (instances (Table (List Instance)))
-       (effects (Table Effect))
        (items (List Item))
        (libraries (List (Pair String I64)))))
 
@@ -844,15 +808,14 @@
         (types (empty-table))
         (classes (empty-table))
         (instances (empty-table))
-        (effects (empty-table))
         (items (Nil))
         (libraries (Nil))))
 
     (define (program-value (program Program) (name String)) (→ (Option Value))
       (table-ref (● program values) name))
 
-    ;; Types, classes and effects are looked up by names the expander
-    ;; resolved, so each lookup succeeds.
+    ;; Types and classes are looked up by names the expander resolved, so
+    ;; each lookup succeeds.
 
     (define (program-type (program Program) (name String)) (→ DataType)
       (match (table-ref (● program types) name)
@@ -864,11 +827,6 @@
         ((Some class) class)
         ((None) (panic (string-append "internal error: no class " name)))))
 
-    (define (program-effect (program Program) (name String)) (→ Effect)
-      (match (table-ref (● program effects) name)
-        ((Some effect) effect)
-        ((None) (panic (string-append "internal error: no effect " name)))))
-
     (define (class-instances (program Program) (class String)) (→ (List Instance))
       (match (table-ref (● program instances) class)
         ((Some instances) instances)
@@ -876,7 +834,6 @@
 
     (define (check-instance-overlap (instance Instance) (others (List Instance)) (loc Loc))
       (→ Unit)
-      (! compile)
       (for-each (lambda (other)
                   (when (and (not (string=? (● instance name) (● other name)))
                              (heads-overlap? (● instance types) (● other types)))
@@ -914,10 +871,6 @@
         (Program-instances-set program (table-set (● program instances) class
                                                   (append (class-instances program class)
                                                           (list instance))))))
-
-    (define (program-with-effect (program Program) (effect Effect)) (→ Program)
-      (Program-effects-set program
-                           (table-set (● program effects) (● effect name) effect)))
 
     (define (program-items (program Program)) (→ (List Item))
       (reverse (● program items)))
@@ -1239,17 +1192,15 @@
           (expect (= (any-type-id old callback) (any-type-id changed callback)) #f)
           (expect (= (any-type-id pure callback) (any-type-id effectful callback)) #f)))
 
-      ;; Structural traversal enters latent lambda bodies and handler
-      ;; implementations, preserving first occurrence while deduplicating.
+      ;; Structural traversal enters lambda bodies, preserving first
+      ;; occurrence while deduplicating.
       (define test-references
         (lambda () (let* ((at (new Loc (file "references") (line 1) (column 1)))
                           (wrap (lambda (term) (new Expr (term term) (type unchecked) (loc at))))
                           (read (lambda (name) (wrap (Var name (Nil) (Nil)))))
                           (body (wrap (App (read "later") (list (read "first") (read "last")))))
                           (handler (wrap (Lambda (list "unused") (read "first"))))
-                          (expr (wrap (Handle "effect"
-                                              (list (new Pair (first "operation") (second handler)))
-                                              body))))
+                          (expr (wrap (Seq handler body))))
                      (expect (expr-references expr) (list "first" "later" "last")))))
 
       ;; A total function hides nothing; an effectful one is found at any

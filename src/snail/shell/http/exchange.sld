@@ -1,4 +1,4 @@
-;; One complete request/response exchange over the concrete TCP effect.
+;; One complete request/response exchange over a `Tcp`.
 ;; `serve-one` is the whole exchange with one handler. A server that decides
 ;; between reading and answering calls its halves, `read-request` and
 ;; `respond`, itself; a failure either returns leaves the connection open,
@@ -13,8 +13,7 @@
   (import
    (snail core base)
    (snail shell http)
-   (snail shell socket)
-   (only (snail shell task) tasks))
+   (snail shell socket))
   (begin
 
     ;; ---- Exchange values ----
@@ -50,7 +49,7 @@
 
     (define (read-chunk (tcp Tcp) (connection Connection) (maximum I64))
       (→ (Result (Option Bytes) (ExchangeError E)))
-      (! mut tasks)
+      (! mut)
       (∀ (E))
       (match (read tcp connection (i64->i32 maximum))
         ((Err error) (Err (TransportFailure error)))
@@ -87,7 +86,7 @@
 
     (define (read-head (tcp Tcp) (connection Connection))
       (→ (Result RequestPrefix (ExchangeError E)))
-      (! mut tasks)
+      (! mut)
       (∀ (E))
       (let loop ((chunks (ann (Nil) (List Bytes))) (total 0) (state (ann 0 I32)))
         (if (= total head-limit)
@@ -106,7 +105,7 @@
 
     (define (read-body (tcp Tcp) (connection Connection) (prefix RequestPrefix))
       (→ (Result Request (ExchangeError E)))
-      (! mut tasks)
+      (! mut)
       (∀ (E))
       (let* ((head (● prefix head)) (expected (● head body-length))
              (initial (● prefix prefix)) (count (min expected (array-length initial))))
@@ -121,7 +120,7 @@
 
     (define (read-request (tcp Tcp) (connection Connection))
       (→ (Result Request (ExchangeError E)))
-      (! mut tasks)
+      (! mut)
       (∀ (E))
       (match (read-head tcp connection)
         ((Err error) (Err error))
@@ -131,10 +130,10 @@
 
     (define (write-bytes (tcp Tcp) (connection Connection) (bytes Bytes))
       (→ (Result Unit (ExchangeError E)))
-      (! mut tasks)
+      (! mut)
       (∀ (E))
       ;; Slice sizes follow actual progress: at most 65536 + twice the sent
-      ;; bytes are copied, even when a replacement handler accepts tiny writes.
+      ;; bytes are copied, even when a replacement `Tcp` accepts tiny writes.
       (let loop ((offset 0) (limit 65536))
         (if (= offset (array-length bytes))
             (Ok (unit))
@@ -149,7 +148,7 @@
 
     (define (write-response (tcp Tcp) (connection Connection) (grace I32) (parts ResponseParts))
       (→ (Result Unit (ExchangeError E)))
-      (! mut tasks)
+      (! mut)
       (∀ (E))
       (match (write-bytes tcp connection (● parts head))
         ((Err error) (Err error))
@@ -172,7 +171,7 @@
                      (method (Option String))
                      (response Response))
       (→ (Result Unit (ExchangeError E)))
-      (! mut tasks)
+      (! mut)
       (∀ (E))
       (match (encode-response (match method ((Some name) name) ((None) "GET"))
                               (● response status)
@@ -185,7 +184,7 @@
                       (grace I32)
                       (handler (Fn Request → (Result Response E) ! e)))
       (→ (Result Unit (ExchangeError E)))
-      (! mut tasks e)
+      (! mut e)
       (∀ (E e))
       (match (read-request tcp connection)
         ((Err error) (Err error))
@@ -207,7 +206,7 @@
                        (grace I32)
                        (handler (Fn Request → (Result Response E) ! e)))
       (→ (Result Unit (ExchangeError E)))
-      (! mut tasks e)
+      (! mut e)
       (∀ (E e))
       (let ((result (exchange tcp connection grace handler)))
         (match result

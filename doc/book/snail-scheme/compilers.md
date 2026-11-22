@@ -9,7 +9,7 @@ Emission consumes that result without revisiting source semantics.
 text ──read───▶ located syntax
      ──expand─▶ resolved program   unique names, declarations, field paths
      ──check──▶ typed program      types, rows, instances
-     ──prepare▶ concrete code      functions and yield points explicit
+     ──prepare▶ concrete code      suspensions known, yield points explicit
      ──emit───▶ WasmGC text ──assemble/link──▶ executable module
 ```
 
@@ -48,9 +48,10 @@ below.
 
 `read.sld` turns text into atoms, identifiers and forms, each carrying a
 `Loc`. The reader's token boundaries are also used by syntax highlighting.
-It decodes generated-library syntax directly from bytes. The `compile`
-effect carries either diagnostics or a typed request for a missing input;
-`compiling` handles that boundary for each compiler entry.
+It decodes generated-library syntax directly from bytes. A pass stops a
+compile by suspending to its prompt, `stopping`, with either diagnostics
+or a typed request for a missing input; `compiling` is that boundary for
+each compiler entry.
 
 `core.sld` defines `Type`, `Scheme`, class evidence, expressions, patterns,
 declarations and the program tables shared by the passes. `expr-children`
@@ -86,8 +87,10 @@ writes only that use, from the declaration's head, cases, field labels and
 field types. `derive-pod` alone resolves where the declaration is, which
 imports `(snail shell graphics pod)` to derive it.
 Every body and its evidence then go through ordinary checking.
-A script's top-level expressions are its entry, in order; a library's top
-level has none, and a producer recipe gets an explicit entry function.
+A program's entry is its `main`: a top level holds definitions alone, and
+a producer recipe gets an explicit entry function. The expander writes the
+entry's start, which calls `main` with what its target provides for each
+of its parameters' types ("Entries").
 
 ### Named record construction
 
@@ -103,15 +106,15 @@ Chez performs the same ordering at macro expansion time, using private
 constructor procedures and hygienic record descriptors, with no runtime keyword
 lookup for construction.
 
-### Types, effects and conversions
+### Types, rows and conversions
 
-`check.sld` infers types and effect rows, solves class requirements and
+`check.sld` infers types and rows, solves class requirements and
 records selected instance evidence at uses. Library checking is independent
 of importers. Named functions state their parameter and result types;
 polymorphic definitions state their quantifiers and requirements.
 
-An effect row names operations a function may perform. Calls and callbacks
-add row-inclusion obligations, which remain pending while a latent row is
+A row says whether a function may perform `mut`. Calls and callbacks
+add row-inclusion obligations, which remain pending while a callee's row is
 unknown. The checker also defers unused-effect decisions until those rows
 have enough information. This avoids either closing a callback row too early
 or granting effects absent from its implementation.
@@ -132,26 +135,23 @@ undecided.
 exposures it copies each definition reached once for each set of types it is
 used at, and answers the copies with their declarations, each copy's type. It
 reserves a copy's name, with its type, before copying the body, which
-permits recursion. A copy's name keys its types and control rows, not
-runtime handler identities; asking for a reserved name again does not spend
-the finite specialization budget.
+permits recursion. A copy's name keys its types; rows are erased, since what
+a function performs decides nothing once it is checked. Asking for a
+reserved name again does not spend the finite specialization budget.
 
-`prepare.sld` specializes the whole reachable graph before inspecting any
-original concrete body, so each check reads complete callees. It checks
-control restrictions, then names the yield points of each body on its own.
+`prepare.sld` specializes the whole reachable graph before reading any
+body, and then finds what no type says: which calls may suspend. For each
+definition, and for the function values of each type, it writes down what a
+call may suspend to, in terms of the calls it makes, and solves those
+equations to their least answer. A suspension is named by its prompt when a
+top-level value holds it, so a `with-prompt` of that value is known to
+catch it; any other prompt is known only by whether anything may resume it.
 
-Control lowering uses a subset of the same expression language, not a
-separate CPS language. A call that may yield stays in tail position or is
-named by a `let`; operands that execute before it are named first. The
-backend can therefore test for a pending yield before executing the rest
-of the expression.
-
-Some execution boundaries cannot propagate a yield: raw Wasm loops used by
-sequence generators, arbitrary `unsafe-total` thunks, or work closed over
-handlers whose delimiters may already have returned. Preparation inspects
-concrete callees under the appropriate context and rejects unsupported
-control escape. These checks use the original bodies, before lowering has
-hidden their structure.
+Lowering uses a subset of the same expression language, not a separate CPS
+language. A call that may yield stays in tail position or is named by a
+`let`; operands that execute before it are named first. The backend can
+therefore test for a pending yield before executing the rest of the
+expression. Code that never suspends is left as it was.
 
 ### WasmGC emission
 
@@ -184,41 +184,34 @@ specialization families instead of exhausting the host. Ordinary recursive
 nominal types reuse their existing type entry.
 
 The `cache` and `lru-cache` primitives preserve their callback's parameter
-types, result type and effect row. The checker requires a known function
+types, result type and row. The checker requires a known function
 signature at final inferred types, including when a primitive is used as a
 function value.
-Preparation rejects raw `Funcref` keys and suspending callbacks. The Wasm
+Preparation rejects raw `Funcref` keys. The Wasm
 backend builds an ordinary closure capturing its callback and a private typed
 hash table; no module globals are involved. The Chez adapter implements the same wrapper and key
 semantics. See [cached functions](terms.md#cached-functions).
 
-### Effects, control and frames
+### Suspension and frames
 
-Every compiled function receives `$ev`, the evidence for handlers in scope.
-An ordinary operation searches that chain and calls its implementation
-outside the matching handler. Latent effects get forwarding evidence from
-the performer. Handler identity is never a specialization key.
+`suspend` sets a yield record: the prompt it is aimed at, its value, and
+whether anything may resume it. As execution returns through named yield
+points, the remainder of each scope becomes a frame: a closure of its join
+function and the locals its body reads. The `with-prompt` of the record's
+prompt takes the frames as a continuation and calls its handler with a
+`resume` that holds it. Calling `resume` marks the continuation resumed,
+detaches the frames and executes them from inside out, under the
+`with-prompt` again; calling it again panics. A `with-prompt` a yield
+passes on its way out is saved among the frames as one frame. A yield
+nothing can resume saves no frame, and a resumption that is never called
+is reclaimed like any other value.
 
-A control operation sets a yield record. As execution returns through named
-yield points, the remainder of each scope becomes a frame: a closure of its
-join function, the evidence it runs under and the locals its body reads.
-The matching handler receives a resumption holding the frames. Calling it
-marks the continuation resumed, detaches the frames and executes them from
-inside out; calling it again panics. A handled scope saved among those
-frames preserves its delimiter. An abort that cannot resume saves no frame,
-and a resumption that is never called is reclaimed like any other value.
-
-Resumption creates a fresh handler activation whose outside context is the
-caller of `resume`. A memoized renewal walks parent and forwarding-origin
-edges, then updates compiler-owned frame evidence and nested delimiters to
-use the corresponding new identities. Its map holds old and fresh nodes
-until all slots are consistent. Existing source closures and other
-resumptions keep their original contexts.
-
-`inherit-handlers` captures an explicit context for later invocation.
-Ordinary evidence copies share their implementation closures; forwarding
-copies rebuild closures over the renewed origin. Nested handled frames
-execute their already renewed continuation without activating it again. The invariants beside these helpers are part of their contract.
+A prompt counts its `with-prompt`s that are running, so `suspend` panics
+when there is none to catch it. Three places are the backend's own code
+and cannot be left as a frame: the loop that generates an array, which
+lets through only a yield nothing resumes; a cache and a top-level value,
+which keep nothing of a call that yielded; and a host entry, which a yield
+may not leave.
 
 This is ordinary calls and explicit frames, not stack switching: any
 WasmGC engine executes the same linked code, and no JavaScript continuation
@@ -234,9 +227,8 @@ so a definition's type comes from its own library and not from how an
 importer happens to use it. Emission then keeps only what the program
 reaches from its entry and its exposures: each generic function is
 specialized at the types it is used at, and every call is a direct call
-within the one module. Handlers travel as evidence, and the one global of
-control operations is the yield record, which the module declares and
-exports.
+within the one module. Capabilities travel as arguments, and the one global
+of suspension is the yield record, which the module declares and exports.
 
 Every invocation expands current sources, checks every library, specializes
 and emits every reachable function again. There is no compiler Session,
@@ -274,7 +266,7 @@ that fails if called. Missing or incompatible providers return `LinkFailed`.
 Linking runs `_initialize` when present; the loader calls `main` separately.
 
 `module-export` returns an untyped `Funcref`. `unsafe-cast` wraps it in an `Fn`
-closure at the requested type, passing the caller's effect evidence. The Wasm
+closure at the requested type. The Wasm
 cast checks representation, not `snail-scheme` nominal identity: the caller
 must establish that contract. `run-export` calls a scalar export by name.
 
@@ -359,18 +351,18 @@ stack ever miss a cycle.
 ### Missing inputs and retry
 
 The compiler cannot start a producer. A pass that needs a producer's output
-it was not given performs `need`, an operation of the `compile` effect in
-`(snail shell compiler read)`, with its `CompilerRequest`,
-`(GenerateInput key)`. The operation answers `Never`, so nothing after it
-runs and its yields save no frames. Each signature on the way from the
-request to an entry point names `compile`, and each entry point handles it
-with `compiling`, which turns the compile into a `Result`, here
-`(Err (Requested request))`, as it does a source error into
+it was not given stops the compile (`stop` in
+`(snail shell compiler read)`) with `(Requested request)`, where the
+`CompilerRequest` is `(GenerateInput key)`. The compile's prompt answers
+`Never`, so nothing after it runs and its yields save no frames. No
+signature on the way from the request to an entry point says so, and each
+entry point takes it with `compiling`, which turns the compile into a
+`Result`, here `(Err (Requested request))`, as it does a source error into
 `(Err (Failed diagnostics))`.
 
 The project builder, `(snail shell project build)`, calls the compiler in its
-own process and handles `compile` around each compile (`producing`): a
-`fail` stops the build with its diagnostics, and a request runs the printed
+own process and takes each compile's `Result` (`producing`): a
+failure stops the build with its diagnostics, and a request runs the printed
 producer, which writes its output into the scratch, and compiles again. No
 request file is written or parsed, and nothing traps.
 

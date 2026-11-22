@@ -1,4 +1,4 @@
-// The `gpu` effect on Node, whose device is Dawn's (host/native/gpu.mjs):
+// The `Gpu` capability on Node, whose device is Dawn's (host/native/gpu.mjs):
 // tests/gpu/node.scm runs the checks that need only a device, as the page
 // does, and the splat renderer's training checks, on the GPU Dawn finds,
 // and WebGPU reports no error. Its build is a package that depends on the

@@ -1,7 +1,8 @@
 ;; Child processes with piped standard streams, a command run to its end,
-;; and replacing the program with a command. A handler can replace the
-;; effect in a test. By default an operation that waits starts on the
-;; native host and waits by ticket, as (snail shell socket)'s do. Stage 0's tool runner,
+;; and replacing the program with a command, as the capability
+;; `Processes`: a record of its operations, so a test makes its own. The
+;; host's start an operation that waits on the native host and wait by
+;; ticket, as (snail shell socket)'s do. Stage 0's tool runner,
 ;; host/chez/snail/stage0/process.sls, has the same name; Chez never sees src/.
 (define-library (snail shell process)
   (export
@@ -19,7 +20,7 @@
    (snail core base)
    (only (snail core io) environment-variable)
    (prefix (snail runtime native process) host-)
-   (only (snail shell task) tasks through-host))
+   (only (snail shell task) through-host))
   (begin
 
     ;; ---- Public values ----
@@ -33,7 +34,7 @@
        (arguments (List String))
        (directory String)))
 
-    ;; The token belongs to the effect handler that spawned the process, as
+    ;; The token belongs to the `Processes` that spawned the process, as
     ;; a socket's does; `id` is the operating system's process id.
     (record Process
       ((token Any)
@@ -80,29 +81,29 @@
     ;; standard streams, and nothing of the program runs after. It returns
     ;; only when it cannot, with why.
     (record Processes
-      ((spawn (Fn Command → (Result Process ProcessError) ! mut tasks))
-       (read-output (Fn Process Stream I32 → (Result (Option Bytes) ProcessError) ! mut tasks))
-       (write-input (Fn Process Bytes → (Result I32 ProcessError) ! mut tasks))
+      ((spawn (Fn Command → (Result Process ProcessError) ! mut))
+       (read-output (Fn Process Stream I32 → (Result (Option Bytes) ProcessError) ! mut))
+       (write-input (Fn Process Bytes → (Result I32 ProcessError) ! mut))
        (close-input (Fn Process → (Result Unit ProcessError) ! mut))
        (send-signal (Fn Process Signal → (Result Unit ProcessError) ! mut))
-       (wait-exit (Fn Process → (Result Exit ProcessError) ! mut tasks))
+       (wait-exit (Fn Process → (Result Exit ProcessError) ! mut))
        (close-process (Fn Process → (Result Unit ProcessError) ! mut))
        (run (Fn Command Bytes → (Result Captured ProcessError) ! mut))
        (exec (Fn Command → ProcessError ! mut))))
 
     (define (spawn (processes Processes) (command Command))
       (→ (Result Process ProcessError))
-      (! mut tasks)
+      (! mut)
       ((● processes spawn) command))
 
     (define (read-output (processes Processes) (child Process) (stream Stream) (maximum I32))
       (→ (Result (Option Bytes) ProcessError))
-      (! mut tasks)
+      (! mut)
       ((● processes read-output) child stream maximum))
 
     (define (write-input (processes Processes) (child Process) (bytes Bytes))
       (→ (Result I32 ProcessError))
-      (! mut tasks)
+      (! mut)
       ((● processes write-input) child bytes))
 
     (define (close-input (processes Processes) (child Process))
@@ -117,7 +118,7 @@
 
     (define (wait-exit (processes Processes) (child Process))
       (→ (Result Exit ProcessError))
-      (! mut tasks)
+      (! mut)
       ((● processes wait-exit) child))
 
     (define (close-process (processes Processes) (child Process))
@@ -190,9 +191,9 @@
     ;; during an orderly shutdown still ends the program at once, unless a
     ;; task waits again.
     (record Signals
-      ((termination (Fn → Signal ! mut tasks))))
+      ((termination (Fn → Signal ! mut))))
 
-    (define (termination (signals Signals)) (→ Signal) (! mut tasks)
+    (define (termination (signals Signals)) (→ Signal) (! mut)
       ((● signals termination)))
 
     ;; Node's termination signals.
@@ -208,7 +209,7 @@
 
     ;; ---- Native tokens ----
 
-    ;; Private to the native binding: a token from another handler crosses
+    ;; Private to the native binding: a token another `Processes` made crosses
     ;; as handle 0, which the host refuses with EBADF.
     (record NativeProcess
       ((handle I32)))
@@ -301,8 +302,7 @@
     ;; (snail runtime native process).
 
     (define (native (start (Fn I64 → Unit)) (success (Fn I32 → T)))
-      (→ (Result T ProcessError))
-      (! tasks)
+      (→ (Result T ProcessError)) (! mut)
       (∀ (T))
       (through-host start (lambda (ticket) (answered (host-finish ticket) success))))
 

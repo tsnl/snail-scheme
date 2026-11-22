@@ -1,5 +1,4 @@
 (import
- (only (snail core forms) host)
  (snail core base)
  (snail core io)
  (snail shell task)
@@ -36,7 +35,7 @@
   (Done ((what String))))
 
 (type (Command M)
-      (Fn → M ! mut tasks))
+      (Fn → M ! mut))
 
 (define (update (dom Dom) (model Model) (message Msg)) (→ (Pair Model (List (Command Msg))))
   (match message
@@ -69,7 +68,7 @@
                             (show (● (measure dom node) line-height))))))
     ((None) (Done "no field"))))
 
-(define (late (dom Dom)) (→ Msg) (! mut tasks)
+(define (late (dom Dom)) (→ Msg) (! mut)
   (match (element-by-id dom "text")
     ((Some node)
      (yield)
@@ -133,7 +132,7 @@
 (define (clicked (target String)) (→ Cue)
   (Fire target "click" no-event))
 
-(define (main (out OutputPort)) (→ Unit) (! host mut tasks)
+(define (main (out OutputPort)) (→ Unit) (! mut)
   (dispatch
    (lambda ()
      (let ((result

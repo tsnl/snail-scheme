@@ -1,6 +1,5 @@
 (import
  (snail core base)
- (only (snail core forms) host)
  (snail core io)
  (snail shell task))
 
@@ -11,17 +10,17 @@
 ;; again, still in the order they began to wait.
 (define (receive-one (out OutputPort) (mailbox (Mailbox String)) (name String))
   (→ Unit)
-  (! mut tasks)
+  (! mut)
   (write-line out (string-append name " received " (mailbox-receive mailbox))))
 
-(define (produce (mailbox (Mailbox String))) (→ Unit) (! mut tasks)
+(define (produce (mailbox (Mailbox String))) (→ Unit) (! mut)
   (mailbox-post mailbox "one")
   (yield)
   (mailbox-post mailbox "two")
   (yield)
   (mailbox-post mailbox "three"))
 
-(define (main (out OutputPort)) (→ Unit) (! host mut tasks)
+(define (main (out OutputPort)) (→ Unit) (! mut)
   (let ((mailbox (make-mailbox)))
     (dispatch (lambda () (receive-one out mailbox "first")))
     (dispatch (lambda () (receive-one out mailbox "second")))

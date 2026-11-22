@@ -323,8 +323,7 @@
         (("dynamic-wind") (Some (Special 3)))
         (("scheme-define" "declare") (Some (Definition)))
         (("syntax-rules") (Some (Definition)))
-        (("new" "record" "enum" "typeclass" "instance" "effect" "match" "guard") (Some (Special 1)))
-        (("handle") (Some (Special 2)))
+        (("new" "record" "enum" "typeclass" "instance" "match" "guard") (Some (Special 1)))
         (else (None))))
 
     ;; A binding macro advertises its layout in its name. A name without a
@@ -776,7 +775,6 @@
             (new Pair (first "let*-values") (second 1))
             (new Pair (first "parameterize") (second 1))
             (new Pair (first "do") (second 1))
-            (new Pair (first "handle") (second 2))
             (new Pair (first "learning") (second 2))
             (new Pair (first "expanding") (second 2))
             (new Pair (first "naming") (second 2))

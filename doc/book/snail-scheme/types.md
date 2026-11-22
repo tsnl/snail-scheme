@@ -32,12 +32,12 @@ linked resource and emit a byte literal when embedding is appropriate; the
 reader performs no file inclusion.
 
 A closure has type `(Fn Param ... → Result)`, with an optional
-[effect row](effects.md) after `!`. This is a built-in type former, with the
+[row](effects.md#rows) after `!`. This is a built-in type former, with the
 same spelling in arguments, fields, collections and results; there is no
 `dyn`, `impl`, `FnMut` or callable-class hierarchy.
 A typed function header carries its type where it is defined. Every parameter has a
 mandatory `(name Type)` annotation, and the header must state its result
-with `(→ Result)`. Optional effect, generic-variable and constraint clauses follow the parameter list at the start of the
+with `(→ Result)`. Optional row, generic-variable and constraint clauses follow the parameter list at the start of the
 definition, before its body:
 
 ```scheme
@@ -109,17 +109,19 @@ through `bits->f64`, since only the assembler knows a float literal's bits. The 
 A top-level `(define name value)` is a cached thunk. Its initializer runs at
 most once in a program, the first time something reads `name`, and every
 read shares the result: a record or an array defined this way is one object,
-and writes to it are seen by every reader. Types, macros, classes, effects,
-imports and exports remain declarations, and a program starts by calling its
-root `main`; importing or linking a library runs nothing.
+and writes to it are seen by every reader. Types, macros, classes, imports
+and exports remain declarations, and a program starts by calling its root
+`main`; importing or linking a library runs nothing.
 
 ```scheme
 {{#include ../../../tests/programs/global-values.sld:values}}
 ```
 
-- **No effects.** An initializer has an empty effect row, checked where it
-  would perform one. Reading a mutable object is not an effect, so a value
-  computed from one depends on when it is first read.
+- **No effects.** An initializer has an empty row, checked where it would
+  perform `mut`, and no capability to use. Reading a mutable object is not
+  an effect, so a value computed from one depends on when it is first read.
+  An initializer that [suspends](suspension.md) keeps nothing, and runs
+  again on the next read.
 - **Order.** Values are read in the order expressions reach them, whatever
   their order in the source, and one that nothing reads never runs. An
   initializer that reads its own value, directly or through another, panics
@@ -241,15 +243,15 @@ Arithmetic and comparison are the classes `Num`, `Ord`, `Integral` and
 `Repr` is a pure class with one type parameter: `(Repr T)` supplies
 `(repr value) → String`. `(snail core io)`'s `write` prints that
 representation through `output-port`. Records and enums can generate instances
-with `(deriving Repr)`; see [current ports](libraries.md#current-input-and-output-ports).
+with `(deriving Repr)`; see [ports](libraries.md#input-and-output-ports).
 
-## Effects
+## Rows
 
-Every function type has an effect row, the effects calling it may perform,
-and a function without `!` is total. [Effects and handlers](effects.md)
-covers rows, their inference and polymorphism, local mutation, declaring
-and handling effects, control operations with a one-shot `resume`, latent
-rows and defaults.
+Every function type has a row, which says whether calling it may perform
+`mut`, and a function without `!` is total.
+[Capabilities and rows](effects.md) covers rows, their inference and
+polymorphism, and the capabilities a function is handed;
+[suspension](suspension.md) covers prompts and their one-shot `resume`.
 
 ## Functions
 
@@ -261,9 +263,9 @@ called any number of times.
   (function (function value)))
 ```
 
-A handler's `resume` is an `Fn` too, which may be stored like any other;
-the frames it holds run at most once
-([resuming once](effects.md#resuming-once)).
+A `with-prompt`'s `resume` is an `Fn` too, which may be stored like any
+other; the frames it holds run at most once
+([resuming once](suspension.md#resuming-once)).
 
 ## Foreign functions
 
@@ -284,8 +286,9 @@ Wasm constructors/projectors, but cannot inspect their fields or substitute a
 JavaScript object, string or typed array. Exposed `String` and `Bytes` are opaque
 managed references; the staging convention above applies to calls into foreign imports.
 Affine values, including records that contain them, cannot cross this unrestricted
-boundary. Exposed signatures remain monomorphic and their effects need host bindings.
-A function export may infer its concrete signature. Its effect row stays available
+boundary. Exposed signatures remain monomorphic; a parameter whose type the
+target provides is a capability the build supplies, and the rest are the host's.
+A function export may infer its concrete signature. Its row stays available
 for instance solving rather than being generalized; ordinary value-type variables
 still generalize, so an unannotated generic identity function cannot be exposed.
 The host must respect the declared `snail-scheme` types: Wasm representation checks do not
@@ -299,8 +302,8 @@ returning `(Option Any)` still expects its ordinary enum. A host builds no
 managed value for a typed host operation: its imports take and answer
 scalars, and the library builds the result from them, in the waiting task's
 own call ([the native boundary](../runtimes/networking.md#wasm-boundary)).
-A task's handlers are evidence its saved frames hold, so nothing about them
-crosses the host. See
+A task's capabilities are values its saved frames hold, so nothing about
+them crosses the host. See
 [waiting on the host](../runtimes/tasks.md#waiting-on-the-host).
 
 `unsafe-cast` is unchecked, like `unsafe-total`
@@ -350,12 +353,13 @@ package's data, and the library reads it when it needs it:
 - **A handle, not the bytes.** `link-file` evaluates to a `Resource`, which
   names a file and nothing more. The type is exported without its
   constructor, so a program cannot make one from a string: holding a
-  `Resource` is evidence that its file ships. `(read-resource r)` returns the
-  file's `Bytes`, and `(read-resources (list a b))` the bytes of each, read
-  together: every read starts before the task waits for any. Both perform
-  `resource`, which every target handles
-  through `provide-resource`, on Node and in the browser. It is not `fs`: a page has no
-  filesystem, and a program with none still reads its own files.
+  `Resource` is evidence that its file ships. `(read-resource resources r)`
+  returns the file's `Bytes`, and `(read-resources resources (list a b))`
+  the bytes of each, read
+  together: every read starts before the task waits for any. Both take a
+  `Resources`, which every target provides, on Node and in the browser. It
+  is not `Fs`: a page has no filesystem, and a program with none still
+  reads its own files.
 
 **A file is read when the program asks for it.** A host reads nothing a
 module links when it instantiates the module. `read-resource` waits for the
@@ -394,13 +398,13 @@ Boxing preserves the exact input type. `(Any (Any 42))` holds an `Any`, whereas
 or function signatures. There are no `type-convert`, `try-convert`, `type-test`,
 `dyn-cast`, dynamic instance dispatch, or `(snail core dynamic)` APIs.
 
-A TypeId does not record what a function performs, so an effectful
-function, or a generic type that could stand for one, cannot cross the
-erasure boundary (`tests/programs/error-any-ordinary-function.sld`). Pure
+A TypeId does not record what a function performs, so a function that
+performs `mut`, or a generic type that could stand for one, cannot cross
+the erasure boundary (`tests/programs/error-downcast-function.sld`). Pure
 closures may be boxed.
 
 The type identity includes nominal names, arguments, fields, cases, and nested
-function signatures and effect rows. Changed schemas receive changed identities
+function signatures and rows. Changed schemas receive changed identities
 across separately linked modules, even if their Wasm layouts match. Downcast also checks the Wasm
 representation before reading the payload. Type identities are currently 32-bit
 hashes; they are not collision-free structural proofs.

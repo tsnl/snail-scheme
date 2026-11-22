@@ -23,7 +23,7 @@
     ;; `(snail core base)` is the list ("snail" "core" "base"); its globals are prefixed
     ;; `snail.core.base` and its source is `snail/core/base.sld` in a search directory.
 
-    (define (library-name (syntax Syntax)) (→ (List String)) (! compile)
+    (define (library-name (syntax Syntax)) (→ (List String))
       (match syntax
         ((Form parts _)
          (map (lambda (part)
@@ -36,7 +36,6 @@
 
     (define (check-library-name (declared Syntax) (name (List String)) (loc Loc))
       (→ Unit)
-      (! compile)
       (when (string=? (string-join name ".") "prim")
         (compile-error loc "the prim library name is reserved for compiler primitives"))
       (unless (string=? (string-join (library-name declared) ".") (string-join name "."))
@@ -53,7 +52,7 @@
 
     (define (library-path (fs Fs) (directories (List String)) (name (List String)) (loc Loc))
       (→ String)
-      (! mut compile)
+      (! mut)
       (match (find-library fs directories name)
         ((Some path) path)
         ((None)
@@ -75,7 +74,6 @@
 
     (define (file-library (name (List String)) (forms (List Syntax)) (path String))
       (→ LibraryFile)
-      (! compile)
       (match forms
         ((Cons (Form (Cons (Ident "define-library" _ _) (Cons declared declarations)) loc) (Nil))
          (check-library-name declared name loc)
@@ -98,7 +96,6 @@
 
     (define (output-library-file (name (List String)) (bytes Bytes) (loc Loc))
       (→ LibraryFile)
-      (! compile)
       (file-library name (list (decode-syntax bytes loc)) (● loc file)))
 
     ;; ---- Producers ----
@@ -110,7 +107,7 @@
     ;; main asks its target for each, besides the file system it writes
     ;; its library through:
     ;;
-    ;;   (define (main (producer-fs Fs) parameter ...) (→ Unit) (! mut tasks)
+    ;;   (define (main (producer-fs Fs) parameter ...) (→ Unit) (! mut)
     ;;     (write-generated-library producer-fs (lambda () body ...)))
 
     (define (producer (recipe String) (imports (List Syntax)) (expression Syntax) (loc Loc))
@@ -125,15 +122,14 @@
                           (append imports
                                   (list (only (list "snail" "shell" "syntax")
                                               (list "write-generated-library"))
-                                        (only (list "snail" "core" "io") (list "Fs"))
-                                        (only (list "snail" "shell" "task") (list "tasks"))))))
+                                        (only (list "snail" "core" "io") (list "Fs"))))))
               (form (list (ident "recipe") (Atom (DString recipe) loc)))
               (form (list (ident "define")
                           (form (Cons (ident "main")
                                       (Cons (form (list (ident "producer-fs") (ident "Fs")))
                                             (● recipe-parts first))))
                           (form (list (ident "→") (ident "Unit")))
-                          (form (list (ident "!") (ident "mut") (ident "tasks")))
+                          (form (list (ident "!") (ident "mut")))
                           (form (list (ident "write-generated-library")
                                       (ident "producer-fs")
                                       (form (Cons (ident "lambda")
@@ -156,7 +152,6 @@
 
     (define (library-sections (declaration Syntax))
       (→ (List (Pair String (List Syntax))))
-      (! compile)
       (match declaration
         ((Form (Cons (Ident "cond-expand" _ _) clauses) _) (cond-expand-sections clauses))
         ((Form (Cons (Ident kind _ _) items) loc)
@@ -171,7 +166,6 @@
 
     (define (cond-expand-sections (clauses (List Syntax)))
       (→ (List (Pair String (List Syntax))))
-      (! compile)
       (match clauses
         ((Nil) (Nil))
         ((Cons (Form (Cons requirement declarations) _) rest)

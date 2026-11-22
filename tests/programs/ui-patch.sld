@@ -1,5 +1,4 @@
 (import
- (only (snail core forms) host)
  (snail core base)
  (snail core io)
  (snail shell task)
@@ -18,7 +17,7 @@
 (enum Msg
   (Next))
 
-(define (update (step I64) (message Msg)) (→ (Pair I64 (List (Fn → Msg ! tasks))))
+(define (update (step I64) (message Msg)) (→ (Pair I64 (List (Fn → Msg ! mut))))
   (new Pair (first (+ step 1)) (second (Nil))))
 
 (define (view (step I64)) (→ (Html Msg))
@@ -49,7 +48,7 @@
 (define (item (name String)) (→ (Html Msg))
   (Element "li" (list (Keyed name)) (list (Text name))))
 
-(define (main (out OutputPort)) (→ Unit) (! host mut tasks)
+(define (main (out OutputPort)) (→ Unit) (! mut)
   (dispatch
    (lambda ()
      (let ((result (with-memory-dom (list (Fire "next" "click" no-event)

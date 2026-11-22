@@ -1,6 +1,5 @@
 (import
  (snail core base)
- (only (snail core forms) host)
  (except (snail core io) write)
  (snail shell task)
  (snail shell socket)
@@ -89,11 +88,11 @@
 
 (define (run (tcp Tcp) (state Stream) (handler (Fn Request → (Result Response String) ! e)))
   (→ (Result Unit (ExchangeError String)))
-  (! mut tasks e)
+  (! mut e)
   (∀ (e))
   (serve-one tcp (new Connection (token (Any state))) 250 handler))
 
-(define (echo (request Request)) (→ (Result Response String)) (! tasks)
+(define (echo (request Request)) (→ (Result Response String))
   (sleep 1)
   (Ok (new Response (status 200) (headers (Nil)) (body (● request body)))))
 
@@ -108,7 +107,7 @@
 (define (request) (→ Bytes)
   (ascii "POST /echo HTTP/1.1\r\nHost: test\r\nContent-Length: 4\r\n\r\nbodyignored pipeline"))
 
-(define (main (out OutputPort)) (→ Unit) (! host mut tasks)
+(define (main (out OutputPort)) (→ Unit) (! mut)
 
   ;; A program waits on sockets from a task, which the scheduler runs once
   ;; main returns.

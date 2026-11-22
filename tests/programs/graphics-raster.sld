@@ -8,7 +8,6 @@
  (snail shell math)
  (snail shell gpu)
  (snail shell gpu record)
- (only (snail shell task) tasks)
  (snail shell graphics pod)
  (snail shell graphics mesh)
  (snail shell graphics raster)
@@ -64,7 +63,7 @@
      (Cons (substring text 0 at) (words-of (substring text (+ at 1) (string-length text)))))
     ((None) (list text))))
 
-(define (main (out OutputPort)) (→ Unit) (! mut tasks)
+(define (main (out OutputPort)) (→ Unit) (! mut)
   (write-line out (string-append "pinhole inverse within 1e-4: "
                                  (show (< (error-of (camera (Pinhole 0.8))) 0.0001))))
   (write-line out (string-append "parallel inverse within 1e-4: "
@@ -75,7 +74,7 @@
 (define (instances (mesh Mesh) (x F32)) (→ Meshes)
   (meshes (list (new Pair (first mesh) (second (instance x))))))
 
-(define (frame (gpu Gpu)) (→ Unit) (! mut tasks)
+(define (frame (gpu Gpu)) (→ Unit) (! mut)
   (request-device gpu)
   (let* ((r (make-raster gpu color-planes (Bgra8Unorm)))
          (g (make-gbuffer gpu color-planes 640 480))

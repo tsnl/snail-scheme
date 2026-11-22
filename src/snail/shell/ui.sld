@@ -1,8 +1,8 @@
 ;; User interfaces in the shape Elm gave them. An interface is a model, a
 ;; `view` from the model to a tree of `Html`, and an `update` from the
 ;; model and a message to the next model and the commands it starts. The
-;; tree is plain data: `run-ui` shows it in the document through the `dom`
-;; effect, and after each update changes only what differs from the tree
+;; tree is plain data: `run-ui` shows it in the document through a `Dom`,
+;; and after each update changes only what differs from the tree
 ;; it showed before, so a node keeps its identity, and with it the focus,
 ;; selection and scroll the page gave it, for as long as the view keeps it.
 ;; Events come back as messages: a listener holds a function from what its
@@ -38,7 +38,6 @@
    run-ui)
   (import
    (snail core base)
-   (only (snail core forms) host)
    (snail core table)
    (snail shell task)
    (snail shell dom))
@@ -512,14 +511,14 @@
 
     (define (run-ui (dom Dom) (model Model)
                     (start (List M))
-                    (update (Fn Model M → (Pair Model (List (Fn → M ! tasks e))) ! mut host e))
+                    (update (Fn Model M → (Pair Model (List (Fn → M ! mut))) ! mut))
                     (view (Fn Model → (Html M)))
                     (window (Fn Model → (List (Attribute M))))
-                    (commit (Fn Model → Unit ! e))
-                    (checkpoint (Fn Model → Unit ! tasks e)))
+                    (commit (Fn Model → Unit ! mut))
+                    (checkpoint (Fn Model → Unit ! mut)))
       (→ Model)
-      (! mut host tasks e)
-      (∀ (Model M e))
+      (! mut)
+      (∀ (Model M))
       (let ((box (make-mailbox)) (shown (create dom (view model))))
         (insert-node dom (document-root dom) (shown-node shown) (None))
         (serve dom box
@@ -533,15 +532,15 @@
                           start))))
 
     (define (serve (dom Dom) (box (Mailbox M))
-                   (update (Fn Model M → (Pair Model (List (Fn → M ! tasks e))) ! mut host e))
+                   (update (Fn Model M → (Pair Model (List (Fn → M ! mut))) ! mut))
                    (view (Fn Model → (Html M)))
                    (window (Fn Model → (List (Attribute M))))
-                   (commit (Fn Model → Unit ! e))
-                   (checkpoint (Fn Model → Unit ! tasks e))
+                   (commit (Fn Model → Unit ! mut))
+                   (checkpoint (Fn Model → Unit ! mut))
                    (running (Running Model M)))
       (→ Model)
-      (! mut host tasks e)
-      (∀ (Model M e))
+      (! mut)
+      (∀ (Model M))
       (commit (● running model))
       (match (next-event dom)
         ((Fired listener event)
@@ -575,14 +574,14 @@
 
     (define (answered (dom Dom) (box (Mailbox M))
                       (update
-                       (Fn Model M → (Pair Model (List (Fn → M ! tasks e))) ! mut host e))
+                       (Fn Model M → (Pair Model (List (Fn → M ! mut))) ! mut))
                       (view (Fn Model → (Html M)))
                       (window (Fn Model → (List (Attribute M))))
-                      (commit (Fn Model → Unit ! e))
+                      (commit (Fn Model → Unit ! mut))
                       (running (Running Model M)))
       (→ (Running Model M))
-      (! mut host tasks e)
-      (∀ (Model M e))
+      (! mut)
+      (∀ (Model M))
       (match (mailbox-try-receive box)
         ((Some message)
          (let ((next (updated dom box update view window running message)))
@@ -594,14 +593,14 @@
     ;; the view and window of the next model shown.
 
     (define (updated (dom Dom) (box (Mailbox M))
-                     (update (Fn Model M → (Pair Model (List (Fn → M ! tasks e))) ! mut host e))
+                     (update (Fn Model M → (Pair Model (List (Fn → M ! mut))) ! mut))
                      (view (Fn Model → (Html M)))
                      (window (Fn Model → (List (Attribute M))))
                      (running (Running Model M))
                      (message M))
       (→ (Running Model M))
-      (! mut host tasks e)
-      (∀ (Model M e))
+      (! mut)
+      (∀ (Model M))
       (match (update (● running model) message)
         ((Pair model commands)
          (start-commands dom box commands)
@@ -609,20 +608,20 @@
                   (patch-root dom (● running shown) (view model))
                   (patch-window dom (● running window) (window model))))))
 
-    (define (start-commands (dom Dom) (box (Mailbox M)) (commands (List (Fn → M ! tasks e))))
+    (define (start-commands (dom Dom) (box (Mailbox M)) (commands (List (Fn → M ! mut))))
       (→ Unit)
-      (! mut host tasks e)
-      (∀ (M e))
+      (! mut)
+      (∀ (M))
       (match commands
         ((Cons command rest)
          (dispatch (lambda () (answer dom box command)))
          (start-commands dom box rest))
         ((Nil) (unit))))
 
-    (define (answer (dom Dom) (box (Mailbox M)) (command (Fn → M ! tasks e)))
+    (define (answer (dom Dom) (box (Mailbox M)) (command (Fn → M ! mut)))
       (→ Unit)
-      (! mut tasks e)
-      (∀ (M e))
+      (! mut)
+      (∀ (M))
       (mailbox-post box (command))
       (wake dom))
 

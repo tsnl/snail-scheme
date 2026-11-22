@@ -11,10 +11,9 @@
    downcast
    constant-array
    extern
-   effect
-   handle
    expose
    Any U8 I32 I64 F32 F64 Bool Char Unit String Array ConstantArray Bytes Fn mut
+   Prompt make-prompt with-prompt suspend
    u8->i32 i32->u8
    let* letrec cond case when unless and or do
    not unit panic unsafe-total
@@ -410,10 +409,10 @@
       ((first A)
        (second B)))
 
-    ;; The type with no values. An operation that answers Never never
-    ;; returns to its performer, so its handler is handed no `resume`, and
-    ;; `absurd` lets the code after such a call have any type: a match on a
-    ;; value of a type with no cases needs no clauses.
+    ;; The type with no values. A prompt that resumes with Never is never
+    ;; resumed, so suspending to it never returns, and `absurd` lets the
+    ;; code after such a suspension have any type: a match on a value of a
+    ;; type with no cases needs no clauses.
     (enum Never)
 
     (define (absurd (never Never)) (→ A) (∀ (A))

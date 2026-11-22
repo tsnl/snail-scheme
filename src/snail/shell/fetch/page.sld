@@ -1,6 +1,5 @@
-;; The page's `fetch` and `EventSource` for the `fetch` effect:
-;; `with-page-fetch` binds each operation to the browser host
-;; (host/browser/fetch.mjs). A request or a stream's next event waits by
+;; The page's `fetch` and `EventSource` as a `Fetch`: `page-fetch` binds
+;; each operation to the browser host (host/browser/fetch.mjs). A request or a stream's next event waits by
 ;; ticket in the task that asked, so a command's request never holds up
 ;; the interface.
 (define-library (snail shell fetch page)
@@ -37,8 +36,7 @@
     ;; none, a scalar at a time.
 
     (define (page-request (method String) (url String) (headers (List Header)) (body String))
-      (→ (Result Reply String))
-      (! tasks)
+      (→ (Result Reply String)) (! mut)
       (host-request-method (string->utf8 method))
       (host-request-url (string->utf8 url))
       (for-each (lambda (header)
@@ -55,7 +53,7 @@
     ;; length, or -1 with why there is none, and the host holds that body
     ;; until the next is finished.
 
-    (define (page-fetch-all-bytes (urls (List String))) (→ (List (Result Bytes String))) (! tasks)
+    (define (page-fetch-all-bytes (urls (List String))) (→ (List (Result Bytes String))) (! mut)
       (let ((ids (map (lambda (url)
                         (let ((id (ticket)))
                           (host-request-url (string->utf8 url))
@@ -75,7 +73,7 @@
     ;; NUL between each. The wait answers -1 once the stream is closed, and
     ;; otherwise leaves the next event's kind and data, a NUL between them.
 
-    (define (page-stream-next (stream Stream)) (→ (Option StreamEvent)) (! tasks)
+    (define (page-stream-next (stream Stream)) (→ (Option StreamEvent)) (! mut)
       (let ((count (through-host (lambda (ticket) (host-stream-start ticket (● stream id)))
                                  host-stream-finish)))
         (if (< count 0) (None) (Some (stream-event (host-reply))))))

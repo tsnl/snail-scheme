@@ -12,7 +12,7 @@
 
 (define (image) (→ Resource) (link-file "data/pixel.png"))
 
-(define (main (resources Resources) (out OutputPort)) (→ Unit) (! mut tasks)
+(define (main (resources Resources) (out OutputPort)) (→ Unit) (! mut)
   (for-each (lambda (bytes)
               (write-line out (string-append (show (array-length bytes))
                                              " bytes, starting "

@@ -7,7 +7,6 @@
   (export run-requests)
   (import
    (snail core base)
-   (only (snail core forms) host)
    (snail shell task)
    (snail shell dom)
    (snail shell fetch)
@@ -41,7 +40,7 @@
                (result (Result String String)))))
 
     (define (update (fetch Fetch) (model Model) (message Msg))
-      (→ (Pair Model (List (Fn → Msg ! mut tasks e))))
+      (→ (Pair Model (List (Fn → Msg ! mut e))))
       (∀ (e))
       (match message
         ((Load)
@@ -59,10 +58,10 @@
                                       (Showing (match result ((Ok text) text) ((Err why) why))))
                    model)))))
 
-    (define (stay (model Model)) (→ (Pair Model (List (Fn → Msg ! mut tasks e)))) (∀ (e))
+    (define (stay (model Model)) (→ (Pair Model (List (Fn → Msg ! mut e)))) (∀ (e))
       (new Pair (first model) (second (Nil))))
 
-    (define (load-text (fetch Fetch)) (→ (Result String String)) (! mut tasks)
+    (define (load-text (fetch Fetch)) (→ (Result String String)) (! mut)
       (match (request fetch "GET" "/api/text" (Nil) "")
         ((Ok reply) (Ok (● reply body)))
         ((Err why) (Err why))))
@@ -108,7 +107,7 @@
 
     ;; The page runs over the save itself, so a page started again has no
     ;; request outstanding.
-    (define (run-requests (events Events) (storage PageStorage)) (→ Unit) (! mut host tasks)
+    (define (run-requests (events Events) (storage PageStorage)) (→ Unit) (! mut)
       (run-page events storage (lambda () (new Save (display (Showing "idle")) (clicks 0)))
                 serialize
                 deserialize
@@ -117,9 +116,9 @@
     (define (present (events Events)
                      (storage PageStorage)
                      (saved Save)
-                     (checkpoint (Fn Save → Unit ! mut tasks)))
+                     (checkpoint (Fn Save → Unit ! mut)))
       (→ Unit)
-      (! mut host tasks)
+      (! mut)
       (let ((dom (page-dom events)))
         (let ((fetch (page-fetch)))
           (run-ui dom (restore saved) (Nil)

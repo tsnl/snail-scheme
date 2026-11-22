@@ -4,16 +4,15 @@
 ;; the host has read the file. A library links files beside its own
 ;; source, and the program beside its own.
 (import
- (only (snail core forms) host)
  (snail core base)
  (snail core io)
- (only (snail shell task) tasks dispatch)
+ (only (snail shell task) dispatch)
  (snail shell resource)
  (sample linked))
 
 (define (image) (→ Resource) (link-file "data/./pixel.png"))
 
-(define (main (resources Resources) (out OutputPort)) (→ Unit) (! host mut tasks)
+(define (main (resources Resources) (out OutputPort)) (→ Unit) (! mut)
   (dispatch
    (lambda ()
      (write-line out (greeting-text resources))

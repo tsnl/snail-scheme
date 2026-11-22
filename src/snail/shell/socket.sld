@@ -1,7 +1,8 @@
-;; Concrete TCP and UDP operations. A handler can replace either effect in a
-;; test. By default, an operation that waits starts on the native host and
-;; waits for its completion as a task does, by ticket ((snail shell task)'s
-;; `through-host`), so each such operation's latent row names `tasks`.
+;; Concrete TCP and UDP operations, as the capabilities `Tcp` and `Udp`:
+;; each is a record of its operations, so a test makes its own. The host's
+;; start an operation that waits on the native host and wait for its
+;; completion as a task does, by ticket ((snail shell task)'s
+;; `through-host`).
 ;;
 ;; An Endpoint is parsed once, by `endpoint`: the type is exported without
 ;; its constructor, so holding one is evidence that its address is IPv4
@@ -20,7 +21,7 @@
   (import
    (snail core base)
    (prefix (snail runtime native socket) host-)
-   (only (snail shell task) tasks through-host))
+   (only (snail shell task) through-host))
   (begin
 
     ;; ---- Endpoints ----
@@ -88,7 +89,7 @@
 
     ;; ---- Public values ----
 
-    ;; Tokens belong to the effect handler that created them. Any keeps a
+    ;; Tokens belong to the `Tcp` or `Udp` that created them. Any keeps a
     ;; native endpoint opaque, and lets tests use their own tokens.
     ;; Closing a native endpoint revokes every alias; it does not consume one.
     (record Listener
@@ -110,39 +111,39 @@
       ((code String)))
 
     (record Tcp
-      ((listen (Fn Endpoint → (Result Listener SocketError) ! mut tasks))
-       (connect (Fn Endpoint → (Result Connection SocketError) ! mut tasks))
-       (accept (Fn Listener → (Result Connection SocketError) ! mut tasks))
-       (read (Fn Connection I32 → (Result (Option Bytes) SocketError) ! mut tasks))
-       (write (Fn Connection Bytes → (Result I32 SocketError) ! mut tasks))
-       (finish-connection (Fn Connection I32 → (Result Unit SocketError) ! mut tasks))
+      ((listen (Fn Endpoint → (Result Listener SocketError) ! mut))
+       (connect (Fn Endpoint → (Result Connection SocketError) ! mut))
+       (accept (Fn Listener → (Result Connection SocketError) ! mut))
+       (read (Fn Connection I32 → (Result (Option Bytes) SocketError) ! mut))
+       (write (Fn Connection Bytes → (Result I32 SocketError) ! mut))
+       (finish-connection (Fn Connection I32 → (Result Unit SocketError) ! mut))
        (close-listener (Fn Listener → (Result Unit SocketError) ! mut))
        (close-connection (Fn Connection → (Result Unit SocketError) ! mut))))
 
-    (define (listen (tcp Tcp) (endpoint Endpoint)) (→ (Result Listener SocketError)) (! mut tasks)
+    (define (listen (tcp Tcp) (endpoint Endpoint)) (→ (Result Listener SocketError)) (! mut)
       ((● tcp listen) endpoint))
 
     (define (connect (tcp Tcp) (endpoint Endpoint))
       (→ (Result Connection SocketError))
-      (! mut tasks)
+      (! mut)
       ((● tcp connect) endpoint))
 
-    (define (accept (tcp Tcp) (listener Listener)) (→ (Result Connection SocketError)) (! mut tasks)
+    (define (accept (tcp Tcp) (listener Listener)) (→ (Result Connection SocketError)) (! mut)
       ((● tcp accept) listener))
 
     (define (read (tcp Tcp) (connection Connection) (maximum I32))
       (→ (Result (Option Bytes) SocketError))
-      (! mut tasks)
+      (! mut)
       ((● tcp read) connection maximum))
 
     (define (write (tcp Tcp) (connection Connection) (bytes Bytes))
       (→ (Result I32 SocketError))
-      (! mut tasks)
+      (! mut)
       ((● tcp write) connection bytes))
 
     (define (finish-connection (tcp Tcp) (connection Connection) (grace I32))
       (→ (Result Unit SocketError))
-      (! mut tasks)
+      (! mut)
       ((● tcp finish-connection) connection grace))
 
     (define (close-listener (tcp Tcp) (listener Listener)) (→ (Result Unit SocketError)) (! mut)
@@ -197,22 +198,22 @@
                             (answered (host-close-tcp (connection-handle connection)) done)))))
 
     (record Udp
-      ((bind (Fn Endpoint → (Result UdpSocket SocketError) ! mut tasks))
-       (send (Fn UdpSocket Endpoint Bytes → (Result I32 SocketError) ! mut tasks))
-       (receive (Fn UdpSocket I32 → (Result Datagram SocketError) ! mut tasks))
+      ((bind (Fn Endpoint → (Result UdpSocket SocketError) ! mut))
+       (send (Fn UdpSocket Endpoint Bytes → (Result I32 SocketError) ! mut))
+       (receive (Fn UdpSocket I32 → (Result Datagram SocketError) ! mut))
        (close-udp (Fn UdpSocket → (Result Unit SocketError) ! mut))))
 
-    (define (bind (udp Udp) (endpoint Endpoint)) (→ (Result UdpSocket SocketError)) (! mut tasks)
+    (define (bind (udp Udp) (endpoint Endpoint)) (→ (Result UdpSocket SocketError)) (! mut)
       ((● udp bind) endpoint))
 
     (define (send (udp Udp) (socket UdpSocket) (peer Endpoint) (bytes Bytes))
       (→ (Result I32 SocketError))
-      (! mut tasks)
+      (! mut)
       ((● udp send) socket peer bytes))
 
     (define (receive (udp Udp) (socket UdpSocket) (maximum I32))
       (→ (Result Datagram SocketError))
-      (! mut tasks)
+      (! mut)
       ((● udp receive) socket maximum))
 
     (define (close-udp (udp Udp) (socket UdpSocket)) (→ (Result Unit SocketError)) (! mut)
@@ -293,8 +294,7 @@
     ;; ticket, and `success` reads its answer when it did not fail.
 
     (define (native (start (Fn I64 → Unit)) (success (Fn I32 → T)))
-      (→ (Result T SocketError))
-      (! tasks)
+      (→ (Result T SocketError)) (! mut)
       (∀ (T))
       (through-host start (lambda (ticket) (answered (host-finish ticket) success))))
 
