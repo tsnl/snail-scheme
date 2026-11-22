@@ -209,6 +209,15 @@ try {
   edited(program);
   assert.deepEqual(await diagnostics('main.scm'), []);
 
+  // A path is a use of the name it starts with: `out::write-string` at
+  // code unit 27 answers for `out`, and leads to where `out` is bound.
+  edited(program.replace('(write-line out (show n))', '(out::write-string (show n))'));
+  assert.equal((await ask('textDocument/hover', at('main.scm', 7, 32))).contents.value,
+               '```snail\nout : OutputPort\n```');
+  assert.deepEqual(await ask('textDocument/definition', at('main.scm', 7, 27)),
+                   {uri: uri('main.scm'), range: range(5, 15, 5, 18)});
+  edited(program);
+
   // An open library is checked as the program that imports it; its
   // failure, which the script's check meets too, is reported once.
   send({method: 'textDocument/didOpen',

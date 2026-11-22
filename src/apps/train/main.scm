@@ -6,9 +6,9 @@
 ;; again.
 (import
  (snail core base)
- (only (snail shell page) report-ready)
- (only (snail shell gpu) request-device)
- (only (snail shell fetch) Fetch fetch-bytes page-address)
+ (only (snail shell page))
+ (only (snail shell gpu))
+ (only (snail shell fetch) Fetch fetch-bytes)
  (apps train dataset)
  (apps train trainer)
  (only (snail shell gpu) Gpu)
@@ -23,8 +23,8 @@
 
 (define (main (gpu Gpu) (fetch Fetch) (events Events) (clock Clock) (out OutputPort))
   (→ Unit)
-  (report-ready events)
-  (let ((settings (settings-of (page-address fetch))) (format (● (request-device gpu) format)))
+  (events::report-ready)
+  (let ((settings (settings-of (fetch::page-address))) (format (● (gpu::request-device) format)))
     (let ((photographs (new Photographs
                          (photograph (lambda (image)
                                        (dataset-photograph gpu

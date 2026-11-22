@@ -59,7 +59,7 @@
       (new Pair (first model) (second (Nil))))
 
     (define (load-text (fetch Fetch)) (→ (Result String String))
-      (match (request fetch "GET" "/api/text" (Nil) "")
+      (match (fetch::request "GET" "/api/text" (Nil) "")
         ((Ok reply) (Ok (● reply body)))
         ((Err why) (Err why))))
 
@@ -124,6 +124,6 @@
               (lambda (model message) (update fetch model message))
               (lambda (model) (view model))
               (lambda (model) (window model))
-              (lambda (model) (report-ready events))
+              (lambda (model) (events::report-ready))
               (lambda (model) (checkpoint (save model))))
       (unit))))

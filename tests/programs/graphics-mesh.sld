@@ -54,23 +54,23 @@
             (heads (● (with-recorded-gpu (lambda (gpu) (frame gpu))) second)))
   (unit))
 (define (frame (gpu Gpu)) (→ Unit)
-  (request-device gpu)
+  (gpu::request-device)
   (let* ((geometry (make-geometry gpu))
          (uploaded (upload-batch gpu "mesh/test" batch))
-         (encoder (create-command-encoder gpu))
-         (pass (begin-render-pass gpu encoder
-                                  (new RenderPassDescriptor
-                                    (colors (list (Some (new ColorAttachment
-                                                          (view
-                                                           (view-of gpu
-                                                                    (● (current-texture gpu)
-                                                                       texture)
-                                                                    1))
-                                                          (load (Keep))
-                                                          (store #t)))))
-                                    (depth (None))))))
+         (encoder (gpu::create-command-encoder))
+         (pass (gpu::begin-render-pass encoder
+                                       (new RenderPassDescriptor
+                                         (colors (list (Some (new ColorAttachment
+                                                               (view
+                                                                (view-of gpu
+                                                                         (● (gpu::current-texture)
+                                                                            texture)
+                                                                         1))
+                                                               (load (Keep))
+                                                               (store #t)))))
+                                         (depth (None))))))
     (draw-meshes gpu pass geometry uploaded)
-    (end-pass gpu pass)
-    (submit gpu (list (finish gpu encoder)))
+    (gpu::end-pass pass)
+    (gpu::submit (list (gpu::finish encoder)))
     (release-batch gpu uploaded)))
 

@@ -53,38 +53,38 @@
   (Model-log-set model (append (● model log) (list what))))
 
 (define (indent (dom Dom)) (→ Msg)
-  (match (element-by-id dom "text")
+  (match (dom::element-by-id "text")
     ((Some node)
-     (let ((took (insert-text dom node 0 0 "  ")))
-       (select-range dom node 2 2)
-       (focus-node dom node)
+     (let ((took (dom::insert-text node 0 0 "  ")))
+       (dom::select-range node 2 2)
+       (dom::focus-node node)
        (Done (string-append "indented: "
                             (if took "taken" "refused")
                             ", selection "
-                            (show (● (selection-range dom node) first))
+                            (show (● (dom::selection-range node) first))
                             "-"
-                            (show (● (selection-range dom node) second))
+                            (show (● (dom::selection-range node) second))
                             ", line height "
-                            (show (● (measure dom node) line-height))))))
+                            (show (● (dom::measure node) line-height))))))
     ((None) (Done "no field"))))
 
 (define (late (dom Dom)) (→ Msg)
-  (match (element-by-id dom "text")
+  (match (dom::element-by-id "text")
     ((Some node)
      (yield)
      (yield)
-     (let ((took (insert-text dom node 0 0 "late ")))
+     (let ((took (dom::insert-text node 0 0 "late ")))
        (Done (string-append "late: "
                             (if took "taken" "refused")
                             ", value "
-                            (show (string-length (string-property dom node "value")))))))
+                            (show (string-length (dom::string-property node "value")))))))
     ((None) (Done "no field"))))
 
 (define (ask (dom Dom)) (→ Msg)
-  (if (confirm dom "Hide the field?") (Hide) (Done "kept")))
+  (if (dom::confirm "Hide the field?") (Hide) (Done "kept")))
 
 (define (missing (dom Dom)) (→ Msg)
-  (match (element-by-id dom "text")
+  (match (dom::element-by-id "text")
     ((Some node) (Done "still there"))
     ((None) (Done "field gone"))))
 
