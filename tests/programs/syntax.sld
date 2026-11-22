@@ -22,12 +22,12 @@
   (define g (lambda (z) (+ y z)))
   (g 1))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (mut Mut) (out OutputPort)) (→ Unit)
 
   (let ((counter (new Counter (count 0))))
     (display out (my-or #f (t)))
     (newline out)
-    (while (< (● counter count) 5) (set! (● counter count) (+ (● counter count) 1)))
+    (while (< (● counter count) 5) (set! mut (● counter count) (+ (● counter count) 1)))
     (display out (● counter count))
     (newline out)
     (display out (case (* 2 3) ((2 3 5 7) "prime") ((1 4 6 8 9) "composite") (else "other")))

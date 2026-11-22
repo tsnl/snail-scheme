@@ -64,7 +64,7 @@
 ;; The second gaussian's record, words: position, transform, quaternion,
 ;; scale, opacity; then its first five colors.
 
-(define (show-cloud (out OutputPort) (cloud Cloud)) (→ Unit) (! mut)
+(define (show-cloud (out OutputPort) (cloud Cloud)) (→ Unit)
   (write-line out (string-append "count: " (show (● cloud count))))
   (write-line out (string-append "position: " (floats (● cloud gaussians) 12 3)))
   (write-line out (string-append "center: "
@@ -107,7 +107,7 @@
 
 ;; The file written, by its size and its header's first lines, and read
 ;; back: the second of its two gaussians is the third row.
-(define (written (out OutputPort)) (→ Unit) (! mut)
+(define (written (out OutputPort)) (→ Unit)
   (let ((file (write-ply (trained))))
     (write-line out (string-append "written: " (show (array-length file)) " bytes"))
     (match (read-ply file 3)
@@ -130,7 +130,7 @@
 ;; blocks, scanning their 18,752 counts in two levels and adding the upper
 ;; level back, and scattering.
 
-(define (frame (gpu Gpu)) (→ Unit) (! mut)
+(define (frame (gpu Gpu)) (→ Unit)
   (let ((splats (make-splats gpu "test" (Bgra8Unorm) 300000 2))
         (encoder (create-command-encoder gpu)))
     (write-transforms gpu splats (list (identity-of 2.0)))
@@ -159,7 +159,7 @@
     ((Some at) (substring line (+ 21 at) (- (string-length line) 4)))
     ((None) line)))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (mut Mut) (out OutputPort)) (→ Unit)
   (match (read-ply file 3)
     ((Ok cloud) (show-cloud out cloud))
     ((Err message) (write-line out message)))
@@ -178,6 +178,7 @@
   (write-line out
               (string-join (map workgroups
                                 (filter dispatched
-                                        (● (with-recorded-gpu (lambda (gpu) (frame gpu))) second)))
+                                        (● (with-recorded-gpu mut (lambda (gpu) (frame gpu)))
+                                           second)))
                            " "))
   (unit))

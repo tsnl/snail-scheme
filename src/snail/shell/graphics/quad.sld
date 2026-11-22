@@ -68,7 +68,6 @@
 
     (define (make-quads (gpu Gpu) (label String) (format TextureFormat) (pages GpuTexture))
       (→ Quads)
-      (! mut)
       (let ((pipeline (quad-pipeline gpu format))
             (camera (create-buffer gpu (new BufferDescriptor
                                          (label (string-append "quad/" label "/view"))
@@ -95,7 +94,6 @@
                         (view View2D)
                         (run (List Quad)))
       (→ Quads)
-      (! mut)
       (if (null? run)
           quads
           (let ((quads (roomy gpu quads (length run))))
@@ -109,7 +107,7 @@
 
     ;; Room for `count` quads; the smaller buffer goes at the submit.
 
-    (define (roomy (gpu Gpu) (quads Quads) (count I64)) (→ Quads) (! mut)
+    (define (roomy (gpu Gpu) (quads Quads) (count I64)) (→ Quads)
       (if (>= (● quads room) count)
           quads
           (let ((room (capacity (* 2 (● quads room)) count)))
@@ -119,13 +117,13 @@
     (define (capacity (room I64) (count I64)) (→ I64)
       (if (>= room count) room (capacity (* 2 room) count)))
 
-    (define (instance-buffer (gpu Gpu) (room I64)) (→ GpuBuffer) (! mut)
+    (define (instance-buffer (gpu Gpu) (room I64)) (→ GpuBuffer)
       (create-buffer gpu (new BufferDescriptor
                            (label "quad/instances")
                            (size (i64->i32 (* (stride quad-shape) room)))
                            (usage (list (Vertex) (CopyDst))))))
 
-    (define (quad-pipeline (gpu Gpu) (format TextureFormat)) (→ GpuRenderPipeline) (! mut)
+    (define (quad-pipeline (gpu Gpu) (format TextureFormat)) (→ GpuRenderPipeline)
       (create-render-pipeline gpu
                               (new RenderPipelineDescriptor
                                 (label "quad")
@@ -146,7 +144,7 @@
                                 (cull (CullNone))
                                 (depth (None)))))
 
-    (define (nearest-sampler (gpu Gpu)) (→ GpuSampler) (! mut)
+    (define (nearest-sampler (gpu Gpu)) (→ GpuSampler)
       (create-sampler gpu (new SamplerDescriptor
                             (label "quad/nearest")
                             (mag-filter (Nearest))

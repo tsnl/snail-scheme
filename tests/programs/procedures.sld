@@ -8,10 +8,10 @@
   value)
 (define (duplicate (function (Fn I64 → I64))) (→ (Pair (Fn I64 → I64) (Fn I64 → I64)))
   (new Pair (first function) (second function)))
-(define (invoke (function (Fn → Unit ! e))) (→ Unit) (! e) (∀ (e))
+(define (invoke (function (Fn → Unit))) (→ Unit)
   (function))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (let* ((function (● (new Callback (run identity)) run)) (both (duplicate function)))
     (write-line out (show ((● both first) ((● both second) 42)))))
   (invoke (lambda () (write-line out "ordinary procedures")))

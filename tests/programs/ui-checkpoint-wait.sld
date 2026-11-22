@@ -16,7 +16,7 @@
   (Start)
   (Finished ((text String))))
 
-(define (update (model Model) (message Msg)) (→ (Pair Model (List (Fn → Msg ! mut))))
+(define (update (model Model) (message Msg)) (→ (Pair Model (List (Fn → Msg))))
   (match message
     ((Start)
      (new Pair
@@ -33,10 +33,10 @@
 (define (checkpoint (model Model)) (→ Unit)
   (yield))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
-  (match (with-memory-dom (list (Hide) (Hide))
+(define (main (mut Mut) (out OutputPort)) (→ Unit)
+  (match (with-memory-dom mut (list (Hide) (Hide))
                           (lambda (dom)
-                            (run-ui dom (new Model (text "idle"))
+                            (run-ui mut dom (new Model (text "idle"))
                                     (list (Start))
                                     (lambda (model message) (update model message))
                                     (lambda (model) (view model))

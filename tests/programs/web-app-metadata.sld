@@ -3,11 +3,11 @@
  (snail core io)
  (snail shell project web-app))
 
-(define (check (out OutputPort) (name String) (actual String) (expected String)) (→ Unit) (! mut)
+(define (check (out OutputPort) (name String) (actual String) (expected String)) (→ Unit)
   (unless (string=? actual expected) (panic (string-append name ": " actual)))
   (write-line out name))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (check out "implicit head"
          (with-web-app "<!doctype html><title>App</title>" "app.manifest.datum")
          "<!doctype html><head><link id=\"snail-web-app\" rel=\"manifest\" href=\"./manifest.webmanifest\"><meta name=\"snail-modules\" content=\"./app.manifest.datum\"><title>App</title>")

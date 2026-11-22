@@ -6,7 +6,7 @@
 (record Output
   ((text String)))
 
-(define (line (out OutputPort) (value T)) (→ Unit) (! mut) (∀ (T)) (⊨ (Repr T))
+(define (line (out OutputPort) (value T)) (→ Unit) (∀ (T)) (⊨ (Repr T))
   (write out value)
   (newline out))
 
@@ -45,7 +45,7 @@
 ;; A representation is pure, and write uses the active output-port handler.
 (define (represented) (→ String) (repr (Some "pure")))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (mut Mut) (out OutputPort)) (→ Unit)
 
   (line out "")
   (line out "quote: \"; slash: \\; line:\nreturn:\rtab:\tλ😀")
@@ -80,7 +80,7 @@
   (let ((output (new Output (text ""))))
     (write (new OutputPort
              (write-string (lambda (text)
-                             (set! (● output text) (string-append (● output text) text)))))
+                             (set! mut (● output text) (string-append (● output text) text)))))
            (Some "captured"))
     (write-line out (● output text)))
   (unit))

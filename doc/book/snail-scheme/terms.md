@@ -19,7 +19,7 @@ Import sets may use `only`, `except`, `prefix` and `rename`.
 (define (fibonacci (n I64)) (→ I64)
   (if (< n 2) n (+ (fibonacci (- n 1)) (fibonacci (- n 2)))))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (write-line out (show (fibonacci 30))))
 ```
 
@@ -56,8 +56,8 @@ those bytes as a byte literal in its generated library.
 
 | Form | Meaning |
 | --- | --- |
-| `(define name [(→ Type)] value)` | Value definition. At top level the initializer runs at most once, on the first read, and performs nothing ([top-level values](types.md#top-level-values)). |
-| `(define (name (param type) ...) (→ Result) [header ...] body ...)` | Typed function definition, shorthand for `(define name (lambda ((param type) ...) (→ Result) [header ...] body ...))`. Optional row, generic and constraint clauses precede the body. |
+| `(define name [(→ Type)] value)` | Value definition. At top level the initializer runs at most once, on the first read, and can only compute ([top-level values](types.md#top-level-values)). |
+| `(define (name (param type) ...) (→ Result) [header ...] body ...)` | Typed function definition, shorthand for `(define name (lambda ((param type) ...) (→ Result) [header ...] body ...))`. Optional generic and constraint clauses precede the body. |
 | `(lambda (param ...) body ...)`, `(lambda ((param type) ...) (→ Result) [header ...] body ...)` | Function with a fixed number of parameters. It takes a definition's whole header, or annotates nothing and has its type inferred. |
 | `(if test then [else])` | `test` is `Bool`; without `else` the result is `Unit`. |
 | `(begin form ...)` | A body: definitions and expressions in order. |
@@ -76,7 +76,7 @@ those bytes as a byte literal in its generated library.
 | `(typeclass (Class param ...) (declare (method ...) ...) ...)` | Class of types with methods. |
 | `(instance (Class type ...) [(⊨ constraint ...)] (define ...) ...)` | Instance. |
 | `(make-prompt)`, `(with-prompt prompt body handler)`, `(suspend prompt value)` | Functions, not forms: a prompt, the call that catches its suspensions, and a suspension ([suspension](suspension.md)). |
-| `(extern name "module" "symbol" type)` | Wasm import, asserted total. |
+| `(extern name "module" "symbol" type)` | Wasm import, its type asserted. |
 | `(primitive name type)` | An operation the backend implements, bound to the global `prim:name`. Accepted only in `(snail core primitive)`. |
 | `(expose name "symbol")` | Exports a monomorphic top-level function to the host; its arguments and result must be unrestricted. |
 | `(define-syntax name (syntax-rules (literal ...) (pattern template) ...))` | Hygienic macro. |
@@ -97,9 +97,8 @@ uses macros (`list`, `string-append`) or lists.
 ## Cached functions
 
 `cache` and `lru-cache` wrap ordinary functions, including lambdas. They preserve
-all argument types, the result type and the row; they work at any fixed
-arity. The callback expression is evaluated once, and evaluating it may itself
-perform `mut`.
+all argument types and the result type; they work at any fixed
+arity. The callback expression is evaluated once.
 Each wrapper owns a fresh local cache that remains alive between calls.
 Aliases of that wrapper share its
 cache, while two evaluations of `(cache f)` have separate caches.
@@ -120,10 +119,10 @@ once, so the whole program shares its cache:
 (define square (cache (lambda ((n I64)) (→ I64) (* n n))))
 ```
 
-A wrapper performs what its function performs, on a miss: a hit skips the
+A wrapper does what its function does, on a miss: a hit skips the
 function's body and so what it does. A function that logs each call logs once
-for each key when cached, which is what caching it asks for. The wrapper keeps
-the function's row either way, since a row says what a call may do. A call
+for each key when cached, which is what caching it asks for. A `Mut` or a
+capability among the arguments is part of the key like any other. A call
 that [suspends](suspension.md#what-a-suspension-passes-through) out of the
 function is not remembered: resumed, it answers its caller, and the next
 call with that key runs the function again.
@@ -133,7 +132,7 @@ has no parameter packs to express every arity in a library. A generic factory
 states a known function shape, for example:
 
 ```scheme
-(define (memoize (f (Fn A → B ! e))) (→ (Fn A → B ! e)) (∀ (A B e))
+(define (memoize (f (Fn A → B))) (→ (Fn A → B)) (∀ (A B))
   (cache f))
 ```
 
@@ -160,10 +159,9 @@ components. There is no hidden identity field added to user objects.
 Raw `Funcref` host handles cannot be keys. Any other value may be a key or a
 result, including functions, `Any` values, mutable records and arrays.
 
-Cache only functions for which skipping the body is intended. Even an empty
-row permits reading mutable objects and captured state, so no row proves
-that a function's answers stay the same.
-The private cache adds nothing to the function's row.
+Cache only functions for which skipping the body is intended. A function
+handed nothing may still read mutable objects and captured state, so no
+signature proves that its answers stay the same.
 A result is stored only after a successful return.
 Reentrant calls can populate the same cache: the last successful completion for
 a key wins, and each call returns its own computed result. There is no in-progress
@@ -214,15 +212,16 @@ Familiar projection syntax such as `a.b.c` should be considered on its
 own merits, alongside bindings, calls, signatures and callback bodies.
 
 The implemented [function type](types.md#functions) is `Fn`, with `→`
-separating the result and `!` introducing its row. Named
-functions use typed parameter pairs and inline result, row, generic and
-constraint clauses. Definitions continue to use `define`.
+separating the result. Named functions use typed parameter pairs and
+inline result, generic and constraint clauses. Definitions continue to use
+`define`.
 
 Direct field selection is `(● receiver label ...)`: each nominal record type
 supplies its stored fields, and paths follow heap references.
-`(set! (● receiver label ...) value)` writes the path's final field; `set!`
-is a form, so it takes a field path where it is written and is not a
-value to pass.
+`(set! mut (● receiver label ...) value)` writes the path's final field,
+with the `Mut` the writer was handed
+([capabilities](capabilities.md#mut)); `set!` is a form, so it takes a
+field path where it is written and is not a value to pass.
 Every field is mutable. Computed getters are ordinary functions.
 
 Direct-style [suspension](suspension.md) remains available: the compiler
@@ -344,7 +343,7 @@ The reader-created form must have a defined hygienic binding; a local
 variable must not accidentally change what punctuation means.
 
 The translation should preserve the existing nominal projection semantics:
-read `(● object field ...)`, or use that projection in `set!`.
+read `(● object field ...)`, or use that projection in `set!`, after its `Mut`.
 Each step follows one object reference. Field lookup is resolved during
 checking, and every stored field is mutable. Computed getters are ordinary
 functions and do not become writable by punctuation.

@@ -32,7 +32,7 @@
   (Saved ((count I64))))
 
 (define (update (model Model) (message Msg))
-  (→ (Pair Model (List (Fn → Msg ! mut))))
+  (→ (Pair Model (List (Fn → Msg))))
   (match message
     ((Typed text) (new Pair (first (Model-draft-set model text)) (second (Nil))))
     ((Add)
@@ -83,7 +83,7 @@
                                 (On "click" (Nil) (Allow) (lambda (event) (Remove (● item id)))))
                           (list (Text "x"))))))
 
-(define (checkpoint (out OutputPort) (model Model)) (→ Unit) (! mut)
+(define (checkpoint (out OutputPort) (model Model)) (→ Unit)
   (write-line out (string-append "checkpoint: "
                                  (string-join
                                   (map (lambda (record) (● record text)) (● model items))
@@ -108,13 +108,15 @@
         (clicked "reverse")
         (clicked "remove-1")))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (mut Mut) (out OutputPort)) (→ Unit)
   (dispatch
    (lambda ()
      (let ((result
-            (with-memory-dom (script)
+            (with-memory-dom mut (script)
                              (lambda (dom)
-                               (run-ui dom (new Model (items (Nil)) (draft "") (next 0) (saved 0))
+                               (run-ui mut
+                                       dom
+                                       (new Model (items (Nil)) (draft "") (next 0) (saved 0))
                                        (Nil)
                                        (lambda (model message) (update model message))
                                        view

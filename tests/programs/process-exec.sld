@@ -3,7 +3,7 @@
  (snail core io)
  (snail shell process))
 
-(define (main (processes Processes) (out OutputPort)) (→ Unit) (! mut)
+(define (main (processes Processes) (out OutputPort)) (→ Unit)
   ;; `exec` replaces the program with a command. One that cannot start leaves
   ;; the program running, with why; one that can takes over its process and
   ;; its output, and nothing after it runs.

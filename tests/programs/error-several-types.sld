@@ -18,7 +18,7 @@
 (define (shout (text String)) (→ String)
   (string-append text #\!))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (write-line out (show (helper #t)))
   (write-line out (shout (label 2)))
   (unit))

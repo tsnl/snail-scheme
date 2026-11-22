@@ -11,7 +11,7 @@
 
     (define (greeting) (→ Resource) (link-file "data/greeting.txt"))
 
-    (define (greeting-text (resources Resources)) (→ String) (! mut)
+    (define (greeting-text (resources Resources)) (→ String)
       (list->string
        (map (lambda (byte) (i32->char (u8->i32 byte)))
             (array->list (read-resource resources (greeting))))))

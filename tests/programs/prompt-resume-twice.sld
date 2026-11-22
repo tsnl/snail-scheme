@@ -7,7 +7,7 @@
 ;; does, and the second call panics.
 (define choosing (→ (Prompt Unit Bool)) (make-prompt))
 
-(define (both (out OutputPort)) (→ (List Bool)) (! mut)
+(define (both (out OutputPort)) (→ (List Bool))
   (with-prompt choosing
                (lambda () (list (suspend choosing (unit))))
                (lambda (value resume)
@@ -15,7 +15,7 @@
                    (write-line out "resumed once")
                    (append first (resume #f))))))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (both out)
   (write-line out "not reached")
   (unit))

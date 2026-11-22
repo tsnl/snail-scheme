@@ -4,7 +4,7 @@
  (control catch)
  (control search))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   ;; The suspension leaves `signal-negative`'s library, crosses this
   ;; program, and is caught in `first-signal`'s; `all-signals` resumes it
   ;; there.

@@ -246,6 +246,7 @@
    host-gpu)
   (import
    (snail core base)
+   (only (snail core io) Host)
    (only (snail shell task) through-host)
    (only (snail shell utf8) string->utf8)
    (prefix (snail runtime gpu) host-))
@@ -600,7 +601,7 @@
 
     ;; A view of the first `mips` levels of layer 0.
 
-    (define (view-of (gpu Gpu) (texture GpuTexture) (mips I32)) (→ GpuTextureView) (! mut)
+    (define (view-of (gpu Gpu) (texture GpuTexture) (mips I32)) (→ GpuTextureView)
       (create-view gpu texture
                    (new TextureViewDescriptor
                      (dimension (View2d))
@@ -611,7 +612,7 @@
 
     ;; A texture's whole array, at its first level.
 
-    (define (array-view (gpu Gpu) (texture GpuTexture)) (→ GpuTextureView) (! mut)
+    (define (array-view (gpu Gpu) (texture GpuTexture)) (→ GpuTextureView)
       (create-view gpu texture
                    (new TextureViewDescriptor
                      (dimension (View2dArray))
@@ -620,7 +621,7 @@
                      (base-layer 0)
                      (layers 0))))
 
-    (define (layer-view (gpu Gpu) (texture GpuTexture) (layer I32)) (→ GpuTextureView) (! mut)
+    (define (layer-view (gpu Gpu) (texture GpuTexture) (layer I32)) (→ GpuTextureView)
       (create-view gpu texture
                    (new TextureViewDescriptor
                      (dimension (View2d))
@@ -693,66 +694,64 @@
     ;; `current-texture` is the canvas's texture for this frame, sized to
     ;; the canvas's pixels on the screen, and its size.
     (record Gpu
-      ((request-device (Fn → DeviceInfo ! mut))
-       (create-buffer (Fn BufferDescriptor → GpuBuffer ! mut))
-       (write-buffer (Fn GpuBuffer I32 Bytes → Unit ! mut))
-       (read-buffer (Fn GpuBuffer I32 I32 → Bytes ! mut))
-       (create-texture (Fn TextureDescriptor → GpuTexture ! mut))
-       (create-view (Fn GpuTexture TextureViewDescriptor → GpuTextureView ! mut))
-       (write-texture (Fn TextureCopy I32 I32 I32 Bytes → Unit ! mut))
-       (decode-image (Fn Bytes → (Option Image) ! mut))
-       (create-sampler (Fn SamplerDescriptor → GpuSampler ! mut))
-       (create-shader-module (Fn ShaderModuleDescriptor → GpuShaderModule ! mut))
-       (create-render-pipeline (Fn RenderPipelineDescriptor → GpuRenderPipeline ! mut))
-       (create-bind-group (Fn BindGroupDescriptor → GpuBindGroup ! mut))
-       (create-command-encoder (Fn → GpuCommandEncoder ! mut))
-       (copy-buffer-to-buffer (Fn GpuCommandEncoder GpuBuffer I32 GpuBuffer I32 I32 → Unit ! mut))
+      ((request-device (Fn → DeviceInfo))
+       (create-buffer (Fn BufferDescriptor → GpuBuffer))
+       (write-buffer (Fn GpuBuffer I32 Bytes → Unit))
+       (read-buffer (Fn GpuBuffer I32 I32 → Bytes))
+       (create-texture (Fn TextureDescriptor → GpuTexture))
+       (create-view (Fn GpuTexture TextureViewDescriptor → GpuTextureView))
+       (write-texture (Fn TextureCopy I32 I32 I32 Bytes → Unit))
+       (decode-image (Fn Bytes → (Option Image)))
+       (create-sampler (Fn SamplerDescriptor → GpuSampler))
+       (create-shader-module (Fn ShaderModuleDescriptor → GpuShaderModule))
+       (create-render-pipeline (Fn RenderPipelineDescriptor → GpuRenderPipeline))
+       (create-bind-group (Fn BindGroupDescriptor → GpuBindGroup))
+       (create-command-encoder (Fn → GpuCommandEncoder))
+       (copy-buffer-to-buffer (Fn GpuCommandEncoder GpuBuffer I32 GpuBuffer I32 I32 → Unit))
        (copy-texture-to-buffer
-        (Fn GpuCommandEncoder TextureCopy GpuBuffer I32 I32 I32 I32 → Unit ! mut))
-       (copy-texture-to-texture (Fn GpuCommandEncoder TextureCopy TextureCopy I32 I32 → Unit ! mut))
-       (begin-render-pass (Fn GpuCommandEncoder RenderPassDescriptor → GpuRenderPass ! mut))
-       (set-pipeline (Fn GpuRenderPass GpuRenderPipeline → Unit ! mut))
-       (set-bind-group (Fn GpuRenderPass I32 GpuBindGroup → Unit ! mut))
-       (set-vertex-buffer (Fn GpuRenderPass I32 GpuBuffer I32 → Unit ! mut))
-       (set-index-buffer (Fn GpuRenderPass GpuBuffer IndexFormat I32 → Unit ! mut))
-       (set-scissor-rect (Fn GpuRenderPass I32 I32 I32 I32 → Unit ! mut))
-       (draw (Fn GpuRenderPass I32 I32 I32 I32 → Unit ! mut))
-       (draw-indexed (Fn GpuRenderPass I32 I32 I32 I32 I32 → Unit ! mut))
-       (draw-indexed-indirect (Fn GpuRenderPass GpuBuffer I32 → Unit ! mut))
-       (end-pass (Fn GpuRenderPass → Unit ! mut))
-       (create-compute-pipeline (Fn ComputePipelineDescriptor → GpuComputePipeline ! mut))
-       (begin-compute-pass (Fn GpuCommandEncoder → GpuComputePass ! mut))
-       (set-compute-pipeline (Fn GpuComputePass GpuComputePipeline → Unit ! mut))
-       (set-compute-bind-group (Fn GpuComputePass I32 GpuBindGroup → Unit ! mut))
-       (dispatch-workgroups (Fn GpuComputePass I32 I32 I32 → Unit ! mut))
-       (dispatch-workgroups-indirect (Fn GpuComputePass GpuBuffer I32 → Unit ! mut))
-       (end-compute-pass (Fn GpuComputePass → Unit ! mut))
-       (finish (Fn GpuCommandEncoder → GpuCommandBuffer ! mut))
-       (submit (Fn (List GpuCommandBuffer) → Unit ! mut))
-       (work-done (Fn → Unit ! mut))
-       (current-texture (Fn → Image ! mut))
-       (destroy (Fn GpuObject → Unit ! mut))))
+        (Fn GpuCommandEncoder TextureCopy GpuBuffer I32 I32 I32 I32 → Unit))
+       (copy-texture-to-texture (Fn GpuCommandEncoder TextureCopy TextureCopy I32 I32 → Unit))
+       (begin-render-pass (Fn GpuCommandEncoder RenderPassDescriptor → GpuRenderPass))
+       (set-pipeline (Fn GpuRenderPass GpuRenderPipeline → Unit))
+       (set-bind-group (Fn GpuRenderPass I32 GpuBindGroup → Unit))
+       (set-vertex-buffer (Fn GpuRenderPass I32 GpuBuffer I32 → Unit))
+       (set-index-buffer (Fn GpuRenderPass GpuBuffer IndexFormat I32 → Unit))
+       (set-scissor-rect (Fn GpuRenderPass I32 I32 I32 I32 → Unit))
+       (draw (Fn GpuRenderPass I32 I32 I32 I32 → Unit))
+       (draw-indexed (Fn GpuRenderPass I32 I32 I32 I32 I32 → Unit))
+       (draw-indexed-indirect (Fn GpuRenderPass GpuBuffer I32 → Unit))
+       (end-pass (Fn GpuRenderPass → Unit))
+       (create-compute-pipeline (Fn ComputePipelineDescriptor → GpuComputePipeline))
+       (begin-compute-pass (Fn GpuCommandEncoder → GpuComputePass))
+       (set-compute-pipeline (Fn GpuComputePass GpuComputePipeline → Unit))
+       (set-compute-bind-group (Fn GpuComputePass I32 GpuBindGroup → Unit))
+       (dispatch-workgroups (Fn GpuComputePass I32 I32 I32 → Unit))
+       (dispatch-workgroups-indirect (Fn GpuComputePass GpuBuffer I32 → Unit))
+       (end-compute-pass (Fn GpuComputePass → Unit))
+       (finish (Fn GpuCommandEncoder → GpuCommandBuffer))
+       (submit (Fn (List GpuCommandBuffer) → Unit))
+       (work-done (Fn → Unit))
+       (current-texture (Fn → Image))
+       (destroy (Fn GpuObject → Unit))))
 
-    (define (request-device (gpu Gpu)) (→ DeviceInfo) (! mut)
+    (define (request-device (gpu Gpu)) (→ DeviceInfo)
       ((● gpu request-device)))
 
-    (define (create-buffer (gpu Gpu) (descriptor BufferDescriptor)) (→ GpuBuffer) (! mut)
+    (define (create-buffer (gpu Gpu) (descriptor BufferDescriptor)) (→ GpuBuffer)
       ((● gpu create-buffer) descriptor))
 
-    (define (write-buffer (gpu Gpu) (buffer GpuBuffer) (offset I32) (bytes Bytes)) (→ Unit) (! mut)
+    (define (write-buffer (gpu Gpu) (buffer GpuBuffer) (offset I32) (bytes Bytes)) (→ Unit)
       ((● gpu write-buffer) buffer offset bytes))
 
     (define (read-buffer (gpu Gpu) (buffer GpuBuffer) (offset I32) (size I32))
       (→ Bytes)
-      (! mut)
       ((● gpu read-buffer) buffer offset size))
 
-    (define (create-texture (gpu Gpu) (descriptor TextureDescriptor)) (→ GpuTexture) (! mut)
+    (define (create-texture (gpu Gpu) (descriptor TextureDescriptor)) (→ GpuTexture)
       ((● gpu create-texture) descriptor))
 
     (define (create-view (gpu Gpu) (texture GpuTexture) (descriptor TextureViewDescriptor))
       (→ GpuTextureView)
-      (! mut)
       ((● gpu create-view) texture descriptor))
 
     (define (write-texture (gpu Gpu)
@@ -762,29 +761,26 @@
                            (height I32)
                            (bytes Bytes))
       (→ Unit)
-      (! mut)
       ((● gpu write-texture) copy bytes-per-row width height bytes))
 
-    (define (decode-image (gpu Gpu) (bytes Bytes)) (→ (Option Image)) (! mut)
+    (define (decode-image (gpu Gpu) (bytes Bytes)) (→ (Option Image))
       ((● gpu decode-image) bytes))
 
-    (define (create-sampler (gpu Gpu) (descriptor SamplerDescriptor)) (→ GpuSampler) (! mut)
+    (define (create-sampler (gpu Gpu) (descriptor SamplerDescriptor)) (→ GpuSampler)
       ((● gpu create-sampler) descriptor))
 
     (define (create-shader-module (gpu Gpu) (descriptor ShaderModuleDescriptor))
       (→ GpuShaderModule)
-      (! mut)
       ((● gpu create-shader-module) descriptor))
 
     (define (create-render-pipeline (gpu Gpu) (descriptor RenderPipelineDescriptor))
       (→ GpuRenderPipeline)
-      (! mut)
       ((● gpu create-render-pipeline) descriptor))
 
-    (define (create-bind-group (gpu Gpu) (descriptor BindGroupDescriptor)) (→ GpuBindGroup) (! mut)
+    (define (create-bind-group (gpu Gpu) (descriptor BindGroupDescriptor)) (→ GpuBindGroup)
       ((● gpu create-bind-group) descriptor))
 
-    (define (create-command-encoder (gpu Gpu)) (→ GpuCommandEncoder) (! mut)
+    (define (create-command-encoder (gpu Gpu)) (→ GpuCommandEncoder)
       ((● gpu create-command-encoder)))
 
     (define (copy-buffer-to-buffer (gpu Gpu)
@@ -795,7 +791,6 @@
                                    (destination-offset I32)
                                    (size I32))
       (→ Unit)
-      (! mut)
       ((● gpu copy-buffer-to-buffer)
        encoder
        source
@@ -813,7 +808,6 @@
                                     (width I32)
                                     (height I32))
       (→ Unit)
-      (! mut)
       ((● gpu copy-texture-to-buffer) encoder copy buffer offset bytes-per-row width height))
 
     (define (copy-texture-to-texture (gpu Gpu)
@@ -823,24 +817,20 @@
                                      (width I32)
                                      (height I32))
       (→ Unit)
-      (! mut)
       ((● gpu copy-texture-to-texture) encoder source destination width height))
 
     (define (begin-render-pass (gpu Gpu)
                                (encoder GpuCommandEncoder)
                                (descriptor RenderPassDescriptor))
       (→ GpuRenderPass)
-      (! mut)
       ((● gpu begin-render-pass) encoder descriptor))
 
     (define (set-pipeline (gpu Gpu) (pass GpuRenderPass) (pipeline GpuRenderPipeline))
       (→ Unit)
-      (! mut)
       ((● gpu set-pipeline) pass pipeline))
 
     (define (set-bind-group (gpu Gpu) (pass GpuRenderPass) (index I32) (group GpuBindGroup))
       (→ Unit)
-      (! mut)
       ((● gpu set-bind-group) pass index group))
 
     (define (set-vertex-buffer (gpu Gpu)
@@ -849,7 +839,6 @@
                                (buffer GpuBuffer)
                                (offset I32))
       (→ Unit)
-      (! mut)
       ((● gpu set-vertex-buffer) pass slot buffer offset))
 
     (define (set-index-buffer (gpu Gpu)
@@ -858,7 +847,6 @@
                               (format IndexFormat)
                               (offset I32))
       (→ Unit)
-      (! mut)
       ((● gpu set-index-buffer) pass buffer format offset))
 
     (define (set-scissor-rect (gpu Gpu)
@@ -868,7 +856,6 @@
                               (width I32)
                               (height I32))
       (→ Unit)
-      (! mut)
       ((● gpu set-scissor-rect) pass x y width height))
 
     (define (draw (gpu Gpu)
@@ -878,7 +865,6 @@
                   (first-vertex I32)
                   (first-instance I32))
       (→ Unit)
-      (! mut)
       ((● gpu draw) pass vertices instances first-vertex first-instance))
 
     (define (draw-indexed (gpu Gpu)
@@ -889,28 +875,24 @@
                           (base-vertex I32)
                           (first-instance I32))
       (→ Unit)
-      (! mut)
       ((● gpu draw-indexed) pass indices instances first-index base-vertex first-instance))
 
     (define (draw-indexed-indirect (gpu Gpu) (pass GpuRenderPass) (buffer GpuBuffer) (offset I32))
       (→ Unit)
-      (! mut)
       ((● gpu draw-indexed-indirect) pass buffer offset))
 
-    (define (end-pass (gpu Gpu) (pass GpuRenderPass)) (→ Unit) (! mut)
+    (define (end-pass (gpu Gpu) (pass GpuRenderPass)) (→ Unit)
       ((● gpu end-pass) pass))
 
     (define (create-compute-pipeline (gpu Gpu) (descriptor ComputePipelineDescriptor))
       (→ GpuComputePipeline)
-      (! mut)
       ((● gpu create-compute-pipeline) descriptor))
 
-    (define (begin-compute-pass (gpu Gpu) (encoder GpuCommandEncoder)) (→ GpuComputePass) (! mut)
+    (define (begin-compute-pass (gpu Gpu) (encoder GpuCommandEncoder)) (→ GpuComputePass)
       ((● gpu begin-compute-pass) encoder))
 
     (define (set-compute-pipeline (gpu Gpu) (pass GpuComputePass) (pipeline GpuComputePipeline))
       (→ Unit)
-      (! mut)
       ((● gpu set-compute-pipeline) pass pipeline))
 
     (define (set-compute-bind-group (gpu Gpu)
@@ -918,12 +900,10 @@
                                     (index I32)
                                     (group GpuBindGroup))
       (→ Unit)
-      (! mut)
       ((● gpu set-compute-bind-group) pass index group))
 
     (define (dispatch-workgroups (gpu Gpu) (pass GpuComputePass) (x I32) (y I32) (z I32))
       (→ Unit)
-      (! mut)
       ((● gpu dispatch-workgroups) pass x y z))
 
     (define (dispatch-workgroups-indirect (gpu Gpu)
@@ -931,25 +911,24 @@
                                           (buffer GpuBuffer)
                                           (offset I32))
       (→ Unit)
-      (! mut)
       ((● gpu dispatch-workgroups-indirect) pass buffer offset))
 
-    (define (end-compute-pass (gpu Gpu) (pass GpuComputePass)) (→ Unit) (! mut)
+    (define (end-compute-pass (gpu Gpu) (pass GpuComputePass)) (→ Unit)
       ((● gpu end-compute-pass) pass))
 
-    (define (finish (gpu Gpu) (encoder GpuCommandEncoder)) (→ GpuCommandBuffer) (! mut)
+    (define (finish (gpu Gpu) (encoder GpuCommandEncoder)) (→ GpuCommandBuffer)
       ((● gpu finish) encoder))
 
-    (define (submit (gpu Gpu) (buffers (List GpuCommandBuffer))) (→ Unit) (! mut)
+    (define (submit (gpu Gpu) (buffers (List GpuCommandBuffer))) (→ Unit)
       ((● gpu submit) buffers))
 
-    (define (work-done (gpu Gpu)) (→ Unit) (! mut)
+    (define (work-done (gpu Gpu)) (→ Unit)
       ((● gpu work-done)))
 
-    (define (current-texture (gpu Gpu)) (→ Image) (! mut)
+    (define (current-texture (gpu Gpu)) (→ Image)
       ((● gpu current-texture)))
 
-    (define (destroy (gpu Gpu) (object GpuObject)) (→ Unit) (! mut)
+    (define (destroy (gpu Gpu) (object GpuObject)) (→ Unit)
       ((● gpu destroy) object))
 
     ;; ---- Descriptors as fields ----
@@ -980,17 +959,23 @@
     ;; Byte arrays end to end, in a fresh array.
 
     (define (joined (pieces (List Bytes))) (→ Bytes)
-      (unsafe-total
-       (lambda ()
-         (let ((bytes (make-array
-                       (fold-left (lambda (total piece) (+ total (array-length piece))) 0 pieces)
-                       (i32->u8 0))))
-           (fold-left (lambda (at piece)
-                        (array-copy! bytes at piece 0 (array-length piece))
-                        (+ at (array-length piece)))
-                      0
-                      pieces)
-           bytes))))
+      (let* ((mut (unsafe-mut)) (bytes (make-array
+                                        (fold-left
+                                         (lambda (total piece) (+ total (array-length piece)))
+                                         0
+                                         pieces)
+                                        (i32->u8 0))))
+        (fold-left (lambda (at piece)
+                     (array-copy! mut
+                                  bytes
+                                  at
+                                  piece
+                                  0
+                                  (array-length piece))
+                     (+ at (array-length piece)))
+                   0
+                   pieces)
+        bytes))
 
     (define (word-bytes (value I32)) (→ Bytes)
       (array-generate 4
@@ -1242,7 +1227,7 @@
     ;;
     ;;   (provide-gpu (lambda () (let ((info (request-device))) ...)))
 
-    (define (host-gpu) (→ Gpu)
+    (define (host-gpu (host Host)) (→ Gpu)
       (new Gpu
         (request-device requested)
         (create-buffer
@@ -1444,7 +1429,7 @@
     ;; optional ones it has (host/browser/gpu.mjs); it has told why it has
     ;; no device.
 
-    (define (requested) (→ DeviceInfo) (! mut)
+    (define (requested) (→ DeviceInfo)
       (let ((status (through-host host-start-device host-finish-device)))
         (unless (= status 0)
           (panic "gpu: this host has no WebGPU device with the baseline features"))
@@ -1469,7 +1454,7 @@
 
     ;; ---- Waiting on the host ----
 
-    (define (read-bytes (buffer I32) (offset I32) (size I32)) (→ Bytes) (! mut)
+    (define (read-bytes (buffer I32) (offset I32) (size I32)) (→ Bytes)
       (let ((count (through-host (lambda (ticket) (host-start-read ticket buffer offset size))
                                  host-finish-read)))
         (array-generate (i32->i64 count) (lambda (index) (host-read-byte (i64->i32 index))))))
@@ -1477,7 +1462,7 @@
     ;; The host decodes the image and holds its texture until it is kept.
 
     ;; The host answers a width of 0 for bytes it does not decode.
-    (define (decoded (bytes Bytes)) (→ (Option Image)) (! mut)
+    (define (decoded (bytes Bytes)) (→ (Option Image))
       (let ((width (through-host (lambda (ticket)
                                    (host-start-decode ticket
                                                       (texture-usage-bits (list (TextureBinding)

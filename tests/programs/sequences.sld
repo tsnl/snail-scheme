@@ -6,7 +6,7 @@
 
 (define (s) (→ String) "hello")
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (mut Mut) (out OutputPort)) (→ Unit)
   (define a (make-array 3 0))
 
   (display out (array-ref (v) 3))
@@ -19,7 +19,7 @@
   (newline out)
   (write out (array->list (array-append (subarray (v) 1 3) (list->array (list 7 8)))))
   (newline out)
-  (array-set! a 1 42)
+  (array-set! mut a 1 42)
   (write out (array->list (array-copy a)))
   (newline out)
   (write-line out (string-append (s) (string-append ", " "world")))

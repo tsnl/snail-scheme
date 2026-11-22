@@ -14,6 +14,7 @@
           Failed)
   (import
    (snail core base)
+   (only (snail core io) Host)
    (snail shell task)
    (prefix (snail runtime native async-files) host-))
   (begin
@@ -29,14 +30,13 @@
       (Failed))
 
     (record Files
-      ((read-file (Fn String I32 → (Result Bytes FileError) ! mut))))
+      ((read-file (Fn String I32 → (Result Bytes FileError)))))
 
     (define (read-file (files Files) (path String) (maximum I32))
       (→ (Result Bytes FileError))
-      (! mut)
       ((● files read-file) path maximum))
 
-    (define (host-files) (→ Files)
+    (define (host-files (host Host)) (→ Files)
       (new Files
         (read-file native-read)))
 
@@ -44,7 +44,7 @@
 
     ;; The read runs to completion: the host delivers its result to the
     ;; waiting task, which takes it with `finish`.
-    (define (native-read (path String) (maximum I32)) (→ (Result Bytes FileError)) (! mut)
+    (define (native-read (path String) (maximum I32)) (→ (Result Bytes FileError))
       (let ((ticket (ticket)))
         (for-each host-path-character (string->list path))
         (let ((id (host-start-read ticket maximum)))

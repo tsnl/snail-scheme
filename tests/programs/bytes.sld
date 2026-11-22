@@ -7,7 +7,7 @@
 
 (define (bytes) (→ (Array U8)) (array-generate 300 (lambda (i) (i32->u8 (i64->i32 i)))))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (display out (array-ref (bytes) 255))
   (newline out)
   (display out (array-ref (bytes) 256))

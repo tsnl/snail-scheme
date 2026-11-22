@@ -18,7 +18,7 @@
 (define (near? (a (List F64)) (b (List F64))) (→ Bool)
   (every? (lambda (k) (< (abs (- (list-ref a k) (list-ref b k))) 1e-6)) (iota 3)))
 
-(define (stands (out OutputPort) (up (List F64))) (→ Unit) (! mut)
+(define (stands (out OutputPort) (up (List F64))) (→ Unit)
   (write-line out (string-append "up "
                                  (string-join (map f64->string up) " ")
                                  (if (near? (turned (upright up) up) (list 0.0 1.0 0.0))
@@ -28,7 +28,7 @@
 (define (floats (v Vec3f)) (→ (List F64))
   (list (f32->f64 (● v x)) (f32->f64 (● v y)) (f32->f64 (● v z))))
 
-(define (looks (out OutputPort) (toward (List F64))) (→ Unit) (! mut)
+(define (looks (out OutputPort) (toward (List F64))) (→ Unit)
   (let* ((fly
           (fly-toward (fly-over (list 0.0 0.0 0.0) (list 1.0 1.0 1.0)) (list 3.0 4.0 5.0) toward))
          (eye (floats (fly-eye fly)))
@@ -43,7 +43,7 @@
                                        " it misses ")
                                    (string-join (map f64->string toward) " ")))))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (stands out (list 0.0 1.0 0.0))
   (stands out (list 0.6 0.0 0.8))
   (stands out (list -0.48 -0.6 0.64))

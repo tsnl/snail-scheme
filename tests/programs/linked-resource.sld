@@ -6,7 +6,7 @@
 
 (define (asset) (→ Resource) (link-file "linked-resource.txt"))
 
-(define (main (resources Resources) (out OutputPort)) (→ Unit) (! mut)
+(define (main (resources Resources) (out OutputPort)) (→ Unit)
   (write-line out "before")
   (let ((bytes (read-resource resources (asset))))
     (display out (array-length bytes)) (newline out)

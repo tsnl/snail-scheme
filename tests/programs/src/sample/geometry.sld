@@ -19,8 +19,8 @@
     ;; the caller's variable of the same name.
     (define-syntax swap!
       (syntax-rules ()
-        ((_ a b) (let ((temporary (● a x)))
-                   (set! (● a x) (● b x))
-                   (set! (● b x) temporary)))))
+        ((_ mut a b) (let ((temporary (● a x)))
+                       (set! mut (● a x) (● b x))
+                       (set! mut (● b x) temporary)))))
 
     ))

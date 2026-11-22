@@ -271,7 +271,6 @@
                         (format TextureFormat)
                         (usage (List TextureUsage)))
       (→ Plane)
-      (! mut)
       (let ((texture (create-texture gpu (new TextureDescriptor
                                            (label label)
                                            (width (max 1 width))
@@ -282,7 +281,7 @@
                                            (usage usage)))))
         (new Plane (texture texture) (view (view-of gpu texture 1)))))
 
-    (define (release-plane (gpu Gpu) (plane Plane)) (→ Unit) (! mut)
+    (define (release-plane (gpu Gpu) (plane Plane)) (→ Unit)
       (destroy gpu (ViewObject (● plane view)))
       (destroy gpu (TextureObject (● plane texture))))
 
@@ -294,7 +293,7 @@
        (motion (Option Plane))
        (ids (Option Plane))))
 
-    (define (make-gbuffer (gpu Gpu) (planes Planes) (width I32) (height I32)) (→ GBuffer) (! mut)
+    (define (make-gbuffer (gpu Gpu) (planes Planes) (width I32) (height I32)) (→ GBuffer)
       (let ((size (new Pair (first width) (second height))))
         (new GBuffer
           (albedo (gbuffer-plane gpu "albedo" size (Rgba8Unorm)))
@@ -305,7 +304,7 @@
            (if (● planes motion) (Some (gbuffer-plane gpu "motion" size (Rg16Float))) (None)))
           (ids (if (● planes ids) (Some (gbuffer-plane gpu "ids" size (R32Uint))) (None))))))
 
-    (define (release-gbuffer (gpu Gpu) (g GBuffer)) (→ Unit) (! mut)
+    (define (release-gbuffer (gpu Gpu) (g GBuffer)) (→ Unit)
       (for-each (lambda (plane) (release-plane gpu plane))
                 (append (list (● g albedo) (● g normal) (● g material) (● g depth))
                         (present (list (● g motion) (● g ids))))))
@@ -320,7 +319,6 @@
 
     (define (gbuffer-plane (gpu Gpu) (part String) (size (Pair I32 I32)) (format TextureFormat))
       (→ Plane)
-      (! mut)
       (make-plane gpu (string-append "gbuffer/" part)
                   (● size first)
                   (● size second)
@@ -341,12 +339,12 @@
                  (if (● planes ids) (Some (R32Uint)) (None)))))
 
     ;; The id of the instance at pixel `x`, `y`, when the G-buffer has ids.
-    (define (read-id (gpu Gpu) (g GBuffer) (x I32) (y I32)) (→ (Option I32)) (! mut)
+    (define (read-id (gpu Gpu) (g GBuffer) (x I32) (y I32)) (→ (Option I32))
       (match (● g ids)
         ((Some plane) (Some (texel-word gpu (● plane texture) x y)))
         ((None) (None))))
 
-    (define (texel-word (gpu Gpu) (texture GpuTexture) (x I32) (y I32)) (→ I32) (! mut)
+    (define (texel-word (gpu Gpu) (texture GpuTexture) (x I32) (y I32)) (→ I32)
       (let ((readback (create-buffer gpu (new BufferDescriptor
                                            (label "gbuffer/read-id")
                                            (size 4)
@@ -362,7 +360,6 @@
 
     (define (begin-gbuffer (gpu Gpu) (encoder GpuCommandEncoder) (g GBuffer))
       (→ GpuRenderPass)
-      (! mut)
       (begin-render-pass gpu encoder
                          (new RenderPassDescriptor
                            (colors (map (lambda (plane)
@@ -396,7 +393,6 @@
                        (background Color)
                        (g GBuffer))
       (→ GpuRenderPass)
-      (! mut)
       (begin-render-pass gpu encoder
                          (new RenderPassDescriptor
                            (colors (list (Some (new ColorAttachment
@@ -426,7 +422,7 @@
        (forward-sun GpuBindGroup)
        (last (Option Camera3D))))
 
-    (define (make-raster (gpu Gpu) (planes Planes) (format TextureFormat)) (→ Raster) (! mut)
+    (define (make-raster (gpu Gpu) (planes Planes) (format TextureFormat)) (→ Raster)
       (let* ((module (create-shader-module gpu
                                            (new ShaderModuleDescriptor
                                              (label "raster")
@@ -457,7 +453,7 @@
     ;; The frame's camera, moving from the last frame's, and its sun. A
     ;; batch remade since the last frame shows the motion of its new
     ;; instances.
-    (define (write-raster (gpu Gpu) (r Raster) (camera Camera3D) (sun Sun)) (→ Raster) (! mut)
+    (define (write-raster (gpu Gpu) (r Raster) (camera Camera3D) (sun Sun)) (→ Raster)
       (let ((camera (match (● r last)
                       ((Some last)
                        (Camera3D-previous-heading-set
@@ -475,7 +471,6 @@
                               (targets (List (Option ColorTarget)))
                               (write? Bool))
       (→ GpuRenderPipeline)
-      (! mut)
       (create-render-pipeline gpu
                               (new RenderPipelineDescriptor
                                 (label (string-append "raster/" entry))
@@ -492,7 +487,7 @@
                                          (write write?)
                                          (compare (CompareLess))))))))
 
-    (define (uniform (gpu Gpu) (label String) (size I64)) (→ GpuBuffer) (! mut)
+    (define (uniform (gpu Gpu) (label String) (size I64)) (→ GpuBuffer)
       (create-buffer gpu (new BufferDescriptor
                            (label label)
                            (size (i64->i32 size))
@@ -504,7 +499,6 @@
                    (index I32)
                    (buffer GpuBuffer))
       (→ GpuBindGroup)
-      (! mut)
       (create-bind-group gpu (new BindGroupDescriptor
                                (label label)
                                (pipeline (RenderPipeline pipeline))
@@ -530,7 +524,6 @@
                           (style Style)
                           (batch Meshes))
       (→ Surface)
-      (! mut)
       (let ((buffer (uniform gpu (string-append "raster/" label) (stride style-shape))))
         (write-buffer gpu buffer 0 (pod-bytes style-shape style))
         (new Surface
@@ -543,7 +536,7 @@
                         buffer))
           (batch (upload-batch gpu (string-append "mesh/" label) batch)))))
 
-    (define (restyle-surface (gpu Gpu) (surface Surface) (style Style)) (→ Surface) (! mut)
+    (define (restyle-surface (gpu Gpu) (surface Surface) (style Style)) (→ Surface)
       (if (same-style? style (● surface style))
           surface
           (begin
@@ -556,14 +549,13 @@
            (= (● a center-z) (● b center-z))
            (= (● a radius) (● b radius))))
 
-    (define (release-surface (gpu Gpu) (surface Surface)) (→ Unit) (! mut)
+    (define (release-surface (gpu Gpu) (surface Surface)) (→ Unit)
       (destroy gpu (BindGroupObject (● surface group)))
       (destroy gpu (BufferObject (● surface uniform)))
       (release-batch gpu (● surface batch)))
 
     (define (draw-surface (gpu Gpu) (pass GpuRenderPass) (r Raster) (surface Surface))
       (→ Unit)
-      (! mut)
       (if (● surface translucent)
           (begin
             (set-pipeline gpu pass (● r forward-pipeline))

@@ -101,7 +101,7 @@
 
     ;; The core forms are the compiler's own list. The rest are listed here,
     ;; once: (snail core base)'s derived syntax, then the words the expander
-    ;; matches by name in libraries, effects and signatures, then forms of
+    ;; matches by name in libraries and signatures, then forms of
     ;; libraries that ship with the language.
     (define keywords (→ (List String))
       (append core-keywords
@@ -114,7 +114,7 @@
                     "prefix"
                     "rename"
                     "cond-expand"
-                    "∀" "⊨" "deriving" "→" "!"
+                    "∀" "⊨" "deriving" "→"
                     "define-record-type" "guard")))
 
     ;; A definition names what follows `(define`, `(define-syntax` or `(:`.

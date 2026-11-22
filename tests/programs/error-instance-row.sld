@@ -2,5 +2,5 @@
  (snail core base))
 (typeclass (Describe T)
   (declare (describe (value T)) (→ String)))
-(instance (Describe (!))
+(instance (Describe)
   (define describe (lambda (value) "row")))

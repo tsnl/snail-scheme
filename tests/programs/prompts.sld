@@ -22,7 +22,7 @@
   (fold-left (lambda (value c) (+ (* value 10) (digit c))) 0 (string->list text)))
 
 ;; `text` as a number, or `default`, after saying why not.
-(define (parse-or (out OutputPort) (default I64) (text String)) (→ I64) (! mut)
+(define (parse-or (out OutputPort) (default I64) (text String)) (→ I64)
   (with-prompt failing
                (lambda () (number text))
                (lambda (why resume)
@@ -53,7 +53,7 @@
 
 ;; ANCHOR_END: collect
 
-(define (show-all (out OutputPort) (values (List I64))) (→ Unit) (! mut)
+(define (show-all (out OutputPort) (values (List I64))) (→ Unit)
   (write-line out (string-join (map show values) " ")))
 
 ;; ANCHOR: first-above
@@ -95,7 +95,7 @@
 
 ;; ANCHOR_END: step
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   ;; ANCHOR: run-exception
   (write-line out (show (parse-or out 0 "123")))
   (write-line out (show (parse-or out 0 "12x")))

@@ -87,12 +87,10 @@
     ;; decode. A scene less than a unit
     ;; across is made one unit across, since a camera clips at a tenth of
     ;; a unit and rays leave surfaces by a fixed offset.
-    (define (load-scene (gpu Gpu) (read (Fn (List String) → (List Bytes) ! e))
+    (define (load-scene (gpu Gpu) (read (Fn (List String) → (List Bytes)))
                         (path String)
                         (layer-size I32))
       (→ Scene)
-      (! mut e)
-      (∀ (e))
       (let* ((gltf (drawable (read-gltf (list-ref (read (list path)) 0) (directory-of path))))
              (paths (file-paths gltf))
              (files (zip paths (read paths)))
@@ -110,7 +108,6 @@
                        (layers GpuTexture)
                        (layer-size I32))
       (→ Scene)
-      (! mut)
       (let* ((counts (placed-counts gltf))
              (geometry (unpacked gpu gltf counts buffers))
              (bounds (gltf-bounds gltf)))
@@ -134,7 +131,7 @@
           (low (● bounds first))
           (high (● bounds second)))))
 
-    (define (release-scene (gpu Gpu) (scene Scene)) (→ Unit) (! mut)
+    (define (release-scene (gpu Gpu) (scene Scene)) (→ Unit)
       (for-each (lambda (buffer) (destroy gpu (BufferObject buffer)))
                 (list (● scene vertices) (● scene indices) (● scene materials)))
       (destroy gpu (ViewObject (● scene layers-view)))
@@ -359,7 +356,6 @@
     ;; vertex and index buffers.
     (define (unpacked (gpu Gpu) (gltf Gltf) (counts (Pair I64 I64)) (buffers (List Bytes)))
       (→ (Pair GpuBuffer GpuBuffer))
-      (! mut)
       (let* ((data (storage-buffer gpu "scene/data" (● gltf size) (list (CopyDst))))
              (unpacks (storage-of gpu "scene/unpacks" (pack unpack-shape (unpacks-of gltf))))
              (vertices
@@ -393,7 +389,6 @@
                         (vertex-count I64)
                         (triangle-count I64))
       (→ Unit)
-      (! mut)
       (let* ((module (create-shader-module gpu (new ShaderModuleDescriptor
                                                  (label "scene/unpack")
                                                  (code (string-append (declarations unpack-shape)
@@ -422,7 +417,6 @@
                     (count I64)
                     (entries (List BindGroupEntry)))
       (→ Unit)
-      (! mut)
       (let* ((kernel (compute-kernel gpu module "scene" entry))
              (group (kernel-group gpu kernel 0 "scene/unpack" entries)))
         (set-compute-pipeline gpu pass kernel)
@@ -431,7 +425,7 @@
         (destroy gpu (BindGroupObject group))
         (destroy gpu (ComputePipelineObject kernel))))
 
-    (define (storage-of (gpu Gpu) (label String) (bytes Bytes)) (→ GpuBuffer) (! mut)
+    (define (storage-of (gpu Gpu) (label String) (bytes Bytes)) (→ GpuBuffer)
       (let ((buffer (storage-buffer gpu label (array-length bytes) (list (CopyDst)))))
         (write-buffer gpu buffer 0 bytes)
         buffer))
@@ -443,7 +437,6 @@
     ;; the host does not decode refuses the scene, and the layers go.
     (define (load-layers (gpu Gpu) (images (List Bytes)) (size I32))
       (→ GpuTexture)
-      (! mut)
       (let* ((layers (create-texture gpu (new TextureDescriptor
                                            (label "scene/layers")
                                            (width size)
@@ -495,7 +488,6 @@
                         (layer I32)
                         (size I32))
       (→ Unit)
-      (! mut)
       (let ((encoder (create-command-encoder gpu)))
         (fold-left (lambda (source level)
                      (let ((target (level-view gpu layers layer (i64->i32 level))))
@@ -508,7 +500,6 @@
 
     (define (level-view (gpu Gpu) (layers GpuTexture) (layer I32) (level I32))
       (→ GpuTextureView)
-      (! mut)
       (create-view gpu layers
                    (new TextureViewDescriptor
                      (dimension (View2d))
@@ -523,7 +514,6 @@
                         (source GpuTextureView)
                         (target GpuTextureView))
       (→ Unit)
-      (! mut)
       (let ((group (create-bind-group gpu (new BindGroupDescriptor
                                             (label "scene/layer")
                                             (pipeline (RenderPipeline pipeline))
@@ -544,7 +534,7 @@
         (end-pass gpu pass)
         (destroy gpu (BindGroupObject group))))
 
-    (define (layer-pipeline (gpu Gpu)) (→ GpuRenderPipeline) (! mut)
+    (define (layer-pipeline (gpu Gpu)) (→ GpuRenderPipeline)
       (create-render-pipeline gpu
                               (new RenderPipelineDescriptor
                                 (label "scene/layer")
@@ -564,7 +554,7 @@
                                 (cull (CullNone))
                                 (depth (None)))))
 
-    (define (repeating-sampler (gpu Gpu)) (→ GpuSampler) (! mut)
+    (define (repeating-sampler (gpu Gpu)) (→ GpuSampler)
       (create-sampler gpu (new SamplerDescriptor
                             (label "scene/repeat")
                             (mag-filter (Linear))

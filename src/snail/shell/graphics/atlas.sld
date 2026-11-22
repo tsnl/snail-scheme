@@ -100,7 +100,7 @@
        (row I32)
        (slots (Table Slot))))
 
-    (define (make-atlas (gpu Gpu) (name String) (size I32) (pages I32)) (→ Atlas) (! mut)
+    (define (make-atlas (gpu Gpu) (name String) (size I32) (pages I32)) (→ Atlas)
       (new Atlas
         (name name)
         (size size)
@@ -192,7 +192,6 @@
                             (encoder GpuCommandEncoder)
                             (pictures (List Picture)))
       (→ Atlas)
-      (! mut)
       (match (find (lambda (picture) (not (composed? atlas picture))) pictures)
         ((None) atlas)
         ((Some picture)
@@ -240,7 +239,6 @@
                      (picture Picture)
                      (clear? Bool))
       (→ Atlas)
-      (! mut)
       (let* ((layers (laid atlas (list picture)))
              (atlas (decoded gpu atlas layers))
              (pieces (numbered-runs layers 0))
@@ -258,7 +256,7 @@
 
     ;; The atlas with each layer's source decoded.
 
-    (define (decoded (gpu Gpu) (atlas Atlas) (layers (List Placed))) (→ Atlas) (! mut)
+    (define (decoded (gpu Gpu) (atlas Atlas) (layers (List Placed))) (→ Atlas)
       (fold-left (lambda (atlas layer)
                    (let ((key (show (● layer source key))))
                      (if (table-contains? (● atlas sources) key)
@@ -270,7 +268,7 @@
                  atlas
                  layers))
 
-    (define (decoded-view (gpu Gpu) (layer Placed)) (→ GpuTextureView) (! mut)
+    (define (decoded-view (gpu Gpu) (layer Placed)) (→ GpuTextureView)
       (match (decode-image gpu ((● layer source bytes)))
         ((Some image) (view-of gpu (● image texture) 1))
         ((None) (panic "atlas: a source is no image the host decodes"))))
@@ -333,7 +331,6 @@
                        (layers (List (Pair I32 Placed)))
                        (clear? Bool))
       (→ Unit)
-      (! mut)
       (let* ((target (layer-view gpu (● atlas texture) page))
              (pass (begin-render-pass gpu encoder
                                       (new RenderPassDescriptor
@@ -362,7 +359,6 @@
                         (swaps GpuBuffer)
                         (indexed (Pair I32 Placed)))
       (→ Unit)
-      (! mut)
       (let ((group (create-bind-group gpu
                                       (new BindGroupDescriptor
                                         (label (string-append "atlas/" (● atlas name) "/source"))
@@ -383,7 +379,7 @@
         ((Some view) view)
         ((None) (panic "atlas: a source was not decoded"))))
 
-    (define (compose-pipeline (gpu Gpu)) (→ GpuRenderPipeline) (! mut)
+    (define (compose-pipeline (gpu Gpu)) (→ GpuRenderPipeline)
       (create-render-pipeline gpu
                               (new RenderPipelineDescriptor
                                 (label "atlas/compose")
@@ -406,7 +402,7 @@
 
     ;; Storage needs a binding of at least one entry.
 
-    (define (swap-buffer (gpu Gpu) (atlas Atlas) (layers (List Placed))) (→ GpuBuffer) (! mut)
+    (define (swap-buffer (gpu Gpu) (atlas Atlas) (layers (List Placed))) (→ GpuBuffer)
       (let ((pairs (map (lambda (swap) (new Vec2i (x (● swap first)) (y (● swap second))))
                         (concatenate (map (lambda (layer) (● layer swaps)) layers)))))
         (filled-buffer gpu atlas
@@ -414,7 +410,7 @@
                        (pack swap-shape (if (null? pairs) (list (new Vec2i (x 0) (y 0))) pairs))
                        (Storage))))
 
-    (define (piece-buffer (gpu Gpu) (atlas Atlas) (layers (List Placed))) (→ GpuBuffer) (! mut)
+    (define (piece-buffer (gpu Gpu) (atlas Atlas) (layers (List Placed))) (→ GpuBuffer)
       (filled-buffer gpu atlas
                      "pieces"
                      (pack piece-shape (map (lambda (layer) (● layer piece)) layers))
@@ -422,7 +418,6 @@
 
     (define (filled-buffer (gpu Gpu) (atlas Atlas) (part String) (bytes Bytes) (usage BufferUsage))
       (→ GpuBuffer)
-      (! mut)
       (let ((buffer (create-buffer gpu (new BufferDescriptor
                                          (label (string-append "atlas/" (● atlas name) "/" part))
                                          (size (i64->i32 (array-length bytes)))
@@ -436,7 +431,7 @@
     ;; its own copy and waits for it, so it ends the frame: call it after
     ;; the frame's own submit.
 
-    (define (atlas-url (gpu Gpu) (atlas Atlas) (key I32) (region Rect)) (→ String) (! mut)
+    (define (atlas-url (gpu Gpu) (atlas Atlas) (key I32) (region Rect)) (→ String)
       (match (atlas-slot atlas key)
         ((None) "")
         ((Some slot)

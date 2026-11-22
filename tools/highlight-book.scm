@@ -212,13 +212,13 @@
 
 ;; ---- The invocation ----
 
-(define (read-input (in InputPort) (lines (List String))) (→ String) (! mut)
+(define (read-input (in InputPort) (lines (List String))) (→ String)
   (match (read-line in)
     ((None) (string-join (reverse lines) "\n"))
     ((Some line) (read-input in (Cons line lines)))))
 
-(define (main (in InputPort) (out OutputPort)) (→ Unit) (! mut)
-  (match (command-line)
+(define (main (arguments Arguments) (in InputPort) (out OutputPort)) (→ Unit)
+  (match (command-line arguments)
     ((Cons _ (Cons "supports" (Cons renderer (Nil))))
      (unless (string=? renderer "html")
        (panic (string-append "the book's highlighter supports the html renderer, not " renderer))))

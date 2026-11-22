@@ -105,7 +105,7 @@
                                   (Pressed "" 0))))))
             (else (new Pair (first model) (second (Nil))))))
 
-    (define (clear (dom Dom)) (→ Message) (! mut)
+    (define (clear (dom Dom)) (→ Message)
       (if (confirm dom "Remove every note?") (Cleared) (Pressed "" 0)))
 
     (define (heard (model Notes) (text String)) (→ Notes)
@@ -115,11 +115,11 @@
 
     ;; ---- The server ----
 
-    (define (load (fetch Fetch)) (→ Message) (! mut)
+    (define (load (fetch Fetch)) (→ Message)
       (Loaded (replied (request fetch "GET" "/api/greeting" (Nil) ""))))
 
     ;; The notes, a line each, sent with the next id the server should expect.
-    (define (share (fetch Fetch) (notes (List Note)) (next I64)) (→ Message) (! mut)
+    (define (share (fetch Fetch) (notes (List Note)) (next I64)) (→ Message)
       (Shared (replied (request fetch "POST"
                                 "/api/notes"
                                 (list (new Header (name "Content-Type") (value "text/plain"))
@@ -133,7 +133,7 @@
         ((Err why) (string-append "failed: " why))))
 
     ;; The next event, which the update that hears it waits past.
-    (define (hear (fetch Fetch) (stream Stream)) (→ Message) (! mut)
+    (define (hear (fetch Fetch) (stream Stream)) (→ Message)
       (match (stream-next fetch stream)
         ((Some event)
          (Heard stream (string-append (● event kind) ":" (● event data))))
@@ -159,14 +159,14 @@
                               (Added count))))))))
 
     ;; Does `act` to the draft field, if the view still shows it.
-    (define (with-draft (dom Dom) (act (Fn Node → Unit ! mut))) (→ Unit) (! mut)
+    (define (with-draft (dom Dom) (act (Fn Node → Unit))) (→ Unit)
       (match (element-by-id dom "draft")
         ((Some node) (act node))
         ((None) (unit))))
 
     ;; The field's input event, which inserting fires, carries the new draft;
     ;; the command's own answer leaves it as it is.
-    (define (bullet (dom Dom)) (→ Message) (! mut)
+    (define (bullet (dom Dom)) (→ Message)
       (with-draft dom (lambda (node) (insert-text dom node 0 0 "- ") (unit)))
       (Pressed "" 0))
 

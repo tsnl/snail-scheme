@@ -9,7 +9,7 @@
 ;; "ready": a signal after that is the waiter's to observe. Run without it,
 ;; no task waits, and a signal ends the program as it always has; with
 ;; `busy`, it does so while the task after "ready" computes without end.
-(define (observe (signals Signals) (out OutputPort)) (→ Unit) (! mut)
+(define (observe (signals Signals) (out OutputPort)) (→ Unit)
   (match (termination signals)
     ((Terminate) (write-line out "observed Terminate"))
     ((Interrupt) (write-line out "observed Interrupt"))
@@ -18,12 +18,12 @@
 (define (spin) (→ Unit)
   (spin))
 
-(define (main (signals Signals) (out OutputPort)) (→ Unit) (! mut)
+(define (main (arguments Arguments) (signals Signals) (out OutputPort)) (→ Unit)
 
-  (if (member? "wait" (command-line))
+  (if (member? "wait" (command-line arguments))
       (dispatch (lambda () (observe signals out)))
       (dispatch (lambda () (sleep 30000))))
   (dispatch (lambda ()
               (write-line out "ready")
-              (if (member? "busy" (command-line)) (spin) (unit))))
+              (if (member? "busy" (command-line arguments)) (spin) (unit))))
   (unit))

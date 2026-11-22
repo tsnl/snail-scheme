@@ -34,7 +34,7 @@
 (define (round (thing T)) (→ T) (∀ (T)) (⊨ (Serialize T) (Deserialize T))
   (deserialize (serialize thing)))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (for-each (lambda (odd) (write-line out (repr (ann (round odd) Odd))))
             (list (Both 1 "two") (Twice 3 4) (Named 5 6 7 8 "nine" "ten") (Bare)))
   (write-line out (repr (ann (round (new Under (_ 1) (kept 2))) Under)))

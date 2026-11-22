@@ -9,7 +9,6 @@
  (only (snail shell page) report-ready)
  (only (snail shell gpu) request-device)
  (only (snail shell fetch) Fetch fetch-bytes page-address)
- (snail shell fetch page)
  (apps train dataset)
  (apps train trainer)
  (only (snail shell gpu) Gpu)
@@ -17,26 +16,26 @@
  (only (snail core io) Clock)
  (only (snail core io) OutputPort))
 
-(define (fetched (fetch Fetch) (url String)) (→ Bytes) (! mut)
+(define (fetched (fetch Fetch) (url String)) (→ Bytes)
   (match (fetch-bytes fetch url)
     ((Ok bytes) bytes)
     ((Err why) (panic why))))
 
-(define (main (gpu Gpu) (events Events) (clock Clock) (out OutputPort)) (→ Unit) (! mut)
-  (let ((fetch (page-fetch)))
-    (report-ready events)
-    (let ((settings (settings-of (page-address fetch))) (format (● (request-device gpu) format)))
-      (let ((photographs (new Photographs
-                           (photograph (lambda (image)
-                                         (dataset-photograph gpu
-                                                             (lambda (url) (fetched fetch url))
-                                                             settings
-                                                             image))))))
-        (train photographs
-               gpu
-               clock
-               out
-               (dataset-scene gpu (lambda (url) (fetched fetch url)) settings)
-               (● settings options)
-               (shown-on-canvas gpu format)))))
+(define (main (mut Mut) (gpu Gpu) (fetch Fetch) (events Events) (clock Clock) (out OutputPort))
+  (→ Unit)
+  (report-ready events)
+  (let ((settings (settings-of (page-address fetch))) (format (● (request-device gpu) format)))
+    (let ((photographs (new Photographs
+                         (photograph (lambda (image)
+                                       (dataset-photograph gpu
+                                                           (lambda (url) (fetched fetch url))
+                                                           settings
+                                                           image))))))
+      (train mut photographs
+             gpu
+             clock
+             out
+             (dataset-scene gpu (lambda (url) (fetched fetch url)) settings)
+             (● settings options)
+             (shown-on-canvas gpu format))))
   (unit))

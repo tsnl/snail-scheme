@@ -11,7 +11,7 @@
 
 (define counting "@compute @workgroup_size(64) fn c() {}")
 
-(define (frame (gpu Gpu)) (→ Unit) (! mut)
+(define (frame (gpu Gpu)) (→ Unit)
   (request-device gpu)
   (let* ((buffer (create-buffer gpu
                                 (new BufferDescriptor
@@ -67,7 +67,7 @@
     (submit gpu (list (finish gpu encoder)))
     (destroy gpu (BufferObject buffer))))
 
-(define (compute (gpu Gpu)) (→ Unit) (! mut)
+(define (compute (gpu Gpu)) (→ Unit)
   (let* ((module
           (create-shader-module gpu (new ShaderModuleDescriptor (label "count") (code counting))))
          (pipeline (create-compute-pipeline gpu
@@ -93,10 +93,10 @@
     (end-compute-pass gpu pass)
     (submit gpu (list (finish gpu encoder)))))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (mut Mut) (out OutputPort)) (→ Unit)
   (for-each (lambda (text) (write-line out text))
-            (● (with-recorded-gpu (lambda (gpu) (frame gpu))) second))
+            (● (with-recorded-gpu mut (lambda (gpu) (frame gpu))) second))
   (write-line out "compute:")
   (for-each (lambda (text) (write-line out text))
-            (● (with-recorded-gpu (lambda (gpu) (compute gpu))) second))
+            (● (with-recorded-gpu mut (lambda (gpu) (compute gpu))) second))
   (unit))

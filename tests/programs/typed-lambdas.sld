@@ -10,14 +10,14 @@
 (define identity (lambda ((value T)) (→ T) (∀ (T)) value))
 
 (define report
-  (lambda ((out OutputPort) (label String) (n I64)) (→ Unit) (! mut)
+  (lambda ((out OutputPort) (label String) (n I64)) (→ Unit)
     (write-line out (string-append label " " (show n)))))
 
 (define (apply-twice (f (Fn I64 → I64)) (n I64)) (→ I64)
   (f (f n)))
 ;; ANCHOR_END: lambdas
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (report out "double" (double 21))
   (write-line out (identity "generic"))
   (report out "identity" (identity 5))

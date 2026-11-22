@@ -1,12 +1,15 @@
-;; Input and output ports, files, directories and the clock, each a
-;; capability: a value a function is given, and so may use. A port and a
-;; clock are records of functions, which a program may make for itself, to
-;; keep what is written or to fix the time. `Fs` is the host's file system
-;; whole, and holds nothing: having it is the permission. A target gives
-;; the host's to the program's `main` (src/snail/target). Using any of
-;; them is `mut`: it changes, or reads, the world outside the program.
+;; Input and output ports, files, directories, the clock, and what a
+;; program was started with, each a capability: a value a function is
+;; given, and so may use. A port, a clock and an environment are records of
+;; functions, which a program may make for itself, to keep what is written
+;; or to fix the time. `Fs` is the host's file system whole, and holds
+;; nothing: having it is the permission. The host's own are made from a
+;; `Host`, which a target holds and gives to the program's `main`
+;; (src/snail/target).
 (define-library (snail core io)
   (export
+   Host
+   unsafe-host
    InputPort
    OutputPort
    standard-input
@@ -62,12 +65,32 @@
    Clock
    host-clock
    monotonic-nanoseconds
+   Arguments
+   host-arguments
    command-line
+   ProcessEnvironment
+   host-environment
    environment-variable
    working-directory)
   (import
    (snail core base))
   (begin
+
+    ;; ---- The host ----
+
+    ;; A `Host` is the ability to make the host's capabilities. Every
+    ;; function that makes one takes it, here and in the libraries built on
+    ;; this one (`standard-output`, `host-fs`, `host-gpu`, ...), so code
+    ;; handed neither a `Host` nor something made from one reaches nothing
+    ;; of the host's. A target makes the one there is, with `unsafe-host`,
+    ;; and a program's `main` asks it for what it needs (src/snail/target):
+    ;; a capability by its type, or the `Host` itself, to make one later or
+    ;; not at all.
+    (enum Host
+      (TheHost))
+
+    (define (unsafe-host) (→ Host)
+      (TheHost))
 
     ;; ---- Ports ----
 
@@ -75,33 +98,33 @@
     ;; makes its own with `new`: one that keeps what is written, or writes
     ;; it to two ports.
     (record InputPort
-      ((read-char (Fn → (Option Char) ! mut))))
+      ((read-char (Fn → (Option Char)))))
 
-    (define (read-char (in InputPort)) (→ (Option Char)) (! mut)
+    (define (read-char (in InputPort)) (→ (Option Char))
       ((● in read-char)))
 
     (record OutputPort
-      ((write-string (Fn String → Unit ! mut))))
+      ((write-string (Fn String → Unit))))
 
-    (define (write-string (out OutputPort) (text String)) (→ Unit) (! mut)
+    (define (write-string (out OutputPort) (text String)) (→ Unit)
       ((● out write-string) text))
 
     ;; Standard input and output.
 
-    (define (standard-input) (→ InputPort)
+    (define (standard-input (host Host)) (→ InputPort)
       (new InputPort (read-char read-standard-char)))
 
-    (define (standard-output) (→ OutputPort)
+    (define (standard-output (host Host)) (→ OutputPort)
       (new OutputPort (write-string write-standard-string)))
 
     ;; The runtime reserves -3 for borrowed stdin and -2 for borrowed stdout.
     ;; Reading stdin flushes pending stdout first. Only the foreign boundary
     ;; uses -1 for EOF; ports and callers exchange Option Char.
-    (define (read-standard-char) (→ (Option Char)) (! mut)
+    (define (read-standard-char) (→ (Option Char))
       (let ((code (support-port-read -3)))
         (if (= code -1) (None) (Some (i32->char code)))))
 
-    (define (write-standard-string (text String)) (→ Unit) (! mut)
+    (define (write-standard-string (text String)) (→ Unit)
       (support-port-write -2 text))
 
     ;; ---- Text input ----
@@ -109,7 +132,7 @@
     ;; The next line of the current input without its newline, or None at the
     ;; end of input.
 
-    (define (read-line (in InputPort)) (→ (Option String)) (! mut)
+    (define (read-line (in InputPort)) (→ (Option String))
       (let loop ((chars (Nil)))
         (match (read-char in)
           ((None) (if (null? chars) (None) (Some (list->string (reverse chars)))))
@@ -120,19 +143,19 @@
 
     ;; ---- Text output ----
 
-    (define (write-char (out OutputPort) (char Char)) (→ Unit) (! mut)
+    (define (write-char (out OutputPort) (char Char)) (→ Unit)
       (write-string out (make-string 1 char)))
 
-    (define (newline (out OutputPort)) (→ Unit) (! mut)
+    (define (newline (out OutputPort)) (→ Unit)
       (write-string out "\n"))
 
-    (define (write-line (out OutputPort) (text String)) (→ Unit) (! mut)
+    (define (write-line (out OutputPort) (text String)) (→ Unit)
       (write-string out (string-append text "\n")))
 
-    (define (display (out OutputPort) (value T)) (→ Unit) (! mut) (∀ (T)) (⊨ (Show T))
+    (define (display (out OutputPort) (value T)) (→ Unit) (∀ (T)) (⊨ (Show T))
       (write-string out (show value)))
 
-    (define (write (out OutputPort) (value T)) (→ Unit) (! mut) (∀ (T)) (⊨ (Repr T))
+    (define (write (out OutputPort) (value T)) (→ Unit) (∀ (T)) (⊨ (Repr T))
       (write-string out (repr value)))
 
     ;; ---- Files ----
@@ -142,7 +165,7 @@
     (enum Fs
       (HostFs))
 
-    (define (host-fs) (→ Fs)
+    (define (host-fs (host Host)) (→ Fs)
       (HostFs))
 
     ;; Each of the runtime's operations receives its complete path. Ports
@@ -157,88 +180,88 @@
     (extern support-path-exists
             "snail.core.support"
             "snail:io/file-exists"
-            (Fn String → I32 ! mut))
+            (Fn String → I32))
     (extern support-open-input
             "snail.core.support"
             "snail:io/open-input-file"
-            (Fn String → I32 ! mut))
+            (Fn String → I32))
     (extern support-open-output
             "snail.core.support"
             "snail:io/open-output-file"
-            (Fn String → I32 ! mut))
-    (extern support-port-read "snail.core.support" "snail:io/read-character" (Fn I32 → I32 ! mut))
-    (extern support-port-read-byte "snail.core.support" "snail:io/read-byte" (Fn I32 → I32 ! mut))
+            (Fn String → I32))
+    (extern support-port-read "snail.core.support" "snail:io/read-character" (Fn I32 → I32))
+    (extern support-port-read-byte "snail.core.support" "snail:io/read-byte" (Fn I32 → I32))
     (extern support-port-write
             "snail.core.support"
             "snail:io/write-string"
-            (Fn I32 String → Unit ! mut))
+            (Fn I32 String → Unit))
     (extern support-port-write-byte
             "snail.core.support"
             "snail:io/write-byte"
-            (Fn I32 I32 → Unit ! mut))
-    (extern support-port-close "snail.core.support" "snail:io/close" (Fn I32 → Unit ! mut))
+            (Fn I32 I32 → Unit))
+    (extern support-port-close "snail.core.support" "snail:io/close" (Fn I32 → Unit))
     (extern support-path-make-directory
             "snail.core.support"
             "snail:io/make-directory"
-            (Fn String → I32 ! mut))
-    (extern support-path-rename "snail.core.support" "snail:io/rename" (Fn String → I32 ! mut))
+            (Fn String → I32))
+    (extern support-path-rename "snail.core.support" "snail:io/rename" (Fn String → I32))
     (extern support-path-remove-file
             "snail.core.support"
             "snail:io/remove-file"
-            (Fn String → I32 ! mut))
+            (Fn String → I32))
     (extern support-path-remove-directory
             "snail.core.support"
             "snail:io/remove-directory"
-            (Fn String → I32 ! mut))
+            (Fn String → I32))
     (extern support-path-list
             "snail.core.support"
             "snail:io/list-directory"
-            (Fn String → I32 ! mut))
+            (Fn String → I32))
     (extern support-path-status
             "snail.core.support"
             "snail:io/file-status"
-            (Fn String → I32 ! mut))
+            (Fn String → I32))
     (extern support-path-followed-status
             "snail.core.support"
             "snail:io/followed-status"
-            (Fn String → I32 ! mut))
+            (Fn String → I32))
     (extern support-path-make-link
             "snail.core.support"
             "snail:io/make-symbolic-link"
-            (Fn String → I32 ! mut))
+            (Fn String → I32))
     (extern support-path-read-link
             "snail.core.support"
             "snail:io/read-symbolic-link"
-            (Fn String → I32 ! mut))
+            (Fn String → I32))
     (extern support-path-hard-link
             "snail.core.support"
             "snail:io/make-hard-link"
-            (Fn String → I32 ! mut))
+            (Fn String → I32))
     (extern support-reply-character
             "snail.core.support"
             "snail:io/reply-character"
-            (Fn I32 → Char ! mut))
-    (extern support-status-size "snail.core.support" "snail:io/status-size" (Fn → I64 ! mut))
+            (Fn I32 → Char))
+    (extern support-status-size "snail.core.support" "snail:io/status-size" (Fn → I64))
     (extern support-status-modified
             "snail.core.support"
             "snail:io/status-modified"
-            (Fn → I64 ! mut))
+            (Fn → I64))
     (extern support-path-read-text
             "snail.core.support"
             "snail:io/read-text"
-            (Fn I64 String → I32 ! mut))
+            (Fn I64 String → I32))
     (extern support-path-write-text
             "snail.core.support"
             "snail:io/write-text"
-            (Fn I32 String → I32 ! mut))
+            (Fn I32 String → I32))
 
-    (define (file-exists? (fs Fs) (path String)) (→ Bool) (! mut)
+    (define (file-exists? (fs Fs) (path String)) (→ Bool)
       (= (support-path-exists path) 1))
 
     ;; The whole file as text; the runtime fails the program if it cannot
     ;; be read.
 
-    (define (read-file (fs Fs) (path String)) (→ String) (! mut)
+    (define (read-file (fs Fs) (path String)) (→ String)
       (let ((port (support-open-input path)))
         (let ((chars (drain (lambda ()
                               (let ((code (support-port-read port)))
@@ -248,7 +271,7 @@
 
     ;; The whole file as bytes, for binary files such as images.
 
-    (define (read-bytes (fs Fs) (path String)) (→ Bytes) (! mut)
+    (define (read-bytes (fs Fs) (path String)) (→ Bytes)
       (let ((port (support-open-input path)))
         (let ((bytes (drain (lambda ()
                               (let ((byte (support-port-read-byte port)))
@@ -262,10 +285,9 @@
     ;; cell.
     (define chunk-size (→ I64) 4096)
 
-    (define (drain (next (Fn → (Option T) ! e)))
+    (define (drain (next (Fn → (Option T))))
       (→ (Array T))
-      (! e)
-      (∀ (T e))
+      (∀ (T))
       (let loop ((chunks (Nil)))
         (let ((chunk (next-chunk next)))
           (if (< (array-length chunk) chunk-size)
@@ -274,10 +296,9 @@
 
     ;; Up to `chunk-size` items, fewer only at the end.
 
-    (define (next-chunk (next (Fn → (Option T) ! e)))
+    (define (next-chunk (next (Fn → (Option T))))
       (→ (Array T))
-      (! e)
-      (∀ (T e))
+      (∀ (T))
       (let loop ((items (Nil)) (count 0))
         (if (= count chunk-size)
             (list->array (reverse items))
@@ -285,14 +306,14 @@
               ((Some item) (loop (Cons item items) (+ count 1)))
               ((None) (list->array (reverse items)))))))
 
-    (define (write-file (fs Fs) (path String) (text String)) (→ Unit) (! mut)
+    (define (write-file (fs Fs) (path String) (text String)) (→ Unit)
       (let ((port (support-open-output path)))
         (support-port-write port text)
         (support-port-close port)))
 
     ;; Bytes to a binary file, replacing it.
 
-    (define (write-bytes (fs Fs) (path String) (bytes Bytes)) (→ Unit) (! mut)
+    (define (write-bytes (fs Fs) (path String) (bytes Bytes)) (→ Unit)
       (let ((port (support-open-output path)))
         (let loop ((index 0))
           (when (< index (array-length bytes))
@@ -357,13 +378,13 @@
 
     ;; Makes one directory, whose parent must exist.
 
-    (define (make-directory (fs Fs) (path String)) (→ (Result Unit FileError)) (! mut)
+    (define (make-directory (fs Fs) (path String)) (→ (Result Unit FileError))
       (path-done (support-path-make-directory path)))
 
     ;; Makes the directory and each missing parent. A directory already there
     ;; is success; anything else there is AlreadyExists.
 
-    (define (make-directories (fs Fs) (path String)) (→ (Result Unit FileError)) (! mut)
+    (define (make-directories (fs Fs) (path String)) (→ (Result Unit FileError))
       (match (make-directory fs path)
         ((Err (NotFound)) (make-with-parents fs path))
         (made (directory-there fs path made))))
@@ -372,7 +393,7 @@
     ;; then: a trailing or doubled slash names a parent twice, as `a/b` and
     ;; `a/b/`, and another process may have made it meanwhile.
 
-    (define (make-with-parents (fs Fs) (path String)) (→ (Result Unit FileError)) (! mut)
+    (define (make-with-parents (fs Fs) (path String)) (→ (Result Unit FileError))
       (match (parent-path path)
         ((Some parent) (match (make-directories fs parent)
                          ((Ok _) (directory-there fs path (make-directory fs path)))
@@ -384,7 +405,6 @@
 
     (define (directory-there (fs Fs) (path String) (made (Result Unit FileError)))
       (→ (Result Unit FileError))
-      (! mut)
       (match made
         ((Err (AlreadyExists)) (if (directory? fs path) (Ok (unit)) made))
         (_ made)))
@@ -397,7 +417,7 @@
               ((char=? (string-ref path index) #\/) (Some (substring path 0 index)))
               (else (loop (- index 1))))))
 
-    (define (directory? (fs Fs) (path String)) (→ Bool) (! mut)
+    (define (directory? (fs Fs) (path String)) (→ Bool)
       (match (file-status fs path)
         ((Ok status) (match (● status kind)
                        ((Directory) #t)
@@ -408,23 +428,23 @@
     ;; there at once, so a reader of `to` sees the old file or the new one
     ;; and never neither: this is how a writer publishes a complete file.
 
-    (define (rename-file (fs Fs) (from String) (to String)) (→ (Result Unit FileError)) (! mut)
+    (define (rename-file (fs Fs) (from String) (to String)) (→ (Result Unit FileError))
       (path-done (support-path-rename (path-pair from to))))
 
     ;; Removes a file or a symbolic link, never a directory.
 
-    (define (remove-file (fs Fs) (path String)) (→ (Result Unit FileError)) (! mut)
+    (define (remove-file (fs Fs) (path String)) (→ (Result Unit FileError))
       (path-done (support-path-remove-file path)))
 
     ;; Removes an empty directory.
 
-    (define (remove-directory (fs Fs) (path String)) (→ (Result Unit FileError)) (! mut)
+    (define (remove-directory (fs Fs) (path String)) (→ (Result Unit FileError))
       (path-done (support-path-remove-directory path)))
 
     ;; Removes what is at `path` and, if it is a directory, everything in it
     ;; first. A symbolic link is removed, never followed.
 
-    (define (remove-tree (fs Fs) (path String)) (→ (Result Unit FileError)) (! mut)
+    (define (remove-tree (fs Fs) (path String)) (→ (Result Unit FileError))
       (match (file-status fs path)
         ((Ok status) (match (● status kind)
                        ((Directory) (match (list-directory fs path)
@@ -435,7 +455,6 @@
 
     (define (remove-entries (fs Fs) (directory String) (names (List String)))
       (→ (Result Unit FileError))
-      (! mut)
       (match names
         ((Nil) (remove-directory fs directory))
         ((Cons name rest) (match (remove-tree fs (string-append directory "/" name))
@@ -445,7 +464,7 @@
     ;; The names in a directory, without "." and "..", in the order of
     ;; their scalars, whatever order the host keeps them in.
 
-    (define (list-directory (fs Fs) (path String)) (→ (Result (List String) FileError)) (! mut)
+    (define (list-directory (fs Fs) (path String)) (→ (Result (List String) FileError))
       (match (path-result (support-path-list path))
         ((Ok 0) (Ok (Nil)))
         ((Ok count) (Ok (reply-names fs count)))
@@ -454,7 +473,7 @@
     ;; The reply's `count` scalars, split at each NUL. They are read from
     ;; the end, so each name's characters arrive in order.
 
-    (define (reply-names (fs Fs) (count I32)) (→ (List String)) (! mut)
+    (define (reply-names (fs Fs) (count I32)) (→ (List String))
       (let loop ((index (- count 1)) (name (Nil)) (names (Nil)))
         (if (< index 0)
             (Cons (list->string name) names)
@@ -463,24 +482,24 @@
                   (loop (- index 1) (Nil) (Cons (list->string name) names))
                   (loop (- index 1) (Cons char name) names))))))
 
-    (define (reply-text (fs Fs) (count I32)) (→ String) (! mut)
+    (define (reply-text (fs Fs) (count I32)) (→ String)
       (string-generate (i32->i64 count)
                        (lambda (index) (support-reply-character (i64->i32 index)))))
 
     ;; The status of the path itself: a symbolic link is a SymbolicLink,
     ;; whatever it names.
 
-    (define (file-status (fs Fs) (path String)) (→ (Result FileStatus FileError)) (! mut)
+    (define (file-status (fs Fs) (path String)) (→ (Result FileStatus FileError))
       (status-result fs (support-path-status path)))
 
     ;; The status of what a read of `path` finds, following each symbolic
     ;; link to the file it names, so never a SymbolicLink. A link that names
     ;; nothing is NotFound here, though file-status finds the link.
 
-    (define (followed-status (fs Fs) (path String)) (→ (Result FileStatus FileError)) (! mut)
+    (define (followed-status (fs Fs) (path String)) (→ (Result FileStatus FileError))
       (status-result fs (support-path-followed-status path)))
 
-    (define (status-result (fs Fs) (code I32)) (→ (Result FileStatus FileError)) (! mut)
+    (define (status-result (fs Fs) (code I32)) (→ (Result FileStatus FileError))
       (match (path-result code)
         ((Ok kind)
          (Ok (new FileStatus
@@ -502,12 +521,11 @@
 
     (define (make-symbolic-link (fs Fs) (target String) (path String))
       (→ (Result Unit FileError))
-      (! mut)
       (path-done (support-path-make-link (path-pair target path))))
 
     ;; A symbolic link's target. A path that is not a link is OtherError.
 
-    (define (read-symbolic-link (fs Fs) (path String)) (→ (Result String FileError)) (! mut)
+    (define (read-symbolic-link (fs Fs) (path String)) (→ (Result String FileError))
       (match (path-result (support-path-read-link path))
         ((Ok count) (Ok (reply-text fs count)))
         ((Err error) (Err error))))
@@ -518,7 +536,6 @@
 
     (define (make-hard-link (fs Fs) (existing String) (path String))
       (→ (Result Unit FileError))
-      (! mut)
       (path-done (support-path-hard-link (path-pair existing path))))
 
     ;; ---- Whole texts ----
@@ -552,7 +569,7 @@
     ;; crates/snail-scheme-support/src/paths.rs numbers the refusals after
     ;; FileError's codes.
 
-    (define (read-text-file (fs Fs) (path String) (limit I64)) (→ (Result String TextError)) (! mut)
+    (define (read-text-file (fs Fs) (path String) (limit I64)) (→ (Result String TextError))
       (let ((code (support-path-read-text limit path)))
         (case code
           ((-6) (Err (NotRegularFile)))
@@ -576,7 +593,6 @@
 
     (define (write-text-file (fs Fs) (path String) (text String) (mode WriteMode))
       (→ (Result Unit FileError))
-      (! mut)
       (match (string-index path #\null)
         ((Some _) (Err (OtherError)))
         ((None)
@@ -588,12 +604,12 @@
     ;; the difference between two readings is the time between them. A
     ;; program makes its own to fix the time a test sees.
     (record Clock
-      ((monotonic-nanoseconds (Fn → I64 ! mut))))
+      ((monotonic-nanoseconds (Fn → I64))))
 
-    (define (monotonic-nanoseconds (clock Clock)) (→ I64) (! mut)
+    (define (monotonic-nanoseconds (clock Clock)) (→ I64)
       ((● clock monotonic-nanoseconds)))
 
-    (define (host-clock) (→ Clock)
+    (define (host-clock (host Host)) (→ Clock)
       (new Clock (monotonic-nanoseconds support-monotonic-nanoseconds)))
 
     (extern support-monotonic-nanoseconds
@@ -603,8 +619,15 @@
 
     ;; ---- Command line ----
 
-    ;; The program's arguments, starting with its own path. They never change
-    ;; while it runs, so reading them is total.
+    ;; The arguments a program was started with, first its own path. They
+    ;; never change while it runs, but they are the host's to give: a
+    ;; program's `main` asks for its `Arguments`, and a test makes its own.
+    (record Arguments
+      ((values (List String))))
+
+    (define (command-line (arguments Arguments)) (→ (List String))
+      (● arguments values))
+
     (extern argument-count "snail.core.support" "snail:process/argument-count" (Fn → I32))
     (extern argument-length
             "snail.core.support"
@@ -615,7 +638,10 @@
             "snail:process/argument-character"
             (Fn I32 I32 → Char))
 
-    (define (command-line) (→ (List String))
+    (define (host-arguments (host Host)) (→ Arguments)
+      (new Arguments (values (host-command-line))))
+
+    (define (host-command-line) (→ (List String))
       (map (lambda (index)
              (let ((argument (i64->i32 index)))
                (string-generate (i32->i64 (argument-length argument))
@@ -625,10 +651,25 @@
 
     ;; ---- Environment ----
 
-    ;; A variable of the environment the program started with. It never
-    ;; changes while the program runs, so reading it is total, as reading
-    ;; the arguments is. The working directory is the one relative paths
-    ;; resolve against; a host with no filesystem, such as a page, has none.
+    ;; The environment a program started with: its variables, and the
+    ;; working directory, the one relative paths resolve against; a host
+    ;; with no filesystem, such as a page, has none. It never changes
+    ;; while the program runs. A record of the two functions that read it,
+    ;; so a test makes its own.
+    (record ProcessEnvironment
+      ((variable (Fn String → (Option String)))
+       (directory (Fn → (Option String)))))
+
+    (define (environment-variable (environment ProcessEnvironment) (name String))
+      (→ (Option String))
+      ((● environment variable) name))
+
+    (define (working-directory (environment ProcessEnvironment)) (→ (Option String))
+      ((● environment directory)))
+
+    (define (host-environment (host Host)) (→ ProcessEnvironment)
+      (new ProcessEnvironment (variable host-variable) (directory host-directory)))
+
     (extern variable-length
             "snail.core.support"
             "snail:process/variable-length"
@@ -646,7 +687,7 @@
             "snail:process/directory-character"
             (Fn I32 → Char))
 
-    (define (environment-variable (name String)) (→ (Option String))
+    (define (host-variable (name String)) (→ (Option String))
       (let ((length (variable-length name)))
         (if (< length 0)
             (None)
@@ -654,7 +695,7 @@
                                    (lambda (position)
                                      (variable-character (i64->i32 position) name)))))))
 
-    (define (working-directory) (→ (Option String))
+    (define (host-directory) (→ (Option String))
       (let ((length (directory-length)))
         (if (< length 0)
             (None)

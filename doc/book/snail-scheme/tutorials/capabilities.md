@@ -16,18 +16,18 @@ It prints:
 decides where the lines go: `main` hands it its own port, from the target,
 or one of the program's making that keeps nothing.
 
-A callback can perform less than its caller is allowed to. This function
-adds output around an action while preserving the action's row:
+A callback does what it was made with. This function adds output around
+an action:
 
 ```scheme
-(define (announce (out OutputPort) (action (Fn → A ! e))) (→ A) (! mut e) (∀ (A e))
+(define (announce (out OutputPort) (action (Fn → A))) (→ A) (∀ (A))
   (write-line out "calling")
   (action))
 ```
 
-The call to `action` uses `e`, which fits the surrounding `mut e` for any
-substitution of `e`. Unrelated quantified tails are not interchangeable.
-Function-type equality still compares complete rows; this inclusion rule
-applies when calling.
-[Capabilities and rows](../effects.md) covers both in full, and
+`announce` writes to the port it is given. What the call of `action` does
+is not in `announce`'s signature or in `action`'s type: a closure that
+captured a port writes to it, one that captured a `Mut` may write with it,
+and one that captured nothing only computes.
+[Capabilities](../capabilities.md) covers this in full, and
 [suspension](../suspension.md) how a computation stops and resumes.

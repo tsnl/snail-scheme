@@ -31,7 +31,7 @@
       " "))
     ((Err error) (string-append "error at " (show (● error offset))))))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   ;; Each width's first and last scalar, the surrogates around them, the
   ;; byte order mark, and a code beyond U+10FFFF.
   (for-each (lambda (code)

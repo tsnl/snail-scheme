@@ -16,13 +16,13 @@ const build = () => execute(join(root, 'snail-scheme'), ['build', '--target', 'n
 const inventory = () => fs.readdirSync(join(project, 'build')).sort();
 
 async function throughTheCommandLine() {
-  // The checker finds a row its context does not allow, and the passes
+  // The checker's solver finds a class with no instance, and the passes
   // after specialization a cache whose keys cannot be compared; those
   // errors reach the user through a build as a type error does.
   fs.mkdirSync(join(project, 'src'));
   write('main.scm', '(import (snail core base)) (define (main) (→ Unit) (ann "wrong type" I64) (unit))');
   await assert.rejects(build(), /expected I64, found String/);
-  for (const name of ['error-subsumption-narrow', 'error-cache-funcref']) {
+  for (const name of ['error-instance', 'error-cache-funcref']) {
     write('main.scm', fs.readFileSync(join(root, `tests/programs/${name}.sld`), 'utf8'));
     const expected = fs.readFileSync(join(root, `tests/programs/${name}.err`), 'utf8').trim();
     await assert.rejects(build(), error => error.stderr.includes(expected));

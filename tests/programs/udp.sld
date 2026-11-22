@@ -9,7 +9,7 @@
     ((Ok value) value)
     ((Err error) (panic (● error code)))))
 
-(define (main (tcp Tcp) (udp Udp) (out OutputPort)) (→ Unit) (! mut)
+(define (main (tcp Tcp) (udp Udp) (out OutputPort)) (→ Unit)
   ;; A program waits on sockets from a task, which the scheduler runs once
   ;; main returns.
   (dispatch

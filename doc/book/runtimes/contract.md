@@ -44,9 +44,9 @@ Foreign code and host capabilities are explicit trusted boundaries.
 
 What code may do to a platform is in the capabilities it holds: values the
 runtime's target hands the program's `main`, which passes them on
-([capabilities](../snail-scheme/effects.md#capabilities)). An application
-makes its own for abstractions and tests. A row says only that code may
-change something; holding no capability, it can reach no platform resource.
+([capabilities](../snail-scheme/capabilities.md#capabilities)). An application
+makes its own for abstractions and tests. Holding no capability, code can
+reach no platform resource, and holding no `Mut`, it changes nothing.
 
 A capability is an ordinary value, usually a record of closures, each of
 which may be called repeatedly, may capture mutable state, and may allocate

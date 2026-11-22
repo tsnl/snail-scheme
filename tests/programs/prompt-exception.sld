@@ -9,24 +9,24 @@
 (define (fail (why String)) (→ A) (∀ (A))
   (absurd (suspend failing why)))
 
-(define (attempt (work (Fn → A ! e))) (→ (Result A String)) (! e) (∀ (A e))
+(define (attempt (work (Fn → A))) (→ (Result A String)) (∀ (A))
   (with-prompt failing (lambda () (Ok (work))) (lambda (why resume) (Err why))))
 
-(define (checked (out OutputPort) (n I64)) (→ I64) (! mut)
+(define (checked (out OutputPort) (n I64)) (→ I64)
   (when (< n 0)
     (fail (string-append "negative: " (show n))))
   (write-line out (string-append "added " (show n)))
   n)
 
-(define (total (out OutputPort) (items (List I64))) (→ I64) (! mut)
+(define (total (out OutputPort) (items (List I64))) (→ I64)
   (fold-left (lambda (sum n) (+ sum (checked out n))) 0 items))
 
-(define (report (out OutputPort) (result (Result I64 String))) (→ Unit) (! mut)
+(define (report (out OutputPort) (result (Result I64 String))) (→ Unit)
   (match result
     ((Ok value) (write-line out (show value)))
     ((Err why) (write-line out (string-append "failed: " why)))))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (report out (attempt (lambda () (total out (list 1 2 3)))))
   (report out (attempt (lambda () (total out (list 1 -2 3)))))
   ;; ANCHOR: again

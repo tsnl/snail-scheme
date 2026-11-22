@@ -12,7 +12,7 @@
 
 (define (image) (→ Resource) (link-file "data/./pixel.png"))
 
-(define (main (resources Resources) (out OutputPort)) (→ Unit) (! mut)
+(define (main (resources Resources) (out OutputPort)) (→ Unit)
   (dispatch
    (lambda ()
      (write-line out (greeting-text resources))

@@ -17,35 +17,34 @@
       ((next I32)
        (lines (List String))))
 
-    (define (note! (recording Recording) (words (List String))) (→ Unit) (! mut)
-      (set! (● recording lines) (Cons (string-join words " ") (● recording lines))))
+    (define (note! (mut Mut) (recording Recording) (words (List String))) (→ Unit)
+      (set! mut (● recording lines) (Cons (string-join words " ") (● recording lines))))
 
     ;; The work's answer and the lines it recorded, in order.
 
-    (define (with-recorded-gpu (work (Fn Gpu → T ! mut e)))
+    (define (with-recorded-gpu (mut Mut) (work (Fn Gpu → T)))
       (→ (Pair T (List String)))
-      (! mut e)
-      (∀ (T e))
+      (∀ (T))
       (let ((recording (new Recording (next 1) (lines (Nil)))))
         (let ((value (work (new Gpu
                              (request-device
                               (lambda ()
-                                (note! recording (list "request-device"))
+                                (note! mut recording (list "request-device"))
                                 (new DeviceInfo (format (Bgra8Unorm)) (features (Nil)))))
                              (create-buffer
                               (lambda (descriptor)
                                 (new GpuBuffer
-                                  (id (made! recording "buffer" (buffer-fields descriptor))))))
+                                  (id (made! mut recording "buffer" (buffer-fields descriptor))))))
                              (write-buffer
                               (lambda (buffer offset bytes)
-                                (note! recording
+                                (note! mut recording
                                        (list "write-buffer"
                                              (show (● buffer id))
                                              (show offset)
                                              (show (array-length bytes))))))
                              (read-buffer
                               (lambda (buffer offset size)
-                                (note! recording
+                                (note! mut recording
                                        (list "read-buffer"
                                              (show (● buffer id))
                                              (show offset)
@@ -54,17 +53,18 @@
                              (create-texture
                               (lambda (descriptor)
                                 (new GpuTexture
-                                  (id (made! recording "texture" (texture-fields descriptor))))))
+                                  (id
+                                   (made! mut recording "texture" (texture-fields descriptor))))))
                              (create-view
                               (lambda (texture descriptor)
                                 (new GpuTextureView
-                                  (id (made! recording
+                                  (id (made! mut recording
                                              "view"
                                              (Cons (Text (show (● texture id)))
                                                    (view-fields descriptor)))))))
                              (write-texture
                               (lambda (copy bytes-per-row width height bytes)
-                                (note! recording
+                                (note! mut recording
                                        (list "write-texture"
                                              (show (● (● copy texture) id))
                                              (copy-text copy)
@@ -72,38 +72,42 @@
                                              (show width)
                                              (show height)
                                              (show (array-length bytes))))))
-                             (decode-image (lambda (bytes) (decoded! recording bytes)))
+                             (decode-image (lambda (bytes) (decoded! mut recording bytes)))
                              (create-sampler
                               (lambda (descriptor)
                                 (new GpuSampler
-                                  (id (made! recording "sampler" (sampler-fields descriptor))))))
+                                  (id
+                                   (made! mut recording "sampler" (sampler-fields descriptor))))))
                              (create-shader-module
                               (lambda (descriptor)
                                 (new GpuShaderModule
-                                  (id (made! recording "shader" (module-fields descriptor))))))
+                                  (id (made! mut recording "shader" (module-fields descriptor))))))
                              (create-render-pipeline
                               (lambda (descriptor)
                                 (new GpuRenderPipeline
                                   (id
-                                   (made! recording
+                                   (made! mut recording
                                           "render-pipeline"
                                           (pipeline-fields descriptor))))))
                              (create-bind-group
                               (lambda (descriptor)
                                 (new GpuBindGroup
                                   (id
-                                   (made! recording "bind-group" (bind-group-fields descriptor))))))
+                                   (made! mut
+                                          recording
+                                          "bind-group"
+                                          (bind-group-fields descriptor))))))
                              (create-command-encoder
                               (lambda ()
                                 (new GpuCommandEncoder
-                                  (id (transient! recording "encoder" (Nil))))))
+                                  (id (transient! mut recording "encoder" (Nil))))))
                              (copy-buffer-to-buffer
                               (lambda (encoder source
                                                source-offset
                                                destination
                                                destination-offset
                                                size)
-                                (note! recording
+                                (note! mut recording
                                        (list "copy-buffer-to-buffer"
                                              (show (● encoder id))
                                              (show (● source id))
@@ -113,7 +117,7 @@
                                              (show size)))))
                              (copy-texture-to-buffer
                               (lambda (encoder copy buffer offset bytes-per-row width height)
-                                (note! recording
+                                (note! mut recording
                                        (list "copy-texture-to-buffer"
                                              (show (● encoder id))
                                              (show (● (● copy texture) id))
@@ -125,7 +129,7 @@
                                              (show height)))))
                              (copy-texture-to-texture
                               (lambda (encoder source destination width height)
-                                (note! recording
+                                (note! mut recording
                                        (list "copy-texture-to-texture"
                                              (show (● encoder id))
                                              (show (● (● source texture) id))
@@ -140,23 +144,26 @@
                                        (attachments (pass-words descriptor)))
                                   (new GpuRenderPass
                                     (id
-                                     (transient! recording "pass" (Cons encoder attachments)))))))
+                                     (transient! mut
+                                                 recording
+                                                 "pass"
+                                                 (Cons encoder attachments)))))))
                              (set-pipeline
                               (lambda (pass pipeline)
-                                (note! recording
+                                (note! mut recording
                                        (list "set-pipeline"
                                              (show (● pass id))
                                              (show (● pipeline id))))))
                              (set-bind-group
                               (lambda (pass index group)
-                                (note! recording
+                                (note! mut recording
                                        (list "set-bind-group"
                                              (show (● pass id))
                                              (show index)
                                              (show (● group id))))))
                              (set-vertex-buffer
                               (lambda (pass slot buffer offset)
-                                (note! recording
+                                (note! mut recording
                                        (list "set-vertex-buffer"
                                              (show (● pass id))
                                              (show slot)
@@ -164,7 +171,7 @@
                                              (show offset)))))
                              (set-index-buffer
                               (lambda (pass buffer format offset)
-                                (note! recording
+                                (note! mut recording
                                        (list "set-index-buffer"
                                              (show (● pass id))
                                              (show (● buffer id))
@@ -174,7 +181,7 @@
                                              (show offset)))))
                              (set-scissor-rect
                               (lambda (pass x y width height)
-                                (note! recording
+                                (note! mut recording
                                        (list "set-scissor-rect"
                                              (show (● pass id))
                                              (show x)
@@ -183,7 +190,7 @@
                                              (show height)))))
                              (draw
                               (lambda (pass vertices instances first-vertex first-instance)
-                                (note! recording
+                                (note! mut recording
                                        (list "draw"
                                              (show (● pass id))
                                              (show vertices)
@@ -196,7 +203,7 @@
                                             first-index
                                             base-vertex
                                             first-instance)
-                                (note! recording
+                                (note! mut recording
                                        (list "draw-indexed"
                                              (show (● pass id))
                                              (show indices)
@@ -206,42 +213,42 @@
                                              (show first-instance)))))
                              (draw-indexed-indirect
                               (lambda (pass buffer offset)
-                                (note! recording
+                                (note! mut recording
                                        (list "draw-indexed-indirect"
                                              (show (● pass id))
                                              (show (● buffer id))
                                              (show offset)))))
                              (end-pass
                               (lambda (pass)
-                                (note! recording (list "end-pass" (show (● pass id))))))
+                                (note! mut recording (list "end-pass" (show (● pass id))))))
                              (create-compute-pipeline
                               (lambda (descriptor)
                                 (new GpuComputePipeline
-                                  (id (made! recording
+                                  (id (made! mut recording
                                              "compute-pipeline"
                                              (compute-pipeline-fields descriptor))))))
                              (begin-compute-pass
                               (lambda (encoder)
                                 (new GpuComputePass
-                                  (id (transient! recording
+                                  (id (transient! mut recording
                                                   "compute-pass"
                                                   (list (show (● encoder id))))))))
                              (set-compute-pipeline
                               (lambda (pass pipeline)
-                                (note! recording
+                                (note! mut recording
                                        (list "set-compute-pipeline"
                                              (show (● pass id))
                                              (show (● pipeline id))))))
                              (set-compute-bind-group
                               (lambda (pass index group)
-                                (note! recording
+                                (note! mut recording
                                        (list "set-compute-bind-group"
                                              (show (● pass id))
                                              (show index)
                                              (show (● group id))))))
                              (dispatch-workgroups
                               (lambda (pass x y z)
-                                (note! recording
+                                (note! mut recording
                                        (list "dispatch-workgroups"
                                              (show (● pass id))
                                              (show x)
@@ -249,52 +256,55 @@
                                              (show z)))))
                              (dispatch-workgroups-indirect
                               (lambda (pass buffer offset)
-                                (note! recording
+                                (note! mut recording
                                        (list "dispatch-workgroups-indirect"
                                              (show (● pass id))
                                              (show (● buffer id))
                                              (show offset)))))
                              (end-compute-pass
                               (lambda (pass)
-                                (note! recording (list "end-compute-pass" (show (● pass id))))))
+                                (note! mut recording (list "end-compute-pass" (show (● pass id))))))
                              (finish
                               (lambda (encoder)
                                 (let ((encoder (show (● encoder id))))
                                   (new GpuCommandBuffer
-                                    (id (transient! recording "command-buffer" (list encoder)))))))
-                             (submit (lambda (buffers) (submitted! recording buffers)))
-                             (work-done (lambda () (note! recording (list "work-done"))))
+                                    (id
+                                     (transient! mut recording "command-buffer" (list encoder)))))))
+                             (submit (lambda (buffers) (submitted! mut recording buffers)))
+                             (work-done (lambda () (note! mut recording (list "work-done"))))
                              (current-texture
                               (lambda ()
                                 (new Image
                                   (texture
-                                   (new GpuTexture (id (transient! recording "canvas" (Nil)))))
+                                   (new GpuTexture (id (transient! mut recording "canvas" (Nil)))))
                                   (width 640)
                                   (height 480))))
                              (destroy
                               (lambda (object)
-                                (note! recording (list "destroy" (show (object-id object))))))))))
+                                (note! mut
+                                       recording
+                                       (list "destroy" (show (object-id object))))))))))
           (new Pair (first value) (second (reverse (● recording lines)))))))
 
     ;; ---- Objects ----
 
     ;; Objects are numbered from 1 in the order they are made.
 
-    (define (numbered! (recording Recording)) (→ I32) (! mut)
+    (define (numbered! (mut Mut) (recording Recording)) (→ I32)
       (let ((id (● recording next)))
-        (set! (● recording next) (+ id 1))
+        (set! mut (● recording next) (+ id 1))
         id))
 
-    (define (made! (recording Recording) (kind String) (fields (List Field))) (→ I32) (! mut)
-      (let ((id (numbered! recording)))
-        (note! recording (list "create" kind (show id) (fields-text fields)))
+    (define (made! (mut Mut) (recording Recording) (kind String) (fields (List Field))) (→ I32)
+      (let ((id (numbered! mut recording)))
+        (note! mut recording (list "create" kind (show id) (fields-text fields)))
         id))
 
     ;; A frame's object, recorded with what it was made from.
 
-    (define (transient! (recording Recording) (kind String) (words (List String))) (→ I32) (! mut)
-      (let ((id (numbered! recording)))
-        (note! recording (append (list kind (show id)) words))
+    (define (transient! (mut Mut) (recording Recording) (kind String) (words (List String))) (→ I32)
+      (let ((id (numbered! mut recording)))
+        (note! mut recording (append (list kind (show id)) words))
         id))
 
     (define (object-id (object GpuObject)) (→ I32)
@@ -351,8 +361,8 @@
                      " layer "
                      (show (● copy layer))))
 
-    (define (submitted! (recording Recording) (buffers (List GpuCommandBuffer))) (→ Unit) (! mut)
-      (note! recording
+    (define (submitted! (mut Mut) (recording Recording) (buffers (List GpuCommandBuffer))) (→ Unit)
+      (note! mut recording
              (Cons "submit" (map (lambda (buffer) (show (● buffer id))) buffers))))
 
     ;; ---- Images ----
@@ -360,14 +370,15 @@
     ;; A PNG's size is in its header, big-endian after the signature and
     ;; the header's length and type; anything else is one texel.
 
-    (define (decoded! (recording Recording) (bytes Bytes)) (→ (Option Image)) (! mut)
+    (define (decoded! (mut Mut) (recording Recording) (bytes Bytes)) (→ (Option Image))
       (let* ((png? (and (>= (array-length bytes) 24) (= (array-ref bytes 1) 80)))
              (width (if png? (big-endian bytes 16) 1))
              (height (if png? (big-endian bytes 20) 1)))
         (Some (new Image
                 (texture
                  (new GpuTexture
-                   (id (transient! recording "decode-image" (list (show width) (show height))))))
+                   (id
+                    (transient! mut recording "decode-image" (list (show width) (show height))))))
                 (width width)
                 (height height)))))
 

@@ -19,11 +19,11 @@
   (let ((r (/ (i64->f64 (f64->i64 (round (* x 1000.0)))) 1000.0)))
     (f64->string (if (= r 0.0) 0.0 r))))
 
-(define (show-values (out OutputPort) (label String) (values (Array F64))) (→ Unit) (! mut)
+(define (show-values (out OutputPort) (label String) (values (Array F64))) (→ Unit)
   (write-line out
               (string-append label ": " (string-join (map rounded-text (array->list values)) " "))))
 
-(define (show-shape (out OutputPort) (label String) (view View)) (→ Unit) (! mut)
+(define (show-shape (out OutputPort) (label String) (view View)) (→ Unit)
   (write-line out (string-append label ": " (string-join (map show (shape-of view)) "x"))))
 
 ;; ---- Inputs ----
@@ -44,14 +44,14 @@
 ;; ---- Views and kinds ----
 
 ;; Reusing the caller's upload bytes and label must preserve both constants.
-(define (constants (out OutputPort)) (→ Unit) (! mut)
+(define (constants (mut Mut) (out OutputPort)) (→ Unit)
   (let* ((bytes (values->bytes (list->array (list 2.0)) (Signed)))
          (a (constant "weight" (Nil) (Signed) bytes)))
-    (array-set! bytes 0 (i32->u8 5))
+    (array-set! mut bytes 0 (i32->u8 5))
     (let ((b (constant "weight" (Nil) (Signed) bytes)))
       (show-values out "constants" (only-value (list (stack (list a b) 0)) (empty-table))))))
 
-(define (views (out OutputPort)) (→ Unit) (! mut)
+(define (views (out OutputPort)) (→ Unit)
   (let* ((x (param "x" (list 2 3) (Float)))
          (inputs (inputs-of (list (new Pair (first "x") (second (ramp 6 1.0 0.0)))))))
     (show-values out "x" (only-value (list x) inputs))
@@ -71,7 +71,7 @@
     (show-values out "concat" (only-value (list (concat (list x (narrow x 1 0 1)) 1)) inputs))
     (show-shape out "stack" (stack (list x x x) 2))))
 
-(define (rows (out OutputPort)) (→ Unit) (! mut)
+(define (rows (out OutputPort)) (→ Unit)
   (let* ((x (param "x" (list 3 2) (Float)))
          (i (param "i" (list 4) (Unsigned)))
          (inputs (inputs-of (list (new Pair (first "x") (second (ramp 6 1.0 0.0)))
@@ -94,7 +94,6 @@
 
 (define (check (out OutputPort) (label String) (loss View) (x View) (inputs (Table (Array F64))))
   (→ Unit)
-  (! mut)
   (let* ((name (match (● x node kind)
                  ((Param name) name)
                  (_ (panic "check: x must be a param"))))
@@ -132,7 +131,7 @@
         (h 0.01))
     (/ (- (at h) (at (negate h))) (* 2.0 h))))
 
-(define (gradients (out OutputPort)) (→ Unit) (! mut)
+(define (gradients (out OutputPort)) (→ Unit)
   (let* ((x (param "x" (list 4 3) (Float)))
          (w (param "w" (list 3 2) (Float)))
          (b (param "b" (list 2) (Float)))
@@ -163,7 +162,7 @@
     (check out "stacked dx" stacked x inputs)
     (show-shape out "fit dx" (list-ref (grad fit (list x)) 0))))
 
-(define (rows-gradient (out OutputPort)) (→ Unit) (! mut)
+(define (rows-gradient (out OutputPort)) (→ Unit)
   (let* ((x (param "x" (list 3 2) (Float)))
          (i (param "i" (list 4) (Unsigned)))
          (inputs (inputs-of (list (new Pair (first "x") (second (ramp 6 0.25 -0.5)))
@@ -174,8 +173,8 @@
     (check out "gather dx" loss x inputs)
     (show-values out "gather dx" (only-value (grad loss (list x)) inputs))))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
-  (constants out)
+(define (main (mut Mut) (out OutputPort)) (→ Unit)
+  (constants mut out)
   (views out)
   (rows out)
   (gradients out)

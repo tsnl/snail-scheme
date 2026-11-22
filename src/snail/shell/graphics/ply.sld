@@ -201,18 +201,17 @@
     ;; into arrays local to this call.
 
     (define (cloud-of (bytes Bytes) (p Properties) (transform I32)) (→ Cloud)
-      (unsafe-total
-       (lambda ()
-         (let ((gaussians (make-array (* (● p count) (stride gaussian-shape)) (i32->u8 0)))
-               (harmonics (make-array (* (● p count) (* 4 harmonic-floats)) (i32->u8 0))))
-           (for-each (lambda (i)
-                       (let ((float (lambda (property) (float-at bytes p i property))))
-                         (pod-write (gaussian-of float p transform)
-                                    gaussians
-                                    (* i (stride gaussian-shape)))
-                         (write-harmonics! harmonics i (coefficients float p))))
-                     (iota (● p count)))
-           (new Cloud (count (● p count)) (gaussians gaussians) (harmonics harmonics))))))
+      (let* ((mut (unsafe-mut))
+             (gaussians (make-array (* (● p count) (stride gaussian-shape)) (i32->u8 0)))
+             (harmonics (make-array (* (● p count) (* 4 harmonic-floats)) (i32->u8 0))))
+        (for-each (lambda (i)
+                    (let ((float (lambda (property) (float-at bytes p i property))))
+                      (pod-write mut (gaussian-of float p transform)
+                                 gaussians
+                                 (* i (stride gaussian-shape)))
+                      (write-harmonics! mut harmonics i (coefficients float p))))
+                  (iota (● p count)))
+        (new Cloud (count (● p count)) (gaussians gaussians) (harmonics harmonics))))
 
     ;; Vertex i's float at property index `property`, little-endian.
 
@@ -259,8 +258,8 @@
                                      (iota 3)))
                                   (iota above))))))
 
-    (define (write-harmonics! (harmonics Bytes) (i I64) (floats (List F32))) (→ Unit) (! mut)
-      (fold-left (lambda (at value) (pod-write value harmonics at))
+    (define (write-harmonics! (mut Mut) (harmonics Bytes) (i I64) (floats (List F32))) (→ Unit)
+      (fold-left (lambda (at value) (pod-write mut value harmonics at))
                  (* i (* 4 harmonic-floats))
                  floats)
       (unit))
@@ -353,24 +352,23 @@
     ;; header, which says how many, then each one's floats.
     (define (write-ply (cloud Trained)) (→ Bytes)
       (let* ((count (live-count cloud)) (head (written-header count)) (columns (columns cloud)))
-        (unsafe-total
-         (lambda ()
-           (let ((file (make-array (+ (array-length head) (* count (* 4 vertex-floats)))
-                                   (i32->u8 0))))
-             (array-copy! file 0 head 0 (array-length head))
-             (let loop ((i 0) (at (array-length head)))
-               (cond ((>= i (quotient (array-length (● cloud live)) 4)) file)
-                     ((live? cloud i)
-                      (for-each (lambda (column) (place! file at column i)) columns)
-                      (loop (+ i 1) (+ at (* 4 vertex-floats))))
-                     (else (loop (+ i 1) at)))))))))
+        (let* ((mut (unsafe-mut))
+               (file (make-array (+ (array-length head) (* count (* 4 vertex-floats)))
+                                 (i32->u8 0))))
+          (array-copy! mut file 0 head 0 (array-length head))
+          (let loop ((i 0) (at (array-length head)))
+            (cond ((>= i (quotient (array-length (● cloud live)) 4)) file)
+                  ((live? cloud i)
+                   (for-each (lambda (column) (place! mut file at column i)) columns)
+                   (loop (+ i 1) (+ at (* 4 vertex-floats))))
+                  (else (loop (+ i 1) at)))))))
 
     ;; Row `i` of a column, each float where it goes in the vertex at `at`.
-    (define (place! (file Bytes) (at I64) (column Column) (i I64)) (→ Unit) (! mut)
+    (define (place! (mut Mut) (file Bytes) (at I64) (column Column) (i I64)) (→ Unit)
       (let ((width (array-length (● column places))))
         (let loop ((k 0))
           (when (< k width)
-            (array-copy! file
+            (array-copy! mut file
                          (+ at (* 4 (array-ref (● column places) k)))
                          (● column floats)
                          (* 4 (+ (* i width) k))

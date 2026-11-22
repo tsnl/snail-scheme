@@ -2,7 +2,7 @@
  (snail core base)
  (snail core io))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (for-each (lambda (text) (write out (string->i64 text)) (newline out))
             (list "0"
                   "-0"

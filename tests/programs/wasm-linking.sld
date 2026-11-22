@@ -62,7 +62,7 @@
         110 103 0 0 3 3 2 0 0 7 15 2 4 109 97 105 110 0 3 4 102 97 105 108 0 4 10 17 2 10 0 16 0
         35 0 65 34 106 106 11 4 0 16 2 11))
 
-(define (compiled (wasm Wasm) (name String) (bytes Bytes)) (→ Compiled) (! mut)
+(define (compiled (wasm Wasm) (name String) (bytes Bytes)) (→ Compiled)
   (match (compile-bytes wasm bytes)
     ((Some module) module)
     ((None) (panic (string-append name " is not a module")))))
@@ -74,11 +74,11 @@
     ((MemoryImport) "memory")
     ((GlobalImport) "global")))
 
-(define (show-import (out OutputPort) (import Import)) (→ Unit) (! mut)
+(define (show-import (out OutputPort) (import Import)) (→ Unit)
   (write-line out (string-append (● import from) " " (● import name) " "
                                  (kind-name (● import kind)))))
 
-(define (show-run (wasm Wasm) (out OutputPort) (instance Module) (name String)) (→ Unit) (! mut)
+(define (show-run (wasm Wasm) (out OutputPort) (instance Module) (name String)) (→ Unit)
   (match (run-export wasm instance name 0)
     ((Ok answer) (write-line out (string-append name " answers " (show answer))))
     ((Err error) (write-line out (load-error-message error)))))
@@ -86,7 +86,7 @@
 (define (providers (one Module) (export String) (missing Provider)) (→ (List Provider))
   (list (ExportOf one "limit") (ExportOf one export) (HostProvided) missing))
 
-(define (main (wasm Wasm) (out OutputPort)) (→ Unit) (! mut)
+(define (main (wasm Wasm) (out OutputPort)) (→ Unit)
   (let ((one (compiled wasm "one" (one-bytes))) (two (compiled wasm "two" (two-bytes))))
     (write-line out (string-append "one imports " (show (length (module-imports wasm one)))))
     (for-each (lambda (import) (show-import out import)) (module-imports wasm two))

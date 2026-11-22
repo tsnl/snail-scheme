@@ -11,7 +11,7 @@
 (define (at (name String)) (→ String)
   (string-append (root) "/" name))
 
-(define (report (out OutputPort) (label String) (text String)) (→ Unit) (! mut)
+(define (report (out OutputPort) (label String) (text String)) (→ Unit)
   (write-line out (string-append label " -> " text)))
 
 ;; What a read answered, the text described by `describe`.
@@ -22,7 +22,6 @@
                      (limit I64)
                      (describe (Fn String → String)))
   (→ Unit)
-  (! mut)
   (report out label (match (read-text-file fs (at name) limit)
                       ((Ok text) (string-append "ok " (describe text)))
                       ((Err error) (string-append "error: " (show error))))))
@@ -35,12 +34,11 @@
 
 (define (write-report (fs Fs) (out OutputPort) (label String) (name String) (text String))
   (→ Unit)
-  (! mut)
   (report out label (match (write-text-file fs (at name) text (CreateOrReplace))
                       ((Ok _) "ok")
                       ((Err error) (string-append "error: " (show error))))))
 
-(define (main (fs Fs) (out OutputPort)) (→ Unit) (! mut)
+(define (main (fs Fs) (out OutputPort)) (→ Unit)
   (remove-tree fs (root))
   (make-directories fs (root))
   (write-report fs out "write" "λ.txt" "one λ, two")

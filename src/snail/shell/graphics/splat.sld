@@ -238,7 +238,6 @@
                          (capacity I64)
                          (transform-capacity I64))
       (→ Splats)
-      (! mut)
       (let* ((buffer (lambda (name size) (storage-buffer gpu (string-append label "/" name) size)))
              (camera (camera-buffer gpu label))
              (gaussians (buffer "gaussians" (* capacity (stride gaussian-shape))))
@@ -276,13 +275,13 @@
           (draw-group
            (splat-group gpu label (RenderPipeline draw-pipeline) (list camera projected values))))))
 
-    (define (storage-buffer (gpu Gpu) (label String) (size I64)) (→ GpuBuffer) (! mut)
+    (define (storage-buffer (gpu Gpu) (label String) (size I64)) (→ GpuBuffer)
       (create-buffer gpu (new BufferDescriptor
                            (label label)
                            (size (i64->i32 size))
                            (usage (list (Storage) (CopySrc) (CopyDst))))))
 
-    (define (camera-buffer (gpu Gpu) (label String)) (→ GpuBuffer) (! mut)
+    (define (camera-buffer (gpu Gpu) (label String)) (→ GpuBuffer)
       (create-buffer gpu (new BufferDescriptor
                            (label (string-append label "/camera"))
                            (size (i64->i32 (stride camera-shape)))
@@ -296,7 +295,6 @@
 
     (define (splat-group (gpu Gpu) (label String) (pipeline GpuPipeline) (buffers (List GpuBuffer)))
       (→ GpuBindGroup)
-      (! mut)
       (create-bind-group gpu (new BindGroupDescriptor
                                (label (string-append "splat/" label))
                                (pipeline pipeline)
@@ -305,10 +303,10 @@
                                                        (BufferEntry (i64->i32 binding) buffer 0 0))
                                                      buffers)))))
 
-    (define (module-of (gpu Gpu) (label String) (code String)) (→ GpuShaderModule) (! mut)
+    (define (module-of (gpu Gpu) (label String) (code String)) (→ GpuShaderModule)
       (create-shader-module gpu (new ShaderModuleDescriptor (label label) (code code))))
 
-    (define (project-pipeline-of (gpu Gpu) (module GpuShaderModule)) (→ GpuComputePipeline) (! mut)
+    (define (project-pipeline-of (gpu Gpu) (module GpuShaderModule)) (→ GpuComputePipeline)
       (create-compute-pipeline gpu
                                (new ComputePipelineDescriptor
                                  (label "splat/project")
@@ -319,7 +317,6 @@
 
     (define (draw-pipeline-of (gpu Gpu) (module GpuShaderModule) (format TextureFormat))
       (→ GpuRenderPipeline)
-      (! mut)
       (create-render-pipeline gpu
                               (new RenderPipelineDescriptor
                                 (label "splat/draw")
@@ -343,7 +340,7 @@
     ;; way to the device, and a trained scene's coefficients run to
     ;; hundreds of megabytes.
 
-    (define (write-cloud (gpu Gpu) (splats Splats) (first I64) (cloud Cloud)) (→ Unit) (! mut)
+    (define (write-cloud (gpu Gpu) (splats Splats) (first I64) (cloud Cloud)) (→ Unit)
       (unless (<= (+ first (● cloud count)) (● splats capacity))
         (panic "splat: the cloud does not fit in its splats"))
       (for-each (lambda (from)
@@ -371,7 +368,6 @@
                         (from I64)
                         (to I64))
       (→ Unit)
-      (! mut)
       (write-buffer gpu
                     buffer
                     (i64->i32 (* at width))
@@ -381,7 +377,6 @@
 
     (define (write-transforms (gpu Gpu) (splats Splats) (transforms (List Mat4x4f)))
       (→ Unit)
-      (! mut)
       (unless (<= (length transforms) (● splats transform-capacity))
         (panic "splat: more transforms than the splats have room for"))
       (write-buffer gpu (● splats transforms) 0 (pack transform-shape transforms)))
@@ -393,7 +388,6 @@
 
     (define (sort-splats (gpu Gpu) (encoder GpuCommandEncoder) (splats Splats) (camera SplatCamera))
       (→ Unit)
-      (! mut)
       (write-buffer gpu (● splats camera) 0 (pod-bytes camera-shape camera))
       (let ((pass (begin-compute-pass gpu encoder)))
         (set-compute-pipeline gpu pass (● splats project-pipeline))
@@ -405,13 +399,13 @@
     ;; Every gaussian, in the order the last `sort-splats` found, onto a
     ;; target whose size the camera gave.
 
-    (define (draw-splats (gpu Gpu) (pass GpuRenderPass) (splats Splats)) (→ Unit) (! mut)
+    (define (draw-splats (gpu Gpu) (pass GpuRenderPass) (splats Splats)) (→ Unit)
       (set-pipeline gpu pass (● splats draw-pipeline))
       (set-bind-group gpu pass 0 (● splats draw-group))
       (draw gpu pass 4 (i64->i32 (● splats capacity)) 0 0))
 
     ;; Everything the splats made goes at the next submit.
-    (define (release-splats (gpu Gpu) (s Splats)) (→ Unit) (! mut)
+    (define (release-splats (gpu Gpu) (s Splats)) (→ Unit)
       (release-sorter gpu (● s sorter))
       (for-each (lambda (object) (destroy gpu object))
                 (append (map BufferObject

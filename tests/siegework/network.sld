@@ -18,7 +18,7 @@
 (define (run (world World) (ticks I64)) (→ World)
   (if (= ticks 0) world (run (advance world) (- ticks 1))))
 
-(define (order (out OutputPort) (world World) (action Action)) (→ World) (! mut)
+(define (order (out OutputPort) (world World) (action Action)) (→ World)
   (match (act world action)
     ((Ok world) world)
     ((Err rejection)
@@ -35,12 +35,12 @@
 (define (cell-text (cell Cell)) (→ String)
   (string-append (show (● cell x)) "," (show (● cell y))))
 
-(define (report-wires (out OutputPort) (world World)) (→ Unit) (! mut)
+(define (report-wires (out OutputPort) (world World)) (→ Unit)
   (write-line out (string-append "wires "
                                  (string-join (map wire-text (● (● world network) wires))
                                               " "))))
 
-(define (report (out OutputPort) (world World)) (→ Unit) (! mut)
+(define (report (out OutputPort) (world World)) (→ Unit)
   (write-line out (string-append "tick "
                                  (show (● world tick))
                                  ", produced "
@@ -62,7 +62,7 @@
                                                    (● world buildings))
                                               "; "))))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
 
   (let ()
     (define west (new Cell (x 30) (y 35)))

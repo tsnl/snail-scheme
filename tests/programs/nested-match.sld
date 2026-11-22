@@ -27,7 +27,7 @@
     (#t "yes")
     (#f "no")))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (for-each (lambda (text) (write-line out text))
             (list (describe (None))
                   (describe (Some (None)))

@@ -6,13 +6,13 @@
 ;; Receiving without waiting: an empty mailbox answers none at once, and
 ;; one with messages gives the oldest, leaving the rest for a receiver
 ;; that waits.
-(define (tried (mailbox (Mailbox String))) (→ String) (! mut)
+(define (tried (mailbox (Mailbox String))) (→ String)
   (match (mailbox-try-receive mailbox)
     ((Some message) message)
     ((None) "none")))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
-  (let ((mailbox (make-mailbox)))
+(define (main (mut Mut) (out OutputPort)) (→ Unit)
+  (let ((mailbox (make-mailbox mut)))
     (write-line out (tried mailbox))
     (mailbox-post mailbox "first")
     (mailbox-post mailbox "second")

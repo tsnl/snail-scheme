@@ -10,7 +10,7 @@
 
 (define (increment (value I64)) (→ I64) (+ value 1))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (write-line out (show (twice increment 10)))
   (write-line out (show (consume increment 20)))
   (write-line out (show (consume increment 30)))

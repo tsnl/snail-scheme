@@ -23,7 +23,7 @@
         (JsonObject (list (new Pair (first "a") (second (JsonBool #t)))
                           (new Pair (first "a") (second (JsonBool #f)))))))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (for-each (lambda (value) (write-line out (read-back (json->string value)))) (written))
   (for-each (lambda (text) (write-line out (read-back text)))
             (list

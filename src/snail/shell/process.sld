@@ -18,7 +18,7 @@
    ProcessError)
   (import
    (snail core base)
-   (only (snail core io) environment-variable)
+   (only (snail core io) Host ProcessEnvironment host-environment environment-variable)
    (prefix (snail runtime native process) host-)
    (only (snail shell task) through-host))
   (begin
@@ -81,105 +81,98 @@
     ;; standard streams, and nothing of the program runs after. It returns
     ;; only when it cannot, with why.
     (record Processes
-      ((spawn (Fn Command → (Result Process ProcessError) ! mut))
-       (read-output (Fn Process Stream I32 → (Result (Option Bytes) ProcessError) ! mut))
-       (write-input (Fn Process Bytes → (Result I32 ProcessError) ! mut))
-       (close-input (Fn Process → (Result Unit ProcessError) ! mut))
-       (send-signal (Fn Process Signal → (Result Unit ProcessError) ! mut))
-       (wait-exit (Fn Process → (Result Exit ProcessError) ! mut))
-       (close-process (Fn Process → (Result Unit ProcessError) ! mut))
-       (run (Fn Command Bytes → (Result Captured ProcessError) ! mut))
-       (exec (Fn Command → ProcessError ! mut))))
+      ((spawn (Fn Command → (Result Process ProcessError)))
+       (read-output (Fn Process Stream I32 → (Result (Option Bytes) ProcessError)))
+       (write-input (Fn Process Bytes → (Result I32 ProcessError)))
+       (close-input (Fn Process → (Result Unit ProcessError)))
+       (send-signal (Fn Process Signal → (Result Unit ProcessError)))
+       (wait-exit (Fn Process → (Result Exit ProcessError)))
+       (close-process (Fn Process → (Result Unit ProcessError)))
+       (run (Fn Command Bytes → (Result Captured ProcessError)))
+       (exec (Fn Command → ProcessError))))
 
     (define (spawn (processes Processes) (command Command))
       (→ (Result Process ProcessError))
-      (! mut)
       ((● processes spawn) command))
 
     (define (read-output (processes Processes) (child Process) (stream Stream) (maximum I32))
       (→ (Result (Option Bytes) ProcessError))
-      (! mut)
       ((● processes read-output) child stream maximum))
 
     (define (write-input (processes Processes) (child Process) (bytes Bytes))
       (→ (Result I32 ProcessError))
-      (! mut)
       ((● processes write-input) child bytes))
 
     (define (close-input (processes Processes) (child Process))
       (→ (Result Unit ProcessError))
-      (! mut)
       ((● processes close-input) child))
 
     (define (send-signal (processes Processes) (child Process) (signal Signal))
       (→ (Result Unit ProcessError))
-      (! mut)
       ((● processes send-signal) child signal))
 
     (define (wait-exit (processes Processes) (child Process))
       (→ (Result Exit ProcessError))
-      (! mut)
       ((● processes wait-exit) child))
 
     (define (close-process (processes Processes) (child Process))
       (→ (Result Unit ProcessError))
-      (! mut)
       ((● processes close-process) child))
 
     (define (run (processes Processes) (command Command) (input Bytes))
       (→ (Result Captured ProcessError))
-      (! mut)
       ((● processes run) command input))
 
-    (define (exec (processes Processes) (command Command)) (→ ProcessError) (! mut)
+    (define (exec (processes Processes) (command Command)) (→ ProcessError)
       ((● processes exec) command))
 
     ;; Node's child processes.
-    (define (host-processes) (→ Processes)
-      (new Processes
-        (spawn (lambda (command)
-                 (match (located command)
+    (define (host-processes (host Host)) (→ Processes)
+      (let ((environment (host-environment host)))
+        (new Processes
+          (spawn (lambda (command)
+                   (match (located environment command)
+                     ((Ok path)
+                      (send-command command path)
+                      (native host-start-spawn spawned))
+                     ((Err error) (Err error)))))
+          (read-output (lambda (child stream maximum)
+                         (if (and (>= maximum 1) (<= maximum 65536))
+                             (native (lambda (ticket)
+                                       (host-start-read-output ticket
+                                                               (process-handle child)
+                                                               (stream-descriptor stream)
+                                                               maximum))
+                                     held-read)
+                             (Err (new ProcessError (code "EINVAL"))))))
+          (write-input (lambda (child bytes)
+                         (native (lambda (ticket)
+                                   (host-start-write-input ticket (process-handle child) bytes))
+                                 count)))
+          (close-input (lambda (child)
+                         (answered (host-close-input (process-handle child)) done)))
+          (send-signal (lambda (child signal)
+                         (answered (host-send-signal (process-handle child) (signal-number signal))
+                                   done)))
+          (wait-exit (lambda (child)
+                       (native
+                        (lambda (ticket) (host-start-wait-exit ticket (process-handle child)))
+                        held-exit)))
+          (close-process (lambda (child)
+                           (answered (host-close-process (process-handle child)) done)))
+          (run (lambda (command input)
+                 (match (located environment command)
                    ((Ok path)
                     (send-command command path)
-                    (native host-start-spawn spawned))
+                    (answered (host-run input) captured))
                    ((Err error) (Err error)))))
-        (read-output (lambda (child stream maximum)
-                       (if (and (>= maximum 1) (<= maximum 65536))
-                           (native (lambda (ticket)
-                                     (host-start-read-output ticket
-                                                             (process-handle child)
-                                                             (stream-descriptor stream)
-                                                             maximum))
-                                   held-read)
-                           (Err (new ProcessError (code "EINVAL"))))))
-        (write-input (lambda (child bytes)
-                       (native (lambda (ticket)
-                                 (host-start-write-input ticket (process-handle child) bytes))
-                               count)))
-        (close-input (lambda (child)
-                       (answered (host-close-input (process-handle child)) done)))
-        (send-signal (lambda (child signal)
-                       (answered (host-send-signal (process-handle child) (signal-number signal))
-                                 done)))
-        (wait-exit (lambda (child)
-                     (native
-                      (lambda (ticket) (host-start-wait-exit ticket (process-handle child)))
-                      held-exit)))
-        (close-process (lambda (child)
-                         (answered (host-close-process (process-handle child)) done)))
-        (run (lambda (command input)
-               (match (located command)
-                 ((Ok path)
-                  (send-command command path)
-                  (answered (host-run input) captured))
-                 ((Err error) (Err error)))))
-        (exec (lambda (command)
-                (match (located command)
-                  ((Ok path)
-                   (send-command command path)
-                   (host-exec)
-                   (new ProcessError (code (held-text 0))))
-                  ((Err error) error))))))
+          (exec (lambda (command)
+                  (match (located environment command)
+                    ((Ok path)
+                     (send-command command path)
+                     (host-exec)
+                     (new ProcessError (code (held-text 0))))
+                    ((Err error) error)))))))
 
     ;; ---- Termination ----
 
@@ -191,13 +184,13 @@
     ;; during an orderly shutdown still ends the program at once, unless a
     ;; task waits again.
     (record Signals
-      ((termination (Fn → Signal ! mut))))
+      ((termination (Fn → Signal))))
 
-    (define (termination (signals Signals)) (→ Signal) (! mut)
+    (define (termination (signals Signals)) (→ Signal)
       ((● signals termination)))
 
     ;; Node's termination signals.
-    (define (host-signals) (→ Signals)
+    (define (host-signals (host Host)) (→ Signals)
       (new Signals
         (termination (lambda ()
                        (received-signal (through-host host-start-termination host-finish))))))
@@ -257,26 +250,27 @@
     ;; child takes it. With no PATH, nothing is found. Finding it here gives
     ;; spawn, run and exec one rule, and the host runs the path it is given.
 
-    (define (located (command Command)) (→ (Result String ProcessError))
+    (define (located (environment ProcessEnvironment) (command Command))
+      (→ (Result String ProcessError))
       (let ((program (● command program)))
         (match (string-index program #\/)
           ((Some _) (Ok program))
           ((None)
            (match (find (lambda (path) (executable? (● command directory) path))
-                        (candidates program))
+                        (candidates environment program))
              ((Some path) (Ok path))
              ((None) (Err (new ProcessError (code "ENOENT")))))))))
 
     ;; Where each entry of PATH, in order, would hold `program`.
 
-    (define (candidates (program String)) (→ (List String))
+    (define (candidates (environment ProcessEnvironment) (program String)) (→ (List String))
       (map (lambda (entry) (string-append (if (string=? entry "") "." entry) "/" program))
-           (path-entries)))
+           (path-entries environment)))
 
     ;; PATH's entries, empty ones included.
 
-    (define (path-entries) (→ (List String))
-      (match (environment-variable "PATH")
+    (define (path-entries (environment ProcessEnvironment)) (→ (List String))
+      (match (environment-variable environment "PATH")
         ((Some text) (split-entries text))
         ((None) (Nil))))
 
@@ -302,7 +296,7 @@
     ;; (snail runtime native process).
 
     (define (native (start (Fn I64 → Unit)) (success (Fn I32 → T)))
-      (→ (Result T ProcessError)) (! mut)
+      (→ (Result T ProcessError))
       (∀ (T))
       (through-host start (lambda (ticket) (answered (host-finish ticket) success))))
 

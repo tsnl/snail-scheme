@@ -51,22 +51,21 @@
 
     (define (make-sunlight (gpu Gpu) (format TextureFormat) (g GBuffer) (r Raster))
       (→ Sunlight)
-      (! mut)
       (let ((pipeline (sun-pipeline gpu format)))
         (new Sunlight (pipeline pipeline) (group (sun-group gpu pipeline g r)))))
 
     ;; The same sunlight over another G-buffer; the old group goes.
-    (define (relight (gpu Gpu) (light Sunlight) (g GBuffer) (r Raster)) (→ Sunlight) (! mut)
+    (define (relight (gpu Gpu) (light Sunlight) (g GBuffer) (r Raster)) (→ Sunlight)
       (destroy gpu (BindGroupObject (● light group)))
       (Sunlight-group-set light (sun-group gpu (● light pipeline) g r)))
 
     ;; One triangle over the whole target, untested by depth.
-    (define (draw-sun (gpu Gpu) (pass GpuRenderPass) (light Sunlight)) (→ Unit) (! mut)
+    (define (draw-sun (gpu Gpu) (pass GpuRenderPass) (light Sunlight)) (→ Unit)
       (set-pipeline gpu pass (● light pipeline))
       (set-bind-group gpu pass 0 (● light group))
       (draw gpu pass 3 1 0 0))
 
-    (define (sun-pipeline (gpu Gpu) (format TextureFormat)) (→ GpuRenderPipeline) (! mut)
+    (define (sun-pipeline (gpu Gpu) (format TextureFormat)) (→ GpuRenderPipeline)
       (create-render-pipeline gpu
                               (new RenderPipelineDescriptor
                                 (label "passes/sun")
@@ -92,7 +91,6 @@
 
     (define (sun-group (gpu Gpu) (pipeline GpuRenderPipeline) (g GBuffer) (r Raster))
       (→ GpuBindGroup)
-      (! mut)
       (create-bind-group gpu (new BindGroupDescriptor
                                (label "passes/sun")
                                (pipeline (RenderPipeline pipeline))
@@ -135,7 +133,6 @@
 
     (define (make-post (gpu Gpu) (format TextureFormat) (width I32) (height I32) (curve Tone))
       (→ Post)
-      (! mut)
       (let* ((module
               (create-shader-module gpu
                                     (new ShaderModuleDescriptor (label "post") (code post-shader))))
@@ -158,7 +155,7 @@
           (targets (post-targets gpu tone fxaa sampler width height)))))
 
     ;; Targets of the new size; the old go.
-    (define (resize-post (gpu Gpu) (post Post) (width I32) (height I32)) (→ Post) (! mut)
+    (define (resize-post (gpu Gpu) (post Post) (width I32) (height I32)) (→ Post)
       (let ((old (● post targets)))
         (for-each (lambda (group) (destroy gpu (BindGroupObject group)))
                   (list (● old tone-group) (● old fxaa-group)))
@@ -179,7 +176,6 @@
                           (width I32)
                           (height I32))
       (→ PostTargets)
-      (! mut)
       (let* ((light (screen-target gpu "post/light" width height light-format))
              (toned (screen-target gpu "post/toned" width height (Rgba8Unorm)))
              (light-view (view-of gpu light 1))
@@ -197,7 +193,6 @@
     ;; The light tone-mapped, then smoothed into `canvas`.
     (define (draw-post (gpu Gpu) (encoder GpuCommandEncoder) (canvas GpuTextureView) (post Post))
       (→ Unit)
-      (! mut)
       (screen-pass gpu
                    encoder
                    (● post targets toned-view)
@@ -211,7 +206,6 @@
                          (pipeline GpuRenderPipeline)
                          (group GpuBindGroup))
       (→ Unit)
-      (! mut)
       (let ((pass (begin-render-pass gpu encoder
                                      (new RenderPassDescriptor
                                        (colors (list (Some (new ColorAttachment
@@ -233,7 +227,6 @@
                              (entry String)
                              (format TextureFormat))
       (→ GpuRenderPipeline)
-      (! mut)
       (create-render-pipeline gpu
                               (new RenderPipelineDescriptor
                                 (label (string-append "post/" entry))
@@ -252,7 +245,6 @@
 
     (define (screen-target (gpu Gpu) (label String) (width I32) (height I32) (format TextureFormat))
       (→ GpuTexture)
-      (! mut)
       (create-texture gpu (new TextureDescriptor
                             (label label)
                             (width width)
@@ -266,7 +258,6 @@
                           (pipeline GpuRenderPipeline)
                           (entries (List BindGroupEntry)))
       (→ GpuBindGroup)
-      (! mut)
       (create-bind-group gpu (new BindGroupDescriptor
                                (label label)
                                (pipeline (RenderPipeline pipeline))

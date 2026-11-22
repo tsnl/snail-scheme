@@ -11,6 +11,7 @@
    page-dom)
   (import
    (snail core base)
+   (only (snail core io) Host)
    (prefix (snail runtime browser dom) host-)
    (snail shell utf8)
    (snail shell task)
@@ -20,7 +21,7 @@
 
     ;; ---- Handling ----
 
-    (define (page-dom (events Events)) (→ Dom)
+    (define (page-dom (host Host) (events Events)) (→ Dom)
       (new Dom
         (document-root (lambda () (new Node (handle (host-root)))))
         (create-element
@@ -84,7 +85,7 @@
       (case (host-installation-status)
         ((1) (InstallAvailable)) ((2) (AppInstalled)) (else (InstallUnavailable))))
 
-    (define (page-install) (→ InstallResult) (! mut)
+    (define (page-install) (→ InstallResult)
       (case (through-host host-start-install host-finish-install)
         ((0) (InstallAccepted)) ((1) (InstallDismissed)) ((2) (InstallNotAvailable))
         ((3) (GestureRequired)) ((5) (InstallAlreadyInstalled)) (else (InstallFailed))))
@@ -105,7 +106,7 @@
     ;; The next delivery, skipping the display frames and resizes an
     ;; interface has no use for.
 
-    (define (page-delivery (events Events)) (→ Delivery) (! mut)
+    (define (page-delivery (events Events)) (→ Delivery)
       (let ((kind (poll-event events)))
         (cond ((= kind 0) (wait-event events) (page-delivery events))
               ((= kind fired-kind)
@@ -115,7 +116,7 @@
               ((= kind save-kind) (SaveRequested))
               (else (page-delivery events)))))
 
-    (define (fired-event (events Events)) (→ Event) (! mut)
+    (define (fired-event (events Events)) (→ Event)
       (new Event (value (host-reply (host-event-text 0)))
            (key (host-reply (host-event-text 1)))
            (modifiers (event-field events 1))

@@ -49,8 +49,6 @@
        ((type Type)))
       (ClassName
        ((name String)))
-      (EffectName
-       ((name String)))
       (Core
        ((name String)))
       (Macro
@@ -71,7 +69,6 @@
         ((Alias name _ _ _) name)
         ((TypeVar _) "%type-variable")
         ((ClassName name) name)
-        ((EffectName name) name)
         ((Core name) (string-append "%core " name))
         ((Macro id _ _ _) id)))
 
@@ -203,7 +200,7 @@
     ;; Runs the producer program of a `generate-library`, given the
     ;; libraries loading when it was reached, and answers the bytes of the
     ;; syntax it writes.
-    (type Generate (Fn (List String) (List Syntax) → Bytes ! mut))
+    (type Generate (Fn (List String) (List Syntax) → Bytes))
 
     (record Context
       ((fs Fs)
@@ -383,18 +380,15 @@
     ;; ---- The core library ----
 
     ;; (snail core forms) is the one library without a file: the core forms
-    ;; and the builtin types, both listed in core.sld, and `mut`, the one
-    ;; effect: what changes, or reads, the world outside a function's own
-    ;; values. Every other library, (snail core primitive) among them, is a
-    ;; file.
+    ;; and the builtin types, both listed in core.sld. Every other library,
+    ;; (snail core primitive) among them, is a file.
 
     (define core-library (→ Exports)
       (append (map (lambda (name) (new Pair (first name) (second (Core name)))) core-keywords)
-              (append (map (lambda (entry)
-                             (new Pair (first (● entry first))
-                                  (second (TypeName (● entry first) (● entry second) (None)))))
-                           builtin-types)
-                      (list (new Pair (first "mut") (second (EffectName "mut")))))))
+              (map (lambda (entry)
+                     (new Pair (first (● entry first))
+                          (second (TypeName (● entry first) (● entry second) (None)))))
+                   builtin-types)))
 
     (define (builtin-library? (key String)) (→ Bool)
       (string=? key "snail.core.forms"))
@@ -408,7 +402,6 @@
 
     (define (load-library (cx Context) (name (List String)) (loc Loc))
       (→ (Pair Exports Context))
-      (! mut)
       (let ((key (string-join name ".")))
         (cond ((builtin-library? key) (new Pair (first core-library) (second cx)))
               ((member? key (● cx loading))
@@ -424,7 +417,6 @@
 
     (define (read-library (cx Context) (name (List String)) (loc Loc))
       (→ (Pair Exports Context))
-      (! mut)
       (let ((path (library-path (● cx fs) (● cx directories) name loc)))
         (expand-library-file cx name (file-library name (read-source-file (● cx fs) path) path))))
 
@@ -433,7 +425,6 @@
 
     (define (expand-library-file (cx Context) (name (List String)) (file LibraryFile))
       (→ (Pair Exports Context))
-      (! mut)
       (match file
         ((DefinedLibrary sections)
          (expand-sections (Context-prefix-set cx (string-join name ".")) sections))
@@ -445,7 +436,7 @@
     ;; place that asks. A request keeps the exact loading stack, so
     ;; recursive compilation still detects cycles.
 
-    (define (generated-bytes (cx Context) (forms (List Syntax))) (→ Bytes) (! mut)
+    (define (generated-bytes (cx Context) (forms (List Syntax))) (→ Bytes)
       ((● cx generate) (● cx loading) forms))
 
     ;; ---- Sources ----
@@ -559,7 +550,6 @@
 
     (define (bind-links (cx Context) (uses (List LinkUse)))
       (→ (Pair (List LinkedFile) Context))
-      (! mut)
       (let ((linked
              (map (lambda (use) (new Pair (first use) (second (linked-file cx use))))
                   uses)))
@@ -575,7 +565,7 @@
     ;; The file a use names, with its digest. A missing file fails the
     ;; library's expansion, naming the library and the path.
 
-    (define (linked-file (cx Context) (use LinkUse)) (→ LinkedFile) (! mut)
+    (define (linked-file (cx Context) (use LinkUse)) (→ LinkedFile)
       (let ((path (● use path)))
         (match (followed-status (● cx fs) path)
           ((Ok status) (digested (● cx fs) (● cx known) path status))
@@ -592,7 +582,6 @@
 
     (define (digested (fs Fs) (known (Table LinkedFile)) (path String) (status FileStatus))
       (→ LinkedFile)
-      (! mut)
       (match (table-ref known path)
         ((Some file)
          (if (and (= (● file size) (● status size)) (= (● file modified) (● status modified)))
@@ -600,7 +589,7 @@
              (read-digest fs path status)))
         ((None) (read-digest fs path status))))
 
-    (define (read-digest (fs Fs) (path String) (status FileStatus)) (→ LinkedFile) (! mut)
+    (define (read-digest (fs Fs) (path String) (status FileStatus)) (→ LinkedFile)
       (new LinkedFile
         (digest (file-digest fs path))
         (path path)
@@ -609,9 +598,9 @@
 
     (define (link-import (file LinkedFile)) (→ Value)
       (Foreign (new Import (module "snail.runtime.link") (symbol (● file digest)))
-               (mono-scheme (TFun (Nil) (TCon "I32" (Nil)) empty-row))))
+               (mono-scheme (TFun (Nil) (TCon "I32" (Nil))))))
 
-    (define (file-digest (fs Fs) (path String)) (→ String) (! mut)
+    (define (file-digest (fs Fs) (path String)) (→ String)
       (bytes->hex (sha256 (read-bytes fs path))))
 
     ;; The files a library links, as the build expanded it, in the order
@@ -634,7 +623,6 @@
 
     (define (expand-sections (cx Context) (sections (List (Pair String (List Syntax)))))
       (→ (Pair Exports Context))
-      (! mut)
       (threading cx ((env (import-env (section-items sections "import"))))
                  (let ((cx (Context-items-set (Context-links-set cx (Nil)) (Nil))))
                    (expand-recorded cx sections env))))
@@ -646,7 +634,6 @@
                                  (sections (List (Pair String (List Syntax))))
                                  (env Env))
       (→ (Pair Exports Context))
-      (! mut)
       (let* ((forms (section-items sections "begin"))
              (cx (if (primitive-library? cx)
                      (fold-left (lambda (cx form) (declare-primitive cx env form)) cx forms)
@@ -663,7 +650,6 @@
 
     (define (expand-library-run (cx Context) (env Env) (forms (List Syntax)))
       (→ Context)
-      (! mut)
       (let* ((cx (expand-top-level cx env forms))
              (cx (if (string=? (● cx prefix) "main") (with-entry cx) cx)))
         (Context-program-set cx
@@ -687,7 +673,7 @@
     ;; an exposed function that its target does not provide are the host's
     ;; arguments.
 
-    (define (with-entry (cx Context)) (→ Context) (! mut)
+    (define (with-entry (cx Context)) (→ Context)
       (match (new Pair (first (● cx target)) (second (entry-loc cx)))
         ((Pair (Some library) (Some loc))
          (threading cx ((exports (load-library library loc)))
@@ -729,7 +715,7 @@
               (match (● entry second)
                 ((Global name)
                  (match (program-value (● cx program) name)
-                   ((Some (Defined (Some (Scheme (Nil) (Nil) (TFun (Nil) result _))) _))
+                   ((Some (Defined (Some (Scheme (Nil) (Nil) (TFun (Nil) result))) _))
                     (list (new Pair (first result) (second name))))
                    (_ (Nil))))
                 (_ (Nil))))
@@ -744,7 +730,7 @@
     ;; signature it asks for nothing.
     (define (entry-parameters (cx Context) (name String)) (→ (List Type))
       (match (program-value (● cx program) name)
-        ((Some (Defined (Some (Scheme _ _ (TFun params _ _))) _)) params)
+        ((Some (Defined (Some (Scheme _ _ (TFun params _))) _)) params)
         (_ (Nil))))
 
     (define (with-plain-main (cx Context)) (→ Context)
@@ -900,10 +886,9 @@
                             (known (List LinkedFile))
                             (path String))
       (→ ExpandedProgram)
-      (! mut)
       (expanded-program (expand-source (new-context fs generate directories target known) path)))
 
-    (define (expand-source (cx Context) (path String)) (→ Context) (! mut)
+    (define (expand-source (cx Context) (path String)) (→ Context)
       (let* ((source (generating-stack (read-source-file (● cx fs) path)))
              (parts (program-parts (● source second)))
              (body (producer-body path (● source first) (● parts second)))
@@ -955,7 +940,7 @@
     (define (expand-recorded (cx Context)
                              (sections (List (Pair String (List Syntax))))
                              (env Env))
-      (→ (Pair Exports Context)) (! mut)
+      (→ (Pair Exports Context))
       (threading cx ((exports (expand-library-body sections env))
                      (links (bind-links (reverse (● cx links)))))
                  (new Pair (first exports)
@@ -973,7 +958,6 @@
 
     (define (import-env (cx Context) (specs (List Syntax)))
       (→ (Pair Env Context))
-      (! mut)
       (let loop ((cx cx) (specs specs) (imports (empty-table)))
         (match specs
           ((Nil) (new-top cx imports))
@@ -999,7 +983,6 @@
 
     (define (import-set (cx Context) (spec Syntax))
       (→ (Pair Exports Context))
-      (! mut)
       (match spec
         ((Form (Cons (Ident "only" _ _) (Cons inner idents)) _)
          (let ((names (ident-names idents)))
@@ -1042,7 +1025,6 @@
 
     (define (checked-import-set (cx Context) (spec Syntax) (idents (List Syntax)))
       (→ (Pair Exports Context))
-      (! mut)
       (threading cx ((entries (import-set spec)))
                  (for-each (lambda (ident)
                              (let ((identifier-name (ident-name ident)))
@@ -1109,7 +1091,6 @@
     ;; variables scope over every type in the definition, even its head.
     (record DefinitionHeader
       ((result (Option Syntax))
-       (effects (List Syntax))
        (variables (List Syntax))
        (constraints (List Syntax))))
 
@@ -1123,7 +1104,7 @@
     (define (definition-clause (form Syntax)) (→ String)
       (match form
         ((Form (Cons (Ident name _ _) _) _)
-         (if (member? name (list "→" "!" "∀" "⊨")) name ""))
+         (if (member? name (list "→" "∀" "⊨")) name ""))
         (_ "")))
 
     (define (definition-parameter (form Syntax)) (→ (Pair Syntax Syntax))
@@ -1140,7 +1121,6 @@
            (match items
              ((Cons result (Nil)) (DefinitionHeader-result-set header (Some result)))
              (_ (compile-error (syntax-loc form) "expected (→ Type)"))))
-          (("!") (DefinitionHeader-effects-set header items))
           (("∀")
            (let ((variables
                   (match items
@@ -1159,7 +1139,6 @@
       (let loop ((forms forms)
                  (header (new DefinitionHeader
                            (result (None))
-                           (effects (Nil))
                            (variables (Nil))
                            (constraints (Nil))))
                  (seen (Nil)))
@@ -1276,9 +1255,8 @@
            ((None) (compile-error loc "a function definition needs (→ Result)"))
            (_ (unit))))
         ((None)
-         (unless (= (length body) 1) (compile-error loc "a value definition needs one initializer"))
-         (unless (null? (● header effects))
-           (compile-error loc "a value's callable effects belong in its type"))))
+         (unless (= (length body) 1)
+           (compile-error loc "a value definition needs one initializer"))))
       (when (and (or (not (null? (● header variables))) (not (null? (● header constraints))))
                  (match (● header result) ((None) #t) (_ #f)))
         (compile-error loc "a polymorphic definition needs (→ Type)")))
@@ -1294,19 +1272,19 @@
              (type (match (● definition parameters)
                      ((None) result)
                      ((Some parameters)
-                      (definition-callable-type parameters result (● header effects) loc)))))
+                      (definition-callable-type parameters result loc)))))
         (if (and (null? (● header variables)) (null? (● header constraints))) type
             (Form (list (Ident "∀" (None) loc) (Form (● header variables) loc)
                         (Form (Cons (Ident "⊨" (None) loc) (● header constraints)) loc) type)
                   loc))))
 
     (define (definition-callable-type (parameters (List (Pair Syntax Syntax)))
-              (result Syntax) (effects (List Syntax)) (loc Loc))
+              (result Syntax)
+              (loc Loc))
       (→ Syntax)
-      (let ((arguments (map (lambda (record) (● record second)) parameters))
-            (performs (if (null? effects) (Nil) (Cons (Ident "!" (None) loc) effects))))
+      (let ((arguments (map (lambda (record) (● record second)) parameters)))
         (Form (Cons (Ident "Fn" (None) loc)
-                    (append arguments (Cons (Ident "→" (None) loc) (Cons result performs))))
+                    (append arguments (list (Ident "→" (None) loc) result)))
               loc)))
 
     (define (definition-scope (env Env) (definition DefinitionSyntax)) (→ Env)
@@ -1341,7 +1319,6 @@
 
     (define (expand-top-level (cx Context) (env Env) (forms (List Syntax)))
       (→ Context)
-      (! mut)
       (threading cx ((scanned (each (lambda (cx form) (scan-top-level cx env form)) forms)))
                  (let* ((pending (concatenate scanned))
                         (signatures
@@ -1373,13 +1350,12 @@
         (● run first)))
 
     (define (scan-top-level (cx Context) (env Env) (form Syntax))
-      (→ (Pair (List Pending) Context)) (! mut)
+      (→ (Pair (List Pending) Context))
       (threading cx ((form (expand-head env form)))
                  (scan-top-level-form cx env form)))
 
     (define (scan-top-level-form (cx Context) (env Env) (form Syntax))
       (→ (Pair (List Pending) Context))
-      (! mut)
       (match (head-binding cx env form)
         ((Some (Core "begin"))
          (threading cx ((scanned (each (lambda (cx item) (scan-top-level cx env item))
@@ -1419,7 +1395,6 @@
 
     (define (scan-data (cx Context) (env Env) (form Syntax) (enum? Bool))
       (→ (Pair (List Pending) Context))
-      (! mut)
       (let ((cx (if enum? (scan-enum cx env form) (scan-record cx env form))))
         (threading cx ((derived (derived-instances form enum?))
                        (scanned (each (lambda (cx instance) (scan-top-level cx env instance))
@@ -1453,12 +1428,12 @@
         ((None) (None))
         ((Some result)
          (Some (if value?
-                   (definition-callable-type (Nil) result (Nil) (● definition loc))
+                   (definition-callable-type (Nil) result (● definition loc))
                    (definition-type definition))))))
 
-    ;; `prim:cached-thunk` keeps a thunk's result for its module. Its type
-    ;; gives the thunk no row, so an initializer that performs an effect is
-    ;; refused where it performs it.
+    ;; `prim:cached-thunk` keeps a thunk's result for its module. The thunk
+    ;; takes nothing, so an initializer holds no `Mut` and no capability:
+    ;; it can only compute.
 
     (define (cached-thunk (value Expr)) (→ Expr)
       (let ((loc (● value loc)))
@@ -1780,8 +1755,8 @@
                              (new Scheme
                                (vars (● data params))
                                (constraints (Nil))
-                               (type (TFun (list self type) (TCon "Unit" (Nil))
-                                           (TRow (list "mut") (None)))))))
+                               (type (TFun (list (TCon "Mut" (Nil)) self type)
+                                           (TCon "Unit" (Nil)))))))
              (replacer (Replacer case index (generic-scheme data (list self type) self))))
         (program-with-value
          (program-with-value (program-with-value program (accessor-name case index) accessor)
@@ -1797,7 +1772,7 @@
       (new Scheme
         (vars (● data params))
         (constraints (Nil))
-        (type (TFun arguments result empty-row))))
+        (type (TFun arguments result))))
 
     ;; Resolve definition headers before expanding bodies so recursive calls
     ;; and importers see the same declared contract.
@@ -1842,45 +1817,9 @@
         (threading cx ((methods (each (lambda (cx signature)
                                         (declare-method cx env scope id params self signature))
                                       (list-drop (form-tail form) 1))))
-                   (check-class-parameters (● cx program) (● class params) methods
-                                           (syntax-loc form))
                    (Context-program-set cx
                                         (program-with-class (● cx program)
                                                             (Class-methods-set class methods))))))
-
-    ;; A class parameter is a type. A method's row is written out, so every
-    ;; instance's method performs within it.
-
-    (define (check-class-parameters (program Program)
-                                    (params (List String))
-                                    (methods (List String))
-                                    (loc Loc))
-      (→ Unit)
-      (let ((rows (concatenate (map (lambda (method) (row-names (method-type program method)))
-                                    methods))))
-        (for-each (lambda (param)
-                    (when (member? param rows)
-                      (compile-error loc
-                                     (string-append "the class parameter "
-                                                    param
-                                                    " is a type, not an effect row; write the row its methods perform"))))
-                  params)))
-
-    (define (method-type (program Program) (method String)) (→ Type)
-      (match (program-value program method)
-        ((Some (Method _ scheme)) (● scheme type))
-        (_ (panic "internal error: not a method"))))
-
-    ;; The variables a type ends a row with.
-
-    (define (row-names (type Type)) (→ (List String))
-      (match type
-        ((TFun params result row)
-         (append (concatenate (map row-names params)) (append (row-names result) (row-names row))))
-        ((TCon _ args) (concatenate (map row-names args)))
-        ((TRow _ (Some (TRigid name))) (list name))
-        ((TRow _ (Some tail)) (row-names tail))
-        (_ (Nil))))
 
     (define (declare-method (cx Context) (env Env) (scope Env) (class String)
                             (params (List Syntax)) (self Constraint) (signature Syntax))
@@ -1934,8 +1873,7 @@
     ;; An instance gives each of its class's parameters a type.
 
     (define (check-instance-head (class Class) (types (List Type)) (loc Loc)) (→ Unit)
-      (unless (and (= (length types) (length (● class params)))
-                   (every? (lambda (type) (match type ((TRow _ _) #f) (_ #t))) types))
+      (unless (= (length types) (length (● class params)))
         (compile-error loc
                        (string-append "a "
                                       (short-name (● class name))
@@ -2142,8 +2080,6 @@
          (match (resolve cx env syntax)
            ((Some _) (Nil))
            ((None) (list name))))
-        ((Form (Cons (Ident "!" _ _) labels) _)
-         (concatenate (map (lambda (label) (free-type-names cx env label)) labels)))
         ((Form items _) (concatenate (map (lambda (item) (free-type-names cx env item)) items)))
         (_ (Nil))))
 
@@ -2168,7 +2104,7 @@
 
     (define (check-host-parameters (type Type) (loc Loc)) (→ Unit)
       (match type
-        ((TFun params _ _)
+        ((TFun params _)
          (unless (staged-last? params)
            (compile-error loc
                           "a host function can take a String or Bytes only as its last argument")))
@@ -2249,7 +2185,6 @@
     (define (resolve-type (cx Context) (env Env) (syntax Syntax)) (→ Type)
       (match syntax
         ((Ident _ _ loc) (resolve-type-name cx env syntax (Nil) loc))
-        ((Form (Cons (Ident "!" _ _) labels) loc) (resolve-row cx env labels loc))
         ((Form (Cons (Ident "Fn" _ _) items) loc) (resolve-callable-arrow cx env items (Nil) loc))
         ((Form (Cons head args) loc)
          (resolve-type-name cx env (expect-ident head "a type constructor") args loc))
@@ -2283,7 +2218,7 @@
           (_ (compile-error loc (string-append "not a type: " identifier-name))))))
 
     ;; Function formers separate their parameters from one result with
-    ;; `→`; only `!` and the effect row may follow that result.
+    ;; `→`; nothing follows that result.
 
     (define (resolve-callable-arrow (cx Context)
                                     (env Env)
@@ -2294,9 +2229,6 @@
       (match items
         ((Cons (Ident "→" _ _) rest)
          (resolve-callable-result cx env (reverse params) rest loc))
-        ((Cons (Ident "!" _ _) _)
-         (compile-error loc
-                        "a callable signature puts → before its result and ! before its effects"))
         ((Cons param rest)
          (resolve-callable-arrow cx env rest (Cons (resolve-type cx env param) params) loc))
         ((Nil) (compile-error loc "a callable signature needs → followed by one result type"))))
@@ -2309,28 +2241,8 @@
       (→ Type)
       (match items
         ((Cons (Ident "→" _ _) _) (compile-error loc "a callable signature has only one →"))
-        ((Cons (Ident "!" _ _) _)
-         (compile-error loc "a callable signature needs a result before !"))
-        ((Cons result (Nil)) (TFun params (resolve-type cx env result) empty-row))
-        ((Cons result (Cons (Ident "!" _ _) labels))
-         (TFun params (resolve-type cx env result) (resolve-row cx env labels loc)))
-        (_ (compile-error loc
-                          "expected one result type after →, optionally followed by ! effects"))))
-
-    (define (resolve-row (cx Context) (env Env) (items (List Syntax)) (loc Loc))
-      (→ Type)
-      (let loop ((items items) (labels (Nil)))
-        (match items
-          ((Nil) (TRow labels (None)))
-          ((Cons item rest)
-           (match (resolve cx env (expect-ident item "an effect label"))
-             ((Some (EffectName name)) (loop rest (label-union labels (list name))))
-             ((Some (TypeVar type))
-              (if (null? rest)
-                  (TRow labels (Some type))
-                  (compile-error loc "a row variable must come last")))
-             (_ (compile-error (syntax-loc item)
-                               (string-append "not an effect: " (ident-name item)))))))))
+        ((Cons result (Nil)) (TFun params (resolve-type cx env result)))
+        (_ (compile-error loc "expected one result type after →"))))
 
     ;; ---- Expressions ----
 
@@ -2432,25 +2344,31 @@
                    (first (expr (FieldRead (● path record) (● path label) (None)) loc))
                    (second cx))))
 
-    ;; `(set! (● receiver label ...) value)` writes the field the path
+    ;; `(set! mut (● receiver label ...) value)` writes the field the path
     ;; names, and is located where the place is, as a read of it would be.
-    ;; Only a field is a place: a local or a parameter is not.
+    ;; Only a field is a place: a local or a parameter is not. `mut` is the
+    ;; `Mut` the writer was handed: no write happens without one.
 
     (define (expand-field-write (cx Context) (env Env) (items (List Syntax)) (loc Loc))
       (→ (Pair Expr Context))
       (match items
-        ((Cons place (Cons value (Nil)))
+        ((Cons token (Cons place (Cons value (Nil))))
          (match (head-binding cx env place)
            ((Some (Core "●"))
             (let ((at (syntax-loc place)))
-              (threading cx ((path (expand-field-path env (form-tail place) at))
+              (threading cx ((token (expand-expr env token))
+                             (path (expand-field-path env (form-tail place) at))
                              (value (expand-expr env value)))
                          (new Pair
-                           (first
-                            (expr (FieldWrite (● path record) (● path label) value (None)) at))
+                           (first (expr (FieldWrite token
+                                                    (● path record)
+                                                    (● path label)
+                                                    value
+                                                    (None))
+                                        at))
                            (second cx)))))
            (_ (compile-error (syntax-loc place) "a place must select a field"))))
-        (_ (compile-error loc "expected (set! (● receiver field ...) value)"))))
+        (_ (compile-error loc "expected (set! mut (● receiver field ...) value)"))))
 
     ;; Resolve names once into slots. The checker supplies each initializer's
     ;; field type before lowering this form to ordinary bindings and a call.
@@ -2821,7 +2739,6 @@
 
     (define (derived-instances (cx Context) (form Syntax) (enum? Bool))
       (→ (Pair (List Syntax) Context))
-      (! mut)
       (match (derived-classes form)
         ((Nil) (new Pair (first (Nil)) (second cx)))
         (classes
@@ -2853,7 +2770,7 @@
     ;; every later one. The library notes the declaration at `loc`, so that
     ;; each expansion loads their current declarations.
 
-    (define (deriving-scope (cx Context) (loc Loc)) (→ (Pair I64 Context)) (! mut)
+    (define (deriving-scope (cx Context) (loc Loc)) (→ (Pair I64 Context))
       (match (● cx deriving)
         ((Some scope) (new Pair (first scope) (second cx)))
         ((None)
@@ -3282,6 +3199,9 @@
      (snail stage0 testing))
     (begin
 
+      ;; The tests read and write real files, through the host's own.
+      (define test-fs (→ Fs) (host-fs (unsafe-host)))
+
       ;; The primitive library is read from its file. The sources are
       ;; written into `directory`; `library` holds the standard libraries.
       (define test-expand
@@ -3291,22 +3211,20 @@
                 (test-deriving-runs (string-append directory "/deriving") library)))
 
       (define test-callable-signatures
-        (lambda () (expect (callable-signature "(→ Unit)")
-                           (TFun (Nil) (TCon "Unit" (Nil)) empty-row))
-                (expect (callable-signature "(I64 (Array String) → Bool ! mut)")
+        (lambda () (expect (callable-signature "(→ Unit)") (TFun (Nil) (TCon "Unit" (Nil))))
+                (expect (callable-signature "(I64 (Array String) → Bool)")
                         (TFun (list (TCon "I64" (Nil)) (TCon "Array" (list (TCon "String" (Nil)))))
-                              (TCon "Bool" (Nil)) (TRow (list "mut") (None))))
+                              (TCon "Bool" (Nil))))
                 (for-each (lambda (source)
                             (expect
                              (and (compile-failure (lambda () (callable-signature source))) #t)
                              #t))
-                          (list "(I64 -> Unit)" "()" "(I64 Unit)" "(I64 ! mut → Unit)"
-                                "(I64 →)" "(I64 → ! mut)" "(I64 → → Unit)"
-                                "(I64 → Unit Bool)"))))
+                          (list "(I64 -> Unit)" "()" "(I64 Unit)" "(I64 →)" "(I64 → → Unit)"
+                                "(I64 → Unit Bool)" "(I64 → Unit ! mut)"))))
 
       (define callable-signature
         (lambda (text)
-          (let* ((cx (new-context (host-fs)
+          (let* ((cx (new-context test-fs
                                   (lambda (loading forms) (panic "unexpected producer"))
                                   (Nil)
                                   (None)
@@ -3325,10 +3243,10 @@
       ;; library and the path.
       (define test-links
         (lambda (root) (create-directory* (string-append root "/sample/data"))
-                (write-file (host-fs) (string-append root "/sample/data/pixel.bin") "pixel")
-                (write-file (host-fs) (string-append root "/notes.txt") "notes")
-                (write-file (host-fs) (string-append root "/copy.txt") "notes")
-                (write-file (host-fs) (string-append root "/sample/linked.sld")
+                (write-file test-fs (string-append root "/sample/data/pixel.bin") "pixel")
+                (write-file test-fs (string-append root "/notes.txt") "notes")
+                (write-file test-fs (string-append root "/copy.txt") "notes")
+                (write-file test-fs (string-append root "/sample/linked.sld")
                             "(define-library (sample linked) (export pixel) (import (snail core forms)) (begin (define (pixel) (→ I32) (link-handle \"data/./x/../pixel.bin\"))))")
                 (let ((expansion (link-expansion root
                                                  "(import (snail core forms) (sample linked)) (define (notes) (→ I32) (link-handle \"notes.txt\")) (define (other) (→ I32) (link-handle \"notes.txt\")) (define (copy) (→ I32) (link-handle \"copy.txt\"))")))
@@ -3349,8 +3267,8 @@
                                        "/absent.bin"))))
 
       (define link-expansion
-        (lambda (root body) (write-file (host-fs) (string-append root "/main.sld") body)
-                (expand-program (host-fs) (list root)
+        (lambda (root body) (write-file test-fs (string-append root "/main.sld") body)
+                (expand-program test-fs (list root)
                                 (lambda (loading forms) (panic "unexpected producer"))
                                 (None)
                                 (Nil)
@@ -3378,9 +3296,9 @@
       ;; module.
       (define test-primitives
         (lambda (root library) (create-directory* root)
-                (write-file (host-fs) (string-append root "/main.sld")
+                (write-file test-fs (string-append root "/main.sld")
                             "(import (snail core forms) (snail core primitive)) (define (main) (→ Unit) (unit))")
-                (let ((program (● (expand-program (host-fs) (list root library)
+                (let ((program (● (expand-program test-fs (list root library)
                                                   (lambda (loading forms)
                                                     (panic "unexpected producer"))
                                                   (None)
@@ -3389,8 +3307,7 @@
                   (expect (primitive-scheme program "array-ref")
                           (list (list "A") "(Fn (Array A) I64 → A)"))
                   (expect (primitive-scheme program "array-generate")
-                          (list (list "A" "e")
-                                "(Fn I64 (Fn I64 → A ! e) → (Array A) ! e)"))
+                          (list (list "A") "(Fn I64 (Fn I64 → A) → (Array A))"))
                   (expect (primitive-scheme program "array-ref")
                           (list (list "A") "(Fn (Array A) I64 → A)"))
                   (expect (primitive-scheme program "suspend")
@@ -3407,14 +3324,14 @@
       ;; including when nothing else imports the wire.
       (define test-deriving-runs
         (lambda (root library) (create-directory* (string-append root "/sample"))
-                (write-file (host-fs) (string-append root "/sample/shape.sld")
+                (write-file test-fs (string-append root "/sample/shape.sld")
                             (string-append
                              "(define-library (sample shape) (export Shape) (import (snail core base))"
                              " (begin (record Shape ((side I64)) (deriving Serialize Deserialize))))"))
-                (write-file (host-fs) (string-append root "/main.sld")
+                (write-file test-fs (string-append root "/main.sld")
                             "(import (snail core base) (sample shape)) (define (example) (→ Shape) (new Shape (side 2)))")
                 (let* ((expand (lambda ()
-                                 (expand-program (host-fs) (list root library)
+                                 (expand-program test-fs (list root library)
                                                  (lambda (loading forms)
                                                    (panic "unexpected producer"))
                                                  (None)

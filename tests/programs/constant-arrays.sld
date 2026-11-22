@@ -24,7 +24,7 @@
                     (iota (constant-array-length table)))
                " "))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (mut Mut) (out OutputPort)) (→ Unit)
   (write-line out (all (bytes) (lambda (byte) (show (u8->i32 byte)))))
   (write-line out (all (words) show))
   (write-line out (all (longs) show))
@@ -32,7 +32,7 @@
   (write-line out (all (flags) (lambda (flag) (if flag "yes" "no"))))
   (write-line out (all (letters) (lambda (letter) (list->string (list letter)))))
   (let ((copy (constant-array->array (bytes))))
-    (array-set! copy 0 (i32->u8 42))
+    (array-set! mut copy 0 (i32->u8 42))
     (write-line out (string-append (show (u8->i32 (array-ref copy 0)))
                                    " "
                                    (show (u8->i32 (constant-array-ref (bytes) 0)))))))

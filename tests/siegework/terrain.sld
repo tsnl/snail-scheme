@@ -24,7 +24,7 @@
    0
    (● land ground)))
 
-(define (describe (out OutputPort) (seed I64)) (→ Unit) (! mut)
+(define (describe (out OutputPort) (seed I64)) (→ Unit)
   (let ((land (new-land seed)))
     (write-line out (string-append "seed "
                                    (show seed)
@@ -91,7 +91,7 @@
                                                    (biome-name biome)))
                                        lands)))))
 
-(define (show-map (out OutputPort) (land Land)) (→ Unit) (! mut)
+(define (show-map (out OutputPort) (land Land)) (→ Unit)
   (write-line out (string-append (biome-name (● land biome)) ", seed " (show (● land seed)) ":"))
   (for-each (lambda (y) (write-line out (map-row land y))) (iota map-size))
   (write-line out
@@ -103,7 +103,7 @@
         land
         (first-of biome (+ seed 1)))))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
 
   (for-each (lambda (seed) (describe out seed)) (list 1 2 3 4 5 6 7 8))
   (let ((lands (map (lambda (i) (new-land (+ i 1))) (iota 64))))

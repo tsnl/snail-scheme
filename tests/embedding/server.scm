@@ -6,7 +6,7 @@
  (snail shell resource)
  (embedded client))
 
-(define (main (out OutputPort) (resources Resources)) (→ Unit) (! mut)
+(define (main (out OutputPort) (resources Resources)) (→ Unit)
   (for-each (lambda (file)
               (write-line out
                           (string-append (● file first)

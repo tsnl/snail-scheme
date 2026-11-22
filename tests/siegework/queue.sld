@@ -12,7 +12,7 @@
 (define (run (world World) (ticks I64)) (→ World)
   (if (= ticks 0) world (run (advance world) (- ticks 1))))
 
-(define (order (out OutputPort) (world World) (action Action)) (→ World) (! mut)
+(define (order (out OutputPort) (world World) (action Action)) (→ World)
   (match (act world action)
     ((Ok world) world)
     ((Err rejection)
@@ -37,14 +37,14 @@
                    (show (● work duration))
                    (if (● task active) " active" ""))))
 
-(define (report (out OutputPort) (world World)) (→ Unit) (! mut)
+(define (report (out OutputPort) (world World)) (→ Unit)
   (write-line out
               (string-append "tick " (show (● world tick)) ", energy " (show (● world energy))
                              ", slots " (show (● (● world hub) slots)) ": "
                              (string-join (map (lambda (task) (task-text world task)) (tasks world))
                                           "; "))))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
 
   (let ()
     (define world (new-world 3))

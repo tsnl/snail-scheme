@@ -2,7 +2,8 @@
 ;; A capability is a token here: Chez's own files and standard output stand
 ;; behind the one `Fs` and the one output port.
 (library (snail core io)
-  (export host-fs
+  (export unsafe-host
+          host-fs
           standard-output
           read-file
           read-bytes
@@ -24,8 +25,9 @@
     ((kind FileKind)
      (size I64)
      (modified I64)))
-  (define (host-fs) 'host-fs)
-  (define (standard-output) 'standard-output)
+  (define (unsafe-host) 'host)
+  (define (host-fs host) 'host-fs)
+  (define (standard-output host) 'standard-output)
   (define (followed-status fs path)
     (if (chez:file-exists? path)
         (let ([time (file-modification-time path)])

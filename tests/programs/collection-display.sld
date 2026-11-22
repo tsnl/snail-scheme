@@ -14,7 +14,7 @@
   (define (show (items (List String))) (→ String)
     (string-join items ", ")))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (display out (Some "my string input"))
   (newline out)
   (display out (ann (None) (Option String)))

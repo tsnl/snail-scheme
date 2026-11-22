@@ -29,7 +29,6 @@
     ;; The kernel `entry` of `module`, labeled `label`/`entry`.
     (define (compute-kernel (gpu Gpu) (module GpuShaderModule) (label String) (entry String))
       (→ GpuComputePipeline)
-      (! mut)
       (create-compute-pipeline gpu (new ComputePipelineDescriptor
                                      (label (string-append label "/" entry))
                                      (module module)
@@ -41,7 +40,6 @@
                           (label String)
                           (entries (List BindGroupEntry)))
       (→ GpuBindGroup)
-      (! mut)
       (create-bind-group gpu (new BindGroupDescriptor
                                (label label)
                                (pipeline (ComputePipeline kernel))
@@ -51,7 +49,7 @@
     ;; Workgroups of `size` for `count` items, at least one, in rows of
     ;; 65535, the most a dispatch has along an axis. Invocations past the
     ;; count run too, so a kernel returns for an index it has no item for.
-    (define (dispatch-items (gpu Gpu) (pass GpuComputePass) (count I64) (size I64)) (→ Unit) (! mut)
+    (define (dispatch-items (gpu Gpu) (pass GpuComputePass) (count I64) (size I64)) (→ Unit)
       (let ((groups (max 1 (quotient (+ count (- size 1)) size))))
         (dispatch-workgroups gpu pass
                              (i64->i32 (min groups 65535))
@@ -61,7 +59,6 @@
     ;; Workgroups of 8 by 8 for every texel of a width and a height.
     (define (dispatch-texels (gpu Gpu) (pass GpuComputePass) (width I32) (height I32))
       (→ Unit)
-      (! mut)
       (dispatch-workgroups gpu pass (quotient (+ width 7) 8) (quotient (+ height 7) 8) 1))
 
     ;; A uniform binds at a multiple of 256 bytes.
@@ -79,7 +76,7 @@
     (define (slot-entry (binding I32) (buffer GpuBuffer) (index I64)) (→ BindGroupEntry)
       (BufferEntry binding buffer (i64->i32 (* slot index)) (i64->i32 slot)))
 
-    (define (uniform-buffer (gpu Gpu) (label String) (bytes Bytes)) (→ GpuBuffer) (! mut)
+    (define (uniform-buffer (gpu Gpu) (label String) (bytes Bytes)) (→ GpuBuffer)
       (let ((buffer (create-buffer gpu (new BufferDescriptor
                                          (label label)
                                          (size (i64->i32 (array-length bytes)))
@@ -90,7 +87,6 @@
     ;; At least 16 bytes, since no buffer binds empty.
     (define (storage-buffer (gpu Gpu) (label String) (size I64) (more (List BufferUsage)))
       (→ GpuBuffer)
-      (! mut)
       (create-buffer gpu (new BufferDescriptor
                            (label label)
                            (size (i64->i32 (max 16 size)))

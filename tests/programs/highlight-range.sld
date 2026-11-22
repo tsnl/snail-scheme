@@ -12,7 +12,7 @@
                  (string=? (substring text (● range first) (● range second)) marked))
       (panic (string-append "unexpected display range at " (show point) " in " text)))))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   ;; Whole tokens, including a point inside an astral character or a string.
   (check-range "alpha beta" 2 0 "alpha")
   (check-range "α😀name rest" 1 0 "α😀name")

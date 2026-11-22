@@ -17,14 +17,14 @@
   (string-generate (array-length bytes)
                    (lambda (index) (i32->char (u8->i32 (array-ref bytes index))))))
 
-(define (write-all (tcp Tcp) (connection Connection) (bytes Bytes)) (→ Unit) (! mut)
+(define (write-all (tcp Tcp) (connection Connection) (bytes Bytes)) (→ Unit)
   (let loop ((offset 0))
     (when (< offset (array-length bytes))
       (let ((count (require (write tcp connection (subarray bytes offset (array-length bytes))))))
         (unless (> count 0) (panic "write did not progress"))
         (loop (+ offset (i32->i64 count)))))))
 
-(define (read-all (tcp Tcp) (connection Connection)) (→ Bytes) (! mut)
+(define (read-all (tcp Tcp) (connection Connection)) (→ Bytes)
   (let loop ((chunks (ann (Nil) (List Bytes))))
     (match (require (read tcp connection 65536))
       ((None) (array-concatenate (reverse chunks)))
@@ -37,7 +37,7 @@
         (headers (list (new Header (name "Content-Type") (value "text/plain"))))
         (body (● request body)))))
 
-(define (main (tcp Tcp) (out OutputPort)) (→ Unit) (! mut)
+(define (main (tcp Tcp) (out OutputPort)) (→ Unit)
   ;; A program waits on sockets from a task, which the scheduler runs once
   ;; main returns.
   (dispatch

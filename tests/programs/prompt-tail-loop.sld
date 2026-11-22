@@ -11,7 +11,7 @@
 (define (count-down (n I64) (total I64)) (→ I64)
   (if (= n 0) total (count-down (- n 1) (+ total (suspend ticking n)))))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (display out
            (with-prompt ticking
                         (lambda () (count-down 100000 0))

@@ -15,6 +15,6 @@
                                                  (b:show (b:● pair right))))))
 
 (b:define main
-          (b:lambda ((out OutputPort)) (→ b:Unit) (! b:mut)
+          (b:lambda ((out OutputPort)) (→ b:Unit)
                     (write-line out (b:show (b:new Pair2 (left 3) (right 4))))
                     (b:unit)))

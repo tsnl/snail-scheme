@@ -16,30 +16,30 @@
         2 1 0 7 9 1 5 118 97 108 117 101 0 0 10 6 1 4 0 35 0 11 0 15 4 110 97 109 101 7 8 1 0 5
         118 97 108 117 101))
 
-(define (compiled (wasm Wasm) (bytes Bytes)) (→ Compiled) (! mut)
+(define (compiled (wasm Wasm) (bytes Bytes)) (→ Compiled)
   (match (compile-bytes wasm bytes)
     ((Some module) module)
     ((None) (panic "invalid fixture bytes"))))
 
-(define (provider (wasm Wasm) (compiled Compiled)) (→ Module) (! mut)
+(define (provider (wasm Wasm) (compiled Compiled)) (→ Module)
   (match (link-module wasm "provider" compiled (Nil))
     ((Ok instance) instance)
     ((Err _) (panic "provider did not link"))))
 
-(define (answer (wasm Wasm) (instance Module) (name String)) (→ I64) (! mut)
+(define (answer (wasm Wasm) (instance Module) (name String)) (→ I64)
   (match (run-export wasm instance name 0)
     ((Ok value) value)
     ((Err _) (panic "missing fixture export"))))
 
-(define (expect (out OutputPort) (label String) (condition Bool)) (→ Unit) (! mut)
+(define (expect (out OutputPort) (label String) (condition Bool)) (→ Unit)
   (if condition (write-line out label) (panic label)))
 
-(define (consumer (wasm Wasm) (bytes Compiled) (source Module)) (→ Module) (! mut)
+(define (consumer (wasm Wasm) (bytes Compiled) (source Module)) (→ Module)
   (match (link-module wasm "consumer" bytes (list (ExportOf source "counter")))
     ((Ok instance) instance)
     ((Err error) (panic (load-error-message error)))))
 
-(define (main (wasm Wasm) (out OutputPort)) (→ Unit) (! mut)
+(define (main (wasm Wasm) (out OutputPort)) (→ Unit)
   (let* ((bytes (compiled wasm (provider-bytes)))
          (old (provider wasm bytes)) (updated (provider wasm bytes))
          (reader (compiled wasm (a-bytes)))

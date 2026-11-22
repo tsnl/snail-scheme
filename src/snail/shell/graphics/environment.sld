@@ -174,7 +174,7 @@
 
     ;; The environment of an HDR file, averaged down by a whole factor to
     ;; at most `max-width` across.
-    (define (hdr-environment (gpu Gpu) (hdr Hdr) (max-width I64)) (→ Environment) (! mut)
+    (define (hdr-environment (gpu Gpu) (hdr Hdr) (max-width I64)) (→ Environment)
       (let* ((factor (quotient (+ (● hdr width) (- max-width 1)) max-width))
              (width (quotient (● hdr width) factor))
              (height (quotient (● hdr height) factor))
@@ -217,7 +217,7 @@
     (define (zero) (→ Vec4f) (new Vec4f (x 0.0) (y 0.0) (z 0.0) (w 0.0)))
 
     ;; A sky drawn `width` texels across and half as tall.
-    (define (sky-environment (gpu Gpu) (sky Sky) (width I64)) (→ Environment) (! mut)
+    (define (sky-environment (gpu Gpu) (sky Sky) (width I64)) (→ Environment)
       (let* ((height (quotient width 2))
              (radiance (plane gpu "environment/radiance" width height (Rgba32Float)))
              (uniform (shape-uniform gpu (new EnvironmentShape
@@ -252,7 +252,6 @@
                         (width I64)
                         (height I64))
       (→ Environment)
-      (! mut)
       (let* ((table (plane gpu "environment/table" (+ width 1) (+ height 1) (R32Float)))
              (sums (storage gpu "environment/sums" (* 4 height)))
              (entries (list (TextureEntry 5 (● radiance view))
@@ -269,7 +268,7 @@
         (for-each (lambda (named) (destroy gpu (ComputePipelineObject (● named second)))) kernels)
         (new Environment (radiance radiance) (table table))))
 
-    (define (release-environment (gpu Gpu) (environment Environment)) (→ Unit) (! mut)
+    (define (release-environment (gpu Gpu) (environment Environment)) (→ Unit)
       (for-each (lambda (plane) (release-plane gpu plane))
                 (list (● environment radiance) (● environment table))))
 
@@ -277,7 +276,6 @@
     ;; `environment-light-shader`.
     (define (environment-group (gpu Gpu) (pipeline GpuComputePipeline) (environment Environment))
       (→ GpuBindGroup)
-      (! mut)
       (kernel-group gpu pipeline
                     2
                     "environment"
@@ -286,7 +284,7 @@
 
     ;; ---- Kernels ----
 
-    (define (environment-kernels (gpu Gpu)) (→ (List (Pair String GpuComputePipeline))) (! mut)
+    (define (environment-kernels (gpu Gpu)) (→ (List (Pair String GpuComputePipeline)))
       (let ((module (create-shader-module gpu (new ShaderModuleDescriptor
                                                 (label "environment")
                                                 (code (string-append (declarations shape-shape)
@@ -302,7 +300,6 @@
                    (entry String)
                    (entries (List BindGroupEntry)))
       (→ Unit)
-      (! mut)
       (let* ((kernel (match (assoc-ref kernels entry)
                        ((Some kernel) kernel)
                        ((None) (panic (string-append "environment: no kernel " entry)))))
@@ -313,13 +310,13 @@
 
     (define (buffer (binding I32) (b GpuBuffer)) (→ BindGroupEntry) (BufferEntry binding b 0 0))
 
-    (define (shape-uniform (gpu Gpu) (s EnvironmentShape)) (→ GpuBuffer) (! mut)
+    (define (shape-uniform (gpu Gpu) (s EnvironmentShape)) (→ GpuBuffer)
       (uniform-buffer gpu "environment/shape" (pod-bytes shape-shape s)))
 
-    (define (storage (gpu Gpu) (label String) (size I64)) (→ GpuBuffer) (! mut)
+    (define (storage (gpu Gpu) (label String) (size I64)) (→ GpuBuffer)
       (storage-buffer gpu label size (list (CopyDst))))
 
-    (define (filled (gpu Gpu) (label String) (bytes Bytes)) (→ GpuBuffer) (! mut)
+    (define (filled (gpu Gpu) (label String) (bytes Bytes)) (→ GpuBuffer)
       (let ((b (storage gpu label (array-length bytes))))
         (write-buffer gpu b 0 bytes)
         b))
@@ -330,7 +327,6 @@
 
     (define (plane (gpu Gpu) (label String) (width I64) (height I64) (format TextureFormat))
       (→ Plane)
-      (! mut)
       (make-plane gpu label
                   (i64->i32 width)
                   (i64->i32 height)

@@ -9,7 +9,7 @@
 ;; properties read back, listeners made and dropped, and removing a
 ;; subtree. The trace has a line per operation; the tree prints as HTML.
 
-(define (build (dom Dom)) (→ String) (! mut)
+(define (build (dom Dom)) (→ String)
   (let* ((root (document-root dom))
          (list-node (create-element dom "ul"))
          (first (create-element dom "li"))
@@ -44,19 +44,19 @@
                      "] "
                      (show (● keys id))))))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (mut Mut) (out OutputPort)) (→ Unit)
 
-  (define result (→ (Pair String Document)) (with-memory-dom (Nil) (lambda (dom) (build dom))))
+  (define result (→ (Pair String Document)) (with-memory-dom mut (Nil) (lambda (dom) (build dom))))
   (define removed (→ Document)
-    (● (with-memory-dom (Nil) (lambda (dom)
-                                (let ((outer (create-element dom "div"))
-                                      (inner (create-element dom "p")))
-                                  (insert-node dom (document-root dom) outer (None))
-                                  (insert-node dom outer inner (None))
-                                  (remove-node dom outer)
-                                  (insert-node dom (document-root dom)
-                                               (create-text dom "after")
-                                               (None))))) second))
+    (● (with-memory-dom mut (Nil) (lambda (dom)
+                                    (let ((outer (create-element dom "div"))
+                                          (inner (create-element dom "p")))
+                                      (insert-node dom (document-root dom) outer (None))
+                                      (insert-node dom outer inner (None))
+                                      (remove-node dom outer)
+                                      (insert-node dom (document-root dom)
+                                                   (create-text dom "after")
+                                                   (None))))) second))
   (write-line out (● result first))
   (write-line out (document->html (● result second)))
   (for-each (lambda (text) (write-line out text)) (document-trace (● result second)))

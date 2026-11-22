@@ -3,7 +3,7 @@
 The whole language at a glance, as one program: values, control, data,
 typeclasses, mutation, capabilities, suspension and macros, each in a few
 lines. Read it top to bottom; the chapters on [types](../types.md),
-[capabilities and rows](../effects.md), [suspension](../suspension.md) and
+[capabilities](../capabilities.md), [suspension](../suspension.md) and
 [values](../values.md) say what each form
 means, and the tutorials after this one are small programs that use them.
 

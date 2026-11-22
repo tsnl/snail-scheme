@@ -38,7 +38,7 @@
 ;; A prompt carries whatever its type says: records out, strings back.
 (define naming (→ (Prompt Point String)) (make-prompt))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (write-line out (show (● (answered point) y)))
   (write-line out (show (match (answered shape) ((Dot) 0) ((Box width) width))))
   (write-line out (answered text))

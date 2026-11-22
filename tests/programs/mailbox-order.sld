@@ -10,18 +10,17 @@
 ;; again, still in the order they began to wait.
 (define (receive-one (out OutputPort) (mailbox (Mailbox String)) (name String))
   (→ Unit)
-  (! mut)
   (write-line out (string-append name " received " (mailbox-receive mailbox))))
 
-(define (produce (mailbox (Mailbox String))) (→ Unit) (! mut)
+(define (produce (mailbox (Mailbox String))) (→ Unit)
   (mailbox-post mailbox "one")
   (yield)
   (mailbox-post mailbox "two")
   (yield)
   (mailbox-post mailbox "three"))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
-  (let ((mailbox (make-mailbox)))
+(define (main (mut Mut) (out OutputPort)) (→ Unit)
+  (let ((mailbox (make-mailbox mut)))
     (dispatch (lambda () (receive-one out mailbox "first")))
     (dispatch (lambda () (receive-one out mailbox "second")))
     (dispatch (lambda () (produce mailbox)))

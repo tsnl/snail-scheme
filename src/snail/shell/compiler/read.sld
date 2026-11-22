@@ -253,7 +253,7 @@
 
     ;; A compile as a Result: each entry point's boundary.
 
-    (define (compiling (work (Fn → T ! e))) (→ (Result T Stop)) (! e) (∀ (T e))
+    (define (compiling (work (Fn → T))) (→ (Result T Stop)) (∀ (T))
       (with-prompt stopping (lambda () (Ok (work))) (lambda (reason resume) (Err reason))))
 
     ;; `work`'s value, or what it found wrong, so a pass can check the
@@ -261,7 +261,7 @@
     ;; an input is no failure of the item: the request goes on to the
     ;; compile's boundary, since a handler runs outside its `with-prompt`.
 
-    (define (recovering (work (Fn → T ! e))) (→ (Result T Diagnostics)) (! e) (∀ (T e))
+    (define (recovering (work (Fn → T))) (→ (Result T Diagnostics)) (∀ (T))
       (with-prompt stopping
                    (lambda () (Ok (work)))
                    (lambda (reason resume)
@@ -272,10 +272,9 @@
     ;; What `check` finds wrong in each item, checking every item past one
     ;; that fails, in the items' order.
 
-    (define (failures-of (check (Fn A → Unit ! e)) (items (List A)))
+    (define (failures-of (check (Fn A → Unit)) (items (List A)))
       (→ (List SourceDiagnostic))
-      (! e)
-      (∀ (A e))
+      (∀ (A))
       (concatenate (map (lambda (item)
                           (match (recovering (lambda () (check item)))
                             ((Ok _) (Nil))

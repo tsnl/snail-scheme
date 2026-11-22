@@ -9,7 +9,7 @@
     ((Ok value) value)
     ((Err error) (panic (● error code)))))
 
-(define (receive-four (tcp Tcp) (connection Connection)) (→ Bytes) (! mut)
+(define (receive-four (tcp Tcp) (connection Connection)) (→ Bytes)
   (let loop ((bytes #u8()))
     (if (= (array-length bytes) 4)
         bytes
@@ -17,7 +17,7 @@
           ((Some chunk) (loop (array-append bytes chunk)))
           ((None) (panic "unexpected EOF"))))))
 
-(define (main (tcp Tcp) (out OutputPort)) (→ Unit) (! mut)
+(define (main (tcp Tcp) (out OutputPort)) (→ Unit)
   ;; A program waits on sockets from a task, which the scheduler runs once
   ;; main returns.
   (dispatch

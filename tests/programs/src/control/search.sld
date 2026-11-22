@@ -8,7 +8,7 @@
   (begin
     ;; Signals each negative item, after reporting each item it passes; a
     ;; handler that does not resume stops it at the first.
-    (define (signal-negative (out OutputPort) (items (List I64))) (→ Unit) (! mut)
+    (define (signal-negative (out OutputPort) (items (List I64))) (→ Unit)
       (for-each (lambda (item)
                   (write-line out (string-append "check " (show item)))
                   (when (< item 0) (signal item)))

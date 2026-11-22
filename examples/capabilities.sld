@@ -1,11 +1,10 @@
-;; Capabilities and rows. A function writes only to the port it is given,
-;; so its caller decides where the lines go; and a function that changes
-;; anything outside its own values says `mut`.
+;; Capabilities. A function writes only to the port it is given, so its
+;; caller decides where the lines go.
 (import
  (snail core base)
  (snail core io))
 
-(define (total-cost (log OutputPort) (prices (List I64))) (→ I64) (! mut)
+(define (total-cost (log OutputPort) (prices (List I64))) (→ I64)
   (fold-left (lambda (total price)
                (write-line log (string-append "adding " (show price)))
                (+ total price))
@@ -17,7 +16,7 @@
   (new OutputPort (write-string (lambda (text) (unit)))))
 
 ;; The same function, quiet or verbose, depending only on the port.
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (display out (total-cost (nowhere) (list 3 4 5)))
   (newline out)
   (display out (total-cost out (list 1 2)))

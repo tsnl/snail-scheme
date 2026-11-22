@@ -47,7 +47,7 @@ entry, whose parameters are the capabilities it asks its target for:
 ```scheme
 (import (snail core base) (snail core io) (apps fibonacci))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (write-line out (number->string (fibonacci 30))))
 ```
 
@@ -83,7 +83,7 @@ requires, as a dependency-injection interface. A target is a library,
 function of no parameters that answers it. The build calls each entry with
 what the providers of its parameters' types answer. A parameter of `main`
 whose type the target does not provide is a build error naming it
-([capabilities](effects.md#main-asks-its-target)).
+([capabilities](capabilities.md#main-asks-its-target)).
 
 The host's capabilities answer by calling the host through `extern`
 imports. An extern's type is its library author's claim, trusted as
@@ -115,6 +115,9 @@ library that asks only for these runs anywhere.
 
 | Portable capability | Library | On Node | In a page |
 | --- | --- | --- | --- |
+| `Mut` | `(snail core base)` | to write with | to write with |
+| `Host` | `(snail core io)` | makes any capability below | makes any capability below |
+| `Arguments`, `ProcessEnvironment` | `(snail core io)` | the command line, variables and working directory | none, and no working directory |
 | `OutputPort` | `(snail core io)` | standard output | the console |
 | `Clock` | `(snail core io)` | the monotonic clock | the monotonic clock |
 | `Resources` | `(snail shell resource)` | files beside the module | files fetched beside the module |
@@ -139,10 +142,13 @@ A page adds itself:
 | --- | --- |
 | `Events`, `PageStorage` | `(snail shell page)` |
 | `Gpu` | `(snail shell gpu)` |
+| `Dom` | `(snail shell dom)` |
+| `Fetch` | `(snail shell fetch)` |
+| `FilePicker` | `(snail shell files)` |
 
-A page's interface makes its `Dom` and `Fetch` from these, with `page-dom`
-and `page-fetch` (`(snail shell ui page)`), a scene makes a `Dom` for its
-HUD, and a program on Node that draws makes its `Gpu`, with `host-gpu`.
+A program on Node that draws asks for the `Host` and makes its `Gpu` from
+it, with `host-gpu`, so one that draws nothing links no device
+([`Host`](capabilities.md#host)).
 
 The tables state the rule the build checks, so changing what a host
 provides means changing them and the target together: a program that asks
@@ -232,10 +238,10 @@ That is accepted for now.
 Each step is a pull request that passes every check on its own. The steps
 record how the build got here, in the terms of their time: a script then
 ran its top-level statements, and a target was a library of effect
-handlers. A script's entry is now its `main`, and a target provides
-capabilities as values
+handlers. A script's entry is now its `main`, a target provides
+capabilities as values, and rows are gone
 ([#877](https://github.com/tsnl/snail-scheme/issues/877),
-[capabilities](effects.md#capabilities)).
+[capabilities](capabilities.md#capabilities)).
 
 1. **Drop `watch`.** Done: the development service, `development.sld`,
    `(snail shell project bundle)`, the reload client, relinking and file

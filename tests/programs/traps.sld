@@ -2,7 +2,7 @@
  (snail core base)
  (snail core io))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   ;; Integer arithmetic wraps; division by zero traps.
   (display out (* 4611686018427387904 2))
   (newline out)

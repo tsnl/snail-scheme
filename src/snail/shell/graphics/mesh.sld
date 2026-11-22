@@ -327,7 +327,7 @@
       ((vertices GpuBuffer)
        (indices GpuBuffer)))
 
-    (define (make-geometry (gpu Gpu)) (→ MeshGeometry) (! mut)
+    (define (make-geometry (gpu Gpu)) (→ MeshGeometry)
       (new MeshGeometry
         (vertices (filled gpu "mesh/geometry/vertices"
                           (pack vertex-shape (concatenate (map (lambda (g) (● g vertices)) table)))
@@ -343,7 +343,7 @@
        (draws GpuBuffer)
        (offsets (List I32))))
 
-    (define (upload-batch (gpu Gpu) (label String) (batch Meshes)) (→ MeshBatch) (! mut)
+    (define (upload-batch (gpu Gpu) (label String) (batch Meshes)) (→ MeshBatch)
       (new MeshBatch
         (instances (filled gpu (string-append label "/instances") (● batch instances) (Vertex)))
         (draws (filled gpu (string-append label "/draws")
@@ -355,14 +355,13 @@
                                              (new Pair (first index) (second draw)))
                                            (● batch draws)))))))
 
-    (define (release-batch (gpu Gpu) (batch MeshBatch)) (→ Unit) (! mut)
+    (define (release-batch (gpu Gpu) (batch MeshBatch)) (→ Unit)
       (destroy gpu (BufferObject (● batch instances)))
       (destroy gpu (BufferObject (● batch draws))))
 
     ;; The batch's draws in `pass`, whose pipeline is set.
     (define (draw-meshes (gpu Gpu) (pass GpuRenderPass) (geometry MeshGeometry) (batch MeshBatch))
       (→ Unit)
-      (! mut)
       (unless (null? (● batch offsets))
         (set-vertex-buffer gpu pass 0 (● geometry vertices) 0)
         (set-vertex-buffer gpu pass 1 (● batch instances) 0)
@@ -373,7 +372,6 @@
     ;; A buffer holding `bytes`, at least a word.
     (define (filled (gpu Gpu) (label String) (bytes Bytes) (usage BufferUsage))
       (→ GpuBuffer)
-      (! mut)
       (let ((buffer (create-buffer gpu (new BufferDescriptor
                                          (label label)
                                          (size (i64->i32 (max 4 (array-length bytes))))

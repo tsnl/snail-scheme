@@ -6,7 +6,7 @@
  (snail core base)
  (snail core io))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (for-each (lambda (value) (write-line out (show value)))
             (list 0.0
                   (negate 0.0)

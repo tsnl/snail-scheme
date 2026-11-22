@@ -7,5 +7,5 @@
 
 (define b (→ I64) (+ a 1))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (write-line out (show a)))

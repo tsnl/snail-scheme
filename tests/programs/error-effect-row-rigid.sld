@@ -1,6 +1,0 @@
-(import
- (snail core base)
- (snail core io))
-
-;; An unknown rigid row cannot fit a closed set of permissions.
-(define (escape (action (Fn → A ! e))) (→ A) (! mut) (∀ (A e)) (action))

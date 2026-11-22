@@ -6,7 +6,7 @@
 
 (define png (→ Bytes) (rgba->png 2 1 (list->array (map i32->u8 (list 255 0 0 255 0 255 0 128)))))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (write-line out (string-join (map (lambda (byte) (show (u8->i32 byte))) (array->list png)) " "))
   (write-line out (png-data-url png))
   (unit))

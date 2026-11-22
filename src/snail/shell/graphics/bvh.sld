@@ -81,13 +81,13 @@
     (define build-shape (→ (Shape BvhBuild)) (shape))
 
     ;; Its nodes and uniform; the triangles are their owner's.
-    (define (release-bvh (gpu Gpu) (bvh Bvh)) (→ Unit) (! mut)
+    (define (release-bvh (gpu Gpu) (bvh Bvh)) (→ Unit)
       (destroy gpu (BufferObject (● bvh nodes)))
       (destroy gpu (BufferObject (● bvh layout))))
 
 
 
-    (define (build-bvh (gpu Gpu) (triangles Triangles)) (→ Bvh) (! mut)
+    (define (build-bvh (gpu Gpu) (triangles Triangles)) (→ Bvh)
       (let* ((n (max 1 (● triangles count)))
              (padded (power-of-two-at-least (max 2 n)))
              (steps (sort-steps padded))
@@ -151,7 +151,7 @@
                   (● kernels pipelines))
         (new Bvh (nodes wide) (triangles triangles) (layout (layout-of gpu triangles)))))
 
-    (define (layout-of (gpu Gpu) (triangles Triangles)) (→ GpuBuffer) (! mut)
+    (define (layout-of (gpu Gpu) (triangles Triangles)) (→ GpuBuffer)
       (uniform-buffer gpu "bvh/layout"
                       (pod-bytes layout-shape (new BvhLayout (shape (positions-of triangles))))))
 
@@ -167,7 +167,6 @@
 
     (define (pipelines-of (gpu Gpu) (module GpuShaderModule))
       (→ (List (Pair String GpuComputePipeline)))
-      (! mut)
       (map
        (lambda (entry) (new Pair (first entry) (second (compute-kernel gpu module "bvh" entry))))
        (list "morton" "sort_step" "build_leaves" "build_internal" "refit" "pack")))
@@ -181,7 +180,6 @@
                  (count I64)
                  (entries (List BindGroupEntry)))
       (→ Unit)
-      (! mut)
       (let* ((pipeline (match (assoc-ref (● kernels pipelines) entry)
                          ((Some pipeline) pipeline)
                          ((None) (panic (string-append "bvh: no kernel " entry)))))
@@ -205,7 +203,6 @@
                       (padded I64)
                       (steps (List (Pair I64 I64))))
       (→ GpuBuffer)
-      (! mut)
       (uniform-buffer gpu "bvh/build"
                       (uniform-slots build-shape
                                      (map (lambda (step) (build-of triangles n padded step))
@@ -272,7 +269,7 @@
 
     ;; The queries with `cutout`, WGSL that defines the function and
     ;; declares what it reads in group 1.
-    (define (make-ray-kernels (gpu Gpu) (cutout String)) (→ RayKernels) (! mut)
+    (define (make-ray-kernels (gpu Gpu) (cutout String)) (→ RayKernels)
       (let ((module (create-shader-module gpu (new ShaderModuleDescriptor
                                                 (label "rays")
                                                 (code (string-append (declarations layout-shape)
@@ -290,7 +287,6 @@
                        (counts GpuBuffer)
                        (count-at I32))
       (→ GpuBindGroup)
-      (! mut)
       (kernel-group gpu query
                     0
                     "rays"
@@ -309,7 +305,6 @@
                         (cutout (Option GpuBindGroup))
                         (capacity I64))
       (→ Unit)
-      (! mut)
       (set-compute-pipeline gpu pass query)
       (set-compute-bind-group gpu pass 0 rays)
       (match cutout

@@ -42,7 +42,7 @@
     ((SmallToLarge) "pour small into large")
     ((LargeToSmall) "pour large into small")))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
 
   (match (explore (new Jugs (small 0) (large 0))
                   (lambda (jugs)

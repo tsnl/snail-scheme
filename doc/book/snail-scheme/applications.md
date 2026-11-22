@@ -10,8 +10,8 @@ it.
 ```scheme
 (import (snail core base) (snail shell app) (snail shell wire) (apps siegework game) ...)
 
-(define (main (gpu Gpu) (events Events) (storage PageStorage) (clock Clock)) (→ Unit) (! mut)
-  (run-scene gpu events storage clock
+(define (main (gpu Gpu) (dom Dom) (events Events) (storage PageStorage) (clock Clock)) (→ Unit)
+  (run-scene gpu dom events storage clock
              (new SceneHandler
                (initialize new-game) (update update-game) (view view-game) (hud game-hud)
                (save (lambda (game) (serialize (game-save game))))
@@ -55,9 +55,8 @@ again with each page and each module, as the GPU's objects do.
 Serialization is chosen explicitly by the application; these examples use
 `(snail shell wire)`.
 
-`run-scene` performs `gpu`, `clock`, `events`, `storage` and `tasks`, and
-never
-returns. `next-event` drains the host queue, then waits by ticket when it is
+`run-scene` takes the page's `Gpu`, `Dom`, `Events`, `PageStorage` and
+`Clock`, waits as a task, and never returns. `next-event` drains the host queue, then waits by ticket when it is
 empty. `FrameEvent` carries elapsed milliseconds; `InputEvent` carries an
 `Input`. `Hidden` and `SaveRequested` save without stopping. A shared
 five-second host timer supplies `SaveRequested` to either engine, so saving
@@ -111,10 +110,11 @@ canvas, in the shape Elm gave them:
 | Function | Meaning |
 | --- | --- |
 | `view : Model -> (Html M)` | A tree of elements and texts. An element's attributes, typed properties (`StringProperty`, `NumberProperty`, `FlagProperty`) and listeners (`On`) are plain data; a listener holds a function from what its event carried to a message `M`. |
-| `update : Model M -> (Pair Model (List (Fn → M ! mut)))` | The next model, and the commands the message starts: work run as tasks, each answering a message. |
+| `update : Model M -> (Pair Model (List (Fn → M)))` | The next model, and the commands the message starts: work run as tasks, each answering a message. |
 
-`run-ui dom model start update view window commit checkpoint` shows the view in the
-document's root through `dom`, a `Dom` of `(snail shell dom)`, updates
+`run-ui mut dom model start update view window commit checkpoint` shows the view in the
+document's root through `dom`, a `Dom` of `(snail shell dom)`, makes the
+mailbox its commands answer through with `mut`, updates
 it with each message in `start`, as when it must ask its server before
 anything else happens, then handles one delivery at a time until the
 document closes, and answers the last model. The window is no node of the
@@ -125,8 +125,8 @@ going back online, and they are patched as an element's are.
 hidden, or the document closed. `commit` receives each successfully presented
 model; `checkpoint` persists it on a save request, hiding, and close.
 Only the interface's own task waits on the document,
-so a command posts its answer to the interface's mailbox and performs
-`wake`, and the interface drains the mailbox when it is woken; a command
+so a command posts its answer to the interface's mailbox and wakes the
+document, and the interface drains the mailbox when it is woken; a command
 still running when the document closes never answers. After each update
 the interface changes only what differs from the tree it showed before. An element keeps its node while its tag and key stay the
 same, so the page keeps its focus, selection and scroll; a child with a
@@ -191,7 +191,8 @@ test`.
 from an `InterfaceHandler`:
 
 ```scheme
-(run-interface (new InterfaceHandler
+(run-interface mut dom fetch events storage
+               (new InterfaceHandler
                  (initialize new-notes) (update update) (view view) (window window)
                  (messages (lambda (model) (list (Load))))
                  (save (lambda (model) (serialize (save model))))
@@ -213,8 +214,9 @@ One command waits on a stream at a time, and the update that hears
 an event issues the next wait, so a stream needs no machinery beyond
 one-shot commands.
 The shared page lifecycle restores saved bytes; only a start without a save
-initializes a fresh model. The engine runs `run-ui` over `page-dom` from
-`(snail shell dom page)` and gives commands `page-fetch` from `(snail shell fetch page)`.
+initializes a fresh model. The engine runs `run-ui` over the `Dom` it is
+handed and gives commands the `Fetch`, which a page's `main` asks its
+target for.
 A completed presentation acknowledges startup; the shared saver stores the
 encoded model.
 The page loads `startInterface` from
@@ -248,8 +250,8 @@ and the reply, and an update shows a reply only if it carries the latest
 number. `Cancel` moves the number on, so a reply that arrives after it,
 or after a newer `Load`, is ignored; the request itself runs to its end.
 Its `Save` contains only display data and a click count. Its script calls
-`run-requests`, which runs `run-page` over the `Save` itself, makes the page's
-`Dom` and `Fetch`, and calls `run-ui`. Its commit callback calls `report-ready`;
+`run-requests` with the page's `Dom` and `Fetch`, which runs `run-page` over
+the `Save` itself and calls `run-ui`. Its commit callback calls `report-ready`;
 the checkpoint callback comes from `run-page`.
 
 Only `Save` crosses a reload. A command still running when the page goes

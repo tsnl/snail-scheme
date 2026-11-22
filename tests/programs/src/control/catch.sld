@@ -7,7 +7,7 @@
    (control signal))
   (begin
     ;; The value signalled first, or 0 when the action finishes.
-    (define (first-signal (action (Fn → Unit ! mut))) (→ I64) (! mut)
+    (define (first-signal (action (Fn → Unit))) (→ I64)
       (with-prompt signalling
                    (lambda ()
                      (action)
@@ -16,7 +16,7 @@
 
     ;; Every value signalled, resuming the action after each: the frames
     ;; the action saves belong to other libraries.
-    (define (all-signals (action (Fn → Unit ! mut))) (→ (List I64)) (! mut)
+    (define (all-signals (action (Fn → Unit))) (→ (List I64))
       (with-prompt signalling
                    (lambda ()
                      (action)

@@ -10,6 +10,6 @@
 (define (fine (n I64)) (→ I64)
   (* n 2))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (write-line out (show (fine (also-missing 1))))
   (unit))

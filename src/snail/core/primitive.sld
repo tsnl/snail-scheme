@@ -6,12 +6,12 @@
 ;; (snail core base) does. The library has no module of its own, since
 ;; nothing it declares has a body.
 ;;
-;; A generic type quantifies its variables in the order they first occur,
-;; A for a type and e for the rest of a row. `mut` marks operations on
-;; mutable storage; everything else is total, though some can trap.
+;; A generic type quantifies its variables in the order they first occur.
+;; An operation that writes takes a `Mut` first; no other changes anything,
+;; though some can trap.
 (define-library (snail core primitive)
   (export
-   unit panic unsafe-total unsafe-cast
+   unit panic unsafe-mut unsafe-cast
    cache lru-cache
    make-prompt with-prompt suspend
    i32-add i32-sub i32-mul i32-quotient i32-remainder i32-and i32-or i32-xor
@@ -53,15 +53,19 @@
 
     ;; ---- Control ----
 
-    ;; `unsafe-total` calls a thunk and discards its effects, unchecked: the
-    ;; standard library uses it where the checker cannot confirm that
-    ;; mutation stays in storage the function allocates. `unsafe-cast` makes
+    ;; A `Mut` is what a write is handed: `set!`, `array-set!` and
+    ;; `array-copy!` take one, so a function that was handed none, and
+    ;; nothing that holds one, changes nothing. A program's `main` asks its
+    ;; target for one, and passes it to what should write. `unsafe-mut`
+    ;; makes one from nothing, unchecked: the standard library uses it where
+    ;; a function writes only storage it allocates and nothing else can
+    ;; reach, so that its callers need none. `unsafe-cast` makes
     ;; a function of whatever type is expected from a Funcref, a function
     ;; another module exports (`(snail shell wasm)`), checking only its Wasm
     ;; type. It constructs a closure that calls the exported code.
     (primitive unit (Fn → Unit))
     (primitive panic (∀ (A) (Fn String → A)))
-    (primitive unsafe-total (∀ (A e) (Fn (Fn → A ! e) → A)))
+    (primitive unsafe-mut (Fn → Mut))
     (primitive unsafe-cast (∀ (A) (Fn Funcref → A)))
 
     ;; ---- Memoized functions ----
@@ -69,14 +73,13 @@
     ;; A top-level value is its thunk's result, which its module keeps: the
     ;; expander wraps the initializer of `(define name value)` in this, and
     ;; a read of `name` calls it. No program names it, so it is not
-    ;; exported. The thunk's type has no row, so an initializer may perform
-    ;; nothing.
+    ;; exported. The thunk takes nothing, so an initializer holds no `Mut`
+    ;; and no capability: it only computes.
     (primitive cached-thunk (∀ (A) (Fn (Fn → A) → (Fn → A))))
 
-    ;; F stands for an entire function signature of any arity, effect row
-    ;; included: the wrapper performs what its function does, on a miss.
-    ;; Preparation checks that the keys can be compared and that the
-    ;; callback cannot suspend.
+    ;; F stands for an entire function signature of any arity: the wrapper
+    ;; does what its function does, on a miss. Preparation checks that the
+    ;; keys can be compared.
     (primitive cache (∀ (F) (Fn F → F)))
     (primitive lru-cache (∀ (F) (Fn I64 F → F)))
 
@@ -104,8 +107,8 @@
     ;; every caller's, and one made in a function is its own.
     (primitive make-prompt (∀ (S R) (Fn → (Prompt S R))))
     (primitive with-prompt
-               (∀ (S R A e)
-                  (Fn (Prompt S R) (Fn → A ! e) (Fn S (Fn R → A ! e) → A ! e) → A ! e)))
+               (∀ (S R A)
+                  (Fn (Prompt S R) (Fn → A) (Fn S (Fn R → A) → A) → A)))
     (primitive suspend (∀ (S R) (Fn (Prompt S R) S → R)))
 
     ;; ---- Integers ----
@@ -216,7 +219,7 @@
     (primitive string=? (Fn String String → Bool))
     (primitive string-compare (Fn String String → I32))
     (primitive make-string (Fn I64 Char → String))
-    (primitive string-generate (∀ (e) (Fn I64 (Fn I64 → Char ! e) → String ! e)))
+    (primitive string-generate (Fn I64 (Fn I64 → Char) → String))
     (primitive string->array (Fn String → (Array Char)))
     (primitive array->string (Fn (Array Char) → String))
 
@@ -237,9 +240,9 @@
     (primitive subarray (∀ (A) (Fn (Array A) I64 I64 → (Array A))))
     (primitive make-array (∀ (A) (Fn I64 A → (Array A))))
     (primitive array-set (∀ (A) (Fn (Array A) I64 A → (Array A))))
-    (primitive array-generate (∀ (A e) (Fn I64 (Fn I64 → A ! e) → (Array A) ! e)))
+    (primitive array-generate (∀ (A) (Fn I64 (Fn I64 → A) → (Array A))))
 
-    (primitive array-set! (∀ (A) (Fn (Array A) I64 A → Unit ! mut)))
+    (primitive array-set! (∀ (A) (Fn Mut (Array A) I64 A → Unit)))
     (primitive array-copy (∀ (A) (Fn (Array A) → (Array A))))
-    (primitive array-copy! (∀ (A) (Fn (Array A) I64 (Array A) I64 I64 → Unit ! mut)))))
+    (primitive array-copy! (∀ (A) (Fn Mut (Array A) I64 (Array A) I64 I64 → Unit)))))
 

@@ -29,13 +29,13 @@
    platform-library
    Script
    script-at
+   script-file
    script-name
    build-script
    check-script
    check-library
    workspace-directories
-   producer-tools
-   resolved)
+   producer-tools)
   (import
    (snail shell project web-app)
    (snail core base)
@@ -107,12 +107,17 @@
       ((file String)
        (workspace String)))
 
-    (define (script-at (fs Fs) (path String)) (→ Script) (! mut)
-      (let ((file (resolved path)))
+    ;; The script at `path`, taken from the working directory if relative.
+    (define (script-at (fs Fs) (environment ProcessEnvironment) (path String)) (→ Script)
+      (script-file fs (from-working-directory environment path)))
+
+    ;; The script at an absolute path.
+    (define (script-file (fs Fs) (path String)) (→ Script)
+      (let ((file (normalized path)))
         (unless (file-exists? fs file) (panic (string-append "there is no script at " file)))
         (new Script (file file) (workspace (workspace-of fs file (directory-of file))))))
 
-    (define (workspace-of (fs Fs) (file String) (directory String)) (→ String) (! mut)
+    (define (workspace-of (fs Fs) (file String) (directory String)) (→ String)
       (cond ((file-exists? fs (string-append directory "/src")) directory)
             ((string=? directory "") (panic (string-append "no folder above " file " holds src/")))
             (else (workspace-of fs file (directory-of directory)))))
@@ -142,7 +147,7 @@
     ;; generation. A producer can call this too, with `producer-tools`, to
     ;; embed another build: its generated library links the files.
 
-    (define (build-script (processes Processes)
+    (define (build-script (mut Mut) (processes Processes)
                           (fs Fs)
                           (clock Clock)
                           (tools Tools)
@@ -150,12 +155,11 @@
                           (platform Platform)
                           (mode Mode))
       (→ String)
-      (! mut)
       (match (with-builder processes fs clock (building-script tools script)
                            (● script workspace)
                            mode
                            (lambda (builder)
-                             (build-target processes
+                             (build-target mut processes
                                            fs
                                            clock
                                            builder
@@ -181,7 +185,6 @@
 
     (define (script-target (fs Fs) (tools Tools) (script Script) (platform Platform))
       (→ Target)
-      (! mut)
       (new Target
         (name (script-name script))
         (browser? (match platform ((Browser) #t) (_ #f)))
@@ -192,7 +195,7 @@
                   ((Browser) (script-public fs script))
                   (_ (None))))))
 
-    (define (script-public (fs Fs) (script Script)) (→ (Option String)) (! mut)
+    (define (script-public (fs Fs) (script Script)) (→ (Option String))
       (let* ((directory (directory-of (script-path script)))
              (public (if (string=? directory "") "public" (string-append directory "/public"))))
         (if (file-exists? fs (string-append (● script workspace) "/" public))
@@ -211,30 +214,28 @@
     ;; The script checked for `platform` as a build would, its producers
     ;; run, and nothing written: its program as the checker typed it.
 
-    (define (check-script (processes Processes)
+    (define (check-script (mut Mut) (processes Processes)
                           (fs Fs)
                           (clock Clock)
                           (tools Tools)
                           (script Script)
                           (platform Platform))
       (→ (Result Typed Failure))
-      (! mut)
-      (checking processes fs clock (building-script tools script)
+      (checking mut processes fs clock (building-script tools script)
                 (● script workspace)
                 (lambda (working) (script-target fs tools script platform))))
 
     ;; The library `name` of `workspace`, checked as the program that
     ;; imports it is, under no target.
 
-    (define (check-library (processes Processes)
+    (define (check-library (mut Mut) (processes Processes)
                            (fs Fs)
                            (clock Clock)
                            (tools Tools)
                            (workspace String)
                            (name (List String)))
       (→ (Result Typed Failure))
-      (! mut)
-      (checking processes fs clock tools
+      (checking mut processes fs clock tools
                 workspace
                 (lambda (working)
                   (let ((entry (string-append working "/check.scm")))
@@ -250,14 +251,13 @@
     ;; The program `target` gives, in a working directory of its own,
     ;; checked as a debug build would check it.
 
-    (define (checking (processes Processes)
+    (define (checking (mut Mut) (processes Processes)
                       (fs Fs)
                       (clock Clock)
                       (tools Tools)
                       (workspace String)
-                      (target (Fn String → Target ! mut)))
+                      (target (Fn String → Target)))
       (→ (Result Typed Failure))
-      (! mut)
       (with-builder processes fs clock tools
                     workspace
                     (Debug)
@@ -265,15 +265,20 @@
                       (in-working fs builder
                                   "check"
                                   (lambda (working)
-                                    (● (check-target processes fs builder (target working) working)
+                                    (● (check-target mut
+                                                     processes
+                                                     fs
+                                                     builder
+                                                     (target working)
+                                                     working)
                                        typed))))))
 
     ;; What a producer's build runs, from its command line: a build runs a
     ;; producer with the path its output goes to, then the build's tools,
     ;; the scripts being built last.
 
-    (define (producer-tools) (→ Tools)
-      (match (command-line)
+    (define (producer-tools (arguments Arguments)) (→ Tools)
+      (match (command-line arguments)
         ((Cons _ (Cons _ (Cons root (Cons runtime (Cons toolchain (Cons node building))))))
          (new Tools
            (root root)
@@ -283,25 +288,29 @@
            (building building)))
         (_ (panic "producer-tools: this program is not a producer a build ran"))))
 
-    ;; A path made absolute against the working directory, without empty or
-    ;; "." components, and with each ".." taking the component before it.
+    ;; A path made absolute against the working directory.
 
-    (define (resolved (path String)) (→ String)
-      (let* ((absolute (if (and (> (string-length path) 0) (char=? (string-ref path 0) #\/))
-                           path
-                           (string-append (match (working-directory)
-                                            ((Some directory) directory)
-                                            ((None) (panic "there is no working directory")))
-                                          "/"
-                                          path)))
-             (parts (fold-left (lambda (kept part)
-                                 (cond ((or (string=? part "") (string=? part ".")) kept)
-                                       ((string=? part "..") (match kept
-                                                               ((Cons _ rest) rest)
-                                                               ((Nil) (Nil))))
-                                       (else (Cons part kept))))
-                               (Nil)
-                               (split-path absolute))))
+    (define (from-working-directory (environment ProcessEnvironment) (path String)) (→ String)
+      (if (and (> (string-length path) 0) (char=? (string-ref path 0) #\/))
+          path
+          (string-append (match (working-directory environment)
+                           ((Some directory) directory)
+                           ((None) (panic "there is no working directory")))
+                         "/"
+                         path)))
+
+    ;; An absolute path without empty or "." components, and with each ".."
+    ;; taking the component before it.
+
+    (define (normalized (absolute String)) (→ String)
+      (let ((parts (fold-left (lambda (kept part)
+                                (cond ((or (string=? part "") (string=? part ".")) kept)
+                                      ((string=? part "..") (match kept
+                                                              ((Cons _ rest) rest)
+                                                              ((Nil) (Nil))))
+                                      (else (Cons part kept))))
+                              (Nil)
+                              (split-path absolute))))
         (string-append "/" (string-join (reverse parts) "/"))))
 
     ;; ---- Failures ----
@@ -329,16 +338,15 @@
     (define (fail-build (message String)) (→ A) (∀ (A))
       (stop-build (BuildFailure message)))
 
-    (define (attempt (work (Fn → T ! e))) (→ (Result T Failure)) (! e) (∀ (T e))
+    (define (attempt (work (Fn → T))) (→ (Result T Failure)) (∀ (T))
       (with-prompt failing (lambda () (Ok (work))) (lambda (failure resume) (Err failure))))
 
     ;; A compile that fails stops the build with its diagnostic. One that
     ;; needs no producer asks for nothing.
 
-    (define (compiled (work (Fn → T ! e)))
+    (define (compiled (work (Fn → T)))
       (→ T)
-      (! e)
-      (∀ (T e))
+      (∀ (T))
       (match (compiling work)
         ((Ok value) value)
         ((Err (Failed diagnostics)) (stop-build (CompileFailure diagnostics)))
@@ -363,9 +371,8 @@
     (define (with-builder (processes Processes) (fs Fs) (clock Clock) (tools Tools)
                           (workspace String)
                           (mode Mode)
-                          (work (Fn Builder → T ! mut)))
+                          (work (Fn Builder → T)))
       (→ (Result T Failure))
-      (! mut)
       (∀ (T))
       (match (attempt (lambda ()
                         (fresh-scratch fs clock (string-append (● tools root) "/build/snail-run"))))
@@ -380,7 +387,7 @@
            (remove-tree fs scratch)
            result))))
 
-    (define (fresh-scratch (fs Fs) (clock Clock) (scratch String)) (→ String) (! mut)
+    (define (fresh-scratch (fs Fs) (clock Clock) (scratch String)) (→ String)
       (expect-done (make-directories fs scratch) (string-append "cannot make " scratch))
       (fresh-directory fs (string-append scratch "/build-") "" (monotonic-nanoseconds clock)))
 
@@ -409,18 +416,17 @@
     ;; Builds a target into a new generation, which goes if the build of it
     ;; fails.
 
-    (define (build-target (processes Processes)
+    (define (build-target (mut Mut) (processes Processes)
                           (fs Fs)
                           (clock Clock)
                           (builder Builder)
                           (target Target))
       (→ Output)
-      (! mut)
       (let* ((name (● target name))
              (directory (prepare-generation fs clock builder name)))
         (removing fs directory
                   (lambda ()
-                    (let ((libraries (build-program processes fs builder target directory)))
+                    (let ((libraries (build-program mut processes fs builder target directory)))
                       (if (● target browser?)
                           (package-browser fs builder target directory)
                           (package-node fs builder name directory libraries)))
@@ -429,10 +435,9 @@
     ;; `work`'s value; when it fails, `directory` goes before the failure
     ;; does.
 
-    (define (removing (fs Fs) (directory String) (work (Fn → T ! e)))
+    (define (removing (fs Fs) (directory String) (work (Fn → T)))
       (→ T)
-      (! mut e)
-      (∀ (T e))
+      (∀ (T))
       (match (attempt work)
         ((Ok value) value)
         ((Err failure)
@@ -442,27 +447,25 @@
     ;; The target's program in its generation, compiled anew, with the
     ;; files it links; answers the libraries the program holds.
 
-    (define (build-program (processes Processes)
+    (define (build-program (mut Mut) (processes Processes)
                            (fs Fs)
                            (builder Builder)
                            (target Target)
                            (directory String))
       (→ (List String))
-      (! mut)
       (in-working fs builder (● target name)
                   (lambda (working)
-                    (let ((checked (check-target processes fs builder target working)))
-                      (write-program processes fs builder target directory working checked)))))
+                    (let ((checked (check-target mut processes fs builder target working)))
+                      (write-program mut processes fs builder target directory working checked)))))
 
-    (define (check-target (processes Processes)
+    (define (check-target (mut Mut) (processes Processes)
                           (fs Fs)
                           (builder Builder)
                           (target Target)
                           (working String))
       (→ Checked)
-      (! mut)
       (let ((directories (● target directories)))
-        (producing processes fs builder working directories
+        (producing mut processes fs builder working directories
                    (lambda ()
                      (source->checked fs directories
                                       (● target entry)
@@ -475,14 +478,13 @@
     ;; in its store/; answers the libraries it holds. A release build's is
     ;; linked in `working` and optimized from there.
 
-    (define (write-program (processes Processes) (fs Fs) (builder Builder)
+    (define (write-program (mut Mut) (processes Processes) (fs Fs) (builder Builder)
                            (target Target)
                            (directory String)
                            (working String)
                            (checked Checked))
       (→ (List String))
-      (! mut)
-      (let* ((program (compiled (lambda () (checked->wat checked))))
+      (let* ((program (compiled (lambda () (checked->wat mut checked))))
              (output (string-append directory "/" (program-name (● target name)))))
         (match (● builder mode)
           ((Debug) (write-bytes fs output (linked-program fs builder program)))
@@ -495,10 +497,9 @@
 
     ;; `work` in a directory of its own in the build's scratch, removed after.
 
-    (define (in-working (fs Fs) (builder Builder) (name String) (work (Fn String → T ! mut e)))
+    (define (in-working (fs Fs) (builder Builder) (name String) (work (Fn String → T)))
       (→ T)
-      (! mut e)
-      (∀ (T e))
+      (∀ (T))
       (let ((working (in-scratch builder (string-append "target-" (base-name name)))))
         (make-directories fs working)
         (let ((result (work working)))
@@ -524,16 +525,15 @@
     ;; linked with the runtime into `output`; the files it links ship beside
     ;; it. The compile's own files stay in `working`.
 
-    (define (link-program (processes Processes) (fs Fs) (builder Builder)
+    (define (link-program (mut Mut) (processes Processes) (fs Fs) (builder Builder)
                           (entry String)
                           (directories (List String))
                           (working String)
                           (output String))
       (→ (List LinkedFile))
-      (! mut)
-      (let ((program (producing processes fs builder working directories
+      (let ((program (producing mut processes fs builder working directories
                                 (lambda ()
-                                  (source->wat fs directories
+                                  (source->wat mut fs directories
                                                entry
                                                (lambda (loading forms)
                                                  (generated-syntax fs working
@@ -549,7 +549,6 @@
 
     (define (linked-program (fs Fs) (builder Builder) (program WholeProgram))
       (→ Bytes)
-      (! mut)
       (match (link (● program text) (read-bytes fs (program-runtime builder (● program libraries))))
         ((Ok bytes) bytes)
         ((Err message) (fail-build (string-append "cannot link program: " message)))))
@@ -562,7 +561,6 @@
     ;; exact reference types, which Node 26 rejects.
 
     (define (optimize (processes Processes) (linked String) (output String)) (→ Unit)
-      (! mut)
       (run-command processes (new Command (program "wasm-opt")
                                   (arguments (list "--enable-gc"
                                                    "--enable-reference-types"
@@ -608,7 +606,6 @@
 
     (define (place-links (fs Fs) (builder Builder) (directory String) (links (List LinkedFile)))
       (→ Unit)
-      (! mut)
       (for-each (lambda (link)
                   (let ((object (object-path (workspace-store builder) (● link digest)))
                         (to (object-path (string-append directory "/store") (● link digest))))
@@ -634,7 +631,7 @@
     (define (digests-path (builder Builder)) (→ String)
       (string-append (workspace-store builder) "/digests"))
 
-    (define (known-digests (fs Fs) (builder Builder)) (→ (List LinkedFile)) (! mut)
+    (define (known-digests (fs Fs) (builder Builder)) (→ (List LinkedFile))
       (match (read-text-file fs (digests-path builder) 1073741824)
         ((Ok text)
          (fold-left (lambda (files line)
@@ -683,7 +680,6 @@
 
     (define (remember-digests (fs Fs) (builder Builder) (links (List LinkedFile)) (token String))
       (→ Unit)
-      (! mut)
       (let* ((table (by-path (empty-table) (known-digests fs builder)))
              (fresh (filter (lambda (link) (new-digest? table link)) links)))
         (unless (null? fresh)
@@ -724,7 +720,6 @@
 
     (define (place-object (fs Fs) (link LinkedFile) (object String) (token String))
       (→ Unit)
-      (! mut)
       (let ((from (● link path)) (writing (string-append object ".writing." token)))
         (unless (match (followed-status fs from)
                   ((Ok status) (match (● status kind) ((RegularFile) #t) (_ #f)))
@@ -742,7 +737,7 @@
     ;; Another name for the store's object, or a copy of it where the two
     ;; lie on different file systems.
 
-    (define (name-object (fs Fs) (object String) (to String)) (→ Unit) (! mut)
+    (define (name-object (fs Fs) (object String) (to String)) (→ Unit)
       (match (make-hard-link fs object to)
         ((Ok _) (unit))
         ((Err _) (copy-into fs object to (string-append "cannot copy " object)))))
@@ -752,7 +747,6 @@
 
     (define (run-command (processes Processes) (command Command) (name String))
       (→ Unit)
-      (! mut)
       (match (run processes command #u8())
         ((Err error) (fail-build (string-append "cannot run " name ": " (● error code))))
         ((Ok captured)
@@ -783,32 +777,30 @@
     ;; when it was reached begin its source, so one that needs its own
     ;; library is an import cycle.
 
-    (define (producing (processes Processes) (fs Fs) (builder Builder)
+    (define (producing (mut Mut) (processes Processes) (fs Fs) (builder Builder)
                        (working String)
                        (directories (List String))
-                       (work (Fn → T ! e)))
+                       (work (Fn → T)))
       (→ T)
-      (! mut e)
-      (∀ (T e))
+      (∀ (T))
       (match (compiling work)
         ((Ok value) value)
         ((Err (Failed diagnostics)) (stop-build (CompileFailure diagnostics)))
         ((Err (Requested (GenerateInput key)))
-         (produce processes fs builder working directories key)
-         (producing processes fs builder working directories work))))
+         (produce mut processes fs builder working directories key)
+         (producing mut processes fs builder working directories work))))
 
-    (define (produce (processes Processes)
+    (define (produce (mut Mut) (processes Processes)
                      (fs Fs)
                      (builder Builder)
                      (working String)
                      (directories (List String))
                      (key String))
       (→ Unit)
-      (! mut)
       (let ((program (string-append working "/" key ".wasm")))
         (place-links fs builder
                      working
-                     (link-program processes fs builder
+                     (link-program mut processes fs builder
                                    (string-append working "/" key ".sld")
                                    directories
                                    working
@@ -824,7 +816,6 @@
                           (program String)
                           (output String))
       (→ Unit)
-      (! mut)
       (let ((tools (● builder tools)))
         (run-command processes (new Command (program (● tools node))
                                     (arguments (append (list "--no-warnings"
@@ -876,7 +867,6 @@
                           (directory String)
                           (libraries (List String)))
       (→ Unit)
-      (! mut)
       (let ((root (● (● builder tools) root)))
         (for-each (lambda (file)
                     (copy-into fs (string-append root "/host/" file)
@@ -911,7 +901,6 @@
     ;; their own. `npm start` and its one command, NAME, run main.mjs.
 
     (define (node-manifest (fs Fs) (root String) (name String) (libraries (List String))) (→ Json)
-      (! mut)
       (let ((command (base-name name)))
         (JsonObject
          (append (list (new Pair (first "name") (second (JsonString command)))
@@ -940,7 +929,7 @@
     ;; The version of `package` the repository's package.json pins, which
     ;; its own runs use too.
 
-    (define (pinned-version (fs Fs) (root String) (package String)) (→ Json) (! mut)
+    (define (pinned-version (fs Fs) (root String) (package String)) (→ Json)
       (let* ((path (string-append root "/package.json"))
              (manifest (match (read-text-file fs path 1048576)
                          ((Ok text) (string->json text))
@@ -988,7 +977,6 @@
 
     (define (package-browser (fs Fs) (builder Builder) (target Target) (directory String))
       (→ Unit)
-      (! mut)
       (let ((name (● target name)))
         (copy-browser-assets fs builder target directory)
         (ensure-web-manifest fs (string-append (base-name (● builder workspace)) " / " name)
@@ -998,12 +986,12 @@
     ;; Public assets were copied first. A supplied manifest is a complete
     ;; replacement; the default is a regular file in the same output tree.
 
-    (define (ensure-web-manifest (fs Fs) (name String) (directory String)) (→ Unit) (! mut)
+    (define (ensure-web-manifest (fs Fs) (name String) (directory String)) (→ Unit)
       (let ((path (string-append directory "/manifest.webmanifest")))
         (unless (file-exists? fs path)
           (write-file fs path (json->string (web-app-manifest name))))))
 
-    (define (prepare-browser-page (fs Fs) (directory String) (program String)) (→ Unit) (! mut)
+    (define (prepare-browser-page (fs Fs) (directory String) (program String)) (→ Unit)
       (let ((path (string-append directory "/index.html")))
         (when (kind-is? fs path (RegularFile))
           (match (utf8->string (read-bytes fs path))
@@ -1012,7 +1000,6 @@
 
     (define (copy-browser-assets (fs Fs) (builder Builder) (target Target) (directory String))
       (→ Unit)
-      (! mut)
       (for-each (lambda (file)
                   (copy-into fs
                              (string-append (● (● builder tools) root) "/host/browser/" file)
@@ -1031,7 +1018,7 @@
     ;; its build output, and whose every component is a directory, not a
     ;; link.
 
-    (define (public-directory (fs Fs) (builder Builder) (text String)) (→ String) (! mut)
+    (define (public-directory (fs Fs) (builder Builder) (text String)) (→ String)
       (begin
         (when (or (string=? text ".") (string=? (first-component text) "build"))
           (fail-build (string-append "public directory overlaps the build output: " text)))
@@ -1052,7 +1039,6 @@
 
     (define (copy-public (fs Fs) (source String) (output String) (reserved (List String)))
       (→ Unit)
-      (! mut)
       (for-each (lambda (name)
                   (let ((from (string-append source "/" name)) (to (string-append output "/" name)))
                     (when (or (member? name reserved)
@@ -1082,7 +1068,6 @@
 
     (define (prepare-generation (fs Fs) (clock Clock) (builder Builder) (name String))
       (→ String)
-      (! mut)
       (let* ((build (string-append (● builder workspace) "/build"))
              (output (string-append build "/" name))
              (beside (directory-part output)))
@@ -1101,7 +1086,6 @@
 
     (define (fresh-directory (fs Fs) (stem String) (suffix String) (token I64))
       (→ String)
-      (! mut)
       (let ((directory (string-append stem (show token) suffix)))
         (match (make-directory fs directory)
           ((Ok _) directory)
@@ -1111,7 +1095,7 @@
     ;; An output is replaced only when it is a link to a generation beside
     ;; it whose marker names the target.
 
-    (define (check-output (fs Fs) (output String) (name String)) (→ Unit) (! mut)
+    (define (check-output (fs Fs) (output String) (name String)) (→ Unit)
       (match (status-kind fs output)
         ((None) (unit))
         ((Some (SymbolicLink))
@@ -1137,7 +1121,7 @@
     ;; generation, then renamed into place, which is atomic. A failure
     ;; removes the generation and leaves the link as it was.
 
-    (define (publish (fs Fs) (workspace String) (output Output)) (→ (Result Unit String)) (! mut)
+    (define (publish (fs Fs) (workspace String) (output Output)) (→ (Result Unit String))
       (let ((directory (● output directory))
             (link (string-append workspace "/build/" (● output name))))
         (match (attempt (lambda ()
@@ -1159,31 +1143,31 @@
     ;; The kind of what is at `path`, not following a link, or None when
     ;; nothing is.
 
-    (define (status-kind (fs Fs) (path String)) (→ (Option FileKind)) (! mut)
+    (define (status-kind (fs Fs) (path String)) (→ (Option FileKind))
       (match (file-status fs path)
         ((Ok status) (Some (● status kind)))
         ((Err _) (None))))
 
-    (define (kind-is? (fs Fs) (path String) (kind FileKind)) (→ Bool) (! mut)
+    (define (kind-is? (fs Fs) (path String) (kind FileKind)) (→ Bool)
       (match (new Pair (first (status-kind fs path)) (second kind))
         ((Pair (Some (RegularFile)) (RegularFile)) #t)
         ((Pair (Some (Directory)) (Directory)) #t)
         ((Pair (Some (SymbolicLink)) (SymbolicLink)) #t)
         (_ #f)))
 
-    (define (exists? (fs Fs) (path String)) (→ Bool) (! mut)
+    (define (exists? (fs Fs) (path String)) (→ Bool)
       (match (status-kind fs path)
         ((Some _) #t)
         ((None) #f)))
 
-    (define (directory-names (fs Fs) (path String)) (→ (List String)) (! mut)
+    (define (directory-names (fs Fs) (path String)) (→ (List String))
       (match (list-directory fs path)
         ((Ok names) names)
         ((Err error) (fail-build (string-append "cannot read directory " path ": " (show error))))))
 
     ;; Copies a file's bytes to `to`, making its directory first.
 
-    (define (copy-into (fs Fs) (from String) (to String) (failure String)) (→ Unit) (! mut)
+    (define (copy-into (fs Fs) (from String) (to String) (failure String)) (→ Unit)
       (unless (kind-is? fs from (RegularFile))
         (fail-build (string-append failure ": there is no file at " from)))
       (expect-done (make-directories fs (directory-part to)) failure)

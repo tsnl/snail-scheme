@@ -14,7 +14,7 @@
     ((Some value) (show value))
     ((None) "none")))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (write-line out (list->string (map char-upcase (string->list "λßᾳa"))))
   (write-line out (list->string (map char-downcase (string->list "İΛA"))))
   ;; U+017F, the long s, is written by number: the editors' grammar does not

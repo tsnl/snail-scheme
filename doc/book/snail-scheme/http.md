@@ -129,10 +129,10 @@ Import `(snail shell http exchange)` and call `serve-one` with an exclusively us
 
 ```scheme
 ;; serve-one contract (summary notation):
-;; (∀ (E e)
-;;   (Fn Connection I32
-;;       (Fn Request → (Result Response E) ! e)
-;;       → (Result Unit (ExchangeError E)) ! tcp e))
+;; (∀ (E)
+;;   (Fn Tcp Connection I32
+;;       (Fn Request → (Result Response E))
+;;       → (Result Unit (ExchangeError E))))
 ```
 
 `Request` contains `head : RequestHead` and `body : Bytes`. The callback returns

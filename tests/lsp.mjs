@@ -41,7 +41,7 @@ const program = `(import
  (snail core io)
  (demo twice))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (let ((n (twice (lambda (x) (+ x 1)) 40)))
     (write-line out "🐌") (write-line out (show n))))
 `;

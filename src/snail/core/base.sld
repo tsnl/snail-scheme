@@ -1,5 +1,6 @@
 ;; The standard prelude: core forms, derived syntax, numeric classes, text,
-;; collections and mutable heap objects. Writes perform `mut`; reads are pure.
+;; collections and mutable heap objects. A write takes a `Mut`; a read takes
+;; nothing.
 (define-library (snail core base)
   (export
    ●
@@ -12,11 +13,11 @@
    constant-array
    extern
    expose
-   Any U8 I32 I64 F32 F64 Bool Char Unit String Array ConstantArray Bytes Fn mut
+   Any U8 I32 I64 F32 F64 Bool Char Unit Mut String Array ConstantArray Bytes Fn
    Prompt make-prompt with-prompt suspend
    u8->i32 i32->u8
    let* letrec cond case when unless and or do
-   not unit panic unsafe-total
+   not unit panic unsafe-mut
    cache lru-cache
    Num + - * negate abs
    Ord = < <= > >= min max
@@ -450,48 +451,42 @@
     (define (concatenate (lists (List (List T)))) (→ (List T)) (∀ (T))
       (fold-right append (Nil) lists))
 
-    (define (map (f (Fn A → B ! e)) (items (List A)))
+    (define (map (f (Fn A → B)) (items (List A)))
       (→ (List B))
-      (! e)
-      (∀ (A B e))
+      (∀ (A B))
       (reverse (fold-left (lambda (mapped item) (Cons (f item) mapped)) (Nil) items)))
 
-    (define (map-indexed (f (Fn I64 A → B ! e)) (items (List A)))
+    (define (map-indexed (f (Fn I64 A → B)) (items (List A)))
       (→ (List B))
-      (! e)
-      (∀ (A B e))
+      (∀ (A B))
       (let loop ((items items) (index 0) (mapped (Nil)))
         (match items
           ((Nil) (reverse mapped))
           ((Cons item rest) (loop rest (+ index 1) (Cons (f index item) mapped))))))
 
-    (define (for-each (f (Fn A → Unit ! e)) (items (List A)))
+    (define (for-each (f (Fn A → Unit)) (items (List A)))
       (→ Unit)
-      (! e)
-      (∀ (A e))
+      (∀ (A))
       (match items
         ((Nil) (unit))
         ((Cons item rest) (f item) (for-each f rest))))
 
-    (define (filter (keep? (Fn A → Bool ! e)) (items (List A)))
+    (define (filter (keep? (Fn A → Bool)) (items (List A)))
       (→ (List A))
-      (! e)
-      (∀ (A e))
+      (∀ (A))
       (reverse
        (fold-left (lambda (kept item) (if (keep? item) (Cons item kept) kept)) (Nil) items)))
 
-    (define (fold-left (f (Fn B A → B ! e)) (initial B) (items (List A)))
+    (define (fold-left (f (Fn B A → B)) (initial B) (items (List A)))
       (→ B)
-      (! e)
-      (∀ (A B e))
+      (∀ (A B))
       (match items
         ((Nil) initial)
         ((Cons item rest) (fold-left f (f initial item) rest))))
 
-    (define (fold-right (f (Fn A B → B ! e)) (initial B) (items (List A)))
+    (define (fold-right (f (Fn A B → B)) (initial B) (items (List A)))
       (→ B)
-      (! e)
-      (∀ (A B e))
+      (∀ (A B))
       (fold-left (lambda (result item) (f item result)) initial (reverse items)))
 
     (define (list-tail (items (List T)) (index I64))
@@ -510,26 +505,23 @@
         ((Cons item _) item)
         ((Nil) (panic "list-ref: index out of range"))))
 
-    (define (any? (test (Fn A → Bool ! e)) (items (List A)))
+    (define (any? (test (Fn A → Bool)) (items (List A)))
       (→ Bool)
-      (! e)
-      (∀ (A e))
+      (∀ (A))
       (match items
         ((Nil) #f)
         ((Cons item rest) (if (test item) #t (any? test rest)))))
 
-    (define (every? (test (Fn A → Bool ! e)) (items (List A)))
+    (define (every? (test (Fn A → Bool)) (items (List A)))
       (→ Bool)
-      (! e)
-      (∀ (A e))
+      (∀ (A))
       (match items
         ((Nil) #t)
         ((Cons item rest) (if (test item) (every? test rest) #f))))
 
-    (define (find (test (Fn A → Bool ! e)) (items (List A)))
+    (define (find (test (Fn A → Bool)) (items (List A)))
       (→ (Option A))
-      (! e)
-      (∀ (A e))
+      (∀ (A))
       (match items
         ((Nil) (None))
         ((Cons item rest) (if (test item) (Some item) (find test rest)))))
@@ -542,10 +534,9 @@
 
     ;; Keeps the first of each group of equal items.
 
-    (define (delete-duplicates (same? (Fn A A → Bool ! e)) (items (List A)))
+    (define (delete-duplicates (same? (Fn A A → Bool)) (items (List A)))
       (→ (List A))
-      (! e)
-      (∀ (A e))
+      (∀ (A))
       (reverse (fold-left (lambda (kept item)
                             (if (any? (lambda (other) (same? other item)) kept)
                                 kept
@@ -573,10 +564,9 @@
     ;; A stable merge sort: contiguous halves keep their order, and the
     ;; merge takes the left item first when neither precedes the other.
 
-    (define (list-sort (before? (Fn T T → Bool ! e)) (items (List T)))
+    (define (list-sort (before? (Fn T T → Bool)) (items (List T)))
       (→ (List T))
-      (! e)
-      (∀ (T e))
+      (∀ (T))
       (let ((half (quotient (length items) 2)))
         (if (= half 0)
             items
@@ -584,8 +574,8 @@
                           (list-sort before? (take items half))
                           (list-sort before? (list-drop items half))))))
 
-    (define (merge-sorted (before? (Fn T T → Bool ! e)) (left (List T)) (right (List T)))
-      (→ (List T)) (! e) (∀ (T e))
+    (define (merge-sorted (before? (Fn T T → Bool)) (left (List T)) (right (List T)))
+      (→ (List T)) (∀ (T))
       ;; The merge is linear in the list length, but uses constant stack.
       ;; Equal elements come from the left run first, preserving stability.
       (let loop ((left left) (right right) (reversed (Nil)))
@@ -604,10 +594,9 @@
         ((Cons item (Nil)) (Some item))
         ((Cons _ rest) (last rest))))
 
-    (define (list-index (test (Fn A → Bool ! e)) (items (List A)))
+    (define (list-index (test (Fn A → Bool)) (items (List A)))
       (→ (Option I64))
-      (! e)
-      (∀ (A e))
+      (∀ (A))
       (let loop ((items items) (index 0))
         (match items
           ((Nil) (None))
@@ -644,25 +633,22 @@
 
     ;; ---- Arrays ----
 
-    (define (array-map (f (Fn A → B ! e)) (items (Array A)))
+    (define (array-map (f (Fn A → B)) (items (Array A)))
       (→ (Array B))
-      (! e)
-      (∀ (A B e))
+      (∀ (A B))
       (array-generate (array-length items) (lambda (index) (f (array-ref items index)))))
 
-    (define (array-for-each (f (Fn A → Unit ! e)) (items (Array A)))
+    (define (array-for-each (f (Fn A → Unit)) (items (Array A)))
       (→ Unit)
-      (! e)
-      (∀ (A e))
+      (∀ (A))
       (let loop ((index 0))
         (when (< index (array-length items))
           (f (array-ref items index))
           (loop (+ index 1)))))
 
-    (define (array-fold (f (Fn B A → B ! e)) (initial B) (items (Array A)))
+    (define (array-fold (f (Fn B A → B)) (initial B) (items (Array A)))
       (→ B)
-      (! e)
-      (∀ (A B e))
+      (∀ (A B))
       (let loop ((index 0) (result initial))
         (if (< index (array-length items))
             (loop (+ index 1) (f result (array-ref items index)))
@@ -675,25 +661,24 @@
         (if (< index 0) result (loop (- index 1) (Cons (array-ref items index) result)))))
 
     ;; Local cursors give generation a sequential input without exposing
-    ;; mutable storage outside these total conversions.
+    ;; mutable storage outside these conversions, which make the `Mut` they
+    ;; advance their cursor with.
     (record (ListCursor A)
       ((remaining (List A))))
 
     (define (list->array (items (List T)))
       (→ (Array T))
-      (! e)
-      (∀ (T e))
-      (unsafe-total (ann (lambda () (let ((cursor (new ListCursor (remaining items))))
-                                      (array-generate (length items)
-                                                      (lambda (index)
-                                                        (match (● cursor remaining)
-                                                          ((Cons first rest)
-                                                           (set! (● cursor remaining) rest)
-                                                           first)
-                                                          ((Nil)
-                                                           (panic
-                                                            "list->array: too few items")))))))
-                         (Fn → (Array T) ! mut e))))
+      (∀ (T))
+      (let* ((mut (unsafe-mut)) (cursor (new ListCursor (remaining items))))
+        (array-generate (length items)
+                        (lambda (index)
+                          (match (● cursor remaining)
+                            ((Cons first rest)
+                             (set! mut (● cursor remaining) rest)
+                             first)
+                            ((Nil)
+                             (panic
+                              "list->array: too few items")))))))
 
     (record (ArrayCursor A)
       ((arrays (List (Array A)))
@@ -701,30 +686,28 @@
 
     (define (array-concatenate (arrays (List (Array T))))
       (→ (Array T))
-      (! e)
-      (∀ (T e))
-      (unsafe-total (ann (lambda () (let ((cursor (new ArrayCursor (arrays arrays) (offset 0))))
-                                      (array-generate
-                                       (fold-left
-                                        (lambda (total items) (+ total (array-length items)))
-                                        0
-                                        arrays)
-                                       (lambda (index)
-                                         (let next ()
-                                           (match (● cursor arrays)
-                                             ((Cons items rest)
-                                              (let ((offset (● cursor offset)))
-                                                (if (< offset (array-length items))
-                                                    (begin
-                                                      (set! (● cursor offset) (+ offset 1))
-                                                      (array-ref items offset))
-                                                    (begin
-                                                      (set! (● cursor arrays) rest)
-                                                      (set! (● cursor offset) 0)
-                                                      (next)))))
-                                             ((Nil)
-                                              (panic "array-concatenate: too few elements"))))))))
-                         (Fn → (Array T) ! mut e))))
+      (∀ (T))
+      (let* ((mut (unsafe-mut)) (cursor (new ArrayCursor (arrays arrays) (offset 0))))
+        (array-generate
+         (fold-left
+          (lambda (total items) (+ total (array-length items)))
+          0
+          arrays)
+         (lambda (index)
+           (let next ()
+             (match (● cursor arrays)
+               ((Cons items rest)
+                (let ((offset (● cursor offset)))
+                  (if (< offset (array-length items))
+                      (begin
+                        (set! mut (● cursor offset) (+ offset 1))
+                        (array-ref items offset))
+                      (begin
+                        (set! mut (● cursor arrays) rest)
+                        (set! mut (● cursor offset) 0)
+                        (next)))))
+               ((Nil)
+                (panic "array-concatenate: too few elements"))))))))
 
     ;; ---- Characters and text ----
 
@@ -766,21 +749,21 @@
     ;; is local to this call.
 
     (define (string-concatenate (texts (List String))) (→ String)
-      (unsafe-total (lambda () (let ((chars
-                                      (make-array (fold-left (lambda (total text)
-                                                               (+ total (string-length text)))
-                                                             0
-                                                             texts)
-                                                  #\space)))
-                                 (fold-left (lambda (offset text)
-                                              (array-copy! chars
-                                                           offset
-                                                           (string->array text)
-                                                           0
-                                                           (string-length text))
-                                              (+ offset (string-length text)))
-                                            0 texts)
-                                 (array->string chars)))))
+      (let* ((mut (unsafe-mut)) (chars
+                                 (make-array (fold-left (lambda (total text)
+                                                          (+ total (string-length text)))
+                                                        0
+                                                        texts)
+                                             #\space)))
+        (fold-left (lambda (offset text)
+                     (array-copy! mut chars
+                                  offset
+                                  (string->array text)
+                                  0
+                                  (string-length text))
+                     (+ offset (string-length text)))
+                   0 texts)
+        (array->string chars)))
 
     (define (string-join (texts (List String)) (separator String)) (→ String)
       (match texts
