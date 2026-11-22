@@ -28,14 +28,23 @@ nodes.
 | Kind | Computes |
 | --- | --- |
 | `Param`, `Constant`, `Fill` | A buffer the host writes, bytes given at build time, one value everywhere |
-| `Elementwise` | One of 30 operations (`Op`) on broadcast operands |
+| `Map` | A typed expression at each element, over broadcast operands |
 | `Reduce` | A sum, maximum or minimum over axes, which keep size 1 |
 | `Matmul` | `(..., m, k)` by `(..., k, n)` |
-| `Copy`, `Place` | A view made dense; a gradient placed at a view's addresses |
+| `Place` | A gradient placed at a view's addresses |
 | `Gather`, `ScatterAdd` | Rows by `u32` index, and their adjoint |
 | `Concat` | Views joined along an axis; `stack` joins them along a new one |
 | `Sort`, `PrefixSum` | `u32` keys and values sorted stably; an exclusive prefix sum |
 | `CustomKind` | Kernels a library writes in WGSL, with their own adjoint |
+
+A map's body is an `Expr`: `Load k`, argument k's element at the map's
+index; a `Literal`; or `Apply`, one of 30 operations (`Op`) on others. Each
+carries its element type, so a body may convert or reinterpret between
+types. A load never addresses: its argument is a view, and the view's
+accessor says where its elements are. An operation such as `+`, `exp` or
+`where` builds a map of one `Apply` over loads, a `Fill` operand becoming a
+literal, so a map reads only buffers. A copy is a map of one load, and it is
+the one way a view becomes a buffer.
 
 A node is known by its key, a 64-bit hash of its kind, its parameters, its
 ports and its arguments' keys and accessors. The language has no reference
@@ -49,7 +58,9 @@ includes them in its key, so constants can reuse a label across uploads.
 `(grad loss wrt)` walks the nodes the scalar `loss` depends on from last to
 first, as Resin's `grad` does. Each kind answers the gradient of each
 argument given the gradients of its ports, and a custom node answers with
-its own adjoint. A view's gradient reaches its port through the view's
+its own adjoint. A map's gradient goes back through its body from the top,
+whose value is the map's port: each operation hands its operands their
+shares, and each load adds its share to its argument's. A view's gradient reaches its port through the view's
 accessor: it is summed over the axes the view broadcasts, then reshaped
 when the view reads its whole port in order, or placed at the addresses it
 reads otherwise. Sorts, prefix sums, comparisons and bit operations pass no
