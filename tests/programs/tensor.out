@@ -28,6 +28,8 @@ picked dw: agrees
 picked dy: agrees
 stacked dw: agrees
 stacked dx: agrees
+tiled dx: agrees
+filled dw: agrees
 fit dx: 4x3
 gather dx: agrees
 gather dx: -1.0 -0.5 0.0 0.5 2.0 3.0
@@ -41,5 +43,8 @@ reduced: 3 nodes, fused 2, the same values
 across: 3 nodes, fused 2, the same values
 product: 4 nodes, fused 2, the same values
 shared: 4 nodes, fused 2, the same values
+tiled: 7 nodes, fused 2, the same values
+picked: 8 nodes, fused 2, the same values
 kept: 9 nodes, fused 6, the same values
+picked thrice: 7 nodes, fused 7, the same values
 eight params: 15 nodes, fused 10, the same values

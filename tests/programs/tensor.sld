@@ -162,6 +162,8 @@
     (check out "picked dy" picked y inputs)
     (check out "stacked dw" stacked w inputs)
     (check out "stacked dx" stacked x inputs)
+    (check out "tiled dx" (sum-all (square (gram (narrow x 0 0 2)))) x inputs)
+    (check out "filled dw" (sum-all (square (matmul (fill 0.5 (list 4 3) (Float)) w))) w inputs)
     (show-shape out "fit dx" (list-ref (grad fit (list x)) 0))))
 
 (define (rows-gradient (out OutputPort)) (→ Unit)
@@ -213,13 +215,45 @@
     (fused-line out "across" (sum (tensor-exp x) (list 0)) inputs)
     (fused-line out "product" (matmul (tensor-exp x) (transpose (* x x))) inputs)
     (fused-line out "shared" (+ (tensor-exp x) (* (tensor-exp x) (tensor-exp x))) inputs)
-    (fused-line out "kept" (kept-once x) inputs)))
+    (fused-line out "tiled" (gram x) inputs)
+    (fused-line out "picked"
+                (* (narrow (reshape (gram x) (list 2 9)) 1 4 1) (narrow (tensor-exp x) 1 0 1))
+                inputs)
+    (let ((wide (param "wide" (list 2 20) (Float))))
+      (fused-line out "kept"
+                  (kept-once wide)
+                  (inputs-of (list (new Pair (first "wide") (second (ramp 40 0.05 -1.0)))))))
+    (let ((a (param "a" (list 2 3 3) (Float)))
+          (b (param "b" (list 2 3 3) (Float))))
+      (fused-line out "picked thrice"
+                  (picked-thrice a b)
+                  (inputs-of (list (new Pair (first "a") (second (ramp 18 0.1 -0.9)))
+                                   (new Pair (first "b") (second (ramp 18 -0.05 0.4)))))))))
+
+;; Each row's tile of three packed rows, scaled by the row, times its
+;; transpose: a pack, a map and a product of tiles, which fuse into one
+;; kernel, each thread computing its row's 3 x 3 tile.
+(define (gram (x View)) (→ View)
+  (let* ((rows (concat (list (tensor-exp x) (* x x) (+ x (scalar 1.0))) 1))
+         (m (* (reshape rows (list 2 3 3)) (unsqueeze x 1))))
+    (matmul m (transpose m))))
 
 ;; A sum of two reductions that two kernels read is written once: taking
 ;; it into both would keep both reductions' buffers alive until the second.
+;; Their spans of 20 are too long to fold as tiles.
 (define (kept-once (x View)) (→ View)
   (let ((p (+ (sum (* x x) (list 1)) (amax x (list 1)))))
     (+ (tensor-exp p) (sum (* p x) (list 1)))))
+
+;; A product of two params that three kernels each pick one element of is
+;; written once: taking it into each would read both params' tiles in all
+;; three, more than its own kernel reads and writes. A concat along the
+;; first axis keeps the three kernels apart.
+(define (picked-thrice (a View) (b View)) (→ View)
+  (let ((p (reshape (matmul a b) (list 2 9))))
+    (concat
+     (list (tensor-exp (narrow p 1 0 1)) (square (narrow p 1 4 1)) (absolute (narrow p 1 8 1)))
+     0)))
 
 ;; Eight params summed: a kernel binds at most seven buffers besides its
 ;; port, so the sum is two maps.
