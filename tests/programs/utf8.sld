@@ -31,13 +31,14 @@
       " "))
     ((Err error) (string-append "error at " (show (● error offset))))))
 
-(define (main) (→ Unit) (! output-port)
+(define (main (out OutputPort)) (→ Unit) (! mut)
   ;; Each width's first and last scalar, the surrogates around them, the
   ;; byte order mark, and a code beyond U+10FFFF.
   (for-each (lambda (code)
-              (write-line (string-append (hex-digits code 6)
-                                         ": "
-                                         (bytes-text (string->utf8 (string (i32->char code)))))))
+              (write-line out (string-append (hex-digits code 6)
+                                             ": "
+                                             (bytes-text
+                                              (string->utf8 (string (i32->char code)))))))
             (list 0
                   65
                   127
@@ -57,15 +58,17 @@
                   128512
                   1114111
                   1114112))
-  (write-line (string-append "empty: [" (bytes-text (string->utf8 "")) "]"))
-  (write-line (bytes-text (string->utf8 "aλ€😀z")))
+  (write-line out (string-append "empty: [" (bytes-text (string->utf8 "")) "]"))
+  (write-line out (bytes-text (string->utf8 "aλ€😀z")))
   ;; Well-formed sequences, then every kind of ill-formed one: stray
   ;; continuations, leads that begin nothing, overlong forms, surrogates,
   ;; codes beyond U+10FFFF, bad continuations and truncation. An offset
   ;; counts bytes, not scalars.
   (for-each (lambda (bytes)
-              (write-line
-               (string-append (bytes-text bytes) " -> " (decoded-text (utf8->string bytes)))))
+              (write-line out
+                          (string-append (bytes-text bytes)
+                                         " -> "
+                                         (decoded-text (utf8->string bytes)))))
             (list #u8()
                   #u8(0 65 127)
                   #u8(239 187 191 65)
@@ -101,7 +104,7 @@
                              "€ 1 000, "
                              "😀🐌"
                              (string (i32->char 0) (i32->char 1114111)))))
-    (write-line (show (match (utf8->string (string->utf8 text))
-                        ((Ok decoded) (string=? decoded text))
-                        ((Err _) #f)))))
+    (write-line out (show (match (utf8->string (string->utf8 text))
+                            ((Ok decoded) (string=? decoded text))
+                            ((Err _) #f)))))
   (unit))

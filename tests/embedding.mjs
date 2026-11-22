@@ -51,16 +51,17 @@ async function producerCycles() {
   const ran = name => readFile(join(workspace, `${name}.ran`), 'utf8').then(() => true, () => false);
   const recipe = (name, imports, output) => `(generate-library (${name.replace('/', ' ')})
     (import (snail core base) (snail core io) (snail shell syntax) ${imports})
-    (begin (write-file "${join(workspace, `${name.replace('/', '-')}.ran`)}" "ran")
+    (lambda ((fs Fs))
+      (write-file fs "${join(workspace, `${name.replace('/', '-')}.ran`)}" "ran")
       (library-syntax (list "${name.replace('/', '" "')}") (list "value") (list (list "snail" "core" "base") ${output})
         (list (form "define" (list (form "value" (Nil))
               (form "→" (list (SymbolSyntax "String")))
               (StringSyntax "${name}")))))))`;
   try {
-    await write('knot.scm', '(import (snail core base) (sample knot)) (unit)');
+    await write('knot.scm', '(import (snail core base) (sample knot)) (define (main) (→ Unit) (unit))');
     await write('src/sample/knot.sld', recipe('sample/knot', '(sample knot-helper)', ''));
     await write('src/sample/knot-helper.sld', '(define-library (sample knot-helper) (export) (import (sample knot)) (begin))');
-    await write('late.scm', '(import (snail core base) (g one)) (unit)');
+    await write('late.scm', '(import (snail core base) (g one)) (define (main) (→ Unit) (unit))');
     await write('src/g/one.sld', recipe('g/one', '', '(list "g" "two")'));
     await write('src/g/two.sld', recipe('g/two', '(g one)', ''));
     const build = name => snail(workspace, 'build', '--target', 'node', name);

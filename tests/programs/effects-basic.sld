@@ -15,15 +15,15 @@
   (* n n))
 
 ;; Writes to the output-port, and its type says so.
-(define (report (label String) (n I64)) (→ Unit) (! output-port)
-  (write-line (string-append label " " (show n))))
+(define (report (out OutputPort) (label String) (n I64)) (→ Unit) (! mut)
+  (write-line out (string-append label " " (show n))))
 
 ;; ANCHOR_END: rows
 
 ;; ANCHOR: inferred
 ;; No signature: the row, output-port, is inferred from the body.
-(define (report-square (n I64)) (→ Unit) (! output-port)
-  (report "squared" (square n)))
+(define (report-square (out OutputPort) (n I64)) (→ Unit) (! mut)
+  (report out "squared" (square n)))
 
 ;; ANCHOR_END: inferred
 
@@ -44,9 +44,9 @@
     (repeat count (lambda (i) (set! (● total value) (+ (● total value) (square i)))))
     (● total value)))
 
-(define (main) (→ Unit) (! mut output-port)
+(define (main (out OutputPort)) (→ Unit) (! mut)
 
-  (report-square 7)
-  (repeat 3 report-square)
-  (report "sum" (sum-of-squares 3))
+  (report-square out 7)
+  (repeat 3 (lambda (n) (report-square out n)))
+  (report out "sum" (sum-of-squares 3))
   (unit))

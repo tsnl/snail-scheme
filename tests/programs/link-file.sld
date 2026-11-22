@@ -13,16 +13,16 @@
 
 (define (image) (→ Resource) (link-file "data/./pixel.png"))
 
-(define (main) (→ Unit) (! host mut output-port resource tasks)
+(define (main (resources Resources) (out OutputPort)) (→ Unit) (! host mut tasks)
   (dispatch
    (lambda ()
-     (write-line (greeting-text))
-     (let ((bytes (read-resource (image))))
-       (display (array-length bytes))
-       (newline)
-       (display
-        (string-join
-         (map (lambda (index) (show (u8->i32 (array-ref bytes index)))) (iota 8))
-         " "))
-       (newline))))
+     (write-line out (greeting-text resources))
+     (let ((bytes (read-resource resources (image))))
+       (display out (array-length bytes))
+       (newline out)
+       (display out
+                (string-join
+                 (map (lambda (index) (show (u8->i32 (array-ref bytes index)))) (iota 8))
+                 " "))
+       (newline out))))
   (unit))

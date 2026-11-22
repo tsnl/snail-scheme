@@ -13,19 +13,19 @@
   (→ I64)
   (function 7))
 
-(define (main) (→ Unit) (! output-port)
+(define (main (out OutputPort)) (→ Unit) (! mut)
 
-  (write-line (repr (map (lambda (function) (function 5)) (handlers))))
+  (write-line out (repr (map (lambda (function) (function 5)) (handlers))))
   (let ((function (lambda (value) (code value))))
-    (write-line (show (function 5))))
-  (write-line (show (consume (lambda (value) (code value)))))
+    (write-line out (show (function 5))))
+  (write-line out (show (consume (lambda (value) (code value)))))
   ;; Procedures in a list are values like any other.
   (let ((jobs (ann (list (lambda (value) (+ value 2))
                          (lambda (value) (* value 3)))
                    (List (Fn I64 → I64)))))
     (match jobs
       ((Cons first (Cons second (Nil)))
-       (write-line (show (first 10)))
-       (write-line (show (second 10))))
+       (write-line out (show (first 10)))
+       (write-line out (show (second 10))))
       (other (panic "expected two jobs"))))
   (unit))

@@ -12,17 +12,17 @@
 (define (checked (n I64)) (→ I64) (! Fail)
   (if (< n 0) (absurd (fail (string-append "negative: " (show n)))) n))
 
-(define (total (items (List I64))) (→ I64) (! Fail output-port)
+(define (total (out OutputPort) (items (List I64))) (→ I64) (! Fail mut)
   (fold-left (lambda (sum item)
                (let ((value (checked item)))
-                 (write-line (string-append "added " (show value)))
+                 (write-line out (string-append "added " (show value)))
                  (+ sum value)))
              0
              items))
 
-(define (run (items (List I64))) (→ String) (! output-port)
+(define (run (out OutputPort) (items (List I64))) (→ String) (! mut)
   (handle Fail ((fail (lambda (message) (string-append "failed: " message))))
-    (show (total items))))
+    (show (total out items))))
 
 ;; A failure inside a resumed computation: the generator's rest runs from
 ;; its frames after each `emit`, and fails there, past the Emit handler.
@@ -32,22 +32,22 @@
 (define (emit-all (items (List I64))) (→ Unit) (! Emit Fail)
   (for-each (lambda (item) (emit (checked item))) items))
 
-(define (sum-emitted (items (List I64))) (→ I64) (! Fail output-port)
+(define (sum-emitted (out OutputPort) (items (List I64))) (→ I64) (! Fail mut)
   (handle Emit ((emit (lambda (value resume)
-                        (write-line (string-append "emitted " (show value)))
+                        (write-line out (string-append "emitted " (show value)))
                         (+ value (resume (unit))))))
     (emit-all items)
     0))
 
-(define (run-emitted (items (List I64))) (→ String) (! output-port)
+(define (run-emitted (out OutputPort) (items (List I64))) (→ String) (! mut)
   (handle Fail ((fail (lambda (message) (string-append "failed: " message))))
-    (show (sum-emitted items))))
+    (show (sum-emitted out items))))
 
-(define (main) (→ Unit) (! output-port)
+(define (main (out OutputPort)) (→ Unit) (! mut)
   ;; ANCHOR_END: fail
 
-  (write-line (run (list 1 2 3)))
-  (write-line (run (list 1 -2 3)))
-  (write-line (run-emitted (list 4 5 6)))
-  (write-line (run-emitted (list 4 -5 6)))
+  (write-line out (run out (list 1 2 3)))
+  (write-line out (run out (list 1 -2 3)))
+  (write-line out (run-emitted out (list 4 5 6)))
+  (write-line out (run-emitted out (list 4 -5 6)))
   (unit))

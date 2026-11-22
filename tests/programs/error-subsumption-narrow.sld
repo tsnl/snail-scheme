@@ -6,9 +6,9 @@
 (define (run (action (Fn → Unit))) (→ Unit)
   (action))
 
-(define (noisy (action (Fn → Unit ! output-port))) (→ Unit) (! output-port)
+(define (noisy (action (Fn → Unit ! mut))) (→ Unit) (! mut)
   (action)
   (run action))
 
-(define (main) (→ Unit) (! output-port)
-  (noisy (lambda () (write-line "noise"))))
+(define (main (out OutputPort)) (→ Unit) (! mut)
+  (noisy (lambda () (write-line out "noise"))))

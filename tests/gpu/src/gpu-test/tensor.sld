@@ -13,7 +13,7 @@
    (snail core base)
    (snail core table)
    (only (snail shell task) tasks)
-   (only (snail shell gpu) gpu)
+   (only (snail shell gpu) Gpu)
    (only (snail shell math) sin)
    (rename (snail shell tensor)
            (exp tensor-exp)
@@ -82,19 +82,19 @@
 
     ;; Integer sinks agree exactly. Float sinks agree to a part in a thousand.
 
-    (define (tensor-agreement) (→ String) (! gpu tasks)
+    (define (tensor-agreement (gpu Gpu)) (→ String) (! mut tasks)
       (let* ((roots (sinks))
-             (program (compile-program "agreement" roots (Nil)))
+             (program (compile-program gpu "agreement" roots (Nil)))
              (expected (evaluate roots inputs)))
         (for-each (lambda (p)
                     (let ((name (param-label p)))
-                      (write-param program
+                      (write-param gpu program
                                    name
                                    (values->bytes (table-value inputs name) (etype-of p)))))
                   (params))
-        (run-program program)
-        (let ((report (disagreement program roots expected 0)))
-          (release-program program)
+        (run-program gpu program)
+        (let ((report (disagreement gpu program roots expected 0)))
+          (release-program gpu program)
           report)))
 
     (define (param-label (view View)) (→ String)
@@ -112,15 +112,15 @@
         ((Float) (< (abs (- got want)) (* 0.001 (max 1.0 (abs want)))))
         (_ (= got want))))
 
-    (define (disagreement (program Program)
+    (define (disagreement (gpu Gpu) (program Program)
                           (roots (List View))
                           (expected (List (Array F64)))
                           (k I64))
       (→ String)
-      (! gpu tasks)
+      (! mut tasks)
       (match (new Pair (first roots) (second expected))
         ((Pair (Cons root more) (Cons want rest))
-         (let* ((got (bytes->values (read-sink program k) (etype-of root)))
+         (let* ((got (bytes->values (read-sink gpu program k) (etype-of root)))
                 (bad (find (lambda (i)
                              (not
                               (values-agree? (etype-of root) (array-ref got i) (array-ref want i))))
@@ -131,7 +131,7 @@
                              (f64->string (array-ref got i))
                              " not "
                              (f64->string (array-ref want i))))
-             ((None) (disagreement program more rest (+ k 1))))))
+             ((None) (disagreement gpu program more rest (+ k 1))))))
         (_ (string-append (show k) " sinks agree"))))
 
     ;; ---- Parameter updates ----
@@ -142,38 +142,38 @@
                    " "))
 
     ;; A takes B transposed, B takes A, and the sink keeps A before the swap.
-    (define (swapped-params) (→ String) (! gpu tasks)
+    (define (swapped-params (gpu Gpu)) (→ String) (! mut tasks)
       (let* ((a (param "a" (list 2 2) (Signed)))
              (b (param "b" (list 2 2) (Signed)))
-             (program (compile-program "swap" (list a)
+             (program (compile-program gpu "swap" (list a)
                                        (list (new Pair (first a) (second (transpose b)))
                                              (new Pair (first b) (second a))))))
-        (write-param program "a" (values->bytes (list->array (list 1.0 2.0 3.0 4.0)) (Signed)))
-        (write-param program "b" (values->bytes (list->array (list 5.0 6.0 7.0 8.0)) (Signed)))
-        (run-program program)
-        (let ((report (string-join (list (signed-words (read-param program "a"))
-                                         (signed-words (read-param program "b"))
-                                         (signed-words (read-sink program 0)))
+        (write-param gpu program "a" (values->bytes (list->array (list 1.0 2.0 3.0 4.0)) (Signed)))
+        (write-param gpu program "b" (values->bytes (list->array (list 5.0 6.0 7.0 8.0)) (Signed)))
+        (run-program gpu program)
+        (let ((report (string-join (list (signed-words (read-param gpu program "a"))
+                                         (signed-words (read-param gpu program "b"))
+                                         (signed-words (read-sink gpu program 0)))
                                    " / ")))
-          (release-program program)
+          (release-program gpu program)
           report)))
 
     ;; An assignment can be the only reference to the destination.
-    (define (assigned-param) (→ String) (! gpu tasks)
+    (define (assigned-param (gpu Gpu)) (→ String) (! mut tasks)
       (let* ((a (param "a" (Nil) (Signed)))
-             (program (compile-program "assign" (Nil)
+             (program (compile-program gpu "assign" (Nil)
                                        (list
                                         (new Pair (first a) (second (fill 9.0 (Nil) (Signed))))))))
-        (run-program program)
-        (let ((report (signed-words (read-param program "a"))))
-          (release-program program)
+        (run-program gpu program)
+        (let ((report (signed-words (read-param gpu program "a"))))
+          (release-program gpu program)
           report)))
 
     ;; ---- Training ----
 
     ;; y = 2 x0 - 3 x1 + 0.5 x2 + 1 over 256 points, fitted from zeros.
 
-    (define (fitted-line) (→ String) (! gpu tasks)
+    (define (fitted-line (gpu Gpu)) (→ String) (! mut tasks)
       (let* ((x (param "points" (list 256 3) (Float)))
              (y (param "targets" (list 256 1) (Float)))
              (w (param "w" (list 3 1) (Float)))
@@ -190,18 +190,18 @@
                                             (param b)
                                             (grad (list-ref grads 1))
                                             (rate (scalar 0.05))))))
-             (program (compile-program "fit" (list loss) updates))
+             (program (compile-program gpu "fit" (list loss) updates))
              (points (wave (* 256 3) 1.0)))
-        (write-param program "points" (values->bytes points (Float)))
-        (write-param program
+        (write-param gpu program "points" (values->bytes points (Float)))
+        (write-param gpu program
                      "targets"
                      (values->bytes (array-generate 256 (lambda (i) (target points i))) (Float)))
-        (run-program program)
-        (let ((first-loss (array-ref (bytes->values (read-sink program 0) (Float)) 0)))
-          (for-each (lambda (_) (run-program program)) (iota 1000))
-          (let ((last-loss (array-ref (bytes->values (read-sink program 0) (Float)) 0))
-                (b-value (array-ref (bytes->values (read-param program "b") (Float)) 0)))
-            (release-program program)
+        (run-program gpu program)
+        (let ((first-loss (array-ref (bytes->values (read-sink gpu program 0) (Float)) 0)))
+          (for-each (lambda (_) (run-program gpu program)) (iota 1000))
+          (let ((last-loss (array-ref (bytes->values (read-sink gpu program 0) (Float)) 0))
+                (b-value (array-ref (bytes->values (read-param gpu program "b") (Float)) 0)))
+            (release-program gpu program)
             (string-append (if (> first-loss 1.0) "from above 1" "from below 1")
                            (if (< last-loss 0.0001)
                                " to below 1e-4"

@@ -20,18 +20,18 @@
 
 ;; An in-order walk that reports each value it passes, so the output shows
 ;; where the walk stopped.
-(define (walk (wanted (Fn I64 → Bool)) (tree Tree)) (→ Unit) (! Found output-port)
+(define (walk (out OutputPort) (wanted (Fn I64 → Bool)) (tree Tree)) (→ Unit) (! Found mut)
   (match tree
     ((Leaf) (unit))
     ((Node left value right)
-     (walk wanted left)
-     (write-line (string-append "visit " (show value)))
+     (walk out wanted left)
+     (write-line out (string-append "visit " (show value)))
      (when (wanted value) (found value))
-     (walk wanted right))))
+     (walk out wanted right))))
 
-(define (first-where (wanted (Fn I64 → Bool))) (→ I64) (! output-port)
+(define (first-where (out OutputPort) (wanted (Fn I64 → Bool))) (→ I64) (! mut)
   (handle Found ((found (lambda (value resume) value)))
-    (walk wanted (tree))
+    (walk out wanted (tree))
     -1))
 
 ;; Operands that ran before the operation keep their effects; the call
@@ -44,22 +44,25 @@
 
 ;; A procedure held across the operation stays in the frame that held it,
 ;; which nothing resumes, so it never runs.
-(define (guarded (items (List I64))) (→ I64) (! output-port)
+(define (guarded (out OutputPort) (items (List I64))) (→ I64) (! mut)
   (handle Found ((found (lambda (value resume) value)))
-    (let ((cleanup (lambda () (write-line "cleanup ran"))))
+    (let ((cleanup (lambda () (write-line out "cleanup ran"))))
       (for-each (lambda (item) (when (< item 0) (found item))) items)
       (cleanup)
       0)))
 
-(define (main) (→ Unit) (! output-port)
-  (write-line (string-append "first above 6: " (show (first-where (lambda (value) (> value 6))))))
-  (write-line
-   (string-append "first above 20: " (show (first-where (lambda (value) (> value 20))))))
-  (write-line (string-append "sum: "
-                             (show (handle Found ((found
-                                                   (lambda (value resume)
-                                                     (- 0 value))))
-                                     (sum (tree))))))
-  (write-line (string-append "guarded: " (show (guarded (list 1 2 3)))))
-  (write-line (string-append "guarded: " (show (guarded (list 1 -2 3)))))
+(define (main (out OutputPort)) (→ Unit) (! mut)
+  (write-line out
+              (string-append "first above 6: "
+                             (show (first-where out (lambda (value) (> value 6))))))
+  (write-line out
+              (string-append "first above 20: "
+                             (show (first-where out (lambda (value) (> value 20))))))
+  (write-line out (string-append "sum: "
+                                 (show (handle Found ((found
+                                                       (lambda (value resume)
+                                                         (- 0 value))))
+                                         (sum (tree))))))
+  (write-line out (string-append "guarded: " (show (guarded out (list 1 2 3)))))
+  (write-line out (string-append "guarded: " (show (guarded out (list 1 -2 3)))))
   (unit))

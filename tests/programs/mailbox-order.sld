@@ -9,8 +9,10 @@
 ;; both, but `third`, which was ready behind the producer, asks before
 ;; either runs and takes it. The woken receivers find nothing and wait
 ;; again, still in the order they began to wait.
-(define (receive-one (mailbox (Mailbox String)) (name String)) (→ Unit) (! output-port mut tasks)
-  (write-line (string-append name " received " (mailbox-receive mailbox))))
+(define (receive-one (out OutputPort) (mailbox (Mailbox String)) (name String))
+  (→ Unit)
+  (! mut tasks)
+  (write-line out (string-append name " received " (mailbox-receive mailbox))))
 
 (define (produce (mailbox (Mailbox String))) (→ Unit) (! mut tasks)
   (mailbox-post mailbox "one")
@@ -19,10 +21,10 @@
   (yield)
   (mailbox-post mailbox "three"))
 
-(define (main) (→ Unit) (! host mut output-port tasks)
+(define (main (out OutputPort)) (→ Unit) (! host mut tasks)
   (let ((mailbox (make-mailbox)))
-    (dispatch (lambda () (receive-one mailbox "first")))
-    (dispatch (lambda () (receive-one mailbox "second")))
+    (dispatch (lambda () (receive-one out mailbox "first")))
+    (dispatch (lambda () (receive-one out mailbox "second")))
     (dispatch (lambda () (produce mailbox)))
-    (dispatch (lambda () (receive-one mailbox "third"))))
+    (dispatch (lambda () (receive-one out mailbox "third"))))
   (unit))

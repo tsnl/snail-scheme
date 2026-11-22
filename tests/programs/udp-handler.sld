@@ -21,34 +21,34 @@
 (record PendingPacket
   ((packet Datagram)))
 
-(define (main) (→ Unit) (! host mut output-port tasks)
+(define (main (out OutputPort)) (→ Unit) (! host mut tasks)
 
   ;; A program waits on sockets from a task, which the scheduler runs once
   ;; main returns.
   (dispatch
    (lambda ()
-     (handle udp
-         ((bind (lambda (endpoint)
-                  (Ok
-                   (new UdpSocket
-                     (token (Any (new PendingPacket
-                                   (packet (new Datagram (peer endpoint) (bytes #u8()))))))
-                     (port (Endpoint-port endpoint))))))
-          (send (lambda (socket peer bytes)
-                  (sleep 1)
-                  (set! (● (fixture-convert (● socket token) PendingPacket) packet)
-                        (new Datagram (peer peer) (bytes bytes)))
-                  (Ok (i64->i32 (array-length bytes)))))
-          (receive (lambda (socket _)
-                     (Ok (● (fixture-convert (● socket token) PendingPacket) packet))))
-          (close-udp (lambda (_) (Ok (unit)))))
-       (let ((socket (require (bind (require (endpoint "192.0.2.1" 7))))))
+     (let ((udp (new Udp
+                  (bind (lambda (endpoint)
+                          (Ok
+                           (new UdpSocket
+                             (token (Any (new PendingPacket
+                                           (packet (new Datagram (peer endpoint) (bytes #u8()))))))
+                             (port (Endpoint-port endpoint))))))
+                  (send (lambda (socket peer bytes)
+                          (sleep 1)
+                          (set! (● (fixture-convert (● socket token) PendingPacket) packet)
+                                (new Datagram (peer peer) (bytes bytes)))
+                          (Ok (i64->i32 (array-length bytes)))))
+                  (receive (lambda (socket _)
+                             (Ok (● (fixture-convert (● socket token) PendingPacket) packet))))
+                  (close-udp (lambda (_) (Ok (unit)))))))
+       (let ((socket (require (bind udp (require (endpoint "192.0.2.1" 7))))))
          (dispatch
           (lambda ()
-            (require (send socket (require (endpoint "192.0.2.2" 8)) #u8(9 10)))
-            (let ((packet (require (receive socket 2))))
-              (write-line (Endpoint-address (● packet peer)))
-              (write-value (array->list (● packet bytes)))
-              (newline))))))))
-  (write-line "main returns")
+            (require (send udp socket (require (endpoint "192.0.2.2" 8)) #u8(9 10)))
+            (let ((packet (require (receive udp socket 2))))
+              (write-line out (Endpoint-address (● packet peer)))
+              (write-value out (array->list (● packet bytes)))
+              (newline out))))))))
+  (write-line out "main returns")
   (unit))

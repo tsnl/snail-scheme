@@ -23,7 +23,7 @@
    (snail core base)
    (snail core io)
    (only (snail shell task) tasks)
-   (only (snail shell resource) resource))
+   (only (snail shell resource) Resources))
   (begin
 
     ;; ---- Syntax ----
@@ -125,10 +125,10 @@
     ;; ((snail shell project build)'s `build-script`), whose files the
     ;; library it writes can link.
 
-    (define (write-generated-library (library (Fn → Syntax ! fs resource tasks e)))
-      (→ Unit) (! fs resource tasks e) (∀ (e))
+    (define (write-generated-library (fs Fs) (library (Fn → Syntax ! mut tasks e)))
+      (→ Unit) (! mut tasks e) (∀ (e))
       (match (command-line)
-        ((Cons _ (Cons path _)) (write-bytes path (syntax->bytes (library))))
+        ((Cons _ (Cons path _)) (write-bytes fs path (syntax->bytes (library))))
         (_ (panic "a producer writes its library to the path given as its argument"))))
 
     ))

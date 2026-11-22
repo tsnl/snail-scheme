@@ -49,22 +49,22 @@
 (define (item (name String)) (→ (Html Msg))
   (Element "li" (list (Keyed name)) (list (Text name))))
 
-(define (main) (→ Unit) (! host mut output-port tasks)
+(define (main (out OutputPort)) (→ Unit) (! host mut tasks)
   (dispatch
    (lambda ()
      (let ((result (with-memory-dom (list (Fire "next" "click" no-event)
                                           (Fire "next" "click" no-event)
                                           (Fire "next" "click" no-event)
                                           (Fire "next" "click" no-event))
-                                    (lambda ()
-                                      (run-ui 0
+                                    (lambda (dom)
+                                      (run-ui dom 0
                                               (Nil)
                                               (lambda (model message) (update model message))
                                               view
                                               (lambda (step) (Nil))
                                               (lambda (step) (unit))
                                               (lambda (step) (unit)))))))
-       (write-line (string-append "step " (show (● result first))))
-       (write-line (document->html (● result second)))
-       (for-each write-line (document-trace (● result second))))))
+       (write-line out (string-append "step " (show (● result first))))
+       (write-line out (document->html (● result second)))
+       (for-each (lambda (text) (write-line out text)) (document-trace (● result second))))))
   (unit))

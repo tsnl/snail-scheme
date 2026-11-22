@@ -46,7 +46,7 @@
    shift-key
    alt-key
    meta-key
-   dom
+   Dom
    document-root
    create-element
    create-text
@@ -245,32 +245,126 @@
     ;; view does: the interface's window listeners are on it, for what
     ;; reaches the whole page, such as a shortcut or the page going back
     ;; online. It has no attributes or properties.
-    (effect dom
-      ((document-root (Fn → Node))
-       (create-element (Fn String → Node))
-       (create-text (Fn String → Node))
-       (set-attribute (Fn Node String String → Unit))
-       (set-text (Fn Node String → Unit))
-       (set-string-property (Fn Node String String → Unit))
-       (set-number-property (Fn Node String F64 → Unit))
-       (set-flag-property (Fn Node String Bool → Unit))
-       (string-property (Fn Node String → String))
-       (number-property (Fn Node String → F64))
-       (insert-node (Fn Node Node (Option Node) → Unit))
-       (remove-node (Fn Node → Unit))
-       (listen (Fn Node String (List Capture) Prevent → Listener))
-       (unlisten (Fn Listener → Unit))
-       (focus-node (Fn Node → Unit))
-       (window-node (Fn → Node))
-       (confirm (Fn String → Bool))
-       (installation-status (Fn → InstallationStatus))
-       (install-app (Fn → InstallResult ! tasks))
-       (fullscreen? (Fn → Bool))
-       (set-fullscreen (Fn Bool → Bool ! tasks))
-       (element-by-id (Fn String → (Option Node)))
-       (select-range (Fn Node I32 I32 → Unit))
-       (selection-range (Fn Node → (Pair I32 I32)))
-       (insert-text (Fn Node I32 I32 String → Bool))
-       (measure (Fn Node → Measure))
-       (wake (Fn → Unit))
-       (next-event (Fn → Delivery ! tasks))))))
+    (record Dom
+      ((document-root (Fn → Node ! mut))
+       (create-element (Fn String → Node ! mut))
+       (create-text (Fn String → Node ! mut))
+       (set-attribute (Fn Node String String → Unit ! mut))
+       (set-text (Fn Node String → Unit ! mut))
+       (set-string-property (Fn Node String String → Unit ! mut))
+       (set-number-property (Fn Node String F64 → Unit ! mut))
+       (set-flag-property (Fn Node String Bool → Unit ! mut))
+       (string-property (Fn Node String → String ! mut))
+       (number-property (Fn Node String → F64 ! mut))
+       (insert-node (Fn Node Node (Option Node) → Unit ! mut))
+       (remove-node (Fn Node → Unit ! mut))
+       (listen (Fn Node String (List Capture) Prevent → Listener ! mut))
+       (unlisten (Fn Listener → Unit ! mut))
+       (focus-node (Fn Node → Unit ! mut))
+       (window-node (Fn → Node ! mut))
+       (confirm (Fn String → Bool ! mut))
+       (installation-status (Fn → InstallationStatus ! mut))
+       (install-app (Fn → InstallResult ! mut tasks))
+       (fullscreen? (Fn → Bool ! mut))
+       (set-fullscreen (Fn Bool → Bool ! mut tasks))
+       (element-by-id (Fn String → (Option Node) ! mut))
+       (select-range (Fn Node I32 I32 → Unit ! mut))
+       (selection-range (Fn Node → (Pair I32 I32) ! mut))
+       (insert-text (Fn Node I32 I32 String → Bool ! mut))
+       (measure (Fn Node → Measure ! mut))
+       (wake (Fn → Unit ! mut))
+       (next-event (Fn → Delivery ! mut tasks))))
+
+    (define (document-root (dom Dom)) (→ Node) (! mut)
+      ((● dom document-root)))
+
+    (define (create-element (dom Dom) (tag String)) (→ Node) (! mut)
+      ((● dom create-element) tag))
+
+    (define (create-text (dom Dom) (text String)) (→ Node) (! mut)
+      ((● dom create-text) text))
+
+    (define (set-attribute (dom Dom) (node Node) (name String) (value String)) (→ Unit) (! mut)
+      ((● dom set-attribute) node name value))
+
+    (define (set-text (dom Dom) (node Node) (text String)) (→ Unit) (! mut)
+      ((● dom set-text) node text))
+
+    (define (set-string-property (dom Dom) (node Node) (name String) (value String))
+      (→ Unit)
+      (! mut)
+      ((● dom set-string-property) node name value))
+
+    (define (set-number-property (dom Dom) (node Node) (name String) (value F64)) (→ Unit) (! mut)
+      ((● dom set-number-property) node name value))
+
+    (define (set-flag-property (dom Dom) (node Node) (name String) (value Bool)) (→ Unit) (! mut)
+      ((● dom set-flag-property) node name value))
+
+    (define (string-property (dom Dom) (node Node) (name String)) (→ String) (! mut)
+      ((● dom string-property) node name))
+
+    (define (number-property (dom Dom) (node Node) (name String)) (→ F64) (! mut)
+      ((● dom number-property) node name))
+
+    (define (insert-node (dom Dom) (parent Node) (child Node) (before (Option Node)))
+      (→ Unit)
+      (! mut)
+      ((● dom insert-node) parent child before))
+
+    (define (remove-node (dom Dom) (node Node)) (→ Unit) (! mut)
+      ((● dom remove-node) node))
+
+    (define (listen (dom Dom)
+                    (node Node)
+                    (event String)
+                    (captures (List Capture))
+                    (prevent Prevent))
+      (→ Listener)
+      (! mut)
+      ((● dom listen) node event captures prevent))
+
+    (define (unlisten (dom Dom) (listener Listener)) (→ Unit) (! mut)
+      ((● dom unlisten) listener))
+
+    (define (focus-node (dom Dom) (node Node)) (→ Unit) (! mut)
+      ((● dom focus-node) node))
+
+    (define (window-node (dom Dom)) (→ Node) (! mut)
+      ((● dom window-node)))
+
+    (define (confirm (dom Dom) (question String)) (→ Bool) (! mut)
+      ((● dom confirm) question))
+
+    (define (installation-status (dom Dom)) (→ InstallationStatus) (! mut)
+      ((● dom installation-status)))
+
+    (define (install-app (dom Dom)) (→ InstallResult) (! mut tasks)
+      ((● dom install-app)))
+
+    (define (fullscreen? (dom Dom)) (→ Bool) (! mut)
+      ((● dom fullscreen?)))
+
+    (define (set-fullscreen (dom Dom) (enter Bool)) (→ Bool) (! mut tasks)
+      ((● dom set-fullscreen) enter))
+
+    (define (element-by-id (dom Dom) (id String)) (→ (Option Node)) (! mut)
+      ((● dom element-by-id) id))
+
+    (define (select-range (dom Dom) (node Node) (start I32) (end I32)) (→ Unit) (! mut)
+      ((● dom select-range) node start end))
+
+    (define (selection-range (dom Dom) (node Node)) (→ (Pair I32 I32)) (! mut)
+      ((● dom selection-range) node))
+
+    (define (insert-text (dom Dom) (node Node) (start I32) (end I32) (text String)) (→ Bool) (! mut)
+      ((● dom insert-text) node start end text))
+
+    (define (measure (dom Dom) (node Node)) (→ Measure) (! mut)
+      ((● dom measure) node))
+
+    (define (wake (dom Dom)) (→ Unit) (! mut)
+      ((● dom wake)))
+
+    (define (next-event (dom Dom)) (→ Delivery) (! mut tasks)
+      ((● dom next-event)))))

@@ -2,4 +2,5 @@
 (import
  (snail core base))
 
-(unit)
+(define (main) (→ Unit)
+  (unit))

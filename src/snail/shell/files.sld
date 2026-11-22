@@ -14,7 +14,7 @@
    Choice
    SomeFiles
    Folder
-   files
+   FilePicker
    open-picker
    chosen-files)
   (import
@@ -30,8 +30,14 @@
       (SomeFiles)
       (Folder))
 
-    (effect files
-      ((open-picker (Fn Choice → Unit))
-       (chosen-files (Fn → (List Chosen)))))
+    (record FilePicker
+      ((open-picker (Fn Choice → Unit ! mut))
+       (chosen-files (Fn → (List Chosen) ! mut))))
+
+    (define (open-picker (picker FilePicker) (choice Choice)) (→ Unit) (! mut)
+      ((● picker open-picker) choice))
+
+    (define (chosen-files (picker FilePicker)) (→ (List Chosen)) (! mut)
+      ((● picker chosen-files)))
 
     ))

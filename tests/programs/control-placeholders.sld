@@ -24,10 +24,10 @@
 
 (define (adder) (→ (Fn I64 → I64)) (! Abort) (let ((z (abort 5))) (lambda (y) (* y z))))
 
-(define (later)
-  (→ (Fn → Unit ! output-port))
+(define (later (out OutputPort))
+  (→ (Fn → Unit ! mut))
   (! Abort)
-  (let ((value (abort 6))) (lambda () (write-line (show value)))))
+  (let ((value (abort 6))) (lambda () (write-line out (show value)))))
 
 ;; A handler of an ordinary operation inside the handle is left behind with
 ;; the rest of the body; an effect may mix both kinds of operation.
@@ -38,31 +38,31 @@
   ((peek (Fn → I64))
    (ctl bail (Fn I64 → Unit))))
 
-(define (main) (→ Unit) (! output-port)
-  (display (handle Abort ((abort (lambda (value resume) (* value 1000))))
-             (+ (● (point) x) 1)))
-  (newline)
-  (display (handle Abort ((abort (lambda (value resume) value)))
-             (match (shape) ((Dot) 0) ((Box width) width))))
-  (newline)
-  (write-line
-   (handle Abort ((abort (lambda (value resume) (show value))))
-     (string-append (text) "!")))
-  (display
-   ((handle Abort ((abort (lambda (value resume)
-                            (ann (lambda (y) (+ y value)) (Fn I64 → I64))))) (adder))
-    1))
-  (newline)
+(define (main (out OutputPort)) (→ Unit) (! mut)
+  (display out (handle Abort ((abort (lambda (value resume) (* value 1000))))
+                 (+ (● (point) x) 1)))
+  (newline out)
+  (display out (handle Abort ((abort (lambda (value resume) value)))
+                 (match (shape) ((Dot) 0) ((Box width) width))))
+  (newline out)
+  (write-line out
+              (handle Abort ((abort (lambda (value resume) (show value))))
+                (string-append (text) "!")))
+  (display out
+           ((handle Abort ((abort (lambda (value resume)
+                                    (ann (lambda (y) (+ y value)) (Fn I64 → I64))))) (adder))
+            1))
+  (newline out)
   ((handle Abort ((abort (lambda (value resume)
-                           (lambda () (write-line "from the handler")))))
-     (later)))
-  (display (handle Abort ((abort (lambda (value resume) (* value 10))))
-             (handle Log ((log (lambda (message) (write-line message))))
-               (log "before")
-               (+ 1 (abort 4)))))
-  (newline)
-  (display
-   (handle Probe ((peek (lambda () 7)) (bail (lambda (value resume) (+ value 100))))
-     (let ((x (peek))) (if (> x 5) (begin (bail x) 0) x))))
-  (newline)
+                           (lambda () (write-line out "from the handler")))))
+     (later out)))
+  (display out (handle Abort ((abort (lambda (value resume) (* value 10))))
+                 (handle Log ((log (lambda (message) (write-line out message))))
+                   (log "before")
+                   (+ 1 (abort 4)))))
+  (newline out)
+  (display out
+           (handle Probe ((peek (lambda () 7)) (bail (lambda (value resume) (+ value 100))))
+             (let ((x (peek))) (if (> x 5) (begin (bail x) 0) x))))
+  (newline out)
   (unit))

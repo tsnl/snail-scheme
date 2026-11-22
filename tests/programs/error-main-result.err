@@ -1,1 +1,1 @@
-main must be a function taking no arguments and returning Unit
+main must be a function returning Unit

@@ -10,21 +10,21 @@
 ;; "ready": a signal after that is the waiter's to observe. Run without it,
 ;; no task waits, and a signal ends the program as it always has; with
 ;; `busy`, it does so while the task after "ready" computes without end.
-(define (observe) (→ Unit) (! output-port signals tasks)
-  (match (termination)
-    ((Terminate) (write-line "observed Terminate"))
-    ((Interrupt) (write-line "observed Interrupt"))
+(define (observe (signals Signals) (out OutputPort)) (→ Unit) (! mut tasks)
+  (match (termination signals)
+    ((Terminate) (write-line out "observed Terminate"))
+    ((Interrupt) (write-line out "observed Interrupt"))
     ((Kill) (panic "SIGKILL cannot be observed"))))
 
 (define (spin) (→ Unit)
   (spin))
 
-(define (main) (→ Unit) (! host mut output-port signals tasks)
+(define (main (signals Signals) (out OutputPort)) (→ Unit) (! host mut tasks)
 
   (if (member? "wait" (command-line))
-      (dispatch observe)
+      (dispatch (lambda () (observe signals out)))
       (dispatch (lambda () (sleep 30000))))
   (dispatch (lambda ()
-              (write-line "ready")
+              (write-line out "ready")
               (if (member? "busy" (command-line)) (spin) (unit))))
   (unit))

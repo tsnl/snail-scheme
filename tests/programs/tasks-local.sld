@@ -7,13 +7,13 @@
 (record TaskValue
   ((value I64)))
 
-(define (main) (→ Unit) (! host mut output-port tasks)
+(define (main (out OutputPort)) (→ Unit) (! host mut tasks)
 
   (let ((cell (new TaskValue (value 0))))
     (dispatch
      (lambda ()
        (set! (● cell value) 42)
        (yield)
-       (display (● cell value))
-       (newline))))
+       (display out (● cell value))
+       (newline out))))
   (unit))

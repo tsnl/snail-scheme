@@ -43,7 +43,7 @@
 (define (usage) (→ String)
   "usage: snail-scheme build|run --target node|browser [--release] FILE [ARGUMENT ...]")
 
-(define (request (arguments (List String))) (→ ScriptJob) (! fs)
+(define (request (fs Fs) (arguments (List String))) (→ ScriptJob) (! mut)
   (match arguments
     ((Cons _ (Cons root (Cons runtime (Cons toolchain (Cons action rest)))))
      (let ((tools (tools-of root runtime toolchain))
@@ -51,7 +51,7 @@
                        ((string=? action "run") #t)
                        (else (panic (usage))))))
        (match (build-flags rest (None) (Debug))
-         ((Pair (Some flags) rest) (script-request tools run? flags rest))
+         ((Pair (Some flags) rest) (script-request fs tools run? flags rest))
          ((Pair (None) _) (panic (usage))))))
     (_ (panic (usage)))))
 
@@ -99,62 +99,79 @@
         ((string=? name "browser") (Browser))
         (else (panic (string-append "unknown target " name ": expected node or browser")))))
 
-(define (script-request (tools Tools) (run? Bool) (flags BuildFlags) (arguments (List String)))
+(define (script-request (fs Fs)
+                        (tools Tools)
+                        (run? Bool)
+                        (flags BuildFlags)
+                        (arguments (List String)))
   (→ ScriptJob)
-  (! fs)
+  (! mut)
   (match arguments
     ((Cons file rest)
      (new ScriptJob
        (tools tools)
        (run? run?)
        (flags flags)
-       (script (script-at file))
+       (script (script-at fs file))
        (arguments rest)))
     ((Nil) (panic (usage)))))
 
-(define (build-job (job ScriptJob)) (→ String) (! mut fs clock process)
-  (build-script (● job tools) (● job script) (● (● job flags) platform) (● (● job flags) mode)))
+(define (build-job (processes Processes) (fs Fs) (clock Clock) (job ScriptJob)) (→ String) (! mut)
+  (build-script processes
+                fs
+                clock
+                (● job tools)
+                (● job script)
+                (● (● job flags) platform)
+                (● (● job flags) mode)))
 
 ;; The script built, then this process, replaced by its program on Node.
 ;; A page has nothing to run here, so it is refused before it is built.
 
-(define (run-script (job ScriptJob)) (→ Unit) (! mut fs clock process)
+(define (run-script (processes Processes) (fs Fs) (clock Clock) (job ScriptJob)) (→ Unit) (! mut)
   (let ((tools (● job tools)))
     (match (● (● job flags) platform)
-      ((Node) (become (● tools node)
+      ((Node) (become processes (● tools node)
                       (Cons "--no-warnings"
                             (Cons (string-append (● tools root) "/host/native/run-snail.mjs")
-                                  (Cons (built-program job) (● job arguments))))))
+                                  (Cons (built-program processes fs clock job)
+                                        (● job arguments))))))
       ((Browser) (panic "a page is not run here: build it, then serve its output")))))
 
-(define (built-program (job ScriptJob)) (→ String) (! mut fs clock process)
-  (string-append (build-job job)
+(define (built-program (processes Processes) (fs Fs) (clock Clock) (job ScriptJob))
+  (→ String)
+  (! mut)
+  (string-append (build-job processes fs clock job)
                  "/"
                  (program-name (script-name (● job script)))))
 
-(define (become (program String) (arguments (List String))) (→ Unit) (! process)
-  (let ((error (exec (new Command (program program) (arguments arguments) (directory ".")))))
+(define (become (processes Processes) (program String) (arguments (List String))) (→ Unit) (! mut)
+  (let ((error
+         (exec processes (new Command (program program) (arguments arguments) (directory ".")))))
     (panic (string-append "cannot run " program ": " (● error code)))))
 
 ;; The script's whole program as WebAssembly text. A generated library
 ;; needs a build to run its producer, so here it fails.
 
-(define (print-wat (tools Tools) (arguments (List String))) (→ Unit) (! mut fs output-port)
+(define (print-wat (fs Fs) (out OutputPort) (tools Tools) (arguments (List String)))
+  (→ Unit)
+  (! mut)
   (match (build-flags arguments (None) (Debug))
-    ((Pair (Some flags) (Cons file (Nil))) (print-script-wat tools flags file))
+    ((Pair (Some flags) (Cons file (Nil))) (print-script-wat fs out tools flags file))
     (_ (panic "usage: snail-scheme wat --target node|browser FILE"))))
 
-(define (print-script-wat (tools Tools) (flags BuildFlags) (file String)) (→ Unit)
-  (! mut fs output-port)
-  (let ((script (script-at file)))
+(define (print-script-wat (fs Fs) (out OutputPort) (tools Tools) (flags BuildFlags) (file String))
+  (→ Unit)
+  (! mut)
+  (let ((script (script-at fs file)))
     (match (compiling (lambda ()
-                        (source->wat (workspace-directories tools (● script workspace))
+                        (source->wat fs (workspace-directories tools (● script workspace))
                                      (● script file)
                                      (lambda (loading forms)
                                        (panic "wat does not run producers: build the script"))
                                      (Some (platform-library (● flags platform)))
                                      (Nil))))
-      ((Ok program) (write-string (● program text)))
+      ((Ok program) (write-string out (● program text)))
       ((Err (Failed diagnostics)) (panic (diagnostics->string diagnostics)))
       ((Err (Requested _)) (panic "wat does not run producers: build the script")))))
 
@@ -192,66 +209,75 @@
 
 ;; Scalars, not lines, so the end of input invents no final newline.
 
-(define (read-input) (→ String) (! input-port)
+(define (read-input (in InputPort)) (→ String) (! mut)
   (let loop ((characters (Nil)))
-    (match (read-char)
+    (match (read-char in)
       ((None) (list->string (reverse characters)))
       ((Some char) (loop (Cons char characters))))))
 
 ;; Every changed path, in order. Checking leaves files alone; writing
 ;; leaves formatted files alone, timestamps and all.
 
-(define (format-files (width I64) (write? Bool) (paths (List String))) (→ (List String)) (! fs)
+(define (format-files (fs Fs) (width I64) (write? Bool) (paths (List String)))
+  (→ (List String))
+  (! mut)
   (let loop ((paths paths) (changed (Nil)))
     (match paths
       ((Nil) (reverse changed))
       ((Cons path rest)
-       (let* ((before (read-file path)) (after (format-source before width)))
+       (let* ((before (read-file fs path)) (after (format-source before width)))
          (if (string=? before after)
              (loop rest changed)
              (begin
-               (when write? (write-file path after))
+               (when write? (write-file fs path after))
                (loop rest (Cons path changed)))))))))
 
 ;; Every file that needs formatting is reported, not just the first, and
 ;; then the command fails as any does, with status 1.
 
-(define (check-files (width I64) (paths (List String))) (→ Unit) (! fs)
-  (match (format-files width #f paths)
+(define (check-files (fs Fs) (width I64) (paths (List String))) (→ Unit) (! mut)
+  (match (format-files fs width #f paths)
     ((Nil) (unit))
     (changed
      (panic (string-join (map (lambda (path) (string-append path ": needs formatting")) changed)
                          "\n")))))
 
-(define (format-command (request FormatRequest)) (→ Unit) (! input-port output-port fs)
+(define (format-command (fs Fs) (in InputPort) (out OutputPort) (request FormatRequest))
+  (→ Unit)
+  (! mut)
   (match (● request input)
-    ((StandardInput) (write-string (format-source (read-input) (● request width))))
-    ((CheckFiles paths) (check-files (● request width) paths))
-    ((WriteFiles paths) (format-files (● request width) #t paths) (unit))))
+    ((StandardInput) (write-string out (format-source (read-input in) (● request width))))
+    ((CheckFiles paths) (check-files fs (● request width) paths))
+    ((WriteFiles paths) (format-files fs (● request width) #t paths) (unit))))
 
 ;; ---- The invocation ----
 
 ;; A script's build, or its run.
 
-(define (invoke (job ScriptJob)) (→ Unit) (! mut fs clock process output-port)
-  (if (● job run?)
-      (run-script job)
-      (begin
-        (build-job job)
-        (write-line
-         (string-append (● (● job script) workspace) "/build/" (script-name (● job script)))))))
-
-(define (main)
+(define (invoke (processes Processes) (fs Fs) (clock Clock) (out OutputPort) (job ScriptJob))
   (→ Unit)
-  (! mut clock fs input-port output-port process)
+  (! mut)
+  (if (● job run?)
+      (run-script processes fs clock job)
+      (begin
+        (build-job processes fs clock job)
+        (write-line out
+                    (string-append (● (● job script) workspace)
+                                   "/build/"
+                                   (script-name (● job script)))))))
+
+(define (main (processes Processes) (fs Fs) (clock Clock) (in InputPort) (out OutputPort))
+  (→ Unit)
+  (! mut)
 
   (match (command-line)
-    ((Cons _ (Cons _ (Cons _ (Cons _ (Cons "compile" arguments))))) (compile-arguments arguments))
+    ((Cons _ (Cons _ (Cons _ (Cons _ (Cons "compile" arguments)))))
+     (compile-arguments fs arguments))
     ((Cons _ (Cons _ (Cons _ (Cons _ (Cons "format" arguments)))))
-     (format-command (format-request arguments)))
+     (format-command fs in out (format-request arguments)))
     ((Cons _ (Cons root (Cons runtime (Cons toolchain (Cons "lsp" (Nil))))))
-     (serve-language (tools-of root runtime toolchain)))
+     (serve-language processes fs clock in out (tools-of root runtime toolchain)))
     ((Cons _ (Cons root (Cons runtime (Cons toolchain (Cons "wat" arguments)))))
-     (print-wat (tools-of root runtime toolchain) arguments))
-    (arguments (invoke (request arguments))))
+     (print-wat fs out (tools-of root runtime toolchain) arguments))
+    (arguments (invoke processes fs clock out (request fs arguments))))
   (unit))

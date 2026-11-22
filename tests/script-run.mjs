@@ -12,10 +12,10 @@ const execute = promisify(execFile), root = process.argv[2];
 const project = await mkdtemp(join(tmpdir(), 'snail-run-workspace-'));
 const caller = await mkdtemp(join(tmpdir(), 'snail-run-caller-'));
 const source = finish => `(import (snail core base) (snail core io))
-  (define (main) (→ Unit) (! input-port output-port fs)
-    (for-each write-line (command-line))
-  (write-line (match (read-line) ((Some line) line) ((None) "EOF")))
-  (write-file "run-cwd.txt" "caller")
+  (define (main (in InputPort) (out OutputPort) (fs Fs)) (→ Unit) (! mut)
+    (for-each (lambda (argument) (write-line out argument)) (command-line))
+  (write-line out (match (read-line in) ((Some line) line) ((None) "EOF")))
+  (write-file fs "run-cwd.txt" "caller")
   ${finish})`;
 const run = (args = []) => execute(join(root, 'snail-scheme'), ['run', '--target', 'node', join(project, 'main.scm'), ...args],
   {cwd: caller, timeout: 120_000, killSignal: 'SIGKILL'});
@@ -44,11 +44,11 @@ try {
 
   // A character read flushes an unterminated prompt, then shares stdin with lines.
   await writeFile(join(project, 'main.scm'), `(import (snail core base) (snail core io))
-    (define (main) (→ Unit) (! input-port output-port)
-      (write-string "prompt> ")
-    (write (read-char)) (newline)
-    (write (read-line)) (newline)
-    (write (read-char)) (newline))`);
+    (define (main (in InputPort) (out OutputPort)) (→ Unit) (! mut)
+      (write-string out "prompt> ")
+    (write out (read-char in)) (newline out)
+    (write out (read-line in)) (newline out)
+    (write out (read-char in)) (newline out))`);
   const prompted = run();
   await ready(prompted.child, 'prompt> ');
   prompted.child.stdin.end('λ😀tail\n');
@@ -64,7 +64,7 @@ try {
   assert.equal(await realpath(join(project, 'build/main')), beforeFailure, 'failed rebuild never runs the preceding output');
 
   // The original CLI PID is now the application; no signal forwarding exists.
-  await writeFile(join(project, 'main.scm'), '(import (snail core base) (snail core io)) (define (main) (→ Unit) (! input-port output-port) (write-line "ready") (read-line) (unit))');
+  await writeFile(join(project, 'main.scm'), '(import (snail core base) (snail core io)) (define (main (in InputPort) (out OutputPort)) (→ Unit) (! mut) (write-line out "ready") (read-line in) (unit))');
   for (const signal of ['SIGINT', 'SIGTERM']) {
     const waiting = run(), stopped = assert.rejects(waiting, {signal});
     await ready(waiting.child);

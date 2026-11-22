@@ -79,20 +79,20 @@
        (hair (List (List String)))
        (bases (List String))))
 
-    (define (read-packs) (→ Packs) (! fs)
+    (define (read-packs (fs Fs)) (→ Packs) (! mut)
       (new Packs
         (clothing (filter (lambda (row) (not (string=? (list-ref row 0) "")))
                           (map csv-fields
                                (list-tail
-                                (file-lines
-                                 "src/lpc/lpc-clothing-updates/CREDITS-clothing-updates.csv")
+                                (file-lines fs
+                                            "src/lpc/lpc-clothing-updates/CREDITS-clothing-updates.csv")
                                 1))))
         (hair (map table-fields
-                   (filter table-row? (file-lines "src/lpc/lpc-hair/CREDITS-hair.txt"))))
-        (bases (file-lines "src/lpc/lpc-character-bases-v3_1/CREDITS.txt"))))
+                   (filter table-row? (file-lines fs "src/lpc/lpc-hair/CREDITS-hair.txt"))))
+        (bases (file-lines fs "src/lpc/lpc-character-bases-v3_1/CREDITS.txt"))))
 
-    (define (file-lines (path String)) (→ (List String)) (! fs)
-      (map trim-end (split (read-file path) #\newline)))
+    (define (file-lines (fs Fs) (path String)) (→ (List String)) (! mut)
+      (map trim-end (split (read-file fs path) #\newline)))
 
     ;; ---- Clothing ----
 
@@ -319,8 +319,8 @@
 
     ;; The library `name` exporting `credits`, the credit of each part the
     ;; sheets at `paths` come from, read from the packs now.
-    (define (credits-library (name (List String)) (paths (List String))) (→ Syntax) (! fs)
-      (let ((packs (read-packs)))
+    (define (credits-library (fs Fs) (name (List String)) (paths (List String))) (→ Syntax) (! mut)
+      (let ((packs (read-packs fs)))
         (library-syntax name
                         (list "credits")
                         (list (list "snail" "core" "base") (list "lpc" "credits"))

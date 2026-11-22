@@ -7,7 +7,8 @@
                    (snail core base)
                    (lpc embed)
                    (snail shell resource))
-                  (ramps-library (list "lpc" "skins")
-                                 (read-resource
-                                  (link-file
-                                   "lpc-character-bases-v3_1/_build/palettes/skin.json"))))
+                  (lambda ((resources Resources))
+                    (ramps-library (list "lpc" "skins")
+                                   (read-resource resources
+                                                  (link-file
+                                                   "lpc-character-bases-v3_1/_build/palettes/skin.json")))))

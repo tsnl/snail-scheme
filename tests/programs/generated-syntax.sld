@@ -19,7 +19,7 @@
               (BooleanSyntax #t)
               (BytesSyntax (list->array (list (i32->u8 0) (i32->u8 200)))))))
 
-(define (main) (→ Unit) (! output-port)
-  (write-line (bytes-text (syntax->bytes (example))))
-  (write-line (bytes-text (syntax->bytes (FloatSyntax "2.0"))))
+(define (main (out OutputPort)) (→ Unit) (! mut)
+  (write-line out (bytes-text (syntax->bytes (example))))
+  (write-line out (bytes-text (syntax->bytes (FloatSyntax "2.0"))))
   (unit))

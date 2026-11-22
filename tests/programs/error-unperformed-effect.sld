@@ -6,7 +6,6 @@
 (define (double (x I64)) (→ I64) (! mut)
   (* x 2))
 
-(define main
-  (lambda ()
-    (write-line (i64->string (double 2)))
-    (unit)))
+(define (main (out OutputPort)) (→ Unit) (! mut)
+  (write-line out (i64->string (double 2)))
+  (unit))

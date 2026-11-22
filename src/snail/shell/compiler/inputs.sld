@@ -56,26 +56,26 @@
     ;; since what the producer writes does not depend on the chain that
     ;; reached it.
 
-    (define (generated-syntax (directory String)
+    (define (generated-syntax (fs Fs) (directory String)
                               (directories (List String))
                               (loading (List String))
                               (forms (List Syntax)))
       (→ Bytes)
-      (! fs compile)
+      (! mut compile)
       (let* ((key (producer-key (producer-text directories forms)))
              (output (string-append directory "/" key ".syntax")))
-        (if (file-exists? output)
-            (read-bytes output)
-            (begin (print-producer (string-append directory "/" key ".sld") loading forms)
+        (if (file-exists? fs output)
+            (read-bytes fs output)
+            (begin (print-producer fs (string-append directory "/" key ".sld") loading forms)
                    (request-input (GenerateInput key))))))
 
     ;; Prints the producer `forms` as the program at `path`, beginning with
     ;; the libraries `loading` when it was reached.
 
-    (define (print-producer (path String) (loading (List String)) (forms (List Syntax)))
+    (define (print-producer (fs Fs) (path String) (loading (List String)) (forms (List Syntax)))
       (→ Unit)
-      (! fs)
-      (write-file path (string-append (generating-line loading) "\n" (program-text forms))))
+      (! mut)
+      (write-file fs path (string-append (generating-line loading) "\n" (program-text forms))))
 
     (define (generating-line (loading (List String))) (→ String)
       (string-append "(generating"
@@ -90,9 +90,9 @@
     ;; diagnostic about the file as a whole, so a resident caller reports
     ;; it and builds again once the file is back.
 
-    (define (read-source-file (path String)) (→ (List Syntax)) (! fs compile)
-      (if (file-exists? path)
-          (read-text (read-file path) path)
+    (define (read-source-file (fs Fs) (path String)) (→ (List Syntax)) (! mut compile)
+      (if (file-exists? fs path)
+          (read-text (read-file fs path) path)
           (compile-error (new Loc (file path) (line 0) (column 0)) "no such file or directory")))
 
     ;; The libraries a program's first form says were loading when it was
@@ -146,8 +146,9 @@
       ;; A source that is not there is a diagnostic naming the file.
       (define test-missing-source
         (lambda ()
-          (expect (compile-failure (lambda () (read-source-file "build/tests/missing/main.sld")))
-                  "build/tests/missing/main.sld: no such file or directory")))
+          (expect
+           (compile-failure (lambda () (read-source-file (host-fs) "build/tests/missing/main.sld")))
+           "build/tests/missing/main.sld: no such file or directory")))
 
       ;; A printed producer reads back as the text its key hashes, and the
       ;; same program under other directories is another producer.

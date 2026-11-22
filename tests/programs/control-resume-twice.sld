@@ -8,14 +8,14 @@
 (effect Choose
   ((ctl choose (Fn → Bool))))
 
-(define (both) (→ (List Bool)) (! output-port)
+(define (both (out OutputPort)) (→ (List Bool)) (! mut)
   (handle Choose ((choose (lambda (resume)
                             (let ((first (resume #t)))
-                              (write-line "resumed once")
+                              (write-line out "resumed once")
                               (append first (resume #f))))))
     (list (choose))))
 
-(define (main) (→ Unit) (! output-port)
-  (both)
-  (write-line "not reached")
+(define (main (out OutputPort)) (→ Unit) (! mut)
+  (both out)
+  (write-line out "not reached")
   (unit))

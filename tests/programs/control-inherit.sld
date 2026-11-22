@@ -13,11 +13,11 @@
 (effect Log
   ((log (Fn String → Unit))))
 
-(define (first-log (line String)) (→ Unit) (! output-port)
-  (write-line (string-append "first log: " line)))
+(define (first-log (out OutputPort) (line String)) (→ Unit) (! mut)
+  (write-line out (string-append "first log: " line)))
 
-(define (second-log (line String)) (→ Unit) (! output-port)
-  (write-line (string-append "second log: " line)))
+(define (second-log (out OutputPort) (line String)) (→ Unit) (! mut)
+  (write-line out (string-append "second log: " line)))
 
 ;; ANCHOR_END: thunk
 
@@ -49,25 +49,25 @@
     (yield value)
     (count-to (+ value 1) last)))
 
-(define (drain (step Step)) (→ Unit) (! output-port host)
+(define (drain (out OutputPort) (step Step)) (→ Unit) (! mut host)
   (match step
-    ((Done) (write-line "done"))
+    ((Done) (write-line out "done"))
     ((Yielded value next)
-     (write-line (string-append "got " (show value)))
-     (drain (next)))))
+     (write-line out (string-append "got " (show value)))
+     (drain out (next)))))
 
-(define (main) (→ Unit) (! host output-port)
+(define (main (out OutputPort)) (→ Unit) (! host mut)
   ;; ANCHOR: thunk
   ;; A thunk closed under the first log runs under the second, and logs to
   ;; the first.
-  (let ((work (handle Log ((log first-log))
+  (let ((work (handle Log ((log (lambda (line) (first-log out line))))
                 (inherit-handlers (lambda () (log "a thunk"))))))
-    (handle Log ((log second-log))
+    (handle Log ((log (lambda (line) (second-log out line))))
       (log "before the thunk")
       (work)))
-  (let ((step (handle Log ((log first-log))
+  (let ((step (handle Log ((log (lambda (line) (first-log out line))))
                 (start (lambda () (count-to 1 2))))))
-    (handle Log ((log second-log))
+    (handle Log ((log (lambda (line) (second-log out line))))
       (log "draining")
-      (drain step)))
+      (drain out step)))
   (unit))

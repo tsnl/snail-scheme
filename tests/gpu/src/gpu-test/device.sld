@@ -47,47 +47,49 @@
 
     ;; ---- Checks ----
 
-    (define (device-checks) (→ Unit) (! gpu tasks output-port)
-      (write-line (string-append "decoded: " (texels (decoded-texels))))
-      (write-line (string-append "scene: " (texels (scene-frame (Neutral)))))
-      (write-line (string-append "filmic: " (texels (scene-frame (Filmic)))))
-      (write-line (string-append "squares: " (words (compute-frame))))
-      (write-line (string-append "planes: " (planes-frame)))
-      (write-line (string-append "billboard: " (billboard-motion)))
-      (write-line (string-append "scan: " (scan-frame)))
-      (write-line (string-append "sort: " (sort-frame)))
-      (let ((splatted (splat-frames)))
-        (write-line (string-append "splats: " (texels (● splatted first))))
-        (write-line (string-append "turned: " (texels (● splatted second)))))
-      (write-line (string-append "tensor: " (tensor-agreement)))
-      (write-line (string-append "swapped: " (swapped-params)))
-      (write-line (string-append "assigned: " (assigned-param)))
-      (write-line (string-append "fitted: " (fitted-line)))
-      (write-line (string-append "splat forward: " (splat-forward-check)))
-      (write-line (string-append "shared fill: " (show (shared-fill))))
-      (write-line (string-append "splat tile ranges: " (splat-tile-ranges)))
-      (write-line (string-append "ssim: " (splat-ssim-check)))
-      (write-line (string-append "densify: " (splat-densify-check)))
-      (write-line (string-append "room: " (splat-room-check))))
+    (define (device-checks (gpu Gpu) (out OutputPort)) (→ Unit) (! mut tasks)
+      (write-line out (string-append "decoded: " (texels (decoded-texels gpu))))
+      (write-line out (string-append "scene: " (texels (scene-frame gpu (Neutral)))))
+      (write-line out (string-append "filmic: " (texels (scene-frame gpu (Filmic)))))
+      (write-line out (string-append "squares: " (words (compute-frame gpu))))
+      (write-line out (string-append "planes: " (planes-frame gpu)))
+      (write-line out (string-append "billboard: " (billboard-motion gpu)))
+      (write-line out (string-append "scan: " (scan-frame gpu)))
+      (write-line out (string-append "sort: " (sort-frame gpu)))
+      (let ((splatted (splat-frames gpu)))
+        (write-line out (string-append "splats: " (texels (● splatted first))))
+        (write-line out (string-append "turned: " (texels (● splatted second)))))
+      (write-line out (string-append "tensor: " (tensor-agreement gpu)))
+      (write-line out (string-append "swapped: " (swapped-params gpu)))
+      (write-line out (string-append "assigned: " (assigned-param gpu)))
+      (write-line out (string-append "fitted: " (fitted-line gpu)))
+      (write-line out (string-append "splat forward: " (splat-forward-check gpu)))
+      (write-line out (string-append "shared fill: " (show (shared-fill gpu))))
+      (write-line out (string-append "splat tile ranges: " (splat-tile-ranges gpu)))
+      (write-line out (string-append "ssim: " (splat-ssim-check gpu)))
+      (write-line out (string-append "densify: " (splat-densify-check gpu)))
+      (write-line out (string-append "room: " (splat-room-check gpu))))
 
-    (define (training-checks) (→ Unit) (! gpu tasks output-port)
-      (write-line (string-append "splat gradients: " (splat-gradient-check)))
-      (write-line (string-append "splat fit: " (splat-fit-check))))
+    (define (training-checks (gpu Gpu) (out OutputPort)) (→ Unit) (! mut tasks)
+      (write-line out (string-append "splat gradients: " (splat-gradient-check gpu)))
+      (write-line out (string-append "splat fit: " (splat-fit-check gpu))))
 
     ;; ---- Objects ----
 
-    (define (buffer-named (name String) (size I32) (usage (List BufferUsage))) (→ GpuBuffer) (! gpu)
-      (create-buffer (new BufferDescriptor (label name) (size size) (usage usage))))
+    (define (buffer-named (gpu Gpu) (name String) (size I32) (usage (List BufferUsage)))
+      (→ GpuBuffer)
+      (! mut)
+      (create-buffer gpu (new BufferDescriptor (label name) (size size) (usage usage))))
 
-    (define (texture-named (name String) (width I32) (height I32)) (→ GpuTexture) (! gpu)
-      (create-texture (new TextureDescriptor
-                        (label name)
-                        (width width)
-                        (height height)
-                        (layers 1)
-                        (mips 1)
-                        (format (Rgba8Unorm))
-                        (usage (list (RenderAttachment) (TextureCopySrc))))))
+    (define (texture-named (gpu Gpu) (name String) (width I32) (height I32)) (→ GpuTexture) (! mut)
+      (create-texture gpu (new TextureDescriptor
+                            (label name)
+                            (width width)
+                            (height height)
+                            (layers 1)
+                            (mips 1)
+                            (format (Rgba8Unorm))
+                            (usage (list (RenderAttachment) (TextureCopySrc))))))
 
     ;; A red texel beside a green one, as a PNG.
     (define two-texels
@@ -163,16 +165,16 @@
 
     ;; The PNG's texels as the host decodes them: the browser, or
     ;; @napi-rs/canvas on Node.
-    (define (decoded-texels) (→ Bytes) (! gpu tasks)
-      (match (decode-image two-texels)
+    (define (decoded-texels (gpu Gpu)) (→ Bytes) (! mut tasks)
+      (match (decode-image gpu two-texels)
         ((Some image)
-         (let ((readback (buffer-named "image-readback" 256 (list (MapRead) (CopyDst))))
-               (encoder (create-command-encoder)))
-           (copy-texture-to-buffer encoder (whole-texture (● image texture)) readback 0 256 2 1)
-           (submit (list (finish encoder)))
-           (let ((read (read-buffer readback 0 8)))
-             (destroy (BufferObject readback))
-             (destroy (TextureObject (● image texture)))
+         (let ((readback (buffer-named gpu "image-readback" 256 (list (MapRead) (CopyDst))))
+               (encoder (create-command-encoder gpu)))
+           (copy-texture-to-buffer gpu encoder (whole-texture (● image texture)) readback 0 256 2 1)
+           (submit gpu (list (finish gpu encoder)))
+           (let ((read (read-buffer gpu readback 0 8)))
+             (destroy gpu (BufferObject readback))
+             (destroy gpu (TextureObject (● image texture)))
              read)))
         ((None) (panic "the two texels did not decode"))))
 
@@ -200,8 +202,8 @@
                   (material (new Vec2f (x 0.0) (y 1.0)))
                   (id id)))))
 
-    (define (tiles (r Raster)) (→ Surface) (! gpu)
-      (make-surface r
+    (define (tiles (gpu Gpu) (r Raster)) (→ Surface) (! mut)
+      (make-surface gpu r
                     "tiles"
                     #f
                     solid
@@ -216,42 +218,42 @@
                  1.0
                  1.0))
 
-    (define (scene-frame (curve Tone)) (→ Bytes) (! gpu tasks)
-      (let* ((target (texture-named "scene" 4 4))
-             (readback (buffer-named "scene-readback" 1024 (list (MapRead) (CopyDst))))
-             (r (make-raster color-planes light-format))
-             (g (make-gbuffer color-planes 4 4))
-             (light (make-sunlight light-format g r))
-             (post (make-post (Rgba8Unorm) 4 4 curve))
-             (tiles (tiles r))
-             (encoder (create-command-encoder)))
-        (write-raster r (looking-down 0.0) overhead)
-        (let ((pass (begin-gbuffer encoder g)))
-          (draw-surface pass r tiles)
-          (end-pass pass))
-        (let ((pass (begin-lit encoder
+    (define (scene-frame (gpu Gpu) (curve Tone)) (→ Bytes) (! mut tasks)
+      (let* ((target (texture-named gpu "scene" 4 4))
+             (readback (buffer-named gpu "scene-readback" 1024 (list (MapRead) (CopyDst))))
+             (r (make-raster gpu color-planes light-format))
+             (g (make-gbuffer gpu color-planes 4 4))
+             (light (make-sunlight gpu light-format g r))
+             (post (make-post gpu (Rgba8Unorm) 4 4 curve))
+             (tiles (tiles gpu r))
+             (encoder (create-command-encoder gpu)))
+        (write-raster gpu r (looking-down 0.0) overhead)
+        (let ((pass (begin-gbuffer gpu encoder g)))
+          (draw-surface gpu pass r tiles)
+          (end-pass gpu pass))
+        (let ((pass (begin-lit gpu encoder
                                (● post targets light-view)
                                (new Color (red 0.0) (green 0.0) (blue 0.0) (alpha 1.0))
                                g)))
-          (draw-sun pass light)
-          (end-pass pass))
-        (draw-post encoder (view-of target 1) post)
-        (copy-texture-to-buffer encoder (whole-texture target) readback 0 256 4 4)
-        (submit (list (finish encoder)))
-        (read-buffer readback 0 16)))
+          (draw-sun gpu pass light)
+          (end-pass gpu pass))
+        (draw-post gpu encoder (view-of gpu target 1) post)
+        (copy-texture-to-buffer gpu encoder (whole-texture target) readback 0 256 4 4)
+        (submit gpu (list (finish gpu encoder)))
+        (read-buffer gpu readback 0 16)))
 
     ;; Render one surface and read the motion plane at the given pixel.
 
-    (define (surface-motion (r Raster) (g GBuffer) (surface Surface) (x I32) (y I32))
-      (→ Bytes) (! gpu tasks)
-      (let* ((readback (buffer-named "motion-readback" 4 (list (MapRead) (CopyDst))))
-             (encoder (create-command-encoder)))
-        (let ((pass (begin-gbuffer encoder g)))
-          (draw-surface pass r surface)
-          (end-pass pass))
+    (define (surface-motion (gpu Gpu) (r Raster) (g GBuffer) (surface Surface) (x I32) (y I32))
+      (→ Bytes) (! mut tasks)
+      (let* ((readback (buffer-named gpu "motion-readback" 4 (list (MapRead) (CopyDst))))
+             (encoder (create-command-encoder gpu)))
+        (let ((pass (begin-gbuffer gpu encoder g)))
+          (draw-surface gpu pass r surface)
+          (end-pass gpu pass))
         (match (● g motion)
           ((Some plane)
-           (copy-texture-to-buffer encoder
+           (copy-texture-to-buffer gpu encoder
                                    (new TextureCopy
                                      (texture (● plane texture))
                                      (mip 0)
@@ -260,34 +262,34 @@
                                      (layer 0))
                                    readback 0 256 1 1))
           ((None) (panic "missing motion plane")))
-        (submit (list (finish encoder)))
-        (let ((motion (read-buffer readback 0 4)))
-          (destroy (BufferObject readback))
+        (submit gpu (list (finish gpu encoder)))
+        (let ((motion (read-buffer gpu readback 0 4)))
+          (destroy gpu (BufferObject readback))
           motion)))
 
     ;; The camera moved half a tile right, so the scene moved a quarter of the
     ;; texture left. Read the motion and the ids on each tile and past them.
-    (define (planes-frame) (→ String) (! gpu tasks)
+    (define (planes-frame (gpu Gpu)) (→ String) (! mut tasks)
       (let* ((all (new Planes (motion #t) (ids #t)))
-             (r (make-raster all light-format))
-             (g (make-gbuffer all 4 4))
-             (r (write-raster (write-raster r (looking-down 0.0) overhead)
+             (r (make-raster gpu all light-format))
+             (g (make-gbuffer gpu all 4 4))
+             (r (write-raster gpu (write-raster gpu r (looking-down 0.0) overhead)
                               (looking-down 0.5)
                               overhead))
-             (motion (surface-motion r g (tiles r) 0 0)))
+             (motion (surface-motion gpu r g (tiles gpu r) 0 0)))
         (string-join (list (show (half motion 0))
                            (show (half motion 2))
-                           (id-text (read-id g 0 0))
-                           (id-text (read-id g 2 0))
-                           (id-text (read-id g 3 0)))
+                           (id-text (read-id gpu g 0 0))
+                           (id-text (read-id gpu g 2 0))
+                           (id-text (read-id gpu g 3 0)))
                      " ")))
 
     ;; A stationary sprite faces an orbiting camera in both frames. A pixel
     ;; near its left edge keeps the same screen position through a quarter turn.
-    (define (billboard-motion) (→ String) (! gpu tasks)
+    (define (billboard-motion (gpu Gpu)) (→ String) (! mut tasks)
       (let* ((all (new Planes (motion #t) (ids #t)))
-             (r (make-raster all light-format))
-             (g (make-gbuffer all 8 8))
+             (r (make-raster gpu all light-format))
+             (g (make-gbuffer gpu all 8 8))
              (one (new Vec4f (x 1.0) (y 1.0) (z 1.0) (w 0.0)))
              (instance (new Instance
                          (place (new Vec4f (x 0.0) (y 0.0) (z 0.0) (w 0.0)))
@@ -296,7 +298,7 @@
                          (from (new Vec4f (x 0.0) (y 0.0) (z 0.0) (w 1.0)))
                          (material (new Vec2f (x 0.0) (y 1.0)))
                          (id 73)))
-             (sprite (make-surface r
+             (sprite (make-surface gpu r
                                    "sprite"
                                    #f
                                    solid
@@ -304,9 +306,12 @@
              (camera (lambda (x z)
                        (camera-3d (new Vec3f (x x) (y 0.5) (z z))
                                   (new Vec3f (x 0.0) (y 0.5) (z 0.0)) (Parallel 2.0) 1.0 1.0)))
-             (r (write-raster (write-raster r (camera 0.0 5.0) overhead) (camera 5.0 0.0) overhead))
-             (motion (surface-motion r g sprite 2 3)))
-        (string-append (id-text (read-id g 2 3)) " "
+             (r (write-raster gpu
+                              (write-raster gpu r (camera 0.0 5.0) overhead)
+                              (camera 5.0 0.0)
+                              overhead))
+             (motion (surface-motion gpu r g sprite 2 3)))
+        (string-append (id-text (read-id gpu g 2 3)) " "
                        (if (and (< (abs (half motion 0)) 0.001) (< (abs (half motion 2)) 0.001))
                            "stationary"
                            (string-append (show (half motion 0)) " " (show (half motion 2)))))))
@@ -338,31 +343,32 @@
     ;; 1 to 100, squared by 64-wide workgroups, two of them, and the first
     ;; four and the last read back.
 
-    (define (compute-frame) (→ Bytes) (! gpu tasks)
+    (define (compute-frame (gpu Gpu)) (→ Bytes) (! mut tasks)
       (let* ((module
-              (create-shader-module (new ShaderModuleDescriptor (label "square") (code square))))
-             (pipeline (create-compute-pipeline
-                        (new ComputePipelineDescriptor
-                          (label "square")
-                          (module module)
-                          (entry "square_main"))))
-             (numbers (buffer-named "numbers" 400 (list (Storage) (CopySrc) (CopyDst))))
-             (readback (buffer-named "numbers-readback" 400 (list (MapRead) (CopyDst))))
-             (group (create-bind-group (new BindGroupDescriptor
-                                         (label "square")
-                                         (pipeline (ComputePipeline pipeline))
-                                         (group 0)
-                                         (entries (list (BufferEntry 0 numbers 0 0))))))
-             (encoder (create-command-encoder))
-             (pass (begin-compute-pass encoder)))
-        (write-buffer numbers 0 (pack (shape) (map (lambda (n) (+ 1 (i64->i32 n))) (iota 100))))
-        (set-compute-pipeline pass pipeline)
-        (set-compute-bind-group pass 0 group)
-        (dispatch-workgroups pass 2 1 1)
-        (end-compute-pass pass)
-        (copy-buffer-to-buffer encoder numbers 0 readback 0 400)
-        (submit (list (finish encoder)))
-        (let ((bytes (read-buffer readback 0 400)))
+              (create-shader-module gpu
+                                    (new ShaderModuleDescriptor (label "square") (code square))))
+             (pipeline (create-compute-pipeline gpu
+                                                (new ComputePipelineDescriptor
+                                                  (label "square")
+                                                  (module module)
+                                                  (entry "square_main"))))
+             (numbers (buffer-named gpu "numbers" 400 (list (Storage) (CopySrc) (CopyDst))))
+             (readback (buffer-named gpu "numbers-readback" 400 (list (MapRead) (CopyDst))))
+             (group (create-bind-group gpu (new BindGroupDescriptor
+                                             (label "square")
+                                             (pipeline (ComputePipeline pipeline))
+                                             (group 0)
+                                             (entries (list (BufferEntry 0 numbers 0 0))))))
+             (encoder (create-command-encoder gpu))
+             (pass (begin-compute-pass gpu encoder)))
+        (write-buffer gpu numbers 0 (pack (shape) (map (lambda (n) (+ 1 (i64->i32 n))) (iota 100))))
+        (set-compute-pipeline gpu pass pipeline)
+        (set-compute-bind-group gpu pass 0 group)
+        (dispatch-workgroups gpu pass 2 1 1)
+        (end-compute-pass gpu pass)
+        (copy-buffer-to-buffer gpu encoder numbers 0 readback 0 400)
+        (submit gpu (list (finish gpu encoder)))
+        (let ((bytes (read-buffer gpu readback 0 400)))
           (array-append (subarray bytes 0 16) (subarray bytes 396 400)))))
 
     (define (words (bytes Bytes)) (→ String)
@@ -378,19 +384,22 @@
 
     ;; ---- Scans, sorts and splats ----
 
-    (define (storage-buffer (name String) (count I64)) (→ GpuBuffer) (! gpu)
-      (buffer-named name (i64->i32 (* 4 count)) (list (Storage) (CopySrc) (CopyDst))))
+    (define (storage-buffer (gpu Gpu) (name String) (count I64)) (→ GpuBuffer) (! mut)
+      (buffer-named gpu name (i64->i32 (* 4 count)) (list (Storage) (CopySrc) (CopyDst))))
 
     ;; The buffer's first `count` numbers, read back.
 
-    (define (read-numbers (buffer GpuBuffer) (count I64)) (→ Bytes) (! gpu tasks)
+    (define (read-numbers (gpu Gpu) (buffer GpuBuffer) (count I64)) (→ Bytes) (! mut tasks)
       (let ((readback
-             (buffer-named "numbers-readback" (i64->i32 (* 4 count)) (list (MapRead) (CopyDst))))
-            (encoder (create-command-encoder)))
-        (copy-buffer-to-buffer encoder buffer 0 readback 0 (i64->i32 (* 4 count)))
-        (submit (list (finish encoder)))
-        (let ((bytes (read-buffer readback 0 (i64->i32 (* 4 count)))))
-          (destroy (BufferObject readback))
+             (buffer-named gpu
+                           "numbers-readback"
+                           (i64->i32 (* 4 count))
+                           (list (MapRead) (CopyDst))))
+            (encoder (create-command-encoder gpu)))
+        (copy-buffer-to-buffer gpu encoder buffer 0 readback 0 (i64->i32 (* 4 count)))
+        (submit gpu (list (finish gpu encoder)))
+        (let ((bytes (read-buffer gpu readback 0 (i64->i32 (* 4 count)))))
+          (destroy gpu (BufferObject readback))
           bytes)))
 
     ;; Number `index` of the bytes, unsigned.
@@ -408,19 +417,19 @@
     (define (scanned-before (index I64)) (→ I64)
       (+ (* 3 (quotient index 3)) (if (= (remainder index 3) 2) 1 0)))
 
-    (define (scan-frame) (→ String) (! gpu tasks)
+    (define (scan-frame (gpu Gpu)) (→ String) (! mut tasks)
       (let* ((count 300000)
-             (numbers (storage-buffer "scanned" count))
-             (scan (make-scan "test" numbers count))
-             (encoder (create-command-encoder))
-             (pass (begin-compute-pass encoder)))
-        (write-buffer numbers
+             (numbers (storage-buffer gpu "scanned" count))
+             (scan (make-scan gpu "test" numbers count))
+             (encoder (create-command-encoder gpu))
+             (pass (begin-compute-pass gpu encoder)))
+        (write-buffer gpu numbers
                       0
                       (pack (shape) (map (lambda (i) (i64->i32 (remainder i 3))) (iota count))))
-        (dispatch-scan pass scan)
-        (end-compute-pass pass)
-        (submit (list (finish encoder)))
-        (let ((bytes (read-numbers numbers count)))
+        (dispatch-scan gpu pass scan)
+        (end-compute-pass gpu pass)
+        (submit gpu (list (finish gpu encoder)))
+        (let ((bytes (read-numbers gpu numbers count)))
           (string-append (string-join (map (lambda (index) (show (number-at bytes index)))
                                            (list 0 1 2 3 511 512 513 262144 299999))
                                       " ")
@@ -439,19 +448,22 @@
     (define (as-i32 (value I64)) (→ I32)
       (i64->i32 (if (>= value 2147483648) (- value 4294967296) value)))
 
-    (define (sort-frame) (→ String) (! gpu tasks)
+    (define (sort-frame (gpu Gpu)) (→ String) (! mut tasks)
       (let* ((count 5000)
-             (keys (storage-buffer "sort-keys" count))
-             (values (storage-buffer "sort-values" count))
-             (sorter (make-sorter "test" keys values count 32))
-             (encoder (create-command-encoder))
-             (pass (begin-compute-pass encoder)))
-        (write-buffer keys 0 (pack (shape) (map (lambda (i) (as-i32 (test-key i))) (iota count))))
-        (write-buffer values 0 (pack (shape) (map i64->i32 (iota count))))
-        (dispatch-sort pass sorter)
-        (end-compute-pass pass)
-        (submit (list (finish encoder)))
-        (sort-verdict (read-numbers keys count) (read-numbers values count) count)))
+             (keys (storage-buffer gpu "sort-keys" count))
+             (values (storage-buffer gpu "sort-values" count))
+             (sorter (make-sorter gpu "test" keys values count 32))
+             (encoder (create-command-encoder gpu))
+             (pass (begin-compute-pass gpu encoder)))
+        (write-buffer gpu
+                      keys
+                      0
+                      (pack (shape) (map (lambda (i) (as-i32 (test-key i))) (iota count))))
+        (write-buffer gpu values 0 (pack (shape) (map i64->i32 (iota count))))
+        (dispatch-sort gpu pass sorter)
+        (end-compute-pass gpu pass)
+        (submit gpu (list (finish gpu encoder)))
+        (sort-verdict (read-numbers gpu keys count) (read-numbers gpu values count) count)))
 
     ;; Whether each key is its value's, the keys ascend, equal keys keep their
     ;; values ascending, and every value appears once.
@@ -508,11 +520,11 @@
         (z (new Vec4f (x 0.0) (y 0.0) (z 1.0) (w 0.0)))
         (w (new Vec4f (x 0.0) (y 0.0) (z 0.0) (w 1.0)))))
 
-    (define (splat-texels (splats Splats) (target GpuTexture) (readback GpuBuffer))
+    (define (splat-texels (gpu Gpu) (splats Splats) (target GpuTexture) (readback GpuBuffer))
       (→ Bytes)
-      (! gpu tasks)
-      (let ((encoder (create-command-encoder)))
-        (sort-splats encoder
+      (! mut tasks)
+      (let ((encoder (create-command-encoder gpu)))
+        (sort-splats gpu encoder
                      splats
                      (splat-camera (new Vec3f (x 0.0) (y 0.0) (z 5.0))
                                    (new Vec3f (x 0.0) (y 0.0) (z 0.0))
@@ -520,10 +532,10 @@
                                    1.0
                                    16
                                    16))
-        (let ((pass (begin-render-pass encoder
+        (let ((pass (begin-render-pass gpu encoder
                                        (new RenderPassDescriptor
                                          (colors (list (Some (new ColorAttachment
-                                                               (view (view-of target 1))
+                                                               (view (view-of gpu target 1))
                                                                (load (Clear (new Color
                                                                               (red 0.0)
                                                                               (green 0.0)
@@ -531,11 +543,11 @@
                                                                               (alpha 1.0))))
                                                                (store #t)))))
                                          (depth (None))))))
-          (draw-splats pass splats)
-          (end-pass pass))
-        (copy-texture-to-buffer encoder (whole-texture target) readback 0 256 16 16)
-        (submit (list (finish encoder)))
-        (let ((bytes (read-buffer readback 0 4096)))
+          (draw-splats gpu pass splats)
+          (end-pass gpu pass))
+        (copy-texture-to-buffer gpu encoder (whole-texture target) readback 0 256 16 16)
+        (submit gpu (list (finish gpu encoder)))
+        (let ((bytes (read-buffer gpu readback 0 4096)))
           (array-concatenate (map (lambda (texel)
                                     (subarray bytes
                                               (+ (* 256 (● texel second)) (* 4 (● texel first)))
@@ -546,18 +558,18 @@
                                         (new Pair (first 12) (second 8))
                                         (new Pair (first 8) (second 4))))))))
 
-    (define (splat-frames) (→ (Pair Bytes Bytes)) (! gpu tasks)
-      (let ((splats (make-splats "test" (Rgba8Unorm) 3 3))
-            (target (texture-named "splats" 16 16))
-            (readback (buffer-named "splats-readback" 4096 (list (MapRead) (CopyDst)))))
-        (write-cloud splats
+    (define (splat-frames (gpu Gpu)) (→ (Pair Bytes Bytes)) (! mut tasks)
+      (let ((splats (make-splats gpu "test" (Rgba8Unorm) 3 3))
+            (target (texture-named gpu "splats" 16 16))
+            (readback (buffer-named gpu "splats-readback" 4096 (list (MapRead) (CopyDst)))))
+        (write-cloud gpu splats
                      0
                      (pack-cloud (list (gaussian (new Vec3f (x 0.9) (y 0.3) (z 0.3)) 0)
                                        (gaussian (new Vec3f (x 0.2) (y 0.2) (z 0.2)) 2)
                                        (gaussian (new Vec3f (x 0.3) (y 0.3) (z 0.3)) 1))
                                  (list (flat 1.0 0.0 0.0) (flat 0.0 1.0 0.0) (flat 0.0 0.0 1.0))))
-        (write-transforms splats (list (moved 0.0 0.0) (moved 1.5 0.0) (moved 0.0 2.0)))
-        (let ((level (splat-texels splats target readback)))
-          (write-transforms splats (list quarter-turn))
-          (new Pair (first level) (second (splat-texels splats target readback))))))
+        (write-transforms gpu splats (list (moved 0.0 0.0) (moved 1.5 0.0) (moved 0.0 2.0)))
+        (let ((level (splat-texels gpu splats target readback)))
+          (write-transforms gpu splats (list quarter-turn))
+          (new Pair (first level) (second (splat-texels gpu splats target readback))))))
     ))

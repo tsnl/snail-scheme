@@ -16,7 +16,7 @@
    (snail core base)
    (snail core table)
    (only (snail shell task) tasks)
-   (only (snail shell gpu) gpu)
+   (only (snail shell gpu) Gpu)
    (only (snail shell math) exp log sin)
    (rename (snail shell tensor)
            (exp tensor-exp)
@@ -95,17 +95,21 @@
       (map (lambda (s) (Splat-scale-set s (+ (● s scale) 2.1))) three))
 
     ;; The cloud's rows, their live mask, every degree shading, and the camera.
-    (define (written (program Program) (values (List (Pair String (Array F64)))) (live (List F64)))
-      (→ Unit) (! gpu)
+    (define (written (gpu Gpu)
+                     (program Program)
+                     (values (List (Pair String (Array F64))))
+                     (live (List F64)))
+      (→ Unit) (! mut)
       (for-each
-       (lambda (pair) (write-param program (● pair first) (values->bytes (● pair second) (Float))))
+       (lambda (pair)
+         (write-param gpu program (● pair first) (values->bytes (● pair second) (Float))))
        values)
-      (write-param program "live" (values->bytes (list->array live) (Float)))
-      (write-param program "degrees" (values->bytes (list->array (list 1.0 1.0 1.0)) (Float)))
-      (write-param program "camera" (values->bytes camera-values (Float))))
+      (write-param gpu program "live" (values->bytes (list->array live) (Float)))
+      (write-param gpu program "degrees" (values->bytes (list->array (list 1.0 1.0 1.0)) (Float)))
+      (write-param gpu program "camera" (values->bytes camera-values (Float))))
 
-    (define (scalar-sink (program Program)) (→ F64) (! gpu tasks)
-      (array-ref (bytes->values (read-sink program 0) (Float)) 0))
+    (define (scalar-sink (gpu Gpu) (program Program)) (→ F64) (! mut tasks)
+      (array-ref (bytes->values (read-sink gpu program 0) (Float)) 0))
 
     ;; ---- Forward ----
 
@@ -113,11 +117,11 @@
     ;; opacity 1/2, color 0.5 + C0 (1, 0, -1), seen from pixel (31, 23),
     ;; half a pixel from its center on each axis.
 
-    (define (splat-forward-check) (→ String) (! gpu tasks)
+    (define (splat-forward-check (gpu Gpu)) (→ String) (! mut tasks)
       (let* ((cloud (splat-params 1))
              (image (● (render cloud (camera-param) sensor) image))
-             (program (compile-program "forward" (list image) (Nil))))
-        (written program
+             (program (compile-program gpu "forward" (list image) (Nil))))
+        (written gpu program
                  (list (new Pair (first "means") (second (list->array (list 0.0 0.0 4.0))))
                        (new Pair
                          (first "scales")
@@ -129,14 +133,14 @@
                        (new Pair (first "degree2") (second (array-generate 15 (lambda (_) 0.0))))
                        (new Pair (first "degree3") (second (array-generate 21 (lambda (_) 0.0)))))
                  (list 1.0))
-        (run-program program)
-        (let* ((pixels (bytes->values (read-sink program 0) (Float)))
+        (run-program gpu program)
+        (let* ((pixels (bytes->values (read-sink gpu program 0) (Float)))
                (variance (+ 6.25 0.3))
                (alpha (* 0.5 (exp (* -0.5 (/ 0.5 variance)))))
                (expected
                 (map (lambda (c) (* alpha (+ 0.5 (* 0.28209479177387814 c)))) (list 1.0 0.0 -1.0)))
                (got (map (lambda (k) (array-ref pixels (+ (* 3 (+ (* 23 64) 31)) k))) (iota 3))))
-          (release-program program)
+          (release-program gpu program)
           (if (every? (lambda (pair) (< (abs (- (● pair first) (● pair second))) 0.001))
                       (zip got expected))
               "blends as the paper does"
@@ -147,33 +151,33 @@
     ;; an image's SSIM with itself is 1, so the sum is 4. Its contrast term
     ;; divides the difference of two nearly equal sums by C2 = 9e-4, which
     ;; magnifies their rounding: lavapipe gives 3.9997.
-    (define (shared-fill) (→ Bool) (! gpu tasks)
+    (define (shared-fill (gpu Gpu)) (→ Bool) (! mut tasks)
       (let* ((v (fill 3.0 (list 11 11 1) (Float)))
              (center (narrow (narrow (+ v (ssim v v)) 0 5 1) 1 5 1))
-             (program (compile-program "shared fill" (list center) (Nil))))
-        (run-program program)
-        (let ((value (scalar-sink program)))
-          (release-program program)
+             (program (compile-program gpu "shared fill" (list center) (Nil))))
+        (run-program gpu program)
+        (let ((value (scalar-sink gpu program)))
+          (release-program gpu program)
           (< (abs (- value 4.0)) 0.001))))
 
     ;; Four splats touch one tile each, in depth order 0, 65536, 0, 65535.
     ;; Read the rasterizer's ranges input so the large image needs no buffer.
-    (define (splat-tile-ranges) (→ String) (! gpu tasks)
+    (define (splat-tile-ranges (gpu Gpu)) (→ String) (! mut tasks)
       (let* ((sensor (new Sensor (width 4096) (height 4112) (capacity 8)))
              (image (● (render (splat-params 4) (camera-param) sensor) image))
              (ranges (list-ref (● image node args) 1))
              (bounds (concat (list (narrow ranges 0 0 2) (narrow ranges 0 (* 2 65535) 4)) 0))
-             (program (compile-program "tile ranges" (list bounds) (Nil)))
+             (program (compile-program gpu "tile ranges" (list bounds) (Nil)))
              (write (lambda (name values)
-                      (write-param program name (values->bytes (list->array values) (Float))))))
+                      (write-param gpu program name (values->bytes (list->array values) (Float))))))
         (write "camera" (list 1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0 1.0 0.0 0.0))
         (write "means" (list 8.0 8.0 1.0 16.0 8208.0 2.0 24.0 24.0 3.0 16352.0 16352.0 4.0))
         (write "scales" (map (lambda (_) -20.0) (iota 12)))
         (write "rotations" (concatenate (map (lambda (_) (list 0.0 0.0 0.0 1.0)) (iota 4))))
         (write "live" (list 1.0 1.0 1.0 1.0))
-        (run-program program)
-        (let ((words (bytes->values (read-sink program 0) (Unsigned))))
-          (release-program program)
+        (run-program gpu program)
+        (let ((words (bytes->values (read-sink gpu program 0) (Unsigned))))
+          (release-program gpu program)
           (string-join (map (lambda (word) (show (f64->i64 word))) (array->list words)) " "))))
 
     ;; ---- Gradients ----
@@ -186,66 +190,67 @@
                         (param "target" (list 48 64 3) (Float))
                         0.2))
 
-    (define (splat-gradient-check) (→ String) (! gpu tasks)
+    (define (splat-gradient-check (gpu Gpu)) (→ String) (! mut tasks)
       (let* ((cloud (splat-params 3))
              (loss (loss-of cloud))
-             (grads (compile-program "grads" (grad loss (cloud-views cloud)) (Nil)))
-             (losses (compile-program "losses" (list loss) (Nil)))
+             (grads (compile-program gpu "grads" (grad loss (cloud-views cloud)) (Nil)))
+             (losses (compile-program gpu "losses" (list loss) (Nil)))
              (values (cloud-values wide))
              (target
               (array-generate (* 48 (* 64 3)) (lambda (i) (* 0.3 (i64->f64 (remainder i 3)))))))
-        (written grads values (list 1.0 1.0 1.0))
-        (written losses values (list 1.0 1.0 1.0))
-        (write-param grads "target" (values->bytes target (Float)))
-        (write-param losses "target" (values->bytes target (Float)))
-        (run-program grads)
+        (written gpu grads values (list 1.0 1.0 1.0))
+        (written gpu losses values (list 1.0 1.0 1.0))
+        (write-param gpu grads "target" (values->bytes target (Float)))
+        (write-param gpu losses "target" (values->bytes target (Float)))
+        (run-program gpu grads)
         (let ((report
-               (string-join (map-indexed (lambda (k pair) (group-report grads losses values k pair))
-                                         values)
-                            ", ")))
-          (release-program grads)
-          (release-program losses)
+               (string-join
+                (map-indexed (lambda (k pair) (group-report gpu grads losses values k pair))
+                             values)
+                ", ")))
+          (release-program gpu grads)
+          (release-program gpu losses)
           report)))
 
     ;; Whether a param's gradient agrees with central differences, to 5%
     ;; of the larger and 2e-5, element by element.
-    (define (group-report (grads Program)
+    (define (group-report (gpu Gpu) (grads Program)
                           (losses Program)
                           (values (List (Pair String (Array F64))))
                           (k I64)
                           (pair (Pair String (Array F64))))
       (→ String)
-      (! gpu tasks)
+      (! mut tasks)
       (let* ((name (● pair first))
              (base (● pair second))
-             (analytic (bytes->values (read-sink grads k) (Float)))
+             (analytic (bytes->values (read-sink gpu grads k) (Float)))
              (bad (find (lambda (i)
-                          (let ((a (array-ref analytic i)) (d (difference losses name base i)))
+                          (let ((a (array-ref analytic i)) (d (difference gpu losses name base i)))
                             (not (< (abs (- a d)) (+ 0.00002 (* 0.05 (max (abs a) (abs d))))))))
                         (iota (array-length base)))))
         (match bad
           ((Some i)
            (string-append name " " (show i) ": " (f64->string (array-ref analytic i)) " not "
-                          (f64->string (difference losses name base i))))
+                          (f64->string (difference gpu losses name base i))))
           ((None) (string-append name " agree")))))
 
-    (define (difference (losses Program) (name String) (base (Array F64)) (i I64))
+    (define (difference (gpu Gpu) (losses Program) (name String) (base (Array F64)) (i I64))
       (→ F64)
-      (! gpu tasks)
+      (! mut tasks)
       (let* ((h 0.01)
              (at (lambda (delta)
-                   (write-param losses name
+                   (write-param gpu losses name
                                 (values->bytes (array-generate (array-length base)
                                                                (lambda (j)
                                                                  (if (= j i)
                                                                      (+ (array-ref base j) delta)
                                                                      (array-ref base j))))
                                                (Float)))
-                   (run-program losses)
-                   (scalar-sink losses)))
+                   (run-program gpu losses)
+                   (scalar-sink gpu losses)))
              (above (at h))
              (below (at (negate h))))
-        (write-param losses name (values->bytes base (Float)))
+        (write-param gpu losses name (values->bytes base (Float)))
         (/ (- above below) (* 2.0 h))))
 
     ;; ---- SSIM ----
@@ -253,23 +258,23 @@
     ;; Mean SSIM of a 20x24 image against another, against the CPU's to a
     ;; part in 10,000; and its gradient at pixels in each of its four
     ;; tiles and across their borders, against central differences, to 2%.
-    (define (splat-ssim-check) (→ String) (! gpu tasks)
+    (define (splat-ssim-check (gpu Gpu)) (→ String) (! mut tasks)
       (let* ((x (param "x" (list 20 24 3) (Float)))
              (loss (mean (ssim x (param "y" (list 20 24 3) (Float)))))
-             (grads (compile-program "ssim-grads" (grad loss (list x)) (Nil)))
-             (losses (compile-program "ssim-losses" (list loss) (Nil)))
+             (grads (compile-program gpu "ssim-grads" (grad loss (list x)) (Nil)))
+             (losses (compile-program gpu "ssim-losses" (list loss) (Nil)))
              (xs (array-generate 1440 (lambda (i) (+ 0.5 (* 0.4 (sin (* 0.37 (i64->f64 i))))))))
              (ys (array-generate 1440 (lambda (i) (+ 0.5 (* 0.3 (sin (* 0.11 (i64->f64 i)))))))))
         (for-each (lambda (program)
-                    (write-param program "x" (values->bytes xs (Float)))
-                    (write-param program "y" (values->bytes ys (Float))))
+                    (write-param gpu program "x" (values->bytes xs (Float)))
+                    (write-param gpu program "y" (values->bytes ys (Float))))
                   (list grads losses))
-        (run-program grads)
-        (run-program losses)
-        (let* ((analytic (bytes->values (read-sink grads 0) (Float)))
-               (mean-ssim (scalar-sink losses))
+        (run-program gpu grads)
+        (run-program gpu losses)
+        (let* ((analytic (bytes->values (read-sink gpu grads 0) (Float)))
+               (mean-ssim (scalar-sink gpu losses))
                (agrees (lambda (i)
-                         (let ((a (array-ref analytic i)) (b (difference losses "x" xs i)))
+                         (let ((a (array-ref analytic i)) (b (difference gpu losses "x" xs i)))
                            (< (abs (- a b)) (* 0.02 (max (abs a) (abs b)))))))
                (cpu (cpu-ssim-mean xs ys 20 24))
                (report (string-append (if (< (abs (- mean-ssim cpu)) 0.0001)
@@ -278,8 +283,8 @@
                                       (if (every? agrees (list 0 100 777 1201 1439))
                                           ", x agrees"
                                           ", x disagrees"))))
-          (release-program grads)
-          (release-program losses)
+          (release-program gpu grads)
+          (release-program gpu losses)
           report)))
 
     ;; SSIM's mean by its definition: each moment a sum over the 11x11
@@ -319,24 +324,24 @@
 
     ;; The three gaussians rendered as a target, then a cloud started half
     ;; a scale smaller and dimmer fitted to it by Adam for 200 steps.
-    (define (splat-fit-check) (→ String) (! gpu tasks)
+    (define (splat-fit-check (gpu Gpu)) (→ String) (! mut tasks)
       (let* ((truth (splat-params 3))
              (target-program
-              (compile-program "truth"
+              (compile-program gpu "truth"
                                (list (● (render truth (camera-param) sensor) image))
                                (Nil))))
-        (written target-program (cloud-values three) (list 1.0 1.0 1.0))
-        (run-program target-program)
-        (let ((target (read-sink target-program 0)))
-          (release-program target-program)
-          (fitted target))))
+        (written gpu target-program (cloud-values three) (list 1.0 1.0 1.0))
+        (run-program gpu target-program)
+        (let ((target (read-sink gpu target-program 0)))
+          (release-program gpu target-program)
+          (fitted gpu target))))
 
-    (define (fitted (target Bytes)) (→ String) (! gpu tasks)
+    (define (fitted (gpu Gpu) (target Bytes)) (→ String) (! mut tasks)
       (let* ((cloud (splat-params 4))
              (loss (loss-of cloud))
              (grads (grad loss (cloud-views cloud)))
              (rates (list 0.002 0.005 0.001 0.05 0.0025 0.000125 0.000125 0.000125))
-             (program (compile-program "fit"
+             (program (compile-program gpu "fit"
                                        (list loss)
                                        (adam-updates "adam"
                                                      (adam 0.9 0.999 1e-15)
@@ -351,15 +356,15 @@
                                             (Splat-logit-set (Splat-scale-set s (- (● s scale) 0.5))
                                                              (- (● s logit) 1.0)))
                                           three))))
-          (written program (map with-spare-row initial) (list 1.0 1.0 1.0 0.0)))
-        (write-param program "target" target)
-        (run-program program)
-        (let ((first-loss (scalar-sink program)))
-          (for-each (lambda (_) (run-program program)) (iota 200))
-          (let ((last-loss (scalar-sink program))
-                (spare-zero (every? (lambda (name) (spare-row-zero? program name))
+          (written gpu program (map with-spare-row initial) (list 1.0 1.0 1.0 0.0)))
+        (write-param gpu program "target" target)
+        (run-program gpu program)
+        (let ((first-loss (scalar-sink gpu program)))
+          (for-each (lambda (_) (run-program gpu program)) (iota 200))
+          (let ((last-loss (scalar-sink gpu program))
+                (spare-zero (every? (lambda (name) (spare-row-zero? gpu program name))
                                     (list "means" "rotations"))))
-            (release-program program)
+            (release-program gpu program)
             (cond ((not spare-zero) "Adam changed the unused row")
                   ((< last-loss (* 0.25 first-loss)) "the loss falls by more than four times")
                   (else
@@ -371,8 +376,8 @@
         (new Pair (first (● pair first))
              (second (array-append values (make-array (quotient (array-length values) 3) 0.0))))))
 
-    (define (spare-row-zero? (program Program) (name String)) (→ Bool) (! gpu tasks)
-      (let* ((values (bytes->values (read-param program name) (Float)))
+    (define (spare-row-zero? (gpu Gpu) (program Program) (name String)) (→ Bool) (! mut tasks)
+      (let* ((values (bytes->values (read-param gpu program name) (Float)))
              (size (array-length values)))
         (every? (lambda (x) (= x 0.0))
                 (array->list (subarray values (* 3 (quotient size 4)) size)))))

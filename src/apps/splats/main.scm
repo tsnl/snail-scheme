@@ -17,10 +17,10 @@
  (snail core io)
  (only (snail shell task) tasks)
  (only (snail shell app) next-event FrameEvent InputEvent FilesEvent KeyDown)
- (only (snail shell page) events report-ready)
- (only (snail shell fetch) fetch fetch-all-bytes page-address)
- (only (snail shell dom) dom document-root set-text)
- (only (snail shell dom page) with-page-dom)
+ (only (snail shell page) Events report-ready)
+ (only (snail shell fetch) Fetch fetch-all-bytes page-address)
+ (only (snail shell dom) Dom document-root set-text)
+ (only (snail shell dom page) page-dom)
  (snail shell files)
  (snail shell files page)
  (snail shell fetch page)
@@ -42,34 +42,47 @@
   ((splats Splats)
    (turned (Option F64))))
 
-(define (view-loop (shown Shown) (fly Fly) (timing (Pair I32 I32)) (format TextureFormat))
+(define (view-loop (gpu Gpu)
+                   (dom Dom)
+                   (picker FilePicker)
+                   (events Events)
+                   (fetch Fetch)
+                   (out OutputPort)
+                   (shown Shown)
+                   (fly Fly)
+                   (timing (Pair I32 I32))
+                   (format TextureFormat))
   (→ Unit)
-  (! events gpu output-port tasks fetch files dom)
-  (match (next-event)
+  (! mut tasks)
+  (match (next-event events)
     ((FrameEvent elapsed)
-     (let ((shown (turning shown elapsed)) (fly (flown fly elapsed)))
-       (frame (● shown splats) fly)
-       (work-done)
-       (report-ready)
-       (view-loop shown fly (timed timing elapsed) format)))
-    ((InputEvent (KeyDown 111 _)) (open-picker (SomeFiles)) (view-loop shown fly timing format))
-    ((InputEvent input) (view-loop shown (steered fly input) timing format))
-    ((FilesEvent _) (opened shown fly timing format (chosen-files)))
-    (_ (view-loop shown fly timing format))))
+     (let ((shown (turning gpu shown elapsed)) (fly (flown fly elapsed)))
+       (frame gpu (● shown splats) fly)
+       (work-done gpu)
+       (report-ready events)
+       (view-loop gpu dom picker events fetch out shown fly (timed out timing elapsed) format)))
+    ((InputEvent (KeyDown 111 _))
+     (open-picker picker (SomeFiles))
+     (view-loop gpu dom picker events fetch out shown fly timing format))
+    ((InputEvent input)
+     (view-loop gpu dom picker events fetch out shown (steered fly input) timing format))
+    ((FilesEvent _)
+     (opened gpu dom picker events fetch out shown fly timing format (chosen-files picker)))
+    (_ (view-loop gpu dom picker events fetch out shown fly timing format))))
 
 ;; The rings posed where `elapsed` more milliseconds turn them.
-(define (turning (shown Shown) (elapsed I32)) (→ Shown) (! gpu)
+(define (turning (gpu Gpu) (shown Shown) (elapsed I32)) (→ Shown) (! mut)
   (match (● shown turned)
     ((Some seconds)
      (let ((now (+ seconds (/ (i32->f64 elapsed) 1000.0))))
-       (write-transforms (● shown splats) (ring-poses now))
+       (write-transforms gpu (● shown splats) (ring-poses now))
        (Shown-turned-set shown (Some now))))
     ((None) shown)))
 
 ;; The splats sorted from where the fly is, and drawn into the canvas.
-(define (frame (splats Splats) (fly Fly)) (→ Unit) (! gpu)
-  (let* ((canvas (current-texture)) (encoder (create-command-encoder)))
-    (sort-splats encoder
+(define (frame (gpu Gpu) (splats Splats) (fly Fly)) (→ Unit) (! mut)
+  (let* ((canvas (current-texture gpu)) (encoder (create-command-encoder gpu)))
+    (sort-splats gpu encoder
                  splats
                  (splat-camera (fly-eye fly)
                                (fly-target fly)
@@ -77,10 +90,10 @@
                                fly-fov
                                (● canvas width)
                                (● canvas height)))
-    (let ((pass (begin-render-pass encoder
+    (let ((pass (begin-render-pass gpu encoder
                                    (new RenderPassDescriptor
                                      (colors (list (Some (new ColorAttachment
-                                                           (view (view-of (● canvas texture) 1))
+                                                           (view (view-of gpu (● canvas texture) 1))
                                                            (load (Clear (new Color
                                                                           (red 0.02)
                                                                           (green 0.02)
@@ -88,24 +101,24 @@
                                                                           (alpha 1.0))))
                                                            (store #t)))))
                                      (depth (None))))))
-      (draw-splats pass splats)
-      (end-pass pass))
-    (submit (list (finish encoder)))))
+      (draw-splats gpu pass splats)
+      (end-pass gpu pass))
+    (submit gpu (list (finish gpu encoder)))))
 
 ;; Frames and milliseconds since the last report, which comes every two
 ;; seconds.
-(define (timed (timing (Pair I32 I32)) (elapsed I32)) (→ (Pair I32 I32)) (! output-port)
+(define (timed (out OutputPort) (timing (Pair I32 I32)) (elapsed I32)) (→ (Pair I32 I32)) (! mut)
   (let ((frames (+ 1 (● timing first))) (total (+ elapsed (● timing second))))
     (if (< total 2000)
         (new Pair (first frames) (second total))
         (begin
-          (write-line (string-append "frames: " (show frames) " in " (show total) " ms"))
+          (write-line out (string-append "frames: " (show frames) " in " (show total) " ms"))
           (new Pair (first 0) (second 0))))))
 
 ;; A cloud on the device, with `rows` rows of transforms to pose it by.
-(define (standing (cloud Cloud) (rows I64) (format TextureFormat)) (→ Splats) (! gpu)
-  (let ((splats (make-splats "cloud" format (● cloud count) rows)))
-    (write-cloud splats 0 cloud)
+(define (standing (gpu Gpu) (cloud Cloud) (rows I64) (format TextureFormat)) (→ Splats) (! mut)
+  (let ((splats (make-splats gpu "cloud" format (● cloud count) rows)))
+    (write-cloud gpu splats 0 cloud)
     splats))
 
 ;; ---- The files chosen ----
@@ -120,43 +133,60 @@
 ;; or the view as it was, and why, when they cannot be shown. Everything
 ;; is read before the device is touched, so files refused leave nothing
 ;; on it, and the splats shown are let go only once theirs can follow.
-(define (opened (shown Shown)
+(define (opened (gpu Gpu)
+                (dom Dom)
+                (picker FilePicker)
+                (events Events)
+                (fetch Fetch)
+                (out OutputPort)
+                (shown Shown)
                 (fly Fly)
                 (timing (Pair I32 I32))
                 (format TextureFormat)
                 (files (List Chosen)))
   (→ Unit)
-  (! events gpu output-port tasks fetch files dom)
-  (set-text (document-root) "Loading…")
-  (match (attempt-reading (lambda () (chosen files)))
+  (! mut tasks)
+  (set-text dom (document-root dom) "Loading…")
+  (match (attempt-reading (lambda () (chosen fetch files)))
     ((Ok scene)
-     (release-splats (● shown splats))
-     (say (string-append (show (● (● scene cloud) count)) " gaussians"))
+     (release-splats gpu (● shown splats))
+     (say dom out (string-append (show (● (● scene cloud) count)) " gaussians"))
      (let ((turn (upright (poses-up (● scene poses))))
-           (splats (standing (● scene cloud) 1 format)))
-       (write-transforms splats (list (pose turn 0.0 0.0 0.0)))
-       (view-loop (new Shown (splats splats) (turned (None))) (start-of scene turn) timing format)))
-    ((Err why) (say why) (view-loop shown fly timing format))))
+           (splats (standing gpu (● scene cloud) 1 format)))
+       (write-transforms gpu splats (list (pose turn 0.0 0.0 0.0)))
+       (view-loop gpu
+                  dom
+                  picker
+                  events
+                  fetch
+                  out
+                  (new Shown (splats splats) (turned (None)))
+                  (start-of scene turn)
+                  timing
+                  format)))
+    ((Err why)
+     (say dom out why)
+     (view-loop gpu dom picker events fetch out shown fly timing format))))
 
 ;; What the page says beside the view, and the console with it.
-(define (say (message String)) (→ Unit) (! dom output-port)
-  (set-text (document-root) message)
-  (write-line message))
+(define (say (dom Dom) (out OutputPort) (message String)) (→ Unit) (! mut)
+  (set-text dom (document-root dom) message)
+  (write-line out message))
 
 ;; The scene among the files: its cloud, the first .ply, and its poses,
 ;; an `images.bin` if there is one. Only those two are fetched, together.
-(define (chosen (files (List Chosen))) (→ Scene) (! fetch tasks reading)
+(define (chosen (fetch Fetch) (files (List Chosen))) (→ Scene) (! mut tasks reading)
   (let ((ending (lambda (suffix) (find (lambda (file) (suffix? (● file path) suffix)) files))))
     (match (ending ".ply")
       ((Some cloud)
        (match (ending "images.bin")
          ((Some poses)
-          (let ((bytes (fetched (list (● cloud address) (● poses address)))))
+          (let ((bytes (fetched fetch (list (● cloud address) (● poses address)))))
             (scene-of (● cloud path)
                       (list-ref bytes 0)
                       (told (● poses path) (read-images (list-ref bytes 1))))))
          ((None)
-          (scene-of (● cloud path) (list-ref (fetched (list (● cloud address))) 0) (Nil)))))
+          (scene-of (● cloud path) (list-ref (fetched fetch (list (● cloud address))) 0) (Nil)))))
       ((None) (unreadable (string-append "no .ply among " (show (length files)) " files"))))))
 
 (define (scene-of (path String) (bytes Bytes) (poses (List ColmapImage))) (→ Scene) (! reading)
@@ -171,12 +201,12 @@
     ((Err why) (unreadable (string-append path ": " why)))))
 
 ;; The bytes at each address, fetched together.
-(define (fetched (addresses (List String))) (→ (List Bytes)) (! fetch tasks reading)
+(define (fetched (fetch Fetch) (addresses (List String))) (→ (List Bytes)) (! mut tasks reading)
   (map (lambda (reply)
          (match reply
            ((Ok bytes) bytes)
            ((Err why) (unreadable why))))
-       (fetch-all-bytes addresses)))
+       (fetch-all-bytes fetch addresses)))
 
 (define (suffix? (text String) (suffix String)) (→ Bool)
   (and (>= (string-length text) (string-length suffix))
@@ -248,16 +278,15 @@
                         ((None) (Nil))))
                     (list "cloud" "poses"))))
 
-(with-page-fetch
- (lambda ()
-   (with-page-files
-    (lambda ()
-      (with-page-dom
-       (lambda ()
-         (let* ((format (● (request-device) format))
-                (shown (new Shown (splats (standing (rings) 3 format)) (turned (Some 0.0))))
-                (fly (fly-over (list -2.5 -1.0 -2.5) (list 2.5 1.0 2.5)))
-                (timing (new Pair (first 0) (second 0))))
-           (match (query-files (page-address))
-             ((Nil) (view-loop shown fly timing format))
-             (files (opened shown fly timing format files))))))))))
+(define (main (gpu Gpu) (events Events) (out OutputPort)) (→ Unit) (! mut tasks)
+  (let ((fetch (page-fetch)))
+    (let ((picker (page-file-picker)))
+      (let ((dom (page-dom events)))
+        (let* ((format (● (request-device gpu) format))
+               (shown (new Shown (splats (standing gpu (rings) 3 format)) (turned (Some 0.0))))
+               (fly (fly-over (list -2.5 -1.0 -2.5) (list 2.5 1.0 2.5)))
+               (timing (new Pair (first 0) (second 0))))
+          (match (query-files (page-address fetch))
+            ((Nil) (view-loop gpu dom picker events fetch out shown fly timing format))
+            (files (opened gpu dom picker events fetch out shown fly timing format files)))))))
+  (unit))

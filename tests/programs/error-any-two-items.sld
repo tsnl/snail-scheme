@@ -5,7 +5,7 @@
 ;; Each definition that boxes a function performing effects is reported,
 ;; in source order: one walk after checking finds every item's first
 ;; failure.
-(define (noisy) (→ Unit) (! output-port) (write-line "noisy"))
+(define (noisy (out OutputPort)) (→ Unit) (! mut) (write-line out "noisy"))
 
 (define (first-box) (→ Any) (Any noisy))
 

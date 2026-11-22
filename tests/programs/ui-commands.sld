@@ -36,16 +36,16 @@
   (Done ((what String))))
 
 (type (Command M)
-      (Fn → M ! dom tasks))
+      (Fn → M ! mut tasks))
 
-(define (update (model Model) (message Msg)) (→ (Pair Model (List (Command Msg))))
+(define (update (dom Dom) (model Model) (message Msg)) (→ (Pair Model (List (Command Msg))))
   (match message
     ((Begin) (new Pair (first model) (second (list began))))
     ((Typed text) (new Pair (first (Model-text-set model text)) (second (Nil))))
-    ((Indent) (new Pair (first model) (second (list indent))))
-    ((Late) (new Pair (first model) (second (list late))))
-    ((Ask) (new Pair (first model) (second (list ask))))
-    ((Hide) (new Pair (first (Model-shown-set model #f)) (second (list missing))))
+    ((Indent) (new Pair (first model) (second (list (lambda () (indent dom))))))
+    ((Late) (new Pair (first model) (second (list (lambda () (late dom))))))
+    ((Ask) (new Pair (first model) (second (list (lambda () (ask dom))))))
+    ((Hide) (new Pair (first (Model-shown-set model #f)) (second (list (lambda () (missing dom))))))
     ((Save) (new Pair (first (logged model "saved")) (second (Nil))))
     ((Online) (new Pair (first (logged model "online")) (second (Nil))))
     ((Done what) (new Pair (first (logged model what)) (second (Nil))))))
@@ -53,39 +53,39 @@
 (define (logged (model Model) (what String)) (→ Model)
   (Model-log-set model (append (● model log) (list what))))
 
-(define (indent) (→ Msg) (! dom)
-  (match (element-by-id "text")
+(define (indent (dom Dom)) (→ Msg) (! mut)
+  (match (element-by-id dom "text")
     ((Some node)
-     (let ((took (insert-text node 0 0 "  ")))
-       (select-range node 2 2)
-       (focus-node node)
+     (let ((took (insert-text dom node 0 0 "  ")))
+       (select-range dom node 2 2)
+       (focus-node dom node)
        (Done (string-append "indented: "
                             (if took "taken" "refused")
                             ", selection "
-                            (show (● (selection-range node) first))
+                            (show (● (selection-range dom node) first))
                             "-"
-                            (show (● (selection-range node) second))
+                            (show (● (selection-range dom node) second))
                             ", line height "
-                            (show (● (measure node) line-height))))))
+                            (show (● (measure dom node) line-height))))))
     ((None) (Done "no field"))))
 
-(define (late) (→ Msg) (! dom tasks)
-  (match (element-by-id "text")
+(define (late (dom Dom)) (→ Msg) (! mut tasks)
+  (match (element-by-id dom "text")
     ((Some node)
      (yield)
      (yield)
-     (let ((took (insert-text node 0 0 "late ")))
+     (let ((took (insert-text dom node 0 0 "late ")))
        (Done (string-append "late: "
                             (if took "taken" "refused")
                             ", value "
-                            (show (string-length (string-property node "value")))))))
+                            (show (string-length (string-property dom node "value")))))))
     ((None) (Done "no field"))))
 
-(define (ask) (→ Msg) (! dom)
-  (if (confirm "Hide the field?") (Hide) (Done "kept")))
+(define (ask (dom Dom)) (→ Msg) (! mut)
+  (if (confirm dom "Hide the field?") (Hide) (Done "kept")))
 
-(define (missing) (→ Msg) (! dom)
-  (match (element-by-id "text")
+(define (missing (dom Dom)) (→ Msg) (! mut)
+  (match (element-by-id dom "text")
     ((Some node) (Done "still there"))
     ((None) (Done "field gone"))))
 
@@ -133,7 +133,7 @@
 (define (clicked (target String)) (→ Cue)
   (Fire target "click" no-event))
 
-(define (main) (→ Unit) (! host mut output-port tasks)
+(define (main (out OutputPort)) (→ Unit) (! host mut tasks)
   (dispatch
    (lambda ()
      (let ((result
@@ -146,18 +146,18 @@
                    (clicked "late")
                    (clicked "hide")
                    (FireWindow "online" no-event))
-             (lambda ()
-               (run-ui (new Model (text "") (shown #t) (log (Nil)))
+             (lambda (dom)
+               (run-ui dom (new Model (text "") (shown #t) (log (Nil)))
                        (list (Begin))
-                       (lambda (model message) (update model message))
+                       (lambda (model message) (update dom model message))
                        view
                        window
                        (lambda (model) (unit))
                        (lambda (model) (unit)))))))
-       (write-line (string-append "text: " (● (● result first) text)))
-       (for-each write-line (● (● result first) log))
-       (write-line (document->html (● result second)))
-       (for-each write-line
+       (write-line out (string-append "text: " (● (● result first) text)))
+       (for-each (lambda (text) (write-line out text)) (● (● result first) log))
+       (write-line out (document->html (● result second)))
+       (for-each (lambda (text) (write-line out text))
                  (filter (lambda (line)
                            (not (or (starts-with? "create" line)
                                     (starts-with? "insert " line)

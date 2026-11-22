@@ -24,8 +24,8 @@
 
     ;; A function that needs a capability of the target's, which the program
     ;; exposes: its wrapper, under the target's handlers, is the program's.
-    (define (later (base I64)) (→ I64) (! clock)
-      (if (>= (monotonic-nanoseconds) 0) (+ base 1) base))
+    (define (later (clock Clock) (base I64)) (→ I64) (! mut)
+      (if (>= (monotonic-nanoseconds clock) 0) (+ base 1) base))
 
     (expose buffer "payload-buffer")
     (expose put! "payload-put")

@@ -67,7 +67,7 @@
          local-name
          name-owner)
    (only (snail shell compiler check) Typed)
-   (only (snail shell process) process)
+   (only (snail shell process) Processes)
    (snail shell project build))
   (begin
 
@@ -81,35 +81,36 @@
       (Malformed)
       (Ended))
 
-    (define (read-message) (→ Incoming) (! input-port)
-      (match (read-headers (None))
+    (define (read-message (in InputPort)) (→ Incoming) (! mut)
+      (match (read-headers in (None))
         ((None) (Ended))
         ((Some length)
-         (match (string->json (read-body length))
+         (match (string->json (read-body in length))
            ((Some json) (Message json))
            ((None) (Malformed))))))
 
     ;; The Content-Length, once the blank line after the headers is read,
     ;; or None if the input ends first. Each header line ends in CR LF.
 
-    (define (read-headers (length (Option I64))) (→ (Option I64)) (! input-port)
-      (match (read-line)
+    (define (read-headers (in InputPort) (length (Option I64))) (→ (Option I64)) (! mut)
+      (match (read-line in)
         ((None) (None))
         ((Some line)
          (let ((header (without-return line)))
            (cond
-            ((string=? header "") (match length ((Some _) length) ((None) (read-headers length))))
+            ((string=? header "")
+             (match length ((Some _) length) ((None) (read-headers in length))))
             ((has-prefix? (string-downcase header) "content-length:")
-             (read-headers (string->i64 (trimmed (substring header 15 (string-length header))))))
-            (else (read-headers length)))))))
+             (read-headers in (string->i64 (trimmed (substring header 15 (string-length header))))))
+            (else (read-headers in length)))))))
 
     ;; Characters until their UTF-8 encoding is `length` bytes long.
 
-    (define (read-body (length I64)) (→ String) (! input-port)
+    (define (read-body (in InputPort) (length I64)) (→ String) (! mut)
       (let loop ((left length) (chars (Nil)))
         (if (<= left 0)
             (list->string (reverse chars))
-            (match (read-char)
+            (match (read-char in)
               ((Some char) (loop (- left (utf8-length char)) (Cons char chars)))
               ((None) (list->string (reverse chars)))))))
 
@@ -120,29 +121,30 @@
               ((< code 65536) 3)
               (else 4))))
 
-    (define (write-message (json Json)) (→ Unit) (! output-port)
+    (define (write-message (out OutputPort) (json Json)) (→ Unit) (! mut)
       (let ((text (json->string json)))
-        (write-string (string-append "Content-Length: "
-                                     (show (array-length (string->utf8 text)))
-                                     "\r\n\r\n"
-                                     text))))
+        (write-string out (string-append "Content-Length: "
+                                         (show (array-length (string->utf8 text)))
+                                         "\r\n\r\n"
+                                         text))))
 
-    (define (respond (id Json) (result Json)) (→ Unit) (! output-port)
-      (write-message (object (list (field "jsonrpc" (JsonString "2.0"))
+    (define (respond (out OutputPort) (id Json) (result Json)) (→ Unit) (! mut)
+      (write-message out (object (list (field "jsonrpc" (JsonString "2.0"))
+                                       (field "id" id)
+                                       (field "result" result)))))
+
+    (define (refuse (out OutputPort) (id Json) (code I64) (message String)) (→ Unit) (! mut)
+      (write-message out
+                     (object (list (field "jsonrpc" (JsonString "2.0"))
                                    (field "id" id)
-                                   (field "result" result)))))
+                                   (field "error" (object (list (field "code" (JsonInteger code))
+                                                                (field "message"
+                                                                       (JsonString message)))))))))
 
-    (define (refuse (id Json) (code I64) (message String)) (→ Unit) (! output-port)
-      (write-message
-       (object (list (field "jsonrpc" (JsonString "2.0"))
-                     (field "id" id)
-                     (field "error" (object (list (field "code" (JsonInteger code))
-                                                  (field "message" (JsonString message)))))))))
-
-    (define (notify (method String) (params Json)) (→ Unit) (! output-port)
-      (write-message (object (list (field "jsonrpc" (JsonString "2.0"))
-                                   (field "method" (JsonString method))
-                                   (field "params" params)))))
+    (define (notify (out OutputPort) (method String) (params Json)) (→ Unit) (! mut)
+      (write-message out (object (list (field "jsonrpc" (JsonString "2.0"))
+                                       (field "method" (JsonString method))
+                                       (field "params" params)))))
 
     ;; ---- JSON ----
 
@@ -243,11 +245,13 @@
     (define (hex-digit (value I32)) (→ String)
       (make-string 1 (string-ref "0123456789ABCDEF" (i32->i64 value))))
 
-    (define (document-text (documents (List Document)) (path String)) (→ (Option String)) (! fs)
+    (define (document-text (fs Fs) (documents (List Document)) (path String))
+      (→ (Option String))
+      (! mut)
       (match (find (lambda (document) (string=? (● document path) path)) documents)
         ((Some document) (Some (● document text)))
         ((None)
-         (match (read-text-file path 67108864)
+         (match (read-text-file fs path 67108864)
            ((Ok text) (Some text))
            ((Err _) (None))))))
 
@@ -318,16 +322,18 @@
     ;; of the check's own work, shows on the document checked. One in line 0
     ;; is about its file as a whole.
 
-    (define (failure-reports (document String) (failure Failure)) (→ (List Report)) (! fs)
+    (define (failure-reports (fs Fs) (document String) (failure Failure)) (→ (List Report)) (! mut)
       (match failure
         ((CompileFailure diagnostics)
-         (map (lambda (diagnostic) (diagnostic-report document diagnostic))
+         (map (lambda (diagnostic) (diagnostic-report fs document diagnostic))
               (diagnostics->list diagnostics)))
         ((BuildFailure message) (list (whole-report document message)))))
 
-    (define (diagnostic-report (document String) (diagnostic SourceDiagnostic)) (→ Report) (! fs)
+    (define (diagnostic-report (fs Fs) (document String) (diagnostic SourceDiagnostic))
+      (→ Report)
+      (! mut)
       (let* ((loc (● diagnostic loc)) (file (● loc file)))
-        (cond ((or (= (string-length file) 0) (not (file-exists? file)))
+        (cond ((or (= (string-length file) 0) (not (file-exists? fs file)))
                (whole-report document (diagnostic->string diagnostic)))
               ((> (● loc line) 0)
                (new Report (file file) (loc (Some loc)) (message (● diagnostic message))))
@@ -350,23 +356,31 @@
     ;; that has none now, so the editor clears it. Answers the files
     ;; reported.
 
-    (define (publish (documents (List Document)) (before (List String)) (reports (List Report)))
+    (define (publish (fs Fs)
+                     (out OutputPort)
+                     (documents (List Document))
+                     (before (List String))
+                     (reports (List Report)))
       (→ (List String))
-      (! fs output-port)
+      (! mut)
       (let ((files (delete-duplicates string=? (map (lambda (report) (● report file)) reports))))
         (for-each (lambda (file)
-                    (publish-file documents
+                    (publish-file fs out documents
                                   file
                                   (filter (lambda (report) (string=? (● report file) file))
                                           reports)))
                   (append files (filter (lambda (file) (not (member? file files))) before)))
         files))
 
-    (define (publish-file (documents (List Document)) (file String) (reports (List Report)))
+    (define (publish-file (fs Fs)
+                          (out OutputPort)
+                          (documents (List Document))
+                          (file String)
+                          (reports (List Report)))
       (→ Unit)
-      (! fs output-port)
-      (let ((text (match (document-text documents file) ((Some text) text) ((None) ""))))
-        (notify "textDocument/publishDiagnostics"
+      (! mut)
+      (let ((text (match (document-text fs documents file) ((Some text) text) ((None) ""))))
+        (notify out "textDocument/publishDiagnostics"
                 (object (list (field "uri" (JsonString (path->uri file)))
                               (field "diagnostics"
                                      (JsonArray (map (lambda (report) (report->json text report))
@@ -468,65 +482,103 @@
        (names Index)
        (exiting Bool)))
 
-    (define (serve-language (tools Tools)) (→ Unit) (! mut fs clock process input-port output-port)
-      (serve (new Server (tools tools) (workspace (None)) (documents (Nil)) (reported (Nil))
+    (define (serve-language (processes Processes)
+                            (fs Fs)
+                            (clock Clock)
+                            (in InputPort)
+                            (out OutputPort)
+                            (tools Tools))
+      (→ Unit)
+      (! mut)
+      (serve processes
+             fs
+             clock
+             in
+             out
+             (new Server (tools tools) (workspace (None)) (documents (Nil)) (reported (Nil))
                   (names empty-index) (exiting #f))))
 
-    (define (serve (server Server)) (→ Unit) (! mut fs clock process input-port output-port)
-      (match (read-message)
+    (define (serve (processes Processes)
+                   (fs Fs)
+                   (clock Clock)
+                   (in InputPort)
+                   (out OutputPort)
+                   (server Server))
+      (→ Unit)
+      (! mut)
+      (match (read-message in)
         ((Ended) (unit))
         ((Malformed)
-         (refuse (JsonNull) -32700 "the message is not JSON")
-         (serve server))
+         (refuse out (JsonNull) -32700 "the message is not JSON")
+         (serve processes fs clock in out server))
         ((Message json)
-         (let ((next (receive server json)))
-           (unless (● next exiting) (serve next))))))
+         (let ((next (receive processes fs clock out server json)))
+           (unless (● next exiting) (serve processes fs clock in out next))))))
 
     ;; A message with an id is a request, answered; one without, a
     ;; notification. A reply to a request of the server's has no method,
     ;; and the server sends none.
 
-    (define (receive (server Server) (json Json)) (→ Server) (! mut fs clock process output-port)
+    (define (receive (processes Processes)
+                (fs Fs)
+              (clock Clock)
+              (out OutputPort)
+              (server Server)
+              (json Json))
+      (→ Server)
+      (! mut)
       (let ((params (match (json-member json "params") ((Some params) params) ((None) (JsonNull)))))
         (match (new Pair (first (json-member json "id")) (second (text-at json (list "method"))))
-          ((Pair (Some id) (Some method)) (request server id method params))
-          ((Pair (None) (Some method)) (notified server method params))
+          ((Pair (Some id) (Some method)) (request fs out server id method params))
+          ((Pair (None) (Some method)) (notified processes fs clock out server method params))
           (_ server))))
 
-    (define (request (server Server) (id Json) (method String) (params Json))
+    (define (request (fs Fs)
+                     (out OutputPort)
+                     (server Server)
+                     (id Json)
+                     (method String)
+                     (params Json))
       (→ Server)
-      (! fs output-port)
+      (! mut)
       (cond ((string=? method "initialize")
-             (respond id capabilities)
+             (respond out id capabilities)
              (Server-workspace-set server (opened-folder params)))
-            ((string=? method "shutdown") (respond id (JsonNull)) server)
+            ((string=? method "shutdown") (respond out id (JsonNull)) server)
             ((string=? method "textDocument/formatting")
-             (respond id (formatting server params))
+             (respond out id (formatting server params))
              server)
             ((string=? method "textDocument/hover")
-             (respond id (hover server params))
+             (respond out id (hover server params))
              server)
             ((string=? method "textDocument/definition")
-             (respond id (definition server params))
+             (respond out id (definition fs server params))
              server)
             ((string=? method "textDocument/semanticTokens/full")
-             (respond id (colours server params))
+             (respond out id (colours server params))
              server)
-            (else (refuse id -32601 (string-append "snail-scheme lsp does not answer " method))
+            (else (refuse out id -32601 (string-append "snail-scheme lsp does not answer " method))
                   server)))
 
-    (define (notified (server Server) (method String) (params Json))
+    (define (notified (processes Processes)
+                      (fs Fs)
+                      (clock Clock)
+                      (out OutputPort)
+                      (server Server)
+                      (method String)
+                      (params Json))
       (→ Server)
-      (! mut fs clock process output-port)
-      (cond ((string=? method "initialized") (checked server))
+      (! mut)
+      (cond ((string=? method "initialized") (checked processes fs clock out server))
             ((string=? method "textDocument/didOpen")
-             (checked (opened server
-                              (text-at params (list "textDocument" "uri"))
-                              (text-at params (list "textDocument" "text")))))
+             (checked processes fs clock out (opened server
+                                                     (text-at params (list "textDocument" "uri"))
+                                                     (text-at params
+                                                              (list "textDocument" "text")))))
             ((string=? method "textDocument/didChange")
              (opened server (text-at params (list "textDocument" "uri")) (changed-text params)))
             ((string=? method "textDocument/didClose") (closed server params))
-            ((string=? method "textDocument/didSave") (checked server))
+            ((string=? method "textDocument/didSave") (checked processes fs clock out server))
             ((string=? method "exit") (Server-exiting-set server #t))
             (else server)))
 
@@ -605,10 +657,10 @@
     ;; there names. Its workspace is the nearest folder above it that holds
     ;; src/, as a build's is, which `workspace`, holding src/, bounds.
 
-    (define (document-check (workspace String) (path String)) (→ (Option Check)) (! fs)
-      (if (and (has-prefix? path (string-append workspace "/")) (file-exists? path))
-          (let* ((script (script-at path)) (src (string-append (● script workspace) "/src/")))
-            (cond ((has-suffix? path ".scm") (Some (ScriptCheck script (platform-beside path))))
+    (define (document-check (fs Fs) (workspace String) (path String)) (→ (Option Check)) (! mut)
+      (if (and (has-prefix? path (string-append workspace "/")) (file-exists? fs path))
+          (let* ((script (script-at fs path)) (src (string-append (● script workspace) "/src/")))
+            (cond ((has-suffix? path ".scm") (Some (ScriptCheck script (platform-beside fs path))))
                   ((and (has-suffix? path ".sld") (has-prefix? path src))
                    (Some (LibraryCheck (● script workspace)
                                        (split-name (substring path
@@ -617,8 +669,8 @@
                   (else (None))))
           (None)))
 
-    (define (platform-beside (path String)) (→ Platform) (! fs)
-      (if (file-exists? (string-append (parent path) "/public")) (Browser) (Node)))
+    (define (platform-beside (fs Fs) (path String)) (→ Platform) (! mut)
+      (if (file-exists? fs (string-append (parent path) "/public")) (Browser) (Node)))
 
     (define (parent (path String)) (→ String)
       (let loop ((index (- (string-length path) 1)))
@@ -642,29 +694,42 @@
     ;; A document's check: what failed, at its places, or the program as
     ;; the checker typed it.
 
-    (define (check-document (tools Tools) (workspace String) (path String))
+    (define (check-document (processes Processes)
+                            (fs Fs)
+                            (clock Clock)
+                            (tools Tools)
+                            (workspace String)
+                            (path String))
       (→ (Pair (List Report) (Option Typed)))
-      (! mut fs clock process)
-      (match (document-check workspace path)
+      (! mut)
+      (match (document-check fs workspace path)
         ((None) (new Pair (first (Nil)) (second (None))))
         ((Some check)
          (match (match check
-                  ((ScriptCheck script platform) (check-script tools script platform))
-                  ((LibraryCheck owner name) (check-library tools owner name)))
+                  ((ScriptCheck script platform)
+                   (check-script processes fs clock tools script platform))
+                  ((LibraryCheck owner name) (check-library processes fs clock tools owner name)))
            ((Ok typed) (new Pair (first (Nil)) (second (Some typed))))
-           ((Err failure) (new Pair (first (failure-reports path failure)) (second (None))))))))
+           ((Err failure) (new Pair (first (failure-reports fs path failure)) (second (None))))))))
 
     ;; Checks every open document, then publishes what failed and keeps the
     ;; checked programs' names; when every check failed, those of the last
     ;; that did not stay.
 
-    (define (checked (server Server)) (→ Server) (! mut fs clock process output-port)
+    (define (checked (processes Processes) (fs Fs) (clock Clock) (out OutputPort) (server Server))
+      (→ Server)
+      (! mut)
       (match (● server workspace)
         ((None) server)
         ((Some workspace)
-         (if (file-exists? (string-append workspace "/src"))
+         (if (file-exists? fs (string-append workspace "/src"))
              (let* ((results (map (lambda (document)
-                                    (check-document (● server tools) workspace (● document path)))
+                                    (check-document processes
+                                                    fs
+                                                    clock
+                                                    (● server tools)
+                                                    workspace
+                                                    (● document path)))
                                   (● server documents)))
                     (programs (fold-right (lambda (result programs)
                                             (match (● result second)
@@ -677,7 +742,11 @@
                (Server-reported-set (if (null? programs)
                                         server
                                         (Server-names-set server (index-programs programs)))
-                                    (publish (● server documents) (● server reported) reports)))
+                                    (publish fs
+                                             out
+                                             (● server documents)
+                                             (● server reported)
+                                             reports)))
              server))))
 
     ;; ---- Requests ----
@@ -739,12 +808,12 @@
                                                                                  "`"))))))))))))
         ((None) (JsonNull))))
 
-    (define (definition (server Server) (params Json)) (→ Json) (! fs)
+    (define (definition (fs Fs) (server Server) (params Json)) (→ Json) (! mut)
       (match (requested-use server params)
         ((Some use)
          (match (table-ref (● (● server names) bindings) (● use name))
            ((Some loc)
-            (match (document-text (● server documents) (● loc file))
+            (match (document-text fs (● server documents) (● loc file))
               ((Some text)
                (object (list (field "uri" (JsonString (path->uri (● loc file))))
                              (field "range" (name-range text loc (source-name (● use name)))))))

@@ -1,1 +1,1 @@
-main must be a function taking no arguments and returning Unit
+main asks for I64, which the target library snail.target.node does not provide

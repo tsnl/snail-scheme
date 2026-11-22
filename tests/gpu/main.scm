@@ -18,7 +18,7 @@
  (snail shell graphics pod)
  (snail shell graphics atlas)
  (snail shell graphics quad)
- (only (snail shell fetch) fetch fetch-bytes)
+ (only (snail shell fetch) Fetch fetch-bytes)
  (snail shell fetch page)
  (gpu-test shaders)
  (gpu-test device))
@@ -31,34 +31,40 @@
 
 (define shader (→ String) (string-append (declarations paint-shape) paint))
 
-(define (pipeline-for (module GpuShaderModule) (format TextureFormat)) (→ GpuRenderPipeline) (! gpu)
-  (create-render-pipeline
-   (new RenderPipelineDescriptor
-     (label "test")
-     (module module)
-     (vertex-entry "vertex_main")
-     (buffers (Nil))
-     (fragment (Some (new FragmentState
-                       (entry "fragment_main")
-                       (targets (list (Some (new ColorTarget (format format) (blend (None)))))))))
-     (topology (TriangleList))
-     (cull (CullNone))
-     (depth (None)))))
+(define (pipeline-for (gpu Gpu) (module GpuShaderModule) (format TextureFormat))
+  (→ GpuRenderPipeline)
+  (! mut)
+  (create-render-pipeline gpu
+                          (new RenderPipelineDescriptor
+                            (label "test")
+                            (module module)
+                            (vertex-entry "vertex_main")
+                            (buffers (Nil))
+                            (fragment (Some (new FragmentState
+                                              (entry "fragment_main")
+                                              (targets (list (Some (new ColorTarget
+                                                                     (format format)
+                                                                     (blend (None)))))))))
+                            (topology (TriangleList))
+                            (cull (CullNone))
+                            (depth (None)))))
 
-(define (group-for (pipeline GpuRenderPipeline) (color GpuBuffer)) (→ GpuBindGroup) (! gpu)
-  (create-bind-group (new BindGroupDescriptor
-                       (label "test")
-                       (pipeline (RenderPipeline pipeline))
-                       (group 0)
-                       (entries (list (BufferEntry 0 color 0 0))))))
+(define (group-for (gpu Gpu) (pipeline GpuRenderPipeline) (color GpuBuffer))
+  (→ GpuBindGroup)
+  (! mut)
+  (create-bind-group gpu (new BindGroupDescriptor
+                           (label "test")
+                           (pipeline (RenderPipeline pipeline))
+                           (group 0)
+                           (entries (list (BufferEntry 0 color 0 0))))))
 
-(define (fill (encoder GpuCommandEncoder)
+(define (fill (gpu Gpu) (encoder GpuCommandEncoder)
               (view GpuTextureView)
               (pipeline GpuRenderPipeline)
               (group GpuBindGroup))
   (→ Unit)
-  (! gpu)
-  (let ((pass (begin-render-pass encoder
+  (! mut)
+  (let ((pass (begin-render-pass gpu encoder
                                  (new RenderPassDescriptor
                                    (colors (list (Some (new ColorAttachment
                                                          (view view)
@@ -69,10 +75,10 @@
                                                                         (alpha 1.0))))
                                                          (store #t)))))
                                    (depth (None))))))
-    (set-pipeline pass pipeline)
-    (set-bind-group pass 0 group)
-    (draw pass 3 1 0 0)
-    (end-pass pass)))
+    (set-pipeline gpu pass pipeline)
+    (set-bind-group gpu pass 0 group)
+    (draw gpu pass 3 1 0 0)
+    (end-pass gpu pass)))
 
 ;; What the first frame makes and the second uses again: the texture, the
 ;; image, the paint's uniform, a buffer to read back into, and a pipeline
@@ -87,40 +93,45 @@
    (onscreen GpuRenderPipeline)
    (onscreen-group GpuBindGroup)))
 
-(define (painting (info DeviceInfo)) (→ Painting) (! gpu tasks)
-  (let* ((module (create-shader-module (new ShaderModuleDescriptor (label "test") (code shader))))
-         (target (texture-named "target" 4 4))
-         (color (buffer-named "paint" 16 (list (Uniform) (CopyDst))))
-         (offscreen (pipeline-for module (Rgba8Unorm)))
-         (onscreen (pipeline-for module (● info format))))
-    (write-buffer color
+(define (painting (gpu Gpu) (info DeviceInfo)) (→ Painting) (! mut tasks)
+  (let* ((module
+          (create-shader-module gpu (new ShaderModuleDescriptor (label "test") (code shader))))
+         (target (texture-named gpu "target" 4 4))
+         (color (buffer-named gpu "paint" 16 (list (Uniform) (CopyDst))))
+         (offscreen (pipeline-for gpu module (Rgba8Unorm)))
+         (onscreen (pipeline-for gpu module (● info format))))
+    (write-buffer gpu color
                   0
                   (pod-bytes paint-shape
                              (new Paint-uniform
                                (color (new Vec4f (x 1.0) (y 0.0) (z 0.0) (w 1.0))))))
     (new Painting
       (target target)
-      (target-view (view-of target 1))
-      (image (match (decode-image two-texels)
+      (target-view (view-of gpu target 1))
+      (image (match (decode-image gpu two-texels)
                ((Some image) image)
                ((None) (panic "the two texels did not decode"))))
-      (readback (buffer-named "readback" 1280 (list (MapRead) (CopyDst))))
+      (readback (buffer-named gpu "readback" 1280 (list (MapRead) (CopyDst))))
       (offscreen offscreen)
-      (offscreen-group (group-for offscreen color))
+      (offscreen-group (group-for gpu offscreen color))
       (onscreen onscreen)
-      (onscreen-group (group-for onscreen color)))))
+      (onscreen-group (group-for gpu onscreen color)))))
 
 ;; The texels of the texture's first row and the image's, each row copied
 ;; at 256 bytes, the alignment a copy into a buffer needs.
 
-(define (frame (p Painting)) (→ (Pair Bytes Bytes)) (! gpu tasks)
-  (let ((encoder (create-command-encoder)) (readback (● p readback)))
-    (fill encoder (● p target-view) (● p offscreen) (● p offscreen-group))
-    (fill encoder (view-of (● (current-texture) texture) 1) (● p onscreen) (● p onscreen-group))
-    (copy-texture-to-buffer encoder (whole-texture (● p target)) readback 0 256 4 4)
-    (copy-texture-to-buffer encoder (whole-texture (● p image texture)) readback 1024 256 2 1)
-    (submit (list (finish encoder)))
-    (new Pair (first (read-buffer readback 0 16)) (second (read-buffer readback 1024 8)))))
+(define (frame (gpu Gpu) (p Painting)) (→ (Pair Bytes Bytes)) (! mut tasks)
+  (let ((encoder (create-command-encoder gpu)) (readback (● p readback)))
+    (fill gpu encoder (● p target-view) (● p offscreen) (● p offscreen-group))
+    (fill gpu
+          encoder
+          (view-of gpu (● (current-texture gpu) texture) 1)
+          (● p onscreen)
+          (● p onscreen-group))
+    (copy-texture-to-buffer gpu encoder (whole-texture (● p target)) readback 0 256 4 4)
+    (copy-texture-to-buffer gpu encoder (whole-texture (● p image texture)) readback 1024 256 2 1)
+    (submit gpu (list (finish gpu encoder)))
+    (new Pair (first (read-buffer gpu readback 0 16)) (second (read-buffer gpu readback 1024 8)))))
 
 ;; The two texels composed into an atlas with red swapped for blue, then
 ;; drawn as two quads across a 4x2 texture: blue on the left, green on the
@@ -154,15 +165,15 @@
          (color (new Vec4f (x 1.0) (y 1.0) (z 1.0) (w 1.0))))))
     ((None) (panic "the picture has no slot"))))
 
-(define (quads-frame) (→ (Pair Bytes String)) (! gpu tasks)
-  (let* ((encoder (create-command-encoder))
-         (atlas (atlas-pictures (make-atlas "test" 16 1) encoder (list two-texel-picture)))
-         (target (texture-named "quads" 4 2))
-         (readback (buffer-named "quads-readback" 512 (list (MapRead) (CopyDst))))
-         (pass (begin-render-pass encoder
+(define (quads-frame (gpu Gpu)) (→ (Pair Bytes String)) (! mut tasks)
+  (let* ((encoder (create-command-encoder gpu))
+         (atlas (atlas-pictures gpu (make-atlas gpu "test" 16 1) encoder (list two-texel-picture)))
+         (target (texture-named gpu "quads" 4 2))
+         (readback (buffer-named gpu "quads-readback" 512 (list (MapRead) (CopyDst))))
+         (pass (begin-render-pass gpu encoder
                                   (new RenderPassDescriptor
                                     (colors (list (Some (new ColorAttachment
-                                                          (view (view-of target 1))
+                                                          (view (view-of gpu target 1))
                                                           (load (Clear (new Color
                                                                          (red 0.0)
                                                                          (green 0.0)
@@ -170,49 +181,50 @@
                                                                          (alpha 0.0))))
                                                           (store #t)))))
                                     (depth (None))))))
-    (draw-quads pass
-                (make-quads "test" (Rgba8Unorm) (● atlas texture))
+    (draw-quads gpu pass
+                (make-quads gpu "test" (Rgba8Unorm) (● atlas texture))
                 (new View2D
                   (center (new Vec2f (x 2.0) (y 1.0)))
                   (extent (new Vec2f (x 4.0) (y 2.0)))
                   (pixels (new Vec2f (x 4.0) (y 2.0))))
                 (list (texel-quad atlas 0 1.0) (texel-quad atlas 1 3.0)))
-    (end-pass pass)
-    (copy-texture-to-buffer encoder (whole-texture target) readback 0 256 4 2)
-    (submit (list (finish encoder)))
-    (let ((texels (read-buffer readback 0 16)))
+    (end-pass gpu pass)
+    (copy-texture-to-buffer gpu encoder (whole-texture target) readback 0 256 4 2)
+    (submit gpu (list (finish gpu encoder)))
+    (let ((texels (read-buffer gpu readback 0 16)))
       (new Pair
         (first texels)
-        (second (atlas-url atlas 1 (new Rect (x 0) (y 0) (width 2) (height 1))))))))
+        (second (atlas-url gpu atlas 1 (new Rect (x 0) (y 0) (width 2) (height 1))))))))
 
 ;; ---- Files and waits ----
 
 ;; The page's first bytes, and why a missing file has none.
 
-(define (fetched) (→ String) (! fetch tasks)
-  (string-append (match (fetch-bytes "index.html")
+(define (fetched (fetch Fetch)) (→ String) (! mut tasks)
+  (string-append (match (fetch-bytes fetch "index.html")
                    ((Ok bytes)
                     (list->string (map (lambda (byte) (integer->char (i32->i64 (u8->i32 byte))))
                                        (array->list (subarray bytes 0 9)))))
                    ((Err message) message))
                  " "
-                 (match (fetch-bytes "missing.bin")
+                 (match (fetch-bytes fetch "missing.bin")
                    ((Ok _) "found")
                    ((Err message) message))))
 
-(with-page-fetch
- (lambda ()
-   (let* ((info (request-device)) (p (painting info)))
-     (write-line (string-append "format: " (texture-format-name (● info format))))
-     (let ((first-frame (frame p)))
-       (write-line (string-append "target: " (texels (● first-frame first))))
-       (write-line (string-append "image: " (texels (● first-frame second)))))
-     (let ((second-frame (frame p)))
-       (write-line (string-append "again: " (texels (● second-frame first)))))
-     (let ((quads (quads-frame)))
-       (write-line (string-append "quads: " (texels (● quads first))))
-       (write-line (string-append "url: " (● quads second))))
-     (device-checks)
-     (work-done)
-     (write-line (string-append "fetched: " (fetched)))
-     (report-ready))))
+(define (main (gpu Gpu) (events Events) (out OutputPort)) (→ Unit) (! mut tasks)
+  (let ((fetch (page-fetch)))
+    (let* ((info (request-device gpu)) (p (painting gpu info)))
+      (write-line out (string-append "format: " (texture-format-name (● info format))))
+      (let ((first-frame (frame gpu p)))
+        (write-line out (string-append "target: " (texels (● first-frame first))))
+        (write-line out (string-append "image: " (texels (● first-frame second)))))
+      (let ((second-frame (frame gpu p)))
+        (write-line out (string-append "again: " (texels (● second-frame first)))))
+      (let ((quads (quads-frame gpu)))
+        (write-line out (string-append "quads: " (texels (● quads first))))
+        (write-line out (string-append "url: " (● quads second))))
+      (device-checks gpu out)
+      (work-done gpu)
+      (write-line out (string-append "fetched: " (fetched fetch)))
+      (report-ready events)))
+  (unit))

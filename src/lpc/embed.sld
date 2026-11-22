@@ -42,9 +42,9 @@
     ;; The library `name` exporting `art`, which gives the image at each path
     ;; of `paths` as a Source keyed from `first-key` on, and None for any
     ;; other path. The paths' files are read now, as bytes.
-    (define (embed-library (name (List String)) (first-key I32) (paths (List String)))
+    (define (embed-library (fs Fs) (name (List String)) (first-key I32) (paths (List String)))
       (→ Syntax)
-      (! fs)
+      (! mut)
       (library-syntax name
                       (list "art")
                       (list (list "snail" "core" "base") (list "snail" "shell" "graphics" "atlas"))
@@ -54,7 +54,9 @@
                                             (lambda (index path) (art-entry first-key index path))
                                             paths)
                                            (form "None" (Nil)))
-                       (concatenate (map-indexed image-definitions paths)))))
+                       (concatenate
+                        (map-indexed (lambda (index path) (image-definitions fs index path))
+                                     paths)))))
 
     ;; Path P gives `(Some (new Source (key KEY) (bytes image-I)))`.
     (define (art-entry (first-key I32) (index I64) (path String)) (→ (Pair String Syntax))
@@ -72,11 +74,11 @@
 
     ;; An image is a thunk of its bytes, so they are copied out of their
     ;; data segment only when the host asks for them.
-    (define (image-definitions (index I64) (path String)) (→ (List Syntax)) (! fs)
+    (define (image-definitions (fs Fs) (index I64) (path String)) (→ (List Syntax)) (! mut)
       (list (form "define"
                   (list (ListSyntax (list (image-name index)))
                         (form "→" (list (SymbolSyntax "Bytes")))
-                        (BytesSyntax (read-bytes path))))))
+                        (BytesSyntax (read-bytes fs path))))))
 
     ;; ---- Palettes ----
 

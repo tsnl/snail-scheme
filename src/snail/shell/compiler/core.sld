@@ -25,6 +25,7 @@
    buffer-type?
    hidden-effects
    labels->string
+   type=?
    types=?
    optional-any-type?
    short-name

@@ -17,23 +17,23 @@
       ((log (lambda (message) (unit))))
     (action)))
 
-(define (loudly (action (Fn → A ! Log output-port e))) (→ A) (! output-port e) (∀ (A e))
+(define (loudly (out OutputPort) (action (Fn → A ! Log mut e))) (→ A) (! mut e) (∀ (A e))
   (handle Log
-      ((log (lambda (message) (write-line (string-append "log: " message)))))
+      ((log (lambda (message) (write-line out (string-append "log: " message)))))
     (action)))
 
-(define (main) (→ Unit) (! output-port)
+(define (main (out OutputPort)) (→ Unit) (! mut)
 
-  (display (loudly (lambda () (work 21))))
-  (newline)
-  (display (quietly (lambda () (work 5))))
-  (newline)
-  (display (handle Counter
-               ((tick (lambda () 2)))
-             (+ (tick) (+ (tick) (tick)))))
-  (newline)
-  (loudly (lambda ()
-            (handle Log
-                ((log (lambda (message) (log (string-append "outer sees " message)))))
-              (log "inner"))))
+  (display out (loudly out (lambda () (work 21))))
+  (newline out)
+  (display out (quietly (lambda () (work 5))))
+  (newline out)
+  (display out (handle Counter
+                   ((tick (lambda () 2)))
+                 (+ (tick) (+ (tick) (tick)))))
+  (newline out)
+  (loudly out (lambda ()
+                (handle Log
+                    ((log (lambda (message) (log (string-append "outer sees " message)))))
+                  (log "inner"))))
   (unit))

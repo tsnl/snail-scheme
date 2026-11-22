@@ -36,11 +36,12 @@ async function throughTheCommandLine() {
   write('flag.txt', 'valid');
   write('src/generated/flag.sld', `(generate-library (generated flag)
     (import (snail core base) (snail core io) (snail shell syntax))
-    (library-syntax (list "generated" "flag") (list "value") (list (list "snail" "core" "base"))
-      (list (form "define" (list (form "value" (Nil))
-        (form "→" (list (SymbolSyntax "String")))
-          (if (string=? (read-file "${project}/flag.txt") "valid")
-            (StringSyntax "ok") (SymbolSyntax "unknown-generated-name")))))))`);
+    (lambda ((fs Fs))
+      (library-syntax (list "generated" "flag") (list "value") (list (list "snail" "core" "base"))
+        (list (form "define" (list (form "value" (Nil))
+          (form "→" (list (SymbolSyntax "String")))
+            (if (string=? (read-file fs "${project}/flag.txt") "valid")
+              (StringSyntax "ok") (SymbolSyntax "unknown-generated-name"))))))))`);
   await build();
   const published = fs.readlinkSync(join(project, 'build/main'));
   assert.deepEqual(inventory(), [published, 'main']);

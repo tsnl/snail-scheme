@@ -10,11 +10,11 @@
 
 (define (increment (value I64)) (→ I64) (+ value 1))
 
-(define (main) (→ Unit) (! output-port)
-  (write-line (show (twice increment 10)))
-  (write-line (show (consume increment 20)))
-  (write-line (show (consume increment 30)))
-  (write-line (show (consume increment 40)))
-  (write-line (show (twice increment 50)))
-  (write-line (repr (map increment (list 60 70))))
+(define (main (out OutputPort)) (→ Unit) (! mut)
+  (write-line out (show (twice increment 10)))
+  (write-line out (show (consume increment 20)))
+  (write-line out (show (consume increment 30)))
+  (write-line out (show (consume increment 40)))
+  (write-line out (show (twice increment 50)))
+  (write-line out (repr (map increment (list 60 70))))
   (unit))

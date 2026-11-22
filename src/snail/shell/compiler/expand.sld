@@ -6,6 +6,7 @@
   (export
    ExpandedProgram
    expand-program
+   Generate
    LinkedFile
    program-links)
   (import
@@ -173,11 +174,11 @@
     ;; it as plain data: a step takes the context and hands back the one it
     ;; learned in. Its fields fall into three kinds.
     ;;
-    ;; What the build is given, which never changes: `directories` are
-    ;; searched for libraries;
-    ;; `inputs` holds what
-    ;; the build supplies in memory, producers' outputs; and `recipe`, in a producer program, is the recipe its
-    ;; printed copy stands for.
+    ;; What the build is given, which never changes: `fs` reads the
+    ;; sources and linked files; `generate` runs a producer and answers
+    ;; what it wrote; `directories` are searched for libraries; and
+    ;; `recipe`, in a producer program, is the recipe its printed copy
+    ;; stands for.
     ;;
     ;; Scope, which loading a library replaces and which the importer gets
     ;; back unchanged: `prefix` names the library being expanded, so its
@@ -199,8 +200,15 @@
     ;; each top level's definitions, by key, and `top-count` makes the next
     ;; key. `deriving` is the scope a deriving macro's name resolves in,
     ;; once one is made.
+    ;; Runs the producer program of a `generate-library`, given the
+    ;; libraries loading when it was reached, and answers the bytes of the
+    ;; syntax it writes.
+    (type Generate (Fn (List String) (List Syntax) → Bytes ! mut compile))
+
     (record Context
-      ((directories (List String))
+      ((fs Fs)
+       (generate Generate)
+       (directories (List String))
        (target (Option (List String)))
        (known (Table LinkedFile))
        (recipe (Option Recipe))
@@ -225,7 +233,9 @@
     ;; it.
 
     (define (resumed (outer Context) (inner Context)) (→ Context)
-      (new Context (directories (● outer directories))
+      (new Context (fs (● outer fs))
+           (generate (● outer generate))
+           (directories (● outer directories))
            (target (● outer target))
            (known (● outer known))
            (recipe (● outer recipe))
@@ -275,11 +285,15 @@
       ((program Program)
        (libraries (Table Expanded))))
 
-    (define (new-context (directories (List String))
+    (define (new-context (fs Fs)
+                         (generate Generate)
+                         (directories (List String))
                          (target (Option (List String)))
                          (known (List LinkedFile)))
       (→ Context)
       (new Context
+        (fs fs)
+        (generate generate)
         (directories directories)
         (target target)
         (known
@@ -398,7 +412,7 @@
 
     (define (load-library (cx Context) (name (List String)) (loc Loc))
       (→ (Pair Exports Context))
-      (! fs compile generator)
+      (! mut compile)
       (let ((key (string-join name ".")))
         (cond ((builtin-library? key) (new Pair (first core-library) (second cx)))
               ((member? key (● cx loading))
@@ -414,32 +428,29 @@
 
     (define (read-library (cx Context) (name (List String)) (loc Loc))
       (→ (Pair Exports Context))
-      (! fs compile generator)
-      (let ((path (library-path (● cx directories) name loc)))
-        (expand-library-file cx name (file-library name (read-source-file path) path))))
+      (! mut compile)
+      (let ((path (library-path (● cx fs) (● cx directories) name loc)))
+        (expand-library-file cx name (file-library name (read-source-file (● cx fs) path) path))))
 
     ;; A defined library expands its sections; a generated one expands the
     ;; library its producer's output declares.
 
     (define (expand-library-file (cx Context) (name (List String)) (file LibraryFile))
       (→ (Pair Exports Context))
-      (! fs compile generator)
+      (! mut compile)
       (match file
         ((DefinedLibrary sections)
          (expand-sections (Context-prefix-set cx (string-join name ".")) sections))
         ((GeneratedLibrary forms loc)
          (expand-library-file cx name (output-library-file name (generated-bytes cx forms) loc)))))
 
-    ;; What a producer wrote, as the driver's handler produces it. The
-    ;; context owns only plain data;
-    ;; generator policy belongs to this invocation's handler. A request keeps
-    ;; the exact loading stack, so recursive compilation still detects cycles.
+    ;; What a producer wrote, as the driver's `generate` produces it: the
+    ;; policy is this invocation's, and the context carries it to the one
+    ;; place that asks. A request keeps the exact loading stack, so
+    ;; recursive compilation still detects cycles.
 
-    (effect generator
-      ((run-generator (Fn (List String) (List Syntax) → Bytes ! fs compile))))
-
-    (define (generated-bytes (cx Context) (forms (List Syntax))) (→ Bytes) (! generator fs compile)
-      (run-generator (● cx loading) forms))
+    (define (generated-bytes (cx Context) (forms (List Syntax))) (→ Bytes) (! mut compile)
+      ((● cx generate) (● cx loading) forms))
 
     ;; ---- Sources ----
 
@@ -555,7 +566,7 @@
 
     (define (bind-links (cx Context) (uses (List LinkUse)))
       (→ (Pair (List LinkedFile) Context))
-      (! fs compile)
+      (! mut compile)
       (let ((linked
              (map (lambda (use) (new Pair (first use) (second (linked-file cx use))))
                   uses)))
@@ -571,10 +582,10 @@
     ;; The file a use names, with its digest. A missing file fails the
     ;; library's expansion, naming the library and the path.
 
-    (define (linked-file (cx Context) (use LinkUse)) (→ LinkedFile) (! fs compile)
+    (define (linked-file (cx Context) (use LinkUse)) (→ LinkedFile) (! mut compile)
       (let ((path (● use path)))
-        (match (followed-status path)
-          ((Ok status) (digested (● cx known) path status))
+        (match (followed-status (● cx fs) path)
+          ((Ok status) (digested (● cx fs) (● cx known) path status))
           ((Err _)
            (compile-error (● use loc)
                           (string-append "the library " (● cx prefix) " links " (● use relative)
@@ -586,18 +597,19 @@
     ;; status is taken before the bytes are read, so a file written in
     ;; between is read again by the next build.
 
-    (define (digested (known (Table LinkedFile)) (path String) (status FileStatus)) (→ LinkedFile)
-      (! fs)
+    (define (digested (fs Fs) (known (Table LinkedFile)) (path String) (status FileStatus))
+      (→ LinkedFile)
+      (! mut)
       (match (table-ref known path)
         ((Some file)
          (if (and (= (● file size) (● status size)) (= (● file modified) (● status modified)))
              file
-             (read-digest path status)))
-        ((None) (read-digest path status))))
+             (read-digest fs path status)))
+        ((None) (read-digest fs path status))))
 
-    (define (read-digest (path String) (status FileStatus)) (→ LinkedFile) (! fs)
+    (define (read-digest (fs Fs) (path String) (status FileStatus)) (→ LinkedFile) (! mut)
       (new LinkedFile
-        (digest (file-digest path))
+        (digest (file-digest fs path))
         (path path)
         (size (● status size))
         (modified (● status modified))))
@@ -606,8 +618,8 @@
       (Foreign (new Import (module "snail.runtime.link") (symbol (● file digest)))
                (mono-scheme (TFun (Nil) (TCon "I32" (Nil)) empty-row))))
 
-    (define (file-digest (path String)) (→ String) (! fs)
-      (bytes->hex (sha256 (read-bytes path))))
+    (define (file-digest (fs Fs) (path String)) (→ String) (! mut)
+      (bytes->hex (sha256 (read-bytes fs path))))
 
     ;; The files a library links, as the build expanded it, in the order
     ;; its uses were reached.
@@ -629,7 +641,7 @@
 
     (define (expand-sections (cx Context) (sections (List (Pair String (List Syntax)))))
       (→ (Pair Exports Context))
-      (! fs compile generator)
+      (! mut compile)
       (threading cx ((env (import-env (section-items sections "import"))))
                  (let ((cx (Context-items-set (Context-links-set cx (Nil)) (Nil))))
                    (expand-recorded cx sections env))))
@@ -641,7 +653,7 @@
                                  (sections (List (Pair String (List Syntax))))
                                  (env Env))
       (→ (Pair Exports Context))
-      (! fs compile generator)
+      (! mut compile)
       (let* ((forms (section-items sections "begin"))
              (cx (if (primitive-library? cx)
                      (fold-left (lambda (cx form) (declare-primitive cx env form)) cx forms)
@@ -658,7 +670,7 @@
 
     (define (expand-library-run (cx Context) (env Env) (forms (List Syntax)))
       (→ Context)
-      (! fs compile generator)
+      (! mut compile)
       (let* ((cx (expand-top-level cx env forms))
              (cx (if (string=? (● cx prefix) "main") (with-entry cx) cx)))
         (Context-program-set cx
@@ -672,17 +684,27 @@
     ;; an imported function called main remains an ordinary function. A
     ;; build for a target runs them through the target library. Main's
     ;; start takes the host's scheduler and calls the target's `start` with
-    ;; it and main, which runs main as the scheduler's first task under the
-    ;; target's handlers, and an exposed function runs inside the target's
-    ;; `provide`.
+    ;; it and a thunk that calls main, which runs as the scheduler's first
+    ;; task.
+    ;;
+    ;; An entry asks its target for capabilities by its parameters' types.
+    ;; A target provides a type by exporting a function of no parameters
+    ;; that answers it, and the entry is called with that function's
+    ;; answer. Every parameter of main is a capability; the parameters of
+    ;; an exposed function that its target does not provide are the host's
+    ;; arguments.
 
-    (define (with-entry (cx Context)) (→ Context) (! fs compile generator)
+    (define (with-entry (cx Context)) (→ Context) (! mut compile)
       (match (new Pair (first (● cx target)) (second (entry-loc cx)))
         ((Pair (Some library) (Some loc))
          (threading cx ((exports (load-library library loc)))
-                    (with-target-exposures
-                     (with-target-main cx (target-function exports library "start" loc))
-                     (target-function exports library "provide" loc))))
+                    (let ((provided (providers cx exports)))
+                      (with-target-exposures
+                       (with-target-main cx
+                                         library
+                                         (target-function exports library "start" loc)
+                                         provided)
+                       provided))))
         (_ (with-plain-main cx))))
 
     (define (root-main (cx Context)) (→ (Option Item))
@@ -705,32 +727,99 @@
                           (string-append "the target library " (string-join library ".")
                                          " exports no function " name)))))
 
+    ;; What a target provides: each type that one of its exported functions
+    ;; of no parameters answers, with that function.
+    (type Provided (List (Pair Type String)))
+
+    (define (providers (cx Context) (exports Exports)) (→ Provided)
+      (concatenate
+       (map (lambda (entry)
+              (match (● entry second)
+                ((Global name)
+                 (match (program-value (● cx program) name)
+                   ((Some (Defined (Some (Scheme (Nil) (Nil) (TFun (Nil) result _))) _))
+                    (list (new Pair (first result) (second name))))
+                   (_ (Nil))))
+                (_ (Nil))))
+            exports)))
+
+    (define (provider (provided Provided) (type Type)) (→ (Option String))
+      (match (find (lambda (entry) (type=? (● entry first) type)) provided)
+        ((Some entry) (Some (● entry second)))
+        ((None) (None))))
+
+    ;; The parameter types an entry's signature states; without a
+    ;; signature it asks for nothing.
+    (define (entry-parameters (cx Context) (name String)) (→ (List Type))
+      (match (program-value (● cx program) name)
+        ((Some (Defined (Some (Scheme _ _ (TFun params _ _))) _)) params)
+        (_ (Nil))))
+
     (define (with-plain-main (cx Context)) (→ Context)
       (match (root-main cx)
         ((Some (Define name value)) (add-item cx (Entry name name (● value loc))))
         (_ cx)))
 
-    ;; A main with parameters is no entry; the checker says so, unwrapped.
-    (define (with-target-main (cx Context) (start String)) (→ Context)
+    (define (with-target-main (cx Context)
+                              (library (List String))
+                              (start String)
+                              (provided Provided))
+      (→ Context)
+      (! compile)
       (match (root-main cx)
         ((Some (Define name value))
-         (if (takes-arguments? value)
-             (with-plain-main cx)
-             (with-started-main cx name start (● value loc))))
+         (with-started-main cx
+                            name
+                            start
+                            (main-capabilities cx library provided name value)
+                            (● value loc)))
         (_ cx)))
+
+    ;; The provider of each parameter of main, in order.
+    (define (main-capabilities (cx Context)
+                               (library (List String))
+                               (provided Provided)
+                               (name String)
+                               (value Expr))
+      (→ (List String))
+      (! compile)
+      (let ((asked (entry-parameters cx name)))
+        (when (and (null? asked) (takes-arguments? value))
+          (compile-error (● value loc)
+                         "the parameters of main need types: each asks its target for a capability"))
+        (map (lambda (type)
+               (match (provider provided type)
+                 ((Some function) function)
+                 ((None)
+                  (compile-error (● value loc)
+                                 (string-append "main asks for "
+                                                (type->string type)
+                                                ", which the target library "
+                                                (string-join library ".")
+                                                " does not provide")))))
+             asked)))
 
     (define (takes-arguments? (value Expr)) (→ Bool)
       (match (● value term)
         ((Lambda params _) (not (null? params)))
         (_ #f)))
 
-    ;; `(define (started scheduler) (start scheduler (lambda () (main) (unit))))`,
+    ;; `(define (started scheduler)
+    ;;    (start scheduler (lambda () (main (provider) ...) (unit))))`,
     ;; under a name no source can write. The thunk is Unit whatever main
     ;; returns, so the checker's entry check is what rejects a wrong main.
-    (define (with-started-main (cx Context) (main String) (start String) (loc Loc)) (→ Context)
+    (define (with-started-main (cx Context)
+                               (main String)
+                               (start String)
+                               (capabilities (List String))
+                               (loc Loc))
+      (→ Context)
       (let* ((local (fresh cx "scheduler"))
              (var (lambda (name) (expr (Var name (Nil) (Nil)) loc)))
-             (run (expr (Seq (expr (App (var main) (Nil)) loc) (expr (Lit (DUnit)) loc)) loc))
+             (provide (lambda (function) (expr (App (var function) (Nil)) loc)))
+             (run (expr (Seq (expr (App (var main) (map provide capabilities)) loc)
+                             (expr (Lit (DUnit)) loc))
+                        loc))
              (call (App (var start) (list (var (● local first)) (expr (Lambda (Nil) run) loc))))
              (started (string-append main " started")))
         (add-item (add-item (● local second)
@@ -738,62 +827,73 @@
                               (expr (Lambda (list (● local first)) (expr call loc)) loc)))
                   (Entry main started loc))))
 
-    ;; Each exposure, in its order, through the target's `provide`.
-    (define (with-target-exposures (cx Context) (provide String)) (→ Context)
+    ;; Each exposure, in its order.
+    (define (with-target-exposures (cx Context) (provided Provided)) (→ Context)
       (let ((exposure? (lambda (item) (match item ((Expose _ _ _) #t) (_ #f)))))
-        (fold-left (lambda (cx item) (with-exposure cx provide item))
+        (fold-left (lambda (cx item) (with-exposure cx provided item))
                    (Context-items-set cx (filter (lambda (item) (not (exposure? item)))
                                                  (● cx items)))
                    (reverse (filter exposure? (● cx items))))))
 
-    ;; `(define (exposed argument ...) (provide (lambda () (f argument ...))))`,
-    ;; under a name no source can write, exposed in f's place. The wrapper
-    ;; is the program's, whatever library f is from, and its name says so:
-    ;; a name's prefix is the module that holds it.
-    (define (with-exposure (cx Context) (provide String) (item Item)) (→ Context)
+    ;; An exposure that asks for no capability is exposed as it is. One
+    ;; that does is exposed through
+    ;; `(define (exposed argument ...) (f (provider) argument ...))`, each
+    ;; parameter in its place, under a name no source can write. The
+    ;; wrapper is the program's, whatever library f is from, and its name
+    ;; says so: a name's prefix is the module that holds it.
+    (define (with-exposure (cx Context) (provided Provided) (item Item)) (→ Context)
       (match item
         ((Expose name symbol loc)
-         (match (exposed-arity cx name)
-           ((Some arity)
-            (threading cx ((params (each (lambda (cx index) (fresh cx "argument")) (iota arity))))
-                       (let* ((var (lambda (name) (expr (Var name (Nil) (Nil)) loc)))
-                              (call (expr (App (var name) (map var params)) loc))
-                              (body (App (var provide) (list (expr (Lambda (Nil) call) loc))))
-                              (exposed (string-append (● cx prefix) ":" name " exposed")))
-                         (add-item (add-item (add-value cx exposed (Defined (None) (None)))
-                                             (Define exposed (expr (Lambda params (expr body loc))
-                                                                   loc)))
-                                   (Expose exposed symbol loc)))))
-           ((None) (add-item cx item))))
+         (let ((asked (map (lambda (type) (provider provided type)) (entry-parameters cx name))))
+           (if (every? (lambda (found) (match found ((None) #t) ((Some _) #f))) asked)
+               (add-item cx item)
+               (threading cx ((arguments (each (lambda (cx found) (exposed-argument cx found loc))
+                                               asked)))
+                          (with-supplied-exposure cx name symbol arguments loc)))))
         (_ (panic "internal error: expected an exposure"))))
 
-    ;; How many arguments the host passes the definition `name`, when it
-    ;; needs the target's handlers: one whose signature performs only `mut`
-    ;; and `host` needs none, and an exposure of anything but a definition
-    ;; is the checker's to reject.
-    (define (exposed-arity (cx Context) (name String)) (→ (Option I64))
-      (if (host-signature? (program-value (● cx program) name))
-          (None)
-          (match (find (lambda (item)
-                         (match item ((Define defined _) (string=? defined name)) (_ #f)))
-                       (append (● cx items) (● (● cx program) items)))
-            ((Some (Define _ value)) (lambda-arity value))
-            (_ (None)))))
+    ;; An argument of the exposed function, and the wrapper's parameter it
+    ;; comes from, if the host passes it.
+    (record Supplied
+      ((argument Expr)
+       (parameter (Option String))))
 
-    (define (host-signature? (value (Option Value))) (→ Bool)
-      (match value
-        ((Some (Defined (Some scheme) _))
-         (match (● scheme type)
-           ((TFun _ _ (TRow labels (None)))
-            (every? (lambda (label) (member? label (list "mut" "host"))) labels))
-           (_ #f)))
-        (_ #f)))
+    (define (exposed-argument (cx Context) (found (Option String)) (loc Loc))
+      (→ (Pair Supplied Context))
+      (match found
+        ((Some function)
+         (new Pair
+           (first (new Supplied
+                    (argument (expr (App (expr (Var function (Nil) (Nil)) loc) (Nil)) loc))
+                    (parameter (None))))
+           (second cx)))
+        ((None)
+         (match (fresh cx "argument")
+           ((Pair name cx)
+            (new Pair
+              (first (new Supplied
+                       (argument (expr (Var name (Nil) (Nil)) loc))
+                       (parameter (Some name))))
+              (second cx)))))))
 
-    (define (lambda-arity (value Expr)) (→ (Option I64))
-      (match (● value term)
-        ((Lambda params _) (Some (length params)))
-        ((Ann inner _) (lambda-arity inner))
-        (_ (None))))
+    (define (with-supplied-exposure (cx Context)
+                                    (name String)
+                                    (symbol String)
+                                    (arguments (List Supplied))
+                                    (loc Loc))
+      (→ Context)
+      (let* ((params (concatenate (map (lambda (supplied)
+                                         (match (● supplied parameter)
+                                           ((Some name) (list name))
+                                           ((None) (Nil))))
+                                       arguments)))
+             (call (expr (App (expr (Var name (Nil) (Nil)) loc)
+                              (map (lambda (supplied) (● supplied argument)) arguments))
+                         loc))
+             (exposed (string-append (● cx prefix) ":" name " exposed")))
+        (add-item (add-item (add-value cx exposed (Defined (None) (None)))
+                            (Define exposed (expr (Lambda params call) loc)))
+                  (Expose exposed symbol loc))))
 
     ;; ---- Programs ----
 
@@ -803,19 +903,18 @@
     ;; with `(generating ...)`, and its imports load inside the libraries
     ;; that form names, so one that leads back to them is a cycle.
 
-    (define (expand-program (directories (List String))
-                            (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
+    (define (expand-program (fs Fs)
+                            (directories (List String))
+                            (generate Generate)
                             (target (Option (List String)))
                             (known (List LinkedFile))
                             (path String))
       (→ ExpandedProgram)
-      (! fs compile)
-      (handle generator ((run-generator generate))
-        (expanded-program
-         (expand-source (new-context directories target known) path))))
+      (! mut compile)
+      (expanded-program (expand-source (new-context fs generate directories target known) path)))
 
-    (define (expand-source (cx Context) (path String)) (→ Context) (! fs compile generator)
-      (let* ((source (generating-stack (read-source-file path)))
+    (define (expand-source (cx Context) (path String)) (→ Context) (! mut compile)
+      (let* ((source (generating-stack (read-source-file (● cx fs) path)))
              (parts (program-parts (● source second)))
              (body (producer-body path (● source first) (● parts second)))
              (cx (Context-recipe-set
@@ -866,7 +965,7 @@
     (define (expand-recorded (cx Context)
                              (sections (List (Pair String (List Syntax))))
                              (env Env))
-      (→ (Pair Exports Context)) (! fs compile generator)
+      (→ (Pair Exports Context)) (! mut compile)
       (threading cx ((exports (expand-library-body sections env))
                      (links (bind-links (reverse (● cx links)))))
                  (new Pair (first exports)
@@ -884,7 +983,7 @@
 
     (define (import-env (cx Context) (specs (List Syntax)))
       (→ (Pair Env Context))
-      (! fs compile generator)
+      (! mut compile)
       (let loop ((cx cx) (specs specs) (imports (empty-table)))
         (match specs
           ((Nil) (new-top cx imports))
@@ -911,7 +1010,7 @@
 
     (define (import-set (cx Context) (spec Syntax))
       (→ (Pair Exports Context))
-      (! fs compile generator)
+      (! mut compile)
       (match spec
         ((Form (Cons (Ident "only" _ _) (Cons inner idents)) _)
          (let ((names (ident-names idents)))
@@ -954,7 +1053,7 @@
 
     (define (checked-import-set (cx Context) (spec Syntax) (idents (List Syntax)))
       (→ (Pair Exports Context))
-      (! fs compile generator)
+      (! mut compile)
       (threading cx ((entries (import-set spec)))
                  (for-each (lambda (ident)
                              (let ((identifier-name (ident-name ident)))
@@ -1249,7 +1348,6 @@
       (PendingDefinition
        ((definition DefinitionSyntax)
         (value? Bool)))
-      (PendingStatement ((form Syntax)))
       (PendingData
        ((form Syntax)
         (enum? Bool)))
@@ -1261,10 +1359,10 @@
 
     (define (expand-top-level (cx Context) (env Env) (forms (List Syntax)))
       (→ Context)
-      (! fs compile generator)
-      (threading cx ((scanned (each (lambda (cx form) (scan-top-level cx env form)) forms))
-                     (pending (with-statements env (concatenate scanned))))
-                 (let* ((signatures
+      (! mut compile)
+      (threading cx ((scanned (each (lambda (cx form) (scan-top-level cx env form)) forms)))
+                 (let* ((pending (concatenate scanned))
+                        (signatures
                          (fold-left (lambda (table entry) (with-signature cx env table entry))
                                     (empty-table)
                                     pending)))
@@ -1272,58 +1370,6 @@
                               ((bodies (each (lambda (cx entry) (declare cx env signatures entry))
                                              pending)))
                               (expand-bodies cx (concatenate bodies))))))
-
-    ;; A script's statements, the root program's top-level expressions, are
-    ;; the body of its entry, `main`, in order: a function of no parameters
-    ;; whose type is inferred, so the effects the statements perform are the
-    ;; program's, declared nowhere. Each statement's value is dropped, and
-    ;; the entry answers unit. A library's top level has no statements.
-
-    (define (with-statements (cx Context) (env Env) (pending (List Pending)))
-      (→ (Pair (List Pending) Context))
-      (! compile)
-      (match (statement-forms pending)
-        ((Cons first statements)
-         (if (string=? (● cx prefix) "main")
-             (let* ((loc (syntax-loc first)) (name (Ident "main" (None) loc)))
-               (when (any? defines-main? pending)
-                 (compile-error loc "a script with statements defines no main: they are its entry"))
-               (new Pair
-                 (first (append (filter (lambda (entry) (not (statement? entry))) pending)
-                                (list (script-entry name (Cons first statements) loc))))
-                 (second (bind-top cx env name (Global (unique-name cx name))))))
-             (new Pair (first pending) (second cx))))
-        ((Nil) (new Pair (first pending) (second cx)))))
-
-    (define (statement? (entry Pending)) (→ Bool)
-      (match entry
-        ((PendingStatement _) #t)
-        (_ #f)))
-
-    (define (statement-forms (pending (List Pending))) (→ (List Syntax))
-      (concatenate (map (lambda (entry)
-                          (match entry
-                            ((PendingStatement form) (list form))
-                            (_ (Nil))))
-                        pending)))
-
-    (define (defines-main? (entry Pending)) (→ Bool)
-      (match entry
-        ((PendingDefinition (DefinitionSyntax (Ident "main" _ _) _ _ _ _) _) #t)
-        (_ #f)))
-
-    (define (script-entry (name Syntax) (statements (List Syntax)) (loc Loc)) (→ Pending)
-      (PendingDefinition (new DefinitionSyntax
-                           (name name)
-                           (parameters (Some (Nil)))
-                           (header (new DefinitionHeader
-                                     (result (None))
-                                     (effects (Nil))
-                                     (variables (Nil))
-                                     (constraints (Nil))))
-                           (body (append statements (list (Atom (DUnit) loc))))
-                           (loc loc))
-                         #f))
 
     ;; A body that fails leaves the context as it was before it, and the
     ;; bodies after it are expanded all the same, so one compile reports
@@ -1346,13 +1392,13 @@
         (● run first)))
 
     (define (scan-top-level (cx Context) (env Env) (form Syntax))
-      (→ (Pair (List Pending) Context)) (! fs compile generator)
+      (→ (Pair (List Pending) Context)) (! mut compile)
       (threading cx ((form (expand-head env form)))
                  (scan-top-level-form cx env form)))
 
     (define (scan-top-level-form (cx Context) (env Env) (form Syntax))
       (→ (Pair (List Pending) Context))
-      (! fs compile generator)
+      (! mut compile)
       (match (head-binding cx env form)
         ((Some (Core "begin"))
          (threading cx ((scanned (each (lambda (cx item) (scan-top-level cx env item))
@@ -1377,7 +1423,8 @@
          (new Pair (first (list (PendingEffect form))) (second (scan-effect cx env form))))
         ((Some (Core "instance")) (new Pair (first (list (PendingInstance form))) (second cx)))
         ((Some (Core "expose")) (new Pair (first (list (PendingExposure form))) (second cx)))
-        (_ (new Pair (first (list (PendingStatement form))) (second cx)))))
+        (_ (compile-error (syntax-loc form)
+                          "a top level holds definitions alone: a program's entry is its main"))))
 
     (define (scan-definition (cx Context) (env Env) (form Syntax))
       (→ (Pair (List Pending) Context))
@@ -1394,7 +1441,7 @@
 
     (define (scan-data (cx Context) (env Env) (form Syntax) (enum? Bool))
       (→ (Pair (List Pending) Context))
-      (! fs compile generator)
+      (! mut compile)
       (let ((cx (if enum? (scan-enum cx env form) (scan-record cx env form))))
         (threading cx ((derived (derived-instances form enum?))
                        (scanned (each (lambda (cx instance) (scan-top-level cx env instance))
@@ -1469,10 +1516,7 @@
         ((PendingExposure form)
          (new Pair
            (first (list (lambda (cx) (add-item cx (expose-item cx env form)))))
-           (second cx)))
-        ((PendingStatement form)
-         (compile-error (syntax-loc form)
-                        "a library's top level has no statements; only a script's does"))))
+           (second cx)))))
 
     (define (expose-item (cx Context) (env Env) (form Syntax)) (→ Item) (! compile)
       (match form
@@ -2968,7 +3012,7 @@
 
     (define (derived-instances (cx Context) (form Syntax) (enum? Bool))
       (→ (Pair (List Syntax) Context))
-      (! fs compile generator)
+      (! mut compile)
       (match (derived-classes form)
         ((Nil) (new Pair (first (Nil)) (second cx)))
         (classes
@@ -3000,7 +3044,7 @@
     ;; every later one. The library notes the declaration at `loc`, so that
     ;; each expansion loads their current declarations.
 
-    (define (deriving-scope (cx Context) (loc Loc)) (→ (Pair I64 Context)) (! fs compile generator)
+    (define (deriving-scope (cx Context) (loc Loc)) (→ (Pair I64 Context)) (! mut compile)
       (match (● cx deriving)
         ((Some scope) (new Pair (first scope) (second cx)))
         ((None)
@@ -3462,7 +3506,11 @@
 
       (define callable-signature
         (lambda (text)
-          (let* ((cx (new-context (Nil) (None) (Nil)))
+          (let* ((cx (new-context (host-fs)
+                                  (lambda (loading forms) (panic "unexpected producer"))
+                                  (Nil)
+                                  (None)
+                                  (Nil)))
                  (imports (fold-left (lambda (table entry)
                                        (table-set table (● entry first) (● entry second)))
                                      (empty-table) core-library))
@@ -3477,10 +3525,10 @@
       ;; library and the path.
       (define test-links
         (lambda (root) (create-directory* (string-append root "/sample/data"))
-                (write-file (string-append root "/sample/data/pixel.bin") "pixel")
-                (write-file (string-append root "/notes.txt") "notes")
-                (write-file (string-append root "/copy.txt") "notes")
-                (write-file (string-append root "/sample/linked.sld")
+                (write-file (host-fs) (string-append root "/sample/data/pixel.bin") "pixel")
+                (write-file (host-fs) (string-append root "/notes.txt") "notes")
+                (write-file (host-fs) (string-append root "/copy.txt") "notes")
+                (write-file (host-fs) (string-append root "/sample/linked.sld")
                             "(define-library (sample linked) (export pixel) (import (snail core forms)) (begin (define (pixel) (→ I32) (link-handle \"data/./x/../pixel.bin\"))))")
                 (let ((expansion (link-expansion root
                                                  "(import (snail core forms) (sample linked)) (define (notes) (→ I32) (link-handle \"notes.txt\")) (define (other) (→ I32) (link-handle \"notes.txt\")) (define (copy) (→ I32) (link-handle \"copy.txt\"))")))
@@ -3501,8 +3549,8 @@
                                        "/absent.bin"))))
 
       (define link-expansion
-        (lambda (root body) (write-file (string-append root "/main.sld") body)
-                (expand-program (list root)
+        (lambda (root body) (write-file (host-fs) (string-append root "/main.sld") body)
+                (expand-program (host-fs) (list root)
                                 (lambda (loading forms) (panic "unexpected producer"))
                                 (None)
                                 (Nil)
@@ -3530,9 +3578,9 @@
       ;; module.
       (define test-primitives
         (lambda (root library) (create-directory* root)
-                (write-file (string-append root "/main.sld")
+                (write-file (host-fs) (string-append root "/main.sld")
                             "(import (snail core forms) (snail core primitive)) (define (main) (→ Unit) (unit))")
-                (let ((program (● (expand-program (list root library)
+                (let ((program (● (expand-program (host-fs) (list root library)
                                                   (lambda (loading forms)
                                                     (panic "unexpected producer"))
                                                   (None)
@@ -3560,14 +3608,14 @@
       ;; including when nothing else imports the wire.
       (define test-deriving-runs
         (lambda (root library) (create-directory* (string-append root "/sample"))
-                (write-file (string-append root "/sample/shape.sld")
+                (write-file (host-fs) (string-append root "/sample/shape.sld")
                             (string-append
                              "(define-library (sample shape) (export Shape) (import (snail core base))"
                              " (begin (record Shape ((side I64)) (deriving Serialize Deserialize))))"))
-                (write-file (string-append root "/main.sld")
+                (write-file (host-fs) (string-append root "/main.sld")
                             "(import (snail core base) (sample shape)) (define (example) (→ Shape) (new Shape (side 2)))")
                 (let* ((expand (lambda ()
-                                 (expand-program (list root library)
+                                 (expand-program (host-fs) (list root library)
                                                  (lambda (loading forms)
                                                    (panic "unexpected producer"))
                                                  (None)

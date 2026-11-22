@@ -16,7 +16,7 @@
   (set! (● trace text) (string-append (● trace text) label))
   value)
 
-(define (main) (→ Unit) (! mut output-port)
+(define (main (out OutputPort)) (→ Unit) (! mut)
   (assert (match (downcast I64 (Any 42)) ((Some 42) #t) (_ #f)))
   (assert (match (downcast I64 (Any "42")) ((None) #t) (_ #f)))
   ;; Equal Wasm layouts do not make distinct nominal types interchangeable.
@@ -34,4 +34,4 @@
       ((Pair (None) (Some "right")) (unit))
       (_ (panic "downcast result")))
     (assert (string=? (● trace text) "LR")))
-  (write-line "explicit Any passed"))
+  (write-line out "explicit Any passed"))

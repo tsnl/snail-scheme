@@ -21,8 +21,8 @@
   (fold-left (lambda (total c) (+ (* total 10) (digit c))) 0 (string->list text)))
 
 ;; Each bad digit counts as the default, and parsing goes on.
-(define (parse-with (text String) (default I64)) (→ I64) (! output-port)
-  (handle Fail ((fail (lambda (message resume) (write-line message) (resume default))))
+(define (parse-with (out OutputPort) (text String) (default I64)) (→ I64) (! mut)
+  (handle Fail ((fail (lambda (message resume) (write-line out message) (resume default))))
     (number text)))
 
 ;; The resumed part of the body performs `log`, a control operation of a
@@ -35,32 +35,34 @@
     (log (string-append "value " (show value)))
     value))
 
-(define (logged (body (Fn → I64 ! Log))) (→ I64) (! output-port)
+(define (logged (out OutputPort) (body (Fn → I64 ! Log))) (→ I64) (! mut)
   (handle Log ((log
-                (lambda (line resume) (write-line (string-append "log: " line)) (resume (unit)))))
+                (lambda (line resume)
+                  (write-line out (string-append "log: " line))
+                  (resume (unit)))))
     (body)))
 
-(define (main) (→ Unit) (! output-port)
+(define (main (out OutputPort)) (→ Unit) (! mut)
 
-  (display (parse-with "123" 0))
-  (newline)
-  (display (parse-with "1x3y" 9))
-  (newline)
+  (display out (parse-with out "123" 0))
+  (newline out)
+  (display out (parse-with out "1x3y" 9))
+  (newline out)
   ;; Of two handlers of one effect, the inner one catches the body's `fail`.
   ;; Its implementation runs outside it, so its own `fail` reaches the outer
   ;; handler, which resumes it; the inner one then resumes the body.
-  (display (handle Fail ((fail (lambda (message resume)
-                                 (write-line (string-append "outer: " message))
-                                 (resume 100))))
-             (handle Fail ((fail (lambda (message resume)
-                                   (write-line (string-append "inner: " message))
-                                   (+ 1 (resume (fail (string-append "again " message)))))))
-               (+ (fail "boom") 1))))
-  (newline)
-  (display (logged (lambda ()
-                     (handle Fail ((fail (lambda (message resume)
-                                           (log (string-append "recovering from " message))
-                                           (* 2 (resume 5)))))
-                       (+ (checked "4z") (checked "7"))))))
-  (newline)
+  (display out (handle Fail ((fail (lambda (message resume)
+                                     (write-line out (string-append "outer: " message))
+                                     (resume 100))))
+                 (handle Fail ((fail (lambda (message resume)
+                                       (write-line out (string-append "inner: " message))
+                                       (+ 1 (resume (fail (string-append "again " message)))))))
+                   (+ (fail "boom") 1))))
+  (newline out)
+  (display out (logged out (lambda ()
+                             (handle Fail ((fail (lambda (message resume)
+                                                   (log (string-append "recovering from " message))
+                                                   (* 2 (resume 5)))))
+                               (+ (checked "4z") (checked "7"))))))
+  (newline out)
   (unit))

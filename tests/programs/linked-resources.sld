@@ -12,10 +12,10 @@
 
 (define (image) (→ Resource) (link-file "data/pixel.png"))
 
-(define (main) (→ Unit) (! output-port resource tasks)
+(define (main (resources Resources) (out OutputPort)) (→ Unit) (! mut tasks)
   (for-each (lambda (bytes)
-              (write-line (string-append (show (array-length bytes))
-                                         " bytes, starting "
-                                         (show (u8->i32 (array-ref bytes 0))))))
-            (read-resources (list (text) (text) (image))))
+              (write-line out (string-append (show (array-length bytes))
+                                             " bytes, starting "
+                                             (show (u8->i32 (array-ref bytes 0))))))
+            (read-resources resources (list (text) (text) (image))))
   (unit))

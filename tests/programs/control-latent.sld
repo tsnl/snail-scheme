@@ -25,41 +25,41 @@
    ((value I64)))
   (Waiting
    ((ticket I64)
-    (next (Fn I64 → Task ! Io output-port)))))
+    (next (Fn I64 → Task ! Io mut)))))
 
 ;; Runs a task to its first wait under its own handler, which hands back
 ;; the rest of the task rather than resuming it.
-(define (start (id I64) (body (Fn → I64 ! Io Async output-port))) (→ Task) (! Io output-port)
+(define (start (out OutputPort) (id I64) (body (Fn → I64 ! Io Async mut))) (→ Task) (! Io mut)
   (handle Async
       ((await (lambda (ticket resume) (Waiting ticket resume)))
        (task-id (lambda () id)))
     (Done (body))))
 
 ;; Two fetches, the second after the first has been answered.
-(define (job (first I64)) (→ I64) (! Io Async output-port)
+(define (job (out OutputPort) (first I64)) (→ I64) (! Io Async mut)
   (let ((answer (fetch first)))
-    (write-line (string-append "fetched " (show answer)))
+    (write-line out (string-append "fetched " (show answer)))
     (+ answer (fetch (+ first 1)))))
 
 ;; ANCHOR_END: tasks
 
 ;; Answers each wait with ten times its ticket, alternating between the
 ;; tasks, long after their handlers returned.
-(define (alternate (this Task) (other Task)) (→ Unit) (! Io output-port)
+(define (alternate (out OutputPort) (this Task) (other Task)) (→ Unit) (! Io mut)
   (match this
     ((Done value)
-     (write-line (string-append "done with " (show value)))
-     (drive other))
+     (write-line out (string-append "done with " (show value)))
+     (drive out other))
     ((Waiting ticket next)
-     (write-line (string-append "waiting on " (show ticket)))
-     (alternate other (next (* ticket 10))))))
+     (write-line out (string-append "waiting on " (show ticket)))
+     (alternate out other (next (* ticket 10))))))
 
-(define (drive (task Task)) (→ Unit) (! Io output-port)
+(define (drive (out OutputPort) (task Task)) (→ Unit) (! Io mut)
   (match task
-    ((Done value) (write-line (string-append "done with " (show value))))
+    ((Done value) (write-line out (string-append "done with " (show value))))
     ((Waiting ticket next)
-     (write-line (string-append "waiting on " (show ticket)))
-     (drive (next (* ticket 10))))))
+     (write-line out (string-append "waiting on " (show ticket)))
+     (drive out (next (* ticket 10))))))
 
 ;; ANCHOR_END: io
 
@@ -72,18 +72,18 @@
 (effect Notes
   ((note (Fn String → Unit ! Log))))
 
-(define (main) (→ Unit) (! output-port)
+(define (main (out OutputPort)) (→ Unit) (! mut)
   ;; ANCHOR: io
   ;; Io's handler is outside both tasks' handlers, yet its fetch asks the
   ;; performing task for its id and waits on that task's scheduler.
   (handle Io
       ((fetch (lambda (ticket)
-                (write-line (string-append "task " (show (task-id)) " fetches " (show ticket)))
+                (write-line out (string-append "task " (show (task-id)) " fetches " (show ticket)))
                 (+ (await ticket) 1))))
-    (alternate (start 1 (lambda () (job 10))) (start 2 (lambda () (job 20)))))
-  (handle Log ((log (lambda (line) (write-line (string-append "outer log: " line)))))
+    (alternate out (start out 1 (lambda () (job out 10))) (start out 2 (lambda () (job out 20)))))
+  (handle Log ((log (lambda (line) (write-line out (string-append "outer log: " line)))))
     (handle Notes ((note (lambda (text) (log (string-append "note " text)))))
       (log "before")
-      (handle Log ((log (lambda (line) (write-line (string-append "inner log: " line)))))
+      (handle Log ((log (lambda (line) (write-line out (string-append "inner log: " line)))))
         (note "inside"))))
   (unit))

@@ -26,16 +26,16 @@
     ;; libraries are found. A program that reaches a generated library
     ;; needs a build, which runs producers ((snail shell project build)).
 
-    (define (compile-arguments (arguments (List String))) (→ Unit) (! mut fs)
+    (define (compile-arguments (fs Fs) (arguments (List String))) (→ Unit) (! mut)
       (match arguments
         ((Cons target (Cons source (Cons output directories)))
          (match (compiling (lambda ()
-                             (source->wat directories
+                             (source->wat fs directories
                                           source
                                           (lambda (loading forms) (needs-a-build))
                                           (Some (list "snail" "target" target))
                                           (Nil))))
-           ((Ok program) (write-file output (● program text)))
+           ((Ok program) (write-file fs output (● program text)))
            ((Err (Requested _)) (needs-a-build))
            ((Err (Failed diagnostics)) (panic (diagnostics->string diagnostics)))))
         (_ (panic "usage: compile TARGET SOURCE OUTPUT [DIRECTORY ...]"))))

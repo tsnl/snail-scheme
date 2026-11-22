@@ -41,9 +41,9 @@ const program = `(import
  (snail core io)
  (demo twice))
 
-(define (main) (→ Unit) (! output-port)
+(define (main (out OutputPort)) (→ Unit) (! mut)
   (let ((n (twice (lambda (x) (+ x 1)) 40)))
-    (write-line "🐌") (write-line (show n))))
+    (write-line out "🐌") (write-line out (show n))))
 `;
 
 // ---- The server ----
@@ -148,10 +148,10 @@ try {
   });
   assert.deepEqual(await ask('textDocument/definition', at('main.scm', 6, 15)),
                    {uri: uri('src/demo/twice.sld'), range: range(6, 13, 6, 18)});
-  // After the snail, `n` is at code unit 40 of its line, its 39th character.
-  assert.equal((await ask('textDocument/hover', at('main.scm', 7, 40))).contents.value,
+  // After the snail, `n` is at code unit 48 of its line, its 47th character.
+  assert.equal((await ask('textDocument/hover', at('main.scm', 7, 48))).contents.value,
                '```snail\nn : I64\n```');
-  assert.deepEqual(await ask('textDocument/definition', at('main.scm', 7, 40)),
+  assert.deepEqual(await ask('textDocument/definition', at('main.scm', 7, 48)),
                    {uri: uri('main.scm'), range: range(6, 9, 6, 10)});
   assert.equal(await ask('textDocument/hover', at('main.scm', 5, 0)), null);
   // An edit not yet saved, nor built, moves what the build saw: the name now
@@ -163,11 +163,11 @@ try {
   // ---- Formatting ----
 
   assert.deepEqual(await ask('textDocument/formatting', {textDocument: {uri: uri('main.scm')}, options: {}}), []);
-  const messy = program.replace(' (write-line (show n))', '\n(write-line (show n))');
+  const messy = program.replace(' (write-line out (show n))', '\n(write-line out (show n))');
   changed(messy);
   assert.deepEqual(await ask('textDocument/formatting', {textDocument: {uri: uri('main.scm')}, options: {}}), [{
     range: range(0, 0, 9, 0),
-    newText: messy.replace('\n(write-line (show n))', '\n    (write-line (show n))'),
+    newText: messy.replace('\n(write-line out (show n))', '\n    (write-line out (show n))'),
   }]);
   changed(program);
 
@@ -201,7 +201,7 @@ try {
 
   edited(program.replace('(show n)', '(show "n" n)'));
   assert.deepEqual(await diagnostics('main.scm'), [{
-    range: range(7, 34, 7, 46),
+    range: range(7, 42, 7, 54),
     severity: 1,
     source: 'snail-scheme',
     message: 'expected 1 arguments, found 2',

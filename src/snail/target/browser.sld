@@ -1,65 +1,73 @@
 ;; The browser target: a page, run by host/browser. `start` runs the
-;; program's main as the first task of the host's scheduler, inside
-;; `provide`, which handles the capabilities every host has,
+;; program's main as the first task of the host's scheduler. Main asks for
+;; capabilities by its parameters' types, and a function here of no
+;; parameters provides the type it answers: those every host has,
 ;;
-;; - output-port, the console;
-;; - clock, the monotonic clock;
-;; - resource, the files the program links;
-;; - wasm, the host's WebAssembly engine;
+;; - OutputPort, the console;
+;; - Clock, the monotonic clock;
+;; - Resources, the files the program links;
+;; - Wasm, the host's WebAssembly engine;
 ;;
 ;; and the page's:
 ;;
-;; - events, the page's input and its lifecycle;
-;; - storage, the page's saved state;
-;; - gpu, the page's WebGPU device.
+;; - Events, the page's input and its lifecycle;
+;; - Storage, the page's saved state;
+;; - Gpu, the page's WebGPU device.
 ;;
-;; The page's interface installs `dom` and `fetch` itself, with
-;; `with-page-dom` and `with-page-fetch` ((snail shell ui page)), and a
-;; scene installs `dom` for its HUD ((snail shell app)).
+;; A page's interface makes its own `Dom` and `Fetch` from these, with
+;; `page-dom` and `page-fetch` ((snail shell ui page)), and a scene makes
+;; a `Dom` for its HUD ((snail shell app)).
 (define-library (snail target browser)
   (export
-   provide
-   start)
+   start
+   provide-output-port
+   provide-clock
+   provide-resources
+   provide-wasm
+   provide-events
+   provide-storage
+   provide-gpu)
   (import
    (snail core base)
    (snail core io)
    (only (snail core forms) host)
    (only (snail shell task) Scheduler tasks dispatch-in)
-   (only (snail shell resource) resource provide-resource)
-   (only (snail shell wasm) wasm provide-wasm)
-   (only (snail shell page) events storage provide-events provide-storage)
-   (only (snail shell gpu) gpu provide-gpu))
+   (only (snail shell resource) Resources host-resources)
+   (only (snail shell wasm) Wasm host-wasm)
+   (only (snail shell page) Events PageStorage host-events host-storage)
+   (only (snail shell gpu) Gpu host-gpu))
   (begin
 
-    (define (provide (work (Fn → T ! output-port clock resource wasm events storage gpu e)))
-      (→ T)
-      (! e)
-      (∀ (T e))
-      (provide-shared
-       (lambda ()
-         (provide-events
-          (lambda ()
-            (provide-storage (lambda () (provide-gpu work))))))))
-
-    ;; What every host has.
-
-    (define (provide-shared (work (Fn → T ! output-port clock resource wasm e)))
-      (→ T)
-      (! e)
-      (∀ (T e))
-      (provide-output-port
-       (lambda ()
-         (provide-clock (lambda () (provide-resource (lambda () (provide-wasm work))))))))
-
-    (define (start (scheduler Scheduler)
-                   (main
-                    (Fn →
-                        Unit
-                        ! tasks output-port clock resource wasm events storage gpu e)))
+    (define (start (scheduler Scheduler) (main (Fn → Unit ! tasks e)))
       (→ Unit)
       (! mut host e)
       (∀ (e))
-      (dispatch-in scheduler (lambda () (provide main)))
+      (dispatch-in scheduler main)
       (unit))
+
+    ;; ---- What every host has ----
+
+    (define (provide-output-port) (→ OutputPort)
+      (standard-output))
+
+    (define (provide-clock) (→ Clock)
+      (host-clock))
+
+    (define (provide-resources) (→ Resources)
+      (host-resources))
+
+    (define (provide-wasm) (→ Wasm)
+      (host-wasm))
+
+    ;; ---- The page ----
+
+    (define (provide-events) (→ Events)
+      (host-events))
+
+    (define (provide-storage) (→ PageStorage)
+      (host-storage))
+
+    (define (provide-gpu) (→ Gpu)
+      (host-gpu))
 
     ))

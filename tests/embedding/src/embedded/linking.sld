@@ -13,9 +13,9 @@
     ;; (List (Pair String Resource))) (list (new Pair (first PATH) (second
     ;; (link-file FILE))) ...)))`, one pair for each file under `directory`.
 
-    (define (files-library (name (List String)) (accessor String) (directory String))
+    (define (files-library (fs Fs) (name (List String)) (accessor String) (directory String))
       (→ Syntax)
-      (! fs)
+      (! mut)
       (library-syntax name
                       (list accessor)
                       (list (list "snail" "core" "base") (list "snail" "shell" "resource"))
@@ -24,7 +24,7 @@
                                         (form "→" (list (form "List" (list (pair-type)))))
                                         (form "list"
                                               (map (lambda (path) (file-entry directory path))
-                                                   (files-under directory ""))))))))
+                                                   (files-under fs directory ""))))))))
 
     (define (pair-type) (→ Syntax)
       (form "Pair" (list (SymbolSyntax "String") (SymbolSyntax "Resource"))))
@@ -41,18 +41,18 @@
     ;; in name order, through directories and the links a build's store
     ;; view holds.
 
-    (define (files-under (directory String) (prefix String)) (→ (List String)) (! fs)
-      (match (list-directory (string-append directory "/" prefix))
+    (define (files-under (fs Fs) (directory String) (prefix String)) (→ (List String)) (! mut)
+      (match (list-directory fs (string-append directory "/" prefix))
         ((Ok names)
-         (concatenate (map (lambda (name) (file-or-files directory (string-append prefix name)))
+         (concatenate (map (lambda (name) (file-or-files fs directory (string-append prefix name)))
                            (list-sort string<? names))))
         ((Err _) (panic (string-append "cannot list " directory "/" prefix)))))
 
-    (define (file-or-files (directory String) (path String)) (→ (List String)) (! fs)
-      (match (followed-status (string-append directory "/" path))
+    (define (file-or-files (fs Fs) (directory String) (path String)) (→ (List String)) (! mut)
+      (match (followed-status fs (string-append directory "/" path))
         ((Ok status)
          (match (● status kind)
-           ((Directory) (files-under directory (string-append path "/")))
+           ((Directory) (files-under fs directory (string-append path "/")))
            (_ (list path))))
         ((Err _) (panic (string-append "cannot read " directory "/" path)))))
 
