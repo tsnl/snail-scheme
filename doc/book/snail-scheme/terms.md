@@ -82,10 +82,7 @@ those bytes as a byte literal in its generated library.
 | `(define-syntax name (syntax-rules (literal ...) (pattern template) ...))` | Hygienic macro. |
 
 `(snail core base)` adds `let*`, `letrec`, `cond`, `case`, `when`, `unless`, `and`,
-`or`, `do`, `list`, `string` and a variadic `string-append` as macros. So is
-`(capability Name ((operation (Fn A ... → B)) ...))`, which declares the
-record `Name` and, for each field, the function `(operation name a ...)`
-that calls the record's own ([capabilities](capabilities.md#a-capability-is-a-value)).
+`or`, `do`, `list`, `string` and a variadic `string-append` as macros.
 
 ### Bodies and scope
 

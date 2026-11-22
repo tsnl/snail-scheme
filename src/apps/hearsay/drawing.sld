@@ -46,7 +46,8 @@
       (match (● drawing drawn)
         ((Some drawn) drawn)
         ((None)
-         (let* ((format (● (request-device gpu) format)) (atlas (make-atlas gpu "hearsay" 2048 2)))
+         (let* ((format (● ((● gpu request-device)) format))
+                (atlas (make-atlas gpu "hearsay" 2048 2)))
            (new Drawn (atlas atlas) (quads (make-quads gpu "hearsay" format (● atlas texture))))))))
 
     ;; The portrait of picture `key`, or "" until it is read back.
@@ -150,10 +151,10 @@
                               (quads (Fn Atlas → (List Quad))))
       (→ Drawing)
       (let* ((drawn (drawn-of gpu drawing))
-             (encoder (create-command-encoder gpu))
+             (encoder ((● gpu create-command-encoder)))
              (atlas (atlas-pictures gpu (● drawn atlas) encoder (append shapes pictures)))
-             (canvas (current-texture gpu))
-             (pass (begin-render-pass gpu encoder (canvas-pass gpu canvas background)))
+             (canvas ((● gpu current-texture)))
+             (pass ((● gpu begin-render-pass) encoder (canvas-pass gpu canvas background)))
              (kept (draw-quads gpu pass
                                (● drawn quads)
                                (View2D-pixels-set view
@@ -161,8 +162,8 @@
                                                     (x (i32->f32 (● canvas width)))
                                                     (y (i32->f32 (● canvas height)))))
                                (quads atlas))))
-        (end-pass gpu pass)
-        (submit gpu (list (finish gpu encoder)))
+        ((● gpu end-pass) pass)
+        ((● gpu submit) (list ((● gpu finish) encoder)))
         (portrait-read gpu (new Drawing
                              (drawn (Some (new Drawn (atlas atlas) (quads kept))))
                              (portraits (● drawing portraits)))

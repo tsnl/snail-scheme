@@ -12,20 +12,11 @@
   (export
    Events
    host-events
-   poll-event
-   wait-event
-   event-field
-   random-seed
-   canvas-width
-   canvas-height
-   report-boot
-   report-ready
    hidden-kind
    save-kind
    PageStorage
    host-storage
    load-save
-   store-save
    run-page)
   (import
    (snail core base)
@@ -43,7 +34,7 @@
 
     ;; Waiting for an event, like loading and storing a save below, starts
     ;; on the host and waits by ticket ((snail shell task)'s `through-host`).
-    (capability Events
+    (record Events
       ((poll-event (Fn → I32))
        (wait-event (Fn → Unit))
        (event-field (Fn I32 → I32))
@@ -68,7 +59,7 @@
     ;; ---- Storage ----
 
     ;; One save, read at boot and replaced by each store.
-    (capability PageStorage
+    (record PageStorage
       ((load-count (Fn → I32))
        (loaded-byte (Fn I32 → U8))
        (store-save (Fn Bytes → Unit))))
@@ -83,12 +74,12 @@
                                     host-finish-store)))))
 
     (define (load-save (storage PageStorage)) (→ (Option Bytes))
-      (let ((count (load-count storage)))
+      (let ((count ((● storage load-count))))
         (if (< count 0)
             (None)
             (Some
              (array-generate (i32->i64 count)
-                             (lambda (index) (loaded-byte storage (i64->i32 index))))))))
+                             (lambda (index) ((● storage loaded-byte) (i64->i32 index))))))))
 
     ;; ---- Running a page ----
 
@@ -108,7 +99,7 @@
       (let ((booted (match (load-save storage)
                       ((Some bytes) (new Pair (first (decode bytes)) (second 1)))
                       ((None) (new Pair (first (initialize)) (second 2))))))
-        (report-boot events (● booted second))
-        (run (● booted first) (lambda (state) (store-save storage (encode state))))))
+        ((● events report-boot) (● booted second))
+        (run (● booted first) (lambda (state) ((● storage store-save) (encode state))))))
 
     ))

@@ -24,7 +24,7 @@
    dataset-photograph)
   (import
    (snail core base)
-   (only (snail shell gpu) Gpu Image decode-image destroy TextureObject)
+   (only (snail shell gpu) Gpu Image TextureObject)
    (snail shell graphics colmap)
    (only (apps train trainer) Scene make-scene Options))
   (begin
@@ -91,7 +91,7 @@
              (points (parsed (read-points (sparse "points3D.bin"))))
              (first (dataset-photograph gpu read settings (list-ref images 0)))
              (held? (lambda (k) (= (remainder k 8) 0))))
-        (destroy gpu (TextureObject (● first texture)))
+        ((● gpu destroy) (TextureObject (● first texture)))
         (make-scene (camera-sized camera (i32->i64 (● first width)) (i32->i64 (● first height)))
                     (filter-indexed (lambda (k) (not (held? k))) images)
                     (filter-indexed held? images)
@@ -113,7 +113,7 @@
       (→ Image)
       (let ((address
              (string-append (● settings scene) (● settings images) "/" (● image name))))
-        (match (decode-image gpu (read address))
+        (match ((● gpu decode-image) (read address))
           ((Some photo) photo)
           ((None) (panic (string-append address " is no image the host decodes"))))))
 

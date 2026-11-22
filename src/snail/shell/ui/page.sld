@@ -47,7 +47,7 @@
              (interface (InterfaceHandler Model Message)))
       (→ Unit)
       (∀ (Model Message))
-      (run-page events storage (lambda () ((● interface initialize) (random-seed events)))
+      (run-page events storage (lambda () ((● interface initialize) ((● events random-seed))))
                 (● interface save)
                 (● interface restore)
                 (lambda (model save)
@@ -77,7 +77,7 @@
                                   commands))))))
               (● interface view)
               (● interface window)
-              (lambda (model) (report-ready events))
+              (lambda (model) ((● events report-ready)))
               save)
       (unit))
 

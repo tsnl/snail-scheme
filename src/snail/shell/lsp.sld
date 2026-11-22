@@ -110,7 +110,7 @@
       (let loop ((left length) (chars (Nil)))
         (if (<= left 0)
             (list->string (reverse chars))
-            (match (read-char in)
+            (match ((● in read-char))
               ((Some char) (loop (- left (utf8-length char)) (Cons char chars)))
               ((None) (list->string (reverse chars)))))))
 
@@ -123,10 +123,10 @@
 
     (define (write-message (out OutputPort) (json Json)) (→ Unit)
       (let ((text (json->string json)))
-        (write-string out (string-append "Content-Length: "
-                                         (show (array-length (string->utf8 text)))
-                                         "\r\n\r\n"
-                                         text))))
+        ((● out write-string) (string-append "Content-Length: "
+                                             (show (array-length (string->utf8 text)))
+                                             "\r\n\r\n"
+                                             text))))
 
     (define (respond (out OutputPort) (id Json) (result Json)) (→ Unit)
       (write-message out (object (list (field "jsonrpc" (JsonString "2.0"))

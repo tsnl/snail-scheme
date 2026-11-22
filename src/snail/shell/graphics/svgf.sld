@@ -74,11 +74,12 @@
                        (width I32)
                        (height I32))
       (→ Svgf)
-      (let ((module (create-shader-module gpu (new ShaderModuleDescriptor
-                                                (label "svgf")
-                                                (code (string-append (declarations camera-shape)
-                                                                     (declarations filtering-shape)
-                                                                     svgf-shader))))))
+      (let ((module ((● gpu create-shader-module) (new ShaderModuleDescriptor
+                                                    (label "svgf")
+                                                    (code (string-append (declarations camera-shape)
+                                                                         (declarations
+                                                                          filtering-shape)
+                                                                         svgf-shader))))))
         (planned gpu (new Kernels
                        (temporal (compute-kernel gpu module "svgf" "temporal"))
                        (variance (compute-kernel gpu module "svgf" "variance"))
@@ -102,7 +103,7 @@
       (planned gpu (● svgf kernels) inputs light width height))
 
     (define (release (gpu Gpu) (svgf Svgf)) (→ Unit)
-      (for-each (lambda (group) (destroy gpu (BindGroupObject group)))
+      (for-each (lambda (group) ((● gpu destroy) (BindGroupObject group)))
                 (Cons (● svgf remodulate-group)
                       (concatenate (list (● svgf temporal-groups)
                                          (● svgf variance-groups)
@@ -121,8 +122,8 @@
                          (exposure F32))
       (→ Svgf)
       (let ((kernels (● svgf kernels)) (parity (● svgf parity)))
-        (write-buffer gpu (● kernels filtering) 0 (filtering-bytes moved exposure))
-        (let ((first (begin-compute-pass gpu encoder)))
+        ((● gpu write-buffer) (● kernels filtering) 0 (filtering-bytes moved exposure))
+        (let ((first ((● gpu begin-compute-pass) encoder)))
           (over-screen gpu
                        first
                        svgf
@@ -134,14 +135,14 @@
                        (● kernels variance)
                        (list-ref (● svgf variance-groups) parity))
           (over-screen gpu first svgf (● kernels atrous) (list-ref (● svgf atrous-groups) 0))
-          (end-compute-pass gpu first))
-        (copy-texture-to-texture gpu encoder
-                                 (whole-texture (● (plane (● svgf planes) "pong") texture))
-                                 (whole-texture
-                                  (● (history (● svgf planes) "color" parity) texture))
-                                 (● svgf width)
-                                 (● svgf height))
-        (let ((rest (begin-compute-pass gpu encoder)))
+          ((● gpu end-compute-pass) first))
+        ((● gpu copy-texture-to-texture) encoder
+         (whole-texture (● (plane (● svgf planes) "pong") texture))
+         (whole-texture
+          (● (history (● svgf planes) "color" parity) texture))
+         (● svgf width)
+         (● svgf height))
+        (let ((rest ((● gpu begin-compute-pass) encoder)))
           (for-each (lambda (level)
                       (over-screen gpu rest
                                    svgf
@@ -149,7 +150,7 @@
                                    (list-ref (● svgf atrous-groups) level)))
                     (list 1 2 3 4))
           (over-screen gpu rest svgf (● kernels remodulate) (● svgf remodulate-group))
-          (end-compute-pass gpu rest))
+          ((● gpu end-compute-pass) rest))
         (Svgf-parity-set svgf (- 1 parity))))
 
     (define (over-screen (gpu Gpu) (pass GpuComputePass)
@@ -157,8 +158,8 @@
                          (pipeline GpuComputePipeline)
                          (group GpuBindGroup))
       (→ Unit)
-      (set-compute-pipeline gpu pass pipeline)
-      (set-compute-bind-group gpu pass 0 group)
+      ((● gpu set-compute-pipeline) pass pipeline)
+      ((● gpu set-compute-bind-group) pass 0 group)
       (dispatch-texels gpu pass (● svgf width) (● svgf height)))
 
     ;; Slot 0 for the temporal filter and the light, slots 1 to 5 for the

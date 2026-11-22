@@ -131,7 +131,7 @@ so a function reads and writes only the ports it was given, and a program
 chooses a different stream by passing a different port
 ([capabilities](capabilities.md#making-ones-own)).
 
-`(read-char in)` consumes one Unicode character, returning `None` at EOF.
+`((● in read-char))` consumes one Unicode character, returning `None` at EOF.
 `(read-line in)` uses the same operation and returns the next line without
 its LF: an empty line is `(Some "")`, EOF after a partial line returns that
 line, and EOF before any character is `(None)`. Other characters, including
@@ -149,7 +149,7 @@ collect them, discard them, or forward them to another port:
 ```scheme
 (let ((bracketed (new OutputPort
                    (write-string (lambda (text)
-                                   (write-string out (string-append "[" text "]")))))))
+                                   ((● out write-string) (string-append "[" text "]")))))))
   (write bracketed (Some "hello"))) ; prints [(Some "hello")]
 ```
 
@@ -202,7 +202,7 @@ notation. A `Show` instance alone does not supply `Repr`; missing instances
 are compile errors.
 
 `(snail shell write)` supplies `Repr Any` using its existing Scheme datum
-printer, so `(write out datum)` replaces `(write-string out (datum->string datum))`.
+printer, so `(write out datum)` replaces `((● out write-string) (datum->string datum))`.
 Translated Scheme's `write` uses this same operation. Foreign values in
 `Any` retain the datum printer's `#<opaque>` notation; deriving does not add
 runtime reflection. Constructor notation describes a typed value but does
@@ -240,8 +240,8 @@ through a file), `PermissionDenied` or `OtherError`, and `show` describes
 it. Each kind is one some program acts on; every other failure, such as
 removing a directory that is not empty or a path holding a NUL, is
 `OtherError`. A relative path is resolved against the working directory the
-host passes, which `(working-directory environment)` gives, or `None` on a
-host with no filesystem. `(environment-variable environment name)` is a
+host passes, which `((● environment directory))` gives, or `None` on a
+host with no filesystem. `((● environment variable) name)` is a
 variable of the `ProcessEnvironment` the
 program started with, or `None` when it is unset; the host's own channel for
 the working directory, `SNAIL_CWD`, reads as unset. The runtime performs each operation through WASI preview1
@@ -250,7 +250,7 @@ path operation there fails with `OtherError`. WASI preview1 has no file
 modes or owners; it reports device and inode numbers and a status-change
 time, but Rust's standard library exposes them on WASI only as unstable
 API, so `FileStatus` has none of these yet.
-`(monotonic-nanoseconds clock)` reads its `Clock`: the host's is WASI's
+`((● clock monotonic-nanoseconds))` reads its `Clock`: the host's is WASI's
 monotonic clock, from an origin the host chooses; only differences mean
 anything.
 

@@ -10,6 +10,6 @@
   (write-file fs (path) "first line\nsecond λ line\n")
   (display out (file-exists? fs (path)))
   (newline out)
-  (write-string out (read-file fs (path)))
+  ((● out write-string) (read-file fs (path)))
   (write-line out (string-foldcase "Straße ΣΑΣ"))
   (unit))

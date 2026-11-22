@@ -9,13 +9,7 @@
    Stream
    StreamEvent
    Fetch
-   request
-   fetch-bytes
-   fetch-all-bytes
-   page-address
-   stream-open
-   stream-next
-   stream-close)
+   fetch-bytes)
   (import
    (snail core base))
   (begin
@@ -60,7 +54,7 @@
     ;; `page-address` is the URL
     ;; of the page the program runs in, which relative URLs resolve
     ;; against and whose query can choose what it shows.
-    (capability Fetch
+    (record Fetch
       ((request (Fn String String (List Header) String → (Result Reply String)))
        (fetch-all-bytes (Fn (List String) → (List (Result Bytes String))))
        (page-address (Fn → String))
@@ -69,4 +63,4 @@
        (stream-close (Fn Stream → Unit))))
 
     (define (fetch-bytes (fetch Fetch) (url String)) (→ (Result Bytes String))
-      (list-ref (fetch-all-bytes fetch (list url)) 0))))
+      (list-ref ((● fetch fetch-all-bytes) (list url)) 0))))

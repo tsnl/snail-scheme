@@ -17,5 +17,5 @@
     (list . (symbol) @name)
   ]
   (#any-of? @context
-    "define" "define-syntax" "declare" "record" "capability" "enum" "type"
-    "typeclass" "instance")) @item
+    "define" "define-syntax" "declare" "record" "enum" "type" "typeclass"
+    "instance")) @item
