@@ -8,7 +8,9 @@
 ;; touching their gaussians. A frame:
 ;;
 ;;   (write-transforms splats (list pose-a pose-b))
-;;   (sort-splats encoder splats camera)             ; a compute pass
+;;   (let ((pass (begin-compute-pass encoder)))
+;;     (sort-splats pass splats camera)
+;;     (end-compute-pass pass))
 ;;   (let ((pass (begin-render-pass encoder ...)))   ; onto the target
 ;;     (draw-splats pass splats)
 ;;     (end-pass pass))
@@ -383,18 +385,16 @@
 
     ;; ---- Drawing ----
 
-    ;; A compute pass that projects every gaussian under the camera and
-    ;; sorts them far to near.
+    ;; Every gaussian projected under the camera and sorted far to near,
+    ;; in the caller's compute pass.
 
-    (define (sort-splats (gpu Gpu) (encoder GpuCommandEncoder) (splats Splats) (camera SplatCamera))
+    (define (sort-splats (gpu Gpu) (pass GpuComputePass) (splats Splats) (camera SplatCamera))
       (→ Unit)
       (write-buffer gpu (● splats camera) 0 (pod-bytes camera-shape camera))
-      (let ((pass (begin-compute-pass gpu encoder)))
-        (set-compute-pipeline gpu pass (● splats project-pipeline))
-        (set-compute-bind-group gpu pass 0 (● splats project-group))
-        (dispatch-workgroups gpu pass (i64->i32 (quotient (+ (● splats capacity) 255) 256)) 1 1)
-        (dispatch-sort gpu pass (● splats sorter))
-        (end-compute-pass gpu pass)))
+      (set-compute-pipeline gpu pass (● splats project-pipeline))
+      (set-compute-bind-group gpu pass 0 (● splats project-group))
+      (dispatch-workgroups gpu pass (i64->i32 (quotient (+ (● splats capacity) 255) 256)) 1 1)
+      (dispatch-sort gpu pass (● splats sorter)))
 
     ;; Every gaussian, in the order the last `sort-splats` found, onto a
     ;; target whose size the camera gave.

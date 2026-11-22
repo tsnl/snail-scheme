@@ -1,6 +1,7 @@
 ;; Tensor graphs on the CPU: views that slice, transpose and broadcast
-;; without a node; each kind of node evaluated; and every gradient `grad`
-;; builds checked against finite differences of the evaluated loss.
+;; without a node; each kind of node evaluated; every gradient `grad`
+;; builds checked against finite differences of the evaluated loss; and
+;; fused graphs, which compute exactly what they fused.
 (import
  (snail core base)
  (snail core io)
@@ -11,7 +12,8 @@
          (sin tensor-sin)
          (cos tensor-cos))
  (snail shell tensor eval)
- (snail shell tensor grad))
+ (snail shell tensor grad)
+ (snail shell tensor fuse))
 
 ;; ---- Printing ----
 
@@ -173,10 +175,61 @@
     (check out "gather dx" loss x inputs)
     (show-values out "gather dx" (only-value (grad loss (list x)) inputs))))
 
+;; ---- Fusion ----
+
+;; A fused graph computes exactly what it fused, since the evaluator rounds
+;; each operation as the GPU does, with the nodes it needs left.
+
+(define (fused-line (out OutputPort) (label String) (root View) (inputs (Table (Array F64))))
+  (→ Unit)
+  (let* ((fused (list-ref (fuse (list root)) 0))
+         (same (every? (lambda (pair) (= (● pair first) (● pair second)))
+                       (zip (array->list (only-value (list root) inputs))
+                            (array->list (only-value (list fused) inputs))))))
+    (write-line out (string-append label
+                                   ": "
+                                   (show (length (toposort (list root))))
+                                   " nodes, fused "
+                                   (show (length (toposort (list fused))))
+                                   (if same ", the same values" ", other values")))))
+
+(define (fusion (out OutputPort)) (→ Unit)
+  (let* ((x (param "x" (list 2 3) (Float)))
+         (inputs (inputs-of (list (new Pair (first "x") (second (ramp 6 0.25 -0.5)))))))
+    (fused-line out "chain" (tensor-exp (+ (* x (scalar 2.0)) (scalar 1.0))) inputs)
+    (fused-line out "transposed" (+ (transpose (* x x)) (scalar 1.0)) inputs)
+    (fused-line out "narrowed" (* (narrow (tensor-exp x) 1 1 2) (scalar 3.0)) inputs)
+    (fused-line out
+                "broadcast"
+                (* x (broadcast-to (tensor-exp (narrow x 1 0 1)) (list 2 3)))
+                inputs)
+    (fused-line out "converted"
+                (convert
+                 (* (convert (greater x (scalar 0.0)) (Unsigned)) (fill 3.0 (Nil) (Unsigned)))
+                 (Float))
+                inputs)
+    (fused-line out "merged" (* (reshape (tensor-exp (transpose x)) (list 6)) (scalar 2.0)) inputs)
+    (fused-line out "reduced" (sum (tensor-exp x) (list 1)) inputs)
+    (fused-line out "shared" (+ (tensor-exp x) (* (tensor-exp x) (tensor-exp x))) inputs)))
+
+;; Eight params summed: a kernel binds at most seven buffers besides its
+;; port, so the sum is two maps.
+(define (fusion-limits (out OutputPort)) (→ Unit)
+  (let* ((names (map (lambda (k) (string-append "p" (show k))) (iota 8)))
+         (ps (map (lambda (name) (param name (list 4) (Float))) names))
+         (inputs (inputs-of (map-indexed (lambda (k name)
+                                           (new Pair
+                                             (first name)
+                                             (second (ramp 4 1.0 (i64->f64 k)))))
+                                         names))))
+    (fused-line out "eight params" (fold-left + (list-ref ps 0) (list-drop ps 1)) inputs)))
+
 (define (main (out OutputPort)) (→ Unit)
   (constants out)
   (views out)
   (rows out)
   (gradients out)
   (rows-gradient out)
+  (fusion out)
+  (fusion-limits out)
   (unit))

@@ -23,7 +23,7 @@
            (sin tensor-sin))
    (only (snail shell tensor eval) bytes->values values->bytes)
    (snail shell tensor grad)
-   (snail shell tensor compile)
+   (snail shell tensor lower)
    (snail shell tensor adam)
    (snail shell graphics splat-train))
   (begin
@@ -114,12 +114,27 @@
 
     ;; One gaussian at depth 4 with scale 0.2, 2.5 pixels on the screen,
     ;; opacity 1/2, color 0.5 + C0 (1, 0, -1), seen from pixel (31, 23),
-    ;; half a pixel from its center on each axis.
+    ;; half a pixel from its center on each axis, rendered for training
+    ;; and for viewing.
 
     (define (splat-forward-check (gpu Gpu)) (→ String)
+      (let* ((variance (+ 6.25 0.3))
+             (alpha (* 0.5 (exp (* -0.5 (/ 0.5 variance)))))
+             (expected
+              (map (lambda (c) (* alpha (+ 0.5 (* 0.28209479177387814 c)))) (list 1.0 0.0 -1.0)))
+             (training (forward-pixel gpu (Training)))
+             (viewing (forward-pixel gpu (Viewing)))
+             (agrees? (lambda (got)
+                        (every? (lambda (pair) (< (abs (- (● pair first) (● pair second))) 0.001))
+                                (zip got expected)))))
+        (if (and (agrees? training) (agrees? viewing))
+            "blends as the paper does, for training and for viewing"
+            (string-join (map f64->string (append training viewing)) " "))))
+
+    (define (forward-pixel (gpu Gpu) (purpose Purpose)) (→ (List F64))
       (let* ((cloud (splat-params 1))
-             (image (● (render cloud (camera-param) sensor) image))
-             (program (compile-program gpu "forward" (list image) (Nil))))
+             (image (● (render cloud (camera-param) sensor purpose) image))
+             (program (lower gpu "forward" (list image) (Nil))))
         (written gpu program
                  (list (new Pair (first "means") (second (list->array (list 0.0 0.0 4.0))))
                        (new Pair
@@ -134,16 +149,9 @@
                  (list 1.0))
         (run-program gpu program)
         (let* ((pixels (bytes->values (read-sink gpu program 0) (Float)))
-               (variance (+ 6.25 0.3))
-               (alpha (* 0.5 (exp (* -0.5 (/ 0.5 variance)))))
-               (expected
-                (map (lambda (c) (* alpha (+ 0.5 (* 0.28209479177387814 c)))) (list 1.0 0.0 -1.0)))
                (got (map (lambda (k) (array-ref pixels (+ (* 3 (+ (* 23 64) 31)) k))) (iota 3))))
           (release-program gpu program)
-          (if (every? (lambda (pair) (< (abs (- (● pair first) (● pair second))) 0.001))
-                      (zip got expected))
-              "blends as the paper does"
-              (string-join (map f64->string got) " ")))))
+          got)))
 
     ;; SSIM reads the Fill through storage buffers. Addition uses the same
     ;; Fill as a literal. At the center, whose window lies inside the image,
@@ -153,7 +161,7 @@
     (define (shared-fill (gpu Gpu)) (→ Bool)
       (let* ((v (fill 3.0 (list 11 11 1) (Float)))
              (center (narrow (narrow (+ v (ssim v v)) 0 5 1) 1 5 1))
-             (program (compile-program gpu "shared fill" (list center) (Nil))))
+             (program (lower gpu "shared fill" (list center) (Nil))))
         (run-program gpu program)
         (let ((value (scalar-sink gpu program)))
           (release-program gpu program)
@@ -163,10 +171,10 @@
     ;; Read the rasterizer's ranges input so the large image needs no buffer.
     (define (splat-tile-ranges (gpu Gpu)) (→ String)
       (let* ((sensor (new Sensor (width 4096) (height 4112) (capacity 8)))
-             (image (● (render (splat-params 4) (camera-param) sensor) image))
+             (image (● (render (splat-params 4) (camera-param) sensor (Viewing)) image))
              (ranges (list-ref (● image node args) 1))
              (bounds (concat (list (narrow ranges 0 0 2) (narrow ranges 0 (* 2 65535) 4)) 0))
-             (program (compile-program gpu "tile ranges" (list bounds) (Nil)))
+             (program (lower gpu "tile ranges" (list bounds) (Nil)))
              (write (lambda (name values)
                       (write-param gpu program name (values->bytes (list->array values) (Float))))))
         (write "camera" (list 1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0 1.0 0.0 0.0))
@@ -185,15 +193,15 @@
     ;; each element of each param nudged both ways on the device.
 
     (define (loss-of (cloud Cloud)) (→ View)
-      (photometric-loss (● (render cloud (camera-param) sensor) image)
+      (photometric-loss (● (render cloud (camera-param) sensor (Training)) image)
                         (param "target" (list 48 64 3) (Float))
                         0.2))
 
     (define (splat-gradient-check (gpu Gpu)) (→ String)
       (let* ((cloud (splat-params 3))
              (loss (loss-of cloud))
-             (grads (compile-program gpu "grads" (grad loss (cloud-views cloud)) (Nil)))
-             (losses (compile-program gpu "losses" (list loss) (Nil)))
+             (grads (lower gpu "grads" (grad loss (cloud-views cloud)) (Nil)))
+             (losses (lower gpu "losses" (list loss) (Nil)))
              (values (cloud-values wide))
              (target
               (array-generate (* 48 (* 64 3)) (lambda (i) (* 0.3 (i64->f64 (remainder i 3)))))))
@@ -258,8 +266,8 @@
     (define (splat-ssim-check (gpu Gpu)) (→ String)
       (let* ((x (param "x" (list 20 24 3) (Float)))
              (loss (mean (ssim x (param "y" (list 20 24 3) (Float)))))
-             (grads (compile-program gpu "ssim-grads" (grad loss (list x)) (Nil)))
-             (losses (compile-program gpu "ssim-losses" (list loss) (Nil)))
+             (grads (lower gpu "ssim-grads" (grad loss (list x)) (Nil)))
+             (losses (lower gpu "ssim-losses" (list loss) (Nil)))
              (xs (array-generate 1440 (lambda (i) (+ 0.5 (* 0.4 (sin (* 0.37 (i64->f64 i))))))))
              (ys (array-generate 1440 (lambda (i) (+ 0.5 (* 0.3 (sin (* 0.11 (i64->f64 i)))))))))
         (for-each (lambda (program)
@@ -324,9 +332,9 @@
     (define (splat-fit-check (gpu Gpu)) (→ String)
       (let* ((truth (splat-params 3))
              (target-program
-              (compile-program gpu "truth"
-                               (list (● (render truth (camera-param) sensor) image))
-                               (Nil))))
+              (lower gpu "truth"
+                     (list (● (render truth (camera-param) sensor (Viewing)) image))
+                     (Nil))))
         (written gpu target-program (cloud-values three) (list 1.0 1.0 1.0))
         (run-program gpu target-program)
         (let ((target (read-sink gpu target-program 0)))
@@ -338,17 +346,17 @@
              (loss (loss-of cloud))
              (grads (grad loss (cloud-views cloud)))
              (rates (list 0.002 0.005 0.001 0.05 0.0025 0.000125 0.000125 0.000125))
-             (program (compile-program gpu "fit"
-                                       (list loss)
-                                       (adam-updates "adam"
-                                                     (adam 0.9 0.999 1e-15)
-                                                     (map (lambda (k)
-                                                            (new Trained
-                                                              (param
-                                                               (list-ref (cloud-views cloud) k))
-                                                              (grad (list-ref grads k))
-                                                              (rate (scalar (list-ref rates k)))))
-                                                          (iota 8))))))
+             (program (lower gpu "fit"
+                             (list loss)
+                             (adam-updates "adam"
+                                           (adam 0.9 0.999 1e-15)
+                                           (map (lambda (k)
+                                                  (new Trained
+                                                    (param
+                                                     (list-ref (cloud-views cloud) k))
+                                                    (grad (list-ref grads k))
+                                                    (rate (scalar (list-ref rates k)))))
+                                                (iota 8))))))
         (let ((initial (cloud-values (map (lambda (s)
                                             (Splat-logit-set (Splat-scale-set s (- (● s scale) 0.5))
                                                              (- (● s logit) 1.0)))

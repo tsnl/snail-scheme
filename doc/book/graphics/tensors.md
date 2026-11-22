@@ -3,16 +3,17 @@
 `(snail shell tensor)` is a GPU tensor library in the shape of
 [Resin](https://github.com/tsnl/resin)'s: a program builds a lazy graph of
 nodes, rewrites it symbolically for gradients and optimizer steps, and
-compiles it explicitly into WebGPU work that runs as often as a training
-loop likes, on the page or on Node ([WebGPU on Node](plan.md#webgpu-on-node)).
-All four libraries are **implemented**:
+lowers it explicitly to plain WebGPU objects the caller owns, which run as
+often as a training loop likes, on the page or on Node ([WebGPU on
+Node](plan.md#webgpu-on-node)). All six libraries are **implemented**:
 
 | Library | Provides |
 | --- | --- |
 | `(snail shell tensor)` | Nodes, ports and views; the operations that build them |
 | `(snail shell tensor grad)` | `grad`: reverse-mode gradients as more graph |
 | `(snail shell tensor adam)` | `adam-updates`: Adam's step as more graph |
-| `(snail shell tensor compile)` | `compile-program`: buffers, kernels and their order |
+| `(snail shell tensor fuse)` | `fuse`: maps that read maps taken into one |
+| `(snail shell tensor lower)` | `lower`: buffers, kernels and their order, the caller's |
 | `(snail shell tensor eval)` | `evaluate`: the same graph on the CPU, the specification |
 
 ## Graphs and views
@@ -28,14 +29,23 @@ nodes.
 | Kind | Computes |
 | --- | --- |
 | `Param`, `Constant`, `Fill` | A buffer the host writes, bytes given at build time, one value everywhere |
-| `Elementwise` | One of 30 operations (`Op`) on broadcast operands |
+| `Map` | A typed expression at each element, over broadcast operands |
 | `Reduce` | A sum, maximum or minimum over axes, which keep size 1 |
 | `Matmul` | `(..., m, k)` by `(..., k, n)` |
-| `Copy`, `Place` | A view made dense; a gradient placed at a view's addresses |
+| `Place` | A gradient placed at a view's addresses |
 | `Gather`, `ScatterAdd` | Rows by `u32` index, and their adjoint |
 | `Concat` | Views joined along an axis; `stack` joins them along a new one |
 | `Sort`, `PrefixSum` | `u32` keys and values sorted stably; an exclusive prefix sum |
 | `CustomKind` | Kernels a library writes in WGSL, with their own adjoint |
+
+A map's body is an `Expr`: `Load k`, argument k's element at the map's
+index; a `Literal`; or `Apply`, one of 30 operations (`Op`) on others. Each
+carries its element type, so a body may convert or reinterpret between
+types. A load never addresses: its argument is a view, and the view's
+accessor says where its elements are. An operation such as `+`, `exp` or
+`where` builds a map of one `Apply` over loads, a `Fill` operand becoming a
+literal, so a map reads only buffers. A copy is a map of one load, and it is
+the one way a view becomes a buffer.
 
 A node is known by its key, a 64-bit hash of its kind, its parameters, its
 ports and its arguments' keys and accessors. The language has no reference
@@ -49,7 +59,9 @@ includes them in its key, so constants can reuse a label across uploads.
 `(grad loss wrt)` walks the nodes the scalar `loss` depends on from last to
 first, as Resin's `grad` does. Each kind answers the gradient of each
 argument given the gradients of its ports, and a custom node answers with
-its own adjoint. A view's gradient reaches its port through the view's
+its own adjoint. A map's gradient goes back through its body from the top,
+whose value is the map's port: each operation hands its operands their
+shares, and each load adds its share to its argument's. A view's gradient reaches its port through the view's
 accessor: it is summed over the axes the view broadcasts, then reshaped
 when the view reads its whole port in order, or placed at the addresses it
 reads otherwise. Sorts, prefix sums, comparisons and bit operations pass no
@@ -64,10 +76,44 @@ under `prefix` (`moment-names`). They start at zeros, as every buffer does,
 and a host may write them, as densification does when it changes how many
 gaussians a param holds.
 
-## Compiling and running
+## Fusing
 
-`(compile-program label sinks updates)` turns what the sinks and updates
-need into a `Program`, once. Sinks are views to read back; updates are
+`(fuse roots)` rewrites a graph so that a map takes in the maps it reads,
+as Resin's `fuse_elementwise` fuses its dispatches. One kernel computes
+both, and the producer's buffer is not written unless something else reads
+it. The answer is views of the same values computed by fewer nodes, for
+`lower` to lower as it lowers any graph; `fuse-updates` does the same for a
+program's updates.
+
+```scheme
+(lower gpu "step" (fuse sinks) (fuse-updates updates))
+```
+
+A producer is inlined into each map that reads it: the consumer's load
+becomes the producer's body, whose loads are seen through the consumer's
+view. A view of a view is an accessor when each axis of the outer view
+steps along the axes of the port it sees without carrying into the next.
+Broadcasting, permuting, narrowing, squeezing and splitting an axis all do
+that, and any view passes through a producer that read its argument
+densely. Merging the axes of a port whose producer read a strided view is
+not an accessor, so that producer stays a node. A body stays within 256
+expressions, since a producer read twice is inlined twice. A kernel binds
+at most seven buffers besides its port, so a sum of eight params is two
+maps. Types do not stop fusing: each expression carries its own. A node
+that is not a map keeps the map that feeds it, so reductions, matrix
+products, gathers, concats, sorts and custom kernels are where fused
+kernels end. Fusing depends only on a node and what it reads, so the sinks
+and updates of one program may be fused apart and still share their nodes.
+
+On bicycle, fusing takes a training step from 829 dispatches to 350, and
+the splats viewer's frame from 273 to 119. The viewer's time is now in
+those boundaries: the harmonics' matrix products and the concats that join
+columns.
+
+## Lowering and running
+
+`(lower gpu label sinks updates)` lowers what the sinks and updates need to a
+`Program`, once. Sinks are views to read back; updates are
 pairs of a whole param and the value it takes after the run. Both need
 the same element count and element type. Use `convert` for a numeric
 conversion or `bitcast` to reinterpret the stored bits. Every sink and
@@ -76,16 +122,28 @@ can swap values in one run, and an update can initialize a param that no
 sink reads.
 
 ```scheme
-(let ((program (compile-program "fit" (list loss) (adam-updates "adam" settings trained))))
-  (write-param program "points" bytes)
-  (for-each (lambda (_) (run-program program)) (iota 1000))
-  (read-sink program 0))                 ; loss used by the last update
+(let ((program (lower gpu "fit" (list loss) (adam-updates "adam" settings trained))))
+  (write-param gpu program "points" bytes)
+  (for-each (lambda (_) (run-program gpu program)) (iota 1000))
+  (read-sink gpu program 0))                 ; loss used by the last update
 ```
+
+Everything a program holds is ordinary WebGPU, and the caller's: its
+`steps`, each a dispatch with its WGSL text, entry, pipeline, bind group and
+workgroups, or a sort or a scan; its params and sinks, each with its
+buffer; and `made`, every buffer it made, with its use and size.
+`(encode-steps gpu pass program)` encodes the steps into a compute pass the
+caller began, among its own work; `run-program` is that in a pass and a
+submission of its own. `release-program` destroys what the program made and
+nothing it was given.
 
 Each node's kernel is generated as WGSL text whose shapes, pitches and
 offsets are literals, a thread per output element, so two nodes that
 compute alike share a pipeline. A `Fill` argument is a literal too and gets
-no buffer. A reduction over more than 256 elements runs in levels: a
+no buffer. A map's body becomes one `let` for each distinct load and
+operation, so an expression fusing copied into two places is computed
+once and no expression nests another, and a map binds each port its
+arguments see once. A reduction over more than 256 elements runs in levels: a
 workgroup reduces each part of 4,096 elements in shared memory until one
 part is left. A float `ScatterAdd` adds with a compare-and-swap loop. Sorts
 and prefix sums run on the `radix-sort` and `scan` middleware ([the WebGPU
@@ -100,31 +158,42 @@ it reads.
 Buffers are pooled by liveness: once the last node reading a port has been
 dispatched, its buffer returns to a pool, and a later port of its size
 takes it. Params, constants, sinks and updated values keep their buffers.
-What is left in the pool once a program is compiled is its scratch, which
+What is left in the pool once a program is lowered is its scratch, which
 holds nothing between runs.
 
-Programs that take turns on one set of params, as a training step and
-densification do, are compiled with `(compile-program-sharing label sinks
-updates other)`. Its params of the same name and size are `other`'s
-buffers, and its pool starts as `other`'s scratch, so the second program
-costs little more than its own sinks, which it copies out of the scratch.
-It is released no later than `other`. To grow, a host stashes the params
-(`stash-params`, copies on the device), releases its programs, compiles
-larger ones, and gives the params back (`unstash-params`, as much of each
-as both hold), so two sets of scratch are never held at once.
+A caller gives a program buffers with `(lower-with gpu label sinks updates
+given)`. A `Given` holds buffers for params by name, which the program
+reads and writes in place of making its own, and free scratch to start its
+pool with. `(bound given view buffer)` adds the caller's buffer for the
+param `view` sees whole, as a viewer gives the buffer its gaussians are
+already in; the buffer must be the param's size. Programs that take turns
+on one set of params, as a training step and densification do, give the
+second what the first has, `(given-by first)`: its params, and its scratch,
+so the second costs little more than its own sinks, which it copies out of
+the scratch. It is released no later than the first. To grow, a host
+stashes the params (`stash-params`, copies on the device), releases its
+programs, lowers larger ones, and gives the params back (`unstash-params`,
+as much of each as both hold), so two sets of scratch are never held at
+once.
 
-`(profile-program program)` runs each step alone and waits for it,
-answering each step's seconds and its kernel's code. Each wait is a round
-trip to the device of about two milliseconds, so it shows where a
-program's time goes rather than how long a run takes.
+`(profile-program gpu program)` answers each step's seconds on the device,
+with its kernel's entry and code. Each step runs in a compute pass of its
+own, begun with timestamp writes, and every pass goes in one submission,
+so the device runs the steps back to back, as a run does, and the times
+are read once, after the last. It needs the device's `timestamp-query`
+feature. Node's times are not rounded; a browser's are, to 100 μs, so a
+program is best profiled on Node. A pass per step costs a little that one
+pass would not, so the sum is a little more than a run takes.
 
 `tests/programs/tensor.sld` evaluates each kind on the CPU and checks every
 gradient `grad` builds against central differences. On the device, which
 `tests/browser/gpu.mjs` and `tests/gpu.mjs` run, `(gpu-test tensor)`
-compiles sinks covering the generated kernels, including reductions in
+lowers sinks covering the generated kernels, including reductions in
 levels, float scatters and a sort. It compares integer outputs exactly and
-float outputs to a part in a thousand against the CPU. It then fits a line
-with Adam in 1,000 runs of one program.
+float outputs to a part in a thousand against the CPU. It runs a program
+whose param is a buffer the test made, in the test's own pass, and reads
+the buffer back after releasing the program. It then fits a line with Adam
+in 1,000 runs of one program.
 
 ## Differentiable splatting
 
@@ -134,9 +203,19 @@ through, built as a tensor graph. `render` draws a `Cloud` of params
 the projection too, whose centers' gradient densification watches. A
 cloud's spherical harmonics are a param for each degree, each shading only
 while its entry of `degrees` is 1, so a schedule raises them. Its `live`
-mask culls the rows it has not used yet, so a program compiled for a
+mask culls the rows it has not used yet, so a program lowered for a
 capacity holds a cloud that grows. Unused rows can be left at zero through
 training.
+
+A rendering has a `Purpose`. One for `Training` keeps what the backward
+pass starts from. One for `Viewing` keeps only the image, and has no
+gradient. The trainer renders its held-out views for viewing, and so does
+the splats viewer, which draws its clouds with this renderer as well as
+with quads ([`splat-view`](plan.md#scans-sorts-and-gaussian-splats)). A
+viewer's cloud may also carry a `Placement`: each gaussian's affine map
+into the world, which carries its center and covariance there and a
+direction back into its own frame for its harmonics. A training cloud
+stands in the world and has none, so its graph is unchanged.
 
 - **Projection is ordinary tensor operations, so `grad` derives its
   gradient.** Each gaussian's normalized quaternion and exponentiated
@@ -159,11 +238,16 @@ training.
   enough bits for that key, including on grids with 65,536 or more tiles.
   Binning passes no gradient. The sensor's capacity bounds the entries;
   past it the farthest gaussians' are dropped, so a rendering answers how
-  many entries its gaussians asked for, and a host compiles room for more
+  many entries its gaussians asked for, and a host lowers room for more
   before they run out.
 - **Rasterizing is a custom node** (`splat-forward`), a workgroup per tile.
-  It blends as the paper does and keeps each pixel's final transmittance
-  and its count of entries. Its adjoint is another custom node
+  It blends as the paper does and hands each pixel's final transmittance
+  and its count of entries to `keep`. The purpose chooses `keep`'s text:
+  rendering for training puts `splat-forward-state.wgsl.scm` first, which
+  binds two buffers and stores both, and rendering for viewing an empty
+  function. A WGSL `override` could only skip the stores. The bindings
+  would stay, since WGSL counts a binding named in a dead branch as used.
+  Its adjoint is another custom node
   (`splat-backward`), which walks the entries far to near, undoing the
   transmittance, from as deep as the tile's deepest pixel went. Many pixels
   add to one gaussian's nine gradients, so each subgroup sums its pixels'
@@ -183,7 +267,8 @@ training.
 
 `(gpu-test splat-train)` checks the renderer on the device at 64x48 pixels:
 
-- one gaussian's pixel equals the paper's blend computed by hand;
+- one gaussian's pixel equals the paper's blend computed by hand, rendered
+  for training and for viewing;
 - each of three gaussians' 59 params' gradients equals a central difference
   of the loss on the device, to 5%;
 - Adam brings a dimmer, smaller cloud's loss against a rendered target down
@@ -207,7 +292,7 @@ copies are, and `camera-values` turns a camera and a pose into the 16
 numbers of `camera-param`.
 
 `(snail shell graphics splat-fit)` is the reference's training as three
-tensor graphs a host compiles for a capacity of gaussians, on one set of
+tensor graphs a host lowers for a capacity of gaussians, on one set of
 params:
 
 - **`training-step`** renders from the camera param, takes the loss
@@ -242,8 +327,8 @@ three parts:
 
 - **The trainer**, `(apps train trainer)`, knows no file, address or
   format. It trains on a `Scene`: the camera, the posed views to train on
-  and those held out, and the sparse points, as data. It performs
-  `photographs` for a view's photograph, a texture on the device, and is
+  and those held out, and the sparse points, as data. It asks its
+  `Photographs` for a view's photograph, a texture on the device, and is
   given how a step's image is shown: on the page's canvas, or nowhere.
 - **The dataset**, `(apps train dataset)`, is a COLMAP dataset as such a
   scene: where its files are, the camera scaled to its photographs, the
@@ -267,7 +352,7 @@ as textures. It raises the
 harmonics' degree every 1,000 steps, densifies every 100 steps from 500 to
 15,000, and resets opacity every 3,000. When more than half the capacity is
 live, up to the page's `gaussians`, or the step's binning asked for more
-than three quarters of the entries, it compiles larger programs: it
+than three quarters of the entries, it lowers larger programs: it
 stashes the params, releases the old programs and gives the params back to
 the new ones. A step and densification make about 3.3 KB a gaussian of
 capacity, mostly Adam's: each param's value and moments, and its gradient

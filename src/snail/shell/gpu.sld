@@ -57,6 +57,10 @@
    end-pass
    create-compute-pipeline
    begin-compute-pass
+   begin-timed-compute-pass
+   begin-timed-render-pass
+   create-query-set
+   resolve-query-set
    set-compute-pipeline
    set-compute-bind-group
    dispatch-workgroups
@@ -82,6 +86,7 @@
    GpuRenderPass
    GpuComputePass
    GpuCommandBuffer
+   GpuQuerySet
    GpuObject
    BufferObject
    TextureObject
@@ -91,6 +96,7 @@
    PipelineObject
    ComputePipelineObject
    BindGroupObject
+   QuerySetObject
    Image
    DeviceInfo
    BufferUsage
@@ -102,7 +108,10 @@
    Uniform
    Storage
    Indirect
+   QueryResolve
    BufferDescriptor
+   QuerySetDescriptor
+   TimestampWrites
    TextureFormat
    R8Unorm
    Rg8Unorm
@@ -227,6 +236,8 @@
    IndexFormat
    Uint16Index
    Uint32Index
+   submit-timed
+   elapsed-seconds
    Field
    Word
    Text
@@ -239,6 +250,7 @@
    module-fields
    pipeline-fields
    compute-pipeline-fields
+   query-set-fields
    bind-group-fields
    view-dimension-name
    buffer-usage-bits
@@ -297,6 +309,9 @@
     (record GpuCommandBuffer
       ((id I32)))
 
+    (record GpuQuerySet
+      ((id I32)))
+
     ;; What `destroy` lets go.
     (enum GpuObject
       (BufferObject ((buffer GpuBuffer)))
@@ -306,7 +321,8 @@
       (ModuleObject ((module GpuShaderModule)))
       (PipelineObject ((pipeline GpuRenderPipeline)))
       (ComputePipelineObject ((pipeline GpuComputePipeline)))
-      (BindGroupObject ((group GpuBindGroup))))
+      (BindGroupObject ((group GpuBindGroup)))
+      (QuerySetObject ((query-set GpuQuerySet))))
 
     ;; A decoded image: an rgba8unorm texture of its size.
     (record Image
@@ -330,7 +346,8 @@
       (Vertex)
       (Uniform)
       (Storage)
-      (Indirect))
+      (Indirect)
+      (QueryResolve))
 
     ;; A label names an object in WebGPU's messages.
     (record BufferDescriptor
@@ -349,7 +366,8 @@
         ((Vertex) 32)
         ((Uniform) 64)
         ((Storage) 128)
-        ((Indirect) 256)))
+        ((Indirect) 256)
+        ((QueryResolve) 512)))
 
     (define (buffer-usage-bits (usages (List BufferUsage))) (→ I32)
       (fold-left i32-or 0 (map buffer-usage-bit usages)))
@@ -682,6 +700,63 @@
       (Uint16Index)
       (Uint32Index))
 
+    ;; ---- Timestamps ----
+
+    ;; A set of `count` timestamps, WebGPU's query set of type "timestamp",
+    ;; which needs the device's `timestamp-query` feature (DeviceInfo's
+    ;; `features`). A pass begun with timestamp writes, WebGPU's
+    ;; `timestampWrites`, writes the device's time in nanoseconds into
+    ;; query `beginning` as it starts and into `end` as it ends;
+    ;; `resolve-query-set` copies queries into a buffer made with
+    ;; `QueryResolve`, eight bytes each, an unsigned count little-endian.
+    ;; Only the difference of two times from one device means anything, and
+    ;; a host may round them: browsers do, to 100 microseconds, unless their
+    ;; WebGPU developer features are on.
+    (record QuerySetDescriptor
+      ((label String)
+       (count I32)))
+
+    (record TimestampWrites
+      ((query-set GpuQuerySet)
+       (beginning I32)
+       (end I32)))
+
+    ;; Submits the encoder with queries 0 to `count` resolved after its
+    ;; commands, and reads their times back, eight bytes each.
+    (define (submit-timed (gpu Gpu)
+                          (encoder GpuCommandEncoder)
+                          (queries GpuQuerySet)
+                          (count I32))
+      (→ Bytes)
+      (let ((resolved (create-buffer gpu
+                                     (new BufferDescriptor
+                                       (label "timestamps")
+                                       (size (* 8 count))
+                                       (usage (list (QueryResolve) (CopySrc))))))
+            (readback (create-buffer gpu
+                                     (new BufferDescriptor
+                                       (label "timestamps/readback")
+                                       (size (* 8 count))
+                                       (usage (list (MapRead) (CopyDst)))))))
+        (resolve-query-set gpu encoder queries 0 count resolved 0)
+        (copy-buffer-to-buffer gpu encoder resolved 0 readback 0 (* 8 count))
+        (submit gpu (list (finish gpu encoder)))
+        (let ((times (read-buffer gpu readback 0 (* 8 count))))
+          (destroy gpu (BufferObject resolved))
+          (destroy gpu (BufferObject readback))
+          times)))
+
+    ;; The seconds from query `beginning` to query `end` of the times read.
+    (define (elapsed-seconds (times Bytes) (beginning I32) (end I32)) (→ F64)
+      (/ (i64->f64 (- (timestamp-at times end) (timestamp-at times beginning))) 1000000000.0))
+
+    (define (timestamp-at (times Bytes) (query I32)) (→ I64)
+      (fold-right (lambda (k total)
+                    (+ (* total 256)
+                       (i32->i64 (u8->i32 (array-ref times (+ (* 8 (i32->i64 query)) k))))))
+                  0
+                  (iota 8)))
+
     ;; ---- The capability ----
 
     ;; `request-device` asks the page for its device once, and every other
@@ -692,7 +767,9 @@
     ;; host decodes. `read-buffer` waits until the buffer, made with
     ;; `MapRead`, can be read, and answers the bytes asked for.
     ;; `current-texture` is the canvas's texture for this frame, sized to
-    ;; the canvas's pixels on the screen, and its size.
+    ;; the canvas's pixels on the screen, and its size. The timed ways of
+    ;; beginning a pass take the timestamp writes WebGPU's pass descriptor
+    ;; may hold.
     (record Gpu
       ((request-device (Fn → DeviceInfo))
        (create-buffer (Fn BufferDescriptor → GpuBuffer))
@@ -723,6 +800,11 @@
        (end-pass (Fn GpuRenderPass → Unit))
        (create-compute-pipeline (Fn ComputePipelineDescriptor → GpuComputePipeline))
        (begin-compute-pass (Fn GpuCommandEncoder → GpuComputePass))
+       (begin-timed-compute-pass (Fn GpuCommandEncoder TimestampWrites → GpuComputePass))
+       (begin-timed-render-pass
+        (Fn GpuCommandEncoder RenderPassDescriptor TimestampWrites → GpuRenderPass))
+       (create-query-set (Fn QuerySetDescriptor → GpuQuerySet))
+       (resolve-query-set (Fn GpuCommandEncoder GpuQuerySet I32 I32 GpuBuffer I32 → Unit))
        (set-compute-pipeline (Fn GpuComputePass GpuComputePipeline → Unit))
        (set-compute-bind-group (Fn GpuComputePass I32 GpuBindGroup → Unit))
        (dispatch-workgroups (Fn GpuComputePass I32 I32 I32 → Unit))
@@ -890,6 +972,32 @@
 
     (define (begin-compute-pass (gpu Gpu) (encoder GpuCommandEncoder)) (→ GpuComputePass)
       ((● gpu begin-compute-pass) encoder))
+
+    (define (begin-timed-compute-pass (gpu Gpu)
+                                      (encoder GpuCommandEncoder)
+                                      (writes TimestampWrites))
+      (→ GpuComputePass)
+      ((● gpu begin-timed-compute-pass) encoder writes))
+
+    (define (begin-timed-render-pass (gpu Gpu)
+                                     (encoder GpuCommandEncoder)
+                                     (descriptor RenderPassDescriptor)
+                                     (writes TimestampWrites))
+      (→ GpuRenderPass)
+      ((● gpu begin-timed-render-pass) encoder descriptor writes))
+
+    (define (create-query-set (gpu Gpu) (descriptor QuerySetDescriptor)) (→ GpuQuerySet)
+      ((● gpu create-query-set) descriptor))
+
+    (define (resolve-query-set (gpu Gpu)
+                               (encoder GpuCommandEncoder)
+                               (query-set GpuQuerySet)
+                               (first I32)
+                               (count I32)
+                               (buffer GpuBuffer)
+                               (offset I32))
+      (→ Unit)
+      ((● gpu resolve-query-set) encoder query-set first count buffer offset))
 
     (define (set-compute-pipeline (gpu Gpu) (pass GpuComputePass) (pipeline GpuComputePipeline))
       (→ Unit)
@@ -1178,6 +1286,9 @@
             (word (● (● descriptor module) id))
             (Text (● descriptor entry))))
 
+    (define (query-set-fields (descriptor QuerySetDescriptor)) (→ (List Field))
+      (list (Text (● descriptor label)) (word (● descriptor count))))
+
     (define (view-dimension-name (dimension ViewDimension)) (→ String)
       (match dimension
         ((View2d) "2d")
@@ -1340,6 +1451,25 @@
            (new GpuComputePipeline (id (made 6 (compute-pipeline-fields descriptor))))))
         (begin-compute-pass
          (lambda (encoder) (new GpuComputePass (id (host-begin-compute (● encoder id))))))
+        (begin-timed-compute-pass
+         (lambda (encoder writes)
+           (timestamp-writes writes)
+           (new GpuComputePass (id (host-begin-compute (● encoder id))))))
+        (begin-timed-render-pass
+         (lambda (encoder descriptor writes)
+           (attachments descriptor)
+           (timestamp-writes writes)
+           (new GpuRenderPass (id (host-begin-pass (● encoder id))))))
+        (create-query-set
+         (lambda (descriptor) (new GpuQuerySet (id (made 7 (query-set-fields descriptor))))))
+        (resolve-query-set
+         (lambda (encoder query-set first count buffer offset)
+           (host-resolve-queries (● encoder id)
+                                 (● query-set id)
+                                 first
+                                 count
+                                 (● buffer id)
+                                 offset)))
         (set-compute-pipeline
          (lambda (pass pipeline) (host-set-compute-pipeline (● pass id) (● pipeline id))))
         (set-compute-bind-group
@@ -1379,7 +1509,8 @@
         ((ModuleObject module) (● module id))
         ((PipelineObject pipeline) (● pipeline id))
         ((ComputePipelineObject pipeline) (● pipeline id))
-        ((BindGroupObject group) (● group id))))
+        ((BindGroupObject group) (● group id))
+        ((QuerySetObject query-set) (● query-set id))))
 
     ;; Each command buffer is queued, then the queue submitted.
 
@@ -1422,6 +1553,10 @@
           ((ReadOnlyDepth) (host-pass-depth view 2 0.0 store)))))
 
     (define (store-flag (store Bool)) (→ I32) (if store 1 0))
+
+    ;; A pass's timestamp writes, in one call before it begins.
+    (define (timestamp-writes (writes TimestampWrites)) (→ Unit)
+      (host-pass-timestamps (● writes query-set id) (● writes beginning) (● writes end)))
 
     ;; ---- Requesting the device ----
 

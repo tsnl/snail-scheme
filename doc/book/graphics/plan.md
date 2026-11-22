@@ -5,8 +5,8 @@ capability that is a thin wrapper around WebGPU, and `(snail shell graphics
 ...)` libraries of pipelines and packers on top of it. They replaced a
 fixed JavaScript renderer, `host/browser/renderer.mjs`, and its picture
 store. The capability, `pod`, `wgsl`, `atlas`, `quad`, `mesh`, `raster`,
-`passes`, `scan`, `radix-sort`, `splat`, `splat-train`, `splat-fit`, `colmap`
-and `ply` are **implemented**; the
+`passes`, `scan`, `radix-sort`, `splat`, `splat-train`, `splat-fit`,
+`splat-view`, `colmap` and `ply` are **implemented**; the
 rest is **proposed**. Delivery is tracked
 in [the graphics issue](https://github.com/tsnl/snail-scheme/issues/463).
 
@@ -37,8 +37,13 @@ descriptors, each taking the `Gpu` first, so code using it reads like WebGPU:
 ```
 
 Its operations make buffers, textures, views, samplers, shader modules,
-render and compute pipelines and bind groups, write buffers and textures,
-encode copies, render passes and compute passes, and submit them; `request-device`, `read-buffer` and
+render and compute pipelines, bind groups and query sets, write buffers and
+textures, encode copies, render passes and compute passes, and submit
+them. A pass begun timed (`begin-timed-render-pass`,
+`begin-timed-compute-pass`) writes the device's time into two queries, as
+it begins and as it ends; `submit-timed` resolves the queries after the
+encoder's commands, submits it and reads the times, and `elapsed-seconds`
+answers the time between two. `request-device`, `read-buffer` and
 `decode-image` wait for the host by ticket, as does `work-done`, which
 waits until the device has done what was submitted, so a loop whose
 frames cost the device more than a display frame does not queue them
@@ -79,7 +84,8 @@ It is WebGPU itself, without bookkeeping:
   being made crosses to the host as those fields' staged bytes, which
   `host/browser/gpu.mjs` reads with a `DataView` into the dictionary WebGPU
   takes. A render pass and every other command crosses as calls with
-  scalar arguments, an attachment's view and then its load and store.
+  scalar arguments, an attachment's view and then its load and store, and
+  a timed pass's query set and indices before the pass begins.
   Buffer and texture contents cross as `Bytes`, which the host hands to
   WebGPU as a view of the program's memory, without a copy. A pipeline's
   layout is WebGPU's `"auto"`, so a bind group is made against a pipeline,
@@ -262,7 +268,7 @@ program makes its `Splats` once with room for its gaussians and its
 transforms, writes `Cloud`s of packed gaussians where it likes, and writes
 the transforms table whenever things move, so clouds are posed and
 composed without touching their gaussians. A frame is a compute pass and a
-draw:
+draw, each in a pass the caller begins:
 
 - `sort-splats` projects every gaussian, an invocation each
   (`splat-project.wgsl.scm`): its transform carries its center and its
@@ -287,6 +293,42 @@ order, nothing activated, the rows that are no gaussian left out. `write-cloud` 
 65,536 gaussians at a time, since a write's bytes are copied whole into the
 runtime's memory on their way and a trained scene's run to a gigabyte.
 
+`(snail shell graphics splat-view)` draws the same splats tile by tile, as
+training renders them ([differentiable
+splatting](tensors.md#differentiable-splatting)): `splat-train`'s graph,
+rendered for viewing, lowered to a program that is given the splats' own
+gaussians, coefficients and transforms with `bound`. Its params view each
+`Gaussian` record as a row of floats, narrowed at the offsets its `Pod`
+layout gives. Each activated scale and opacity goes back to the logarithm
+and logit the renderer activates. Each transform row becomes a
+`Placement`, gathered per gaussian. The program's steps go into the
+caller's compute pass, and a triangle in the caller's render pass presents
+the image. It blends front to back in floats, over black, and stops where a
+pixel's transmittance would fall under 1e-4. The quads blend back to front
+in the target's eight bits and never stop early. Both clamp alpha to 0.99,
+skip what is under 1/255, and cull a gaussian under 1/255 opacity. Where
+two gaussians stand at one depth, the quads draw the later one over the
+earlier, and the tiles put the earlier in front.
+
+`src/apps/splats/compare.scm` measures the two on Node, at the views a
+scene was photographed from, each frame's passes timed on the device. On
+bicycle as `src/apps/train` trains it (4,194,304 gaussians), at
+1237x822, on an RTX 5090, over eight photographs' views:
+
+| | Compute pass | Render pass | PSNR against the photograph |
+| --- | --- | --- | --- |
+| Quads | 1.37 ms | 2.98 ms | 25.23 dB |
+| Tile by tile | 16.10 ms | 0.01 ms | 25.55 dB |
+
+The tiles' image is closer to the photographs at every view, since
+training fitted the cloud to this renderer. The PSNR between the two
+renderers' images is 38.3 dB on average, and 31.4 at the least. The
+tiles take 3.7 times as long. Their blend alone took 1.72 ms, less than
+the quads' draw. Their two sorts took 1.92 and 0.85 ms. Most of the
+rest of their 273 steps are the projection's unfused tensor kernels, a
+buffer each, which fusion
+([#875](https://github.com/tsnl/snail-scheme/issues/875)) is for.
+
 `src/apps/splats` opens on one procedural ring written three times on three
 transform rows, which it turns each frame, and shows a trained scene in
 their place: a `.ply` dropped on the page, picked, or named by
@@ -299,13 +341,15 @@ shell graphics fly)` flies the view, as it does the path tracer's, and its
 `upright` is the turn. Mip-NeRF 360's bicycle as
 `src/apps/train` trains it, a 1 GB file of 4,194,304 gaussians, took 22
 seconds to read in Chrome and flew at the display's 60 frames a second on
-an RTX 5090.
+an RTX 5090. T toggles drawing tile by tile. Every two seconds the console
+has the frame rate and one frame's compute and render passes, timed on the
+device where it has timestamps.
 
 `tests/programs/graphics-splat.sld` reads a PLY file and records the
 dispatches of a frame of 300,000 gaussians; `tests/browser/gpu.mjs` scans
 300,000 numbers in three levels and checks each, sorts 5,000 keys and
 checks the order is stable, and splats three gaussians, then turns one by
-its transform. On an RTX 5090, through headless Chromium on Vulkan, the
+its transform, as quads and tile by tile; both agree to a step of a texel. On an RTX 5090, through headless Chromium on Vulkan, the
 viewer keeps 60 frames a second with room for 60,000, 1,000,000 and
 4,000,000 gaussians, the gaussians it does not write culled but sorted and
 drawn; from submit to the queue's completion takes 3.9, 3.8 and 5.8 ms at
@@ -339,6 +383,7 @@ Each row is `(snail shell graphics NAME)`:
 | `radix-sort` | A stable least-significant-digit radix sort of `u32` keys and values, four bits a pass, counting, scanning and scattering by blocks, in rows of workgroups past 65,535 blocks. **Implemented.** |
 | `splat` | 3D Gaussian Splatting: gaussians posed by rows of a transforms table, projected by EWA splatting with spherical harmonics to degree 3, sorted far to near, and blended as quads. **Implemented.** |
 | `ply` | 3D Gaussian Splatting's binary PLY files read into a cloud of activated gaussians. **Implemented.** |
+| `splat-view` | A `splat`'s splats drawn tile by tile by `splat-train`'s renderer, rendered for viewing, on the splats' own buffers, in the caller's passes. **Implemented.** |
 | `splat-train` | The differentiable splat renderer as a tensor graph: projection by tensor operations, tile binning and a tiled rasterizer as custom nodes with a hand-written backward pass, and L1 with D-SSIM ([tensors](tensors.md#differentiable-splatting)). **Implemented.** |
 | `splat-fit` | 3D Gaussian Splatting's training as three tensor graphs: a step with Adam and densification's statistics, densification by cloning, splitting and pruning on the device, and the opacity reset ([tensors](tensors.md#training-on-photographs)). **Implemented.** |
 | `colmap` | COLMAP's binary cameras, images and points read into poses and pinhole intrinsics, refusing distorted camera models. **Implemented.** |
@@ -390,6 +435,11 @@ program on Node makes the `Gpu` itself, as `tests/gpu/node.scm` does:
 
 Node has no screen: there `current-texture` fails, so a program draws into
 textures of its own, which are `rgba8unorm`, and reads them back.
+
+Dawn rounds timestamps to 65,536 ns unless told not to, as Chromium rounds
+a page's to 100 μs, so that a page cannot time what it should not see.
+`host/native/gpu.mjs` tells it not to: a program on Node is no page, and
+can time a kernel of a few microseconds.
 
 Node decodes no images of its own either, as a browser does, so
 `decode-image` there is npm's
