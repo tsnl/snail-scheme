@@ -493,43 +493,50 @@
       (dispatched b code "main" (kernel-entries b n) workgroups))
 
     (define (kernel-entries (b Build) (n Node)) (→ (List (Pair I64 GpuBuffer)))
-      (append (map (lambda (pair)
-                     (new Pair (first (● pair first)) (second (view-buffer b (● pair second)))))
-                   (bound-args n))
+      (append (arg-entries b n)
               (map-indexed (lambda (j port)
                              (new Pair
                                (first (+ (first-port-binding n) j))
                                (second (buffer-of b n (● port name)))))
                            (● n ports))))
 
+    (define (arg-entries (b Build) (n Node)) (→ (List (Pair I64 GpuBuffer)))
+      (map
+       (lambda (pair) (new Pair (first (● pair first)) (second (view-buffer b (● pair second)))))
+       (bound-args n)))
+
     ;; ---- Bindings ----
 
-    ;; The buffers a generated kernel binds, each at its binding. A map's
-    ;; arguments share one where they see one port, so a fused map binds
-    ;; each buffer once; any other kernel binds each argument that is not
-    ;; a fill at its place among the arguments. The node's ports follow.
+    ;; The buffers a generated kernel binds, each at its binding. The
+    ;; arguments of a node with a body, a map or a reduction, share one
+    ;; where they see one port, so a fused body binds each buffer once; any
+    ;; other kernel binds each argument that is not a fill at its place
+    ;; among the arguments. The node's ports follow.
 
     (define (bound-args (n Node)) (→ (List (Pair I64 View)))
-      (match (● n kind)
-        ((Map _) (let ((ports (map-ports n))) (zip (iota (length ports)) ports)))
-        (_ (filter (lambda (pair) (not (fill? (● pair second))))
-                   (zip (iota (length (● n args))) (● n args))))))
+      (if (bodied? n)
+          (let ((ports (map-ports n))) (zip (iota (length ports)) ports))
+          (filter (lambda (pair) (not (fill? (● pair second))))
+                  (zip (iota (length (● n args))) (● n args)))))
 
     (define (first-port-binding (n Node)) (→ I64)
-      (match (● n kind)
-        ((Map _) (length (map-ports n)))
-        (_ (length (● n args)))))
+      (if (bodied? n) (length (map-ports n)) (length (● n args))))
 
     (define (arg-binding (n Node) (k I64)) (→ I64)
-      (match (● n kind)
-        ((Map _)
-         (let ((name (view-port-key (list-ref (● n args) k))))
-           (match (list-index (lambda (v) (string=? (view-port-key v) name)) (map-ports n))
-             ((Some j) j)
-             ((None) (panic "tensor lower: a map's argument has no binding")))))
-        (_ k)))
+      (if (bodied? n)
+          (let ((name (view-port-key (list-ref (● n args) k))))
+            (match (list-index (lambda (v) (string=? (view-port-key v) name)) (map-ports n))
+              ((Some j) j)
+              ((None) (panic "tensor lower: a body's argument has no binding"))))
+          k))
 
-    ;; One view of each port a map's arguments see, in the order they
+    (define (bodied? (n Node)) (→ Bool)
+      (match (● n kind)
+        ((Map _) #t)
+        ((Reduce _ _ _) #t)
+        (_ #f)))
+
+    ;; One view of each port a body's arguments see, in the order they
     ;; first see them.
     (define (map-ports (n Node)) (→ (List View))
       (reverse (fold-left (lambda (seen a)
@@ -559,7 +566,7 @@
         (match (● n kind)
           ((Param _) b)
           ((Constant _ _) b)
-          ((Reduce op axes) (reduce-steps b n op axes))
+          ((Reduce op span _) (reduce-steps b n op span))
           ((Place accessor)
            (generated (zeroed b (buffer-of b n default-port) (bytes-of (out)))
                       n
@@ -630,14 +637,15 @@
     ;; A reduction over a span of up to 256 elements: a thread an output.
     ;; Over more: a workgroup reduces each part of 4096, and the parts are
     ;; reduced the same way, level by level, until one part is left.
-    (define (reduce-steps (b Build) (n Node) (op Reduction) (axes (List I64))) (→ Build) (! gpu)
-      (let* ((a (list-ref (● n args) 0))
-             (span (product (map (lambda (k) (list-ref (shape-of a) k)) axes)))
-             (outputs (product (● (port-of n default-port) shape))))
-        (if (<= span 256)
+    (define (reduce-steps (b Build) (n Node) (op Reduction) (span (List I64))) (→ Build) (! gpu)
+      (let ((count (product span)) (outputs (product (● (port-of n default-port) shape))))
+        (if (<= count 256)
             (generated b n (thread-code n) (tiles outputs 256))
-            (reduce-levels b n op outputs span (None)))))
+            (reduce-levels b n op outputs count (None)))))
 
+    ;; One level over `span` elements an output, from the node's arguments
+    ;; or from the parts a level below wrote, into the port or into parts
+    ;; for the level above.
     (define (reduce-levels (b Build)
                            (n Node)
                            (op Reduction)
@@ -647,30 +655,22 @@
       (→ Build)
       (! gpu)
       (let* ((parts (tiles span 4096))
-             (a (list-ref (● n args) 0))
              (code (level-code n op outputs span parts (some? from)))
              (source (match from
                        ((Some buffer) (list (new Pair (first 0) (second buffer))))
-                       ((None)
-                        (if (fill? a)
-                            (Nil)
-                            (list (new Pair (first 0) (second (view-buffer b a)))))))))
+                       ((None) (arg-entries b n))))
+             (into (lambda (buffer)
+                     (append source
+                             (list (new Pair
+                                     (first (if (some? from) 1 (first-port-binding n)))
+                                     (second buffer)))))))
         (if (= parts 1)
-            (dispatched b
-                        code
-                        "main"
-                        (append source
-                                (list (new Pair (first 1) (second (buffer-of b n default-port)))))
-                        outputs)
+            (dispatched b code "main" (into (buffer-of b n default-port)) outputs)
             (let* ((pair (taken b "partial" (* 4 (* outputs parts))))
                    (partial (● pair second))
-                   (next (dispatched (● pair first)
-                                     code
-                                     "main"
-                                     (append source (list (new Pair (first 1) (second partial))))
-                                     (* outputs parts)))
-                   (reduced (reduce-levels next n op outputs parts (Some partial))))
-              (given-back reduced (* 4 (* outputs parts)) partial)))))
+                   (next (dispatched (● pair first) code "main" (into partial) (* outputs parts)))
+                   (done (reduce-levels next n op outputs parts (Some partial))))
+              (given-back done (* 4 (* outputs parts)) partial)))))
 
     (define (some? (value (Option GpuBuffer))) (→ Bool)
       (match value
@@ -679,14 +679,15 @@
 
     ;; ---- Sinks and updates ----
 
-    ;; A sink's buffer: its port's when it sees a computed port whole, a
-    ;; copy otherwise; and a buffer to read it back through.
+    ;; A sink's buffer: its port's when it reads a computed port whole and
+    ;; in order, in any shape, a copy otherwise; and a buffer to read it
+    ;; back through.
     (define (sink-built (state (Pair Build (List Sink))) (view View))
       (→ (Pair Build (List Sink)))
       (! gpu)
       (let* ((b (● state first))
              (size (max 4 (* 4 (element-count view))))
-             (direct (and (identity? view)
+             (direct (and (whole-buffer? view)
                           (not (fill? view))
                           (pooled? (● view node kind))
                           (not (● b borrowing))))
@@ -1060,8 +1061,8 @@
                                                           "]")))
                                       ";\n"))))
 
-    ;; A thread an output element: maps, fills, matrix products, gathers
-    ;; and small reductions.
+    ;; A thread an output element: maps, fills, gathers, concats and small
+    ;; reductions.
     (define (thread-code (n Node)) (→ String)
       (let* ((out (port-of n default-port)) (count (product (● out shape))))
         (thread-kernel (declared n)
@@ -1070,10 +1071,9 @@
                          ((Fill value)
                           (string-append "  out[i] = " (literal (● out etype) value) ";\n"))
                          ((Map body) (map-statements n body))
-                         ((Matmul) (matmul-text n))
                          ((Gather) (gather-text n))
                          ((Concat axis) (concat-text n axis))
-                         ((Reduce op axes) (small-reduce-text n op axes))
+                         ((Reduce op span _) (small-reduce-text n op span))
                          (_ (panic "tensor lower: no thread kernel for this node"))))))
 
     (define (operand (n Node) (k I64)) (→ String)
@@ -1094,21 +1094,24 @@
     ;; two places is computed once, and no expression nests another, so a
     ;; fused body of hundreds stays within what a shader compiler parses.
     (define (map-statements (n Node) (body Expr)) (→ String)
-      (let ((done (named n body (new Lets (statements (Nil)) (names (empty-table))))))
-        (string-append (string-join (reverse (● done first statements)) "")
-                       "  out[i] = "
-                       (● done second)
-                       ";\n")))
+      (let ((done (body-text (lambda (k) (operand n k)) body)))
+        (string-append (string-join (● done first) "") "  out[i] = " (● done second) ";\n")))
+
+    ;; A body's statements, in order, and the name of its value, each load
+    ;; of argument k reading what `element` answers for k.
+    (define (body-text (element (Fn I64 → String)) (body Expr)) (→ (Pair (List String) String))
+      (let ((done (named element body (new Lets (statements (Nil)) (names (empty-table))))))
+        (new Pair (first (reverse (● done first statements))) (second (● done second)))))
 
     ;; What names `e`'s value, with the lets that compute it: a literal
     ;; stands for itself.
-    (define (named (n Node) (e Expr) (lets Lets)) (→ (Pair Lets String))
+    (define (named (element (Fn I64 → String)) (e Expr) (lets Lets)) (→ (Pair Lets String))
       (match e
-        ((Load k _) (let-for lets (operand n k)))
+        ((Load k _) (let-for lets (element k)))
         ((Literal value etype) (new Pair (first lets) (second (literal etype value))))
         ((Apply op operands etype)
          (let ((args (fold-left (lambda (state o)
-                                  (let ((next (named n o (● state first))))
+                                  (let ((next (named element o (● state first))))
                                     (new Pair
                                       (first (● next first))
                                       (second (append (● state second) (list (● next second)))))))
@@ -1175,24 +1178,7 @@
           ((Convert _) (string-append to "(" a ")"))
           ((Bitcast _) (string-append "bitcast<" to ">(" a ")")))))
 
-    ;; ---- Matrix and row text ----
-
-    ;; Output (..., r, c) sums a's row r against b's column c.
-    (define (matmul-text (n Node)) (→ String)
-      (let* ((a (list-ref (● n args) 0))
-             (b (list-ref (● n args) 1))
-             (shape (● (port-of n default-port) shape))
-             (lead (take (indices "i" shape) (- (length shape) 2)))
-             (r (list-ref (indices "i" shape) (- (length shape) 2)))
-             (c (list-ref (indices "i" shape) (- (length shape) 1)))
-             (k (list-ref (shape-of a) (- (length shape) 1))))
-        (string-append "  var total = " (etype-wgsl (etype-of a)) "(0);\n"
-                       "  for (var m = 0u; m < " (u k) "; m++) {\n"
-                       "    total += "
-                       (load n 0 (address (● a accessor) (append lead (list r "m"))))
-                       " * " (load n 1 (address (● b accessor) (append lead (list "m" c)))) ";\n"
-                       "  }\n"
-                       "  out[i] = total;\n")))
+    ;; ---- Row text ----
 
     ;; Output row r is source row indices[r].
     (define (gather-text (n Node)) (→ String)
@@ -1311,50 +1297,47 @@
                       ((Unsigned) "4294967295u")
                       ((Signed) "i32(2147483647)")))))
 
-    ;; Element j of output o's span: o's address over the kept axes plus
-    ;; j's over the reduced ones.
-    (define (span-address (n Node) (axes (List I64)) (o String) (j String)) (→ String)
-      (let* ((a (● (list-ref (● n args) 0) accessor))
-             (spans (map-indexed (lambda (k size) (if (member? k axes) size 1)) (● a shape)))
-             (kept (new Accessor
-                     (offset (● a offset))
-                     (shape (● (port-of n default-port) shape))
-                     (pitch (● a pitch))))
-             (reduced (new Accessor (offset 0) (shape spans) (pitch (● a pitch)))))
-        (string-append "("
-                       (address kept (indices o (● kept shape)))
-                       " + "
-                       (address reduced (indices j spans))
-                       ")")))
+    ;; Argument k's element j of output o's span: o's index over the
+    ;; port's axes, then j's over the span's, through its accessor.
+    (define (span-address (n Node) (span (List I64)) (k I64) (o String) (j String)) (→ String)
+      (address (● (list-ref (● n args) k) accessor)
+               (append (indices o (● (port-of n default-port) shape)) (indices j span))))
 
-    (define (small-reduce-text (n Node) (op Reduction) (axes (List I64))) (→ String)
-      (let* ((a (list-ref (● n args) 0))
-             (span (product (map (lambda (k) (list-ref (shape-of a) k)) axes))))
-        (string-append "  var acc = " (identity-of op (etype-of a)) ";\n"
-                       "  for (var j = 0u; j < " (u span) "; j++) {\n"
-                       "    acc = "
-                       (combine op "acc" (load n 0 (span-address n axes "i" "j")))
-                       ";\n"
+    ;; A reduction's body at element j of output o's span: its statements,
+    ;; indented by `indent`, and the name of its value.
+    (define (span-body (n Node) (o String) (j String) (indent String)) (→ (Pair String String))
+      (match (● n kind)
+        ((Reduce _ span body)
+         (let ((done (body-text (lambda (k) (load n k (span-address n span k o j))) body)))
+           (new Pair
+             (first (string-join (map (lambda (s) (string-append indent s)) (● done first)) ""))
+             (second (● done second)))))
+        (_ (panic "tensor lower: a span body of a node not a reduction"))))
+
+    (define (small-reduce-text (n Node) (op Reduction) (span (List I64))) (→ String)
+      (let ((element (span-body n "i" "j" "  ")))
+        (string-append "  var acc = " (identity-of op (● (port-of n default-port) etype)) ";\n"
+                       "  for (var j = 0u; j < " (u (product span)) "; j++) {\n"
+                       (● element first)
+                       "    acc = " (combine op "acc" (● element second)) ";\n"
                        "  }\n"
                        "  out[i] = acc;\n")))
 
     ;; A workgroup a part of an output's span: each thread combines up to
     ;; 16 elements, then the workgroup's 256 combine pairwise. The first
-    ;; level reads the argument; later ones the parts below, densely.
+    ;; level computes the body over the node's arguments; later ones read
+    ;; the parts below, densely, from binding 0.
     (define (level-code (n Node) (op Reduction) (outputs I64) (span I64) (parts I64) (partial Bool))
       (→ String)
-      (let* ((a (list-ref (● n args) 0))
-             (etype (etype-of a))
+      (let* ((etype (● (port-of n default-port) etype))
              (type (etype-wgsl etype))
-             (axes (match (● n kind)
-                     ((Reduce _ axes) axes)
-                     (_ (Nil))))
              (element (if partial
-                          (string-append "a0[o * " (u span) " + j]")
-                          (load n 0 (span-address n axes "o" "j")))))
+                          (new Pair (first "") (second (string-append "a0[o * " (u span) " + j]")))
+                          (span-body n "o" "j" "        "))))
         (string-append
-         (if (and (not partial) (fill? a)) "" (storage 0 "a0" "read" type))
-         (storage 1 "out" "read_write" type)
+         (if partial
+             (string-append (storage 0 "a0" "read" type) (storage 1 "out" "read_write" type))
+             (declared n))
          "var<workgroup> lane: array<" type ", 256>;\n"
          "@compute @workgroup_size(256)\n"
          "fn main(@builtin(workgroup_id) wid: vec3u, @builtin(num_workgroups) nwg: vec3u, @builtin(local_invocation_index) t: u32) {\n"
@@ -1365,7 +1348,10 @@
          "  if (g < " (u (* outputs parts)) ") {\n"
          "    for (var r = 0u; r < 16u; r++) {\n"
          "      let j = part * 4096u + r * 256u + t;\n"
-         "      if (j < " (u span) ") { acc = " (combine op "acc" element) "; }\n"
+         "      if (j < " (u span) ") {\n"
+         (● element first)
+         "        acc = " (combine op "acc" (● element second)) ";\n"
+         "      }\n"
          "    }\n"
          "  }\n"
          "  lane[t] = acc;\n"

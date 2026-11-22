@@ -37,6 +37,9 @@ narrowed: 3 nodes, fused 2, the same values
 broadcast: 3 nodes, fused 2, the same values
 converted: 5 nodes, fused 2, the same values
 merged: 3 nodes, fused 3, the same values
-reduced: 3 nodes, fused 3, the same values
+reduced: 3 nodes, fused 2, the same values
+across: 3 nodes, fused 2, the same values
+product: 4 nodes, fused 2, the same values
 shared: 4 nodes, fused 2, the same values
+kept: 9 nodes, fused 6, the same values
 eight params: 15 nodes, fused 10, the same values

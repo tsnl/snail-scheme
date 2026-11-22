@@ -206,7 +206,16 @@
                 inputs)
     (fused-line "merged" (* (reshape (tensor-exp (transpose x)) (list 6)) (scalar 2.0)) inputs)
     (fused-line "reduced" (sum (tensor-exp x) (list 1)) inputs)
-    (fused-line "shared" (+ (tensor-exp x) (* (tensor-exp x) (tensor-exp x))) inputs)))
+    (fused-line "across" (sum (tensor-exp x) (list 0)) inputs)
+    (fused-line "product" (matmul (tensor-exp x) (transpose (* x x))) inputs)
+    (fused-line "shared" (+ (tensor-exp x) (* (tensor-exp x) (tensor-exp x))) inputs)
+    (fused-line "kept" (kept-once x) inputs)))
+
+;; A sum of two reductions that two kernels read is written once: taking
+;; it into both would keep both reductions' buffers alive until the second.
+(define (kept-once (x View)) (→ View)
+  (let ((p (+ (sum (* x x) (list 1)) (amax x (list 1)))))
+    (+ (tensor-exp p) (sum (* p x) (list 1)))))
 
 ;; Eight params summed: a kernel binds at most seven buffers besides its
 ;; port, so the sum is two maps.

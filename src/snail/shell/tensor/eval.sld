@@ -81,11 +81,10 @@
           ((Fill value) (list (dense-of n default-port (lambda (_) (rounded out value)))))
           ((Map body)
            (list (dense-of n default-port (lambda (index) (body-at body ports (● n args) index)))))
-          ((Reduce op axes)
-           (list (dense-of n default-port (lambda (index) (reduced ports op axes (arg 0) index)))))
-          ((Matmul)
-           (list
-            (dense-of n default-port (lambda (index) (product-at ports (arg 0) (arg 1) index)))))
+          ((Reduce op span body)
+           (list (dense-of n
+                           default-port
+                           (lambda (index) (reduced-at ports op span body (● n args) index)))))
           ((Place accessor)
            (list (placed ports (arg 0) accessor (product (● (car-of (● n ports)) shape)))))
           ((Gather)
@@ -119,38 +118,22 @@
         ((Cons _ rest) rest)
         ((Nil) (Nil))))
 
-    ;; Every element of the reduced axes, combined; `index` has 0 there.
-    (define (reduced (ports (Table (Array F64)))
-                     (op Reduction)
-                     (axes (List I64))
-                     (a View)
-                     (index (List I64)))
+    ;; A reduction's body at each element of the span that follows
+    ;; `index`, combined.
+    (define (reduced-at (ports (Table (Array F64)))
+                        (op Reduction)
+                        (span (List I64))
+                        (body Expr)
+                        (args (List View))
+                        (index (List I64)))
       (→ F64)
-      (let* ((shape (shape-of a))
-             (spans
-              (map (lambda (k) (if (member? k axes) (list-ref shape k) 1)) (iota (length shape))))
-             (values (map (lambda (j)
-                            (element ports a (map (lambda (pair) (+ (● pair first) (● pair second)))
-                                                  (zip index (unflatten j spans)))))
-                          (iota (product spans)))))
-        (rounded (etype-of a)
+      (let ((values (map (lambda (j) (body-at body ports args (append index (unflatten j span))))
+                         (iota (product span)))))
+        (rounded (expr-etype body)
                  (match op
                    ((Sum) (fold-left + 0.0 values))
                    ((Largest) (fold-left max (car-of values) values))
                    ((Smallest) (fold-left min (car-of values) values))))))
-
-    (define (product-at (ports (Table (Array F64))) (a View) (b View) (index (List I64))) (→ F64)
-      (let* ((n (length index))
-             (lead (take index (- n 2)))
-             (i (list-ref index (- n 2)))
-             (j (list-ref index (- n 1)))
-             (k (list-ref (shape-of a) (- n 1))))
-        (rounded (etype-of a)
-                 (fold-left (lambda (sum m)
-                              (+ sum (* (element ports a (append lead (list i m)))
-                                        (element ports b (append lead (list m j))))))
-                            0.0
-                            (iota k)))))
 
     ;; Row `index[0]` gathers every source row whose index names it.
     (define (scattered (ports (Table (Array F64))) (source View) (indices View) (index (List I64)))

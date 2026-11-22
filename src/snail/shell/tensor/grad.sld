@@ -6,10 +6,13 @@
 ;;   (grad loss (list w b))   ; dloss/dw and dloss/db, shaped as w and b
 ;;
 ;; Each kind of node answers the gradient of each argument given the
-;; gradient of each port (`adjoints` below), a map back through its body;
-;; a custom node answers its own.
+;; gradient of each port (`adjoints` below): a map back through its body,
+;; a reduction over its span and then back through its body; a custom
+;; node answers its own.
 ;; A view's gradient reaches its port through the view's accessor: summed
-;; over the axes it broadcasts, then placed at the addresses it reads.
+;; over the axes it broadcasts, then a view of the port when the view
+;; reads all of it in some order of its axes, and placed at the addresses
+;; it reads otherwise.
 (define-library (snail shell tensor grad)
   (export
    grad)
@@ -61,8 +64,10 @@
                      ((None) share)))))
 
     ;; The gradient of a view's port given the view's: summed over the
-    ;; axes the view broadcasts, then the port's shape, by a reshape when
-    ;; the view reads its whole port in order and by placing it otherwise.
+    ;; axes the view broadcasts, then the port's shape. A view that reads
+    ;; its whole port, in its port's order or another order of its axes,
+    ;; passes the gradient back as a view, its axes put back in the port's
+    ;; order; any other places it.
 
     (define (through-accessor (view View) (g View)) (→ View)
       (let* ((a (● view accessor))
@@ -70,14 +75,33 @@
                                (and (= (list-ref (● a pitch) k) 0) (> (list-ref (● a shape) k) 1)))
                              (iota (length (● a shape)))))
              (summed (if (null? spread) g (sum g spread)))
-             (reduced (new Accessor
-                        (offset (● a offset))
-                        (shape (shape-of summed))
-                        (pitch (● a pitch))))
-             (port (port-of (● view node) (● view port))))
-        (if (whole? reduced (● port shape))
-            (reshape summed (● port shape))
-            (place summed reduced (● port shape)))))
+             (seen
+              (new Accessor (offset (● a offset)) (shape (shape-of summed)) (pitch (● a pitch))))
+             (shape (● (port-of (● view node) (● view port)) shape)))
+        (match (port-order seen shape)
+          ((Some order) (shaped (permute summed order) shape))
+          ((None) (place summed seen shape)))))
+
+    ;; The order of an accessor's axes, largest pitch first, when in that
+    ;; order it reads every element of a port of `shape` in order.
+    (define (port-order (a Accessor) (shape (List I64))) (→ (Option (List I64)))
+      (let* ((order (list-sort (lambda (j k) (> (list-ref (● a pitch) j) (list-ref (● a pitch) k)))
+                               (iota (length (● a shape)))))
+             (pick (lambda (items) (map (lambda (k) (list-ref items k)) order))))
+        (if (whole? (new Accessor
+                      (offset (● a offset))
+                      (shape (pick (● a shape)))
+                      (pitch (pick (● a pitch))))
+                    shape)
+            (Some order)
+            (None))))
+
+    ;; A view in `shape`, reshaped only when its own shape is another.
+    (define (shaped (v View) (shape (List I64))) (→ View)
+      (if (and (= (length (shape-of v)) (length shape))
+               (every? (lambda (pair) (= (● pair first) (● pair second))) (zip (shape-of v) shape)))
+          v
+          (reshape v shape)))
 
     ;; Whether an accessor reads every element of a port of `shape` in
     ;; order, apart from axes of 1.
@@ -117,10 +141,7 @@
       (let ((args (● n args)) (y (node-view n default-port)))
         (match (● n kind)
           ((Map body) (map-adjoints body args y g))
-          ((Reduce op _) (list (Some (reduce-adjoint op (list-ref args 0) y g))))
-          ((Matmul)
-           (list (Some (matmul g (transpose (list-ref args 1))))
-                 (Some (matmul (transpose (list-ref args 0)) g))))
+          ((Reduce op span body) (reduce-adjoints op span body args y g))
           ((Place accessor)
            (list (Some (View-accessor-set (if (identity? g) g (copy g)) accessor))))
           ((Gather)
@@ -147,10 +168,25 @@
         ((Some (Some g)) g)
         (_ (panic "grad: a node with no port gradient"))))
 
-    (define (reduce-adjoint (op Reduction) (a View) (y View) (g View)) (→ View)
-      (match op
-        ((Sum) (broadcast-to g (shape-of a)))
-        (_ (* (broadcast-to g (shape-of a)) (equal a (broadcast-to y (shape-of a)))))))
+    ;; A reduction's gradient reaches each element of its span: all of g
+    ;; for a sum, and for the largest or smallest, g where the element is
+    ;; the one chosen. It goes on back through the body, as a map's does.
+    (define (reduce-adjoints (op Reduction)
+                             (span (List I64))
+                             (body Expr)
+                             (args (List View))
+                             (y View)
+                             (g View))
+      (→ (List (Option View)))
+      (let* ((shape (append (shape-of y) span))
+             (value (expr-view body args shape))
+             (spread (lambda (v)
+                       (broadcast-to (fold-left (lambda (v _) (unsqueeze v (rank v))) v span)
+                                     shape)))
+             (share (match op
+                      ((Sum) (spread g))
+                      (_ (* (spread g) (equal value (spread y)))))))
+        (map-adjoints body args value share)))
 
     ;; ---- Maps ----
 
