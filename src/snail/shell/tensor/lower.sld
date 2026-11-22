@@ -580,7 +580,16 @@
           ((Sort bits) (sort-steps b n bits))
           ((PrefixSum) (scan-steps b n))
           ((CustomKind c) (custom-steps b n c))
-          (_ (generated b n (thread-code n) (tiles (product (● (out) shape)) 256))))))
+          (_ (generated b n (thread-code n) (tiles (threads n) 256))))))
+
+    ;; The threads a node's own kernel runs: one an element of its port,
+    ;; but a map's one an element of its leading axes, each computing a
+    ;; tile.
+    (define (threads (n Node)) (→ I64)
+      (let ((shape (● (port-of n default-port) shape)))
+        (match (● n kind)
+          ((Map body) (product (take shape (- (length shape) (length (expr-tile body))))))
+          (_ (product shape)))))
 
     ;; The keys and values copied into the ports, then sorted there.
     (define (sort-steps (b Build) (n Node) (bits I64)) (→ Build) (! gpu)
@@ -1061,12 +1070,12 @@
                                                           "]")))
                                       ";\n"))))
 
-    ;; A thread an output element: maps, fills, gathers, concats and small
-    ;; reductions.
+    ;; A thread an output element, or a map's tile: maps, fills, gathers,
+    ;; concats and small reductions.
     (define (thread-code (n Node)) (→ String)
-      (let* ((out (port-of n default-port)) (count (product (● out shape))))
+      (let ((out (port-of n default-port)))
         (thread-kernel (declared n)
-                       count
+                       (threads n)
                        (match (● n kind)
                          ((Fill value)
                           (string-append "  out[i] = " (literal (● out etype) value) ";\n"))
@@ -1076,8 +1085,21 @@
                          ((Reduce op span _) (small-reduce-text n op span))
                          (_ (panic "tensor lower: no thread kernel for this node"))))))
 
-    (define (operand (n Node) (k I64)) (→ String)
-      (load n k (flat-address (● (list-ref (● n args) k) accessor) "i")))
+    ;; Argument k of a node at thread i, at index t of its load's tile.
+    (define (operand (n Node) (k I64) (t (List I64))) (→ String)
+      (load n k (flat-address (tile-element (● (list-ref (● n args) k) accessor) t) "i")))
+
+    ;; Index t of a view's trailing axes, as an accessor over its leading
+    ;; ones: its offset moved there.
+    (define (tile-element (a Accessor) (t (List I64))) (→ Accessor)
+      (let ((lead (- (length (● a shape)) (length t))))
+        (new Accessor
+          (offset (fold-left +
+                             (● a offset)
+                             (map (lambda (pair) (* (● pair first) (● pair second)))
+                                  (zip (list-drop (● a pitch) lead) t))))
+          (shape (take (● a shape) lead))
+          (pitch (take (● a pitch) lead)))))
 
     ;; ---- Map text ----
 
@@ -1087,29 +1109,44 @@
       ((statements (List String))
        (names (Table String))))
 
-    ;; A map's body as statements of element i: a `let` for each distinct
-    ;; load and operation, numbered in the order the body needs them, then
-    ;; the port's element. A load reads its argument's element there,
-    ;; through the argument's accessor. An expression fusing copied into
-    ;; two places is computed once, and no expression nests another, so a
-    ;; fused body of hundreds stays within what a shader compiler parses.
+    ;; A map's body as statements of element i of its leading axes: a
+    ;; `let` for each distinct load and operation, and for each element of
+    ;; its tile, numbered in the order the body needs them; then each
+    ;; element of the port's tile there. A load reads its argument's
+    ;; elements there, through the argument's accessor. An expression
+    ;; fusing copied into two places is computed once, and no expression
+    ;; nests another, so a fused body of hundreds stays within what a
+    ;; shader compiler parses.
     (define (map-statements (n Node) (body Expr)) (→ String)
-      (let ((done (body-text (lambda (k) (operand n k)) body)))
-        (string-append (string-join (● done first) "") "  out[i] = " (● done second) ";\n")))
+      (let ((done (body-text (lambda (k t) (operand n k t)) body))
+            (size (product (expr-tile body))))
+        (string-append (string-join (● done first) "")
+                       (string-join
+                        (map-indexed (lambda (j name) (stored size j name)) (● done second))
+                        ""))))
 
-    ;; A body's statements, in order, and the name of its value, each load
-    ;; of argument k reading what `element` answers for k.
-    (define (body-text (element (Fn I64 → String)) (body Expr)) (→ (Pair (List String) String))
+    ;; Element j of a tile of `size` elements, at thread i's tile.
+    (define (stored (size I64) (j I64) (name String)) (→ String)
+      (if (= size 1)
+          (string-append "  out[i] = " name ";\n")
+          (string-append "  out[i * " (u size) " + " (u j) "] = " name ";\n")))
+
+    ;; A body's statements, in order, and the names of its value's
+    ;; elements, each load of argument k at index t of its tile reading
+    ;; what `element` answers for k and t.
+    (define (body-text (element (Fn I64 (List I64) → String)) (body Expr))
+      (→ (Pair (List String) (List String)))
       (let ((done (named element body (new Lets (statements (Nil)) (names (empty-table))))))
         (new Pair (first (reverse (● done first statements))) (second (● done second)))))
 
-    ;; What names `e`'s value, with the lets that compute it: a literal
-    ;; stands for itself.
-    (define (named (element (Fn I64 → String)) (e Expr) (lets Lets)) (→ (Pair Lets String))
+    ;; What names each element of `e`'s value, with the lets that compute
+    ;; them: a literal stands for itself.
+    (define (named (element (Fn I64 (List I64) → String)) (e Expr) (lets Lets))
+      (→ (Pair Lets (List String)))
       (match e
-        ((Load k _) (let-for lets (element k)))
-        ((Literal value etype) (new Pair (first lets) (second (literal etype value))))
-        ((Apply op operands etype)
+        ((Load k _ tile) (lets-for lets (map (lambda (t) (element k t)) (tile-indices tile))))
+        ((Literal value etype) (new Pair (first lets) (second (list (literal etype value)))))
+        ((Apply op operands etype tile)
          (let ((args (fold-left (lambda (state o)
                                   (let ((next (named element o (● state first))))
                                     (new Pair
@@ -1117,8 +1154,66 @@
                                       (second (append (● state second) (list (● next second)))))))
                                 (new Pair (first lets) (second (Nil)))
                                 operands)))
-           (let-for (● args first)
-                    (applied-text op (● args second) (expr-etype (list-ref operands 0)) etype))))))
+           (applied-names (● args first) op (● args second) operands etype tile)))))
+
+    ;; An operation's elements' names: a tile's own operations rearrange
+    ;; or combine their operands' names; any other applies to each element,
+    ;; a value's one name standing for every element.
+    (define (applied-names (lets Lets)
+                           (op Op)
+                           (names (List (List String)))
+                           (operands (List Expr))
+                           (etype Etype)
+                           (tile (List I64)))
+      (→ (Pair Lets (List String)))
+      (let ((from (expr-etype (list-ref operands 0)))
+            (at (lambda (ns j) (if (= (length ns) 1) (list-ref ns 0) (list-ref ns j)))))
+        (match op
+          ((Pack) (new Pair (first lets) (second (concatenate names))))
+          ((Pick indices)
+           (new Pair
+             (first lets)
+             (second (map (lambda (j) (list-ref (list-ref names 0) j)) indices))))
+          ((Product)
+           (lets-for lets
+                     (product-texts (list-ref names 0)
+                                    (list-ref names 1)
+                                    (expr-tile (list-ref operands 1)))))
+          ((Fold combining)
+           (lets-for lets (list (fold-left (lambda (acc name) (combine combining acc name))
+                                           (list-ref (list-ref names 0) 0)
+                                           (list-drop (list-ref names 0) 1)))))
+          (_ (lets-for lets
+                       (map (lambda (j)
+                              (applied-text op (map (lambda (ns) (at ns j)) names) from etype))
+                            (iota (product tile))))))))
+
+    ;; The names of texts' values, each a new `let` the first time.
+    (define (lets-for (lets Lets) (texts (List String))) (→ (Pair Lets (List String)))
+      (let ((done (fold-left (lambda (state text)
+                               (let ((next (let-for (● state first) text)))
+                                 (new Pair
+                                   (first (● next first))
+                                   (second (Cons (● next second) (● state second))))))
+                             (new Pair (first lets) (second (Nil)))
+                             texts)))
+        (new Pair (first (● done first)) (second (reverse (● done second))))))
+
+    ;; Each element of a's tile, (m, k) or a row of k, by b's, (k, c),
+    ;; row by row: a sum of products, in order.
+    (define (product-texts (a (List String)) (b (List String)) (tb (List I64))) (→ (List String))
+      (let ((k (list-ref tb 0)) (c (list-ref tb 1)))
+        (map (lambda (at)
+               (string-append
+                "("
+                (string-join (map (lambda (j)
+                                    (string-append (list-ref a (+ (* (quotient at c) k) j))
+                                                   " * "
+                                                   (list-ref b (+ (* j c) (remainder at c)))))
+                                  (iota k))
+                             " + ")
+                ")"))
+             (iota (* (quotient (length a) k) c)))))
 
     ;; The name of the value `text` computes, a new `let` the first time.
     (define (let-for (lets Lets) (text String)) (→ (Pair Lets String))
@@ -1176,7 +1271,8 @@
           ((Select)
            (string-append "select(" (list-ref operands 2) ", " b ", " a " != " from "(0))"))
           ((Convert _) (string-append to "(" a ")"))
-          ((Bitcast _) (string-append "bitcast<" to ">(" a ")")))))
+          ((Bitcast _) (string-append "bitcast<" to ">(" a ")"))
+          (_ (panic "tensor lower: a tile's own operation applied to each element")))))
 
     ;; ---- Row text ----
 
@@ -1297,10 +1393,12 @@
                       ((Unsigned) "4294967295u")
                       ((Signed) "i32(2147483647)")))))
 
-    ;; Argument k's element j of output o's span: o's index over the
-    ;; port's axes, then j's over the span's, through its accessor.
-    (define (span-address (n Node) (span (List I64)) (k I64) (o String) (j String)) (→ String)
-      (address (● (list-ref (● n args) k) accessor)
+    ;; Argument k's element j of output o's span, at index t of the load's
+    ;; tile: o's index over the port's axes, then j's over the span's,
+    ;; through its accessor.
+    (define (span-address (n Node) (span (List I64)) (k I64) (o String) (j String) (t (List I64)))
+      (→ String)
+      (address (tile-element (● (list-ref (● n args) k) accessor) t)
                (append (indices o (● (port-of n default-port) shape)) (indices j span))))
 
     ;; A reduction's body at element j of output o's span: its statements,
@@ -1308,10 +1406,10 @@
     (define (span-body (n Node) (o String) (j String) (indent String)) (→ (Pair String String))
       (match (● n kind)
         ((Reduce _ span body)
-         (let ((done (body-text (lambda (k) (load n k (span-address n span k o j))) body)))
+         (let ((done (body-text (lambda (k t) (load n k (span-address n span k o j t))) body)))
            (new Pair
              (first (string-join (map (lambda (s) (string-append indent s)) (● done first)) ""))
-             (second (● done second)))))
+             (second (list-ref (● done second) 0)))))
         (_ (panic "tensor lower: a span body of a node not a reduction"))))
 
     (define (small-reduce-text (n Node) (op Reduction) (span (List I64))) (→ String)

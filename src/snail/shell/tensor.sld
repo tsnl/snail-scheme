@@ -68,11 +68,17 @@
    Select
    Convert
    Bitcast
+   Pack
+   Pick
+   Product
+   Fold
    Expr
    Load
    Literal
    Apply
    expr-etype
+   expr-tile
+   tile-indices
    map-loads
    Reduction
    Sum
@@ -212,9 +218,25 @@
 
     ;; ---- Operations ----
 
+    (enum Reduction
+      (Sum)
+      (Largest)
+      (Smallest))
+
+    (define (reduction-text (op Reduction)) (→ String)
+      (match op
+        ((Sum) "sum")
+        ((Largest) "max")
+        ((Smallest) "min")))
+
     ;; What a map's body applies. A comparison answers 1 or 0 in its operands'
     ;; type; `Select` takes a condition, then the value where it is not 0,
-    ;; then the value where it is.
+    ;; then the value where it is. The last four are of tiles: `Pack` joins
+    ;; its operands' elements, in order, into one tile; `Pick` takes its
+    ;; operand's elements at the given places, counted row-major, so it
+    ;; transposes, reshapes and selects; `Product` multiplies a tile of
+    ;; (m, k), or a row of k, by one of (k, c); `Fold` combines all of its
+    ;; operand's elements into one.
     (enum Op
       (Neg)
       (Exp)
@@ -245,7 +267,11 @@
       (ShiftRight)
       (Select)
       (Convert ((to Etype)))
-      (Bitcast ((to Etype))))
+      (Bitcast ((to Etype)))
+      (Pack)
+      (Pick ((indices (List I64))))
+      (Product)
+      (Fold ((op Reduction))))
 
     (define (op-text (op Op)) (→ String)
       (match op
@@ -278,51 +304,71 @@
         ((ShiftRight) "shr")
         ((Select) "select")
         ((Convert to) (string-append "convert " (etype-wgsl to)))
-        ((Bitcast to) (string-append "bitcast " (etype-wgsl to)))))
-
-    (enum Reduction
-      (Sum)
-      (Largest)
-      (Smallest))
-
-    (define (reduction-text (op Reduction)) (→ String)
-      (match op
-        ((Sum) "sum")
-        ((Largest) "max")
-        ((Smallest) "min")))
+        ((Bitcast to) (string-append "bitcast " (etype-wgsl to)))
+        ((Pack) "pack")
+        ((Pick indices) (string-append "pick " (string-join (map show indices) ",")))
+        ((Product) "product")
+        ((Fold op) (string-append "fold " (reduction-text op)))))
 
     ;; ---- Expressions ----
 
-    ;; What a map computes at each element of its port, from its arguments'
-    ;; elements there: `Load k` reads argument k's, a `Literal` is one
-    ;; value, and `Apply` is an operation on others. Each carries its type,
-    ;; so one body can convert between types. A load never addresses: its
-    ;; argument is a view, and the view says where its elements are.
+    ;; What a map computes at each element of its leading axes, from its
+    ;; arguments' elements there: `Load k` reads argument k's, a `Literal`
+    ;; is one value, and `Apply` is an operation on others. Each carries
+    ;; its type, so one body can convert between types, and its tile: the
+    ;; shape of the block of values it is, () for one value. A load of a
+    ;; tile reads as many trailing axes of its argument, so a body can
+    ;; build a small matrix at each element and multiply it by another; an
+    ;; elementwise operation applies to each element of its operands'
+    ;; tiles, a value standing for every element. A load never addresses:
+    ;; its argument is a view, and the view says where its elements are.
     (enum Expr
-      (Load ((arg I64) (etype Etype)))
+      (Load ((arg I64) (etype Etype) (tile (List I64))))
       (Literal ((value F64) (etype Etype)))
-      (Apply ((op Op) (operands (List Expr)) (etype Etype))))
+      (Apply ((op Op) (operands (List Expr)) (etype Etype) (tile (List I64)))))
 
     (define (expr-etype (e Expr)) (→ Etype)
       (match e
-        ((Load _ etype) etype)
+        ((Load _ etype _) etype)
         ((Literal _ etype) etype)
-        ((Apply _ _ etype) etype)))
+        ((Apply _ _ etype _) etype)))
+
+    (define (expr-tile (e Expr)) (→ (List I64))
+      (match e
+        ((Load _ _ tile) tile)
+        ((Literal _ _) (Nil))
+        ((Apply _ _ _ tile) tile)))
+
+    ;; Each index of a tile, row-major; a value's one index is ().
+    (define (tile-indices (tile (List I64))) (→ (List (List I64)))
+      (match tile
+        ((Nil) (list (Nil)))
+        ((Cons size rest)
+         (concatenate (map (lambda (i) (map (lambda (t) (Cons i t)) (tile-indices rest)))
+                           (iota size))))))
+
+    (define (tile-text (tile (List I64))) (→ String)
+      (if (null? tile) "" (string-append ":" (string-join (map show tile) "x"))))
 
     (define (expr-text (e Expr)) (→ String)
       (match e
-        ((Load k _) (string-append "$" (show k)))
+        ((Load k _ tile) (string-append "$" (show k) (tile-text tile)))
         ((Literal value etype) (string-append (f64->string value) (etype-wgsl etype)))
-        ((Apply op operands _)
-         (string-append "(" (op-text op) " " (string-join (map expr-text operands) " ") ")"))))
+        ((Apply op operands _ tile)
+         (string-append "("
+                        (op-text op)
+                        " "
+                        (string-join (map expr-text operands) " ")
+                        ")"
+                        (tile-text tile)))))
 
     ;; `e` with each load replaced by what `f` answers for it.
-    (define (map-loads (e Expr) (f (Fn I64 Etype → Expr))) (→ Expr)
+    (define (map-loads (e Expr) (f (Fn I64 Etype (List I64) → Expr))) (→ Expr)
       (match e
-        ((Load k etype) (f k etype))
+        ((Load k etype tile) (f k etype tile))
         ((Literal _ _) e)
-        ((Apply op operands etype)
-         (Apply op (map (lambda (o) (map-loads o f)) operands) etype))))
+        ((Apply op operands etype tile)
+         (Apply op (map (lambda (o) (map-loads o f)) operands) etype tile))))
 
     ;; The type an operation answers: a conversion's the one asked for, a
     ;; choice's that of what it chooses, and any other's its first
@@ -361,11 +407,13 @@
     ;; ---- Nodes ----
 
     ;; What a node computes. A `Fill` is every element one value; a `Map`
-    ;; computes its body at each element, so a copy, the one way a view
-    ;; becomes a buffer, is a map of one load; a `Reduce` computes its
+    ;; computes its body at each element of its port's leading axes, the
+    ;; port being those axes followed by the body's tile, so a copy, the
+    ;; one way a view becomes a buffer, is a map of one load, and a small
+    ;; matrix product is a map multiplying tiles; a `Reduce` computes its
     ;; body at each element of its arguments' shape and combines it over
     ;; the trailing `span` axes, so its port is that shape without them,
-    ;; and a matrix product is a sum of products; a `Place` writes its
+    ;; and a large matrix product is a sum of products; a `Place` writes its
     ;; argument into zeros at the addresses an accessor gives, the adjoint
     ;; of seeing a port through that accessor; a `Gather` takes the rows of
     ;; its first argument at the indices of its second; a `ScatterAdd` adds
@@ -567,25 +615,38 @@
 
     ;; ---- Maps ----
 
-    ;; A map of `body` over `args`, each seen at `shape`.
-    (define (mapped (body Expr) (args (List View)) (shape (List I64))) (→ View)
-      (bodied (lambda (folded) (Map folded)) body args shape))
+    ;; A map of `body` over `args` at each element of `lead`: each
+    ;; argument is seen at `lead` followed by its loads' tile, and the
+    ;; map's port is `lead` followed by the body's.
+    (define (mapped (body Expr) (args (List View)) (lead (List I64))) (→ View)
+      (bodied (lambda (folded) (Map folded)) body args lead (append lead (expr-tile body))))
 
-    ;; A node of `kind` computing `body` over `args` into a port of
-    ;; `shape`. A `Fill` argument becomes a literal of the body, so the
-    ;; node reads only buffers; the others keep their order.
-    (define (bodied (kind (Fn Expr → Kind)) (body Expr) (args (List View)) (shape (List I64)))
+    ;; A node of `kind` computing `body` at each element of `lead` over
+    ;; `args`, into a port of `shape`. A `Fill` argument becomes literals
+    ;; of the body, so the node reads only buffers; the others keep their
+    ;; order.
+    (define (bodied (kind (Fn Expr → Kind))
+                    (body Expr)
+                    (args (List View))
+                    (lead (List I64))
+                    (shape (List I64)))
       (→ View)
-      (let ((folded (map-loads body (lambda (k etype) (folded-load args k etype)))))
+      (let ((folded (map-loads body (lambda (k etype tile) (folded-load args lead k etype tile)))))
         (single (kind folded)
                 (filter (lambda (a) (not (fill-view? a))) args)
                 shape
                 (expr-etype folded))))
 
-    ;; Argument k's load once fills are literals: the fill's value, or a
-    ;; load of its place among the arguments that are not fills. A load
-    ;; has its argument's type.
-    (define (folded-load (args (List View)) (k I64) (etype Etype)) (→ Expr)
+    ;; Argument k's load once fills are literals: the fill's value, in each
+    ;; element of a tile, or a load of its place among the arguments that
+    ;; are not fills. A load has its argument's type, and the argument is
+    ;; seen at the node's leading axes followed by the load's tile.
+    (define (folded-load (args (List View))
+                         (lead (List I64))
+                         (k I64)
+                         (etype Etype)
+                         (tile (List I64)))
+      (→ Expr)
       (let ((a (list-ref args k)))
         (unless (same-etype? (etype-of a) etype)
           (panic (string-append "tensor: a body loads argument "
@@ -594,9 +655,22 @@
                                 (etype-wgsl etype)
                                 ", which holds "
                                 (etype-wgsl (etype-of a)))))
+        (unless (or (fill-view? a) (equal-lists? (shape-of a) (append lead tile)))
+          (panic (string-append "tensor: a body loads argument "
+                                (show k)
+                                " at "
+                                (string-join (map show (append lead tile)) "x")
+                                ", which is "
+                                (string-join (map show (shape-of a)) "x"))))
         (match (● a node kind)
-          ((Fill value) (Literal value etype))
-          (_ (Load (length (filter (lambda (b) (not (fill-view? b))) (take args k))) etype)))))
+          ((Fill value) (filled value etype tile))
+          (_ (Load (length (filter (lambda (b) (not (fill-view? b))) (take args k))) etype tile)))))
+
+    ;; A fill's value as a load of it: a literal, or a tile of them.
+    (define (filled (value F64) (etype Etype) (tile (List I64))) (→ Expr)
+      (if (null? tile)
+          (Literal value etype)
+          (Apply (Pack) (map (lambda (_) (Literal value etype)) (iota (product tile))) etype tile)))
 
     (define (fill-view? (view View)) (→ Bool)
       (match (● view node kind)
@@ -606,8 +680,10 @@
     ;; An operation on views of one shape, each its operand's load.
     (define (applied (op Op) (operands (List View)) (shape (List I64))) (→ View)
       (let ((etypes (map etype-of operands)))
-        (mapped (Apply op (map-indexed (lambda (k etype) (Load k etype)) etypes)
-                       (result-etype op etypes))
+        (mapped (Apply op
+                       (map-indexed (lambda (k etype) (Load k etype (Nil))) etypes)
+                       (result-etype op etypes)
+                       (Nil))
                 operands
                 shape)))
 
@@ -677,7 +753,7 @@
                      (shape (List I64))
                      (span (List I64)))
       (→ View)
-      (bodied (lambda (folded) (Reduce op span folded)) body args shape))
+      (bodied (lambda (folded) (Reduce op span folded)) body args (append shape span) shape))
 
     ;; The reduced axes keep size 1, so the result broadcasts back against
     ;; its operand; `squeeze` drops them. A reduction combines trailing
@@ -686,12 +762,17 @@
       (let* ((kept (filter (lambda (k) (not (member? k axes))) (iota (rank a))))
              (gone (filter (lambda (k) (member? k axes)) (iota (rank a))))
              (sizes (lambda (ks) (map (lambda (k) (list-ref (shape-of a) k)) ks))))
-        (reshape (reduced op
-                          (Load 0 (etype-of a))
-                          (list (permute a (append kept gone)))
-                          (sizes kept)
-                          (sizes gone))
+        (reshape (combined op (permute a (append kept gone)) (sizes kept) (sizes gone))
                  (map-indexed (lambda (k size) (if (member? k axes) 1 size)) (shape-of a)))))
+
+    ;; `a`, seen at `kept` followed by `span`, combined over the span: by a
+    ;; map folding each tile of up to 16 elements, which a kernel reading
+    ;; the result can take in, or by a reduction.
+    (define (combined (op Reduction) (a View) (kept (List I64)) (span (List I64))) (→ View)
+      (let ((etype (etype-of a)))
+        (if (<= (product span) 16)
+            (mapped (Apply (Fold op) (list (Load 0 etype span)) etype (Nil)) (list a) kept)
+            (reduced op (Load 0 etype (Nil)) (list a) kept span))))
 
     (define (sum (a View) (axes (List I64))) (→ View) (reduce (Sum) a axes))
     (define (amax (a View) (axes (List I64))) (→ View) (reduce (Largest) a axes))
@@ -706,10 +787,11 @@
 
     ;; ---- Matrices ----
 
-    ;; (..., m, k) by (..., k, c), the leading axes equal and the types
-    ;; one: at each (..., m, c), the sum over k of a's row times b's
-    ;; column, a reduction of their products with both seen at (..., m, c,
-    ;; k).
+    ;; (..., m, k) by (..., k, c), b's leading axes broadcasting to a's and
+    ;; the types one: at each (..., m, c), the sum over k of a's row times
+    ;; b's column. A product over k of at most 16, into rows of at most
+    ;; 16, is a map of tiles, which kernels reading it can take in; a
+    ;; larger one is a reduction of the products.
     (define (matmul (a View) (b View)) (→ View)
       (let* ((sa (shape-of a)) (sb (shape-of b)) (n (length sa)))
         (unless (and (>= n 2)
@@ -717,19 +799,54 @@
                      (= (list-ref sa (- n 1)) (list-ref sb (- n 2)))
                      (same-etype? (etype-of a) (etype-of b)))
           (panic "tensor: matmul needs (..., m, k) and (..., k, c) of one type"))
-        (let* ((out (append (take sa (- n 1)) (list (list-ref sb (- n 1)))))
-               (seen (append out (list (list-ref sa (- n 1))))))
-          (reduced (Sum)
-                   (Apply (Mul) (list (Load 0 (etype-of a)) (Load 1 (etype-of b))) (etype-of a))
-                   (list (broadcast-to (unsqueeze a (- n 1)) seen)
-                         (broadcast-to (unsqueeze (transpose b) (- n 2)) seen))
-                   out
-                   (list (list-ref sa (- n 1)))))))
+        (if (and (<= (list-ref sa (- n 1)) 16) (<= (list-ref sb (- n 1)) 16))
+            (tile-product a b)
+            (summed-product a b))))
+
+    ;; At each matrix of the leading axes, a's tile by b's, when the
+    ;; product has at most 16 elements; otherwise at each row of a, the
+    ;; row by b's tile.
+    (define (tile-product (a View) (b View)) (→ View)
+      (let* ((sa (shape-of a))
+             (n (length sa))
+             (m (list-ref sa (- n 2)))
+             (lead (take sa (- n 2)))
+             (tb (list-drop (shape-of b) (- n 2))))
+        (if (<= (* m (list-ref tb 1)) 16)
+            (mapped (product-of (etype-of a) (list-drop sa (- n 2)) tb)
+                    (list a (broadcast-to b (append lead tb)))
+                    lead)
+            (mapped (product-of (etype-of a) (list (list-ref sa (- n 1))) tb)
+                    (list a (broadcast-to (unsqueeze b (- n 2)) (append lead (Cons m tb))))
+                    (append lead (list m))))))
+
+    ;; A load of a tile of `ta`, (m, k) or a row of k, by a load of one of
+    ;; `tb`, (k, c).
+    (define (product-of (etype Etype) (ta (List I64)) (tb (List I64))) (→ Expr)
+      (Apply (Product)
+             (list (Load 0 etype ta) (Load 1 etype tb))
+             etype
+             (append (take ta (- (length ta) 1)) (list (list-ref tb 1)))))
+
+    ;; A reduction of a's rows times b's columns, both seen at (..., m, c,
+    ;; k).
+    (define (summed-product (a View) (b View)) (→ View)
+      (let* ((sa (shape-of a))
+             (n (length sa))
+             (out (append (take sa (- n 1)) (list (list-ref (shape-of b) (- n 1)))))
+             (seen (append out (list (list-ref sa (- n 1)))))
+             (etype (etype-of a)))
+        (reduced (Sum)
+                 (Apply (Mul) (list (Load 0 etype (Nil)) (Load 1 etype (Nil))) etype (Nil))
+                 (list (broadcast-to (unsqueeze a (- n 1)) seen)
+                       (broadcast-to (unsqueeze (transpose b) (- n 2)) seen))
+                 out
+                 (list (list-ref sa (- n 1))))))
 
     ;; ---- Views ----
 
     ;; A view's elements written densely, in order.
-    (define (copy (a View)) (→ View) (mapped (Load 0 (etype-of a)) (list a) (shape-of a)))
+    (define (copy (a View)) (→ View) (mapped (Load 0 (etype-of a) (Nil)) (list a) (shape-of a)))
 
     ;; Zeros of `shape`, with `g`'s elements at `accessor`'s addresses,
     ;; whose shape is g's.
@@ -818,7 +935,9 @@
     ;; The views joined along `axis`, of one type and equal on every other
     ;; axis. A node joins at most six, so its kernel binds at most the
     ;; eight storage buffers every device allows; more are joined in a
-    ;; tree.
+    ;; tree. Views joined along their last axis into at most 16 are a map
+    ;; packing each element's tile, which kernels reading it can take in;
+    ;; any others a concat.
     (define (concat (views (List View)) (axis I64)) (→ View)
       (if (<= (length views) 6)
           (joined views axis)
@@ -830,22 +949,30 @@
 
     (define (joined (views (List View)) (axis I64)) (→ View)
       (let* ((first-view (list-ref views 0))
-             (shape (shape-of first-view)))
+             (shape (shape-of first-view))
+             (sizes (map (lambda (v) (list-ref (shape-of v) axis)) views)))
         (unless (every? (lambda (v)
                           (and (same-etype? (etype-of v) (etype-of first-view))
                                (equal-lists? (without (shape-of v) axis) (without shape axis))))
                         views)
           (panic "tensor: concat of views that differ off its axis"))
-        (single (Concat axis)
+        (if (and (= axis (- (length shape) 1)) (<= (fold-left + 0 sizes) 16))
+            (packed views (take shape axis) sizes)
+            (single (Concat axis)
+                    views
+                    (map-indexed (lambda (k size) (if (= k axis) (fold-left + 0 sizes) size)) shape)
+                    (etype-of first-view)))))
+
+    ;; Views of `lead` followed by `sizes` along their last axis, packed:
+    ;; at each element of `lead`, each view's tile there, in order.
+    (define (packed (views (List View)) (lead (List I64)) (sizes (List I64))) (→ View)
+      (let ((etype (etype-of (list-ref views 0))))
+        (mapped (Apply (Pack)
+                       (map-indexed (lambda (k size) (Load k etype (list size))) sizes)
+                       etype
+                       (list (fold-left + 0 sizes)))
                 views
-                (map-indexed (lambda (k size)
-                               (if (= k axis)
-                                   (fold-left +
-                                              0
-                                              (map (lambda (v) (list-ref (shape-of v) axis)) views))
-                                   size))
-                             shape)
-                (etype-of first-view))))
+                lead)))
 
     ;; Views of one shape along a new axis.
     (define (stack (views (List View)) (axis I64)) (→ View)
