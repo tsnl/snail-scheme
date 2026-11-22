@@ -1028,8 +1028,8 @@
                                                           "]")))
                                       ";\n"))))
 
-    ;; A thread an output element: elementwise, copies, fills, matrix
-    ;; products, gathers and small reductions.
+    ;; A thread an output element: maps, fills, matrix products, gathers
+    ;; and small reductions.
     (define (thread-code (n Node)) (→ String)
       (let* ((out (port-of n default-port)) (count (product (● out shape))))
         (thread-kernel (declared n)
@@ -1037,15 +1037,7 @@
                        (match (● n kind)
                          ((Fill value)
                           (string-append "  out[i] = " (literal (● out etype) value) ";\n"))
-                         ((Elementwise op)
-                          (string-append "  out[i] = " (elementwise-text n op) ";\n"))
-                         ((Copy)
-                          (string-append "  out[i] = "
-                                         (load n
-                                               0
-                                               (flat-address (● (list-ref (● n args) 0) accessor)
-                                                             "i"))
-                                         ";\n"))
+                         ((Map body) (string-append "  out[i] = " (body-text n body) ";\n"))
                          ((Matmul) (matmul-text n))
                          ((Gather) (gather-text n))
                          ((Concat axis) (concat-text n axis))
@@ -1055,13 +1047,28 @@
     (define (operand (n Node) (k I64)) (→ String)
       (load n k (flat-address (● (list-ref (● n args) k) accessor) "i")))
 
-    ;; ---- Elementwise text ----
+    ;; ---- Map text ----
 
-    (define (elementwise-text (n Node) (op Op)) (→ String)
-      (let* ((a (operand n 0))
-             (b (if (> (length (● n args)) 1) (operand n 1) ""))
-             (from (etype-wgsl (etype-of (list-ref (● n args) 0))))
-             (to (etype-wgsl (● (port-of n default-port) etype)))
+    ;; A map's body as one WGSL expression of element i: each load its
+    ;; argument's element there, through the argument's accessor.
+    (define (body-text (n Node) (e Expr)) (→ String)
+      (match e
+        ((Load k _) (operand n k))
+        ((Literal value etype) (literal etype value))
+        ((Apply op operands etype)
+         (applied-text op
+                       (map (lambda (o) (body-text n o)) operands)
+                       (expr-etype (list-ref operands 0))
+                       etype))))
+
+    ;; An operation on its operands' text, of type `from-etype`, answering
+    ;; `to-etype`.
+    (define (applied-text (op Op) (operands (List String)) (from-etype Etype) (to-etype Etype))
+      (→ String)
+      (let* ((a (list-ref operands 0))
+             (b (if (> (length operands) 1) (list-ref operands 1) ""))
+             (from (etype-wgsl from-etype))
+             (to (etype-wgsl to-etype))
              (infix (lambda (symbol) (string-append "(" a " " symbol " " b ")")))
              (call (lambda (name) (string-append name "(" a ")")))
              (truth (lambda (symbol)
@@ -1094,7 +1101,8 @@
           ((BitXor) (infix "^"))
           ((ShiftLeft) (string-append "(" a " << u32(" b "))"))
           ((ShiftRight) (string-append "(" a " >> u32(" b "))"))
-          ((Select) (string-append "select(" (operand n 2) ", " b ", " a " != " from "(0))"))
+          ((Select)
+           (string-append "select(" (list-ref operands 2) ", " b ", " a " != " from "(0))"))
           ((Convert _) (string-append to "(" a ")"))
           ((Bitcast _) (string-append "bitcast<" to ">(" a ")")))))
 
