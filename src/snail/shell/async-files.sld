@@ -4,7 +4,6 @@
 (define-library (snail shell async-files)
   (export Files
           host-files
-          read-file
           FileError
           Unavailable
           InvalidInput
@@ -29,7 +28,7 @@
       (PermissionDenied)
       (Failed))
 
-    (capability Files
+    (record Files
       ((read-file (Fn String I32 → (Result Bytes FileError)))))
 
     (define (host-files (host Host)) (→ Files)

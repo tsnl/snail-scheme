@@ -143,7 +143,6 @@
    next-event
    PageStorage
    load-save
-   store-save
    SceneHandler
    run-scene)
   (import
@@ -152,7 +151,7 @@
    (snail shell math)
    (snail shell page)
    (snail core table)
-   (only (snail shell dom) Dom document-root no-event Allow)
+   (only (snail shell dom) Dom no-event Allow)
    (only (snail core io) Clock)
    (rename (snail shell gpu) (Image GpuImage))
    (snail shell graphics pod)
@@ -567,9 +566,9 @@
     ;; canvas. A batch's surface is made only when its version is new.
     (define (draw-frame (gpu Gpu) (frame Frame) (frames Frames)) (→ Frames)
       (match (● frames drawn)
-        ((Some drawn) (drawn-frame gpu frame drawn (current-texture gpu)))
+        ((Some drawn) (drawn-frame gpu frame drawn ((● gpu current-texture))))
         ((None)
-         (let* ((format (● (request-device gpu) format)) (canvas (current-texture gpu)))
+         (let* ((format (● ((● gpu request-device)) format)) (canvas ((● gpu current-texture))))
            (drawn-frame gpu frame (started gpu format canvas) canvas)))))
 
     (define (started (gpu Gpu) (format TextureFormat) (canvas GpuImage)) (→ Drawn)
@@ -595,19 +594,19 @@
                                                                   (● canvas height))
                                                     (frame-sun (● frame light)))))
              (target (view-of gpu (● canvas texture) 1))
-             (encoder (create-command-encoder gpu)))
+             (encoder ((● gpu create-command-encoder))))
         (let ((pass (begin-gbuffer gpu encoder (● drawn gbuffer))))
           (draw-surfaces gpu pass drawn #f)
-          (end-pass gpu pass))
+          ((● gpu end-pass) pass))
         (let ((pass (begin-lit gpu encoder
                                (● drawn post targets light-view)
                                (backdrop (● frame background))
                                (● drawn gbuffer))))
           (draw-sun gpu pass (● drawn light))
           (draw-surfaces gpu pass drawn #t)
-          (end-pass gpu pass))
+          ((● gpu end-pass) pass))
         (draw-post gpu encoder target (● drawn post))
-        (submit gpu (list (finish gpu encoder)))
+        ((● gpu submit) (list ((● gpu finish) encoder)))
         (new Frames (drawn (Some drawn)))))
 
     ;; The G-buffer and the post targets remade, and the sunlight over
@@ -1028,18 +1027,18 @@
       (SaveRequested))
 
     (define (next-event (events Events)) (→ Event)
-      (match (poll-event events)
-        (0 (wait-event events) (next-event events))
-        (11 (FrameEvent (event-field events 0)))
+      (match ((● events poll-event))
+        (0 ((● events wait-event)) (next-event events))
+        (11 (FrameEvent ((● events event-field) 0)))
         (12 (Hidden))
-        (14 (HudEvent (event-field events 0)))
+        (14 (HudEvent ((● events event-field) 0)))
         (16 (SaveRequested))
-        (17 (FilesEvent (event-field events 0)))
+        (17 (FilesEvent ((● events event-field) 0)))
         (kind (InputEvent (decode-input kind
-                                        (event-field events 0)
-                                        (event-field events 1)
-                                        (event-field events 2)
-                                        (event-field events 3))))))
+                                        ((● events event-field) 0)
+                                        ((● events event-field) 1)
+                                        ((● events event-field) 2)
+                                        ((● events event-field) 3))))))
 
     ;; ---- Running a scene ----
 
@@ -1070,9 +1069,9 @@
       (∀ (S D))
       (run-page events storage (lambda ()
                                  ((● scene initialize)
-                                  (random-seed events)
-                                  (canvas-width events)
-                                  (canvas-height events)))
+                                  ((● events random-seed))
+                                  ((● events canvas-width))
+                                  ((● events canvas-height))))
                 (● scene save)
                 (● scene restore)
                 (lambda (state save)
@@ -1105,7 +1104,7 @@
                   (shown (if show-hud?
                              (show-hud dom scene next drawn hud)
                              (new Pair (first next) (second hud)))))
-             (report-ready events)
+             ((● events report-ready))
              (loop (● shown first)
                    drawn
                    (● shown second)
@@ -1159,7 +1158,7 @@
     (define (show-hud (dom Dom) (scene (SceneHandler S D)) (state S) (drawing D) (hud Hud))
       (→ (Pair S Hud))
       (∀ (S D))
-      (let ((shown (ui:patch-children dom (document-root dom)
+      (let ((shown (ui:patch-children dom ((● dom document-root))
                                       (● hud shown)
                                       (hud-html ((● scene hud) state)
                                                 (lambda (image)

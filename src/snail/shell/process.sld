@@ -6,8 +6,8 @@
 ;; host/chez/snail/stage0/process.sls, has the same name; Chez never sees src/.
 (define-library (snail shell process)
   (export
-   Processes spawn read-output write-input close-input send-signal wait-exit close-process run exec
-   Signals termination
+   Processes
+   Signals
    host-processes host-signals
    Command
    Process
@@ -18,7 +18,7 @@
    ProcessError)
   (import
    (snail core base)
-   (only (snail core io) Host ProcessEnvironment host-environment environment-variable)
+   (only (snail core io) Host ProcessEnvironment host-environment)
    (prefix (snail runtime native process) host-)
    (only (snail shell task) through-host))
   (begin
@@ -80,7 +80,7 @@
     ;; command, as execve does: the command takes over this process and its
     ;; standard streams, and nothing of the program runs after. It returns
     ;; only when it cannot, with why.
-    (capability Processes
+    (record Processes
       ((spawn (Fn Command → (Result Process ProcessError)))
        (read-output (Fn Process Stream I32 → (Result (Option Bytes) ProcessError)))
        (write-input (Fn Process Bytes → (Result I32 ProcessError)))
@@ -148,7 +148,7 @@
     ;; as it always has. A wait ends with its signal, so a second signal
     ;; during an orderly shutdown still ends the program at once, unless a
     ;; task waits again.
-    (capability Signals
+    (record Signals
       ((termination (Fn → Signal))))
 
     ;; Node's termination signals.
@@ -232,7 +232,7 @@
     ;; PATH's entries, empty ones included.
 
     (define (path-entries (environment ProcessEnvironment)) (→ (List String))
-      (match (environment-variable environment "PATH")
+      (match ((● environment variable) "PATH")
         ((Some text) (split-entries text))
         ((None) (Nil))))
 

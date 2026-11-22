@@ -26,7 +26,6 @@
    Scene
    make-scene
    Photographs
-   photograph
    Options
    train
    trained-cloud
@@ -105,7 +104,7 @@
     ;; destroys it after the step it was asked for. A view is asked for
     ;; each time a step trains on it, and once more at the end if it is
     ;; held out.
-    (capability Photographs
+    (record Photographs
       ((photograph (Fn ColmapImage → Image))))
 
     ;; A scene's photographs do not fit the device together at full size:
@@ -123,7 +122,7 @@
 
     (define (sent-for (photographs Photographs) (image ColmapImage)) (→ Arriving)
       (let ((arriving (new Arriving (image image) (photo (make-mailbox)))))
-        (dispatch (lambda () (mailbox-post (● arriving photo) (photograph photographs image))))
+        (dispatch (lambda () (mailbox-post (● arriving photo) ((● photographs photograph) image))))
         arriving))
 
     ;; ---- Programs ----
@@ -260,15 +259,15 @@
       (unless (and (= (i32->i64 (● photo width)) (● sensor width))
                    (= (i32->i64 (● photo height)) (● sensor height)))
         (panic (string-append (● image name) " is not the size of the scene's camera")))
-      (let ((encoder (create-command-encoder gpu)))
-        (copy-texture-to-buffer gpu encoder
-                                (whole-texture (● photo texture))
-                                (param-buffer program "target")
-                                0
-                                (i64->i32 (* 4 (texel-pitch (● sensor width))))
-                                (i64->i32 (● sensor width))
-                                (i64->i32 (● sensor height)))
-        (submit gpu (list (finish gpu encoder)))
+      (let ((encoder ((● gpu create-command-encoder))))
+        ((● gpu copy-texture-to-buffer) encoder
+         (whole-texture (● photo texture))
+         (param-buffer program "target")
+         0
+         (i64->i32 (* 4 (texel-pitch (● sensor width))))
+         (i64->i32 (● sensor width))
+         (i64->i32 (● sensor height)))
+        ((● gpu submit) (list ((● gpu finish) encoder)))
         (write-param gpu program
                      "camera"
                      (floats (camera-values (● scene camera) image)))))
@@ -283,10 +282,10 @@
                      (p Programs)
                      (scene Scene))
       (→ Unit)
-      (let* ((image (list-ref (● scene training) 0)) (photo (photograph photographs image)))
+      (let* ((image (list-ref (● scene training) 0)) (photo ((● photographs photograph) image)))
         (step-on gpu p scene image photo 0.0001)
-        (destroy gpu (TextureObject (● photo texture))))
-      (work-done gpu)
+        ((● gpu destroy) (TextureObject (● photo texture))))
+      ((● gpu work-done))
       (let ((times (list-sort (lambda (a b) (> (● a second) (● b second)))
                               (profile-program gpu (● p step)))))
         (write-line out (string-append (show (length times))
@@ -358,28 +357,28 @@
 
     (define (make-presenter (gpu Gpu) (format TextureFormat)) (→ Presenter)
       (new Presenter
-        (pipeline (create-render-pipeline gpu
-                                          (new RenderPipelineDescriptor
-                                            (label "present")
-                                            (module (create-shader-module gpu
-                                                                          (new ShaderModuleDescriptor
-                                                                            (label "present")
-                                                                            (code present-shader))))
-                                            (vertex-entry "present_vertex")
-                                            (buffers (Nil))
-                                            (fragment (Some (new FragmentState
-                                                              (entry "present_fragment")
-                                                              (targets (list (Some (new ColorTarget
-                                                                                     (format format)
-                                                                                     (blend
-                                                                                      (None)))))))))
-                                            (topology (TriangleList))
-                                            (cull (CullNone))
-                                            (depth (None)))))
-        (sizes (create-buffer gpu (new BufferDescriptor
-                                    (label "present/sizes")
-                                    (size 16)
-                                    (usage (list (Uniform) (CopyDst))))))))
+        (pipeline ((● gpu create-render-pipeline)
+                   (new RenderPipelineDescriptor
+                     (label "present")
+                     (module ((● gpu create-shader-module)
+                              (new ShaderModuleDescriptor
+                                (label "present")
+                                (code present-shader))))
+                     (vertex-entry "present_vertex")
+                     (buffers (Nil))
+                     (fragment (Some (new FragmentState
+                                       (entry "present_fragment")
+                                       (targets (list (Some (new ColorTarget
+                                                              (format format)
+                                                              (blend
+                                                               (None)))))))))
+                     (topology (TriangleList))
+                     (cull (CullNone))
+                     (depth (None)))))
+        (sizes ((● gpu create-buffer) (new BufferDescriptor
+                                        (label "present/sizes")
+                                        (size 16)
+                                        (usage (list (Uniform) (CopyDst))))))))
 
     ;; The step's image drawn into the canvas.
     ;; How a page shows a step: its image on the canvas, whose format is
@@ -392,40 +391,43 @@
     (define (shown-nowhere (p Programs)) (→ Unit) (unit))
 
     (define (present (gpu Gpu) (presenter Presenter) (p Programs)) (→ Unit)
-      (let* ((canvas (current-texture gpu))
+      (let* ((canvas ((● gpu current-texture)))
              (sensor (● p sensor))
-             (group (create-bind-group gpu (new BindGroupDescriptor
-                                             (label "present")
-                                             (pipeline (RenderPipeline (● presenter pipeline)))
-                                             (group 0)
-                                             (entries (list (BufferEntry 0 (● presenter sizes) 0 0)
-                                                            (BufferEntry 1
-                                                                         (sink-buffer (● p step) 1)
-                                                                         0
-                                                                         0))))))
-             (encoder (create-command-encoder gpu))
-             (pass (begin-render-pass gpu encoder
-                                      (new RenderPassDescriptor
-                                        (colors (list (Some (new ColorAttachment
-                                                              (view
-                                                               (view-of gpu (● canvas texture) 1))
-                                                              (load (Clear (new Color
-                                                                             (red 0.0)
-                                                                             (green 0.0)
-                                                                             (blue 0.0)
-                                                                             (alpha 1.0))))
-                                                              (store #t)))))
-                                        (depth (None))))))
-        (write-buffer gpu (● presenter sizes) 0 (floats (list (i32->f64 (● canvas width))
-                                                              (i32->f64 (● canvas height))
-                                                              (i64->f64 (● sensor width))
-                                                              (i64->f64 (● sensor height)))))
-        (set-pipeline gpu pass (● presenter pipeline))
-        (set-bind-group gpu pass 0 group)
-        (draw gpu pass 3 1 0 0)
-        (end-pass gpu pass)
-        (submit gpu (list (finish gpu encoder)))
-        (destroy gpu (BindGroupObject group))))
+             (group ((● gpu create-bind-group) (new BindGroupDescriptor
+                                                 (label "present")
+                                                 (pipeline (RenderPipeline (● presenter pipeline)))
+                                                 (group 0)
+                                                 (entries
+                                                  (list (BufferEntry 0 (● presenter sizes) 0 0)
+                                                        (BufferEntry 1
+                                                                     (sink-buffer (● p step) 1)
+                                                                     0
+                                                                     0))))))
+             (encoder ((● gpu create-command-encoder)))
+             (pass ((● gpu begin-render-pass) encoder
+                    (new RenderPassDescriptor
+                      (colors (list (Some (new ColorAttachment
+                                            (view
+                                             (view-of gpu
+                                                      (● canvas texture)
+                                                      1))
+                                            (load (Clear (new Color
+                                                           (red 0.0)
+                                                           (green 0.0)
+                                                           (blue 0.0)
+                                                           (alpha 1.0))))
+                                            (store #t)))))
+                      (depth (None))))))
+        ((● gpu write-buffer) (● presenter sizes) 0 (floats (list (i32->f64 (● canvas width))
+                                                                  (i32->f64 (● canvas height))
+                                                                  (i64->f64 (● sensor width))
+                                                                  (i64->f64 (● sensor height)))))
+        ((● gpu set-pipeline) pass (● presenter pipeline))
+        ((● gpu set-bind-group) pass 0 group)
+        ((● gpu draw) pass 3 1 0 0)
+        ((● gpu end-pass) pass)
+        ((● gpu submit) (list ((● gpu finish) encoder)))
+        ((● gpu destroy) (BindGroupObject group))))
 
     ;; ---- Training ----
 
@@ -485,7 +487,7 @@
                                           (arriving (Nil))
                                           (step 1)
                                           (live (length (● scene points)))
-                                          (started (monotonic-nanoseconds clock)))
+                                          (started ((● clock monotonic-nanoseconds))))
                                         (iota (min ahead (● options steps))))
                              scene
                              options
@@ -572,7 +574,7 @@
                  (● next image)
                  photo
                  (rate-of-means step (● options steps) (● scene extent)))
-        (destroy gpu (TextureObject (● photo texture)))
+        ((● gpu destroy) (TextureObject (● photo texture)))
         (when (= (remainder step 1000) 0)
           (write-param gpu (● p step)
                        "degrees"
@@ -586,7 +588,7 @@
                           (new Pair (first roomier) (second (● run live))))))
           (when (and (= (remainder step 3000) 0) (<= step 15000))
             (run-program gpu (● (● after first) reset)))
-          (when (= (remainder step 10) 0) (work-done gpu))
+          (when (= (remainder step 10) 0) ((● gpu work-done)))
           (when (= (remainder step 50) 0) (shown (● after first)))
           (Run-step-set (Run-live-set (Run-programs-set run (● after first)) (● after second))
                         (+ step 1)))))
@@ -597,7 +599,8 @@
       (→ Unit)
       (let ((loss (scalar-of (read-sink gpu (● p step) 0)))
             (entries (f64->i64 (scalar-of (read-sink gpu (● p step) 2))))
-            (seconds (/ (i64->f64 (- (monotonic-nanoseconds clock) (● run started))) 1000000000.0)))
+            (seconds
+             (/ (i64->f64 (- ((● clock monotonic-nanoseconds)) (● run started))) 1000000000.0)))
         (write-line out (string-append "step " (show (● run step))
                                        " loss " (f64->string loss)
                                        " gaussians " (show (● run live)) "/" (show (● p capacity))
@@ -621,9 +624,9 @@
              (error (mean (square (- drawn target))))
              (program (lower-with gpu "judge" (fuse (list error)) (Nil) (given-by (● p step))))
              (psnrs (map (lambda (image)
-                           (let ((photo (photograph photographs image)))
+                           (let ((photo ((● photographs photograph) image)))
                              (aim gpu program sensor scene image photo)
-                             (destroy gpu (TextureObject (● photo texture))))
+                             ((● gpu destroy) (TextureObject (● photo texture))))
                            (run-program gpu program)
                            (* -10.0 (/ (log (scalar-of (read-sink gpu program 0))) (log 10.0))))
                          (● scene held))))

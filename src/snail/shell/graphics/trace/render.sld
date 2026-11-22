@@ -168,7 +168,7 @@
     ;; that starts again, from a camera that has not moved.
     (define (rebound (gpu Gpu) (tracer Tracer) (world World) (targets Targets) (post Post))
       (→ Tracer)
-      (for-each (lambda (group) (destroy gpu (BindGroupObject group)))
+      (for-each (lambda (group) ((● gpu destroy) (BindGroupObject group)))
                 (groups-of (● tracer bindings)))
       (new Tracer
         (kit (● tracer kit))
@@ -214,16 +214,22 @@
                          (exposure F32))
       (→ Tracer)
       (let ((still (if (same-camera? (● tracer last) camera) (+ (● tracer still) 1) 0))
-            (encoder (create-command-encoder gpu))
+            (encoder ((● gpu create-command-encoder)))
             (kit (● tracer kit)))
-        (write-buffer gpu (● kit camera) 0 (pod-bytes camera-shape (after (● tracer last) camera)))
-        (write-buffer gpu (● kit tracing) 0 (pod-bytes tracing-shape (tracing-of tracer spread)))
-        (write-buffer gpu (● kit counts) 0 (make-array (* slot (* 2 bounces)) (i32->u8 0)))
+        ((● gpu write-buffer)
+         (● kit camera)
+         0
+         (pod-bytes camera-shape (after (● tracer last) camera)))
+        ((● gpu write-buffer)
+         (● kit tracing)
+         0
+         (pod-bytes tracing-shape (tracing-of tracer spread)))
+        ((● gpu write-buffer) (● kit counts) 0 (make-array (* slot (* 2 bounces)) (i32->u8 0)))
         (draw-surfaces gpu encoder tracer)
         (trace-paths gpu encoder tracer)
         (let ((svgf (filter-svgf gpu encoder (● tracer svgf) (= still 0) exposure)))
           (draw-post gpu encoder canvas (● tracer post))
-          (submit gpu (list (finish gpu encoder)))
+          ((● gpu submit) (list ((● gpu finish) encoder)))
           (new Tracer
             (kit kit)
             (world (● tracer world))
@@ -240,13 +246,13 @@
     ;; to, then the radiance into the noisy plane. A step runs over its
     ;; queue's capacity, a ray a pixel.
     (define (trace-paths (gpu Gpu) (encoder GpuCommandEncoder) (tracer Tracer)) (→ Unit)
-      (let* ((pass (begin-compute-pass gpu encoder))
+      (let* ((pass ((● gpu begin-compute-pass) encoder))
              (steps (● tracer kit steps))
              (rays (● tracer kit rays))
              (bound (● tracer bindings))
              (targets (● tracer targets))
              (capacity (* (i32->i64 (● targets width)) (i32->i64 (● targets height)))))
-        (set-compute-bind-group gpu pass 2 (● bound primary-environment))
+        ((● gpu set-compute-bind-group) pass 2 (● bound primary-environment))
         (over-screen gpu pass targets (● steps primary) (● bound primary))
         (for-each (lambda (bounce)
                     (trace-rays gpu pass
@@ -260,20 +266,20 @@
                                 (● bounce intersect)
                                 (Some (● bound intersect-cutout))
                                 capacity)
-                    (set-compute-bind-group gpu pass 1 (● bound shade-scene))
-                    (set-compute-bind-group gpu pass 2 (● bound shade-environment))
+                    ((● gpu set-compute-bind-group) pass 1 (● bound shade-scene))
+                    ((● gpu set-compute-bind-group) pass 2 (● bound shade-environment))
                     (over-queue gpu pass (● steps shade) (● bounce shade) capacity))
                   (● bound bounces))
         (over-screen gpu pass targets (● steps gather) (● bound gather))
-        (end-compute-pass gpu pass)))
+        ((● gpu end-compute-pass) pass)))
 
     (define (over-screen (gpu Gpu) (pass GpuComputePass)
                          (targets Targets)
                          (kernel GpuComputePipeline)
                          (group GpuBindGroup))
       (→ Unit)
-      (set-compute-pipeline gpu pass kernel)
-      (set-compute-bind-group gpu pass 0 group)
+      ((● gpu set-compute-pipeline) pass kernel)
+      ((● gpu set-compute-bind-group) pass 0 group)
       (dispatch-texels gpu pass (● targets width) (● targets height)))
 
     (define (over-queue (gpu Gpu) (pass GpuComputePass)
@@ -281,8 +287,8 @@
                         (group GpuBindGroup)
                         (capacity I64))
       (→ Unit)
-      (set-compute-pipeline gpu pass kernel)
-      (set-compute-bind-group gpu pass 0 group)
+      ((● gpu set-compute-pipeline) pass kernel)
+      ((● gpu set-compute-bind-group) pass 0 group)
       (dispatch-items gpu pass capacity 64))
 
     ;; The camera with the last frame's view-projection as its previous.
@@ -317,23 +323,23 @@
       (let* ((targets (● tracer targets))
              (scene (● tracer world scene))
              (clear (Clear (new Color (red 0.0) (green 0.0) (blue 0.0) (alpha 0.0))))
-             (pass (begin-render-pass gpu encoder
-                                      (new RenderPassDescriptor
-                                        (colors (map (lambda (plane)
-                                                       (Some (new ColorAttachment
-                                                               (view (● plane view))
-                                                               (load clear)
-                                                               (store #t))))
-                                                     (● targets planes)))
-                                        (depth (Some (new DepthAttachment
-                                                       (view (● targets depth view))
-                                                       (load (ClearDepth 1.0))
-                                                       (store #t))))))))
-        (set-pipeline gpu pass (● tracer kit surface))
-        (set-bind-group gpu pass 0 (● tracer bindings surface))
-        (set-index-buffer gpu pass (● scene indices) (Uint32Index) 0)
-        (draw-indexed gpu pass (i64->i32 (* 3 (● scene triangle-count))) 1 0 0 0)
-        (end-pass gpu pass)))
+             (pass ((● gpu begin-render-pass) encoder
+                    (new RenderPassDescriptor
+                      (colors (map (lambda (plane)
+                                     (Some (new ColorAttachment
+                                             (view (● plane view))
+                                             (load clear)
+                                             (store #t))))
+                                   (● targets planes)))
+                      (depth (Some (new DepthAttachment
+                                     (view (● targets depth view))
+                                     (load (ClearDepth 1.0))
+                                     (store #t))))))))
+        ((● gpu set-pipeline) pass (● tracer kit surface))
+        ((● gpu set-bind-group) pass 0 (● tracer bindings surface))
+        ((● gpu set-index-buffer) pass (● scene indices) (Uint32Index) 0)
+        ((● gpu draw-indexed) pass (i64->i32 (* 3 (● scene triangle-count))) 1 0 0 0)
+        ((● gpu end-pass) pass)))
 
     ;; ---- Queues ----
 
@@ -388,7 +394,7 @@
 
     ;; Every field's object, each named here.
     (define (release-targets (gpu Gpu) (targets Targets)) (→ Unit)
-      (for-each (lambda (buffer) (destroy gpu (BufferObject buffer)))
+      (for-each (lambda (buffer) ((● gpu destroy) (BufferObject buffer)))
                 (append (● targets queues) (list (● targets shadows) (● targets radiance))))
       (for-each (lambda (plane) (release-plane gpu plane))
                 (Cons (● targets depth) (Cons (● targets noisy) (● targets planes)))))
@@ -515,15 +521,15 @@
                           (SamplerEntry 4 (● scene sampler)))))
 
     (define (surface-group (gpu Gpu) (kit Kit) (scene Scene)) (→ GpuBindGroup)
-      (create-bind-group gpu (new BindGroupDescriptor
-                               (label "trace/surface")
-                               (pipeline (RenderPipeline (● kit surface)))
-                               (group 0)
-                               (entries (list (BufferEntry 0 (● kit camera) 0 0)
-                                              (BufferEntry 1 (● scene vertices) 0 0)
-                                              (BufferEntry 2 (● scene materials) 0 0)
-                                              (TextureEntry 3 (● scene layers-view))
-                                              (SamplerEntry 4 (● scene sampler)))))))
+      ((● gpu create-bind-group) (new BindGroupDescriptor
+                                   (label "trace/surface")
+                                   (pipeline (RenderPipeline (● kit surface)))
+                                   (group 0)
+                                   (entries (list (BufferEntry 0 (● kit camera) 0 0)
+                                                  (BufferEntry 1 (● scene vertices) 0 0)
+                                                  (BufferEntry 2 (● scene materials) 0 0)
+                                                  (TextureEntry 3 (● scene layers-view))
+                                                  (SamplerEntry 4 (● scene sampler)))))))
 
     ;; ---- The kit ----
 
@@ -542,16 +548,16 @@
     (define (zeros (count I64)) (→ Bytes) (make-array count (i32->u8 0)))
 
     (define (path-steps (gpu Gpu)) (→ Steps)
-      (let ((module (create-shader-module gpu
-                                          (new ShaderModuleDescriptor
-                                            (label "trace/path")
-                                            (code (string-append (declarations camera-shape)
-                                                                 (declarations tracing-shape)
-                                                                 (declarations wave-shape)
-                                                                 (declarations material-shape)
-                                                                 scene-shader
-                                                                 environment-light-shader
-                                                                 path-shader))))))
+      (let ((module ((● gpu create-shader-module)
+                     (new ShaderModuleDescriptor
+                       (label "trace/path")
+                       (code (string-append (declarations camera-shape)
+                                            (declarations tracing-shape)
+                                            (declarations wave-shape)
+                                            (declarations material-shape)
+                                            scene-shader
+                                            environment-light-shader
+                                            path-shader))))))
         (new Steps
           (primary (compute-kernel gpu module "trace" "primary"))
           (connect (compute-kernel gpu module "trace" "connect"))
@@ -559,31 +565,31 @@
           (gather (compute-kernel gpu module "trace" "gather")))))
 
     (define (surface-pipeline (gpu Gpu)) (→ GpuRenderPipeline)
-      (create-render-pipeline gpu
-                              (new RenderPipelineDescriptor
-                                (label "trace/surface")
-                                (module (create-shader-module gpu (new ShaderModuleDescriptor
-                                                                    (label "trace/surface")
-                                                                    (code
-                                                                     (string-append
-                                                                      (declarations camera-shape)
-                                                                      (declarations material-shape)
-                                                                      surface-shader)))))
-                                (vertex-entry "surface_vertex")
-                                (buffers (Nil))
-                                (fragment (Some (new FragmentState
-                                                  (entry "surface_fragment")
-                                                  (targets (map (lambda (format)
-                                                                  (Some (new ColorTarget
-                                                                          (format format)
-                                                                          (blend (None)))))
-                                                                planes-formats)))))
-                                (topology (TriangleList))
-                                (cull (CullNone))
-                                (depth
-                                 (Some (new DepthState
-                                         (format (Depth32Float))
-                                         (write #t)
-                                         (compare (CompareLess))))))))
+      ((● gpu create-render-pipeline)
+       (new RenderPipelineDescriptor
+         (label "trace/surface")
+         (module ((● gpu create-shader-module) (new ShaderModuleDescriptor
+                                                 (label "trace/surface")
+                                                 (code
+                                                  (string-append
+                                                   (declarations camera-shape)
+                                                   (declarations material-shape)
+                                                   surface-shader)))))
+         (vertex-entry "surface_vertex")
+         (buffers (Nil))
+         (fragment (Some (new FragmentState
+                           (entry "surface_fragment")
+                           (targets (map (lambda (format)
+                                           (Some (new ColorTarget
+                                                   (format format)
+                                                   (blend (None)))))
+                                         planes-formats)))))
+         (topology (TriangleList))
+         (cull (CullNone))
+         (depth
+          (Some (new DepthState
+                  (format (Depth32Float))
+                  (write #t)
+                  (compare (CompareLess))))))))
 
     ))

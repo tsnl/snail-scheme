@@ -57,18 +57,17 @@ panic, loop forever, or stop at a `suspend`.
 writes it, and `write-line` takes the port it writes to:
 
 ```scheme
-(capability OutputPort
+(record OutputPort
   ((write-string (Fn String → Unit))))
 
 (define (write-line (out OutputPort) (text String)) (→ Unit)
-  (write-string out (string-append text "\n")))
+  ((● out write-string) (string-append text "\n")))
 ```
 
-`capability` declares a record whose every field is a function and, for
-each field, a function of the record that calls it: `(write-string out
-text)` is `((● out write-string) text)`. It is a macro in
-`(snail core base)` and adds nothing to the language: the type is an
-ordinary record, made with `new` and read with `●`.
+`(● out write-string)` is the port's field, so `((● out write-string)
+text)` calls the port's own function, and `write-line` is an ordinary
+function built on it. Nothing stands between a caller and a capability's
+operations but the record: an operation is declared once, as a field.
 
 A function that should print takes an `OutputPort`. One that takes none
 cannot print, whatever it calls, unless something it is given can. A
@@ -95,9 +94,9 @@ The standard libraries' capabilities:
 | `Fetch` | `(snail shell fetch)` | requests to a server |
 | `FilePicker` | `(snail shell files)` | the files a user chooses |
 
-Each library decides what its capability is. Most are declared with
-`capability`, records of their operations, so that another implementation
-is another record. `Fs` holds nothing: it is the host's file system whole, and having
+Each library decides what its capability is. Most are records of their
+operations, each a function, so that another implementation is another
+record. `Fs` holds nothing: it is the host's file system whole, and having
 one is the permission.
 
 ### Making one's own

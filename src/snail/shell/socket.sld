@@ -9,8 +9,8 @@
 ;; and its port in range, and no host checks either again.
 (define-library (snail shell socket)
   (export
-   Tcp listen connect accept read write finish-connection close-listener close-connection
-   Udp bind send receive close-udp
+   Tcp
+   Udp
    host-tcp host-udp
    Endpoint endpoint Endpoint-address Endpoint-port
    Listener
@@ -111,7 +111,7 @@
     (record SocketError
       ((code String)))
 
-    (capability Tcp
+    (record Tcp
       ((listen (Fn Endpoint → (Result Listener SocketError)))
        (connect (Fn Endpoint → (Result Connection SocketError)))
        (accept (Fn Listener → (Result Connection SocketError)))
@@ -164,7 +164,7 @@
         (close-connection (lambda (connection)
                             (answered (host-close-tcp (connection-handle connection)) done)))))
 
-    (capability Udp
+    (record Udp
       ((bind (Fn Endpoint → (Result UdpSocket SocketError)))
        (send (Fn UdpSocket Endpoint Bytes → (Result I32 SocketError)))
        (receive (Fn UdpSocket I32 → (Result Datagram SocketError)))

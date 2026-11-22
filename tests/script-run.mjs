@@ -45,10 +45,10 @@ try {
   // A character read flushes an unterminated prompt, then shares stdin with lines.
   await writeFile(join(project, 'main.scm'), `(import (snail core base) (snail core io))
     (define (main (in InputPort) (out OutputPort)) (→ Unit)
-      (write-string out "prompt> ")
-    (write out (read-char in)) (newline out)
+      ((● out write-string) "prompt> ")
+    (write out ((● in read-char))) (newline out)
     (write out (read-line in)) (newline out)
-    (write out (read-char in)) (newline out))`);
+    (write out ((● in read-char))) (newline out))`);
   const prompted = run();
   await ready(prompted.child, 'prompt> ');
   prompted.child.stdin.end('λ😀tail\n');
