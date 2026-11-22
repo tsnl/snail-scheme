@@ -63,7 +63,6 @@
   (import
    (snail core base)
    (snail core table)
-   (only (snail core io) clock monotonic-nanoseconds)
    (only (snail shell task) tasks)
    (only (snail shell gpu)
          gpu
@@ -76,26 +75,34 @@
          create-command-encoder
          copy-buffer-to-buffer
          begin-compute-pass
+         begin-timed-compute-pass
+         create-query-set
+         submit-timed
+         elapsed-seconds
          set-compute-pipeline
          set-compute-bind-group
          dispatch-workgroups
          end-compute-pass
          finish
          submit
-         work-done
          destroy
          GpuBuffer
          GpuShaderModule
          GpuComputePipeline
          GpuBindGroup
          GpuComputePass
+         GpuCommandEncoder
+         GpuQuerySet
          GpuObject
          BufferObject
          ModuleObject
          ComputePipelineObject
          BindGroupObject
+         QuerySetObject
          ComputePipeline
          BufferDescriptor
+         QuerySetDescriptor
+         TimestampWrites
          MapRead
          CopySrc
          CopyDst
@@ -824,18 +831,54 @@
 
     ;; ---- Profiling ----
 
-    ;; Each step run alone and waited for, with the seconds it took, the
-    ;; kernel's entry and code naming a dispatch: slow, since each wait is
-    ;; a round trip to the device, but it shows where a program's time goes.
-    (define (profile-program (program Program)) (→ (List (Pair String F64))) (! clock gpu tasks)
-      (map (lambda (step)
-             (let ((start (monotonic-nanoseconds)))
-               (run-steps (list step))
-               (work-done)
-               (new Pair
-                 (first (step-name step))
-                 (second (/ (i64->f64 (- (monotonic-nanoseconds) start)) 1000000000.0)))))
-           (● program steps)))
+    ;; Each step's time on the device, in seconds, with its kernel's entry
+    ;; and code naming a dispatch. Each step runs in a compute pass of its
+    ;; own, whose timestamps are written as it begins and as it ends, and
+    ;; every pass is in one submission, so the device runs the steps as a
+    ;; run does, with nothing waiting between them; a pass boundary costs a
+    ;; little that one pass would not. The device must have the
+    ;; `timestamp-query` feature, and a browser rounds the times unless its
+    ;; WebGPU developer features are on. A query set holds at most 4096
+    ;; queries, so the steps are timed 2048 at a time.
+    (define (profile-program (program Program)) (→ (List (Pair String F64))) (! gpu tasks)
+      (concatenate (map timed-steps (groups (● program steps) 2048))))
+
+    (define (groups (items (List T)) (size I64)) (→ (List (List T))) (∀ (T))
+      (if (null? items)
+          (Nil)
+          (Cons (take items (min size (length items)))
+                (groups (list-drop items (min size (length items))) size))))
+
+    ;; The steps, each in a timed pass of its own, then their times read.
+    (define (timed-steps (steps (List Step))) (→ (List (Pair String F64))) (! gpu tasks)
+      (let* ((count (length steps))
+             (queries (create-query-set (new QuerySetDescriptor
+                                          (label "profile")
+                                          (count (i64->i32 (* 2 count))))))
+             (writes (map (lambda (k) (step-writes queries k)) (iota count)))
+             (encoder (create-command-encoder)))
+        (for-each (lambda (pair) (timed-step encoder (● pair first) (● pair second)))
+                  (zip writes steps))
+        (let ((times (submit-timed encoder queries (i64->i32 (* 2 count)))))
+          (destroy (QuerySetObject queries))
+          (map (lambda (pair)
+                 (new Pair
+                   (first (step-name (● pair second)))
+                   (second (elapsed-seconds times (● pair first beginning) (● pair first end)))))
+               (zip writes steps)))))
+
+    ;; Step `k`'s pass writes query 2k as it begins and 2k + 1 as it ends.
+    (define (step-writes (queries GpuQuerySet) (k I64)) (→ TimestampWrites)
+      (new TimestampWrites
+        (query-set queries)
+        (beginning (i64->i32 (* 2 k)))
+        (end (i64->i32 (+ (* 2 k) 1)))))
+
+    (define (timed-step (encoder GpuCommandEncoder) (writes TimestampWrites) (step Step)) (→ Unit)
+      (! gpu)
+      (let ((pass (begin-timed-compute-pass encoder writes)))
+        (encode-step pass step)
+        (end-compute-pass pass)))
 
     ;; The bytes of the buffers a program made, by use and size, the
     ;; largest first; its sorts and scans hold their own beside these.

@@ -82,6 +82,7 @@ export async function requestDevice(gpu) {
 export function createGpu(canvas, runtime, open = pageDevice) {
   const objects = new Map();
   let gpu = null, next = 1, reply = [], held = new Uint8Array(), decoded = null, pass = null, queued = [];
+  let timestamps = null;
   let canvasIds = [], retired = [];
   const memory = () => runtime.execution.entry.memory;
   const tasks = () => runtime.execution.tasks;
@@ -177,9 +178,14 @@ export function createGpu(canvas, runtime, open = pageDevice) {
         : {view: object(view), depthLoadOp: load ? 'clear' : 'load', depthClearValue: depth,
            depthStoreOp: store ? 'store' : 'discard'};
     },
+    // The next pass's timestamp writes, render or compute.
+    'pass-timestamps'(querySet, beginning, end) {
+      timestamps = {querySet: object(querySet), beginningOfPassWriteIndex: beginning, endOfPassWriteIndex: end};
+    },
     'begin-pass'(encoder) {
-      const descriptor = pass;
+      const descriptor = {...pass, ...(timestamps && {timestampWrites: timestamps})};
       pass = null;
+      timestamps = null;
       return keep(object(encoder).beginRenderPass(descriptor));
     },
     'set-pipeline'(pass, pipeline) { object(pass).setPipeline(object(pipeline)); },
@@ -193,12 +199,19 @@ export function createGpu(canvas, runtime, open = pageDevice) {
     },
     'draw-indexed-indirect'(pass, buffer, offset) { object(pass).drawIndexedIndirect(object(buffer), offset); },
     'end-pass'(pass) { take(pass).end(); },
-    'begin-compute': encoder => keep(object(encoder).beginComputePass()),
+    'begin-compute'(encoder) {
+      const descriptor = timestamps ? {timestampWrites: timestamps} : undefined;
+      timestamps = null;
+      return keep(object(encoder).beginComputePass(descriptor));
+    },
     'set-compute-pipeline'(pass, pipeline) { object(pass).setPipeline(object(pipeline)); },
     'set-compute-bind-group'(pass, index, group) { object(pass).setBindGroup(index, object(group)); },
     dispatch(pass, x, y, z) { object(pass).dispatchWorkgroups(x, y, z); },
     'dispatch-indirect'(pass, buffer, offset) { object(pass).dispatchWorkgroupsIndirect(object(buffer), offset); },
     'end-compute'(pass) { take(pass).end(); },
+    'resolve-queries'(encoder, querySet, first, count, buffer, offset) {
+      object(encoder).resolveQuerySet(object(querySet), first, count, object(buffer), offset);
+    },
     finish: encoder => keep(take(encoder).finish()),
     'queue-buffer'(id) { queued.push(take(id)); },
     submit() {
@@ -296,6 +309,7 @@ const made = [
     const label = f.text(), module = object(f.word());
     return device.createComputePipeline({label, layout: 'auto', compute: {module, entryPoint: f.text()}});
   },
+  (device, f) => device.createQuerySet({label: f.text(), type: 'timestamp', count: f.word()}),
 ];
 
 // A view's dimension, first level and count, and first layer and count,

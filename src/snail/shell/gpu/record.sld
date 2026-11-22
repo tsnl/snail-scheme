@@ -217,6 +217,37 @@
                                (id (transient! recording
                                                "compute-pass"
                                                (list (show (● encoder id))))))))
+                          (begin-timed-compute-pass
+                           (lambda (encoder writes)
+                             (new GpuComputePass
+                               (id (transient! recording
+                                               "compute-pass"
+                                               (Cons (show (● encoder id))
+                                                     (timestamp-words writes)))))))
+                          (begin-timed-render-pass
+                           (lambda (encoder descriptor writes)
+                             (let* ((encoder (show (● encoder id)))
+                                    (attachments (pass-words descriptor)))
+                               (new GpuRenderPass
+                                 (id (transient! recording
+                                                 "pass"
+                                                 (Cons encoder
+                                                       (append attachments
+                                                               (timestamp-words writes)))))))))
+                          (create-query-set
+                           (lambda (descriptor)
+                             (new GpuQuerySet
+                               (id (made! recording "query-set" (query-set-fields descriptor))))))
+                          (resolve-query-set
+                           (lambda (encoder query-set first count buffer offset)
+                             (note! recording
+                                    (list "resolve-query-set"
+                                          (show (● encoder id))
+                                          (show (● query-set id))
+                                          (show first)
+                                          (show count)
+                                          (show (● buffer id))
+                                          (show offset)))))
                           (set-compute-pipeline
                            (lambda (pass pipeline)
                              (note! recording
@@ -297,7 +328,15 @@
         ((ModuleObject module) (● module id))
         ((PipelineObject pipeline) (● pipeline id))
         ((ComputePipelineObject pipeline) (● pipeline id))
-        ((BindGroupObject group) (● group id))))
+        ((BindGroupObject group) (● group id))
+        ((QuerySetObject query-set) (● query-set id))))
+
+    ;; A pass's timestamp writes as the page's call sends them.
+    (define (timestamp-words (writes TimestampWrites)) (→ (List String))
+      (list "timestamps"
+            (show (● writes query-set id))
+            (show (● writes beginning))
+            (show (● writes end))))
 
     ;; A pass's attachments as the page's calls send them: each view, its
     ;; load and its store.

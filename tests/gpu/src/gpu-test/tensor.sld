@@ -1,12 +1,14 @@
 ;; Tensor programs on the device, against the CPU's evaluation of the same
 ;; graph: elementwise operations through views, reductions small and in
 ;; levels, a matrix product, gathers and float scatters, sorts and scans,
-;; and a gradient through slices; params swapped and assigned, and one
-;; bound to the caller's buffer, in the caller's pass. Then a line fitted
-;; by Adam, its loss read back after 300 steps of one lowered program.
+;; and a gradient through slices, and the same program profiled; params
+;; swapped and assigned, and one bound to the caller's buffer, in the
+;; caller's pass. Then a line fitted by Adam, its loss read back after 300
+;; steps of one lowered program.
 (define-library (gpu-test tensor)
   (export
    tensor-agreement
+   profiled-steps
    swapped-params
    assigned-param
    bound-param
@@ -147,6 +149,22 @@
                              (f64->string (array-ref want i))))
              ((None) (disagreement program more rest (+ k 1))))))
         (_ (string-append (show k) " sinks agree"))))
+
+    ;; ---- Profiling ----
+
+    ;; A time for each step of the agreement program, each at least none
+    ;; and under a second, as a time on the device need only plausibly be:
+    ;; bytes read wrongly make a time of centuries, or one before its start.
+    (define (profiled-steps) (→ String) (! gpu tasks)
+      (let* ((program (lower "profiled" (sinks) (Nil)))
+             (times (map (lambda (pair) (● pair second)) (profile-program program)))
+             (steps (length (● program steps))))
+        (release-program program)
+        (cond ((not (= (length times) steps))
+               (string-append (show (length times)) " times for " (show steps) " steps"))
+              ((every? (lambda (t) (and (>= t 0.0) (< t 1.0))) times)
+               "a time for each step, between 0 and 1 seconds")
+              (else (string-join (map f64->string times) " ")))))
 
     ;; ---- Parameter updates ----
 

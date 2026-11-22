@@ -37,10 +37,13 @@ function nodeDevice() {
   return shared;
 }
 
+// Dawn rounds timestamps to 65,536 nanoseconds by default, so that a page
+// cannot time what other sites do; a program on Node is no page, and its
+// profiles need the device's own resolution.
 async function opened() {
   const {create, globals} = await import('webgpu');
   Object.assign(globalThis, globals);
-  const instance = create([]);
+  const instance = create(['disable-dawn-features=timestamp_quantization']);
   const {device, optional} = await requestDevice(instance);
   return {device, context: null, format: 'rgba8unorm', optional, instance, decode: encoded => nodeImage(device, encoded)};
 }

@@ -31,9 +31,12 @@ export const deviceLines = [
   'sort: paired sorted stable permutation',
   'splats: 96 2 0 255 40 209 0 255 7 0 225 255 0 2 0 255',
   'turned: 0 2 0 255 40 209 0 255 0 0 225 255 96 2 0 255',
-  // A lowered tensor program computes each of its sinks as the CPU
-  // evaluates them, and Adam fits a line in 1,000 runs of another.
+  // A render pass timed on the device; a lowered tensor program computes
+  // each of its sinks as the CPU evaluates them, and is profiled; and
+  // Adam fits a line in 1,000 runs of another.
+  'timed: a render pass between 0 and 1 seconds',
   'tensor: 12 sinks agree',
+  'profiled: a time for each step, between 0 and 1 seconds',
   'swapped: 5 7 6 8 / 1 2 3 4 / 1 2 3 4',
   'assigned: 9',
   'bound: 2 4 6 8 / 2 3 4 5',
