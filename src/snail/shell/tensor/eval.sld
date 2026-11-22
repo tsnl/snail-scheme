@@ -80,7 +80,8 @@
           ((Constant _ data) (list (bytes->values data out)))
           ((Fill value) (list (dense-of n default-port (lambda (_) (rounded out value)))))
           ((Map body)
-           (list (dense-of n default-port (lambda (index) (body-at body ports (● n args) index)))))
+           (list
+            (dense-of n default-port (lambda (index) (mapped-at body ports (● n args) index)))))
           ((Reduce op span body)
            (list (dense-of n
                            default-port
@@ -127,7 +128,8 @@
                         (args (List View))
                         (index (List I64)))
       (→ F64)
-      (let ((values (map (lambda (j) (body-at body ports args (append index (unflatten j span))))
+      (let ((values (map (lambda (j)
+                           (car-of (body-at body ports args (append index (unflatten j span)))))
                          (iota (product span)))))
         (rounded (expr-etype body)
                  (match op
@@ -209,19 +211,76 @@
 
     ;; ---- Elements ----
 
-    ;; A map's body at one index: each load its argument's element there,
-    ;; and each operation's value rounded to its type, as the GPU rounds
-    ;; each.
-    (define (body-at (e Expr) (ports (Table (Array F64))) (args (List View)) (index (List I64)))
+    ;; Element `index` of a map's port: its body's tile at the port's
+    ;; leading axes, at its place in the tile.
+    (define (mapped-at (body Expr)
+                       (ports (Table (Array F64)))
+                       (args (List View))
+                       (index (List I64)))
       (→ F64)
+      (let* ((tile (expr-tile body)) (lead (- (length index) (length tile))))
+        (list-ref (body-at body ports args (take index lead))
+                  (fold-left + 0
+                             (map (lambda (pair) (* (● pair first) (● pair second)))
+                                  (zip (list-drop index lead) (contiguous-pitch tile)))))))
+
+    ;; A body's tile at one index of its leading axes, row-major: each
+    ;; load its argument's elements there, and each operation's values
+    ;; rounded to its type, as the GPU rounds each.
+    (define (body-at (e Expr) (ports (Table (Array F64))) (args (List View)) (index (List I64)))
+      (→ (List F64))
       (match e
-        ((Load k _) (element ports (list-ref args k) index))
-        ((Literal value etype) (rounded etype value))
-        ((Apply op operands etype)
-         (operated op
-                   (expr-etype (car-of operands))
-                   etype
-                   (map (lambda (o) (body-at o ports args index)) operands)))))
+        ((Load k _ tile)
+         (map (lambda (t) (element ports (list-ref args k) (append index t))) (tile-indices tile)))
+        ((Literal value etype) (list (rounded etype value)))
+        ((Apply op operands etype tile)
+         (tiled op operands etype tile (map (lambda (o) (body-at o ports args index)) operands)))))
+
+    ;; An operation's tile from its operands': a tile's own operations
+    ;; rearrange or combine their operands' elements; any other applies to
+    ;; each element, a value standing for every element.
+    (define (tiled (op Op)
+                   (operands (List Expr))
+                   (to Etype)
+                   (tile (List I64))
+                   (values (List (List F64))))
+      (→ (List F64))
+      (let ((from (expr-etype (car-of operands)))
+            (at (lambda (xs j) (if (null? (cdr-of xs)) (car-of xs) (list-ref xs j)))))
+        (match op
+          ((Pack) (concatenate values))
+          ((Pick indices) (map (lambda (j) (list-ref (car-of values) j)) indices))
+          ((Product)
+           (multiplied to (car-of values) (list-ref values 1) (expr-tile (list-ref operands 1))))
+          ((Fold combining) (list (folded combining to (car-of values))))
+          (_ (map (lambda (j) (operated op from to (map (lambda (xs) (at xs j)) values)))
+                  (iota (product tile)))))))
+
+    ;; Each element of a's tile, (m, k) or a row of k, by b's, (k, c): its
+    ;; products summed in order, each product and sum rounded, as a kernel
+    ;; computes them.
+    (define (multiplied (etype Etype) (a (List F64)) (b (List F64)) (tb (List I64))) (→ (List F64))
+      (let ((k (list-ref tb 0)) (c (list-ref tb 1)))
+        (map (lambda (at)
+               (folded (Sum)
+                       etype
+                       (map (lambda (j)
+                              (rounded etype
+                                       (* (list-ref a (+ (* (quotient at c) k) j))
+                                          (list-ref b (+ (* j c) (remainder at c))))))
+                            (iota k))))
+             (iota (* (quotient (length a) k) c)))))
+
+    ;; Values combined in order, each step rounded.
+    (define (folded (op Reduction) (etype Etype) (xs (List F64))) (→ F64)
+      (fold-left (lambda (acc x)
+                   (rounded etype
+                            (match op
+                              ((Sum) (+ acc x))
+                              ((Largest) (max acc x))
+                              ((Smallest) (min acc x)))))
+                 (car-of xs)
+                 (cdr-of xs)))
 
     ;; An operation on its operands' values, of type `from`, answering
     ;; type `to`.
@@ -261,7 +320,8 @@
                    ((ShiftRight) (i64->f64 (i64-shift-right (f64->i64 a) (f64->i64 b))))
                    ((Select) (if (= a 0.0) (list-ref xs 2) b))
                    ((Convert _) (if (float? to) a (truncate a)))
-                   ((Bitcast _) (bitcast-value from to a))))))
+                   ((Bitcast _) (bitcast-value from to a))
+                   (_ (panic "eval: a tile's own operation applied to each element"))))))
 
     (define (truth (value Bool)) (→ F64) (if value 1.0 0.0))
 
