@@ -19,9 +19,10 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   Host-specific code lives only under `host/`: `chez/` for stage 0,
   `native/` for Node, `browser/` for the page. Editor support lives under
   `editors/`: the tree-sitter grammar and the Zed extension. Rust
-  crates live in `crates/`. No program or library may depend on
-  JavaScript: hosts beyond Node and the page, such as workerd, are the
-  long-term direction
+  crates live in `crates/`. Comparisons with other implementations live
+  under `benches/`, each in an environment of its own. No program or
+  library may depend on JavaScript: hosts beyond Node and the page, such
+  as workerd, are the long-term direction
   ([Runtimes](doc/book/runtimes/index.md#direction)). Surface macros expand away before checking. See
   [the language chapters](doc/book/snail-scheme/index.md).
 

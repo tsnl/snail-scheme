@@ -438,11 +438,15 @@ with `write-ply`, as the `.ply` file the reference implementation writes,
 at `cloud=PATH`, and `src/apps/splats` flies through it.
 
 On Mip-NeRF 360's bicycle at `images_4`, the paper's resolution for its
-outdoor scenes, on an RTX 5090, the 30,000 steps took 33.5 minutes on Node
-and 34.8 in Chromium, one run each. The held-out PSNR was 25.28 and 25.34,
-against the paper's 25.25. The cloud fills
-its 4,194,304 gaussians by step 9,100 and stays near full until densifying
-stops at 15,000, where the reference's grows to about 6 million. At full
+outdoor scenes, on an RTX 5090, the 30,000 steps take 22.9 minutes on
+Node, to a held-out PSNR of 25.27 against the paper's 25.25. The cloud
+fills its 4,194,304 gaussians by step 9,100 and stays full until
+densifying stops at 15,000, where the reference's grows to 4.9 million.
+[A bench](https://github.com/tsnl/snail-scheme/blob/main/benches/splat-training/README.md)
+trains the reference and gsplat beside it on the same GPU: they take 17.2
+and 10.4 minutes, to 25.23 and 25.15. Their steps take longer as their
+clouds grow; the programs here have shapes fixed by their capacity, so a
+step takes as long with a million gaussians live as with four. At full
 resolution the photographs no longer limit a run, since they are streamed;
 the step's own buffers do. With the default cloud, binning's entries reach
 2^27 near step 6,500, and the programs for them no longer fit a 32 GB

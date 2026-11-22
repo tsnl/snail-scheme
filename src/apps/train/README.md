@@ -86,9 +86,10 @@ it, so a page's scene should be near, or cached.
 
 ## Results
 
-On bicycle at `images_4`, on an RTX 5090, 30,000 steps took 33.5 minutes
-on Node and 34.8 in Chromium, one run each, and reached a held-out PSNR of
-25.28 and 25.34; the paper reports 25.25.
+On bicycle at `images_4`, on an RTX 5090, 30,000 steps take 22.9 minutes
+on Node and reach a held-out PSNR of 25.27; the paper reports 25.25.
+[`benches/splat-training`](../../../benches/splat-training/README.md)
+trains the reference implementation and gsplat beside it on the same GPU.
 
 At full resolution, `images=images`, the step's own buffers are the limit,
 not the photographs. With the default 4,194,304 gaussians, binning's

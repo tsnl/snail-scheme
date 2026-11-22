@@ -1,0 +1,22 @@
+#!/bin/sh
+# The bench: sets up, trains each trainer ROUNDS times, taking turns so
+# each meets the GPU in the same state, then scores every run and writes
+# the table to build/benches/splat-training/report.md:
+#
+#   benches/splat-training/compare [ROUNDS]
+#
+# ROUNDS is 2. Each run is 30,000 steps on the bicycle scene, and the GPU
+# rests a minute between runs.
+set -eu
+here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+rounds=${1:-2}
+"$here/setup"
+round=1
+while [ "$round" -le "$rounds" ]; do
+  for trainer in ours gsplat inria; do
+    "$here/train" "$trainer"
+    sleep 60
+  done
+  round=$((round + 1))
+done
+"$here/score"
